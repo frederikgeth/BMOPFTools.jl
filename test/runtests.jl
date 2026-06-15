@@ -1453,6 +1453,79 @@ const IEEE13_FIXTURE = """
     end
 
     # -----------------------------------------------------------------------
+    # from_dss — requires the powerio CLI (eigenergy/powerio, PR #82)
+    # Set BMOPFTOOLS_POWERIO_PATH or put `powerio` on PATH.
+    # -----------------------------------------------------------------------
+    _POWERIO_BIN = get(ENV, "BMOPFTOOLS_POWERIO_PATH", Sys.which("powerio"))
+    @testset "from_dss — powerio integration" begin
+        if isnothing(_POWERIO_BIN)
+            @test_skip "powerio binary not found — set BMOPFTOOLS_POWERIO_PATH or put powerio on PATH"
+        else
+            dss_master = joinpath(@__DIR__, "data", "LV", "LV1_14bus", "Master.dss")
+
+            net = from_dss(dss_master; powerio=_POWERIO_BIN)
+            @test net isa Dict{String,Any}
+
+            @testset "Network structure" begin
+                # Voltage source
+                @test length(get(net, "voltage_source", Dict())) == 1
+
+                # Lines — 9 cable segments
+                @test length(get(net, "line", Dict())) == 9
+
+                # Loads — 2 single-phase loads
+                @test length(get(net, "load", Dict())) == 2
+
+                # Buses exist
+                @test !isempty(get(net, "bus", Dict()))
+
+                # Conversion warnings are surfaced (units is a common one)
+                @test haskey(net, "_meta")
+                @test haskey(net["_meta"], "powerio_warnings")
+                @test net["_meta"]["powerio_source"] == abspath(dss_master)
+
+                # Network name set from path when not in JSON
+                @test !isempty(net["name"])
+            end
+
+            @testset "Analysis runs cleanly" begin
+                report = analyze(net)
+                @test report isa SummaryReport
+                conn = report.results[:connectivity]
+                @test conn["is_connected"] == true
+                @test conn["is_radial"]    == true
+            end
+
+            @testset "from_dss vs from_pmd agreement" begin
+                if !_HAS_PMD
+                    @test_skip "PowerModelsDistribution not available for cross-parser comparison"
+                else
+                    eng     = parse_file(dss_master; kron_reduce=false)
+                    net_pmd = from_pmd(eng)
+                    net_dss = from_dss(dss_master; powerio=_POWERIO_BIN)
+
+                    # Top-level component counts must agree
+                    for key in ("bus", "line", "load", "voltage_source", "linecode")
+                        n_pmd = length(get(net_pmd, key, Dict()))
+                        n_dss = length(get(net_dss, key, Dict()))
+                        @test n_pmd == n_dss  broken=(n_pmd != n_dss)
+                    end
+
+                    # Both parsers must find the same buses by name
+                    pmd_buses = Set(keys(net_pmd["bus"]))
+                    dss_buses = Set(keys(net_dss["bus"]))
+                    @test pmd_buses == dss_buses  broken=(pmd_buses != dss_buses)
+                end
+            end
+
+            @testset "powerio_version" begin
+                v = powerio_version(; powerio=_POWERIO_BIN)
+                @test startswith(v, "powerio ")
+            end
+        end
+    end
+
+    # -----------------------------------------------------------------------
     # OPF extension — requires JuMP and Ipopt
     # -----------------------------------------------------------------------
     @testset "OPF extension" begin

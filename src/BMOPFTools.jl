@@ -12,12 +12,13 @@ JSON without conversion.
 # Public API
 
     net    = parse_bmopf(path)          # load from BMOPF JSON file
+    net    = from_dss("Master.dss")     # parse OpenDSS directly via powerio
     net    = from_pmd(eng)              # convert PMD ENGINEERING dict
     report = analyze(net)               # run all analyses
     render(report, stdout)              # terminal output
     render(report, "report.md")         # markdown file
 
-See also: `write_bmopf`, `to_pmd`, `check_roundtrip` (requires OpenDSSDirect ext).
+See also: `write_bmopf`, `to_pmd`, `powerio_version`, `check_roundtrip` (requires OpenDSSDirect ext).
 """
 module BMOPFTools
 
@@ -160,6 +161,7 @@ include("io/parse_bmopf.jl")
 include("io/write_bmopf.jl")
 include("io/from_pmd.jl")
 include("io/to_pmd.jl")
+include("io/from_dss.jl")
 
 include("analysis/inventory.jl")
 include("analysis/voltage_levels.jl")
@@ -319,6 +321,7 @@ export Finding, SummaryReport
 export errors, warnings, infos
 export parse_bmopf, write_bmopf
 export from_pmd, to_pmd
+export from_dss, powerio_version
 export analyze, render
 export is_timeseries, get_snapshot      # useful for interactive use
 
