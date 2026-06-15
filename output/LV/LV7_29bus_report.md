@@ -1,7 +1,7 @@
 # BMOPF Network Summary: LV7_29bus
 
-**Generated:** 2026-06-11 15:57:40  
-**Findings:** 0 errors · 3 warnings · 13 info  
+**Generated:** 2026-06-15 12:58:17  
+**Findings:** 0 errors · 3 warnings · 14 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 7 grounding point(s)
 
 ---
@@ -18,7 +18,7 @@
 | generator | 1 | capacity: 0.0 W |
 | shunt | 6 |  |
 | switch | 7 |  |
-| transformer | 1 | delta_wye×1 |
+| transformer | 1 | Dyn1×1 |
 
 ## 2. Voltage Levels
 
@@ -31,7 +31,7 @@
 
 **Transformer transitions:**
 
-- `tx848`: MV_6.4kV → LV_250V (delta_wye)
+- `tx848`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
 
 ## 3. Connectivity & Topology
 
@@ -143,6 +143,7 @@
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+> 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_KR]** 9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
 
 ## 8. Spec Conformance & Benchmark Readiness
 
@@ -177,7 +178,7 @@
 
 ## 9. Data Quality Summary
 
-**Total findings:** 16 (0 errors, 3 warnings, 13 info)
+**Total findings:** 17 (0 errors, 3 warnings, 14 info)
 
 ### 🟡 Warnings
 
@@ -204,6 +205,8 @@
   Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `uglv_240al_xlpe/nyl/pvc_ug_4w_bundled`  
   Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+- **[I.PROV.IMPEDANCE_TRANSFORM_KR]** `linecode`  
+  9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
   30 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
 - **[I.PRE.SINGLE_SOURCE]** `network`  

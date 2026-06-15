@@ -1,6 +1,6 @@
 # Finding-code reference
 
-The complete catalogue of the 80 finding codes, grouped by family. Codes are
+The complete catalogue of the 88 finding codes, grouped by family. Codes are
 **stable identifiers** — filter on `f.code`, never on message text. Severity
 prefix: `E.` error, `W.` warning, `I.` info (see
 [Analysis & reports](analysis.md) for the severity semantics).
@@ -11,11 +11,16 @@ prefix: `E.` error, `W.` warning, `I.` info (see
 |---|---|---|
 | `E.COMP.MISSING_REQUIRED` | E | A component lacks a field the data model marks required (incl. the seven transformer required fields per subtype). The case cannot be instantiated as an OPF without it. |
 
-## SCHEMA — unknown fields
+## SCHEMA — unknown fields & metadata validation
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `I.SCHEMA.UNKNOWN_FIELDS` | I | Fields present that the data model does not define (underscore-prefixed extension keys are exempt). Catalogued rather than rejected: they are either converter passthrough or schema-evolution candidates — but a spec-conformant consumer will ignore them, so nothing essential should live there. |
+| `W.SCHEMA.META_SCHEMA_URI` | W | `meta.$schema` is present but does not look like an `https://` URI. The field is intended to point to the versioned BMOPF JSON Schema document. |
+| `W.SCHEMA.META_DATE_FORMAT` | W | `meta.created` or `meta.modified` is not a recognisable ISO 8601 datetime string (expected `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`). |
+| `I.SCHEMA.META_LICENSE_URI` | I | `meta.license` is a long string that does not look like a URI. Short SPDX identifiers (e.g. `CC-BY-4.0`) are fine; longer values should be a `https://` URI pointing to the licence text. |
+| `W.SCHEMA.META_ORCID_FORMAT` | W | An entry in `meta.authors` has an `orcid` field that does not match the standard ORCID format `XXXX-XXXX-XXXX-XXXX`. |
+| `W.SCHEMA.META_SOURCE_URL` | W | A `url` field in `meta.sources` is present but does not look like an `https://` URI. |
 
 ## CONN — connectivity & topology
 

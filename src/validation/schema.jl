@@ -44,10 +44,11 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
 # Pattern-matched (matrix) key prefixes per component type, matching the
 # schema's patternProperties regexes.
 const _KNOWN_PATTERNS = Dict{String,Vector{Regex}}(
-    "linecode" => [r"^R_series_\d_\d$", r"^X_series_\d_\d$",
-                   r"^G_from_\d_\d$",   r"^G_to_\d_\d$",
-                   r"^B_from_\d_\d$",   r"^B_to_\d_\d$"],
-    "shunt"    => [r"^G_\d_\d$", r"^B_\d_\d$"]
+    # \d+ (not \d) to support two-digit conductor indices (10-conductor linecodes)
+    "linecode" => [r"^R_series_\d+_\d+$", r"^X_series_\d+_\d+$",
+                   r"^G_from_\d+_\d+$",   r"^G_to_\d+_\d+$",
+                   r"^B_from_\d+_\d+$",   r"^B_to_\d+_\d+$"],
+    "shunt"    => [r"^G_\d+_\d+$", r"^B_\d+_\d+$"]
 )
 
 # Keys that are always tolerated and never reported:
@@ -111,7 +112,7 @@ function schema_check(net::Dict{String,Any},
     end
 
     # unknown top-level keys
-    known_top = Set(["name", "bus", "line", "linecode", "voltage_source",
+    known_top = Set(["name", "meta", "bus", "line", "linecode", "voltage_source",
                      "load", "generator", "shunt", "switch", "transformer",
                      "time_series", "_meta"])
     unknown_top = [k for k in keys(net) if !(k in known_top) && !startswith(k, "_")]
@@ -126,7 +127,110 @@ function schema_check(net::Dict{String,Any},
             Dict{String,Any}("fields" => unknown)))
     end
 
+    # validate meta block if present
+    meta = get(net, "meta", nothing)
+    meta isa Dict && _check_meta(meta, findings)
+
     result["unknown_fields_by_type"] = unknown_by_type
     result["n_component_types_with_unknown"] = length(unknown_by_type)
     result
+end
+
+# ---------------------------------------------------------------------------
+# meta block validation
+# ---------------------------------------------------------------------------
+
+const _META_KNOWN_FIELDS = Set([
+    "\$schema", "version", "title", "description",
+    "created", "modified", "license",
+    "authors", "sources", "generator",
+])
+const _META_AUTHOR_FIELDS  = Set(["name", "email", "orcid"])
+const _META_SOURCE_FIELDS  = Set(["name", "url", "format", "doi", "version"])
+const _META_GEN_FIELDS     = Set(["tool", "version"])
+const _ORCID_RE            = r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$"
+const _ISO8601_RE          = r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?Z?)?$"
+const _URI_RE              = r"^https?://"
+
+function _check_meta(meta::Dict, findings::Vector{Finding})
+    # Unknown fields
+    unknown = [k for k in keys(meta) if !(k in _META_KNOWN_FIELDS)]
+    if !isempty(unknown)
+        push!(findings, Finding(INFO, "I.SCHEMA.UNKNOWN_FIELDS", :schema,
+            :network, nothing,
+            "meta has field(s) not in the BMOPF schema: $(join(sort(unknown), ", ")).",
+            Dict{String,Any}("fields" => Dict(k => 1 for k in unknown))))
+    end
+
+    # $schema should be a URI
+    s = get(meta, "\$schema", nothing)
+    if s isa String && !occursin(_URI_RE, s)
+        push!(findings, Finding(WARNING, "W.SCHEMA.META_SCHEMA_URI", :schema,
+            :network, nothing,
+            "meta.\$schema does not look like a URI: \"$s\"."))
+    end
+
+    # created / modified should be ISO 8601
+    for field in ("created", "modified")
+        v = get(meta, field, nothing)
+        if v isa String && !occursin(_ISO8601_RE, v)
+            push!(findings, Finding(WARNING, "W.SCHEMA.META_DATE_FORMAT", :schema,
+                :network, nothing,
+                "meta.$field is not a recognised ISO 8601 datetime: \"$v\"."))
+        end
+    end
+
+    # license should be a URI (SPDX expressions are strings without //)
+    lic = get(meta, "license", nothing)
+    if lic isa String && !occursin(_URI_RE, lic) && length(lic) > 30
+        push!(findings, Finding(INFO, "I.SCHEMA.META_LICENSE_URI", :schema,
+            :network, nothing,
+            "meta.license looks long for an SPDX identifier; consider using a URI."))
+    end
+
+    # authors
+    authors = get(meta, "authors", nothing)
+    if authors isa Vector
+        for (i, a) in enumerate(authors)
+            a isa Dict || continue
+            bad = [k for k in keys(a) if !(k in _META_AUTHOR_FIELDS)]
+            isempty(bad) || push!(findings, Finding(INFO, "I.SCHEMA.UNKNOWN_FIELDS",
+                :schema, :network, nothing,
+                "meta.authors[$i] has unknown field(s): $(join(sort(bad), ", "))."))
+            orcid = get(a, "orcid", nothing)
+            if orcid isa String && !occursin(_ORCID_RE, orcid)
+                push!(findings, Finding(WARNING, "W.SCHEMA.META_ORCID_FORMAT", :schema,
+                    :network, nothing,
+                    "meta.authors[$i].orcid does not match the ORCID format " *
+                    "(XXXX-XXXX-XXXX-XXXX): \"$orcid\"."))
+            end
+        end
+    end
+
+    # sources
+    sources = get(meta, "sources", nothing)
+    if sources isa Vector
+        for (i, src) in enumerate(sources)
+            src isa Dict || continue
+            bad = [k for k in keys(src) if !(k in _META_SOURCE_FIELDS)]
+            isempty(bad) || push!(findings, Finding(INFO, "I.SCHEMA.UNKNOWN_FIELDS",
+                :schema, :network, nothing,
+                "meta.sources[$i] has unknown field(s): $(join(sort(bad), ", "))."))
+            url = get(src, "url", nothing)
+            if url isa String && !occursin(_URI_RE, url)
+                push!(findings, Finding(WARNING, "W.SCHEMA.META_SOURCE_URL", :schema,
+                    :network, nothing,
+                    "meta.sources[$i].url does not look like a URI: \"$url\"."))
+            end
+        end
+    end
+
+    # generator
+    gen = get(meta, "generator", nothing)
+    if gen isa Dict
+        bad = [k for k in keys(gen) if !(k in _META_GEN_FIELDS)]
+        isempty(bad) || push!(findings, Finding(INFO, "I.SCHEMA.UNKNOWN_FIELDS",
+            :schema, :network, nothing,
+            "meta.generator has unknown field(s): $(join(sort(bad), ", "))."))
+    end
 end

@@ -29,6 +29,14 @@ using Statistics
 using Graphs
 using JSON3
 
+# Stable URI for the BMOPF JSON schema. Will become a versioned path once the
+# spec is frozen (e.g. /schema/v1/bmopf.json).
+const _BMOPF_SCHEMA_URI =
+    "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json"
+
+# Package version, read once at load time from the Project.toml.
+const _BMOPFTOOLS_VERSION = string(pkgversion(BMOPFTools))
+
 # ---------------------------------------------------------------------------
 # Finding — the one struct in the library.
 # Everything network-related stays as Dict{String,Any}; findings are outputs

@@ -248,6 +248,78 @@ const IEEE13_FIXTURE = """
         @test length(net2["line"]) == length(net["line"])
     end
 
+    @testset "IO — meta block" begin
+        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+
+        # write with no caller meta: auto-fields only
+        json_auto = let buf = IOBuffer(); write_bmopf(net, buf); String(take!(buf)); end
+        m = parse_bmopf(json_auto; from_string=true)["meta"]
+        @test m["\$schema"] == BMOPFTools._BMOPF_SCHEMA_URI
+        @test haskey(m, "created")
+        @test m["generator"]["tool"] == "BMOPFTools.jl"
+        @test !isempty(m["generator"]["version"])
+
+        # _meta (tool-private) is not serialised
+        @test !occursin("\"_meta\"", json_auto)
+
+        # caller meta is merged; auto-fields fill in the rest
+        json_caller = let buf = IOBuffer()
+            write_bmopf(net, buf; meta=Dict(
+                "title"   => "IEEE 13-bus mini",
+                "license" => "https://creativecommons.org/licenses/by/4.0/",
+                "authors" => [Dict("name" => "Test Author",
+                                   "email" => "test@example.com",
+                                   "orcid" => "0000-0001-2345-6789")],
+                "sources" => [Dict("name" => "IEEE 13-bus", "format" => "OpenDSS",
+                                   "doi"  => "10.1109/TPWRS.2012.2209630")],
+            ))
+            String(take!(buf))
+        end
+        m2 = parse_bmopf(json_caller; from_string=true)["meta"]
+        @test m2["title"] == "IEEE 13-bus mini"
+        @test m2["authors"][1]["orcid"] == "0000-0001-2345-6789"
+        @test m2["sources"][1]["doi"] == "10.1109/TPWRS.2012.2209630"
+        @test haskey(m2, "\$schema")      # auto-filled
+        @test haskey(m2, "generator")     # auto-filled
+
+        # existing created is preserved across write → parse → write
+        net4 = parse_bmopf(json_auto; from_string=true)
+        net4["meta"]["created"] = "2020-01-01T00:00:00Z"
+        json4 = let buf = IOBuffer(); write_bmopf(net4, buf); String(take!(buf)); end
+        @test parse_bmopf(json4; from_string=true)["meta"]["created"] ==
+              "2020-01-01T00:00:00Z"
+
+        # schema_check: clean meta → no meta-specific warnings
+        net5 = let buf = IOBuffer()
+            write_bmopf(net, buf; meta=Dict(
+                "title"   => "t",
+                "license" => "https://example.com/license",
+                "authors" => [Dict("name" => "A", "orcid" => "0000-0001-2345-6789")],
+                "sources" => [Dict("name" => "S", "url" => "https://example.com/data")],
+            ))
+            parse_bmopf(String(take!(buf)); from_string=true)
+        end
+        f5 = Finding[]
+        schema_check(net5, f5)
+        @test !any(f -> f.code in ("W.SCHEMA.META_ORCID_FORMAT",
+                                   "W.SCHEMA.META_SCHEMA_URI",
+                                   "W.SCHEMA.META_DATE_FORMAT"), f5)
+
+        # bad ORCID → warning
+        net6 = deepcopy(net5)
+        net6["meta"]["authors"][1]["orcid"] = "bad"
+        f6 = Finding[]
+        schema_check(net6, f6)
+        @test any(f -> f.code == "W.SCHEMA.META_ORCID_FORMAT", f6)
+
+        # bad $schema → warning
+        net7 = deepcopy(net5)
+        net7["meta"]["\$schema"] = "not-a-uri"
+        f7 = Finding[]
+        schema_check(net7, f7)
+        @test any(f -> f.code == "W.SCHEMA.META_SCHEMA_URI", f7)
+    end
+
     @testset "Analysis — inventory" begin
         net      = parse_bmopf(IEEE13_FIXTURE; from_string=true)
         findings = Finding[]

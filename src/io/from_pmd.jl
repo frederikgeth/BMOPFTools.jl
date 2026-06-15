@@ -30,7 +30,8 @@ Key transformations:
 """
 function from_pmd(eng::Dict{String,Any};
                   add_slack_generator::Bool=true,
-                  slack_cost::Float64=1.0)::Dict{String,Any}
+                  slack_cost::Float64=1.0,
+                  meta::Union{Dict,Nothing}=nothing)::Dict{String,Any}
     net = Dict{String,Any}()
 
     settings = get(eng, "settings", Dict{String,Any}())
@@ -160,10 +161,12 @@ function from_pmd(eng::Dict{String,Any};
         net["time_series"] = deepcopy(eng["time_series"])
     end
 
-    net["_meta"] = Dict{String,Any}(
-        "source" => "pmd",
-        "converted_at" => string(now())
+    net["meta"] = _build_meta(
+        get(net, "meta", Dict{String,Any}()),
+        meta,
     )
+    # Keep _meta for internal traceability (not written by write_bmopf)
+    net["_meta"] = Dict{String,Any}("source" => "pmd")
 
     net
 end
