@@ -20,8 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ['1.12']
-        os: [ubuntu-latest]
+        version: ['lts', '1']   # 'lts' = declared compat floor; '1' = latest stable
+        os: [ubuntu-latest, macos-latest]
         arch: [default]
     steps:
       - uses: actions/checkout@v6

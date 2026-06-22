@@ -1,2 +1,8 @@
 **/.DS_Store
 docs/build/
+
+# Resolved dependency manifests — not consumed downstream for a library and a
+# source of churn/merge conflicts. Each environment is reproducible from its
+# Project.toml + the General registry.
+Manifest.toml
+**/Manifest.toml
