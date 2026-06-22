@@ -4,12 +4,12 @@ using BMOPFTools
 makedocs(
     sitename = "BMOPFTools.jl",
     modules  = [BMOPFTools],
+    repo     = Documenter.Remotes.GitHub("frederikgeth", "BMOPFTools.jl"),
     format   = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",  # pretty URLs on CI, plain files locally
-        edit_link  = nothing,
+        edit_link  = "main",                             # "Edit on GitHub" links point at main
         size_threshold_ignore = ["findings.md"],
     ),
-    remotes  = nothing,
     pages = [
         "Home"                    => "index.md",
         "Positioning & ecosystem" => "positioning.md",
@@ -23,8 +23,7 @@ makedocs(
         "Case augmentation"       => "augmentation.md",
         "API reference"           => "api.md",
     ],
-    checkdocs = :exports,
-    warnonly  = [:missing_docs],
+    checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)
 )
 
 deploydocs(

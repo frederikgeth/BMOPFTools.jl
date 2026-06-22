@@ -2,7 +2,7 @@
 > This project is currently ongoing rapid development and may have breaking changes made directly to main. Use at your own risk until further notice. An upcoming breaking change is removing the dependence on the OpenDSS parser from PMD, which will be switched to https://github.com/eigenergy/PowerIO.jl
 
 
-[![Documentation](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml) [![CI](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml)
+[![Documentation](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml) [![CI](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/frederikgeth/BMOPFTools.jl/graph/badge.svg)](https://codecov.io/gh/frederikgeth/BMOPFTools.jl)
 
 # BMOPFTools.jl
 
@@ -64,10 +64,13 @@ OpenDSS .dss ──(PMD)──► ENGINEERING dict ──(from_pmd)──┘    
                                                  │ fix_case
                                                  ▼
                                          net′ (repaired)
+                                                 │ add_generators / add_inverters  (optional DER)
+                                                 ▼
+                                          net′ + DERs
                                                  │ augment_case
                                                  ▼
                                     net″ (benchmark-ready) ──► write_bmopf
-                                                 │ solve_opf / to_pmd
+                                                 │ solve_opf / solve_pf / to_pmd
                                                  ▼
                                         result Dict{String,Any}
                                                  │ profile_solution
@@ -78,8 +81,8 @@ OpenDSS .dss ──(PMD)──► ENGINEERING dict ──(from_pmd)──┘    
 - **Conversion**: `from_dss` (via the [powerio](https://github.com/eigenergy/powerio)
   CLI) and `from_pmd` / `to_pmd` (via PowerModelsDistribution) translate
   OpenDSS networks into BMOPF dicts, handling earth-terminal conventions,
-  grounding reactors, transformer impedance bases, and adding an explicit
-  slack generator at the source.
+  grounding reactors, transformer impedance bases, and pricing the
+  voltage source as the network's current slack.
 - **Validation**: required fields, spec conformance (configuration/arity
   rules, terminal types), referential and dimensional integrity, domain
   plausibility, redundancy.
@@ -101,6 +104,33 @@ OpenDSS .dss ──(PMD)──► ENGINEERING dict ──(from_pmd)──┘    
   `profile_solution` flags bound violations, near-active constraints,
   constraint residuals, and solution-quality issues without access to solver
   internals.
+
+## Installation
+
+BMOPFTools requires **Julia ≥ 1.10**.  It is not yet in the General registry,
+so install it from this Git URL:
+
+```julia
+using Pkg
+Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl")
+```
+
+Parsing, validation, analysis, reporting, and the PowerModelsDistribution
+converters (`from_pmd` / `to_pmd`) work out of the box — PMD is a direct
+dependency.  Two capabilities pull in extra tooling, activated only when you
+load it:
+
+- **OPF / power flow** (`solve_opf`, `solve_pf`, `solve_feasibility_opf`) is a
+  package extension that activates once **JuMP** and a solver such as **Ipopt**
+  are present — `Pkg.add(["JuMP", "Ipopt"])`.
+- **OpenDSS ingestion via powerio** (`from_dss`) needs the
+  [powerio](https://github.com/eigenergy/powerio) binary on `PATH` (or the
+  `BMOPFTOOLS_POWERIO_PATH` environment variable).
+
+> [!TIP]
+> Because breaking changes land directly on `main` (see the warning above),
+> pin a revision when you need reproducibility:
+> `Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl", rev = "<commit-sha>")`.
 
 ## Quickstart
 
@@ -150,18 +180,17 @@ Converting from OpenDSS via PowerModelsDistribution:
 using BMOPFTools, PowerModelsDistribution
 
 eng = parse_file("Master.dss"; kron_reduce=false)   # keep 4-wire detail
-net = from_pmd(eng)                                  # adds slack generator
+net = from_pmd(eng)                                  # prices the slack on the voltage source
 report = analyze(net)
 ```
 
-## Environments
+## Development
 
-Core dependencies: `Graphs`, `JSON3`, `LinearAlgebra`, `Statistics`, `Dates`,
-`Logging`. PowerModelsDistribution is an optional dependency used only by
-`from_pmd` / `to_pmd`; it is not loaded unless those functions are called. The
-`from_dss` path requires the [powerio](https://github.com/eigenergy/powerio)
-binary on `PATH` (or `BMOPFTOOLS_POWERIO_PATH` env var). The test suite skips
-OpenDSS integration tests when `OpenDSSDirect` is absent.
+The dependencies are declared in `Project.toml`: the core runtime pulls in
+`Graphs`, `JSON3`, `JSONSchema`, `PowerModelsDistribution`, `TOML`, and the
+standard libraries; `JuMP`/`Ipopt` are weak dependencies behind the OPF
+extension (see [Installation](#installation)). The test suite skips the OpenDSS
+integration tests when `OpenDSSDirect` is absent.
 
 ```sh
 # full test suite (with PMD, from the package root)

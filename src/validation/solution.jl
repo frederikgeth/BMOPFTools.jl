@@ -1015,7 +1015,8 @@ end
     voltage_zone_summary(net, result) -> Dict{String,Any}
 
 Aggregate the solved bus voltages into a per-galvanic-zone band summary for
-at-a-glance inspection. Galvanic zones (see [`_galvanic_zones`](@ref)) are the
+at-a-glance inspection. Galvanic zones (the connected components left after
+cutting transformer windings) are the
 natural grouping because every bus in a zone shares one voltage base, so the
 per-unit magnitudes are directly comparable; volts across a transformer
 boundary are not.

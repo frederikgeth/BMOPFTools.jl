@@ -69,6 +69,13 @@ render_ascii_tree
 profile_solution
 render_solution
 solution_check
+voltage_zone_summary
+```
+
+## Configuration
+
+```@docs
+load_config
 ```
 
 ## Network simplification

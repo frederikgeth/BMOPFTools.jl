@@ -717,6 +717,7 @@ println(diag["total_infeasibility_A"])  # L2 norm of all slacks (A)
 
 ```@docs
 solve_opf
+solve_pf
 solve_feasibility_opf
 diagnose_infeasibility
 ```

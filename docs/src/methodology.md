@@ -165,7 +165,10 @@ still detected via the pattern above rather than converted).
 
 Raw utility-derived feeders are power-flow cases, not OPF benchmarks: they
 ship without costed generation (degenerate objective), without voltage
-bounds, sometimes without thermal limits [2, 3]. The readiness check
+bounds, sometimes without thermal limits [2, 3, 14]. The transmission
+community closed the analogous gap with curated, well-posed benchmark
+libraries such as PGLib-OPF [13]; the readiness check exists to bring the
+same discipline to distribution cases. The readiness check
 encodes the augmentation recipe of the PSCC study [3] — explicit slack
 generation (loss-minimisation objective), dispatchable DERs with diverse
 costs (cost symmetry creates dispatch degeneracy, `I.INT.UNIFORM_GEN_COST`),

@@ -295,7 +295,8 @@ end
 """
     _classify_zones(net) -> Vector{NamedTuple}
 
-Classify each galvanic zone (see [`_galvanic_zones`](@ref)) by phase topology.
+Classify each galvanic zone (the components left after cutting transformer
+windings) by phase topology.
 Returns one entry per zone: `(buses, label, phases, topology, feed)` where
 `topology` is one of:
 

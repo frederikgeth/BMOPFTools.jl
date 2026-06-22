@@ -41,6 +41,38 @@ Every diagnostic is a `Finding` with a **stable dot-separated code**
 [finding-code reference](findings.md) for the complete catalogue. Match on
 codes, never on message text.
 
+## Installation
+
+BMOPFTools requires **Julia ≥ 1.10**. It is not yet in the General registry,
+so install it from its Git URL:
+
+```julia
+using Pkg
+Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl")
+```
+
+Parsing, validation, analysis, reporting, and the PowerModelsDistribution
+converters (`from_pmd` / `to_pmd`) work out of the box — PMD is a direct
+dependency. Two capabilities pull in extra tooling, activated only when you
+load it:
+
+- **OPF / power flow** (`solve_opf`, `solve_pf`, `solve_feasibility_opf`) lives
+  in a package extension that is loaded once **JuMP** and a solver such as
+  **Ipopt** are present in the environment:
+
+  ```julia
+  Pkg.add(["JuMP", "Ipopt"])
+  ```
+
+- **OpenDSS ingestion via powerio** (`from_dss`) requires the
+  [powerio](https://github.com/eigenergy/powerio) binary on `PATH` (or set the
+  `BMOPFTOOLS_POWERIO_PATH` environment variable).
+
+!!! note "Tracking a moving target"
+    The package is under rapid development, with breaking changes landing
+    directly on `main`. Pin a specific revision when you need reproducibility:
+    `Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl", rev = "<commit-sha>")`.
+
 ## Quickstart
 
 Analysing an existing BMOPF JSON case:
@@ -75,8 +107,7 @@ errors(report)     # bound violations and infeasibility findings
 warnings(report)   # near-active bounds and residual warnings
 ```
 
-Converting from OpenDSS via PowerModelsDistribution (PMD must be available
-in the active environment — it is *not* a dependency of BMOPFTools):
+Converting from OpenDSS via PowerModelsDistribution:
 
 ```julia
 using BMOPFTools, PowerModelsDistribution
@@ -87,31 +118,37 @@ write_bmopf(net, "case.json")
 analyze(net) |> r -> render(r, "case_report.md")
 ```
 
+Or directly from OpenDSS via powerio (requires the `powerio` binary on `PATH`):
+
+```julia
+using BMOPFTools
+
+net = from_dss("Master.dss")
+```
+
 ## The pipeline
 
 ```
-OpenDSS .dss ──(PMD parse_file)──► ENGINEERING dict
-                                        │  from_pmd
-                                        ▼
-  BMOPF JSON ◄── write_bmopf ── BMOPF Dict{String,Any}
-                                        │  analyze
-                                        ▼
-                                 SummaryReport ──► render
-                                        │  fix_case
-                                        ▼
-                                 net′ (repaired)
-                                        │  add_generators (optional DER placement)
-                                        ▼
-                                 net′ + DERs
-                                        │  augment_case
-                                        ▼
-                                 net″ (benchmark-ready) ──► write_bmopf
-                                        │  solve_opf / to_pmd
-                                        ▼
-                                 result Dict{String,Any}
-                                        │  profile_solution
-                                        ▼
-                                 SolutionReport ──► render_solution
+OpenDSS .dss ──(powerio)──► BMOPF Dict{String,Any} ◄──── parse_bmopf ◄── BMOPF JSON
+OpenDSS .dss ──(PMD)──► ENGINEERING dict ──(from_pmd)──┘          └──── write_bmopf
+                                                 │ analyze
+                                                 ▼
+                                          SummaryReport ──► render
+                                                 │ fix_case
+                                                 ▼
+                                          net′ (repaired)
+                                                 │ add_generators / add_inverters  (optional DER)
+                                                 ▼
+                                          net′ + DERs
+                                                 │ augment_case
+                                                 ▼
+                                    net″ (benchmark-ready) ──► write_bmopf
+                                                 │ solve_opf / solve_pf / to_pmd
+                                                 ▼
+                                         result Dict{String,Any}
+                                                 │ profile_solution
+                                                 ▼
+                                        SolutionReport ──► render_solution
 ```
 
 `analyze` runs fifteen passes (see [Analysis & reports](analysis.md)) and
