@@ -2585,6 +2585,7 @@ const IEEE13_FIXTURE = """
             @test_skip "JuMP/Ipopt not in load path — skipping OPF tests"
         else
             include("opf_tests.jl")
+            include("pmd_opf_port_tests.jl")
         end
     end
 
