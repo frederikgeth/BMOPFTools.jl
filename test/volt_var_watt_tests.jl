@@ -159,6 +159,84 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # FOUR_LEG voltage_ref: PER_PHASE feeds each phase its own magnitude;
+    # AVERAGE feeds every phase the mean of the phase magnitudes. An unbalanced
+    # source puts the three phases at different voltages, so the two modes are
+    # distinguishable: PER_PHASE gives three different Q values, AVERAGE gives
+    # the same Q on all phases (equal s_max ⇒ equal droop base).
+    # ─────────────────────────────────────────────────────────────────────────
+    _volt_var_4leg_net(vref) = parse_bmopf("""
+        {"bus":{
+            "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+                   "v_min":[200.0,200.0,200.0],"v_max":[280.0,280.0,280.0]},
+            "b1": {"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+                   "v_min":[200.0,200.0,200.0],"v_max":[280.0,280.0,280.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[243.0,250.0,257.0],
+             "v_angle":[0.0,-2.0944,2.0944],"cost":[1.0,1.0,1.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.02,"R_series_2_2":0.02,"R_series_3_3":0.02}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE","p_nom":[200.0,200.0,200.0],"q_nom":[0.0,0.0,0.0]}},
+         "control_profile":{"vv":{"volt_var":{
+             "voltage_reference":"PN_PER_PHASE",
+             "breakpoints":[207.0,220.0,240.0,258.0],"q_limits":[-0.60,0.44],
+             "q_unit":"VA_FRACTION","q_ref":"VAR_MAX"}}},
+         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "topology":"FOUR_LEG","prime_mover":"PV","voltage_ref":"$(vref)",
+             "s_max":[3000.0,3000.0,3000.0],"p_max":[0.0,0.0,0.0],"p_min":[0.0,0.0,0.0],
+             "control_profile":"vv","cost":[0.1,0.1,0.1]}}}
+        """; from_string=true)
+
+    _vv_curve_si(u) = begin
+        base, tr = _OPFEXT.breakpoints_to_triples([207.0, 220.0, 240.0, 258.0],
+                                                  [0.44, 0.0, 0.0, -0.60])
+        ε = 2e-3 * (207.0 + 220.0 + 240.0 + 258.0) / 4
+        3000.0 * _OPFEXT.curve_value_smooth(base, tr, u, ε)
+    end
+
+    @testset "voltage_ref=PER_PHASE — each phase sees its own magnitude" begin
+        res = solve_opf(_volt_var_4leg_net("PER_PHASE"); per_unit=true)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        invr = res["inverter"]["pv1"]
+        for ph in ("1", "2", "3")
+            vm = res["bus"]["b1"][ph]["vm"]
+            @test invr[ph]["qg"] ≈ _vv_curve_si(vm)   atol = 10.0
+        end
+        # Unbalanced voltages ⇒ the per-phase Q values genuinely differ.
+        qs = [invr[ph]["qg"] for ph in ("1", "2", "3")]
+        @test maximum(qs) - minimum(qs) > 100.0
+    end
+
+    @testset "voltage_ref=AVERAGE — all phases see the mean magnitude" begin
+        res = solve_opf(_volt_var_4leg_net("AVERAGE"); per_unit=true)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        invr = res["inverter"]["pv1"]
+        u_avg = sum(res["bus"]["b1"][ph]["vm"] for ph in ("1", "2", "3")) / 3
+        q_expected = _vv_curve_si(u_avg)
+        for ph in ("1", "2", "3")
+            @test invr[ph]["qg"] ≈ q_expected   atol = 10.0
+        end
+        # Equal droop base + shared reference ⇒ equal Q across phases.
+        qs = [invr[ph]["qg"] for ph in ("1", "2", "3")]
+        @test maximum(qs) - minimum(qs) < 10.0
+    end
+
+    @testset "voltage_ref=AVERAGE on SINGLE_PHASE — warns, no effect" begin
+        net = _volt_var_net(258.0)
+        net["inverter"]["pv1"]["voltage_ref"] = "AVERAGE"
+        res = @test_logs (:warn,) match_mode=:any solve_opf(net; per_unit=true)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        # Behaviour identical to PER_PHASE: Q still binds to the curve.
+        vm = res["bus"]["b1"]["1"]["vm"]
+        @test res["inverter"]["pv1"]["1"]["qg"] ≈ _vv_curve_si(vm)   atol = 10.0
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # THREE_LEG: droop unsupported — warns and falls back to box bounds.
     # ─────────────────────────────────────────────────────────────────────────
     @testset "THREE_LEG — droop ignored with warning" begin
@@ -228,6 +306,16 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         f = Finding[]
         BMOPFTools.integrity_check(unsupported, f)
         @test any(x -> x.code == "E.INT.DROOP_UNSUPPORTED", f)
+
+        bad_vref = parse_bmopf("""
+        {"bus":{"b":{"terminal_names":["1","2","3","n"]}},
+         "inverter":{"pv1":{"bus":"b","terminal_map":["1","2","3","n"],
+             "topology":"FOUR_LEG","prime_mover":"PV","voltage_ref":"MEDIAN",
+             "s_max":[3000.0,3000.0,3000.0]}}}
+        """; from_string=true)
+        f = Finding[]
+        BMOPFTools.integrity_check(bad_vref, f)
+        @test any(x -> x.code == "E.INT.VOLTAGE_REF_INVALID", f)
     end
 
     # ─────────────────────────────────────────────────────────────────────────

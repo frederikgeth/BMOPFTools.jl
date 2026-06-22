@@ -32,7 +32,8 @@ const _OPTIONAL_FIELDS = Dict{String,Vector{String}}(
     "linecode"  => ["i_max", "s_max"],
     "inverter"  => ["p_avail", "p_min", "p_max", "q_min", "q_max",
                     "r_filter", "x_filter", "b_filter_shunt",
-                    "grid_forming", "v_ref_internal", "cost", "control_profile"],
+                    "grid_forming", "v_ref_internal", "cost", "control_profile",
+                    "voltage_ref"],
     "control_profile" => ["volt_var", "volt_watt", "power_factor"]
 )
 

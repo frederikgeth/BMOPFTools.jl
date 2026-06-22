@@ -203,6 +203,12 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
         # sign(pf) < 0 (leading): Q = +tan_phi*P  →  -1*Q + tan_phi*P = 0
         pf_sign  = pf_val !== nothing ? sign(pf_val) : 0.0
 
+        # Droop reference-voltage mode: PER_PHASE (each phase sees its own
+        # magnitude) or AVERAGE (every phase sees the mean of the phase
+        # magnitudes). Only meaningful for multi-phase FOUR_LEG inverters.
+        volt_ref = uppercase(String(get(inv, "voltage_ref", "PER_PHASE")))
+        avg_ref  = volt_ref == "AVERAGE"
+
         if topo == "SINGLE_PHASE"
             length(tm) >= 2 || (@warn "Inverter '$inv_id': SINGLE_PHASE needs ≥2 terminals"; continue)
             t_ph  = tm[1]
@@ -213,7 +219,9 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
             p_expr = @expression(model, dvr*cri[(inv_id,1)] + dvi*cii[(inv_id,1)])
             q_expr = @expression(model, dvi*cri[(inv_id,1)] - dvr*cii[(inv_id,1)])
 
-            _apply_inverter_phase!(model, inv_id, 1, p_expr, q_expr, dvr, dvi,
+            avg_ref && @warn "Inverter '$inv_id': voltage_ref=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
+            U = umag_expr(dvr, dvi)
+            _apply_inverter_phase!(model, inv_id, 1, p_expr, q_expr, U,
                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                 vv, vw, p_avail_per, relu_ops)
 
@@ -225,6 +233,12 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
             n_pos_idx = _neutral_pos(tm)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
+            # The droop reference magnitude is only needed when a curve consumes it.
+            need_U = vv !== nothing || vw !== nothing
+
+            # First pass: build the per-phase voltage differences, P/Q expressions
+            # and (when droop is active) per-phase magnitudes, and stamp KCL.
+            phase = NamedTuple[]
             for (idx, ph) in enumerate(ph_pos)
                 t_ph = tm[ph]
                 dvr  = t_n !== nothing ?
@@ -237,13 +251,25 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
                 p_expr = @expression(model, dvr*cri[(inv_id,idx)] + dvi*cii[(inv_id,idx)])
                 q_expr = @expression(model, dvi*cri[(inv_id,idx)] - dvr*cii[(inv_id,idx)])
 
-                _apply_inverter_phase!(model, inv_id, idx, p_expr, q_expr, dvr, dvi,
-                    p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
-                    vv, vw, p_avail_per, relu_ops)
+                push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr,
+                              U=need_U ? umag_expr(dvr, dvi) : nothing))
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph,  cri[(inv_id,idx)],  cii[(inv_id,idx)])
                 t_n !== nothing &&
                     _kcl_add!(kcl_r, kcl_i, bus, t_n, -cri[(inv_id,idx)], -cii[(inv_id,idx)])
+            end
+
+            # AVERAGE feeds the mean phase magnitude into every phase's droop curve.
+            U_avg = (need_U && avg_ref && length(phase) >= 1) ?
+                    @expression(model, sum(p.U for p in phase) / length(phase)) :
+                    nothing
+
+            # Second pass: stamp the per-phase constraints with the chosen reference.
+            for p in phase
+                U = U_avg === nothing ? p.U : U_avg
+                _apply_inverter_phase!(model, inv_id, p.idx, p.p_expr, p.q_expr, U,
+                    p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
+                    vv, vw, p_avail_per, relu_ops)
             end
 
         elseif topo == "THREE_LEG"
@@ -257,8 +283,8 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
                 p_expr = @expression(model, dvr*cri[(inv_id,k)] + dvi*cii[(inv_id,k)])
                 q_expr = @expression(model, dvi*cri[(inv_id,k)] - dvr*cii[(inv_id,k)])
 
-                # THREE_LEG never carries droop (vv = vw = nothing).
-                _apply_inverter_phase!(model, inv_id, k, p_expr, q_expr, dvr, dvi,
+                # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
+                _apply_inverter_phase!(model, inv_id, k, p_expr, q_expr, nothing,
                     p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                     nothing, nothing, p_avail_per, relu_ops)
 
@@ -275,7 +301,11 @@ end
 # Stamp the per-phase active/reactive constraints and apparent-power circle for a
 # single inverter phase `idx`, given the bilinear P/Q expressions and (optionally)
 # resolved Volt-var (`vv`) / Volt-watt (`vw`) droop curves.
-function _apply_inverter_phase!(model, inv_id, idx, p_expr, q_expr, dvr, dvi,
+#
+# `U` is the reference voltage-magnitude expression fed into the droop curves. The
+# caller chooses it per the inverter's `voltage_ref` field: the per-phase magnitude
+# √(dvr²+dvi²) for PER_PHASE, or the mean of the phase magnitudes for AVERAGE.
+function _apply_inverter_phase!(model, inv_id, idx, p_expr, q_expr, U,
                                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                                 vv, vw, p_avail_per, relu_ops)
     # P lower bound (always a box bound).
@@ -283,7 +313,6 @@ function _apply_inverter_phase!(model, inv_id, idx, p_expr, q_expr, dvr, dvi,
 
     # P upper bound: Volt-watt curtailment cap, else box.
     if vw !== nothing
-        U    = umag_expr(dvr, dvi)
         op   = relu_operator_for!(relu_ops, model, vw.eps)
         base = _droop_base(vw, idx, smax, p_max, p_avail_per)
         @constraint(model, p_expr <= curve_expr(op, U, base * vw.baseline,
@@ -296,7 +325,6 @@ function _apply_inverter_phase!(model, inv_id, idx, p_expr, q_expr, dvr, dvi,
     if tan_phi !== nothing
         @constraint(model, pf_sign * q_expr + tan_phi * p_expr == 0)
     elseif vv !== nothing
-        U    = umag_expr(dvr, dvi)
         op   = relu_operator_for!(relu_ops, model, vv.eps)
         base = _droop_base(vv, idx, smax, p_max, p_avail_per)
         @constraint(model, q_expr == curve_expr(op, U, base * vv.baseline,

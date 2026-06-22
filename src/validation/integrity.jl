@@ -114,6 +114,16 @@ function integrity_check(net::Dict{String,Any},
                 "inverter '$id' references unknown control_profile '$cp'.",
                 Dict{String,Any}("control_profile" => cp)))
         end
+
+        vref = get(inv, "voltage_ref", nothing)
+        if vref !== nothing && !(vref isa AbstractString &&
+                                 uppercase(String(vref)) in ("PER_PHASE", "AVERAGE"))
+            n_ref_issues += 1
+            push!(findings, Finding(ERROR, "E.INT.VOLTAGE_REF_INVALID", :integrity,
+                :inverter, id,
+                "inverter '$id' has voltage_ref = $(repr(vref)); expected \"PER_PHASE\" or \"AVERAGE\".",
+                Dict{String,Any}("voltage_ref" => vref)))
+        end
     end
 
     # --- control_profile droop-law consistency ---

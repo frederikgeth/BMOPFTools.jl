@@ -1076,7 +1076,7 @@ function _ods_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
     return d, P, Q
 end
 
-function _net_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
+function _net_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol, vref::String="PER_PHASE")
     net = _net_3ph_line()
     delete!(net, "load")
     for k in 1:3
@@ -1104,7 +1104,7 @@ function _net_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
     net["control_profile"] = Dict{String,Any}("cp" => cp)
     inv = Dict{String,Any}(
         "bus" => "lb", "terminal_map" => ["1", "2", "3", "n"],
-        "topology" => "FOUR_LEG", "prime_mover" => "PV",
+        "topology" => "FOUR_LEG", "prime_mover" => "PV", "voltage_ref" => vref,
         "s_max" => fill(kVA * 1e3, 3), "p_min" => fill(0.0, 3), "p_max" => fill(Pmpp * 1e3, 3),
         "control_profile" => "cp", "cost" => fill(0.1, 3))
     if mode === :vw
@@ -1113,6 +1113,85 @@ function _net_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
     end
     net["inverter"] = Dict{String,Any}("pv" => inv)
     return net
+end
+
+# ── Three-phase AVERAGE-reference droop ─────────────────────────────────────────
+# The averaging counterpart of the per-phase test above. Here OpenDSS models the
+# control as ONE 3φ PVSystem with ONE InvControl whose MonVoltageCalc=AVG averages
+# the monitored phase voltages and injects balanced power — exactly BMOPF's
+# voltage_ref=AVERAGE (every phase sees the mean magnitude, equal s_max ⇒ balanced
+# P/Q). The same unbalanced same-bus loads that spread the phases under PER_PHASE
+# now leave the two models on a common operating point: identical balanced
+# injection ⇒ identical node voltages despite the per-phase voltage spread.
+function _ods_pv_3ph_avg_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
+    vvx = join(vcat(0.5, _AUSA_VV_X ./ _PV_VRATED, 2.0), ",")
+    vwx = join(vcat(0.5, _AUSA_VW_X ./ _PV_VRATED, 2.0), ",")
+    kVA3, Pmpp3 = 3kVA, 3Pmpp                  # 3φ ratings = 3 × per-phase
+    kv_ll = _PV_VRATED * sqrt(3) / 1000        # rated per-phase = _PV_VRATED exactly
+    cmds = String[
+        "Clear",
+        "New Circuit.c basekv=$(vsrc*sqrt(3)/1000) pu=1.0 angle=0 phases=3 bus1=src.1.2.3 model=ideal",
+        "New Reactor.gs bus1=src.4 bus2=src.0 R=0.001 X=0",
+        _LC4_DSS,
+        "New Line.l1 bus1=src.1.2.3.4 bus2=lb.1.2.3.4 linecode=4w length=0.5 units=km",
+        "New Reactor.gl bus1=lb.4 bus2=lb.0 R=0.001 X=0",
+        "New XYcurve.vv npts=6 Xarray=[$vvx] Yarray=[0.44,0.44,0,0,-0.60,-0.60]",
+        "New XYcurve.vw npts=4 Xarray=[$vwx] Yarray=[1.0,1.0,0.2,0.2]"]
+    for k in 1:3
+        push!(cmds, "New Load.ld$k bus1=lb.$k.4 phases=1 kv=0.240 kW=$(loads[k]) kvar=0 " *
+                    "model=1 Vminpu=0.1 Vmaxpu=2.0")
+    end
+    push!(cmds, "New PVSystem.pv phases=3 conn=wye bus1=lb.1.2.3.4 kv=$kv_ll kVA=$kVA3 Pmpp=$Pmpp3 " *
+                "irradiance=1.0 pf=1 %cutin=0 %cutout=0 VarFollowInverter=yes WattPriority=No " *
+                "kvarMax=$kVA3 kvarMaxAbs=$kVA3 Vminpu=0.1 Vmaxpu=2.0")
+    common = "voltage_curvex_ref=rated MonVoltageCalc=AVG VoltageChangeTolerance=1e-5 PVSystemList=[pv]"
+    ic = mode === :vv ?
+        "New InvControl.ic mode=VOLTVAR vvc_curve1=vv RefReactivePower=VARMAX VarChangeTolerance=0.0005 $common" :
+        mode === :vw ?
+        "New InvControl.ic mode=VOLTWATT voltwatt_curve=vw voltwattyaxis=PMPPPU ActivePChangeTolerance=0.0005 $common" :
+        "New InvControl.ic combimode=VV_VW vvc_curve1=vv voltwatt_curve=vw RefReactivePower=VARMAX " *
+            "voltwattyaxis=PMPPPU VarChangeTolerance=0.0005 ActivePChangeTolerance=0.0005 $common"
+    push!(cmds, ic)
+    append!(cmds, ["Set VoltageBases=[0.415]", "CalcVoltageBases",
+                   "Set ControlMode=Static", "Set MaxControlIter=200", "Solve"])
+    OpenDSSDirect.dss("Clear")
+    for c in cmds
+        OpenDSSDirect.dss(c)
+    end
+    d = Dict(n => v for (n, v) in
+             zip(OpenDSSDirect.Circuit.AllNodeNames(), OpenDSSDirect.Circuit.AllBusVolts()))
+    OpenDSSDirect.Circuit.SetActiveElement("PVSystem.pv")
+    pw = OpenDSSDirect.CktElement.Powers()       # per-phase terminal powers, phases 1..3
+    P = [-real(pw[k]) * 1e3 for k in 1:3]
+    Q = [-imag(pw[k]) * 1e3 for k in 1:3]
+    return d, P, Q
+end
+
+# Comparison for the 3φ AVERAGE droop: BMOPF injects balanced P/Q (the averaging
+# signature) and its node voltages and injections match the single 3φ OpenDSS
+# PVSystem + averaging InvControl.
+function _check_pv_3ph_avg_droop(params, label; atolV=1.0, atolPQ=60.0)
+    Vods, Pods, Qods = _ods_pv_3ph_avg_droop(; params...)
+    res = solve_opf(_net_pv_3ph_droop(; params..., vref="AVERAGE"))
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    b = res["bus"]["lb"]
+    @test sqrt(b["n"]["vr"]^2 + b["n"]["vi"]^2) < 1e-6
+    Pbm = Float64[]; Qbm = Float64[]
+    for k in 1:3
+        iv = res["inverter"]["pv"]["$k"]
+        push!(Pbm, iv["pg"]); push!(Qbm, iv["qg"])
+        Vbm_k = abs((b["$k"]["vr"] - b["n"]["vr"]) + im * (b["$k"]["vi"] - b["n"]["vi"]))
+        Vods_k = abs(Vods["lb.$k"] - Vods["lb.4"])
+        isapprox(Vbm_k, Vods_k; atol=atolV) ||
+            @warn "$(label)phase $k: V BMOPF=$(round(Vbm_k,digits=2)) ODS=$(round(Vods_k,digits=2))"
+        @test isapprox(Vbm_k, Vods_k; atol=atolV)
+        @test iv["pg"] ≈ Pods[k]   atol=atolPQ
+        @test iv["qg"] ≈ Qods[k]   atol=atolPQ
+    end
+    # Averaging signature: equal s_max + shared reference ⇒ balanced injection.
+    @test maximum(Pbm) - minimum(Pbm) < 1.0
+    @test maximum(Qbm) - minimum(Qbm) < 1.0
+    return Pbm, Qbm
 end
 
 # ── Test cases ────────────────────────────────────────────────────────────────
@@ -1454,6 +1533,23 @@ end
                                     loads=[0.0, 5.0, 14.0], mode=:vvvw), "3ph-vvvw: ")
     @test Qbm[1] < Qbm[3] < 0.0                # phase 1 absorbs more (higher V)
     @test Pbm[1] < Pbm[3]                       # phase 1 curtailed more than phase 3
+end
+
+@testset "PV 3φ FOUR_LEG droop vs OpenDSS — AVERAGE reference (Volt-var)" begin
+    # Same unbalanced loads as the per-phase case, but voltage_ref=AVERAGE: every
+    # phase responds to the mean magnitude, so BMOPF injects balanced vars and
+    # matches a single 3φ OpenDSS PVSystem with an averaging InvControl.
+    Pbm, Qbm = _check_pv_3ph_avg_droop((vsrc=255.0, kVA=10.0, Pmpp=7.0,
+                                        loads=[0.0, 5.0, 14.0], mode=:vv), "3ph-avg-vv: ")
+    @test all(p -> p ≈ 7_000.0, Pbm)           # volt-var only → P uncurtailed
+    @test all(q -> q < 0.0, Qbm)               # mean voltage is high → all absorb
+end
+
+@testset "PV 3φ FOUR_LEG droop vs OpenDSS — AVERAGE reference (combined VV+VW)" begin
+    Pbm, Qbm = _check_pv_3ph_avg_droop((vsrc=255.0, kVA=12.0, Pmpp=9.0,
+                                        loads=[0.0, 5.0, 14.0], mode=:vvvw), "3ph-avg-vvvw: ")
+    @test all(q -> q < 0.0, Qbm)               # absorbing on the mean
+    @test all(p -> p < 9_000.0, Pbm)           # curtailed below Pmpp on the mean
 end
 
 @testset "feasibility OPF honours inverters (regression)" begin

@@ -141,7 +141,7 @@ const _KNOWN_FIELDS = Dict{String,Set{String}}(
                        "s_max", "p_avail", "p_min", "p_max", "q_min", "q_max",
                        "r_filter", "x_filter", "b_filter_shunt",
                        "grid_forming", "v_ref_internal", "cost",
-                       "control_profile"]),
+                       "control_profile", "voltage_ref"]),
     # control_profile components are keyed by control-law name; list all nine
     # so future laws beyond the currently-wired three are not flagged as unknown
     "control_profile" => Set(["volt_var", "volt_watt", "watt_var", "watt_pf",

@@ -410,6 +410,15 @@ ignored (box bounds retained) with a warning. Regional default characteristics
 (e.g. AS/NZS 4777.2:2020 "Australia A" for Queensland) are injected by
 [`augment_case`](@ref) from the `[augment.smart_inverter]` config section.
 
+By default each phase responds to its own magnitude $U_{n,k}$. Setting the
+inverter field **`voltage_ref`** to `"AVERAGE"` (default `"PER_PHASE"`) instead
+feeds every phase the mean of the phase magnitudes,
+$\bar U_n = \tfrac{1}{m}\sum_k U_{n,k}$, as the common reference for both the
+Volt-var and Volt-watt curves — modelling inverters that regulate on the average
+terminal voltage rather than per phase. The setting only affects multi-phase
+`FOUR_LEG` inverters; on a `SINGLE_PHASE` inverter it is a no-op and emits a
+warning.
+
 The inverter current variables enter KCL with the same sign convention as
 generators (injection positive into the bus); for `FOUR_LEG` the negated phase
 current is also added to the neutral terminal.
