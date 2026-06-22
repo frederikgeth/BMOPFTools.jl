@@ -47,6 +47,16 @@ const TRANSFORMER_SUBTYPES =
     ("single_phase", "center_tap", "wye_delta", "delta_wye",
      "single_phase_autotransformer", "open_delta_regulator")
 
+# Transformer subtypes that do NOT galvanically isolate their two sides. The
+# autotransformer ties from- and to-sides through a shared common winding/neutral
+# and the open-delta regulator passes the shared phase straight through; both are
+# tap-only, same-voltage-level devices, so their `bus_from`/`bus_to` stay in one
+# galvanic zone. The remaining subtypes are true galvanic separations. Used by
+# the galvanic-zone/island partitioning so regulators don't spuriously split a
+# zone (and orphan it from its voltage reference).
+const GALVANIC_CONTINUOUS_SUBTYPES =
+    ("single_phase_autotransformer", "open_delta_regulator")
+
 # ---------------------------------------------------------------------------
 # Finding — the one struct in the library.
 # Everything network-related stays as Dict{String,Any}; findings are outputs

@@ -2706,6 +2706,11 @@ const IEEE13_FIXTURE = """
 
     include("admittance_tests.jl")
 
+    # -----------------------------------------------------------------------
+    # Regulator subtypes: galvanic zone/island and neutral-continuity topology
+    # -----------------------------------------------------------------------
+    include("regulator_topology_tests.jl")
+
     @testset "Config — TOML thresholds" begin
         # Defaults load and match the historical hardcoded values.
         cfg = load_config()

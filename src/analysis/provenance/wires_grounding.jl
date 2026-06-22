@@ -110,9 +110,10 @@ function _grounding_analysis(net::Dict{String,Any},
     end
     intersect!(grounded, nbus_set)
 
-    # Neutral continuity graph: lines and closed switches whose terminal
-    # maps carry "n" on both ends. Transformer windings are separate
-    # circuits — the neutral does not continue through them.
+    # Neutral continuity graph: branches that carry a neutral conductor on both
+    # ends — lines and closed switches, plus the line-to-neutral
+    # single_phase_autotransformer (see below). Most transformer windings are
+    # galvanically isolated circuits, so the neutral does not continue through them.
     adj = Dict{String,Vector{String}}()
     n_neutral_branches = 0
     for comp_type in ("line", "switch")
@@ -126,6 +127,24 @@ function _grounding_analysis(net::Dict{String,Any},
             push!(get!(adj, f, String[]), t)
             push!(get!(adj, t, String[]), f)
         end
+    end
+    # The single_phase_autotransformer shares one physical neutral bushing across
+    # its two sides — the OPF bonds V_fr_n == V_to_n — so the neutral continues
+    # through it, but only for a line-to-neutral SVR (both maps reference "n").
+    # The open_delta_regulator is line-to-line: its neutral terminal is unused by
+    # the device (no from↔to tie in the model), so it is NOT a neutral branch —
+    # even though it IS galvanically continuous (see GALVANIC_CONTINUOUS_SUBTYPES).
+    # All other subtypes have galvanically isolated windings.
+    for (_, c) in get(get(net, "transformer", Dict()),
+                      "single_phase_autotransformer", Dict())
+        c isa Dict || continue
+        f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
+        (f isa AbstractString && t isa AbstractString) || continue
+        (uses_neutral(f, get(c, "terminal_map_from", String[])) &&
+         uses_neutral(t, get(c, "terminal_map_to",   String[]))) || continue
+        n_neutral_branches += 1
+        push!(get!(adj, f, String[]), t)
+        push!(get!(adj, t, String[]), f)
     end
     res["n_neutral_branches"] = n_neutral_branches
     res["n_grounding_points"] = length(grounded)
@@ -277,8 +296,10 @@ end
 # ---------------------------------------------------------------------------
 
 """
-Connected components over lines and closed switches only — transformer
-windings are galvanic separations. Returns sorted bus-id vectors.
+Connected components over lines, closed switches, and the galvanically-continuous
+transformer subtypes (`single_phase_autotransformer`, `open_delta_regulator`,
+listed in `GALVANIC_CONTINUOUS_SUBTYPES`); isolating transformer windings are
+galvanic separations. Returns sorted bus-id vectors.
 """
 function _galvanic_islands(net::Dict{String,Any})::Vector{Vector{String}}
     busset = Set(keys(get(net, "bus", Dict())))
@@ -286,6 +307,20 @@ function _galvanic_islands(net::Dict{String,Any})::Vector{Vector{String}}
     for comp_type in ("line", "switch")
         for (_, c) in get(net, comp_type, Dict())
             comp_type == "switch" && get(c, "open_switch", false) && continue
+            f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
+            (f isa AbstractString && t isa AbstractString &&
+             f in busset && t in busset) || continue
+            push!(get!(adj, f, String[]), t)
+            push!(get!(adj, t, String[]), f)
+        end
+    end
+    # Regulators (autotransformer / open-delta) do not isolate: both sides stay
+    # in one island.
+    xfmr = get(net, "transformer", Dict())
+    for subtype in GALVANIC_CONTINUOUS_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa Dict || continue
+        for (_, c) in sub
             f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
             (f isa AbstractString && t isa AbstractString &&
              f in busset && t in busset) || continue

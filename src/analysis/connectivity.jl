@@ -246,9 +246,11 @@ end
 """
     _galvanic_zones(net) -> Vector{Set{String}}
 
-Partition buses into galvanic zones: connected subgraphs joined by lines and
-closed switches only. Transformers are galvanic isolation boundaries and are
-NOT included as edges. Returns a list of bus-name sets, one per zone.
+Partition buses into galvanic zones: connected subgraphs joined by lines,
+closed switches, and the galvanically-continuous transformer subtypes
+(`single_phase_autotransformer`, `open_delta_regulator`, listed in
+`GALVANIC_CONTINUOUS_SUBTYPES`). Isolating transformer subtypes are NOT
+included as edges. Returns a list of bus-name sets, one per zone.
 """
 function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
     buses = collect(keys(get(net, "bus", Dict())))
@@ -270,6 +272,16 @@ function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
         get(sw, "open_switch", false) && continue
         f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString && f != t) && add_edge!(f, t)
+    end
+    # Regulators (autotransformer / open-delta) keep both sides in one zone.
+    xfmr = get(net, "transformer", Dict())
+    for subtype in GALVANIC_CONTINUOUS_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa Dict || continue
+        for (_, t) in sub
+            f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
+            (f isa AbstractString && b isa AbstractString && f != b) && add_edge!(f, b)
+        end
     end
 
     visited = Set{String}()
