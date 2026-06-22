@@ -80,8 +80,7 @@ function spec_conformance_check(net::Dict{String,Any},
         b isa Dict ? _neutral_terminal(b) : nothing
     end
 
-    for (comp_type, allowed) in (("load", keys(_CONFIG_ARITY)),
-                                  ("generator", ("WYE",)))
+    for comp_type in ("load", "generator")
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
             cfg = get(c, "configuration", nothing)
@@ -93,13 +92,6 @@ function spec_conformance_check(net::Dict{String,Any},
                     "$comp_type '$id' has configuration '$cfg' — spec allows " *
                     "SINGLE_PHASE, WYE, DELTA.", nothing))
                 continue
-            end
-            if comp_type == "generator" && cfg != "WYE"
-                push!(findings, Finding(INFO, "I.SPEC.GEN_CONFIG_FUTURE", :spec,
-                    :generator, id,
-                    "Generator '$id' configuration '$cfg' is marked " *
-                    "future-support in the spec (Table 4); only WYE is " *
-                    "currently supported.", nothing))
             end
             arity = _CONFIG_ARITY[cfg]
             tm = Vector{String}(string.(get(c, "terminal_map", String[])))
