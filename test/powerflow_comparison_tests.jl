@@ -458,11 +458,15 @@ function _net_yd_xfmr()
     vt  =    415.0
     zbf = vf^2 / s
     zbt = vt^2 / s
-    yb  = s / vf^2
     nl  = 0.003
     cm  = 0.015
-    G_nl = nl * yb
-    Y_nl = cm * yb
+    # No-load (core-loss) shunt is stamped phase-to-ground at the from bus, which
+    # sits at the line-to-NEUTRAL voltage V_LN = vf/√3 for a 3-phase winding.  Its
+    # admittance must therefore be referred to V_LN (not the line-to-line vf), so
+    # that the total core loss = g_no_load·V_LN² = %noloadloss·kVA matches OpenDSS.
+    yb_nl = s / (vf / sqrt(3))^2   # = 3·s/vf²  (the √3 connection factor)
+    G_nl = nl * yb_nl
+    Y_nl = cm * yb_nl
     B_nl = sqrt(max(Y_nl^2 - G_nl^2, 0.0))
 
     Dict{String,Any}(
@@ -555,11 +559,14 @@ function _net_dy_xfmr()
     vt  =    415.0
     zbf = vf^2 / s
     zbt = vt^2 / s
-    yb  = s / vf^2
     nl  = 0.003
     cm  = 0.015
-    G_nl = nl * yb
-    Y_nl = cm * yb
+    # No-load shunt stamped phase-to-ground at the from (HV) bus → referred to the
+    # line-to-neutral voltage V_LN = vf/√3 (the bus is 3-phase at line voltage vf,
+    # regardless of the delta winding connection).  See _net_yd_xfmr.
+    yb_nl = s / (vf / sqrt(3))^2   # = 3·s/vf²
+    G_nl = nl * yb_nl
+    Y_nl = cm * yb_nl
     B_nl = sqrt(max(Y_nl^2 - G_nl^2, 0.0))
 
     Dict{String,Any}(
@@ -1180,12 +1187,10 @@ end
 
     P_ods = _ods_losses_W(path)
     P_bm  = _bmopf_losses_W(res, net)
-    # rtol relaxed to 0.15: the copper loss matches (~6.6 kW), but the no-load
-    # core loss is ~13% short due to a known magnetising-shunt base bug (g_no_load
-    # is on a line-to-line base while the shunt is stamped line-to-neutral). The
-    # series-impedance referral — the focus of this comparison — is exact (voltages
-    # within 0.1 V of OpenDSS). Tighten back to 0.05 once the shunt base is fixed.
-    @test isapprox(P_bm, P_ods; rtol=0.15)
+    # Total losses (copper ~6.6 kW + core ~1.5 kW) match OpenDSS: the no-load
+    # shunt is referred to the line-to-neutral stamping voltage V_LN = vf/√3, so
+    # core loss = g_no_load·V_LN² = %noloadloss·kVA exactly (see _net_yd_xfmr).
+    @test isapprox(P_bm, P_ods; rtol=0.05)
 end
 
 @testset "PF comparison — delta-wye transformer (delta_wye Dy)" begin
@@ -1205,9 +1210,9 @@ end
 
     P_ods = _ods_losses_W(path)
     P_bm  = _bmopf_losses_W(res, net)
-    # rtol relaxed to 0.15: see the Yd testset above — the ~13% gap is the known
-    # magnetising-shunt base bug, not the series-impedance model (voltages exact).
-    @test isapprox(P_bm, P_ods; rtol=0.15)
+    # Total losses match OpenDSS — the no-load shunt base fix (V_LN-referred) makes
+    # the core loss exact; see the Yd testset above.
+    @test isapprox(P_bm, P_ods; rtol=0.05)
 end
 
 # Step voltage regulator (single_phase_autotransformer) vs OpenDSS. A fixed-tap

@@ -602,6 +602,147 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # T13b: per-unit ⇄ SI agreement for EVERY transformer subtype.
+    #
+    # The dedicated per_unit tests above use a transformer-free network, so the
+    # transformer p.u. scaling went unexercised. Solving the same net with
+    # per_unit=true and per_unit=false must agree on bus voltages and total
+    # losses. The no-load (core-loss) shunt is the discriminating case: g/b_no_load
+    # is an ADMITTANCE, so it scales ×z_base (reciprocal of the impedance rule) —
+    # before the fix it was omitted from _pu_scale_transformers! and the core loss
+    # silently vanished in p.u. mode. wye_delta / delta_wye / single_phase / center_tap
+    # carry a no-load shunt to exercise that path on wye-from and delta-from windings.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T13b: per_unit ⇄ SI agreement across transformer subtypes" begin
+        function _pu_si_agree(solver, net; label="")
+            @testset "$label" begin
+                r_si = solver(net; per_unit=false)
+                r_pu = solver(net; per_unit=true, s_base=1e6)
+                @test r_si["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+                @test r_pu["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+                for (bid, td) in r_si["bus"], (t, tv) in td
+                    @test isapprox(r_pu["bus"][bid][t]["vm"], tv["vm"]; rtol=1e-3, atol=1e-2)
+                end
+                ls_si = get(r_si, "losses", Dict()); ls_pu = get(r_pu, "losses", Dict())
+                @test isapprox(get(ls_pu, "p_loss", 0.0), get(ls_si, "p_loss", 0.0); rtol=2e-3, atol=1.0)
+                @test isapprox(get(ls_pu, "q_loss", 0.0), get(ls_si, "q_loss", 0.0); rtol=2e-3, atol=1.0)
+            end
+        end
+
+        # single_phase (1φ YY) with a no-load shunt
+        _pu_si_agree(solve_feasibility_opf, parse_bmopf("""
+        {"bus":{"hv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "lv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"hv","terminal_map":["1","n"],
+             "v_magnitude":[2400.0],"v_angle":[0.0]}},
+         "transformer":{"single_phase":{"t1":{"bus_from":"hv","bus_to":"lv",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "v_ref_from":2400.0,"v_ref_to":240.0,"s_rating":50000.0,
+             "r_series_from":0.1,"x_series_from":0.2,"r_series_to":0.001,"x_series_to":0.002,
+             "g_no_load":2e-5,"b_no_load":8e-5}}},
+         "load":{"ld":{"bus":"lv","terminal_map":["1","n"],"configuration":"SINGLE_PHASE",
+             "p_nom":[20000.0],"q_nom":[5000.0]}}}
+        """; from_string=true); label="single_phase")
+
+        # wye_delta (HV wye / LV delta) with a no-load shunt on the wye from-side.
+        # The delta secondary common mode is anchored by a near-solid grounding
+        # shunt at lv.1 (as in the OpenDSS PF-comparison fixture).
+        _pu_si_agree(solve_feasibility_opf, parse_bmopf("""
+        {"bus":{"hv":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+                "lv":{"terminal_names":["1","2","3"]}},
+         "voltage_source":{"src":{"bus":"hv","terminal_map":["1","2","3"],
+             "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
+         "shunt":{"grnd_lv":{"bus":"lv","terminal_map":["1"],"G_1_1":1000.0,"B_1_1":0.0}},
+         "transformer":{"wye_delta":{"t1":{"bus_from":"hv","bus_to":"lv",
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3"],
+             "v_ref_from":11000.0,"v_ref_to":415.0,"s_rating":500000.0,
+             "r_series_from":2.42,"r_series_to":0.0034,"x_series_from":4.84,"x_series_to":0.0069,
+             "g_no_load":1e-4,"b_no_load":2e-4}}},
+         "load":{"ld":{"bus":"lv","terminal_map":["1","2"],"configuration":"DELTA",
+             "p_nom":[100000.0],"q_nom":[30000.0]}}}
+        """; from_string=true); label="wye_delta")
+
+        # delta_wye (HV delta / LV wye) with a no-load shunt on the delta from-side
+        _pu_si_agree(solve_feasibility_opf, parse_bmopf("""
+        {"bus":{"hv":{"terminal_names":["1","2","3"]},
+                "lv":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"src":{"bus":"hv","terminal_map":["1","2","3"],
+             "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
+         "transformer":{"delta_wye":{"t1":{"bus_from":"hv","bus_to":"lv",
+             "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3","n"],
+             "v_ref_from":11000.0,"v_ref_to":415.0,"s_rating":500000.0,
+             "r_series_from":2.42,"r_series_to":0.0034,"x_series_from":4.84,"x_series_to":0.0069,
+             "g_no_load":1e-4,"b_no_load":2e-4}}},
+         "load":{"ld1":{"bus":"lv","terminal_map":["1","n"],"configuration":"WYE","p_nom":[80000.0],"q_nom":[20000.0]},
+                 "ld2":{"bus":"lv","terminal_map":["2","n"],"configuration":"WYE","p_nom":[80000.0],"q_nom":[20000.0]},
+                 "ld3":{"bus":"lv","terminal_map":["3","n"],"configuration":"WYE","p_nom":[80000.0],"q_nom":[20000.0]}}}
+        """; from_string=true); label="delta_wye")
+
+        # center_tap (split-phase) with a no-load shunt
+        _pu_si_agree(solve_feasibility_opf, parse_bmopf("""
+        {"bus":{"mv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "lv":{"terminal_names":["1","2","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"src":{"bus":"mv","terminal_map":["1"],"v_magnitude":[2400.0],"v_angle":[0.0]}},
+         "transformer":{"center_tap":{"ct":{"bus_from":"mv","bus_to":"lv",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
+             "v_ref_from":2400.0,"v_ref_to":120.0,"s_rating":25000.0,
+             "r_series_from":0.1,"x_series_from":0.4,"r_series_to":0.001,"x_series_to":0.004,
+             "g_no_load":2e-5,"b_no_load":8e-5}}},
+         "load":{"l1":{"bus":"lv","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]},
+                 "l2":{"bus":"lv","terminal_map":["2","n"],"configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]}}}
+        """; from_string=true); label="center_tap")
+
+        # single_phase_autotransformer (step regulator) — lossy, no core shunt
+        _pu_si_agree(solve_feasibility_opf, parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "reg":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],"v_magnitude":[2400.0],"v_angle":[0.0]}},
+         "transformer":{"single_phase_autotransformer":{"r1":{"bus_from":"src","bus_to":"reg",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "tap_ratio":1.05,"regulator_type":"B","s_rating":500000.0,
+             "r_series_from":0.5,"x_series_from":0.0}}},
+         "load":{"ld":{"bus":"reg","terminal_map":["1","n"],"configuration":"SINGLE_PHASE",
+             "p_nom":[50000.0],"q_nom":[0.0]}}}
+        """; from_string=true); label="single_phase_autotransformer")
+
+        # open_delta_regulator — lossless ratio regulator, no core shunt
+        _pu_si_agree(solve_pf, parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+                "reg":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[2400.0,2400.0,2400.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
+         "transformer":{"open_delta_regulator":{"od":{"bus_from":"src","bus_to":"reg",
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
+             "connection":"ABBC","tap_ratio":[1.05,1.025],"regulator_type":"B","s_rating":500000.0}}}}
+        """; from_string=true); label="open_delta_regulator")
+    end
+
+    @testset "T13c: perfectly-grounded delta-secondary phase warm-starts cleanly" begin
+        # Regression for a crash in _set_yd_dy_start_values!: when a delta-secondary
+        # phase is `perfectly_grounded`, that terminal becomes the warm-start anchor
+        # but is fixed to 0 with no start value, so reading it via JuMP.start_value
+        # returned `nothing` → complex(nothing, nothing) MethodError. The anchor read
+        # now treats a grounded terminal as 0. (Distinct from the grounded-wye-neutral
+        # case; mode-independent — exercised here in SI mode.)
+        net = parse_bmopf("""
+        {"bus":{"hv":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+                "lv":{"terminal_names":["1","2","3"],"perfectly_grounded_terminals":["1"]}},
+         "voltage_source":{"src":{"bus":"hv","terminal_map":["1","2","3"],
+             "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
+         "transformer":{"wye_delta":{"t1":{"bus_from":"hv","bus_to":"lv",
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3"],
+             "v_ref_from":11000.0,"v_ref_to":415.0,"s_rating":500000.0,
+             "r_series_from":2.42,"r_series_to":0.0034,"x_series_from":4.84,"x_series_to":0.0069,
+             "g_no_load":1e-4,"b_no_load":2e-4}}},
+         "load":{"ld":{"bus":"lv","terminal_map":["1","2"],"configuration":"DELTA",
+             "p_nom":[100000.0],"q_nom":[30000.0]}}}
+        """; from_string=true)
+        res = solve_feasibility_opf(net)                       # must not throw
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test res["bus"]["lv"]["1"]["vm"] < 1e-6               # grounded delta phase pinned to 0
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # T14: Result dictionary structure contract
     #
     # Pins the shape of every section of the result dict so that refactoring

@@ -413,10 +413,14 @@ function _set_yd_dy_start_values!(vars, net, grounded)
             # Propagate ideal delta voltages around the loop:
             #   V_del[k] - V_del[k_next] = n_eff * Vw_pn[k]  (Yd)
             #   V_del[k] - V_del[k_prev] = n_eff * Vw_pn[k]  (Dy)
+            # The anchor is the first grounded delta terminal when one exists; a
+            # grounded terminal is fixed to 0 with no start value (start_value ⇒
+            # `nothing`), so read it as 0 rather than via JuMP.start_value — same
+            # guard as the wye neutral Vn above.
             V_del = zeros(ComplexF64, n_ph)
-            V_del[start_k] = complex(
-                JuMP.start_value(vr[(b_del, tm_del[start_k])]),
-                JuMP.start_value(vi[(b_del, tm_del[start_k])]))
+            V_del[start_k] = (b_del, tm_del[start_k]) in grounded ? (0.0 + 0.0im) :
+                complex(JuMP.start_value(vr[(b_del, tm_del[start_k])]),
+                        JuMP.start_value(vi[(b_del, tm_del[start_k])]))
             for step in 1:(n_ph - 1)
                 k      = mod1(start_k + step - 1, n_ph)
                 k_next = mod1(k, n_ph) + 1

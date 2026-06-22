@@ -369,7 +369,9 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
     end
 
     # No-load branch: BMOPF g_no_load/b_no_load (S) → PMD noloadloss/cmag
-    # (both dimensionless, relative to s_rating and v_ref_from).
+    # (both dimensionless, relative to s_rating). Inverse of from_pmd: g_no_load is
+    # referred to the phase-to-ground stamping voltage V_LN = v_ref_from/√3 for a
+    # 3-phase winding, or v_ref_from for single-phase (selected by phase count).
     has_g = haskey(xfmr, "g_no_load")
     has_b = haskey(xfmr, "b_no_load")
     if (has_g || has_b) &&
@@ -377,7 +379,9 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
        Float64(xfmr["s_rating"]) > 0
         vf    = Float64(xfmr["v_ref_from"])
         s     = Float64(xfmr["s_rating"])
-        y_base = s / vf^2
+        n_from_ph = count(!=("n"), Vector{String}(get(xfmr, "terminal_map_from", String[])))
+        v_stamp = n_from_ph >= 3 ? vf / sqrt(3) : vf
+        y_base = s / v_stamp^2
         G = has_g ? Float64(xfmr["g_no_load"]) : 0.0
         B = has_b ? Float64(xfmr["b_no_load"]) : 0.0
         pmd["noloadloss"] = G / y_base

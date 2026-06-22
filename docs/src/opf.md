@@ -484,7 +484,12 @@ $$n_\text{eff} = \begin{cases} \sqrt{3}/N & \text{Yd} \\ N\sqrt{3} & \text{Dy} \
 winding carries its own series impedance — $R^\text{w}/X^\text{w}$
 (`r/x_series_from`, wye winding) and $R^\text{d}/X^\text{d}$
 (`r/x_series_to`, delta winding) — and a `g/b_no_load` core-loss shunt sits at
-the from-side (HV) phase terminals. The legacy single `r_series`/`x_series` is
+the from-side (HV) phase terminals. `g_no_load` is the **total** core-loss
+conductance, split equally across the from-side phases and stamped
+phase-to-ground; it is referred to the line-to-neutral stamping voltage
+$V_\text{LN} = v_\text{ref,from}/\sqrt 3$, so that the total core loss
+$g_\text{no\_load}\,V_\text{LN}^2 = \%\text{noloadloss}\cdot S_\text{rated}$
+matches OpenDSS. The legacy single `r_series`/`x_series` is
 read as $R^\text{w} = R_\text{series}$, $R^\text{d} = 0$, recovering the ideal
 delta. The series drop enters the voltage equation behind the ideal transform:
 
