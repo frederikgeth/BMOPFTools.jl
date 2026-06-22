@@ -1017,6 +1017,104 @@ function _net_pv_1ph_droop(; vsrc, kVA, Pmpp, load_kw, load_kvar, mode::Symbol)
     return net
 end
 
+# ── Three-phase per-phase droop under unbalance ─────────────────────────────────
+# A 4-wire unbalanced feeder with a perfectly-grounded load-bus neutral. BMOPF
+# models one FOUR_LEG inverter (per-phase droop on |V_k − V_n|, with V_n = 0).
+# OpenDSS models the per-phase control as THREE independent single-phase PVSystems
+# (one per phase), each with its own InvControl monitoring its own phase voltage —
+# a single 3φ PVSystem would instead average the phases and output balanced power,
+# which is a different control law. The grounded neutral makes phase-to-ground
+# (what InvControl monitors) equal phase-to-neutral (what FOUR_LEG monitors), so
+# under genuine per-phase voltage spread the two models coincide.
+const _LC4_DSS = "New Linecode.4w nphases=4 units=km " *
+    "Rmatrix=[0.5|0.02 0.5|0.02 0.02 0.5|0.02 0.02 0.02 0.5] " *
+    "Xmatrix=[0.2|0.05 0.2|0.05 0.05 0.2|0.05 0.05 0.05 0.2] " *
+    "Cmatrix=[0|0 0|0 0 0|0 0 0 0]"
+
+function _ods_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
+    vvx = join(vcat(0.5, _AUSA_VV_X ./ _PV_VRATED, 2.0), ",")
+    vwx = join(vcat(0.5, _AUSA_VW_X ./ _PV_VRATED, 2.0), ",")
+    cmds = String[
+        "Clear",
+        "New Circuit.c basekv=$(vsrc*sqrt(3)/1000) pu=1.0 angle=0 phases=3 bus1=src.1.2.3 model=ideal",
+        "New Reactor.gs bus1=src.4 bus2=src.0 R=0.001 X=0",
+        _LC4_DSS,
+        "New Line.l1 bus1=src.1.2.3.4 bus2=lb.1.2.3.4 linecode=4w length=0.5 units=km",
+        "New Reactor.gl bus1=lb.4 bus2=lb.0 R=0.001 X=0",
+        "New XYcurve.vv npts=6 Xarray=[$vvx] Yarray=[0.44,0.44,0,0,-0.60,-0.60]",
+        "New XYcurve.vw npts=4 Xarray=[$vwx] Yarray=[1.0,1.0,0.2,0.2]"]
+    for k in 1:3
+        push!(cmds, "New Load.ld$k bus1=lb.$k.4 phases=1 kv=0.240 kW=$(loads[k]) kvar=0 " *
+                    "model=1 Vminpu=0.1 Vmaxpu=2.0")
+        push!(cmds, "New PVSystem.pv$k phases=1 conn=wye bus1=lb.$k.4 kv=0.240 kVA=$kVA Pmpp=$Pmpp " *
+                    "irradiance=1.0 pf=1 %cutin=0 %cutout=0 VarFollowInverter=yes WattPriority=No " *
+                    "kvarMax=$kVA kvarMaxAbs=$kVA Vminpu=0.1 Vmaxpu=2.0")
+    end
+    common = "voltage_curvex_ref=rated VoltageChangeTolerance=1e-5 PVSystemList=[pv1,pv2,pv3]"
+    ic = mode === :vv ?
+        "New InvControl.ic mode=VOLTVAR vvc_curve1=vv RefReactivePower=VARMAX VarChangeTolerance=0.0005 $common" :
+        mode === :vw ?
+        "New InvControl.ic mode=VOLTWATT voltwatt_curve=vw voltwattyaxis=PMPPPU ActivePChangeTolerance=0.0005 $common" :
+        "New InvControl.ic combimode=VV_VW vvc_curve1=vv voltwatt_curve=vw RefReactivePower=VARMAX " *
+            "voltwattyaxis=PMPPPU VarChangeTolerance=0.0005 ActivePChangeTolerance=0.0005 $common"
+    push!(cmds, ic)
+    append!(cmds, ["Set VoltageBases=[0.415]", "CalcVoltageBases",
+                   "Set ControlMode=Static", "Set MaxControlIter=200", "Solve"])
+    OpenDSSDirect.dss("Clear")
+    for c in cmds
+        OpenDSSDirect.dss(c)
+    end
+    d = Dict(n => v for (n, v) in
+             zip(OpenDSSDirect.Circuit.AllNodeNames(), OpenDSSDirect.Circuit.AllBusVolts()))
+    P = zeros(3); Q = zeros(3)
+    for k in 1:3
+        OpenDSSDirect.Circuit.SetActiveElement("PVSystem.pv$k")
+        pw = OpenDSSDirect.CktElement.Powers()
+        P[k] = -real(pw[1]) * 1e3
+        Q[k] = -imag(pw[1]) * 1e3
+    end
+    return d, P, Q
+end
+
+function _net_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
+    net = _net_3ph_line()
+    delete!(net, "load")
+    for k in 1:3
+        net["voltage_source"]["source"]["v_magnitude"][k] = vsrc
+    end
+    net["voltage_source"]["source"]["cost"] = [1.0, 1.0, 1.0]
+    net["bus"]["lb"]["perfectly_grounded_terminals"] = ["n"]
+
+    net["load"] = Dict{String,Any}(
+        "ld$k" => Dict{String,Any}(
+            "bus" => "lb", "terminal_map" => ["$k", "n"], "configuration" => "WYE",
+            "p_nom" => [loads[k] * 1e3], "q_nom" => [0.0]) for k in 1:3)
+
+    cp = Dict{String,Any}()
+    if mode === :vv || mode === :vvvw
+        cp["volt_var"] = Dict{String,Any}(
+            "voltage_reference" => "PN_PER_PHASE", "breakpoints" => copy(_AUSA_VV_X),
+            "q_limits" => copy(_AUSA_VV_Q), "q_unit" => "VA_FRACTION", "q_ref" => "VAR_MAX")
+    end
+    if mode === :vw || mode === :vvvw
+        cp["volt_watt"] = Dict{String,Any}(
+            "voltage_reference" => "PN_PER_PHASE", "breakpoints" => copy(_AUSA_VW_X),
+            "p_limits" => copy(_AUSA_VW_P), "p_unit" => "VA_FRACTION", "p_ref" => "P_MAX")
+    end
+    net["control_profile"] = Dict{String,Any}("cp" => cp)
+    inv = Dict{String,Any}(
+        "bus" => "lb", "terminal_map" => ["1", "2", "3", "n"],
+        "topology" => "FOUR_LEG", "prime_mover" => "PV",
+        "s_max" => fill(kVA * 1e3, 3), "p_min" => fill(0.0, 3), "p_max" => fill(Pmpp * 1e3, 3),
+        "control_profile" => "cp", "cost" => fill(0.1, 3))
+    if mode === :vw
+        inv["q_min"] = fill(0.0, 3)
+        inv["q_max"] = fill(0.0, 3)
+    end
+    net["inverter"] = Dict{String,Any}("pv" => inv)
+    return net
+end
+
 # ── Test cases ────────────────────────────────────────────────────────────────
 
 @testset "PF comparison — single-phase 2-wire line" begin
@@ -1311,6 +1409,51 @@ end
     @test sqrt(P^2 + Q^2) ≈ 6_000.0   atol=80.0   # on the apparent-power circle
     @test Q < -1_000.0                            # vars held (priority)
     @test P < 5_900.0                             # watts curtailed below kVA
+end
+
+# Per-phase comparison for the 3φ FOUR_LEG droop: every phase's node voltage and
+# injected P/Q must match the corresponding single-phase OpenDSS InvControl.
+function _check_pv_3ph_droop(params, label; atolV=1.0, atolPQ=60.0)
+    Vods, Pods, Qods = _ods_pv_3ph_droop(; params...)
+    res = solve_opf(_net_pv_3ph_droop(; params...))
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    @test abs(Vods["lb.4"]) < 0.1          # grounded neutral ≈ 0
+    b = res["bus"]["lb"]
+    @test sqrt(b["n"]["vr"]^2 + b["n"]["vi"]^2) < 1e-6
+    Pbm = Float64[]; Qbm = Float64[]
+    for k in 1:3
+        iv = res["inverter"]["pv"]["$k"]
+        push!(Pbm, iv["pg"]); push!(Qbm, iv["qg"])
+        # phase-to-neutral node voltage matches OpenDSS phase-to-ground
+        Vbm_k = abs((b["$k"]["vr"] - b["n"]["vr"]) + im * (b["$k"]["vi"] - b["n"]["vi"]))
+        Vods_k = abs(Vods["lb.$k"] - Vods["lb.4"])
+        isapprox(Vbm_k, Vods_k; atol=atolV) ||
+            @warn "$(label)phase $k: V BMOPF=$(round(Vbm_k,digits=2)) ODS=$(round(Vods_k,digits=2))"
+        @test isapprox(Vbm_k, Vods_k; atol=atolV)
+        @test iv["pg"] ≈ Pods[k]   atol=atolPQ
+        @test iv["qg"] ≈ Qods[k]   atol=atolPQ
+    end
+    return Pbm, Qbm
+end
+
+@testset "PV 3φ FOUR_LEG droop vs OpenDSS — Volt-var under unbalance" begin
+    # Unbalanced loads (0 / 5 / 14 kW) spread the phase voltages so each lands at a
+    # different point on the curve: phase 1 saturates, phases 2 and 3 sit on the
+    # slope. Matches OpenDSS's three per-phase single-phase InvControls.
+    Pbm, Qbm = _check_pv_3ph_droop((vsrc=255.0, kVA=10.0, Pmpp=7.0,
+                                    loads=[0.0, 5.0, 14.0], mode=:vv), "3ph-vv: ")
+    @test Qbm[1] ≈ -6_000.0   atol=120.0       # phase 1 saturated at -0.6·s_max
+    @test Qbm[1] < Qbm[2] < Qbm[3] < 0.0       # monotone: higher V → more absorption
+    @test all(p -> p ≈ 7_000.0, Pbm)           # volt-var only → P uncurtailed at Pmpp
+end
+
+@testset "PV 3φ FOUR_LEG droop vs OpenDSS — combined VV+VW under unbalance" begin
+    # Both laws active per phase: the high-voltage phase curtails P (volt-watt) and
+    # absorbs vars (volt-var) simultaneously; the low-voltage phase does neither.
+    Pbm, Qbm = _check_pv_3ph_droop((vsrc=255.0, kVA=12.0, Pmpp=9.0,
+                                    loads=[0.0, 5.0, 14.0], mode=:vvvw), "3ph-vvvw: ")
+    @test Qbm[1] < Qbm[3] < 0.0                # phase 1 absorbs more (higher V)
+    @test Pbm[1] < Pbm[3]                       # phase 1 curtailed more than phase 3
 end
 
 @testset "feasibility OPF honours inverters (regression)" begin
