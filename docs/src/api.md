@@ -48,7 +48,6 @@ write_yprim
 ## Conversion
 
 ```@docs
-from_pmd
 to_pmd
 from_dss
 ```

@@ -5,8 +5,7 @@ Convert a BMOPF network dict to a PowerModelsDistribution ENGINEERING
 model dictionary, suitable for passing directly to PMD's `solve_mc_*`
 functions or `transform_data_model`.
 
-This is the inverse of [`from_pmd`](@ref). The output includes the
-`"data_model" => ENGINEERING` marker that PMD expects.
+The output includes the `"data_model" => ENGINEERING` marker that PMD expects.
 
 # Key reverse mappings
 - BMOPF `terminal_names` string arrays → PMD `terminals` int arrays
@@ -19,8 +18,8 @@ This is the inverse of [`from_pmd`](@ref). The output includes the
 
 # Notes
 - A minimal `settings` dict is always included in the output.
-- If the BMOPF net contains `_pmd` sub-dicts (placed there by `from_pmd`),
-  those fields are merged back into the PMD component.
+- If the BMOPF net contains `_pmd` sub-dicts (carried through from a PMD
+  ENGINEERING source), those fields are merged back into the PMD component.
 """
 function to_pmd(net::Dict{String,Any})::Dict{String,Any}
     eng = Dict{String,Any}()

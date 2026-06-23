@@ -263,8 +263,8 @@ rating is required.
 
 **Slack cost.**  The voltage source is itself the network's current slack, so no
 slack *generator* is created. If a source has no `cost`, a per-phase cost is
-written onto the `voltage_source` (default 1.0 \$/kWh, matching the
-[`from_pmd`](@ref) convention) so imported power is priced in the objective. No
+written onto the `voltage_source` (default 1.0 \$/kWh) so imported power is
+priced in the objective. No
 flow bounds are added, so the slack stays unconstrained and the OPF can always
 find a feasible point. Controlled by the recipe's `apply_slack_generator` /
 `slack_cost` fields (names kept for backwards compatibility).

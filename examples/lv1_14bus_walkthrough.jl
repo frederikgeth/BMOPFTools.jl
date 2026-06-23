@@ -4,27 +4,23 @@
 # A real 14-bus LV feeder: 11 kV / 433 V delta-wye transformer, 9 cables,
 # 4 normally-closed switches, 2 single-phase loads, 3 neutral reactors.
 #
-# Run from the repository root (parent project, which has PowerModelsDistribution):
-#   julia --project=. BMOPFTools/examples/lv1_14bus_walkthrough.jl
-#
-# Or from inside BMOPFTools after `Pkg.develop`-ing it into a project that has PMD.
+# Run from inside BMOPFTools (PowerIO.jl is a dependency, so no extra setup):
+#   julia --project=. examples/lv1_14bus_walkthrough.jl
 # =============================================================================
 
 using BMOPFTools
-using PowerModelsDistribution
 
 sep(title) = println("\n", "─"^70, "\n  $title\n", "─"^70)
 
 # ---------------------------------------------------------------------------
-# 1. Parse OpenDSS → PMD engineering model → BMOPF dict
+# 1. Parse OpenDSS → BMOPF dict (via PowerIO.jl)
 # ---------------------------------------------------------------------------
 sep("1. Parse DSS and convert to BMOPF")
 
 dss_path = joinpath(@__DIR__, "..", "test", "data", "LV", "LV1_14bus", "Master.dss")
 println("DSS file: ", relpath(dss_path))
 
-eng = parse_file(dss_path; kron_reduce=false)
-net = from_pmd(eng)
+net = from_dss(dss_path)
 
 println("Network name : ", get(net, "name", "(unnamed)"))
 println()

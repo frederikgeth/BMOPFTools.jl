@@ -539,7 +539,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
         push!(suggestions,
             "no priced slack or generator — the generation-cost objective is " *
             "degenerate; add a cost to the voltage source at the source bus " *
-            "(from_pmd does this by default) or dispatchable DERs")
+            "(augment_case does this by default) or dispatchable DERs")
     elseif isempty(non_slack)
         push!(suggestions,
             "only slack generation — dispatch is trivial (loss minimisation); " *

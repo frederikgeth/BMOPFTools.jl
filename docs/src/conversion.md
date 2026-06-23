@@ -1,9 +1,14 @@
 # Conversion guide
 
-[`from_pmd`](@ref) converts a PowerModelsDistribution ENGINEERING dict into
-the BMOPF data model; [`to_pmd`](@ref) is its inverse. This page documents
-every deliberate decision in those converters — the things you would
-otherwise have to discover by diffing data.
+[`to_pmd`](@ref) exports a BMOPF data model to a PowerModelsDistribution
+ENGINEERING dict. This page documents every deliberate decision in that
+converter — the things you would otherwise have to discover by diffing data.
+The same field mapping (read in reverse) describes how a PMD ENGINEERING dict
+maps onto BMOPF, which is useful when comparing against PMD-based tooling.
+
+> **Note.** OpenDSS networks are now ingested directly by [`from_dss`](@ref)
+> (via PowerIO.jl), which emits BMOPF JSON without going through PMD. The
+> earlier `from_pmd` parser has been removed.
 
 ## Scaling and basic field mapping
 

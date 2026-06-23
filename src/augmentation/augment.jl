@@ -9,7 +9,7 @@ default bounds and constraints for any fields that are absent.
 
 # Arguments
 - `net`      — a BMOPF network dict (from [`parse_bmopf`](@ref) or
-               [`from_pmd`](@ref))
+               [`from_dss`](@ref))
 - `recipe`   — an [`AugmentationRecipe`](@ref) controlling which passes run
                and what defaults to use; see [`default_recipe`](@ref)
 - `analysis` — output of [`analyze`](@ref) or a dict containing at least

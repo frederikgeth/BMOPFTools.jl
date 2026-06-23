@@ -51,10 +51,10 @@ using Pkg
 Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl")
 ```
 
-Parsing, validation, analysis, reporting, and the PowerModelsDistribution
-converters (`from_pmd` / `to_pmd`) work out of the box — PMD is a direct
-dependency. Two capabilities pull in extra tooling, activated only when you
-load it:
+Parsing, validation, analysis, reporting, OpenDSS ingestion (`from_dss`, via
+the [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) dependency), and the
+`to_pmd` exporter work out of the box. One capability pulls in extra tooling,
+activated only when you load it:
 
 - **OPF / power flow** (`solve_opf`, `solve_pf`, `solve_feasibility_opf`) lives
   in a package extension that is loaded once **JuMP** and a solver such as
@@ -63,10 +63,6 @@ load it:
   ```julia
   Pkg.add(["JuMP", "Ipopt"])
   ```
-
-- **OpenDSS ingestion via powerio** (`from_dss`) requires the
-  [powerio](https://github.com/eigenergy/powerio) binary on `PATH` (or set the
-  `BMOPFTOOLS_POWERIO_PATH` environment variable).
 
 !!! note "Tracking a moving target"
     The package is under rapid development, with breaking changes landing
@@ -107,30 +103,21 @@ errors(report)     # bound violations and infeasibility findings
 warnings(report)   # near-active bounds and residual warnings
 ```
 
-Converting from OpenDSS via PowerModelsDistribution:
-
-```julia
-using BMOPFTools, PowerModelsDistribution
-
-eng = parse_file("Master.dss"; kron_reduce=false)   # keep 4-wire detail
-net = from_pmd(eng)        # prices the slack on the voltage source by default
-write_bmopf(net, "case.json")
-analyze(net) |> r -> render(r, "case_report.md")
-```
-
-Or directly from OpenDSS via powerio (requires the `powerio` binary on `PATH`):
+Converting from OpenDSS (parsed in-process by PowerIO.jl):
 
 ```julia
 using BMOPFTools
 
 net = from_dss("Master.dss")
+write_bmopf(net, "case.json")
+analyze(net) |> r -> render(r, "case_report.md")
 ```
 
 ## The pipeline
 
 ```
-OpenDSS .dss ──(powerio)──► BMOPF Dict{String,Any} ◄──── parse_bmopf ◄── BMOPF JSON
-OpenDSS .dss ──(PMD)──► ENGINEERING dict ──(from_pmd)──┘          └──── write_bmopf
+OpenDSS .dss ──(from_dss / PowerIO.jl)──► BMOPF Dict{String,Any} ◄── parse_bmopf ◄── BMOPF JSON
+                                                 │               └──── write_bmopf
                                                  │ analyze
                                                  ▼
                                           SummaryReport ──► render

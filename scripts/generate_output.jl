@@ -31,7 +31,6 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
 using BMOPFTools
-using PowerModelsDistribution
 using Logging
 using Dates
 
@@ -210,14 +209,13 @@ let ok = 0, failed = 0
         print("  $dataset / $stem … ")
         t0 = time()
         try
-            eng = with_logger(NullLogger()) do
-                PowerModelsDistribution.parse_file(master; kron_reduce=false)
+            net_orig = with_logger(NullLogger()) do
+                from_dss(master)
             end
-            net_orig = from_pmd(eng)
             net_orig["name"] = name
             meta !== nothing && (net_orig["meta"] = meta)
 
-            # Sideload bus coordinates for D-Suite cases (PMD ignores Buscoords).
+            # Sideload bus coordinates for D-Suite cases (the parser ignores Buscoords).
             # Coordinates from the original network propagate automatically to the
             # reduced network because simplify_network preserves bus dicts.
             coord_note = ""

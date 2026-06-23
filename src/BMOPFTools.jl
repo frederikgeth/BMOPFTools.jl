@@ -6,13 +6,12 @@ BMOPF-format distribution network datasets.
 
 The network data model is a plain `Dict{String,Any}` that mirrors the
 BMOPF JSON schema exactly. No custom wrapper types are used for network
-data, so data flows naturally to and from PowerModelsDistribution and
-JSON without conversion.
+data, so data flows naturally to and from JSON without conversion.
 
 # Public API
 
     net    = parse_bmopf(path)          # load from BMOPF JSON file
-    net    = from_pmd(eng)              # convert PMD ENGINEERING dict
+    net    = from_dss("Master.dss")     # parse OpenDSS (via PowerIO.jl)
     report = analyze(net)               # run all analyses
     render(report, stdout)              # terminal output
     render(report, "report.md")         # markdown file
