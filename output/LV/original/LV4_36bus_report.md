@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV4_36bus
 
-**Generated:** 2026-06-23 21:02:37  
+**Generated:** 2026-06-23 21:34:02  
 **Findings:** 0 errors · 2 warnings · 21 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 3 grounding point(s)
 
@@ -33,7 +33,7 @@
 
 **Transformer transitions:**
 
-- `Tx377`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `tx377`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -78,14 +78,14 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| Tx377 | 500.0 kVA | 2.3% |
+| tx377 | 500.0 kVA | 2.3% |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.01 MW).
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1151' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1151' has no load connected to phase terminal 'c'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B3271' has no load connected to phase terminal 'a'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B3271' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B3271' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1151' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1151' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b3271' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b3271' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b3271' has no load connected to phase terminal 'c'.
 
 ## 6. Infeasibility Pre-flight
 
@@ -142,7 +142,7 @@
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 > 🔵 **[I.PROV.DSS_DEFAULT_PF]** 1 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
 > 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_KR]** 9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_512' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_512' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 
 ## 8. Spec Conformance & Benchmark Readiness
 
@@ -193,15 +193,15 @@
 ### 🔵 Info
 
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B1151' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b1151' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B1151' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b1151' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B3271' has no load connected to phase terminal 'a'.
+  Galvanic zone anchored at bus 'b3271' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B3271' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b3271' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B3271' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b3271' has no load connected to phase terminal 'c'.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
@@ -218,8 +218,8 @@
   1 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
 - **[I.PROV.IMPEDANCE_TRANSFORM_KR]** `linecode`  
   9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
-- **[I.PROV.LINE_SWITCH_LIKE]** `L_512`  
-  Line 'L_512' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `l_512`  
+  Line 'l_512' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
   37 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
 - **[I.PRE.SINGLE_SOURCE]** `network`  

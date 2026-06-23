@@ -1,19 +1,19 @@
 # Network graph  (14 buses)
 
-B325 (SRC)
-└── [Tx2831: Dyn0 11.0kV/433V]── B1090
-    ├── B1438
-    │   └── [SW]── B2493
-    │       └── B2911
-    │           ├── B105
-    │           │   └── [SW]── B432
-    │           ├── B1400
-    │           ├── B2635
-    │           │   ├── [SW]── B1335
-    │           │   └── B635 (L1)
-    │           └── B976
-    │               └── [SW]── B574
-    └── B2944
+b325 (SRC)
+└── [tx2831: Dyn0 11.0kV/433V]── b1090
+    ├── b1438
+    │   └── [SW]── b2493
+    │       └── b2911
+    │           ├── b105
+    │           │   └── [SW]── b432
+    │           ├── b1400
+    │           ├── b2635
+    │           │   ├── [SW]── b1335
+    │           │   └── b635 (L1)
+    │           └── b976
+    │               └── [SW]── b574
+    └── b2944
 
 Loads (1 total):
-  L1 = Ld4032_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L1 = ld4032_load_a      10.0 kW  SINGLE_PHASE  terminals: a,n

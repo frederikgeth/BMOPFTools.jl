@@ -44,20 +44,20 @@ sourcebus (SRC)
                                         ⋮  (12 buses)
 
 Loads (17 total):
-  L1 = LOAD1              1.97 kW  SINGLE_PHASE  terminals: a,n
-  L2 = LOAD10             0.27 kW  SINGLE_PHASE  terminals: b,n
-  L3 = LOAD11             0.33 kW  SINGLE_PHASE  terminals: c,n
-  L4 = LOAD12             0.33 kW  SINGLE_PHASE  terminals: a,n
-  L5 = LOAD13             0.25 kW  SINGLE_PHASE  terminals: c,n
-  L6 = LOAD14             2.04 kW  SINGLE_PHASE  terminals: a,n
-  L7 = LOAD15             0.83 kW  SINGLE_PHASE  terminals: a,n
-  L8 = LOAD16             0.11 kW  SINGLE_PHASE  terminals: a,n
-  L9 = LOAD17             0.29 kW  SINGLE_PHASE  terminals: a,n
-  L10 = LOAD2              0.31 kW  SINGLE_PHASE  terminals: a,n
-  L11 = LOAD3              2.94 kW  SINGLE_PHASE  terminals: b,n
-  L12 = LOAD4              0.32 kW  SINGLE_PHASE  terminals: c,n
-  L13 = LOAD5              1.33 kW  SINGLE_PHASE  terminals: a,n
-  L14 = LOAD6              3.05 kW  SINGLE_PHASE  terminals: b,n
-  L15 = LOAD7              2.06 kW  SINGLE_PHASE  terminals: b,n
-  L16 = LOAD8              0.29 kW  SINGLE_PHASE  terminals: a,n
-  L17 = LOAD9              0.31 kW  SINGLE_PHASE  terminals: a,n
+  L1 = load1              1.97 kW  SINGLE_PHASE  terminals: a,n
+  L2 = load10             0.27 kW  SINGLE_PHASE  terminals: b,n
+  L3 = load11             0.33 kW  SINGLE_PHASE  terminals: c,n
+  L4 = load12             0.33 kW  SINGLE_PHASE  terminals: a,n
+  L5 = load13             0.25 kW  SINGLE_PHASE  terminals: c,n
+  L6 = load14             2.04 kW  SINGLE_PHASE  terminals: a,n
+  L7 = load15             0.83 kW  SINGLE_PHASE  terminals: a,n
+  L8 = load16             0.11 kW  SINGLE_PHASE  terminals: a,n
+  L9 = load17             0.29 kW  SINGLE_PHASE  terminals: a,n
+  L10 = load2              0.31 kW  SINGLE_PHASE  terminals: a,n
+  L11 = load3              2.94 kW  SINGLE_PHASE  terminals: b,n
+  L12 = load4              0.32 kW  SINGLE_PHASE  terminals: c,n
+  L13 = load5              1.33 kW  SINGLE_PHASE  terminals: a,n
+  L14 = load6              3.05 kW  SINGLE_PHASE  terminals: b,n
+  L15 = load7              2.06 kW  SINGLE_PHASE  terminals: b,n
+  L16 = load8              0.29 kW  SINGLE_PHASE  terminals: a,n
+  L17 = load9              0.31 kW  SINGLE_PHASE  terminals: a,n

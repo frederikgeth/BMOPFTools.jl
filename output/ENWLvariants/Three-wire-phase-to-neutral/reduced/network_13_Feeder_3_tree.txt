@@ -8,5 +8,5 @@ sourcebus (SRC)
         └── 84 (L1)
 
 Loads (2 total):
-  L1 = LOAD1              1.97 kW  SINGLE_PHASE  terminals: a,n
-  L2 = LOAD2              0.31 kW  SINGLE_PHASE  terminals: b,n
+  L1 = load1              1.97 kW  SINGLE_PHASE  terminals: a,n
+  L2 = load2              0.31 kW  SINGLE_PHASE  terminals: b,n

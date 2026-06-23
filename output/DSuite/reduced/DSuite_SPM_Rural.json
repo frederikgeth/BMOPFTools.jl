@@ -1,50 +1,6 @@
 {
   "voltage_source": {
     "source": {
-      "cost": [
-        1,
-        1,
-        1
-      ],
-      "_pmd": {
-        "rs": [
-          1.697627457889352e-8,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.697627457889352e-8,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.697627457889352e-8,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.5731936544313819e-9,
-          1.697627457889352e-8
-        ],
-        "xs": [
-          6.119754435298866e-8,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          6.119754435298866e-8,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          6.119754435298866e-8,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          -4.147793448598998e-10,
-          6.119754435298866e-8
-        ],
-        "configuration": "WYE"
-      },
       "v_magnitude": [
         6414.361490696742,
         6414.361490696742,
@@ -52,9 +8,9 @@
         0.0
       ],
       "terminal_map": [
-        "1",
-        "2",
-        "3",
+        "a",
+        "b",
+        "c",
         "n"
       ],
       "bus": "sourcebus",
@@ -66,21 +22,20 @@
       ]
     }
   },
-  "name": "DSuite_SPM_Rural",
   "line": {
     "9261568": {
       "length": 6.55,
       "bus_from": "17582398",
       "bus_to": "17582397",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_50_abc"
     },
@@ -89,14 +44,14 @@
       "bus_from": "17582390",
       "bus_to": "17582392",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_50_oal"
     },
@@ -105,14 +60,14 @@
       "bus_from": "17582384",
       "bus_to": "17582385",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "unknown_lv_ohline_m"
     },
@@ -121,14 +76,14 @@
       "bus_from": "17582387",
       "bus_to": "14487219",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_35_abc"
     },
@@ -137,14 +92,14 @@
       "bus_from": "17382314",
       "bus_to": "14489647",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_35_al_acs"
     },
@@ -153,14 +108,14 @@
       "bus_from": "14487267",
       "bus_to": "14488442",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_35_al_hybrid"
     },
@@ -169,166 +124,94 @@
       "bus_from": "sourcebus",
       "bus_to": "sourcebusz",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
-      "_pmd": {
-        "b_fr": [
-          1.4000000000000001,
-          -0.30000000000000004,
-          -0.30000000000000004,
-          -0.30000000000000004,
-          1.4000000000000001,
-          -0.30000000000000004,
-          -0.30000000000000004,
-          -0.30000000000000004,
-          1.4000000000000001
-        ],
-        "rs": [
-          401.57562666666666,
-          401.0621866666667,
-          401.0621866666667,
-          401.0621866666667,
-          401.57562666666666,
-          401.0621866666667,
-          401.0621866666667,
-          401.0621866666667,
-          401.57562666666666
-        ],
-        "cm_ub": [
-          600,
-          600,
-          600
-        ],
-        "xs": [
-          1205.0357999999999,
-          1202.9821,
-          1202.9821,
-          1202.9821,
-          1205.0357999999999,
-          1202.9821,
-          1202.9821,
-          1202.9821,
-          1205.0357999999999
-        ],
-        "g_to": [
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
-        ],
-        "b_to": [
-          1.4000000000000001,
-          -0.30000000000000004,
-          -0.30000000000000004,
-          -0.30000000000000004,
-          1.4000000000000001,
-          -0.30000000000000004,
-          -0.30000000000000004,
-          -0.30000000000000004,
-          1.4000000000000001
-        ],
-        "g_fr": [
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
-        ]
-      }
-    },
-    "3791369": {
-      "length": 3.01,
-      "bus_from": "17382314",
-      "bus_to": "17582399",
-      "terminal_map_from": [
-        "1",
-        "2",
-        "3"
-      ],
-      "terminal_map_to": [
-        "1",
-        "2",
-        "3"
-      ],
-      "linecode": "cable_230v_25_al"
-    },
-    "469765": {
-      "length": 1.11,
-      "bus_from": "17582395",
-      "bus_to": "14487256",
-      "terminal_map_from": [
-        "1",
-        "2",
-        "3"
-      ],
-      "terminal_map_to": [
-        "1",
-        "2",
-        "3"
-      ],
-      "linecode": "ohl_230v_0.0225_ocu"
-    },
-    "469234": {
-      "length": 3.03,
-      "bus_from": "17382325",
-      "bus_to": "14485921",
-      "terminal_map_from": [
-        "1",
-        "2",
-        "3"
-      ],
-      "terminal_map_to": [
-        "1",
-        "2",
-        "3"
-      ],
-      "linecode": "ohl_230v_25_oal"
+      "linecode": "_line_sourcez"
     },
     "2554743": {
       "length": 2.85,
       "bus_from": "17382322",
       "bus_to": "14489699",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_35_al_acs"
+    },
+    "3791369": {
+      "length": 3.01,
+      "bus_from": "17382314",
+      "bus_to": "17582399",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c"
+      ],
+      "linecode": "cable_230v_25_al"
+    },
+    "469234": {
+      "length": 3.03,
+      "bus_from": "17382325",
+      "bus_to": "14485921",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c"
+      ],
+      "linecode": "ohl_230v_25_oal"
+    },
+    "469765": {
+      "length": 1.11,
+      "bus_from": "17582395",
+      "bus_to": "14487256",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c"
+      ],
+      "linecode": "ohl_230v_0.0225_ocu"
     },
     "470426": {
       "length": 2.67,
       "bus_from": "14487237",
       "bus_to": "17582394",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_35_abc"
     },
@@ -337,14 +220,14 @@
       "bus_from": "17582390",
       "bus_to": "14489686",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -353,14 +236,14 @@
       "bus_from": "17382310",
       "bus_to": "14487270",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -369,14 +252,14 @@
       "bus_from": "14489710",
       "bus_to": "17582399",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "unknown_lv_ohline_m"
     },
@@ -385,14 +268,14 @@
       "bus_from": "17382313",
       "bus_to": "17382312",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_95_al"
     },
@@ -401,14 +284,14 @@
       "bus_from": "17382314",
       "bus_to": "14489707",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -417,14 +300,14 @@
       "bus_from": "17382322",
       "bus_to": "14489696",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_35_al_acs"
     },
@@ -433,14 +316,14 @@
       "bus_from": "14487264",
       "bus_to": "14489653",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_25_cu"
     },
@@ -449,14 +332,14 @@
       "bus_from": "17582395",
       "bus_to": "14487258",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_25_oal"
     },
@@ -465,14 +348,14 @@
       "bus_from": "17582385",
       "bus_to": "17582387",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "unknown_lv_ohline_m"
     },
@@ -481,14 +364,14 @@
       "bus_from": "9112626",
       "bus_to": "9586139",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "busbar"
     },
@@ -497,14 +380,14 @@
       "bus_from": "17382310",
       "bus_to": "17382322",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_95_al"
     },
@@ -513,14 +396,14 @@
       "bus_from": "17582396",
       "bus_to": "17582398",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_50_abc"
     },
@@ -529,14 +412,14 @@
       "bus_from": "17382314",
       "bus_to": "17382315",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_50_abc"
     },
@@ -545,14 +428,14 @@
       "bus_from": "17382311",
       "bus_to": "17382313",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_50_oal"
     },
@@ -561,14 +444,14 @@
       "bus_from": "17382325",
       "bus_to": "17382310",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.05_oal"
     },
@@ -577,14 +460,14 @@
       "bus_from": "17582393",
       "bus_to": "14487241",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_25_al"
     },
@@ -593,14 +476,14 @@
       "bus_from": "14489656",
       "bus_to": "14489653",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_25_cu"
     },
@@ -609,14 +492,14 @@
       "bus_from": "17382325",
       "bus_to": "14489678",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_25_al"
     },
@@ -625,16 +508,32 @@
       "bus_from": "17582399",
       "bus_to": "14487245",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
+    },
+    "468942": {
+      "length": 5.38,
+      "bus_from": "17582396",
+      "bus_to": "17582395",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c"
+      ],
+      "linecode": "ohl_230v_50_abc"
     },
     "7169888": {
       "length": 0.19419999999999998,
@@ -644,46 +543,30 @@
       "bus_from": "17582388",
       "bus_to": "9586139",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "connector"
-    },
-    "468942": {
-      "length": 5.38,
-      "bus_from": "17582396",
-      "bus_to": "17582395",
-      "terminal_map_from": [
-        "1",
-        "2",
-        "3"
-      ],
-      "terminal_map_to": [
-        "1",
-        "2",
-        "3"
-      ],
-      "linecode": "ohl_230v_50_abc"
     },
     "469231": {
       "length": 3.52,
       "bus_from": "17582388",
       "bus_to": "17382311",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "unknown_lv_ohline_m"
     },
@@ -692,14 +575,14 @@
       "bus_from": "17582387",
       "bus_to": "17382311",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "unknown_lv_ohline_m"
     },
@@ -708,14 +591,14 @@
       "bus_from": "17582392",
       "bus_to": "17582394",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_50_oal"
     },
@@ -724,14 +607,14 @@
       "bus_from": "17382315",
       "bus_to": "17582400",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -740,14 +623,14 @@
       "bus_from": "17382314",
       "bus_to": "17582396",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_50_abc"
     },
@@ -756,14 +639,14 @@
       "bus_from": "17582386",
       "bus_to": "14487228",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -772,14 +655,14 @@
       "bus_from": "17582384",
       "bus_to": "14489704",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -788,14 +671,14 @@
       "bus_from": "17382312",
       "bus_to": "14489680",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_25_al"
     },
@@ -804,14 +687,14 @@
       "bus_from": "14487232",
       "bus_to": "17582390",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_25_oal"
     },
@@ -820,14 +703,14 @@
       "bus_from": "17382315",
       "bus_to": "14487264",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -836,14 +719,14 @@
       "bus_from": "17582392",
       "bus_to": "14487239",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -852,14 +735,14 @@
       "bus_from": "17582393",
       "bus_to": "17582394",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_35_abc"
     },
@@ -868,14 +751,14 @@
       "bus_from": "17582391",
       "bus_to": "14487234",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -884,14 +767,14 @@
       "bus_from": "17582390",
       "bus_to": "17582391",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "unknown_lv_ohline_m"
     },
@@ -900,14 +783,14 @@
       "bus_from": "14489659",
       "bus_to": "14489656",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_25_cu"
     },
@@ -916,14 +799,14 @@
       "bus_from": "17582386",
       "bus_to": "17582384",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "unknown_lv_ohline_m"
     },
@@ -932,62 +815,62 @@
       "bus_from": "17582394",
       "bus_to": "14487248",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_35_abc"
-    },
-    "9245781": {
-      "length": 6.66,
-      "bus_from": "17382313",
-      "bus_to": "17582390",
-      "terminal_map_from": [
-        "1",
-        "2",
-        "3"
-      ],
-      "terminal_map_to": [
-        "1",
-        "2",
-        "3"
-      ],
-      "linecode": "ohl_230v_50_oal"
     },
     "470424": {
       "length": 2.56,
       "bus_from": "17582398",
       "bus_to": "14487253",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_25_oal"
+    },
+    "9245781": {
+      "length": 6.66,
+      "bus_from": "17382313",
+      "bus_to": "17582390",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c"
+      ],
+      "linecode": "ohl_230v_50_oal"
     },
     "9283707": {
       "length": 5.21,
       "bus_from": "17582394",
       "bus_to": "17382314",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_50_oal"
     },
@@ -996,14 +879,14 @@
       "bus_from": "14489647",
       "bus_to": "14489644",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_35_al_acs"
     },
@@ -1012,14 +895,14 @@
       "bus_from": "17582386",
       "bus_to": "14487230",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_25_oal"
     },
@@ -1028,14 +911,14 @@
       "bus_from": "17382314",
       "bus_to": "14487250",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -1044,30 +927,46 @@
       "bus_from": "17382325",
       "bus_to": "14489661",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_35_al_act"
+    },
+    "2554709": {
+      "length": 1.79,
+      "bus_from": "17582400",
+      "bus_to": "14487267",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c"
+      ],
+      "linecode": "cable_230v_35_al_hybrid"
     },
     "469759": {
       "length": 2.04,
       "bus_from": "17582387",
       "bus_to": "14487225",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_0.0225_ocu"
     },
@@ -1076,14 +975,14 @@
       "bus_from": "17582397",
       "bus_to": "14487261",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "ohl_230v_35_abc"
     },
@@ -1092,39 +991,24 @@
       "bus_from": "17382322",
       "bus_to": "17382311",
       "terminal_map_from": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "terminal_map_to": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "linecode": "cable_230v_95_al"
-    },
-    "2554709": {
-      "length": 1.79,
-      "bus_from": "17582400",
-      "bus_to": "14487267",
-      "terminal_map_from": [
-        "1",
-        "2",
-        "3"
-      ],
-      "terminal_map_to": [
-        "1",
-        "2",
-        "3"
-      ],
-      "linecode": "cable_230v_35_al_hybrid"
     }
   },
+  "name": "DSuite_SPM_Rural",
   "meta": {
     "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json",
     "source": "D-Suite Alpha v1.1",
     "reference": "M. Deakin, DOI: 10.25405/data.ncl.27175317",
-    "created": "2026-06-22T03:58:31Z",
+    "created": "2026-06-23T11:26:49Z",
     "generator": {
       "version": "0.1.0",
       "tool": "BMOPFTools.jl"
@@ -1134,92 +1018,24 @@
   "transformer": {
     "delta_wye": {
       "dist_transformer_20277986_9112626": {
-        "x_series_to": 0.0210975625,
-        "_pmd": {
-          "polarity": [
-            1,
-            -1
-          ],
-          "name": "dist_transformer_20277986_9112626",
-          "sm_ub": 300,
-          "tm_fix": [
-            [
-              true,
-              true,
-              true
-            ],
-            [
-              true,
-              true,
-              true
-            ]
-          ],
-          "tm_lb": [
-            [
-              0.9,
-              0.9,
-              0.9
-            ],
-            [
-              0.9,
-              0.9,
-              0.9
-            ]
-          ],
-          "tm_ub": [
-            [
-              1.1,
-              1.1,
-              1.1
-            ],
-            [
-              1.1,
-              1.1,
-              1.1
-            ]
-          ],
-          "tm_set": [
-            [
-              1,
-              1,
-              1
-            ],
-            [
-              1,
-              1,
-              1
-            ]
-          ],
-          "tm_step": [
-            [
-              0.03125,
-              0.03125,
-              0.03125
-            ],
-            [
-              0.03125,
-              0.03125,
-              0.03125
-            ]
-          ]
-        },
+        "x_series_to": 0,
         "s_rating": 200000,
         "terminal_map_to": [
-          "1",
-          "2",
-          "3",
+          "a",
+          "b",
+          "c",
           "n"
         ],
-        "r_series_from": 2.0957814771583414,
-        "x_series_from": 25.673323095189684,
+        "r_series_from": 0.0034445,
+        "x_series_from": 0.042195125,
         "bus_from": "sourcebusz",
         "terminal_map_from": [
-          "1",
-          "2",
-          "3"
+          "a",
+          "b",
+          "c"
         ],
         "v_ref_from": 11000,
-        "r_series_to": 0.00172225,
+        "r_series_to": 0,
         "v_ref_to": 415,
         "bus_to": "9112626"
       }
@@ -1230,16 +1046,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14487267",
@@ -1249,16 +1060,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14489661",
@@ -1268,16 +1074,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "17582398",
@@ -1287,16 +1088,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "17582392",
@@ -1306,16 +1102,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14489686",
@@ -1325,16 +1116,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14487258",
@@ -1344,16 +1130,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14487232",
@@ -1363,16 +1144,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "17382325",
@@ -1382,16 +1158,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14489710",
@@ -1401,16 +1172,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "17382325",
@@ -1420,16 +1186,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "17582388",
@@ -1439,16 +1200,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14487245",
@@ -1458,16 +1214,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "17582398",
@@ -1477,16 +1228,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14487270",
@@ -1496,16 +1242,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14487239",
@@ -1515,16 +1256,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14489699",
@@ -1534,16 +1270,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14487261",
@@ -1553,16 +1284,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "17382315",
@@ -1572,16 +1298,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "17382315",
@@ -1591,16 +1312,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "17582385",
@@ -1610,16 +1326,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "17582385",
@@ -1629,16 +1340,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14489707",
@@ -1648,16 +1354,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14487228",
@@ -1667,16 +1368,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "17582388",
@@ -1686,16 +1382,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14489656",
@@ -1705,16 +1396,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "17582392",
@@ -1724,73 +1410,53 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14487219",
-      "configuration": "SINGLE_PHASE"
-    },
-    "load_14489678": {
-      "p_nom": [
-        1000
-      ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
-      "q_nom": [
-        0
-      ],
-      "terminal_map": [
-        "2",
-        "n"
-      ],
-      "bus": "14489678",
       "configuration": "SINGLE_PHASE"
     },
     "load_14489659": {
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14489659",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load_14489678": {
+      "p_nom": [
+        1000
+      ],
+      "q_nom": [
+        0
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "14489678",
       "configuration": "SINGLE_PHASE"
     },
     "load_14487248": {
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14487248",
@@ -1800,73 +1466,53 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "17582388",
-      "configuration": "SINGLE_PHASE"
-    },
-    "load_14489647": {
-      "p_nom": [
-        1000
-      ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
-      "q_nom": [
-        0
-      ],
-      "terminal_map": [
-        "3",
-        "n"
-      ],
-      "bus": "14489647",
       "configuration": "SINGLE_PHASE"
     },
     "load_14487230": {
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14487230",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load_14489647": {
+      "p_nom": [
+        1000
+      ],
+      "q_nom": [
+        0
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "14489647",
       "configuration": "SINGLE_PHASE"
     },
     "load_14487253": {
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14487253",
@@ -1876,16 +1522,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "17582398",
@@ -1895,16 +1536,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "9112626",
@@ -1914,16 +1550,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "17582392",
@@ -1933,16 +1564,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "17382325",
@@ -1952,16 +1578,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14487264",
@@ -1971,16 +1592,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "17582385",
@@ -1990,16 +1606,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14487234",
@@ -2009,16 +1620,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14489644",
@@ -2028,16 +1634,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14489704",
@@ -2047,16 +1648,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14488442",
@@ -2066,16 +1662,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14487250",
@@ -2085,16 +1676,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14487256",
@@ -2104,16 +1690,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14487225",
@@ -2123,16 +1704,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "14489680",
@@ -2142,16 +1718,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14489696",
@@ -2161,16 +1732,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14487241",
@@ -2180,16 +1746,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "9112626",
@@ -2199,16 +1760,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "14487237",
@@ -2218,16 +1774,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14489653",
@@ -2237,16 +1788,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "2",
+        "b",
         "n"
       ],
       "bus": "17382315",
@@ -2256,16 +1802,11 @@
       "p_nom": [
         1000
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "1",
+        "a",
         "n"
       ],
       "bus": "14485921",
@@ -2275,16 +1816,11 @@
       "p_nom": [
         0
       ],
-      "_pmd": {
-        "model": "POWER",
-        "vm_nom": 0.2396003617136947,
-        "dispatchable": "NO"
-      },
       "q_nom": [
         0
       ],
       "terminal_map": [
-        "3",
+        "c",
         "n"
       ],
       "bus": "9112626",
@@ -2557,983 +2093,781 @@
   "bus": {
     "sourcebusz": {
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ]
     },
     "17382310": {
       "latitude": -0.0129,
-      "_pmd": {
-        "lat": -0.0129,
-        "lon": -0.00068
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": -0.00068
     },
     "9112626": {
       "latitude": 0,
-      "_pmd": {
-        "lat": 0,
-        "lon": 0
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0
+      "longitude": 0,
+      "neutral_terminal": "n"
     },
     "17582392": {
       "latitude": 0.00115,
-      "_pmd": {
-        "lat": 0.00115,
-        "lon": 0.0211
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0211
+      "longitude": 0.0211,
+      "neutral_terminal": "n"
     },
     "14487239": {
       "latitude": -0.00108,
-      "_pmd": {
-        "lat": -0.00108,
-        "lon": 0.0205
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
-        "n"
+        "4"
       ],
-      "longitude": 0.0205
-    },
-    "17582385": {
-      "latitude": -0.00072,
-      "_pmd": {
-        "lat": -0.00072,
-        "lon": -0.0163
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3",
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "perfectly_grounded_terminals": [
-        "n"
-      ],
-      "longitude": -0.0163
+      "longitude": 0.0205,
+      "neutral_terminal": "n"
     },
     "14487256": {
       "latitude": 0.0105,
-      "_pmd": {
-        "lat": 0.0105,
-        "lon": 0.0314
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0314
+      "longitude": 0.0314,
+      "neutral_terminal": "n"
+    },
+    "17582385": {
+      "latitude": -0.00072,
+      "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "longitude": -0.0163,
+      "neutral_terminal": "n"
     },
     "17382315": {
       "latitude": 0.00154,
-      "_pmd": {
-        "lat": 0.00154,
-        "lon": 0.0485
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0485
+      "longitude": 0.0485,
+      "neutral_terminal": "n"
     },
     "14487248": {
       "latitude": 0.00319,
-      "_pmd": {
-        "lat": 0.00319,
-        "lon": 0.031
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.031
+      "longitude": 0.031,
+      "neutral_terminal": "n"
     },
     "14487250": {
       "latitude": 0.00362,
-      "_pmd": {
-        "lat": 0.00362,
-        "lon": 0.0343
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0343
+      "longitude": 0.0343,
+      "neutral_terminal": "n"
     },
     "17582398": {
       "latitude": 0.015,
-      "_pmd": {
-        "lat": 0.015,
-        "lon": 0.0352
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0352
+      "longitude": 0.0352,
+      "neutral_terminal": "n"
     },
     "17582399": {
       "latitude": -0.00185,
-      "_pmd": {
-        "lat": -0.00185,
-        "lon": 0.0362
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0362
     },
     "14487230": {
       "latitude": 0.00653,
-      "_pmd": {
-        "lat": 0.00653,
-        "lon": -0.00968
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": -0.00968
+      "longitude": -0.00968,
+      "neutral_terminal": "n"
     },
     "14487264": {
       "latitude": 0.00417,
-      "_pmd": {
-        "lat": 0.00417,
-        "lon": 0.0488
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0488
+      "longitude": 0.0488,
+      "neutral_terminal": "n"
     },
     "17582400": {
       "latitude": 0.00485,
-      "_pmd": {
-        "lat": 0.00485,
-        "lon": 0.0457
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0457
     },
     "14487261": {
       "latitude": 0.0227,
-      "_pmd": {
-        "lat": 0.0227,
-        "lon": 0.0299
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0299
+      "longitude": 0.0299,
+      "neutral_terminal": "n"
     },
     "14489653": {
       "latitude": 0.00393,
-      "_pmd": {
-        "lat": 0.00393,
-        "lon": 0.05
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.05
+      "longitude": 0.05,
+      "neutral_terminal": "n"
     },
     "17582388": {
       "latitude": -0.00024,
-      "_pmd": {
-        "lat": -0.00024,
-        "lon": 0
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0
+      "longitude": 0,
+      "neutral_terminal": "n"
     },
     "17382325": {
       "latitude": -0.0207,
-      "_pmd": {
-        "lat": -0.0207,
-        "lon": -0.00731
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": -0.00731
+      "longitude": -0.00731,
+      "neutral_terminal": "n"
     },
     "14489647": {
       "latitude": 0.00391,
-      "_pmd": {
-        "lat": 0.00391,
-        "lon": 0.0409
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0409
+      "longitude": 0.0409,
+      "neutral_terminal": "n"
     },
     "17382314": {
       "latitude": 0.00101,
-      "_pmd": {
-        "lat": 0.00101,
-        "lon": 0.0353
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0353
     },
     "14487219": {
       "latitude": -0.00341,
-      "_pmd": {
-        "lat": -0.00341,
-        "lon": -0.00758
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": -0.00758
+      "longitude": -0.00758,
+      "neutral_terminal": "n"
     },
     "17582394": {
       "latitude": 0.00122,
-      "_pmd": {
-        "lat": 0.00122,
-        "lon": 0.0302
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0302
     },
     "14489699": {
       "latitude": -0.00513,
-      "_pmd": {
-        "lat": -0.00513,
-        "lon": 0.0025
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0025
+      "longitude": 0.0025,
+      "neutral_terminal": "n"
     },
     "14487241": {
       "latitude": -0.00319,
-      "_pmd": {
-        "lat": -0.00319,
-        "lon": 0.029
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
-        "n"
+        "4"
       ],
-      "longitude": 0.029
-    },
-    "14489704": {
-      "latitude": -0.00122,
-      "_pmd": {
-        "lat": -0.00122,
-        "lon": -0.0135
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3",
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "perfectly_grounded_terminals": [
-        "n"
-      ],
-      "longitude": -0.0135
+      "longitude": 0.029,
+      "neutral_terminal": "n"
     },
     "14487237": {
       "latitude": 0.00372,
-      "_pmd": {
-        "lat": 0.00372,
-        "lon": 0.0292
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0292
+      "longitude": 0.0292,
+      "neutral_terminal": "n"
+    },
+    "14489704": {
+      "latitude": -0.00122,
+      "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "longitude": -0.0135,
+      "neutral_terminal": "n"
     },
     "17582387": {
       "latitude": -0.000984,
-      "_pmd": {
-        "lat": -0.000984,
-        "lon": -0.00877
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": -0.00877
     },
     "17582386": {
       "latitude": 0.00173,
-      "_pmd": {
-        "lat": 0.00173,
-        "lon": -0.00913
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": -0.00913
     },
     "14487228": {
       "latitude": 0.00178,
-      "_pmd": {
-        "lat": 0.00178,
-        "lon": -0.00715
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": -0.00715
+      "longitude": -0.00715,
+      "neutral_terminal": "n"
     },
     "14489678": {
       "latitude": -0.016,
-      "_pmd": {
-        "lat": -0.016,
-        "lon": -0.00989
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": -0.00989
+      "longitude": -0.00989,
+      "neutral_terminal": "n"
     },
     "17582384": {
       "latitude": -0.00072,
-      "_pmd": {
-        "lat": -0.00072,
-        "lon": -0.0164
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": -0.0164
     },
     "14487234": {
       "latitude": -0.0035,
-      "_pmd": {
-        "lat": -0.0035,
-        "lon": 0.0171
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0171
+      "longitude": 0.0171,
+      "neutral_terminal": "n"
     },
     "14489696": {
       "latitude": -0.00545,
-      "_pmd": {
-        "lat": -0.00545,
-        "lon": 0.00136
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.00136
+      "longitude": 0.00136,
+      "neutral_terminal": "n"
     },
     "14485921": {
       "latitude": -0.0178,
-      "_pmd": {
-        "lat": -0.0178,
-        "lon": -0.00632
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": -0.00632
+      "longitude": -0.00632,
+      "neutral_terminal": "n"
     },
     "14489707": {
       "latitude": -0.00115,
-      "_pmd": {
-        "lat": -0.00115,
-        "lon": 0.0401
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
-        "n"
+        "4"
       ],
-      "longitude": 0.0401
-    },
-    "14487253": {
-      "latitude": 0.0136,
-      "_pmd": {
-        "lat": 0.0136,
-        "lon": 0.0338
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3",
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "perfectly_grounded_terminals": [
-        "n"
-      ],
-      "longitude": 0.0338
+      "longitude": 0.0401,
+      "neutral_terminal": "n"
     },
     "14487225": {
       "latitude": -0.00084,
-      "_pmd": {
-        "lat": -0.00084,
-        "lon": -0.00674
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": -0.00674
+      "longitude": -0.00674,
+      "neutral_terminal": "n"
+    },
+    "14487253": {
+      "latitude": 0.0136,
+      "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "longitude": 0.0338,
+      "neutral_terminal": "n"
     },
     "14489644": {
       "latitude": 0.00415,
-      "_pmd": {
-        "lat": 0.00415,
-        "lon": 0.0422
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0422
+      "longitude": 0.0422,
+      "neutral_terminal": "n"
     },
     "17382313": {
       "latitude": -0.000816,
-      "_pmd": {
-        "lat": -0.000816,
-        "lon": 0.0089
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0089
     },
     "14487245": {
       "latitude": -0.00276,
-      "_pmd": {
-        "lat": -0.00276,
-        "lon": 0.0345
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0345
+      "longitude": 0.0345,
+      "neutral_terminal": "n"
     },
     "17582393": {
       "latitude": -0.0011,
-      "_pmd": {
-        "lat": -0.0011,
-        "lon": 0.0301
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0301
     },
     "14488442": {
       "latitude": 0.00446,
-      "_pmd": {
-        "lat": 0.00446,
-        "lon": 0.0437
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0437
+      "longitude": 0.0437,
+      "neutral_terminal": "n"
     },
     "14487270": {
       "latitude": -0.0137,
-      "_pmd": {
-        "lat": -0.0137,
-        "lon": 0.00233
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.00233
+      "longitude": 0.00233,
+      "neutral_terminal": "n"
     },
     "17582391": {
       "latitude": -0.00377,
-      "_pmd": {
-        "lat": -0.00377,
-        "lon": 0.0192
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0192
     },
     "17582397": {
       "latitude": 0.0215,
-      "_pmd": {
-        "lat": 0.0215,
-        "lon": 0.035
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.035
     },
     "14489680": {
       "latitude": -0.0129,
-      "_pmd": {
-        "lat": -0.0129,
-        "lon": 0.00868
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.00868
+      "longitude": 0.00868,
+      "neutral_terminal": "n"
     },
     "17382311": {
       "latitude": -0.00377,
-      "_pmd": {
-        "lat": -0.00377,
-        "lon": 1.45e-5
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 1.45e-5
     },
     "14489659": {
       "latitude": 0.00365,
-      "_pmd": {
-        "lat": 0.00365,
-        "lon": 0.0529
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0529
+      "longitude": 0.0529,
+      "neutral_terminal": "n"
     },
     "17582396": {
       "latitude": 0.00751,
-      "_pmd": {
-        "lat": 0.00751,
-        "lon": 0.0353
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0353
     },
     "17382322": {
       "latitude": -0.00437,
-      "_pmd": {
-        "lat": -0.00437,
-        "lon": -0.00013
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": -0.00013
     },
     "14487232": {
       "latitude": -0.00257,
-      "_pmd": {
-        "lat": -0.00257,
-        "lon": 0.0113
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
-        "n"
+        "4"
       ],
-      "longitude": 0.0113
-    },
-    "14489661": {
-      "latitude": -0.0216,
-      "_pmd": {
-        "lat": -0.0216,
-        "lon": -0.0069
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3",
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "perfectly_grounded_terminals": [
-        "n"
-      ],
-      "longitude": -0.0069
+      "longitude": 0.0113,
+      "neutral_terminal": "n"
     },
     "14487258": {
       "latitude": 0.00919,
-      "_pmd": {
-        "lat": 0.00919,
-        "lon": 0.0292
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0292
+      "longitude": 0.0292,
+      "neutral_terminal": "n"
+    },
+    "14489661": {
+      "latitude": -0.0216,
+      "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "longitude": -0.0069,
+      "neutral_terminal": "n"
     },
     "14489710": {
       "latitude": -0.00125,
-      "_pmd": {
-        "lat": -0.00125,
-        "lon": 0.0374
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0374
+      "longitude": 0.0374,
+      "neutral_terminal": "n"
     },
     "14489656": {
       "latitude": 0.00377,
-      "_pmd": {
-        "lat": 0.00377,
-        "lon": 0.0516
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0516
-    },
-    "17582390": {
-      "latitude": 0.00125,
-      "_pmd": {
-        "lat": 0.00125,
-        "lon": 0.0152
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3"
-      ],
-      "longitude": 0.0152
+      "longitude": 0.0516,
+      "neutral_terminal": "n"
     },
     "17382312": {
       "latitude": -0.0131,
-      "_pmd": {
-        "lat": -0.0131,
-        "lon": 0.00794
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.00794
     },
+    "17582390": {
+      "latitude": 0.00125,
+      "terminal_names": [
+        "a",
+        "b",
+        "c"
+      ],
+      "longitude": 0.0152
+    },
     "17582395": {
       "latitude": 0.00989,
-      "_pmd": {
-        "lat": 0.00989,
-        "lon": 0.0305
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0.0305
     },
     "9586139": {
       "latitude": -4.8e-5,
-      "_pmd": {
-        "lat": -4.8e-5,
-        "lon": 0
-      },
       "terminal_names": [
-        "1",
-        "2",
-        "3"
+        "a",
+        "b",
+        "c"
       ],
       "longitude": 0
     },
     "14487267": {
       "latitude": 0.0047,
-      "_pmd": {
-        "lat": 0.0047,
-        "lon": 0.045
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.045
+      "longitude": 0.045,
+      "neutral_terminal": "n"
     },
     "sourcebus": {
-      "v_declared": 6350.852961085883,
+      "perfectly_grounded_terminals": [
+        "4"
+      ],
       "terminal_names": [
-        "1",
-        "2",
-        "3",
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "perfectly_grounded_terminals": [
-        "n"
-      ]
+      "neutral_terminal": "n"
     },
     "14489686": {
       "latitude": 0.00199,
-      "_pmd": {
-        "lat": 0.00199,
-        "lon": 0.0138
-      },
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
       "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
         "n"
       ],
-      "longitude": 0.0138
+      "longitude": 0.0138,
+      "neutral_terminal": "n"
     }
   },
   "linecode": {
@@ -3547,16 +2881,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00138,
@@ -3572,8 +2906,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00138,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -3608,16 +2942,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 6.333333333333347e-5,
       "G_to_3_3": 0,
+      "R_series_2_1": 6.333333333333347e-5,
       "R_series_3_1": 6.333333333333347e-5,
       "G_from_3_3": 0,
       "X_series_3_3": 0.004860000000000001,
@@ -3633,8 +2967,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.004860000000000001,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 6.333333333333347e-5,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -3669,16 +3003,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.0004709999999999999,
@@ -3694,8 +3028,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.0004709999999999999,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -3730,16 +3064,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": -6.0000000000000056e-5,
       "G_to_3_3": 0,
+      "R_series_2_1": -6.0000000000000056e-5,
       "R_series_3_1": -6.0000000000000056e-5,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00035200000000000005,
@@ -3755,8 +3089,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00035200000000000005,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": -6.0000000000000056e-5,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -3791,16 +3125,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000361,
@@ -3816,8 +3150,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000361,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -3852,16 +3186,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 6.666666666666672e-5,
       "G_to_3_3": 0,
+      "R_series_2_1": 6.666666666666672e-5,
       "R_series_3_1": 6.666666666666672e-5,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000347,
@@ -3877,8 +3211,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000347,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 6.666666666666672e-5,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -3913,16 +3247,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 6.333333333333347e-5,
       "G_to_3_3": 0,
+      "R_series_2_1": 6.333333333333347e-5,
       "R_series_3_1": 6.333333333333347e-5,
       "G_from_3_3": 0,
       "X_series_3_3": 0.004860000000000001,
@@ -3938,8 +3272,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.004860000000000001,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 6.333333333333347e-5,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -3974,16 +3308,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 6.666666666666673e-7,
       "G_to_3_3": 0,
+      "R_series_2_1": 6.666666666666673e-7,
       "R_series_3_1": 6.666666666666673e-7,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000361,
@@ -3999,8 +3333,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000361,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 6.666666666666673e-7,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4035,16 +3369,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00035200000000000005,
@@ -4060,8 +3394,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00035200000000000005,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4096,16 +3430,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00035200000000000005,
@@ -4121,8 +3455,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00035200000000000005,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4157,16 +3491,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000499,
@@ -4182,8 +3516,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000499,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4218,16 +3552,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000315,
@@ -4243,8 +3577,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000315,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4279,16 +3613,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00031,
@@ -4304,8 +3638,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00031,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4340,16 +3674,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00034300000000000004,
@@ -4365,8 +3699,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00034300000000000004,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4401,16 +3735,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000296,
@@ -4426,8 +3760,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000296,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4462,16 +3796,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000361,
@@ -4487,8 +3821,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000361,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4523,16 +3857,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.0004709999999999999,
@@ -4548,8 +3882,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.0004709999999999999,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4584,16 +3918,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00033800000000000003,
@@ -4609,8 +3943,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00033800000000000003,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4645,16 +3979,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 6.333333333333347e-5,
       "G_to_3_3": 0,
+      "R_series_2_1": 6.333333333333347e-5,
       "R_series_3_1": 6.333333333333347e-5,
       "G_from_3_3": 0,
       "X_series_3_3": 0.004860000000000001,
@@ -4670,8 +4004,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.004860000000000001,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 6.333333333333347e-5,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4706,16 +4040,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000522,
@@ -4731,8 +4065,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000522,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4767,16 +4101,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00035200000000000005,
@@ -4792,8 +4126,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00035200000000000005,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4828,16 +4162,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.0017700000000000003,
@@ -4853,8 +4187,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.0017700000000000003,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4889,16 +4223,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00035200000000000005,
@@ -4914,8 +4248,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00035200000000000005,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -4950,16 +4284,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00031,
@@ -4975,8 +4309,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00031,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5011,16 +4345,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000546,
@@ -5036,8 +4370,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000546,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5064,25 +4398,25 @@
     },
     "cable_230v_25_al_acs": {
       "X_series_2_3": 0,
-      "R_series_1_3": 0.0001533333333333333,
-      "R_series_1_2": 0.0001533333333333333,
+      "R_series_1_3": 0.00015333333333333334,
+      "R_series_1_2": 0.00015333333333333334,
       "R_series_2_2": 0.005713333333333334,
       "G_to_1_3": 0,
       "G_from_2_2": 0,
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0.0001533333333333333,
       "G_to_3_3": 0,
-      "R_series_3_1": 0.0001533333333333333,
+      "R_series_2_1": 0.00015333333333333334,
+      "R_series_3_1": 0.00015333333333333334,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00671,
       "G_to_2_3": 0,
@@ -5097,9 +4431,9 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00671,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
-      "R_series_3_2": 0.0001533333333333333,
+      "X_series_1_2": 0,
+      "R_series_3_2": 0.00015333333333333334,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
       "G_to_1_2": 0,
@@ -5109,7 +4443,7 @@
       "B_to_3_2": 0,
       "X_series_3_2": 0,
       "B_to_1_3": 0,
-      "R_series_2_3": 0.0001533333333333333,
+      "R_series_2_3": 0.00015333333333333334,
       "G_from_1_2": 0,
       "X_series_1_1": 0.00671,
       "G_to_1_1": 0,
@@ -5133,16 +4467,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000313,
@@ -5158,8 +4492,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000313,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5186,25 +4520,25 @@
     },
     "cable_230v_300_al_wave": {
       "X_series_2_3": 0,
-      "R_series_1_3": 9.866666666666666e-5,
-      "R_series_1_2": 9.866666666666666e-5,
+      "R_series_1_3": 9.866666666666668e-5,
+      "R_series_1_2": 9.866666666666668e-5,
       "R_series_2_2": 0.0005616666666666667,
       "G_to_1_3": 0,
       "G_from_2_2": 0,
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 9.866666666666666e-5,
       "G_to_3_3": 0,
-      "R_series_3_1": 9.866666666666666e-5,
+      "R_series_2_1": 9.866666666666668e-5,
+      "R_series_3_1": 9.866666666666668e-5,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00033600000000000004,
       "G_to_2_3": 0,
@@ -5219,9 +4553,9 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00033600000000000004,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
-      "R_series_3_2": 9.866666666666666e-5,
+      "X_series_1_2": 0,
+      "R_series_3_2": 9.866666666666668e-5,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
       "G_to_1_2": 0,
@@ -5231,7 +4565,7 @@
       "B_to_3_2": 0,
       "X_series_3_2": 0,
       "B_to_1_3": 0,
-      "R_series_2_3": 9.866666666666666e-5,
+      "R_series_2_3": 9.866666666666668e-5,
       "G_from_1_2": 0,
       "X_series_1_1": 0.00033600000000000004,
       "G_to_1_1": 0,
@@ -5255,16 +4589,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000315,
@@ -5280,8 +4614,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000315,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5316,16 +4650,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.0004709999999999999,
@@ -5341,8 +4675,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.0004709999999999999,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5377,16 +4711,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000391,
@@ -5402,8 +4736,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000391,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5438,16 +4772,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000499,
@@ -5463,8 +4797,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000499,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5499,16 +4833,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": -0.00012633333333333333,
       "G_to_3_3": 0,
+      "R_series_2_1": -0.00012633333333333333,
       "R_series_3_1": -0.00012633333333333333,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000317,
@@ -5524,8 +4858,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000317,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": -0.00012633333333333333,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5560,16 +4894,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000361,
@@ -5585,8 +4919,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000361,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5621,16 +4955,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00032,
@@ -5646,8 +4980,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00032,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5682,16 +5016,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00033800000000000003,
@@ -5707,8 +5041,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00033800000000000003,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5735,25 +5069,25 @@
     },
     "cable_230v_25_al_ascs": {
       "X_series_2_3": 0,
-      "R_series_1_3": 0.0001533333333333333,
-      "R_series_1_2": 0.0001533333333333333,
+      "R_series_1_3": 0.00015333333333333334,
+      "R_series_1_2": 0.00015333333333333334,
       "R_series_2_2": 0.005713333333333334,
       "G_to_1_3": 0,
       "G_from_2_2": 0,
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0.0001533333333333333,
       "G_to_3_3": 0,
-      "R_series_3_1": 0.0001533333333333333,
+      "R_series_2_1": 0.00015333333333333334,
+      "R_series_3_1": 0.00015333333333333334,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00671,
       "G_to_2_3": 0,
@@ -5768,9 +5102,9 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00671,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
-      "R_series_3_2": 0.0001533333333333333,
+      "X_series_1_2": 0,
+      "R_series_3_2": 0.00015333333333333334,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
       "G_to_1_2": 0,
@@ -5780,7 +5114,7 @@
       "B_to_3_2": 0,
       "X_series_3_2": 0,
       "B_to_1_3": 0,
-      "R_series_2_3": 0.0001533333333333333,
+      "R_series_2_3": 0.00015333333333333334,
       "G_from_1_2": 0,
       "X_series_1_1": 0.00671,
       "G_to_1_1": 0,
@@ -5804,16 +5138,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000546,
@@ -5829,8 +5163,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000546,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5865,16 +5199,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000324,
@@ -5890,8 +5224,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000324,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5926,16 +5260,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000347,
@@ -5951,8 +5285,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000347,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -5987,19 +5321,19 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": -7.7333e-5,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": -1.54333e-5,
       "G_to_3_3": 0,
+      "R_series_2_1": -1.54333e-5,
       "R_series_3_1": -1.54333e-5,
       "G_from_3_3": 0,
-      "X_series_3_3": 0.000154667,
+      "X_series_3_3": 0.00015466700000000002,
       "G_to_2_3": 0,
       "B_to_1_2": 0,
       "B_to_2_1": 0,
@@ -6010,10 +5344,10 @@
       "G_to_3_1": 0,
       "G_from_3_2": 0,
       "B_to_1_1": 0,
-      "X_series_2_2": 0.000154667,
+      "X_series_2_2": 0.00015466700000000002,
       "G_to_2_2": 0,
-      "X_series_1_2": -7.7333e-5,
       "G_to_3_2": 0,
+      "X_series_1_2": -7.7333e-5,
       "R_series_3_2": -1.54333e-5,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6026,7 +5360,7 @@
       "B_to_1_3": 0,
       "R_series_2_3": -1.54333e-5,
       "G_from_1_2": 0,
-      "X_series_1_1": 0.000154667,
+      "X_series_1_1": 0.00015466700000000002,
       "G_to_1_1": 0,
       "B_to_3_1": 0,
       "B_to_3_3": 0,
@@ -6048,16 +5382,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00031,
@@ -6073,8 +5407,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00031,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6109,16 +5443,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000472,
@@ -6134,8 +5468,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000472,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6170,16 +5504,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000359,
@@ -6195,8 +5529,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000359,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6231,16 +5565,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000315,
@@ -6256,8 +5590,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000315,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6292,16 +5626,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000315,
@@ -6317,8 +5651,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000315,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6353,16 +5687,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 1.0e-6,
@@ -6378,8 +5712,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 1.0e-6,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6414,16 +5748,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000324,
@@ -6439,8 +5773,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000324,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6475,16 +5809,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.0017700000000000003,
@@ -6500,8 +5834,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.0017700000000000003,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6536,16 +5870,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000347,
@@ -6561,8 +5895,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000347,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6597,16 +5931,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 1.0e-6,
@@ -6622,8 +5956,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 1.0e-6,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6658,16 +5992,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": -0.00039966666666666666,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": -0.00028199999999999997,
       "G_to_3_3": 0,
+      "R_series_2_1": -0.00028199999999999997,
       "R_series_3_1": -0.00028199999999999997,
       "G_from_3_3": 0,
       "X_series_3_3": 0.0008003333333333332,
@@ -6683,8 +6017,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.0008003333333333332,
       "G_to_2_2": 0,
-      "X_series_1_2": -0.00039966666666666666,
       "G_to_3_2": 0,
+      "X_series_1_2": -0.00039966666666666666,
       "R_series_3_2": -0.00028199999999999997,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6711,25 +6045,25 @@
     },
     "cable_230v_25_al_asct": {
       "X_series_2_3": 0,
-      "R_series_1_3": 0.0001533333333333333,
-      "R_series_1_2": 0.0001533333333333333,
+      "R_series_1_3": 0.00015333333333333334,
+      "R_series_1_2": 0.00015333333333333334,
       "R_series_2_2": 0.005713333333333334,
       "G_to_1_3": 0,
       "G_from_2_2": 0,
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0.0001533333333333333,
       "G_to_3_3": 0,
-      "R_series_3_1": 0.0001533333333333333,
+      "R_series_2_1": 0.00015333333333333334,
+      "R_series_3_1": 0.00015333333333333334,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00671,
       "G_to_2_3": 0,
@@ -6744,9 +6078,9 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00671,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
-      "R_series_3_2": 0.0001533333333333333,
+      "X_series_1_2": 0,
+      "R_series_3_2": 0.00015333333333333334,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
       "G_to_1_2": 0,
@@ -6756,7 +6090,7 @@
       "B_to_3_2": 0,
       "X_series_3_2": 0,
       "B_to_1_3": 0,
-      "R_series_2_3": 0.0001533333333333333,
+      "R_series_2_3": 0.00015333333333333334,
       "G_from_1_2": 0,
       "X_series_1_1": 0.00671,
       "G_to_1_1": 0,
@@ -6780,16 +6114,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": -0.00011933333333333334,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": -0.000107,
       "G_to_3_3": 0,
+      "R_series_2_1": -0.000107,
       "R_series_3_1": -0.000107,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00023966666666666667,
@@ -6805,8 +6139,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00023966666666666667,
       "G_to_2_2": 0,
-      "X_series_1_2": -0.00011933333333333334,
       "G_to_3_2": 0,
+      "X_series_1_2": -0.00011933333333333334,
       "R_series_3_2": -0.000107,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6833,25 +6167,25 @@
     },
     "cable_230v_25_al_act": {
       "X_series_2_3": 0,
-      "R_series_1_3": 0.0001533333333333333,
-      "R_series_1_2": 0.0001533333333333333,
+      "R_series_1_3": 0.00015333333333333334,
+      "R_series_1_2": 0.00015333333333333334,
       "R_series_2_2": 0.005713333333333334,
       "G_to_1_3": 0,
       "G_from_2_2": 0,
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0.0001533333333333333,
       "G_to_3_3": 0,
-      "R_series_3_1": 0.0001533333333333333,
+      "R_series_2_1": 0.00015333333333333334,
+      "R_series_3_1": 0.00015333333333333334,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00671,
       "G_to_2_3": 0,
@@ -6866,9 +6200,9 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00671,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
-      "R_series_3_2": 0.0001533333333333333,
+      "X_series_1_2": 0,
+      "R_series_3_2": 0.00015333333333333334,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
       "G_to_1_2": 0,
@@ -6878,7 +6212,7 @@
       "B_to_3_2": 0,
       "X_series_3_2": 0,
       "B_to_1_3": 0,
-      "R_series_2_3": 0.0001533333333333333,
+      "R_series_2_3": 0.00015333333333333334,
       "G_from_1_2": 0,
       "X_series_1_1": 0.00671,
       "G_to_1_1": 0,
@@ -6902,16 +6236,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 6.333333333333347e-5,
       "G_to_3_3": 0,
+      "R_series_2_1": 6.333333333333347e-5,
       "R_series_3_1": 6.333333333333347e-5,
       "G_from_3_3": 0,
       "X_series_3_3": 0.004860000000000001,
@@ -6927,8 +6261,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.004860000000000001,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 6.333333333333347e-5,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -6953,6 +6287,67 @@
       "G_from_2_1": 0,
       "X_series_3_1": 0
     },
+    "_line_sourcez": {
+      "X_series_2_3": 1202.9821,
+      "R_series_1_3": 401.0621866666667,
+      "R_series_1_2": 401.0621866666667,
+      "R_series_2_2": 401.57562666666666,
+      "G_to_1_3": 0,
+      "G_from_2_2": 0,
+      "B_from_3_3": 5.277875658030852e-7,
+      "G_to_2_1": 0,
+      "B_from_2_2": 5.277875658030852e-7,
+      "B_from_3_2": -1.1309733552923253e-7,
+      "G_from_1_3": 0,
+      "B_from_1_2": -1.1309733552923253e-7,
+      "B_from_3_1": -1.1309733552923253e-7,
+      "X_series_2_1": 1202.9821,
+      "B_from_1_3": -1.1309733552923253e-7,
+      "B_from_1_1": 5.277875658030852e-7,
+      "B_to_2_3": -1.1309733552923253e-7,
+      "G_to_3_3": 0,
+      "R_series_2_1": 401.0621866666667,
+      "R_series_3_1": 401.0621866666667,
+      "G_from_3_3": 0,
+      "X_series_3_3": 1205.0357999999999,
+      "G_to_2_3": 0,
+      "B_to_1_2": -1.1309733552923253e-7,
+      "B_to_2_1": -1.1309733552923253e-7,
+      "B_to_2_2": 5.277875658030852e-7,
+      "G_from_3_1": 0,
+      "B_from_2_1": -1.1309733552923253e-7,
+      "R_series_1_1": 401.57562666666666,
+      "G_to_3_1": 0,
+      "G_from_3_2": 0,
+      "B_to_1_1": 5.277875658030852e-7,
+      "X_series_2_2": 1205.0357999999999,
+      "G_to_2_2": 0,
+      "G_to_3_2": 0,
+      "X_series_1_2": 1202.9821,
+      "R_series_3_2": 401.0621866666667,
+      "B_from_2_3": -1.1309733552923253e-7,
+      "G_from_1_1": 0,
+      "G_to_1_2": 0,
+      "X_series_1_3": 1202.9821,
+      "G_from_2_3": 0,
+      "R_series_3_3": 401.57562666666666,
+      "B_to_3_2": -1.1309733552923253e-7,
+      "X_series_3_2": 1202.9821,
+      "B_to_1_3": -1.1309733552923253e-7,
+      "R_series_2_3": 401.0621866666667,
+      "G_from_1_2": 0,
+      "X_series_1_1": 1205.0357999999999,
+      "G_to_1_1": 0,
+      "B_to_3_1": -1.1309733552923253e-7,
+      "B_to_3_3": 5.277875658030852e-7,
+      "i_max": [
+        600,
+        600,
+        600
+      ],
+      "G_from_2_1": 0,
+      "X_series_3_1": 1202.9821
+    },
     "ohl_230v_50_oal": {
       "X_series_2_3": 0,
       "R_series_1_3": 0,
@@ -6963,16 +6358,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00138,
@@ -6988,8 +6383,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00138,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -7024,16 +6419,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.00039799999999999997,
@@ -7049,8 +6444,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.00039799999999999997,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -7085,19 +6480,19 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
-      "X_series_3_3": 0.000457,
+      "X_series_3_3": 0.00045700000000000005,
       "G_to_2_3": 0,
       "B_to_1_2": 0,
       "B_to_2_1": 0,
@@ -7108,10 +6503,10 @@
       "G_to_3_1": 0,
       "G_from_3_2": 0,
       "B_to_1_1": 0,
-      "X_series_2_2": 0.000457,
+      "X_series_2_2": 0.00045700000000000005,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -7124,7 +6519,7 @@
       "B_to_1_3": 0,
       "R_series_2_3": 0,
       "G_from_1_2": 0,
-      "X_series_1_1": 0.000457,
+      "X_series_1_1": 0.00045700000000000005,
       "G_to_1_1": 0,
       "B_to_3_1": 0,
       "B_to_3_3": 0,
@@ -7146,16 +6541,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.0017700000000000003,
@@ -7171,8 +6566,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.0017700000000000003,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -7207,16 +6602,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000324,
@@ -7232,8 +6627,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000324,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
@@ -7262,22 +6657,22 @@
       "X_series_2_3": 0,
       "R_series_1_3": 0,
       "R_series_1_2": 0,
-      "R_series_2_2": 0.00297,
+      "R_series_2_2": 0.0029700000000000004,
       "G_to_1_3": 0,
       "G_from_2_2": 0,
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000389,
@@ -7287,21 +6682,21 @@
       "B_to_2_2": 0,
       "G_from_3_1": 0,
       "B_from_2_1": 0,
-      "R_series_1_1": 0.00297,
+      "R_series_1_1": 0.0029700000000000004,
       "G_to_3_1": 0,
       "G_from_3_2": 0,
       "B_to_1_1": 0,
       "X_series_2_2": 0.000389,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,
       "G_to_1_2": 0,
       "X_series_1_3": 0,
       "G_from_2_3": 0,
-      "R_series_3_3": 0.00297,
+      "R_series_3_3": 0.0029700000000000004,
       "B_to_3_2": 0,
       "X_series_3_2": 0,
       "B_to_1_3": 0,
@@ -7329,16 +6724,16 @@
       "B_from_3_3": 0,
       "G_to_2_1": 0,
       "B_from_2_2": 0,
-      "G_from_1_3": 0,
       "B_from_3_2": 0,
+      "G_from_1_3": 0,
       "B_from_1_2": 0,
       "B_from_3_1": 0,
       "X_series_2_1": 0,
       "B_from_1_3": 0,
       "B_from_1_1": 0,
       "B_to_2_3": 0,
-      "R_series_2_1": 0,
       "G_to_3_3": 0,
+      "R_series_2_1": 0,
       "R_series_3_1": 0,
       "G_from_3_3": 0,
       "X_series_3_3": 0.000389,
@@ -7354,8 +6749,8 @@
       "B_to_1_1": 0,
       "X_series_2_2": 0.000389,
       "G_to_2_2": 0,
-      "X_series_1_2": 0,
       "G_to_3_2": 0,
+      "X_series_1_2": 0,
       "R_series_3_2": 0,
       "B_from_2_3": 0,
       "G_from_1_1": 0,

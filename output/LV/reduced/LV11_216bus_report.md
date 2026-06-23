@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV11_216bus
 
-**Generated:** 2026-06-23 21:02:35  
+**Generated:** 2026-06-23 21:34:00  
 **Findings:** 0 errors · 3 warnings · 22 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 112 grounding point(s)
 
@@ -33,7 +33,7 @@
 
 **Transformer transitions:**
 
-- `Tx1941`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `tx1941`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -89,13 +89,13 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| Tx1941 | 500.0 kVA | 250.0% ⚠ |
+| tx1941 | 500.0 kVA | 250.0% ⚠ |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (1.1 MW).
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx1941' is at 250.0% utilisation at nominal load — little OPF headroom.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B3125' has no load connected to phase terminal 'a'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B3125' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B3125' has no load connected to phase terminal 'c'.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx1941' is at 250.0% utilisation at nominal load — little OPF headroom.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b3125' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b3125' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b3125' has no load connected to phase terminal 'c'.
 
 ## 6. Infeasibility Pre-flight
 
@@ -198,8 +198,8 @@
   109 of 110 loads share identical (p_nom, q_nom) — possible copy-paste symmetry.
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (1.1 MW).
-- **[W.OPS.XFMR_OVERLOADED]** `Tx1941`  
-  Transformer 'Tx1941' is at 250.0% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `tx1941`  
+  Transformer 'tx1941' is at 250.0% utilisation at nominal load — little OPF headroom.
 
 ### 🔵 Info
 
@@ -212,11 +212,11 @@
 - **[I.DIV.LOAD_UNIFORM_CONFIG]** `load`  
   All 110 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B3125' has no load connected to phase terminal 'a'.
+  Galvanic zone anchored at bus 'b3125' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B3125' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b3125' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B3125' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b3125' has no load connected to phase terminal 'c'.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  

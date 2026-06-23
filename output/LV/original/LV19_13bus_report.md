@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV19_13bus
 
-**Generated:** 2026-06-23 21:02:35  
+**Generated:** 2026-06-23 21:34:01  
 **Findings:** 0 errors · 1 warnings · 21 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 2 grounding point(s)
 
@@ -33,7 +33,7 @@
 
 **Transformer transitions:**
 
-- `Tx1257`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `tx1257`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -79,15 +79,15 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| Tx1257 | 1.0 MVA | 0.0% |
+| tx1257 | 1.0 MVA | 0.0% |
 
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'a'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'c'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2755' has no load connected to phase terminal 'a'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2755' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2755' has no load connected to phase terminal 'c'.
-> 🔵 **[I.OPS.FEEDER_SHORT]** Galvanic zone anchored at bus 'B1007' (LV, 0.25 kV) has an electrical reach of 0.8 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2755' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2755' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2755' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.FEEDER_SHORT]** Galvanic zone anchored at bus 'b1007' (LV, 0.25 kV) has an electrical reach of 0.8 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
 
 ## 6. Infeasibility Pre-flight
 
@@ -193,19 +193,19 @@
 - **[I.DIV.LINE_SYMMETRIC]** `line`  
   6 lines share linecode 'ughv_400al_triplex_ug_4w_bundled' with similar length (±10%) — electrically near-identical.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'a'.
+  Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2755' has no load connected to phase terminal 'a'.
+  Galvanic zone anchored at bus 'b2755' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2755' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b2755' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2755' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b2755' has no load connected to phase terminal 'c'.
 - **[I.OPS.FEEDER_SHORT]** `network`  
-  Galvanic zone anchored at bus 'B1007' (LV, 0.25 kV) has an electrical reach of 0.8 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
+  Galvanic zone anchored at bus 'b1007' (LV, 0.25 kV) has an electrical reach of 0.8 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  

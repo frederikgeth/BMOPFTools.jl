@@ -1,6 +1,78 @@
 {
   "bus": {
-    "B598": {
+    "b689": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "neutral_terminal": "n"
+    },
+    "b885": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "neutral_terminal": "n"
+    },
+    "b301": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "neutral_terminal": "n"
+    },
+    "b107": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "neutral_terminal": "n"
+    },
+    "b504": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "neutral_terminal": "n"
+    },
+    "b706": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "neutral_terminal": "n"
+    },
+    "b363": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "neutral_terminal": "n"
+    },
+    "b2086": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "neutral_terminal": "n"
+    },
+    "b598": {
       "perfectly_grounded_terminals": [
         "4"
       ],
@@ -12,7 +84,7 @@
       ],
       "neutral_terminal": "n"
     },
-    "B266": {
+    "b1374": {
       "terminal_names": [
         "a",
         "b",
@@ -21,25 +93,7 @@
       ],
       "neutral_terminal": "n"
     },
-    "B363": {
-      "terminal_names": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "neutral_terminal": "n"
-    },
-    "B706": {
-      "terminal_names": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "neutral_terminal": "n"
-    },
-    "B897": {
+    "b897": {
       "perfectly_grounded_terminals": [
         "5"
       ],
@@ -51,7 +105,7 @@
       ],
       "neutral_terminal": "n"
     },
-    "B885": {
+    "b1352": {
       "terminal_names": [
         "a",
         "b",
@@ -60,7 +114,7 @@
       ],
       "neutral_terminal": "n"
     },
-    "B1374": {
+    "b3400": {
       "terminal_names": [
         "a",
         "b",
@@ -69,61 +123,7 @@
       ],
       "neutral_terminal": "n"
     },
-    "B1352": {
-      "terminal_names": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "neutral_terminal": "n"
-    },
-    "B301": {
-      "terminal_names": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "neutral_terminal": "n"
-    },
-    "B689": {
-      "terminal_names": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "neutral_terminal": "n"
-    },
-    "B3400": {
-      "terminal_names": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "neutral_terminal": "n"
-    },
-    "B2086": {
-      "terminal_names": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "neutral_terminal": "n"
-    },
-    "B107": {
-      "terminal_names": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "neutral_terminal": "n"
-    },
-    "B504": {
+    "b266": {
       "terminal_names": [
         "a",
         "b",
@@ -150,7 +150,7 @@
         "c",
         "n"
       ],
-      "bus": "B598",
+      "bus": "b598",
       "v_angle": [
         -0.5235987755982987,
         -2.6179938779914944,
@@ -160,10 +160,10 @@
     }
   },
   "line": {
-    "L_2702": {
-      "length": 0.305967087228,
-      "bus_from": "B107",
-      "bus_to": "B689",
+    "l_640": {
+      "length": 0.592171994723,
+      "bus_from": "b1374",
+      "bus_to": "b885",
       "terminal_map_from": [
         "a",
         "b",
@@ -178,68 +178,14 @@
       ],
       "linecode": "ughv_400al_triplex_ug_4w_bundled"
     },
-    "L_3238": {
-      "length": 155.26137713499998,
-      "bus_from": "B266",
-      "bus_to": "B706",
-      "terminal_map_from": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "terminal_map_to": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "linecode": "abc4x16_lv_oh_4w_bundled"
-    },
-    "L_2018": {
-      "length": 0.30038765156999997,
-      "bus_from": "B363",
-      "bus_to": "B689",
-      "terminal_map_from": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "terminal_map_to": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "linecode": "ughv_400al_triplex_ug_4w_bundled"
-    },
-    "L_1211": {
-      "length": 0.5933386691629999,
-      "bus_from": "B504",
-      "bus_to": "B301",
-      "terminal_map_from": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "terminal_map_to": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "linecode": "ughv_400al_triplex_ug_4w_bundled"
-    },
-    "L_2597": {
+    "l_2597": {
       "length": 0.885796601906,
       "_merged_from": [
-        "L_950",
-        "L_3799"
+        "l_950",
+        "l_3799"
       ],
-      "bus_from": "B2086",
-      "bus_to": "B897",
+      "bus_from": "b2086",
+      "bus_to": "b897",
       "terminal_map_from": [
         "a",
         "b",
@@ -254,10 +200,46 @@
       ],
       "linecode": "ughv_400al_triplex_ug_4w_bundled"
     },
-    "L_3095": {
+    "l_3238": {
+      "length": 155.26137713499998,
+      "bus_from": "b266",
+      "bus_to": "b706",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "abc4x16_lv_oh_4w_bundled"
+    },
+    "l_2018": {
+      "length": 0.30038765156999997,
+      "bus_from": "b363",
+      "bus_to": "b689",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "ughv_400al_triplex_ug_4w_bundled"
+    },
+    "l_3095": {
       "length": 0.293256619929,
-      "bus_from": "B706",
-      "bus_to": "B2086",
+      "bus_from": "b706",
+      "bus_to": "b2086",
       "terminal_map_from": [
         "a",
         "b",
@@ -272,82 +254,10 @@
       ],
       "linecode": "ughv_400al_triplex_ug_4w_bundled"
     },
-    "L_2573": {
-      "length": 52.0256689211,
-      "bus_from": "B107",
-      "bus_to": "B1374",
-      "terminal_map_from": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "terminal_map_to": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "linecode": "abc4x16_lv_oh_4w_bundled"
-    },
-    "L_563": {
-      "length": 40.125330281000004,
-      "bus_from": "B3400",
-      "bus_to": "B363",
-      "terminal_map_from": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "terminal_map_to": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "linecode": "abc4x16_lv_oh_4w_bundled"
-    },
-    "L_166": {
-      "length": 3.6610008085700003,
-      "bus_from": "B1352",
-      "bus_to": "B885",
-      "terminal_map_from": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "terminal_map_to": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "linecode": "abc4x16_lv_oh_4w_bundled"
-    },
-    "L_2127": {
-      "length": 34.2253433977,
-      "bus_from": "B504",
-      "bus_to": "B2086",
-      "terminal_map_from": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "terminal_map_to": [
-        "a",
-        "b",
-        "c",
-        "n"
-      ],
-      "linecode": "moon_lv_oh_4wire"
-    },
-    "L_538": {
+    "l_538": {
       "length": 76.4053708264,
-      "bus_from": "B301",
-      "bus_to": "B689",
+      "bus_from": "b301",
+      "bus_to": "b689",
       "terminal_map_from": [
         "a",
         "b",
@@ -362,10 +272,100 @@
       ],
       "linecode": "moon_lv_oh_4wire"
     },
-    "L_640": {
-      "length": 0.592171994723,
-      "bus_from": "B1374",
-      "bus_to": "B885",
+    "l_563": {
+      "length": 40.125330281000004,
+      "bus_from": "b3400",
+      "bus_to": "b363",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "abc4x16_lv_oh_4w_bundled"
+    },
+    "l_2127": {
+      "length": 34.2253433977,
+      "bus_from": "b504",
+      "bus_to": "b2086",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "moon_lv_oh_4wire"
+    },
+    "l_2573": {
+      "length": 52.0256689211,
+      "bus_from": "b107",
+      "bus_to": "b1374",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "abc4x16_lv_oh_4w_bundled"
+    },
+    "l_1211": {
+      "length": 0.5933386691629999,
+      "bus_from": "b504",
+      "bus_to": "b301",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "ughv_400al_triplex_ug_4w_bundled"
+    },
+    "l_166": {
+      "length": 3.6610008085700003,
+      "bus_from": "b1352",
+      "bus_to": "b885",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "abc4x16_lv_oh_4w_bundled"
+    },
+    "l_2702": {
+      "length": 0.305967087228,
+      "bus_from": "b107",
+      "bus_to": "b689",
       "terminal_map_from": [
         "a",
         "b",
@@ -383,280 +383,280 @@
   },
   "_simplification_log": [
     {
-      "message": "Collapsed closed switch Switch_2514_CLOSED: bus B554 merged into B2255.",
+      "message": "Collapsed closed switch switch_2605_closed: bus b1343 merged into b3352.",
       "detail": {
-        "bus_to_absorbed": "B554",
-        "bus_from": "B2255"
+        "bus_to_absorbed": "b1343",
+        "bus_from": "b3352"
       },
       "severity": "info",
       "operation": "collapse_closed_switches",
       "code": "SWITCH_COLLAPSED",
       "element_type": "switch",
-      "element_id": "Switch_2514_CLOSED"
+      "element_id": "switch_2605_closed"
     },
     {
-      "message": "Collapsed closed switch Switch_2605_CLOSED: bus B1343 merged into B3352.",
+      "message": "Collapsed closed switch switch_2514_closed: bus b554 merged into b2255.",
       "detail": {
-        "bus_to_absorbed": "B1343",
-        "bus_from": "B3352"
+        "bus_to_absorbed": "b554",
+        "bus_from": "b2255"
       },
       "severity": "info",
       "operation": "collapse_closed_switches",
       "code": "SWITCH_COLLAPSED",
       "element_type": "switch",
-      "element_id": "Switch_2605_CLOSED"
+      "element_id": "switch_2514_closed"
     },
     {
-      "message": "Collapsed closed switch Switch_1562_CLOSED: bus B2274 merged into B2551.",
+      "message": "Collapsed closed switch switch_1562_closed: bus b2274 merged into b2551.",
       "detail": {
-        "bus_to_absorbed": "B2274",
-        "bus_from": "B2551"
+        "bus_to_absorbed": "b2274",
+        "bus_from": "b2551"
       },
       "severity": "info",
       "operation": "collapse_closed_switches",
       "code": "SWITCH_COLLAPSED",
       "element_type": "switch",
-      "element_id": "Switch_1562_CLOSED"
+      "element_id": "switch_1562_closed"
     },
     {
-      "message": "Removed dangling line L_3405 and its leaf bus B2695 (leaf has no active elements).",
+      "message": "Removed dangling line l_2778 and its leaf bus b1189 (leaf has no active elements).",
       "detail": {
-        "removed_bus": "B2695"
+        "removed_bus": "b1189"
       },
       "severity": "info",
       "operation": "remove_dangling_lines",
       "code": "LINE_REMOVED",
       "element_type": "line",
-      "element_id": "L_3405"
+      "element_id": "l_2778"
     },
     {
-      "message": "Removed dangling line L_2778 and its leaf bus B1189 (leaf has no active elements).",
+      "message": "Removed dangling line l_1757 and its leaf bus b2436 (leaf has no active elements).",
       "detail": {
-        "removed_bus": "B1189"
+        "removed_bus": "b2436"
       },
       "severity": "info",
       "operation": "remove_dangling_lines",
       "code": "LINE_REMOVED",
       "element_type": "line",
-      "element_id": "L_2778"
+      "element_id": "l_1757"
     },
     {
-      "message": "Removed dangling line L_1757 and its leaf bus B2436 (leaf has no active elements).",
+      "message": "Removed dangling line l_1486 and its leaf bus b168 (leaf has no active elements).",
       "detail": {
-        "removed_bus": "B2436"
+        "removed_bus": "b168"
       },
       "severity": "info",
       "operation": "remove_dangling_lines",
       "code": "LINE_REMOVED",
       "element_type": "line",
-      "element_id": "L_1757"
+      "element_id": "l_1486"
     },
     {
-      "message": "Removed dangling line L_1048 and its leaf bus B1215 (leaf has no active elements).",
+      "message": "Removed dangling line l_3405 and its leaf bus b2695 (leaf has no active elements).",
       "detail": {
-        "removed_bus": "B1215"
+        "removed_bus": "b2695"
       },
       "severity": "info",
       "operation": "remove_dangling_lines",
       "code": "LINE_REMOVED",
       "element_type": "line",
-      "element_id": "L_1048"
+      "element_id": "l_3405"
     },
     {
-      "message": "Removed dangling line L_1390 and its leaf bus B2766 (leaf has no active elements).",
+      "message": "Removed dangling line l_1048 and its leaf bus b1215 (leaf has no active elements).",
       "detail": {
-        "removed_bus": "B2766"
+        "removed_bus": "b1215"
       },
       "severity": "info",
       "operation": "remove_dangling_lines",
       "code": "LINE_REMOVED",
       "element_type": "line",
-      "element_id": "L_1390"
+      "element_id": "l_1048"
     },
     {
-      "message": "Removed dangling line L_4231 and its leaf bus B3352 (leaf has no active elements).",
+      "message": "Removed dangling line l_1390 and its leaf bus b2766 (leaf has no active elements).",
       "detail": {
-        "removed_bus": "B3352"
+        "removed_bus": "b2766"
       },
       "severity": "info",
       "operation": "remove_dangling_lines",
       "code": "LINE_REMOVED",
       "element_type": "line",
-      "element_id": "L_4231"
+      "element_id": "l_1390"
     },
     {
-      "message": "Removed dangling line L_1486 and its leaf bus B168 (leaf has no active elements).",
+      "message": "Removed dangling line l_4231 and its leaf bus b3352 (leaf has no active elements).",
       "detail": {
-        "removed_bus": "B168"
+        "removed_bus": "b3352"
       },
       "severity": "info",
       "operation": "remove_dangling_lines",
       "code": "LINE_REMOVED",
       "element_type": "line",
-      "element_id": "L_1486"
+      "element_id": "l_4231"
     },
     {
-      "message": "Merged line L_950 (0.299153552267 m) into L_2597 at pass-through bus B2551; new length 0.49915355226700003 m.",
+      "message": "Lines l_640 (linecode ughv_400al_triplex_ug_4w_bundled) and l_166 (linecode abc4x16_lv_oh_4w_bundled) at bus b885 have different linecodes — not merged.",
+      "detail": {
+        "linecode_2": "abc4x16_lv_oh_4w_bundled",
+        "line_2": "l_166",
+        "line_1": "l_640",
+        "linecode_1": "ughv_400al_triplex_ug_4w_bundled"
+      },
+      "severity": "info",
+      "operation": "merge_series_lines",
+      "code": "LINECODE_MISMATCH",
+      "element_type": "bus",
+      "element_id": "b885"
+    },
+    {
+      "message": "Lines l_538 (linecode moon_lv_oh_4wire) and l_1211 (linecode ughv_400al_triplex_ug_4w_bundled) at bus b301 have different linecodes — not merged.",
+      "detail": {
+        "linecode_2": "ughv_400al_triplex_ug_4w_bundled",
+        "line_2": "l_1211",
+        "line_1": "l_538",
+        "linecode_1": "moon_lv_oh_4wire"
+      },
+      "severity": "info",
+      "operation": "merge_series_lines",
+      "code": "LINECODE_MISMATCH",
+      "element_type": "bus",
+      "element_id": "b301"
+    },
+    {
+      "message": "Lines l_2573 (linecode abc4x16_lv_oh_4w_bundled) and l_2702 (linecode ughv_400al_triplex_ug_4w_bundled) at bus b107 have different linecodes — not merged.",
+      "detail": {
+        "linecode_2": "ughv_400al_triplex_ug_4w_bundled",
+        "line_2": "l_2702",
+        "line_1": "l_2573",
+        "linecode_1": "abc4x16_lv_oh_4w_bundled"
+      },
+      "severity": "info",
+      "operation": "merge_series_lines",
+      "code": "LINECODE_MISMATCH",
+      "element_type": "bus",
+      "element_id": "b107"
+    },
+    {
+      "message": "Lines l_2127 (linecode moon_lv_oh_4wire) and l_1211 (linecode ughv_400al_triplex_ug_4w_bundled) at bus b504 have different linecodes — not merged.",
+      "detail": {
+        "linecode_2": "ughv_400al_triplex_ug_4w_bundled",
+        "line_2": "l_1211",
+        "line_1": "l_2127",
+        "linecode_1": "moon_lv_oh_4wire"
+      },
+      "severity": "info",
+      "operation": "merge_series_lines",
+      "code": "LINECODE_MISMATCH",
+      "element_type": "bus",
+      "element_id": "b504"
+    },
+    {
+      "message": "Lines l_3238 (linecode abc4x16_lv_oh_4w_bundled) and l_3095 (linecode ughv_400al_triplex_ug_4w_bundled) at bus b706 have different linecodes — not merged.",
+      "detail": {
+        "linecode_2": "ughv_400al_triplex_ug_4w_bundled",
+        "line_2": "l_3095",
+        "line_1": "l_3238",
+        "linecode_1": "abc4x16_lv_oh_4w_bundled"
+      },
+      "severity": "info",
+      "operation": "merge_series_lines",
+      "code": "LINECODE_MISMATCH",
+      "element_type": "bus",
+      "element_id": "b706"
+    },
+    {
+      "message": "Lines l_2018 (linecode ughv_400al_triplex_ug_4w_bundled) and l_563 (linecode abc4x16_lv_oh_4w_bundled) at bus b363 have different linecodes — not merged.",
+      "detail": {
+        "linecode_2": "abc4x16_lv_oh_4w_bundled",
+        "line_2": "l_563",
+        "line_1": "l_2018",
+        "linecode_1": "ughv_400al_triplex_ug_4w_bundled"
+      },
+      "severity": "info",
+      "operation": "merge_series_lines",
+      "code": "LINECODE_MISMATCH",
+      "element_type": "bus",
+      "element_id": "b363"
+    },
+    {
+      "message": "Merged line l_950 (0.299153552267 m) into l_2597 at pass-through bus b2551; new length 0.49915355226700003 m.",
       "detail": {
         "new_length": 0.49915355226700003,
-        "absorbed_line": "L_950",
-        "removed_bus": "B2551"
+        "absorbed_line": "l_950",
+        "removed_bus": "b2551"
       },
       "severity": "info",
       "operation": "merge_series_lines",
       "code": "LINES_MERGED",
       "element_type": "line",
-      "element_id": "L_2597"
+      "element_id": "l_2597"
     },
     {
-      "message": "Lines L_2018 (linecode ughv_400al_triplex_ug_4w_bundled) and L_563 (linecode abc4x16_lv_oh_4w_bundled) at bus B363 have different linecodes — not merged.",
+      "message": "Lines l_640 (linecode ughv_400al_triplex_ug_4w_bundled) and l_2573 (linecode abc4x16_lv_oh_4w_bundled) at bus b1374 have different linecodes — not merged.",
       "detail": {
         "linecode_2": "abc4x16_lv_oh_4w_bundled",
-        "line_2": "L_563",
-        "line_1": "L_2018",
+        "line_2": "l_2573",
+        "line_1": "l_640",
         "linecode_1": "ughv_400al_triplex_ug_4w_bundled"
       },
       "severity": "info",
       "operation": "merge_series_lines",
       "code": "LINECODE_MISMATCH",
       "element_type": "bus",
-      "element_id": "B363"
+      "element_id": "b1374"
     },
     {
-      "message": "Lines L_3238 (linecode abc4x16_lv_oh_4w_bundled) and L_3095 (linecode ughv_400al_triplex_ug_4w_bundled) at bus B706 have different linecodes — not merged.",
-      "detail": {
-        "linecode_2": "ughv_400al_triplex_ug_4w_bundled",
-        "line_2": "L_3095",
-        "line_1": "L_3238",
-        "linecode_1": "abc4x16_lv_oh_4w_bundled"
-      },
-      "severity": "info",
-      "operation": "merge_series_lines",
-      "code": "LINECODE_MISMATCH",
-      "element_type": "bus",
-      "element_id": "B706"
-    },
-    {
-      "message": "Merged line L_3799 (0.386643049639 m) into L_2597 at pass-through bus B2255; new length 0.885796601906 m.",
+      "message": "Merged line l_3799 (0.386643049639 m) into l_2597 at pass-through bus b2255; new length 0.885796601906 m.",
       "detail": {
         "new_length": 0.885796601906,
-        "absorbed_line": "L_3799",
-        "removed_bus": "B2255"
+        "absorbed_line": "l_3799",
+        "removed_bus": "b2255"
       },
       "severity": "info",
       "operation": "merge_series_lines",
       "code": "LINES_MERGED",
       "element_type": "line",
-      "element_id": "L_2597"
-    },
-    {
-      "message": "Lines L_166 (linecode abc4x16_lv_oh_4w_bundled) and L_640 (linecode ughv_400al_triplex_ug_4w_bundled) at bus B885 have different linecodes — not merged.",
-      "detail": {
-        "linecode_2": "ughv_400al_triplex_ug_4w_bundled",
-        "line_2": "L_640",
-        "line_1": "L_166",
-        "linecode_1": "abc4x16_lv_oh_4w_bundled"
-      },
-      "severity": "info",
-      "operation": "merge_series_lines",
-      "code": "LINECODE_MISMATCH",
-      "element_type": "bus",
-      "element_id": "B885"
-    },
-    {
-      "message": "Lines L_2573 (linecode abc4x16_lv_oh_4w_bundled) and L_640 (linecode ughv_400al_triplex_ug_4w_bundled) at bus B1374 have different linecodes — not merged.",
-      "detail": {
-        "linecode_2": "ughv_400al_triplex_ug_4w_bundled",
-        "line_2": "L_640",
-        "line_1": "L_2573",
-        "linecode_1": "abc4x16_lv_oh_4w_bundled"
-      },
-      "severity": "info",
-      "operation": "merge_series_lines",
-      "code": "LINECODE_MISMATCH",
-      "element_type": "bus",
-      "element_id": "B1374"
-    },
-    {
-      "message": "Lines L_1211 (linecode ughv_400al_triplex_ug_4w_bundled) and L_538 (linecode moon_lv_oh_4wire) at bus B301 have different linecodes — not merged.",
-      "detail": {
-        "linecode_2": "moon_lv_oh_4wire",
-        "line_2": "L_538",
-        "line_1": "L_1211",
-        "linecode_1": "ughv_400al_triplex_ug_4w_bundled"
-      },
-      "severity": "info",
-      "operation": "merge_series_lines",
-      "code": "LINECODE_MISMATCH",
-      "element_type": "bus",
-      "element_id": "B301"
-    },
-    {
-      "message": "Lines L_2702 (linecode ughv_400al_triplex_ug_4w_bundled) and L_2573 (linecode abc4x16_lv_oh_4w_bundled) at bus B107 have different linecodes — not merged.",
-      "detail": {
-        "linecode_2": "abc4x16_lv_oh_4w_bundled",
-        "line_2": "L_2573",
-        "line_1": "L_2702",
-        "linecode_1": "ughv_400al_triplex_ug_4w_bundled"
-      },
-      "severity": "info",
-      "operation": "merge_series_lines",
-      "code": "LINECODE_MISMATCH",
-      "element_type": "bus",
-      "element_id": "B107"
-    },
-    {
-      "message": "Lines L_1211 (linecode ughv_400al_triplex_ug_4w_bundled) and L_2127 (linecode moon_lv_oh_4wire) at bus B504 have different linecodes — not merged.",
-      "detail": {
-        "linecode_2": "moon_lv_oh_4wire",
-        "line_2": "L_2127",
-        "line_1": "L_1211",
-        "linecode_1": "ughv_400al_triplex_ug_4w_bundled"
-      },
-      "severity": "info",
-      "operation": "merge_series_lines",
-      "code": "LINECODE_MISMATCH",
-      "element_type": "bus",
-      "element_id": "B504"
+      "element_id": "l_2597"
     }
   ],
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:02:36Z",
+    "created": "2026-06-23T11:34:01Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"
     }
   },
   "shunt": {
-    "loadbusgrounding_B1352": {
+    "loadbusgrounding_b1352": {
       "B_1_1": 0,
       "G_1_1": 0.1,
-      "bus": "B1352",
+      "bus": "b1352",
       "terminal_map": [
         "n"
       ]
     },
-    "loadbusgrounding_B266": {
+    "loadbusgrounding_b266": {
       "B_1_1": 0,
       "G_1_1": 0.1,
-      "bus": "B266",
+      "bus": "b266",
       "terminal_map": [
         "n"
       ]
     },
-    "tx_busgrounding_B897": {
+    "tx_busgrounding_b897": {
       "B_1_1": 0,
       "G_1_1": 3.3333333333333335,
-      "bus": "B897",
+      "bus": "b897",
       "terminal_map": [
         "n"
       ]
     },
-    "loadbusgrounding_B3400": {
+    "loadbusgrounding_b3400": {
       "B_1_1": 0,
       "G_1_1": 0.1,
-      "bus": "B3400",
+      "bus": "b3400",
       "terminal_map": [
         "n"
       ]
@@ -664,7 +664,7 @@
   },
   "transformer": {
     "delta_wye": {
-      "Tx3913": {
+      "tx3913": {
         "x_series_to": 0,
         "s_rating": 200000,
         "terminal_map_to": [
@@ -675,7 +675,7 @@
         ],
         "r_series_from": 0.006889,
         "x_series_from": 0.0003374906967604007,
-        "bus_from": "B598",
+        "bus_from": "b598",
         "terminal_map_from": [
           "a",
           "b",
@@ -684,40 +684,12 @@
         "v_ref_from": 11000,
         "r_series_to": 0,
         "v_ref_to": 415,
-        "bus_to": "B897"
+        "bus_to": "b897"
       }
     }
   },
   "load": {
-    "Ld2330_LOAD_A": {
-      "p_nom": [
-        10000
-      ],
-      "q_nom": [
-        5397.428221380873
-      ],
-      "terminal_map": [
-        "a",
-        "n"
-      ],
-      "bus": "B1352",
-      "configuration": "SINGLE_PHASE"
-    },
-    "Ld3225_LOAD_B": {
-      "p_nom": [
-        10000
-      ],
-      "q_nom": [
-        5397.428221380873
-      ],
-      "terminal_map": [
-        "b",
-        "n"
-      ],
-      "bus": "B266",
-      "configuration": "SINGLE_PHASE"
-    },
-    "Ld3531_LOAD_C": {
+    "ld3531_load_c": {
       "p_nom": [
         10000
       ],
@@ -728,7 +700,35 @@
         "c",
         "n"
       ],
-      "bus": "B3400",
+      "bus": "b3400",
+      "configuration": "SINGLE_PHASE"
+    },
+    "ld2330_load_a": {
+      "p_nom": [
+        10000
+      ],
+      "q_nom": [
+        5397.428221380873
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "b1352",
+      "configuration": "SINGLE_PHASE"
+    },
+    "ld3225_load_b": {
+      "p_nom": [
+        10000
+      ],
+      "q_nom": [
+        5397.428221380873
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "b266",
       "configuration": "SINGLE_PHASE"
     }
   },
@@ -1375,110 +1375,6 @@
       "G_from_2_1": 0,
       "X_series_3_1": 0.0007515813648293964
     },
-    "uglv_185cu_xlpe/sw/pvc_ug_4w_bundled": {
-      "X_series_2_3": 0.0006482939632545931,
-      "R_series_1_3": 4.9258530183727035e-5,
-      "B_from_4_2": -3.1377326586791327e-10,
-      "R_series_1_2": 4.925688976377953e-5,
-      "R_series_2_4": 4.9258530183727035e-5,
-      "B_to_4_1": -1.910769630214623e-9,
-      "R_series_2_2": 0.00019199048556430446,
-      "G_to_1_3": 0,
-      "G_from_2_2": 0,
-      "B_from_3_3": 4.638626487519154e-9,
-      "B_to_4_4": 4.638626487519154e-9,
-      "G_to_2_1": 0,
-      "B_from_2_2": 4.6293604383210654e-9,
-      "B_from_3_2": -1.910769630214623e-9,
-      "G_from_1_3": 0,
-      "B_from_1_2": -1.9152944306572934e-9,
-      "B_from_3_1": -3.1377326586791327e-10,
-      "B_to_3_4": -1.9060644561779962e-9,
-      "X_series_3_4": 0.0006482939632545931,
-      "X_series_2_1": 0.0006482972440944882,
-      "B_from_1_3": -3.1377326586791327e-10,
-      "B_from_1_1": 4.6293604383210654e-9,
-      "B_to_2_3": -1.910769630214623e-9,
-      "G_from_2_4": 0,
-      "G_to_3_3": 0,
-      "R_series_2_1": 4.925688976377953e-5,
-      "G_to_4_3": 0,
-      "R_series_4_4": 0.00019199343832020996,
-      "R_series_3_1": 4.9258530183727035e-5,
-      "G_from_3_3": 0,
-      "G_from_3_4": 0,
-      "X_series_4_3": 0.0006482939632545931,
-      "X_series_3_3": 0.0007532152230971128,
-      "G_to_2_3": 0,
-      "G_from_4_2": 0,
-      "B_to_1_2": -1.9152944306572934e-9,
-      "B_to_2_1": -1.9152944306572934e-9,
-      "B_to_2_2": 4.6293604383210654e-9,
-      "G_from_3_1": 0,
-      "R_series_4_2": 4.9258530183727035e-5,
-      "B_from_2_1": -1.9152944306572934e-9,
-      "R_series_4_3": 4.9259842519685044e-5,
-      "R_series_1_1": 0.00019199048556430446,
-      "G_to_1_4": 0,
-      "X_series_4_4": 0.0007532152230971128,
-      "G_to_3_1": 0,
-      "G_from_3_2": 0,
-      "G_to_3_4": 0,
-      "B_to_1_1": 4.6293604383210654e-9,
-      "X_series_2_2": 0.0007532185039370078,
-      "G_to_2_2": 0,
-      "G_to_3_2": 0,
-      "X_series_1_2": 0.0006482972440944882,
-      "X_series_2_4": 0.000626519028871391,
-      "G_from_4_4": 0,
-      "R_series_3_2": 4.9258530183727035e-5,
-      "G_from_4_3": 0,
-      "G_to_4_2": 0,
-      "B_from_2_3": -1.910769630214623e-9,
-      "B_from_3_4": -1.9060644561779962e-9,
-      "G_from_1_1": 0,
-      "R_series_3_4": 4.9259842519685044e-5,
-      "G_to_2_4": 0,
-      "G_to_1_2": 0,
-      "X_series_1_3": 0.000626519028871391,
-      "B_from_2_4": -3.1377326586791327e-10,
-      "B_to_4_3": -1.9060644561779962e-9,
-      "G_from_2_3": 0,
-      "G_to_4_1": 0,
-      "X_series_1_4": 0.0006482939632545931,
-      "R_series_3_3": 0.00019199343832020996,
-      "B_to_3_2": -1.910769630214623e-9,
-      "X_series_3_2": 0.0006482939632545931,
-      "X_series_4_2": 0.000626519028871391,
-      "G_from_4_1": 0,
-      "B_to_1_3": -3.1377326586791327e-10,
-      "B_from_1_4": -1.910769630214623e-9,
-      "B_from_4_3": -1.9060644561779962e-9,
-      "B_to_2_4": -3.1377326586791327e-10,
-      "G_from_1_4": 0,
-      "R_series_2_3": 4.9258530183727035e-5,
-      "G_from_1_2": 0,
-      "B_to_4_2": -3.1377326586791327e-10,
-      "R_series_1_4": 4.9258530183727035e-5,
-      "X_series_1_1": 0.0007532185039370078,
-      "G_to_1_1": 0,
-      "B_to_1_4": -1.910769630214623e-9,
-      "B_to_3_1": -3.1377326586791327e-10,
-      "B_to_3_3": 4.638626487519154e-9,
-      "B_from_4_1": -1.910769630214623e-9,
-      "B_from_4_4": 4.638626487519154e-9,
-      "G_to_4_4": 0,
-      "R_series_4_1": 4.9258530183727035e-5,
-      "X_series_4_1": 0.0006482939632545931,
-      "i_max": [
-        600,
-        600,
-        600,
-        600
-      ],
-      "G_from_2_1": 0,
-      "X_series_3_1": 0.000626519028871391
-    },
     "generic/lv": {
       "X_series_2_3": 0.0006353018372703412,
       "R_series_1_3": 4.9258202099737534e-5,
@@ -1582,6 +1478,110 @@
       ],
       "G_from_2_1": 0,
       "X_series_3_1": 0.0006135269028871391
+    },
+    "uglv_185cu_xlpe/sw/pvc_ug_4w_bundled": {
+      "X_series_2_3": 0.0006482939632545931,
+      "R_series_1_3": 4.9258530183727035e-5,
+      "B_from_4_2": -3.1377326586791327e-10,
+      "R_series_1_2": 4.925688976377953e-5,
+      "R_series_2_4": 4.9258530183727035e-5,
+      "B_to_4_1": -1.910769630214623e-9,
+      "R_series_2_2": 0.00019199048556430446,
+      "G_to_1_3": 0,
+      "G_from_2_2": 0,
+      "B_from_3_3": 4.638626487519154e-9,
+      "B_to_4_4": 4.638626487519154e-9,
+      "G_to_2_1": 0,
+      "B_from_2_2": 4.6293604383210654e-9,
+      "B_from_3_2": -1.910769630214623e-9,
+      "G_from_1_3": 0,
+      "B_from_1_2": -1.9152944306572934e-9,
+      "B_from_3_1": -3.1377326586791327e-10,
+      "B_to_3_4": -1.9060644561779962e-9,
+      "X_series_3_4": 0.0006482939632545931,
+      "X_series_2_1": 0.0006482972440944882,
+      "B_from_1_3": -3.1377326586791327e-10,
+      "B_from_1_1": 4.6293604383210654e-9,
+      "B_to_2_3": -1.910769630214623e-9,
+      "G_from_2_4": 0,
+      "G_to_3_3": 0,
+      "R_series_2_1": 4.925688976377953e-5,
+      "G_to_4_3": 0,
+      "R_series_4_4": 0.00019199343832020996,
+      "R_series_3_1": 4.9258530183727035e-5,
+      "G_from_3_3": 0,
+      "G_from_3_4": 0,
+      "X_series_4_3": 0.0006482939632545931,
+      "X_series_3_3": 0.0007532152230971128,
+      "G_to_2_3": 0,
+      "G_from_4_2": 0,
+      "B_to_1_2": -1.9152944306572934e-9,
+      "B_to_2_1": -1.9152944306572934e-9,
+      "B_to_2_2": 4.6293604383210654e-9,
+      "G_from_3_1": 0,
+      "R_series_4_2": 4.9258530183727035e-5,
+      "B_from_2_1": -1.9152944306572934e-9,
+      "R_series_4_3": 4.9259842519685044e-5,
+      "R_series_1_1": 0.00019199048556430446,
+      "G_to_1_4": 0,
+      "X_series_4_4": 0.0007532152230971128,
+      "G_to_3_1": 0,
+      "G_from_3_2": 0,
+      "G_to_3_4": 0,
+      "B_to_1_1": 4.6293604383210654e-9,
+      "X_series_2_2": 0.0007532185039370078,
+      "G_to_2_2": 0,
+      "G_to_3_2": 0,
+      "X_series_1_2": 0.0006482972440944882,
+      "X_series_2_4": 0.000626519028871391,
+      "G_from_4_4": 0,
+      "R_series_3_2": 4.9258530183727035e-5,
+      "G_from_4_3": 0,
+      "G_to_4_2": 0,
+      "B_from_2_3": -1.910769630214623e-9,
+      "B_from_3_4": -1.9060644561779962e-9,
+      "G_from_1_1": 0,
+      "R_series_3_4": 4.9259842519685044e-5,
+      "G_to_2_4": 0,
+      "G_to_1_2": 0,
+      "X_series_1_3": 0.000626519028871391,
+      "B_from_2_4": -3.1377326586791327e-10,
+      "B_to_4_3": -1.9060644561779962e-9,
+      "G_from_2_3": 0,
+      "G_to_4_1": 0,
+      "X_series_1_4": 0.0006482939632545931,
+      "R_series_3_3": 0.00019199343832020996,
+      "B_to_3_2": -1.910769630214623e-9,
+      "X_series_3_2": 0.0006482939632545931,
+      "X_series_4_2": 0.000626519028871391,
+      "G_from_4_1": 0,
+      "B_to_1_3": -3.1377326586791327e-10,
+      "B_from_1_4": -1.910769630214623e-9,
+      "B_from_4_3": -1.9060644561779962e-9,
+      "B_to_2_4": -3.1377326586791327e-10,
+      "G_from_1_4": 0,
+      "R_series_2_3": 4.9258530183727035e-5,
+      "G_from_1_2": 0,
+      "B_to_4_2": -3.1377326586791327e-10,
+      "R_series_1_4": 4.9258530183727035e-5,
+      "X_series_1_1": 0.0007532185039370078,
+      "G_to_1_1": 0,
+      "B_to_1_4": -1.910769630214623e-9,
+      "B_to_3_1": -3.1377326586791327e-10,
+      "B_to_3_3": 4.638626487519154e-9,
+      "B_from_4_1": -1.910769630214623e-9,
+      "B_from_4_4": 4.638626487519154e-9,
+      "G_to_4_4": 0,
+      "R_series_4_1": 4.9258530183727035e-5,
+      "X_series_4_1": 0.0006482939632545931,
+      "i_max": [
+        600,
+        600,
+        600,
+        600
+      ],
+      "G_from_2_1": 0,
+      "X_series_3_1": 0.000626519028871391
     },
     "ughv_400al_triplex_ug_3w_bundled": {
       "X_series_2_3": 0.0006353051181102363,

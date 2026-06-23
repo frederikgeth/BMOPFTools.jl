@@ -1,39 +1,39 @@
 # Network graph  (30 buses)
 
-B2407 (SRC)
-└── [Tx848: Dyn0 11.0kV/433V]── B2581
-    ├── B1382
-    └── B3
-        └── [SW]── B2730
-            └── B1115
-                ├── B1267
-                │   └── [SW]── B1565
-                ├── B2342
-                │   └── [SW]── B3283
-                │       └── B3377
-                │           └── [SW]── B627
-                │               └── B1013
-                │                   └── B751 (L5)
-                ├── B2767
-                │   └── [SW]── B403
-                └── B401
-                    └── [SW]── B1847
-                        └── B1201
-                            └── [SW]── B2796
-                                └── B2091
-                                    ├── B150 (L4)
-                                    └── B2263
-                                        ├── B1537
-                                        ├── B408
-                                        │   ├── B1789 (L3)
-                                        │   ├── B1861
-                                        │   ├── B1970 (L1)
-                                        │   └── B444
-                                        └── B934 (L2)
+b2407 (SRC)
+└── [tx848: Dyn0 11.0kV/433V]── b2581
+    ├── b1382
+    └── b3
+        └── [SW]── b2730
+            └── b1115
+                ├── b1267
+                │   └── [SW]── b1565
+                ├── b2342
+                │   └── [SW]── b3283
+                │       └── b3377
+                │           └── [SW]── b627
+                │               └── b1013
+                │                   └── b751 (L5)
+                ├── b2767
+                │   └── [SW]── b403
+                └── b401
+                    └── [SW]── b1847
+                        └── b1201
+                            └── [SW]── b2796
+                                └── b2091
+                                    ├── b150 (L4)
+                                    └── b2263
+                                        ├── b1537
+                                        ├── b408
+                                        │   ├── b1789 (L3)
+                                        │   ├── b1861
+                                        │   ├── b1970 (L1)
+                                        │   └── b444
+                                        └── b934 (L2)
 
 Loads (5 total):
-  L1 = Ld2706_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
-  L2 = Ld275_LOAD_A       10.0 kW  SINGLE_PHASE  terminals: a,n
-  L3 = Ld3180_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
-  L4 = Ld3723_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
-  L5 = Ld4569_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L1 = ld2706_load_b      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L2 = ld275_load_a       10.0 kW  SINGLE_PHASE  terminals: a,n
+  L3 = ld3180_load_c      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L4 = ld3723_load_a      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L5 = ld4569_load_b      10.0 kW  SINGLE_PHASE  terminals: b,n

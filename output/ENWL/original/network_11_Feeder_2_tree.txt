@@ -55,6 +55,6 @@ sourcebus (SRC)
             ⋮  (3 buses)
 
 Loads (3 total):
-  L1 = LOAD1              1.97 kW  SINGLE_PHASE  terminals: a,n
-  L2 = LOAD2              0.31 kW  SINGLE_PHASE  terminals: b,n
-  L3 = LOAD3              2.94 kW  SINGLE_PHASE  terminals: c,n
+  L1 = load1              1.97 kW  SINGLE_PHASE  terminals: a,n
+  L2 = load2              0.31 kW  SINGLE_PHASE  terminals: b,n
+  L3 = load3              2.94 kW  SINGLE_PHASE  terminals: c,n

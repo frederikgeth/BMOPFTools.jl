@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV10_223bus
 
-**Generated:** 2026-06-23 21:02:35  
+**Generated:** 2026-06-23 21:34:00  
 **Findings:** 0 errors · 3 warnings · 22 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 96 grounding point(s)
 
@@ -33,7 +33,7 @@
 
 **Transformer transitions:**
 
-- `Tx2187`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `tx2187`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -89,13 +89,13 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| Tx2187 | 500.0 kVA | 213.6% ⚠ |
+| tx2187 | 500.0 kVA | 213.6% ⚠ |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.94 MW).
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx2187' is at 213.6% utilisation at nominal load — little OPF headroom.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B185' has no load connected to phase terminal 'a'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B185' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B185' has no load connected to phase terminal 'c'.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx2187' is at 213.6% utilisation at nominal load — little OPF headroom.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b185' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b185' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b185' has no load connected to phase terminal 'c'.
 
 ## 6. Infeasibility Pre-flight
 
@@ -198,8 +198,8 @@
   93 of 94 loads share identical (p_nom, q_nom) — possible copy-paste symmetry.
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.94 MW).
-- **[W.OPS.XFMR_OVERLOADED]** `Tx2187`  
-  Transformer 'Tx2187' is at 213.6% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `tx2187`  
+  Transformer 'tx2187' is at 213.6% utilisation at nominal load — little OPF headroom.
 
 ### 🔵 Info
 
@@ -212,11 +212,11 @@
 - **[I.DIV.LOAD_UNIFORM_CONFIG]** `load`  
   All 94 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B185' has no load connected to phase terminal 'a'.
+  Galvanic zone anchored at bus 'b185' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B185' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b185' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B185' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b185' has no load connected to phase terminal 'c'.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  

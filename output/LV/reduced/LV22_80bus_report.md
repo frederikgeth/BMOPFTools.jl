@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV22_80bus
 
-**Generated:** 2026-06-23 21:02:36  
+**Generated:** 2026-06-23 21:34:01  
 **Findings:** 0 errors · 2 warnings · 23 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 23 grounding point(s)
 
@@ -33,7 +33,7 @@
 
 **Transformer transitions:**
 
-- `Tx1632`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `tx1632`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -75,7 +75,7 @@
 > 🔵 **[I.DIV.LOAD_PF_DSS_DEFAULT]** Load power factor mean 0.88 is within 1% of the OpenDSS default PF=0.88 (CV=0.0) — reactive power may not have been explicitly set.
 > 🔵 **[I.DIV.LOAD_UNIFORM_MODEL]** All 21 loads use the constant_power model — no load exercises voltage dependence (ZIP/exponential); the case does not test voltage-dependent load behaviour.
 > 🔵 **[I.DIV.LOAD_UNIFORM_CONFIG]** All 21 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1014' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1014' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 
 ## 5. Loading & Operational Summary
 
@@ -90,12 +90,12 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| Tx1632 | 500.0 kVA | 47.7% |
+| tx1632 | 500.0 kVA | 47.7% |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.21 MW).
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B212' has no load connected to phase terminal 'a'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B212' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B212' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b212' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b212' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b212' has no load connected to phase terminal 'c'.
 
 ## 6. Infeasibility Pre-flight
 
@@ -210,13 +210,13 @@
 - **[I.DIV.LOAD_UNIFORM_CONFIG]** `load`  
   All 21 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'B1014' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'b1014' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B212' has no load connected to phase terminal 'a'.
+  Galvanic zone anchored at bus 'b212' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B212' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b212' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B212' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b212' has no load connected to phase terminal 'c'.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  

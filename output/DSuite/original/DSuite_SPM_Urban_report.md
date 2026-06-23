@@ -1,7 +1,7 @@
 # BMOPF Network Summary: DSuite_SPM_Urban
 
-**Generated:** 2026-06-22 13:58:34  
-**Findings:** 1 errors · 76 warnings · 146 info  
+**Generated:** 2026-06-23 21:26:51  
+**Findings:** 0 errors · 75 warnings · 153 info  
 **Convention:** MV_6.4kV: mixed; LV_242V: mixed; implicit (Kron-style) grounding
 
 ---
@@ -12,13 +12,13 @@
 |-----------|------:|-------|
 | bus | 1229 |  |
 | line | 1233 |  |
-| linecode | 63 |  |
+| linecode | 64 |  |
 | voltage_source | 1 |  |
 | load | 356 | 299.0 kW, 0.0 var |
 | generator | 0 | capacity: 0.0 W |
 | shunt | 0 |  |
 | switch | 0 |  |
-| transformer | 6 | Dyn1×6 |
+| transformer | 6 | Dyn0×6 |
 | inverter | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
@@ -33,12 +33,12 @@
 
 **Transformer transitions:**
 
-- `dist_transformer_11532030_9067026`: MV_6.4kV → LV_242V (delta_wye, Dyn1)
-- `dist_transformer_11534398_9067036`: MV_6.4kV → LV_242V (delta_wye, Dyn1)
-- `dist_transformer_10432314_9067607`: MV_6.4kV → LV_242V (delta_wye, Dyn1)
-- `dist_transformer_14078068_9067610`: MV_6.4kV → LV_242V (delta_wye, Dyn1)
-- `dist_transformer_20108487_9071358`: MV_6.4kV → LV_242V (delta_wye, Dyn1)
-- `dist_transformer_20098160_9044497`: MV_6.4kV → LV_242V (delta_wye, Dyn1)
+- `dist_transformer_11532030_9067026`: MV_6.4kV → LV_242V (delta_wye, Dyn0)
+- `dist_transformer_11534398_9067036`: MV_6.4kV → LV_242V (delta_wye, Dyn0)
+- `dist_transformer_10432314_9067607`: MV_6.4kV → LV_242V (delta_wye, Dyn0)
+- `dist_transformer_14078068_9067610`: MV_6.4kV → LV_242V (delta_wye, Dyn0)
+- `dist_transformer_20108487_9071358`: MV_6.4kV → LV_242V (delta_wye, Dyn0)
+- `dist_transformer_20098160_9044497`: MV_6.4kV → LV_242V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -76,7 +76,7 @@
 
 | Parameter | Min | Max | CV | n |
 |-----------|-----|-----|----|---|
-| R_series_1_1 | 1.0e-6 | 0.0172 | 1.098 | 63 |
+| R_series_1_1 | 1.0e-6 | 402.0 | 7.997 | 64 |
 
 ### transformer
 
@@ -111,10 +111,10 @@
 | dist_transformer_20098160_9044497 | 500.0 kVA | 59.8% |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.3 MW).
-> 🟡 **[W.OPS.LINE_UNCONSTRAINED]** 1 of 1233 lines have no thermal limit (i_max or s_max) — OPF thermal constraints will be missing.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal '3'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.FEEDER_SHORT]** Galvanic zone anchored at bus 'sourcebus' (MV, 6.41 kV) has an electrical reach of 1.0 m — shorter than typical for a MV feeder (200.0 m); electrically it is a stub/service drop rather than a feeder.
 
 ## 6. Infeasibility Pre-flight
 
@@ -142,7 +142,7 @@
 |-------------------|------:|
 | Buses with neutral | 324 |
 | Neutral branches | 0 |
-| Grounding points | 324 |
+| Grounding points | 1 |
 | Neutral sections | 324 |
 | Floating sections | 0 |
 
@@ -150,7 +150,7 @@
 
 | Verdict | Count |
 |---------|------:|
-| exactly_balanced | 16 |
+| exactly_balanced | 17 |
 | decoupled | 47 |
 
 **OpenDSS default fingerprints:** 5 hit(s) — see findings
@@ -160,19 +160,25 @@
 | Zone | Buses | Wires | Star point | Downstream earths | Likely system |
 |------|------:|-------|------------|------------------:|---------------|
 | 6.41 kV | 2 | ≤3-wire | solid | 0 | solidly earthed |
-| 242.0 V | 1227 | ≤3-wire | solid | 317 | indeterminate (3-wire / Kron-style implicit grounding) |
+| 242.0 V | 1227 | ≤3-wire | none | 0 | IT (isolated / high-impedance earthed) |
 
 > 🔵 **[I.PROV.NEGATIVE_MUTUAL_R]** Linecode 'cable_230v_0.05_cu' has negative mutual resistance entries [(1, 2), (1, 3), (2, 3)] — unusual; Carson-derived matrices have positive mutuals.
 > 🔵 **[I.PROV.NEGATIVE_MUTUAL_R]** Linecode 'cable_230v_185_al_wavef' has negative mutual resistance entries [(1, 2), (1, 3), (2, 3)] — unusual; Carson-derived matrices have positive mutuals.
 > 🔵 **[I.PROV.NEGATIVE_MUTUAL_R]** Linecode 'default' has negative mutual resistance entries [(1, 2), (1, 3), (2, 3)] — unusual; Carson-derived matrices have positive mutuals.
 > 🔵 **[I.PROV.NEGATIVE_MUTUAL_R]** Linecode 'unknown_lv_ohline_m' has negative mutual resistance entries [(1, 2), (1, 3), (2, 3)] — unusual; Carson-derived matrices have positive mutuals.
 > 🔵 **[I.PROV.NEGATIVE_MUTUAL_R]** Linecode 'unknown_lv_cable_m' has negative mutual resistance entries [(1, 2), (1, 3), (2, 3)] — unusual; Carson-derived matrices have positive mutuals.
-> 🔵 **[I.PROV.SEQ_DERIVED]** 16 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: cable_230v_0.05_cu, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_300_al_wave, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, default, unknown_lv_cable_m, unknown_lv_ohline_m.
+> 🔵 **[I.PROV.SEQ_DERIVED]** 17 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: _line_sourcez, cable_230v_0.05_cu, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_300_al_wave, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, default, unknown_lv_cable_m, unknown_lv_ohline_m.
 > 🔵 **[I.PROV.DECOUPLED_PHASES]** 47 linecode(s) have zero mutual coupling (diagonal impedance matrix) — positive-sequence-only data; the phases decouple into independent single-phase networks: busbar, cable_230v_0.0125_al, cable_230v_0.0125_cu, cable_230v_0.0225_cu, cable_230v_0.025_cu, cable_230v_0.03_al, cable_230v_0.04_al, cable_230v_0.04_cu, cable_230v_0.06_al, cable_230v_0.06_cu, cable_230v_0.15_al, cable_230v_0.15_cu, cable_230v_0.1_al, cable_230v_0.1_cu, cable_230v_0.25_al, cable_230v_0.25_cu, cable_230v_0.2_al, cable_230v_0.2_cu, cable_230v_0.3_al, cable_230v_0.3_cu, cable_230v_0.5_al, cable_230v_0.5_cu, cable_230v_16_cu, cable_230v_185_al, cable_230v_185_al_wave, cable_230v_25_al, cable_230v_25_cu, cable_230v_25_cu_cscs, cable_230v_25_cu_csct, cable_230v_300_al_consac, cable_230v_300_cu, cable_230v_35_cu_ccs, cable_230v_35_cu_cct, cable_230v_35_cu_cscs, cable_230v_35_cu_csct, cable_230v_4_cu, cable_230v_95_al, cable_230v_95_cu, connector, ohl_230v_0.0225_ocu, ohl_230v_0.05_oal, ohl_230v_25_oal, ohl_230v_35_abc, ohl_230v_50_abc, ohl_230v_50_oal, unknown_lv_cable_s, unknown_lv_ohline_s.
-> 🔵 **[I.PROV.NO_PI_SHUNT]** All 63 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
+> 🔵 **[I.PROV.PARTIAL_PI_SHUNT]** 63 of 64 linecode(s) have no π-shunt admittance — mixed model: some lines are series-only, others include shunt capacitance/conductance: busbar, cable_230v_0.0125_al, cable_230v_0.0125_cu, cable_230v_0.0225_cu, cable_230v_0.025_cu, cable_230v_0.03_al, cable_230v_0.04_al, cable_230v_0.04_cu, cable_230v_0.05_cu, cable_230v_0.06_al, cable_230v_0.06_cu, cable_230v_0.15_al, cable_230v_0.15_cu, cable_230v_0.1_al, cable_230v_0.1_cu, cable_230v_0.25_al, cable_230v_0.25_cu, cable_230v_0.2_al, cable_230v_0.2_cu, cable_230v_0.3_al, cable_230v_0.3_cu, cable_230v_0.5_al, cable_230v_0.5_cu, cable_230v_16_cu, cable_230v_185_al, cable_230v_185_al_wave, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_25_cu, cable_230v_25_cu_cscs, cable_230v_25_cu_csct, cable_230v_300_al_consac, cable_230v_300_al_wave, cable_230v_300_cu, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, cable_230v_35_cu_ccs, cable_230v_35_cu_cct, cable_230v_35_cu_cscs, cable_230v_35_cu_csct, cable_230v_4_cu, cable_230v_95_al, cable_230v_95_cu, connector, default, ohl_230v_0.0225_ocu, ohl_230v_0.05_oal, ohl_230v_25_oal, ohl_230v_35_abc, ohl_230v_50_abc, ohl_230v_50_oal, unknown_lv_cable_m, unknown_lv_cable_s, unknown_lv_ohline_m, unknown_lv_ohline_s.
+> 🟡 **[W.PROV.IMPLICIT_GROUNDING]** No branch carries a neutral conductor, but 318 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
+> 🔵 **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** Transformer 'dist_transformer_11532030_9067026' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9067026', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9067026' if a local earth was intended.
+> 🔵 **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** Transformer 'dist_transformer_11534398_9067036' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9067036', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9067036' if a local earth was intended.
+> 🔵 **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** Transformer 'dist_transformer_10432314_9067607' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9067607', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9067607' if a local earth was intended.
+> 🔵 **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** Transformer 'dist_transformer_14078068_9067610' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9067610', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9067610' if a local earth was intended.
+> 🔵 **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** Transformer 'dist_transformer_20108487_9071358' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9071358', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9071358' if a local earth was intended.
+> 🔵 **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** Transformer 'dist_transformer_20098160_9044497' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9044497', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9044497' if a local earth was intended.
 > 🔵 **[I.PROV.DSS_DEFAULT_LENGTH]** 5 of 1233 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
-> 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_KR]** 63 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: busbar, cable_230v_0.0125_al, cable_230v_0.0125_cu, cable_230v_0.0225_cu, cable_230v_0.025_cu, cable_230v_0.03_al, cable_230v_0.04_al, cable_230v_0.04_cu, cable_230v_0.05_cu, cable_230v_0.06_al, cable_230v_0.06_cu, cable_230v_0.15_al, cable_230v_0.15_cu, cable_230v_0.1_al, cable_230v_0.1_cu, cable_230v_0.25_al, cable_230v_0.25_cu, cable_230v_0.2_al, cable_230v_0.2_cu, cable_230v_0.3_al, cable_230v_0.3_cu, cable_230v_0.5_al, cable_230v_0.5_cu, cable_230v_16_cu, cable_230v_185_al, cable_230v_185_al_wave, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_25_cu, cable_230v_25_cu_cscs, cable_230v_25_cu_csct, cable_230v_300_al_consac, cable_230v_300_al_wave, cable_230v_300_cu, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, cable_230v_35_cu_ccs, cable_230v_35_cu_cct, cable_230v_35_cu_cscs, cable_230v_35_cu_csct, cable_230v_4_cu, cable_230v_95_al, cable_230v_95_cu, connector, default, ohl_230v_0.0225_ocu, ohl_230v_0.05_oal, ohl_230v_25_oal, ohl_230v_35_abc, ohl_230v_50_abc, ohl_230v_50_oal, unknown_lv_cable_m, unknown_lv_cable_s, unknown_lv_ohline_m, unknown_lv_ohline_s.
-> 🟡 **[W.PROV.I_MAX_ABSENT]** 1 line(s) have no `i_max` on their linecode (or no linecode at all) — their series current is left entirely unconstrained in the OPF, so no thermal limit is enforced on the branch.
+> 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_KR]** 64 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: _line_sourcez, busbar, cable_230v_0.0125_al, cable_230v_0.0125_cu, cable_230v_0.0225_cu, cable_230v_0.025_cu, cable_230v_0.03_al, cable_230v_0.04_al, cable_230v_0.04_cu, cable_230v_0.05_cu, cable_230v_0.06_al, cable_230v_0.06_cu, cable_230v_0.15_al, cable_230v_0.15_cu, cable_230v_0.1_al, cable_230v_0.1_cu, cable_230v_0.25_al, cable_230v_0.25_cu, cable_230v_0.2_al, cable_230v_0.2_cu, cable_230v_0.3_al, cable_230v_0.3_cu, cable_230v_0.5_al, cable_230v_0.5_cu, cable_230v_16_cu, cable_230v_185_al, cable_230v_185_al_wave, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_25_cu, cable_230v_25_cu_cscs, cable_230v_25_cu_csct, cable_230v_300_al_consac, cable_230v_300_al_wave, cable_230v_300_cu, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, cable_230v_35_cu_ccs, cable_230v_35_cu_cct, cable_230v_35_cu_cscs, cable_230v_35_cu_csct, cable_230v_4_cu, cable_230v_95_al, cable_230v_95_cu, connector, default, ohl_230v_0.0225_ocu, ohl_230v_0.05_oal, ohl_230v_25_oal, ohl_230v_35_abc, ohl_230v_50_abc, ohl_230v_50_oal, unknown_lv_cable_m, unknown_lv_cable_s, unknown_lv_ohline_m, unknown_lv_ohline_s.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line '10429506' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line '10429584' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line '10429586' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
@@ -305,15 +311,15 @@
 | Dimension issues | 0 |
 | Galvanic islands | 2 |
 | Islands without voltage reference | 0 |
-| Line impedance spread | 1.56e6× |
+| Line impedance spread | 4.16e10× |
 
 | Benchmark readiness | Value |
 |---------------------|------:|
-| Objective well-posed | true |
-| Only slack generation | true |
+| Objective well-posed | false |
+| Only slack generation | false |
 | Buses with \|V\| bounds | 0.0% |
 | Buses with vpn / vpp / vpos bounds | 0 / 0 / 0 |
-| Lines with thermal limits | 99.9% |
+| Lines with thermal limits | 100.0% |
 | Generators with no DOF (p\_min≈p\_max) | 0 |
 | Generators with zero cost (dispatchable) | 0 |
 | Same-cost generator pairs (≤1 hop) | 0 |
@@ -321,24 +327,18 @@
 
 **Augmentation needed:**
 
-- only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds
+- no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 - no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF
-- 1 of 1233 lines lack thermal limits — add i_max/s_max (e.g. correlated with conductor cross-section)
 
 > 🟡 **[W.INT.LOW_IMPEDANCE_LINE]** 53 line(s) have total series impedance below 10⁻³× the network median — they degrade NLP conditioning; model them as lossless switches: 10436627, 10436629, 10436633, 10436637, 10438258, 10445747, 10445749, 11629040, 11629042, 11629044, 11629046, 7133196, 7133203, 7133214, 7133232, 7325270, 7325271, 7325272, 7325273, 7325274, 7325275, 7325276, 7325277, 7325278, 7325279, 7325281, 7325282, 7325283, 7325284, 7325285, 7325286, 7325287, 7325288, 7325289, 7325290, 7325291, 7325293, 7325294, 7325295, 7325296, 7325297, 7325474, 7325475, 7325476, 7325477, 7325478, 7325479, 7412941, 7412944, 7413019, 7413030, 7413054, 7413064.
 
-> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF; 1 of 1233 lines lack thermal limits — add i_max/s_max (e.g. correlated with conductor cross-section).
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 > 🔵 **[I.BENCH.LOAD_ZERO_PNOM]** 57 load(s) have p_nom = 0 on all phases — these loads impose no real power demand: sop_x1_16680546_1, sop_x1_16680546_2, sop_x1_16680546_3, sop_x2_17806531_1, sop_x2_17806531_2, sop_x2_17806531_3, sop_x3_16825063_1, sop_x3_16825063_2, sop_x3_16825063_3, sop_x4_17806525_1, sop_x4_17806525_2, sop_x4_17806525_3, sop_x5_17806528_1, sop_x5_17806528_2, sop_x5_17806528_3, statcom_14307491_1, statcom_14307491_2, statcom_14307491_3, statcom_15717555_1, statcom_15717555_2, statcom_15717555_3, statcom_15892354_1, statcom_15892354_2, statcom_15892354_3, statcom_16666765_1, statcom_16666765_2, statcom_16666765_3, statcom_16670799_1, statcom_16670799_2, statcom_16670799_3, statcom_16680428_1, statcom_16680428_2, statcom_16680428_3, statcom_16802187_1, statcom_16802187_2, statcom_16802187_3, statcom_16802215_1, statcom_16802215_2, statcom_16802215_3, statcom_16803228_1, statcom_16803228_2, statcom_16803228_3, statcom_16822347_1, statcom_16822347_2, statcom_16822347_3, statcom_16829606_1, statcom_16829606_2, statcom_16829606_3, statcom_16913952_1, statcom_16913952_2, statcom_16913952_3, statcom_16939712_1, statcom_16939712_2, statcom_16939712_3, str_9067026_1, str_9067026_2, str_9067026_3.
 
 ## 9. Data Quality Summary
 
-**Total findings:** 223 (1 errors, 76 warnings, 146 info)
-
-### 🔴 Errors
-
-- **[E.COMP.MISSING_REQUIRED]** `sourcez`  
-  line 'sourcez' is missing required field(s): linecode.
+**Total findings:** 228 (0 errors, 75 warnings, 153 info)
 
 ### 🟡 Warnings
 
@@ -350,10 +350,8 @@
   354 of 356 loads share identical (p_nom, q_nom) — possible copy-paste symmetry.
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.3 MW).
-- **[W.OPS.LINE_UNCONSTRAINED]** `line`  
-  1 of 1233 lines have no thermal limit (i_max or s_max) — OPF thermal constraints will be missing.
-- **[W.PROV.I_MAX_ABSENT]** `line`  
-  1 line(s) have no `i_max` on their linecode (or no linecode at all) — their series current is left entirely unconstrained in the OPF, so no thermal limit is enforced on the branch.
+- **[W.PROV.IMPLICIT_GROUNDING]** `network`  
+  No branch carries a neutral conductor, but 318 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
 - **[W.DOM.LINE_LOW_IMPEDANCE]** `7325292`  
   Line '7325292' has ||Z||_F = 5.36e-6 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
 - **[W.DOM.LINE_LOW_IMPEDANCE]** `7133203`  
@@ -506,11 +504,13 @@
 - **[I.DIV.LINE_SYMMETRIC]** `line`  
   4 lines share linecode 'busbar' with similar length (±10%) — electrically near-identical.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal 'c'.
+- **[I.OPS.FEEDER_SHORT]** `network`  
+  Galvanic zone anchored at bus 'sourcebus' (MV, 6.41 kV) has an electrical reach of 1.0 m — shorter than typical for a MV feeder (200.0 m); electrically it is a stub/service drop rather than a feeder.
 - **[I.PROV.NEGATIVE_MUTUAL_R]** `cable_230v_0.05_cu`  
   Linecode 'cable_230v_0.05_cu' has negative mutual resistance entries [(1, 2), (1, 3), (2, 3)] — unusual; Carson-derived matrices have positive mutuals.
 - **[I.PROV.NEGATIVE_MUTUAL_R]** `cable_230v_185_al_wavef`  
@@ -522,15 +522,27 @@
 - **[I.PROV.NEGATIVE_MUTUAL_R]** `unknown_lv_cable_m`  
   Linecode 'unknown_lv_cable_m' has negative mutual resistance entries [(1, 2), (1, 3), (2, 3)] — unusual; Carson-derived matrices have positive mutuals.
 - **[I.PROV.SEQ_DERIVED]** `linecode`  
-  16 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: cable_230v_0.05_cu, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_300_al_wave, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, default, unknown_lv_cable_m, unknown_lv_ohline_m.
+  17 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: _line_sourcez, cable_230v_0.05_cu, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_300_al_wave, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, default, unknown_lv_cable_m, unknown_lv_ohline_m.
 - **[I.PROV.DECOUPLED_PHASES]** `linecode`  
   47 linecode(s) have zero mutual coupling (diagonal impedance matrix) — positive-sequence-only data; the phases decouple into independent single-phase networks: busbar, cable_230v_0.0125_al, cable_230v_0.0125_cu, cable_230v_0.0225_cu, cable_230v_0.025_cu, cable_230v_0.03_al, cable_230v_0.04_al, cable_230v_0.04_cu, cable_230v_0.06_al, cable_230v_0.06_cu, cable_230v_0.15_al, cable_230v_0.15_cu, cable_230v_0.1_al, cable_230v_0.1_cu, cable_230v_0.25_al, cable_230v_0.25_cu, cable_230v_0.2_al, cable_230v_0.2_cu, cable_230v_0.3_al, cable_230v_0.3_cu, cable_230v_0.5_al, cable_230v_0.5_cu, cable_230v_16_cu, cable_230v_185_al, cable_230v_185_al_wave, cable_230v_25_al, cable_230v_25_cu, cable_230v_25_cu_cscs, cable_230v_25_cu_csct, cable_230v_300_al_consac, cable_230v_300_cu, cable_230v_35_cu_ccs, cable_230v_35_cu_cct, cable_230v_35_cu_cscs, cable_230v_35_cu_csct, cable_230v_4_cu, cable_230v_95_al, cable_230v_95_cu, connector, ohl_230v_0.0225_ocu, ohl_230v_0.05_oal, ohl_230v_25_oal, ohl_230v_35_abc, ohl_230v_50_abc, ohl_230v_50_oal, unknown_lv_cable_s, unknown_lv_ohline_s.
-- **[I.PROV.NO_PI_SHUNT]** `linecode`  
-  All 63 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
+- **[I.PROV.PARTIAL_PI_SHUNT]** `linecode`  
+  63 of 64 linecode(s) have no π-shunt admittance — mixed model: some lines are series-only, others include shunt capacitance/conductance: busbar, cable_230v_0.0125_al, cable_230v_0.0125_cu, cable_230v_0.0225_cu, cable_230v_0.025_cu, cable_230v_0.03_al, cable_230v_0.04_al, cable_230v_0.04_cu, cable_230v_0.05_cu, cable_230v_0.06_al, cable_230v_0.06_cu, cable_230v_0.15_al, cable_230v_0.15_cu, cable_230v_0.1_al, cable_230v_0.1_cu, cable_230v_0.25_al, cable_230v_0.25_cu, cable_230v_0.2_al, cable_230v_0.2_cu, cable_230v_0.3_al, cable_230v_0.3_cu, cable_230v_0.5_al, cable_230v_0.5_cu, cable_230v_16_cu, cable_230v_185_al, cable_230v_185_al_wave, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_25_cu, cable_230v_25_cu_cscs, cable_230v_25_cu_csct, cable_230v_300_al_consac, cable_230v_300_al_wave, cable_230v_300_cu, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, cable_230v_35_cu_ccs, cable_230v_35_cu_cct, cable_230v_35_cu_cscs, cable_230v_35_cu_csct, cable_230v_4_cu, cable_230v_95_al, cable_230v_95_cu, connector, default, ohl_230v_0.0225_ocu, ohl_230v_0.05_oal, ohl_230v_25_oal, ohl_230v_35_abc, ohl_230v_50_abc, ohl_230v_50_oal, unknown_lv_cable_m, unknown_lv_cable_s, unknown_lv_ohline_m, unknown_lv_ohline_s.
+- **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** `dist_transformer_11532030_9067026`  
+  Transformer 'dist_transformer_11532030_9067026' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9067026', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9067026' if a local earth was intended.
+- **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** `dist_transformer_11534398_9067036`  
+  Transformer 'dist_transformer_11534398_9067036' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9067036', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9067036' if a local earth was intended.
+- **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** `dist_transformer_10432314_9067607`  
+  Transformer 'dist_transformer_10432314_9067607' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9067607', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9067607' if a local earth was intended.
+- **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** `dist_transformer_14078068_9067610`  
+  Transformer 'dist_transformer_14078068_9067610' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9067610', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9067610' if a local earth was intended.
+- **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** `dist_transformer_20108487_9071358`  
+  Transformer 'dist_transformer_20108487_9071358' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9071358', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9071358' if a local earth was intended.
+- **[I.PROV.WYE_NEUTRAL_UNGROUNDED]** `dist_transformer_20098160_9044497`  
+  Transformer 'dist_transformer_20098160_9044497' (delta_wye) brings out a three-phase wye neutral on its secondary side at bus '9044497', but that bus has no local grounding (no perfect ground and no grounding impedance). The star point's zero-sequence potential is set only by what the neutral conductor reaches elsewhere — add a grounding shunt or perfect ground at '9044497' if a local earth was intended.
 - **[I.PROV.DSS_DEFAULT_LENGTH]** `line`  
   5 of 1233 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
 - **[I.PROV.IMPEDANCE_TRANSFORM_KR]** `linecode`  
-  63 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: busbar, cable_230v_0.0125_al, cable_230v_0.0125_cu, cable_230v_0.0225_cu, cable_230v_0.025_cu, cable_230v_0.03_al, cable_230v_0.04_al, cable_230v_0.04_cu, cable_230v_0.05_cu, cable_230v_0.06_al, cable_230v_0.06_cu, cable_230v_0.15_al, cable_230v_0.15_cu, cable_230v_0.1_al, cable_230v_0.1_cu, cable_230v_0.25_al, cable_230v_0.25_cu, cable_230v_0.2_al, cable_230v_0.2_cu, cable_230v_0.3_al, cable_230v_0.3_cu, cable_230v_0.5_al, cable_230v_0.5_cu, cable_230v_16_cu, cable_230v_185_al, cable_230v_185_al_wave, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_25_cu, cable_230v_25_cu_cscs, cable_230v_25_cu_csct, cable_230v_300_al_consac, cable_230v_300_al_wave, cable_230v_300_cu, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, cable_230v_35_cu_ccs, cable_230v_35_cu_cct, cable_230v_35_cu_cscs, cable_230v_35_cu_csct, cable_230v_4_cu, cable_230v_95_al, cable_230v_95_cu, connector, default, ohl_230v_0.0225_ocu, ohl_230v_0.05_oal, ohl_230v_25_oal, ohl_230v_35_abc, ohl_230v_50_abc, ohl_230v_50_oal, unknown_lv_cable_m, unknown_lv_cable_s, unknown_lv_ohline_m, unknown_lv_ohline_s.
+  64 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: _line_sourcez, busbar, cable_230v_0.0125_al, cable_230v_0.0125_cu, cable_230v_0.0225_cu, cable_230v_0.025_cu, cable_230v_0.03_al, cable_230v_0.04_al, cable_230v_0.04_cu, cable_230v_0.05_cu, cable_230v_0.06_al, cable_230v_0.06_cu, cable_230v_0.15_al, cable_230v_0.15_cu, cable_230v_0.1_al, cable_230v_0.1_cu, cable_230v_0.25_al, cable_230v_0.25_cu, cable_230v_0.2_al, cable_230v_0.2_cu, cable_230v_0.3_al, cable_230v_0.3_cu, cable_230v_0.5_al, cable_230v_0.5_cu, cable_230v_16_cu, cable_230v_185_al, cable_230v_185_al_wave, cable_230v_185_al_wavef, cable_230v_240_al_consac, cable_230v_25_al, cable_230v_25_al_acs, cable_230v_25_al_act, cable_230v_25_al_ascs, cable_230v_25_al_asct, cable_230v_25_cu, cable_230v_25_cu_cscs, cable_230v_25_cu_csct, cable_230v_300_al_consac, cable_230v_300_al_wave, cable_230v_300_cu, cable_230v_35_al_acs, cable_230v_35_al_act, cable_230v_35_al_ascs, cable_230v_35_al_asct, cable_230v_35_al_hybrid, cable_230v_35_cu_ccs, cable_230v_35_cu_cct, cable_230v_35_cu_cscs, cable_230v_35_cu_csct, cable_230v_4_cu, cable_230v_95_al, cable_230v_95_cu, connector, default, ohl_230v_0.0225_ocu, ohl_230v_0.05_oal, ohl_230v_25_oal, ohl_230v_35_abc, ohl_230v_50_abc, ohl_230v_50_oal, unknown_lv_cable_m, unknown_lv_cable_s, unknown_lv_ohline_m, unknown_lv_ohline_s.
 - **[I.PROV.LINE_SWITCH_LIKE]** `10429506`  
   Line '10429506' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 - **[I.PROV.LINE_SWITCH_LIKE]** `10429584`  
@@ -774,7 +786,7 @@
 - **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
   Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
 - **[I.SCHEMA.UNKNOWN_FIELDS]** `bus`  
-  bus has field(s) not in the BMOPF schema: latitude, longitude, v_declared.
+  bus has field(s) not in the BMOPF schema: latitude, longitude.
 - **[I.SCHEMA.UNKNOWN_FIELDS]** `network`  
   meta has field(s) not in the BMOPF schema: reference, source.
 - **[I.DOM.LINE_IMPEDANCE_SPREAD]** `line`  
@@ -786,7 +798,7 @@
 - **[I.RED.DUPLICATE_LINECODES]** `linecode`  
   8 group(s) of linecodes share identical R_series_1_1/X_series_1_1.
 - **[I.BENCH.AUGMENTATION]** `network`  
-  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF; 1 of 1233 lines lack thermal limits — add i_max/s_max (e.g. correlated with conductor cross-section).
+  Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 - **[I.BENCH.LOAD_ZERO_PNOM]** `load`  
   57 load(s) have p_nom = 0 on all phases — these loads impose no real power demand: sop_x1_16680546_1, sop_x1_16680546_2, sop_x1_16680546_3, sop_x2_17806531_1, sop_x2_17806531_2, sop_x2_17806531_3, sop_x3_16825063_1, sop_x3_16825063_2, sop_x3_16825063_3, sop_x4_17806525_1, sop_x4_17806525_2, sop_x4_17806525_3, sop_x5_17806528_1, sop_x5_17806528_2, sop_x5_17806528_3, statcom_14307491_1, statcom_14307491_2, statcom_14307491_3, statcom_15717555_1, statcom_15717555_2, statcom_15717555_3, statcom_15892354_1, statcom_15892354_2, statcom_15892354_3, statcom_16666765_1, statcom_16666765_2, statcom_16666765_3, statcom_16670799_1, statcom_16670799_2, statcom_16670799_3, statcom_16680428_1, statcom_16680428_2, statcom_16680428_3, statcom_16802187_1, statcom_16802187_2, statcom_16802187_3, statcom_16802215_1, statcom_16802215_2, statcom_16802215_3, statcom_16803228_1, statcom_16803228_2, statcom_16803228_3, statcom_16822347_1, statcom_16822347_2, statcom_16822347_3, statcom_16829606_1, statcom_16829606_2, statcom_16829606_3, statcom_16913952_1, statcom_16913952_2, statcom_16913952_3, statcom_16939712_1, statcom_16939712_2, statcom_16939712_3, str_9067026_1, str_9067026_2, str_9067026_3.
 

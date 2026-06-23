@@ -1,13 +1,13 @@
 # Network graph  (7 buses)
 
-B2439 (SRC)
-└── [Tx2458: Dyn0 11.0kV/433V]── B2549
-    └── B31
-        ├── B1885
-        │   └── B1304 (L1)
-        └── B2267
-            └── B765 (L2)
+b2439 (SRC)
+└── [tx2458: Dyn0 11.0kV/433V]── b2549
+    └── b31
+        ├── b1885
+        │   └── b1304 (L1)
+        └── b2267
+            └── b765 (L2)
 
 Loads (2 total):
-  L1 = Ld1804_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
-  L2 = Ld3812_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L1 = ld1804_load_a      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L2 = ld3812_load_b      10.0 kW  SINGLE_PHASE  terminals: b,n

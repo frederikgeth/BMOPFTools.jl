@@ -1,35 +1,35 @@
 # Network graph  (27 buses)
 
-B2157 (SRC)
-└── [Tx1840: Dyn0 11.0kV/433V]── B2824
-    └── B1699
-        └── [SW]── B1670
-            └── B1450
-                ├── B2600
-                │   └── [SW]── B1921
-                │       └── B850
-                │           └── [SW]── B3037
-                │               └── B2140
-                │                   ├── B1816 (L2)
-                │                   └── B485
-                ├── B2644
-                │   └── [SW]── B1898
-                ├── B2747
-                │   └── [SW]── B1250
-                │       └── B2094
-                │           └── [SW]── B1477
-                │               └── B373
-                │                   ├── B1117
-                │                   │   └── B3231
-                │                   │       ├── B1683 (L1)
-                │                   │       └── B3151
-                │                   │           ├── B2594 (L3)
-                │                   │           └── B389
-                │                   └── B2813 (L4)
-                └── B2913
+b2157 (SRC)
+└── [tx1840: Dyn0 11.0kV/433V]── b2824
+    └── b1699
+        └── [SW]── b1670
+            └── b1450
+                ├── b2600
+                │   └── [SW]── b1921
+                │       └── b850
+                │           └── [SW]── b3037
+                │               └── b2140
+                │                   ├── b1816 (L2)
+                │                   └── b485
+                ├── b2644
+                │   └── [SW]── b1898
+                ├── b2747
+                │   └── [SW]── b1250
+                │       └── b2094
+                │           └── [SW]── b1477
+                │               └── b373
+                │                   ├── b1117
+                │                   │   └── b3231
+                │                   │       ├── b1683 (L1)
+                │                   │       └── b3151
+                │                   │           ├── b2594 (L3)
+                │                   │           └── b389
+                │                   └── b2813 (L4)
+                └── b2913
 
 Loads (4 total):
-  L1 = Ld1540_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
-  L2 = Ld1971_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
-  L3 = Ld335_LOAD_A       10.0 kW  SINGLE_PHASE  terminals: a,n
-  L4 = Ld3757_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L1 = ld1540_load_b      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L2 = ld1971_load_c      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L3 = ld335_load_a       10.0 kW  SINGLE_PHASE  terminals: a,n
+  L4 = ld3757_load_a      10.0 kW  SINGLE_PHASE  terminals: a,n

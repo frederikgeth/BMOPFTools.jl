@@ -2,13 +2,13 @@
 
 sourcebus (SRC)
 └── sourcebusz
-    ├── [dist_transformer_10148955_9043330: Dyn1 11.0kV/415V]── → Section 1: dist_transformer_10148955_9043330  (364 buses, 189 loads)
-    ├── [dist_transformer_14660774_9052883: Dyn1 11.0kV/415V]── → Section 2: dist_transformer_14660774_9052883  (105 buses, 54 loads)
-    ├── [dist_transformer_10149015_9108352: Dyn1 11.0kV/415V]── → Section 3: dist_transformer_10149015_9108352  (173 buses, 81 loads)
-    └── [dist_transformer_14787617_9117168: Dyn1 11.0kV/415V]── → Section 4: dist_transformer_14787617_9117168  (8 buses, 1 loads)
+    ├── [dist_transformer_10148955_9043330: Dyn0 11.0kV/415V]── → Section 1: dist_transformer_10148955_9043330  (364 buses, 189 loads)
+    ├── [dist_transformer_14660774_9052883: Dyn0 11.0kV/415V]── → Section 2: dist_transformer_14660774_9052883  (105 buses, 54 loads)
+    ├── [dist_transformer_10149015_9108352: Dyn0 11.0kV/415V]── → Section 3: dist_transformer_10149015_9108352  (173 buses, 81 loads)
+    └── [dist_transformer_14787617_9117168: Dyn0 11.0kV/415V]── → Section 4: dist_transformer_14787617_9117168  (8 buses, 1 loads)
 
 ────────────────────────────────────────────────────────────
-# Section 1: dist_transformer_10148955_9043330  (dist_transformer_10148955_9043330: Dyn1 11.0kV/415V,  364 buses)
+# Section 1: dist_transformer_10148955_9043330  (dist_transformer_10148955_9043330: Dyn0 11.0kV/415V,  364 buses)
 
 9043330 (L187,L188,L189)
 ├── 9436851
@@ -242,60 +242,60 @@ sourcebus (SRC)
                                 └── 11335921 (L32)
 
 Loads (189 total):
-  L1 = load_10540988       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L2 = load_10555996       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L3 = load_10599081       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L4 = load_10611574       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L5 = load_10880911       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L6 = load_10891998       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L7 = load_10906660       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L8 = load_10906688       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L9 = load_10918355       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L10 = load_10931974       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L11 = load_10945329       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L12 = load_10945330       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L13 = load_10981735       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L14 = load_11018324       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L15 = load_11018403       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L16 = load_11062191       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L17 = load_11062192       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L18 = load_11065916       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L19 = load_11110757       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L20 = load_11110773       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L21 = load_11110841       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L22 = load_11116674       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L23 = load_11116691       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L24 = load_11121504       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L25 = load_11156695       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L26 = load_11192291       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L27 = load_11239530       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L28 = load_11259013       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L29 = load_11265282       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L30 = load_11291186       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L31 = load_11325267       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L32 = load_11335921       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L33 = load_11341303       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L34 = load_11346581       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L35 = load_11363293       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L36 = load_11363304       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L37 = load_11365331       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L38 = load_11365343       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L39 = load_11365344       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L40 = load_11374269       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L41 = load_11392120       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L42 = load_11392134       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L43 = load_11392135       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L44 = load_11404926       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L45 = load_11419402       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L46 = load_11473858       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L47 = load_11619391       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L48 = load_11621761       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L49 = load_11621762       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L50 = load_11633539       1.0 kW  SINGLE_PHASE  terminals: 1,n
+  L1 = load_10540988       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L2 = load_10555996       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L3 = load_10599081       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L4 = load_10611574       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L5 = load_10880911       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L6 = load_10891998       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L7 = load_10906660       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L8 = load_10906688       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L9 = load_10918355       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L10 = load_10931974       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L11 = load_10945329       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L12 = load_10945330       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L13 = load_10981735       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L14 = load_11018324       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L15 = load_11018403       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L16 = load_11062191       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L17 = load_11062192       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L18 = load_11065916       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L19 = load_11110757       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L20 = load_11110773       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L21 = load_11110841       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L22 = load_11116674       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L23 = load_11116691       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L24 = load_11121504       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L25 = load_11156695       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L26 = load_11192291       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L27 = load_11239530       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L28 = load_11259013       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L29 = load_11265282       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L30 = load_11291186       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L31 = load_11325267       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L32 = load_11335921       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L33 = load_11341303       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L34 = load_11346581       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L35 = load_11363293       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L36 = load_11363304       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L37 = load_11365331       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L38 = load_11365343       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L39 = load_11365344       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L40 = load_11374269       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L41 = load_11392120       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L42 = load_11392134       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L43 = load_11392135       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L44 = load_11404926       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L45 = load_11419402       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L46 = load_11473858       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L47 = load_11619391       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L48 = load_11621761       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L49 = load_11621762       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L50 = load_11633539       1.0 kW  SINGLE_PHASE  terminals: a,n
   … and 139 more (pass legend_limit= to show all)
 
 ────────────────────────────────────────────────────────────
-# Section 2: dist_transformer_14660774_9052883  (dist_transformer_14660774_9052883: Dyn1 11.0kV/415V,  105 buses)
+# Section 2: dist_transformer_14660774_9052883  (dist_transformer_14660774_9052883: Dyn0 11.0kV/415V,  105 buses)
 
 9052883
 └── 9432319
@@ -404,60 +404,60 @@ Loads (189 total):
                             └── 12195877 (L27)
 
 Loads (54 total):
-  L1 = load_10534250       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L2 = load_10576337       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L3 = load_10594027       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L4 = load_11456329       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L5 = load_11937808       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L6 = load_12040700       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L7 = load_12078432       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L8 = load_12078433       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L9 = load_12078435       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L10 = load_12078436       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L11 = load_12078437       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L12 = load_12106213       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L13 = load_12106215       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L14 = load_12125686       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L15 = load_12125688       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L16 = load_12125690       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L17 = load_12188831       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L18 = load_12188832       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L19 = load_12190638       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L20 = load_12190641       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L21 = load_12190643       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L22 = load_12190648       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L23 = load_12192421       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L24 = load_12192425       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L25 = load_12192426       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L26 = load_12192427       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L27 = load_12195877       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L28 = load_12195878       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L29 = load_12195887       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L30 = load_12195888       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L31 = load_12195889       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L32 = load_12199045       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L33 = load_12200422       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L34 = load_12200426       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L35 = load_12200427       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L36 = load_12200428       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L37 = load_12200429       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L38 = load_12200430       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L39 = load_12206363       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L40 = load_12206367       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L41 = load_12217759       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L42 = load_13918021       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L43 = load_13997022       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L44 = load_14343129       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L45 = load_14345038       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L46 = statcom_15092405_1    0.0 kW  SINGLE_PHASE  terminals: 1,n
-  L47 = statcom_15092405_2    0.0 kW  SINGLE_PHASE  terminals: 2,n
-  L48 = statcom_15092405_3    0.0 kW  SINGLE_PHASE  terminals: 3,n
-  L49 = statcom_15136229_1    0.0 kW  SINGLE_PHASE  terminals: 1,n
-  L50 = statcom_15136229_2    0.0 kW  SINGLE_PHASE  terminals: 2,n
+  L1 = load_10534250       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L2 = load_10576337       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L3 = load_10594027       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L4 = load_11456329       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L5 = load_11937808       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L6 = load_12040700       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L7 = load_12078432       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L8 = load_12078433       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L9 = load_12078435       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L10 = load_12078436       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L11 = load_12078437       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L12 = load_12106213       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L13 = load_12106215       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L14 = load_12125686       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L15 = load_12125688       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L16 = load_12125690       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L17 = load_12188831       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L18 = load_12188832       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L19 = load_12190638       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L20 = load_12190641       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L21 = load_12190643       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L22 = load_12190648       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L23 = load_12192421       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L24 = load_12192425       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L25 = load_12192426       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L26 = load_12192427       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L27 = load_12195877       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L28 = load_12195878       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L29 = load_12195887       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L30 = load_12195888       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L31 = load_12195889       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L32 = load_12199045       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L33 = load_12200422       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L34 = load_12200426       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L35 = load_12200427       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L36 = load_12200428       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L37 = load_12200429       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L38 = load_12200430       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L39 = load_12206363       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L40 = load_12206367       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L41 = load_12217759       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L42 = load_13918021       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L43 = load_13997022       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L44 = load_14343129       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L45 = load_14345038       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L46 = statcom_15092405_1    0.0 kW  SINGLE_PHASE  terminals: a,n
+  L47 = statcom_15092405_2    0.0 kW  SINGLE_PHASE  terminals: b,n
+  L48 = statcom_15092405_3    0.0 kW  SINGLE_PHASE  terminals: c,n
+  L49 = statcom_15136229_1    0.0 kW  SINGLE_PHASE  terminals: a,n
+  L50 = statcom_15136229_2    0.0 kW  SINGLE_PHASE  terminals: b,n
   … and 4 more (pass legend_limit= to show all)
 
 ────────────────────────────────────────────────────────────
-# Section 3: dist_transformer_10149015_9108352  (dist_transformer_10149015_9108352: Dyn1 11.0kV/415V,  173 buses)
+# Section 3: dist_transformer_10149015_9108352  (dist_transformer_10149015_9108352: Dyn0 11.0kV/415V,  173 buses)
 
 9108352
 ├── 9437020
@@ -634,60 +634,60 @@ Loads (54 total):
                                                             └── 9348478 (L76,L77,L78)
 
 Loads (81 total):
-  L1 = load_10894099       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L2 = load_11400093       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L3 = load_11937809       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L4 = load_11937810       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L5 = load_11937811       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L6 = load_11937837       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L7 = load_11937847       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L8 = load_11945636       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L9 = load_11949827       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L10 = load_11949828       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L11 = load_11949829       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L12 = load_11949839       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L13 = load_11949842       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L14 = load_11955135       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L15 = load_11955136       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L16 = load_11955145       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L17 = load_11955146       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L18 = load_11955149       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L19 = load_11955151       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L20 = load_11969544       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L21 = load_11969559       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L22 = load_11970787       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L23 = load_11970788       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L24 = load_11970790       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L25 = load_11970791       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L26 = load_11970802       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L27 = load_11970805       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L28 = load_11970807       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L29 = load_11971047       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L30 = load_11971048       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L31 = load_11971058       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L32 = load_11971068       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L33 = load_12054421       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L34 = load_12055013       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L35 = load_12055015       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L36 = load_12055018       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L37 = load_12055020       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L38 = load_12055024       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L39 = load_12055027       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L40 = load_12066419       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L41 = load_12066420       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L42 = load_12078438       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L43 = load_12106212       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L44 = load_12106214       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L45 = load_12106216       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L46 = load_12125700       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L47 = load_12125701       1.0 kW  SINGLE_PHASE  terminals: 1,n
-  L48 = load_12125702       1.0 kW  SINGLE_PHASE  terminals: 3,n
-  L49 = load_12162159       1.0 kW  SINGLE_PHASE  terminals: 2,n
-  L50 = load_12188829       1.0 kW  SINGLE_PHASE  terminals: 2,n
+  L1 = load_10894099       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L2 = load_11400093       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L3 = load_11937809       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L4 = load_11937810       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L5 = load_11937811       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L6 = load_11937837       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L7 = load_11937847       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L8 = load_11945636       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L9 = load_11949827       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L10 = load_11949828       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L11 = load_11949829       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L12 = load_11949839       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L13 = load_11949842       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L14 = load_11955135       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L15 = load_11955136       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L16 = load_11955145       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L17 = load_11955146       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L18 = load_11955149       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L19 = load_11955151       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L20 = load_11969544       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L21 = load_11969559       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L22 = load_11970787       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L23 = load_11970788       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L24 = load_11970790       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L25 = load_11970791       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L26 = load_11970802       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L27 = load_11970805       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L28 = load_11970807       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L29 = load_11971047       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L30 = load_11971048       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L31 = load_11971058       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L32 = load_11971068       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L33 = load_12054421       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L34 = load_12055013       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L35 = load_12055015       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L36 = load_12055018       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L37 = load_12055020       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L38 = load_12055024       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L39 = load_12055027       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L40 = load_12066419       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L41 = load_12066420       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L42 = load_12078438       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L43 = load_12106212       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L44 = load_12106214       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L45 = load_12106216       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L46 = load_12125700       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L47 = load_12125701       1.0 kW  SINGLE_PHASE  terminals: a,n
+  L48 = load_12125702       1.0 kW  SINGLE_PHASE  terminals: c,n
+  L49 = load_12162159       1.0 kW  SINGLE_PHASE  terminals: b,n
+  L50 = load_12188829       1.0 kW  SINGLE_PHASE  terminals: b,n
   … and 31 more (pass legend_limit= to show all)
 
 ────────────────────────────────────────────────────────────
-# Section 4: dist_transformer_14787617_9117168  (dist_transformer_14787617_9117168: Dyn1 11.0kV/415V,  8 buses)
+# Section 4: dist_transformer_14787617_9117168  (dist_transformer_14787617_9117168: Dyn0 11.0kV/415V,  8 buses)
 
 9117168
 └── 9518491
@@ -699,4 +699,4 @@ Loads (81 total):
                     └── 15136260
 
 Loads (1 total):
-  L1 = load_12192428       1.0 kW  SINGLE_PHASE  terminals: 2,n
+  L1 = load_12192428       1.0 kW  SINGLE_PHASE  terminals: b,n

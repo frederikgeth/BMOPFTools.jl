@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV32_100bus
 
-**Generated:** 2026-06-23 21:02:36  
+**Generated:** 2026-06-23 21:34:02  
 **Findings:** 0 errors · 2 warnings · 24 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 24 grounding point(s)
 
@@ -33,7 +33,7 @@
 
 **Transformer transitions:**
 
-- `Tx3831`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `tx3831`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -89,13 +89,13 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| Tx3831 | 1.0 MVA | 25.0% |
+| tx3831 | 1.0 MVA | 25.0% |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.22 MW).
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2234' has no load connected to phase terminal 'a'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2234' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2234' has no load connected to phase terminal 'c'.
-> 🔵 **[I.OPS.FEEDER_LONG]** Galvanic zone anchored at bus 'B1071' (LV, 0.25 kV) has an electrical reach of 1.01 km — longer than the typical maximum LV feeder reach (1.0 km). Check for excessive voltage drop or a length-unit (km vs m) error.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2234' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2234' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2234' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.FEEDER_LONG]** Galvanic zone anchored at bus 'b1071' (LV, 0.25 kV) has an electrical reach of 1.01 km — longer than the typical maximum LV feeder reach (1.0 km). Check for excessive voltage drop or a length-unit (km vs m) error.
 
 ## 6. Infeasibility Pre-flight
 
@@ -210,13 +210,13 @@
 - **[I.DIV.LOAD_UNIFORM_CONFIG]** `load`  
   All 22 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2234' has no load connected to phase terminal 'a'.
+  Galvanic zone anchored at bus 'b2234' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2234' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b2234' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2234' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b2234' has no load connected to phase terminal 'c'.
 - **[I.OPS.FEEDER_LONG]** `network`  
-  Galvanic zone anchored at bus 'B1071' (LV, 0.25 kV) has an electrical reach of 1.01 km — longer than the typical maximum LV feeder reach (1.0 km). Check for excessive voltage drop or a length-unit (km vs m) error.
+  Galvanic zone anchored at bus 'b1071' (LV, 0.25 kV) has an electrical reach of 1.01 km — longer than the typical maximum LV feeder reach (1.0 km). Check for excessive voltage drop or a length-unit (km vs m) error.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
@@ -240,7 +240,7 @@
 - **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
   Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
 - **[I.DOM.LINE_IMPEDANCE_SPREAD]** `line`  
-  Adjacent lines 'L_303' and 'L_2519' at bus 'B2329' have ||Z||_F ratio 1080.0× — large impedance contrasts between neighbouring lines cause ill-conditioned KKT Jacobians; consider per-unit scaling or network reformulation.
+  Adjacent lines 'l_2519' and 'l_3650' at bus 'b2329' have ||Z||_F ratio 1080.0× — large impedance contrasts between neighbouring lines cause ill-conditioned KKT Jacobians; consider per-unit scaling or network reformulation.
 - **[I.RED.MERGEABLE_LINES]** `line`  
   4 group(s) of series lines (8 lines total) can be merged — intermediate buses have no other connections.
 - **[I.RED.UNUSED_LINECODES]** `linecode`  

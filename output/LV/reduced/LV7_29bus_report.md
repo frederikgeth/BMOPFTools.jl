@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV7_29bus
 
-**Generated:** 2026-06-23 21:02:37  
+**Generated:** 2026-06-23 21:34:02  
 **Findings:** 0 errors · 2 warnings · 23 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 7 grounding point(s)
 
@@ -33,7 +33,7 @@
 
 **Transformer transitions:**
 
-- `Tx848`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `tx848`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -90,12 +90,12 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| Tx848 | 315.0 kVA | 18.0% |
+| tx848 | 315.0 kVA | 18.0% |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.05 MW).
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2407' has no load connected to phase terminal 'a'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2407' has no load connected to phase terminal 'b'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2407' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2407' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2407' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2407' has no load connected to phase terminal 'c'.
 
 ## 6. Infeasibility Pre-flight
 
@@ -212,11 +212,11 @@
 - **[I.DIV.LINE_SYMMETRIC]** `line`  
   3 lines share linecode 'ughv_400al_triplex_ug_4w_bundled' with similar length (±10%) — electrically near-identical.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2407' has no load connected to phase terminal 'a'.
+  Galvanic zone anchored at bus 'b2407' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2407' has no load connected to phase terminal 'b'.
+  Galvanic zone anchored at bus 'b2407' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'B2407' has no load connected to phase terminal 'c'.
+  Galvanic zone anchored at bus 'b2407' has no load connected to phase terminal 'c'.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  

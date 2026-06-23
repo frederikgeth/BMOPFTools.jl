@@ -1,11 +1,11 @@
 # Network graph  (5 buses)
 
-B548 (SRC)
-└── [Tx3676: Dyn0 11.0kV/433V]── B694
-    ├── B1579
-    │   └── B2664 (L2)
-    └── B336 (L1)
+b548 (SRC)
+└── [tx3676: Dyn0 11.0kV/433V]── b694
+    ├── b1579
+    │   └── b2664 (L2)
+    └── b336 (L1)
 
 Loads (2 total):
-  L1 = Ld267_LOAD_A       10.0 kW  SINGLE_PHASE  terminals: a,n
-  L2 = Ld535_LOAD_B       10.0 kW  SINGLE_PHASE  terminals: b,n
+  L1 = ld267_load_a       10.0 kW  SINGLE_PHASE  terminals: a,n
+  L2 = ld535_load_b       10.0 kW  SINGLE_PHASE  terminals: b,n

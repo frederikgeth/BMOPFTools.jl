@@ -1,6 +1,6 @@
 # Simplification log: DSuite_SPD_Rural
 
-**Generated:** 2026-06-22 13:58:30  
+**Generated:** 2026-06-23 21:26:48  
 **Buses:** 66 → 55 (−11)  
 **Lines:** 65 → 54 (−11)  
 **Operations:** 21
@@ -31,8 +31,8 @@
 | 13 | `merge_series_lines` | line `3343309` | Merged line 3343317 (0.534 m) into 3343309 at pass-through bus 13226995; new length 1.8940000000000001 m. |
 | 14 | `merge_series_lines` | line `5750578` | Merged line 5744736 (0.182 m) into 5750578 at pass-through bus 16078810; new length 5.572 m. |
 | 15 | `merge_series_lines` | bus `9461181` | Lines 7095819 (linecode connector) and 11545351 (linecode busbar) at bus 9461181 have different linecodes — not merged. |
-| 16 | `merge_series_lines` | bus `17439337` | Lines 278484 (linecode unknown_lv_ohline_s) and 8537817 (linecode unknown_lv_ohline_m) at bus 17439337 have different linecodes — not merged. |
-| 17 | `merge_series_lines` | line `3446232` | Merged line 3446145 (0.545 m) into 3446232 at pass-through bus 14499304; new length 1.815 m. |
+| 16 | `merge_series_lines` | line `3446232` | Merged line 3446145 (0.545 m) into 3446232 at pass-through bus 14499304; new length 1.815 m. |
+| 17 | `merge_series_lines` | bus `17439337` | Lines 278484 (linecode unknown_lv_ohline_s) and 8537817 (linecode unknown_lv_ohline_m) at bus 17439337 have different linecodes — not merged. |
 | 18 | `merge_series_lines` | bus `13353838` | Lines 3733227 (linecode cable_230v_35_al_ascs) and 3583186 (linecode cable_230v_25_al) at bus 13353838 have different linecodes — not merged. |
 | 19 | `merge_series_lines` | line `3446212` | Merged line 8555526 (3.46 m) into 3446212 at pass-through bus 14522891; new length 3.769 m. |
 | 20 | `merge_series_lines` | bus `14522889` | Merge blocked: intermediate bus 14522889 has non-line elements attached. |

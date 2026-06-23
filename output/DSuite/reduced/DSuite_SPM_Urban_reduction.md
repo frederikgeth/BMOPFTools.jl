@@ -1,6 +1,6 @@
 # Simplification log: DSuite_SPM_Urban
 
-**Generated:** 2026-06-22 13:58:34  
+**Generated:** 2026-06-23 21:26:51  
 **Buses:** 1229 → 710 (−519)  
 **Lines:** 1233 → 714 (−519)  
 **Operations:** 671
@@ -16,8 +16,8 @@
 
 | # | Operation | Element | Message |
 |--:|-----------|---------|---------|
-| 1 | `remove_dangling_lines` | line `6355683` | Removed dangling line 6355683 and its leaf bus 9641560 (leaf has no active elements). |
-| 2 | `remove_dangling_lines` | line `5423175` | Removed dangling line 5423175 and its leaf bus 12950339 (leaf has no active elements). |
+| 1 | `remove_dangling_lines` | line `5423175` | Removed dangling line 5423175 and its leaf bus 12950339 (leaf has no active elements). |
+| 2 | `remove_dangling_lines` | line `6355683` | Removed dangling line 6355683 and its leaf bus 9641560 (leaf has no active elements). |
 | 3 | `remove_dangling_lines` | line `6765403` | Removed dangling line 6765403 and its leaf bus 16823646 (leaf has no active elements). |
 | 4 | `remove_dangling_lines` | line `6360122` | Removed dangling line 6360122 and its leaf bus 16822549 (leaf has no active elements). |
 | 5 | `remove_dangling_lines` | line `6354684` | Removed dangling line 6354684 and its leaf bus 9641549 (leaf has no active elements). |
@@ -94,8 +94,8 @@
 | 76 | `remove_dangling_lines` | line `5423176` | Removed dangling line 5423176 and its leaf bus 12950342 (leaf has no active elements). |
 | 77 | `remove_dangling_lines` | line `6346054` | Removed dangling line 6346054 and its leaf bus 16824630 (leaf has no active elements). |
 | 78 | `remove_dangling_lines` | line `7325273` | Removed dangling line 7325273 and its leaf bus 17806540 (leaf has no active elements). |
-| 79 | `remove_dangling_lines` | line `6346503` | Removed dangling line 6346503 and its leaf bus 16932556 (leaf has no active elements). |
-| 80 | `remove_dangling_lines` | line `6952927` | Removed dangling line 6952927 and its leaf bus 16822889 (leaf has no active elements). |
+| 79 | `remove_dangling_lines` | line `6952927` | Removed dangling line 6952927 and its leaf bus 16822889 (leaf has no active elements). |
+| 80 | `remove_dangling_lines` | line `6346503` | Removed dangling line 6346503 and its leaf bus 16932556 (leaf has no active elements). |
 | 81 | `remove_dangling_lines` | line `11157824` | Removed dangling line 11157824 and its leaf bus 14124978 (leaf has no active elements). |
 | 82 | `remove_dangling_lines` | line `8858366` | Removed dangling line 8858366 and its leaf bus 13518947 (leaf has no active elements). |
 | 83 | `remove_dangling_lines` | line `8850211` | Removed dangling line 8850211 and its leaf bus 13439445 (leaf has no active elements). |
@@ -124,9 +124,9 @@
 | 106 | `remove_dangling_lines` | line `5423173` | Removed dangling line 5423173 and its leaf bus 12950289 (leaf has no active elements). |
 | 107 | `remove_dangling_lines` | line `6004478` | Removed dangling line 6004478 and its leaf bus 16822548 (leaf has no active elements). |
 | 108 | `remove_dangling_lines` | line `6353219` | Removed dangling line 6353219 and its leaf bus 9641580 (leaf has no active elements). |
-| 109 | `remove_dangling_lines` | line `6356041` | Removed dangling line 6356041 and its leaf bus 9639363 (leaf has no active elements). |
-| 110 | `remove_dangling_lines` | line `6345392` | Removed dangling line 6345392 and its leaf bus 16824260 (leaf has no active elements). |
-| 111 | `remove_dangling_lines` | line `6345393` | Removed dangling line 6345393 and its leaf bus 9354110 (leaf has no active elements). |
+| 109 | `remove_dangling_lines` | line `6345392` | Removed dangling line 6345392 and its leaf bus 16824260 (leaf has no active elements). |
+| 110 | `remove_dangling_lines` | line `6345393` | Removed dangling line 6345393 and its leaf bus 9354110 (leaf has no active elements). |
+| 111 | `remove_dangling_lines` | line `6356041` | Removed dangling line 6356041 and its leaf bus 9639363 (leaf has no active elements). |
 | 112 | `remove_dangling_lines` | line `3105698` | Removed dangling line 3105698 and its leaf bus 16926457 (leaf has no active elements). |
 | 113 | `remove_dangling_lines` | line `6345172` | Removed dangling line 6345172 and its leaf bus 9641115 (leaf has no active elements). |
 | 114 | `remove_dangling_lines` | line `10435801` | Removed dangling line 10435801 and its leaf bus 16908598 (leaf has no active elements). |
@@ -189,9 +189,9 @@
 | 171 | `remove_dangling_lines` | line `5431296` | Removed dangling line 5431296 and its leaf bus 9663013 (leaf has no active elements). |
 | 172 | `remove_dangling_lines` | line `6915720` | Removed dangling line 6915720 and its leaf bus 9639404 (leaf has no active elements). |
 | 173 | `remove_dangling_lines` | line `6351013` | Removed dangling line 6351013 and its leaf bus 16806836 (leaf has no active elements). |
-| 174 | `remove_dangling_lines` | line `6560865` | Removed dangling line 6560865 and its leaf bus 9648748 (leaf has no active elements). |
-| 175 | `remove_dangling_lines` | line `6560864` | Removed dangling line 6560864 and its leaf bus 17301034 (leaf has no active elements). |
-| 176 | `remove_dangling_lines` | line `10435897` | Removed dangling line 10435897 and its leaf bus 16680393 (leaf has no active elements). |
+| 174 | `remove_dangling_lines` | line `10435897` | Removed dangling line 10435897 and its leaf bus 16680393 (leaf has no active elements). |
+| 175 | `remove_dangling_lines` | line `6560865` | Removed dangling line 6560865 and its leaf bus 9648748 (leaf has no active elements). |
+| 176 | `remove_dangling_lines` | line `6560864` | Removed dangling line 6560864 and its leaf bus 17301034 (leaf has no active elements). |
 | 177 | `remove_dangling_lines` | line `6355689` | Removed dangling line 6355689 and its leaf bus 9641568 (leaf has no active elements). |
 | 178 | `remove_dangling_lines` | line `6355690` | Removed dangling line 6355690 and its leaf bus 16822541 (leaf has no active elements). |
 | 179 | `remove_dangling_lines` | line `6337744` | Removed dangling line 6337744 and its leaf bus 16821633 (leaf has no active elements). |
@@ -210,13 +210,13 @@
 | 192 | `remove_dangling_lines` | line `3106050` | Removed dangling line 3106050 and its leaf bus 16827627 (leaf has no active elements). |
 | 193 | `remove_dangling_lines` | line `8858335` | Removed dangling line 8858335 and its leaf bus 15891076 (leaf has no active elements). |
 | 194 | `remove_dangling_lines` | line `8871862` | Removed dangling line 8871862 and its leaf bus 12810311 (leaf has no active elements). |
-| 195 | `remove_dangling_lines` | line `6008611` | Removed dangling line 6008611 and its leaf bus 9640007 (leaf has no active elements). |
-| 196 | `remove_dangling_lines` | line `6353210` | Removed dangling line 6353210 and its leaf bus 16920386 (leaf has no active elements). |
+| 195 | `remove_dangling_lines` | line `6353210` | Removed dangling line 6353210 and its leaf bus 16920386 (leaf has no active elements). |
+| 196 | `remove_dangling_lines` | line `6008611` | Removed dangling line 6008611 and its leaf bus 9640007 (leaf has no active elements). |
 | 197 | `remove_dangling_lines` | line `10436855` | Removed dangling line 10436855 and its leaf bus 9641380 (leaf has no active elements). |
 | 198 | `remove_dangling_lines` | line `6353714` | Removed dangling line 6353714 and its leaf bus 9641114 (leaf has no active elements). |
-| 199 | `remove_dangling_lines` | line `6365160` | Removed dangling line 6365160 and its leaf bus 9641547 (leaf has no active elements). |
-| 200 | `remove_dangling_lines` | line `6355684` | Removed dangling line 6355684 and its leaf bus 9641561 (leaf has no active elements). |
-| 201 | `remove_dangling_lines` | line `6345176` | Removed dangling line 6345176 and its leaf bus 16671371 (leaf has no active elements). |
+| 199 | `remove_dangling_lines` | line `6345176` | Removed dangling line 6345176 and its leaf bus 16671371 (leaf has no active elements). |
+| 200 | `remove_dangling_lines` | line `6365160` | Removed dangling line 6365160 and its leaf bus 9641547 (leaf has no active elements). |
+| 201 | `remove_dangling_lines` | line `6355684` | Removed dangling line 6355684 and its leaf bus 9641561 (leaf has no active elements). |
 | 202 | `remove_dangling_lines` | line `6365150` | Removed dangling line 6365150 and its leaf bus 16913956 (leaf has no active elements). |
 | 203 | `remove_dangling_lines` | line `6354686` | Removed dangling line 6354686 and its leaf bus 9641548 (leaf has no active elements). |
 | 204 | `remove_dangling_lines` | line `6345372` | Removed dangling line 6345372 and its leaf bus 9639580 (leaf has no active elements). |
@@ -253,16 +253,16 @@
 | 235 | `remove_dangling_lines` | line `5423062` | Removed dangling line 5423062 and its leaf bus 12963509 (leaf has no active elements). |
 | 236 | `remove_dangling_lines` | line `6351008` | Removed dangling line 6351008 and its leaf bus 16806822 (leaf has no active elements). |
 | 237 | `remove_dangling_lines` | line `6351012` | Removed dangling line 6351012 and its leaf bus 16806834 (leaf has no active elements). |
-| 238 | `remove_dangling_lines` | line `10429690` | Removed dangling line 10429690 and its leaf bus 9641108 (leaf has no active elements). |
-| 239 | `remove_dangling_lines` | line `10438194` | Removed dangling line 10438194 and its leaf bus 9641109 (leaf has no active elements). |
-| 240 | `remove_dangling_lines` | line `10438193` | Removed dangling line 10438193 and its leaf bus 9641107 (leaf has no active elements). |
-| 241 | `remove_dangling_lines` | line `7325271` | Removed dangling line 7325271 and its leaf bus 17806553 (leaf has no active elements). |
-| 242 | `remove_dangling_lines` | line `10436637` | Removed dangling line 10436637 and its leaf bus 17806550 (leaf has no active elements). |
-| 243 | `remove_dangling_lines` | line `10436633` | Removed dangling line 10436633 and its leaf bus 17806548 (leaf has no active elements). |
-| 244 | `remove_dangling_lines` | line `10445749` | Removed dangling line 10445749 and its leaf bus 17806546 (leaf has no active elements). |
-| 245 | `remove_dangling_lines` | line `10445747` | Removed dangling line 10445747 and its leaf bus 17806544 (leaf has no active elements). |
-| 246 | `remove_dangling_lines` | line `10436627` | Removed dangling line 10436627 and its leaf bus 17806543 (leaf has no active elements). |
-| 247 | `remove_dangling_lines` | line `10436629` | Removed dangling line 10436629 and its leaf bus 17806541 (leaf has no active elements). |
+| 238 | `remove_dangling_lines` | line `7325271` | Removed dangling line 7325271 and its leaf bus 17806553 (leaf has no active elements). |
+| 239 | `remove_dangling_lines` | line `10436637` | Removed dangling line 10436637 and its leaf bus 17806550 (leaf has no active elements). |
+| 240 | `remove_dangling_lines` | line `10436633` | Removed dangling line 10436633 and its leaf bus 17806548 (leaf has no active elements). |
+| 241 | `remove_dangling_lines` | line `10445749` | Removed dangling line 10445749 and its leaf bus 17806546 (leaf has no active elements). |
+| 242 | `remove_dangling_lines` | line `10445747` | Removed dangling line 10445747 and its leaf bus 17806544 (leaf has no active elements). |
+| 243 | `remove_dangling_lines` | line `10436627` | Removed dangling line 10436627 and its leaf bus 17806543 (leaf has no active elements). |
+| 244 | `remove_dangling_lines` | line `10436629` | Removed dangling line 10436629 and its leaf bus 17806541 (leaf has no active elements). |
+| 245 | `remove_dangling_lines` | line `10429690` | Removed dangling line 10429690 and its leaf bus 9641108 (leaf has no active elements). |
+| 246 | `remove_dangling_lines` | line `10438194` | Removed dangling line 10438194 and its leaf bus 9641109 (leaf has no active elements). |
+| 247 | `remove_dangling_lines` | line `10438193` | Removed dangling line 10438193 and its leaf bus 9641107 (leaf has no active elements). |
 | 248 | `remove_dangling_lines` | line `8850194` | Removed dangling line 8850194 and its leaf bus 12950240 (leaf has no active elements). |
 | 249 | `remove_dangling_lines` | line `8858312` | Removed dangling line 8858312 and its leaf bus 12950336 (leaf has no active elements). |
 | 250 | `remove_dangling_lines` | line `6347480` | Removed dangling line 6347480 and its leaf bus 16675771 (leaf has no active elements). |
@@ -275,8 +275,8 @@
 | 257 | `merge_series_lines` | line `10436409` | Merged line 10429668 (3.47 m) into 10436409 at pass-through bus 16670793; new length 9.620000000000001 m. |
 | 258 | `merge_series_lines` | bus `16670806` | Lines 10429604 (linecode cable_230v_0.2_cu) and 6365151 (linecode cable_230v_0.15_cu) at bus 16670806 have different linecodes — not merged. |
 | 259 | `merge_series_lines` | bus `16671356` | Lines 10429248 (linecode cable_230v_0.0225_cu) and 10429583 (linecode cable_230v_25_cu) at bus 16671356 have different linecodes — not merged. |
-| 260 | `merge_series_lines` | line `10435976` | Merged line 10436227 (0.443 m) into 10435976 at pass-through bus 16807465; new length 0.5609999999999999 m. |
-| 261 | `merge_series_lines` | line `5441584` | Merged line 5441583 (0.819 m) into 5441584 at pass-through bus 15886329; new length 4.609 m. |
+| 260 | `merge_series_lines` | line `5441584` | Merged line 5441583 (0.819 m) into 5441584 at pass-through bus 15886329; new length 4.609 m. |
+| 261 | `merge_series_lines` | line `10435976` | Merged line 10436227 (0.443 m) into 10435976 at pass-through bus 16807465; new length 0.5609999999999999 m. |
 | 262 | `merge_series_lines` | line `6002043` | Merged line 6336200 (0.189 m) into 6002043 at pass-through bus 9353811; new length 0.403 m. |
 | 263 | `merge_series_lines` | bus `16932565` | Lines 6343682 (linecode cable_230v_0.25_al) and 10436069 (linecode cable_230v_185_al_wave) at bus 16932565 have different linecodes — not merged. |
 | 264 | `merge_series_lines` | line `10429603` | Merged line 10436049 (2.42 m) into 10429603 at pass-through bus 16908593; new length 4.98 m. |
@@ -289,8 +289,8 @@
 | 271 | `merge_series_lines` | bus `17500511` | Lines 7133203 (linecode connector) and 5284643 (linecode cable_230v_0.15_cu) at bus 17500511 have different linecodes — not merged. |
 | 272 | `merge_series_lines` | line `10446869` | Merged line 10438155 (0.574 m) into 10446869 at pass-through bus 16680442; new length 1.8039999999999998 m. |
 | 273 | `merge_series_lines` | bus `9493837` | Lines 7325294 (linecode connector) and 11629046 (linecode busbar) at bus 9493837 have different linecodes — not merged. |
-| 274 | `merge_series_lines` | line `6355676` | Merged line 10429617 (8.11 m) into 6355676 at pass-through bus 16822887; new length 28.009999999999998 m. |
-| 275 | `merge_series_lines` | line `10433289` | Merged line 10436010 (4.02 m) into 10433289 at pass-through bus 16802148; new length 7.74 m. |
+| 274 | `merge_series_lines` | line `10433289` | Merged line 10436010 (4.02 m) into 10433289 at pass-through bus 16802148; new length 7.74 m. |
+| 275 | `merge_series_lines` | line `6355676` | Merged line 10429617 (8.11 m) into 6355676 at pass-through bus 16822887; new length 28.009999999999998 m. |
 | 276 | `merge_series_lines` | line `10429604` | Merged line 10436125 (1.37 m) into 10429604 at pass-through bus 16670805; new length 2.079 m. |
 | 277 | `merge_series_lines` | bus `17500513` | Lines 5354881 (linecode unknown_lv_cable_m) and 5367809 (linecode cable_230v_0.1_al) at bus 17500513 have different linecodes — not merged. |
 | 278 | `merge_series_lines` | line `7325285` | Merged line 7325279 (0.0432 m) into 7325285 at pass-through bus 17806536; new length 0.4062 m. |
@@ -310,18 +310,18 @@
 | 292 | `merge_series_lines` | line `10436268` | Merged line 6336201 (0.17 m) into 10436268 at pass-through bus 16824171; new length 0.29900000000000004 m. |
 | 293 | `merge_series_lines` | bus `13686742` | Merge blocked: intermediate bus 13686742 has non-line elements attached. |
 | 294 | `merge_series_lines` | bus `16824730` | Lines 10435810 (linecode cable_230v_0.15_cu) and 6346524 (linecode cable_230v_185_al_wave) at bus 16824730 have different linecodes — not merged. |
-| 295 | `merge_series_lines` | line `10429503` | Merged line 10435566 (1.76 m) into 10429503 at pass-through bus 16909658; new length 9.72 m. |
-| 296 | `merge_series_lines` | bus `16680524` | Lines 3570658 (linecode cable_230v_25_cu) and 6358842 (linecode cable_230v_35_al_asct) at bus 16680524 have different linecodes — not merged. |
+| 295 | `merge_series_lines` | bus `16680524` | Lines 3570658 (linecode cable_230v_25_cu) and 6358842 (linecode cable_230v_35_al_asct) at bus 16680524 have different linecodes — not merged. |
+| 296 | `merge_series_lines` | line `10429503` | Merged line 10435566 (1.76 m) into 10429503 at pass-through bus 16909658; new length 9.72 m. |
 | 297 | `merge_series_lines` | bus `9363053` | Lines 5354877 (linecode cable_230v_0.1_al) and 8871845 (linecode cable_230v_0.1_cu) at bus 9363053 have different linecodes — not merged. |
-| 298 | `merge_series_lines` | line `10435774` | Merged line 6007530 (0.71 m) into 10435774 at pass-through bus 16823636; new length 2.37 m. |
-| 299 | `merge_series_lines` | line `11165126` | Merged line 11171036 (1.43 m) into 11165126 at pass-through bus 13080694; new length 3.12 m. |
+| 298 | `merge_series_lines` | line `11165126` | Merged line 11171036 (1.43 m) into 11165126 at pass-through bus 13080694; new length 3.12 m. |
+| 299 | `merge_series_lines` | line `10435774` | Merged line 6007530 (0.71 m) into 10435774 at pass-through bus 16823636; new length 2.37 m. |
 | 300 | `merge_series_lines` | line `8871824` | Merged line 8871818 (0.247 m) into 8871824 at pass-through bus 12803912; new length 0.495 m. |
 | 301 | `merge_series_lines` | line `10436050` | Merged line 10429554 (2.2 m) into 10436050 at pass-through bus 16680398; new length 2.748 m. |
 | 302 | `merge_series_lines` | bus `16829579` | Lines 10429548 (linecode cable_230v_0.15_al) and 6344934 (linecode cable_230v_25_cu) at bus 16829579 have different linecodes — not merged. |
 | 303 | `merge_series_lines` | line `10435809` | Merged line 10429506 (0.133 m) into 10435809 at pass-through bus 16817494; new length 0.494 m. |
 | 304 | `merge_series_lines` | line `10435878` | Merged line 10445384 (0.43 m) into 10435878 at pass-through bus 16675565; new length 2.09 m. |
-| 305 | `merge_series_lines` | line `10445199` | Merged line 10435553 (0.652 m) into 10445199 at pass-through bus 16806838; new length 3.362 m. |
-| 306 | `merge_series_lines` | line `6343273` | Merged line 6343685 (0.741 m) into 6343273 at pass-through bus 16680553; new length 1.2810000000000001 m. |
+| 305 | `merge_series_lines` | line `6343273` | Merged line 6343685 (0.741 m) into 6343273 at pass-through bus 16680553; new length 1.2810000000000001 m. |
+| 306 | `merge_series_lines` | line `10445199` | Merged line 10435553 (0.652 m) into 10445199 at pass-through bus 16806838; new length 3.362 m. |
 | 307 | `merge_series_lines` | line `2937163` | Merged line 6360294 (0.238 m) into 2937163 at pass-through bus 17806562; new length 0.476 m. |
 | 308 | `merge_series_lines` | line `6010064` | Merged line 6949436 (2.15 m) into 6010064 at pass-through bus 9353088; new length 2.367 m. |
 | 309 | `merge_series_lines` | bus `17806556` | Lines 6350368 (linecode unknown_lv_cable_m) and 7325289 (linecode connector) at bus 17806556 have different linecodes — not merged. |
@@ -364,8 +364,8 @@
 | 346 | `merge_series_lines` | line `10445413` | Merged line 4067615 (0.227 m) into 10445413 at pass-through bus 9353087; new length 1.3270000000000002 m. |
 | 347 | `merge_series_lines` | line `10429559` | Merged line 10435811 (6.14 m) into 10429559 at pass-through bus 16807455; new length 8.35 m. |
 | 348 | `merge_series_lines` | bus `13686739` | Merge blocked: intermediate bus 13686739 has non-line elements attached. |
-| 349 | `merge_series_lines` | bus `9493838` | Lines 11629042 (linecode busbar) and 7133214 (linecode connector) at bus 9493838 have different linecodes — not merged. |
-| 350 | `merge_series_lines` | line `10429504` | Merged line 10460133 (1.81 m) into 10429504 at pass-through bus 16822547; new length 2.3280000000000003 m. |
+| 349 | `merge_series_lines` | line `10429504` | Merged line 10460133 (1.81 m) into 10429504 at pass-through bus 16822547; new length 2.3280000000000003 m. |
+| 350 | `merge_series_lines` | bus `9493838` | Lines 11629042 (linecode busbar) and 7133214 (linecode connector) at bus 9493838 have different linecodes — not merged. |
 | 351 | `merge_series_lines` | bus `16913952` | Merge blocked: intermediate bus 16913952 has non-line elements attached. |
 | 352 | `merge_series_lines` | line `8885423` | Merged line 8858229 (2.29 m) into 8885423 at pass-through bus 15802467; new length 5.7700000000000005 m. |
 | 353 | `merge_series_lines` | line `7325278` | Merged line 7325274 (0.0432 m) into 7325278 at pass-through bus 9353523; new length 0.0864 m. |
@@ -374,10 +374,10 @@
 | 356 | `merge_series_lines` | bus `16909657` | Lines 6345196 (linecode cable_230v_0.3_cu) and 3237631 (linecode cable_230v_0.25_cu) at bus 16909657 have different linecodes — not merged. |
 | 357 | `merge_series_lines` | bus `14013753` | Lines 8850202 (linecode cable_230v_0.1_cu) and 5284643 (linecode cable_230v_0.15_cu) at bus 14013753 have different linecodes — not merged. |
 | 358 | `merge_series_lines` | line `10436050` | Merged line 10435998 (1.73 m) into 10436050 at pass-through bus 16803249; new length 4.478 m. |
-| 359 | `merge_series_lines` | bus `17952976` | Lines 5430763 (linecode cable_230v_0.3_cu) and 7413019 (linecode connector) at bus 17952976 have different linecodes — not merged. |
-| 360 | `merge_series_lines` | line `5441584` | Merged line 11157283 (3.52 m) into 5441584 at pass-through bus 15714721; new length 8.129 m. |
-| 361 | `merge_series_lines` | line `6360292` | Merged line 3784438 (0.201 m) into 6360292 at pass-through bus 9354484; new length 0.641 m. |
-| 362 | `merge_series_lines` | line `6805635` | Merged line 6346492 (6.78 m) into 6805635 at pass-through bus 16673383; new length 9.49 m. |
+| 359 | `merge_series_lines` | line `5441584` | Merged line 11157283 (3.52 m) into 5441584 at pass-through bus 15714721; new length 8.129 m. |
+| 360 | `merge_series_lines` | bus `17952976` | Lines 5430763 (linecode cable_230v_0.3_cu) and 7413019 (linecode connector) at bus 17952976 have different linecodes — not merged. |
+| 361 | `merge_series_lines` | line `6805635` | Merged line 6346492 (6.78 m) into 6805635 at pass-through bus 16673383; new length 9.49 m. |
+| 362 | `merge_series_lines` | line `6360292` | Merged line 3784438 (0.201 m) into 6360292 at pass-through bus 9354484; new length 0.641 m. |
 | 363 | `merge_series_lines` | line `7063193` | Merged line 6357996 (0.596 m) into 7063193 at pass-through bus 16932561; new length 1.8199999999999998 m. |
 | 364 | `merge_series_lines` | bus `16913953` | Lines 10432950 (linecode cable_230v_0.25_cu) and 2936846 (linecode cable_230v_25_cu) at bus 16913953 have different linecodes — not merged. |
 | 365 | `merge_series_lines` | line `11165120` | Merged line 11157278 (4.609999999999999 m) into 11165120 at pass-through bus 12950340; new length 8.899999999999999 m. |
@@ -409,8 +409,8 @@
 | 391 | `merge_series_lines` | line `10432935` | Merged line 10444920 (2.68 m) into 10432935 at pass-through bus 16670809; new length 3.678 m. |
 | 392 | `merge_series_lines` | bus `16680394` | Lines 10429656 (linecode cable_230v_95_al) and 6006718 (linecode cable_230v_0.15_al) at bus 16680394 have different linecodes — not merged. |
 | 393 | `merge_series_lines` | line `10449760` | Merged line 10449755 (0.169 m) into 10449760 at pass-through bus 16926448; new length 0.9560000000000001 m. |
-| 394 | `merge_series_lines` | line `10429498` | Merged line 10435762 (0.695 m) into 10429498 at pass-through bus 16821632; new length 7.245 m. |
-| 395 | `merge_series_lines` | line `11157301` | Merged line 11157294 (1.81 m) into 11157301 at pass-through bus 12806500; new length 3.3200000000000003 m. |
+| 394 | `merge_series_lines` | line `11157301` | Merged line 11157294 (1.81 m) into 11157301 at pass-through bus 12806500; new length 3.3200000000000003 m. |
+| 395 | `merge_series_lines` | line `10429498` | Merged line 10435762 (0.695 m) into 10429498 at pass-through bus 16821632; new length 7.245 m. |
 | 396 | `merge_series_lines` | bus `17806529` | Lines 7325292 (linecode connector) and 10435760 (linecode cable_230v_185_al_wave) at bus 17806529 have different linecodes — not merged. |
 | 397 | `merge_series_lines` | line `6350383` | Merged line 6353248 (2.77 m) into 6350383 at pass-through bus 16802159; new length 6.9399999999999995 m. |
 | 398 | `merge_series_lines` | bus `16948355` | Lines 10435935 (linecode cable_230v_0.15_cu) and 10445159 (linecode cable_230v_95_al) at bus 16948355 have different linecodes — not merged. |
@@ -428,10 +428,10 @@
 | 410 | `merge_series_lines` | line `6357446` | Merged line 6357449 (0.693 m) into 6357446 at pass-through bus 9354854; new length 1.169 m. |
 | 411 | `merge_series_lines` | line `8858329` | Merged line 8871854 (1.18 m) into 8858329 at pass-through bus 15886305; new length 3.7 m. |
 | 412 | `merge_series_lines` | line `10445247` | Merged line 10445262 (0.774 m) into 10445247 at pass-through bus 16936051; new length 1.457 m. |
-| 413 | `merge_series_lines` | line `6340771` | Merged line 6340770 (0.26 m) into 6340771 at pass-through bus 9353814; new length 0.477 m. |
-| 414 | `merge_series_lines` | line `10429256` | Merged line 10435950 (9.91 m) into 10429256 at pass-through bus 16675538; new length 12.29 m. |
-| 415 | `merge_series_lines` | line `6357446` | Merged line 6357451 (0.358 m) into 6357446 at pass-through bus 9354852; new length 1.5270000000000001 m. |
-| 416 | `merge_series_lines` | line `11157305` | Merged line 11178147 (1.14 m) into 11157305 at pass-through bus 15861943; new length 1.692 m. |
+| 413 | `merge_series_lines` | line `10429256` | Merged line 10435950 (9.91 m) into 10429256 at pass-through bus 16675538; new length 12.29 m. |
+| 414 | `merge_series_lines` | line `6340771` | Merged line 6340770 (0.26 m) into 6340771 at pass-through bus 9353814; new length 0.477 m. |
+| 415 | `merge_series_lines` | line `11157305` | Merged line 11178147 (1.14 m) into 11157305 at pass-through bus 15861943; new length 1.692 m. |
+| 416 | `merge_series_lines` | line `6357446` | Merged line 6357451 (0.358 m) into 6357446 at pass-through bus 9354852; new length 1.5270000000000001 m. |
 | 417 | `merge_series_lines` | line `6360277` | Merged line 6355687 (0.456 m) into 6360277 at pass-through bus 9354029; new length 0.675 m. |
 | 418 | `merge_series_lines` | line `10429586` | Merged line 10435946 (1.6 m) into 10429586 at pass-through bus 16671367; new length 1.778 m. |
 | 419 | `merge_series_lines` | bus `12824045` | Lines 5436389 (linecode cable_230v_185_al_wave) and 5446756 (linecode cable_230v_95_al) at bus 12824045 have different linecodes — not merged. |
@@ -446,15 +446,15 @@
 | 428 | `merge_series_lines` | line `6365151` | Merged line 6345197 (2.01 m) into 6365151 at pass-through bus 16816837; new length 3.03 m. |
 | 429 | `merge_series_lines` | line `6352792` | Merged line 6352794 (0.216 m) into 6352792 at pass-through bus 9354028; new length 2.878 m. |
 | 430 | `merge_series_lines` | bus `16680531` | Lines 6337764 (linecode cable_230v_0.15_al) and 6351701 (linecode cable_230v_185_al_wavef) at bus 16680531 have different linecodes — not merged. |
-| 431 | `merge_series_lines` | bus `16680548` | Lines 6357446 (linecode cable_230v_185_al_wavef) and 10436013 (linecode cable_230v_0.15_al) at bus 16680548 have different linecodes — not merged. |
-| 432 | `merge_series_lines` | line `10435815` | Merged line 10429560 (0.701 m) into 10435815 at pass-through bus 16806852; new length 6.590999999999999 m. |
-| 433 | `merge_series_lines` | bus `16680390` | Lines 10436067 (linecode cable_230v_0.1_al) and 6346514 (linecode unknown_lv_cable_m) at bus 16680390 have different linecodes — not merged. |
+| 431 | `merge_series_lines` | bus `16680390` | Lines 10436067 (linecode cable_230v_0.1_al) and 6346514 (linecode unknown_lv_cable_m) at bus 16680390 have different linecodes — not merged. |
+| 432 | `merge_series_lines` | bus `16680548` | Lines 6357446 (linecode cable_230v_185_al_wavef) and 10436013 (linecode cable_230v_0.15_al) at bus 16680548 have different linecodes — not merged. |
+| 433 | `merge_series_lines` | line `10435815` | Merged line 10429560 (0.701 m) into 10435815 at pass-through bus 16806852; new length 6.590999999999999 m. |
 | 434 | `merge_series_lines` | line `10429503` | Merged line 10445538 (2.53 m) into 10429503 at pass-through bus 16824800; new length 12.25 m. |
 | 435 | `merge_series_lines` | bus `17500516` | Lines 5434634 (linecode cable_230v_0.2_cu) and 7133232 (linecode connector) at bus 17500516 have different linecodes — not merged. |
 | 436 | `merge_series_lines` | line `6355676` | Merged line 10436114 (9.44 m) into 6355676 at pass-through bus 16822551; new length 37.65 m. |
 | 437 | `merge_series_lines` | bus `16680526` | Lines 3880029 (linecode cable_230v_185_al_wave) and 6360287 (linecode cable_230v_0.1_al) at bus 16680526 have different linecodes — not merged. |
-| 438 | `merge_series_lines` | line `10435563` | Merged line 10445411 (0.321 m) into 10435563 at pass-through bus 16822550; new length 3.2770000000000006 m. |
-| 439 | `merge_series_lines` | line `8863676` | Merged line 8850197 (0.326 m) into 8863676 at pass-through bus 15716760; new length 3.9629999999999996 m. |
+| 438 | `merge_series_lines` | line `8863676` | Merged line 8850197 (0.326 m) into 8863676 at pass-through bus 15716760; new length 3.9629999999999996 m. |
+| 439 | `merge_series_lines` | line `10435563` | Merged line 10445411 (0.321 m) into 10435563 at pass-through bus 16822550; new length 3.2770000000000006 m. |
 | 440 | `merge_series_lines` | line `10445336` | Merged line 10445247 (1.457 m) into 10445336 at pass-through bus 16936035; new length 2.346 m. |
 | 441 | `merge_series_lines` | bus `15860468` | Lines 5289641 (linecode cable_230v_0.25_cu) and 8850520 (linecode unknown_lv_cable_m) at bus 15860468 have different linecodes — not merged. |
 | 442 | `merge_series_lines` | bus `13664113` | Merge blocked: intermediate bus 13664113 has non-line elements attached. |
@@ -510,13 +510,13 @@
 | 492 | `merge_series_lines` | line `8850200` | Merged line 8862958 (0.357 m) into 8850200 at pass-through bus 15886315; new length 0.715 m. |
 | 493 | `merge_series_lines` | line `6360291` | Merged line 6360293 (0.248 m) into 6360291 at pass-through bus 9354480; new length 0.46199999999999997 m. |
 | 494 | `merge_series_lines` | line `6355676` | Merged line 6340767 (0.221 m) into 6355676 at pass-through bus 9353816; new length 37.870999999999995 m. |
-| 495 | `merge_series_lines` | line `6365168` | Merged line 10435904 (2.66 m) into 6365168 at pass-through bus 16671347; new length 5.67 m. |
-| 496 | `merge_series_lines` | line `10429680` | Merged line 6355145 (1.7 m) into 10429680 at pass-through bus 16939709; new length 10.149999999999999 m. |
+| 495 | `merge_series_lines` | line `10429680` | Merged line 6355145 (1.7 m) into 10429680 at pass-through bus 16939709; new length 10.149999999999999 m. |
+| 496 | `merge_series_lines` | line `6365168` | Merged line 10435904 (2.66 m) into 6365168 at pass-through bus 16671347; new length 5.67 m. |
 | 497 | `merge_series_lines` | bus `16829651` | Lines 6010064 (linecode cable_230v_0.15_al) and 6354652 (linecode cable_230v_185_al_wave) at bus 16829651 have different linecodes — not merged. |
-| 498 | `merge_series_lines` | line `6337769` | Merged line 10429564 (1.49 m) into 6337769 at pass-through bus 16909654; new length 5.656000000000001 m. |
-| 499 | `merge_series_lines` | line `3237631` | Merged line 10436062 (0.639 m) into 3237631 at pass-through bus 16829581; new length 6.009 m. |
-| 500 | `merge_series_lines` | line `10429556` | Merged line 10435810 (3.6660000000000004 m) into 10429556 at pass-through bus 16671368; new length 5.126 m. |
-| 501 | `merge_series_lines` | bus `15716756` | Lines 8858325 (linecode cable_230v_0.1_cu) and 3538754 (linecode cable_230v_0.25_cu) at bus 15716756 have different linecodes — not merged. |
+| 498 | `merge_series_lines` | line `3237631` | Merged line 10436062 (0.639 m) into 3237631 at pass-through bus 16829581; new length 6.009 m. |
+| 499 | `merge_series_lines` | line `6337769` | Merged line 10429564 (1.49 m) into 6337769 at pass-through bus 16909654; new length 5.656000000000001 m. |
+| 500 | `merge_series_lines` | bus `15716756` | Lines 8858325 (linecode cable_230v_0.1_cu) and 3538754 (linecode cable_230v_0.25_cu) at bus 15716756 have different linecodes — not merged. |
+| 501 | `merge_series_lines` | line `10429556` | Merged line 10435810 (3.6660000000000004 m) into 10429556 at pass-through bus 16671368; new length 5.126 m. |
 | 502 | `merge_series_lines` | line `11165146` | Merged line 11165235 (0.601 m) into 11165146 at pass-through bus 13519011; new length 2.701 m. |
 | 503 | `merge_series_lines` | bus `16824233` | Lines 2914839 (linecode cable_230v_0.1_cu) and 10429070 (linecode cable_230v_0.1_al) at bus 16824233 have different linecodes — not merged. |
 | 504 | `merge_series_lines` | line `6346513` | Merged line 6346516 (3.13 m) into 6346513 at pass-through bus 16680429; new length 8.17 m. |
@@ -556,8 +556,8 @@
 | 538 | `merge_series_lines` | line `10436067` | Merged line 6353997 (0.216 m) into 10436067 at pass-through bus 9353818; new length 3.6500000000000004 m. |
 | 539 | `merge_series_lines` | bus `16926466` | Lines 6357479 (linecode cable_230v_185_al_wave) and 6354657 (linecode cable_230v_0.25_cu) at bus 16926466 have different linecodes — not merged. |
 | 540 | `merge_series_lines` | line `3237842` | Merged line 6351828 (2.44 m) into 3237842 at pass-through bus 16926472; new length 2.992 m. |
-| 541 | `merge_series_lines` | line `6357444` | Merged line 6357439 (0.238 m) into 6357444 at pass-through bus 9354849; new length 0.413 m. |
-| 542 | `merge_series_lines` | line `7325278` | Merged line 7325270 (0.0432 m) into 7325278 at pass-through bus 17806539; new length 0.1296 m. |
+| 541 | `merge_series_lines` | line `7325278` | Merged line 7325270 (0.0432 m) into 7325278 at pass-through bus 17806539; new length 0.1296 m. |
+| 542 | `merge_series_lines` | line `6357444` | Merged line 6357439 (0.238 m) into 6357444 at pass-through bus 9354849; new length 0.413 m. |
 | 543 | `merge_series_lines` | line `8858354` | Merged line 8850200 (0.715 m) into 8858354 at pass-through bus 14069088; new length 6.234999999999999 m. |
 | 544 | `merge_series_lines` | bus `17806565` | Lines 6621337 (linecode cable_230v_0.25_al) and 10436067 (linecode cable_230v_0.1_al) at bus 17806565 have different linecodes — not merged. |
 | 545 | `merge_series_lines` | line `6353240` | Merged line 6353234 (2.13 m) into 6353240 at pass-through bus 16948346; new length 2.5829999999999997 m. |
@@ -616,8 +616,8 @@
 | 598 | `merge_series_lines` | bus `16666765` | Merge blocked: intermediate bus 16666765 has non-line elements attached. |
 | 599 | `merge_series_lines` | bus `17806525` | Merge blocked: intermediate bus 17806525 has non-line elements attached. |
 | 600 | `merge_series_lines` | line `10449760` | Merged line 10433820 (0.633 m) into 10449760 at pass-through bus 16932548; new length 3.4050000000000002 m. |
-| 601 | `merge_series_lines` | line `10435793` | Merged line 4076887 (1.43 m) into 10435793 at pass-through bus 16680509; new length 1.898 m. |
-| 602 | `merge_series_lines` | bus `14069393` | Lines 8885458 (linecode cable_230v_0.2_cu) and 8849649 (linecode cable_230v_0.15_cu) at bus 14069393 have different linecodes — not merged. |
+| 601 | `merge_series_lines` | bus `14069393` | Lines 8885458 (linecode cable_230v_0.2_cu) and 8849649 (linecode cable_230v_0.15_cu) at bus 14069393 have different linecodes — not merged. |
+| 602 | `merge_series_lines` | line `10435793` | Merged line 4076887 (1.43 m) into 10435793 at pass-through bus 16680509; new length 1.898 m. |
 | 603 | `merge_series_lines` | line `10446869` | Merged line 10429610 (3.051 m) into 10446869 at pass-through bus 16824802; new length 10.864 m. |
 | 604 | `merge_series_lines` | bus `13680710` | Merge blocked: intermediate bus 13680710 has non-line elements attached. |
 | 605 | `merge_series_lines` | bus `17806572` | Lines 7325295 (linecode connector) and 10436052 (linecode cable_230v_0.2_cu) at bus 17806572 have different linecodes — not merged. |
@@ -627,8 +627,8 @@
 | 609 | `merge_series_lines` | bus `16667239` | Lines 10429603 (linecode cable_230v_0.15_al) and 10429163 (linecode cable_230v_35_al_act) at bus 16667239 have different linecodes — not merged. |
 | 610 | `merge_series_lines` | line `8858329` | Merged line 8850198 (1.66 m) into 8858329 at pass-through bus 14069397; new length 5.36 m. |
 | 611 | `merge_series_lines` | line `10435774` | Merged line 6343273 (2.116 m) into 10435774 at pass-through bus 9353533; new length 13.863 m. |
-| 612 | `merge_series_lines` | bus `16802187` | Merge blocked: intermediate bus 16802187 has non-line elements attached. |
-| 613 | `merge_series_lines` | line `10436512` | Merged line 10446871 (3.45 m) into 10436512 at pass-through bus 16666766; new length 3.677 m. |
+| 612 | `merge_series_lines` | line `10436512` | Merged line 10446871 (3.45 m) into 10436512 at pass-through bus 16666766; new length 3.677 m. |
+| 613 | `merge_series_lines` | bus `16802187` | Merge blocked: intermediate bus 16802187 has non-line elements attached. |
 | 614 | `merge_series_lines` | line `10435774` | Merged line 3237842 (2.992 m) into 10435774 at pass-through bus 16932567; new length 16.855 m. |
 | 615 | `merge_series_lines` | line `6654825` | Merged line 6006720 (0.217 m) into 6654825 at pass-through bus 9353086; new length 3.907 m. |
 | 616 | `merge_series_lines` | line `6340765` | Merged line 6334952 (3.206 m) into 6340765 at pass-through bus 9353815; new length 3.431 m. |
@@ -637,8 +637,8 @@
 | 619 | `merge_series_lines` | bus `15860479` | Lines 5403202 (linecode unknown_lv_cable_m) and 5441585 (linecode cable_230v_0.25_cu) at bus 15860479 have different linecodes — not merged. |
 | 620 | `merge_series_lines` | bus `16666760` | Lines 10429597 (linecode cable_230v_0.15_cu) and 6362761 (linecode cable_230v_0.2_al) at bus 16666760 have different linecodes — not merged. |
 | 621 | `merge_series_lines` | bus `16676159` | Lines 6346166 (linecode cable_230v_25_cu) and 10445216 (linecode cable_230v_95_al) at bus 16676159 have different linecodes — not merged. |
-| 622 | `merge_series_lines` | line `8850177` | Merged line 8850179 (0.302 m) into 8850177 at pass-through bus 15707091; new length 4.601999999999999 m. |
-| 623 | `merge_series_lines` | line `8850192` | Merged line 8860834 (0.357 m) into 8850192 at pass-through bus 14299763; new length 1.707 m. |
+| 622 | `merge_series_lines` | line `8850192` | Merged line 8860834 (0.357 m) into 8850192 at pass-through bus 14299763; new length 1.707 m. |
+| 623 | `merge_series_lines` | line `8850177` | Merged line 8850179 (0.302 m) into 8850177 at pass-through bus 15707091; new length 4.601999999999999 m. |
 | 624 | `merge_series_lines` | line `6352790` | Merged line 5419602 (9.748000000000001 m) into 6352790 at pass-through bus 9318659; new length 9.964 m. |
 | 625 | `merge_series_lines` | line `10433947` | Merged line 10435952 (0.585 m) into 10433947 at pass-through bus 16806850; new length 0.724 m. |
 | 626 | `merge_series_lines` | bus `9493833` | Lines 7133203 (linecode connector) and 11630813 (linecode default) at bus 9493833 have different linecodes — not merged. |
@@ -651,19 +651,19 @@
 | 633 | `merge_series_lines` | line `10445410` | Merged line 10445392 (1.225 m) into 10445410 at pass-through bus 16908599; new length 2.335 m. |
 | 634 | `merge_series_lines` | bus `13686773` | Merge blocked: intermediate bus 13686773 has non-line elements attached. |
 | 635 | `merge_series_lines` | bus `16803248` | Lines 10429582 (linecode cable_230v_0.15_cu) and 6654825 (linecode cable_230v_0.15_al) at bus 16803248 have different linecodes — not merged. |
-| 636 | `merge_series_lines` | line `11167736` | Merged line 11171033 (0.531 m) into 11167736 at pass-through bus 17300500; new length 2.761 m. |
-| 637 | `merge_series_lines` | bus `16680528` | Lines 2937163 (linecode cable_230v_95_al) and 10432935 (linecode cable_230v_0.1_al) at bus 16680528 have different linecodes — not merged. |
+| 636 | `merge_series_lines` | bus `16680528` | Lines 2937163 (linecode cable_230v_95_al) and 10432935 (linecode cable_230v_0.1_al) at bus 16680528 have different linecodes — not merged. |
+| 637 | `merge_series_lines` | line `11167736` | Merged line 11171033 (0.531 m) into 11167736 at pass-through bus 17300500; new length 2.761 m. |
 | 638 | `merge_series_lines` | line `6346526` | Merged line 10436058 (1.603 m) into 6346526 at pass-through bus 9351529; new length 1.821 m. |
 | 639 | `merge_series_lines` | line `8850190` | Merged line 5367809 (0.216 m) into 8850190 at pass-through bus 9364677; new length 4.446000000000001 m. |
-| 640 | `merge_series_lines` | line `5402306` | Merged line 7054077 (4.4 m) into 5402306 at pass-through bus 9364678; new length 4.6160000000000005 m. |
+| 640 | `merge_series_lines` | line `10429256` | Merged line 10435941 (0.19 m) into 10429256 at pass-through bus 16806837; new length 12.479999999999999 m. |
 | 641 | `merge_series_lines` | line `4076473` | Merged line 6343682 (0.0834 m) into 4076473 at pass-through bus 9351530; new length 0.3014 m. |
-| 642 | `merge_series_lines` | line `10429256` | Merged line 10435941 (0.19 m) into 10429256 at pass-through bus 16806837; new length 12.479999999999999 m. |
+| 642 | `merge_series_lines` | line `5402306` | Merged line 7054077 (4.4 m) into 5402306 at pass-through bus 9364678; new length 4.6160000000000005 m. |
 | 643 | `merge_series_lines` | bus `9495398` | Lines 11550906 (linecode default) and 7325288 (linecode connector) at bus 9495398 have different linecodes — not merged. |
 | 644 | `merge_series_lines` | line `6355673` | Merged line 3689061 (0.569 m) into 6355673 at pass-through bus 16822348; new length 16.869 m. |
 | 645 | `merge_series_lines` | bus `17952980` | Lines 11157280 (linecode cable_230v_95_al) and 7412941 (linecode connector) at bus 17952980 have different linecodes — not merged. |
 | 646 | `merge_series_lines` | line `8858369` | Merged line 8854833 (1.09 m) into 8858369 at pass-through bus 12963508; new length 5.92 m. |
-| 647 | `merge_series_lines` | line `7325285` | Merged line 7325286 (0.326 m) into 7325285 at pass-through bus 17806538; new length 0.905 m. |
-| 648 | `merge_series_lines` | line `6344922` | Merged line 10453903 (0.841 m) into 6344922 at pass-through bus 16827624; new length 4.152 m. |
+| 647 | `merge_series_lines` | line `6344922` | Merged line 10453903 (0.841 m) into 6344922 at pass-through bus 16827624; new length 4.152 m. |
+| 648 | `merge_series_lines` | line `7325285` | Merged line 7325286 (0.326 m) into 7325285 at pass-through bus 17806538; new length 0.905 m. |
 | 649 | `merge_series_lines` | line `7325294` | Merged line 7325295 (0.401 m) into 7325294 at pass-through bus 17806569; new length 0.44420000000000004 m. |
 | 650 | `merge_series_lines` | line `10435595` | Merged line 6356046 (2.76 m) into 10435595 at pass-through bus 16926450; new length 5.449999999999999 m. |
 | 651 | `merge_series_lines` | line `10436268` | Merged line 6658043 (0.474 m) into 10436268 at pass-through bus 16936037; new length 0.994 m. |
