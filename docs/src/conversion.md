@@ -24,22 +24,18 @@ maps onto BMOPF, which is useful when comparing against PMD-based tooling.
 
 ## The earth terminal (OpenDSS `.0`)
 
-PMD maps the OpenDSS earth reference node `.0` to terminal **5**. BMOPF has
-no earth terminal — ground is implicit — so `from_pmd` resolves every
-occurrence:
+BMOPF has no earth terminal — ground is implicit. OpenDSS, by contrast, uses
+node `.0` for earth, which surfaces in the BMOPF JSON as terminal **5**.
 
-| PMD pattern | BMOPF result |
-|---|---|
-| bus `terminals` containing 5 | filtered from `terminal_names` |
-| bus `grounded = [5]` | dropped (earth is not a bus terminal) |
-| self-loop line with `t_connections = [5]` (a neutral-to-earth **reactor**) | a `shunt` at the bus with `G = R/(R²+X²)`, `B = −X/(R²+X²)` on the neutral |
-| voltage source with `connections = [1,2,3,5]` (neutral bonded to earth) | earth entry dropped, `vm`/`va` sliced with the same mask |
-| transformer wye winding `connections = [.., 5]` (star point earthed directly) | re-routed to the bus **neutral** terminal, with a warning |
-
-The last row is a genuine modeling change: the star point is then earthed
-through that bus's grounding impedance rather than solidly. The warning
-makes it visible; the alternative (an extra perfectly-grounded terminal) is
-exact but non-standard — see `docs/taskforce_feedback.md` item 7.
+!!! warning "Current `from_dss` limitation"
+    PowerIO's DSS→BMOPF conversion currently **retains** earth terminal `"5"`
+    rather than resolving it. As a result a transformer wye winding whose star
+    point is earthed appears with `terminal_map_to = ["1","2","3","5"]`, and the
+    bus it lands on keeps numeric terminal names (`["1",…,"5"]`) instead of the
+    `a/b/c/n` convention applied elsewhere — so its neutral is not detected.
+    This is tracked upstream/locally (see the known-limitations note below).
+    The earlier `from_pmd` parser resolved earth references explicitly; that
+    path has been removed.
 
 ## Pricing the slack source
 
@@ -47,24 +43,20 @@ The OpenDSS circuit object is simultaneously a voltage reference and an
 implicit unbounded power injection. The BMOPF `voltage_source` captures **both**:
 it is the network's current slack (see [Voltage source as current slack](opf.md#source-slack)).
 What's missing for a well-posed cost objective on a raw utility dataset (no
-generators at all) is a *price* on that imported power. `from_pmd` therefore
-attaches a per-phase **`cost`** to the source itself:
+generators at all) is a *price* on that imported power.
 
-- per-phase `cost` (kwarg `slack_cost`, default 1.0 \$/kWh) — minimum-cost
-  dispatch then equals loss minimisation;
-- no flow bounds are added, so the source remains an unbounded slack;
-- no auxiliary generator is created — the cost lives on the `voltage_source`.
-
-Disable with `from_pmd(eng; add_slack_generator=false)` (the kwarg name is kept
-for backwards compatibility; it now controls the source cost, not a generator).
-The augmentation pass applies the same default — see [Augmentation](augmentation.md).
+`from_dss` imports the source **without** a price (`from_dss` does not add a
+`cost`). The [augmentation pass](augmentation.md) supplies one: it attaches a
+per-phase **`cost`** to the source itself (default 1.0 \$/kWh, kwarg
+`slack_cost`), so minimum-cost dispatch equals loss minimisation. No flow
+bounds are added, so the source stays an unbounded slack, and no auxiliary
+generator is created — the cost lives on the `voltage_source`.
 
 ## Load configuration
 
-PMD labels 2-terminal loads "wye"; the spec distinguishes `SINGLE_PHASE`
-(any two nodes) from `WYE` (4-terminal midpoint return). `from_pmd`
-reclassifies by terminal arity; `to_pmd` maps `SINGLE_PHASE` back to PMD
-wye.
+The spec distinguishes `SINGLE_PHASE` (any two nodes) from `WYE` (4-terminal
+midpoint return). 2-terminal loads are `SINGLE_PHASE`; `to_pmd` maps
+`SINGLE_PHASE` back to a PMD 2-terminal "wye" load.
 
 ## Transformer impedance bases
 
@@ -159,29 +151,34 @@ b_no_load = -(cmag)       · Y_base       # cmag       = %imag       / 100
     LV branch — not an even split. BMOPFTools follows that convention for
     `wye_delta`/`delta_wye`.
 
-**Legacy single-impedance form.** A network carrying the older single
-`r_series`/`x_series` (wye-side lumped, delta ideal) is still accepted: it is
-migrated onto `r_series_from`/`x_series_from` with the secondary branch zero,
-reproducing the previous ideal-delta behaviour. `to_pmd` writes the
-per-winding fields back to PMD `rw`/`xsc`.
+**Lumped single-impedance form.** A `wye_delta`/`delta_wye` transformer may
+carry a single lumped `r_series`/`x_series` (wye-side, delta ideal) instead of
+the per-winding fields. The schema accepts it, `to_pmd` reads it, and
+`from_dss` (PowerIO) currently **emits** it. ⚠️ Note that the OPF and Ybus
+builders read only the per-winding `r/x_series_from`/`_to` fields, so a lumped
+transformer presents zero series impedance to those code paths until it is
+normalised to the per-winding form — see the known-limitations note below.
 
 ## Known limitations
 
+- **Lumped transformer impedance (from `from_dss`).** PowerIO emits
+  `wye_delta`/`delta_wye` units with a single lumped `r_series`/`x_series`
+  rather than the per-winding T-model (`r/x_series_from`/`_to`). The OPF and
+  Ybus builders read only the per-winding fields, so such a transformer is seen
+  as having zero leakage impedance until it is normalised. Tracked as a separate
+  issue (per-winding emission upstream + a defensive normalisation on ingest).
+- **Earth terminal `"5"` retained (from `from_dss`).** PowerIO keeps the
+  OpenDSS earth node as terminal `"5"`; buses that carry it (e.g. an earthed
+  transformer star point) keep numeric terminal names and lose neutral
+  detection. Tracked as a separate issue.
 - **Wye-wye three-phase transformers** have no spec type. They are parked
   in `single_phase` with 3-phase terminal maps and flagged
   (`W.SPEC.XFMR_TMAP_ARITY`); the faithful decomposition into three
   single-phase units is future work.
-- **Generator costs** do not exist in PMD's ENGINEERING model; after conversion
-  only the priced slack source carries a `cost`.
-- **`basefreq` mismatches** between linecodes and the circuit are a
-  parse-time phenomenon (PMD warns during `parse_file`); they are not
-  recoverable from the ENGINEERING dict and hence not visible to
-  BMOPFTools.
 - **RegControl / tap controllers** do not convert; see the
   regulator-pattern detection in the [methodology notes](methodology.md).
 - **Regulator subtypes** (`single_phase_autotransformer`, `open_delta_regulator`)
-  are OPF-native data-model objects but are **not produced by the converters** —
-  `from_dss`/`from_pmd` do not recognise OpenDSS `AutoTrans`/`RegControl` or
-  open-delta banks as these objects, and `to_pmd` does not emit them. They are
-  authored directly in BMOPF JSON. See [conventions](conventions.md) and the
-  [OPF reference](opf.md).
+  are OPF-native data-model objects but are **not produced by `from_dss`** —
+  it does not recognise OpenDSS `AutoTrans`/`RegControl` or open-delta banks as
+  these objects, and `to_pmd` does not emit them. They are authored directly in
+  BMOPF JSON. See [conventions](conventions.md) and the [OPF reference](opf.md).

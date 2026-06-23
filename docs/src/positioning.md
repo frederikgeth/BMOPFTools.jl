@@ -32,8 +32,8 @@ ecosystem around them. It focuses on:
 
 - **Network representation** — a faithful, conductor-level (up-to-four-wire)
   data model ([conventions](conventions.md));
-- **Data interoperability** — lossless conversion to and from
-  PowerModelsDistribution / OpenDSS ([conversion guide](conversion.md));
+- **Data interoperability** — OpenDSS ingestion via `from_dss` and export to
+  PowerModelsDistribution via `to_pmd` ([conversion guide](conversion.md));
 - **Analytical model construction & validation** — provenance, data-quality, and
   spec-conformance analysis ([analysis & reports](analysis.md));
 - **Benchmark generation** — structural repair and standards-grounded gap-filling
@@ -52,7 +52,7 @@ of the below, not a replacement for any.
 |---|---|---|
 | MATPOWER | Transmission OPF conventions & benchmarks | Inspiration — BMOPFTools aims to bring comparable reproducibility to *distribution* |
 | PowerModels.jl | Optimization formulations (transmission) | Complementary formulation layer; BMOPFTools supplies the network model |
-| PowerModelsDistribution.jl | Distribution OPF formulations & solution methods | Complementary and interoperable (`from_pmd` / `to_pmd`); BMOPFTools supplies benchmark cases |
+| PowerModelsDistribution.jl | Distribution OPF formulations & solution methods | Complementary and interoperable (`to_pmd` export); BMOPFTools supplies benchmark cases |
 | ppOPF, Open-DSOPF | Distribution OPF implementations | Complementary; BMOPFTools provides shared representations & benchmark feeders for comparison |
 | OpenDSS, GridLAB-D, Power Grid Model, PowerFactory, PSS®SINCAL, CYME, Synergi Electric | Simulation & engineering analysis | Data sources; BMOPFTools ingests their models and produces an optimization-ready representation |
 

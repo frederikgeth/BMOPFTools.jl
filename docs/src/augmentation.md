@@ -82,7 +82,7 @@ study.
 ```julia
 using BMOPFTools
 
-net = parse_bmopf("my_feeder.json")          # or from_pmd / from_dss
+net = parse_bmopf("my_feeder.json")          # or from_dss
 
 net1, fix_mf = fix_case(net)                 # 1. structural repairs first
 net2, der_mf = add_generators(net1;          # 2. place DERs (optional)
@@ -124,8 +124,8 @@ differ from the transformer rated voltage in the network model (e.g. a 240 V
 transformer in a grid declared at 230 V per EN 50160).  The declared voltage
 is resolved per bus in priority order:
 
-1. `bus["v_declared"]` — explicit field set at import time (e.g. by
-   `from_pmd` from the PMD voltage base)
+1. `bus["v_declared"]` — explicit field set at import time (e.g. authored in
+   the BMOPF JSON)
 2. the optional **voltage-snap** pass (see below) — writes `v_declared` by
    snapping `v_nom` to a standard level; never overrides an explicit value
 3. `AugmentationRecipe` fields `v_declared_lv` / `v_declared_mv` /
@@ -490,7 +490,7 @@ manifest's `findings_after`.
     `solve_opf` dispatches placed inverters once `augment_case` has filled their
     P/Q box — the OPF engine fully models inverters (apparent-power circle,
     topology-dependent voltage reference, constant-PF coupling). What is *not* yet
-    wired is the I/O layer: `from_pmd`/`to_pmd`/`from_dss` do not yet map
+    wired is the I/O layer: `to_pmd`/`from_dss` do not yet map
     `inverter` elements, so inverters cannot round-trip through
     PowerModelsDistribution or OpenDSS.
 

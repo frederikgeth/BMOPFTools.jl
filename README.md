@@ -1,5 +1,5 @@
 > [!WARNING]  
-> This project is currently ongoing rapid development and may have breaking changes made directly to main. Use at your own risk until further notice. An upcoming breaking change is removing the dependence on the OpenDSS parser from PMD, which will be switched to https://github.com/eigenergy/PowerIO.jl
+> This project is currently ongoing rapid development and may have breaking changes made directly to main. Use at your own risk until further notice. OpenDSS ingestion now goes through [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) (the earlier PowerModelsDistribution-based `from_pmd` parser has been removed).
 
 
 [![Documentation](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml) [![CI](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/frederikgeth/BMOPFTools.jl/graph/badge.svg)](https://codecov.io/gh/frederikgeth/BMOPFTools.jl)
@@ -14,7 +14,7 @@ https://github.com/frederikgeth/bmopf-report.
 
 The network data model is a plain `Dict{String,Any}` that mirrors the BMOPF
 JSON schema exactly: no wrapper types, so data flows naturally between JSON,
-PowerModelsDistribution and your own code.
+the `to_pmd` PowerModelsDistribution export, and your own code.
 
 ## IEEE PES Task Force
 
@@ -179,7 +179,7 @@ The dependencies are declared in `Project.toml`: the core runtime pulls in
 tests when `OpenDSSDirect` is absent.
 
 ```sh
-# full test suite (with PMD, from the package root)
+# full test suite (from the package root)
 julia --project=. -e "using Pkg; Pkg.test()"
 
 # generate analysis reports and simplified variants for all output/ networks
@@ -205,7 +205,7 @@ julia --project=docs docs/make.jl
 ```
 
 Pages: data-model conventions, the conversion guide (every deliberate
-`from_pmd`/`to_pmd` decision), the analysis/report guide, the **complete
+`from_dss`/`to_pmd` decision), the analysis/report guide, the **complete
 finding-code reference** (128 codes), methodology notes with literature
 references, the case augmentation guide (`fix_case` + `augment_case`), the
 OPF guide, and the OPF result dictionary reference.

@@ -28,10 +28,9 @@ All physical quantities are SI (spec Table 8):
 | angle | rad |
 | generation cost | \$/kWh |
 
-Note that PowerModelsDistribution's ENGINEERING model already normalises
-line lengths to metres and linecodes to per-metre values, so `from_pmd`
-output is SI without further scaling; voltages and powers are scaled by the
-PMD `voltage_scale_factor`/`power_scale_factor` settings.
+Note that `from_dss` (via PowerIO) emits SI values directly — line lengths in
+metres, linecodes per-metre, voltages in volts and powers in watts/vars — so no
+further scaling is applied on ingest.
 
 ## Terminal names
 
@@ -115,8 +114,8 @@ no polynomial/quadratic cost form.) A generator without bounds is an unbounded
 **and** acts as the network's current slack — it injects the current that closes
 KCL at the source bus, so no auxiliary slack generator is needed. Beyond
 `v_magnitude`/`v_angle`, it accepts an optional `configuration`, per-phase flow
-bounds `p_min/p_max/q_min/q_max`, and a per-phase `cost`. `from_pmd` and the
-augmentation pass set `cost` on the source by default. See
+bounds `p_min/p_max/q_min/q_max`, and a per-phase `cost`. The augmentation pass
+sets `cost` on the source by default. See
 [Voltage source as current slack](opf.md#source-slack). Placing an *unbounded*
 generator at the source bus duplicates the slack and is flagged by the pre-flight
 check (`W.PRE.SOURCE_BUS_GENERATOR`).
@@ -310,7 +309,7 @@ block.  It merges fields in priority order: the `meta` keyword argument
 fields if they are absent: `$schema`, `generator`, and `created`.
 Caller-supplied values are never overwritten.
 
-**On parse.** [`parse_bmopf`](@ref) and converters (`from_pmd`, `from_dss`)
+**On parse.** [`parse_bmopf`](@ref) and [`from_dss`](@ref)
 carry `net["meta"]` through unchanged.  [`migrate`](@ref) reads
 `meta.$schema` to detect the spec version and apply forward migrations.
 The schema checker validates known fields and flags format violations as
@@ -343,7 +342,6 @@ downstream code should treat them as advisory.
 |---|---|---|
 | `parsed_at` | [`parse_bmopf`](@ref) | Timestamp when the JSON was parsed. |
 | `terminal_coercions` | [`parse_bmopf`](@ref) | `{"n": <count>, "mode": "<alias|verbatim>"}` — populated when non-string terminal IDs were normalised. See `W.SPEC.TERMINAL_TYPES`. |
-| `source` | `from_pmd` | `"pmd"` — marks dicts converted from a PMD ENGINEERING model. |
 | `powerio_source` | `from_dss` | Absolute path of the `.dss` file that was converted. |
 | `powerio_warnings` | `from_dss` | Array of warning strings emitted by the DSS→JSON converter. |
 | `migration_notes` | [`migrate`](@ref) | Array of `W.MIGRATE.UPGRADED` finding dicts appended when a forward migration is applied. |

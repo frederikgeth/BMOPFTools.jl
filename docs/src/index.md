@@ -31,7 +31,8 @@ The library serves three use cases:
 
 The network data model is a plain `Dict{String,Any}` mirroring the BMOPF
 JSON structure exactly. There are deliberately no wrapper types: data flows
-to and from JSON and PowerModelsDistribution without conversion layers, and
+to and from JSON (and out to PowerModelsDistribution via `to_pmd`) without
+conversion layers, and
 the only structs in the library are the *outputs* — [`Finding`](@ref),
 [`SummaryReport`](@ref), and [`SolutionReport`](@ref) — which need stable
 shape for rendering and programmatic use.
@@ -150,7 +151,7 @@ normalisations) so the case's assumptions are explicit rather than implied.
 - [Data model conventions](conventions.md) — units, terminal names,
   transformer subtypes, grounding semantics.
 - [Conversion guide](conversion.md) — every deliberate decision in
-  `from_pmd`/`to_pmd`, with the impedance-base formulas.
+  `to_pmd`, with the impedance-base formulas.
 - [Analysis & reports](analysis.md) — what each pass computes and how to
   read the report.
 - [Finding-code reference](findings.md) — complete catalogue of finding codes,

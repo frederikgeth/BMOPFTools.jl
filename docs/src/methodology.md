@@ -157,9 +157,9 @@ autotransformer shared-neutral coupling) and `open_delta_regulator` (monolithic
 open-delta with the galvanic straight-through of the shared phase) — so a
 regulator authored natively needs no such pattern-matching. See the
 [OPF reference](opf.md) for their constraints and the
-[conventions](conventions.md) for the field set. The `from_dss`/`from_pmd`
-converters do not yet emit these subtypes (regulators arriving from OpenDSS are
-still detected via the pattern above rather than converted).
+[conventions](conventions.md) for the field set. The `from_dss` converter does
+not yet emit these subtypes (regulators arriving from OpenDSS are still detected
+via the pattern above rather than converted).
 
 ## Benchmark readiness
 

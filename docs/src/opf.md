@@ -700,8 +700,8 @@ current, so neutral KCL is satisfied without a neutral voltage reference.
 
 This makes the source play three roles with one object: unbounded power-flow
 slack (no bounds, no cost), bounded grid connection (bounds), and priced
-import/export (cost). `from_pmd` and the augmentation pass set `cost` on the
-source by default (see [Conversion](conversion.md) / [Augmentation](augmentation.md)).
+import/export (cost). The augmentation pass sets `cost` on the
+source by default (see [Augmentation](augmentation.md)).
 
 !!! note "Independent generators at the source bus"
     The voltage source is already the slack, so an *unbounded* generator
