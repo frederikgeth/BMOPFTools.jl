@@ -55,7 +55,7 @@ giving the smooth droop
 f^{\varepsilon}(U) \;=\; \bar y_1 \;+\; \sum_i a_i\,\varepsilon\,\log\!\bigl(1+e^{(U-\bar x_i)/\varepsilon}\bigr).
 ```
 
-$f^{\varepsilon}$ is $C^\infty$, and its slopes match the original droop exactly
+This function $f^{\varepsilon}$ is infinitely differentiable, $C^\infty$, and its slopes match the original droop exactly
 in the limit. Two properties make it a principled choice:
 
 - **Monotone, bounded error.** The softplus brackets the ReLU from above with a
@@ -68,7 +68,7 @@ in the limit. Two properties make it a principled choice:
   bounded by $\bigl(\sum_i |a_i|\bigr)\varepsilon\log 2$.
 - **Exact limit.** $\operatorname{ReLU}^{\varepsilon}(z)\to\operatorname{ReLU}(z)$
   pointwise as $\varepsilon\to 0^+$, so the smoothing is a controllable
-  relaxation, not a model change.
+  approximation.
 
 ## 3. Closed-form first and second derivatives
 
@@ -163,7 +163,42 @@ inverters while preserving reliability; in their normalisation $\varepsilon\le
 10^{-5}$ was the sweet spot. The default here is deliberately conservative and can
 be tightened per study. The same paper presents a **quadratic Bézier spline** as
 an alternative smoothing with an equivalent $\Delta U$ tolerance; BMOPFTools ships
-the softplus form, which has the cheaper gradient/Hessian evaluation [1, Fig. 4].
+the softplus form, which has the cheaper gradient/Hessian evaluation.
+
+## 6. Provenance and related work
+
+The encoding above is the composition of two well-established ideas; naming them
+clarifies what is standard and what is specific to this implementation.
+
+**Representing a PWL function as a sum of hinges.** Writing a continuous PWL
+function as a baseline plus shifted $\max(0,\cdot)$ terms (§1) is the degree-1
+*truncated power basis* of spline theory. It is the building block of Friedman's
+multivariate adaptive regression splines (MARS) [7] and of Breiman's hinging
+hyperplanes, and the canonical-PWL representation theory of Chua & Kang [8] shows
+that every continuous PWL function is a linear combination of maxima of affine
+functions — the single-variable case being exactly the hinge sum used here.
+Equivalently, a one-dimensional ReLU sum *is* a shallow ReLU network, which is
+why the encoding reads like one.
+
+**Smoothing the hinge with a softplus.** Replacing $\max(0,z)$ by
+$\varepsilon\log(1+e^{z/\varepsilon})$ (§2) is the smoothing-of-the-plus-function
+idea of Chen & Mangasarian [9], who obtain the softplus by integrating a sigmoid
+precisely to convert nonsmooth inequality/complementarity problems into smooth
+ones solvable by Newton — the same motivation as here. The error bound and the
+broader smoothing family are the Chen–Harker–Kanzow–Smale (CHKS) line [2]. A
+unifying view: $\operatorname{softplus}(x)=\varepsilon\,\operatorname{logsumexp}(0,x/\varepsilon)$,
+and log-sum-exp is the canonical entropic (Nesterov) smoothing of $\max$ [10], so
+the surrogate is the simplest smooth-max. More recently, the pattern "relax to a
+program, then smooth it" has been systematised under differentiable
+programming [11], where softplus is a running example.
+
+**What is specific here.** Neither ingredient is novel in isolation; the
+contribution is their *exact-slope* composition for standardised droop — the
+baseline and triples are placed analytically so the surrogate reproduces the
+AS/NZS 4777.2 / IEEE 1547 slopes in the $\varepsilon\to 0$ limit — together with
+the numerically stable `log1pexp`/`logistic` evaluation (§4) and deployment inside
+a neutral-explicit four-wire OPF [1]. The same smooth-droop strategy is applied to
+AC–DC converter droop with saturation in a companion paper [12].
 
 ## [References](@id relu-refs)
 
@@ -177,7 +212,7 @@ the softplus form, which has the cheaper gradient/Hessian evaluation [1, Fig. 4]
    `Rmpfr` package," 2012 (the `log1pexp`/`logistic` regime split used by
    [StatsFuns.jl](https://github.com/JuliaStats/StatsFuns.jl)).
 4. J. Huchette, J. P. Vielma, "Nonconvex piecewise linear functions: Advanced
-   formulations and simple modeling tools," *Operations Research* 71 (5) (2019)
+   formulations and simple modeling tools," *Operations Research* 71 (5) (2023)
    1835–1856 (the exact binary/logarithmic PWL alternative).
 5. A. Wächter, L. T. Biegler, "On the implementation of an interior-point filter
    line-search algorithm for large-scale nonlinear programming," *Math.
@@ -186,3 +221,18 @@ the softplus form, which has the cheaper gradient/Hessian evaluation [1, Fig. 4]
    "JuMP 1.0: Recent improvements to a modeling language for mathematical
    optimization," *Math. Program. Comput.*, 2023 (user-defined nonlinear
    operators).
+7. J. H. Friedman, "Multivariate adaptive regression splines," *Ann. Statist.*
+   19 (1) (1991) 1–67 (hinge-function / truncated-power basis).
+8. L. O. Chua, S. M. Kang, "Section-wise piecewise-linear functions: Canonical
+   representation, properties, and applications," *Proc. IEEE* 65 (6) (1977)
+   915–929 (canonical PWL representation).
+9. C. Chen, O. L. Mangasarian, "A class of smoothing functions for nonlinear and
+   mixed complementarity problems," *Comput. Optim. Appl.* 5 (2) (1996) 97–138
+   (softplus as the integral of a sigmoid, smoothing the plus function).
+10. Yu. Nesterov, "Smooth minimization of non-smooth functions," *Math. Program.*
+    103 (1) (2005) 127–152 (entropic smoothing of $\max$ via log-sum-exp).
+11. M. Blondel, V. Roulet, "The Elements of Differentiable Programming,"
+    arXiv:2403.14606, 2024 (smoothing programs; softplus as a running example).
+12. G. Mohy-ud-din, R. Heidari, F. Geth, H. Ergun, S. M. M. Uddin, "AC-DC Power
+    Systems Optimization with Droop Control Smooth Approximation,"
+    arXiv:2409.18376, 2024 (companion smooth-droop application).
