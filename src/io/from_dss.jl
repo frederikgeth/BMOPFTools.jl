@@ -25,6 +25,12 @@ This is the recommended path for reading OpenDSS networks: the Rust parser
 explicitly, validates fidelity against the OpenDSS solver, and produces
 schema-valid BMOPF JSON without going through PowerModelsDistribution.
 
+OpenDSS identifiers are case-insensitive but case-preserving, whereas BMOPF
+keys are matched exactly. To reconcile the two, every identifier and every
+reference to one (bus names, linecodes, component ids) is **case-folded to
+lower case** on ingest, so references resolve regardless of the casing each
+OpenDSS statement happened to use.
+
 OpenDSS numeric terminal names (`"1"`, `"2"`, `"3"`, `"4"`) are remapped to
 the task-force convention (`"a"`, `"b"`, `"c"`, `"n"`) and `neutral_terminal`
 is set to `"n"` on every affected bus.
@@ -67,6 +73,7 @@ function from_dss(path::AbstractString;
     end
 
     net = parse_bmopf(json_raw; from_string=true)
+    _canonicalize_identifiers!(net)
     _remap_opendss_terminals!(net)
 
     # Store conversion warnings so callers can inspect fidelity losses
@@ -96,6 +103,87 @@ end
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+# Top-level component collections whose KEYS are OpenDSS identifiers.
+const _ID_COLLECTIONS = ("bus", "linecode", "line", "switch", "load",
+                         "generator", "voltage_source", "shunt", "inverter")
+
+"""
+    _canonicalize_identifiers!(net)
+
+Case-fold every OpenDSS-sourced identifier (and every reference to one) to lower
+case, so that references resolve under BMOPF's exact-match keys regardless of the
+casing each OpenDSS statement used. OpenDSS identifiers are unique up to case, so
+folding only reunites references to the same object — it never merges distinct
+objects. If two keys in a collection do fold to the same value (which valid
+OpenDSS cannot produce), an `ErrorException` is raised rather than silently
+dropping one.
+
+Folded: the keys of the component collections in `_ID_COLLECTIONS` and the
+transformer subtype entries; the reference fields `bus`, `bus_from`, `bus_to`,
+and `linecode`. Terminal names/maps are handled separately by
+[`_remap_opendss_terminals!`](@ref).
+"""
+function _canonicalize_identifiers!(net::Dict{String,Any})
+    fold = lowercase
+    collisions = String[]
+
+    foldkeys! = (parent, key) -> begin
+        coll = get(parent, key, nothing)
+        coll isa Dict || return
+        folded = Dict{String,Any}()
+        for (id, v) in coll
+            fid = fold(string(id))
+            haskey(folded, fid) &&
+                push!(collisions, "$key: '$id' collides with another id as '$fid'")
+            folded[fid] = v
+        end
+        parent[key] = folded
+    end
+
+    foldref! = (comp, k) ->
+        (v = get(comp, k, nothing); v isa AbstractString && (comp[k] = fold(v)))
+
+    # 1. Collection keys
+    for k in _ID_COLLECTIONS
+        foldkeys!(net, k)
+    end
+    xfmr = get(net, "transformer", nothing)
+    if xfmr isa Dict
+        for (subtype, sub) in xfmr
+            sub isa Dict && foldkeys!(xfmr, subtype)
+        end
+    end
+
+    # 2. Reference fields
+    for ct in ("load", "generator", "voltage_source", "shunt", "inverter")
+        for (_, c) in get(net, ct, Dict())
+            c isa Dict && foldref!(c, "bus")
+        end
+    end
+    for (_, c) in get(net, "line", Dict())
+        c isa Dict || continue
+        foldref!(c, "bus_from"); foldref!(c, "bus_to"); foldref!(c, "linecode")
+    end
+    for (_, c) in get(net, "switch", Dict())
+        c isa Dict || continue
+        foldref!(c, "bus_from"); foldref!(c, "bus_to")
+    end
+    if xfmr isa Dict
+        for (_, sub) in xfmr
+            sub isa Dict || continue
+            for (_, c) in sub
+                c isa Dict || continue
+                foldref!(c, "bus_from"); foldref!(c, "bus_to")
+            end
+        end
+    end
+
+    isempty(collisions) || throw(ErrorException(
+        "from_dss: case-folding identifiers produced collisions (OpenDSS " *
+        "identifiers must be unique up to case):\n  " * join(collisions, "\n  ")))
+    return net
+end
 
 """
     _remap_opendss_terminals!(net)

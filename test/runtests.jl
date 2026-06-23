@@ -1980,6 +1980,41 @@ const IEEE13_FIXTURE = """
         @test net2["transformer"]["delta_wye"]["t1"]["r_series_from"] ≈ 0.015
     end
 
+    @testset "from_dss — identifier case-folding (canonicalisation)" begin
+        # OpenDSS identifiers are unique up to case; from_dss folds every id and
+        # reference to lower case so case-inconsistent references resolve under
+        # BMOPF's exact-match keys.
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "SourceBus" => Dict{String,Any}("terminal_names" => ["a","b","c"]),
+                "B1"        => Dict{String,Any}("terminal_names" => ["a","b","c","n"])),
+            "linecode" => Dict{String,Any}("LC1" => Dict{String,Any}("R_series_1_1" => 0.1)),
+            "line" => Dict{String,Any}("L1" => Dict{String,Any}(
+                "bus_from" => "sourcebus", "bus_to" => "b1", "linecode" => "lc1",
+                "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"])),
+            "load" => Dict{String,Any}("LD1" => Dict{String,Any}(
+                "bus" => "B1", "terminal_map" => ["a","n"])),
+        )
+        BMOPFTools._canonicalize_identifiers!(net)
+        @test sort(collect(keys(net["bus"]))) == ["b1", "sourcebus"]
+        @test haskey(net["linecode"], "lc1")
+        @test haskey(net["line"], "l1") && haskey(net["load"], "ld1")
+        line = net["line"]["l1"]
+        @test line["bus_from"] == "sourcebus" && line["bus_to"] == "b1"
+        @test line["linecode"] == "lc1"
+        @test net["load"]["ld1"]["bus"] == "b1"
+        # every bus reference now resolves to a declared bus
+        busset = Set(keys(net["bus"]))
+        @test line["bus_from"] in busset && line["bus_to"] in busset
+
+        # Two ids equal up to case can't occur in valid OpenDSS — if they do,
+        # raise rather than silently merge.
+        bad = Dict{String,Any}("bus" => Dict{String,Any}(
+            "Bus1" => Dict{String,Any}("terminal_names" => ["a"]),
+            "bus1" => Dict{String,Any}("terminal_names" => ["b"])))
+        @test_throws ErrorException BMOPFTools._canonicalize_identifiers!(bad)
+    end
+
     @testset "Completeness — transformer required fields" begin
         net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
         delete!(net["transformer"]["single_phase"]["xfm2"], "s_rating")
@@ -2554,9 +2589,11 @@ const IEEE13_FIXTURE = """
             # transformer star point). The routing is recorded in _meta.
             @test all(!("5" in string.(get(b, "terminal_names", [])))
                       for b in values(net["bus"]))
-            @test net["bus"]["B179"]["terminal_names"] == ["a", "b", "c", "n"]
-            @test get(net["bus"]["B179"], "neutral_terminal", nothing) == "n"
-            @test "B179" in net["_meta"]["earth_terminal_routing"]["buses"]
+            # Identifiers are case-folded on ingest (OpenDSS B179 → b179).
+            @test all(k -> k == lowercase(k), keys(net["bus"]))
+            @test net["bus"]["b179"]["terminal_names"] == ["a", "b", "c", "n"]
+            @test get(net["bus"]["b179"], "neutral_terminal", nothing) == "n"
+            @test "b179" in net["_meta"]["earth_terminal_routing"]["buses"]
         end
 
         @testset "Analysis" begin

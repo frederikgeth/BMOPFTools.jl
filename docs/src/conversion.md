@@ -22,6 +22,18 @@ maps onto BMOPF, which is useful when comparing against PMD-based tooling.
 - Line lengths and per-length linecode values arrive from PMD already in
   metres / Ω-per-metre (PMD normalises DSS units internally).
 
+## Identifier case-folding
+
+OpenDSS identifiers are case-*insensitive* but case-*preserving*: `SourceBus`,
+`sourcebus` and `SOURCEBUS` denote the same bus, and different statements in one
+model may spell it differently. BMOPF keys are matched exactly, so `from_dss`
+**case-folds every identifier and every reference to lower case** on ingest
+(bus names, linecodes, component ids; bus / `bus_from` / `bus_to` / `linecode`
+references). This is lossless — OpenDSS uniqueness up to case guarantees folding
+only reunites references to the same object. If two ids in a collection ever fold
+to the same value (which valid OpenDSS cannot produce) `from_dss` raises rather
+than silently dropping one.
+
 ## The earth terminal (OpenDSS `.0`)
 
 BMOPF has no earth terminal — ground is implicit. OpenDSS, by contrast, uses
