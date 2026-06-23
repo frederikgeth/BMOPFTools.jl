@@ -26,15 +26,15 @@ Idempotent: a case already carrying `v_declared` is re-stripped and re-snapped,
 so re-running is safe.
 
 Usage:
-    julia --project=scripts scripts/resnap_enwl_benchmark_bounds.jl
+    julia --project=scripts scripts/oneoff/resnap_enwl_benchmark_bounds.jl
 """
 
 using Pkg
-Pkg.activate(@__DIR__)   # scripts/Project.toml — BMOPFTools + JuMP + Ipopt + JSON3
+Pkg.activate(joinpath(@__DIR__, ".."))   # scripts/Project.toml — BMOPFTools + JuMP + Ipopt + JSON3
 
 using BMOPFTools
 
-const REDUCED_DIR = joinpath(@__DIR__, "..", "output", "ENWLbenchmark", "reduced")
+const REDUCED_DIR = joinpath(@__DIR__, "..", "..", "output", "ENWLbenchmark", "reduced")
 
 # Voltage-bound fields rebuilt against the snapped nominal. Stripped first so the
 # (never-overwriting) augment passes regenerate them.

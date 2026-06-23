@@ -60,10 +60,40 @@
   },
   "name": "network_10_Feeder_5",
   "line": {
-    "line270": {
-      "length": 22.0878,
-      "bus_from": "266",
-      "bus_to": "271",
+    "line68": {
+      "length": 157.151798,
+      "_merged_from": [
+        "line71",
+        "line65",
+        "line48",
+        "line42",
+        "line38",
+        "line74",
+        "line131",
+        "line2",
+        "line143",
+        "line145"
+      ],
+      "bus_from": "sourcebus",
+      "bus_to": "146",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line300": {
+      "length": 16.7103,
+      "bus_from": "293",
+      "bus_to": "301",
       "terminal_map_from": [
         "1",
         "2",
@@ -77,6 +107,32 @@
         "n"
       ],
       "linecode": "lc1"
+    },
+    "line156": {
+      "length": 22.512366,
+      "_merged_from": [
+        "line158",
+        "line154",
+        "line168",
+        "line190",
+        "line197",
+        "line232"
+      ],
+      "bus_from": "146",
+      "bus_to": "261",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc4"
     },
     "line311": {
       "length": 7.4638,
@@ -96,10 +152,10 @@
       ],
       "linecode": "lc1"
     },
-    "line274": {
-      "length": 17.8821,
-      "bus_from": "266",
-      "bus_to": "275",
+    "line298": {
+      "length": 16.7103,
+      "bus_from": "293",
+      "bus_to": "299",
       "terminal_map_from": [
         "1",
         "2",
@@ -114,10 +170,10 @@
       ],
       "linecode": "lc1"
     },
-    "line299": {
-      "length": 16.7103,
-      "bus_from": "293",
-      "bus_to": "300",
+    "line272": {
+      "length": 17.8821,
+      "bus_from": "266",
+      "bus_to": "273",
       "terminal_map_from": [
         "1",
         "2",
@@ -171,10 +227,13 @@
       ],
       "linecode": "lc4"
     },
-    "line300": {
-      "length": 16.7103,
+    "line301": {
+      "length": 14.944,
+      "_merged_from": [
+        "line306"
+      ],
       "bus_from": "293",
-      "bus_to": "301",
+      "bus_to": "307",
       "terminal_map_from": [
         "1",
         "2",
@@ -187,30 +246,12 @@
         "3",
         "n"
       ],
-      "linecode": "lc1"
+      "linecode": "lc4"
     },
-    "line298": {
-      "length": 16.7103,
-      "bus_from": "293",
-      "bus_to": "299",
-      "terminal_map_from": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "terminal_map_to": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "linecode": "lc1"
-    },
-    "line297": {
-      "length": 16.7103,
-      "bus_from": "293",
-      "bus_to": "298",
+    "line275": {
+      "length": 17.8821,
+      "bus_from": "266",
+      "bus_to": "276",
       "terminal_map_from": [
         "1",
         "2",
@@ -243,10 +284,10 @@
       ],
       "linecode": "lc5"
     },
-    "line275": {
-      "length": 17.8821,
-      "bus_from": "266",
-      "bus_to": "276",
+    "line299": {
+      "length": 16.7103,
+      "bus_from": "293",
+      "bus_to": "300",
       "terminal_map_from": [
         "1",
         "2",
@@ -261,39 +302,10 @@
       ],
       "linecode": "lc1"
     },
-    "line156": {
-      "length": 22.512366,
-      "_merged_from": [
-        "line158",
-        "line154",
-        "line168",
-        "line190",
-        "line197",
-        "line232"
-      ],
-      "bus_from": "146",
-      "bus_to": "261",
-      "terminal_map_from": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "terminal_map_to": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "linecode": "lc4"
-    },
-    "line301": {
-      "length": 14.944,
-      "_merged_from": [
-        "line306"
-      ],
+    "line297": {
+      "length": 16.7103,
       "bus_from": "293",
-      "bus_to": "307",
+      "bus_to": "298",
       "terminal_map_from": [
         "1",
         "2",
@@ -306,12 +318,12 @@
         "3",
         "n"
       ],
-      "linecode": "lc4"
+      "linecode": "lc1"
     },
-    "line272": {
-      "length": 17.8821,
+    "line270": {
+      "length": 22.0878,
       "bus_from": "266",
-      "bus_to": "273",
+      "bus_to": "271",
       "terminal_map_from": [
         "1",
         "2",
@@ -344,22 +356,10 @@
       ],
       "linecode": "lc1"
     },
-    "line68": {
-      "length": 157.151798,
-      "_merged_from": [
-        "line71",
-        "line65",
-        "line48",
-        "line42",
-        "line38",
-        "line74",
-        "line131",
-        "line2",
-        "line143",
-        "line145"
-      ],
-      "bus_from": "sourcebus",
-      "bus_to": "146",
+    "line274": {
+      "length": 17.8821,
+      "bus_from": "266",
+      "bus_to": "275",
       "terminal_map_from": [
         "1",
         "2",
@@ -372,7 +372,7 @@
         "3",
         "n"
       ],
-      "linecode": "lc8"
+      "linecode": "lc1"
     }
   },
   "meta": {
@@ -1125,6 +1125,50 @@
       "element_id": "line310"
     },
     {
+      "message": "Removed dangling line line305 and its leaf bus 306 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "306"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line305"
+    },
+    {
+      "message": "Removed dangling line line296 and its leaf bus 297 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "297"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line296"
+    },
+    {
+      "message": "Removed dangling line line291 and its leaf bus 292 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "292"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line291"
+    },
+    {
+      "message": "Removed dangling line line286 and its leaf bus 287 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "287"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line286"
+    },
+    {
       "message": "Removed dangling line line389 and its leaf bus 390 (leaf has no active elements).",
       "detail": {
         "removed_bus": "390"
@@ -1244,6 +1288,17 @@
       "code": "LINE_REMOVED",
       "element_type": "line",
       "element_id": "line336"
+    },
+    {
+      "message": "Removed dangling line line281 and its leaf bus 282 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "282"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line281"
     },
     {
       "message": "Removed dangling line line209 and its leaf bus 210 (leaf has no active elements).",
@@ -2379,6 +2434,17 @@
       "element_id": "line414"
     },
     {
+      "message": "Removed dangling line line276 and its leaf bus 277 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "277"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line276"
+    },
+    {
       "message": "Removed dangling line line330 and its leaf bus 331 (leaf has no active elements).",
       "detail": {
         "removed_bus": "331"
@@ -2564,6 +2630,292 @@
       "code": "LINE_REMOVED",
       "element_type": "line",
       "element_id": "line407"
+    },
+    {
+      "message": "Removed dangling line line293 and its leaf bus 294 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "294"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line293"
+    },
+    {
+      "message": "Removed dangling line line288 and its leaf bus 289 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "289"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line288"
+    },
+    {
+      "message": "Removed dangling line line283 and its leaf bus 284 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "284"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line283"
+    },
+    {
+      "message": "Removed dangling line line278 and its leaf bus 279 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "279"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line278"
+    },
+    {
+      "message": "Removed dangling line line267 and its leaf bus 268 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "268"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line267"
+    },
+    {
+      "message": "Removed dangling line line261 and its leaf bus 262 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "262"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line261"
+    },
+    {
+      "message": "Removed dangling line line254 and its leaf bus 255 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "255"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line254"
+    },
+    {
+      "message": "Removed dangling line line247 and its leaf bus 248 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "248"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line247"
+    },
+    {
+      "message": "Removed dangling line line240 and its leaf bus 241 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "241"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line240"
+    },
+    {
+      "message": "Removed dangling line line234 and its leaf bus 235 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "235"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line234"
+    },
+    {
+      "message": "Removed dangling line line227 and its leaf bus 228 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "228"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line227"
+    },
+    {
+      "message": "Removed dangling line line220 and its leaf bus 221 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "221"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line220"
+    },
+    {
+      "message": "Removed dangling line line213 and its leaf bus 214 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "214"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line213"
+    },
+    {
+      "message": "Removed dangling line line206 and its leaf bus 207 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "207"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line206"
+    },
+    {
+      "message": "Removed dangling line line199 and its leaf bus 200 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "200"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line199"
+    },
+    {
+      "message": "Removed dangling line line192 and its leaf bus 193 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "193"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line192"
+    },
+    {
+      "message": "Removed dangling line line187 and its leaf bus 188 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "188"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line187"
+    },
+    {
+      "message": "Removed dangling line line182 and its leaf bus 183 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "183"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line182"
+    },
+    {
+      "message": "Removed dangling line line352 and its leaf bus 353 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "353"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line352"
+    },
+    {
+      "message": "Removed dangling line line231 and its leaf bus 232 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "232"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line231"
+    },
+    {
+      "message": "Removed dangling line line224 and its leaf bus 225 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "225"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line224"
+    },
+    {
+      "message": "Removed dangling line line217 and its leaf bus 218 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "218"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line217"
+    },
+    {
+      "message": "Removed dangling line line210 and its leaf bus 211 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "211"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line210"
+    },
+    {
+      "message": "Removed dangling line line203 and its leaf bus 204 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "204"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line203"
+    },
+    {
+      "message": "Removed dangling line line196 and its leaf bus 197 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "197"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line196"
+    },
+    {
+      "message": "Removed dangling line line189 and its leaf bus 190 (leaf has no active elements).",
+      "detail": {
+        "removed_bus": "190"
+      },
+      "severity": "info",
+      "operation": "remove_dangling_lines",
+      "code": "LINE_REMOVED",
+      "element_type": "line",
+      "element_id": "line189"
     },
     {
       "message": "Removed dangling line line406 and its leaf bus 407 (leaf has no active elements).",
@@ -3039,215 +3391,6 @@
       "element_id": "line351"
     },
     {
-      "message": "Removed dangling line line293 and its leaf bus 294 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "294"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line293"
-    },
-    {
-      "message": "Removed dangling line line288 and its leaf bus 289 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "289"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line288"
-    },
-    {
-      "message": "Removed dangling line line283 and its leaf bus 284 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "284"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line283"
-    },
-    {
-      "message": "Removed dangling line line278 and its leaf bus 279 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "279"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line278"
-    },
-    {
-      "message": "Removed dangling line line267 and its leaf bus 268 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "268"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line267"
-    },
-    {
-      "message": "Removed dangling line line261 and its leaf bus 262 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "262"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line261"
-    },
-    {
-      "message": "Removed dangling line line254 and its leaf bus 255 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "255"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line254"
-    },
-    {
-      "message": "Removed dangling line line247 and its leaf bus 248 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "248"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line247"
-    },
-    {
-      "message": "Removed dangling line line240 and its leaf bus 241 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "241"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line240"
-    },
-    {
-      "message": "Removed dangling line line234 and its leaf bus 235 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "235"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line234"
-    },
-    {
-      "message": "Removed dangling line line227 and its leaf bus 228 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "228"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line227"
-    },
-    {
-      "message": "Removed dangling line line220 and its leaf bus 221 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "221"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line220"
-    },
-    {
-      "message": "Removed dangling line line213 and its leaf bus 214 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "214"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line213"
-    },
-    {
-      "message": "Removed dangling line line206 and its leaf bus 207 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "207"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line206"
-    },
-    {
-      "message": "Removed dangling line line199 and its leaf bus 200 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "200"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line199"
-    },
-    {
-      "message": "Removed dangling line line192 and its leaf bus 193 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "193"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line192"
-    },
-    {
-      "message": "Removed dangling line line187 and its leaf bus 188 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "188"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line187"
-    },
-    {
-      "message": "Removed dangling line line182 and its leaf bus 183 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "183"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line182"
-    },
-    {
-      "message": "Removed dangling line line352 and its leaf bus 353 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "353"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line352"
-    },
-    {
       "message": "Removed dangling line line349 and its leaf bus 350 (leaf has no active elements).",
       "detail": {
         "removed_bus": "350"
@@ -3611,83 +3754,6 @@
       "element_id": "line188"
     },
     {
-      "message": "Removed dangling line line231 and its leaf bus 232 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "232"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line231"
-    },
-    {
-      "message": "Removed dangling line line224 and its leaf bus 225 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "225"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line224"
-    },
-    {
-      "message": "Removed dangling line line217 and its leaf bus 218 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "218"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line217"
-    },
-    {
-      "message": "Removed dangling line line210 and its leaf bus 211 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "211"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line210"
-    },
-    {
-      "message": "Removed dangling line line203 and its leaf bus 204 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "204"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line203"
-    },
-    {
-      "message": "Removed dangling line line196 and its leaf bus 197 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "197"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line196"
-    },
-    {
-      "message": "Removed dangling line line189 and its leaf bus 190 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "190"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line189"
-    },
-    {
       "message": "Removed dangling line line183 and its leaf bus 184 (leaf has no active elements).",
       "detail": {
         "removed_bus": "184"
@@ -3851,72 +3917,6 @@
       "code": "LINE_REMOVED",
       "element_type": "line",
       "element_id": "line147"
-    },
-    {
-      "message": "Removed dangling line line305 and its leaf bus 306 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "306"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line305"
-    },
-    {
-      "message": "Removed dangling line line296 and its leaf bus 297 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "297"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line296"
-    },
-    {
-      "message": "Removed dangling line line291 and its leaf bus 292 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "292"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line291"
-    },
-    {
-      "message": "Removed dangling line line286 and its leaf bus 287 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "287"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line286"
-    },
-    {
-      "message": "Removed dangling line line281 and its leaf bus 282 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "282"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line281"
-    },
-    {
-      "message": "Removed dangling line line276 and its leaf bus 277 (leaf has no active elements).",
-      "detail": {
-        "removed_bus": "277"
-      },
-      "severity": "info",
-      "operation": "remove_dangling_lines",
-      "code": "LINE_REMOVED",
-      "element_type": "line",
-      "element_id": "line276"
     },
     {
       "message": "Merged line line152 (0.062201 m) into line154 at pass-through bus 153; new length 0.161156 m.",
@@ -4335,17 +4335,17 @@
       "element_id": "line176"
     },
     {
-      "message": "Merged line line30 (0.16603 m) into line29 at pass-through bus 30; new length 2.81463 m.",
+      "message": "Merged line line104 (0.19606 m) into line107 at pass-through bus 105; new length 0.98601 m.",
       "detail": {
-        "new_length": 2.81463,
-        "absorbed_line": "line30",
-        "removed_bus": "30"
+        "new_length": 0.98601,
+        "absorbed_line": "line104",
+        "removed_bus": "105"
       },
       "severity": "info",
       "operation": "merge_series_lines",
       "code": "LINES_MERGED",
       "element_type": "line",
-      "element_id": "line29"
+      "element_id": "line107"
     },
     {
       "message": "Merged line line3 (0.071281 m) into line2 at pass-through bus 3; new length 0.142456 m.",
@@ -4361,17 +4361,17 @@
       "element_id": "line2"
     },
     {
-      "message": "Merged line line104 (0.19606 m) into line107 at pass-through bus 105; new length 0.98601 m.",
+      "message": "Merged line line30 (0.16603 m) into line29 at pass-through bus 30; new length 2.81463 m.",
       "detail": {
-        "new_length": 0.98601,
-        "absorbed_line": "line104",
-        "removed_bus": "105"
+        "new_length": 2.81463,
+        "absorbed_line": "line30",
+        "removed_bus": "30"
       },
       "severity": "info",
       "operation": "merge_series_lines",
       "code": "LINES_MERGED",
       "element_type": "line",
-      "element_id": "line107"
+      "element_id": "line29"
     },
     {
       "message": "Merged line line78 (6.9545 m) into line74 at pass-through bus 75; new length 15.758500000000002 m.",
@@ -5534,664 +5534,301 @@
     }
   ],
   "bus": {
-    "266": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "146": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "273": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "312": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "271": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "275": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "274": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "272": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
     "299": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
       "terminal_names": [
         "1",
         "2",
         "3",
         "n"
       ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
       "vpn_min": [
-        207,
-        207,
-        207
+        216.159941,
+        216.159941,
+        216.159941
       ],
       "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "276": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
+        264.195483,
+        264.195483,
+        264.195483
+      ]
     },
     "293": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
       "terminal_names": [
         "1",
         "2",
         "3",
         "n"
       ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
       "vpn_min": [
-        207,
-        207,
-        207
+        216.159941,
+        216.159941,
+        216.159941
       ],
       "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "307": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "298": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
-    },
-    "261": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
-      "terminal_names": [
-        "1",
-        "2",
-        "3",
-        "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
-      "vpn_min": [
-        207,
-        207,
-        207
-      ],
-      "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
+        264.195483,
+        264.195483,
+        264.195483
+      ]
     },
     "300": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
       "terminal_names": [
         "1",
         "2",
         "3",
         "n"
-      ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
       ],
       "vpn_min": [
-        207,
-        207,
-        207
+        216.159941,
+        216.159941,
+        216.159941
       ],
       "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
-      ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
-      ],
-      "vneg_max": 4.6000000000000005
+        264.195483,
+        264.195483,
+        264.195483
+      ]
     },
-    "sourcebus": {
-      "v_declared": 230,
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
+    "276": {
       "terminal_names": [
         "1",
         "2",
         "3",
         "n"
       ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "275": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "146": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "273": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "312": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "298": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "266": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "272": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "261": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "307": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "sourcebus": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
       ]
     },
     "301": {
-      "v_declared": 230,
-      "vpp_min": [
-        358.5345171667576,
-        358.5345171667576,
-        358.5345171667576
-      ],
-      "v_max": [
-        264.5,
-        264.5,
-        264.5
-      ],
       "terminal_names": [
         "1",
         "2",
         "3",
         "n"
       ],
-      "vpp_max": [
-        438.208854314926,
-        438.208854314926,
-        438.208854314926
-      ],
       "vpn_min": [
-        207,
-        207,
-        207
+        216.159941,
+        216.159941,
+        216.159941
       ],
       "vpn_max": [
-        253.00000000000003,
-        253.00000000000003,
-        253.00000000000003
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "274": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
       ],
-      "v_min": [
-        195.5,
-        195.5,
-        195.5
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
       ],
-      "vneg_max": 4.6000000000000005
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "271": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
     }
   },
   "load": {

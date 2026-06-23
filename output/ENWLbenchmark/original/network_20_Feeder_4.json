@@ -1,3552 +1,3552 @@
 {
-    "voltage_source": {
-        "source": {
-            "_pmd": {
-                "rs": [
-                    0.0006420118386135532,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    0.0006420118386135532,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    0.0006420118386135532,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    5.949532365790109e-5,
-                    0.0006420118386135532
-                ],
-                "xs": [
-                    0.002314379859144428,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    0.002314379859144428,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    0.002314379859144428,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    -1.5686200678180814e-5,
-                    0.002314379859144428
-                ],
-                "configuration": "WYE"
-            },
-            "v_magnitude": [
-                240.17771198288432,
-                240.17771198288432,
-                240.17771198288432
-            ],
-            "terminal_map": [
-                "1",
-                "2",
-                "3"
-            ],
-            "bus": "sourcebus",
-            "v_angle": [
-                0,
-                -2.0943951023931953,
-                2.0943951023931957
-            ]
-        }
-    },
-    "name": "network_20_Feeder_4",
-    "line": {
-        "line68": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "69",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line48": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "49",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line60": {
-            "length": 6.2452,
-            "bus_from": "41",
-            "bus_to": "61",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line5": {
-            "length": 0.06237,
-            "bus_from": "5",
-            "bus_to": "6",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line2": {
-            "length": 0.058695,
-            "bus_from": "2",
-            "bus_to": "3",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line8": {
-            "length": 0.090604,
-            "bus_from": "8",
-            "bus_to": "9",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line31": {
-            "length": 0.253,
-            "bus_from": "31",
-            "bus_to": "32",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line33": {
-            "length": 6.9672,
-            "bus_from": "33",
-            "bus_to": "34",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line13": {
-            "length": 0.041231,
-            "bus_from": "13",
-            "bus_to": "14",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line46": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "47",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line24": {
-            "length": 0.25491,
-            "bus_from": "24",
-            "bus_to": "25",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line9": {
-            "length": 1.3504,
-            "bus_from": "9",
-            "bus_to": "10",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line64": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "65",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line38": {
-            "length": 0.26267,
-            "bus_from": "38",
-            "bus_to": "39",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line55": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "56",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line6": {
-            "length": 0.074673,
-            "bus_from": "6",
-            "bus_to": "7",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line47": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "48",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line15": {
-            "length": 0.098087,
-            "bus_from": "15",
-            "bus_to": "16",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line39": {
-            "length": 0.573,
-            "bus_from": "39",
-            "bus_to": "40",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line28": {
-            "length": 0.30836,
-            "bus_from": "28",
-            "bus_to": "29",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line37": {
-            "length": 0.29362,
-            "bus_from": "37",
-            "bus_to": "38",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line50": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "51",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line26": {
-            "length": 0.37643,
-            "bus_from": "26",
-            "bus_to": "27",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line14": {
-            "length": 2.0256,
-            "bus_from": "14",
-            "bus_to": "15",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line27": {
-            "length": 0.33403,
-            "bus_from": "27",
-            "bus_to": "28",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line10": {
-            "length": 0.039357,
-            "bus_from": "10",
-            "bus_to": "11",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line32": {
-            "length": 0.89608,
-            "bus_from": "32",
-            "bus_to": "33",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line53": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "54",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line45": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "46",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line4": {
-            "length": 0.063389,
-            "bus_from": "4",
-            "bus_to": "5",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line21": {
-            "length": 0.30401,
-            "bus_from": "21",
-            "bus_to": "22",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line69": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "70",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line0": {
-            "length": 1,
-            "bus_from": "sourcebus",
-            "bus_to": "1",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line11": {
-            "length": 0.047011,
-            "bus_from": "11",
-            "bus_to": "12",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line36": {
-            "length": 0.39388,
-            "bus_from": "36",
-            "bus_to": "37",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line16": {
-            "length": 0.098111,
-            "bus_from": "16",
-            "bus_to": "17",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line20": {
-            "length": 0.36177,
-            "bus_from": "20",
-            "bus_to": "21",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line35": {
-            "length": 0.38815,
-            "bus_from": "35",
-            "bus_to": "36",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line67": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "68",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line54": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "55",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line7": {
-            "length": 0.069065,
-            "bus_from": "7",
-            "bus_to": "8",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line18": {
-            "length": 4.9635,
-            "bus_from": "18",
-            "bus_to": "19",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line22": {
-            "length": 0.279,
-            "bus_from": "22",
-            "bus_to": "23",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line51": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "52",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line44": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "45",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line63": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "64",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line59": {
-            "length": 6.2452,
-            "bus_from": "41",
-            "bus_to": "60",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line19": {
-            "length": 2.2863,
-            "bus_from": "19",
-            "bus_to": "20",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line29": {
-            "length": 0.27334,
-            "bus_from": "29",
-            "bus_to": "30",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line12": {
-            "length": 0.044777,
-            "bus_from": "12",
-            "bus_to": "13",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line61": {
-            "length": 6.2452,
-            "bus_from": "41",
-            "bus_to": "62",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line42": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "43",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line34": {
-            "length": 7.4258,
-            "bus_from": "34",
-            "bus_to": "35",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line40": {
-            "length": 3.2266,
-            "bus_from": "40",
-            "bus_to": "41",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line52": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "53",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line25": {
-            "length": 1.2805,
-            "bus_from": "25",
-            "bus_to": "26",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line56": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "57",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line3": {
-            "length": 0.051243,
-            "bus_from": "3",
-            "bus_to": "4",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line65": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "66",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line43": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "44",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line23": {
-            "length": 0.20354,
-            "bus_from": "23",
-            "bus_to": "24",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line49": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "50",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line57": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "58",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line17": {
-            "length": 7.8282,
-            "bus_from": "17",
-            "bus_to": "18",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line62": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "63",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line41": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "42",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line1": {
-            "length": 0.49926,
-            "bus_from": "1",
-            "bus_to": "2",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line58": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "59",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        },
-        "line30": {
-            "length": 0.27084,
-            "bus_from": "30",
-            "bus_to": "31",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc8"
-        },
-        "line66": {
-            "length": 5.583,
-            "bus_from": "41",
-            "bus_to": "67",
-            "terminal_map_from": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "terminal_map_to": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "linecode": "lc1"
-        }
-    },
-    "meta": {
-        "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json",
-        "created": "2026-06-15T02:57:19Z",
-        "generator": {
-            "version": "0.1.0",
-            "tool": "BMOPFTools.jl"
-        }
-    },
-    "shunt": {
-        "grounding": {
-            "B_1_1": -10000000000,
-            "_pmd": {
-                "b_fr": [
-                    0
-                ],
-                "g_to": [
-                    0
-                ],
-                "b_to": [
-                    0
-                ],
-                "g_fr": [
-                    0
-                ]
-            },
-            "terminal_map": [
-                "n"
-            ],
-            "bus": "sourcebus",
-            "G_1_1": 0
-        }
-    },
-    "load": {
-        "load24": {
-            "p_nom": [
-                1956
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                642.9061097298564
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "65",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load26": {
-            "p_nom": [
-                336
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                110.43785934009804
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "67",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load2": {
-            "p_nom": [
-                306
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                100.57733618473213
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "43",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load11": {
-            "p_nom": [
-                330
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                108.46575470902486
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "52",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load3": {
-            "p_nom": [
-                2940
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                966.3312692258578
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "44",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load8": {
-            "p_nom": [
-                294.00000000000006
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                96.6331269225858
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "49",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load13": {
-            "p_nom": [
-                246
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                80.85628987400034
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "54",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load21": {
-            "p_nom": [
-                336
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                110.43785934009804
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "62",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load12": {
-            "p_nom": [
-                330
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                108.46575470902486
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "53",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load22": {
-            "p_nom": [
-                966
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                317.5088456027819
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "63",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load29": {
-            "p_nom": [
-                348.00000000000006
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                114.38206860224442
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "70",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load10": {
-            "p_nom": [
-                270
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                88.74470839829307
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "51",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load28": {
-            "p_nom": [
-                276
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                90.71681302936625
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "69",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load7": {
-            "p_nom": [
-                2058.0000000000005
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                676.4318884581005
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "48",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load15": {
-            "p_nom": [
-                828.0000000000001
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                272.1504390880988
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "56",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load27": {
-            "p_nom": [
-                270
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                88.74470839829307
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "68",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load18": {
-            "p_nom": [
-                324
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                106.49365007795168
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "59",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load5": {
-            "p_nom": [
-                1332
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                437.8072280982458
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "46",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load1": {
-            "p_nom": [
-                1968
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                646.8503189920027
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "42",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load4": {
-            "p_nom": [
-                324
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                106.49365007795168
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "45",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load14": {
-            "p_nom": [
-                2040
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                670.515574564881
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "55",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load20": {
-            "p_nom": [
-                264
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                86.77260376721989
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "61",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load23": {
-            "p_nom": [
-                246
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                80.85628987400034
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "64",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load19": {
-            "p_nom": [
-                1944
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                638.96190046771
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "60",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load17": {
-            "p_nom": [
-                288.00000000000006
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                94.66102229151262
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "58",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load6": {
-            "p_nom": [
-                3054.0000000000005
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                1003.8012572162482
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "47",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load9": {
-            "p_nom": [
-                312
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                102.54944081580531
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "50",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load16": {
-            "p_nom": [
-                113.99999999999999
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                37.46998799039041
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "57",
-            "configuration": "SINGLE_PHASE"
-        },
-        "load25": {
-            "p_nom": [
-                294.00000000000006
-            ],
-            "_pmd": {
-                "model": "POWER",
-                "vm_nom": 0.23,
-                "dispatchable": "NO"
-            },
-            "q_nom": [
-                96.6331269225858
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "66",
-            "configuration": "SINGLE_PHASE"
-        }
-    },
-    "generator": {
-        "der_69": {
-            "cost": [
-                0.000432946077
-            ],
-            "p_max": [
-                4000
-            ],
-            "p_min": [
-                0
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "69",
-            "configuration": "SINGLE_PHASE"
-        },
-        "der_44": {
-            "cost": [
-                0.000442584948
-            ],
-            "p_max": [
-                4000
-            ],
-            "p_min": [
-                0
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "44",
-            "configuration": "SINGLE_PHASE"
-        },
-        "der_58": {
-            "cost": [
-                0.000112616
-            ],
-            "p_max": [
-                4000
-            ],
-            "p_min": [
-                0
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "58",
-            "configuration": "SINGLE_PHASE"
-        },
-        "der_66": {
-            "cost": [
-                0.0002750872
-            ],
-            "p_max": [
-                4000
-            ],
-            "p_min": [
-                0
-            ],
-            "terminal_map": [
-                "1",
-                "n"
-            ],
-            "bus": "66",
-            "configuration": "SINGLE_PHASE"
-        },
-        "der_59": {
-            "cost": [
-                0.000457134283
-            ],
-            "p_max": [
-                4000
-            ],
-            "p_min": [
-                0
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "59",
-            "configuration": "SINGLE_PHASE"
-        },
-        "der_65": {
-            "cost": [
-                0.000364613607
-            ],
-            "p_max": [
-                4000
-            ],
-            "p_min": [
-                0
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "65",
-            "configuration": "SINGLE_PHASE"
-        },
-        "der_55": {
-            "cost": [
-                0.00023540395
-            ],
-            "p_max": [
-                4000
-            ],
-            "p_min": [
-                0
-            ],
-            "terminal_map": [
-                "2",
-                "n"
-            ],
-            "bus": "55",
-            "configuration": "SINGLE_PHASE"
-        },
-        "grid": {
-            "cost": [
-                0.000914268566,
-                0.000914268566,
-                0.000914268566
-            ],
-            "p_max": [
-                49188,
-                49188,
-                49188
-            ],
-            "p_min": [
-                -49188,
-                -49188,
-                -49188
-            ],
-            "terminal_map": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "bus": "sourcebus",
-            "configuration": "WYE"
-        },
-        "der_53": {
-            "cost": [
-                0.000384870352
-            ],
-            "p_max": [
-                4000
-            ],
-            "p_min": [
-                0
-            ],
-            "terminal_map": [
-                "3",
-                "n"
-            ],
-            "bus": "53",
-            "configuration": "SINGLE_PHASE"
-        }
-    },
-    "bus": {
-        "32": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "29": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "1": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "54": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "12": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "20": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "3": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "2": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "6": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "41": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "65": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "53": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "51": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "27": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "42": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "33": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "28": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "70": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "52": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "50": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "14": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "63": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "7": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "57": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "8": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "64": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "26": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "10": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "19": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "69": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "60": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "24": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "4": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "58": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "25": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "23": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "22": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "11": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "35": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "13": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "49": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "59": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "31": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "5": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "67": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "62": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "43": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "61": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "15": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "16": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "39": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "40": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "46": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "38": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "21": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "44": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "34": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "45": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "68": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "56": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "55": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "sourcebus": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ]
-        },
-        "66": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "36": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "17": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "47": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "37": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "9": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "48": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "30": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        },
-        "18": {
-            "terminal_names": [
-                "1",
-                "2",
-                "3",
-                "n"
-            ],
-            "vpn_min": [
-                216.159941,
-                216.159941,
-                216.159941
-            ],
-            "vpn_max": [
-                264.195483,
-                264.195483,
-                264.195483
-            ]
-        }
-    },
-    "linecode": {
-        "lc8": {
-            "X_series_2_3": 5.543006747007207e-5,
-            "R_series_1_3": 0.00015199066219448172,
-            "B_from_4_2": 0,
-            "R_series_1_2": 0.00015199066219448172,
-            "R_series_2_4": 0.00015199066219448172,
-            "B_to_4_1": 0,
-            "R_series_2_2": 0.0002586466621944817,
-            "G_to_1_3": 0,
-            "G_from_2_2": 0,
-            "B_from_3_3": 0,
-            "G_to_2_1": 0,
-            "B_to_4_4": 0,
-            "B_from_2_2": 0,
-            "G_from_1_3": 0,
-            "B_from_3_2": 0,
-            "B_from_1_2": 0,
-            "B_from_3_1": 0,
-            "B_to_3_4": 0,
-            "X_series_3_4": 5.543006747007207e-5,
-            "X_series_2_1": 5.543006747007207e-5,
-            "B_from_1_3": 0,
-            "B_from_1_1": 0,
-            "B_to_2_3": 0,
-            "G_from_2_4": 0,
-            "R_series_2_1": 0.00015199066219448172,
-            "G_to_3_3": 0,
-            "G_to_4_3": 0,
-            "R_series_4_4": 0.0002586466621944817,
-            "R_series_3_1": 0.00015199066219448172,
-            "G_from_3_3": 0,
-            "G_from_3_4": 0,
-            "X_series_4_3": 5.543006747007207e-5,
-            "X_series_3_3": 0.0001160280674700721,
-            "G_to_2_3": 0,
-            "G_from_4_2": 0,
-            "B_to_1_2": 0,
-            "B_to_2_1": 0,
-            "B_to_2_2": 0,
-            "G_from_3_1": 0,
-            "R_series_4_2": 0.00015199066219448172,
-            "R_series_4_3": 0.00015199066219448172,
-            "B_from_2_1": 0,
-            "R_series_1_1": 0.0002586466621944817,
-            "G_to_1_4": 0,
-            "X_series_4_4": 0.0001160280674700721,
-            "G_to_3_1": 0,
-            "G_from_3_2": 0,
-            "G_to_3_4": 0,
-            "B_to_1_1": 0,
-            "X_series_2_2": 0.0001160280674700721,
-            "G_to_2_2": 0,
-            "X_series_1_2": 5.543006747007207e-5,
-            "G_to_3_2": 0,
-            "X_series_2_4": 3.3463067470072106e-5,
-            "G_from_4_4": 0,
-            "R_series_3_2": 0.00015199066219448172,
-            "G_from_4_3": 0,
-            "G_to_4_2": 0,
-            "B_from_2_3": 0,
-            "B_from_3_4": 0,
-            "R_series_3_4": 0.00015199066219448172,
-            "G_from_1_1": 0,
-            "G_to_2_4": 0,
-            "G_to_1_2": 0,
-            "X_series_1_3": 3.3463067470072106e-5,
-            "B_from_2_4": 0,
-            "G_from_2_3": 0,
-            "B_to_4_3": 0,
-            "G_to_4_1": 0,
-            "X_series_1_4": 5.543006747007207e-5,
-            "R_series_3_3": 0.0002586466621944817,
-            "B_to_3_2": 0,
-            "X_series_3_2": 5.543006747007207e-5,
-            "X_series_4_2": 3.3463067470072106e-5,
-            "G_from_4_1": 0,
-            "B_to_1_3": 0,
-            "B_from_1_4": 0,
-            "B_from_4_3": 0,
-            "B_to_2_4": 0,
-            "G_from_1_4": 0,
-            "R_series_2_3": 0.00015199066219448172,
-            "G_from_1_2": 0,
-            "B_to_4_2": 0,
-            "R_series_1_4": 0.00015199066219448172,
-            "X_series_1_1": 0.0001160280674700721,
-            "G_to_1_1": 0,
-            "B_to_1_4": 0,
-            "B_to_3_1": 0,
-            "G_to_4_4": 0,
-            "B_from_4_1": 0,
-            "B_from_4_4": 0,
-            "B_to_3_3": 0,
-            "R_series_4_1": 0.00015199066219448172,
-            "X_series_4_1": 5.543006747007207e-5,
-            "i_max": [
-                419,
-                419,
-                419,
-                419
-            ],
-            "G_from_2_1": 0,
-            "X_series_3_1": 3.3463067470072106e-5
-        },
-        "lc1": {
-            "X_series_2_3": 0.0007013701531485135,
-            "R_series_1_3": 0.0001960530575502449,
-            "B_from_4_2": 0,
-            "R_series_1_2": 0.00019622205755024492,
-            "R_series_2_4": 0.0001960530575502449,
-            "B_to_4_1": 0,
-            "R_series_2_2": 0.0013480120575502447,
-            "G_to_1_3": 0,
-            "G_from_2_2": 0,
-            "B_from_3_3": 0,
-            "G_to_2_1": 0,
-            "B_to_4_4": 0,
-            "B_from_2_2": 0,
-            "G_from_1_3": 0,
-            "B_from_3_2": 0,
-            "B_from_1_2": 0,
-            "B_from_3_1": 0,
-            "B_to_3_4": 0,
-            "X_series_3_4": 0.0007014021531485135,
-            "X_series_2_1": 0.0007013971531485135,
-            "B_from_1_3": 0,
-            "B_from_1_1": 0,
-            "B_to_2_3": 0,
-            "G_from_2_4": 0,
-            "R_series_2_1": 0.00019622205755024492,
-            "G_to_3_3": 0,
-            "G_to_4_3": 0,
-            "R_series_4_4": 0.0013480270575502449,
-            "R_series_3_1": 0.0001960530575502449,
-            "G_from_3_3": 0,
-            "G_from_3_4": 0,
-            "X_series_4_3": 0.0007014021531485135,
-            "X_series_3_3": 0.0007813721531485135,
-            "G_to_2_3": 0,
-            "G_from_4_2": 0,
-            "B_to_1_2": 0,
-            "B_to_2_1": 0,
-            "B_to_2_2": 0,
-            "G_from_3_1": 0,
-            "R_series_4_2": 0.0001960530575502449,
-            "R_series_4_3": 0.0001962230575502449,
-            "B_from_2_1": 0,
-            "R_series_1_1": 0.0013480250575502448,
-            "G_to_1_4": 0,
-            "X_series_4_4": 0.0007814381531485135,
-            "G_to_3_1": 0,
-            "G_from_3_2": 0,
-            "G_to_3_4": 0,
-            "B_to_1_1": 0,
-            "X_series_2_2": 0.0007813811531485134,
-            "G_to_2_2": 0,
-            "X_series_1_2": 0.0007013971531485135,
-            "G_to_3_2": 0,
-            "X_series_2_4": 0.0006774341531485135,
-            "G_from_4_4": 0,
-            "R_series_3_2": 0.0001962160575502449,
-            "G_from_4_3": 0,
-            "G_to_4_2": 0,
-            "B_from_2_3": 0,
-            "B_from_3_4": 0,
-            "R_series_3_4": 0.0001962230575502449,
-            "G_from_1_1": 0,
-            "G_to_2_4": 0,
-            "G_to_1_2": 0,
-            "X_series_1_3": 0.0006774311531485134,
-            "B_from_2_4": 0,
-            "G_from_2_3": 0,
-            "B_to_4_3": 0,
-            "G_to_4_1": 0,
-            "X_series_1_4": 0.0007014261531485134,
-            "R_series_3_3": 0.0013480130575502449,
-            "B_to_3_2": 0,
-            "X_series_3_2": 0.0007013701531485135,
-            "X_series_4_2": 0.0006774341531485135,
-            "G_from_4_1": 0,
-            "B_to_1_3": 0,
-            "B_from_1_4": 0,
-            "B_from_4_3": 0,
-            "B_to_2_4": 0,
-            "G_from_1_4": 0,
-            "R_series_2_3": 0.0001962160575502449,
-            "G_from_1_2": 0,
-            "B_to_4_2": 0,
-            "R_series_1_4": 0.0001962290575502449,
-            "X_series_1_1": 0.0007814251531485135,
-            "G_to_1_1": 0,
-            "B_to_1_4": 0,
-            "B_to_3_1": 0,
-            "G_to_4_4": 0,
-            "B_from_4_1": 0,
-            "B_from_4_4": 0,
-            "B_to_3_3": 0,
-            "R_series_4_1": 0.0001962290575502449,
-            "X_series_4_1": 0.0007014261531485134,
-            "i_max": [
-                75,
-                75,
-                75,
-                75
-            ],
-            "G_from_2_1": 0,
-            "X_series_3_1": 0.0006774311531485134
-        }
+  "voltage_source": {
+    "source": {
+      "_pmd": {
+        "rs": [
+          0.0006420118386135532,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          0.0006420118386135532,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          0.0006420118386135532,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          5.949532365790109e-5,
+          0.0006420118386135532
+        ],
+        "xs": [
+          0.002314379859144428,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          0.002314379859144428,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          0.002314379859144428,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          -1.5686200678180814e-5,
+          0.002314379859144428
+        ],
+        "configuration": "WYE"
+      },
+      "v_magnitude": [
+        240.17771198288432,
+        240.17771198288432,
+        240.17771198288432
+      ],
+      "terminal_map": [
+        "1",
+        "2",
+        "3"
+      ],
+      "bus": "sourcebus",
+      "v_angle": [
+        0,
+        -2.0943951023931953,
+        2.0943951023931957
+      ]
     }
+  },
+  "name": "network_20_Feeder_4",
+  "line": {
+    "line68": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "69",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line48": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "49",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line60": {
+      "length": 6.2452,
+      "bus_from": "41",
+      "bus_to": "61",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line5": {
+      "length": 0.06237,
+      "bus_from": "5",
+      "bus_to": "6",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line2": {
+      "length": 0.058695,
+      "bus_from": "2",
+      "bus_to": "3",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line8": {
+      "length": 0.090604,
+      "bus_from": "8",
+      "bus_to": "9",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line31": {
+      "length": 0.253,
+      "bus_from": "31",
+      "bus_to": "32",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line33": {
+      "length": 6.9672,
+      "bus_from": "33",
+      "bus_to": "34",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line13": {
+      "length": 0.041231,
+      "bus_from": "13",
+      "bus_to": "14",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line46": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "47",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line24": {
+      "length": 0.25491,
+      "bus_from": "24",
+      "bus_to": "25",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line9": {
+      "length": 1.3504,
+      "bus_from": "9",
+      "bus_to": "10",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line64": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "65",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line38": {
+      "length": 0.26267,
+      "bus_from": "38",
+      "bus_to": "39",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line55": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "56",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line6": {
+      "length": 0.074673,
+      "bus_from": "6",
+      "bus_to": "7",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line47": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "48",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line15": {
+      "length": 0.098087,
+      "bus_from": "15",
+      "bus_to": "16",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line39": {
+      "length": 0.573,
+      "bus_from": "39",
+      "bus_to": "40",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line28": {
+      "length": 0.30836,
+      "bus_from": "28",
+      "bus_to": "29",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line37": {
+      "length": 0.29362,
+      "bus_from": "37",
+      "bus_to": "38",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line50": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "51",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line26": {
+      "length": 0.37643,
+      "bus_from": "26",
+      "bus_to": "27",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line14": {
+      "length": 2.0256,
+      "bus_from": "14",
+      "bus_to": "15",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line27": {
+      "length": 0.33403,
+      "bus_from": "27",
+      "bus_to": "28",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line10": {
+      "length": 0.039357,
+      "bus_from": "10",
+      "bus_to": "11",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line32": {
+      "length": 0.89608,
+      "bus_from": "32",
+      "bus_to": "33",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line53": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "54",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line45": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "46",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line4": {
+      "length": 0.063389,
+      "bus_from": "4",
+      "bus_to": "5",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line21": {
+      "length": 0.30401,
+      "bus_from": "21",
+      "bus_to": "22",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line69": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "70",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line0": {
+      "length": 1,
+      "bus_from": "sourcebus",
+      "bus_to": "1",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line11": {
+      "length": 0.047011,
+      "bus_from": "11",
+      "bus_to": "12",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line36": {
+      "length": 0.39388,
+      "bus_from": "36",
+      "bus_to": "37",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line16": {
+      "length": 0.098111,
+      "bus_from": "16",
+      "bus_to": "17",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line20": {
+      "length": 0.36177,
+      "bus_from": "20",
+      "bus_to": "21",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line35": {
+      "length": 0.38815,
+      "bus_from": "35",
+      "bus_to": "36",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line67": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "68",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line54": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "55",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line7": {
+      "length": 0.069065,
+      "bus_from": "7",
+      "bus_to": "8",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line18": {
+      "length": 4.9635,
+      "bus_from": "18",
+      "bus_to": "19",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line22": {
+      "length": 0.279,
+      "bus_from": "22",
+      "bus_to": "23",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line51": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "52",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line44": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "45",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line63": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "64",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line59": {
+      "length": 6.2452,
+      "bus_from": "41",
+      "bus_to": "60",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line19": {
+      "length": 2.2863,
+      "bus_from": "19",
+      "bus_to": "20",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line29": {
+      "length": 0.27334,
+      "bus_from": "29",
+      "bus_to": "30",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line12": {
+      "length": 0.044777,
+      "bus_from": "12",
+      "bus_to": "13",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line61": {
+      "length": 6.2452,
+      "bus_from": "41",
+      "bus_to": "62",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line42": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "43",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line34": {
+      "length": 7.4258,
+      "bus_from": "34",
+      "bus_to": "35",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line40": {
+      "length": 3.2266,
+      "bus_from": "40",
+      "bus_to": "41",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line52": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "53",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line25": {
+      "length": 1.2805,
+      "bus_from": "25",
+      "bus_to": "26",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line56": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "57",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line3": {
+      "length": 0.051243,
+      "bus_from": "3",
+      "bus_to": "4",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line65": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "66",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line43": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "44",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line23": {
+      "length": 0.20354,
+      "bus_from": "23",
+      "bus_to": "24",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line49": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "50",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line57": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "58",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line17": {
+      "length": 7.8282,
+      "bus_from": "17",
+      "bus_to": "18",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line62": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "63",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line41": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "42",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line1": {
+      "length": 0.49926,
+      "bus_from": "1",
+      "bus_to": "2",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line58": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "59",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line30": {
+      "length": 0.27084,
+      "bus_from": "30",
+      "bus_to": "31",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line66": {
+      "length": 5.583,
+      "bus_from": "41",
+      "bus_to": "67",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "lc1"
+    }
+  },
+  "meta": {
+    "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json",
+    "created": "2026-06-15T02:57:19Z",
+    "generator": {
+      "version": "0.1.0",
+      "tool": "BMOPFTools.jl"
+    }
+  },
+  "shunt": {
+    "grounding": {
+      "B_1_1": -10000000000,
+      "_pmd": {
+        "b_fr": [
+          0
+        ],
+        "g_to": [
+          0
+        ],
+        "b_to": [
+          0
+        ],
+        "g_fr": [
+          0
+        ]
+      },
+      "terminal_map": [
+        "n"
+      ],
+      "bus": "sourcebus",
+      "G_1_1": 0
+    }
+  },
+  "load": {
+    "load24": {
+      "p_nom": [
+        1956
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        642.9061097298564
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "65",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load26": {
+      "p_nom": [
+        336
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        110.43785934009804
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "67",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load2": {
+      "p_nom": [
+        306
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        100.57733618473213
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "43",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load11": {
+      "p_nom": [
+        330
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        108.46575470902486
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "52",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load3": {
+      "p_nom": [
+        2940
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        966.3312692258578
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "44",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load8": {
+      "p_nom": [
+        294.00000000000006
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        96.6331269225858
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "49",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load13": {
+      "p_nom": [
+        246
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        80.85628987400034
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "54",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load21": {
+      "p_nom": [
+        336
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        110.43785934009804
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "62",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load12": {
+      "p_nom": [
+        330
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        108.46575470902486
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "53",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load22": {
+      "p_nom": [
+        966
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        317.5088456027819
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "63",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load29": {
+      "p_nom": [
+        348.00000000000006
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        114.38206860224442
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "70",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load10": {
+      "p_nom": [
+        270
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        88.74470839829307
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "51",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load28": {
+      "p_nom": [
+        276
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        90.71681302936625
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "69",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load7": {
+      "p_nom": [
+        2058.0000000000005
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        676.4318884581005
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "48",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load15": {
+      "p_nom": [
+        828.0000000000001
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        272.1504390880988
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "56",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load27": {
+      "p_nom": [
+        270
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        88.74470839829307
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "68",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load18": {
+      "p_nom": [
+        324
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        106.49365007795168
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "59",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load5": {
+      "p_nom": [
+        1332
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        437.8072280982458
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "46",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load1": {
+      "p_nom": [
+        1968
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        646.8503189920027
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "42",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load4": {
+      "p_nom": [
+        324
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        106.49365007795168
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "45",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load14": {
+      "p_nom": [
+        2040
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        670.515574564881
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "55",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load20": {
+      "p_nom": [
+        264
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        86.77260376721989
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "61",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load23": {
+      "p_nom": [
+        246
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        80.85628987400034
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "64",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load19": {
+      "p_nom": [
+        1944
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        638.96190046771
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "60",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load17": {
+      "p_nom": [
+        288.00000000000006
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        94.66102229151262
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "58",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load6": {
+      "p_nom": [
+        3054.0000000000005
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        1003.8012572162482
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "47",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load9": {
+      "p_nom": [
+        312
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        102.54944081580531
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "50",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load16": {
+      "p_nom": [
+        113.99999999999999
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        37.46998799039041
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "57",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load25": {
+      "p_nom": [
+        294.00000000000006
+      ],
+      "_pmd": {
+        "model": "POWER",
+        "vm_nom": 0.23,
+        "dispatchable": "NO"
+      },
+      "q_nom": [
+        96.6331269225858
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "66",
+      "configuration": "SINGLE_PHASE"
+    }
+  },
+  "generator": {
+    "der_69": {
+      "cost": [
+        0.000432946077
+      ],
+      "p_max": [
+        4000
+      ],
+      "p_min": [
+        0
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "69",
+      "configuration": "SINGLE_PHASE"
+    },
+    "der_44": {
+      "cost": [
+        0.000442584948
+      ],
+      "p_max": [
+        4000
+      ],
+      "p_min": [
+        0
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "44",
+      "configuration": "SINGLE_PHASE"
+    },
+    "der_58": {
+      "cost": [
+        0.000112616
+      ],
+      "p_max": [
+        4000
+      ],
+      "p_min": [
+        0
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "58",
+      "configuration": "SINGLE_PHASE"
+    },
+    "der_66": {
+      "cost": [
+        0.0002750872
+      ],
+      "p_max": [
+        4000
+      ],
+      "p_min": [
+        0
+      ],
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "bus": "66",
+      "configuration": "SINGLE_PHASE"
+    },
+    "der_59": {
+      "cost": [
+        0.000457134283
+      ],
+      "p_max": [
+        4000
+      ],
+      "p_min": [
+        0
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "59",
+      "configuration": "SINGLE_PHASE"
+    },
+    "der_65": {
+      "cost": [
+        0.000364613607
+      ],
+      "p_max": [
+        4000
+      ],
+      "p_min": [
+        0
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "65",
+      "configuration": "SINGLE_PHASE"
+    },
+    "der_55": {
+      "cost": [
+        0.00023540395
+      ],
+      "p_max": [
+        4000
+      ],
+      "p_min": [
+        0
+      ],
+      "terminal_map": [
+        "2",
+        "n"
+      ],
+      "bus": "55",
+      "configuration": "SINGLE_PHASE"
+    },
+    "grid": {
+      "cost": [
+        0.000914268566,
+        0.000914268566,
+        0.000914268566
+      ],
+      "p_max": [
+        49188,
+        49188,
+        49188
+      ],
+      "p_min": [
+        -49188,
+        -49188,
+        -49188
+      ],
+      "terminal_map": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "bus": "sourcebus",
+      "configuration": "WYE"
+    },
+    "der_53": {
+      "cost": [
+        0.000384870352
+      ],
+      "p_max": [
+        4000
+      ],
+      "p_min": [
+        0
+      ],
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "bus": "53",
+      "configuration": "SINGLE_PHASE"
+    }
+  },
+  "bus": {
+    "32": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "29": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "1": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "54": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "12": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "20": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "3": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "2": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "6": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "41": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "65": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "53": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "51": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "27": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "42": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "33": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "28": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "70": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "52": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "50": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "14": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "63": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "7": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "57": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "8": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "64": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "26": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "10": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "19": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "69": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "60": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "24": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "4": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "58": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "25": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "23": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "22": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "11": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "35": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "13": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "49": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "59": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "31": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "5": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "67": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "62": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "43": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "61": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "15": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "16": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "39": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "40": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "46": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "38": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "21": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "44": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "34": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "45": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "68": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "56": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "55": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "sourcebus": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ]
+    },
+    "66": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "36": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "17": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "47": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "37": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "9": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "48": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "18": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    },
+    "30": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "vpn_min": [
+        216.159941,
+        216.159941,
+        216.159941
+      ],
+      "vpn_max": [
+        264.195483,
+        264.195483,
+        264.195483
+      ]
+    }
+  },
+  "linecode": {
+    "lc8": {
+      "X_series_2_3": 5.543006747007207e-5,
+      "R_series_1_3": 0.00015199066219448172,
+      "B_from_4_2": 0,
+      "R_series_1_2": 0.00015199066219448172,
+      "R_series_2_4": 0.00015199066219448172,
+      "B_to_4_1": 0,
+      "R_series_2_2": 0.0002586466621944817,
+      "G_to_1_3": 0,
+      "G_from_2_2": 0,
+      "B_from_3_3": 0,
+      "G_to_2_1": 0,
+      "B_to_4_4": 0,
+      "B_from_2_2": 0,
+      "G_from_1_3": 0,
+      "B_from_3_2": 0,
+      "B_from_1_2": 0,
+      "B_from_3_1": 0,
+      "B_to_3_4": 0,
+      "X_series_3_4": 5.543006747007207e-5,
+      "X_series_2_1": 5.543006747007207e-5,
+      "B_from_1_3": 0,
+      "B_from_1_1": 0,
+      "B_to_2_3": 0,
+      "G_from_2_4": 0,
+      "R_series_2_1": 0.00015199066219448172,
+      "G_to_3_3": 0,
+      "G_to_4_3": 0,
+      "R_series_4_4": 0.0002586466621944817,
+      "R_series_3_1": 0.00015199066219448172,
+      "G_from_3_3": 0,
+      "G_from_3_4": 0,
+      "X_series_4_3": 5.543006747007207e-5,
+      "X_series_3_3": 0.0001160280674700721,
+      "G_to_2_3": 0,
+      "G_from_4_2": 0,
+      "B_to_1_2": 0,
+      "B_to_2_1": 0,
+      "B_to_2_2": 0,
+      "G_from_3_1": 0,
+      "R_series_4_2": 0.00015199066219448172,
+      "R_series_4_3": 0.00015199066219448172,
+      "B_from_2_1": 0,
+      "R_series_1_1": 0.0002586466621944817,
+      "G_to_1_4": 0,
+      "X_series_4_4": 0.0001160280674700721,
+      "G_to_3_1": 0,
+      "G_from_3_2": 0,
+      "G_to_3_4": 0,
+      "B_to_1_1": 0,
+      "X_series_2_2": 0.0001160280674700721,
+      "G_to_2_2": 0,
+      "X_series_1_2": 5.543006747007207e-5,
+      "G_to_3_2": 0,
+      "X_series_2_4": 3.3463067470072106e-5,
+      "G_from_4_4": 0,
+      "R_series_3_2": 0.00015199066219448172,
+      "G_from_4_3": 0,
+      "G_to_4_2": 0,
+      "B_from_2_3": 0,
+      "B_from_3_4": 0,
+      "R_series_3_4": 0.00015199066219448172,
+      "G_from_1_1": 0,
+      "G_to_2_4": 0,
+      "G_to_1_2": 0,
+      "X_series_1_3": 3.3463067470072106e-5,
+      "B_from_2_4": 0,
+      "G_from_2_3": 0,
+      "B_to_4_3": 0,
+      "G_to_4_1": 0,
+      "X_series_1_4": 5.543006747007207e-5,
+      "R_series_3_3": 0.0002586466621944817,
+      "B_to_3_2": 0,
+      "X_series_3_2": 5.543006747007207e-5,
+      "X_series_4_2": 3.3463067470072106e-5,
+      "G_from_4_1": 0,
+      "B_to_1_3": 0,
+      "B_from_1_4": 0,
+      "B_from_4_3": 0,
+      "B_to_2_4": 0,
+      "G_from_1_4": 0,
+      "R_series_2_3": 0.00015199066219448172,
+      "G_from_1_2": 0,
+      "B_to_4_2": 0,
+      "R_series_1_4": 0.00015199066219448172,
+      "X_series_1_1": 0.0001160280674700721,
+      "G_to_1_1": 0,
+      "B_to_1_4": 0,
+      "B_to_3_1": 0,
+      "G_to_4_4": 0,
+      "B_from_4_1": 0,
+      "B_from_4_4": 0,
+      "B_to_3_3": 0,
+      "R_series_4_1": 0.00015199066219448172,
+      "X_series_4_1": 5.543006747007207e-5,
+      "i_max": [
+        419,
+        419,
+        419,
+        419
+      ],
+      "G_from_2_1": 0,
+      "X_series_3_1": 3.3463067470072106e-5
+    },
+    "lc1": {
+      "X_series_2_3": 0.0007013701531485135,
+      "R_series_1_3": 0.0001960530575502449,
+      "B_from_4_2": 0,
+      "R_series_1_2": 0.00019622205755024492,
+      "R_series_2_4": 0.0001960530575502449,
+      "B_to_4_1": 0,
+      "R_series_2_2": 0.0013480120575502447,
+      "G_to_1_3": 0,
+      "G_from_2_2": 0,
+      "B_from_3_3": 0,
+      "G_to_2_1": 0,
+      "B_to_4_4": 0,
+      "B_from_2_2": 0,
+      "G_from_1_3": 0,
+      "B_from_3_2": 0,
+      "B_from_1_2": 0,
+      "B_from_3_1": 0,
+      "B_to_3_4": 0,
+      "X_series_3_4": 0.0007014021531485135,
+      "X_series_2_1": 0.0007013971531485135,
+      "B_from_1_3": 0,
+      "B_from_1_1": 0,
+      "B_to_2_3": 0,
+      "G_from_2_4": 0,
+      "R_series_2_1": 0.00019622205755024492,
+      "G_to_3_3": 0,
+      "G_to_4_3": 0,
+      "R_series_4_4": 0.0013480270575502449,
+      "R_series_3_1": 0.0001960530575502449,
+      "G_from_3_3": 0,
+      "G_from_3_4": 0,
+      "X_series_4_3": 0.0007014021531485135,
+      "X_series_3_3": 0.0007813721531485135,
+      "G_to_2_3": 0,
+      "G_from_4_2": 0,
+      "B_to_1_2": 0,
+      "B_to_2_1": 0,
+      "B_to_2_2": 0,
+      "G_from_3_1": 0,
+      "R_series_4_2": 0.0001960530575502449,
+      "R_series_4_3": 0.0001962230575502449,
+      "B_from_2_1": 0,
+      "R_series_1_1": 0.0013480250575502448,
+      "G_to_1_4": 0,
+      "X_series_4_4": 0.0007814381531485135,
+      "G_to_3_1": 0,
+      "G_from_3_2": 0,
+      "G_to_3_4": 0,
+      "B_to_1_1": 0,
+      "X_series_2_2": 0.0007813811531485134,
+      "G_to_2_2": 0,
+      "X_series_1_2": 0.0007013971531485135,
+      "G_to_3_2": 0,
+      "X_series_2_4": 0.0006774341531485135,
+      "G_from_4_4": 0,
+      "R_series_3_2": 0.0001962160575502449,
+      "G_from_4_3": 0,
+      "G_to_4_2": 0,
+      "B_from_2_3": 0,
+      "B_from_3_4": 0,
+      "R_series_3_4": 0.0001962230575502449,
+      "G_from_1_1": 0,
+      "G_to_2_4": 0,
+      "G_to_1_2": 0,
+      "X_series_1_3": 0.0006774311531485134,
+      "B_from_2_4": 0,
+      "G_from_2_3": 0,
+      "B_to_4_3": 0,
+      "G_to_4_1": 0,
+      "X_series_1_4": 0.0007014261531485134,
+      "R_series_3_3": 0.0013480130575502449,
+      "B_to_3_2": 0,
+      "X_series_3_2": 0.0007013701531485135,
+      "X_series_4_2": 0.0006774341531485135,
+      "G_from_4_1": 0,
+      "B_to_1_3": 0,
+      "B_from_1_4": 0,
+      "B_from_4_3": 0,
+      "B_to_2_4": 0,
+      "G_from_1_4": 0,
+      "R_series_2_3": 0.0001962160575502449,
+      "G_from_1_2": 0,
+      "B_to_4_2": 0,
+      "R_series_1_4": 0.0001962290575502449,
+      "X_series_1_1": 0.0007814251531485135,
+      "G_to_1_1": 0,
+      "B_to_1_4": 0,
+      "B_to_3_1": 0,
+      "G_to_4_4": 0,
+      "B_from_4_1": 0,
+      "B_from_4_4": 0,
+      "B_to_3_3": 0,
+      "R_series_4_1": 0.0001962290575502449,
+      "X_series_4_1": 0.0007014261531485134,
+      "i_max": [
+        75,
+        75,
+        75,
+        75
+      ],
+      "G_from_2_1": 0,
+      "X_series_3_1": 0.0006774311531485134
+    }
+  }
 }
