@@ -1,7 +1,7 @@
 # BMOPF Network Summary: Network_14_Feeder_1
 
-**Generated:** 2026-06-21 15:00:59  
-**Findings:** 1 errors · 1 warnings · 26 info  
+**Generated:** 2026-06-23 13:42:15  
+**Findings:** 0 errors · 2 warnings · 8 info  
 **Convention:** LV_240V: 4-wire; 1 grounding point(s)
 
 ---
@@ -160,40 +160,18 @@
 
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1974' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1719' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_2303' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_592' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_569' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_546' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_2301' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1127' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1591' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1857' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1367' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_2299' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_500' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1655' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_411' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1918' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1919' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_1994' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-
 > 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
 
 ## 9. Data Quality Summary
 
-**Total findings:** 28 (1 errors, 1 warnings, 26 info)
-
-### 🔴 Errors
-
-- **[E.SCHEMA.TYPE]** `[2304]`  
-  Type error at [bus][2304][vpn_min]: got Float64, expected array.
+**Total findings:** 10 (0 errors, 2 warnings, 8 info)
 
 ### 🟡 Warnings
 
 - **[W.PRE.SOURCE_BUS_GENERATOR]** `grid`  
   Generator 'grid' is at voltage-source bus 'sourcebus' and lacks p_max/q_max bounds. The voltage source is the network's current slack, so two unbounded current injections share one fixed-voltage bus — the dispatch split is degenerate (non-unique). Remove this generator and express its role as flow bounds/cost on the voltage source instead.
+- **[W.DOM.SHUNT_ON_GROUNDED]** `grounding`  
+  Shunt 'grounding' is connected to terminal 'n' of bus 'sourcebus', which is perfectly grounded (V = 0) — the shunt draws G·V = 0 current and is inert. Drop the redundant shunt, or remove the perfect ground if impedance grounding was intended.
 
 ### 🔵 Info
 
@@ -211,42 +189,6 @@
   8 group(s) of series lines (18 lines total) can be merged — intermediate buses have no other connections.
 - **[I.RED.UNUSED_LINECODES]** `linecode`  
   2 linecode(s) defined but not referenced by any line.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1974`  
-  Generator 'der_1974' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1719`  
-  Generator 'der_1719' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_2303`  
-  Generator 'der_2303' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_592`  
-  Generator 'der_592' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_569`  
-  Generator 'der_569' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_546`  
-  Generator 'der_546' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_2301`  
-  Generator 'der_2301' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1127`  
-  Generator 'der_1127' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1591`  
-  Generator 'der_1591' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1857`  
-  Generator 'der_1857' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1367`  
-  Generator 'der_1367' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_2299`  
-  Generator 'der_2299' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_500`  
-  Generator 'der_500' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1655`  
-  Generator 'der_1655' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_411`  
-  Generator 'der_411' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1918`  
-  Generator 'der_1918' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1919`  
-  Generator 'der_1919' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_1994`  
-  Generator 'der_1994' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
 - **[I.BENCH.AUGMENTATION]** `network`  
   Case needs augmentation to be a non-trivial OPF benchmark: no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
 

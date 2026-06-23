@@ -1,6 +1,6 @@
 # Simplification log: network_4_Feeder_2
 
-**Generated:** 2026-06-21 15:02:32  
+**Generated:** 2026-06-23 13:44:02  
 **Buses:** 392 → 35 (−357)  
 **Lines:** 391 → 34 (−357)  
 **Operations:** 360
@@ -46,9 +46,9 @@
 | 28 | `remove_dangling_lines` | line `line138` | Removed dangling line line138 and its leaf bus 139 (leaf has no active elements). |
 | 29 | `remove_dangling_lines` | line `line367` | Removed dangling line line367 and its leaf bus 368 (leaf has no active elements). |
 | 30 | `remove_dangling_lines` | line `line84` | Removed dangling line line84 and its leaf bus 85 (leaf has no active elements). |
-| 31 | `remove_dangling_lines` | line `line104` | Removed dangling line line104 and its leaf bus 105 (leaf has no active elements). |
-| 32 | `remove_dangling_lines` | line `line308` | Removed dangling line line308 and its leaf bus 309 (leaf has no active elements). |
-| 33 | `remove_dangling_lines` | line `line2` | Removed dangling line line2 and its leaf bus 3 (leaf has no active elements). |
+| 31 | `remove_dangling_lines` | line `line308` | Removed dangling line line308 and its leaf bus 309 (leaf has no active elements). |
+| 32 | `remove_dangling_lines` | line `line2` | Removed dangling line line2 and its leaf bus 3 (leaf has no active elements). |
+| 33 | `remove_dangling_lines` | line `line104` | Removed dangling line line104 and its leaf bus 105 (leaf has no active elements). |
 | 34 | `remove_dangling_lines` | line `line80` | Removed dangling line line80 and its leaf bus 81 (leaf has no active elements). |
 | 35 | `remove_dangling_lines` | line `line26` | Removed dangling line line26 and its leaf bus 27 (leaf has no active elements). |
 | 36 | `remove_dangling_lines` | line `line74` | Removed dangling line line74 and its leaf bus 75 (leaf has no active elements). |

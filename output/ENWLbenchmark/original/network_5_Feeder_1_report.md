@@ -1,7 +1,7 @@
 # BMOPF Network Summary: network_5_Feeder_1
 
-**Generated:** 2026-06-21 15:02:33  
-**Findings:** 1 errors · 3 warnings · 38 info  
+**Generated:** 2026-06-23 13:44:03  
+**Findings:** 0 errors · 4 warnings · 37 info  
 **Convention:** LV_240V: 4-wire; 1 grounding point(s)
 
 ---
@@ -193,18 +193,11 @@
 
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_99' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-
 > 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
 
 ## 9. Data Quality Summary
 
-**Total findings:** 42 (1 errors, 3 warnings, 38 info)
-
-### 🔴 Errors
-
-- **[E.SCHEMA.TYPE]** `[109]`  
-  Type error at [bus][109][vpn_min]: got Float64, expected array.
+**Total findings:** 41 (0 errors, 4 warnings, 37 info)
 
 ### 🟡 Warnings
 
@@ -214,6 +207,8 @@
   Generator 'grid' is at voltage-source bus 'sourcebus' and lacks p_max/q_max bounds. The voltage source is the network's current slack, so two unbounded current injections share one fixed-voltage bus — the dispatch split is degenerate (non-unique). Remove this generator and express its role as flow bounds/cost on the voltage source instead.
 - **[W.DOM.LINE_LOW_IMPEDANCE]** `line8`  
   Line 'line8' has ||Z||_F = 9.44e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.SHUNT_ON_GROUNDED]** `grounding`  
+  Shunt 'grounding' is connected to terminal 'n' of bus 'sourcebus', which is perfectly grounded (V = 0) — the shunt draws G·V = 0 current and is inert. Drop the redundant shunt, or remove the perfect ground if impedance grounding was intended.
 
 ### 🔵 Info
 
@@ -289,8 +284,6 @@
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
 - **[I.RED.MERGEABLE_LINES]** `line`  
   13 group(s) of series lines (126 lines total) can be merged — intermediate buses have no other connections.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_99`  
-  Generator 'der_99' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
 - **[I.BENCH.AUGMENTATION]** `network`  
   Case needs augmentation to be a non-trivial OPF benchmark: no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
 

@@ -1,7 +1,7 @@
 # BMOPF Network Summary: network_3_Feeder_5
 
-**Generated:** 2026-06-21 15:02:31  
-**Findings:** 1 errors · 4 warnings · 50 info  
+**Generated:** 2026-06-23 13:44:01  
+**Findings:** 0 errors · 5 warnings · 44 info  
 **Convention:** LV_240V: 4-wire; 1 grounding point(s)
 
 ---
@@ -199,23 +199,11 @@
 
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_234' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_284' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_130' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_137' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_315' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-> 🔵 **[I.SPEC.GEN_CONFIG_FUTURE]** Generator 'der_309' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-
 > 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
 
 ## 9. Data Quality Summary
 
-**Total findings:** 55 (1 errors, 4 warnings, 50 info)
-
-### 🔴 Errors
-
-- **[E.SCHEMA.TYPE]** `[153]`  
-  Type error at [bus][153][vpn_min]: got Float64, expected array.
+**Total findings:** 49 (0 errors, 5 warnings, 44 info)
 
 ### 🟡 Warnings
 
@@ -227,6 +215,8 @@
   Line 'line130' has ||Z||_F = 8.87e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
 - **[W.DOM.LINE_LOW_IMPEDANCE]** `line135`  
   Line 'line135' has ||Z||_F = 8.7e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.SHUNT_ON_GROUNDED]** `grounding`  
+  Shunt 'grounding' is connected to terminal 'n' of bus 'sourcebus', which is perfectly grounded (V = 0) — the shunt draws G·V = 0 current and is inert. Drop the redundant shunt, or remove the perfect ground if impedance grounding was intended.
 
 ### 🔵 Info
 
@@ -316,18 +306,6 @@
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
 - **[I.RED.MERGEABLE_LINES]** `line`  
   38 group(s) of series lines (313 lines total) can be merged — intermediate buses have no other connections.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_234`  
-  Generator 'der_234' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_284`  
-  Generator 'der_284' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_130`  
-  Generator 'der_130' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_137`  
-  Generator 'der_137' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_315`  
-  Generator 'der_315' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
-- **[I.SPEC.GEN_CONFIG_FUTURE]** `der_309`  
-  Generator 'der_309' configuration 'SINGLE_PHASE' is marked future-support in the spec (Table 4); only WYE is currently supported.
 - **[I.BENCH.AUGMENTATION]** `network`  
   Case needs augmentation to be a non-trivial OPF benchmark: no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
 

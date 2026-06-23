@@ -198,7 +198,15 @@ julia --project=. -e "using Pkg; Pkg.test()"
 
 # generate analysis reports and simplified variants for all output/ networks
 julia --project=. scripts/generate_output.jl
+
+# regenerate everything under output/ENWLbenchmark/ (reports, OPF results,
+# solution reports). The scripts/ env carries JuMP + Ipopt; instantiate once:
+julia --project=scripts -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+julia --project=scripts scripts/run_benchmark.jl            # all stages
+julia --project=scripts scripts/run_benchmark.jl opf        # or: outputs / solutions
 ```
+
+One-off data-migration scripts live in `scripts/oneoff/`.
 
 ## Documentation
 

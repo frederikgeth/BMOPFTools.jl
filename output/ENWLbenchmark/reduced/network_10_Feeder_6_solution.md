@@ -1,9 +1,9 @@
 # BMOPF Solution Profile: network_10_Feeder_6
 
-**Generated:** 2026-06-22 15:15:39  
+**Generated:** 2026-06-23 13:46:11  
 **Status:** `LOCALLY_SOLVED`  
 **Objective:** -33.521  
-**Solve time:** 0.016 s  
+**Solve time:** 0.011 s  
 **Findings:** 0 errors · 3 warnings · 2 info  
 
 ---
@@ -13,12 +13,14 @@
 | Field | Value |
 |-------|-------|
 | Status | `LOCALLY_SOLVED` |
-| Total generation | 6.886 kW |
+| Total generation | 6.885 kW |
 | Total load | 6.87 kW |
-| Total line losses | 31.72 W |
-| Loss fraction | 0.5% |
-| Power balance error | 15.36 W |
-| Max neutral shift | 0.249 V (bus `367`) |
+| Total network losses (P) | 14.55 W |
+| Total network losses (Q) | 6.16 W var |
+| Loss fraction | 0.2% |
+| Active power balance error | 0.0 W |
+| Reactive power balance error | 0.0 W var |
+| Max neutral shift | 0.34 V (bus `367`) |
 
 ### Bound status
 
@@ -34,26 +36,26 @@ Per-unit magnitudes are relative to each zone's own voltage base; volts are not 
 
 | St | Zone | V base | Buses | Vm min (pu) | Vm max (pu) | Max imbalance | Max neutral shift |
 |:--:|------|-------:|------:|------------:|------------:|--------------:|------------------:|
-| ✅ | `227` | 230.0 V | 12 | 1.042 (`367`) | 1.044 (`sourcebus`) | 0.1 % (`367`) | 0.25 V (`367`) |
+| ✅ | `227` | 240.0 V | 12 | 0.998 (`367`) | 1.0 (`sourcebus`) | 0.1 % (`367`) | 0.34 V (`367`) |
 
 ### Per-bus detail
 
-**Zone `227`** (base 230.0 V):
+**Zone `227`** (base 240.0 V):
 
 | St | Bus | Vm min (V) | Vm max (V) | Vm min (pu) | Vm max (pu) | Imbalance | Neutral |
 |:--:|-----|-----------:|-----------:|------------:|------------:|----------:|--------:|
-| ✅ | `sourcebus` | 240.2 | 240.2 | 1.044 | 1.044 | 0.0 % | — |
-| ✅ | `64` | 239.9 | 240.1 | 1.043 | 1.044 | 0.1 % | 0.1 V |
-| ✅ | `63` | 240.0 | 240.1 | 1.044 | 1.044 | 0.0 % | 0.05 V |
-| ✅ | `227` | 239.8 | 240.0 | 1.043 | 1.043 | 0.1 % | 0.08 V |
-| ✅ | `442` | 239.8 | 240.0 | 1.042 | 1.043 | 0.1 % | 0.04 V |
-| ✅ | `338` | 239.8 | 240.0 | 1.042 | 1.043 | 0.1 % | 0.09 V |
-| ✅ | `295` | 239.8 | 240.0 | 1.042 | 1.043 | 0.1 % | 0.09 V |
-| ✅ | `286` | 239.8 | 240.0 | 1.043 | 1.043 | 0.1 % | 0.08 V |
-| ✅ | `301` | 239.8 | 239.9 | 1.042 | 1.043 | 0.1 % | 0.1 V |
-| ✅ | `367` | 239.6 | 239.9 | 1.042 | 1.043 | 0.1 % | 0.25 V |
-| ✅ | `429` | 239.8 | 239.9 | 1.042 | 1.043 | 0.1 % | 0.09 V |
-| ✅ | `459` | 239.8 | 239.9 | 1.042 | 1.043 | 0.1 % | 0.11 V |
+| ✅ | `367` | 239.7 | 240.0 | 0.998 | 0.999 | 0.1 % | 0.34 V |
+| ✅ | `459` | 239.8 | 240.0 | 0.999 | 0.999 | 0.1 % | 0.28 V |
+| ✅ | `301` | 239.9 | 240.0 | 0.999 | 0.999 | 0.0 % | 0.23 V |
+| ✅ | `429` | 239.9 | 240.0 | 0.999 | 0.999 | 0.0 % | 0.24 V |
+| ✅ | `295` | 239.9 | 240.0 | 0.999 | 0.999 | 0.0 % | 0.23 V |
+| ✅ | `338` | 239.9 | 240.0 | 0.999 | 0.999 | 0.0 % | 0.23 V |
+| ✅ | `442` | 239.9 | 240.0 | 0.999 | 0.999 | 0.0 % | 0.2 V |
+| ✅ | `227` | 239.9 | 240.0 | 0.999 | 0.999 | 0.0 % | 0.21 V |
+| ✅ | `286` | 239.9 | 240.0 | 0.999 | 0.999 | 0.0 % | 0.22 V |
+| ✅ | `64` | 240.0 | 240.1 | 0.999 | 1.0 | 0.0 % | 0.04 V |
+| ✅ | `63` | 240.0 | 240.1 | 0.999 | 1.0 | 0.0 % | 0.03 V |
+| ✅ | `sourcebus` | 240.2 | 240.2 | 1.0 | 1.0 | 0.0 % | — |
 
 ## 4. Generator Dispatch
 
@@ -74,5 +76,5 @@ Per-unit magnitudes are relative to each zone's own voltage base; volts are not 
 - INFO `I.SOL.BINDING_SUMMARY`  
   Solution bound summary: 0 violation(s), 3 active constraint(s). Voltage: 0V / 0A. Thermal: 0V / 0A. Generator: 0V / 3A.
 - INFO `I.SOL.NEUTRAL_SHIFT`  
-  Maximum neutral terminal voltage: 0.25 V at bus '367' — reflects the neutral shift under unbalanced loading.
+  Maximum neutral terminal voltage: 0.34 V at bus '367' — reflects the neutral shift under unbalanced loading.
 

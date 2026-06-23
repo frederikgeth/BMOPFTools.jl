@@ -1,9 +1,9 @@
 # BMOPF Solution Profile: network_11_Feeder_2
 
-**Generated:** 2026-06-22 15:15:39  
+**Generated:** 2026-06-23 13:46:11  
 **Status:** `LOCALLY_SOLVED`  
 **Objective:** -7.6535  
-**Solve time:** 0.009 s  
+**Solve time:** 0.011 s  
 **Findings:** 0 errors · 3 warnings · 2 info  
 
 ---
@@ -15,9 +15,11 @@
 | Status | `LOCALLY_SOLVED` |
 | Total generation | 5.238 kW |
 | Total load | 5.214 kW |
-| Total line losses | 34.89 W |
-| Loss fraction | 0.7% |
-| Power balance error | 10.79 W |
+| Total network losses (P) | 24.1 W |
+| Total network losses (Q) | 4.74 W var |
+| Loss fraction | 0.5% |
+| Active power balance error | 0.0 W |
+| Reactive power balance error | 0.0 W var |
 | Max neutral shift | 0.834 V (bus `214`) |
 
 ### Bound status
@@ -34,22 +36,22 @@ Per-unit magnitudes are relative to each zone's own voltage base; volts are not 
 
 | St | Zone | V base | Buses | Vm min (pu) | Vm max (pu) | Max imbalance | Max neutral shift |
 |:--:|------|-------:|------:|------------:|------------:|--------------:|------------------:|
-| ✅ | `164` | 230.0 V | 8 | 1.04 (`214`) | 1.044 (`sourcebus`) | 0.4 % (`214`) | 0.83 V (`214`) |
+| ✅ | `164` | 240.0 V | 8 | 0.996 (`214`) | 1.0 (`sourcebus`) | 0.3 % (`214`) | 0.83 V (`214`) |
 
 ### Per-bus detail
 
-**Zone `164`** (base 230.0 V):
+**Zone `164`** (base 240.0 V):
 
 | St | Bus | Vm min (V) | Vm max (V) | Vm min (pu) | Vm max (pu) | Imbalance | Neutral |
 |:--:|-----|-----------:|-----------:|------------:|------------:|----------:|--------:|
-| ✅ | `sourcebus` | 240.2 | 240.2 | 1.044 | 1.044 | 0.0 % | — |
-| ✅ | `85` | 240.0 | 240.1 | 1.044 | 1.044 | 0.1 % | 0.1 V |
-| ✅ | `77` | 240.0 | 240.1 | 1.044 | 1.044 | 0.1 % | 0.1 V |
-| ✅ | `169` | 239.9 | 240.1 | 1.043 | 1.044 | 0.1 % | 0.11 V |
-| ✅ | `164` | 240.0 | 240.1 | 1.043 | 1.044 | 0.1 % | 0.08 V |
-| ✅ | `172` | 240.0 | 240.1 | 1.043 | 1.044 | 0.1 % | 0.16 V |
-| ✅ | `214` | 239.3 | 240.1 | 1.04 | 1.044 | 0.4 % | 0.83 V |
-| ✅ | `170` | 240.0 | 240.1 | 1.043 | 1.044 | 0.1 % | 0.06 V |
+| ✅ | `214` | 239.3 | 240.1 | 0.996 | 1.0 | 0.3 % | 0.83 V |
+| ✅ | `169` | 239.9 | 240.1 | 0.999 | 1.0 | 0.1 % | 0.11 V |
+| ✅ | `164` | 240.0 | 240.1 | 0.999 | 1.0 | 0.1 % | 0.08 V |
+| ✅ | `170` | 240.0 | 240.1 | 0.999 | 1.0 | 0.1 % | 0.06 V |
+| ✅ | `172` | 240.0 | 240.1 | 0.999 | 1.0 | 0.1 % | 0.16 V |
+| ✅ | `85` | 240.0 | 240.1 | 0.999 | 1.0 | 0.1 % | 0.1 V |
+| ✅ | `77` | 240.0 | 240.1 | 0.999 | 1.0 | 0.1 % | 0.1 V |
+| ✅ | `sourcebus` | 240.2 | 240.2 | 1.0 | 1.0 | 0.0 % | — |
 
 ## 4. Generator Dispatch
 

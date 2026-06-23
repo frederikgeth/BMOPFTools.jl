@@ -39,7 +39,7 @@ Enrichment file schema (all quantities in SI units, BMOPF conventions):
 }
 
 Usage:
-    python3 scripts/extract_pmdlab_enrichment.py
+    python3 scripts/oneoff/extract_pmdlab_enrichment.py
 
 Writes one *_enrichment.json per pair into test/data/PMDLab/.
 """
@@ -50,7 +50,7 @@ import re
 import sys
 
 PMDLAB_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "test", "data", "PMDLab"
+    os.path.dirname(__file__), "..", "..", "test", "data", "PMDLab"
 )
 PMDLAB_DIR = os.path.normpath(PMDLAB_DIR)
 
