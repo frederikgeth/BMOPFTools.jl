@@ -20,6 +20,7 @@ makedocs(
         "Methodology notes"       => "methodology.md",
         "Optimal power flow"      => "opf.md",
         "VVWO tutorial"           => "tutorial_vvwo.md",
+        "DER placement tutorial"  => "tutorial_ders.md",
         "Smooth droop encoding"   => "relu_softplus_encoding.md",
         "OPF result dictionary"   => "results.md",
         "Case augmentation"       => "augmentation.md",
