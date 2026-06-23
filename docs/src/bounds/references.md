@@ -91,8 +91,3 @@ formal list.
   [Link](https://pyomo.readthedocs.io/en/stable/model_debugging/index.html)
 - AIMMS, "Debug infeasible or unbounded results."
   [Link](https://how-to.aimms.com/Articles/136/136-Infeasible-Unbounded.html)
-
-!!! note "Citation hygiene"
-    Volume/issue numbers are given where confirmed. Please verify exact page numbers and
-    the Low / Simpson-Porco two-part details against the publisher before pinning these
-    in a released version of the docs.

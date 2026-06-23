@@ -7,11 +7,11 @@ validator can use these as targeted tests: *"give me the input that should expos
 bug."*
 
 !!! note "For maintainers"
-    The constructions below are minimal and self-contained. Each trap ends with an
-    *Instance* line: where a BMOPFTools case or test already exhibits the behaviour it
-    is linked, and where none exists yet the construction is small enough to add as a
-    named case — please link it here when you do, so the gallery and the benchmark
-    library cross-reference.
+    These constructions are minimal and self-contained; none are yet shipped as named
+    regression cases in the benchmark library. The *In BMOPFTools* line on each trap
+    points at the closest existing case, test, or tool to build from. When you add a
+    named case, link it from the relevant trap so the gallery and the benchmark library
+    cross-reference.
 
 ## Trap 1 — Unbounded without bounds
 
@@ -34,8 +34,8 @@ $\sum |V_i|$).
 voltage magnitudes pinned at the artificial bound. *Adding $\underline v,\overline v$
 alone makes it finite.*
 
-*Instance:* take any augmented benchmark feeder and strip its voltage/generator bounds
-(the inverse of the [case augmentation](../augmentation.md) step); not yet a named case.
+*In BMOPFTools:* start from an augmented feeder and strip its voltage/generator bounds —
+the inverse of the [case augmentation](../augmentation.md) step.
 
 ## Trap 2 — Branch multiplicity (high vs low voltage)
 
@@ -53,10 +53,9 @@ return $V_+$; a flat-but-low or adversarially started Newton solve can land on $
 **Look for:** different solutions from different starts ⇒ multiplicity. The low-voltage
 cluster is the tell ([Diagnostics §4](diagnostics.md)).
 
-*Instance:* the single-phase resistive two-bus of OPF test **T1**
-([Validating the OPF](../validation.md)) solves the high-voltage root of this same
-quadratic, `V = (V_s + √(V_s² − 4RP))/2`; a low-`R/X` reactive variant loaded toward
-the nose exposes the second root. The reactive two-bus is not yet a named case.
+*In BMOPFTools:* OPF test **T1** ([Validating the OPF](../validation.md)) solves the
+high-voltage root `V = (V_s + √(V_s² − 4RP))/2` of this same quadratic; a low-`R/X`
+reactive variant loaded toward the nose exposes the second root.
 
 ## Trap 3 — Relaxation feasible *past* collapse
 
@@ -80,10 +79,8 @@ load just beyond the nose (radicand $< 0$).
 per-branch cone gap ([Diagnostics §3](diagnostics.md)). This is the headline reason a
 feasible relaxation is only a one-sided certificate.
 
-*Instance:* the two-bus, one-generator system of
-[Kocuk, Dey & Sun (2016)](https://doi.org/10.1109/TPWRS.2015.2402640) with a
-load just past the nose; verify the AC side with [`solve_feasibility_opf`](../validation.md)
-(non-zero `total_slack_magnitude_A`). Not yet a named case.
+*In BMOPFTools:* check the AC side with [`solve_feasibility_opf`](../validation.md) — a
+non-zero `total_slack_magnitude_A` confirms the loading is past collapse.
 
 ## Trap 4 — Loss-maximizing objective breaks exactness
 
@@ -102,9 +99,8 @@ $\ell_{ij} - |S_{ij}|^2/v_i$ is strictly positive on loaded branches;
 **Look for:** positive cone gaps concentrated where upper voltage bounds bind
 ([Diagnostics §3](diagnostics.md)).
 
-*Instance:* a small radial DER feeder with objective = maximize PV injection; the
-[DER placement tutorial](../tutorial_ders.md) builds suitable feeders to adapt. Not yet
-a named case.
+*In BMOPFTools:* adapt a radial DER feeder from the
+[DER placement tutorial](../tutorial_ders.md).
 
 ## Trap 5 — Generator lower bounds break exactness
 
@@ -124,8 +120,7 @@ implementation.
 **Look for:** the outcome flipping as a single parameter sweeps; tabulate cone gap vs
 $\underline{P}^g$.
 
-*Instance:* the same two-bus, one-generator system as Trap 3 with a swept binding
-$\underline{P}^g > 0$ — a compact regression fixture worth adding as a named case.
+*In BMOPFTools:* as Trap 3, sweeping the binding $\underline{P}^g > 0$.
 
 ## Suggested test matrix
 
