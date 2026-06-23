@@ -19,6 +19,7 @@ makedocs(
         "Finding-code reference"  => "findings.md",
         "Methodology notes"       => "methodology.md",
         "Optimal power flow"      => "opf.md",
+        "Validating the OPF"      => "validation.md",
         "VVWO tutorial"           => "tutorial_vvwo.md",
         "DER placement tutorial"  => "tutorial_ders.md",
         "Smooth droop encoding"   => "relu_softplus_encoding.md",
