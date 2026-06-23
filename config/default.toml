@@ -36,6 +36,46 @@ z_spread_warn = 1e5
 source_v_margin_frac = 0.05
 
 # ---------------------------------------------------------------------------
+# Operational: feeder electrical-length plausibility  (analysis/operational.jl)
+#
+# Per galvanic zone we measure the electrical reach — the longest cable/line
+# distance (Σ line "length", m) from the zone's source/anchor bus to its
+# farthest bus — and compare it to what is typical for the zone's voltage band.
+# A zone far longer than the band's `reach_long_m` is flagged (I.OPS.FEEDER_LONG):
+# either a genuinely long rural feeder worth noting for voltage-drop reasons, or
+# a length unit slip (km entered as m, or the OpenDSS default length=1). A zone
+# far shorter than `reach_short_m` is flagged (I.OPS.FEEDER_SHORT): electrically
+# it is a stub/service drop or a substation interconnect rather than a feeder.
+# Set either threshold to 0 to disable that side for a band.
+#
+# Bands follow the same boundaries as the voltage-level report labels and are
+# applied to the per-conductor (phase-to-neutral) nominal voltage propagated
+# from each source: LV < 1 kV, MV 1–35 kV, HV 35–100 kV, EHV ≥ 100 kV (so an
+# 11 kV-L-L feeder sits in MV, a 400 V-L-L feeder in LV).
+#
+# Defaults are order-of-magnitude design norms from the distribution-planning
+# literature, not hard limits — tune to a utility's house standards:
+#   LV  service/feeder reach: CIGRE European residential LV feeders are built
+#       from ~30–35 m sections; urban LV feeders run to a few hundred m, rural
+#       LV up to ~1 km before voltage drop (IEC 60364-5-52 / NEC ±5 %) bites.
+#   MV  (11 kV class): ~3 km urban, up to ~20 km rural; 22 kV reaches further.
+#   HV/subtransmission (33–66 kV): rural mains up to ~100 km (e.g. 34.5 kV).
+# ---------------------------------------------------------------------------
+[operational.feeder_length]
+[operational.feeder_length.LV]
+reach_short_m = 30.0       # below this an LV zone is just a service drop
+reach_long_m  = 1000.0     # above ~1 km an LV feeder is voltage-drop limited
+[operational.feeder_length.MV]
+reach_short_m = 200.0      # below this an MV zone is a stub/interconnect
+reach_long_m  = 20000.0    # ~20 km: beyond typical rural 11 kV reach
+[operational.feeder_length.HV]
+reach_short_m = 0.0        # short-side flag off for HV by default
+reach_long_m  = 100000.0   # ~100 km subtransmission main
+[operational.feeder_length.EHV]
+reach_short_m = 0.0
+reach_long_m  = 300000.0
+
+# ---------------------------------------------------------------------------
 # Thermal-rating inference  (augmentation/thermal.jl)
 # ---------------------------------------------------------------------------
 [thermal]

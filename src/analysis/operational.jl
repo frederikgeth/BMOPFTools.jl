@@ -9,7 +9,8 @@ Compute operational loading statistics:
 - Generation/load ratio
 """
 function operational_analysis(net::Dict{String,Any},
-                               findings::Vector{Finding})::Dict{String,Any}
+                               findings::Vector{Finding};
+                               config::Dict=_DEFAULT_CONFIG)::Dict{String,Any}
     result = Dict{String,Any}()
 
     # --- Total load ---
@@ -173,7 +174,143 @@ function operational_analysis(net::Dict{String,Any},
     end
     result["unloaded_phase_findings"] = length(unloaded_findings)
 
+    # --- Electrical-length plausibility per galvanic zone ---
+    result["feeder_length"] = _feeder_length_check(net, zones, findings, config)
+
     result
+end
+
+"""
+Flag galvanic zones whose electrical reach is implausible for their voltage
+band. For each zone, the reach is the longest line/cable distance (Σ line
+`length`, m) from the zone's source/anchor bus to its farthest bus — i.e. the
+feeder reach. It is compared to the band's `reach_short_m` / `reach_long_m`
+thresholds (`config["operational"]["feeder_length"]`); a threshold of 0 disables
+that side. Emits `I.OPS.FEEDER_LONG` / `I.OPS.FEEDER_SHORT` and returns one
+summary entry per zone with a reach value.
+"""
+function _feeder_length_check(net::Dict{String,Any},
+                               zones::Vector{Set{String}},
+                               findings::Vector{Finding},
+                               config::Dict)::Vector{Dict{String,Any}}
+    cfg = _feeder_length_cfg(config)
+    v_nom = _assign_nominal_voltages(net)
+    vsrc_buses = Set(string(get(vs, "bus", ""))
+                     for (_, vs) in get(net, "voltage_source", Dict()) if vs isa Dict)
+
+    summary = Dict{String,Any}[]
+    for zone in zones
+        length(zone) < 2 && continue   # a single bus has no reach
+
+        anchor = let src = intersect(zone, vsrc_buses)
+            isempty(src) ? minimum(zone) : first(src)
+        end
+
+        # Zone nominal voltage (per-conductor V): anchor first, else any bus.
+        v = get(v_nom, anchor, nothing)
+        if v === nothing
+            for b in zone
+                haskey(v_nom, b) && (v = v_nom[b]; break)
+            end
+        end
+        v === nothing && continue
+
+        reach_m = _zone_electrical_reach(net, zone, anchor)
+        band    = _voltage_band(v)
+
+        entry = Dict{String,Any}("zone_anchor" => anchor, "band" => band,
+                                 "v_nom" => v, "reach_m" => reach_m)
+        push!(summary, entry)
+
+        band_cfg = get(cfg, band, nothing)
+        band_cfg isa AbstractDict || continue
+        short_m = Float64(get(band_cfg, "reach_short_m", 0.0))
+        long_m  = Float64(get(band_cfg, "reach_long_m",  0.0))
+
+        v_kv = round(v / 1000, digits=2)
+        if long_m > 0 && reach_m > long_m
+            push!(findings, Finding(INFO, "I.OPS.FEEDER_LONG", :operational, :network, nothing,
+                "Galvanic zone anchored at bus '$anchor' ($band, $(v_kv) kV) has an " *
+                "electrical reach of $(round(reach_m/1000, digits=2)) km — longer than the " *
+                "typical maximum $band feeder reach ($(round(long_m/1000, digits=2)) km). " *
+                "Check for excessive voltage drop or a length-unit (km vs m) error.",
+                Dict{String,Any}("zone_anchor" => anchor, "band" => band,
+                                 "v_nom" => v, "reach_m" => reach_m,
+                                 "threshold_m" => long_m)))
+        elseif short_m > 0 && reach_m < short_m
+            push!(findings, Finding(INFO, "I.OPS.FEEDER_SHORT", :operational, :network, nothing,
+                "Galvanic zone anchored at bus '$anchor' ($band, $(v_kv) kV) has an " *
+                "electrical reach of $(round(reach_m, digits=1)) m — shorter than typical " *
+                "for a $band feeder ($(round(short_m, digits=1)) m); electrically it is a " *
+                "stub/service drop rather than a feeder.",
+                Dict{String,Any}("zone_anchor" => anchor, "band" => band,
+                                 "v_nom" => v, "reach_m" => reach_m,
+                                 "threshold_m" => short_m)))
+        end
+    end
+    summary
+end
+
+# Voltage band for a per-conductor (phase-to-neutral) nominal voltage, using the
+# same boundaries as `_voltage_level_label`.
+function _voltage_band(v_volts::Real)::String
+    kv = v_volts / 1000.0
+    kv >= 100 ? "EHV" : kv >= 35 ? "HV" : kv >= 1 ? "MV" : "LV"
+end
+
+"""
+Longest line/cable distance (Σ line `length`, m) from `anchor` to any bus in
+`zone`, over lines, closed switches, and galvanically-continuous transformers.
+Switches and regulator transformers contribute zero length. Computed with a
+Dijkstra shortest-path tree (so meshed zones use the electrically shorter path);
+for radial feeders the path is unique. Lines missing a `length` count as 0.
+"""
+function _zone_electrical_reach(net::Dict{String,Any}, zone::Set{String},
+                                 anchor::String)::Float64
+    adj = Dict{String,Vector{Tuple{String,Float64}}}()
+    add!(a, b, w) = begin
+        (a in zone && b in zone) || return
+        push!(get!(adj, a, Tuple{String,Float64}[]), (b, w))
+        push!(get!(adj, b, Tuple{String,Float64}[]), (a, w))
+    end
+
+    for (_, l) in get(net, "line", Dict())
+        f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
+        (f isa AbstractString && t isa AbstractString) || continue
+        add!(f, t, max(Float64(get(l, "length", 0.0)), 0.0))
+    end
+    for (_, sw) in get(net, "switch", Dict())
+        get(sw, "open_switch", false) && continue
+        f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
+        (f isa AbstractString && t isa AbstractString) && add!(f, t, 0.0)
+    end
+    xfmr = get(net, "transformer", Dict())
+    for subtype in GALVANIC_CONTINUOUS_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa Dict || continue
+        for (_, t) in sub
+            f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
+            (f isa AbstractString && b isa AbstractString) && add!(f, b, 0.0)
+        end
+    end
+
+    # Dijkstra from anchor (small zones; a linear-scan frontier is fine).
+    dist = Dict{String,Float64}(anchor => 0.0)
+    done = Set{String}()
+    while length(done) < length(dist)
+        u = ""; best = Inf
+        for (b, d) in dist
+            (b in done || d >= best) && continue
+            u = b; best = d
+        end
+        u == "" && break
+        push!(done, u)
+        for (nb, w) in get(adj, u, Tuple{String,Float64}[])
+            nd = best + w
+            (nd < get(dist, nb, Inf)) && (dist[nb] = nd)
+        end
+    end
+    isempty(dist) ? 0.0 : maximum(values(dist))
 end
 
 """

@@ -2289,6 +2289,55 @@ const IEEE13_FIXTURE = """
         @test result["unloaded_phase_findings"] == 0
     end
 
+    @testset "Operational — I.OPS.FEEDER_SHORT: stub-length MV zone" begin
+        # _spec_net: 11 kV (MV), single 100 m line → below MV reach_short_m (200)
+        net = _spec_net()
+        findings = Finding[]
+        result = operational_analysis(net, findings)
+        short = [f for f in findings if f.code == "I.OPS.FEEDER_SHORT"]
+        @test length(short) == 1
+        @test short[1].detail["band"] == "MV"
+        @test short[1].detail["reach_m"] ≈ 100.0
+        @test !any(f -> f.code == "I.OPS.FEEDER_LONG", findings)
+        @test result["feeder_length"][1]["reach_m"] ≈ 100.0
+    end
+
+    @testset "Operational — I.OPS.FEEDER_LONG: over-long MV zone" begin
+        # Stretch the single line to 30 km — beyond the MV reach_long_m (20 km).
+        net = _spec_net()
+        net["line"]["l1"]["length"] = 30_000.0
+        findings = Finding[]
+        operational_analysis(net, findings)
+        long = [f for f in findings if f.code == "I.OPS.FEEDER_LONG"]
+        @test length(long) == 1
+        @test long[1].detail["reach_m"] ≈ 30_000.0
+        @test !any(f -> f.code == "I.OPS.FEEDER_SHORT", findings)
+    end
+
+    @testset "Operational — feeder-length reach sums the longest radial path" begin
+        # src —100m— b1 —500m— b2 : reach should be 600 m (not 100).
+        net = _spec_net()
+        net["bus"]["b2"] = Dict{String,Any}(
+            "terminal_names" => ["a","b","c","n"],
+            "perfectly_grounded_terminals" => ["n"])
+        net["line"]["l2"] = Dict{String,Any}(
+            "bus_from" => "b1", "bus_to" => "b2",
+            "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"],
+            "linecode" => "lc", "length" => 500.0)
+        findings = Finding[]
+        result = operational_analysis(net, findings)
+        @test result["feeder_length"][1]["reach_m"] ≈ 600.0
+    end
+
+    @testset "Operational — feeder-length thresholds are config-tunable" begin
+        net = _spec_net()   # 100 m MV zone, normally SHORT (< 200 m)
+        cfg = load_config()
+        cfg["operational"]["feeder_length"]["MV"]["reach_short_m"] = 0.0  # disable
+        findings = Finding[]
+        operational_analysis(net, findings; config=cfg)
+        @test !any(f -> f.code in ("I.OPS.FEEDER_SHORT", "I.OPS.FEEDER_LONG"), findings)
+    end
+
     @testset "Diversity — I.DIV.LOAD_PF_DSS_DEFAULT near 0.88" begin
         net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
         # Force all loads to PF=0.88 (p=0.88, q=√(1-0.88²)=0.475)

@@ -72,6 +72,8 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `W.OPS.XFMR_OVERLOADED` | W | Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints — little OPF headroom, or a rating entered on the wrong base (see the regulator/autotransformer discussion in [methodology](methodology.md)). |
 | `W.OPS.LINE_UNCONSTRAINED` | W | Lines without any thermal limit (`i_max`/`s_max` on the line or its linecode) — the OPF will have no flow constraints there. |
 | `I.OPS.UNLOADED_PHASE` | I | A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results. |
+| `I.OPS.FEEDER_LONG` | I | A galvanic zone's electrical reach (longest Σ line `length` from its source/anchor bus to its farthest bus) exceeds the typical maximum feeder reach for its voltage band (LV/MV/HV/EHV, thresholds in `[operational.feeder_length]`). Either a genuinely long rural feeder worth noting for voltage-drop reasons, or a length-unit slip (km entered as m, or the OpenDSS default `length=1`). |
+| `I.OPS.FEEDER_SHORT` | I | A galvanic zone's electrical reach is below the typical minimum for its voltage band — electrically it is a stub, service drop, or substation interconnect rather than a feeder. Off by default for HV/EHV. Observational. |
 
 ## PRE — infeasibility pre-flight
 

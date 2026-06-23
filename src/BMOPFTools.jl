@@ -365,7 +365,7 @@ function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CO
     results[:voltage_levels] = voltage_level_analysis(working, findings)
     results[:connectivity]   = connectivity_analysis(working, findings)
     results[:diversity]      = diversity_analysis(working, findings)
-    results[:operational]    = operational_analysis(working, findings)
+    results[:operational]    = operational_analysis(working, findings; config=config)
     results[:load_models]    = load_model_analysis(working, findings)
     results[:provenance]     = provenance_analysis(working, findings)
     results[:preflight]      = infeasibility_preflight(working, findings)

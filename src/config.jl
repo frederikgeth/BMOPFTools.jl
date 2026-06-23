@@ -65,6 +65,9 @@ const _DEFAULT_CONFIG = load_config()
 # stays decoupled from the file layout.
 _domain_thresholds(cfg=_DEFAULT_CONFIG) = cfg["domain_rules"]
 _thermal_cfg(cfg=_DEFAULT_CONFIG)       = cfg["thermal"]
+# Guarded so a user TOML predating the section still resolves to packaged defaults.
+_feeder_length_cfg(cfg=_DEFAULT_CONFIG) =
+    get(get(cfg, "operational", Dict{String,Any}()), "feeder_length", Dict{String,Any}())
 _grounding_cfg(cfg=_DEFAULT_CONFIG)     = cfg["provenance"]["grounding"]
 _dss_defaults_cfg(cfg=_DEFAULT_CONFIG)  = cfg["provenance"]["dss_defaults"]
 _switch_like_cfg(cfg=_DEFAULT_CONFIG)   = cfg["provenance"]["switch_like"]
