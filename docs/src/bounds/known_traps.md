@@ -66,7 +66,7 @@ enlarges the feasible set beyond the true AC boundary, so it can certify feasibi
 a loading the network cannot serve.
 
 **Construction:** the two-bus, one-generator characterization of
-[Madani, Sojoudi & Lavaei (2015)](https://doi.org/10.1109/TPWRS.2014.2387234). Pick a
+[Kocuk, Dey & Sun (2016)](https://doi.org/10.1109/TPWRS.2015.2402640). Pick a
 load just beyond the nose (radicand $< 0$).
 
 **Expected behaviour:**
@@ -81,7 +81,7 @@ per-branch cone gap ([Diagnostics §3](diagnostics.md)). This is the headline re
 feasible relaxation is only a one-sided certificate.
 
 *Instance:* the two-bus, one-generator system of
-[Madani, Sojoudi & Lavaei (2015)](https://doi.org/10.1109/TPWRS.2014.2387234) with a
+[Kocuk, Dey & Sun (2016)](https://doi.org/10.1109/TPWRS.2015.2402640) with a
 load just past the nose; verify the AC side with [`solve_feasibility_opf`](../validation.md)
 (non-zero `total_slack_magnitude_A`). Not yet a named case.
 
@@ -112,7 +112,7 @@ a named case.
 [§5](index.md) — exactness proofs often assume *no
 generator lower bounds* or *load over-satisfaction*; reintroducing a lower bound can make
 the relaxation inexact, exact, or feasible-while-AC-infeasible
-([Madani, Sojoudi & Lavaei, 2015](https://doi.org/10.1109/TPWRS.2014.2387234)).
+([Kocuk, Dey & Sun, 2016](https://doi.org/10.1109/TPWRS.2015.2402640)).
 
 **Construction:** the same two-bus, one-generator system with a binding
 $\underline{P}^g > 0$; sweep the lower bound to move between the three outcomes.

@@ -147,7 +147,7 @@ structure — established by
 [Bolognani & Zampieri (2016)](https://doi.org/10.1109/TPWRS.2015.2395452),
 [Simpson-Porco (2018), Parts I–II](https://arxiv.org/abs/1701.02045), and, for
 distribution feeders,
-[Wang et al. (2018)](https://doi.org/10.1109/TSG.2016.2588541).
+[Wang et al. (2018)](https://doi.org/10.1109/TSG.2016.2572060).
 
 The second half is the deeper and more useful fact, and it is why the objective matters
 so much: the high-voltage solution is *the last one to vanish as the system is loaded
@@ -197,7 +197,7 @@ well-posedness in Section 1.
       \mathcal{F}_{\text{AC}} \neq \varnothing$ — a feasible relaxation says nothing,
       on its own, about AC feasibility.
 
-    [Madani, Sojoudi & Lavaei (2015)](https://doi.org/10.1109/TPWRS.2014.2387234) show
+    [Kocuk, Dey & Sun (2016)](https://doi.org/10.1109/TPWRS.2015.2402640) show
     that even a two-bus, one-generator system can exhibit all three outcomes: the SDP
     relaxation can be exact, inexact, or **feasible while the OPF instance is
     infeasible**. This is the hinge into the next section.
@@ -214,7 +214,7 @@ well-posedness in Section 1.
 
 Voltage collapse is a saddle-node bifurcation: the high- and low-voltage solutions
 coalesce and disappear at the nose, and the power-flow Jacobian is singular there
-([Dobson & Lu, 1993](https://doi.org/10.1109/9.222302);
+([Dobson & Lu, 1993](https://doi.org/10.1109/59.260912);
 [Simpson-Porco, Dörfler & Bullo, 2016](https://doi.org/10.1038/ncomms10790)). Beyond the
 nose the AC equations have **no real solution** — genuine infeasibility. So with
 constant-power loads, feasibility silently encodes the stability limit.
@@ -281,8 +281,8 @@ the solution is no longer physical
     reducing a line's loss increases every upstream reverse flow.
 
     The recurring technical conditions in the exactness literature —
-    [no generator lower bounds, or allowing **load over-satisfaction**](https://doi.org/10.1109/TPWRS.2014.2387234)
-    ([Sojoudi & Lavaei, 2012](https://doi.org/10.1109/Allerton.2012.6483445);
+    [no generator lower bounds, or allowing **load over-satisfaction**](https://doi.org/10.1109/TPWRS.2015.2402640)
+    ([Sojoudi & Lavaei, 2012](https://doi.org/10.1109/PESGM.2012.6345272);
     [Gan et al., 2015](https://arxiv.org/abs/1311.7170)) — are exactly the assumptions
     that *simultaneously* guarantee boundedness (Section 1), keep you on the
     high-voltage branch (Section 2), and hold you away from collapse (Section 4). They

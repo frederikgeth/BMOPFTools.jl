@@ -20,8 +20,8 @@ formal list.
   [arXiv](https://arxiv.org/abs/1706.05290)
 - C. Wang, A. Bernstein, J.-Y. Le Boudec, and M. Paolone, "Explicit conditions on
   existence and uniqueness of load-flow solutions in distribution networks," *IEEE
-  Transactions on Smart Grid*, vol. 9, no. 2, 2018.
-  [DOI](https://doi.org/10.1109/TSG.2016.2588541)
+  Transactions on Smart Grid*, vol. 9, no. 2, pp. 953–962, 2018.
+  [DOI](https://doi.org/10.1109/TSG.2016.2572060)
 - A. Bernstein, C. Wang, E. Dall'Anese, J.-Y. Le Boudec, and C. Zhao, "Load flow in
   multiphase distribution networks: existence, uniqueness, non-singularity and linear
   models," *IEEE Transactions on Power Systems*, 2018.
@@ -36,12 +36,12 @@ formal list.
   in radial networks," *IEEE Transactions on Automatic Control*, vol. 60, no. 1, 2015.
   [arXiv](https://arxiv.org/abs/1311.7170)
 - S. Sojoudi and J. Lavaei, "Physics of power networks makes hard optimization problems
-  easy to solve," *IEEE PES General Meeting / Allerton*, 2012.
-  [DOI](https://doi.org/10.1109/Allerton.2012.6483445)
-- R. Madani, S. Sojoudi, and J. Lavaei, "Inexactness of SDP relaxation and valid
+  easy to solve," *IEEE PES General Meeting*, 2012.
+  [DOI](https://doi.org/10.1109/PESGM.2012.6345272)
+- B. Kocuk, S. S. Dey, and X. A. Sun, "Inexactness of SDP relaxation and valid
   inequalities for optimal power flow" (two-bus characterization of the three
-  approximation outcomes), *IEEE Transactions on Power Systems*, vol. 30, no. 1, 2015.
-  [DOI](https://doi.org/10.1109/TPWRS.2014.2387234)
+  approximation outcomes), *IEEE Transactions on Power Systems*, vol. 31, no. 1,
+  pp. 642–651, 2016. [DOI](https://doi.org/10.1109/TPWRS.2015.2402640)
 - Z. Yuan and M. Paolone, "Properties of convex optimal power flow model based on power
   loss relaxation" (objective-monotonicity ⇒ exactness), *Electric Power Systems
   Research*, 2020. [arXiv](https://arxiv.org/abs/1906.06105)
@@ -57,7 +57,7 @@ formal list.
 
 - I. Dobson and L. Lu, "New methods for computing a closest saddle-node bifurcation and
   worst-case load power margin for voltage collapse," *IEEE Transactions on Power
-  Systems*, 1993. [DOI](https://doi.org/10.1109/9.222302)
+  Systems*, vol. 8, no. 3, pp. 905–913, 1993. [DOI](https://doi.org/10.1109/59.260912)
 - J. W. Simpson-Porco, F. Dörfler, and F. Bullo, "Voltage collapse in complex power
   grids," *Nature Communications*, vol. 7, 10790, 2016.
   [DOI](https://doi.org/10.1038/ncomms10790)
