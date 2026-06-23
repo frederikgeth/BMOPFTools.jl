@@ -1,7 +1,7 @@
 # BMOPF Network Summary: Three-wire-modified-phase-to-neutral / network_13 / Feeder_3
 
-**Generated:** 2026-06-22 14:03:07  
-**Findings:** 0 errors · 5 warnings · 23 info  
+**Generated:** 2026-06-23 20:59:32  
+**Findings:** 0 errors · 6 warnings · 22 info  
 **Convention:** LV_240V: mixed; implicit (Kron-style) grounding
 
 ---
@@ -77,7 +77,7 @@
 | Generation/load ratio | 0.0% |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.0 MW).
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal '3'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal 'c'.
 
 ## 6. Infeasibility Pre-flight
 
@@ -104,7 +104,7 @@
 |-------------------|------:|
 | Buses with neutral | 3 |
 | Neutral branches | 0 |
-| Grounding points | 3 |
+| Grounding points | 1 |
 | Neutral sections | 3 |
 | Floating sections | 0 |
 
@@ -121,24 +121,25 @@
 
 | Zone | Buses | Wires | Star point | Downstream earths | Likely system |
 |------|------:|-------|------------|------------------:|---------------|
-| 240.0 V | 108 | ≤3-wire | solid | 2 | indeterminate (3-wire / Kron-style implicit grounding) |
+| 240.0 V | 108 | ≤3-wire | solid | 0 | indeterminate (3-wire / Kron-style implicit grounding) |
 
-> 🔵 **[I.PROV.SEQ_DERIVED]** 2 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: lc8, lc9.
+> 🔵 **[I.PROV.SEQ_DERIVED]** 2 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: LC8, LC9.
 > 🔵 **[I.PROV.NO_PI_SHUNT]** All 3 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
+> 🟡 **[W.PROV.IMPLICIT_GROUNDING]** No branch carries a neutral conductor, but 2 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
 > 🔵 **[I.PROV.DSS_DEFAULT_LENGTH]** 1 of 107 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
-> 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_MPN]** 3 three-wire linecode(s) match the impedance signature of modified phase-to-neutral approximation — both R and X blocks are circulant with mutual ≈ ½ self. X is further symmetrised relative to the standard phase-to-neutral form, introducing additional modelling error particularly for asymmetric cable geometries.: lc1, lc8, lc9.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line3' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line37' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line4' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line5' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line57' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line6' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line60' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line63' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line66' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line8' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line9' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_MPN]** 3 three-wire linecode(s) match the impedance signature of modified phase-to-neutral approximation — both R and X blocks are circulant with mutual ≈ ½ self. X is further symmetrised relative to the standard phase-to-neutral form, introducing additional modelling error particularly for asymmetric cable geometries.: LC1, LC8, LC9.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE3' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE37' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE4' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE5' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE57' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE6' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE60' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE63' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE66' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE8' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE9' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 
 ## 8. Spec Conformance & Benchmark Readiness
 
@@ -157,8 +158,8 @@
 
 | Benchmark readiness | Value |
 |---------------------|------:|
-| Objective well-posed | true |
-| Only slack generation | true |
+| Objective well-posed | false |
+| Only slack generation | false |
 | Buses with \|V\| bounds | 0.0% |
 | Buses with vpn / vpp / vpos bounds | 0 / 0 / 0 |
 | Lines with thermal limits | 100.0% |
@@ -169,15 +170,15 @@
 
 **Augmentation needed:**
 
-- only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds
+- no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 - no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF
 
-> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 
 ## 9. Data Quality Summary
 
-**Total findings:** 28 (0 errors, 5 warnings, 23 info)
+**Total findings:** 28 (0 errors, 6 warnings, 22 info)
 
 ### 🟡 Warnings
 
@@ -185,59 +186,59 @@
   1 bus(es) are degree-1 with no attached load, generator, or shunt.
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.0 MW).
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line66`  
-  Line 'line66' has ||Z||_F = 9.89e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line60`  
-  Line 'line60' has ||Z||_F = 8.45e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line37`  
-  Line 'line37' has ||Z||_F = 3.9e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.PROV.IMPLICIT_GROUNDING]** `network`  
+  No branch carries a neutral conductor, but 2 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE60`  
+  Line 'LINE60' has ||Z||_F = 8.45e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE66`  
+  Line 'LINE66' has ||Z||_F = 9.89e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE37`  
+  Line 'LINE37' has ||Z||_F = 3.9e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
 
 ### 🔵 Info
 
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'sourcebus' has no load connected to phase terminal 'c'.
 - **[I.PROV.SEQ_DERIVED]** `linecode`  
-  2 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: lc8, lc9.
+  2 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: LC8, LC9.
 - **[I.PROV.NO_PI_SHUNT]** `linecode`  
   All 3 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
 - **[I.PROV.DSS_DEFAULT_LENGTH]** `line`  
   1 of 107 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
 - **[I.PROV.IMPEDANCE_TRANSFORM_MPN]** `linecode`  
-  3 three-wire linecode(s) match the impedance signature of modified phase-to-neutral approximation — both R and X blocks are circulant with mutual ≈ ½ self. X is further symmetrised relative to the standard phase-to-neutral form, introducing additional modelling error particularly for asymmetric cable geometries.: lc1, lc8, lc9.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line2`  
-  Line 'line2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line3`  
-  Line 'line3' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line37`  
-  Line 'line37' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line4`  
-  Line 'line4' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line5`  
-  Line 'line5' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line57`  
-  Line 'line57' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line6`  
-  Line 'line6' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line60`  
-  Line 'line60' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line63`  
-  Line 'line63' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line66`  
-  Line 'line66' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line8`  
-  Line 'line8' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line9`  
-  Line 'line9' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+  3 three-wire linecode(s) match the impedance signature of modified phase-to-neutral approximation — both R and X blocks are circulant with mutual ≈ ½ self. X is further symmetrised relative to the standard phase-to-neutral form, introducing additional modelling error particularly for asymmetric cable geometries.: LC1, LC8, LC9.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE2`  
+  Line 'LINE2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE3`  
+  Line 'LINE3' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE37`  
+  Line 'LINE37' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE4`  
+  Line 'LINE4' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE5`  
+  Line 'LINE5' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE57`  
+  Line 'LINE57' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE6`  
+  Line 'LINE6' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE60`  
+  Line 'LINE60' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE63`  
+  Line 'LINE63' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE66`  
+  Line 'LINE66' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE8`  
+  Line 'LINE8' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE9`  
+  Line 'LINE9' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
   108 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
 - **[I.PRE.SINGLE_SOURCE]** `network`  
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `[source]`  
-  Additional property not defined in schema at [voltage_source][source].
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `bus`  
-  bus has field(s) not in the BMOPF schema: v_declared.
+- **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
+  Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
 - **[I.RED.MERGEABLE_LINES]** `line`  
   5 group(s) of series lines (107 lines total) can be merged — intermediate buses have no other connections.
 - **[I.BENCH.AUGMENTATION]** `network`  
-  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+  Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 

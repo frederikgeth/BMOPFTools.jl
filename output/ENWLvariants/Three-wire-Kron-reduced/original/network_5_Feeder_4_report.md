@@ -1,7 +1,7 @@
 # BMOPF Network Summary: Three-wire-Kron-reduced / network_5 / Feeder_4
 
-**Generated:** 2026-06-22 14:02:20  
-**Findings:** 0 errors · 43 warnings · 88 info  
+**Generated:** 2026-06-23 20:58:50  
+**Findings:** 0 errors · 44 warnings · 87 info  
 **Convention:** LV_240V: mixed; implicit (Kron-style) grounding
 
 ---
@@ -106,7 +106,7 @@
 |-------------------|------:|
 | Buses with neutral | 31 |
 | Neutral branches | 0 |
-| Grounding points | 31 |
+| Grounding points | 1 |
 | Neutral sections | 31 |
 | Floating sections | 0 |
 
@@ -122,88 +122,89 @@
 
 | Zone | Buses | Wires | Star point | Downstream earths | Likely system |
 |------|------:|-------|------------|------------------:|---------------|
-| 240.0 V | 458 | ≤3-wire | solid | 30 | indeterminate (3-wire / Kron-style implicit grounding) |
+| 240.0 V | 458 | ≤3-wire | solid | 0 | indeterminate (3-wire / Kron-style implicit grounding) |
 
 > 🔵 **[I.PROV.NO_PI_SHUNT]** All 5 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
+> 🟡 **[W.PROV.IMPLICIT_GROUNDING]** No branch carries a neutral conductor, but 30 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
 > 🔵 **[I.PROV.DSS_DEFAULT_LENGTH]** 1 of 457 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
-> 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_KR]** 5 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: lc1, lc2, lc3, lc4, lc6.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line10' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line101' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line103' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line106' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line114' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line12' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line122' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line13' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line133' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line145' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line15' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line156' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line16' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line196' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line202' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line22' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line23' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line24' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line25' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line258' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line26' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line261' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line265' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line266' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line269' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line27' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line270' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line273' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line274' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line275' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line277' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line278' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line279' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line280' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line281' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line282' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line283' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line284' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line285' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line286' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line287' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line288' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line289' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line291' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line292' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line293' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line294' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line296' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line3' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line300' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line301' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line306' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line307' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line311' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line312' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line336' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line342' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line345' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line347' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line349' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line352' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line356' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line367' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line4' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line44' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line48' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line5' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line53' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line6' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line7' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line79' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line8' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line85' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line9' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line91' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line98' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_KR]** 5 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: LC1, LC2, LC3, LC4, LC6.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE10' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE101' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE103' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE106' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE114' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE12' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE122' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE13' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE133' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE145' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE15' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE156' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE16' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE196' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE202' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE22' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE23' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE24' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE25' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE258' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE26' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE261' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE265' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE266' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE269' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE27' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE270' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE273' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE274' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE275' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE277' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE278' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE279' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE280' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE281' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE282' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE283' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE284' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE285' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE286' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE287' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE288' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE289' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE291' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE292' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE293' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE294' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE296' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE3' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE300' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE301' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE306' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE307' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE311' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE312' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE336' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE342' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE345' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE347' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE349' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE352' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE356' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE367' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE4' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE44' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE48' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE5' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE53' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE6' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE7' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE79' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE8' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE85' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE9' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE91' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'LINE98' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 
 ## 8. Spec Conformance & Benchmark Readiness
 
@@ -222,8 +223,8 @@
 
 | Benchmark readiness | Value |
 |---------------------|------:|
-| Objective well-posed | true |
-| Only slack generation | true |
+| Objective well-posed | false |
+| Only slack generation | false |
 | Buses with \|V\| bounds | 0.0% |
 | Buses with vpn / vpp / vpos bounds | 0 / 0 / 0 |
 | Lines with thermal limits | 100.0% |
@@ -234,15 +235,15 @@
 
 **Augmentation needed:**
 
-- only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds
+- no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 - no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF
 
-> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 
 ## 9. Data Quality Summary
 
-**Total findings:** 131 (0 errors, 43 warnings, 88 info)
+**Total findings:** 131 (0 errors, 44 warnings, 87 info)
 
 ### 🟡 Warnings
 
@@ -250,88 +251,90 @@
   55 bus(es) are degree-1 with no attached load, generator, or shunt.
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.02 MW).
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line311`  
-  Line 'line311' has ||Z||_F = 8.36e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line283`  
-  Line 'line283' has ||Z||_F = 4.12e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line2`  
-  Line 'line2' has ||Z||_F = 5.33e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line13`  
-  Line 'line13' has ||Z||_F = 5.61e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line122`  
-  Line 'line122' has ||Z||_F = 7.78e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line7`  
-  Line 'line7' has ||Z||_F = 6.56e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line91`  
-  Line 'line91' has ||Z||_F = 6.87e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line103`  
-  Line 'line103' has ||Z||_F = 4.35e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line261`  
-  Line 'line261' has ||Z||_F = 4.86e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line284`  
-  Line 'line284' has ||Z||_F = 8.69e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line114`  
-  Line 'line114' has ||Z||_F = 8.01e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line5`  
-  Line 'line5' has ||Z||_F = 8.37e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line9`  
-  Line 'line9' has ||Z||_F = 6.01e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line292`  
-  Line 'line292' has ||Z||_F = 5.83e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line294`  
-  Line 'line294' has ||Z||_F = 8.96e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line12`  
-  Line 'line12' has ||Z||_F = 7.79e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line265`  
-  Line 'line265' has ||Z||_F = 4.35e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line106`  
-  Line 'line106' has ||Z||_F = 4.86e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line8`  
-  Line 'line8' has ||Z||_F = 6.56e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line145`  
-  Line 'line145' has ||Z||_F = 8.96e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line15`  
-  Line 'line15' has ||Z||_F = 7.41e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line277`  
-  Line 'line277' has ||Z||_F = 3.07e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line258`  
-  Line 'line258' has ||Z||_F = 3.5e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line101`  
-  Line 'line101' has ||Z||_F = 4.35e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line279`  
-  Line 'line279' has ||Z||_F = 8.96e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line98`  
-  Line 'line98' has ||Z||_F = 6.52e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line4`  
-  Line 'line4' has ||Z||_F = 9.98e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line282`  
-  Line 'line282' has ||Z||_F = 9.22e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line312`  
-  Line 'line312' has ||Z||_F = 8.36e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line287`  
-  Line 'line287' has ||Z||_F = 9.72e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line25`  
-  Line 'line25' has ||Z||_F = 9.73e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line280`  
-  Line 'line280' has ||Z||_F = 4.86e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line288`  
-  Line 'line288' has ||Z||_F = 7.84e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line270`  
-  Line 'line270' has ||Z||_F = 8.96e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line6`  
-  Line 'line6' has ||Z||_F = 6.56e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line281`  
-  Line 'line281' has ||Z||_F = 9.91e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line286`  
-  Line 'line286' has ||Z||_F = 4.12e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line133`  
-  Line 'line133' has ||Z||_F = 8.8e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line278`  
-  Line 'line278' has ||Z||_F = 8.75e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line3`  
-  Line 'line3' has ||Z||_F = 7.54e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
-- **[W.DOM.LINE_LOW_IMPEDANCE]** `line274`  
-  Line 'line274' has ||Z||_F = 9.77e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.PROV.IMPLICIT_GROUNDING]** `network`  
+  No branch carries a neutral conductor, but 30 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE145`  
+  Line 'LINE145' has ||Z||_F = 8.96e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE103`  
+  Line 'LINE103' has ||Z||_F = 4.35e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE91`  
+  Line 'LINE91' has ||Z||_F = 6.87e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE114`  
+  Line 'LINE114' has ||Z||_F = 8.01e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE4`  
+  Line 'LINE4' has ||Z||_F = 9.98e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE284`  
+  Line 'LINE284' has ||Z||_F = 8.69e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE8`  
+  Line 'LINE8' has ||Z||_F = 6.56e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE282`  
+  Line 'LINE282' has ||Z||_F = 9.22e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE15`  
+  Line 'LINE15' has ||Z||_F = 7.41e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE278`  
+  Line 'LINE278' has ||Z||_F = 8.75e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE2`  
+  Line 'LINE2' has ||Z||_F = 5.33e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE9`  
+  Line 'LINE9' has ||Z||_F = 6.01e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE287`  
+  Line 'LINE287' has ||Z||_F = 9.72e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE294`  
+  Line 'LINE294' has ||Z||_F = 8.96e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE270`  
+  Line 'LINE270' has ||Z||_F = 8.96e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE292`  
+  Line 'LINE292' has ||Z||_F = 5.83e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE98`  
+  Line 'LINE98' has ||Z||_F = 6.52e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE288`  
+  Line 'LINE288' has ||Z||_F = 7.84e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE3`  
+  Line 'LINE3' has ||Z||_F = 7.54e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE7`  
+  Line 'LINE7' has ||Z||_F = 6.56e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE280`  
+  Line 'LINE280' has ||Z||_F = 4.86e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE277`  
+  Line 'LINE277' has ||Z||_F = 3.07e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE13`  
+  Line 'LINE13' has ||Z||_F = 5.61e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE25`  
+  Line 'LINE25' has ||Z||_F = 9.73e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE274`  
+  Line 'LINE274' has ||Z||_F = 9.77e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE6`  
+  Line 'LINE6' has ||Z||_F = 6.56e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE133`  
+  Line 'LINE133' has ||Z||_F = 8.8e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE5`  
+  Line 'LINE5' has ||Z||_F = 8.37e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE12`  
+  Line 'LINE12' has ||Z||_F = 7.79e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE258`  
+  Line 'LINE258' has ||Z||_F = 3.5e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE122`  
+  Line 'LINE122' has ||Z||_F = 7.78e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE312`  
+  Line 'LINE312' has ||Z||_F = 8.36e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE106`  
+  Line 'LINE106' has ||Z||_F = 4.86e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE286`  
+  Line 'LINE286' has ||Z||_F = 4.12e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE281`  
+  Line 'LINE281' has ||Z||_F = 9.91e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE261`  
+  Line 'LINE261' has ||Z||_F = 4.86e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE311`  
+  Line 'LINE311' has ||Z||_F = 8.36e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE265`  
+  Line 'LINE265' has ||Z||_F = 4.35e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE101`  
+  Line 'LINE101' has ||Z||_F = 4.35e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE279`  
+  Line 'LINE279' has ||Z||_F = 8.96e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
+- **[W.DOM.LINE_LOW_IMPEDANCE]** `LINE283`  
+  Line 'LINE283' has ||Z||_F = 4.12e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
 
 ### 🔵 Info
 
@@ -344,171 +347,169 @@
 - **[I.PROV.DSS_DEFAULT_LENGTH]** `line`  
   1 of 457 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
 - **[I.PROV.IMPEDANCE_TRANSFORM_KR]** `linecode`  
-  5 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: lc1, lc2, lc3, lc4, lc6.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line10`  
-  Line 'line10' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line101`  
-  Line 'line101' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line103`  
-  Line 'line103' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line106`  
-  Line 'line106' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line114`  
-  Line 'line114' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line12`  
-  Line 'line12' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line122`  
-  Line 'line122' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line13`  
-  Line 'line13' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line133`  
-  Line 'line133' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line145`  
-  Line 'line145' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line15`  
-  Line 'line15' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line156`  
-  Line 'line156' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line16`  
-  Line 'line16' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line196`  
-  Line 'line196' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line2`  
-  Line 'line2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line202`  
-  Line 'line202' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line22`  
-  Line 'line22' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line23`  
-  Line 'line23' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line24`  
-  Line 'line24' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line25`  
-  Line 'line25' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line258`  
-  Line 'line258' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line26`  
-  Line 'line26' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line261`  
-  Line 'line261' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line265`  
-  Line 'line265' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line266`  
-  Line 'line266' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line269`  
-  Line 'line269' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line27`  
-  Line 'line27' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line270`  
-  Line 'line270' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line273`  
-  Line 'line273' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line274`  
-  Line 'line274' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line275`  
-  Line 'line275' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line277`  
-  Line 'line277' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line278`  
-  Line 'line278' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line279`  
-  Line 'line279' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line280`  
-  Line 'line280' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line281`  
-  Line 'line281' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line282`  
-  Line 'line282' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line283`  
-  Line 'line283' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line284`  
-  Line 'line284' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line285`  
-  Line 'line285' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line286`  
-  Line 'line286' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line287`  
-  Line 'line287' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line288`  
-  Line 'line288' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line289`  
-  Line 'line289' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line291`  
-  Line 'line291' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line292`  
-  Line 'line292' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line293`  
-  Line 'line293' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line294`  
-  Line 'line294' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line296`  
-  Line 'line296' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line3`  
-  Line 'line3' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line300`  
-  Line 'line300' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line301`  
-  Line 'line301' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line306`  
-  Line 'line306' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line307`  
-  Line 'line307' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line311`  
-  Line 'line311' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line312`  
-  Line 'line312' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line336`  
-  Line 'line336' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line342`  
-  Line 'line342' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line345`  
-  Line 'line345' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line347`  
-  Line 'line347' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line349`  
-  Line 'line349' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line352`  
-  Line 'line352' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line356`  
-  Line 'line356' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line367`  
-  Line 'line367' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line4`  
-  Line 'line4' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line44`  
-  Line 'line44' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line48`  
-  Line 'line48' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line5`  
-  Line 'line5' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line53`  
-  Line 'line53' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line6`  
-  Line 'line6' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line7`  
-  Line 'line7' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line79`  
-  Line 'line79' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line8`  
-  Line 'line8' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line85`  
-  Line 'line85' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line9`  
-  Line 'line9' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line91`  
-  Line 'line91' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `line98`  
-  Line 'line98' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+  5 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: LC1, LC2, LC3, LC4, LC6.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE10`  
+  Line 'LINE10' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE101`  
+  Line 'LINE101' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE103`  
+  Line 'LINE103' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE106`  
+  Line 'LINE106' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE114`  
+  Line 'LINE114' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE12`  
+  Line 'LINE12' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE122`  
+  Line 'LINE122' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE13`  
+  Line 'LINE13' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE133`  
+  Line 'LINE133' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE145`  
+  Line 'LINE145' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE15`  
+  Line 'LINE15' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE156`  
+  Line 'LINE156' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE16`  
+  Line 'LINE16' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE196`  
+  Line 'LINE196' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE2`  
+  Line 'LINE2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE202`  
+  Line 'LINE202' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE22`  
+  Line 'LINE22' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE23`  
+  Line 'LINE23' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE24`  
+  Line 'LINE24' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE25`  
+  Line 'LINE25' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE258`  
+  Line 'LINE258' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE26`  
+  Line 'LINE26' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE261`  
+  Line 'LINE261' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE265`  
+  Line 'LINE265' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE266`  
+  Line 'LINE266' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE269`  
+  Line 'LINE269' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE27`  
+  Line 'LINE27' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE270`  
+  Line 'LINE270' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE273`  
+  Line 'LINE273' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE274`  
+  Line 'LINE274' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE275`  
+  Line 'LINE275' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE277`  
+  Line 'LINE277' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE278`  
+  Line 'LINE278' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE279`  
+  Line 'LINE279' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE280`  
+  Line 'LINE280' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE281`  
+  Line 'LINE281' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE282`  
+  Line 'LINE282' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE283`  
+  Line 'LINE283' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE284`  
+  Line 'LINE284' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE285`  
+  Line 'LINE285' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE286`  
+  Line 'LINE286' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE287`  
+  Line 'LINE287' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE288`  
+  Line 'LINE288' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE289`  
+  Line 'LINE289' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE291`  
+  Line 'LINE291' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE292`  
+  Line 'LINE292' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE293`  
+  Line 'LINE293' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE294`  
+  Line 'LINE294' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE296`  
+  Line 'LINE296' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE3`  
+  Line 'LINE3' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE300`  
+  Line 'LINE300' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE301`  
+  Line 'LINE301' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE306`  
+  Line 'LINE306' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE307`  
+  Line 'LINE307' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE311`  
+  Line 'LINE311' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE312`  
+  Line 'LINE312' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE336`  
+  Line 'LINE336' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE342`  
+  Line 'LINE342' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE345`  
+  Line 'LINE345' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE347`  
+  Line 'LINE347' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE349`  
+  Line 'LINE349' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE352`  
+  Line 'LINE352' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE356`  
+  Line 'LINE356' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE367`  
+  Line 'LINE367' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE4`  
+  Line 'LINE4' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE44`  
+  Line 'LINE44' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE48`  
+  Line 'LINE48' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE5`  
+  Line 'LINE5' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE53`  
+  Line 'LINE53' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE6`  
+  Line 'LINE6' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE7`  
+  Line 'LINE7' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE79`  
+  Line 'LINE79' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE8`  
+  Line 'LINE8' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE85`  
+  Line 'LINE85' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE9`  
+  Line 'LINE9' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE91`  
+  Line 'LINE91' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `LINE98`  
+  Line 'LINE98' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
   458 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
 - **[I.PRE.SINGLE_SOURCE]** `network`  
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `[source]`  
-  Additional property not defined in schema at [voltage_source][source].
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `bus`  
-  bus has field(s) not in the BMOPF schema: v_declared.
+- **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
+  Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
 - **[I.RED.MERGEABLE_LINES]** `line`  
   46 group(s) of series lines (352 lines total) can be merged — intermediate buses have no other connections.
 - **[I.BENCH.AUGMENTATION]** `network`  
-  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+  Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 

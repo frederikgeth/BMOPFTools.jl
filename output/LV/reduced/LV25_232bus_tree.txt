@@ -1,231 +1,231 @@
 # Network graph  (176 buses)
 
-b2995 (SRC)
-└── [tx4279: Dyn1 11.0kV/433V]── b639
-    ├── b1448 (L86)
-    └── b3065
-        ├── b1024
-        │   └── b1684
-        │       ├── b2565
-        │       │   ├── b1642
-        │       │   │   ├── b1008
-        │       │   │   │   ├── b1778
-        │       │   │   │   │   ├── b1795 (L28)
-        │       │   │   │   │   ├── b2078
-        │       │   │   │   │   │   ├── b3347 (L41)
-        │       │   │   │   │   │   └── b556 (L54)
-        │       │   │   │   │   └── b624 (L9)
-        │       │   │   │   ├── b1797 (L89)
-        │       │   │   │   └── b62 (L56)
-        │       │   │   ├── b1430 (L73)
-        │       │   │   └── b1794 (L1)
-        │       │   ├── b2841
-        │       │   │   ├── b1553
-        │       │   │   │   ├── b1540 (L42)
-        │       │   │   │   ├── b2484 (L93)
-        │       │   │   │   └── b2917
-        │       │   │   │       ├── b1178 (L101)
-        │       │   │   │       ├── b2370
-        │       │   │   │       │   ├── b1162 (L92)
-        │       │   │   │       │   └── b2687 (L19)
-        │       │   │   │       ├── b2812
-        │       │   │   │       │   ├── b1358 (L95)
-        │       │   │   │       │   ├── b198
-        │       │   │   │       │   │   ├── b1173
-        │       │   │   │       │   │   │   ├── b225 (L24)
-        │       │   │   │       │   │   │   └── b911 (L78)
-        │       │   │   │       │   │   ├── b1222 (L29)
-        │       │   │   │       │   │   ├── b2217 (L106)
-        │       │   │   │       │   │   └── b924
-        │       │   │   │       │   │       ├── b1529
-        │       │   │   │       │   │       │   ├── b2106
-        │       │   │   │       │   │       │   │   ├── b1927 (L57)
-        │       │   │   │       │   │       │   │   ├── b2969 (L12)
-        │       │   │   │       │   │       │   │   └── b999 (L22)
-        │       │   │   │       │   │       │   ├── b3014 (L3)
-        │       │   │   │       │   │       │   └── b490 (L91)
-        │       │   │   │       │   │       ├── b1875 (L71)
-        │       │   │   │       │   │       └── b2595 (L60)
-        │       │   │   │       │   ├── b2264 (L20)
-        │       │   │   │       │   ├── b2301
-        │       │   │   │       │   │   └── b55 (L49)
-        │       │   │   │       │   ├── b2900 (L52)
-        │       │   │   │       │   └── b701
-        │       │   │   │       │       ├── b171 (L80)
-        │       │   │   │       │       └── b2651 (L90)
-        │       │   │   │       └── b327 (L62)
-        │       │   │   └── b1787 (L77)
-        │       │   └── b2878 (L35)
-        │       ├── b3388 (L55)
-        │       └── b453 (L112)
-        ├── b1803
-        │   └── b2200
-        │       ├── b1478
-        │       │   ├── b1805
-        │       │   │   ├── b1826 (L47)
-        │       │   │   ├── b1866 (L66)
-        │       │   │   ├── b2216
-        │       │   │   │   ├── b1891 (L51)
-        │       │   │   │   └── b3094 (L34)
-        │       │   │   └── b918
-        │       │   │       ├── b1150
-        │       │   │       │   ├── b1165 (L8)
-        │       │   │       │   ├── b2487
-        │       │   │       │   │   ├── b1332 (L88)
-        │       │   │       │   │   └── b872 (L4)
-        │       │   │       │   ├── b2588 (L26)
-        │       │   │       │   └── b2773
-        │       │   │       │       ├── b1105 (L17)
-        │       │   │       │       ├── b1849 (L81)
-        │       │   │       │       └── b441
-        │       │   │       │           ├── b1715 (L38)
-        │       │   │       │           └── b81 (L97)
-        │       │   │       ├── b2171
-        │       │   │       │   ├── b2258 (L105)
-        │       │   │       │   └── b2722 (L109)
-        │       │   │       ├── b2997 (L48)
-        │       │   │       └── b813 (L44)
-        │       │   ├── b1953
-        │       │   │   ├── b1387
-        │       │   │   │   ├── b2122
-        │       │   │   │   │   ├── b2292 (L82)
-        │       │   │   │   │   ├── b2482
-        │       │   │   │   │   │   ├── b1561
-        │       │   │   │   │   │   │   ├── b1549 (L45)
-        │       │   │   │   │   │   │   ├── b3174 (L23)
-        │       │   │   │   │   │   │   └── b656
-        │       │   │   │   │   │   │       ├── b1329 (L70)
-        │       │   │   │   │   │   │       └── b799 (L46)
-        │       │   │   │   │   │   ├── b2453 (L18)
-        │       │   │   │   │   │   └── b3359 (L39)
-        │       │   │   │   │   ├── b2575 (L108)
-        │       │   │   │   │   ├── b2736 (L36)
-        │       │   │   │   │   └── b677 (L7)
-        │       │   │   │   └── b2864
-        │       │   │   │       ├── b2046 (L11)
-        │       │   │   │       └── b2941
-        │       │   │   │           ├── b1441 (L10)
-        │       │   │   │           ├── b2145
-        │       │   │   │           │   ├── b231 (L27)
-        │       │   │   │           │   └── b3177 (L75)
-        │       │   │   │           └── b2191 (L50)
-        │       │   │   ├── b2014
-        │       │   │   │   ├── b1092 (L30)
-        │       │   │   │   └── b868 (L32)
-        │       │   │   └── b2992 (L63)
-        │       │   ├── b2442 (L67)
-        │       │   └── b577 (L76)
-        │       ├── b3241 (L84)
-        │       ├── b400 (L31)
-        │       └── b634 (L110)
-        └── b3102
-            └── b2134
-                ├── b3152
-                │   ├── b1559 (L13)
-                │   ├── b2151
-                │   │   ├── b1376 (L74)
-                │   │   ├── b2028
-                │   │   │   ├── b1402 (L21)
-                │   │   │   └── b1965 (L33)
-                │   │   ├── b3181
-                │   │   │   ├── b1277 (L107)
-                │   │   │   └── b3258 (L61)
-                │   │   └── b397 (L79)
-                │   ├── b659 (L37)
-                │   └── b704
-                │       ├── b1306 (L102)
-                │       └── b1936 (L94)
-                ├── b349 (L2)
-                └── b781
-                    ├── b1311
-                    │   ├── b1203
-                    │   │   ├── b2460 (L85)
-                    │   │   └── b686 (L72)
-                    │   ├── b2529 (L103)
-                    │   ├── b3168 (L98)
-                    │   └── b888
-                    │       ├── b2296 (L6)
-                    │       ├── b3293
-                    │       │   ├── b3350 (L43)
-                    │       │   └── b523 (L25)
-                    │       ├── b3361 (L69)
-                    │       └── b542
-                    │           ├── b1449
-                    │           │   ├── b2118 (L104)
-                    │           │   └── b346 (L65)
-                    │           ├── b1976 (L96)
-                    │           └── b2155 (L111)
-                    ├── b244 (L59)
-                    └── b483
-                        ├── b1287 (L40)
-                        ├── b2936 (L5)
-                        └── b3185
-                            ├── b129
-                            │   ├── b1266 (L15)
-                            │   ├── b1633 (L100)
-                            │   └── b382
-                            │       ├── b1818
-                            │       │   ├── b2371
-                            │       │   │   ├── b1465
-                            │       │   │   │   └── b3195 (L14)
-                            │       │   │   ├── b1571 (L53)
-                            │       │   │   └── b2432 (L83)
-                            │       │   ├── b2406 (L68)
-                            │       │   └── b2814 (L58)
-                            │       ├── b465 (L16)
-                            │       └── b507 (L87)
-                            ├── b1526 (L64)
-                            └── b2314 (L99)
+B2995 (SRC)
+└── [Tx4279: Dyn0 11.0kV/433V]── B639
+    ├── B1448 (L86)
+    └── B3065
+        ├── B1024
+        │   └── B1684
+        │       ├── B2565
+        │       │   ├── B1642
+        │       │   │   ├── B1008
+        │       │   │   │   ├── B1778
+        │       │   │   │   │   ├── B1795 (L28)
+        │       │   │   │   │   ├── B2078
+        │       │   │   │   │   │   ├── B3347 (L41)
+        │       │   │   │   │   │   └── B556 (L54)
+        │       │   │   │   │   └── B624 (L9)
+        │       │   │   │   ├── B1797 (L89)
+        │       │   │   │   └── B62 (L56)
+        │       │   │   ├── B1430 (L73)
+        │       │   │   └── B1794 (L1)
+        │       │   ├── B2841
+        │       │   │   ├── B1553
+        │       │   │   │   ├── B1540 (L42)
+        │       │   │   │   ├── B2484 (L93)
+        │       │   │   │   └── B2917
+        │       │   │   │       ├── B1178 (L101)
+        │       │   │   │       ├── B2370
+        │       │   │   │       │   ├── B1162 (L92)
+        │       │   │   │       │   └── B2687 (L19)
+        │       │   │   │       ├── B2812
+        │       │   │   │       │   ├── B1358 (L95)
+        │       │   │   │       │   ├── B198
+        │       │   │   │       │   │   ├── B1173
+        │       │   │   │       │   │   │   ├── B225 (L24)
+        │       │   │   │       │   │   │   └── B911 (L78)
+        │       │   │   │       │   │   ├── B1222 (L29)
+        │       │   │   │       │   │   ├── B2217 (L106)
+        │       │   │   │       │   │   └── B924
+        │       │   │   │       │   │       ├── B1529
+        │       │   │   │       │   │       │   ├── B2106
+        │       │   │   │       │   │       │   │   ├── B1927 (L57)
+        │       │   │   │       │   │       │   │   ├── B2969 (L12)
+        │       │   │   │       │   │       │   │   └── B999 (L22)
+        │       │   │   │       │   │       │   ├── B3014 (L3)
+        │       │   │   │       │   │       │   └── B490 (L91)
+        │       │   │   │       │   │       ├── B1875 (L71)
+        │       │   │   │       │   │       └── B2595 (L60)
+        │       │   │   │       │   ├── B2264 (L20)
+        │       │   │   │       │   ├── B2301
+        │       │   │   │       │   │   └── B55 (L49)
+        │       │   │   │       │   ├── B2900 (L52)
+        │       │   │   │       │   └── B701
+        │       │   │   │       │       ├── B171 (L80)
+        │       │   │   │       │       └── B2651 (L90)
+        │       │   │   │       └── B327 (L62)
+        │       │   │   └── B1787 (L77)
+        │       │   └── B2878 (L35)
+        │       ├── B3388 (L55)
+        │       └── B453 (L112)
+        ├── B1803
+        │   └── B2200
+        │       ├── B1478
+        │       │   ├── B1805
+        │       │   │   ├── B1826 (L47)
+        │       │   │   ├── B1866 (L66)
+        │       │   │   ├── B2216
+        │       │   │   │   ├── B1891 (L51)
+        │       │   │   │   └── B3094 (L34)
+        │       │   │   └── B918
+        │       │   │       ├── B1150
+        │       │   │       │   ├── B1165 (L8)
+        │       │   │       │   ├── B2487
+        │       │   │       │   │   ├── B1332 (L88)
+        │       │   │       │   │   └── B872 (L4)
+        │       │   │       │   ├── B2588 (L26)
+        │       │   │       │   └── B2773
+        │       │   │       │       ├── B1105 (L17)
+        │       │   │       │       ├── B1849 (L81)
+        │       │   │       │       └── B441
+        │       │   │       │           ├── B1715 (L38)
+        │       │   │       │           └── B81 (L97)
+        │       │   │       ├── B2171
+        │       │   │       │   ├── B2258 (L105)
+        │       │   │       │   └── B2722 (L109)
+        │       │   │       ├── B2997 (L48)
+        │       │   │       └── B813 (L44)
+        │       │   ├── B1953
+        │       │   │   ├── B1387
+        │       │   │   │   ├── B2122
+        │       │   │   │   │   ├── B2292 (L82)
+        │       │   │   │   │   ├── B2482
+        │       │   │   │   │   │   ├── B1561
+        │       │   │   │   │   │   │   ├── B1549 (L45)
+        │       │   │   │   │   │   │   ├── B3174 (L23)
+        │       │   │   │   │   │   │   └── B656
+        │       │   │   │   │   │   │       ├── B1329 (L70)
+        │       │   │   │   │   │   │       └── B799 (L46)
+        │       │   │   │   │   │   ├── B2453 (L18)
+        │       │   │   │   │   │   └── B3359 (L39)
+        │       │   │   │   │   ├── B2575 (L108)
+        │       │   │   │   │   ├── B2736 (L36)
+        │       │   │   │   │   └── B677 (L7)
+        │       │   │   │   └── B2864
+        │       │   │   │       ├── B2046 (L11)
+        │       │   │   │       └── B2941
+        │       │   │   │           ├── B1441 (L10)
+        │       │   │   │           ├── B2145
+        │       │   │   │           │   ├── B231 (L27)
+        │       │   │   │           │   └── B3177 (L75)
+        │       │   │   │           └── B2191 (L50)
+        │       │   │   ├── B2014
+        │       │   │   │   ├── B1092 (L30)
+        │       │   │   │   └── B868 (L32)
+        │       │   │   └── B2992 (L63)
+        │       │   ├── B2442 (L67)
+        │       │   └── B577 (L76)
+        │       ├── B3241 (L84)
+        │       ├── B400 (L31)
+        │       └── B634 (L110)
+        └── B3102
+            └── B2134
+                ├── B3152
+                │   ├── B1559 (L13)
+                │   ├── B2151
+                │   │   ├── B1376 (L74)
+                │   │   ├── B2028
+                │   │   │   ├── B1402 (L21)
+                │   │   │   └── B1965 (L33)
+                │   │   ├── B3181
+                │   │   │   ├── B1277 (L107)
+                │   │   │   └── B3258 (L61)
+                │   │   └── B397 (L79)
+                │   ├── B659 (L37)
+                │   └── B704
+                │       ├── B1306 (L102)
+                │       └── B1936 (L94)
+                ├── B349 (L2)
+                └── B781
+                    ├── B1311
+                    │   ├── B1203
+                    │   │   ├── B2460 (L85)
+                    │   │   └── B686 (L72)
+                    │   ├── B2529 (L103)
+                    │   ├── B3168 (L98)
+                    │   └── B888
+                    │       ├── B2296 (L6)
+                    │       ├── B3293
+                    │       │   ├── B3350 (L43)
+                    │       │   └── B523 (L25)
+                    │       ├── B3361 (L69)
+                    │       └── B542
+                    │           ├── B1449
+                    │           │   ├── B2118 (L104)
+                    │           │   └── B346 (L65)
+                    │           ├── B1976 (L96)
+                    │           └── B2155 (L111)
+                    ├── B244 (L59)
+                    └── B483
+                        ├── B1287 (L40)
+                        ├── B2936 (L5)
+                        └── B3185
+                            ├── B129
+                            │   ├── B1266 (L15)
+                            │   ├── B1633 (L100)
+                            │   └── B382
+                            │       ├── B1818
+                            │       │   ├── B2371
+                            │       │   │   ├── B1465
+                            │       │   │   │   └── B3195 (L14)
+                            │       │   │   ├── B1571 (L53)
+                            │       │   │   └── B2432 (L83)
+                            │       │   ├── B2406 (L68)
+                            │       │   └── B2814 (L58)
+                            │       ├── B465 (L16)
+                            │       └── B507 (L87)
+                            ├── B1526 (L64)
+                            └── B2314 (L99)
 
 Loads (112 total):
-  L1 = ld1136_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L2 = ld1332_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L3 = ld140_load_c       10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L4 = ld1418_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L5 = ld1482_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L6 = ld1495_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L7 = ld1512_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L8 = ld1537_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L9 = ld1571_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L10 = ld157_load_a       10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L11 = ld1584_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L12 = ld1708_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L13 = ld1710_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L14 = ld1722_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L15 = ld1735_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L16 = ld1736_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L17 = ld1737_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L18 = ld1768_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L19 = ld17_load_a        10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L20 = ld180_load_b       10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L21 = ld1813_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L22 = ld1853_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L23 = ld1881_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L24 = ld1897_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L25 = ld1913_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L26 = ld1915_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L27 = ld1946_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L28 = ld194_load_c       10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L29 = ld2041_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L30 = ld2088_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L31 = ld2146_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L32 = ld2185_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L33 = ld219_load_a       10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L34 = ld2319_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L35 = ld2402_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L36 = ld241_load_b       10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L37 = ld2443_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L38 = ld2503_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L39 = ld2548_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L40 = ld2575_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L41 = ld2643_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L42 = ld2700_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L43 = ld2701_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L44 = ld2727_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L45 = ld2738_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L46 = ld2771_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L47 = ld2802_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L48 = ld2910_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
-  L49 = ld3020_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L50 = ld3038_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
+  L1 = Ld1136_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L2 = Ld1332_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L3 = Ld140_LOAD_C       10.0 kW  SINGLE_PHASE  terminals: c,n
+  L4 = Ld1418_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L5 = Ld1482_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L6 = Ld1495_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L7 = Ld1512_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L8 = Ld1537_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L9 = Ld1571_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L10 = Ld157_LOAD_A       10.0 kW  SINGLE_PHASE  terminals: a,n
+  L11 = Ld1584_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L12 = Ld1708_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L13 = Ld1710_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L14 = Ld1722_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L15 = Ld1735_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L16 = Ld1736_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L17 = Ld1737_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L18 = Ld1768_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L19 = Ld17_LOAD_A        10.0 kW  SINGLE_PHASE  terminals: a,n
+  L20 = Ld180_LOAD_B       10.0 kW  SINGLE_PHASE  terminals: b,n
+  L21 = Ld1813_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L22 = Ld1853_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L23 = Ld1881_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L24 = Ld1897_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L25 = Ld1913_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L26 = Ld1915_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L27 = Ld1946_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L28 = Ld194_LOAD_C       10.0 kW  SINGLE_PHASE  terminals: c,n
+  L29 = Ld2041_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L30 = Ld2088_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L31 = Ld2146_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L32 = Ld2185_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L33 = Ld219_LOAD_A       10.0 kW  SINGLE_PHASE  terminals: a,n
+  L34 = Ld2319_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L35 = Ld2402_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L36 = Ld241_LOAD_B       10.0 kW  SINGLE_PHASE  terminals: b,n
+  L37 = Ld2443_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L38 = Ld2503_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L39 = Ld2548_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L40 = Ld2575_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L41 = Ld2643_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L42 = Ld2700_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L43 = Ld2701_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L44 = Ld2727_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L45 = Ld2738_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L46 = Ld2771_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L47 = Ld2802_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L48 = Ld2910_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n
+  L49 = Ld3020_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L50 = Ld3038_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
   … and 62 more (pass legend_limit= to show all)

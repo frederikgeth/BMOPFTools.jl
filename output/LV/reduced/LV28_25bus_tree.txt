@@ -1,21 +1,21 @@
 # Network graph  (14 buses)
 
-b598 (SRC)
-└── [tx3913: Dyn1 11.0kV/415V]── b897
-    └── b2086
-        ├── b504
-        │   └── b301
-        │       └── b689
-        │           ├── b107
-        │           │   └── b1374
-        │           │       └── b885
-        │           │           └── b1352 (L1)
-        │           └── b363
-        │               └── b3400 (L3)
-        └── b706
-            └── b266 (L2)
+B598 (SRC)
+└── [Tx3913: Dyn0 11.0kV/415V]── B897
+    └── B2086
+        ├── B504
+        │   └── B301
+        │       └── B689
+        │           ├── B107
+        │           │   └── B1374
+        │           │       └── B885
+        │           │           └── B1352 (L1)
+        │           └── B363
+        │               └── B3400 (L3)
+        └── B706
+            └── B266 (L2)
 
 Loads (3 total):
-  L1 = ld2330_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L2 = ld3225_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
-  L3 = ld3531_load_c      10.0 kW  SINGLE_PHASE  terminals: 3,n
+  L1 = Ld2330_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L2 = Ld3225_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n
+  L3 = Ld3531_LOAD_C      10.0 kW  SINGLE_PHASE  terminals: c,n

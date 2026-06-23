@@ -1,7 +1,7 @@
 # BMOPF Network Summary: MV_LV_combined
 
-**Generated:** 2026-06-22 14:06:35  
-**Findings:** 0 errors · 15 warnings · 112 info  
+**Generated:** 2026-06-23 21:02:40  
+**Findings:** 0 errors · 14 warnings · 118 info  
 **Convention:** MV_6.4kV: mixed; LV_250V: 4-wire; 1289 grounding point(s)
 
 ---
@@ -14,11 +14,11 @@
 | line | 3096 |  |
 | linecode | 23 |  |
 | voltage_source | 1 |  |
-| load | 1255 | 12.55 MW, 6.28 Mvar |
+| load | 1255 | 12.55 MW, 6.77 Mvar |
 | generator | 0 | capacity: 0.0 W |
 | shunt | 1288 |  |
 | switch | 279 |  |
-| transformer | 33 | Dyn1×33 |
+| transformer | 33 | Dyn0×33 |
 | inverter | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
@@ -33,39 +33,39 @@
 
 **Transformer transitions:**
 
-- `tx3913`: MV_6.4kV → LV_240V (delta_wye, Dyn1)
-- `tx1777`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx848`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx269`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx3703`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx1632`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx1108`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2620`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx215`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2615`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2458`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx3394`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx1941`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx1257`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2177`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx1840`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2187`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx3170`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx4271`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx1621`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx381`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2831`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2059`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx4279`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2677`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx3831`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx475`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx4258`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx377`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx1902`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx3676`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx3270`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
-- `tx2382`: MV_6.4kV → LV_250V (delta_wye, Dyn1)
+- `Tx2677`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx3703`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx1108`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx848`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx475`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx2615`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx3676`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx2177`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx2059`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx1941`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx2187`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx4271`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx4279`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx2458`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx3831`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx2620`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx377`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx1632`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx1621`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx1902`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx3270`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx2831`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx381`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx1840`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx1777`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx3170`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx3913`: MV_6.4kV → LV_240V (delta_wye, Dyn0)
+- `Tx3394`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx215`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx269`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx2382`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx1257`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
+- `Tx4258`: MV_6.4kV → LV_250V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -90,7 +90,7 @@
 | Parameter | Min | Max | CV | n |
 |-----------|-----|-----|----|---|
 | p_nom | 10000.0 | 10000.0 | 0.0 | 1255 |
-| q_nom | 5000.0 | 5000.0 | 0.0 | 1255 |
+| q_nom | 5400.0 | 5400.0 | 0.0 | 1255 |
 
 ### line ⚠
 
@@ -112,18 +112,19 @@
 
 > 🟡 **[W.DIV.LOAD_SYMMETRIC]** 1254 of 1255 loads share identical (p_nom, q_nom) — possible copy-paste symmetry.
 > 🔵 **[I.DIV.LOAD_CV_LOW]** Load p_nom has very low coefficient of variation (0.0) — all loads nearly identical.
+> 🔵 **[I.DIV.LOAD_PF_DSS_DEFAULT]** Load power factor mean 0.88 is within 1% of the OpenDSS default PF=0.88 (CV=0.0) — reactive power may not have been explicitly set.
 > 🔵 **[I.DIV.LOAD_UNIFORM_MODEL]** All 1255 loads use the constant_power model — no load exercises voltage dependence (ZIP/exponential); the case does not test voltage-dependent load behaviour.
 > 🔵 **[I.DIV.LOAD_UNIFORM_CONFIG]** All 1255 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b100' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1' has balanced aggregate load across 3 phase(s) (max spread 1.96%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1011' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1210' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1014' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1006' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1349' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b107' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1133' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b1248' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B100' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1014' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1210' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1' has balanced aggregate load across 3 phase(s) (max spread 1.96%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1011' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B107' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1248' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1006' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1133' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B1349' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 > 🔵 **[I.DIV.LINE_SYMMETRIC]** 135 lines share linecode 'ughv_400al_triplex_ug_3w_bundled' with similar length (±10%) — electrically near-identical.
 
 ## 5. Loading & Operational Summary
@@ -131,7 +132,7 @@
 | | Value |
 |--|-------|
 | Total load P | 12.55 MW |
-| Total load Q | 6.28 Mvar |
+| Total load Q | 6.77 Mvar |
 | Total gen capacity | 0.0 W |
 | Generation/load ratio | 0.0% |
 
@@ -139,81 +140,86 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| tx3913 | 200.0 kVA | 16.8% |
-| tx1777 | 500.0 kVA | 2.2% |
-| tx848 | 315.0 kVA | 17.7% |
-| tx269 | 500.0 kVA | 315.3% ⚠ |
-| tx3703 | 500.0 kVA | 26.8% |
-| tx1632 | 500.0 kVA | 47.0% |
-| tx1108 | 500.0 kVA | 337.6% ⚠ |
-| tx2620 | 500.0 kVA | 275.0% ⚠ |
-| tx215 | 750.0 kVA | 1.5% |
-| tx2615 | 315.0 kVA | 145.5% ⚠ |
-| tx2458 | 1.0 MVA | 2.2% |
-| tx3394 | 315.0 kVA | 163.3% ⚠ |
-| tx1941 | 500.0 kVA | 246.0% ⚠ |
-| tx1257 | 1.0 MVA | 0.0% |
-| tx2177 | 1.0 MVA | 3.4% |
-| tx1840 | 500.0 kVA | 8.9% |
-| tx2187 | 500.0 kVA | 210.2% ⚠ |
-| tx3170 | 100.0 kVA | 22.4% |
-| tx4271 | 500.0 kVA | 15.7% |
-| tx1621 | 500.0 kVA | 2.2% |
-| tx381 | 1.0 MVA | 0.0% |
-| tx2831 | 500.0 kVA | 2.2% |
-| tx2059 | 750.0 kVA | 180.4% ⚠ |
-| tx4279 | 500.0 kVA | 250.4% ⚠ |
-| tx2677 | 500.0 kVA | 210.2% ⚠ |
-| tx3831 | 1.0 MVA | 24.6% |
-| tx475 | 1.0 MVA | 0.0% |
-| tx4258 | 315.0 kVA | 3.5% |
-| tx377 | 500.0 kVA | 2.2% |
-| tx1902 | 500.0 kVA | 2.2% |
-| tx3676 | 1.0 MVA | 2.2% |
-| tx3270 | 750.0 kVA | 16.4% |
-| tx2382 | 500.0 kVA | 270.6% ⚠ |
+| Tx2677 | 500.0 kVA | 213.6% ⚠ |
+| Tx3703 | 500.0 kVA | 27.3% |
+| Tx1108 | 500.0 kVA | 343.2% ⚠ |
+| Tx848 | 315.0 kVA | 18.0% |
+| Tx475 | 1.0 MVA | 0.0% |
+| Tx2615 | 315.0 kVA | 147.9% ⚠ |
+| Tx3676 | 1.0 MVA | 2.3% |
+| Tx2177 | 1.0 MVA | 3.4% |
+| Tx2059 | 750.0 kVA | 183.3% ⚠ |
+| Tx1941 | 500.0 kVA | 250.0% ⚠ |
+| Tx2187 | 500.0 kVA | 213.6% ⚠ |
+| Tx4271 | 500.0 kVA | 15.9% |
+| Tx4279 | 500.0 kVA | 254.5% ⚠ |
+| Tx2458 | 1.0 MVA | 2.3% |
+| Tx3831 | 1.0 MVA | 25.0% |
+| Tx2620 | 500.0 kVA | 279.5% ⚠ |
+| Tx377 | 500.0 kVA | 2.3% |
+| Tx1632 | 500.0 kVA | 47.7% |
+| Tx1621 | 500.0 kVA | 2.3% |
+| Tx1902 | 500.0 kVA | 2.3% |
+| Tx3270 | 750.0 kVA | 16.7% |
+| Tx2831 | 500.0 kVA | 2.3% |
+| Tx381 | 1.0 MVA | 0.0% |
+| Tx1840 | 500.0 kVA | 9.1% |
+| Tx1777 | 500.0 kVA | 2.3% |
+| Tx3170 | 100.0 kVA | 22.7% |
+| Tx3913 | 200.0 kVA | 17.0% |
+| Tx3394 | 315.0 kVA | 165.9% ⚠ |
+| Tx215 | 750.0 kVA | 1.5% |
+| Tx269 | 500.0 kVA | 320.5% ⚠ |
+| Tx2382 | 500.0 kVA | 275.0% ⚠ |
+| Tx1257 | 1.0 MVA | 0.0% |
+| Tx4258 | 315.0 kVA | 3.6% |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (12.55 MW).
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx269' is at 315.3% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx1108' is at 337.6% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx2620' is at 275.0% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx2615' is at 145.5% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx3394' is at 163.3% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx1941' is at 246.0% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx2187' is at 210.2% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx2059' is at 180.4% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx4279' is at 250.4% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx2677' is at 210.2% utilisation at nominal load — little OPF headroom.
-> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'tx2382' is at 270.6% utilisation at nominal load — little OPF headroom.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1726' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1726' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1726' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1025' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1025' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1012' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1012' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1349' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1151' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1151' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b105' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b105' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b131' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b131' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1372' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1372' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1163' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1163' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1163' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1255' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1255' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1133' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1248' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '3'.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx2677' is at 213.6% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx1108' is at 343.2% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx2615' is at 147.9% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx2059' is at 183.3% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx1941' is at 250.0% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx2187' is at 213.6% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx4279' is at 254.5% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx2620' is at 279.5% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx3394' is at 165.9% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx269' is at 320.5% utilisation at nominal load — little OPF headroom.
+> 🟡 **[W.OPS.XFMR_OVERLOADED]** Transformer 'Tx2382' is at 275.0% utilisation at nominal load — little OPF headroom.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1151' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1151' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1726' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1726' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1726' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1248' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1372' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1372' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1025' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1025' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1012' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1012' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1133' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1255' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1255' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B131' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B131' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1163' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1163' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1163' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B105' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B105' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B1349' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.FEEDER_LONG]** Galvanic zone anchored at bus 'B100' (LV, 0.25 kV) has an electrical reach of 1.02 km — longer than the typical maximum LV feeder reach (1.0 km). Check for excessive voltage drop or a length-unit (km vs m) error.
+> 🔵 **[I.OPS.FEEDER_LONG]** Galvanic zone anchored at bus 'B1003' (LV, 0.25 kV) has an electrical reach of 1.09 km — longer than the typical maximum LV feeder reach (1.0 km). Check for excessive voltage drop or a length-unit (km vs m) error.
+> 🔵 **[I.OPS.FEEDER_SHORT]** Galvanic zone anchored at bus 'B1133' (LV, 0.25 kV) has an electrical reach of 7.0 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
+> 🔵 **[I.OPS.FEEDER_SHORT]** Galvanic zone anchored at bus 'B1163' (LV, 0.25 kV) has an electrical reach of 1.1 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
+> 🔵 **[I.OPS.FEEDER_SHORT]** Galvanic zone anchored at bus 'B1007' (LV, 0.25 kV) has an electrical reach of 0.8 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
 
 ## 6. Infeasibility Pre-flight
 
@@ -253,7 +259,7 @@
 | near_balanced | 9 |
 | not_applicable | 1 |
 
-**OpenDSS default fingerprints:** none detected ✓
+**OpenDSS default fingerprints:** 1255 hit(s) — see findings
 
 **Earthing system per galvanic zone:**
 
@@ -300,61 +306,61 @@
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+> 🔵 **[I.PROV.DSS_DEFAULT_PF]** 1255 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
 > 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_KR]** 10 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: generic/hv, moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
-> 🟡 **[W.PROV.I_MAX_ABSENT_SWITCH]** 279 closed switch(es) have no `i_max` — their current is left entirely unconstrained in the OPF, so no thermal limit is enforced on the branch.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1042' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1168' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1177' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1330' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1382' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1734' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1882' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1923' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_1998' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2082' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2160' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2218' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2395' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2519' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2537' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2594' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2652' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2673' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2681' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2790' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_2960' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3052' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3088' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3090' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3174' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3207' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3253' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3256' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3265' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3566' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3590' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3603' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3924' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_3977' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4087' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4115' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4116' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4172' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4283' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4326' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4328' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_436' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4467' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4507' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4686' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4687' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_4690' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_512' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_525' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_592' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_720' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_819' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'l_866' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1042' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1168' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1177' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1330' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1382' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1734' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1882' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1923' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_1998' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2082' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2160' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2218' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2395' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2519' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2537' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2594' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2652' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2673' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2681' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2790' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_2960' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3052' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3088' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3090' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3174' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3207' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3253' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3256' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3265' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3566' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3590' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3603' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3924' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_3977' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4087' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4115' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4116' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4172' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4283' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4326' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4328' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_436' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4467' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4507' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4686' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4687' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_4690' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_512' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_525' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_592' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_720' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_819' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+> 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'L_866' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 
 ## 8. Spec Conformance & Benchmark Readiness
 
@@ -373,8 +379,8 @@
 
 | Benchmark readiness | Value |
 |---------------------|------:|
-| Objective well-posed | true |
-| Only slack generation | true |
+| Objective well-posed | false |
+| Only slack generation | false |
 | Buses with \|V\| bounds | 0.0% |
 | Buses with vpn / vpp / vpos bounds | 0 / 0 / 0 |
 | Lines with thermal limits | 100.0% |
@@ -385,15 +391,15 @@
 
 **Augmentation needed:**
 
-- only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds
+- no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 - no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF
 
-> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 
 ## 9. Data Quality Summary
 
-**Total findings:** 127 (0 errors, 15 warnings, 112 info)
+**Total findings:** 132 (0 errors, 14 warnings, 118 info)
 
 ### 🟡 Warnings
 
@@ -403,119 +409,129 @@
   1254 of 1255 loads share identical (p_nom, q_nom) — possible copy-paste symmetry.
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (12.55 MW).
-- **[W.OPS.XFMR_OVERLOADED]** `tx269`  
-  Transformer 'tx269' is at 315.3% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx1108`  
-  Transformer 'tx1108' is at 337.6% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx2620`  
-  Transformer 'tx2620' is at 275.0% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx2615`  
-  Transformer 'tx2615' is at 145.5% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx3394`  
-  Transformer 'tx3394' is at 163.3% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx1941`  
-  Transformer 'tx1941' is at 246.0% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx2187`  
-  Transformer 'tx2187' is at 210.2% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx2059`  
-  Transformer 'tx2059' is at 180.4% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx4279`  
-  Transformer 'tx4279' is at 250.4% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx2677`  
-  Transformer 'tx2677' is at 210.2% utilisation at nominal load — little OPF headroom.
-- **[W.OPS.XFMR_OVERLOADED]** `tx2382`  
-  Transformer 'tx2382' is at 270.6% utilisation at nominal load — little OPF headroom.
-- **[W.PROV.I_MAX_ABSENT_SWITCH]** `switch`  
-  279 closed switch(es) have no `i_max` — their current is left entirely unconstrained in the OPF, so no thermal limit is enforced on the branch.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx2677`  
+  Transformer 'Tx2677' is at 213.6% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx1108`  
+  Transformer 'Tx1108' is at 343.2% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx2615`  
+  Transformer 'Tx2615' is at 147.9% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx2059`  
+  Transformer 'Tx2059' is at 183.3% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx1941`  
+  Transformer 'Tx1941' is at 250.0% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx2187`  
+  Transformer 'Tx2187' is at 213.6% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx4279`  
+  Transformer 'Tx4279' is at 254.5% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx2620`  
+  Transformer 'Tx2620' is at 279.5% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx3394`  
+  Transformer 'Tx3394' is at 165.9% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx269`  
+  Transformer 'Tx269' is at 320.5% utilisation at nominal load — little OPF headroom.
+- **[W.OPS.XFMR_OVERLOADED]** `Tx2382`  
+  Transformer 'Tx2382' is at 275.0% utilisation at nominal load — little OPF headroom.
 
 ### 🔵 Info
 
 - **[I.DIV.LOAD_CV_LOW]** `load`  
   Load p_nom has very low coefficient of variation (0.0) — all loads nearly identical.
+- **[I.DIV.LOAD_PF_DSS_DEFAULT]** `load`  
+  Load power factor mean 0.88 is within 1% of the OpenDSS default PF=0.88 (CV=0.0) — reactive power may not have been explicitly set.
 - **[I.DIV.LOAD_UNIFORM_MODEL]** `load`  
   All 1255 loads use the constant_power model — no load exercises voltage dependence (ZIP/exponential); the case does not test voltage-dependent load behaviour.
 - **[I.DIV.LOAD_UNIFORM_CONFIG]** `load`  
   All 1255 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b100' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B100' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b1' has balanced aggregate load across 3 phase(s) (max spread 1.96%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B1014' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b1011' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B1210' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b1210' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B1' has balanced aggregate load across 3 phase(s) (max spread 1.96%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b1014' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B1011' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b1006' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B107' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b1349' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B1248' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b107' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B1006' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b1133' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B1133' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b1248' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B1349' has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.DIV.LINE_SYMMETRIC]** `line`  
   135 lines share linecode 'ughv_400al_triplex_ug_3w_bundled' with similar length (±10%) — electrically near-identical.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1726' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'B1151' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1726' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1151' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1726' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1726' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1025' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1726' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1025' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1726' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1012' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1248' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1012' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1372' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1349' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1372' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1151' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1025' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1151' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1025' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b105' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1012' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b105' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1012' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b131' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1133' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b131' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1255' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1372' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1255' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1372' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B131' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1163' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'B131' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1163' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1163' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1163' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1163' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1255' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1163' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1255' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B105' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1133' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B105' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1248' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B1007' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b1007' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B1349' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'c'.
+- **[I.OPS.FEEDER_LONG]** `network`  
+  Galvanic zone anchored at bus 'B100' (LV, 0.25 kV) has an electrical reach of 1.02 km — longer than the typical maximum LV feeder reach (1.0 km). Check for excessive voltage drop or a length-unit (km vs m) error.
+- **[I.OPS.FEEDER_LONG]** `network`  
+  Galvanic zone anchored at bus 'B1003' (LV, 0.25 kV) has an electrical reach of 1.09 km — longer than the typical maximum LV feeder reach (1.0 km). Check for excessive voltage drop or a length-unit (km vs m) error.
+- **[I.OPS.FEEDER_SHORT]** `network`  
+  Galvanic zone anchored at bus 'B1133' (LV, 0.25 kV) has an electrical reach of 7.0 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
+- **[I.OPS.FEEDER_SHORT]** `network`  
+  Galvanic zone anchored at bus 'B1163' (LV, 0.25 kV) has an electrical reach of 1.1 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
+- **[I.OPS.FEEDER_SHORT]** `network`  
+  Galvanic zone anchored at bus 'B1007' (LV, 0.25 kV) has an electrical reach of 0.8 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
@@ -528,124 +544,124 @@
   Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `uglv_240al_xlpe/nyl/pvc_ug_4w_bundled`  
   Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+- **[I.PROV.DSS_DEFAULT_PF]** `load`  
+  1255 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
 - **[I.PROV.IMPEDANCE_TRANSFORM_KR]** `linecode`  
   10 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: generic/hv, moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1042`  
-  Line 'l_1042' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1168`  
-  Line 'l_1168' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1177`  
-  Line 'l_1177' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1330`  
-  Line 'l_1330' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1382`  
-  Line 'l_1382' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1734`  
-  Line 'l_1734' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1882`  
-  Line 'l_1882' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1923`  
-  Line 'l_1923' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_1998`  
-  Line 'l_1998' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2082`  
-  Line 'l_2082' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2160`  
-  Line 'l_2160' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2218`  
-  Line 'l_2218' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2395`  
-  Line 'l_2395' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2519`  
-  Line 'l_2519' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2537`  
-  Line 'l_2537' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2594`  
-  Line 'l_2594' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2652`  
-  Line 'l_2652' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2673`  
-  Line 'l_2673' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2681`  
-  Line 'l_2681' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2790`  
-  Line 'l_2790' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_2960`  
-  Line 'l_2960' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3052`  
-  Line 'l_3052' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3088`  
-  Line 'l_3088' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3090`  
-  Line 'l_3090' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3174`  
-  Line 'l_3174' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3207`  
-  Line 'l_3207' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3253`  
-  Line 'l_3253' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3256`  
-  Line 'l_3256' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3265`  
-  Line 'l_3265' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3566`  
-  Line 'l_3566' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3590`  
-  Line 'l_3590' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3603`  
-  Line 'l_3603' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3924`  
-  Line 'l_3924' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_3977`  
-  Line 'l_3977' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4087`  
-  Line 'l_4087' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4115`  
-  Line 'l_4115' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4116`  
-  Line 'l_4116' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4172`  
-  Line 'l_4172' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4283`  
-  Line 'l_4283' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4326`  
-  Line 'l_4326' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4328`  
-  Line 'l_4328' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_436`  
-  Line 'l_436' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4467`  
-  Line 'l_4467' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4507`  
-  Line 'l_4507' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4686`  
-  Line 'l_4686' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4687`  
-  Line 'l_4687' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_4690`  
-  Line 'l_4690' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_512`  
-  Line 'l_512' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_525`  
-  Line 'l_525' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_592`  
-  Line 'l_592' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_720`  
-  Line 'l_720' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_819`  
-  Line 'l_819' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
-- **[I.PROV.LINE_SWITCH_LIKE]** `l_866`  
-  Line 'l_866' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1042`  
+  Line 'L_1042' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1168`  
+  Line 'L_1168' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1177`  
+  Line 'L_1177' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1330`  
+  Line 'L_1330' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1382`  
+  Line 'L_1382' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1734`  
+  Line 'L_1734' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1882`  
+  Line 'L_1882' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1923`  
+  Line 'L_1923' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_1998`  
+  Line 'L_1998' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2082`  
+  Line 'L_2082' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2160`  
+  Line 'L_2160' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2218`  
+  Line 'L_2218' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2395`  
+  Line 'L_2395' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2519`  
+  Line 'L_2519' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2537`  
+  Line 'L_2537' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2594`  
+  Line 'L_2594' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2652`  
+  Line 'L_2652' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2673`  
+  Line 'L_2673' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2681`  
+  Line 'L_2681' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2790`  
+  Line 'L_2790' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_2960`  
+  Line 'L_2960' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3052`  
+  Line 'L_3052' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3088`  
+  Line 'L_3088' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3090`  
+  Line 'L_3090' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3174`  
+  Line 'L_3174' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3207`  
+  Line 'L_3207' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3253`  
+  Line 'L_3253' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3256`  
+  Line 'L_3256' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3265`  
+  Line 'L_3265' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3566`  
+  Line 'L_3566' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3590`  
+  Line 'L_3590' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3603`  
+  Line 'L_3603' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3924`  
+  Line 'L_3924' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_3977`  
+  Line 'L_3977' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4087`  
+  Line 'L_4087' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4115`  
+  Line 'L_4115' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4116`  
+  Line 'L_4116' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4172`  
+  Line 'L_4172' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4283`  
+  Line 'L_4283' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4326`  
+  Line 'L_4326' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4328`  
+  Line 'L_4328' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_436`  
+  Line 'L_436' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4467`  
+  Line 'L_4467' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4507`  
+  Line 'L_4507' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4686`  
+  Line 'L_4686' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4687`  
+  Line 'L_4687' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_4690`  
+  Line 'L_4690' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_512`  
+  Line 'L_512' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_525`  
+  Line 'L_525' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_592`  
+  Line 'L_592' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_720`  
+  Line 'L_720' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_819`  
+  Line 'L_819' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
+- **[I.PROV.LINE_SWITCH_LIKE]** `L_866`  
+  Line 'L_866' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
   3409 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
 - **[I.PRE.SINGLE_SOURCE]** `network`  
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `[source]`  
-  Additional property not defined in schema at [voltage_source][source].
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `bus`  
-  bus has field(s) not in the BMOPF schema: v_declared.
+- **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
+  Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
 - **[I.DOM.LINE_IMPEDANCE_SPREAD]** `line`  
-  Adjacent lines 'l_3238' and 'l_3095' at bus 'b706' have ||Z||_F ratio 1130.0× — large impedance contrasts between neighbouring lines cause ill-conditioned KKT Jacobians; consider per-unit scaling or network reformulation.
+  Adjacent lines 'L_3238' and 'L_3095' at bus 'B706' have ||Z||_F ratio 1130.0× — large impedance contrasts between neighbouring lines cause ill-conditioned KKT Jacobians; consider per-unit scaling or network reformulation.
 - **[I.RED.MERGEABLE_LINES]** `line`  
   130 group(s) of series lines (341 lines total) can be merged — intermediate buses have no other connections.
 - **[I.RED.UNUSED_LINECODES]** `linecode`  
@@ -653,5 +669,5 @@
 - **[I.RED.DUPLICATE_LINECODES]** `linecode`  
   4 group(s) of linecodes share identical R_series_1_1/X_series_1_1.
 - **[I.BENCH.AUGMENTATION]** `network`  
-  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+  Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 

@@ -1,10 +1,10 @@
 # Network graph  (5 buses)
 
-b3271 (SRC)
-└── [tx377: Dyn1 11.0kV/433V]── b1609
-    └── b3297
-        └── b211
-            └── b1420 (L1)
+B3271 (SRC)
+└── [Tx377: Dyn0 11.0kV/433V]── B1609
+    └── B3297
+        └── B211
+            └── B1420 (L1)
 
 Loads (1 total):
-  L1 = ld2827_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
+  L1 = Ld2827_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n

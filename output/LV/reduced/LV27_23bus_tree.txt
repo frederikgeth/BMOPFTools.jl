@@ -1,8 +1,8 @@
 # Network graph  (3 buses)
 
-b449 (SRC)
-└── [tx1777: Dyn1 11.0kV/433V]── b1595
-    └── b2223 (L1)
+B449 (SRC)
+└── [Tx1777: Dyn0 11.0kV/433V]── B1595
+    └── B2223 (L1)
 
 Loads (1 total):
-  L1 = ld2713_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
+  L1 = Ld2713_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n

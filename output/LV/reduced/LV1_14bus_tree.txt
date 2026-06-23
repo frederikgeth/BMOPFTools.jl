@@ -1,13 +1,13 @@
 # Network graph  (7 buses)
 
-b2577 (SRC)
-└── [tx3170: Dyn1 11.0kV/433V]── b179
-    └── b2734
-        ├── b232
-        │   └── b3230 (L1)
-        └── b514
-            └── b2656 (L2)
+B2577 (SRC)
+└── [Tx3170: Dyn0 11.0kV/433V]── B179
+    └── B2734
+        ├── B232
+        │   └── B3230 (L1)
+        └── B514
+            └── B2656 (L2)
 
 Loads (2 total):
-  L1 = ld3313_load_a      10.0 kW  SINGLE_PHASE  terminals: 1,n
-  L2 = ld3433_load_b      10.0 kW  SINGLE_PHASE  terminals: 2,n
+  L1 = Ld3313_LOAD_A      10.0 kW  SINGLE_PHASE  terminals: a,n
+  L2 = Ld3433_LOAD_B      10.0 kW  SINGLE_PHASE  terminals: b,n

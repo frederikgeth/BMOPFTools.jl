@@ -30,16 +30,16 @@ sourcebus (SRC)
             └── 243 (L1)
 
 Loads (13 total):
-  L1 = load1              1.97 kW  SINGLE_PHASE  terminals: 1,n
-  L2 = load10             0.27 kW  SINGLE_PHASE  terminals: 2,n
-  L3 = load11             0.33 kW  SINGLE_PHASE  terminals: 3,n
-  L4 = load12             0.33 kW  SINGLE_PHASE  terminals: 2,n
-  L5 = load13             0.25 kW  SINGLE_PHASE  terminals: 1,n
-  L6 = load2              0.31 kW  SINGLE_PHASE  terminals: 3,n
-  L7 = load3              2.94 kW  SINGLE_PHASE  terminals: 2,n
-  L8 = load4              0.32 kW  SINGLE_PHASE  terminals: 3,n
-  L9 = load5              1.33 kW  SINGLE_PHASE  terminals: 1,n
-  L10 = load6              3.05 kW  SINGLE_PHASE  terminals: 1,n
-  L11 = load7              2.06 kW  SINGLE_PHASE  terminals: 3,n
-  L12 = load8              0.29 kW  SINGLE_PHASE  terminals: 2,n
-  L13 = load9              0.31 kW  SINGLE_PHASE  terminals: 1,n
+  L1 = LOAD1              1.97 kW  SINGLE_PHASE  terminals: a,n
+  L2 = LOAD10             0.27 kW  SINGLE_PHASE  terminals: b,n
+  L3 = LOAD11             0.33 kW  SINGLE_PHASE  terminals: c,n
+  L4 = LOAD12             0.33 kW  SINGLE_PHASE  terminals: b,n
+  L5 = LOAD13             0.25 kW  SINGLE_PHASE  terminals: a,n
+  L6 = LOAD2              0.31 kW  SINGLE_PHASE  terminals: c,n
+  L7 = LOAD3              2.94 kW  SINGLE_PHASE  terminals: b,n
+  L8 = LOAD4              0.32 kW  SINGLE_PHASE  terminals: c,n
+  L9 = LOAD5              1.33 kW  SINGLE_PHASE  terminals: a,n
+  L10 = LOAD6              3.05 kW  SINGLE_PHASE  terminals: a,n
+  L11 = LOAD7              2.06 kW  SINGLE_PHASE  terminals: c,n
+  L12 = LOAD8              0.29 kW  SINGLE_PHASE  terminals: b,n
+  L13 = LOAD9              0.31 kW  SINGLE_PHASE  terminals: a,n

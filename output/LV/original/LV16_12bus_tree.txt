@@ -1,18 +1,18 @@
 # Network graph  (13 buses)
 
-b467 (SRC)
-└── [tx215: Dyn1 11.0kV/433V]── b1520
-    └── b259
-        └── [SW]── b516
-            └── b1259
-                ├── b2325
-                ├── b3372
-                │   └── [SW]── b324
-                ├── b366
-                │   └── [SW]── b2794
-                └── b752
-                    ├── [SW]── b1255
-                    └── b3179 (L1)
+B467 (SRC)
+└── [Tx215: Dyn0 11.0kV/433V]── B1520
+    └── B259
+        └── [SW]── B516
+            └── B1259
+                ├── B2325
+                ├── B3372
+                │   └── [SW]── B324
+                ├── B366
+                │   └── [SW]── B2794
+                └── B752
+                    ├── [SW]── B1255
+                    └── B3179 (L1)
 
 Loads (1 total):
-  L1 = ld313_load_a       10.0 kW  SINGLE_PHASE  terminals: 1,n
+  L1 = Ld313_LOAD_A       10.0 kW  SINGLE_PHASE  terminals: a,n

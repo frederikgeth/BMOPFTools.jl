@@ -1,7 +1,7 @@
 # Network graph  (3 buses)
 
-b2577 (SRC)
+B2577 (SRC)
 
 # Disconnected buses (2 — not reachable from source):
-  b2650
-  b2885
+  B2650
+  B2885

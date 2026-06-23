@@ -1,4 +1,4 @@
 # Network graph  (2 buses)
 
-b2262 (SRC)
-└── [tx381: Dyn1 11.0kV/433V]── b1163
+B2262 (SRC)
+└── [Tx381: Dyn0 11.0kV/433V]── B1163

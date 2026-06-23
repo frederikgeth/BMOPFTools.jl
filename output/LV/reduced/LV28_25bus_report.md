@@ -1,7 +1,7 @@
 # BMOPF Network Summary: LV28_25bus
 
-**Generated:** 2026-06-22 14:06:31  
-**Findings:** 0 errors · 1 warnings · 23 info  
+**Generated:** 2026-06-23 21:02:36  
+**Findings:** 0 errors · 1 warnings · 24 info  
 **Convention:** MV_6.4kV: 4-wire; LV_240V: 4-wire; 5 grounding point(s)
 
 ---
@@ -14,11 +14,11 @@
 | line | 12 |  |
 | linecode | 22 |  |
 | voltage_source | 1 |  |
-| load | 3 | 30.0 kW, 15.0 kvar |
+| load | 3 | 30.0 kW, 16.2 kvar |
 | generator | 0 | capacity: 0.0 W |
 | shunt | 4 |  |
 | switch | 0 |  |
-| transformer | 1 | Dyn1×1 |
+| transformer | 1 | Dyn0×1 |
 | inverter | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
@@ -33,7 +33,7 @@
 
 **Transformer transitions:**
 
-- `tx3913`: MV_6.4kV → LV_240V (delta_wye, Dyn1)
+- `Tx3913`: MV_6.4kV → LV_240V (delta_wye, Dyn0)
 
 ## 3. Connectivity & Topology
 
@@ -56,7 +56,7 @@
 | Parameter | Min | Max | CV | n |
 |-----------|-----|-----|----|---|
 | p_nom | 10000.0 | 10000.0 | 0.0 | 3 |
-| q_nom | 5000.0 | 5000.0 | 0.0 | 3 |
+| q_nom | 5400.0 | 5400.0 | 0.0 | 3 |
 
 ### line
 
@@ -71,16 +71,17 @@
 | R_series_1_1 | 0.000146 | 0.00457 | 1.723 | 22 |
 
 > 🔵 **[I.DIV.LOAD_CV_LOW]** Load p_nom has very low coefficient of variation (0.0) — all loads nearly identical.
+> 🔵 **[I.DIV.LOAD_PF_DSS_DEFAULT]** Load power factor mean 0.88 is within 1% of the OpenDSS default PF=0.88 (CV=0.0) — reactive power may not have been explicitly set.
 > 🔵 **[I.DIV.LOAD_UNIFORM_MODEL]** All 3 loads use the constant_power model — no load exercises voltage dependence (ZIP/exponential); the case does not test voltage-dependent load behaviour.
 > 🔵 **[I.DIV.LOAD_UNIFORM_CONFIG]** All 3 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
-> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'b107' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+> 🔵 **[I.DIV.LOAD_PHASE_BALANCED]** Galvanic zone anchored at 'B107' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 
 ## 5. Loading & Operational Summary
 
 | | Value |
 |--|-------|
 | Total load P | 30.0 kW |
-| Total load Q | 15.0 kvar |
+| Total load Q | 16.2 kvar |
 | Total gen capacity | 0.0 W |
 | Generation/load ratio | 0.0% |
 
@@ -88,12 +89,12 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| tx3913 | 200.0 kVA | 16.8% |
+| Tx3913 | 200.0 kVA | 17.0% |
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.03 MW).
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b598' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b598' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b598' has no load connected to phase terminal '3'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B598' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B598' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B598' has no load connected to phase terminal 'c'.
 
 ## 6. Infeasibility Pre-flight
 
@@ -133,7 +134,7 @@
 | near_balanced | 9 |
 | not_applicable | 1 |
 
-**OpenDSS default fingerprints:** none detected ✓
+**OpenDSS default fingerprints:** 3 hit(s) — see findings
 
 **Earthing system per galvanic zone:**
 
@@ -148,6 +149,7 @@
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 > 🔵 **[I.PROV.B_OFFDIAG]** Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+> 🔵 **[I.PROV.DSS_DEFAULT_PF]** 3 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
 > 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_KR]** 9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
 
 ## 8. Spec Conformance & Benchmark Readiness
@@ -167,8 +169,8 @@
 
 | Benchmark readiness | Value |
 |---------------------|------:|
-| Objective well-posed | true |
-| Only slack generation | true |
+| Objective well-posed | false |
+| Only slack generation | false |
 | Buses with \|V\| bounds | 0.0% |
 | Buses with vpn / vpp / vpos bounds | 0 / 0 / 0 |
 | Lines with thermal limits | 100.0% |
@@ -179,15 +181,15 @@
 
 **Augmentation needed:**
 
-- only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds
+- no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 - no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF
 
-> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 
 ## 9. Data Quality Summary
 
-**Total findings:** 24 (0 errors, 1 warnings, 23 info)
+**Total findings:** 25 (0 errors, 1 warnings, 24 info)
 
 ### 🟡 Warnings
 
@@ -198,18 +200,20 @@
 
 - **[I.DIV.LOAD_CV_LOW]** `load`  
   Load p_nom has very low coefficient of variation (0.0) — all loads nearly identical.
+- **[I.DIV.LOAD_PF_DSS_DEFAULT]** `load`  
+  Load power factor mean 0.88 is within 1% of the OpenDSS default PF=0.88 (CV=0.0) — reactive power may not have been explicitly set.
 - **[I.DIV.LOAD_UNIFORM_MODEL]** `load`  
   All 3 loads use the constant_power model — no load exercises voltage dependence (ZIP/exponential); the case does not test voltage-dependent load behaviour.
 - **[I.DIV.LOAD_UNIFORM_CONFIG]** `load`  
   All 3 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
 - **[I.DIV.LOAD_PHASE_BALANCED]** `load`  
-  Galvanic zone anchored at 'b107' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+  Galvanic zone anchored at 'B107' has balanced aggregate load across 3 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b598' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'B598' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b598' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B598' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b598' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B598' has no load connected to phase terminal 'c'.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
@@ -222,18 +226,18 @@
   Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `uglv_240al_xlpe/nyl/pvc_ug_4w_bundled`  
   Linecode 'uglv_240al_xlpe/nyl/pvc_ug_4w_bundled' B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+- **[I.PROV.DSS_DEFAULT_PF]** `load`  
+  3 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
 - **[I.PROV.IMPEDANCE_TRANSFORM_KR]** `linecode`  
   9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
   14 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
 - **[I.PRE.SINGLE_SOURCE]** `network`  
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `[source]`  
-  Additional property not defined in schema at [voltage_source][source].
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `bus`  
-  bus has field(s) not in the BMOPF schema: v_declared.
+- **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
+  Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
 - **[I.DOM.LINE_IMPEDANCE_SPREAD]** `line`  
-  Adjacent lines 'l_3238' and 'l_3095' at bus 'b706' have ||Z||_F ratio 1130.0× — large impedance contrasts between neighbouring lines cause ill-conditioned KKT Jacobians; consider per-unit scaling or network reformulation.
+  Adjacent lines 'L_3238' and 'L_3095' at bus 'B706' have ||Z||_F ratio 1130.0× — large impedance contrasts between neighbouring lines cause ill-conditioned KKT Jacobians; consider per-unit scaling or network reformulation.
 - **[I.RED.MERGEABLE_LINES]** `line`  
   4 group(s) of series lines (11 lines total) can be merged — intermediate buses have no other connections.
 - **[I.RED.UNUSED_LINECODES]** `linecode`  
@@ -241,5 +245,5 @@
 - **[I.RED.DUPLICATE_LINECODES]** `linecode`  
   4 group(s) of linecodes share identical R_series_1_1/X_series_1_1.
 - **[I.BENCH.AUGMENTATION]** `network`  
-  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+  Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 

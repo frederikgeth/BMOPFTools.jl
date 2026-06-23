@@ -1,6 +1,6 @@
 # Simplification log: LV4_36bus
 
-**Generated:** 2026-06-22 14:06:31  
+**Generated:** 2026-06-23 21:02:37  
 **Buses:** 37 → 5 (−32)  
 **Lines:** 29 → 3 (−26)  
 **Operations:** 34
@@ -17,38 +17,38 @@
 
 | # | Operation | Element | Message |
 |--:|-----------|---------|---------|
-| 1 | `collapse_closed_switches` | switch `switch_1152_closed` | Collapsed closed switch switch_1152_closed: bus b770 merged into b1151. |
-| 2 | `collapse_closed_switches` | switch `switch_4331_closed` | Collapsed closed switch switch_4331_closed: bus b3242 merged into b97. |
-| 3 | `collapse_closed_switches` | switch `switch_1731_closed` | Collapsed closed switch switch_1731_closed: bus b130 merged into b418. |
-| 4 | `collapse_closed_switches` | switch `switch_3847_closed` | Collapsed closed switch switch_3847_closed: bus b239 merged into b3297. |
-| 5 | `collapse_closed_switches` | switch `switch_3478_closed` | Collapsed closed switch switch_3478_closed: bus b1756 merged into b1198. |
-| 6 | `collapse_closed_switches` | switch `switch_3886_closed` | Collapsed closed switch switch_3886_closed: bus b460 merged into b2598. |
-| 7 | `remove_dangling_lines` | line `l_2990` | Removed dangling line l_2990 and its leaf bus b715 (leaf has no active elements). |
-| 8 | `remove_dangling_lines` | line `l_2999` | Removed dangling line l_2999 and its leaf bus b3044 (leaf has no active elements). |
-| 9 | `remove_dangling_lines` | line `l_4058` | Removed dangling line l_4058 and its leaf bus b97 (leaf has no active elements). |
-| 10 | `remove_dangling_lines` | line `l_2045` | Removed dangling line l_2045 and its leaf bus b2598 (leaf has no active elements). |
-| 11 | `remove_dangling_lines` | line `l_3365` | Removed dangling line l_3365 and its leaf bus b1500 (leaf has no active elements). |
-| 12 | `remove_dangling_lines` | line `l_4614` | Removed dangling line l_4614 and its leaf bus b3133 (leaf has no active elements). |
-| 13 | `remove_dangling_lines` | line `l_2469` | Removed dangling line l_2469 and its leaf bus b2517 (leaf has no active elements). |
-| 14 | `remove_dangling_lines` | line `l_439` | Removed dangling line l_439 and its leaf bus b1688 (leaf has no active elements). |
-| 15 | `remove_dangling_lines` | line `l_1820` | Removed dangling line l_1820 and its leaf bus b139 (leaf has no active elements). |
-| 16 | `remove_dangling_lines` | line `l_3902` | Removed dangling line l_3902 and its leaf bus b708 (leaf has no active elements). |
-| 17 | `remove_dangling_lines` | line `l_1612` | Removed dangling line l_1612 and its leaf bus b2993 (leaf has no active elements). |
-| 18 | `remove_dangling_lines` | line `l_1886` | Removed dangling line l_1886 and its leaf bus b756 (leaf has no active elements). |
-| 19 | `remove_dangling_lines` | line `l_4121` | Removed dangling line l_4121 and its leaf bus b263 (leaf has no active elements). |
-| 20 | `remove_dangling_lines` | line `l_1116` | Removed dangling line l_1116 and its leaf bus b73 (leaf has no active elements). |
-| 21 | `remove_dangling_lines` | line `l_411` | Removed dangling line l_411 and its leaf bus b144 (leaf has no active elements). |
-| 22 | `remove_dangling_lines` | line `l_2074` | Removed dangling line l_2074 and its leaf bus b418 (leaf has no active elements). |
-| 23 | `remove_dangling_lines` | line `l_3475` | Removed dangling line l_3475 and its leaf bus b1252 (leaf has no active elements). |
-| 24 | `remove_dangling_lines` | line `l_3550` | Removed dangling line l_3550 and its leaf bus b2922 (leaf has no active elements). |
-| 25 | `remove_dangling_lines` | line `l_4417` | Removed dangling line l_4417 and its leaf bus b1174 (leaf has no active elements). |
-| 26 | `remove_dangling_lines` | line `l_4366` | Removed dangling line l_4366 and its leaf bus b2116 (leaf has no active elements). |
-| 27 | `remove_dangling_lines` | line `l_1838` | Removed dangling line l_1838 and its leaf bus b721 (leaf has no active elements). |
-| 28 | `remove_dangling_lines` | line `l_3689` | Removed dangling line l_3689 and its leaf bus b657 (leaf has no active elements). |
-| 29 | `remove_dangling_lines` | line `l_3639` | Removed dangling line l_3639 and its leaf bus b2387 (leaf has no active elements). |
-| 30 | `merge_series_lines` | line `l_512` | Merged line l_2044 (0.206301915236 m) into l_512 at pass-through bus b1151; new length 0.2732219817261 m. |
-| 31 | `merge_series_lines` | bus `b211` | Lines l_1556 (linecode uglv_240al_xlpe/nyl/pvc_ug_4w_bundled) and l_2977 (linecode ugsc_16cu_xlpe/nyl/pvc_ug_4w_bundled) at bus b211 have different linecodes — not merged. |
-| 32 | `merge_series_lines` | line `l_4081` | Merged line l_2869 (0.255748683551 m) into l_4081 at pass-through bus b1198; new length 0.5114973667489999 m. |
-| 33 | `merge_series_lines` | line `l_4081` | Merged line l_512 (0.2732219817261 m) into l_4081 at pass-through bus b439; new length 0.7847193484750999 m. |
-| 34 | `merge_series_lines` | bus `b3297` | Lines l_1556 (linecode uglv_240al_xlpe/nyl/pvc_ug_4w_bundled) and l_4081 (linecode ughv_400al_triplex_ug_4w_bundled) at bus b3297 have different linecodes — not merged. |
+| 1 | `collapse_closed_switches` | switch `Switch_3478_CLOSED` | Collapsed closed switch Switch_3478_CLOSED: bus B1756 merged into B1198. |
+| 2 | `collapse_closed_switches` | switch `Switch_1152_CLOSED` | Collapsed closed switch Switch_1152_CLOSED: bus B770 merged into B1151. |
+| 3 | `collapse_closed_switches` | switch `Switch_3847_CLOSED` | Collapsed closed switch Switch_3847_CLOSED: bus B239 merged into B3297. |
+| 4 | `collapse_closed_switches` | switch `Switch_3886_CLOSED` | Collapsed closed switch Switch_3886_CLOSED: bus B460 merged into B2598. |
+| 5 | `collapse_closed_switches` | switch `Switch_4331_CLOSED` | Collapsed closed switch Switch_4331_CLOSED: bus B3242 merged into B97. |
+| 6 | `collapse_closed_switches` | switch `Switch_1731_CLOSED` | Collapsed closed switch Switch_1731_CLOSED: bus B130 merged into B418. |
+| 7 | `remove_dangling_lines` | line `L_4058` | Removed dangling line L_4058 and its leaf bus B97 (leaf has no active elements). |
+| 8 | `remove_dangling_lines` | line `L_1820` | Removed dangling line L_1820 and its leaf bus B139 (leaf has no active elements). |
+| 9 | `remove_dangling_lines` | line `L_1612` | Removed dangling line L_1612 and its leaf bus B2993 (leaf has no active elements). |
+| 10 | `remove_dangling_lines` | line `L_2990` | Removed dangling line L_2990 and its leaf bus B715 (leaf has no active elements). |
+| 11 | `remove_dangling_lines` | line `L_4121` | Removed dangling line L_4121 and its leaf bus B263 (leaf has no active elements). |
+| 12 | `remove_dangling_lines` | line `L_2045` | Removed dangling line L_2045 and its leaf bus B2598 (leaf has no active elements). |
+| 13 | `remove_dangling_lines` | line `L_2074` | Removed dangling line L_2074 and its leaf bus B418 (leaf has no active elements). |
+| 14 | `remove_dangling_lines` | line `L_2469` | Removed dangling line L_2469 and its leaf bus B2517 (leaf has no active elements). |
+| 15 | `remove_dangling_lines` | line `L_439` | Removed dangling line L_439 and its leaf bus B1688 (leaf has no active elements). |
+| 16 | `remove_dangling_lines` | line `L_4614` | Removed dangling line L_4614 and its leaf bus B3133 (leaf has no active elements). |
+| 17 | `remove_dangling_lines` | line `L_3902` | Removed dangling line L_3902 and its leaf bus B708 (leaf has no active elements). |
+| 18 | `remove_dangling_lines` | line `L_3475` | Removed dangling line L_3475 and its leaf bus B1252 (leaf has no active elements). |
+| 19 | `remove_dangling_lines` | line `L_3550` | Removed dangling line L_3550 and its leaf bus B2922 (leaf has no active elements). |
+| 20 | `remove_dangling_lines` | line `L_3365` | Removed dangling line L_3365 and its leaf bus B1500 (leaf has no active elements). |
+| 21 | `remove_dangling_lines` | line `L_2999` | Removed dangling line L_2999 and its leaf bus B3044 (leaf has no active elements). |
+| 22 | `remove_dangling_lines` | line `L_1886` | Removed dangling line L_1886 and its leaf bus B756 (leaf has no active elements). |
+| 23 | `remove_dangling_lines` | line `L_1116` | Removed dangling line L_1116 and its leaf bus B73 (leaf has no active elements). |
+| 24 | `remove_dangling_lines` | line `L_411` | Removed dangling line L_411 and its leaf bus B144 (leaf has no active elements). |
+| 25 | `remove_dangling_lines` | line `L_4417` | Removed dangling line L_4417 and its leaf bus B1174 (leaf has no active elements). |
+| 26 | `remove_dangling_lines` | line `L_4366` | Removed dangling line L_4366 and its leaf bus B2116 (leaf has no active elements). |
+| 27 | `remove_dangling_lines` | line `L_1838` | Removed dangling line L_1838 and its leaf bus B721 (leaf has no active elements). |
+| 28 | `remove_dangling_lines` | line `L_3689` | Removed dangling line L_3689 and its leaf bus B657 (leaf has no active elements). |
+| 29 | `remove_dangling_lines` | line `L_3639` | Removed dangling line L_3639 and its leaf bus B2387 (leaf has no active elements). |
+| 30 | `merge_series_lines` | line `L_2869` | Merged line L_4081 (0.255748683198 m) into L_2869 at pass-through bus B1198; new length 0.5114973667489999 m. |
+| 31 | `merge_series_lines` | line `L_2869` | Merged line L_2044 (0.206301915236 m) into L_2869 at pass-through bus B439; new length 0.7177992819849999 m. |
+| 32 | `merge_series_lines` | line `L_2869` | Merged line L_512 (0.0669200664901 m) into L_2869 at pass-through bus B1151; new length 0.7847193484750998 m. |
+| 33 | `merge_series_lines` | bus `B211` | Lines L_1556 (linecode uglv_240al_xlpe/nyl/pvc_ug_4w_bundled) and L_2977 (linecode ugsc_16cu_xlpe/nyl/pvc_ug_4w_bundled) at bus B211 have different linecodes — not merged. |
+| 34 | `merge_series_lines` | bus `B3297` | Lines L_2869 (linecode ughv_400al_triplex_ug_4w_bundled) and L_1556 (linecode uglv_240al_xlpe/nyl/pvc_ug_4w_bundled) at bus B3297 have different linecodes — not merged. |
 

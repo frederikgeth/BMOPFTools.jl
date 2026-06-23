@@ -1,7 +1,7 @@
 # BMOPF Network Summary: LV33_1bus
 
-**Generated:** 2026-06-22 14:06:31  
-**Findings:** 2 errors · 2 warnings · 23 info  
+**Generated:** 2026-06-23 21:02:37  
+**Findings:** 2 errors · 2 warnings · 22 info  
 **Convention:** MV_6.4kV: 4-wire; implicit (Kron-style) grounding
 
 ---
@@ -18,7 +18,7 @@
 | generator | 0 | capacity: 0.0 W |
 | shunt | 1 |  |
 | switch | 0 |  |
-| transformer | 1 | Dyn1×1 |
+| transformer | 1 | Dyn0×1 |
 | inverter | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
@@ -32,7 +32,7 @@
 
 **Transformer transitions:**
 
-- `tx475`: unknown → unknown (delta_wye, Dyn1)
+- `Tx475`: unknown → unknown (delta_wye, Dyn0)
 
 > 🟡 **[W.VOLT.UNASSIGNED]** 2 bus(es) have no reachable voltage source — may be islanded.
 
@@ -73,17 +73,17 @@
 
 | ID | Rating | Loading (est.) |
 |----|--------|---------------:|
-| tx475 | 1.0 MVA | 0.0% |
+| Tx475 | 1.0 MVA | 0.0% |
 
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2577' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2577' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2577' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '3'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2650' has no load connected to phase terminal '1'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2650' has no load connected to phase terminal '2'.
-> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'b2650' has no load connected to phase terminal '3'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2577' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2577' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2577' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2650' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2650' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2650' has no load connected to phase terminal 'c'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'a'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'b'.
+> 🔵 **[I.OPS.UNLOADED_PHASE]** Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'c'.
 
 ## 6. Infeasibility Pre-flight
 
@@ -156,8 +156,8 @@
 
 | Benchmark readiness | Value |
 |---------------------|------:|
-| Objective well-posed | true |
-| Only slack generation | true |
+| Objective well-posed | false |
+| Only slack generation | false |
 | Buses with \|V\| bounds | 0.0% |
 | Buses with vpn / vpp / vpos bounds | 0 / 0 / 0 |
 | Lines with thermal limits | 0.0% |
@@ -168,24 +168,24 @@
 
 **Augmentation needed:**
 
-- only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds
+- no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 - no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF
 
-> 🔴 **[E.INT.NO_VOLTAGE_REFERENCE]** Galvanic island of 1 bus(es) has no voltage reference (no source, perfect grounding, or grounding shunt) — voltages are defined only up to a shift (rank-deficient): b2650.
+> 🔴 **[E.INT.NO_VOLTAGE_REFERENCE]** Galvanic island of 1 bus(es) has no voltage reference (no source, perfect grounding, or grounding shunt) — voltages are defined only up to a shift (rank-deficient): B2650.
 
-> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 
 ## 9. Data Quality Summary
 
-**Total findings:** 27 (2 errors, 2 warnings, 23 info)
+**Total findings:** 26 (2 errors, 2 warnings, 22 info)
 
 ### 🔴 Errors
 
 - **[E.CONN.DISCONNECTED]** `network`  
   Network has 2 disconnected components.
 - **[E.INT.NO_VOLTAGE_REFERENCE]** `network`  
-  Galvanic island of 1 bus(es) has no voltage reference (no source, perfect grounding, or grounding shunt) — voltages are defined only up to a shift (rank-deficient): b2650.
+  Galvanic island of 1 bus(es) has no voltage reference (no source, perfect grounding, or grounding shunt) — voltages are defined only up to a shift (rank-deficient): B2650.
 
 ### 🟡 Warnings
 
@@ -197,23 +197,23 @@
 ### 🔵 Info
 
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2577' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'B2577' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2577' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B2577' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2577' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B2577' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'B2650' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B2650' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2885' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B2650' has no load connected to phase terminal 'c'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2650' has no load connected to phase terminal '1'.
+  Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'a'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2650' has no load connected to phase terminal '2'.
+  Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'b'.
 - **[I.OPS.UNLOADED_PHASE]** `network`  
-  Galvanic zone anchored at bus 'b2650' has no load connected to phase terminal '3'.
+  Galvanic zone anchored at bus 'B2885' has no load connected to phase terminal 'c'.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
   Linecode 'abc4x95_lv_oh_4w_bundled' B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
 - **[I.PROV.B_OFFDIAG]** `abc4x95_lv_oh_4w_bundled`  
@@ -232,14 +232,12 @@
   3 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
 - **[I.PRE.SINGLE_SOURCE]** `network`  
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `[source]`  
-  Additional property not defined in schema at [voltage_source][source].
-- **[I.SCHEMA.UNKNOWN_FIELDS]** `bus`  
-  bus has field(s) not in the BMOPF schema: v_declared.
+- **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
+  Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
 - **[I.RED.UNUSED_LINECODES]** `linecode`  
   22 linecode(s) defined but not referenced by any line.
 - **[I.RED.DUPLICATE_LINECODES]** `linecode`  
   4 group(s) of linecodes share identical R_series_1_1/X_series_1_1.
 - **[I.BENCH.AUGMENTATION]** `network`  
-  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+  Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
 
