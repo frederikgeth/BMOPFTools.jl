@@ -1947,6 +1947,39 @@ const IEEE13_FIXTURE = """
         @test eng2["shunt"]["sh1"]["bs"][1,1] ≈ -0.1
     end
 
+    @testset "Migration — lumped transformer series fields → per-winding" begin
+        # A nested delta_wye transformer carrying the lumped r_series/x_series
+        # form (as emitted by from_dss/PowerIO) must be normalised on parse to
+        # the per-winding fields the OPF/Ybus builders read — otherwise they
+        # default to zero and the leakage impedance silently vanishes.
+        json = """
+        {"bus":{"hv":{"terminal_names":["a","b","c"]},
+                "lv":{"terminal_names":["a","b","c","n"]}},
+         "transformer":{"delta_wye":{"t1":{
+            "bus_from":"hv","bus_to":"lv",
+            "terminal_map_from":["a","b","c"],"terminal_map_to":["a","b","c","n"],
+            "v_ref_from":11000.0,"v_ref_to":433.0,"s_rating":100000.0,
+            "r_series":0.015,"x_series":0.0007}}}}
+        """
+        net = parse_bmopf(json; from_string=true)
+        tx  = net["transformer"]["delta_wye"]["t1"]
+        @test !haskey(tx, "r_series") && !haskey(tx, "x_series")
+        @test tx["r_series_from"] ≈ 0.015
+        @test tx["x_series_from"] ≈ 0.0007
+        @test tx["r_series_to"] == 0.0 && tx["x_series_to"] == 0.0
+        @test any(n -> n["code"] == "W.MIGRATE.XFMR_SERIES_FIELDS",
+                  net["_meta"]["migration_notes"])
+
+        # Per-winding input is left untouched (no spurious migration note).
+        json2 = replace(json,
+            "\"r_series\":0.015,\"x_series\":0.0007" =>
+            "\"r_series_from\":0.015,\"r_series_to\":0.0,\"x_series_from\":0.0007,\"x_series_to\":0.0")
+        net2  = parse_bmopf(json2; from_string=true)
+        notes = get(get(net2, "_meta", Dict()), "migration_notes", [])
+        @test !any(n -> n["code"] == "W.MIGRATE.XFMR_SERIES_FIELDS", notes)
+        @test net2["transformer"]["delta_wye"]["t1"]["r_series_from"] ≈ 0.015
+    end
+
     @testset "Completeness — transformer required fields" begin
         net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
         delete!(net["transformer"]["single_phase"]["xfm2"], "s_rating")
@@ -2449,13 +2482,19 @@ const IEEE13_FIXTURE = """
             tx = first(values(xfmr["delta_wye"]))
             @test tx["v_ref_from"] > tx["v_ref_to"]               # step-down
             @test tx["v_ref_from"] / tx["v_ref_to"] ≈ 11.0/0.433  rtol=0.02
-            # series impedance present (PowerIO emits a lumped Γ-model today;
-            # accept a per-winding T-model too in case upstream changes).
-            @test haskey(tx, "r_series") || haskey(tx, "r_series_from")
-            @test haskey(tx, "x_series") || haskey(tx, "x_series_from")
-            # spec arity: delta side 3 terminals, wye side 4 (incl. neutral/earth)
+            # PowerIO emits a lumped Γ-model; the parse-time migration normalises
+            # it to the per-winding fields the OPF/Ybus builders consume, so a
+            # nonzero leakage impedance reaches them (not silently zero).
+            @test haskey(tx, "r_series_from") && tx["r_series_from"] > 0
+            @test haskey(tx, "x_series_from") && tx["x_series_from"] > 0
+            @test !haskey(tx, "r_series") && !haskey(tx, "x_series")
+            # spec arity: delta side 3 terminals, wye side 4 (incl. neutral)
             @test length(tx["terminal_map_from"]) == 3
             @test length(tx["terminal_map_to"])   == 4
+            # OpenDSS earth terminal "5" is routed to the bus neutral, so the
+            # earthed star point lands on "n" rather than a phantom terminal.
+            @test "n" in tx["terminal_map_to"]
+            @test !("5" in string.(tx["terminal_map_to"]))
 
             # No phantom slack generator; from_dss does not price slack cost.
             @test !any(get(g, "_slack", false) for g in values(get(net, "generator", Dict())))
@@ -2491,6 +2530,15 @@ const IEEE13_FIXTURE = """
             lc = first(values(lcs))
             @test haskey(lc, "R_series_1_1")
             @test haskey(lc, "X_series_1_1")
+
+            # Terminal naming is consistent: every bus uses a/b/c/n and no bus
+            # retains the OpenDSS earth terminal "5" (B179 carries the earthed
+            # transformer star point). The routing is recorded in _meta.
+            @test all(!("5" in string.(get(b, "terminal_names", [])))
+                      for b in values(net["bus"]))
+            @test net["bus"]["B179"]["terminal_names"] == ["a", "b", "c", "n"]
+            @test get(net["bus"]["B179"], "neutral_terminal", nothing) == "n"
+            @test "B179" in net["_meta"]["earth_terminal_routing"]["buses"]
         end
 
         @testset "Analysis" begin

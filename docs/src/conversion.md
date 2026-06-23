@@ -27,15 +27,14 @@ maps onto BMOPF, which is useful when comparing against PMD-based tooling.
 BMOPF has no earth terminal — ground is implicit. OpenDSS, by contrast, uses
 node `.0` for earth, which surfaces in the BMOPF JSON as terminal **5**.
 
-!!! warning "Current `from_dss` limitation"
-    PowerIO's DSS→BMOPF conversion currently **retains** earth terminal `"5"`
-    rather than resolving it. As a result a transformer wye winding whose star
-    point is earthed appears with `terminal_map_to = ["1","2","3","5"]`, and the
-    bus it lands on keeps numeric terminal names (`["1",…,"5"]`) instead of the
-    `a/b/c/n` convention applied elsewhere — so its neutral is not detected.
-    This is tracked upstream/locally (see the known-limitations note below).
-    The earlier `from_pmd` parser resolved earth references explicitly; that
-    path has been removed.
+PowerIO renders the OpenDSS earth node as terminal `"5"` (e.g. a transformer
+wye winding whose star point is earthed arrives with
+`terminal_map_to = ["1","2","3","5"]`). On ingest, `from_dss` routes `"5"` to
+the bus neutral `"n"` as part of the `1,2,3,4 → a,b,c,n` remap, so every bus
+ends up on the `a/b/c/n` convention and its neutral is detected. The earthed
+star point is then grounded **through the bus neutral** rather than solidly —
+a slightly lossy choice (matching the earlier `from_pmd` behaviour) that is
+recorded under `net["_meta"]["earth_terminal_routing"]` so it stays inspectable.
 
 ## Pricing the slack source
 
@@ -153,24 +152,28 @@ b_no_load = -(cmag)       · Y_base       # cmag       = %imag       / 100
 
 **Lumped single-impedance form.** A `wye_delta`/`delta_wye` transformer may
 carry a single lumped `r_series`/`x_series` (wye-side, delta ideal) instead of
-the per-winding fields. The schema accepts it, `to_pmd` reads it, and
-`from_dss` (PowerIO) currently **emits** it. ⚠️ Note that the OPF and Ybus
-builders read only the per-winding `r/x_series_from`/`_to` fields, so a lumped
-transformer presents zero series impedance to those code paths until it is
-normalised to the per-winding form — see the known-limitations note below.
+the per-winding fields — this is what `from_dss` (PowerIO) emits today. The OPF
+and Ybus builders read only the per-winding `r/x_series_from`/`_to` fields, so
+the lumped form is **normalised at parse time** by
+`migrate` / `_migrate_transformer_series_fields!`: it is moved onto
+`r_series_from`/`x_series_from` (with the secondary branch zero) and a
+`W.MIGRATE.XFMR_SERIES_FIELDS` note is recorded. `to_pmd` writes the
+per-winding fields back to PMD `rw`/`xsc`.
 
 ## Known limitations
 
 - **Lumped transformer impedance (from `from_dss`).** PowerIO emits
   `wye_delta`/`delta_wye` units with a single lumped `r_series`/`x_series`
-  rather than the per-winding T-model (`r/x_series_from`/`_to`). The OPF and
-  Ybus builders read only the per-winding fields, so such a transformer is seen
-  as having zero leakage impedance until it is normalised. Tracked as a separate
-  issue (per-winding emission upstream + a defensive normalisation on ingest).
-- **Earth terminal `"5"` retained (from `from_dss`).** PowerIO keeps the
-  OpenDSS earth node as terminal `"5"`; buses that carry it (e.g. an earthed
-  transformer star point) keep numeric terminal names and lose neutral
-  detection. Tracked as a separate issue.
+  rather than a per-winding T-model. BMOPFTools normalises this onto
+  `r_series_from`/`x_series_from` on ingest (see above), so the OPF/Ybus see a
+  nonzero leakage impedance — but the leakage is all on the from-winding (the
+  to-winding branch is zero). A faithful per-winding split would require
+  per-winding emission upstream (tracked as a PowerIO.jl issue).
+- **Earth terminal `"5"` → bus neutral (from `from_dss`).** PowerIO keeps the
+  OpenDSS earth node as terminal `"5"`. BMOPFTools routes it to the bus neutral
+  on ingest (see above), which grounds an earthed star point through the bus
+  neutral rather than solidly. Native earth resolution upstream is tracked as a
+  PowerIO.jl issue.
 - **Wye-wye three-phase transformers** have no spec type. They are parked
   in `single_phase` with 3-phase terminal maps and flagged
   (`W.SPEC.XFMR_TMAP_ARITY`); the faithful decomposition into three

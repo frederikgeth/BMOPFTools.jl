@@ -3,8 +3,16 @@
 # OpenDSS → BMOPF conversion via the PowerIO.jl package
 # (eigenergy/PowerIO.jl, which binds the `powerio` Rust engine in-process).
 
-# OpenDSS numeric terminal names ["1","2","3","4"] → task-force phase labels.
-const _DSS_TERMINAL_MAP = Dict("1" => "a", "2" => "b", "3" => "c", "4" => "n")
+# OpenDSS numeric terminal names → task-force phase labels.
+# 1/2/3 → phases a/b/c, 4 → neutral n. PowerIO renders the OpenDSS earth node
+# (.0) as terminal "5"; it is routed to the bus neutral ("n") so that an earthed
+# transformer star point is grounded through the bus's grounding impedance
+# rather than left as a phantom phase terminal (BMOPF has no earth terminal).
+const _DSS_TERMINAL_MAP = Dict(
+    "1" => "a", "2" => "b", "3" => "c", "4" => "n", "5" => "n")
+
+# Terminal names PowerIO can emit for an OpenDSS bus (phases, neutral, earth).
+const _DSS_NUMERIC_TERMINALS = Set(("1", "2", "3", "4", "5"))
 
 """
     from_dss(path::AbstractString; name=nothing) -> Dict{String,Any}
@@ -92,30 +100,56 @@ end
 """
     _remap_opendss_terminals!(net)
 
-Remap OpenDSS numeric terminal names ["1","2","3","4"] to the task-force
-phase labels ["a","b","c","n"] throughout a BMOPF network dict. Sets
-`neutral_terminal => "n"` on every affected bus. All component `terminal_map`
-and `terminal_map_from`/`terminal_map_to` references are updated consistently.
+Remap OpenDSS numeric terminal names to the task-force phase labels
+(`1,2,3 → a,b,c`, `4 → n`) throughout a BMOPF network dict, and route the
+OpenDSS earth terminal `"5"` to the bus neutral `"n"`. A bus is remapped when
+all of its terminal names are OpenDSS numerics (`⊆ {1,2,3,4,5}`) and it carries
+at least one phase (`1`, `2` or `3`); `neutral_terminal => "n"` is set whenever
+a neutral results. All component `terminal_map` and
+`terminal_map_from`/`terminal_map_to` references are updated consistently, and
+duplicate terminals introduced by the `4`/`5` → `n` collapse are removed.
 
-Buses with other naming conventions are left unchanged.
+Buses with other naming conventions (e.g. already `a/b/c/n`) are left unchanged.
+
+When an earth terminal `"5"` is routed to neutral, a note is recorded under
+`net["_meta"]["earth_terminal_routing"]` so the (slightly lossy) modeling choice
+— an earthed star point becomes grounded through the bus neutral rather than
+solidly — stays inspectable.
 """
 function _remap_opendss_terminals!(net::Dict{String,Any})
     rename_maps = Dict{String,Dict{String,String}}()
+    earth_routed = String[]
 
     for (bus_id, bus) in get(net, "bus", Dict())
         bus isa Dict || continue
         names = get(bus, "terminal_names", nothing)
         names isa Vector || continue
         str_names = string.(names)
-        sort(str_names) == ["1", "2", "3", "4"] || continue
-        bus["terminal_names"] = [get(_DSS_TERMINAL_MAP, n, n) for n in str_names]
-        bus["neutral_terminal"] = "n"
-        rename_maps[bus_id] = _DSS_TERMINAL_MAP
+
+        # Only OpenDSS-numeric buses carrying at least one phase conductor.
+        all(n -> n in _DSS_NUMERIC_TERMINALS, str_names) || continue
+        any(n -> n in ("1", "2", "3"), str_names) || continue
+
+        rmap = Dict(n => _DSS_TERMINAL_MAP[n] for n in str_names)
+        bus["terminal_names"] = unique(rmap[n] for n in str_names)
+        "n" in values(rmap) && (bus["neutral_terminal"] = "n")
+        rename_maps[bus_id] = rmap
+        "5" in str_names && push!(earth_routed, bus_id)
     end
 
     isempty(rename_maps) && return
 
     _remap_terminal_maps!(net, rename_maps)
+
+    if !isempty(earth_routed)
+        meta = get!(net, "_meta", Dict{String,Any}())
+        meta["earth_terminal_routing"] = Dict(
+            "buses"   => sort(earth_routed),
+            "message" => "OpenDSS earth terminal \"5\" routed to the bus neutral " *
+                         "\"n\"; an earthed star point is grounded through the bus " *
+                         "neutral rather than solidly.",
+        )
+    end
 end
 
 function _remap_terminal_maps!(net::Dict{String,Any},
