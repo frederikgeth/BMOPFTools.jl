@@ -2237,6 +2237,24 @@ const IEEE13_FIXTURE = """
         @test !any(f -> f.code == "E.CONN.SELF_LOOP", findings)
     end
 
+    @testset "Connectivity — dangling bus reference does not crash zone analysis" begin
+        # A component referencing an undeclared bus (e.g. a case-inconsistent
+        # endpoint from from_dss) must not inject a phantom node into a galvanic
+        # zone and crash _classify_zones; analysis completes and integrity
+        # reports the dangling reference instead.
+        net = _spec_net()
+        net["line"]["dangling"] = Dict{String,Any}(
+            "bus_from" => "b1", "bus_to" => "NoSuchBus",
+            "terminal_map_from" => ["a","b","c","n"],
+            "terminal_map_to"   => ["a","b","c","n"],
+            "linecode" => first(keys(net["linecode"])), "length" => 1.0)
+        findings = Finding[]
+        @test (connectivity_analysis(net, findings); true)   # must not throw
+        report = analyze(net)
+        @test report isa SummaryReport
+        @test any(f -> f.code == "E.INT.UNKNOWN_BUS", report.findings)
+    end
+
     @testset "Operational — I.OPS.UNLOADED_PHASE: phase without load" begin
         # b1 has phases a,b,c,n — only phase a has a load
         net = _spec_net()

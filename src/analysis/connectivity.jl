@@ -256,12 +256,18 @@ function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
     buses = collect(keys(get(net, "bus", Dict())))
     isempty(buses) && return Set{String}[]
 
+    busset = Set(buses)
     adj = Dict{String,Vector{String}}()
     for b in buses; adj[b] = String[]; end
 
+    # Only connect declared buses. A component referencing an undeclared bus
+    # (e.g. a case-inconsistent or dangling endpoint) must not inject a phantom
+    # node into a zone — that dangling reference is reported separately by
+    # integrity_check; here we keep zones over real buses only.
     add_edge! = (a, b) -> begin
-        push!(get!(adj, a, String[]), b)
-        push!(get!(adj, b, String[]), a)
+        (a in busset && b in busset) || return
+        push!(adj[a], b)
+        push!(adj[b], a)
     end
 
     for (_, l) in get(net, "line", Dict())
@@ -343,7 +349,7 @@ function _classify_zones(net::Dict{String,Any})
     for zone in _galvanic_zones(net)
         phases = Set{String}()
         for bid in zone
-            b  = get(buses, bid, Dict())
+            b  = get(buses, bid, Dict{String,Any}())
             nt = _neutral_terminal(b)
             for t in get(b, "terminal_names", String[])
                 string(t) != nt && push!(phases, string(t))
