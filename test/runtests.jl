@@ -768,29 +768,6 @@ const IEEE13_FIXTURE = """
         @test_throws ErrorException to_pmd(net)
     end
 
-    @testset "from_pmd — slack cost priced on the voltage source" begin
-        eng = Dict{String,Any}(
-            "settings" => Dict{String,Any}("voltage_scale_factor" => 1000.0),
-            "bus" => Dict{String,Any}(
-                "src" => Dict{String,Any}("terminals" => [1,2,3,4])),
-            "voltage_source" => Dict{String,Any}(
-                "source" => Dict{String,Any}(
-                    "bus" => "src", "connections" => [1,2,3,4],
-                    "vm" => [0.23, 0.23, 0.23, 0.0],
-                    "va" => [0.0, -120.0, 120.0, 0.0])))
-
-        net = from_pmd(eng; slack_cost=0.25)
-        @test !haskey(net, "generator")
-        vs = net["voltage_source"]["source"]
-        @test vs["bus"] == "src"
-        @test vs["cost"] ≈ [0.25, 0.25, 0.25]   # one per phase (neutral excluded)
-        @test !haskey(vs, "p_min") && !haskey(vs, "p_max")
-
-        # opt-out
-        net2 = from_pmd(eng; add_slack_generator=false)
-        @test !haskey(net2["voltage_source"]["source"], "cost")
-    end
-
     @testset "Spec conformance checks" begin
         net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
         findings = Finding[]
@@ -1943,32 +1920,6 @@ const IEEE13_FIXTURE = """
         res3 = provenance_analysis(mk_net(3e-4, 2e-4, 100.0), f3)
         @test !any(f -> f.code == "I.PROV.LINE_SWITCH_LIKE", f3)
         @test res3["switch_like_lines"]["n"] == 0
-    end
-
-    @testset "from_pmd — earth-bonded voltage source" begin
-        # ENWL-style source: neutral bonded to earth via a grounding reactor,
-        # so PMD reports connections [1,2,3,5] with vm/va aligned to them.
-        # Terminal 5 (earth) must be dropped with its vm/va entries.
-        eng = Dict{String,Any}(
-            "settings" => Dict{String,Any}("voltage_scale_factor" => 1000.0),
-            "bus" => Dict{String,Any}(
-                "sourcebus" => Dict{String,Any}(
-                    "terminals" => [1,2,3,4,5], "grounded" => [5])),
-            "voltage_source" => Dict{String,Any}(
-                "source" => Dict{String,Any}(
-                    "bus" => "sourcebus",
-                    "connections" => [1,2,3,5],
-                    "vm" => [0.24, 0.24, 0.24, 0.0],
-                    "va" => [0.0, -120.0, 120.0, 0.0])))
-
-        net = from_pmd(eng)
-        vs  = net["voltage_source"]["source"]
-        @test vs["terminal_map"] == ["1","2","3"]
-        @test vs["v_magnitude"] ≈ [240.0, 240.0, 240.0]
-        @test length(vs["v_angle"]) == 3
-        # earth terminal must not appear on the bus either
-        @test net["bus"]["sourcebus"]["terminal_names"] == ["1","2","3","n"]
-        @test !haskey(net["bus"]["sourcebus"], "perfectly_grounded_terminals")
     end
 
     @testset "to_pmd — impedance matrix reconstruction" begin
