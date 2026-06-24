@@ -157,13 +157,12 @@ unbalanced loading produces different voltages on the two legs.
 
 !!! warning "Leakage from OpenDSS XHL/XLT/XHT"
     For `center_tap`, `x_series_from`/`x_series_to` are the **star-network**
-    leakage values, not `XHL/2`.  Given OpenDSS pair-wise values in %:
-    ```
-    x_series_from = (XHL + XHT − XLT) / 2  ×  Vhv² / (100 · s_rating)
-    x_series_to   = (XHL + XLT − XHT) / 2  ×  Vlv² / (100 · s_rating)
-    ```
-    Using the 2-winding shortcut `XHL/2` on both sides forces both leg
-    voltages to be identical under unbalanced loading, which is wrong.
+    leakage values, not `XHL/2` — the OpenDSS pair-wise values must be converted
+    via the Steinmetz star formula. Using the 2-winding shortcut `XHL/2` on both
+    sides forces both leg voltages to be identical under unbalanced loading,
+    which is wrong. See
+    [Conversion guide § Transformer impedance bases](conversion.md#Transformer-impedance-bases)
+    for the exact formulas.
 
 **`wye_delta`/`delta_wye`**: a per-winding T-model behind the ideal Yd/Dy
 transform, matching the OpenDSS / PMD reference loss network.  Each winding

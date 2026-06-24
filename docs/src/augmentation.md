@@ -107,6 +107,11 @@ report  = analyze(net2)
 net3, aug_mf = augment_case(net2; analysis=report.analysis)
 ```
 
+For a runnable, build-executed walk through this exact pipeline on a real
+feeder, see the [end-to-end tutorial](tutorial_end_to_end.md); the
+[DER placement tutorial](tutorial_ders.md) and [VVWO tutorial](tutorial_vvwo.md)
+then drill into placement strategies and smart-inverter control.
+
 The four `augment_case` passes below run in order. Each can be disabled
 independently via the [`AugmentationRecipe`](@ref) `apply_*` flags.  **No pass
 ever overwrites an existing value** — augmentation only fills gaps.

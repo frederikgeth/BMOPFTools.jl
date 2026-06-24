@@ -12,14 +12,31 @@ makedocs(
     ),
     pages = [
         "Home"                    => "index.md",
-        "Positioning & ecosystem" => "positioning.md",
-        "Buses & terminals primer" => "terminals_primer.md",
-        "Data model conventions"  => "conventions.md",
-        "Conversion guide"        => "conversion.md",
-        "Analysis & reports"      => "analysis.md",
-        "Finding-code reference"  => "findings.md",
-        "Methodology notes"       => "methodology.md",
-        "Optimal power flow"      => "opf.md",
+        "Getting started"         => [
+            "End-to-end tutorial"      => "tutorial_end_to_end.md",
+            "Positioning & ecosystem"  => "positioning.md",
+        ],
+        "Data model"              => [
+            "Buses & terminals primer" => "terminals_primer.md",
+            "Data model conventions"   => "conventions.md",
+            "Conversion guide"         => "conversion.md",
+        ],
+        "Analysis & diagnostics"  => [
+            "Analysis & reports"       => "analysis.md",
+            "Finding-code reference"   => "findings.md",
+            "Methodology notes"        => "methodology.md",
+        ],
+        "Case preparation"        => [
+            "Case augmentation"        => "augmentation.md",
+            "DER placement tutorial"   => "tutorial_ders.md",
+            "VVWO tutorial"            => "tutorial_vvwo.md",
+            "Smooth droop encoding"    => "relu_softplus_encoding.md",
+        ],
+        "Optimal power flow"      => [
+            "Optimal power flow"       => "opf.md",
+            "OPF result dictionary"    => "results.md",
+            "Validating the OPF"       => "validation.md",
+        ],
         "Bounds & feasibility"    => [
             "bounds/index.md",
             "bounds/decision_matrix.md",
@@ -29,13 +46,9 @@ makedocs(
             "bounds/solver_trust.md",
             "bounds/references.md",
         ],
-        "Validating the OPF"      => "validation.md",
-        "VVWO tutorial"           => "tutorial_vvwo.md",
-        "DER placement tutorial"  => "tutorial_ders.md",
-        "Smooth droop encoding"   => "relu_softplus_encoding.md",
-        "OPF result dictionary"   => "results.md",
-        "Case augmentation"       => "augmentation.md",
-        "API reference"           => "api.md",
+        "Reference"               => [
+            "API reference"            => "api.md",
+        ],
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)
 )

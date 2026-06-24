@@ -116,7 +116,9 @@ Two things happen, co-optimised in a single solve:
   apparent-power circle: at `s_max = 50 kVA` the reactive headroom at full active
   power is
 
-  $$Q_{\text{avail}} = \sqrt{s_{\max}^2 - P^2} = \sqrt{50^2 - 45^2} \approx 21.8\ \text{kvar},$$
+  ```math
+  Q_{\text{avail}} = \sqrt{s_{\max}^2 - P^2} = \sqrt{50^2 - 45^2} \approx 21.8\ \text{kvar},
+  ```
 
   which is exactly the −21.79 kvar both inverters draw. The `P²+Q²≤s_max²` circle
   *trades active headroom for reactive absorption* — reactive support is not free.
