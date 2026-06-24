@@ -12,8 +12,10 @@ for you, and where these choices quietly break down near voltage collapse.
       [loss-maximization list](loss_maximization.md) before you ship.
     - **Validating your own formulation against the benchmarks?** Read everything,
       expand the *Derivation* blocks, and then work through
-      [Diagnostics & validation](diagnostics.md) and the
-      [Known traps](known_traps.md) gallery.
+      [Diagnostics & validation](diagnostics.md), the
+      [Known traps](known_traps.md) gallery, and — once you have cleared those — the
+      [Trusting the solver](solver_trust.md) capstone on how far to trust an
+      `INFEASIBLE` or `LOCALLY_SOLVED` verdict.
 
     Every collapsible block titled **Derivation** or **Proof sketch** is safe to
     skip on a first read; nothing later depends on having expanded it.
@@ -36,7 +38,11 @@ benchmarks are meant to be solved with across the broader PowerModels ecosystem
 [Fobes et al., 2020](https://arxiv.org/abs/2004.10081)):
 
 1. **Nonconvex AC** (polar, rectangular, current–voltage). Exact physics, multiple
-   solutions, local optima. This is the family BMOPFTools' own engine implements.
+   solutions, local optima — and NP-hard to solve or even to test for feasibility, on
+   radial feeders as much as on meshed grids
+   ([Lehmann, Grastien & Van Hentenryck, 2016](https://doi.org/10.1109/TPWRS.2015.2407363);
+   [Trusting the solver](solver_trust.md)). This is the family BMOPFTools' own engine
+   implements.
 2. **Convex relaxations** (second-order-cone branch-flow / bus-injection models, SDP).
    A single global optimum, but it equals an AC solution only when the relaxation is
    *exact*. Reached here via export to PMD or your own solver, not shipped in-package.
@@ -318,10 +324,17 @@ are catalogued in [Objectives that imply loss maximization](loss_maximization.md
     [`to_pmd`](../conversion.md). Maximizing loadability in an SOC model and believing
     the number is the single most common error this page exists to prevent.
 
+Once the traps above are excluded, the remaining question is how far to trust the solver's
+own verdict — when an `INFEASIBLE` is physical and a `LOCALLY_SOLVED` is global. That is the
+subject of the [Trusting the solver](solver_trust.md) capstone, together with the residual
+*numerical* traps (degeneracy, non-smoothness, zero voltage) that survive after the physics
+is right.
+
 ---
 
 See also: [Decision matrix](decision_matrix.md) ·
 [Objectives that imply loss maximization](loss_maximization.md) ·
 [Diagnostics & validation](diagnostics.md) ·
 [Known traps](known_traps.md) ·
+[Trusting the solver](solver_trust.md) ·
 [References](references.md)

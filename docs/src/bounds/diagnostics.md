@@ -162,6 +162,52 @@ loss-rewarding objective or a poor start. Checks:
   solution should match
   ([§2](index.md)).
 
+## Symptom 5 — the solve is slow, churns in restoration, or the duals look wrong
+
+A *correct* model can still misbehave numerically. The triage is to decide which of three
+causes you are looking at — physical, degeneracy, or non-smoothness — before touching the
+formulation ([Trusting the solver §4–§6](solver_trust.md)):
+
+- **Physical (collapse).** A heavily loaded sub-network past the nose
+  ([§4](index.md)). The IIS / penalty relaxation from Symptom 2 centres on the
+  power-balance and voltage-bound constraints there. Confirm with a continuation sweep, not
+  by editing constraints.
+- **Degeneracy (CQ failure).** Slow convergence with a *stable primal but unstable duals*
+  is the signature ([Trusting the solver §4](solver_trust.md)). Look for pinned or
+  linearly dependent active constraints — most often the
+  `W.BENCH.GEN_*` structures ([Methodology](../methodology.md)). The dispatch is usually
+  fine; the prices are not.
+- **Non-smoothness / zero voltage.** Restoration churn with exploding Hessian entries and
+  vanishing steps points at a fractional ZIP exponent or a zero-voltage bilinear
+  bifurcation ([Trusting the solver §5–§6](solver_trust.md)). Check that a strictly
+  positive voltage floor and the load-model floor are in place.
+
+Two cheap cross-checks separate "the solver struggled" from "the answer is wrong":
+
+```julia
+# 1. Multi-start: does the verdict / objective survive a change of start?
+starts = [flat_start, highvoltage_start, warmstart_from_linear]
+for s in starts
+    set_start_value.(all_variables(model), s)
+    optimize!(model)
+    @info "start" termination_status(model) objective_value(model)
+end
+# divergent verdicts ⇒ start-dependence (multiplicity or numerical), not a fixed answer
+```
+
+```julia
+# 2. Conditioning of the active-constraint Jacobian (LICQ proxy):
+#    a tiny smallest singular value flags a constraint-qualification failure.
+J = jacobian_of_active_constraints(model)   # your assembly of ∇g for active g
+σ = svdvals(Matrix(J))
+@info "active-Jacobian conditioning" σ_min=minimum(σ) σ_max=maximum(σ)
+# σ_min ≈ 0 ⇒ degenerate active set (Trusting the solver §4)
+```
+
+For the AC-feasibility leg of this triage, reach for
+[`solve_feasibility_opf`](../validation.md): a near-zero `total_slack_magnitude_A`
+distinguishes "slow but feasible" from "genuinely infeasible."
+
 ## Validation checklist against the benchmarks
 
 1. Reproduce the benchmark's reported objective with **your** formulation and the
@@ -194,4 +240,5 @@ Model debugging is an established craft, not specific to this library:
 See also: [Bounds, Branches, and Feasibility](index.md) ·
 [Decision matrix](decision_matrix.md) ·
 [Objectives that imply loss maximization](loss_maximization.md) ·
-[Known traps](known_traps.md) · [References](references.md)
+[Known traps](known_traps.md) · [Trusting the solver](solver_trust.md) ·
+[References](references.md)

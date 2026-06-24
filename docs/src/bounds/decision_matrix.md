@@ -59,4 +59,5 @@ as follows:
 
 See also: [Bounds, Branches, and Feasibility](index.md) ·
 [Objectives that imply loss maximization](loss_maximization.md) ·
-[Diagnostics & validation](diagnostics.md) · [References](references.md)
+[Diagnostics & validation](diagnostics.md) ·
+[Trusting the solver](solver_trust.md) · [References](references.md)
