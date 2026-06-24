@@ -1,28 +1,51 @@
 # Conversion guide
 
-[`to_pmd`](@ref) exports a BMOPF data model to a PowerModelsDistribution
-ENGINEERING dict. This page documents every deliberate decision in that
-converter — the things you would otherwise have to discover by diffing data.
-The same field mapping (read in reverse) describes how a PMD ENGINEERING dict
-maps onto BMOPF, which is useful when comparing against PMD-based tooling.
+This page documents both directions of format conversion:
 
-> **Note.** OpenDSS networks are now ingested directly by [`from_dss`](@ref)
-> (via PowerIO.jl), which emits BMOPF JSON without going through PMD. The
-> earlier `from_pmd` parser has been removed.
+- **Ingest** — OpenDSS `.dss` models are read by [`from_dss`](@ref) and emitted
+  as a BMOPF data model.
+- **Export** — a BMOPF data model is written to a PowerModelsDistribution
+  ENGINEERING dict by [`to_pmd`](@ref).
 
-## Scaling and basic field mapping
+Each section records the deliberate decisions in those converters — the things
+you would otherwise have to discover by diffing data.
 
-- Voltages: PMD `vm` (per-unit on `voltage_scale_factor`) → volts;
-  `va` degrees → **radians**.
-- Powers: PMD values × `power_scale_factor` → W/var/VA.
-- Terminals: PMD integers `1,2,3 → "1","2","3"`, `4 → "n"`.
-- PMD enum values (`WYE`, `DELTA`, …) → strings.
-- Unrecognised PMD fields are preserved per component under a `_pmd`
-  sub-dict — nothing is silently dropped; `to_pmd` merges them back.
-- Line lengths and per-length linecode values arrive from PMD already in
-  metres / Ω-per-metre (PMD normalises DSS units internally).
+## OpenDSS ingest (`from_dss`)
 
-## Identifier case-folding
+[`from_dss`](@ref) parses an OpenDSS model **in-process** via
+[PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) and emits BMOPF JSON
+directly — there is no PowerModelsDistribution step in the loop, and the earlier
+PMD-based `from_pmd` parser has been removed. Values arrive in **SI units**
+already (line lengths in metres, impedances in Ω, powers in W/var/VA); PowerIO
+normalises the DSS unit declarations internally, so `from_dss` applies no further
+scaling.
+
+The pipeline is:
+
+```
+OpenDSS .dss ──PowerIO.jl──► raw BMOPF dict ──from_dss post-processing──► BMOPF data model
+```
+
+On top of what PowerIO emits, `from_dss` (and the `parse_bmopf`/`migrate` path it
+shares) applies a handful of deliberate normalisations so the result lands on the
+BMOPF conventions:
+
+- **Identifier case-folding** — all ids and references lower-cased (below).
+- **Terminal remap** — `1,2,3,4 → a,b,c,n`, with the OpenDSS earth node `.0`
+  (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
+- **Transformer impedance normalisation** — PowerIO's lumped single-impedance
+  form is migrated onto the per-winding fields the OPF reads (below).
+- **No slack price** — the imported `voltage_source` is left without a `cost`;
+  the [augmentation pass](augmentation.md) supplies one (below).
+
+What is **faithful**: connectivity, phasing, linecode matrices, load models, and
+SI impedances pass through unchanged. What is **lossy or not-yet-supported** —
+lumped transformer leakage, earth-terminal grounding through the bus neutral, and
+the OpenDSS regulator/auto-transformer families — is catalogued under
+[Known limitations](#Known-limitations); most are tracked as upstream PowerIO.jl
+issues.
+
+### Identifier case-folding
 
 OpenDSS identifiers are case-*insensitive* but case-*preserving*: `SourceBus`,
 `sourcebus` and `SOURCEBUS` denote the same bus, and different statements in one
@@ -34,7 +57,7 @@ only reunites references to the same object. If two ids in a collection ever fol
 to the same value (which valid OpenDSS cannot produce) `from_dss` raises rather
 than silently dropping one.
 
-## The earth terminal (OpenDSS `.0`)
+### [The earth terminal (OpenDSS `.0`)](@id earth-terminal)
 
 BMOPF has no earth terminal — ground is implicit. OpenDSS, by contrast, uses
 node `.0` for earth, which surfaces in the BMOPF JSON as terminal **5**.
@@ -48,7 +71,18 @@ star point is then grounded **through the bus neutral** rather than solidly —
 a slightly lossy choice (matching the earlier `from_pmd` behaviour) that is
 recorded under `net["_meta"]["earth_terminal_routing"]` so it stays inspectable.
 
-## Pricing the slack source
+### Transformer impedance on ingest
+
+PowerIO emits `wye_delta`/`delta_wye` units with a **single lumped**
+`r_series`/`x_series` (wye-side, delta ideal) rather than the per-winding T-model
+the OPF and Ybus builders read. The lumped form is **normalised at parse time**
+by `migrate` / `_migrate_transformer_series_fields!`: it is moved onto
+`r_series_from`/`x_series_from` (with the secondary branch zero) and a
+`W.MIGRATE.XFMR_SERIES_FIELDS` note is recorded. The percentage→ohm conversions
+PowerIO performs upstream — and that `to_pmd` reverses — are tabulated under
+[Transformer impedance bases](#Transformer-impedance-bases).
+
+### Pricing the slack source
 
 The OpenDSS circuit object is simultaneously a voltage reference and an
 implicit unbounded power injection. The BMOPF `voltage_source` captures **both**:
@@ -63,13 +97,32 @@ per-phase **`cost`** to the source itself (default 1.0 \$/kWh, kwarg
 bounds are added, so the source stays an unbounded slack, and no auxiliary
 generator is created — the cost lives on the `voltage_source`.
 
-## Load configuration
+## PMD field mapping (`to_pmd`)
+
+[`to_pmd`](@ref) exports a BMOPF data model to a PowerModelsDistribution
+ENGINEERING dict. The same field mapping (read in reverse) describes how a PMD
+ENGINEERING dict maps onto BMOPF, which is useful when comparing against
+PMD-based tooling.
+
+### Scaling and basic field mapping
+
+- Voltages: PMD `vm` (per-unit on `voltage_scale_factor`) → volts;
+  `va` degrees → **radians**.
+- Powers: PMD values × `power_scale_factor` → W/var/VA.
+- Terminals: PMD integers `1,2,3 → "1","2","3"`, `4 → "n"`.
+- PMD enum values (`WYE`, `DELTA`, …) → strings.
+- Unrecognised PMD fields are preserved per component under a `_pmd`
+  sub-dict — nothing is silently dropped; `to_pmd` merges them back.
+- Line lengths and per-length linecode values arrive from PMD already in
+  metres / Ω-per-metre (PMD normalises DSS units internally).
+
+### Load configuration
 
 The spec distinguishes `SINGLE_PHASE` (any two nodes) from `WYE` (4-terminal
 midpoint return). 2-terminal loads are `SINGLE_PHASE`; `to_pmd` maps
 `SINGLE_PHASE` back to a PMD 2-terminal "wye" load.
 
-## Transformer impedance bases
+### Transformer impedance bases
 
 PMD and OpenDSS give per-winding resistance `rw` (%) and pair-wise leakage
 `xsc`/`xhl/xlt/xht` (%), both on the winding's own kVA/kV² base.
@@ -160,32 +213,26 @@ b_no_load = -(cmag)       · Y_base       # cmag       = %imag       / 100
     For a 2-winding unit PMD's star conversion (`_sc2br_impedance`) puts the
     *entire* `xhl` leakage on the winding-1 (HV) branch, with **zero** on the
     LV branch — not an even split. BMOPFTools follows that convention for
-    `wye_delta`/`delta_wye`.
-
-**Lumped single-impedance form.** A `wye_delta`/`delta_wye` transformer may
-carry a single lumped `r_series`/`x_series` (wye-side, delta ideal) instead of
-the per-winding fields — this is what `from_dss` (PowerIO) emits today. The OPF
-and Ybus builders read only the per-winding `r/x_series_from`/`_to` fields, so
-the lumped form is **normalised at parse time** by
-`migrate` / `_migrate_transformer_series_fields!`: it is moved onto
-`r_series_from`/`x_series_from` (with the secondary branch zero) and a
-`W.MIGRATE.XFMR_SERIES_FIELDS` note is recorded. `to_pmd` writes the
-per-winding fields back to PMD `rw`/`xsc`.
+    `wye_delta`/`delta_wye`. The lumped single-impedance form `from_dss` emits
+    is migrated onto these fields at parse time — see
+    [Transformer impedance on ingest](#Transformer-impedance-on-ingest).
+    `to_pmd` writes the per-winding fields back to PMD `rw`/`xsc`.
 
 ## Known limitations
 
 - **Lumped transformer impedance (from `from_dss`).** PowerIO emits
   `wye_delta`/`delta_wye` units with a single lumped `r_series`/`x_series`
   rather than a per-winding T-model. BMOPFTools normalises this onto
-  `r_series_from`/`x_series_from` on ingest (see above), so the OPF/Ybus see a
-  nonzero leakage impedance — but the leakage is all on the from-winding (the
-  to-winding branch is zero). A faithful per-winding split would require
-  per-winding emission upstream (tracked as a PowerIO.jl issue).
+  `r_series_from`/`x_series_from` on ingest (see
+  [Transformer impedance on ingest](#Transformer-impedance-on-ingest)), so the
+  OPF/Ybus see a nonzero leakage impedance — but the leakage is all on the
+  from-winding (the to-winding branch is zero). A faithful per-winding split
+  would require per-winding emission upstream (tracked as a PowerIO.jl issue).
 - **Earth terminal `"5"` → bus neutral (from `from_dss`).** PowerIO keeps the
   OpenDSS earth node as terminal `"5"`. BMOPFTools routes it to the bus neutral
-  on ingest (see above), which grounds an earthed star point through the bus
-  neutral rather than solidly. Native earth resolution upstream is tracked as a
-  PowerIO.jl issue.
+  on ingest (see [The earth terminal](@ref earth-terminal)), which
+  grounds an earthed star point through the bus neutral rather than solidly.
+  Native earth resolution upstream is tracked as a PowerIO.jl issue.
 - **Wye-wye three-phase transformers** have no spec type. They are parked
   in `single_phase` with 3-phase terminal maps and flagged
   (`W.SPEC.XFMR_TMAP_ARITY`); the faithful decomposition into three

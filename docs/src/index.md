@@ -146,6 +146,9 @@ normalisations) so the case's assumptions are explicit rather than implied.
 
 ## Where to go next
 
+- [End-to-end tutorial](tutorial_end_to_end.md) — **start here**: the full
+  load → analyze → fix → place DERs → augment → solve pipeline on one real
+  feeder, with every code block executed at build time.
 - [Positioning & ecosystem](positioning.md) — where BMOPFTools fits among
   distribution optimization and modelling tools, and the benchmarking gap it targets.
 - [Data model conventions](conventions.md) — units, terminal names,

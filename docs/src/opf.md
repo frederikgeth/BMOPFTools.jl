@@ -486,7 +486,8 @@ $\bar U_n = \tfrac{1}{m}\sum_k U_{n,k}$, as the common reference for both the
 Volt-var and Volt-watt curves — modelling inverters that regulate on the average
 terminal voltage rather than per phase. The setting only affects multi-phase
 `FOUR_LEG` inverters; on a `SINGLE_PHASE` inverter it is a no-op and emits a
-warning.
+warning. The [VVWO tutorial](tutorial_vvwo.md) works a Volt-var-Watt scenario
+end to end, solving the droop control and the network simultaneously.
 
 The inverter current variables enter KCL with the same sign convention as
 generators (injection positive into the bus); for `FOUR_LEG` the negated phase

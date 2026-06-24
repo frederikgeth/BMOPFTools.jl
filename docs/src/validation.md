@@ -191,7 +191,9 @@ Tiny networks whose optimum is solvable by hand, so the target is exact rather
 than borrowed. For a single-phase resistive feeder the load-bus voltage is the
 root of the power-flow quadratic
 
-$$V = \frac{V_s + \sqrt{V_s^2 - 4RP}}{2},$$
+```math
+V = \frac{V_s + \sqrt{V_s^2 - 4RP}}{2},
+```
 
 and dispatch/cost tests pin the objective directly:
 

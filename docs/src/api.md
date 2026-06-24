@@ -1,5 +1,23 @@
 # API reference
 
+## Which function do I need?
+
+A quick map from intent to entry point — each row links to the guide that
+explains it in context. The [end-to-end tutorial](tutorial_end_to_end.md) runs
+the whole sequence on one feeder.
+
+| I want to… | Reach for | Guide |
+|---|---|---|
+| Ingest a case | [`from_dss`](@ref), [`parse_bmopf`](@ref) | [Conversion guide](conversion.md) |
+| Analyse & diagnose it | [`analyze`](@ref), [`render`](@ref), [`errors`](@ref)/[`warnings`](@ref)/[`infos`](@ref) | [Analysis & reports](analysis.md), [Findings](findings.md) |
+| Repair structure | [`fix_case`](@ref) ([`FixRecipe`](@ref)) | [Case augmentation](augmentation.md) |
+| Place DERs | [`add_generators`](@ref), [`add_inverters`](@ref) | [DER placement](tutorial_ders.md) |
+| Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
+| Audit every change | [`render_manifest`](@ref), [`manifest_to_dict`](@ref) | [Case augmentation](augmentation.md) |
+| Solve the OPF | [`solve_opf`](@ref), [`solve_pf`](@ref), [`solve_feasibility_opf`](@ref) | [Optimal power flow](opf.md) |
+| Inspect / profile a result | [`profile_solution`](@ref), [`render_solution`](@ref), [`diagnose_infeasibility`](@ref) | [OPF result dictionary](results.md) |
+| Export | [`write_bmopf`](@ref), [`to_pmd`](@ref) | [Conversion guide](conversion.md) |
+
 ## Module
 
 ```@docs

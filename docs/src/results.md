@@ -79,7 +79,7 @@ keys `"1"`, `"2"`, `"n"`.
 The reported quantities are the **total per-end currents**: the series current
 plus that end's π-model shunt half-section, expressed as the current flowing out
 of the bus into the branch. This is exactly the quantity the thermal magnitude
-limit is enforced on (see [Lines](opf.md#lines)).
+limit is enforced on (see [Lines](opf.md#Lines)).
 
 | Field | Unit | Description |
 |---|---|---|
