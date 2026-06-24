@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>End-to-end tutorial · BMOPFTools.jl</title><meta name="title" content="End-to-end tutorial · BMOPFTools.jl"/><meta property="og:title" content="End-to-end tutorial · BMOPFTools.jl"/><meta property="twitter:title" content="End-to-end tutorial · BMOPFTools.jl"/><meta name="description" content="Documentation for BMOPFTools.jl."/><meta property="og:description" content="Documentation for BMOPFTools.jl."/><meta property="twitter:description" content="Documentation for BMOPFTools.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">BMOPFTools.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Getting started</span><ul><li class="is-active"><a class="tocitem" href>End-to-end tutorial</a><ul class="internal"><li><a class="tocitem" href="#1.-Load-—-OpenDSS-BMOPF"><span>1. Load — OpenDSS → BMOPF</span></a></li><li><a class="tocitem" href="#2.-Analyze-and-diagnose"><span>2. Analyze &amp; diagnose</span></a></li><li><a class="tocitem" href="#3.-Fix-—-structural-repair"><span>3. Fix — structural repair</span></a></li><li><a class="tocitem" href="#4.-Place-DERs"><span>4. Place DERs</span></a></li><li><a class="tocitem" href="#5.-Augment-—-standards-grounded-gap-filling"><span>5. Augment — standards-grounded gap-filling</span></a></li><li><a class="tocitem" href="#6.-Re-validate"><span>6. Re-validate</span></a></li><li><a class="tocitem" href="#7.-Solve"><span>7. Solve</span></a></li><li><a class="tocitem" href="#8.-Export"><span>8. Export</span></a></li></ul></li><li><a class="tocitem" href="../positioning/">Positioning &amp; ecosystem</a></li></ul></li><li><span class="tocitem">Data model</span><ul><li><a class="tocitem" href="../terminals_primer/">Buses &amp; terminals primer</a></li><li><a class="tocitem" href="../conventions/">Data model conventions</a></li><li><a class="tocitem" href="../conversion/">Conversion guide</a></li></ul></li><li><span class="tocitem">Analysis &amp; diagnostics</span><ul><li><a class="tocitem" href="../analysis/">Analysis &amp; reports</a></li><li><a class="tocitem" href="../findings/">Finding-code reference</a></li><li><a class="tocitem" href="../methodology/">Methodology notes</a></li></ul></li><li><span class="tocitem">Case preparation</span><ul><li><a class="tocitem" href="../augmentation/">Case augmentation</a></li><li><a class="tocitem" href="../tutorial_ders/">DER placement tutorial</a></li><li><a class="tocitem" href="../tutorial_vvwo/">VVWO tutorial</a></li><li><a class="tocitem" href="../relu_softplus_encoding/">Smooth droop encoding</a></li></ul></li><li><span class="tocitem">Optimal power flow</span><ul><li><a class="tocitem" href="../opf/">Optimal power flow</a></li><li><a class="tocitem" href="../results/">OPF result dictionary</a></li><li><a class="tocitem" href="../validation/">Validating the OPF</a></li></ul></li><li><span class="tocitem">Bounds &amp; feasibility</span><ul><li><a class="tocitem" href="../bounds/">Bounds, Branches, and Feasibility</a></li><li><a class="tocitem" href="../bounds/decision_matrix/">Decision Matrix</a></li><li><a class="tocitem" href="../bounds/loss_maximization/">Objectives That Imply Loss Maximization</a></li><li><a class="tocitem" href="../bounds/diagnostics/">Diagnostics &amp; Validation</a></li><li><a class="tocitem" href="../bounds/known_traps/">Known Traps</a></li><li><a class="tocitem" href="../bounds/solver_trust/">Trusting the Solver</a></li><li><a class="tocitem" href="../bounds/references/">References</a></li></ul></li><li><span class="tocitem">Reference</span><ul><li><a class="tocitem" href="../api/">API reference</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Getting started</a></li><li class="is-active"><a href>End-to-end tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>End-to-end tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/frederikgeth/BMOPFTools.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/frederikgeth/BMOPFTools.jl/blob/main/docs/src/tutorial_end_to_end.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="End-to-end-tutorial:-from-OpenDSS-to-a-solved-OPF-benchmark"><a class="docs-heading-anchor" href="#End-to-end-tutorial:-from-OpenDSS-to-a-solved-OPF-benchmark">End-to-end tutorial: from OpenDSS to a solved OPF benchmark</a><a id="End-to-end-tutorial:-from-OpenDSS-to-a-solved-OPF-benchmark-1"></a><a class="docs-heading-anchor-permalink" href="#End-to-end-tutorial:-from-OpenDSS-to-a-solved-OPF-benchmark" title="Permalink"></a></h1><p>This is the <strong>primary use case</strong> of BMOPFTools, start to finish, on one real feeder. We take a utility-style OpenDSS model and walk the whole pipeline:</p><pre><code class="nohighlight hljs">load → analyze → fix → place DERs → augment → re-validate → solve → export</code></pre><p>Every code block on this page is <strong>executed when the documentation is built</strong>, so the inventory counts, findings, manifests and solver output below are real — not hand-transcribed. The complete copy-paste scripts live in <a href="https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/lv1_14bus_walkthrough.jl"><code>examples/lv1_14bus_walkthrough.jl</code></a> (analysis) and <a href="https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/augment_and_solve.jl"><code>examples/augment_and_solve.jl</code></a> (preparation and solve).</p><p>The feeder is <code>LV1_14bus</code>: a real 14-bus LV network with an 11 kV / 433 V delta–wye transformer, nine cables, four normally-closed switches, two single-phase loads and three neutral reactors.</p><div class="admonition is-info" id="Two-deep-dive-tutorials-branch-off-this-one-662d11267f39a7af"><header class="admonition-header">Two deep-dive tutorials branch off this one<a class="admonition-anchor" href="#Two-deep-dive-tutorials-branch-off-this-one-662d11267f39a7af" title="Permalink"></a></header><div class="admonition-body"><p>Once the pipeline makes sense, <a href="../tutorial_ders/">DER placement</a> explores the placement <em>strategies</em> and how the binding constraint flips, and the <a href="../tutorial_vvwo/">VVWO tutorial</a> adds smart-inverter Volt-var/Volt-watt control inside the OPF.</p></div></div><h2 id="1.-Load-—-OpenDSS-BMOPF"><a class="docs-heading-anchor" href="#1.-Load-—-OpenDSS-BMOPF">1. Load — OpenDSS → BMOPF</a><a id="1.-Load-—-OpenDSS-BMOPF-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Load-—-OpenDSS-BMOPF" title="Permalink"></a></h2><p><a href="../api/#BMOPFTools.from_dss"><code>from_dss</code></a> parses the OpenDSS model in-process (via <a href="https://github.com/eigenergy/PowerIO.jl">PowerIO.jl</a>) and returns the BMOPF network as a plain <code>Dict{String,Any}</code>.</p><pre><code class="language-julia hljs">using BMOPFTools
+
+dss_path = joinpath(pkgdir(BMOPFTools), &quot;test&quot;, &quot;data&quot;, &quot;LV&quot;, &quot;LV1_14bus&quot;, &quot;Master.dss&quot;)
+net = from_dss(dss_path)
+
+for comp in (&quot;bus&quot;, &quot;line&quot;, &quot;linecode&quot;, &quot;switch&quot;, &quot;load&quot;, &quot;shunt&quot;, &quot;voltage_source&quot;)
+    n = length(get(net, comp, Dict()))
+    n &gt; 0 &amp;&amp; println(rpad(comp, 16), &quot;: &quot;, n)
+end
+xfmr = get(net, &quot;transformer&quot;, Dict())
+println(rpad(&quot;transformer&quot;, 16), &quot;: &quot;, sum(length(v) for v in values(xfmr) if v isa Dict; init=0),
+        &quot;  (&quot;, join(keys(xfmr), &quot;, &quot;), &quot;)&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr32"><span class="sgr1"> Downloading</span></span> artifact: powerio_capi
+bus             : 15
+line            : 9
+linecode        : 22
+switch          : 4
+load            : 2
+shunt           : 3
+voltage_source  : 1
+transformer     : 1  (delta_wye)</code></pre><h2 id="2.-Analyze-and-diagnose"><a class="docs-heading-anchor" href="#2.-Analyze-and-diagnose">2. Analyze &amp; diagnose</a><a id="2.-Analyze-and-diagnose-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Analyze-and-diagnose" title="Permalink"></a></h2><p><a href="../api/#BMOPFTools.analyze"><code>analyze</code></a> runs fifteen passes — inventory, connectivity, voltage levels, provenance, schema, completeness, domain rules, redundancy, integrity, spec conformance, benchmark readiness, and more — and returns a <a href="../api/#BMOPFTools.SummaryReport"><code>SummaryReport</code></a>. Each diagnostic is a <a href="../api/#BMOPFTools.Finding"><code>Finding</code></a> with a stable dot-separated code; see <a href="../analysis/">Analysis &amp; reports</a> for what each pass computes and the <a href="../findings/">finding-code reference</a> for the full catalogue.</p><pre><code class="language-julia hljs">report = analyze(net)
+
+println(&quot;ERRORs   : &quot;, length(errors(report)))
+println(&quot;WARNINGs : &quot;, length(warnings(report)))
+println(&quot;INFOs    : &quot;, length(infos(report)))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ERRORs   : 0
+WARNINGs : 2
+INFOs    : 20</code></pre><p>Findings are meant to be matched on their <strong>code</strong>, never on message text. A raw import like this one typically lands clean on structure but flags missing operating bounds and modeling-provenance observations — exactly the gaps the later steps fill:</p><pre><code class="language-julia hljs">for f in warnings(report)
+    println(&quot;WARN  [&quot;, f.code, &quot;]  &quot;, f.message)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">WARN  [W.CONN.DANGLING]  5 bus(es) are degree-1 with no attached load, generator, or shunt.
+WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.02 MW).</code></pre><p>The full report renders to a terminal or a Markdown file. The one-line <strong>modeling-convention statement</strong> (wires per voltage level, grounding style, normalisations) makes the case&#39;s hidden assumptions explicit:</p><pre><code class="language-julia hljs">render(report, stdout)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  BMOPF NETWORK SUMMARY REPORT
+──────────────────────────────────────────────────────────────────────
+</span>  Case name                     lv1_14bus
+  Generated                     2026-06-24 22:00:51
+  Findings                      0 errors, 2 warnings, 20 info
+  Convention                    MV_6.4kV: 4-wire; LV_250V: 4-wire; 4 grounding point(s)
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  1. COMPONENT INVENTORY
+──────────────────────────────────────────────────────────────────────
+</span>  bus                  15
+      3-phase          15
+  line                 9
+      with linecode    9
+  linecode             22
+  voltage_source       1
+  load                 2
+      total P          20.0 kW
+      total Q          10.8 kvar
+      SINGLE_PHASE     2
+  shunt                3
+  switch               4
+  transformer          1
+      delta_wye        1
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  2. VOLTAGE LEVELS
+──────────────────────────────────────────────────────────────────────
+</span>  Voltage levels identified: 2
+
+  Level          Nominal      Buses   Lines   Loads   Generators
+  ────────────────────────────────────────────────────────────
+  MV_6.4kV       6.35 kV      1       0       0       0
+  LV_250V        250.0 V      14      9       2       0
+
+  Transformer transitions:
+    tx3170  MV_6.4kV → LV_250V  [delta_wye, Dyn0]
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  3. CONNECTIVITY &amp; TOPOLOGY
+──────────────────────────────────────────────────────────────────────
+</span>  Connected components:    1  (fully connected)
+  Network topology:        Radial
+
+  Degree statistics:
+    Mean degree                   1.87
+    Max degree                    5
+    Degree-1 buses (end-nodes)    8
+    Degree-2 buses (pass-through) 3
+  Max tree depth (hops)         6
+
+  Dangling buses: b1989, b1149, b232, b514, b1977
+
+  <span class="sgr33">[WARN] W.CONN.DANGLING</span>
+    5 bus(es) are degree-1 with no attached load, generator, or shunt.
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  4. DIVERSITY &amp; VARIANCE
+──────────────────────────────────────────────────────────────────────
+</span>  Overall symmetry score:  MODERATE  (1 category/ies flagged)
+
+  load ⚠
+    p_nom          min=10000.0  max=10000.0  CV=0.0  n=2
+    q_nom          min=5400.0  max=5400.0  CV=0.0  n=2
+    Distinct (p,q) tuples: 1 / 2
+  line
+    length         min=0.246  max=6.53  CV=1.583  n=9
+  linecode
+    R_series_1_1   min=0.000146  max=0.00457  CV=1.723  n=22
+  bus
+    Buses with voltage bounds: 0  (0.0%)
+
+  <span class="sgr36">[INFO] I.DIV.LOAD_PHASE_BALANCED</span>
+    Galvanic zone anchored at &#39;b1133&#39; has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  5. LOADING &amp; OPERATIONAL SUMMARY
+──────────────────────────────────────────────────────────────────────
+</span>  Total installed load:
+    P                             20.0 kW
+    Q                             10.8 kvar
+    Power factor                  0.88 lagging
+  Total generation capacity:
+    P_max                         0.0 W
+  Generation/load ratio         0.0%
+
+  Load by configuration:
+    SINGLE_PHASE 20.0 kW
+
+  Transformer utilisation (nominal load estimate):
+    tx3170           100.0 kVA rating   22.7%
+
+  Line thermal limits:
+    9 / 9 lines have thermal limit (100.0% constrained)
+
+  <span class="sgr33">[WARN] W.OPS.IMPORT_DEPENDENT</span>
+    Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.02 MW).
+  <span class="sgr36">[INFO] I.OPS.UNLOADED_PHASE</span>
+    Galvanic zone anchored at bus &#39;b1133&#39; has no load connected to phase terminal &#39;c&#39;.
+  <span class="sgr36">[INFO] I.OPS.UNLOADED_PHASE</span>
+    Galvanic zone anchored at bus &#39;b2577&#39; has no load connected to phase terminal &#39;a&#39;.
+  <span class="sgr36">[INFO] I.OPS.UNLOADED_PHASE</span>
+    Galvanic zone anchored at bus &#39;b2577&#39; has no load connected to phase terminal &#39;b&#39;.
+  <span class="sgr36">[INFO] I.OPS.UNLOADED_PHASE</span>
+    Galvanic zone anchored at bus &#39;b2577&#39; has no load connected to phase terminal &#39;c&#39;.
+  <span class="sgr36">[INFO] I.OPS.FEEDER_SHORT</span>
+    Galvanic zone anchored at bus &#39;b1133&#39; (LV, 0.25 kV) has an electrical reach of 7.0 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  6. INFEASIBILITY PRE-FLIGHT
+──────────────────────────────────────────────────────────────────────
+</span>  Generation adequacy:
+    Total load                    20.0 kW
+    Gen capacity                  0.0 W
+    Import dependent              true
+  Voltage bounds:
+    With lower bound              0 / 15
+    With upper bound              0 / 15
+    Without bounds                15
+  Constraint conflicts:    0 ✓
+  Topological risk:
+    Voltage sources               1
+    Single point of failure       true
+
+  TPIA module: not_run
+
+  <span class="sgr36">[INFO] I.PRE.NO_VOLT_BOUNDS</span>
+    15 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
+  <span class="sgr36">[INFO] I.PRE.SINGLE_SOURCE</span>
+    Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  7. PROVENANCE &amp; MODEL CONVENTIONS
+──────────────────────────────────────────────────────────────────────
+</span>  Inferred convention           MV_6.4kV: 4-wire; LV_250V: 4-wire; 4 grounding point(s)
+
+  Wires per voltage level:
+    MV_6.4kV       4-wire   (1 of 1 buses carry neutral)
+    LV_250V        4-wire   (14 of 14 buses carry neutral)
+
+  Neutral grounding:
+    Buses with neutral            15
+    Neutral branches              13
+    Grounding points              4
+    Neutral sections              2
+    Floating sections             0 ✓
+
+  Linecode impedance classification:
+    distinct           12
+    near_balanced      9
+    not_applicable     1
+
+  OpenDSS default fingerprints: 2 hit(s) — see findings
+
+  Earthing system per galvanic zone:
+    6.35 kV    1 bus(es)    4-wire   star: solid        +0 downstream → solidly earthed
+    250.0 V    14 bus(es)   4-wire   star: solid        +2 downstream → TN-C-S / multi-earthed (PME/MEN-style)
+
+  <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/abc4x95_lv_oh_4w_bundled
+    Linecode &#39;abc4x95_lv_oh_4w_bundled&#39; B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+  <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/abc4x95_lv_oh_4w_bundled
+    Linecode &#39;abc4x95_lv_oh_4w_bundled&#39; B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+  <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled
+    Linecode &#39;uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled&#39; B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+  <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled
+    Linecode &#39;uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled&#39; B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+  <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/uglv_240al_xlpe/nyl/pvc_ug_4w_bundled
+    Linecode &#39;uglv_240al_xlpe/nyl/pvc_ug_4w_bundled&#39; B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+  <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/uglv_240al_xlpe/nyl/pvc_ug_4w_bundled
+    Linecode &#39;uglv_240al_xlpe/nyl/pvc_ug_4w_bundled&#39; B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+  <span class="sgr36">[INFO] I.PROV.DSS_DEFAULT_PF</span>
+    2 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
+  <span class="sgr36">[INFO] I.PROV.IMPEDANCE_TRANSFORM_KR</span>
+    9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  8. SPEC CONFORMANCE &amp; BENCHMARK READINESS
+──────────────────────────────────────────────────────────────────────
+</span>  Conformance issues            0 ✓
+  Voltage sources               1 (spec requires 1)
+
+  Structural integrity:
+    Reference issues              0 ✓
+    Dimension issues              0 ✓
+    Galvanic islands              2 (0 without voltage reference ✓)
+    Line impedance spread         60.7×
+
+  Benchmark readiness:
+    Objective well-posed          false
+    Only slack generation         false
+    Buses with |V| bounds         0.0%
+    vpn/vpp/vpos bounds           0 / 0 / 0 buses
+    Lines with thermal limits     100.0%
+
+  Augmentation needed:
+    • no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs
+    • no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
+    • no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF
+
+  <span class="sgr36">[INFO] I.BENCH.AUGMENTATION</span>
+    Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+<span class="sgr1">
+──────────────────────────────────────────────────────────────────────
+  9. DATA QUALITY SUMMARY
+──────────────────────────────────────────────────────────────────────
+</span>  Total findings: 22  (0 errors, 2 warnings, 20 info)
+
+  WARNINGS:
+    <span class="sgr33">[WARN] W.CONN.DANGLING</span>
+      5 bus(es) are degree-1 with no attached load, generator, or shunt.
+    <span class="sgr33">[WARN] W.OPS.IMPORT_DEPENDENT</span>
+      Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.02 MW).
+  INFO:
+    <span class="sgr36">[INFO] I.DIV.LOAD_PHASE_BALANCED</span>
+      Galvanic zone anchored at &#39;b1133&#39; has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
+    <span class="sgr36">[INFO] I.OPS.UNLOADED_PHASE</span>
+      Galvanic zone anchored at bus &#39;b1133&#39; has no load connected to phase terminal &#39;c&#39;.
+    <span class="sgr36">[INFO] I.OPS.UNLOADED_PHASE</span>
+      Galvanic zone anchored at bus &#39;b2577&#39; has no load connected to phase terminal &#39;a&#39;.
+    <span class="sgr36">[INFO] I.OPS.UNLOADED_PHASE</span>
+      Galvanic zone anchored at bus &#39;b2577&#39; has no load connected to phase terminal &#39;b&#39;.
+    <span class="sgr36">[INFO] I.OPS.UNLOADED_PHASE</span>
+      Galvanic zone anchored at bus &#39;b2577&#39; has no load connected to phase terminal &#39;c&#39;.
+    <span class="sgr36">[INFO] I.OPS.FEEDER_SHORT</span>
+      Galvanic zone anchored at bus &#39;b1133&#39; (LV, 0.25 kV) has an electrical reach of 7.0 m — shorter than typical for a LV feeder (30.0 m); electrically it is a stub/service drop rather than a feeder.
+    <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/abc4x95_lv_oh_4w_bundled
+      Linecode &#39;abc4x95_lv_oh_4w_bundled&#39; B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+    <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/abc4x95_lv_oh_4w_bundled
+      Linecode &#39;abc4x95_lv_oh_4w_bundled&#39; B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+    <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled
+      Linecode &#39;uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled&#39; B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+    <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled
+      Linecode &#39;uglv_185cu_xlpe/nyl/pvc_ug_4w_bundled&#39; B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+    <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/uglv_240al_xlpe/nyl/pvc_ug_4w_bundled
+      Linecode &#39;uglv_240al_xlpe/nyl/pvc_ug_4w_bundled&#39; B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+    <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/uglv_240al_xlpe/nyl/pvc_ug_4w_bundled
+      Linecode &#39;uglv_240al_xlpe/nyl/pvc_ug_4w_bundled&#39; B_to_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
+    <span class="sgr36">[INFO] I.PROV.DSS_DEFAULT_PF</span>
+      2 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
+    <span class="sgr36">[INFO] I.PROV.IMPEDANCE_TRANSFORM_KR</span>
+      9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
+    <span class="sgr36">[INFO] I.PRE.NO_VOLT_BOUNDS</span>
+      15 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
+    <span class="sgr36">[INFO] I.PRE.SINGLE_SOURCE</span>
+      Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
+    <span class="sgr36">[INFO] I.SCHEMA.VERSION_UNKNOWN</span>
+      Spec version &#39;unknown&#39; has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
+    <span class="sgr36">[INFO] I.RED.UNUSED_LINECODES</span>
+      20 linecode(s) defined but not referenced by any line.
+    <span class="sgr36">[INFO] I.RED.DUPLICATE_LINECODES</span>
+      4 group(s) of linecodes share identical R_series_1_1/X_series_1_1.
+    <span class="sgr36">[INFO] I.BENCH.AUGMENTATION</span>
+      Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.</code></pre><h2 id="3.-Fix-—-structural-repair"><a class="docs-heading-anchor" href="#3.-Fix-—-structural-repair">3. Fix — structural repair</a><a id="3.-Fix-—-structural-repair-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Fix-—-structural-repair" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.fix_case"><code>fix_case</code></a> applies idempotent structural repairs and returns the repaired network plus a <a href="../augmentation/#TransformationManifest"><code>TransformationManifest</code></a> recording every change. The default <a href="../augmentation/#BMOPFTools.FixRecipe"><code>FixRecipe</code></a> keeps the largest connected component, merges trivial series lines, drops electrically-inert zero loads, turns near-zero-impedance lines into switches, and strips redundant voltage bounds off source buses. Two passes are opt-in because they change topology inference or OPF physics.</p><pre><code class="language-julia hljs">net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
+
+render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-24T22:00:54.912
+  4 change(s)  |  findings before: 1  after: 1
+
+── BUS (2 change(s)) ──
+  b1133
+    SWITCH_IN_CHAIN  —                    → nothing
+                     [simplify_network, standard] Merge of same-linecode lines l_2126 and l_3383 at bus b1133 blocked by a switch — possible user error (switch in the middle of a cable run).
+  b2327
+    SWITCH_IN_CHAIN  —                    → nothing
+                     [simplify_network, standard] Merge of same-linecode lines l_3726 and l_378 at bus b2327 blocked by a switch — possible user error (switch in the middle of a cable run).
+
+── LINE (2 change(s)) ──
+  l_226
+    LINE_REMOVED     —                    → nothing
+                     [simplify_network, standard] Removed dangling line l_226 and its leaf bus b1989 (leaf has no active elements).
+  l_4124
+    LINE_REMOVED     —                    → nothing
+                     [simplify_network, standard] Removed dangling line l_4124 and its leaf bus b1977 (leaf has no active elements).</code></pre><h2 id="4.-Place-DERs"><a class="docs-heading-anchor" href="#4.-Place-DERs">4. Place DERs</a><a id="4.-Place-DERs-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Place-DERs" title="Permalink"></a></h2><p>A faithful import is usually a passive load feeder — there is nothing for an OPF to optimise. <a href="../augmentation/#BMOPFTools.add_inverters"><code>add_inverters</code></a> (and its sibling <a href="../augmentation/#BMOPFTools.add_generators"><code>add_generators</code></a>) <strong>declare</strong> a DER fleet with a recipe and let the library choose buses from the network&#39;s own semantics, recording every field it writes. Here a <code>:load_following</code> recipe drops one PV inverter on each load bus.</p><p>See the <a href="../tutorial_ders/">DER placement tutorial</a> for the full menu of placement strategies, sizing bases, and cost knobs.</p><pre><code class="language-julia hljs">inv_recipe = InverterRecipe(
+    strategy     = :load_following,   # one PV inverter per load bus
+    s_fraction   = 5.0,               # s_max = 5 × local load
+    s_to_p_ratio = 0.90,              # leave VA headroom for reactive support
+    cost_basis   = :uniform, der_cost_uniform = 0.2,   # cheaper than the slack
+)
+
+net_der, der_mf = add_inverters(net_fixed; recipe = inv_recipe)
+
+render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-24T22:00:56.610
+  14 change(s)  |  findings before: 1  after: 3
+
+── INVERTER (14 change(s)) ──
+  pv_b2656
+    bus              —                    → b2656
+                     [INVERTER_PLACEMENT/load_following, synthetic] Inverter at bus &#39;b2656&#39; (level LV); s_max = 5.0 × local load 10000.0 VA; topology SINGLE_PHASE; phasing inherited from load
+    cost             —                    → [0.2]
+                     [INVERTER_PLACEMENT/cost_uniform, synthetic] cost basis uniform → 0.2 $/kWh per phase (linear dispatch cost)
+    p_avail          —                    → 45000.0
+                     [INVERTER_PLACEMENT/load_following, synthetic] p_avail = 0.9 × Σ s_max
+    prime_mover      —                    → PV
+                     [INVERTER_PLACEMENT/load_following, synthetic] recipe prime_mover
+    s_max            —                    → [50000.0]
+                     [INVERTER_PLACEMENT/load_following, synthetic] Inverter at bus &#39;b2656&#39; (level LV); s_max = 5.0 × local load 10000.0 VA; topology SINGLE_PHASE; phasing inherited from load
+    terminal_map     —                    → [&quot;b&quot;, &quot;n&quot;]
+                     [INVERTER_PLACEMENT/load_following, synthetic] inherited from load at &#39;b2656&#39;
+    topology         —                    → SINGLE_PHASE
+                     [INVERTER_PLACEMENT/load_following, synthetic] inferred from load terminal_map (2 terminals)
+  pv_b3230
+    bus              —                    → b3230
+                     [INVERTER_PLACEMENT/load_following, synthetic] Inverter at bus &#39;b3230&#39; (level LV); s_max = 5.0 × local load 10000.0 VA; topology SINGLE_PHASE; phasing inherited from load
+    cost             —                    → [0.2]
+                     [INVERTER_PLACEMENT/cost_uniform, synthetic] cost basis uniform → 0.2 $/kWh per phase (linear dispatch cost)
+    p_avail          —                    → 45000.0
+                     [INVERTER_PLACEMENT/load_following, synthetic] p_avail = 0.9 × Σ s_max
+    prime_mover      —                    → PV
+                     [INVERTER_PLACEMENT/load_following, synthetic] recipe prime_mover
+    s_max            —                    → [50000.0]
+                     [INVERTER_PLACEMENT/load_following, synthetic] Inverter at bus &#39;b3230&#39; (level LV); s_max = 5.0 × local load 10000.0 VA; topology SINGLE_PHASE; phasing inherited from load
+    terminal_map     —                    → [&quot;a&quot;, &quot;n&quot;]
+                     [INVERTER_PLACEMENT/load_following, synthetic] inherited from load at &#39;b3230&#39;
+    topology         —                    → SINGLE_PHASE
+                     [INVERTER_PLACEMENT/load_following, synthetic] inferred from load terminal_map (2 terminals)</code></pre><h2 id="5.-Augment-—-standards-grounded-gap-filling"><a class="docs-heading-anchor" href="#5.-Augment-—-standards-grounded-gap-filling">5. Augment — standards-grounded gap-filling</a><a id="5.-Augment-—-standards-grounded-gap-filling-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Augment-—-standards-grounded-gap-filling" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.augment_case"><code>augment_case</code></a> fills the bounds and costs an OPF needs, <strong>without overwriting any value already present</strong>. Each fill is tagged in the manifest as <code>:standard</code> (derived from a cited standard) or <code>:synthetic</code> (a design choice). The passes draw on EN 50160 (voltage bounds), IEC 60228 (thermal limits from conductor cross-sections), and EN 50549-1 / IEEE 1547 (reactive capability). See <a href="../augmentation/">Case augmentation</a> for the full pass-by-pass rationale.</p><pre><code class="language-julia hljs">net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
+
+render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-24T22:00:57.692
+  95 change(s)  |  findings before: 1  after: 1
+
+── BUS (86 change(s)) ──
+  b1133
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b1149
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b179
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b2123
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b232
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b2327
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b2577
+    v_max            —                    → [7303.480905248766, 7303.480905248766, 7303.480905248766]
+                     [solver_regularisation, heuristic] MV bus; v_declared=6350.9 V × 1.15 × 3 phases
+    v_min            —                    → [5398.225016923001, 5398.225016923001, 5398.225016923001]
+                     [solver_regularisation, heuristic] MV bus; v_declared=6350.9 V × 0.85 × 3 phases
+  b2656
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b2734
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b2984
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b3218
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b3230
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+  b514
+    v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
+    v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
+                     [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
+    vneg_max         —                    → 4.99985333118216
+                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
+    vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
+    vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
+                     [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
+    vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+    vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
+                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+
+── INVERTER (8 change(s)) ──
+  pv_b2656
+    p_max            —                    → [45000.0]
+                     [inverter_p_bound, standard] p_max derived from p_avail ÷ 1 phase(s)
+    p_min            —                    → [0.0]
+                     [PV_prime_mover_unidirectional, standard] PV cannot absorb active power; p_min = 0 per phase
+    q_max            —                    → [21794.494717703365]
+                     [EN50549-1:2019_cos_phi_0.9_inverter_default, standard] Q_max = P_max × tan(arccos(0.9)) ≈ 0.484 × P_max
+    q_min            —                    → [-21794.494717703365]
+                     [EN50549-1:2019_cos_phi_0.9_inverter_default, standard] Q_min = -P_max × tan(arccos(0.9))
+  pv_b3230
+    p_max            —                    → [45000.0]
+                     [inverter_p_bound, standard] p_max derived from p_avail ÷ 1 phase(s)
+    p_min            —                    → [0.0]
+                     [PV_prime_mover_unidirectional, standard] PV cannot absorb active power; p_min = 0 per phase
+    q_max            —                    → [21794.494717703365]
+                     [EN50549-1:2019_cos_phi_0.9_inverter_default, standard] Q_max = P_max × tan(arccos(0.9)) ≈ 0.484 × P_max
+    q_min            —                    → [-21794.494717703365]
+                     [EN50549-1:2019_cos_phi_0.9_inverter_default, standard] Q_min = -P_max × tan(arccos(0.9))
+
+── VOLTAGE_SOURCE (1 change(s)) ──
+  source
+    cost             —                    → [1.0, 1.0, 1.0, 1.0]
+                     [TFspec_Eq135_slack_generation, standard] priced slack at source bus &#39;b2577&#39;; cost=1.0 $/kWh on 4 phase(s)</code></pre><h2 id="6.-Re-validate"><a class="docs-heading-anchor" href="#6.-Re-validate">6. Re-validate</a><a id="6.-Re-validate-1"></a><a class="docs-heading-anchor-permalink" href="#6.-Re-validate" title="Permalink"></a></h2><p>Re-running <a href="../api/#BMOPFTools.analyze"><code>analyze</code></a> on the augmented case confirms the operating-bound warnings have cleared — the case is now a well-posed OPF instance.</p><pre><code class="language-julia hljs">report2 = analyze(net_ready)
+
+println(&quot;Before → after augmentation&quot;)
+println(&quot;  ERRORs   : &quot;, length(errors(report)),  &quot; → &quot;, length(errors(report2)))
+println(&quot;  WARNINGs : &quot;, length(warnings(report)), &quot; → &quot;, length(warnings(report2)))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Before → after augmentation
+  ERRORs   : 0 → 0
+  WARNINGs : 2 → 2</code></pre><h2 id="7.-Solve"><a class="docs-heading-anchor" href="#7.-Solve">7. Solve</a><a id="7.-Solve-1"></a><a class="docs-heading-anchor-permalink" href="#7.-Solve" title="Permalink"></a></h2><p><code>solve_opf</code> lives in a package extension that loads once <strong>JuMP</strong> and a solver such as <strong>Ipopt</strong> are present. It solves the four-wire IVR-EN model (see <a href="../opf/">Optimal power flow</a>) and returns a result dictionary mirroring the network structure (see <a href="../results/">OPF result dictionary</a>).</p><pre><code class="language-julia hljs">using JuMP, Ipopt
+
+optimizer = optimizer_with_attributes(Ipopt.Optimizer, &quot;print_level&quot; =&gt; 0)
+result = solve_opf(net_ready; optimizer = optimizer, per_unit = true)
+
+println(&quot;Termination : &quot;, result[&quot;termination_status&quot;])
+println(&quot;Objective   : &quot;, round(result[&quot;objective&quot;]; sigdigits = 6))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+Termination : LOCALLY_SOLVED
+Objective   : -69291.4</code></pre><p><a href="../api/#BMOPFTools.profile_solution"><code>profile_solution</code></a> checks the result against the network bounds — flagging violations, near-active constraints, and residuals — without access to solver internals, and returns a <a href="../api/#BMOPFTools.SolutionReport"><code>SolutionReport</code></a>:</p><pre><code class="language-julia hljs">sol_report = profile_solution(net_ready, result)
+
+println(&quot;Solution ERRORs   : &quot;, length(errors(sol_report)))
+println(&quot;Solution WARNINGs : &quot;, length(warnings(sol_report)))
+
+render_solution(sol_report, stdout)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Solution ERRORs   : 0
+Solution WARNINGs : 2
+# BMOPF Solution Profile: lv1_14bus
+
+**Generated:** 2026-06-24 22:01:17
+**Status:** `LOCALLY_SOLVED`
+**Objective:** -69291.4251
+**Solve time:** 0.05 s
+**Findings:** 0 errors · 2 warnings · 2 info
+
+---
+
+## 1. Solution Summary
+
+| Field | Value |
+|-------|-------|
+| Status | `LOCALLY_SOLVED` |
+| Total generation | 20.709 kW |
+| Total load | 20.0 kW |
+| Total network losses (P) | 708.25 W |
+| Total network losses (Q) | 65.23 W var |
+| Loss fraction | 3.5% |
+| Active power balance error | 0.32 W |
+| Reactive power balance error | 0.0 W var |
+| Max neutral shift | 1.29 V (bus `b2656`) |
+
+### Bound status
+
+| Category | Violated | Active (≤1 %) |
+|----------|:--------:|:-------------:|
+| Voltage  | 0 | 0 |
+| Thermal  | 0 | 0 |
+| Generator| 0 | 0 |
+
+## 2. Voltage by Galvanic Zone
+
+Per-unit magnitudes are relative to each zone&#39;s own voltage base; volts are not comparable across transformer boundaries.
+
+| St | Zone | V base | Buses | Vm min (pu) | Vm max (pu) | Max imbalance | Max neutral shift |
+|:--:|------|-------:|------:|------------:|------------:|--------------:|------------------:|
+| ✅ | `b1133` | 250.0 V | 12 | 1.0 (`b3230`) | 1.005 (`b2656`) | 0.5 % (`b2656`) | 1.29 V (`b2656`) |
+| ✅ | `b2577` | 6.35 kV | 1 | 1.0 (`b2577`) | 1.0 (`b2577`) | 0.0 % | — |
+
+### Per-bus detail
+
+**Zone `b1133`** (base 250.0 V):
+
+| St | Bus | Vm min (V) | Vm max (V) | Vm min (pu) | Vm max (pu) | Imbalance | Neutral |
+|:--:|-----|-----------:|-----------:|------------:|------------:|----------:|--------:|
+| ✅ | `b2656` | 250.0 | 251.3 | 1.0 | 1.005 | 0.5 % | 1.29 V |
+| ✅ | `b3230` | 249.9 | 251.3 | 1.0 | 1.005 | 0.5 % | 1.23 V |
+| ✅ | `b232` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
+| ✅ | `b2327` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
+| ✅ | `b1133` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.02 V |
+| ✅ | `b514` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.02 V |
+| ✅ | `b2734` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
+| ✅ | `b1149` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
+| ✅ | `b3218` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
+| ✅ | `b2123` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
+| ✅ | `b2984` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
+| ✅ | `b179` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.04 V |
+
+**Zone `b2577`** (base 6.35 kV):
+
+| St | Bus | Vm min (V) | Vm max (V) | Vm min (pu) | Vm max (pu) | Imbalance | Neutral |
+|:--:|-----|-----------:|-----------:|------------:|------------:|----------:|--------:|
+| ✅ | `b2577` | 6350.9 | 6350.9 | 1.0 | 1.0 | 0.0 % | — |
+
+## 6. All Findings
+
+- **WARN** `W.SOL.INV_ACTIVE` — inverter/`pv_b2656`
+  Inverter &#39;pv_b2656&#39; phase &#39;b&#39;: pg=45.0 kW is within 1 % of its P bound.
+- **WARN** `W.SOL.INV_ACTIVE` — inverter/`pv_b3230`
+  Inverter &#39;pv_b3230&#39; phase &#39;a&#39;: pg=45.0 kW is within 1 % of its P bound.
+- INFO `I.SOL.BINDING_SUMMARY`
+  Solution bound summary: 0 violation(s), 0 active constraint(s). Voltage: 0V / 0A. Thermal: 0V / 0A. Generator: 0V / 0A.
+- INFO `I.SOL.NEUTRAL_SHIFT`
+  Maximum neutral terminal voltage: 1.29 V at bus &#39;b2656&#39; — reflects the neutral shift under unbalanced loading.</code></pre><div class="admonition is-success" id="When-the-OPF-is-infeasible-f49c99459b0b0fba"><header class="admonition-header">When the OPF is infeasible<a class="admonition-anchor" href="#When-the-OPF-is-infeasible-f49c99459b0b0fba" title="Permalink"></a></header><div class="admonition-body"><p>If <code>solve_opf</code> reports an infeasible status, swap in <code>solve_feasibility_opf</code>, which relaxes the problem with elastic current slacks, then call <code>diagnose_infeasibility</code> to rank the buses absorbing the most slack. The <a href="../bounds/">Bounds &amp; feasibility</a> chapter explains how to trust — and act on — the solver&#39;s verdict.</p></div></div><h2 id="8.-Export"><a class="docs-heading-anchor" href="#8.-Export">8. Export</a><a id="8.-Export-1"></a><a class="docs-heading-anchor-permalink" href="#8.-Export" title="Permalink"></a></h2><p><a href="../api/#BMOPFTools.write_bmopf"><code>write_bmopf</code></a> serialises the benchmark-ready case. <a href="../augmentation/#BMOPFTools.manifest_to_dict"><code>manifest_to_dict</code></a> turns each manifest into a JSON-serialisable <code>Dict</code>, giving every downstream consumer a complete, auditable record of what was repaired, placed, and filled.</p><pre><code class="language-julia hljs">out_dir = mktempdir()
+write_bmopf(net_ready, joinpath(out_dir, &quot;LV1_14bus_ready.json&quot;))
+
+manifests = Dict(
+    &quot;fix&quot;     =&gt; manifest_to_dict(fix_mf),
+    &quot;der&quot;     =&gt; manifest_to_dict(der_mf),
+    &quot;augment&quot; =&gt; manifest_to_dict(aug_mf),
+)
+
+println(&quot;Wrote benchmark-ready case to &quot;, out_dir)
+println(&quot;Captured &quot;, sum(length(m[&quot;entries&quot;]) for m in values(manifests)),
+        &quot; transformation entries across the three manifests&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Wrote benchmark-ready case to /tmp/jl_kypmXf
+Captured 113 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../positioning/">Positioning &amp; ecosystem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 24 June 2026 22:01">Wednesday 24 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
