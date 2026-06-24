@@ -262,3 +262,25 @@ per-network degeneracy flags catch subtler problems that survive augmentation:
     Alternating Current Optimal Power Flow," *Proc. IEEE PES ISGT*, 2021;
     arXiv:2107.07700 (IPM numerical performance on AC-OPF is strongly
     formulation-dependent).
+21. M. D. Wilkinson et al., "The FAIR Guiding Principles for scientific data
+    management and stewardship," *Scientific Data* 3 (2016) 160018 (Interoperable
+    and Reusable data require shared vocabularies and recorded provenance, not
+    raw dumps).
+22. H. Wickham, "Tidy Data," *Journal of Statistical Software* 59 (10) (2014)
+    1–23 (data is usually organised for ease of entry rather than analysis;
+    standardising the mapping of semantics to representation is what makes
+    reliable, composable tooling possible).
+23. IEC 61968-11:2013, *Application integration at electric utilities — System
+    interfaces for distribution management — Part 11: Common Information Model
+    (CIM) extensions for distribution*; the network "wires model" represents
+    connectivity through explicit `Terminal` and `ConnectivityNode` objects (the
+    structure OpenDSS leaves implicit). See also the OpenDSS CIM100 export of
+    [ref. 9].
+24. F. Wiese et al., "Open Power System Data — Frictionless data for electricity
+    system modelling," *Applied Energy* 236 (2019) 401–409 (a validated,
+    schema-checked, reproducible path from raw data to results for energy-system
+    modelling).
+25. L. Moreau, P. Missier (eds.), *PROV-DM: The PROV Data Model*, W3C
+    Recommendation, 2013 (provenance as the mechanism that makes a non-identity
+    transformation trustworthy; validity is itself defined via a normalisation
+    process).

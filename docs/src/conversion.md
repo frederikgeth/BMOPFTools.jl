@@ -10,7 +10,93 @@ This page documents both directions of format conversion:
 Each section records the deliberate decisions in those converters — the things
 you would otherwise have to discover by diffing data.
 
-## OpenDSS ingest (`from_dss`)
+## [Design philosophy: ingestion is a semantic projection](@id ingest-philosophy)
+
+`from_dss` does not aim to be a byte-faithful transcoder. It is closer to a
+**compiler frontend**: PowerIO does the lexing and parsing, and `from_dss` then
+performs *semantic analysis* — inferring phase and neutral identity, fingerprinting
+voltage regulators, classifying grounding and galvanic zones — to lower a loosely
+specified OpenDSS model onto a canonical, conductor-level data model. Just as a
+compiler is not expected to round-trip back to the original source whitespace but
+*is* expected to preserve program semantics and diagnose errors the source
+obscured, BMOPFTools optimises for a different goal than a faithful copy.
+
+The goal hierarchy is explicit:
+
+> **Semantic faithfulness + data-quality leverage  >  byte-level round-trip.**
+
+A lossless transcode of an OpenDSS deck would preserve every quirk of its
+encoding — implicit earth nodes, regulators expressed as control loops over
+ordinary lines, phases identified only positionally — and in doing so would leave
+the network *unanalysable*. You cannot run a semantic data-quality check (is this
+star point grounded? which buses share a galvanic zone? is this a four-wire or
+three-wire segment?) on a representation that never made those facts explicit. The
+non-trivial mapping is therefore not incidental; it is the price of being able to
+reason about the network at all.
+
+Three pillars make a non-identity transformation safe to rely on:
+
+1. **Canonicalise representation.** Normalise terminals, neutral/earth, regulator
+   structure and grounding onto one explicit convention (the
+   [ingest steps](@ref from-dss-ingest) below), so every downstream pass sees the
+   same shape.
+2. **Surface inferences as findings, never silent assumptions.** Every inferred
+   fact is emitted as a provenance finding (`I.PROV.*`) with a confidence tag, so
+   a heuristic that guesses wrong is *diagnosable*, not hidden. This is the
+   correctness burden a pure transcoder never takes on, paid down openly.
+3. **Record provenance.** The transformation manifest and `net["_meta"]` keep an
+   auditable trail of what was normalised, so the projection is reproducible
+   (same inputs + pinned versions ⇒ same canonical output) and any drift is
+   visible.
+
+The aim, then, is **reproducible compatibility with deliberate surgery** — not
+losslessness. What is preserved is the physics and the semantics; what is
+normalised away is redundant or ambiguous *encoding*, and even that is recorded.
+
+### Background and precedents
+
+This is a principled stance with a clear lineage, in power systems and beyond.
+
+- **In this project's own design goals.** The Task Force benchmark architecture
+  argues for *maintaining semantics in the data model* precisely to make data
+  debugging tractable and to avoid benchmarking pitfalls
+  ([ref. 2](methodology.md#refs)), building on a survey of the data-quality
+  problems that pervade existing distribution datasets
+  ([ref. 14](methodology.md#refs)).
+- **A two-layer model is established practice.** PowerModelsDistribution
+  deliberately separates a human-facing *engineering* model from a solver-facing
+  *mathematical* model, connected by an explicit lowering step
+  ([ref. 15](methodology.md#refs)); BMOPFTools pushes the same idea one stage
+  upstream, from "engineering vs math" to "raw export vs benchmark-grade model."
+- **Model the entities, not the coordinate transform.** The IEC Common
+  Information Model represents a network through explicit terminals and
+  connectivity nodes ([ref. 23](methodology.md#refs)) — the very structure
+  OpenDSS leaves implicit and `from_dss` reconstructs. This runs against a
+  long-standing reflex in power engineering to reason in *coordinate-transformed*
+  models (symmetrical components, Kron reduction) that discard the
+  conductor-level data a four-wire model — and a non-expert collecting it —
+  actually needs ([ref. 10](methodology.md#refs), [ref. 17](methodology.md#refs));
+  see the [buses & terminals primer](terminals_primer.md).
+- **Good data modelling is a discipline in its own right.** Outside power systems
+  the same lesson recurs: *tidy data* observes that data is usually organised for
+  ease of entry rather than analysis, and that standardising the mapping from
+  semantics to representation is what makes reliable, composable tooling possible
+  ([ref. 22](methodology.md#refs)); the **FAIR** principles make *provenance and
+  shared vocabularies* — not raw dumps — the basis of reusable data
+  ([ref. 21](methodology.md#refs)); **Open Power System Data** brings the same
+  validated, reproducible raw-to-results discipline to energy-system modelling
+  ([ref. 24](methodology.md#refs)); and **W3C PROV** formalises provenance as the
+  mechanism that makes a non-identity transformation trustworthy — notably
+  defining validity itself through a normalisation process
+  ([ref. 25](methodology.md#refs)).
+
+What is distinctive about BMOPFTools is not any one of these ideas but their
+**synthesis**: semantic canonicalisation, a stable and code-addressable
+data-quality vocabulary ([findings](findings.md)), standards-grounded augmentation
+([case augmentation](augmentation.md)), and a provenance manifest — assembled
+specifically to make distribution-OPF benchmarks reproducible.
+
+## [OpenDSS ingest (`from_dss`)](@id from-dss-ingest)
 
 [`from_dss`](@ref) parses an OpenDSS model **in-process** via
 [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) and emits BMOPF JSON

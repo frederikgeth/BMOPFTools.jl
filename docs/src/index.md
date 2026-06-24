@@ -37,6 +37,15 @@ the only structs in the library are the *outputs* — [`Finding`](@ref),
 [`SummaryReport`](@ref), and [`SolutionReport`](@ref) — which need stable
 shape for rendering and programmatic use.
 
+Ingestion follows from this. `from_dss` is a **semantic projection** onto that
+canonical model, not a byte-faithful transcode: it infers phase and neutral
+identity, fingerprints voltage regulators, and records every transformation as
+provenance, so the result is *analysable and reproducible* rather than merely a
+copy of the source deck. The goal is reproducible compatibility with deliberate
+surgery, not losslessness — see the
+[design philosophy](@ref ingest-philosophy) for the rationale and its precedents
+in CIM, PowerModelsDistribution, FAIR, and tidy-data.
+
 Every diagnostic is a `Finding` with a **stable dot-separated code**
 (`E.`/`W.`/`I.` for error/warning/info) — see the
 [finding-code reference](findings.md) for the complete catalogue. Match on
