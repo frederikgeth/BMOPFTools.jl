@@ -233,3 +233,32 @@ per-network degeneracy flags catch subtler problems that survive augmentation:
     benchmarking AC optimal power flow algorithms," arXiv:1908.02788, 2019.
 14. F. Geth, M. Vanin, D. Van Hertem, "Data quality challenges in existing
     distribution network datasets," *CIRED 2023*, Rome.
+15. D. M. Fobes, S. Claeys, F. Geth, C. Coffrin, "PowerModelsDistribution.jl:
+    An open-source framework for exploring distribution power flow
+    formulations," *Electric Power Systems Research* 189 (2020) 106664;
+    arXiv:2004.10081.
+16. R. C. Dugan, "A Perspective on Transformer Modeling for Distribution
+    System Analysis," *Proc. IEEE PES General Meeting*, 2003, pp. 114–119
+    (the case for solving in actual values rather than per-unit; cites
+    H. W. Dommel, *EMTP Theory Book*, 2nd ed., App. IV, on per-unit
+    obsolescence for computer solution of unbalanced networks).
+17. W. H. Kersting, "The Whys of Distribution System Analysis," *Proc. IEEE
+    Rural Electric Power Conference (REPC)*, 2010 (why the transmission
+    assumptions of transposed lines and balanced loading — and hence the
+    positive-sequence/symmetrical-component model — do not transfer to
+    distribution; worked IEEE 13-node examples of non-transposed-line and
+    neutral/ground-current effects).
+18. A. Wächter, L. T. Biegler, "On the implementation of an interior-point
+    filter line-search algorithm for large-scale nonlinear programming,"
+    *Mathematical Programming* 106 (2006) 25–57 (Ipopt; the solver's
+    initialization, barrier updates and stopping tests are scale-sensitive,
+    and it applies gradient-norm scaling because good scaling cannot be
+    inferred in general).
+19. J. D. Hogg, J. A. Scott, *On the effects of scaling on the performance
+    of Ipopt*, STFC Rutherford Appleton Laboratory technical report
+    RAL-TR-2013-P-001, 2013; arXiv:1301.7283 (the benefit of scaling a
+    nonlinear program is problem-dependent, not universal).
+20. S. A. Sadat, K. Kim, "Numerical Performance of Different Formulations for
+    Alternating Current Optimal Power Flow," *Proc. IEEE PES ISGT*, 2021;
+    arXiv:2107.07700 (IPM numerical performance on AC-OPF is strongly
+    formulation-dependent).

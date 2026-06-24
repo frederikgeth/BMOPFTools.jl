@@ -505,7 +505,7 @@ via the `[augment.smart_inverter]` config section.
 
 Returns a results dict with keys:
 - `"termination_status"` — JuMP termination status string
-- `"objective"` — optimal objective value (total generation cost, W·\$/W)
+- `"objective"` — optimal objective value (total generation cost, W·\\\$/W)
 - `"solve_time"` — wall-clock solve time (s)
 - `"bus"` — per-bus voltage results: `"vr"`, `"vi"`, `"vm"`, `"va"` per terminal
 - `"line"` — per-line from/to current results per conductor

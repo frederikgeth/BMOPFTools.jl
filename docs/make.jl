@@ -13,6 +13,7 @@ makedocs(
     pages = [
         "Home"                    => "index.md",
         "Positioning & ecosystem" => "positioning.md",
+        "Buses & terminals primer" => "terminals_primer.md",
         "Data model conventions"  => "conventions.md",
         "Conversion guide"        => "conversion.md",
         "Analysis & reports"      => "analysis.md",
