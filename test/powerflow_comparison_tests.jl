@@ -10,13 +10,21 @@
 #   OpenDSS "bus.1" / ".2" / ".3" / ".4"  →  BMOPF terminal "1"/"2"/"3"/"n"
 #   OpenDSS "bus.0" (earth reference)       →  not a BMOPF terminal (skipped)
 #
-# Comparison tolerances:
-#   · Lines and lossless / lightly-loaded transformers: atol=1.0 V, rtol=1e-3
-#   · Three-phase transformers with realistic losses at ≥70% loading:
-#       atol=0.1 V, rtol=1e-3
-#     At 75% rated load on a 500 kVA / 0.415 kV unit the series drop is ≈10 V
-#     on the LV side, so 0.1 V tolerance requires <1% model agreement — any
-#     wrong sign, missing factor, or wrong impedance side would produce >1 V error.
+# Comparison tolerances (empirically grounded — agreement is already close to the
+# achievable floor, so these are deliberately modest):
+#   · atol=0.3 V, rtol=1e-3 (Yd/Dy keep atol=0.1 V).  For the ~240 V line/load
+#     cases atol binds: lowering it from 1.0→0.3 V tightens those ~3.3x while still
+#     leaving ≈3.4x over the worst observed phase-node error (≈0.088 V, in the
+#     4-wire neutral cases).
+#   · rtol is *not* tightened: the transformer LV side is the binding case
+#     (Yd/Dy ≈7e-4 relative, ≈0.28/0.16 V on the 400/233 V secondary), only ~1.4x
+#     under rtol=1e-3; the 4-wire neutral cases sit at ~2.7x.  At 75% rated load on
+#     a 500 kVA / 0.415 kV unit the series drop is ≈10 V on the LV side, so 1e-3
+#     still resolves <1% model agreement — a wrong sign/factor/impedance-side error
+#     would produce >1 V.
+#   · Per-unit and SI solves give identical voltages, so the floor is the network
+#     model (chiefly the 4-wire / transformer-LV agreement), not solver scaling;
+#     per-unit does not buy tighter agreement (and currently fails on ZIP loads).
 #
 # Parser note: BMOPF network dicts are constructed directly here (no external
 # parser dependency).  When PowerIO.jl is available, replace the hand-crafted
@@ -53,6 +61,39 @@ function _ods_losses_W(dss_path::String)::Float64
     OpenDSSDirect.dss("Clear")
     OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
     return real(Circuit.Losses())
+end
+
+"""
+    _ods_volts_loadmult(dss_path, mult) -> Dict{String, ComplexF64}
+
+Like `_ods_volts` but re-solves with OpenDSS's global `LoadMult` scaling all
+loads by `mult` (constant-P/Q is preserved by the case's `Vminpu=0 Vmaxpu=2`).
+Used by the load-scaling sweep so the OpenDSS reference and the BMOPF net are
+loaded identically.
+"""
+function _ods_volts_loadmult(dss_path::String, mult::Real)::Dict{String,ComplexF64}
+    OpenDSSDirect.dss("Clear")
+    OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
+    OpenDSSDirect.dss("Set LoadMult=$mult")
+    OpenDSSDirect.dss("Solve")
+    names = Circuit.AllNodeNames()
+    volts = Circuit.AllBusVolts()
+    return Dict(n => v for (n, v) in zip(names, volts))
+end
+
+"""
+    _scale_loads(net, mult) -> net
+
+Deep-copy a BMOPF network and scale every load's `p_nom`/`q_nom` by `mult`,
+mirroring OpenDSS `LoadMult` for the load-scaling sweep.
+"""
+function _scale_loads(net::Dict{String,Any}, mult::Real)
+    n = deepcopy(net)
+    for (_, ld) in get(n, "load", Dict())
+        haskey(ld, "p_nom") && (ld["p_nom"] = Float64.(ld["p_nom"]) .* mult)
+        haskey(ld, "q_nom") && (ld["q_nom"] = Float64.(ld["q_nom"]) .* mult)
+    end
+    return n
 end
 
 """
@@ -186,14 +227,21 @@ function _bmopf_volts_opf(net::Dict{String,Any})
 end
 
 """
-    _cmp_volts(V_ods, V_bm; label="", atol=1.0, rtol=1e-3)
+    _cmp_volts(V_ods, V_bm; label="", atol=0.3, rtol=1e-3)
 
 Assert that every node present in both dicts agrees within tolerance.
 Nodes with |V_ref| < 1e-4 V (effectively the earth reference) are skipped.
 At least one node must be compared.
+
+Default tolerances are empirically grounded (see the test header). atol=0.3 binds
+the ~240 V line/load nodes and sits ~3.4x above the worst observed phase-node
+error (≈0.088 V, 4-wire neutral cases). rtol=1e-3 is NOT tightened: the binding
+case is the transformer LV side (Yd/Dy ≈7e-4 relative, only ~1.4x of margin), with
+the 4-wire neutral cases at ~2.7x. Per-unit and SI solves give identical voltages,
+so the limiting factor is the network model, not solver scaling.
 """
 function _cmp_volts(V_ods::Dict, V_bm::Dict;
-                    label::String="", atol::Float64=1.0, rtol::Float64=1e-3)
+                    label::String="", atol::Float64=0.3, rtol::Float64=1e-3)
     n = 0
     for (node, V_ref) in V_ods
         haskey(V_bm, node)   || continue
@@ -674,8 +722,8 @@ function _net_autotransformer()
                 "bus"           => "reg",
                 "terminal_map"  => ["1", "n"],
                 "configuration" => "SINGLE_PHASE",
-                "p_nom"         => [50_000.0],
-                "q_nom"         => [0.0])))
+                "p_nom"         => [400_000.0],
+                "q_nom"         => [100_000.0])))
 end
 
 function _net_open_delta_reg()
@@ -921,6 +969,10 @@ const _AUSA_VW_P = [0.20, 1.00]                   # [p_low, p_high] frac of Pmpp
 const _PV_VRATED = 240.0
 
 # Non-obvious OpenDSS settings (validated empirically — see commit message):
+#   · Set DefaultBaseFreq=50 — lock the base frequency (BMOPF models at 50 Hz);
+#     the OpenDSS default otherwise rescales every reactance.
+#   · Set Tolerance=1e-8 / MaxIterations — drive OpenDSS convergence far below the
+#     voltage-comparison tolerance so its iteration error is not a confound.
 #   · Circuit source model=ideal (stiff slack)
 #   · PVSystem & Load Vminpu=0.1 Vmaxpu=2.0 — keep constant-P/Q across the sweep;
 #     the default Vmaxpu≈1.1 silently rescales power above ~1.1 pu.
@@ -941,6 +993,7 @@ function _ods_pv_droop(; vsrc, kVA, Pmpp, load_kw, load_kvar, mode::Symbol)
     vwy = "1.0,1.0,0.2,0.2"
     cmds = String[
         "Clear",
+        "Set DefaultBaseFreq=50",   # lock base frequency (BMOPF models at 50 Hz)
         "New Circuit.c basekv=0.240 pu=$(vsrc/_PV_VRATED) angle=0 phases=1 bus1=src.1 model=ideal",
         "New Line.l1 bus1=src.1 bus2=lb.1 phases=1 length=0.5 units=km r1=0.5 x1=0.2",
         "New Load.ld bus1=lb.1 phases=1 kv=0.240 kW=$load_kw kvar=$load_kvar model=1 Vminpu=0.1 Vmaxpu=2.0",
@@ -960,6 +1013,7 @@ function _ods_pv_droop(; vsrc, kVA, Pmpp, load_kw, load_kvar, mode::Symbol)
             "ActivePChangeTolerance=0.0005 VoltageChangeTolerance=1e-5"
     push!(cmds, ic)
     append!(cmds, ["Set VoltageBases=[0.240]", "CalcVoltageBases",
+                   "Set Tolerance=1e-8", "Set MaxIterations=100",
                    "Set ControlMode=Static", "Set MaxControlIter=100", "Solve"])
     OpenDSSDirect.dss("Clear")
     for c in cmds
@@ -1036,6 +1090,7 @@ function _ods_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
     vwx = join(vcat(0.5, _AUSA_VW_X ./ _PV_VRATED, 2.0), ",")
     cmds = String[
         "Clear",
+        "Set DefaultBaseFreq=50",   # lock base frequency (BMOPF models at 50 Hz)
         "New Circuit.c basekv=$(vsrc*sqrt(3)/1000) pu=1.0 angle=0 phases=3 bus1=src.1.2.3 model=ideal",
         "New Reactor.gs bus1=src.4 bus2=src.0 R=0.001 X=0",
         _LC4_DSS,
@@ -1059,6 +1114,7 @@ function _ods_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
             "voltwattyaxis=PMPPPU VarChangeTolerance=0.0005 ActivePChangeTolerance=0.0005 $common"
     push!(cmds, ic)
     append!(cmds, ["Set VoltageBases=[0.415]", "CalcVoltageBases",
+                   "Set Tolerance=1e-8", "Set MaxIterations=100",
                    "Set ControlMode=Static", "Set MaxControlIter=200", "Solve"])
     OpenDSSDirect.dss("Clear")
     for c in cmds
@@ -1130,6 +1186,7 @@ function _ods_pv_3ph_avg_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
     kv_ll = _PV_VRATED * sqrt(3) / 1000        # rated per-phase = _PV_VRATED exactly
     cmds = String[
         "Clear",
+        "Set DefaultBaseFreq=50",   # lock base frequency (BMOPF models at 50 Hz)
         "New Circuit.c basekv=$(vsrc*sqrt(3)/1000) pu=1.0 angle=0 phases=3 bus1=src.1.2.3 model=ideal",
         "New Reactor.gs bus1=src.4 bus2=src.0 R=0.001 X=0",
         _LC4_DSS,
@@ -1153,6 +1210,7 @@ function _ods_pv_3ph_avg_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol)
             "voltwattyaxis=PMPPPU VarChangeTolerance=0.0005 ActivePChangeTolerance=0.0005 $common"
     push!(cmds, ic)
     append!(cmds, ["Set VoltageBases=[0.415]", "CalcVoltageBases",
+                   "Set Tolerance=1e-8", "Set MaxIterations=100",
                    "Set ControlMode=Static", "Set MaxControlIter=200", "Solve"])
     OpenDSSDirect.dss("Clear")
     for c in cmds
@@ -1214,6 +1272,34 @@ end
     @test slack_A < 1e-3
 
     _cmp_volts(V_ods, V_bm; label="3ph-line: ")
+end
+
+# A single network solved across a load sweep: agreement must hold from light to
+# heavy loading, and the voltage must sag monotonically with load — so each
+# heavier step is a strictly stronger test of the series-drop physics than the
+# last (a trivially-1pu network would expose no model error).  OpenDSS LoadMult
+# and BMOPF p_nom/q_nom scaling are applied identically.  The range stops at
+# ×1.5 (≈17% drop): this stiff 0.5 km line reaches its power-flow nose near ×2,
+# beyond which the solution is no longer unique (the flat start and OpenDSS can
+# land on different branches) — that is a property of the network, not a model
+# disagreement, so it would make the comparison meaningless rather than stronger.
+@testset "PF comparison — 3-phase line, load-scaling sweep" begin
+    path     = joinpath(_PF_CMP_DIR, "pf_3ph_line.dss")
+    base_net = _net_3ph_line()
+    v_nom    = 415.0 / sqrt(3)
+    prev_vmag = Inf
+    for mult in (0.5, 1.0, 1.5)
+        V_ods         = _ods_volts_loadmult(path, mult)
+        V_bm, slack_A = _bmopf_volts(_scale_loads(base_net, mult))
+        @test slack_A < 1e-3
+        _cmp_volts(V_ods, V_bm; label="3ph-load×$(mult): ")
+        # phase 3 carries the largest load (20 kW): its magnitude must drop
+        # further below nominal at every heavier step.
+        vmag = abs(V_bm["lb.3"])
+        @test vmag < prev_vmag
+        @test vmag < v_nom
+        prev_vmag = vmag
+    end
 end
 
 @testset "PF comparison — three-phase delta load on a 4-wire branch" begin
@@ -1374,6 +1460,30 @@ end
         vll = abs(V_bm["lb.$a"] - V_bm["lb.$b"]) / 415.0
         @test res["load"]["dl"][key]["pd"] ≈ p0*(0.45vll^2 + 0.25vll + 0.30)  rtol=1e-3
         @test res["load"]["dl"][key]["qd"] ≈ q0*(0.40vll^2 + 0.30vll + 0.30)  rtol=1e-3
+    end
+end
+
+# Regression for the per-unit scaling of voltage-dependent loads: the ZIP and
+# exponential models reference v_nom, which must move to per-unit with the bus
+# voltage base.  Before the fix the SI solve was LOCALLY_SOLVED but the per-unit
+# solve went LOCALLY_INFEASIBLE (per-unit V≈1 compared against an SI v_nom≈240).
+# Constant-power loads ignore v_nom, so only these cases exercised the bug.
+@testset "per-unit ZIP/exponential loads agree with SI (regression)" begin
+    for (label, net) in (("zip-1ph",   _net_zip_1ph()),
+                         ("zip-3ph",   _net_zip_3ph()),
+                         ("zip-delta", _net_zip_delta()),
+                         ("exp-1ph",   _net_exp_1ph()))
+        r_si = solve_pf(net; optimizer=Ipopt.Optimizer)
+        r_pu = solve_pf(net; optimizer=Ipopt.Optimizer, per_unit=true)
+        @test r_pu["termination_status"] == r_si["termination_status"]
+        for (bid, td) in r_si["bus"], (t, tv) in td
+            v_si = tv["vr"] + im * tv["vi"]
+            pv   = r_pu["bus"][bid][t]
+            v_pu = pv["vr"] + im * pv["vi"]
+            isapprox(v_si, v_pu; atol=1e-4, rtol=1e-6) ||
+                @warn "$label per-unit≠SI at $bid.$t: $v_pu vs $v_si"
+            @test isapprox(v_si, v_pu; atol=1e-4, rtol=1e-6)
+        end
     end
 end
 

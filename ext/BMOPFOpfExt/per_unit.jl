@@ -228,6 +228,16 @@ function _pu_scale_loads!(net, bases)
     for (_, load) in get(net, "load", Dict())
         haskey(load, "p_nom") && (load["p_nom"] = Float64.(load["p_nom"]) ./ sb)
         haskey(load, "q_nom") && (load["q_nom"] = Float64.(load["q_nom"]) ./ sb)
+        # v_nom is the load's line-to-neutral reference voltage; the ZIP and
+        # exponential models evaluate (V/v_nom), so it must move to per-unit with
+        # the bus voltage base.  Without this the voltage-dependent terms compare
+        # a per-unit V (≈1) against an SI v_nom (≈240) and the solve goes
+        # infeasible.  (Constant-power loads ignore v_nom, hence only ZIP/exp
+        # were affected.)
+        if haskey(load, "v_nom")
+            vb = get(bases.v_base, get(load, "bus", ""), 1.0)
+            load["v_nom"] = Float64.(load["v_nom"]) ./ vb
+        end
     end
 end
 

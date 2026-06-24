@@ -14,6 +14,11 @@
 
 Clear
 
+! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
+! rescale every reactance.  See docs/src/validation.md.
+Set DefaultBaseFreq=50
+
 New Circuit.pf_1ph_line basekv=0.240 pu=1.0 angle=0 phases=1 bus1=src.1.0 model=ideal
 
 ! Single-phase line: self-impedance only (no explicit neutral conductor).
@@ -26,4 +31,8 @@ New Load.ld1 bus1=lb.1 kv=0.240 kw=10 kvar=3 phases=1 model=1 Vminpu=0 Vmaxpu=2
 
 Set VoltageBases=[0.240]
 CalcVoltageBases
+! Tolerance 1e-8 (<< the voltage-comparison tolerance) removes OpenDSS-side
+! convergence slop; MaxIterations raised so the tighter target is reached.
+Set Tolerance=1e-8
+Set MaxIterations=100
 Solve
