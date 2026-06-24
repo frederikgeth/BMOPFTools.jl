@@ -16,6 +16,11 @@
 
 Clear
 
+! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
+! rescale every reactance.  See docs/src/validation.md.
+Set DefaultBaseFreq=50
+
 New Circuit.pf_autotransformer basekv=2.4 pu=1.0 angle=0 phases=1 bus1=src.1.0 model=ideal
 
 ! Source neutral earthed.
@@ -31,8 +36,14 @@ New Transformer.reg phases=1 windings=2
 New Reactor.g_reg bus1=reg.4 bus2=reg.0 R=0.001 X=0 phases=1
 
 ! Constant P+Q load (Vminpu=0 Vmaxpu=2 disables ODS voltage-dependent switching).
-New Load.ld bus1=reg.1.4 kv=2.4 kw=50 kvar=0 phases=1 model=1 Vminpu=0 Vmaxpu=2
+! Loaded to ~82% of the 500 kVA rating so the series drop (~1% on the regulated
+! bus) is meaningfully exercised — at light load the case only tests the tap ratio.
+New Load.ld bus1=reg.1.4 kv=2.4 kw=400 kvar=100 phases=1 model=1 Vminpu=0 Vmaxpu=2
 
 Set VoltageBases=[2.4]
 CalcVoltageBases
+! Tolerance 1e-8 (<< the voltage-comparison tolerance) removes OpenDSS-side
+! convergence slop; MaxIterations raised so the tighter target is reached.
+Set Tolerance=1e-8
+Set MaxIterations=100
 Solve

@@ -30,6 +30,11 @@
 
 Clear
 
+! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
+! rescale every reactance.  See docs/src/validation.md.
+Set DefaultBaseFreq=50
+
 New Circuit.pf_dy_xfmr basekv=11.0 pu=1.0 angle=0 phases=3 bus1=hv.1.2.3 model=ideal
 
 ! 2-winding DELTA-WYE transformer with realistic losses.
@@ -54,4 +59,8 @@ New Load.ld3 bus1=lv.3.4 kv=0.240 kw=120 kvar=40 phases=1 model=1 Vminpu=0 Vmaxp
 
 Set VoltageBases=[11.0, 0.415]
 CalcVoltageBases
+! Tolerance 1e-8 (<< the voltage-comparison tolerance) removes OpenDSS-side
+! convergence slop; MaxIterations raised so the tighter target is reached.
+Set Tolerance=1e-8
+Set MaxIterations=100
 Solve
