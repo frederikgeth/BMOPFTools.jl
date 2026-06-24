@@ -32,6 +32,14 @@ Note that `from_dss` (via PowerIO) emits SI values directly — line lengths in
 metres, linecodes per-metre, voltages in volts and powers in watts/vars — so no
 further scaling is applied on ingest.
 
+!!! note "Data-model units vs. solver units"
+    SI here describes the **data model** — how networks are represented and
+    serialised. It says nothing about the units a solver computes in: the
+    reference OPF can solve directly in SI or in an internally-scaled per-unit
+    copy and return SI results either way (see
+    [Units & scaling](opf.md#Units-and-scaling)). The representation choice and
+    the numerical-scaling choice are independent.
+
 ## Terminal names
 
 Terminal identifiers are **strings**. The library writes the OpenDSS-flavoured
@@ -241,6 +249,9 @@ bounds, names and attached devices). Keeping the section as a first-class object
 — rather than silently merging buses — preserves topology, lets the open/closed
 state be toggled for reconfiguration studies, and keeps current results
 addressable per switch (see [`switch` currents](results.md#switch-—-switch-currents)).
+When exporting to a tool that *requires* an admittance representation, the switch
+can be projected the other way — onto a small-impedance line — at the boundary
+(this is exactly OpenDSS's 1 mΩ `Switch=yes` line, below).
 
 ### Terminology in other tools and standards
 

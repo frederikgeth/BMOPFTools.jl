@@ -59,7 +59,8 @@ terminals that are not the neutral.
 
 ### Variables
 
-All variables are real-valued and in SI units (V and A).
+All variables are real-valued. By default they are in SI units (V and A); see
+[Units and scaling](#Units-and-scaling) for the optional per-unit solve.
 
 | Variable | Index | Description |
 |---|---|---|
@@ -75,6 +76,34 @@ All variables are real-valued and in SI units (V and A).
 Load, generator, inverter, and source current variables cover **phase
 conductors only**; neutral return current is implicit in KCL. Inverters add an
 analogous current variable per phase — see [Inverters](#inverters) below.
+
+---
+
+### Units and scaling
+
+By default the OPF is built and solved directly in **SI** units (volts,
+amperes, ohms) — the same units as the [data model](conventions.md#Units), so no
+conversion is needed. Passing `per_unit=true` to `solve_opf` instead solves a
+**normalized per-unit copy** of the network — a system base `s_base` (VA, default
+`1e6`) with per-bus voltage bases propagated through transformer ratios — and
+converts the results back to SI, so the choice is invisible to the caller.
+
+Both modes exist because **variable scaling affects the conditioning of a
+nonlinear interior-point solve**. Ipopt's initialization, barrier updates and
+stopping tests are scale-sensitive, and it cannot infer good scaling in general,
+so bringing variables to order ≈1 is standard practice for nonlinear programs
+[ref. 18](methodology.md#refs). In SI, a four-wire LV problem spans many orders
+of magnitude at once (volts, amperes, ohms, watts), which is the regime
+interior-point methods handle least well.
+
+Whether per-unit normalization actually improves convergence **here** is an
+open, instance- and formulation-dependent question, not a settled fact: the
+benefit of scaling a nonlinear program is known to be problem-dependent
+[ref. 19](methodology.md#refs), and AC-OPF numerical performance is governed
+strongly by the formulation as well [ref. 20](methodology.md#refs). The two
+modes are provided precisely so this can be **benchmarked** rather than assumed —
+the SI data model (a representation choice, [ref. 16](methodology.md#refs)) does
+not commit the solver to computing in SI.
 
 ---
 
@@ -225,15 +254,51 @@ $-(\tilde{c}^r_{\ell,k} + I^{\text{sh},r}_k(b^\text{to}))$ at the to-bus.
 
 #### Switches
 
-A **closed** switch enforces zero voltage drop:
+A switch is modelled as an **ideal, zero-impedance branch**: like a line, it
+carries per-conductor series current variables $c^r_{sw,k}$, $c^i_{sw,k}$ that
+enter KCL at both ends with opposite signs — $-(c^r_{sw,k},\,c^i_{sw,k})$ at the
+from-terminal and $+(c^r_{sw,k},\,c^i_{sw,k})$ at the to-terminal — exactly as a
+line's series current does. What differs from a line is the series relation: the
+KVL voltage-drop equation is replaced by a state-dependent condition, and there
+is no $\pi$-shunt.
+
+A **closed** switch replaces KVL with a **zero voltage drop** (lossless short),
+imposed per mapped conductor $k$ (neutral included if mapped):
 
 ```math
 v^r_{b^\text{fr},t^\text{fr}_k} = v^r_{b^\text{to},t^\text{to}_k}, \qquad
 v^i_{b^\text{fr},t^\text{fr}_k} = v^i_{b^\text{to},t^\text{to}_k}
 ```
 
-An **open** switch has its current variables fixed to zero; no voltage coupling
-is imposed.
+The current $c_{sw,k}$ is left free and is determined by KCL — it is the
+mechanism by which power flows through the closed switch. The two terminals are
+held at equal voltage but are **not** merged into one bus (a separate
+[`collapse_closed_switches`](@ref) network simplification does that node merge
+explicitly, outside the OPF).
+
+An **open** switch has its current variables fixed to zero
+($c^r_{sw,k} = c^i_{sw,k} = 0$); the voltage-equality is dropped, so the two
+buses are left electrically independent.
+
+When a per-conductor thermal rating `i_max` is present, a **closed** switch is
+limited by the same current cone (and box) used for lines, applied to the switch
+current variable directly:
+
+```math
+\bigl(c^r_{sw,k}\bigr)^2 + \bigl(c^i_{sw,k}\bigr)^2 \leq \bigl(I^\text{max}_k\bigr)^2
+```
+
+(see the "Current-limit box bounds" note above). A closed switch with no
+`i_max` is left thermally unconstrained; the data-quality provenance checks
+flag this case.
+
+!!! note "Why a dedicated switch object"
+    A closed switch could be eliminated by merging its two buses, but keeping
+    it as its own object preserves the semantics of a controllable tie — which
+    the connectivity, provenance, and thermal-protection passes reason about
+    directly — and keeps the formulation structured so switch state could
+    become a decision variable in a future extension (not currently
+    implemented; `open_switch` is fixed input data here).
 
 #### Standalone shunts
 
@@ -392,8 +457,9 @@ shifted/scaled rectified-linear (ReLU) terms,
 f(U) = \bar y_1 + \sum_i a_i \,\operatorname{ReLU}(U - \bar x_i),
 ```
 
-where each interior segment contributes a $(+a_i, \bar x_i)$ / $(-a_i, \bar
-x_{i+1})$ pair so the slope telescopes. For a gradient-based solver the kinked
+where each interior segment contributes a
+$\bigl(+a_i, \bar x_i\bigr) / \bigl(-a_i, \bar x_{i+1}\bigr)$ pair so the slope
+telescopes. For a gradient-based solver the kinked
 ReLU is replaced by the smooth softplus surrogate
 $\operatorname{ReLU}^{\varepsilon}(x) = \varepsilon\,\log(1+e^{x/\varepsilon})$,
 evaluated with the numerically stable `log1pexp`/`logistic` from
