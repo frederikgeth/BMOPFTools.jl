@@ -1,6 +1,7 @@
 # References
 
-Consolidated bibliography for the [Bounds, Branches, and Feasibility](index.md) note.
+Consolidated bibliography for the [Bounds, Branches, and Feasibility](index.md) note and
+its [Trusting the solver](solver_trust.md) capstone.
 Inline citations throughout the note link directly to the source; this page is the
 formal list.
 
@@ -64,6 +65,67 @@ formal list.
 - T. Van Cutsem and C. Vournas, *Voltage Stability of Electric Power Systems*, Springer,
   1998 (canonical treatment of ZIP loads, the nose point, and continuation power flow).
   [DOI](https://doi.org/10.1007/978-0-387-75536-6)
+
+## Computational complexity of AC OPF
+
+- K. Lehmann, A. Grastien, and P. Van Hentenryck, "AC-feasibility on tree networks is
+  NP-hard," *IEEE Transactions on Power Systems*, vol. 31, no. 1, pp. 798–801, 2016.
+  [DOI](https://doi.org/10.1109/TPWRS.2015.2407363) ·
+  [arXiv](https://arxiv.org/abs/1410.8253)
+- D. Bienstock and A. Verma, "Strong NP-hardness of AC power flows feasibility,"
+  *Operations Research Letters*, vol. 47, no. 6, pp. 494–501, 2019.
+  [DOI](https://doi.org/10.1016/j.orl.2019.08.009) ·
+  [arXiv](https://arxiv.org/abs/1512.07315)
+
+## Global optimization and optimality certificates
+
+- D. K. Molzahn and I. A. Hiskens, "Moment-based relaxation of the optimal power flow
+  problem" (Lasserre / moment SDP hierarchy), *Power Systems Computation Conference
+  (PSCC)*, 2014. [arXiv](https://arxiv.org/abs/1312.1992)
+- C. Coffrin, H. L. Hijazi, and P. Van Hentenryck, "The QC relaxation: a theoretical and
+  computational study on optimizing optimal power flow," *IEEE Transactions on Power
+  Systems*, vol. 31, no. 4, pp. 3008–3018, 2016.
+  [DOI](https://doi.org/10.1109/TPWRS.2015.2463111) ·
+  [arXiv](https://arxiv.org/abs/1502.07847)
+- H. Nagarajan, M. Lu, S. Wang, R. Bent, and K. Sundar, "An adaptive, multivariate
+  partitioning algorithm for global optimization of nonconvex programs" (Alpine.jl spatial
+  branch-and-bound), *Journal of Global Optimization*, vol. 74, pp. 639–675, 2019.
+  [DOI](https://doi.org/10.1007/s10898-018-00734-1) ·
+  [arXiv](https://arxiv.org/abs/1707.02514)
+- S. Gopinath, H. L. Hijazi, T. Weisser, H. Nagarajan, M. Yetkin, K. Sundar, and
+  R. W. Bent, "Proving global optimality of ACOPF solutions" (SDP bound tightening with
+  valid cuts; closes gaps on PGLib), *Electric Power Systems Research*, vol. 189, 106688,
+  2020. [DOI](https://doi.org/10.1016/j.epsr.2020.106688) ·
+  [arXiv](https://arxiv.org/abs/1910.03716)
+
+## Solver behaviour, constraint qualifications, and insolvability
+
+- A. Wächter and L. T. Biegler, "On the implementation of an interior-point filter
+  line-search algorithm for large-scale nonlinear programming" (Ipopt; feasibility
+  restoration phase), *Mathematical Programming*, vol. 106, no. 1, pp. 25–57, 2006.
+  [DOI](https://doi.org/10.1007/s10107-004-0559-y)
+- O. Hinder and Y. Ye, "A one-phase interior point method for nonconvex optimization"
+  (first-order certificates of local infeasibility, local optimality, or unboundedness),
+  2018. [arXiv](https://arxiv.org/abs/1801.03072)
+- G. Haeser, O. Hinder, and Y. Ye, "On the behavior of Lagrange multipliers in convex and
+  non-convex infeasible interior point methods" (LICQ/MFCQ and multiplier boundedness),
+  *Mathematical Programming*, vol. 186, pp. 257–288, 2021.
+  [DOI](https://doi.org/10.1007/s10107-019-01454-4) ·
+  [arXiv](https://arxiv.org/abs/1707.07327)
+- D. K. Molzahn, B. C. Lesieutre, and C. L. DeMarco, "A sufficient condition for power
+  flow insolvability with applications to voltage stability margins" (Jacobian
+  singularity and zero-voltage degeneracy), *IEEE Transactions on Power Systems*, 2013.
+  [PDF](https://molzahn.github.io/pubs/molzahn_lesieutre_demarco-pfcondition.pdf)
+- A. U. Raghunathan and L. T. Biegler, "An ℓ1 exact penalty-barrier phase for degenerate
+  nonlinear programming problems in Ipopt" (redundant / dependent constraints and LICQ
+  recovery), *IFAC World Congress*, 2020.
+  [Link](https://www.sciencedirect.com/science/article/pii/S2405896320324071)
+- D. Ralph and S. J. Wright, "Superlinear convergence of an interior-point method despite
+  dependent constraints," *Mathematics of Operations Research*, vol. 25, no. 2,
+  pp. 179–194, 2000. [DOI](https://doi.org/10.1287/moor.25.2.179.12227)
+- J. Hörsch, H. Ronellenfitsch, D. Witthaut, and T. Brown, "Linear optimal power flow
+  using cycle flows" (linear dependence of nodal KCL and the slack-bus equation),
+  *Electric Power Systems Research*, 2018. [arXiv](https://arxiv.org/abs/1704.01881)
 
 ## Software and the PowerModels ecosystem
 

@@ -25,6 +25,7 @@ makedocs(
             "bounds/loss_maximization.md",
             "bounds/diagnostics.md",
             "bounds/known_traps.md",
+            "bounds/solver_trust.md",
             "bounds/references.md",
         ],
         "Validating the OPF"      => "validation.md",
