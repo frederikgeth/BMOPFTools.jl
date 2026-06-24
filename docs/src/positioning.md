@@ -33,7 +33,9 @@ ecosystem around them. It focuses on:
 - **Network representation** — a faithful, conductor-level (up-to-four-wire)
   data model ([conventions](conventions.md));
 - **Data interoperability** — OpenDSS ingestion via `from_dss` and export to
-  PowerModelsDistribution via `to_pmd` ([conversion guide](conversion.md));
+  PowerModelsDistribution via `to_pmd`, treated as a *semantic projection* onto a
+  canonical model rather than a byte-faithful transcode
+  ([conversion guide](@ref ingest-philosophy));
 - **Analytical model construction & validation** — provenance, data-quality, and
   spec-conformance analysis ([analysis & reports](analysis.md));
 - **Benchmark generation** — structural repair and standards-grounded gap-filling
