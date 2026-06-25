@@ -2015,6 +2015,99 @@ const IEEE13_FIXTURE = """
         @test_throws ErrorException BMOPFTools._canonicalize_identifiers!(bad)
     end
 
+    @testset "from_dss — per-phase voltage source merge" begin
+        # OpenDSS models a 3-phase substation source as a Circuit + per-phase
+        # VSource bank (…_phB, …_phC), each single-phase on a shared bus.
+        # from_dss reassembles the bank into one polyphase source.
+        function _phase_src_net()
+            Dict{String,Any}("voltage_source" => Dict{String,Any}(
+                "source" => Dict{String,Any}("bus" => "b_source",
+                    "terminal_map" => ["a","n"],
+                    "v_magnitude" => [115000.0, 0.0], "v_angle" => [0.0, 0.0]),
+                "src_phb" => Dict{String,Any}("bus" => "b_source",
+                    "terminal_map" => ["b","n"],
+                    "v_magnitude" => [115000.0, 0.0], "v_angle" => [-2.0943951, 0.0]),
+                "src_phc" => Dict{String,Any}("bus" => "b_source",
+                    "terminal_map" => ["c","n"],
+                    "v_magnitude" => [115000.0, 0.0], "v_angle" => [2.0943951, 0.0])))
+        end
+
+        net = _phase_src_net()
+        BMOPFTools._merge_phase_voltage_sources!(net)
+        @test length(net["voltage_source"]) == 1
+        vs = net["voltage_source"]["source"]                 # Circuit id retained
+        @test vs["bus"] == "b_source"
+        @test vs["terminal_map"] == ["a","b","c","n"]
+        @test vs["v_magnitude"] == [115000.0,115000.0,115000.0,0.0]
+        @test vs["v_angle"] ≈ [0.0,-2.0943951,2.0943951,0.0]
+        @test vs["configuration"] == "WYE"
+        grp = net["_meta"]["merged_voltage_sources"]["groups"][1]
+        @test sort(grp["merged"]) == ["source","src_phb","src_phc"]
+        @test grp["into"] == "source"
+        @test grp["sequence"] == "positive"
+        @test !haskey(grp, "warning")
+
+        # Phase order is label-driven even when the file lists phases out of order
+        # (here the angles still form a positive-sequence balanced set).
+        shuffled = _phase_src_net()
+        # swap which object carries b vs c by relabelling terminals + angles
+        shuffled["voltage_source"]["src_phb"]["terminal_map"] = ["c","n"]
+        shuffled["voltage_source"]["src_phb"]["v_angle"]      = [2.0943951, 0.0]
+        shuffled["voltage_source"]["src_phc"]["terminal_map"] = ["b","n"]
+        shuffled["voltage_source"]["src_phc"]["v_angle"]      = [-2.0943951, 0.0]
+        BMOPFTools._merge_phase_voltage_sources!(shuffled)
+        @test shuffled["voltage_source"]["source"]["terminal_map"] == ["a","b","c","n"]
+        @test shuffled["voltage_source"]["source"]["v_angle"] ≈ [0.0,-2.0943951,2.0943951,0.0]
+
+        # Angle coherence guard: an incidental same-bus bank that is NOT a
+        # balanced rotation (all at 0°) is left unmerged and recorded.
+        incoherent = _phase_src_net()
+        for id in ("src_phb","src_phc")
+            incoherent["voltage_source"][id]["v_angle"] = [0.0, 0.0]
+        end
+        BMOPFTools._merge_phase_voltage_sources!(incoherent)
+        @test length(incoherent["voltage_source"]) == 3
+        dec = incoherent["_meta"]["merged_voltage_sources"]["declined"]
+        @test dec[1]["bus"] == "b_source"
+        @test !haskey(incoherent["_meta"]["merged_voltage_sources"], "groups")
+
+        # Negative-sequence angles (labels a,b,c but rotation reversed): merged
+        # faithfully (angles preserved, label order kept) but flagged.
+        negseq = _phase_src_net()
+        negseq["voltage_source"]["src_phb"]["v_angle"] = [2.0943951, 0.0]   # b at +120
+        negseq["voltage_source"]["src_phc"]["v_angle"] = [-2.0943951, 0.0]  # c at -120
+        BMOPFTools._merge_phase_voltage_sources!(negseq)
+        @test length(negseq["voltage_source"]) == 1
+        nvs = negseq["voltage_source"]["source"]
+        @test nvs["terminal_map"] == ["a","b","c","n"]
+        @test nvs["v_angle"] ≈ [0.0,2.0943951,-2.0943951,0.0]   # preserved verbatim
+        ngrp = negseq["_meta"]["merged_voltage_sources"]["groups"][1]
+        @test ngrp["sequence"] == "negative"
+        @test haskey(ngrp, "warning")
+
+        # A priced/bounded slack is ambiguous to combine — leave the bank as-is.
+        bounded = _phase_src_net()
+        bounded["voltage_source"]["source"]["cost"] = [1.0]
+        BMOPFTools._merge_phase_voltage_sources!(bounded)
+        @test length(bounded["voltage_source"]) == 3
+        @test !haskey(get(bounded,"_meta",Dict()), "merged_voltage_sources")
+
+        # A phase collision (two sources on the same phase) must not merge.
+        conflict = _phase_src_net()
+        conflict["voltage_source"]["src_phc"]["terminal_map"] = ["a","n"]
+        BMOPFTools._merge_phase_voltage_sources!(conflict)
+        @test length(conflict["voltage_source"]) == 3
+
+        # A lone single-phase source is untouched (nothing to merge).
+        lone = Dict{String,Any}("voltage_source" => Dict{String,Any}(
+            "source" => Dict{String,Any}("bus" => "b_source",
+                "terminal_map" => ["a","n"],
+                "v_magnitude" => [115000.0,0.0], "v_angle" => [0.0,0.0])))
+        BMOPFTools._merge_phase_voltage_sources!(lone)
+        @test length(lone["voltage_source"]) == 1
+        @test lone["voltage_source"]["source"]["terminal_map"] == ["a","n"]
+    end
+
     @testset "Completeness — transformer required fields" begin
         net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
         delete!(net["transformer"]["single_phase"]["xfm2"], "s_rating")

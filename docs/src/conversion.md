@@ -119,6 +119,8 @@ BMOPF conventions:
 - **Identifier case-folding** — all ids and references lower-cased (below).
 - **Terminal remap** — `1,2,3,4 → a,b,c,n`, with the OpenDSS earth node `.0`
   (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
+- **Per-phase voltage source merge** — a `Circuit` + per-phase `VSource` bank on
+  a shared bus is reassembled into one polyphase source (below).
 - **Transformer impedance normalisation** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
 - **No slack price** — the imported `voltage_source` is left without a `cost`;
@@ -167,6 +169,39 @@ by `migrate` / `_migrate_transformer_series_fields!`: it is moved onto
 `W.MIGRATE.XFMR_SERIES_FIELDS` note is recorded. The percentage→ohm conversions
 PowerIO performs upstream — and that `to_pmd` reverses — are tabulated under
 [Transformer impedance bases](#Transformer-impedance-bases).
+
+### [Per-phase voltage source merge](@id source-merge)
+
+OpenDSS commonly models a three-phase substation source as a `Circuit` element
+plus per-phase `VSource` objects (`…_phB`, `…_phC`) — each a *single-phase*
+source wired to one phase of a shared bus. PowerIO faithfully mirrors the
+OpenDSS object graph, so these arrive as **separate single-phase**
+`voltage_source` entries. BMOPF's spec expects exactly one source, and the OPF
+reference convention is a single polyphase slack, so `from_dss` reassembles the
+bank into one source at the ingest boundary
+(`_merge_phase_voltage_sources!`). The merge clears the `W.SPEC.N_SOURCES`
+finding that the un-merged bank would otherwise raise.
+
+Sources on a common bus are merged only when the evidence says they are one
+source: every member is single-phase (one of `a`/`b`/`c` plus an optional
+neutral), the members cover **distinct** phases, none carries
+`p_min`/`p_max`/`q_min`/`q_max`/`cost` (a priced/bounded slack is left untouched
+— combining per-phase limits is ambiguous), and the members' angles form a
+**balanced ±120° rotation** (within 30°). A same-bus bank whose angles are *not*
+a balanced rotation (e.g. all at 0°) is judged incidental and **left unmerged**,
+recorded under `net["_meta"]["merged_voltage_sources"]["declined"]`.
+
+Phase order in the merged source is **physical-label-driven** — always
+`a`,`b`,`c` (positive-sequence rotation) followed by `n`, regardless of the order
+the `VSource` objects appeared in the file. The per-phase angles are preserved
+**verbatim** and are never used to permute conductors: the terminal label is
+authoritative for which physical conductor the source feeds (everything else in
+the network references that label), while the angle is independent phasor data.
+The angles serve only to *disambiguate* whether the bank is one coherent source
+and which rotation it carries. If the angle rotation is negative-sequence (it
+disagrees with the a→b→c labelling), the bank is still merged faithfully but the
+discrepancy is flagged on the group note as a likely phase-labelling error. The
+merge is recorded under `net["_meta"]["merged_voltage_sources"]`.
 
 ### Pricing the slack source
 
