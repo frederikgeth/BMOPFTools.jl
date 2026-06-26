@@ -17,6 +17,19 @@ result["line"]["l1"]["1"]["cr_fr"]  # real part of current at from-terminal "1" 
 result["generator"]["g1"]["1"]["pg"]  # active power on phase "1" (W)
 ```
 
+Because the result is a plain dict, it serialises straight to JSON.
+[`write_result`](@ref) writes it to a file or `IO`, and [`read_result`](@ref)
+reads it back to an identical dict:
+
+```julia
+write_result(result, "result.json")
+result2 = read_result("result.json")   # result2 == result
+```
+
+To turn the [`SolutionReport`](@ref) from [`profile_solution`](@ref) into a
+Markdown file, pass a path to [`render_solution`](@ref):
+`render_solution(report, "report.md")`.
+
 ## Infeasible solutions
 
 When the solver terminates without finding a feasible point

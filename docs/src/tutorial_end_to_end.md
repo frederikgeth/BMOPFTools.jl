@@ -167,6 +167,29 @@ println("Termination : ", result["termination_status"])
 println("Objective   : ", round(result["objective"]; sigdigits = 6))
 ```
 
+### Inspecting the result dictionary
+
+`result` is a plain `Dict{String,Any}` in SI units whose structure mirrors the
+network: top-level keys are component types, then component id, then terminal.
+The full field reference is in [OPF result dictionary](results.md); here we read
+a few solved quantities directly:
+
+```@example e2e
+b = first(keys(result["bus"]))                 # some bus id
+println("Bus '", b, "' phase voltages (V):")
+for (t, v) in sort(collect(result["bus"][b]); by = first)
+    println("  terminal ", rpad(t, 3), " |V| = ", round(v["vm"]; digits = 2))
+end
+
+# Total active power imported from the grid = Σ ps over the source phases.
+src    = first(values(result["voltage_source"]))
+p_grid = sum(v["ps"] for v in values(src))
+println("\nGrid import : ", round(p_grid / 1e3; digits = 2), " kW")
+println("Network loss: ", round(result["losses"]["p_loss"] / 1e3; digits = 2), " kW")
+```
+
+### Profiling the solution
+
 [`profile_solution`](@ref) checks the result against the network bounds —
 flagging violations, near-active constraints, and residuals — without access to
 solver internals, and returns a [`SolutionReport`](@ref):
@@ -194,9 +217,16 @@ render_solution(sol_report, stdout)
 giving every downstream consumer a complete, auditable record of what was
 repaired, placed, and filled.
 
+The solved result and the solution report export the same way:
+[`write_result`](@ref) writes the result dict to JSON (read it back with
+[`read_result`](@ref)), and [`render_solution`](@ref) writes the human-readable
+report to a Markdown file when given a path instead of an `IO`.
+
 ```@example e2e
 out_dir = mktempdir()
-write_bmopf(net_ready, joinpath(out_dir, "LV1_14bus_ready.json"))
+write_bmopf(net_ready, joinpath(out_dir, "LV1_14bus_ready.json"))     # the case
+write_result(result,   joinpath(out_dir, "LV1_14bus_result.json"))    # solved values
+render_solution(sol_report, joinpath(out_dir, "LV1_14bus_report.md")) # the report
 
 manifests = Dict(
     "fix"     => manifest_to_dict(fix_mf),
@@ -204,10 +234,16 @@ manifests = Dict(
     "augment" => manifest_to_dict(aug_mf),
 )
 
-println("Wrote benchmark-ready case to ", out_dir)
+# The result JSON round-trips back to an identical dict.
+roundtrip = read_result(joinpath(out_dir, "LV1_14bus_result.json"))
+println("Result JSON round-trips : ",
+        roundtrip["bus"] == result["bus"])
+
+println("Wrote case, result, and report to ", out_dir)
 println("Captured ", sum(length(m["entries"]) for m in values(manifests)),
         " transformation entries across the three manifests")
 ```
 
 That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped
-BMOPF benchmark with a solved OPF and an audit trail for every transformation.
+BMOPF benchmark with a solved OPF, an exported result and report, and an audit
+trail for every transformation.
