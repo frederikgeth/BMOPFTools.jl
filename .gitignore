@@ -1,6 +1,11 @@
 **/.DS_Store
 docs/build/
 
+# Code-coverage artifacts emitted by `julia --code-coverage` / Pkg.test(coverage=true)
+*.cov
+*.info
+lcov.info
+
 # Resolved dependency manifests — not consumed downstream for a library and a
 # source of churn/merge conflicts. Each environment is reproducible from its
 # Project.toml + the General registry.

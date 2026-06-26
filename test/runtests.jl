@@ -2758,6 +2758,17 @@ const IEEE13_FIXTURE = """
     include("solution_profiling_tests.jl")
 
     # -----------------------------------------------------------------------
+    # Coordinate side-loading & ASCII tree rendering — no solver required
+    # -----------------------------------------------------------------------
+    include("sideload_coordinates_tests.jl")
+    include("render_ascii_tree_tests.jl")
+
+    # -----------------------------------------------------------------------
+    # Infeasibility diagnosis — deterministic dict paths plus a gated solve
+    # -----------------------------------------------------------------------
+    include("infeasibility_tests.jl")
+
+    # -----------------------------------------------------------------------
     # OPF extension — requires JuMP and Ipopt
     # -----------------------------------------------------------------------
     @testset "OPF extension" begin
