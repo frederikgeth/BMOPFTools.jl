@@ -183,10 +183,11 @@ function connectivity_analysis(net::Dict{String,Any},
     load_buses = Set(string(get(l, "bus", "")) for (_, l) in get(net, "load",      Dict()))
     gen_buses  = Set(string(get(g, "bus", "")) for (_, g) in get(net, "generator", Dict()))
     shunt_buses = Set(string(get(s, "bus", "")) for (_, s) in get(net, "shunt",    Dict()))
+    cap_buses  = Set(string(get(c, "bus", "")) for (_, c) in get(net, "capacitor", Dict()))
     vsrc_set   = Set(vsrc_buses)
     dangling   = [b for b in degree_1_buses
                   if !(b in load_buses) && !(b in gen_buses) &&
-                     !(b in shunt_buses) && !(b in vsrc_set)]
+                     !(b in shunt_buses) && !(b in cap_buses) && !(b in vsrc_set)]
     result["dangling_buses"] = dangling
     if !isempty(dangling)
         push!(findings, Finding(WARNING, "W.CONN.DANGLING", :connectivity, :bus, nothing,

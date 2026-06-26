@@ -187,6 +187,57 @@ function spec_conformance_check(net::Dict{String,Any},
         end
     end
 
+    # --- capacitor banks: configuration, arity, q_rated length, v_rated ---
+    for (id, c) in get(net, "capacitor", Dict())
+        c isa Dict || continue
+        cfg = get(c, "configuration", nothing)
+        tm  = Vector{String}(string.(get(c, "terminal_map", String[])))
+        if !(cfg isa AbstractString) || !(cfg in keys(_CONFIG_ARITY))
+            n_issues += 1
+            push!(findings, Finding(WARNING, "W.SPEC.BAD_CONFIG", :spec,
+                :capacitor, id,
+                "capacitor '$id' has configuration '$(cfg)' — spec allows " *
+                "SINGLE_PHASE, WYE, DELTA.", nothing))
+            continue
+        end
+        if length(tm) != _CONFIG_ARITY[cfg]
+            n_issues += 1
+            push!(findings, Finding(WARNING, "W.SPEC.CONFIG_ARITY", :spec,
+                :capacitor, id,
+                "capacitor '$id': configuration $cfg requires $(_CONFIG_ARITY[cfg]) " *
+                "terminal(s), terminal_map has $(length(tm)).",
+                Dict{String,Any}("configuration" => cfg, "arity" => length(tm))))
+            continue
+        end
+        if length(unique(tm)) < length(tm)
+            dups = [t for t in unique(tm) if count(==(t), tm) > 1]
+            n_issues += 1
+            push!(findings, Finding(ERROR, "E.SPEC.DUPLICATE_TERMINAL", :spec,
+                :capacitor, id,
+                "capacitor '$id' has duplicate terminal(s): " * join(dups, ", ") * ".",
+                Dict{String,Any}("terminal_map" => tm, "duplicates" => dups)))
+        end
+        # q_rated length: WYE → #phases, SINGLE_PHASE → 1, DELTA → #pairs (=#phases)
+        nq_expected = cfg == "SINGLE_PHASE" ? 1 :
+                      cfg == "DELTA"        ? length(tm) : length(tm) - 1
+        q = get(c, "q_rated", nothing)
+        if q isa AbstractVector && length(q) != nq_expected
+            n_issues += 1
+            push!(findings, Finding(WARNING, "W.SPEC.CAP_QRATED_LENGTH", :spec,
+                :capacitor, id,
+                "capacitor '$id' ($cfg): q_rated has $(length(q)) entries, " *
+                "expected $nq_expected.",
+                Dict{String,Any}("configuration" => cfg, "n" => length(q))))
+        end
+        vr = get(c, "v_rated", nothing)
+        if vr isa Real && !(vr > 0)
+            n_issues += 1
+            push!(findings, Finding(ERROR, "E.SPEC.CAP_VRATED", :spec,
+                :capacitor, id,
+                "capacitor '$id' has non-positive v_rated ($vr).", nothing))
+        end
+    end
+
     # --- duplicate terminals in lines and switches ---
     for comp_type in ("line", "switch")
         for (id, c) in get(net, comp_type, Dict())

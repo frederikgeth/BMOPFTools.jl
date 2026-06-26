@@ -604,6 +604,30 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         end
     end
 
+    # ── Capacitor banks: per-terminal current + delivered reactive power ──────
+    # Fixed susceptance, no variables — recomputed from the solved voltages, the
+    # result-side counterpart of the model build (mirrors the shunt injector).
+    cap_res = Dict{String,Any}()
+    for (cid, cap) in get(net, "capacitor", Dict())
+        cap isa Dict || continue
+        bus    = get(cap, "bus", "")
+        tm, Bm = BMOPFTools._cap_bmatrix(cap)
+        isempty(tm) && continue
+        cr, ci = _shunt_current_value(vr_v, vi_v, val, nothing, Bm, bus, tm)
+        term_d = Dict{String,Any}()
+        q_tot = 0.0
+        for k in eachindex(tm)
+            term_d[tm[k]] = Dict{String,Any}(
+                "cr" => cr[k], "ci" => ci[k], "cm" => sqrt(cr[k]^2 + ci[k]^2))
+            if feasible && haskey(vr_v, (bus, tm[k]))
+                vrk = val(vr_v[(bus, tm[k])]); vik = val(vi_v[(bus, tm[k])])
+                # Current INTO the bus is −(cr,ci); Q injected = vr·ci_in − vi·cr_in.
+                q_tot += vrk * (-ci[k]) - vik * (-cr[k])
+            end
+        end
+        cap_res[cid] = Dict{String,Any}("terminals" => term_d, "q" => q_tot)
+    end
+
     Dict{String,Any}(
         "termination_status" => status,
         "feasible"           => feasible,
@@ -617,6 +641,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         "generator"          => gen_res,
         "inverter"           => inv_res,
         "transformer"        => xfmr_res,
+        "capacitor"          => cap_res,
         "voltage_source"     => src_res,
         "initialisation"     => init_res,
         "losses"             => Dict{String,Any}(

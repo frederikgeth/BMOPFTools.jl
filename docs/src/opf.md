@@ -316,6 +316,16 @@ I^{\text{sh},i}_{k} = \sum_j \bigl(G^{sh}_{kj}\,v^i_{b,t_j} + B^{sh}_{kj}\,v^r_{
 KCL contribution: $-I^{\text{sh},r}_k$ (current leaves the bus to ground).
 Grounded terminals are absent from the voltage variable dict and contribute zero.
 
+#### Capacitor banks
+
+A fixed `capacitor` is a constant susceptance $B = q_\text{rated}/v_\text{rated}^2$
+(per phase for WYE, per pair for DELTA) delivering $Q = B\,V^2$. Its connection
+is compiled to a terminal-space susceptance matrix $\mathbf{B}$ and injected with
+**exactly the shunt contribution above** (with $\mathbf{G}=0$) — so it adds **no
+JuMP variables** (linear in the voltages). A continuously-controllable capacitor
+(making $B$ a bounded decision variable, $Q=B\,V^2$ bilinear) is a future
+extension.
+
 #### Loads
 
 For every load sub-load $k$, define the **voltage drop** across the sub-load

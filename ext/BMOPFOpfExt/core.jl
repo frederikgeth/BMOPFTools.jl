@@ -96,6 +96,7 @@ function _add_device_constraints!(ctx::OpfContext)
     _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=branch_inj)
     _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=branch_inj)
     _add_shunt_constraints!(net, vars, kcl_r, kcl_i)
+    _add_capacitor_constraints!(net, vars, kcl_r, kcl_i)
     _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
     _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
     _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;

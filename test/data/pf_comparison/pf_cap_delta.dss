@@ -1,0 +1,17 @@
+! Fixed DELTA shunt capacitor vs OpenDSS. 12.47 kV 3-phase, 900 kvar (3-phase)
+! delta-connected (phase-to-phase) at the load bus. Same conventions as
+! pf_cap_wye.dss — in particular FIXED (no switching): no `New CapControl…`,
+! single step / states ON (defaults), snapshot solve. Constant susceptance
+! B = kvar/kv² (kv = line-to-line for delta), delivering Q = B·V².
+Clear
+Set DefaultBaseFreq=60
+New Circuit.pf_cap_delta basekv=12.47 pu=1.0 angle=0 phases=3 bus1=src model=ideal
+New Reactor.gs bus1=src.4 bus2=src.0 R=0.0001 X=0 phases=1
+New Line.l bus1=src.1.2.3.4 bus2=b1.1.2.3.4 phases=4 R1=0.5 X1=1.0 R0=0.5 X0=1.0 length=1 units=km
+New Reactor.gb bus1=b1.4 bus2=b1.0 R=0.0001 X=0 phases=1
+New Load.ld bus1=b1.1.2.3.4 conn=wye kv=12.47 kw=900 kvar=450 phases=3 model=1 Vminpu=0 Vmaxpu=2
+New Capacitor.c1 bus1=b1.1.2.3 phases=3 conn=delta kv=12.47 kvar=900
+Set VoltageBases=[12.47]
+CalcVoltageBases
+Set Tolerance=1e-9
+Solve

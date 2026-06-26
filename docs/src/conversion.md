@@ -170,6 +170,59 @@ by `migrate` / `_migrate_transformer_series_fields!`: it is moved onto
 PowerIO performs upstream — and that `to_pmd` reverses — are tabulated under
 [Transformer impedance bases](#Transformer-impedance-bases).
 
+### [Capacitor banks](@id capacitor)
+
+BMOPF models a fixed **shunt capacitor bank** as the top-level `capacitor`
+object — a nameplate-faithful, connection-aware shunt:
+
+```json
+net["capacitor"]["c1"] = {
+  "bus": "b035", "terminal_map": ["a","b","c","n"], "configuration": "WYE",
+  "q_rated": [600000.0, 600000.0, 600000.0],   // var, per phase (WYE)/pair (DELTA)
+  "v_rated": 14400.0                            // V (L-N for WYE, L-L for DELTA)
+}
+```
+
+A capacitor is a **constant susceptance** `B = q_rated / v_rated²`, so it
+delivers the voltage-dependent reactive power `Q = B·V²` (exact capacitor
+physics — only equal to the nameplate kvar at the rated voltage). Connections:
+`WYE` (phase-to-neutral), `SINGLE_PHASE` (two terminals), `DELTA`
+(phase-to-phase). It compiles to a terminal-space susceptance matrix and reuses
+the same KCL injection as a `shunt` (no decision variables — **fixed**). A
+continuously-controllable / smooth capacitor (`B` a bounded decision variable)
+is a documented future extension.
+
+**Nameplate convention** (matches OpenDSS `Capacitor`): for a 3-phase bank of
+total `kvar`, `q_rated` is the per-phase (WYE) or per-pair (DELTA) share
+(`kvar_3ph/3`), and `v_rated` is phase-to-neutral for WYE/SINGLE_PHASE,
+line-to-line for DELTA. Validated against OpenDSS's own Capacitor solve for WYE
+and DELTA.
+
+**Modelling a *fixed* bank in OpenDSS (replicable, no accidental switching).**
+The toolbox models a **fixed** capacitor only. To produce a matching, constant
+bank in OpenDSS (as the parity tests do):
+
+- **no `New CapControl…` object** — a `Capacitor` without a `CapControl` never
+  switches during a solve;
+- **single step**, all states on — leave `Numsteps` at its default (1) and
+  `states` at its default (all on), so the full nameplate kvar stays connected;
+- **snapshot solve** (the default `Set Mode=Snapshot`) — no time series to drive
+  a control;
+- then `New Capacitor.x bus1=… phases=3 conn=wye|delta kv=<rated> kvar=<total>`
+  is a constant susceptance `B = kvar/kv²` delivering `Q = B·V²`.
+
+A multi-step `Capacitor` (`Numsteps>1`) or one driven by a `CapControl` is a
+**switched** bank — discrete switching is **out of scope** here (planned later).
+
+**Need a controllable/continuous source of reactive power today?** Use an
+`inverter` (bounded `q_min`/`q_max`, or a Volt-VAr `control_profile`) or a
+`generator` with reactive bounds — those already provide continuous, dispatchable
+reactive support. The `capacitor` is specifically the *fixed* physical device.
+
+Ingest status: like `n_winding`, this is a hand-authored / future-PowerIO
+target — **`from_dss` is unchanged** and PowerIO still emits OpenDSS Capacitors
+as plain `shunt`s (B = kvar/kv²), so existing behaviour is untouched.
+
 ### [General n-winding transformers](@id n-winding)
 
 BMOPF models a general **n-winding** (3+) transformer as the `n_winding`

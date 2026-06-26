@@ -157,6 +157,7 @@ function _to_per_unit(net::Dict{String,Any}, s_base::Float64)
     _pu_scale_transformers!(net_pu, bases)
     _pu_scale_nwinding!(net_pu, bases)
     _pu_scale_shunts!(net_pu, bases)
+    _pu_scale_capacitors!(net_pu, bases)
     net_pu, bases
 end
 
@@ -380,6 +381,20 @@ function _pu_scale_shunts!(net, bases)
             (startswith(k, "G_") || startswith(k, "B_")) &&
                 (sh[k] = Float64(v) * zb)
         end
+    end
+end
+
+# Capacitors: the OPF derives B = q_rated/v_rated² in the builder, so scaling
+# q_rated by s_base and v_rated by the bus voltage base makes the derived B come
+# out in per-unit automatically:  (q/s_base)/(v_rated/v_base)² = B_SI · z_base.
+function _pu_scale_capacitors!(net, bases)
+    sb = bases.s_base
+    for (_, cap) in get(net, "capacitor", Dict())
+        cap isa Dict || continue
+        bus = get(cap, "bus", "")
+        vb  = get(bases.v_base, bus, 1.0)
+        haskey(cap, "q_rated") && (cap["q_rated"] = Float64.(cap["q_rated"]) ./ sb)
+        haskey(cap, "v_rated") && (cap["v_rated"] = Float64(cap["v_rated"]) / vb)
     end
 end
 

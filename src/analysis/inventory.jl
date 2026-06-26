@@ -114,6 +114,17 @@ function inventory_analysis(net::Dict{String,Any},
         result[comp_type] = Dict{String,Any}("total" => length(components))
     end
 
+    # --- Capacitors (count + total installed reactive at rated voltage) ---
+    caps = get(net, "capacitor", Dict())
+    q_installed = 0.0
+    for (_, c) in caps
+        c isa Dict || continue
+        q = get(c, "q_rated", nothing)
+        q isa AbstractVector && (q_installed += sum(Float64, q))
+    end
+    result["capacitor"] = Dict{String,Any}(
+        "total" => length(caps), "q_rated_total" => q_installed)
+
     # --- Inverter ---
     inverters = get(net, "inverter", Dict())
     by_topology   = Dict{String,Int}()

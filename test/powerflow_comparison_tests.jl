@@ -2097,3 +2097,86 @@ _net_center_tap_ideal() = parse_bmopf("""
     @test isapprox(vmag(rnw, "hv", "a") / vmag(rnw, "lv", "a"),
                    ws[1]["v_ref"] / ws[3]["v_ref"]; rtol=1e-6)
 end
+
+# ── Fixed capacitor banks ───────────────────────────────────────────────────
+# A capacitor is a constant susceptance B = q_rated/v_rated² delivering Q = B·V².
+# Validate (1) it compiles to the same physics as an equivalent shunt and
+# (2) WYE and DELTA banks match OpenDSS's own Capacitor solve. Nameplate
+# convention: q_rated per phase (WYE) / per pair (DELTA) = kvar_3ph/3;
+# v_rated = line-to-neutral (WYE) / line-to-line (DELTA).
+
+function _net_cap_base()
+    vpn(kv) = kv * 1e3 / sqrt(3)
+    g() = Dict{String,Any}("terminal_names"=>["a","b","c","n"],
+        "neutral_terminal"=>"n", "perfectly_grounded_terminals"=>["n"])
+    Dict{String,Any}(
+        "name" => "pf_cap",
+        "bus"  => Dict{String,Any}("src"=>g(), "b1"=>g()),
+        "voltage_source" => Dict{String,Any}("s"=>Dict{String,Any}(
+            "bus"=>"src", "terminal_map"=>["a","b","c","n"],
+            "v_magnitude"=>[vpn(12.47),vpn(12.47),vpn(12.47),0.0],
+            "v_angle"=>[0.0,-2.0943951023931953,2.0943951023931953,0.0])),
+        "line" => Dict{String,Any}("l"=>Dict{String,Any}(
+            "bus_from"=>"src","bus_to"=>"b1","linecode"=>"lc","length"=>1.0,
+            "terminal_map_from"=>["a","b","c","n"],"terminal_map_to"=>["a","b","c","n"])),
+        "linecode" => Dict{String,Any}("lc"=>Dict{String,Any}(
+            "R_series_1_1"=>0.5,"X_series_1_1"=>1.0,"R_series_2_2"=>0.5,"X_series_2_2"=>1.0,
+            "R_series_3_3"=>0.5,"X_series_3_3"=>1.0,"R_series_4_4"=>0.5,"X_series_4_4"=>1.0)),
+        "load" => Dict{String,Any}("ld"=>Dict{String,Any}(
+            "bus"=>"b1","terminal_map"=>["a","b","c","n"],"configuration"=>"WYE",
+            "model"=>"constant_power","p_nom"=>[3e5,3e5,3e5],"q_nom"=>[1.5e5,1.5e5,1.5e5])))
+end
+
+function _net_cap_wye()
+    net = _net_cap_base(); vpn = 12.47e3/sqrt(3)
+    net["capacitor"] = Dict{String,Any}("c1"=>Dict{String,Any}(
+        "bus"=>"b1","terminal_map"=>["a","b","c","n"],"configuration"=>"WYE",
+        "q_rated"=>[3e5,3e5,3e5],"v_rated"=>vpn))
+    net
+end
+
+function _net_cap_delta()
+    net = _net_cap_base()
+    net["capacitor"] = Dict{String,Any}("c1"=>Dict{String,Any}(
+        "bus"=>"b1","terminal_map"=>["a","b","c"],"configuration"=>"DELTA",
+        "q_rated"=>[3e5,3e5,3e5],"v_rated"=>12.47e3))
+    net
+end
+
+@testset "capacitor ≡ equivalent shunt (identical voltages)" begin
+    capnet = _net_cap_wye()
+    vpn = 12.47e3/sqrt(3); b = 3e5 / vpn^2
+    shnet = _net_cap_base()
+    shnet["shunt"] = Dict{String,Any}("s1"=>Dict{String,Any}(
+        "bus"=>"b1","terminal_map"=>["a","b","c","n"],
+        "G_1_1"=>0.0,"B_1_1"=>b,"G_2_2"=>0.0,"B_2_2"=>b,"G_3_3"=>0.0,"B_3_3"=>b))
+    Vc = _bmopf_volts_pf(capnet)
+    Vs = _bmopf_volts_pf(shnet)
+    _cmp_volts(Vs, Vc; label="cap≡shunt: ", atol=1e-4)
+end
+
+# Validate against OpenDSS's own `Capacitor` solve in BOTH solver modes (SI and
+# per-unit); the result must match OpenDSS either way.
+@testset "PF (solve_pf) comparison — fixed WYE capacitor (SI & p.u.)" begin
+    path  = joinpath(_PF_CMP_DIR, "pf_cap_wye.dss")
+    V_ods = _ods_volts(path)
+    phmap = Dict("a"=>"1","b"=>"2","c"=>"3","n"=>"4")
+    for pu in (false, true)
+        res  = solve_pf(_net_cap_wye(); optimizer=Ipopt.Optimizer, per_unit=pu)
+        V_bm = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                    for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+        _cmp_volts(V_ods, V_bm; label="cap-wye (pu=$pu): ")
+    end
+end
+
+@testset "PF (solve_pf) comparison — fixed DELTA capacitor (SI & p.u.)" begin
+    path  = joinpath(_PF_CMP_DIR, "pf_cap_delta.dss")
+    V_ods = _ods_volts(path)
+    phmap = Dict("a"=>"1","b"=>"2","c"=>"3","n"=>"4")
+    for pu in (false, true)
+        res  = solve_pf(_net_cap_delta(); optimizer=Ipopt.Optimizer, per_unit=pu)
+        V_bm = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                    for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+        _cmp_volts(V_ods, V_bm; label="cap-delta (pu=$pu): ")
+    end
+end
