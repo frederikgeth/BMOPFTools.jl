@@ -107,7 +107,8 @@ end
 
 # Top-level component collections whose KEYS are OpenDSS identifiers.
 const _ID_COLLECTIONS = ("bus", "linecode", "line", "switch", "load",
-                         "generator", "voltage_source", "shunt", "inverter")
+                         "generator", "voltage_source", "shunt", "inverter",
+                         "capacitor")
 
 """
     _canonicalize_identifiers!(net)
@@ -157,7 +158,7 @@ function _canonicalize_identifiers!(net::Dict{String,Any})
     end
 
     # 2. Reference fields
-    for ct in ("load", "generator", "voltage_source", "shunt", "inverter")
+    for ct in ("load", "generator", "voltage_source", "shunt", "inverter", "capacitor")
         for (_, c) in get(net, ct, Dict())
             c isa Dict && foldref!(c, "bus")
         end
@@ -243,8 +244,8 @@ end
 
 function _remap_terminal_maps!(net::Dict{String,Any},
                                rename_maps::Dict{String,Dict{String,String}})
-    # Single-bus components: load, generator, voltage_source, shunt
-    for comp_type in ("load", "generator", "voltage_source", "shunt")
+    # Single-bus components: load, generator, voltage_source, shunt, capacitor
+    for comp_type in ("load", "generator", "voltage_source", "shunt", "capacitor")
         for (_, comp) in get(net, comp_type, Dict())
             comp isa Dict || continue
             rmap = get(rename_maps, get(comp, "bus", ""), nothing)

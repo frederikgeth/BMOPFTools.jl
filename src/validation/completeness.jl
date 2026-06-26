@@ -9,6 +9,7 @@ const _REQUIRED_FIELDS = Dict{String,Vector{String}}(
     "load"           => ["bus", "terminal_map", "configuration", "p_nom", "q_nom"],
     "generator"      => ["bus", "terminal_map", "configuration", "cost"],
     "shunt"          => ["bus", "terminal_map", "G_1_1", "B_1_1"],
+    "capacitor"      => ["bus", "terminal_map", "configuration", "q_rated", "v_rated"],
     "switch"         => ["bus_from", "bus_to", "terminal_map_from", "terminal_map_to",
                          "open_switch"],
     "linecode"       => ["R_series_1_1", "X_series_1_1"],

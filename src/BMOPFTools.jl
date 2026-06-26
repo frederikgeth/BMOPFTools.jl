@@ -319,6 +319,7 @@ include("io/to_pmd.jl")
 include("io/from_dss.jl")
 include("io/sideload_coordinates.jl")
 include("io/nwinding.jl")
+include("io/capacitor.jl")
 include("io/to_ybus.jl")
 
 include("analysis/inventory.jl")

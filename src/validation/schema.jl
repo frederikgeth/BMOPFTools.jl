@@ -126,6 +126,8 @@ const _KNOWN_FIELDS = Dict{String,Set{String}}(
                              "configuration", "p_min", "p_max", "q_min", "q_max",
                              "cost"]),
     "shunt" => Set(["bus", "terminal_map"]),
+    "capacitor" => Set(["bus", "terminal_map", "configuration",
+                        "q_rated", "v_rated"]),
     "load" => Set(["p_nom", "q_nom", "bus", "configuration", "terminal_map",
                    "model", "v_nom",
                    "alpha_z", "alpha_i", "alpha_p",
@@ -255,8 +257,8 @@ function _catalogue_unknown_fields(net::Dict{String,Any},
     end
 
     known_top = Set(["name", "meta", "bus", "line", "linecode", "voltage_source",
-                     "load", "generator", "shunt", "switch", "transformer",
-                     "inverter", "control_profile",
+                     "load", "generator", "shunt", "capacitor", "switch",
+                     "transformer", "inverter", "control_profile",
                      "time_series", "_meta"])
     unknown_top = [k for k in keys(net) if !(k in known_top) && !startswith(k, "_")]
     isempty(unknown_top) ||

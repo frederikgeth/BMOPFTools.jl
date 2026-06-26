@@ -2895,6 +2895,11 @@ const IEEE13_FIXTURE = """
     include("nwinding_tests.jl")
 
     # -----------------------------------------------------------------------
+    # Fixed capacitor banks — nameplate→B, susceptance matrix, validation.
+    # -----------------------------------------------------------------------
+    include("capacitor_tests.jl")
+
+    # -----------------------------------------------------------------------
     # Regulator subtypes: galvanic zone/island and neutral-continuity topology
     # -----------------------------------------------------------------------
     include("regulator_topology_tests.jl")

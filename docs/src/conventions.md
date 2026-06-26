@@ -128,6 +128,20 @@ sets `cost` on the source by default. See
 generator at the source bus duplicates the slack and is flagged by the pre-flight
 check (`W.PRE.SOURCE_BUS_GENERATOR`).
 
+## Capacitors
+
+A `capacitor` is a fixed shunt capacitor bank with fields `bus`, `terminal_map`,
+`configuration` (`WYE` / `SINGLE_PHASE` / `DELTA`), `q_rated` (var) and `v_rated`
+(V). It is a **constant susceptance** `B = q_rated / v_rated²` delivering the
+voltage-dependent reactive power `Q = B·V²` (= the nameplate `q_rated` only at
+`v_rated`). `q_rated` is a per-phase array for WYE, per-pair for DELTA, length 1
+for SINGLE_PHASE; `v_rated` is phase-to-neutral (WYE/SINGLE_PHASE) or
+line-to-line (DELTA). It is electrically a connection-aware `shunt` and adds **no
+OPF variables** (fixed). A `shunt` remains the general constant-admittance
+element (`G_i_j`/`B_i_j`, S); the `capacitor` adds nameplate and connection
+semantics. Controllable/smooth capacitors are a future extension. See the
+[conversion guide § Capacitor banks](@ref capacitor).
+
 ## Transformer subtypes
 
 Six subtypes, each its own sub-dict under `transformer`.  All impedance

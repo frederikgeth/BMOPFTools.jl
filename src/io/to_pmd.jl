@@ -72,6 +72,12 @@ function to_pmd(net::Dict{String,Any})::Dict{String,Any}
     haskey(net, "transformer") &&
         (eng["transformer"] = _transformers_to_pmd(net["transformer"], terminal_int_map, vscale, pscale))
 
+    # Capacitors are not mapped to PMD yet (they could become PMD shunts); skip
+    # with a warning rather than emit a malformed element.
+    for cid in keys(get(net, "capacitor", Dict()))
+        @warn "to_pmd: skipping capacitor '$cid' — PMD capacitor mapping not implemented."
+    end
+
     haskey(net, "time_series") &&
         (eng["time_series"] = deepcopy(net["time_series"]))
 

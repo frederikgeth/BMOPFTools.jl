@@ -250,6 +250,32 @@
                 ]
             }
         },
+        "capacitor": {
+            "type": "object",
+            "description": "Fixed (nameplate-rated) shunt capacitor banks. Susceptance B = q_rated/v_rated^2; delivers Q = B*V^2.",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "bus": { "$ref": "#/$defs/bus_type" },
+                    "terminal_map": { "$ref": "#/$defs/terminal_map_type" },
+                    "configuration": {
+                        "$ref": "#/$defs/configuration_type",
+                        "description": "WYE (phase-to-neutral), SINGLE_PHASE (two terminals), or DELTA (phase-to-phase)"
+                    },
+                    "q_rated": {
+                        "type": "array",
+                        "description": "Rated reactive power [var] per phase (WYE) or per phase-pair (DELTA), length 1 for SINGLE_PHASE",
+                        "items": { "$ref": "#/$defs/nonnegative_number" }
+                    },
+                    "v_rated": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Rated voltage [V]: phase-to-neutral for WYE/SINGLE_PHASE, line-to-line for DELTA"
+                    }
+                },
+                "required": ["bus", "terminal_map", "configuration", "q_rated", "v_rated"]
+            }
+        },
         "load": {
             "type": "object",
             "description": "Load elements",
