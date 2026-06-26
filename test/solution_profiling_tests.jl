@@ -536,3 +536,204 @@ end
     @test occursin("## 2. Voltage by Galvanic Zone", md_q)
     @test !occursin("### Per-bus detail", md_q)
 end
+
+# ── Phase-to-neutral voltage bounds (vpn_min / vpn_max) ───────────────────────
+@testset "SOL — phase-to-neutral voltage bound (vpn)" begin
+    # |Vpn| = |V_phase − V_neutral| = 230 V on every phase of b1.
+    net = _base_net()
+    net["bus"]["b1"]["vpn_max"] = [220.0, 220.0, 220.0]   # 230 > 220 → violation
+    f = Finding[]; solution_check(net, _base_result(), f)
+    vf = first(x for x in f if x.code == "E.SOL.VOLT_VIOLATION")
+    @test vf.detail["flavour"] == "vpn"
+
+    # Within 1 % of the bound → active warning, not a violation.
+    net2 = _base_net()
+    net2["bus"]["b1"]["vpn_max"] = [232.0, 232.0, 232.0]
+    f2 = Finding[]; solution_check(net2, _base_result(), f2)
+    @test !("E.SOL.VOLT_VIOLATION" in codes(f2))
+    @test any(x.code == "W.SOL.VOLT_ACTIVE" && x.detail["flavour"] == "vpn" for x in f2)
+end
+
+# ── Phase-to-phase voltage bounds (vpp_min / vpp_max) ─────────────────────────
+@testset "SOL — phase-to-phase voltage bound (vpp)" begin
+    # |Vpp| = √3·230 ≈ 398 V for the balanced fixture; 3 pairs (a-b, a-c, b-c).
+    net = _base_net()
+    net["bus"]["b1"]["vpp_max"] = [380.0, 380.0, 380.0]   # 398 > 380 → violation
+    f = Finding[]; solution_check(net, _base_result(), f)
+    vf = first(x for x in f if x.code == "E.SOL.VOLT_VIOLATION")
+    @test vf.detail["flavour"] == "vpp"
+    @test occursin("-", vf.detail["pair"])               # "a-b" style label
+
+    net2 = _base_net()
+    net2["bus"]["b1"]["vpp_max"] = [400.0, 400.0, 400.0]  # 398 within 1 %
+    f2 = Finding[]; solution_check(net2, _base_result(), f2)
+    @test any(x.code == "W.SOL.VOLT_ACTIVE" && x.detail["flavour"] == "vpp" for x in f2)
+end
+
+# ── Sequence voltage bounds (vpos / vneg / vzero) ─────────────────────────────
+@testset "SOL — sequence voltage bounds" begin
+    # Balanced positive sequence ≈ 230 V; vpos_min above it → undervoltage.
+    # Sequence bounds are scalars (unlike the per-phase vpn/vpp arrays).
+    net = _base_net()
+    net["bus"]["b1"]["vpos_min"] = 240.0
+    f = Finding[]; solution_check(net, _base_result(), f)
+    @test any(x.code == "E.SOL.VOLT_VIOLATION" && x.detail["flavour"] == "vpos" for x in f)
+
+    # vpos just below the magnitude → active.
+    net_a = _base_net()
+    net_a["bus"]["b1"]["vpos_max"] = 231.0
+    fa = Finding[]; solution_check(net_a, _base_result(), fa)
+    @test any(x.code == "W.SOL.VOLT_ACTIVE" && x.detail["flavour"] == "vpos" for x in fa)
+
+    # Unbalance phase a → non-zero negative & zero sequence; tight caps → violation.
+    net2 = _base_net()
+    net2["bus"]["b1"]["vneg_max"]  = 5.0
+    net2["bus"]["b1"]["vzero_max"] = 5.0
+    res2 = _base_result()
+    res2["bus"]["b1"]["a"]["vr"] = 180.0   # drag phase a down (vi stays 0)
+    res2["bus"]["b1"]["a"]["vm"] = 180.0
+    f2 = Finding[]; solution_check(net2, res2, f2)
+    flavours = Set(x.detail["flavour"] for x in f2 if x.code == "E.SOL.VOLT_VIOLATION")
+    @test "vneg" in flavours
+    @test "vzero" in flavours
+end
+
+# ── Thermal limits: line-level i_max precedence + switch thermal ──────────────
+@testset "SOL — line-level i_max precedence and switch thermal" begin
+    # A line-level i_max overrides the linecode i_max (cm_fr=5 A > 3 A → violation).
+    net = _base_net()
+    net["line"]["l1"]["i_max"] = [3.0, 3.0, 3.0, 3.0]
+    f = Finding[]; solution_check(net, _base_result(), f)
+    tf = first(x for x in f if x.code == "E.SOL.THERMAL_VIOLATION")
+    @test tf.detail["i_max"] == 3.0          # the line value, not the 200 A linecode
+
+    # A switch with its own i_max: violation then near-active.
+    net2 = _base_net()
+    net2["switch"] = Dict{String,Any}("sw1" => Dict{String,Any}(
+        "bus_from" => "sourcebus", "bus_to" => "b1",
+        "terminal_map_from" => ["a","b","c","n"], "i_max" => [100.0,100.0,100.0,100.0]))
+    res2 = _base_result()
+    res2["switch"] = Dict{String,Any}("sw1" => Dict{String,Any}(
+        "a" => Dict("cm"=>150.0), "b" => Dict("cm"=>150.0), "c" => Dict("cm"=>150.0)))
+    f2 = Finding[]; solution_check(net2, res2, f2)
+    @test any(x.code == "E.SOL.THERMAL_VIOLATION" && x.component_type == :switch for x in f2)
+
+    res3 = _base_result()
+    res3["switch"] = Dict{String,Any}("sw1" => Dict{String,Any}(
+        "a" => Dict("cm"=>99.5), "b" => Dict("cm"=>99.5), "c" => Dict("cm"=>99.5)))
+    f3 = Finding[]; solution_check(net2, res3, f3)
+    @test any(x.code == "W.SOL.THERMAL_ACTIVE" && x.component_type == :switch for x in f3)
+end
+
+# ── Inverter dispatch bounds, apparent-power circle, PF residual ──────────────
+@testset "SOL — inverter limits and PF deviation" begin
+    net = _base_net()
+    net["control_profile"] = Dict{String,Any}(
+        "cp1" => Dict{String,Any}("power_factor" => Dict{String,Any}("pf" => 0.95)))
+    net["inverter"] = Dict{String,Any}(
+        "inv1" => Dict{String,Any}(   # FOUR_LEG: P-violation + s_max + PF deviation
+            "bus" => "b1", "terminal_map" => ["a","b","c","n"], "topology" => "FOUR_LEG",
+            "p_min" => [0.0,0.0,0.0], "p_max" => [1000.0,1000.0,1000.0],
+            "s_max" => [1200.0,1200.0,1200.0], "control_profile" => "cp1"),
+        "inv2" => Dict{String,Any}(   # SINGLE_PHASE topology branch (clean)
+            "bus" => "b1", "terminal_map" => ["a","n"], "topology" => "SINGLE_PHASE",
+            "p_min" => [0.0], "p_max" => [500.0], "s_max" => [600.0]))
+    result = _base_result()
+    result["inverter"] = Dict{String,Any}(
+        "inv1" => Dict{String,Any}(
+            "a" => Dict("pg"=>2000.0, "qg"=>1500.0),   # pg>1000, |S|=2500>1200
+            "b" => Dict("pg"=>2000.0, "qg"=>1500.0),
+            "c" => Dict("pg"=>2000.0, "qg"=>1500.0)),
+        "inv2" => Dict{String,Any}("a" => Dict("pg"=>300.0, "qg"=>0.0)))
+
+    f = Finding[]; out = solution_check(net, result, f)
+    @test out["n_inv_violations"] > 0
+    @test "E.SOL.INV_VIOLATION" in codes(f)                     # P bound + s_max circle
+    @test "W.SOL.INV_PF_DEVIATION" in codes(f)                  # constant-PF residual
+    # both the P-bound and the apparent-power-circle messages are present
+    msgs = join((x.message for x in f if x.code == "E.SOL.INV_VIOLATION"), " ")
+    @test occursin("violates", msgs)
+    @test occursin("s_max", msgs)
+end
+
+# ── Voltage-dependent load model residuals + VD summary ───────────────────────
+@testset "SOL — voltage-dependent load model residuals" begin
+    # Four single-phase VD loads on b1; the solved bus voltage is exactly Vnom so
+    # each model predicts its nominal power, but the result reports 1500 W ≠ model
+    # → W.SOL.LOAD_MODEL_RESIDUAL for each, exercising every _load_model_power arm.
+    net = _base_net()
+    mkload(model, extra) = merge!(Dict{String,Any}(
+        "bus" => "b1", "terminal_map" => ["a","n"], "configuration" => "SINGLE_PHASE",
+        "p_nom" => [1000.0], "q_nom" => [100.0], "model" => model,
+        "v_nom" => [230.0]), extra)
+    net["load"] = Dict{String,Any}(
+        "ldz"   => mkload("constant_impedance", Dict{String,Any}()),
+        "ldi"   => mkload("constant_current",   Dict{String,Any}()),
+        "ldzip" => mkload("zip", Dict{String,Any}(
+            "alpha_z"=>[1.0],"alpha_i"=>[0.0],"alpha_p"=>[0.0],
+            "beta_z"=>[1.0],"beta_i"=>[0.0],"beta_p"=>[0.0])),
+        "ldexp" => mkload("exponential", Dict{String,Any}(
+            "gamma_p"=>[2.0],"gamma_q"=>[2.0])))
+    result = _base_result()
+    result["load"] = Dict{String,Any}(
+        lid => Dict{String,Any}("a" => Dict("pd"=>1500.0, "qd"=>250.0))
+        for lid in ("ldz","ldi","ldzip","ldexp"))
+
+    f = Finding[]; out = solution_check(net, result, f)
+    @test out["n_load_model_residuals"] == 4
+    @test "W.SOL.LOAD_MODEL_RESIDUAL" in codes(f)
+    @test "I.SOL.LOAD_VD_SUMMARY" in codes(f)                   # aggregate VD summary
+    @test out["vd_p_real_total"] ≈ 6000.0                       # 4 × 1500 W
+    @test out["vd_p_nom_total"]  ≈ 4000.0                       # 4 × 1000 W
+end
+
+# ── Reactive-power balance ────────────────────────────────────────────────────
+@testset "SOL — reactive power balance error" begin
+    net = _base_net()
+    result = _base_result()
+    # Inflate generator reactive output so Σqg ≫ qd + q_loss (active stays balanced).
+    for ph in ("a","b","c")
+        result["generator"]["g1"][ph]["qg"] = 2000.0
+    end
+    f = Finding[]; out = solution_check(net, result, f)
+    @test out["q_power_balance_err"] > 1.0
+    @test any(x.code == "W.SOL.POWER_BALANCE" &&
+              get(x.detail, "flavour", "") == "reactive" for x in f)
+end
+
+# ── Initialisation quality: large error & non-zero neutral ────────────────────
+@testset "SOL — initialisation quality findings" begin
+    net = _base_net()
+    result = _base_result()
+    # b1.a solved at 230 V; init it at 300 V (30 % off, but < 10×) → large error.
+    # b1.n initialised non-zero → neutral-nonzero info.
+    result["initialisation"] = Dict{String,Any}(
+        "b1" => Dict{String,Any}(
+            "a" => Dict{String,Any}("vm_init" => 300.0),
+            "n" => Dict{String,Any}("vm_init" => 5.0)))
+    f = Finding[]; out = solution_check(net, result, f)
+    @test out["n_init_large_errors"] == 1
+    @test out["n_init_neutral_nonzero"] == 1
+    @test "W.SOL.INIT_LARGE_ERROR" in codes(f)
+    @test "I.SOL.INIT_NEUTRAL_NONZERO" in codes(f)
+end
+
+# ── voltage_zone_summary: declared-base median + active/violation per phase ────
+@testset "SOL — zone summary declared base and per-phase status" begin
+    net = _base_net()
+    # Even number of declared voltages across the zone → median is their average.
+    net["bus"]["sourcebus"]["v_declared"] = 230.0
+    net["bus"]["b1"]["v_declared"]        = 240.0
+    result = _base_result()
+    # Drive the three phases of b1 to active-low, active-high, and violation-high.
+    result["bus"]["b1"]["a"]["vm"] = 201.0   # within 1 % of v_min 200 → active
+    result["bus"]["b1"]["b"]["vm"] = 259.0   # within 1 % of v_max 260 → active
+    result["bus"]["b1"]["c"]["vm"] = 261.0   # above v_max 260       → violation
+
+    vz = voltage_zone_summary(net, result)
+    zone = vz["zones"][1]
+    @test zone["v_base"] ≈ 235.0             # (230 + 240) / 2
+    @test zone["status"] == "violation"      # the 261 V phase dominates
+    b1row = first(r for r in zone["bus_rows"] if r["bus"] == "b1")
+    @test b1row["status"] == "violation"
+end
