@@ -139,6 +139,7 @@ function _build_voltage_adjacency(net::Dict{String,Any})
     # buses, the transformer must win to detect line-crossing violations correctly.
     xfmr = get(net, "transformer", Dict())
     for subtype in TRANSFORMER_SUBTYPES
+        subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
@@ -149,6 +150,20 @@ function _build_voltage_adjacency(net::Dict{String,Any})
             ratio = (vf !== nothing && vt !== nothing && Float64(vf) > 0) ?
                     Float64(vt) / Float64(vf) : 1.0
             add_adj!(f, b, :transformer, id, ratio)
+        end
+    end
+
+    # n-winding: edge from winding 1 to every other winding (ratio v_ref_j/v_ref_1).
+    for (id, t) in get(xfmr, "n_winding", Dict())
+        ws = _nw_windings(t)
+        isempty(ws) && continue
+        b1, v1 = ws[1].bus, ws[1].v_ref
+        isempty(b1) && continue
+        for j in 2:length(ws)
+            bj, vj = ws[j].bus, ws[j].v_ref
+            (isempty(bj) || bj == b1) && continue
+            ratio = v1 > 0 ? vj / v1 : 1.0
+            add_adj!(b1, bj, :transformer, id, ratio)
         end
     end
 
@@ -210,6 +225,7 @@ function _transformer_transitions(net::Dict{String,Any},
     transitions = Dict{String,Any}[]
     xfmr = get(net, "transformer", Dict())
     for subtype in TRANSFORMER_SUBTYPES
+        subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
@@ -221,6 +237,30 @@ function _transformer_transitions(net::Dict{String,Any},
                 "id"           => id,
                 "subtype"      => subtype,
                 "vector_group" => _derive_vector_group(subtype, t),
+                "bus_from"     => f,
+                "bus_to"       => b,
+                "v_from"       => vf,
+                "v_to"         => vt,
+                "level_from"   => vf !== nothing ? _voltage_level_label(vf) : "unknown",
+                "level_to"     => vt !== nothing ? _voltage_level_label(vt) : "unknown"
+            ))
+        end
+    end
+
+    # n-winding: one transition row per winding 1 → winding j boundary.
+    for (id, t) in get(xfmr, "n_winding", Dict())
+        ws = _nw_windings(t)
+        isempty(ws) && continue
+        vg = _derive_vector_group("n_winding", t)
+        f  = ws[1].bus
+        vf = get(assigned, f, nothing)
+        for j in 2:length(ws)
+            b  = ws[j].bus
+            vt = get(assigned, b, nothing)
+            push!(transitions, Dict{String,Any}(
+                "id"           => "$(id) (w1→w$j)",
+                "subtype"      => "n_winding",
+                "vector_group" => vg,
                 "bus_from"     => f,
                 "bus_to"       => b,
                 "v_from"       => vf,

@@ -67,6 +67,7 @@ function export_yprim(net::Dict{String,Any})::Dict{String,Any}
     result = Dict{String,Any}()
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in TRANSFORMER_SUBTYPES
+        subtype in WINDING_LIST_SUBTYPES && continue   # n_winding handled below
         sub = get(xfmr_dict, subtype, Dict())
         isempty(sub) && continue
         result[subtype] = Dict{String,Any}()
@@ -74,6 +75,21 @@ function export_yprim(net::Dict{String,Any})::Dict{String,Any}
             nodes, Y = transformer_yprim(xfmr, subtype)
             isempty(nodes) && continue
             result[subtype][tid] = Dict{String,Any}(
+                "nodes"  => [[b, t] for (b, t) in nodes],
+                "Y_real" => [real.(row) for row in eachrow(Y)],
+                "Y_imag" => [imag.(row) for row in eachrow(Y)],
+            )
+        end
+    end
+
+    # n-winding transformers use their own (independent) Yprim builder.
+    nwd = get(xfmr_dict, "n_winding", Dict())
+    if !isempty(nwd)
+        result["n_winding"] = Dict{String,Any}()
+        for (tid, xfmr) in nwd
+            nodes, Y = nwinding_yprim(xfmr)
+            isempty(nodes) && continue
+            result["n_winding"][tid] = Dict{String,Any}(
                 "nodes"  => [[b, t] for (b, t) in nodes],
                 "Y_real" => [real.(row) for row in eachrow(Y)],
                 "Y_imag" => [imag.(row) for row in eachrow(Y)],
@@ -471,5 +487,84 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
     # in the OPF (_add_open_delta_regulator!). Folding it here (the paper's Eq. 15)
     # would conflate the device admittance with a particular elimination of the
     # shared node, so the export keeps the Eq. (11) device primitive.
+    nodes, Y
+end
+
+# ── n_winding (general n-winding, all-wye) ──────────────────────────────────
+#
+# Independent of `transformer_yprim`. Builds the exact n-winding leakage primitive
+# from the OpenDSS-style ZB matrix (referred to winding 1): YB = ZB⁻¹ is the
+# (n-1)-port admittance; expanding with winding 1 as the reference node gives the
+# referred n×n admittance Yref = Cᵀ·YB·C, and de-referring by the turns ratios
+# gives the per-winding admittance Yw = D⁻¹·Yref·D⁻¹ (D = diag(N_k)). Yw is
+# stamped per phase across each winding's phase-neutral pair (wye-wye does not
+# couple phases). The optional no-load shunt is stamped at winding 1.
+function nwinding_yprim(xfmr::Dict{String,Any})
+    ws = _nw_windings(xfmr)
+    nW = length(ws)
+    nW < 2 && return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
+    if any(w -> w.connection == "DELTA", ws)
+        @warn "n_winding transformer has a DELTA winding (not implemented); skipping Yprim."
+        return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
+    end
+
+    N  = _nw_turns_ratios(xfmr)
+    ZB = _nw_zb_matrix(xfmr)                         # (n-1)×(n-1), referred to wdg 1
+    local YB
+    try
+        YB = inv(ZB)
+    catch
+        @warn "n_winding transformer ZB is singular; Yprim skipped."
+        return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
+    end
+
+    # Referred n-port admittance with winding 1 as reference: Yref = Cᵀ YB C,
+    # C[i, :] = e_1 − e_{i+1}. Then de-refer by the turns ratios.
+    C = zeros(ComplexF64, nW - 1, nW)
+    for i in 1:nW-1
+        C[i, 1] = 1.0; C[i, i+1] = -1.0
+    end
+    # I^r = −Cᵀ Jr with Jr = −YB·(C V^r) ⇒ Yref = +Cᵀ YB C (passive form).
+    Yref = transpose(C) * YB * C
+    Dinv = ComplexF64[iszero(N[k]) ? 0.0 : 1.0 / N[k] for k in 1:nW]
+    Yw = ComplexF64[Dinv[i] * Yref[i, j] * Dinv[j] for i in 1:nW, j in 1:nW]
+
+    nodes    = Tuple{String,String}[]
+    node_idx = Dict{Tuple{String,String},Int}()
+    nidx!(b, t) = get!(node_idx, (b, t)) do
+        push!(nodes, (b, t)); length(nodes)
+    end
+    for w in ws
+        phs, neu = _nw_phase_terminals(w.terminal_map)
+        for p in phs; nidx!(w.bus, p); end
+        neu !== nothing && nidx!(w.bus, neu)
+    end
+    n_tot = length(nodes)
+    Y = zeros(ComplexF64, n_tot, n_tot)
+
+    G0 = Float64(get(xfmr, "g_no_load", 0.0))
+    B0 = Float64(get(xfmr, "b_no_load", 0.0))
+    Y0 = G0 + im*B0
+
+    phases1, _ = _nw_phase_terminals(ws[1].terminal_map)
+    for pk in eachindex(phases1)
+        # Map each winding's phase-neutral voltage onto the node list.
+        P = zeros(ComplexF64, nW, n_tot)
+        for (k, w) in enumerate(ws)
+            phs, neu = _nw_phase_terminals(w.terminal_map)
+            P[k, nidx!(w.bus, phs[pk])] = 1.0
+            neu !== nothing && (P[k, nidx!(w.bus, neu)] = -1.0)
+        end
+        Y .+= transpose(P) * Yw * P
+
+        if !iszero(Y0)
+            w1 = ws[1]; phs1, neu1 = _nw_phase_terminals(w1.terminal_map)
+            Cf = zeros(ComplexF64, 1, n_tot)
+            Cf[1, nidx!(w1.bus, phs1[pk])] = 1.0
+            neu1 !== nothing && (Cf[1, nidx!(w1.bus, neu1)] = -1.0)
+            Y .+= transpose(Cf) * Y0 * Cf
+        end
+    end
+
     nodes, Y
 end

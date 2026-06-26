@@ -197,6 +197,11 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "terminal_map_from", "terminal_map_to",
                            "tap_ratio", "regulator_type", "connection",
                            "i_max_from", "i_max_to",
+                           "g_no_load", "b_no_load"]),
+    # General n-winding transformer: winding-indexed list + pairwise short-circuit
+    # reactances. The per-id top-level keys only (nested winding/x_sc dicts are not
+    # walked by the unknown-field catalogue).
+    "n_winding"    => Set(["windings", "x_sc", "s_rating",
                            "g_no_load", "b_no_load"])
 )
 

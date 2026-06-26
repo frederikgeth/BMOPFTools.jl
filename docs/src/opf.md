@@ -71,7 +71,8 @@ All variables are real-valued. By default they are in SI units (V and A); see
 | $c^{r,g}_{g,k},\; c^{i,g}_{g,k}$ | generator $g$, phase $k$ | Generator current |
 | $c^{r,n}_{n,k},\; c^{i,n}_{n,k}$ | inverter $n$, phase $k$ | Inverter current |
 | $c^{r,s}_{v,k},\; c^{i,s}_{v,k}$ | voltage source $v$, phase $k$ | Source slack current |
-| $c^{r,x}_{x,\sigma,k},\; c^{i,x}_{x,\sigma,k}$ | transformer $x$, side $\sigma$, conductor $k$ | Transformer winding current |
+| $c^{r,x}_{x,\sigma,k},\; c^{i,x}_{x,\sigma,k}$ | transformer $x$, side $\sigma$, conductor $k$ | Transformer winding current (two-bus subtypes) |
+| $c^{r,w}_{x,j,k},\; c^{i,w}_{x,j,k}$ | `n_winding` transformer $x$, winding $j$, phase $k$ | n-winding winding current |
 
 Load, generator, inverter, and source current variables cover **phase
 conductors only**; neutral return current is implicit in KCL. Inverters add an
@@ -502,6 +503,17 @@ two-winding subtypes is $N = V^\text{ref}_\text{fr} / V^\text{ref}_\text{to}$
 **fixed-tap effective ratio** $n_\text{eff}$ derived from `tap_ratio` and
 `regulator_type` (see below).
 
+Because every subtype is expressed as voltage/current **equalities** (the IVR
+impedance form $v_\text{fr} - N v_\text{to} = Z\,I$) rather than a nodal
+admittance $Y = Z^{-1}$, **zero winding resistance and zero leakage reactance are
+admissible**: the constraints degrade to the ideal-transformer relation
+$v_\text{fr} = N v_\text{to}$ (and, for `n_winding`, $V_1^r = V_{i+1}^r$ with
+$\sum_k N_k I_k = 0$) with no inversion and no singularity. This holds for *all*
+subtypes and is covered by the "ideal (zero-impedance) transformers" tests.
+(The separate `transformer_yprim`/`nwinding_yprim` **admittance export** is the
+one place that genuinely inverts $Z$ and so is singular at zero impedance — it
+warns and skips there.)
+
 ---
 
 **`single_phase` — Γ-equivalent model**
@@ -708,6 +720,37 @@ voltages are boosted by their taps. Without it the line-to-line voltages are
 still correct but the per-phase reference floats (the unphysical
 "unspecified neutral" model). See the derivation note
 `docs/transformer_admittance_derivation.md` for the matching bus-admittance form.
+
+---
+
+**`n_winding` — general n-winding (ZB model, all-wye)**
+
+The general n-winding transformer keeps the **explicit per-winding current
+variables** $c^{r,w}_{x,j,k}, c^{i,w}_{x,j,k}$ (one per winding $j$ and phase
+$k$) — it is the same rectangular IVR style as the other devices, **not** an
+admittance model that eliminates currents. The leakage is the OpenDSS-style
+$ZB$ matrix referred to winding 1 (an $(n{-}1)\times(n{-}1)$ impedance,
+exact for any $n$; see [Conversion § n-winding](@ref n-winding)).
+With referred currents $I^r_{j} = N_j\,c^{w}_{x,j,k}$
+($N_j = V^\text{ref}_j / V^\text{ref}_1$) and referred phase-neutral voltages
+$V^r_j = U_{j,k}/N_j$, per phase $k$:
+
+```math
+\sum_{j=1}^{n} N_j\,c^{r,w}_{x,j,k} = 0 \quad\text{(ideal core / ampere-turn; and imaginary)}
+```
+
+```math
+V^r_1 - V^r_{i+1} = -\sum_{j=1}^{n-1} ZB_{i,j}\,I^r_{j+1},
+\qquad i = 1,\dots,n-1 \quad\text{(complex; real/imag split)}
+```
+
+Referencing winding 1 folds out the core node, so **no internal star-node
+variable is introduced** — only the explicit winding currents. Each winding
+injects $-c^{w}_{x,j,k}$ into its bus phase terminal and $+\sum_k c^{w}_{x,j,k}$
+into its neutral; the optional no-load shunt sits at winding 1. The constraints
+are all linear. This path is independent of the two-bus transformer code and is
+validated against OpenDSS's own 3- and 4-winding solves. `DELTA` windings are
+reserved (error `E.SPEC.XFMR_NOT_IMPLEMENTED`).
 
 #### Kirchhoff's Current Law
 

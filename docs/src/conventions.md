@@ -195,11 +195,32 @@ regulated line-to-line voltages are boosted by their taps while the shared phase
 passes through unchanged.  See the [OPF reference](opf.md) and the derivation
 note `docs/transformer_admittance_derivation.md`.
 
-There is **no wye-wye three-phase type**: three-phase wye-wye units must be
-decomposed into three `single_phase` transformers.  The converter currently
-parks them in `single_phase` with 3-phase terminal maps and the conformance
-check flags the arity (`W.SPEC.XFMR_TMAP_ARITY`) — see the
-[conversion guide](conversion.md).
+**`n_winding`**: a general n-winding (3+) transformer for three or more
+galvanically isolated voltage levels (e.g. an HV→MV→LV substation, or a
+dual-secondary unit).  Unlike the two-bus subtypes it is a **winding-indexed
+list** (`windings = [{bus, terminal_map, v_ref, connection, r_winding}, …]`)
+with inter-winding leakage stored as **pairwise short-circuit reactances**
+`x_sc["i_j"]` (referred to winding 1).  The leakage is the OpenDSS-style **ZB
+matrix** referred to winding 1 ($ZB[i,i]=Z_{1,i+1}$,
+$ZB[i,j]=\tfrac12(Z_{1,i+1}+Z_{1,j+1}-Z_{i+1,j+1})$), which is **exact for any
+$n$** — it has $n(n-1)/2$ entries and reconstructs every pairwise reactance (for
+$n\le 3$ it coincides with the star/T model).  The OPF references winding 1
+($V_1^r - V_{i+1}^r = -\sum_j ZB[i,j] I_{j+1}^r$, ideal core
+$\sum_k N_k I_k = 0$, $N_k = v_\text{ref}[k]/v_\text{ref}[1]$), so no internal
+star node is required; a ZB entry **may be negative** for $n\ge 3$ (physical).
+Each isolated winding is its **own galvanic zone** (n_winding is treated as
+isolating, like the other non-regulator subtypes — see
+[Galvanic zones](analysis.md)).  **All-wye only** in this release; `DELTA`
+windings are reserved but raise `E.SPEC.XFMR_NOT_IMPLEMENTED`.  This is a
+**fully independent code path** from the two-bus subtypes, validated against
+OpenDSS's own 3- and 4-winding solves.  See the
+[conversion guide § n-winding transformers](@ref n-winding).
+
+For a three-phase wye-wye unit you therefore have two options: an `n_winding`
+transformer with two wye windings, or three `single_phase` transformers.  The
+converter currently parks PowerIO's three-phase wye-wye output in `single_phase`
+with 3-phase terminal maps and the conformance check flags the arity
+(`W.SPEC.XFMR_TMAP_ARITY`) — see the [conversion guide](conversion.md).
 
 ## Switches
 

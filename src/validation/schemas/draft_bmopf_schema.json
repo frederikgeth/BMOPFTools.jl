@@ -682,6 +682,10 @@
                 "open_delta_regulator": {
                     "$ref": "#/$defs/open_delta_regulator",
                     "description": "Monolithic three-phase open-delta regulator: two single-phase autotransformer windings connected line-to-line across the phase pairs implied by connection (ABBC/BCAC/CABA)."
+                },
+                "n_winding": {
+                    "$ref": "#/$defs/n_winding_transformer",
+                    "description": "General n-winding (3+) transformer as a winding-indexed list with pairwise short-circuit reactances. Winding 1 is the reference; the OPF/Ybus build a star/T-equivalent. All-wye supported; delta windings are reserved but not yet implemented."
                 }
             }
         }
@@ -751,6 +755,70 @@
             "type": "number",
             "minimum": 0,
             "description": "Non-negative number"
+        },
+        "transformer_winding":{
+            "type": "object",
+            "additionalProperties": false,
+            "description": "One winding of an n-winding transformer.",
+            "properties": {
+                "bus": {
+                    "$ref": "#/$defs/bus_type",
+                    "description": "Bus this winding connects to"
+                },
+                "terminal_map": {
+                    "$ref": "#/$defs/terminal_map_type",
+                    "description": "Mapping of this winding's terminals to the bus terminals"
+                },
+                "v_ref": {
+                    "$ref": "#/$defs/nonnegative_number",
+                    "description": "Winding reference (nominal) voltage [V]"
+                },
+                "connection": {
+                    "$ref": "#/$defs/configuration_type",
+                    "description": "Winding connection (WYE supported; DELTA reserved, not yet implemented)"
+                },
+                "r_winding": {
+                    "$ref": "#/$defs/nonnegative_number",
+                    "description": "Winding series resistance [Ohm] on this winding's own base"
+                }
+            },
+            "required": ["bus", "terminal_map", "v_ref", "connection"]
+        },
+        "n_winding_transformer":{
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "windings": {
+                        "type": "array",
+                        "description": "Ordered list of windings; winding 1 is the reference. Length >= 2.",
+                        "minItems": 2,
+                        "items": { "$ref": "#/$defs/transformer_winding" }
+                    },
+                    "x_sc": {
+                        "type": "object",
+                        "description": "Pairwise short-circuit reactances [Ohm], keyed \"i_j\" with i<j (1-based winding indices), all referred to winding 1's voltage base.",
+                        "patternProperties": {
+                            "^[0-9]+_[0-9]+$": { "$ref": "#/$defs/nonnegative_number" }
+                        },
+                        "additionalProperties": false
+                    },
+                    "s_rating": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Transformer power base [VA]"
+                    },
+                    "g_no_load": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "No-load (magnetising) shunt conductance [S], referenced at winding 1"
+                    },
+                    "b_no_load": {
+                        "type": "number",
+                        "description": "No-load (magnetising) shunt susceptance [S], referenced at winding 1"
+                    }
+                },
+                "required": ["windings", "x_sc", "s_rating"]
+            }
         },
         "single_phase_or_center_tap_transformer":{
             "type": "object",

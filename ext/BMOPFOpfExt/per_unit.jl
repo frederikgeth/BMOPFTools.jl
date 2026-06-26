@@ -57,6 +57,7 @@ function _compute_bases(net::Dict{String,Any}, s_base::Float64)
     xfmr_adj = Dict{String,Vector{Tuple{String,Float64,Float64}}}()
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
+        subtype in BMOPFTools.WINDING_LIST_SUBTYPES && continue   # handled below
         for (_, xfmr) in get(xfmr_dict, subtype, Dict())
             bf = get(xfmr, "bus_from", "")
             bt = get(xfmr, "bus_to",   "")
@@ -65,6 +66,20 @@ function _compute_bases(net::Dict{String,Any}, s_base::Float64)
             (isempty(bf) || isempty(bt)) && continue
             push!(get!(xfmr_adj, bf, Tuple{String,Float64,Float64}[]), (bt, vrf, vrt))
             push!(get!(xfmr_adj, bt, Tuple{String,Float64,Float64}[]), (bf, vrt, vrf))
+        end
+    end
+
+    # n-winding: propagate base from winding 1 to every other winding's bus.
+    for (_, xfmr) in get(xfmr_dict, "n_winding", Dict())
+        ws = BMOPFTools._nw_windings(xfmr)
+        isempty(ws) && continue
+        b1, v1 = ws[1].bus, ws[1].v_ref
+        isempty(b1) && continue
+        for j in 2:length(ws)
+            bj, vj = ws[j].bus, ws[j].v_ref
+            isempty(bj) && continue
+            push!(get!(xfmr_adj, b1, Tuple{String,Float64,Float64}[]), (bj, v1, vj))
+            push!(get!(xfmr_adj, bj, Tuple{String,Float64,Float64}[]), (b1, vj, v1))
         end
     end
 
@@ -140,6 +155,7 @@ function _to_per_unit(net::Dict{String,Any}, s_base::Float64)
     _pu_scale_generators!(net_pu, bases)
     _pu_scale_inverters!(net_pu, bases)
     _pu_scale_transformers!(net_pu, bases)
+    _pu_scale_nwinding!(net_pu, bases)
     _pu_scale_shunts!(net_pu, bases)
     net_pu, bases
 end
@@ -278,6 +294,7 @@ function _pu_scale_transformers!(net, bases)
     sb = bases.s_base
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
+        subtype in BMOPFTools.WINDING_LIST_SUBTYPES && continue  # see _pu_scale_nwinding!
         for (_, xfmr) in get(xfmr_dict, subtype, Dict())
             bf = get(xfmr, "bus_from", "")
             bt = get(xfmr, "bus_to",   "")
@@ -318,6 +335,39 @@ function _pu_scale_transformers!(net, bases)
                 xfmr["i_max_to"] = Float64.(xfmr["i_max_to"]) ./ ib_to
             end
         end
+    end
+end
+
+# n-winding transformers: an independent per-unit pass. The OPF leakage is the
+# ZB matrix referred to winding 1, so it converts to p.u. with a single divide by
+# z_base(bus_1); the result is stashed as `_zb_re`/`_zb_im` (read by
+# `_nw_zb_for_opf`). v_ref is scaled per winding bus so N_j stays the off-nominal
+# ratio; the no-load shunt (referenced at winding 1) scales by ×z_base(bus_1);
+# s_rating by ÷s_base.
+function _pu_scale_nwinding!(net, bases)
+    sb = bases.s_base
+    for (_, xfmr) in get(get(net, "transformer", Dict()), "n_winding", Dict())
+        xfmr isa Dict || continue
+        raw = get(xfmr, "windings", nothing)
+        raw isa AbstractVector && !isempty(raw) || continue
+
+        ws  = BMOPFTools._nw_windings(xfmr)
+        ZB  = BMOPFTools._nw_zb_matrix(xfmr)                     # SI, ref-1 base
+        zb1 = get(bases.z_base, ws[1].bus, 1.0)
+        ZBpu = ZB ./ zb1
+        m = size(ZBpu, 1)
+        xfmr["_zb_re"] = [[real(ZBpu[i, j]) for j in 1:m] for i in 1:m]
+        xfmr["_zb_im"] = [[imag(ZBpu[i, j]) for j in 1:m] for i in 1:m]
+
+        for (j, w) in enumerate(raw)
+            w isa AbstractDict || continue
+            vbj = get(bases.v_base, ws[j].bus, 1.0)
+            haskey(w, "v_ref") && (w["v_ref"] = Float64(w["v_ref"]) / vbj)
+        end
+
+        haskey(xfmr, "s_rating") && (xfmr["s_rating"] = Float64(xfmr["s_rating"]) / sb)
+        haskey(xfmr, "g_no_load") && (xfmr["_g_no_load_pu"] = Float64(xfmr["g_no_load"]) * zb1)
+        haskey(xfmr, "b_no_load") && (xfmr["_b_no_load_pu"] = Float64(xfmr["b_no_load"]) * zb1)
     end
 end
 

@@ -227,6 +227,44 @@ function spec_conformance_check(net::Dict{String,Any},
         end
     end
 
+    # --- n_winding transformers: per-winding arity, duplicates, DELTA scope ---
+    for (id, t) in get(xfmr, "n_winding", Dict())
+        t isa Dict || continue
+        ws = _nw_windings(t)
+        for (k, w) in enumerate(ws)
+            tm = w.terminal_map
+            if length(unique(tm)) < length(tm)
+                dups = [x for x in unique(tm) if count(==(x), tm) > 1]
+                n_issues += 1
+                push!(findings, Finding(ERROR, "E.SPEC.DUPLICATE_TERMINAL", :spec,
+                    :transformer, id,
+                    "transformer n_winding '$id' winding $k has duplicate " *
+                    "terminal(s): " * join(dups, ", ") * ".",
+                    Dict{String,Any}("winding" => k, "terminal_map" => tm,
+                                     "duplicates" => dups)))
+            end
+            phases, neutral = _nw_phase_terminals(tm)
+            if w.connection == "WYE" && (isempty(phases) || neutral === nothing)
+                n_issues += 1
+                push!(findings, Finding(WARNING, "W.SPEC.XFMR_TMAP_ARITY", :spec,
+                    :transformer, id,
+                    "transformer n_winding '$id' winding $k (WYE): terminal map " *
+                    "should carry at least one phase and a neutral; found " *
+                    "$(tm).",
+                    Dict{String,Any}("winding" => k, "terminal_map" => tm)))
+            end
+            if w.connection == "DELTA"
+                n_issues += 1
+                push!(findings, Finding(ERROR, "E.SPEC.XFMR_NOT_IMPLEMENTED", :spec,
+                    :transformer, id,
+                    "transformer n_winding '$id' winding $k uses connection DELTA — " *
+                    "n_winding currently supports all-wye only; delta windings are " *
+                    "reserved but not yet implemented.",
+                    Dict{String,Any}("winding" => k, "connection" => "DELTA")))
+            end
+        end
+    end
+
     # --- inverter topology / prime-mover / arity (inverter extension §3.6') ---
     n_inv_issues = 0
     for (id, c) in get(net, "inverter", Dict())

@@ -14,6 +14,7 @@ Variables (all rectangular, SI units — V and A):
 - `crg / cig`     — generator current (one per phase conductor)
 - `cr_src/ci_src` — voltage-source slack current (per phase; in KCL, optionally bounded)
 - `cr_xf / ci_xf` — transformer branch current (from- and to-side)
+- `cr_nw / ci_nw` — n-winding transformer current (per winding, per phase)
 - `cr_sw / ci_sw` — switch current (zeroed when open)
 
 The to-side series currents `cr_to = −cr_fr` and `ci_to = −ci_fr` are
@@ -68,6 +69,7 @@ include("bus.jl")
 include("shunt.jl")
 include("branch.jl")
 include("transformer.jl")
+include("nwinding.jl")
 include("load.jl")
 include("generator.jl")
 include("source.jl")

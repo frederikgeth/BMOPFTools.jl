@@ -17,10 +17,49 @@ const _REQUIRED_FIELDS = Dict{String,Vector{String}}(
     "control_profile" => String[]
 )
 
-# Required fields for all transformer subtypes
+# Required fields for the two-bus transformer subtypes
 const _REQUIRED_TRANSFORMER_FIELDS = ["bus_from", "bus_to",
                                       "terminal_map_from", "terminal_map_to",
                                       "v_ref_from", "v_ref_to", "s_rating"]
+
+# Required fields for an n_winding transformer per winding
+const _REQUIRED_WINDING_FIELDS = ["bus", "terminal_map", "v_ref", "connection"]
+
+"""
+    _nwinding_missing_fields(comp) -> Vector{String}
+
+Required-field check for an `n_winding` transformer: the top-level `windings`,
+`x_sc`, `s_rating`, plus each winding's `bus`/`terminal_map`/`v_ref`/`connection`
+and `x_sc` coverage of every winding pair. Returns human-readable missing-field
+descriptions (empty when complete).
+"""
+function _nwinding_missing_fields(comp::Dict{String,Any})::Vector{String}
+    missing = String[]
+    for f in ("windings", "x_sc", "s_rating")
+        haskey(comp, f) || push!(missing, f)
+    end
+    ws = get(comp, "windings", nothing)
+    if ws isa AbstractVector
+        length(ws) >= 2 || push!(missing, "windings (need >= 2)")
+        for (k, w) in enumerate(ws)
+            w isa AbstractDict || (push!(missing, "windings[$k] (not an object)"); continue)
+            for f in _REQUIRED_WINDING_FIELDS
+                haskey(w, f) || push!(missing, "windings[$k].$f")
+            end
+        end
+        # x_sc must cover every winding pair i<j
+        xsc = get(comp, "x_sc", nothing)
+        if xsc isa AbstractDict
+            n = length(ws)
+            for i in 1:n, j in i+1:n
+                haskey(xsc, "$(i)_$(j)") || push!(missing, "x_sc[$(i)_$(j)]")
+            end
+        end
+    elseif haskey(comp, "windings")
+        push!(missing, "windings (not a list)")
+    end
+    missing
+end
 
 const _OPTIONAL_FIELDS = Dict{String,Vector{String}}(
     "bus"  => ["v_min", "v_max", "vpn_min", "vpn_max", "vpp_min", "vpp_max",
@@ -91,7 +130,9 @@ function completeness_check(net::Dict{String,Any},
             for (id, comp) in sub
                 comp isa Dict || continue
                 n_xfmr += 1
-                missing = [f for f in _REQUIRED_TRANSFORMER_FIELDS if !haskey(comp, f)]
+                missing = subtype == "n_winding" ?
+                    _nwinding_missing_fields(comp) :
+                    [f for f in _REQUIRED_TRANSFORMER_FIELDS if !haskey(comp, f)]
                 if !isempty(missing)
                     n_xfmr_missing += 1
                     push!(findings, Finding(ERROR, "E.COMP.MISSING_REQUIRED",

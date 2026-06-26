@@ -68,12 +68,25 @@ function connectivity_analysis(net::Dict{String,Any},
     # Transformers (each winding pair is an edge)
     xfmr = get(net, "transformer", Dict())
     for subtype in TRANSFORMER_SUBTYPES
+        subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
             bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
             check_self_loop!("transformer ($subtype)", id, bf, bt)
             add_edge_safe!(bf, bt)
+        end
+    end
+
+    # n-winding transformers: connect winding 1's bus to every other winding's.
+    for (id, t) in get(xfmr, "n_winding", Dict())
+        ws = _nw_windings(t)
+        isempty(ws) && continue
+        b1 = ws[1].bus
+        for j in 2:length(ws)
+            bj = ws[j].bus
+            check_self_loop!("transformer (n_winding)", id, b1, bj)
+            add_edge_safe!(b1, bj)
         end
     end
 
@@ -336,12 +349,26 @@ function _classify_zones(net::Dict{String,Any})
     # Map each transformer's to-bus → [(subtype, id)]
     feed_by_bus = Dict{String,Vector{Tuple{String,String}}}()
     for subtype in TRANSFORMER_SUBTYPES
+        subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(get(net, "transformer", Dict()), subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
             bt = get(t, "bus_to", nothing)
             bt isa AbstractString || continue
             push!(get!(feed_by_bus, bt, Tuple{String,String}[]), (subtype, string(id)))
+        end
+    end
+    # n-winding: every non-reference winding's bus is fed by the transformer.
+    # A dual-secondary unit lands two windings on one bus — record the feeding
+    # transformer once per bus, not once per winding.
+    for (id, t) in get(get(net, "transformer", Dict()), "n_winding", Dict())
+        ws = _nw_windings(t)
+        fed = Set{String}()
+        for j in 2:length(ws)
+            bj = ws[j].bus
+            (isempty(bj) || bj in fed) && continue
+            push!(fed, bj)
+            push!(get!(feed_by_bus, bj, Tuple{String,String}[]), ("n_winding", string(id)))
         end
     end
 
