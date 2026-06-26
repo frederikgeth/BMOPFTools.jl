@@ -2155,22 +2155,28 @@ end
     _cmp_volts(Vs, Vc; label="cap≡shunt: ", atol=1e-4)
 end
 
-@testset "PF (solve_pf) comparison — fixed WYE capacitor" begin
+# Validate against OpenDSS's own `Capacitor` solve in BOTH solver modes (SI and
+# per-unit); the result must match OpenDSS either way.
+@testset "PF (solve_pf) comparison — fixed WYE capacitor (SI & p.u.)" begin
     path  = joinpath(_PF_CMP_DIR, "pf_cap_wye.dss")
     V_ods = _ods_volts(path)
-    res   = solve_pf(_net_cap_wye(); optimizer=Ipopt.Optimizer, per_unit=true)
     phmap = Dict("a"=>"1","b"=>"2","c"=>"3","n"=>"4")
-    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
-                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
-    _cmp_volts(V_ods, V_bm; label="cap-wye: ")
+    for pu in (false, true)
+        res  = solve_pf(_net_cap_wye(); optimizer=Ipopt.Optimizer, per_unit=pu)
+        V_bm = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                    for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+        _cmp_volts(V_ods, V_bm; label="cap-wye (pu=$pu): ")
+    end
 end
 
-@testset "PF (solve_pf) comparison — fixed DELTA capacitor" begin
+@testset "PF (solve_pf) comparison — fixed DELTA capacitor (SI & p.u.)" begin
     path  = joinpath(_PF_CMP_DIR, "pf_cap_delta.dss")
     V_ods = _ods_volts(path)
-    res   = solve_pf(_net_cap_delta(); optimizer=Ipopt.Optimizer, per_unit=true)
     phmap = Dict("a"=>"1","b"=>"2","c"=>"3","n"=>"4")
-    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
-                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
-    _cmp_volts(V_ods, V_bm; label="cap-delta: ")
+    for pu in (false, true)
+        res  = solve_pf(_net_cap_delta(); optimizer=Ipopt.Optimizer, per_unit=pu)
+        V_bm = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                    for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+        _cmp_volts(V_ods, V_bm; label="cap-delta (pu=$pu): ")
+    end
 end

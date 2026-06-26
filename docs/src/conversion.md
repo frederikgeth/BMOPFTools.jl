@@ -198,6 +198,27 @@ total `kvar`, `q_rated` is the per-phase (WYE) or per-pair (DELTA) share
 line-to-line for DELTA. Validated against OpenDSS's own Capacitor solve for WYE
 and DELTA.
 
+**Modelling a *fixed* bank in OpenDSS (replicable, no accidental switching).**
+The toolbox models a **fixed** capacitor only. To produce a matching, constant
+bank in OpenDSS (as the parity tests do):
+
+- **no `New CapControl…` object** — a `Capacitor` without a `CapControl` never
+  switches during a solve;
+- **single step**, all states on — leave `Numsteps` at its default (1) and
+  `states` at its default (all on), so the full nameplate kvar stays connected;
+- **snapshot solve** (the default `Set Mode=Snapshot`) — no time series to drive
+  a control;
+- then `New Capacitor.x bus1=… phases=3 conn=wye|delta kv=<rated> kvar=<total>`
+  is a constant susceptance `B = kvar/kv²` delivering `Q = B·V²`.
+
+A multi-step `Capacitor` (`Numsteps>1`) or one driven by a `CapControl` is a
+**switched** bank — discrete switching is **out of scope** here (planned later).
+
+**Need a controllable/continuous source of reactive power today?** Use an
+`inverter` (bounded `q_min`/`q_max`, or a Volt-VAr `control_profile`) or a
+`generator` with reactive bounds — those already provide continuous, dispatchable
+reactive support. The `capacitor` is specifically the *fixed* physical device.
+
 Ingest status: like `n_winding`, this is a hand-authored / future-PowerIO
 target — **`from_dss` is unchanged** and PowerIO still emits OpenDSS Capacitors
 as plain `shunt`s (B = kvar/kv²), so existing behaviour is untouched.
