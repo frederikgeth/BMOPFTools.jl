@@ -11,8 +11,8 @@ trust OpenDSS's implementation correctness, however, modelers may disagree on
 what appropriate models are. In this context, we recommend to study the paper "A perspective on transformer 
 modeling for distribution system analysis", with full bibliographic details below. 
 
-Two questions every distribution-OPF engine must answer, and the suite tests each
-separately:
+Three questions every distribution-OPF engine must answer, and the suite tests
+each separately:
 
 1. **Is the solution a valid power flow?** — *feasibility*: do the solved
    voltages and currents actually satisfy Kirchhoff's laws and the component
@@ -21,6 +21,12 @@ separately:
    bounds, does the optimizer reach the right dispatch? We check this against
    **closed-form solutions** and against **PowerModelsDistribution (PMD)**. 
    Note that we don't claim global optimality, just local. 
+3. **Are the network limits encoded correctly?** — *limit correctness*: does
+   each modeled limit (voltage magnitude, angle, current, power, sequence) hold
+   the engineering meaning it claims, given that the variables are *rectangular*
+   and most limits are therefore **not** box bounds on a variable? OpenDSS has no
+   OPF limits to compare against, so we check each limit by **driving the network
+   onto it and recomputing the limited quantity from the primal solution**.
 
 The philosophy is the one stated in [the OPF formulation](opf.md): the accuracy of
 the network physics matters more than any single objective, so feasibility is
@@ -251,6 +257,80 @@ droop curve in every regime:
   tutorial's appendix shows), plus the exact-vs-smooth encoding agreement as the
   corner-smoothing `ε → 0` (`atol = 2e-3`).
 
+## Limit correctness — each network limit encodes what it claims
+
+Feasibility checks the physics and optimality checks the dispatch — but both take
+the **constraint set as given**. Neither asks the prior question: does each
+inequality *limit* actually encode the engineering limit it is named for? A limit
+can be wrong in a way that passes every test above — a sign error in an angle
+constraint still yields "an optimum", just the optimum of the wrong feasible set.
+
+This needs its own axis for two reasons:
+
+- **OpenDSS cannot be the oracle.** OpenDSS is a power-flow engine with no OPF
+  inequality limits, so the feasibility harness structurally cannot exercise a
+  single limit constraint — they are *invisible* to it.
+- **The limits are not box bounds.** The engine's variables are rectangular
+  (`vr`, `vi`, `cr`, `ci`), so almost no network limit is a simple bound on a
+  variable. They take four mathematically distinct shapes, and each shape hides a
+  characteristic error mode:
+
+  | Class | Shape | Encoding (rectangular) | The trap |
+  |---|---|---|---|
+  | **A — magnitude** | quadratic ball / annulus | `vr²+vi² ∈ [lb², ub²]`; `cr²+ci² ≤ ilim²`; `pg²+qg² ≤ s_max²` | the *lower* bound makes a magnitude limit a **nonconvex annulus** |
+  | **B — angle** | bilinear cross/dot | `s = vr_k·vi_j − vi_k·vr_j`, `c = vr_k·vr_j + vi_k·vi_j`, then `tan_min·c ≤ s ≤ tan_max·c` | no angle variable exists; a **flipped cross-product sign or wrong pair ordering** is silent |
+  | **C — sequence** | Fortescue then magnitude | `|V₁|², |V₂|², |V₀|²` from the `a`-operator combination of the three phase phasors | a **wrong rotation constant or `1/3` factor** passes feasibility unnoticed |
+  | **D — power** | bound on a bilinear expression | `p = vr·ir + vi·ii`; `p_min ≤ p ≤ p_max`; `pf·q + tan_φ·p = 0` | even a "simple" P/Q bound is a **nonconvex constraint**, not a variable bound |
+
+### The method: bind, then recompute from the primal
+
+Source: [`test/network_limit_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/network_limit_tests.jl).
+Each test (1) builds a minimal case where the target limit is the **single active
+constraint** and drives the network onto it; (2) solves; (3) **recomputes the
+limited quantity from the primal solution by an independent route** — `sqrt(vr²+vi²)`,
+`atan2(vi, vr)` differences, an explicit Fortescue matrix, `sqrt(pg²+qg²)` — *never*
+by reading back the constraint's own expression — and asserts it equals the named
+threshold. Recomputing by a different route is what catches a factor-of, a flipped
+sign, or a wrong constant; a test that echoed the constraint expression would not.
+This mirrors the **Tier-3 droop tests** above, which already "land on the curve"
+by the same logic.
+
+The sequence-bound test (T10 in [`opf_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/opf_tests.jl))
+is the worked example: it solves a balanced case against tight `vneg_max`/`vzero_max`,
+then rebuilds `V₁`, `V₂`, `V₀` from the solved rectangular phase voltages with an
+independent Fortescue expansion and asserts each component sits at its bound.
+
+### The limit inventory — test backlog and discussion
+
+The table below enumerates the engine's nontrivial limits (from `ext/BMOPFOpfExt/`).
+It is the **single source of truth shared by this page and the test file**: each
+row is one unit test to develop, and the *status* column tracks coverage.
+
+| Limit | Class | Encoding | Source | Status |
+|---|---|---|---|---|
+| Terminal voltage magnitude (`v_min`/`v_max`) | A | `vr²+vi² ∈ [lb²,ub²]` | `bus.jl` | covered (T1, T10) |
+| Neutral voltage magnitude (`vn_max`) | A | `vr_n²+vi_n² ≤ vn_max²` | `bus.jl` | gap |
+| Phase-to-neutral magnitude (`vpn_min`/`vpn_max`) | A | `Δ(p,n)² ∈ [·²,·²]` | `bus.jl` | gap |
+| Phase-to-phase magnitude (`vpp_min`/`vpp_max`) | A | `Δ(k,j)² ∈ [·²,·²]` | `bus.jl` | gap |
+| Bus angle difference (`va_diff_min`/`va_diff_max`) | B | `tan·c ≤ s ≤ tan·c` (raw `θ_j−θ_k`) | `bus.jl` | scaffold (L-B1) |
+| Positive-sequence voltage (`vpos_min`/`vpos_max`) | C | `|V₁|²` via Fortescue | `bus.jl` | covered (T10) |
+| Negative-sequence voltage (`vneg_max`) | C | `|V₂|² ≤ vneg_max²` | `bus.jl` | covered (L-C2, T10) |
+| Zero-sequence voltage (`vzero_max`) | C | `|V₀|² ≤ vzero_max²` (note `/3`) | `bus.jl` | covered (T10) |
+| Branch series current (`i_max`) | A | `cr²+ci² ≤ i_max²` (both ends) | `branch.jl` | scaffold (L-A5) |
+| Branch angle difference (`va_diff_*`) | B | `tan·c ≤ s ≤ tan·c` | `branch.jl` | gap |
+| Switch current | A | `cr_sw²+ci_sw² ≤ ilim²` | `branch.jl` | gap |
+| Transformer winding/terminal currents | A | `Is²,It²,In² ≤ i_max²` | `transformer.jl` | gap |
+| Generator / source P,Q limits | D | bounds on `p=vr·ir+vi·ii` | `generator.jl`, `source.jl` | covered (T3, T4) |
+| Generator / inverter apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `inverter.jl` | scaffold (L-A8) |
+| Inverter power-factor coupling | D | `pf·q + tan_φ·p = 0` | `inverter.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
+
+> **A subtlety this surfaced.** The intra-bus angle limit bounds the *signed raw*
+> angle `θ_j − θ_k` of each ordered phase pair — which is ≈ ∓120° nominally, not a
+> deviation from nominal. A meaningful bound must therefore be supplied *around*
+> ±120°, with the sign following the pair ordering. Whether this raw-angle
+> semantics is the intended engineering meaning (vs. a deviation or
+> sequence-angle bound) is an open backlog item.
+
 ## Reusing this for your own tool
 
 | You want to … | Use | What it proves |
@@ -258,6 +338,7 @@ droop curve in every regime:
 | validate your power-flow / component models | the `.dss` cases + a live OpenDSS solve, compared as above | the network physics is correct |
 | validate your optimizer | the Tier-1 analytic targets and the Tier-2 PMD objective table as regression checks | the optimizer reaches the true optimum |
 | validate smart-inverter control | the Tier-3 droop setpoints | control laws are enforced as modelled |
+| validate your network-limit encodings | the bind-and-recompute method + the limit inventory | each limit means what it claims, in rectangular variables |
 
 The two reuse paths are complementary: the analytic and PMD numbers are
 *self-contained* baselines (copy the table, no dependency), while the `.dss`
