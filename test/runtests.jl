@@ -2769,6 +2769,11 @@ const IEEE13_FIXTURE = """
     include("infeasibility_tests.jl")
 
     # -----------------------------------------------------------------------
+    # Phase relabeling — static TMAP detection (no solver) + gated OPF invariance
+    # -----------------------------------------------------------------------
+    include("phase_relabel_tests.jl")
+
+    # -----------------------------------------------------------------------
     # OPF extension — requires JuMP and Ipopt
     # -----------------------------------------------------------------------
     @testset "OPF extension" begin

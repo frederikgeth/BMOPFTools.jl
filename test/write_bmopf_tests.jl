@@ -113,4 +113,53 @@ end
         @test haskey(meta, "created")
         @test meta["generator"]["tool"] == "BMOPFTools.jl"
     end
+
+    # ── write_result / read_result round-trip ─────────────────────────────────
+    @testset "write_result / read_result round-trip" begin
+        # A solver-shaped result dict mirroring the network structure.
+        result = Dict{String,Any}(
+            "termination_status" => "LOCALLY_SOLVED",
+            "objective"          => 1234.5,
+            "solve_time"         => 0.42,
+            "bus" => Dict{String,Any}("b1" => Dict{String,Any}(
+                "1" => Dict{String,Any}("vr"=>230.4,"vi"=>0.0,"vm"=>230.4,"va"=>0.0))),
+            "losses" => Dict{String,Any}("p_loss"=>750.0,"q_loss"=>-10.0),
+        )
+
+        # File round-trip preserves the nested structure exactly.
+        path = tempname() * ".json"
+        try
+            write_result(result, path)
+            @test isfile(path)
+            back = read_result(path)
+            @test back == result
+            @test back["bus"]["b1"]["1"]["vm"] == 230.4
+        finally
+            isfile(path) && rm(path)
+        end
+
+        # String round-trip via from_string.
+        io = IOBuffer(); write_result(result, io)
+        @test read_result(String(take!(io)); from_string=true) == result
+
+        # Compact (indent=nothing) output is single-line and still round-trips.
+        io2 = IOBuffer(); write_result(result, io2; indent=nothing)
+        compact = String(take!(io2))
+        @test !occursin('\n', strip(compact))
+        @test read_result(compact; from_string=true) == result
+
+        # Infeasible results carry NaN; write_result must not choke and the NaN
+        # must round-trip back as NaN (JSON3 allow_inf).
+        infres = Dict{String,Any}(
+            "termination_status" => "INFEASIBLE",
+            "objective"          => NaN,
+            "solve_time"         => 0.1,
+            "bus" => Dict{String,Any}("b1" => Dict{String,Any}(
+                "1" => Dict{String,Any}("vm"=>NaN))))
+        io3 = IOBuffer(); write_result(infres, io3)
+        nb = read_result(String(take!(io3)); from_string=true)
+        @test nb["termination_status"] == "INFEASIBLE"
+        @test isnan(nb["objective"])
+        @test isnan(nb["bus"]["b1"]["1"]["vm"])
+    end
 end

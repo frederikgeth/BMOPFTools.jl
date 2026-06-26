@@ -315,6 +315,7 @@ include("config.jl")
 include("io/migrate.jl")
 include("io/parse_bmopf.jl")
 include("io/write_bmopf.jl")
+include("io/result_io.jl")
 include("io/to_pmd.jl")
 include("io/from_dss.jl")
 include("io/sideload_coordinates.jl")
@@ -583,6 +584,7 @@ export Finding, SummaryReport, SolutionReport
 export errors, warnings, infos
 export profile_solution, render_solution, solution_check, voltage_zone_summary
 export parse_bmopf, write_bmopf, migrate
+export write_result, read_result
 export to_pmd
 export from_dss
 export sideload_coordinates!
