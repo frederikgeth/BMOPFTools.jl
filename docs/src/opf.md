@@ -503,6 +503,17 @@ two-winding subtypes is $N = V^\text{ref}_\text{fr} / V^\text{ref}_\text{to}$
 **fixed-tap effective ratio** $n_\text{eff}$ derived from `tap_ratio` and
 `regulator_type` (see below).
 
+Because every subtype is expressed as voltage/current **equalities** (the IVR
+impedance form $v_\text{fr} - N v_\text{to} = Z\,I$) rather than a nodal
+admittance $Y = Z^{-1}$, **zero winding resistance and zero leakage reactance are
+admissible**: the constraints degrade to the ideal-transformer relation
+$v_\text{fr} = N v_\text{to}$ (and, for `n_winding`, $V_1^r = V_{i+1}^r$ with
+$\sum_k N_k I_k = 0$) with no inversion and no singularity. This holds for *all*
+subtypes and is covered by the "ideal (zero-impedance) transformers" tests.
+(The separate `transformer_yprim`/`nwinding_yprim` **admittance export** is the
+one place that genuinely inverts $Z$ and so is singular at zero impedance — it
+warns and skips there.)
+
 ---
 
 **`single_phase` — Γ-equivalent model**

@@ -2020,3 +2020,80 @@ end
     @test slack_A < 1e-3
     _cmp_volts(V_fe, V_pf; label="pf-vs-feas: ", atol=0.05)
 end
+
+# ── Ideal (zero-impedance) transformers ─────────────────────────────────────
+# Because the transformer constraints are IVR voltage/current EQUALITIES (not a
+# nodal admittance Y = Z⁻¹), they degrade gracefully to the ideal-transformer
+# relation when all winding resistance and leakage reactance are zero — no
+# inversion, no singularity. (The `transformer_yprim`/`nwinding_yprim` admittance
+# export is the one place that IS singular at Z=0, by construction.)
+
+# Zero every series-impedance field on every transformer in `net` (two-bus
+# subtypes and n_winding), leaving the ideal ratio behaviour only.
+function _zero_all_xfmr_impedance!(net)
+    for (_, sub) in get(net, "transformer", Dict())
+        sub isa Dict || continue
+        for (_, xf) in sub
+            xf isa Dict || continue
+            for k in ("r_series_from","x_series_from","r_series_to","x_series_to",
+                      "r_series","x_series","g_no_load","b_no_load")
+                haskey(xf, k) && (xf[k] = 0.0)
+            end
+            if haskey(xf, "windings")                 # n_winding
+                for w in xf["windings"]; w["r_winding"] = 0.0; end
+                if haskey(xf, "x_sc")
+                    for kk in keys(xf["x_sc"]); xf["x_sc"][kk] = 0.0; end
+                end
+                delete!(xf, "_zb_re"); delete!(xf, "_zb_im")
+            end
+        end
+    end
+    net
+end
+
+_net_center_tap_ideal() = parse_bmopf("""
+{"bus":{"mv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+        "lv":{"terminal_names":["1","2","n"],"perfectly_grounded_terminals":["n"]}},
+ "voltage_source":{"src":{"bus":"mv","terminal_map":["1"],"v_magnitude":[2400.0],"v_angle":[0.0]}},
+ "transformer":{"center_tap":{"ct":{"bus_from":"mv","bus_to":"lv",
+     "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
+     "v_ref_from":2400.0,"v_ref_to":120.0,"s_rating":25000.0,
+     "r_series_from":0.1,"x_series_from":0.4,"r_series_to":0.001,"x_series_to":0.004}}},
+ "load":{"l1":{"bus":"lv","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]},
+         "l2":{"bus":"lv","terminal_map":["2","n"],"configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]}}}
+"""; from_string=true)
+
+@testset "Ideal (zero-impedance) transformers solve — every subtype" begin
+    cases = [
+        ("single_phase",                 _net_1ph_xfmr()),
+        ("center_tap",                   _net_center_tap_ideal()),
+        ("wye_delta",                    _net_yd_xfmr()),
+        ("delta_wye",                    _net_dy_xfmr()),
+        ("single_phase_autotransformer", _net_autotransformer()),
+        ("open_delta_regulator",         _net_open_delta_reg()),
+        ("n_winding (3-winding)",        _net_3wdg_nwinding()),
+        ("n_winding (4-winding)",        _net_4wdg_nwinding()),
+    ]
+    for (lbl, net) in cases
+        _zero_all_xfmr_impedance!(net)
+        res = solve_pf(net; optimizer=Ipopt.Optimizer)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    end
+
+    # Ideal voltage ratios are exact where the ratio is a clean scalar.
+    vmag(r, b, t) = sqrt(r["bus"][b][t]["vr"]^2 + r["bus"][b][t]["vi"]^2)
+
+    yy = _zero_all_xfmr_impedance!(_net_1ph_xfmr())
+    ryy = solve_pf(yy; optimizer=Ipopt.Optimizer)
+    N_yy = yy["transformer"]["single_phase"]["t1"]["v_ref_from"] /
+           yy["transformer"]["single_phase"]["t1"]["v_ref_to"]
+    @test isapprox(vmag(ryy, "hv", "1") / vmag(ryy, "lv", "1"), N_yy; rtol=1e-6)
+
+    nw = _zero_all_xfmr_impedance!(_net_3wdg_nwinding())
+    rnw = solve_pf(nw; optimizer=Ipopt.Optimizer)
+    ws  = nw["transformer"]["n_winding"]["t1"]["windings"]
+    @test isapprox(vmag(rnw, "hv", "a") / vmag(rnw, "mv", "a"),
+                   ws[1]["v_ref"] / ws[2]["v_ref"]; rtol=1e-6)
+    @test isapprox(vmag(rnw, "hv", "a") / vmag(rnw, "lv", "a"),
+                   ws[1]["v_ref"] / ws[3]["v_ref"]; rtol=1e-6)
+end
