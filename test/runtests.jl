@@ -2889,6 +2889,12 @@ const IEEE13_FIXTURE = """
     include("admittance_tests.jl")
 
     # -----------------------------------------------------------------------
+    # General n-winding (3+) transformers — accessors, validation, Yprim, and
+    # (gated) OPF/PF + OpenDSS parity.
+    # -----------------------------------------------------------------------
+    include("nwinding_tests.jl")
+
+    # -----------------------------------------------------------------------
     # Regulator subtypes: galvanic zone/island and neutral-continuity topology
     # -----------------------------------------------------------------------
     include("regulator_topology_tests.jl")

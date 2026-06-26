@@ -77,6 +77,20 @@ function _derive_vector_group(subtype::String, xfmr::Dict{String,Any})::String
         conn = uppercase(strip(string(get(xfmr, "connection", ""))))
         return isempty(conn) ? "OD" : "OD-$(conn)"
 
+    elseif subtype == "n_winding"
+        # Per-winding connection letters: winding 1 upper-case (reference), the
+        # rest lower-case, with `n` appended when the winding carries a neutral.
+        # (Full IEC 61378-1 clock notation is out of scope.)
+        ws = _nw_windings(xfmr)
+        isempty(ws) && return "—"
+        letter(j, w) = begin
+            base = w.connection == "DELTA" ? "d" : "y"
+            base = j == 1 ? uppercase(base) : base
+            _, neu = _nw_phase_terminals(w.terminal_map)
+            neu === nothing ? base : base * "n"
+        end
+        return join(letter(j, w) for (j, w) in enumerate(ws))
+
     else
         return "—"
     end

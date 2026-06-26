@@ -195,11 +195,31 @@ regulated line-to-line voltages are boosted by their taps while the shared phase
 passes through unchanged.  See the [OPF reference](opf.md) and the derivation
 note `docs/transformer_admittance_derivation.md`.
 
-There is **no wye-wye three-phase type**: three-phase wye-wye units must be
-decomposed into three `single_phase` transformers.  The converter currently
-parks them in `single_phase` with 3-phase terminal maps and the conformance
-check flags the arity (`W.SPEC.XFMR_TMAP_ARITY`) — see the
-[conversion guide](conversion.md).
+**`n_winding`**: a general n-winding (3+) transformer for three or more
+galvanically isolated voltage levels (e.g. an HV→MV→LV substation, or a
+dual-secondary unit).  Unlike the two-bus subtypes it is a **winding-indexed
+list** (`windings = [{bus, terminal_map, v_ref, connection, r_winding}, …]`)
+with inter-winding leakage stored as **pairwise short-circuit reactances**
+`x_sc["i_j"]` (referred to winding 1).  The OPF/Ybus build a **star/T-equivalent**
+behind one internal floating star node — per winding $j$ the constraint is
+$V_{pn,j} - N_j V_\text{star} = Z_j I_j$ with the ideal-core KCL
+$\sum_j N_j I_j = 0$ ($N_j = v_\text{ref}[j]/v_\text{ref}[1]$); the star leg
+reactances follow the Steinmetz formula and **may be negative** for $n\ge 3$.
+The star model is **exact for $n\le 3$**; for $n\ge 4$ it is a least-squares
+approximation of the pairwise reactances (flagged by
+`W.SPEC.XFMR_NWINDING_APPROX` when the residual is non-trivial).
+Each isolated winding is its **own galvanic zone** (n_winding is treated as
+isolating, like the other non-regulator subtypes — see
+[Galvanic zones](analysis.md)).  **All-wye only** in this release; `DELTA`
+windings are reserved but raise `E.SPEC.XFMR_NOT_IMPLEMENTED`.  This is a
+**fully independent code path** from the two-bus subtypes.  See the
+[conversion guide § n-winding transformers](@ref n-winding).
+
+For a three-phase wye-wye unit you therefore have two options: an `n_winding`
+transformer with two wye windings, or three `single_phase` transformers.  The
+converter currently parks PowerIO's three-phase wye-wye output in `single_phase`
+with 3-phase terminal maps and the conformance check flags the arity
+(`W.SPEC.XFMR_TMAP_ARITY`) — see the [conversion guide](conversion.md).
 
 ## Switches
 

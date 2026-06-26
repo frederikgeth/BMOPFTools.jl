@@ -45,7 +45,15 @@ const _BMOPFTOOLS_VERSION = string(pkgversion(BMOPFTools))
 # builders) must still be edited by hand when a subtype is added.
 const TRANSFORMER_SUBTYPES =
     ("single_phase", "center_tap", "wye_delta", "delta_wye",
-     "single_phase_autotransformer", "open_delta_regulator")
+     "single_phase_autotransformer", "open_delta_regulator", "n_winding")
+
+# Subtypes whose data is a winding-indexed list (`windings = [{bus, …}, …]`)
+# rather than the two-bus `bus_from`/`bus_to` shape. These are handled by a
+# fully independent code path (see `src/io/nwinding.jl` and
+# `ext/BMOPFOpfExt/nwinding.jl`); generic loops over `TRANSFORMER_SUBTYPES` that
+# assume the two-bus shape must branch on membership here and route to the
+# n-winding helpers (or skip).
+const WINDING_LIST_SUBTYPES = ("n_winding",)
 
 # Transformer subtypes that do NOT galvanically isolate their two sides. The
 # autotransformer ties from- and to-sides through a shared common winding/neutral
@@ -310,6 +318,7 @@ include("io/write_bmopf.jl")
 include("io/to_pmd.jl")
 include("io/from_dss.jl")
 include("io/sideload_coordinates.jl")
+include("io/nwinding.jl")
 include("io/to_ybus.jl")
 
 include("analysis/inventory.jl")

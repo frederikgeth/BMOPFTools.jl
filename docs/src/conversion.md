@@ -170,6 +170,61 @@ by `migrate` / `_migrate_transformer_series_fields!`: it is moved onto
 PowerIO performs upstream — and that `to_pmd` reverses — are tabulated under
 [Transformer impedance bases](#Transformer-impedance-bases).
 
+### [General n-winding transformers](@id n-winding)
+
+BMOPF models a general **n-winding** (3+) transformer as the `n_winding`
+transformer subtype: a winding-indexed list rather than the two-bus
+`bus_from`/`bus_to` shape used by the other subtypes. This is the canonical
+representation for substations with three (or more) galvanically isolated voltage
+levels — e.g. an HV→MV→LV station, or a dual-secondary unit. It is implemented as
+a **fully independent code path** (`src/io/nwinding.jl`,
+`ext/BMOPFOpfExt/nwinding.jl`, and dedicated `n_winding` branches in the Ybus,
+per-unit, results and analysis code) that shares no functions with the two-bus
+transformer subtypes.
+
+Data shape (`net["transformer"]["n_winding"][id]`):
+
+```json
+{
+  "windings": [
+    {"bus":"hv","terminal_map":["a","b","c","n"],"v_ref":66395.0,"connection":"WYE","r_winding":0.21},
+    {"bus":"mv","terminal_map":["a","b","c","n"],"v_ref":14376.0,"connection":"WYE","r_winding":0.31},
+    {"bus":"lv","terminal_map":["a","b","c","n"],"v_ref":2402.0, "connection":"WYE","r_winding":0.32}
+  ],
+  "x_sc": {"1_2":5.0,"1_3":5.0,"2_3":3.0},
+  "s_rating": 30.0e6,
+  "g_no_load": 0.0, "b_no_load": 0.0
+}
+```
+
+Conventions (mirroring OpenDSS, the n-winding reference data model):
+
+- `windings` is ordered; **winding 1 is the reference** (`v_ref` are
+  phase-to-neutral volts; `N_k = v_ref[k]/v_ref[1]`).
+- Inter-winding leakage is stored as **pairwise short-circuit reactances**
+  `x_sc["i_j"]` (i<j, Ω, all referred to **winding 1's** base) — the OpenDSS
+  `XHL`/`XHT`/`XLT` / `Xscarray` form. Per-winding resistance `r_winding[k]` is in
+  Ω on winding k's own base.
+- The OPF/Ybus convert the pairwise reactances to a **star/T-equivalent** (one leg
+  per winding meeting at an internal floating star node). A star leg **may be
+  negative** for `n≥3` — that is physically correct, not an error.
+- **Exactness:** the star model is **exact for `n≤3`** (the common case — 2- and
+  3-winding units). For **`n≥4`** a single star node has only `n` degrees of
+  freedom but there are `n(n−1)/2` pairwise reactances, so the legs are a
+  **least-squares fit** and the model is an **approximation** unless the data is
+  star-consistent. When the fit residual is non-trivial, validation emits
+  `W.SPEC.XFMR_NWINDING_APPROX` with the residual, so it is never silent. (An
+  exact full-coupling `n≥4` model is a possible future extension.)
+- **All-wye only** in this release: every winding's `connection` must be `WYE`.
+  `DELTA` is reserved in the schema but raises a clear not-implemented finding
+  (`E.SPEC.XFMR_NOT_IMPLEMENTED`) and errors in the OPF builder.
+
+Ingest and export status: PowerIO does not yet emit `n_winding` (a 3-winding unit
+is currently dropped on import); this data model and its JSON Schema are the
+target PowerIO will populate. `to_pmd` **skips** `n_winding` transformers with a
+warning, since PowerModelsDistribution has no general n-winding model. The OPF/PF
+model is validated to match OpenDSS's own 3-winding solve.
+
 ### [Per-phase voltage source merge](@id source-merge)
 
 OpenDSS commonly models a three-phase substation source as a `Circuit` element

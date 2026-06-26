@@ -301,6 +301,15 @@ function _transformers_to_pmd(xfmr_dict::Dict{String,Any},
     result = Dict{String,Any}()
     for (subtype, subtypes_dict) in xfmr_dict
         subtypes_dict isa Dict || continue
+        if subtype in WINDING_LIST_SUBTYPES
+            # PowerModelsDistribution has no general n-winding transformer; skip
+            # these rather than emit a malformed two-winding object.
+            for id in keys(subtypes_dict)
+                @warn "to_pmd: skipping n_winding transformer '$id' — " *
+                      "PMD has no general n-winding transformer model."
+            end
+            continue
+        end
         for (id, xfmr) in subtypes_dict
             pmd_xfmr = _transformer_to_pmd(xfmr, subtype, terminal_int_map, vscale, pscale)
             result[id] = pmd_xfmr

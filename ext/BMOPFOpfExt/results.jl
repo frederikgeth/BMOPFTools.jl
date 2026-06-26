@@ -440,6 +440,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
     xfmr_res = Dict{String,Any}()
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
+        subtype in BMOPFTools.WINDING_LIST_SUBTYPES && continue  # n_winding below
         sub = get(xfmr_dict, subtype, nothing)
         sub isa Dict || continue
         for (tid, xfmr) in sub
@@ -479,6 +480,26 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                 "ground" => Dict{String,Any}(
                     "cg_r" => cg_r, "cg_i" => cg_i, "cgm" => sqrt(cg_r^2 + cg_i^2)))
         end
+    end
+
+    # ── n-winding transformer currents ("w1".."wN" => "1","2",... per phase) ──
+    cr_nw_v = vars[:cr_nw]; ci_nw_v = vars[:ci_nw]
+    for (tid, xfmr) in get(xfmr_dict, "n_winding", Dict())
+        xfmr isa Dict || continue
+        ws = BMOPFTools._nw_windings(xfmr)
+        wdict = Dict{String,Any}()
+        for (j, w) in enumerate(ws)
+            phs, _ = BMOPFTools._nw_phase_terminals(w.terminal_map)
+            pdict = Dict{String,Any}()
+            for pk in eachindex(phs)
+                cr = val(cr_nw_v[(tid, j, pk)])
+                ci = val(ci_nw_v[(tid, j, pk)])
+                pdict[string(pk)] = Dict{String,Any}("cr" => cr, "ci" => ci,
+                                                     "cm" => sqrt(cr^2 + ci^2))
+            end
+            wdict["w$j"] = pdict
+        end
+        xfmr_res[tid] = wdict
     end
 
     # ── Voltage-source slack currents and imported power ──────────────────────

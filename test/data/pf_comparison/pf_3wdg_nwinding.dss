@@ -1,0 +1,32 @@
+! General n-winding transformer (3-winding, all-wye) vs OpenDSS.
+! HV 115 kV → MV 24.9 kV → LV 4.16 kV, three galvanically isolated levels.
+!
+! Conventions (per the pf_comparison best practices):
+!   - model=ideal : stiff ideal source (no Thevenin impedance), so the ideal
+!     BMOPF voltage_source matches OpenDSS exactly.
+!   - Vminpu=0 Vmaxpu=2 : disable OpenDSS voltage-dependent load switching so
+!     model=1 stays constant-power at all voltages.
+!   - solid neutral grounding via small reactors; DefaultBaseFreq=60.
+Clear
+Set DefaultBaseFreq=60
+
+New Circuit.pf_3wdg_nwinding basekv=115 pu=1.0 angle=0 phases=3 bus1=hv model=ideal
+
+New Reactor.grnd_hv bus1=hv.4 bus2=hv.0 R=0.0001 X=0 phases=1
+
+New Transformer.t1 windings=3 phases=3
+~ wdg=1 bus=hv.1.2.3.4 conn=wye kv=115  kva=30000 %r=0.3
+~ wdg=2 bus=mv.1.2.3.4 conn=wye kv=24.9 kva=30000 %r=0.4
+~ wdg=3 bus=lv.1.2.3.4 conn=wye kv=4.16 kva=30000 %r=0.4
+~ XHL=8 XHT=8 XLT=6 %noloadloss=0 %imag=0
+
+New Reactor.grnd_mv bus1=mv.4 bus2=mv.0 R=0.0001 X=0 phases=1
+New Reactor.grnd_lv bus1=lv.4 bus2=lv.0 R=0.0001 X=0 phases=1
+
+New Load.ldmv bus1=mv.1.2.3.4 conn=wye kv=24.9 kw=3000 kvar=600 phases=3 model=1 Vminpu=0 Vmaxpu=2
+New Load.ldlv bus1=lv.1.2.3.4 conn=wye kv=4.16 kw=1500 kvar=300 phases=3 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[115, 24.9, 4.16]
+CalcVoltageBases
+Set Tolerance=1e-9
+Solve

@@ -67,6 +67,7 @@ function export_yprim(net::Dict{String,Any})::Dict{String,Any}
     result = Dict{String,Any}()
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in TRANSFORMER_SUBTYPES
+        subtype in WINDING_LIST_SUBTYPES && continue   # n_winding handled below
         sub = get(xfmr_dict, subtype, Dict())
         isempty(sub) && continue
         result[subtype] = Dict{String,Any}()
@@ -74,6 +75,21 @@ function export_yprim(net::Dict{String,Any})::Dict{String,Any}
             nodes, Y = transformer_yprim(xfmr, subtype)
             isempty(nodes) && continue
             result[subtype][tid] = Dict{String,Any}(
+                "nodes"  => [[b, t] for (b, t) in nodes],
+                "Y_real" => [real.(row) for row in eachrow(Y)],
+                "Y_imag" => [imag.(row) for row in eachrow(Y)],
+            )
+        end
+    end
+
+    # n-winding transformers use their own (independent) Yprim builder.
+    nwd = get(xfmr_dict, "n_winding", Dict())
+    if !isempty(nwd)
+        result["n_winding"] = Dict{String,Any}()
+        for (tid, xfmr) in nwd
+            nodes, Y = nwinding_yprim(xfmr)
+            isempty(nodes) && continue
+            result["n_winding"][tid] = Dict{String,Any}(
                 "nodes"  => [[b, t] for (b, t) in nodes],
                 "Y_real" => [real.(row) for row in eachrow(Y)],
                 "Y_imag" => [imag.(row) for row in eachrow(Y)],
@@ -471,5 +487,76 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
     # in the OPF (_add_open_delta_regulator!). Folding it here (the paper's Eq. 15)
     # would conflate the device admittance with a particular elimination of the
     # shared node, so the export keeps the Eq. (11) device primitive.
+    nodes, Y
+end
+
+# ── n_winding (general n-winding, all-wye) ──────────────────────────────────
+#
+# Independent of `transformer_yprim`. Builds a per-phase n-winding star/T
+# primitive (admittances referred to winding 1's base, connection matrix scaled
+# by 1/N_j), block-diagonal across phases since wye-wye windings do not couple
+# phases. The optional no-load shunt is stamped across winding 1's phase-neutral.
+function nwinding_yprim(xfmr::Dict{String,Any})
+    ws = _nw_windings(xfmr)
+    isempty(ws) && return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
+    if any(w -> w.connection == "DELTA", ws)
+        @warn "n_winding transformer has a DELTA winding (not implemented); skipping Yprim."
+        return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
+    end
+
+    N    = _nw_turns_ratios(xfmr)
+    legs = _nw_star_legs(xfmr)                       # (R_j, X_j) own base
+    Z    = ComplexF64[legs[j][1] + im*legs[j][2] for j in eachindex(ws)]
+    if any(iszero, Z)
+        @warn "n_winding transformer has a zero star leg; Yprim is singular."
+        return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
+    end
+    y  = ComplexF64[N[j]^2 / Z[j] for j in eachindex(ws)]   # referred to winding 1
+    Ys = sum(y)
+    nW = length(ws)
+
+    # n×n star-equivalent admittance (winding ordering).
+    Y3 = zeros(ComplexF64, nW, nW)
+    for i in 1:nW, j in 1:nW
+        Y3[i, j] = i == j ? y[i] * (Ys - y[i]) / Ys : -y[i] * y[j] / Ys
+    end
+
+    nodes    = Tuple{String,String}[]
+    node_idx = Dict{Tuple{String,String},Int}()
+    nidx!(b, t) = get!(node_idx, (b, t)) do
+        push!(nodes, (b, t)); length(nodes)
+    end
+    for w in ws
+        phs, neu = _nw_phase_terminals(w.terminal_map)
+        for p in phs; nidx!(w.bus, p); end
+        neu !== nothing && nidx!(w.bus, neu)
+    end
+    n_tot = length(nodes)
+    Y = zeros(ComplexF64, n_tot, n_tot)
+
+    G0 = Float64(get(xfmr, "g_no_load", 0.0))
+    B0 = Float64(get(xfmr, "b_no_load", 0.0))
+    Y0 = G0 + im*B0
+
+    phases1, _ = _nw_phase_terminals(ws[1].terminal_map)
+    for pk in eachindex(phases1)
+        C = zeros(ComplexF64, nW, n_tot)
+        for (j, w) in enumerate(ws)
+            phs, neu = _nw_phase_terminals(w.terminal_map)
+            scale = iszero(N[j]) ? 0.0 + 0.0im : 1.0 / N[j]
+            C[j, nidx!(w.bus, phs[pk])] = scale
+            neu !== nothing && (C[j, nidx!(w.bus, neu)] = -scale)
+        end
+        Y .+= transpose(C) * Y3 * C
+
+        if !iszero(Y0)
+            w1 = ws[1]; phs1, neu1 = _nw_phase_terminals(w1.terminal_map)
+            Cf = zeros(ComplexF64, 1, n_tot)
+            Cf[1, nidx!(w1.bus, phs1[pk])] = 1.0
+            neu1 !== nothing && (Cf[1, nidx!(w1.bus, neu1)] = -1.0)
+            Y .+= transpose(Cf) * Y0 * Cf
+        end
+    end
+
     nodes, Y
 end

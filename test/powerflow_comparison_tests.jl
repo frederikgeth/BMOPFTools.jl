@@ -473,6 +473,111 @@ function _net_1ph_xfmr()
                 "q_nom"         => [10_000.0])))
 end
 
+function _net_3wdg_nwinding()
+    # pf_3wdg_nwinding.dss: hv ──[3-winding YYY xfmr]── mv, lv
+    #   wdg1 hv 115 kV, wdg2 mv 24.9 kV, wdg3 lv 4.16 kV; 30 MVA; %r = 0.3/0.4/0.4
+    #   XHL=8 XHT=8 XLT=6 (% on winding-1 base)
+    #
+    # Impedance conversion (all on a per-phase basis; v_ref is phase-to-neutral):
+    #   z_base_k     = (kv_k·1000)² / s_rating          [per-phase Ω]
+    #   r_winding[k] = %r_k/100 · z_base_k              [own base]
+    #   x_sc["i_j"]  = X_ij%/100 · z_base_1             [referred to winding 1]
+    s = 30.0e6
+    zb(kv) = (kv * 1e3)^2 / s
+    vpn(kv) = kv * 1e3 / sqrt(3)
+    mkw(bus, kv, pr) = Dict{String,Any}(
+        "bus"          => bus,
+        "terminal_map" => ["a", "b", "c", "n"],
+        "v_ref"        => vpn(kv),
+        "connection"   => "WYE",
+        "r_winding"    => pr / 100 * zb(kv))
+    grounded(_) = Dict{String,Any}(
+        "terminal_names" => ["a", "b", "c", "n"],
+        "neutral_terminal" => "n",
+        "perfectly_grounded_terminals" => ["n"])
+    wyeload(bus, p, q) = Dict{String,Any}(
+        "bus" => bus, "terminal_map" => ["a", "b", "c", "n"],
+        "configuration" => "WYE", "model" => "constant_power",
+        "p_nom" => [p, p, p], "q_nom" => [q, q, q])
+    Dict{String,Any}(
+        "name" => "pf_3wdg_nwinding",
+        "bus"  => Dict{String,Any}(
+            "hv" => grounded("hv"), "mv" => grounded("mv"), "lv" => grounded("lv")),
+        "voltage_source" => Dict{String,Any}("s" => Dict{String,Any}(
+            "bus" => "hv", "terminal_map" => ["a", "b", "c", "n"],
+            "v_magnitude" => [vpn(115), vpn(115), vpn(115), 0.0],
+            "v_angle"     => [0.0, -2.0943951023931953, 2.0943951023931953, 0.0])),
+        "load" => Dict{String,Any}(
+            "ldmv" => wyeload("mv", 1.0e6, 2.0e5),
+            "ldlv" => wyeload("lv", 5.0e5, 1.0e5)),
+        "transformer" => Dict{String,Any}("n_winding" => Dict{String,Any}(
+            "t1" => Dict{String,Any}(
+                "windings" => [mkw("hv", 115.0, 0.3),
+                               mkw("mv", 24.9, 0.4),
+                               mkw("lv", 4.16, 0.4)],
+                "x_sc" => Dict{String,Any}(
+                    "1_2" => 8 / 100 * zb(115.0),
+                    "1_3" => 8 / 100 * zb(115.0),
+                    "2_3" => 6 / 100 * zb(115.0)),
+                "s_rating" => s))))
+end
+
+function _net_3wdg_nwinding_unbalanced()
+    # pf_3wdg_nwinding_unbalanced.dss: same 3-winding unit, single-phase loads on
+    # different phases (a,b on MV; c on LV) to exercise per-phase star independence.
+    net = _net_3wdg_nwinding()
+    net["name"] = "pf_3wdg_nwinding_unb"
+    net["load"] = Dict{String,Any}(
+        "m1" => Dict{String,Any}("bus"=>"mv","terminal_map"=>["a","n"],
+            "configuration"=>"WYE","model"=>"constant_power","p_nom"=>[2.0e6],"q_nom"=>[4.0e5]),
+        "m2" => Dict{String,Any}("bus"=>"mv","terminal_map"=>["b","n"],
+            "configuration"=>"WYE","model"=>"constant_power","p_nom"=>[5.0e5],"q_nom"=>[5.0e4]),
+        "l3" => Dict{String,Any}("bus"=>"lv","terminal_map"=>["c","n"],
+            "configuration"=>"WYE","model"=>"constant_power","p_nom"=>[1.2e6],"q_nom"=>[3.0e5]))
+    net
+end
+
+function _net_4wdg_nwinding()
+    # pf_4wdg_nwinding.dss: 4-winding HV/MV/LV/TV (115/24.9/4.16/2.4 kV).
+    # Xscarray=[8 8 8 6 6 4] → x_sc pairs (1_2,1_3,1_4,2_3,2_4,3_4). This array is
+    # NOT star-consistent, so the single-star model is a least-squares fit.
+    s = 30.0e6
+    zb(kv) = (kv * 1e3)^2 / s
+    vpn(kv) = kv * 1e3 / sqrt(3)
+    mkw(bus, kv, pr) = Dict{String,Any}(
+        "bus" => bus, "terminal_map" => ["a","b","c","n"],
+        "v_ref" => vpn(kv), "connection" => "WYE", "r_winding" => pr / 100 * zb(kv))
+    grounded(_) = Dict{String,Any}(
+        "terminal_names" => ["a","b","c","n"], "neutral_terminal" => "n",
+        "perfectly_grounded_terminals" => ["n"])
+    wyeload(bus, p, q) = Dict{String,Any}(
+        "bus" => bus, "terminal_map" => ["a","b","c","n"],
+        "configuration" => "WYE", "model" => "constant_power",
+        "p_nom" => [p/3, p/3, p/3], "q_nom" => [q/3, q/3, q/3])
+    Dict{String,Any}(
+        "name" => "pf_4wdg_nwinding",
+        "bus" => Dict{String,Any}(
+            "hv"=>grounded("hv"), "mv"=>grounded("mv"),
+            "lv"=>grounded("lv"), "tv"=>grounded("tv")),
+        "voltage_source" => Dict{String,Any}("s" => Dict{String,Any}(
+            "bus" => "hv", "terminal_map" => ["a","b","c","n"],
+            "v_magnitude" => [vpn(115), vpn(115), vpn(115), 0.0],
+            "v_angle" => [0.0, -2.0943951023931953, 2.0943951023931953, 0.0])),
+        "load" => Dict{String,Any}(
+            "lm" => wyeload("mv", 2.0e6, 4.0e5),
+            "ll" => wyeload("lv", 1.0e6, 2.0e5),
+            "lt" => wyeload("tv", 8.0e5, 1.5e5)),
+        "transformer" => Dict{String,Any}("n_winding" => Dict{String,Any}(
+            "t1" => Dict{String,Any}(
+                "windings" => [mkw("hv",115.0,0.3), mkw("mv",24.9,0.4),
+                               mkw("lv",4.16,0.4), mkw("tv",2.4,0.4)],
+                "x_sc" => Dict{String,Any}(
+                    "1_2" => 8/100*zb(115.0), "1_3" => 8/100*zb(115.0),
+                    "1_4" => 8/100*zb(115.0), "2_3" => 6/100*zb(115.0),
+                    "2_4" => 6/100*zb(115.0), "3_4" => 4/100*zb(115.0)),
+                "s_rating" => s))))
+end
+
 function _net_yd_xfmr()
     # pf_yd_xfmr.dss: hv ──[Yd xfmr, 11 kV wye / 0.415 kV delta, 500 kVA]── lv
     # %r=1.0 per winding, xhl=4.0%, %noloadloss=0.3, %imag=1.5
@@ -1855,6 +1960,60 @@ end
     V_bm  = _bmopf_volts_pf(net)
     @test haskey(get(net, "transformer", Dict()), "single_phase")
     _cmp_volts(V_ods, V_bm; label="pf-1ph-xfmr: ")
+end
+
+@testset "PF (solve_pf) comparison — 3-winding transformer (n_winding, all-wye)" begin
+    # General n-winding transformer (HV 115 / MV 24.9 / LV 4.16 kV) validated
+    # against OpenDSS's own 3-winding solve. The BMOPF net is hand-authored from
+    # the same nameplate (PowerIO cannot yet parse n-winding). Phase terminals
+    # a/b/c map to OpenDSS node numbers 1/2/3 for the voltage comparison.
+    path  = joinpath(_PF_CMP_DIR, "pf_3wdg_nwinding.dss")
+    net   = _net_3wdg_nwinding()
+    V_ods = _ods_volts(path)
+
+    res = solve_pf(net; optimizer=Ipopt.Optimizer)
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+
+    @test haskey(get(net, "transformer", Dict()), "n_winding")
+    _cmp_volts(V_ods, V_bm; label="pf-3wdg-nwinding: ")
+end
+
+@testset "PF (solve_pf) comparison — 3-winding transformer, unbalanced loads" begin
+    # Per-phase star independence: single-phase loads on different phases must
+    # still match OpenDSS's 3-winding solve (the n≤3 star is exact).
+    path  = joinpath(_PF_CMP_DIR, "pf_3wdg_nwinding_unbalanced.dss")
+    net   = _net_3wdg_nwinding_unbalanced()
+    V_ods = _ods_volts(path)
+
+    res = solve_pf(net; optimizer=Ipopt.Optimizer)
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label="pf-3wdg-unbalanced: ")
+end
+
+@testset "PF (solve_pf) comparison — 4-winding transformer (n_winding, per-unit)" begin
+    # Four galvanically isolated levels (115/24.9/4.16/2.4 kV). Solved in per-unit
+    # so the wide voltage spread stays well-conditioned. n = 4 is a least-squares
+    # star fit (the Xscarray is not star-consistent), so the agreement is close but
+    # not exact (~0.01% here) — hence rtol=2e-3 — and W.SPEC.XFMR_NWINDING_APPROX
+    # is raised.
+    path  = joinpath(_PF_CMP_DIR, "pf_4wdg_nwinding.dss")
+    net   = _net_4wdg_nwinding()
+    V_ods = _ods_volts(path)
+
+    res = solve_pf(net; optimizer=Ipopt.Optimizer, per_unit=true)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label="pf-4wdg-nwinding: ", rtol=2e-3)
+
+    # n ≥ 4 → the single-star approximation is flagged.
+    f = Finding[]; spec_conformance_check(net, f)
+    @test any(x -> x.code == "W.SPEC.XFMR_NWINDING_APPROX", f)
 end
 
 @testset "PF (solve_pf) vs feasibility OPF — voltages agree on 3-phase line" begin
