@@ -338,13 +338,12 @@ function _pu_scale_transformers!(net, bases)
     end
 end
 
-# n-winding transformers: an independent per-unit pass. Because the OPF leg
-# impedance is base-invariant in p.u., we precompute the per-winding p.u. legs and
-# stash them as `_r_pu`/`_x_pu` on each winding (read by `_nw_legs_for_opf`):
-#   x_pu[j] = X_ref1_SI[j] / z_base(bus_1)   (ref-1 star reactance → p.u.)
-#   r_pu[j] = r_winding_SI[j] / z_base(bus_j) (own-base resistance → p.u.)
-# v_ref is scaled per winding bus so N_j stays the off-nominal ratio; the no-load
-# shunt (referenced at winding 1) scales by ×z_base(bus_1); s_rating by ÷s_base.
+# n-winding transformers: an independent per-unit pass. The OPF leakage is the
+# ZB matrix referred to winding 1, so it converts to p.u. with a single divide by
+# z_base(bus_1); the result is stashed as `_zb_re`/`_zb_im` (read by
+# `_nw_zb_for_opf`). v_ref is scaled per winding bus so N_j stays the off-nominal
+# ratio; the no-load shunt (referenced at winding 1) scales by ×z_base(bus_1);
+# s_rating by ÷s_base.
 function _pu_scale_nwinding!(net, bases)
     sb = bases.s_base
     for (_, xfmr) in get(get(net, "transformer", Dict()), "n_winding", Dict())
@@ -353,15 +352,16 @@ function _pu_scale_nwinding!(net, bases)
         raw isa AbstractVector && !isempty(raw) || continue
 
         ws  = BMOPFTools._nw_windings(xfmr)
-        Xr1 = BMOPFTools._nw_star_reactances_ref1(xfmr)          # SI, ref-1 base
+        ZB  = BMOPFTools._nw_zb_matrix(xfmr)                     # SI, ref-1 base
         zb1 = get(bases.z_base, ws[1].bus, 1.0)
+        ZBpu = ZB ./ zb1
+        m = size(ZBpu, 1)
+        xfmr["_zb_re"] = [[real(ZBpu[i, j]) for j in 1:m] for i in 1:m]
+        xfmr["_zb_im"] = [[imag(ZBpu[i, j]) for j in 1:m] for i in 1:m]
 
         for (j, w) in enumerate(raw)
             w isa AbstractDict || continue
-            zbj = get(bases.z_base, ws[j].bus, 1.0)
             vbj = get(bases.v_base, ws[j].bus, 1.0)
-            w["_r_pu"] = ws[j].r_winding / zbj
-            w["_x_pu"] = Xr1[j] / zb1
             haskey(w, "v_ref") && (w["v_ref"] = Float64(w["v_ref"]) / vbj)
         end
 

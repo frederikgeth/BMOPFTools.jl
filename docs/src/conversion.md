@@ -205,16 +205,17 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
   `x_sc["i_j"]` (i<j, Ω, all referred to **winding 1's** base) — the OpenDSS
   `XHL`/`XHT`/`XLT` / `Xscarray` form. Per-winding resistance `r_winding[k]` is in
   Ω on winding k's own base.
-- The OPF/Ybus convert the pairwise reactances to a **star/T-equivalent** (one leg
-  per winding meeting at an internal floating star node). A star leg **may be
-  negative** for `n≥3` — that is physically correct, not an error.
-- **Exactness:** the star model is **exact for `n≤3`** (the common case — 2- and
-  3-winding units). For **`n≥4`** a single star node has only `n` degrees of
-  freedom but there are `n(n−1)/2` pairwise reactances, so the legs are a
-  **least-squares fit** and the model is an **approximation** unless the data is
-  star-consistent. When the fit residual is non-trivial, validation emits
-  `W.SPEC.XFMR_NWINDING_APPROX` with the residual, so it is never silent. (An
-  exact full-coupling `n≥4` model is a possible future extension.)
+- The OPF/Ybus convert the pairwise reactances to the OpenDSS-style **ZB
+  short-circuit matrix** referred to winding 1 — an `(n−1)×(n−1)` impedance matrix
+  with winding 1 as the reference (`ZB[i,i] = Z_{1,i+1}`,
+  `ZB[i,j] = ½(Z_{1,i+1}+Z_{1,j+1}−Z_{i+1,j+1})`). This is **exact for any `n`**:
+  `ZB` has exactly `n(n−1)/2` independent entries and reconstructs every pairwise
+  reactance (for `n≤3` it coincides with the star/T model). The OPF references
+  winding 1 (`V_1ʳ − V_{i+1}ʳ = −Σⱼ ZB[i,j]·I_{j+1}ʳ`, ampere-turn `Σ N_k I_k = 0`)
+  so no internal star node is needed; the Ybus uses `Yref = Cᵀ·ZB⁻¹·C` de-referred
+  by the turns ratios. An off-diagonal/leg value **may be negative** for `n≥3` —
+  physically correct, not an error. The OPF/PF is validated against OpenDSS's own
+  3- and 4-winding solves.
 - **All-wye only** in this release: every winding's `connection` must be `WYE`.
   `DELTA` is reserved in the schema but raises a clear not-implemented finding
   (`E.SPEC.XFMR_NOT_IMPLEMENTED`) and errors in the OPF builder.

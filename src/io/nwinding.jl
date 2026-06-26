@@ -77,81 +77,60 @@ function _nw_phase_terminals(terminal_map::Vector{String})
 end
 
 """
-    _nw_star_reactances_ref1(xfmr) -> Vector{Float64}
+    _nw_zb_matrix(xfmr) -> Matrix{ComplexF64}
 
-Solve the pairwise short-circuit reactances `x_sc` for the per-winding star/T
-leg reactances, **referred to winding-1's base** (the base `x_sc` is stored on).
+The OpenDSS-style **ZB short-circuit impedance matrix**, `(n-1)×(n-1)`, all
+referred to **winding 1's base**, in whatever units the dict holds (SI Ω for the
+Ybus path; per-unit when the per-unit pass has stored `_zb_re`/`_zb_im`).
 
-For `n` windings the star legs satisfy `X_i + X_j = X_ij` for every pair. This is
-exactly determined for `n == 3`, under-determined for `n == 2` (all leakage is
-placed on winding 1), and over-determined for `n > 3` (resolved by least squares
-— the closed-form solution of `((n-2)I + J) x = b`, where `b_i = Σ_{j≠i} X_ij`).
+With winding 1 as reference, rows/cols index windings `2..n`. From the pairwise
+short-circuit impedances `Z_{a,b} = (r_a + r_b) + j·X_{a,b}` (referred to
+winding 1):
 
-A star leg may be **negative** for `n ≥ 3` — that is physically correct, not an
-error.
+    ZB[i,i] = Z_{1,i+1}
+    ZB[i,j] = ½(Z_{1,i+1} + Z_{1,j+1} − Z_{i+1,j+1})
+
+This captures the leakage **exactly for any n** — `ZB` has `n(n-1)/2` independent
+entries, one per pairwise reactance, and reconstructs them all (no approximation;
+for `n ≤ 3` it equals the star/T model). A diagonal entry can be negative for
+`n ≥ 3`, which is physical.
+
+`r_winding[k]` is referred from winding k's own base to winding 1 via `/N_k²`
+(`N_k = v_ref[k]/v_ref[1]`); `x_sc` is already on winding 1's base.
 """
-function _nw_star_reactances_ref1(xfmr::Dict{String,Any})::Vector{Float64}
-    n = length(_nw_windings(xfmr))
-    n == 0 && return Float64[]
-    xsc = get(xfmr, "x_sc", Dict{String,Any}())
-
-    pair(i, j) = Float64(get(xsc, "$(min(i,j))_$(max(i,j))", 0.0))
-
-    n == 1 && return [0.0]
-    if n == 2
-        # Under-determined: place the whole leakage on winding 1.
-        return [pair(1, 2), 0.0]
-    end
-
-    # b_i = Σ_{j≠i} X_ij ;  solve ((n-2) I + J) x = b in closed form:
-    #   x = (1/c) (b − (Σb / (c+n)) · 1),  c = n-2.
-    b = [sum(pair(i, j) for j in 1:n if j != i) for i in 1:n]
-    c = n - 2
-    s = sum(b)
-    return [(b[i] - s / (c + n)) / c for i in 1:n]
-end
-
-"""
-    _nw_star_residual(xfmr) -> Float64
-
-Maximum *relative* residual of the star fit `X_i + X_j ≈ X_ij` over all winding
-pairs. Zero (to rounding) for `n ≤ 3` and for star-consistent data; non-zero for
-`n ≥ 4` whose pairwise reactances cannot be reproduced by a single star node
-(the model is then a least-squares approximation). Used to flag the approximation
-to the user.
-"""
-function _nw_star_residual(xfmr::Dict{String,Any})::Float64
-    n = length(_nw_windings(xfmr))
-    n <= 3 && return 0.0
-    X   = _nw_star_reactances_ref1(xfmr)
-    xsc = get(xfmr, "x_sc", Dict{String,Any}())
-    worst = 0.0
-    for i in 1:n, j in i+1:n
-        xij = Float64(get(xsc, "$(i)_$(j)", 0.0))
-        denom = max(abs(xij), eps())
-        worst = max(worst, abs(X[i] + X[j] - xij) / denom)
-    end
-    worst
-end
-
-"""
-    _nw_star_legs(xfmr) -> Vector{Tuple{Float64,Float64}}
-
-Per-winding star/T leg impedance `(R_k, X_k)` in **winding k's own base**, in
-whatever units the dict currently holds (SI Ω for the Ybus path; per-unit after
-`_pu_scale_nwinding!` has scaled the inputs).
-
-- `R_k = r_winding[k]` (already on winding k's own base).
-- `X_k = X_k^(ref1) · N_k²`, referring the ref-1 star reactance to winding k's
-  own base (`N_k = v_ref[k]/v_ref[1]`).
-
-Note: in per-unit the leg value is base-invariant, so the per-unit path stores
-pre-scaled legs rather than re-deriving here — see `_pu_scale_nwinding!`.
-"""
-function _nw_star_legs(xfmr::Dict{String,Any})::Vector{Tuple{Float64,Float64}}
+function _nw_zb_matrix(xfmr::Dict{String,Any})::Matrix{ComplexF64}
     ws = _nw_windings(xfmr)
-    isempty(ws) && return Tuple{Float64,Float64}[]
-    N  = _nw_turns_ratios(xfmr)
-    Xr = _nw_star_reactances_ref1(xfmr)
-    [(ws[k].r_winding, Xr[k] * N[k]^2) for k in eachindex(ws)]
+    n  = length(ws)
+    n < 2 && return zeros(ComplexF64, 0, 0)
+    N   = _nw_turns_ratios(xfmr)
+    xsc = get(xfmr, "x_sc", Dict{String,Any}())
+
+    # Per-winding resistance referred to winding 1, and pairwise impedance Z_{a,b}.
+    r1(k) = ws[k].r_winding / N[k]^2
+    xpair(a, b) = Float64(get(xsc, "$(min(a,b))_$(max(a,b))", 0.0))
+    Z(a, b) = (r1(a) + r1(b)) + im * xpair(a, b)
+
+    ZB = zeros(ComplexF64, n - 1, n - 1)
+    for i in 1:n-1, j in 1:n-1
+        ZB[i, j] = i == j ? Z(1, i + 1) :
+                   0.5 * (Z(1, i + 1) + Z(1, j + 1) - Z(i + 1, j + 1))
+    end
+    ZB
+end
+
+"""
+    _nw_zb_for_opf(xfmr) -> Matrix{ComplexF64}
+
+ZB matrix in model units for the OPF: the per-unit `_zb_re`/`_zb_im` stored by
+`_pu_scale_nwinding!` when present, otherwise the SI matrix from
+[`_nw_zb_matrix`](@ref).
+"""
+function _nw_zb_for_opf(xfmr::Dict{String,Any})::Matrix{ComplexF64}
+    if haskey(xfmr, "_zb_re") && haskey(xfmr, "_zb_im")
+        re = xfmr["_zb_re"]; im_ = xfmr["_zb_im"]
+        m = length(re)
+        return ComplexF64[Float64(re[i][j]) + im * Float64(im_[i][j])
+                          for i in 1:m, j in 1:m]
+    end
+    _nw_zb_matrix(xfmr)
 end

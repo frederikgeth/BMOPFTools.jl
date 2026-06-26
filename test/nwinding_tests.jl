@@ -32,51 +32,50 @@ end
     @test B._nw_turns_ratios(xf)[1] == 1.0
     @test B._nw_turns_ratios(xf)[2] ≈ (24.9/sqrt(3)) / (115.0/sqrt(3))
 
-    # Exact star formula for n = 3: X1 = ½(X12+X13−X23) etc. (ref-1 base).
+    # ZB matrix (n=3, ignore winding resistance here): ZB[i,i]=X_{1,i+1},
+    # ZB[1,2]=½(X12+X13−X23) (referred to winding 1).
     zb1 = (115e3)^2 / 30e6
-    X = B._nw_star_reactances_ref1(xf)
-    @test X[1] ≈ 0.5 * (8 + 8 - 6) / 100 * zb1
-    @test X[2] ≈ 0.5 * (8 + 6 - 8) / 100 * zb1
-    @test X[3] ≈ 0.5 * (8 + 6 - 8) / 100 * zb1
+    xfX = _nw_xfmr([("b1",115.0,0.0),("b2",24.9,0.0),("b3",4.16,0.0)],
+                   Dict("1_2"=>8.0,"1_3"=>8.0,"2_3"=>6.0))
+    ZB = B._nw_zb_matrix(xfX)
+    @test size(ZB) == (2, 2)
+    @test imag(ZB[1,1]) ≈ 8 / 100 * zb1
+    @test imag(ZB[2,2]) ≈ 8 / 100 * zb1
+    @test imag(ZB[1,2]) ≈ 0.5 * (8 + 8 - 6) / 100 * zb1
+    @test ZB[1,2] ≈ ZB[2,1]                                   # reciprocal
 
-    # n = 2 is under-determined: all leakage on winding 1.
-    xf2 = _nw_xfmr([("b1", 115.0, 0.3), ("b2", 24.9, 0.4)], Dict("1_2" => 8.0))
-    X2 = B._nw_star_reactances_ref1(xf2)
-    @test X2[2] == 0.0
-    @test X2[1] ≈ 8 / 100 * zb1
+    # n = 2 → 1×1 ZB = Z_{1,2}.
+    xf2 = _nw_xfmr([("b1", 115.0, 0.0), ("b2", 24.9, 0.0)], Dict("1_2" => 8.0))
+    @test size(B._nw_zb_matrix(xf2)) == (1, 1)
+    @test imag(B._nw_zb_matrix(xf2)[1,1]) ≈ 8 / 100 * zb1
 
     @test B._nw_phase_terminals(["a", "b", "c", "n"]) == (["a", "b", "c"], "n")
 end
 
-@testset "n_winding — edge cases (n≥4, negative leg, dual-secondary)" begin
-    # n = 4, star-INCONSISTENT pairwise data → least-squares residual > 0 and the
-    # approximation warning fires.
-    w4 = [("hv",115.0,0.3),("mv",24.9,0.4),("lv",4.16,0.4),("tv",2.4,0.4)]
-    xf4 = _nw_xfmr(w4, Dict("1_2"=>8.0,"1_3"=>8.0,"1_4"=>8.0,
-                            "2_3"=>6.0,"2_4"=>6.0,"3_4"=>4.0))
-    @test B._nw_star_residual(xf4) > 1e-3
-    net4 = Dict{String,Any}("transformer" => Dict{String,Any}(
-        "n_winding" => Dict{String,Any}("t4" => xf4)))
-    f4 = Finding[]; spec_conformance_check(net4, f4)
-    @test any(x -> x.code == "W.SPEC.XFMR_NWINDING_APPROX", f4)
+@testset "n_winding — edge cases (ZB exactness, negative entry, dual-secondary)" begin
+    # The ZB matrix reconstructs EVERY pairwise short-circuit reactance exactly,
+    # for any n (no approximation). Check n = 4 with non-star-consistent data.
+    w4 = [("hv",115.0,0.0),("mv",24.9,0.0),("lv",4.16,0.0),("tv",2.4,0.0)]
+    xsc4 = Dict("1_2"=>8.0,"1_3"=>8.0,"1_4"=>8.0,"2_3"=>6.0,"2_4"=>6.0,"3_4"=>4.0)
+    xf4 = _nw_xfmr(w4, xsc4)
+    zb1 = (115e3)^2 / 30e6
+    ZB = B._nw_zb_matrix(xf4)
+    @test size(ZB) == (3, 3)
+    # Reconstruct pairwise from ZB and compare to the inputs (imag parts, ref-1).
+    recon(p, q) = p == 1 ? imag(ZB[q-1,q-1]) :
+                  q == 1 ? imag(ZB[p-1,p-1]) :
+                  -(2*imag(ZB[p-1,q-1]) - imag(ZB[p-1,p-1]) - imag(ZB[q-1,q-1]))
+    for (k, v) in xsc4
+        i, j = parse.(Int, split(k, "_"))
+        @test recon(i, j) ≈ v / 100 * zb1
+    end
 
-    # n = 4, star-CONSISTENT data (X = [5,3,3,1] ⇒ X_ij = X_i+X_j) → residual ≈ 0,
-    # no approximation warning.
-    cons = Dict("1_2"=>8.0,"1_3"=>8.0,"1_4"=>6.0,"2_3"=>6.0,"2_4"=>4.0,"3_4"=>4.0)
-    xfc = _nw_xfmr(w4, cons)
-    @test B._nw_star_residual(xfc) < 1e-9
-    netc = Dict{String,Any}("transformer" => Dict{String,Any}(
-        "n_winding" => Dict{String,Any}("tc" => xfc)))
-    fc = Finding[]; spec_conformance_check(netc, fc)
-    @test !any(x -> x.code == "W.SPEC.XFMR_NWINDING_APPROX", fc)
-    # n = 3 is always exact.
-    @test B._nw_star_residual(_nw_xfmr([("a",1.0,0.1),("b",1.0,0.1),("c",1.0,0.1)],
-                                       Dict("1_2"=>5.0,"1_3"=>5.0,"2_3"=>3.0))) == 0.0
-
-    # A negative star leg is physical for n ≥ 3: X23 ≫ X12,X13 ⇒ X1 < 0.
-    xfneg = _nw_xfmr([("hv",115.0,0.3),("mv",24.9,0.4),("lv",4.16,0.4)],
+    # A negative ZB diagonal is physical for n ≥ 3: X23 ≫ X12,X13 ⇒ ZB[1,1] uses
+    # Z_{1,2} which stays positive, but the equivalent star leg X1 < 0 shows up as
+    # a negative off-diagonal coupling — the Yprim must still build and stay valid.
+    xfneg = _nw_xfmr([("hv",115.0,0.0),("mv",24.9,0.0),("lv",4.16,0.0)],
                      Dict("1_2"=>3.0,"1_3"=>3.0,"2_3"=>10.0))
-    @test B._nw_star_reactances_ref1(xfneg)[1] < 0          # ½(3+3−10) < 0
+    @test imag(B._nw_zb_matrix(xfneg)[1,2]) < 0             # ½(3+3−10) < 0
     nodes, Y = B.nwinding_yprim(xfneg)                       # still a valid Yprim
     @test maximum(abs.(Y .- transpose(Y))) < 1e-9
 

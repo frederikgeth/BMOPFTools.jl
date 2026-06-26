@@ -4,66 +4,36 @@
 #
 # Deliberately INDEPENDENT of the two-bus transformer builder (transformer.jl):
 # it shares none of the `_add_yy_transformer!` / `_xf_kadd` / `_kcl_add!` code,
-# uses its own current/star-node variables, and its own KCL/ledger contribution
-# closure. It replicates the *idea* of the center_tap star/T model generalised to
-# n windings.
+# uses its own current variables, and its own KCL/ledger contribution closure.
 #
-# Model (all-wye), four-wire rectangular IVR, per winding j and phase position k,
-# with an internal floating star node `V_star(k)` referred to winding 1's base:
+# Model (all-wye), four-wire rectangular IVR. The leakage is the OpenDSS-style
+# ZB matrix referred to winding 1 (exact for any n — see `_nw_zb_matrix`), with
+# winding 1 as the reference winding. Per phase, with referred winding currents
+# `I_k^r = N_k I_k` (`N_k = v_ref[k]/v_ref[1]`, `N_1 = 1`) and referred winding
+# phase-neutral voltages `V_k^r = U_k / N_k`:
 #
-#   Voltage : (V_pn_j(k)) − N_j · V_star(k) = Z_j · I_j(k)          (Z_j = R_j+jX_j)
-#   Star KCL: Σ_j  N_j · I_j(k) = 0                                 (ideal core)
+#   Ampere-turn (ideal core):   Σ_k N_k I_k = 0
+#   Leakage (i = 1..n-1):       V_1^r − V_{i+1}^r = Σ_{j=1}^{n-1} ZB[i,j] I_{j+1}^r
 #
-# where V_pn_j(k) = V[bus_j, phase k] − V[bus_j, neutral_j],
-#       N_j       = v_ref[j] / v_ref[1]  (off-nominal ratio; N_1 = 1),
-#       Z_j       = winding j's star/T leg (own-base; per-unit value is
-#                   base-invariant — see `_nw_legs_for_opf`).
-#
-# Each winding contributes −I_j(k) into its bus phase terminal and +Σ_k I_j(k)
-# into its bus neutral terminal. The optional no-load shunt (g+jb) is drawn at
-# winding 1's terminals.
+# No internal star node is needed — referencing winding 1 folds it out. Each
+# winding injects −I_k into its bus phase terminal and +Σ_phase I_k into its
+# neutral; the optional no-load shunt (g+jb) is drawn at winding 1's terminals.
 
 """
-    _nw_legs_for_opf(xfmr) -> Vector{Tuple{Float64,Float64}}
+    _add_nwinding_variables!(model, net) -> (cr_nw, ci_nw)
 
-Per-winding star/T leg `(R_j, X_j)` for the OPF, in model units. When per-unit
-scaling has run (`_pu_scale_nwinding!`), it stored `_r_pu`/`_x_pu` on each winding
-(the base-invariant per-unit value); use those. Otherwise (SI model) derive the
-own-base legs from `_nw_star_legs`.
-"""
-function _nw_legs_for_opf(xfmr::Dict{String,Any})
-    raw = get(xfmr, "windings", Any[])
-    if raw isa AbstractVector && !isempty(raw) &&
-       all(w -> w isa AbstractDict && haskey(w, "_r_pu") && haskey(w, "_x_pu"), raw)
-        return [(Float64(w["_r_pu"]), Float64(w["_x_pu"])) for w in raw]
-    end
-    BMOPFTools._nw_star_legs(xfmr)
-end
-
-"""
-    _add_nwinding_variables!(model, net) -> (cr_nw, ci_nw, vr_star, vi_star)
-
-Declare the n-winding transformer current variables `cr_nw`/`ci_nw` keyed
-`(tid, winding_idx, phase_idx)` and the internal star-node voltage variables
-`vr_star`/`vi_star` keyed `(tid, phase_idx)`. Independent of
-`_add_transformer_variables!`.
+Declare the n-winding transformer current variables `cr_nw`/`ci_nw`, keyed
+`(tid, winding_idx, phase_idx)`. Independent of `_add_transformer_variables!`.
 """
 function _add_nwinding_variables!(model, net)
-    cr_nw   = Dict{Tuple{String,Int,Int}, JuMP.VariableRef}()
-    ci_nw   = Dict{Tuple{String,Int,Int}, JuMP.VariableRef}()
-    vr_star = Dict{Tuple{String,Int},     JuMP.VariableRef}()
-    vi_star = Dict{Tuple{String,Int},     JuMP.VariableRef}()
+    cr_nw = Dict{Tuple{String,Int,Int}, JuMP.VariableRef}()
+    ci_nw = Dict{Tuple{String,Int,Int}, JuMP.VariableRef}()
 
     nwd = get(get(net, "transformer", Dict()), "n_winding", Dict())
     for (tid, xfmr) in nwd
         xfmr isa Dict || continue
         ws = BMOPFTools._nw_windings(xfmr)
         isempty(ws) && continue
-        phases1, _ = BMOPFTools._nw_phase_terminals(ws[1].terminal_map)
-        for pk in eachindex(phases1)
-            vr_star[(tid, pk)] = @variable(model, base_name = "vr_star_$(tid)_$(pk)")
-            vi_star[(tid, pk)] = @variable(model, base_name = "vi_star_$(tid)_$(pk)")
-        end
         for (j, w) in enumerate(ws)
             phs, _ = BMOPFTools._nw_phase_terminals(w.terminal_map)
             for pk in eachindex(phs)
@@ -72,32 +42,32 @@ function _add_nwinding_variables!(model, net)
             end
         end
     end
-    cr_nw, ci_nw, vr_star, vi_star
+    cr_nw, ci_nw
 end
 
 """
     _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
 
-Add the all-wye n-winding transformer voltage/current constraints and KCL
-contributions. Errors if any winding uses a DELTA connection (not yet
+Add the all-wye n-winding transformer leakage (ZB) + ampere-turn constraints and
+KCL contributions. Errors if any winding uses a DELTA connection (reserved, not
 implemented). Independent of `_add_transformer_constraints!`.
 """
 function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
-    vr  = vars[:vr];  vi  = vars[:vi]
-    cr  = vars[:cr_nw]; ci = vars[:ci_nw]
-    vrs = vars[:vr_star]; vis = vars[:vi_star]
+    vr = vars[:vr]; vi = vars[:vi]
+    cr = vars[:cr_nw]; ci = vars[:ci_nw]
 
     nwd = get(get(net, "transformer", Dict()), "n_winding", Dict())
     for (tid, xfmr) in nwd
         xfmr isa Dict || continue
         ws = BMOPFTools._nw_windings(xfmr)
-        isempty(ws) && continue
+        n  = length(ws)
+        n < 2 && continue
         any(w -> w.connection == "DELTA", ws) &&
             error("n_winding transformer '$tid': DELTA winding is reserved but not " *
                   "yet implemented (all-wye only).")
 
-        N    = BMOPFTools._nw_turns_ratios(xfmr)
-        legs = _nw_legs_for_opf(xfmr)
+        N  = BMOPFTools._nw_turns_ratios(xfmr)
+        ZB = BMOPFTools._nw_zb_for_opf(xfmr)          # (n-1)×(n-1), model units
         phases1, _ = BMOPFTools._nw_phase_terminals(ws[1].terminal_map)
         nph = length(phases1)
 
@@ -115,51 +85,68 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
             end
         end
 
-        for (j, w) in enumerate(ws)
-            phs, neu = BMOPFTools._nw_phase_terminals(w.terminal_map)
-            R, X = legs[j]
-            bus  = w.bus
-            for pk in 1:nph
-                ph = phs[pk]
-                Ir = cr[(tid, j, pk)]; Ii = ci[(tid, j, pk)]
-                vr_pn = neu === nothing ? @expression(model, vr[(bus, ph)]) :
-                                          @expression(model, vr[(bus, ph)] - vr[(bus, neu)])
-                vi_pn = neu === nothing ? @expression(model, vi[(bus, ph)]) :
-                                          @expression(model, vi[(bus, ph)] - vi[(bus, neu)])
-                @constraint(model, vr_pn - N[j] * vrs[(tid, pk)] == R * Ir - X * Ii)
-                @constraint(model, vi_pn - N[j] * vis[(tid, pk)] == R * Ii + X * Ir)
-                # phase current flows into the transformer
-                kadd(bus, ph, @expression(model, -Ir), @expression(model, -Ii))
+        # Phase-neutral voltage of winding k at phase position pk.
+        upn(k, pk) = begin
+            w = ws[k]; phs, neu = BMOPFTools._nw_phase_terminals(w.terminal_map)
+            ur = neu === nothing ? @expression(model, vr[(w.bus, phs[pk])]) :
+                                   @expression(model, vr[(w.bus, phs[pk])] - vr[(w.bus, neu)])
+            ui = neu === nothing ? @expression(model, vi[(w.bus, phs[pk])]) :
+                                   @expression(model, vi[(w.bus, phs[pk])] - vi[(w.bus, neu)])
+            (ur, ui)
+        end
+
+        for pk in 1:nph
+            # Referred winding currents I_k^r = N_k I_k.
+            irr = [@expression(model, N[k] * cr[(tid, k, pk)]) for k in 1:n]
+            iri = [@expression(model, N[k] * ci[(tid, k, pk)]) for k in 1:n]
+
+            # Ampere-turn (ideal core): Σ_k N_k I_k = 0.
+            @constraint(model, sum(irr[k] for k in 1:n) == 0)
+            @constraint(model, sum(iri[k] for k in 1:n) == 0)
+
+            # Leakage: V_1^r − V_{i+1}^r = −Σ_j ZB[i,j] I_{j+1}^r  (i = 1..n-1).
+            # The minus sign is the current-into-element convention (derived from
+            # the equivalent star form U_j − N_j V_core = Z_j I_j).
+            u1r, u1i = upn(1, pk)                      # V_1^r (N_1 = 1)
+            for i in 1:n-1
+                uir, uii = upn(i + 1, pk)
+                lhs_r = @expression(model, u1r - uir / N[i+1])
+                lhs_i = @expression(model, u1i - uii / N[i+1])
+                rhs_r = @expression(model,
+                    sum(real(ZB[i, j]) * irr[j+1] - imag(ZB[i, j]) * iri[j+1] for j in 1:n-1))
+                rhs_i = @expression(model,
+                    sum(real(ZB[i, j]) * iri[j+1] + imag(ZB[i, j]) * irr[j+1] for j in 1:n-1))
+                @constraint(model, lhs_r + rhs_r == 0)
+                @constraint(model, lhs_i + rhs_i == 0)
             end
-            # neutral carries the return of all phase currents
-            if neu !== nothing
-                kadd(bus, neu,
-                     @expression(model, sum(cr[(tid, j, pk)] for pk in 1:nph)),
-                     @expression(model, sum(ci[(tid, j, pk)] for pk in 1:nph)))
+
+            # Inject winding currents into bus terminals.
+            for k in 1:n
+                w = ws[k]; phs, _ = BMOPFTools._nw_phase_terminals(w.terminal_map)
+                kadd(w.bus, phs[pk], @expression(model, -cr[(tid, k, pk)]),
+                                     @expression(model, -ci[(tid, k, pk)]))
             end
         end
 
-        # Ideal-core star KCL per phase.
-        for pk in 1:nph
-            @constraint(model, sum(N[j] * cr[(tid, j, pk)] for j in eachindex(ws)) == 0)
-            @constraint(model, sum(N[j] * ci[(tid, j, pk)] for j in eachindex(ws)) == 0)
+        # Neutral return current for each winding: +Σ_phase I_k.
+        for k in 1:n
+            w = ws[k]; phs, neu = BMOPFTools._nw_phase_terminals(w.terminal_map)
+            neu === nothing && continue
+            kadd(w.bus, neu,
+                 @expression(model, sum(cr[(tid, k, pk)] for pk in 1:length(phs))),
+                 @expression(model, sum(ci[(tid, k, pk)] for pk in 1:length(phs))))
         end
 
         # Optional no-load (magnetising) shunt drawn at winding 1's terminals.
         g = Float64(get(xfmr, "_g_no_load_pu", get(xfmr, "g_no_load", 0.0)))
         b = Float64(get(xfmr, "_b_no_load_pu", get(xfmr, "b_no_load", 0.0)))
         if g != 0.0 || b != 0.0
-            w1 = ws[1]
-            phs1, neu1 = BMOPFTools._nw_phase_terminals(w1.terminal_map)
+            w1 = ws[1]; phs1, neu1 = BMOPFTools._nw_phase_terminals(w1.terminal_map)
             for pk in 1:nph
-                ph = phs1[pk]
-                vr_pn = neu1 === nothing ? @expression(model, vr[(w1.bus, ph)]) :
-                                           @expression(model, vr[(w1.bus, ph)] - vr[(w1.bus, neu1)])
-                vi_pn = neu1 === nothing ? @expression(model, vi[(w1.bus, ph)]) :
-                                           @expression(model, vi[(w1.bus, ph)] - vi[(w1.bus, neu1)])
-                Imr = @expression(model, g * vr_pn - b * vi_pn)
-                Imi = @expression(model, g * vi_pn + b * vr_pn)
-                kadd(w1.bus, ph, @expression(model, -Imr), @expression(model, -Imi))
+                ur, ui = upn(1, pk)
+                Imr = @expression(model, g * ur - b * ui)
+                Imi = @expression(model, g * ui + b * ur)
+                kadd(w1.bus, phs1[pk], @expression(model, -Imr), @expression(model, -Imi))
                 neu1 !== nothing && kadd(w1.bus, neu1, Imr, Imi)
             end
         end

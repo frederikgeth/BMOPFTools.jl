@@ -539,8 +539,8 @@ end
 
 function _net_4wdg_nwinding()
     # pf_4wdg_nwinding.dss: 4-winding HV/MV/LV/TV (115/24.9/4.16/2.4 kV).
-    # Xscarray=[8 8 8 6 6 4] → x_sc pairs (1_2,1_3,1_4,2_3,2_4,3_4). This array is
-    # NOT star-consistent, so the single-star model is a least-squares fit.
+    # Xscarray=[8 8 8 6 6 4] → x_sc pairs (1_2,1_3,1_4,2_3,2_4,3_4). The ZB model
+    # reproduces all six pairwise reactances exactly (no star approximation).
     s = 30.0e6
     zb(kv) = (kv * 1e3)^2 / s
     vpn(kv) = kv * 1e3 / sqrt(3)
@@ -1996,10 +1996,9 @@ end
 
 @testset "PF (solve_pf) comparison — 4-winding transformer (n_winding, per-unit)" begin
     # Four galvanically isolated levels (115/24.9/4.16/2.4 kV). Solved in per-unit
-    # so the wide voltage spread stays well-conditioned. n = 4 is a least-squares
-    # star fit (the Xscarray is not star-consistent), so the agreement is close but
-    # not exact (~0.01% here) — hence rtol=2e-3 — and W.SPEC.XFMR_NWINDING_APPROX
-    # is raised.
+    # so the wide voltage spread stays well-conditioned. The OpenDSS-style ZB
+    # leakage is EXACT for any n (it reconstructs all six pairwise reactances), so
+    # the match is exact even though the Xscarray is not star-consistent.
     path  = joinpath(_PF_CMP_DIR, "pf_4wdg_nwinding.dss")
     net   = _net_4wdg_nwinding()
     V_ods = _ods_volts(path)
@@ -2009,11 +2008,7 @@ end
     phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
     V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
                  for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
-    _cmp_volts(V_ods, V_bm; label="pf-4wdg-nwinding: ", rtol=2e-3)
-
-    # n ≥ 4 → the single-star approximation is flagged.
-    f = Finding[]; spec_conformance_check(net, f)
-    @test any(x -> x.code == "W.SPEC.XFMR_NWINDING_APPROX", f)
+    _cmp_volts(V_ods, V_bm; label="pf-4wdg-nwinding: ")
 end
 
 @testset "PF (solve_pf) vs feasibility OPF — voltages agree on 3-phase line" begin

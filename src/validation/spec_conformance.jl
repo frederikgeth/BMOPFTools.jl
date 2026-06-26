@@ -231,25 +231,6 @@ function spec_conformance_check(net::Dict{String,Any},
     for (id, t) in get(xfmr, "n_winding", Dict())
         t isa Dict || continue
         ws = _nw_windings(t)
-
-        # The star/T model is exact for n ≤ 3; for n ≥ 4 the pairwise reactances
-        # generally cannot be reproduced by a single star node, so the model is a
-        # least-squares approximation. Flag it (with the residual) so it is never
-        # silent — exact star-consistent data (residual ≈ 0) is not flagged.
-        if length(ws) >= 4
-            resid = _nw_star_residual(t)
-            if resid > 1e-6
-                n_issues += 1
-                push!(findings, Finding(WARNING, "W.SPEC.XFMR_NWINDING_APPROX", :spec,
-                    :transformer, id,
-                    "transformer n_winding '$id' has $(length(ws)) windings: the " *
-                    "single star/T-equivalent cannot exactly represent the pairwise " *
-                    "short-circuit reactances (max relative residual " *
-                    "$(round(resid*100, digits=2))%). Voltages/flows are a " *
-                    "least-squares approximation; exact only for n ≤ 3.",
-                    Dict{String,Any}("n_windings" => length(ws), "residual" => resid)))
-            end
-        end
         for (k, w) in enumerate(ws)
             tm = w.terminal_map
             if length(unique(tm)) < length(tm)

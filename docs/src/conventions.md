@@ -200,19 +200,20 @@ galvanically isolated voltage levels (e.g. an HV→MV→LV substation, or a
 dual-secondary unit).  Unlike the two-bus subtypes it is a **winding-indexed
 list** (`windings = [{bus, terminal_map, v_ref, connection, r_winding}, …]`)
 with inter-winding leakage stored as **pairwise short-circuit reactances**
-`x_sc["i_j"]` (referred to winding 1).  The OPF/Ybus build a **star/T-equivalent**
-behind one internal floating star node — per winding $j$ the constraint is
-$V_{pn,j} - N_j V_\text{star} = Z_j I_j$ with the ideal-core KCL
-$\sum_j N_j I_j = 0$ ($N_j = v_\text{ref}[j]/v_\text{ref}[1]$); the star leg
-reactances follow the Steinmetz formula and **may be negative** for $n\ge 3$.
-The star model is **exact for $n\le 3$**; for $n\ge 4$ it is a least-squares
-approximation of the pairwise reactances (flagged by
-`W.SPEC.XFMR_NWINDING_APPROX` when the residual is non-trivial).
+`x_sc["i_j"]` (referred to winding 1).  The leakage is the OpenDSS-style **ZB
+matrix** referred to winding 1 ($ZB[i,i]=Z_{1,i+1}$,
+$ZB[i,j]=\tfrac12(Z_{1,i+1}+Z_{1,j+1}-Z_{i+1,j+1})$), which is **exact for any
+$n$** — it has $n(n-1)/2$ entries and reconstructs every pairwise reactance (for
+$n\le 3$ it coincides with the star/T model).  The OPF references winding 1
+($V_1^r - V_{i+1}^r = -\sum_j ZB[i,j] I_{j+1}^r$, ideal core
+$\sum_k N_k I_k = 0$, $N_k = v_\text{ref}[k]/v_\text{ref}[1]$), so no internal
+star node is required; a ZB entry **may be negative** for $n\ge 3$ (physical).
 Each isolated winding is its **own galvanic zone** (n_winding is treated as
 isolating, like the other non-regulator subtypes — see
 [Galvanic zones](analysis.md)).  **All-wye only** in this release; `DELTA`
 windings are reserved but raise `E.SPEC.XFMR_NOT_IMPLEMENTED`.  This is a
-**fully independent code path** from the two-bus subtypes.  See the
+**fully independent code path** from the two-bus subtypes, validated against
+OpenDSS's own 3- and 4-winding solves.  See the
 [conversion guide § n-winding transformers](@ref n-winding).
 
 For a three-phase wye-wye unit you therefore have two options: an `n_winding`

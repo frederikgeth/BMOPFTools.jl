@@ -1,11 +1,11 @@
 ! General n-winding transformer (4-winding, all-wye) vs OpenDSS.
 ! HV 115 / MV 24.9 / LV 4.16 / TV 2.4 kV — four galvanically isolated levels.
 !
-! n = 4 exercises the least-squares star fit: OpenDSS builds the exact 4-port
-! short-circuit network from the 6 pairwise reactances (Xscarray), while BMOPF
-! uses a single star node (4 DoF). For this (non-star-consistent) Xscarray the
-! BMOPF result is therefore an approximation (~0.01% here); validation emits
-! W.SPEC.XFMR_NWINDING_APPROX. Same conventions as pf_3wdg_nwinding.dss.
+! n = 4 exercises the exact ZB leakage: OpenDSS builds the 4-port short-circuit
+! network from the 6 pairwise reactances (Xscarray); BMOPF builds the equivalent
+! ZB matrix (referred to winding 1), which reproduces all six pairwise reactances
+! exactly — so the two agree to solver tolerance even though this Xscarray is not
+! star-consistent. Same conventions as pf_3wdg_nwinding.dss.
 Clear
 Set DefaultBaseFreq=60
 
