@@ -484,38 +484,74 @@ end
 const _PHASE_TERMINALS = ("a", "b", "c")
 
 # Per-phase voltage angles must sit within this tolerance of a balanced ±120°
-# rotation for a bank of single-phase sources to count as one coherent polyphase
-# source. Loose enough to admit mild export imbalance, tight enough to reject
-# incidental same-bus sources (e.g. all at 0°).
+# rotation (or 0°) for a bank of single-phase sources to count as one coherent
+# polyphase source. Loose enough to admit mild export imbalance.
 const _PHASE_BALANCE_TOL_RAD = deg2rad(30)
+
+# Tighter tolerance for the 90° (quadrature / two-phase) and 180° (anti-phase /
+# split-phase) classes: the canonical 90° and 120° separations are only 30°
+# apart, so a wide band would conflate them.
+const _PHASE_SEPARATION_TOL_RAD = deg2rad(15)
 
 # Wrap an angle (radians) to (-π, π].
 _wrap_pi(x::Real) = (y = mod(x + π, 2π) - π; y == -π ? π : y)
 
+# Classify one wrapped successive angle difference `d` (rad, in (-π, π]) into a
+# canonical phase separation by nearest canonical magnitude {0, 90, 120, 180}°.
+# The 120°/0° classes keep the lenient ±30° band; 90°/180° use ±15° so the four
+# canonical separations stay mutually distinguishable. Quadrature is tested
+# before 120° so a difference closer to 90° than 120° (|d| ≤ ~105°) resolves to
+# quadrature rather than being swallowed by the wide 120° band.
+function _separation_of_diff(d::Real)::Symbol
+    a = abs(d)
+    if a <= _PHASE_BALANCE_TOL_RAD                      # ≈ 0°   (±30°)
+        return :zero
+    elseif abs(a - π/2) <= _PHASE_SEPARATION_TOL_RAD    # ≈ 90°  (±15°)
+        return :quadrature
+    elseif abs(a - 2π/3) <= _PHASE_BALANCE_TOL_RAD      # ≈ 120° (±30°)
+        return d < 0 ? :positive : :negative            # a→b→c lags ⇒ positive
+    elseif abs(a - π) <= _PHASE_SEPARATION_TOL_RAD      # ≈ 180° (±15°)
+        return :anti_phase
+    else
+        return :incoherent
+    end
+end
+
+"""
+    _phase_separation_class(angles) -> Symbol
+
+Classify the phasor arrangement of a label-ordered set of phase angles (radians)
+from its successive differences. Returns the common separation class, or
+`:incoherent` when the differences disagree or match no canonical separation:
+
+- `:zero`       — all phases at ≈ the same angle (zero-sequence / co-phasal).
+- `:quadrature` — ≈ 90° separation (two-phase, e.g. a Scott-T secondary).
+- `:positive`   — ≈ 120° lag per successive phase (standard a→b→c rotation).
+- `:negative`   — ≈ 120° lead (reversed rotation).
+- `:anti_phase` — ≈ 180° separation (split-phase / single-phase three-wire legs).
+- `:incoherent` — none of the above consistently.
+
+Ordering is always by physical phase label, never by angle.
+"""
+function _phase_separation_class(angles::AbstractVector{<:Real})::Symbol
+    length(angles) >= 2 || return :incoherent
+    diffs   = [_wrap_pi(angles[i+1] - angles[i]) for i in 1:length(angles)-1]
+    classes = map(_separation_of_diff, diffs)
+    all(==(first(classes)), classes) ? first(classes) : :incoherent
+end
+
 """
     _phase_sequence_class(order, phase_data) -> Symbol
 
-Classify the phasor rotation of a label-ordered (`a`,`b`,`c`) bank from its
-per-phase angles. Returns `:positive` when each successive phase lags the
-previous by ≈120° (the standard a→b→c rotation), `:negative` when each leads by
-≈120°, or `:incoherent` when the angles are not a consistent balanced set
-(within [`_PHASE_BALANCE_TOL_RAD`](@ref)). Ordering is always by physical phase
-label, never by angle — the angles only decide whether the bank is self-
-consistent enough to be one source, and which rotation it carries.
+Classify the phasor arrangement of a label-ordered (`a`,`b`,`c`) bank from its
+per-phase angles by delegating to [`_phase_separation_class`](@ref). Ordering is
+always by physical phase label, never by angle — the angles only decide which
+arrangement the bank carries (and whether it is self-consistent enough to merge).
 """
 function _phase_sequence_class(order::Vector{String},
                                phase_data::Dict{String,Tuple{Float64,Float64}})::Symbol
     length(order) >= 2 || return :incoherent
-    angs  = [phase_data[p][2] for p in order]
-    diffs = [_wrap_pi(angs[i+1] - angs[i]) for i in 1:length(angs)-1]
-    step  = -2π / 3  # positive sequence: each successive phase lags 120°
-    if all(d -> abs(_wrap_pi(d - step)) <= _PHASE_BALANCE_TOL_RAD, diffs)
-        return :positive
-    elseif all(d -> abs(_wrap_pi(d + step)) <= _PHASE_BALANCE_TOL_RAD, diffs)
-        return :negative
-    else
-        return :incoherent
-    end
+    _phase_separation_class([phase_data[p][2] for p in order])
 end
 
 """
@@ -602,17 +638,27 @@ function _merge_phase_voltage_sources!(net::Dict{String,Any})
 
         order = [p for p in _PHASE_TERMINALS if haskey(phase_data, p)]
 
-        # Angle-coherence guard: only collapse a bank whose per-phase angles form
-        # a balanced ±120° rotation — that is the evidence they are one source.
+        # Angle-coherence guard: collapse a bank whose per-phase angles form a
+        # 3-phase-style arrangement (positive/negative/zero rotation about the
+        # a,b,c labels). Quadrature (90°, two-phase) and anti-phase (180°,
+        # split-phase) banks are NOT 3-phase sources and are left unmerged, as is
+        # an incoherent set.
         seq = _phase_sequence_class(order, phase_data)
-        if seq === :incoherent
+        if seq in (:incoherent, :quadrature, :anti_phase)
+            reason = seq === :quadrature ?
+                "per-phase voltage angles are a quadrature (≈90°, two-phase) set, " *
+                "not a 3-phase rotation; left unmerged." :
+                seq === :anti_phase ?
+                "per-phase voltage angles are anti-phase (≈180°, split-phase) set, " *
+                "not a 3-phase rotation; left unmerged." :
+                "per-phase voltage angles are not a balanced ±120° rotation " *
+                "(within $(round(rad2deg(_PHASE_BALANCE_TOL_RAD); digits=1))°); left unmerged."
             push!(declined_notes, Dict{String,Any}(
                 "bus"        => bus,
                 "candidates" => sort(member_ids),
                 "phases"     => order,
-                "reason"     => "per-phase voltage angles are not a balanced " *
-                                "±120° rotation (within $(round(rad2deg(_PHASE_BALANCE_TOL_RAD); digits=1))°); " *
-                                "left unmerged.",
+                "arrangement"=> string(seq),
+                "reason"     => reason,
             ))
             continue
         end
@@ -647,6 +693,10 @@ function _merge_phase_voltage_sources!(net::Dict{String,Any})
             note["warning"] = "angle rotation is negative-sequence but phases are " *
                               "labelled a→b→c — likely a phase-labelling error; " *
                               "merged faithfully (angles preserved), verify the source."
+        elseif seq === :zero
+            note["warning"] = "all phases share one angle — zero-sequence; not a " *
+                              "valid 3-phase supply; merged faithfully (angles " *
+                              "preserved), verify the source."
         end
         push!(merged_notes, note)
     end
