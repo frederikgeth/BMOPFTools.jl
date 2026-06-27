@@ -299,7 +299,7 @@ const _ALL_VOLTAGE_BOUND_KEYS = [
     "vpos_min", "vpos_max",
     "vneg_max", "vzero_max",
     "vn_max",
-    "va_diff_min", "va_diff_max",
+    "va_diff_min", "va_diff_max", "va_nom",
 ]
 
 function _fix_source_bus_bounds!(net′, entries)

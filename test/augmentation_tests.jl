@@ -530,3 +530,52 @@ end
     net′, _ = augment_case(_lv240_net(); config=cfg)
     @test net′["bus"]["b1"]["v_declared"] ≈ 230.0
 end
+
+# ── T-VADIFF: angle-difference bounds augmentation (opt-in) ───────────────────
+
+# Split-phase: MV→center_tap→split-phase LV (legs "1","2", neutral "n").
+function _split_phase_net()
+    parse_bmopf("""
+    {"bus":{
+        "mv":{"terminal_names":["1","n"]},
+        "lv":{"terminal_names":["1","2","n"]}},
+     "voltage_source":{"src":{"bus":"mv","terminal_map":["1"],
+         "v_magnitude":[2400.0],"v_angle":[0.0]}},
+     "transformer":{"center_tap":{"ct":{"bus_from":"mv","bus_to":"lv",
+         "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
+         "v_ref_from":2400.0,"v_ref_to":120.0}}},
+     "load":{"l1":{"bus":"lv","terminal_map":["1","n"],
+         "configuration":"SINGLE_PHASE","p_nom":[1000.0],"q_nom":[0.0]}}}
+    """; from_string=true)
+end
+
+@testset "T-VADIFF: angle-diff bounds — off by default" begin
+    net′, _ = augment_case(_lv_net())          # default recipe: flag off
+    @test !haskey(net′["bus"]["b1"], "va_nom")
+    @test !haskey(net′["bus"]["b1"], "va_diff_min")
+    @test !haskey(net′["bus"]["b1"], "va_diff_max")
+end
+
+@testset "T-VADIFF: 3φ bus gets ±120° nominal + ±30° window" begin
+    r = AugmentationRecipe(apply_va_diff_bounds = true)
+    net′, mf = augment_case(_lv_net(); recipe = r)
+    b1 = net′["bus"]["b1"]
+    @test b1["va_nom"] ≈ [0.0, -2π/3, 2π/3]
+    @test b1["va_diff_min"] ≈ -0.5236  atol=1e-4
+    @test b1["va_diff_max"] ≈  0.5236  atol=1e-4
+    # Source bus is skipped (its phasor is pinned).
+    @test !haskey(net′["bus"]["src"], "va_nom")
+    fields = [e.field for e in mf.entries if e.component_id == "b1"]
+    @test "va_nom" in fields && "va_diff_min" in fields
+end
+
+@testset "T-VADIFF: split-phase legs get 180° nominal; 1φ skipped" begin
+    r = AugmentationRecipe(apply_va_diff_bounds = true)
+    net′, _ = augment_case(_split_phase_net(); recipe = r)
+    lv = net′["bus"]["lv"]
+    @test lv["va_nom"] ≈ [0.0, π]               # legs anti-phase
+    @test lv["va_diff_min"] ≈ -0.5236  atol=1e-4
+    # Single-phase MV bus: no angle-diff data (offset is never guessed).
+    @test !haskey(net′["bus"]["mv"], "va_nom")
+    @test !haskey(net′["bus"]["mv"], "va_diff_min")
+end
