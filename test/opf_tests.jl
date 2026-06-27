@@ -1144,15 +1144,15 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
-    # T-INV1: Single-phase FOUR_LEG inverter — unconstrained Q (box bounds)
+    # T-INV1: Single-phase FOUR_LEG IBR — unconstrained Q (box bounds)
     #
-    # A PV inverter sits at bus1 alongside a load. The inverter has p_max on
+    # A PV IBR sits at bus1 alongside a load. The IBR has p_max on
     # each phase so the augmentation pass fills in q_min/q_max at cos φ = 0.90.
-    # The OPF minimises slack cost so it maximises the (cheaper) inverter
+    # The OPF minimises slack cost so it maximises the (cheaper) IBR
     # dispatch. All three phases are symmetric → each phase decouples.
     #
-    # With p_max = 3000 W/phase, p_nom_load = 2000 W/phase and the inverter
-    # cost < slack cost, the OPF should dispatch the inverter at p_avail and
+    # With p_max = 3000 W/phase, p_nom_load = 2000 W/phase and the IBR
+    # cost < slack cost, the OPF should dispatch the IBR at p_avail and
     # let it offset the load.
     # ─────────────────────────────────────────────────────────────────────────
     @testset "T-SP: split-phase center-tap init angles are anti-phase" begin
@@ -1184,7 +1184,7 @@
         @test isapprox(abs(rem2pi(i2 - i1, RoundNearest)), π; atol=0.05)  # legs ~180° apart
     end
 
-    @testset "T-INV1: FOUR_LEG inverter, box Q bounds via augmentation" begin
+    @testset "T-INV1: FOUR_LEG IBR, box Q bounds via augmentation" begin
         net = parse_bmopf("""
         {"bus":{
             "src": {"terminal_names":["1","2","3","n"],
@@ -1203,7 +1203,7 @@
          "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
              "configuration":"WYE",
              "p_nom":[2000.0,2000.0,2000.0],"q_nom":[0.0,0.0,0.0]}},
-         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
              "topology":"FOUR_LEG","prime_mover":"PV",
              "s_max":[3000.0,3000.0,3000.0],
              "p_max":[3000.0,3000.0,3000.0],"p_min":[0.0,0.0,0.0],
@@ -1216,25 +1216,25 @@
             apply_thermal=false, apply_q_bounds=false,
             apply_slack_generator=false))
 
-        # Augmentation should have added q_min/q_max to the inverter
-        inv = net′["inverter"]["pv1"]
+        # Augmentation should have added q_min/q_max to the IBR
+        inv = net′["ibr"]["pv1"]
         @test haskey(inv, "q_max")
         @test inv["q_max"][1] ≈ 3000.0 * tan(acos(0.90))   rtol=1e-6
 
         res = solve_opf(net′)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        @test haskey(res, "inverter")
-        @test haskey(res["inverter"], "pv1")
-        # Inverter should dispatch close to p_max on each phase (cheaper than slack)
+        @test haskey(res, "ibr")
+        @test haskey(res["ibr"], "pv1")
+        # IBR should dispatch close to p_max on each phase (cheaper than slack)
         for t in ("1","2","3")
-            @test res["inverter"]["pv1"][t]["pg"] ≈ 3000.0   atol=1.0
+            @test res["ibr"]["pv1"][t]["pg"] ≈ 3000.0   atol=1.0
         end
     end
 
     # ─────────────────────────────────────────────────────────────────────────
     # T-INV2: Constant power-factor equality constraint
     #
-    # A FOUR_LEG PV inverter with a power_factor control profile (pf = 0.9,
+    # A FOUR_LEG PV IBR with a power_factor control profile (pf = 0.9,
     # lagging). The OPF must satisfy Q_k = -tan(arccos(0.9)) * P_k exactly.
     # We verify the Q/P ratio at the solved dispatch point.
     # ─────────────────────────────────────────────────────────────────────────
@@ -1261,7 +1261,7 @@
              "configuration":"WYE",
              "p_nom":[2000.0,2000.0,2000.0],"q_nom":[0.0,0.0,0.0]}},
          "control_profile":{"pf09":{"power_factor":{"pf":0.9}}},
-         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
              "topology":"FOUR_LEG","prime_mover":"PV",
              "s_max":[3000.0,3000.0,3000.0],
              "p_max":[2700.0,2700.0,2700.0],"p_min":[0.0,0.0,0.0],
@@ -1274,14 +1274,14 @@
             apply_vpp_bounds=false, apply_vneg_bounds=false,
             apply_thermal=false, apply_q_bounds=false,
             apply_slack_generator=false))
-        @test !haskey(net′["inverter"]["pv1"], "q_min")
+        @test !haskey(net′["ibr"]["pv1"], "q_min")
 
         res = solve_opf(net′)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
         for t in ("1","2","3")
-            pg = res["inverter"]["pv1"][t]["pg"]
-            qg = res["inverter"]["pv1"][t]["qg"]
+            pg = res["ibr"]["pv1"][t]["pg"]
+            qg = res["ibr"]["pv1"][t]["qg"]
             # PF equality: Q = -tan_phi * P  (pf > 0 → lagging → absorbing VAr)
             @test qg ≈ -tan_phi * pg   atol=0.1
         end
@@ -1289,13 +1289,13 @@
         # solution_check must not flag PF deviation
         f = Finding[]
         solution_check(net′, res, f)
-        @test !any(f_ -> f_.code == "W.SOL.INV_PF_DEVIATION", f)
+        @test !any(f_ -> f_.code == "W.SOL.IBR_PF_DEVIATION", f)
     end
 
     # ─────────────────────────────────────────────────────────────────────────
     # T-INV3: s_max circle is binding
     #
-    # Inverter with p_max = s_max * pf (exactly on the circle boundary).
+    # IBR with p_max = s_max * pf (exactly on the circle boundary).
     # With the constant-PF coupling the apparent power must equal s_max.
     # ─────────────────────────────────────────────────────────────────────────
     @testset "T-INV3: s_max apparent-power circle respected" begin
@@ -1318,7 +1318,7 @@
          "load":{"ld":{"bus":"b1","terminal_map":["1","n"],
              "configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]}},
          "control_profile":{"pf09":{"power_factor":{"pf":0.9}}},
-         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","n"],
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","n"],
              "topology":"SINGLE_PHASE","prime_mover":"PV",
              "s_max":[3000.0],"p_max":[2700.0],"p_min":[0.0],
              "control_profile":"pf09","cost":[0.1]}}}
@@ -1326,24 +1326,24 @@
 
         res = solve_opf(net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        pg = res["inverter"]["pv1"]["1"]["pg"]
-        qg = res["inverter"]["pv1"]["1"]["qg"]
+        pg = res["ibr"]["pv1"]["1"]["pg"]
+        qg = res["ibr"]["pv1"]["1"]["qg"]
         sm = sqrt(pg^2 + qg^2)
         @test sm <= s_max_k * 1.001   # within 0.1 % of nameplate
         @test pg <= p_max_k * 1.001
     end
 
     # ─────────────────────────────────────────────────────────────────────────
-    # T-INV4: per-unit mode parity for inverters
+    # T-INV4: per-unit mode parity for IBRs
     #
-    # Regression guard for the inverter per-unit gap: _to_per_unit must scale
-    # the inverter's p/q/s bounds by s_base and _from_per_unit must scale the
+    # Regression guard for the IBR per-unit gap: _to_per_unit must scale
+    # the IBR's p/q/s bounds by s_base and _from_per_unit must scale the
     # cri/cii/pg/qg results back to SI. The SI-mode and PU-mode solves of the
-    # same network must agree on the reported inverter dispatch (pg/qg) and
+    # same network must agree on the reported IBR dispatch (pg/qg) and
     # currents (cri/cii). Without the scalers the PU-mode bounds are applied at
     # 1e6× the intended tightness and the results come out in a hybrid scale.
     # ─────────────────────────────────────────────────────────────────────────
-    @testset "T-INV4: per-unit mode matches SI mode for inverters" begin
+    @testset "T-INV4: per-unit mode matches SI mode for IBRs" begin
         net = parse_bmopf("""
         {"bus":{
             "src": {"terminal_names":["1","2","3","n"],
@@ -1363,7 +1363,7 @@
              "configuration":"WYE",
              "p_nom":[2000.0,2000.0,2000.0],"q_nom":[0.0,0.0,0.0]}},
          "control_profile":{"pf09":{"power_factor":{"pf":0.9}}},
-         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
              "topology":"FOUR_LEG","prime_mover":"PV",
              "s_max":[3000.0,3000.0,3000.0],
              "p_max":[2700.0,2700.0,2700.0],"p_min":[0.0,0.0,0.0],
@@ -1382,8 +1382,8 @@
         @test res_pu["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
         for t in ("1","2","3")
-            si = res_si["inverter"]["pv1"][t]
-            pu = res_pu["inverter"]["pv1"][t]
+            si = res_si["ibr"]["pv1"][t]
+            pu = res_pu["ibr"]["pv1"][t]
             @test pu["pg"]  ≈ si["pg"]   rtol=1e-4
             @test pu["qg"]  ≈ si["qg"]   atol=1.0
             @test pu["cri"] ≈ si["cri"]  rtol=1e-4 atol=1e-3

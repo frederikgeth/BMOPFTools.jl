@@ -22,7 +22,7 @@ single-phase loads and three neutral reactors.
 !!! note "Two deep-dive tutorials branch off this one"
     Once the pipeline makes sense, [DER placement](tutorial_ders.md) explores the
     placement *strategies* and how the binding constraint flips, and the
-    [VVWO tutorial](tutorial_vvwo.md) adds smart-inverter Volt-var/Volt-watt
+    [VVWO tutorial](tutorial_vvwo.md) adds smart-IBR Volt-var/Volt-watt
     control inside the OPF.
 
 ## 1. Load — OpenDSS → BMOPF
@@ -101,23 +101,23 @@ render_manifest(fix_mf)
 ## 4. Place DERs
 
 A faithful import is usually a passive load feeder — there is nothing for an OPF
-to optimise. [`add_inverters`](@ref) (and its sibling [`add_generators`](@ref))
+to optimise. [`add_ibrs`](@ref) (and its sibling [`add_generators`](@ref))
 **declare** a DER fleet with a recipe and let the library choose buses from the
 network's own semantics, recording every field it writes. Here a
-`:load_following` recipe drops one PV inverter on each load bus.
+`:load_following` recipe drops one PV IBR on each load bus.
 
 See the [DER placement tutorial](tutorial_ders.md) for the full menu of
 placement strategies, sizing bases, and cost knobs.
 
 ```@example e2e
-inv_recipe = InverterRecipe(
-    strategy     = :load_following,   # one PV inverter per load bus
+inv_recipe = IBRRecipe(
+    strategy     = :load_following,   # one PV IBR per load bus
     s_fraction   = 5.0,               # s_max = 5 × local load
     s_to_p_ratio = 0.90,              # leave VA headroom for reactive support
     cost_basis   = :uniform, der_cost_uniform = 0.2,   # cheaper than the slack
 )
 
-net_der, der_mf = add_inverters(net_fixed; recipe = inv_recipe)
+net_der, der_mf = add_ibrs(net_fixed; recipe = inv_recipe)
 
 render_manifest(der_mf)
 ```

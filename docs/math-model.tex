@@ -98,7 +98,7 @@ $\mc{L}$           & Lines & network \\
 $\mc{S}$           & Switches & network \\
 $\mc{D}$           & Loads & network \\
 $\mc{G}$           & Generators & network \\
-$\mc{N}$           & Inverters & network \\
+$\mc{N}$           & IBRs & network \\
 $\mc{V}$           & Voltage sources (slack buses) & network \\
 $\mc{X}^\text{YY}$ & Single-phase wye--wye transformers (\texttt{single\_phase}) & network \\
 $\mc{X}^\text{CT}$ & Center-tap split-phase transformers (\texttt{center\_tap}) & network \\
@@ -128,8 +128,8 @@ $I^\text{max}_{\ell,k}$ & A & Current magnitude limit, conductor $k$ of line $\e
 $P^{d,\text{nom}}_{d,k}$, $Q^{d,\text{nom}}_{d,k}$ & W, var & Nominal active/reactive demand, phase $k$ & \texttt{load.p\_nom}, \texttt{q\_nom} \\
 $P^{g,\text{min/max}}_{g,k}$, $Q^{g,\text{min/max}}_{g,k}$ & W, var & Generator active/reactive power limits & \texttt{generator.p\_min/max}, \texttt{q\_min/max} \\
 $c^g_1$ & \$/W & Linear generation cost coefficient & \texttt{generator.cost} \\
-$P^{n,\text{min/max}}_{n,k}$, $Q^{n,\text{min/max}}_{n,k}$ & W, var & Inverter active/reactive power limits & \texttt{inverter.p\_min/max}, \texttt{q\_min/max} \\
-$S^{\max}_{n,k}$ & VA & Inverter apparent-power rating, phase $k$ & \texttt{inverter.s\_max} \\
+$P^{n,\text{min/max}}_{n,k}$, $Q^{n,\text{min/max}}_{n,k}$ & W, var & IBR active/reactive power limits & \texttt{ibr.p\_min/max}, \texttt{q\_min/max} \\
+$S^{\max}_{n,k}$ & VA & IBR apparent-power rating, phase $k$ & \texttt{ibr.s\_max} \\
 $\mathrm{pf}_n$ & -- & Signed constant power factor (if set) & \texttt{control\_profile.power\_factor.pf} \\
 $V^s_{v,k}$, $\theta^s_{v,k}$ & V, rad & Voltage source magnitude and angle at terminal $k$ & \texttt{voltage\_source.v\_magnitude/angle} \\
 $v^b_\text{min}$, $v^b_\text{max}$ & V & Phase voltage magnitude limits at bus $b$ & \texttt{bus.v\_min}, \texttt{v\_max} \\
@@ -164,7 +164,7 @@ $\tilde{c}^r_{\ell,k}$, $\tilde{c}^i_{\ell,k}$ & same & A & Series current (to-s
 $c^{r,s}_{s,k}$, $c^{i,s}_{s,k}$ & $s\in\mc{S},\,k=1\ldots n_s$ & A & Switch current, conductor $k$ \\
 $c^{r,d}_{d,k}$, $c^{i,d}_{d,k}$ & $d\in\mc{D},\,k=1\ldots|\mc{T}_d^\phi|$ & A & Load current, phase conductor $k$ \\
 $c^{r,g}_{g,k}$, $c^{i,g}_{g,k}$ & $g\in\mc{G},\,k=1\ldots|\mc{T}_g^\phi|$ & A & Generator current, phase conductor $k$ \\
-$c^{r,n}_{n,k}$, $c^{i,n}_{n,k}$ & $n\in\mc{N},\,k=1\ldots n^\phi_n$ & A & Inverter current, phase conductor $k$ \\
+$c^{r,n}_{n,k}$, $c^{i,n}_{n,k}$ & $n\in\mc{N},\,k=1\ldots n^\phi_n$ & A & IBR current, phase conductor $k$ \\
 $c^{r,v}_{v,k}$, $c^{i,v}_{v,k}$ & $v\in\mc{V},\,k=1\ldots n_v$ & A & Voltage source slack current \\
 $c^{r,x}_{x,\sigma,k}$, $c^{i,x}_{x,\sigma,k}$ & $x\in\mc{X},\,\sigma\in\{\text{fr},\text{to}\}$ & A & Transformer winding current \\
 \bottomrule
@@ -427,10 +427,10 @@ line-to-line for DELTA generators, following the same convention as loads.
 Generator currents contribute positively to KCL at the phase terminal and
 negatively at the neutral terminal (current flows \emph{out of} the neutral).
 
-\subsection{Inverters}
-\label{sec:inverters}
+\subsection{IBRs}
+\label{sec:ibrs}
 
-Inverters reuse the generator power model with the per-phase active and reactive
+IBRs reuse the generator power model with the per-phase active and reactive
 powers
 %
 \begin{align}
@@ -465,7 +465,7 @@ given, by a quadratic apparent-power circle:
 Reactive power is handled in one of two mutually exclusive ways.  By default
 box bounds apply,
 $Q^{n,\text{min}}_{n,k} \leq Q_{n,k} \leq Q^{n,\text{max}}_{n,k}$.  When the
-inverter references a \texttt{control\_profile} with a signed power factor
+IBR references a \texttt{control\_profile} with a signed power factor
 $\mathrm{pf}_n$, $Q$ is instead coupled to $P$ by the exact equality
 %
 \begin{equation}
@@ -475,7 +475,7 @@ $\mathrm{pf}_n$, $Q$ is instead coupled to $P$ by the exact equality
 \end{equation}
 %
 with $\mathrm{pf}_n > 0$ lagging (absorbing VAr) and $\mathrm{pf}_n < 0$ leading
-(injecting VAr).  Inverter currents enter KCL with the generator sign convention
+(injecting VAr).  IBR currents enter KCL with the generator sign convention
 (injection positive at the phase terminal); for \texttt{FOUR\_LEG} the negated
 phase current is added at the neutral terminal.
 
@@ -781,8 +781,8 @@ Load $d$ (DELTA) & $t_k$ (positive) & $-c^{r,d}_{d,k}$ & Current leaves \\
 Load $d$ (DELTA) & $t_{k^+}$ (negative) & $+c^{r,d}_{d,k}$ & Current returns \\
 Generator $g$ (WYE) & phase $t^\phi_k$ & $+c^{r,g}_{g,k}$ & Generator injects \\
 Generator $g$ (WYE) & neutral $n_b$ & $-c^{r,g}_{g,k}$ & Return path \\
-Inverter $n$ (FOUR\_LEG) & phase $t^\phi_k$ & $+c^{r,n}_{n,k}$ & Inverter injects \\
-Inverter $n$ (FOUR\_LEG) & neutral $n_b$ & $-c^{r,n}_{n,k}$ & Return path \\
+IBR $n$ (FOUR\_LEG) & phase $t^\phi_k$ & $+c^{r,n}_{n,k}$ & IBR injects \\
+IBR $n$ (FOUR\_LEG) & neutral $n_b$ & $-c^{r,n}_{n,k}$ & Return path \\
 Transformer $x$ & any terminal $t$ & $-c^{r,x}_{x,\sigma,k}$ & All winding currents leave \\
 \bottomrule
 \end{tabular}

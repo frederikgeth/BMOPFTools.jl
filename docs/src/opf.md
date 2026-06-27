@@ -69,14 +69,14 @@ All variables are real-valued. By default they are in SI units (V and A); see
 | $\tilde{c}^r_{\ell,k},\; \tilde{c}^i_{\ell,k}$ | line $\ell$, conductor $k$ | Series current, to-side |
 | $c^{r,d}_{d,k},\; c^{i,d}_{d,k}$ | load $d$, phase $k$ | Load current |
 | $c^{r,g}_{g,k},\; c^{i,g}_{g,k}$ | generator $g$, phase $k$ | Generator current |
-| $c^{r,n}_{n,k},\; c^{i,n}_{n,k}$ | inverter $n$, phase $k$ | Inverter current |
+| $c^{r,n}_{n,k},\; c^{i,n}_{n,k}$ | IBR $n$, phase $k$ | IBR current |
 | $c^{r,s}_{v,k},\; c^{i,s}_{v,k}$ | voltage source $v$, phase $k$ | Source slack current |
 | $c^{r,x}_{x,\sigma,k},\; c^{i,x}_{x,\sigma,k}$ | transformer $x$, side $\sigma$, conductor $k$ | Transformer winding current (two-bus subtypes) |
 | $c^{r,w}_{x,j,k},\; c^{i,w}_{x,j,k}$ | `n_winding` transformer $x$, winding $j$, phase $k$ | n-winding winding current |
 
-Load, generator, inverter, and source current variables cover **phase
-conductors only**; neutral return current is implicit in KCL. Inverters add an
-analogous current variable per phase — see [Inverters](#inverters) below.
+Load, generator, IBR, and source current variables cover **phase
+conductors only**; neutral return current is implicit in KCL. IBRs add an
+analogous current variable per phase — see [IBRs](#ibrs) below.
 
 ---
 
@@ -119,7 +119,7 @@ where $c^g_k$ (currency/W) is the **per-phase** linear cost coefficient — the
 `cost` field is a vector with one entry per phase term, indexed by $k$ — and
 $\Delta v_k$ is the phase-to-neutral (WYE) or line-to-line (DELTA) voltage at
 generator $g$'s $k$-th phase terminal (see [Generators](@ref generators-section)
-below). The same per-phase `cost` vector prices the voltage source and inverters.
+below). The same per-phase `cost` vector prices the voltage source and IBRs.
 
 ---
 
@@ -404,9 +404,9 @@ Q^{g,\text{min}}_{g,k}
 \;\leq\; Q^{g,\text{max}}_{g,k}
 ```
 
-#### Inverters
+#### IBRs
 
-Inverters use the same bilinear current/power model as generators, with the
+IBRs use the same bilinear current/power model as generators, with the
 per-phase active and reactive powers
 
 ```math
@@ -415,7 +415,7 @@ P_{n,k} = \Delta v^r_k \, c^{r,n}_{n,k} + \Delta v^i_k \, c^{i,n}_{n,k},
 Q_{n,k} = \Delta v^i_k \, c^{r,n}_{n,k} - \Delta v^r_k \, c^{i,n}_{n,k}.
 ```
 
-The voltage difference $\Delta v_k$ depends on the inverter **topology**:
+The voltage difference $\Delta v_k$ depends on the IBR **topology**:
 
 - **`FOUR_LEG`** — phase-to-neutral, $\Delta v_k = v_{b,t_k} - v_{b,t_n}$, one
   current per phase conductor; the neutral is the last terminal in
@@ -438,7 +438,7 @@ Reactive power is governed in one of two mutually exclusive ways:
 
 - **Box bounds** (default): $Q^{\min}_{n,k} \leq Q_{n,k} \leq Q^{\max}_{n,k}$.
   These are normally filled by the augmentation pass before the OPF runs.
-- **Constant power factor**: when the inverter references a `control_profile`
+- **Constant power factor**: when the IBR references a `control_profile`
   with a signed `power_factor.pf`, $Q$ is coupled to $P$ by the exact equality
 
   ```math
@@ -452,7 +452,7 @@ Reactive power is governed in one of two mutually exclusive ways:
   sub-object, $Q$ is pinned to a piecewise-linear function of the phase
   voltage magnitude $U_{n,k} = |\Delta v_k|$,
   $Q_{n,k} = Q^{\text{base}}_{n,k}\, f^{\mathrm{VV}}(U_{n,k})$ (an equality — the
-  inverter follows the curve).
+  IBR follows the curve).
 
 Active power follows either the box upper bound above or, when the
 `control_profile` declares a `volt_watt` sub-object, a **Volt-watt** curtailment
@@ -484,23 +484,23 @@ stable `log1pexp`/`logistic` evaluation in full.
 
 Breakpoint voltages are SI volts (phase-to-neutral) and are scaled into model
 units at build time, so the droop is identical in SI and per-unit mode. Droop is
-applied for `SINGLE_PHASE` and `FOUR_LEG` only; a `THREE_LEG` (delta) inverter
+applied for `SINGLE_PHASE` and `FOUR_LEG` only; a `THREE_LEG` (delta) IBR
 has too few degrees of freedom for a per-phase droop, so a profile on it is
 ignored (box bounds retained) with a warning. Regional default characteristics
 (e.g. AS/NZS 4777.2:2020 "Australia A" for Queensland) are injected by
-[`augment_case`](@ref) from the `[augment.smart_inverter]` config section.
+[`augment_case`](@ref) from the `[augment.smart_ibr]` config section.
 
 By default each phase responds to its own magnitude $U_{n,k}$. Setting the
-inverter field **`voltage_ref`** to `"AVERAGE"` (default `"PER_PHASE"`) instead
+IBR field **`voltage_ref`** to `"AVERAGE"` (default `"PER_PHASE"`) instead
 feeds every phase the mean of the phase magnitudes,
 $\bar U_n = \tfrac{1}{m}\sum_k U_{n,k}$, as the common reference for both the
-Volt-var and Volt-watt curves — modelling inverters that regulate on the average
+Volt-var and Volt-watt curves — modelling IBRs that regulate on the average
 terminal voltage rather than per phase. The setting only affects multi-phase
-`FOUR_LEG` inverters; on a `SINGLE_PHASE` inverter it is a no-op and emits a
+`FOUR_LEG` IBRs; on a `SINGLE_PHASE` IBR it is a no-op and emits a
 warning. The [VVWO tutorial](tutorial_vvwo.md) works a Volt-var-Watt scenario
 end to end, solving the droop control and the network simultaneously.
 
-The inverter current variables enter KCL with the same sign convention as
+The IBR current variables enter KCL with the same sign convention as
 generators (injection positive into the bus); for `FOUR_LEG` the negated phase
 current is also added to the neutral terminal.
 
@@ -872,7 +872,7 @@ The cost objective is replaced by the $\ell_2^2$ norm of all slack injections:
                        + \bigl(c^{i,\varepsilon}_{b,t}\bigr)^2\Bigr]
 ```
 
-All device models — load, generator, **inverter**, shunt, transformer, switch,
+All device models — load, generator, **IBR**, shunt, transformer, switch,
 and the voltage-source slack — are built identically to `solve_opf`. The only
 differences are the deliberate ones: operational **network** bounds (voltage
 magnitude/sequence, line thermal-angle, bus limits) are **not** hard constraints

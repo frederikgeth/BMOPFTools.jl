@@ -163,9 +163,9 @@ concern, so a failure points straight at the responsible component:
 | `pf_center_tap_loaded`, `pf_center_tap_balanced_heavy`, `pf_center_tap_240`, `pf_center_tap_singleleg_pn`, `pf_center_tap_oneleg_extreme` | split-phase **coupled-coil** model under load — leg symmetry on a balanced heavy load, a 240 V phase-to-phase load, a single leg-to-neutral load, and an extreme one-leg load (see [Split-phase transformer depth](#Split-phase-transformer-depth)) |
 | `pf_autotransformer`, `pf_open_delta_reg` | step-voltage regulators / autotransformers and open-delta (ABBC) regulation |
 | `pf_cap_wye`, `pf_cap_delta` | fixed shunt **capacitor banks** (wye / delta) as a constant susceptance `B = q_rated/v_rated²`, validated against OpenDSS's own `Capacitor` solve in both SI and per-unit, and cross-checked against the equivalent `shunt` object |
-| `pf_pv_1ph`, `pf_pv_4leg` | inverter current injection at a pinned dispatch — single-phase and FOUR_LEG |
+| `pf_pv_1ph`, `pf_pv_4leg` | IBR current injection at a pinned dispatch — single-phase and FOUR_LEG |
 
-Single-phase, FOUR_LEG per-phase, and FOUR_LEG AVERAGE-reference **smart-inverter
+Single-phase, FOUR_LEG per-phase, and FOUR_LEG AVERAGE-reference **smart-IBR
 droop** are additionally validated against OpenDSS `InvControl` (deadband, slope,
 and saturation regimes) within the same file.
 
@@ -319,7 +319,7 @@ so the chain is OpenDSS case → BMOPF schema → BMOPF OPF → PMD objective.
 ### Tier 3 — droop optimization correctness
 
 Source: [`test/volt_var_watt_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/volt_var_watt_tests.jl).
-The smart-inverter Volt-var / Volt-watt droop is encoded as constraints *inside*
+The smart-IBR Volt-var / Volt-watt droop is encoded as constraints *inside*
 the OPF (see [Smooth droop encoding](relu_softplus_encoding.md) and the
 [VVWO tutorial](tutorial_vvwo.md)). These tests check the optimizer lands on the
 droop curve in every regime:
@@ -397,8 +397,8 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Switch current | A | `cr_sw²+ci_sw² ≤ ilim²` | `branch.jl` | gap |
 | Transformer winding/terminal currents | A | `Is²,It²,In² ≤ i_max²` | `transformer.jl` | gap |
 | Generator / source P,Q limits | D | bounds on `p=vr·ir+vi·ii` | `generator.jl`, `source.jl` | covered (T3, T4) |
-| Generator / inverter apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `inverter.jl` | scaffold (L-A8) |
-| Inverter power-factor coupling | D | `pf·q + tan_φ·p = 0` | `inverter.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
+| Generator / IBR apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `IBR.jl` | scaffold (L-A8) |
+| IBR power-factor coupling | D | `pf·q + tan_φ·p = 0` | `IBR.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
 
 > **A subtlety this surfaced — now resolved.** The intra-bus angle limit bounds
 > the difference `θ_j − θ_k` of each ordered phase pair *centered on a nominal
@@ -418,7 +418,7 @@ row is one unit test to develop, and the *status* column tracks coverage.
 |---|---|---|
 | validate your power-flow / component models | the `.dss` cases + a live OpenDSS solve, compared as above | the network physics is correct |
 | validate your optimizer | the Tier-1 analytic targets and the Tier-2 PMD objective table as regression checks | the optimizer reaches the true optimum |
-| validate smart-inverter control | the Tier-3 droop setpoints | control laws are enforced as modelled |
+| validate smart-IBR control | the Tier-3 droop setpoints | control laws are enforced as modelled |
 | validate your network-limit encodings | the bind-and-recompute method + the limit inventory | each limit means what it claims, in rectangular variables |
 
 The two reuse paths are complementary: the analytic and PMD numbers are

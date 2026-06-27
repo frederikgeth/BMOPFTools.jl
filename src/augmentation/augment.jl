@@ -86,11 +86,11 @@ function augment_case(net::Dict{String,Any};
     # ── Pass 3: generation ────────────────────────────────────────────────────
     _apply_generation!(net′, entries, recipe)
 
-    # ── Pass 4: inverter dispatch bounds ─────────────────────────────────────
-    recipe.apply_inverter && _apply_inverter_augmentation!(net′, entries, recipe)
+    # ── Pass 4: IBR dispatch bounds ─────────────────────────────────────
+    recipe.apply_ibr && _apply_ibr_augmentation!(net′, entries, recipe)
 
-    # ── Pass 5: smart-inverter Volt-var/Volt-watt defaults (config-driven) ───
-    _apply_smart_inverter_augmentation!(net′, entries, _smart_inverter_cfg(config))
+    # ── Pass 5: smart-IBR Volt-var/Volt-watt defaults (config-driven) ───
+    _apply_smart_ibr_augmentation!(net′, entries, _smart_ibr_cfg(config))
 
     # ── Snapshot findings_after ───────────────────────────────────────────────
     fa = Finding[]

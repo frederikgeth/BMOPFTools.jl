@@ -112,15 +112,15 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `W.DOM.SHUNT_ON_GROUNDED` | W | A `shunt` connects to a terminal whose voltage is pinned to 0 V — either declared in the bus's `perfectly_grounded_terminals` or the neutral of a voltage-source bus (pinned to system ground). The shunt then draws `I = G·V = 0` current and is completely inert. Usually a redundant element, or a sign that impedance grounding was intended where a hard V=0 ground was actually declared. |
 | `I.DOM.NEGATIVE_LOAD` | I | Loads with negative `p_nom` — embedded generation hiding as negative load; skews adequacy statistics and dodges the generator model. See [object identity](semantic_modeling.md#object-identity). |
 | `I.DOM.NEGATIVE_GENERATION` | I | A generator whose entire active range is `p_max ≤ 0` (only ever absorbs) — a consumer modelled as a generator (the mirror of `I.DOM.NEGATIVE_LOAD`); model it as a `load`. |
-| `I.DOM.GEN_LIKELY_INVERTER` | I | A `generator` sits on an LV bus (≤ 1 kV). Distribution-connected DERs are overwhelmingly inverter-interfaced; the `inverter` object models them faithfully (capability curve, no inertia, current limit, volt-var/volt-watt) where a synchronous-`generator` object does not. |
+| `I.DOM.GEN_LIKELY_IBR` | I | A `generator` sits on an LV bus (≤ 1 kV). Distribution-connected DERs are overwhelmingly inverter-interfaced; the `ibr` object models them faithfully (capability curve, no inertia, current limit, volt-var/volt-watt) where a synchronous-`generator` object does not. |
 | `W.DOM.LINE_LOW_IMPEDANCE` | W | A line whose absolute series impedance ‖Z‖_F = ‖(R+jX)‖_F × length is below 10⁻⁴ Ω. Near-zero impedance makes the KVL constraint nearly rank-deficient; model the section as a switch instead. |
 | `W.DOM.LINE_IMPEDANCE_SPREAD` | W | The worst adjacent-line ‖Z‖_F ratio (two lines sharing an interior bus, excluding voltage-source, transformer, and switch buses) exceeds 10⁵. At this contrast the NLP Jacobian loses roughly 5 decimal digits of precision; consider per-unit scaling or network reformulation. |
 | `I.DOM.LINE_IMPEDANCE_SPREAD` | I | Same as above but ratio is between 10³ and 10⁵ — common at MV/LV boundaries and usually benign, but worth reviewing if solvers struggle to converge. The result dict key `max_adjacent_impedance_ratio` always carries the worst observed value. |
-| `E.DOM.INV_P_BOUNDS` | E | Inverter `p_min > p_max` — the active-power box is empty; infeasible by construction. |
-| `E.DOM.INV_Q_BOUNDS` | E | Inverter `q_min > q_max` — the reactive-power box is empty. |
-| `E.DOM.INV_SMAX_NONPOSITIVE` | E | Inverter `s_max` has a non-positive entry — the apparent-power circle is empty, so no operating point exists. |
-| `W.DOM.INV_BOUND_EXCEEDS_SMAX` | W | An inverter P or Q box-bound magnitude exceeds `s_max` — that box bound can never bind because the apparent-power circle dominates; usually a units or sizing mistake. |
-| `W.DOM.INV_PV_ABSORBS` | W | A `prime_mover=PV` inverter has `p_min < 0`, i.e. it is allowed to absorb real power — physically implausible for PV; usually a sign error. |
+| `E.DOM.INV_P_BOUNDS` | E | IBR `p_min > p_max` — the active-power box is empty; infeasible by construction. |
+| `E.DOM.INV_Q_BOUNDS` | E | IBR `q_min > q_max` — the reactive-power box is empty. |
+| `E.DOM.INV_SMAX_NONPOSITIVE` | E | IBR `s_max` has a non-positive entry — the apparent-power circle is empty, so no operating point exists. |
+| `W.DOM.INV_BOUND_EXCEEDS_SMAX` | W | An IBR P or Q box-bound magnitude exceeds `s_max` — that box bound can never bind because the apparent-power circle dominates; usually a units or sizing mistake. |
+| `W.DOM.INV_PV_ABSORBS` | W | A `prime_mover=PV` IBR has `p_min < 0`, i.e. it is allowed to absorb real power — physically implausible for PV; usually a sign error. |
 
 ## LOAD — load model validation & analysis
 
@@ -283,7 +283,7 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 | `E.INT.UNKNOWN_BUS` | E | A component references a bus id that does not exist. |
 | `E.INT.UNKNOWN_LINECODE` | E | A line references a linecode that does not exist (distinct from *unused* linecodes). |
 | `E.INT.UNKNOWN_TERMINAL` | E | A terminal-map entry is not a terminal of the referenced bus — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10). |
-| `E.INT.UNKNOWN_CONTROL_PROFILE` | E | An inverter references a `control_profile` id that does not exist in the network's `control_profile` table. |
+| `E.INT.UNKNOWN_CONTROL_PROFILE` | E | An IBR references a `control_profile` id that does not exist in the network's `control_profile` table. |
 | `W.INT.DIM_MISMATCH` | W | Terminal-map arity vs linecode matrix size, `i_max` length vs conductor count, setpoint length vs configuration, source `vm`/`va` vs map length. |
 | `W.INT.PADDED_MATRIX` | W | All-zero row/column pairs in linecode impedances — padded conductors demonstrably wreck NLP performance (22 → 590 Ipopt iterations in ([ref. 2](methodology.md#refs)) Table 3); shrink the matrix and use terminal maps. |
 | `E.INT.NO_VOLTAGE_REFERENCE` | E | A galvanic island (transformer windings are separations) with no source, perfect grounding, or grounding shunt — voltages there are defined only up to a shift (the IEEE-123 "bus 610" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. |
@@ -323,9 +323,9 @@ Rules the JSON Schema cannot express.
 | `E.SPEC.CAP_NEGATIVE_Q` | E | A capacitor has negative `q_rated` entries. A capacitor bank has non-negative susceptance (`Q = B·V²`, `B ≥ 0`); a negative value is an inductor/reactor and must be modelled as a `shunt` with negative `B`, not a capacitor. |
 | `W.SPEC.CAP_WYE_NO_NEUTRAL` | W | A `WYE` capacitor has no resolvable neutral terminal in its `terminal_map`. Each phase is stamped against the neutral, so without one the bank assembles an all-zero susceptance and is **silently ignored** by the OPF. Name the return terminal `n`, or use `SINGLE_PHASE`/`DELTA`. |
 | `W.SPEC.XFMR_TMAP_ARITY` | W | Transformer terminal-map lengths off the per-subtype spec values — also the deliberate tripwire for unconverted wye-wye units. |
-| `W.SPEC.INV_TOPOLOGY` | W | An inverter `topology` outside the spec-allowed set (`FOUR_LEG`/`THREE_LEG`/`SINGLE_PHASE`). |
-| `W.SPEC.INV_TMAP_ARITY` | W | An inverter's `terminal_map` length does not match the arity its `topology` requires. |
-| `W.SPEC.INV_PRIME_MOVER` | W | An inverter `prime_mover` is outside the spec-allowed set. |
+| `W.SPEC.INV_TOPOLOGY` | W | An IBR `topology` outside the spec-allowed set (`FOUR_LEG`/`THREE_LEG`/`SINGLE_PHASE`). |
+| `W.SPEC.INV_TMAP_ARITY` | W | An IBR's `terminal_map` length does not match the arity its `topology` requires. |
+| `W.SPEC.INV_PRIME_MOVER` | W | An IBR `prime_mover` is outside the spec-allowed set. |
 | `W.SPEC.TERMINAL_TYPES` | W | The source file used non-string terminal identifiers; they were coerced at parse (aliases or verbatim — the finding says which). |
 | `I.SPEC.MATRIX_TRIANGULAR` | I | Impedance matrices stored upper-triangular; the spec defines full row-first storage. Read fine; normalise before publishing. |
 
@@ -346,9 +346,9 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `W.SOL.THERMAL_ACTIVE` | W | Current magnitude is within 1 % of `i_max` — the thermal limit is near-active. |
 | `E.SOL.GEN_VIOLATION` | E | A generator's active or reactive dispatch (`pg`/`qg` per terminal) falls outside its declared `p_min`/`p_max`/`q_min`/`q_max` bounds. |
 | `W.SOL.GEN_ACTIVE` | W | Generator dispatch is within 1 % of a bound — the bound is near-active. |
-| `E.SOL.INV_VIOLATION` | E | An inverter's solved `pg`/`qg` (per phase) falls outside its declared `p_min`/`p_max`/`q_min`/`q_max` bounds. |
-| `W.SOL.INV_ACTIVE` | W | An inverter dispatch is within 1 % of a P bound — the bound is near-active. |
-| `W.SOL.INV_PF_DEVIATION` | W | A constant-power-factor inverter's solved operating point deviates from its commanded PF beyond tolerance — the PF-coupling constraint residual is non-trivial. |
+| `E.SOL.IBR_VIOLATION` | E | An IBR's solved `pg`/`qg` (per phase) falls outside its declared `p_min`/`p_max`/`q_min`/`q_max` bounds. |
+| `W.SOL.IBR_ACTIVE` | W | An IBR dispatch is within 1 % of a P bound — the bound is near-active. |
+| `W.SOL.IBR_PF_DEVIATION` | W | A constant-power-factor IBR's solved operating point deviates from its commanded PF beyond tolerance — the PF-coupling constraint residual is non-trivial. |
 | `W.SOL.LOAD_RESIDUAL` | W | For a `constant_power` load, solved `pd`/`qd` differs from `p_nom`/`q_nom` by more than 1 W / 1 var — the bilinear constant-power constraint has a non-trivial residual; the solver may not have converged tightly. Not emitted for voltage-dependent models (where `pd ≠ p_nom` is expected). |
 | `W.SOL.LOAD_MODEL_RESIDUAL` | W | For a voltage-dependent load, the realised `pd`/`qd` is inconsistent with what the load model predicts at the solved terminal voltage by more than 1 W / 1 var. Indicates the load model constraint was not satisfied — a solver convergence or result extraction issue. |
 | `I.SOL.LOAD_VD_SUMMARY` | I | Aggregate realised vs nominal P/Q across all voltage-dependent sub-loads. Quantifies the total demand shift due to voltage sensitivity at the solved operating point. |

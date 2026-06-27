@@ -39,7 +39,7 @@ function _render_inventory(r::SummaryReport, io::IO; color::Bool=false)
     _section_header(io, "1. COMPONENT INVENTORY"; color)
 
     components = ["bus","line","linecode","voltage_source","load","generator",
-                  "shunt","switch","transformer","inverter","control_profile"]
+                  "shunt","switch","transformer","ibr","control_profile"]
     w = 20
     for comp in components
         info = get(d, comp, nothing)
@@ -67,7 +67,7 @@ function _render_inventory(r::SummaryReport, io::IO; color::Bool=false)
             end
         elseif comp == "line"
             println(io, "    $(rpad("  with linecode", w-2)) $(get(info,"with_linecode",0))")
-        elseif comp == "inverter"
+        elseif comp == "ibr"
             cap = round(get(info, "total_s_max_va", 0.0) / 1e6, digits=3)
             println(io, "    $(rpad("  total S cap", w-2)) $cap MVA")
             for (topo, cnt) in sort(collect(get(info, "by_topology", Dict())), by=x->x[1])

@@ -192,7 +192,7 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
-    # L-A8: inverter/generator apparent-power limit (`s_max`)
+    # L-A8: IBR/generator apparent-power limit (`s_max`)
     #
     # Class A (with class-D power expressions). pg² + qg² ≤ s_max², where pg, qg
     # are themselves bilinear in (v, i). Recompute |S| from the reported pg/qg

@@ -125,12 +125,12 @@ function inventory_analysis(net::Dict{String,Any},
     result["capacitor"] = Dict{String,Any}(
         "total" => length(caps), "q_rated_total" => q_installed)
 
-    # --- Inverter ---
-    inverters = get(net, "inverter", Dict())
+    # --- IBR ---
+    ibrs = get(net, "ibr", Dict())
     by_topology   = Dict{String,Int}()
     by_prime_mover = Dict{String,Int}()
     total_s_max = 0.0
-    for (_, inv) in inverters
+    for (_, inv) in ibrs
         inv isa Dict || continue
         topo = string(get(inv, "topology", "—"))
         by_topology[topo] = get(by_topology, topo, 0) + 1
@@ -139,8 +139,8 @@ function inventory_analysis(net::Dict{String,Any},
         s = get(inv, "s_max", nothing)
         s isa AbstractVector && (total_s_max += sum(Float64(x) for x in s if x isa Number))
     end
-    result["inverter"] = Dict{String,Any}(
-        "total"           => length(inverters),
+    result["ibr"] = Dict{String,Any}(
+        "total"           => length(ibrs),
         "by_topology"     => by_topology,
         "by_prime_mover"  => by_prime_mover,
         "total_s_max_va"  => total_s_max

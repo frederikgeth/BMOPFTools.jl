@@ -12,8 +12,8 @@ const _CONFIG_ARITY = Dict{String,Int}(
     "DELTA"        => 3
 )
 
-# Inverter extension §3.6': required terminal-map arity per topology
-const _INVERTER_ARITY = Dict{String,Int}(
+# IBR extension §3.6': required terminal-map arity per topology
+const _IBR_ARITY = Dict{String,Int}(
     "SINGLE_PHASE" => 2,   # two terminals p, q
     "THREE_LEG"    => 3,   # phases a, b, c (no neutral current)
     "FOUR_LEG"     => 4    # phases a, b, c, n
@@ -341,9 +341,9 @@ function spec_conformance_check(net::Dict{String,Any},
         end
     end
 
-    # --- inverter topology / prime-mover / arity (inverter extension §3.6') ---
+    # --- IBR topology / prime-mover / arity (IBR extension §3.6') ---
     n_inv_issues = 0
-    for (id, c) in get(net, "inverter", Dict())
+    for (id, c) in get(net, "ibr", Dict())
         c isa Dict || continue
         topo = get(c, "topology", nothing)
         pm   = get(c, "prime_mover", nothing)
@@ -351,27 +351,27 @@ function spec_conformance_check(net::Dict{String,Any},
         if pm isa AbstractString && !(pm in _PRIME_MOVER_VALUES)
             n_inv_issues += 1
             push!(findings, Finding(WARNING, "W.SPEC.INV_PRIME_MOVER", :spec,
-                :inverter, id,
-                "inverter '$id' has prime_mover '$pm' — spec allows " *
+                :ibr, id,
+                "IBR '$id' has prime_mover '$pm' — spec allows " *
                 "PV, BATTERY, GENERIC.", nothing))
         end
 
-        if !(topo isa AbstractString) || !haskey(_INVERTER_ARITY, topo)
+        if !(topo isa AbstractString) || !haskey(_IBR_ARITY, topo)
             n_inv_issues += 1
             push!(findings, Finding(WARNING, "W.SPEC.INV_TOPOLOGY", :spec,
-                :inverter, id,
-                "inverter '$id' has topology '$(topo)' — spec allows " *
+                :ibr, id,
+                "IBR '$id' has topology '$(topo)' — spec allows " *
                 "SINGLE_PHASE, THREE_LEG, FOUR_LEG.", nothing))
             continue   # arity check below needs a known topology
         end
 
-        arity = _INVERTER_ARITY[topo]
+        arity = _IBR_ARITY[topo]
         tm = Vector{String}(string.(get(c, "terminal_map", String[])))
         if length(tm) != arity
             n_inv_issues += 1
             push!(findings, Finding(WARNING, "W.SPEC.INV_TMAP_ARITY", :spec,
-                :inverter, id,
-                "inverter '$id': topology $topo requires $arity terminal(s), " *
+                :ibr, id,
+                "IBR '$id': topology $topo requires $arity terminal(s), " *
                 "terminal_map has $(length(tm)).",
                 Dict{String,Any}("topology" => topo, "arity" => length(tm))))
         end
@@ -379,13 +379,13 @@ function spec_conformance_check(net::Dict{String,Any},
             dups = [t for t in unique(tm) if count(==(t), tm) > 1]
             n_inv_issues += 1
             push!(findings, Finding(ERROR, "E.SPEC.DUPLICATE_TERMINAL", :spec,
-                :inverter, id,
-                "inverter '$id' has duplicate terminal(s) in terminal_map " *
+                :ibr, id,
+                "IBR '$id' has duplicate terminal(s) in terminal_map " *
                 "$(tm): $(join(dups, ", ")).",
                 Dict{String,Any}("terminal_map" => tm, "duplicates" => dups)))
         end
     end
-    result["n_inverter_issues"] = n_inv_issues
+    result["n_ibr_issues"] = n_inv_issues
     n_issues += n_inv_issues
 
     # --- terminal map conventions ---

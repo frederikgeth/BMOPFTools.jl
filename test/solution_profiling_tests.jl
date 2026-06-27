@@ -426,15 +426,15 @@ end
 end
 
 # ── T-BAL: power balance counts ALL injection sources ─────────────────────────
-# p_gen must include inverters and the voltage source, not just generators —
+# p_gen must include IBRs and the voltage source, not just generators —
 # otherwise the balance check spuriously fails whenever a DER dispatches or the
 # slack imports/exports.
-@testset "SOL — power balance includes inverter + voltage source" begin
+@testset "SOL — power balance includes IBR + voltage source" begin
     # Drop the generator; cover the load (3000 W) + line loss (750 W) with an
-    # inverter (1875 W) and slack import (1875 W) → balance should close.
+    # IBR (1875 W) and slack import (1875 W) → balance should close.
     net = _base_net()
     delete!(net, "generator")
-    net["inverter"] = Dict{String,Any}(
+    net["ibr"] = Dict{String,Any}(
         "pv1" => Dict{String,Any}(
             "bus" => "b1", "terminal_map" => ["a","b","c","n"],
             "topology" => "FOUR_LEG", "prime_mover" => "PV",
@@ -443,7 +443,7 @@ end
 
     result = _base_result()
     delete!(result, "generator")
-    result["inverter"] = Dict{String,Any}(
+    result["ibr"] = Dict{String,Any}(
         "pv1" => Dict{String,Any}(
             "a" => Dict("cri"=>0.0,"cii"=>0.0,"pg"=>625.0,"qg"=>0.0),
             "b" => Dict("cri"=>0.0,"cii"=>0.0,"pg"=>625.0,"qg"=>0.0),
@@ -458,7 +458,7 @@ end
     findings = Finding[]
     out = solution_check(net, result, findings)
 
-    # p_gen = inverter 1875 + slack 1875 = 3750 W; load 3000 + loss 750 = 3750 W.
+    # p_gen = IBR 1875 + slack 1875 = 3750 W; load 3000 + loss 750 = 3750 W.
     @test out["p_gen"] ≈ 3750.0  atol=1e-6
     @test !("W.SOL.POWER_BALANCE" in codes(findings))
 end
@@ -647,12 +647,12 @@ end
     @test any(x.code == "W.SOL.THERMAL_ACTIVE" && x.component_type == :switch for x in f3)
 end
 
-# ── Inverter dispatch bounds, apparent-power circle, PF residual ──────────────
-@testset "SOL — inverter limits and PF deviation" begin
+# ── IBR dispatch bounds, apparent-power circle, PF residual ──────────────
+@testset "SOL — IBR limits and PF deviation" begin
     net = _base_net()
     net["control_profile"] = Dict{String,Any}(
         "cp1" => Dict{String,Any}("power_factor" => Dict{String,Any}("pf" => 0.95)))
-    net["inverter"] = Dict{String,Any}(
+    net["ibr"] = Dict{String,Any}(
         "inv1" => Dict{String,Any}(   # FOUR_LEG: P-violation + s_max + PF deviation
             "bus" => "b1", "terminal_map" => ["a","b","c","n"], "topology" => "FOUR_LEG",
             "p_min" => [0.0,0.0,0.0], "p_max" => [1000.0,1000.0,1000.0],
@@ -661,7 +661,7 @@ end
             "bus" => "b1", "terminal_map" => ["a","n"], "topology" => "SINGLE_PHASE",
             "p_min" => [0.0], "p_max" => [500.0], "s_max" => [600.0]))
     result = _base_result()
-    result["inverter"] = Dict{String,Any}(
+    result["ibr"] = Dict{String,Any}(
         "inv1" => Dict{String,Any}(
             "a" => Dict("pg"=>2000.0, "qg"=>1500.0),   # pg>1000, |S|=2500>1200
             "b" => Dict("pg"=>2000.0, "qg"=>1500.0),
@@ -670,10 +670,10 @@ end
 
     f = Finding[]; out = solution_check(net, result, f)
     @test out["n_inv_violations"] > 0
-    @test "E.SOL.INV_VIOLATION" in codes(f)                     # P bound + s_max circle
-    @test "W.SOL.INV_PF_DEVIATION" in codes(f)                  # constant-PF residual
+    @test "E.SOL.IBR_VIOLATION" in codes(f)                     # P bound + s_max circle
+    @test "W.SOL.IBR_PF_DEVIATION" in codes(f)                  # constant-PF residual
     # both the P-bound and the apparent-power-circle messages are present
-    msgs = join((x.message for x in f if x.code == "E.SOL.INV_VIOLATION"), " ")
+    msgs = join((x.message for x in f if x.code == "E.SOL.IBR_VIOLATION"), " ")
     @test occursin("violates", msgs)
     @test occursin("s_max", msgs)
 end

@@ -394,13 +394,13 @@ end
     @test contains(out, "Augmentation manifest")
 end
 
-@testset "T4: Manifest — render covers inverter and unknown component types" begin
+@testset "T4: Manifest — render covers IBR and unknown component types" begin
     # Guards against the render loop silently dropping entries whose
-    # component_type is not in the hardcoded preferred list (e.g. :inverter,
+    # component_type is not in the hardcoded preferred list (e.g. :ibr,
     # which once rendered only the summary header with no detail).
     entries = [
-        TransformEntry(:inverter, "pv_b1", "s_max", nothing, [8000.0],
-                       "INVERTER_PLACEMENT/load_following", :synthetic, "placed"),
+        TransformEntry(:ibr, "pv_b1", "s_max", nothing, [8000.0],
+                       "IBR_PLACEMENT/load_following", :synthetic, "placed"),
         TransformEntry(:shunt, "sh1", "gs", nothing, 0.1,
                        "SOME_RULE", :synthetic, "future type"),
     ]
@@ -408,7 +408,7 @@ end
 
     buf = IOBuffer(); render_manifest(mf; io=buf)
     out = String(take!(buf))
-    @test contains(out, "INVERTER")
+    @test contains(out, "IBR")
     @test contains(out, "pv_b1")
     @test contains(out, "s_max")
     @test contains(out, "SHUNT")        # unknown type still rendered, not dropped

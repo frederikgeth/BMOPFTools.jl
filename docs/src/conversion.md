@@ -229,7 +229,7 @@ A multi-step `Capacitor` (`Numsteps>1`) or one driven by a `CapControl` is a
 **switched** bank — discrete switching is **out of scope** here (planned later).
 
 **Need a controllable/continuous source of reactive power today?** Use an
-`inverter` (bounded `q_min`/`q_max`, or a Volt-VAr `control_profile`) or a
+`ibr` (bounded `q_min`/`q_max`, or a Volt-VAr `control_profile`) or a
 `generator` with reactive bounds — those already provide continuous, dispatchable
 reactive support. The `capacitor` is specifically the *fixed* physical device.
 

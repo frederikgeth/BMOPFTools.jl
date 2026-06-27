@@ -418,9 +418,9 @@
                 ]
             }
         },
-        "inverter": {
+        "ibr": {
             "type": "object",
-            "description": "Inverter/converter elements interfacing PV arrays or battery storage with the AC network",
+            "description": "Inverter-based resources (IBR): PV arrays, battery storage, or generic sources interfaced to the AC network through an inverter/converter",
             "additionalProperties": {
                 "type": "object",
                 "additionalProperties": false,
@@ -499,7 +499,7 @@
                     },
                     "control_profile": {
                         "type": "string",
-                        "description": "Reference to a control_profile id encoding smart-inverter control laws"
+                        "description": "Reference to a control_profile id encoding smart-IBR control laws"
                     },
                     "time_series": {
                         "type": "object",
@@ -517,7 +517,7 @@
         },
         "control_profile": {
             "type": "object",
-            "description": "Reusable smart-inverter control-law profiles, referenced by inverters (linecode-style sharing). Each sub-object is optional; its presence activates the corresponding control law.",
+            "description": "Reusable smart-IBR control-law profiles, referenced by IBRs (linecode-style sharing). Each sub-object is optional; its presence activates the corresponding control law.",
             "additionalProperties": {
                 "type": "object",
                 "description": "A named control profile. Additional control-law sub-objects beyond those defined here are tolerated for forward-compatibility.",

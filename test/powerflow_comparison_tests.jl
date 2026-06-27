@@ -245,7 +245,7 @@ end
     _bmopf_volts_opf(net) -> (volts::Dict{String,ComplexF64}, result::Dict)
 
 Like `_bmopf_volts` but via `solve_opf` rather than `solve_feasibility_opf`,
-because the inverter constraints are only built by `solve_opf`. Buses carry no
+because the IBR constraints are only built by `solve_opf`. Buses carry no
 voltage bounds, so this is a pure power flow with the voltage source as slack.
 """
 function _bmopf_volts_opf(net::Dict{String,Any})
@@ -1184,12 +1184,12 @@ function _net_pv_4leg(p_ph::Float64, q_ph, pf)
         net["control_profile"] = Dict{String,Any}(
             "cpf" => Dict{String,Any}("power_factor" => Dict{String,Any}("pf" => pf)))
     end
-    net["inverter"] = Dict{String,Any}("pv" => inv)
+    net["ibr"] = Dict{String,Any}("pv" => inv)
     return net
 end
 
 function _net_pv_1ph(p::Float64, q, pf)
-    # pf_pv_1ph.dss: single-phase earth-return PVSystem. The SINGLE_PHASE inverter
+    # pf_pv_1ph.dss: single-phase earth-return PVSystem. The SINGLE_PHASE IBR
     # references a grounded neutral terminal at lb (= V=0 ground reference).
     net = _net_1ph_line()
     delete!(net, "load")
@@ -1206,11 +1206,11 @@ function _net_pv_1ph(p::Float64, q, pf)
         net["control_profile"] = Dict{String,Any}(
             "cpf" => Dict{String,Any}("power_factor" => Dict{String,Any}("pf" => pf)))
     end
-    net["inverter"] = Dict{String,Any}("pv" => inv)
+    net["ibr"] = Dict{String,Any}("pv" => inv)
     return net
 end
 
-# ── Smart-inverter droop (Volt-var / Volt-watt) validation vs OpenDSS InvControl ─
+# ── Smart-IBR droop (Volt-var / Volt-watt) validation vs OpenDSS InvControl ─
 #
 # A single-phase, phase-to-perfectly-grounded-neutral PVSystem with a meaningful
 # single-phase load on the same bus. OpenDSS drives the droop with an InvControl
@@ -1325,13 +1325,13 @@ function _net_pv_1ph_droop(; vsrc, kVA, Pmpp, load_kw, load_kvar, mode::Symbol)
         inv["q_min"] = [0.0]
         inv["q_max"] = [0.0]
     end
-    net["inverter"] = Dict{String,Any}("pv" => inv)
+    net["ibr"] = Dict{String,Any}("pv" => inv)
     return net
 end
 
 # ── Three-phase per-phase droop under unbalance ─────────────────────────────────
 # A 4-wire unbalanced feeder with a perfectly-grounded load-bus neutral. BMOPF
-# models one FOUR_LEG inverter (per-phase droop on |V_k − V_n|, with V_n = 0).
+# models one FOUR_LEG IBR (per-phase droop on |V_k − V_n|, with V_n = 0).
 # OpenDSS models the per-phase control as THREE independent single-phase PVSystems
 # (one per phase), each with its own InvControl monitoring its own phase voltage —
 # a single 3φ PVSystem would instead average the phases and output balanced power,
@@ -1425,7 +1425,7 @@ function _net_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol, vref::String=
         inv["q_min"] = fill(0.0, 3)
         inv["q_max"] = fill(0.0, 3)
     end
-    net["inverter"] = Dict{String,Any}("pv" => inv)
+    net["ibr"] = Dict{String,Any}("pv" => inv)
     return net
 end
 
@@ -1494,7 +1494,7 @@ function _check_pv_3ph_avg_droop(params, label; atolV=1.0, atolPQ=60.0)
     @test sqrt(b["n"]["vr"]^2 + b["n"]["vi"]^2) < 1e-6
     Pbm = Float64[]; Qbm = Float64[]
     for k in 1:3
-        iv = res["inverter"]["pv"]["$k"]
+        iv = res["ibr"]["pv"]["$k"]
         push!(Pbm, iv["pg"]); push!(Qbm, iv["qg"])
         Vbm_k = abs((b["$k"]["vr"] - b["n"]["vr"]) + im * (b["$k"]["vi"] - b["n"]["vi"]))
         Vods_k = abs(Vods["lb.$k"] - Vods["lb.4"])
@@ -1745,7 +1745,7 @@ end
     end
 end
 
-@testset "PF comparison — PVSystem inverter, FOUR_LEG (pinned & PF profile)" begin
+@testset "PF comparison — PVSystem IBR, FOUR_LEG (pinned & PF profile)" begin
     path = joinpath(_PF_CMP_DIR, "pf_pv_4leg.dss")
     V_ods, pw = _ods_pv(path)
     # Injected per-phase P/Q (balanced); element power is into the element, so negate.
@@ -1758,18 +1758,18 @@ end
     Vp, rp = _bmopf_volts_opf(_net_pv_4leg(P, Q, nothing))
     @test rp["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     _cmp_volts(V_ods, Vp; label="pv-4leg-pin: ")
-    @test rp["inverter"]["pv"]["1"]["pg"] ≈ P  atol=1.0
-    @test rp["inverter"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
+    @test rp["ibr"]["pv"]["1"]["pg"] ≈ P  atol=1.0
+    @test rp["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
 
     # (b) P-pinned, Q from a power_factor profile. OpenDSS pf=+0.95 injects vars,
     # so the equivalent BMOPF profile is pf = -0.95.
     Vf, rf = _bmopf_volts_opf(_net_pv_4leg(P, nothing, -0.95))
     @test rf["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     _cmp_volts(V_ods, Vf; label="pv-4leg-pf: ")
-    @test rf["inverter"]["pv"]["1"]["qg"] ≈ Q  atol=1.0   # PF path reproduces OpenDSS Q
+    @test rf["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0   # PF path reproduces OpenDSS Q
 end
 
-@testset "PF comparison — PVSystem inverter, SINGLE_PHASE (pinned & PF profile)" begin
+@testset "PF comparison — PVSystem IBR, SINGLE_PHASE (pinned & PF profile)" begin
     path = joinpath(_PF_CMP_DIR, "pf_pv_1ph.dss")
     V_ods, pw = _ods_pv(path)
     P = -real(pw[1]) * 1e3
@@ -1780,16 +1780,16 @@ end
     Vp, rp = _bmopf_volts_opf(_net_pv_1ph(P, Q, nothing))
     @test rp["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     _cmp_volts(V_ods, Vp; label="pv-1ph-pin: ")
-    @test rp["inverter"]["pv"]["1"]["pg"] ≈ P  atol=1.0
-    @test rp["inverter"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
+    @test rp["ibr"]["pv"]["1"]["pg"] ≈ P  atol=1.0
+    @test rp["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
 
     Vf, rf = _bmopf_volts_opf(_net_pv_1ph(P, nothing, -0.95))
     @test rf["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     _cmp_volts(V_ods, Vf; label="pv-1ph-pf: ")
-    @test rf["inverter"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
+    @test rf["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
 end
 
-# ── Smart-inverter droop: BMOPF smooth-ReLU vs OpenDSS InvControl ───────────────
+# ── Smart-IBR droop: BMOPF smooth-ReLU vs OpenDSS InvControl ───────────────
 # For each scenario: OpenDSS solves its InvControl to a fixed point; BMOPF
 # solve_opf with the matching droop must reproduce the node voltages and the
 # injected P/Q, and the operating point must sit in the intended regime.
@@ -1802,8 +1802,8 @@ function _check_pv_droop(params, label; atolV=1.0, atolPQ=60.0)
     Vbm, res = _bmopf_volts_opf(_net_pv_1ph_droop(; params...))
     @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     _cmp_volts(V_ods, Vbm; label=label, atol=atolV)
-    @test res["inverter"]["pv"]["1"]["pg"] ≈ P   atol=atolPQ
-    @test res["inverter"]["pv"]["1"]["qg"] ≈ Q   atol=atolPQ
+    @test res["ibr"]["pv"]["1"]["pg"] ≈ P   atol=atolPQ
+    @test res["ibr"]["pv"]["1"]["qg"] ≈ Q   atol=atolPQ
     return res, P, Q
 end
 
@@ -1812,7 +1812,7 @@ end
     res, _, Q = _check_pv_droop((vsrc=235.0, kVA=20.0, Pmpp=5.0, load_kw=3.0,
                                  load_kvar=1.0, mode=:vv), "vv-deadband: ")
     @test abs(Q) < 50.0
-    @test abs(res["inverter"]["pv"]["1"]["qg"]) < 50.0
+    @test abs(res["ibr"]["pv"]["1"]["qg"]) < 50.0
 
     # Slope (240–258 V): partial absorption, strictly inside (0, Q_sat).
     res, _, Q = _check_pv_droop((vsrc=252.0, kVA=20.0, Pmpp=5.0, load_kw=3.0,
@@ -1869,7 +1869,7 @@ function _check_pv_3ph_droop(params, label; atolV=1.0, atolPQ=60.0)
     @test sqrt(b["n"]["vr"]^2 + b["n"]["vi"]^2) < 1e-6
     Pbm = Float64[]; Qbm = Float64[]
     for k in 1:3
-        iv = res["inverter"]["pv"]["$k"]
+        iv = res["ibr"]["pv"]["$k"]
         push!(Pbm, iv["pg"]); push!(Qbm, iv["qg"])
         # phase-to-neutral node voltage matches OpenDSS phase-to-ground
         Vbm_k = abs((b["$k"]["vr"] - b["n"]["vr"]) + im * (b["$k"]["vi"] - b["n"]["vi"]))
@@ -1920,19 +1920,19 @@ end
     @test all(p -> p < 9_000.0, Pbm)           # curtailed below Pmpp on the mean
 end
 
-@testset "feasibility OPF honours inverters (regression)" begin
-    # Before the fix, solve_feasibility_opf never called _add_inverter_constraints!,
-    # so the inverter was ignored and its ~30 kW was absorbed by the elastic KCL
-    # slack. With the fix the inverter balances KCL and the slack is ~0.
+@testset "feasibility OPF honours IBRs (regression)" begin
+    # Before the fix, solve_feasibility_opf never called _add_ibr_constraints!,
+    # so the IBR was ignored and its ~30 kW was absorbed by the elastic KCL
+    # slack. With the fix the IBR balances KCL and the slack is ~0.
     path = joinpath(_PF_CMP_DIR, "pf_pv_4leg.dss")
     V_ods, pw = _ods_pv(path)
     P = -real(pw[1]) * 1e3
     Q = -imag(pw[1]) * 1e3
 
     res = solve_feasibility_opf(_net_pv_4leg(P, Q, nothing); optimizer=Ipopt.Optimizer)
-    @test res["total_slack_magnitude_A"] < 1e-3       # inverter (not slack) closes KCL
-    @test res["inverter"]["pv"]["1"]["pg"] ≈ P  atol=1.0
-    @test res["inverter"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
+    @test res["total_slack_magnitude_A"] < 1e-3       # IBR (not slack) closes KCL
+    @test res["ibr"]["pv"]["1"]["pg"] ≈ P  atol=1.0
+    @test res["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
 
     V_bm = Dict{String,ComplexF64}()
     for (bid, td) in res["bus"], (t, tv) in td

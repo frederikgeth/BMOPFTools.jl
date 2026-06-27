@@ -146,10 +146,10 @@ tolerance = 0.10        # snap only if |v / std − 1| ≤ tolerance
 levels = []             # extra phase-to-neutral volts, merged with the preset
 
 # ---------------------------------------------------------------------------
-# Augmentation: smart-inverter (Volt-var / Volt-watt) default characteristics
+# Augmentation: smart-IBR (Volt-var / Volt-watt) default characteristics
 #
 # When enabled, augment_case fills any volt_var/volt_watt sub-object that an
-# inverter's control_profile declares but leaves blank, using the region preset
+# IBR's control_profile declares but leaves blank, using the region preset
 # selected by `region`. Explicit values already present are never overwritten.
 # Off by default — no behaviour change unless enabled.
 #
@@ -161,18 +161,18 @@ levels = []             # extra phase-to-neutral volts, merged with the preset
 # for region selection but should be confirmed against the current standard
 # before use in a study.
 # ---------------------------------------------------------------------------
-[augment.smart_inverter]
+[augment.smart_ibr]
 enabled = false         # opt-in
 region  = "Aus_A"       # "Aus_A" | "Aus_B" | "Aus_C" | "NZ"
 
 # ── Australia A (Queensland default, AS/NZS 4777.2:2020) ────────────────────
-[augment.smart_inverter.regions.Aus_A.volt_var]
+[augment.smart_ibr.regions.Aus_A.volt_var]
 voltage_reference = "PN_PER_PHASE"
 breakpoints = [207.0, 220.0, 240.0, 258.0]   # [V1,V2,V3,V4]
 q_limits    = [-0.60, 0.44]                  # [absorb (≤0), inject (≥0)]
 q_unit      = "VA_FRACTION"
 q_ref       = "VAR_MAX"
-[augment.smart_inverter.regions.Aus_A.volt_watt]
+[augment.smart_ibr.regions.Aus_A.volt_watt]
 voltage_reference = "PN_PER_PHASE"
 breakpoints = [253.0, 260.0]                 # [V5,V6]
 p_limits    = [0.20, 1.00]                   # [p_low, p_high]
@@ -180,13 +180,13 @@ p_unit      = "VA_FRACTION"
 p_ref       = "S_MAX"
 
 # ── Australia B (AS/NZS 4777.2:2020 — verify) ──────────────────────────────
-[augment.smart_inverter.regions.Aus_B.volt_var]
+[augment.smart_ibr.regions.Aus_B.volt_var]
 voltage_reference = "PN_PER_PHASE"
 breakpoints = [205.0, 220.0, 235.0, 255.0]
 q_limits    = [-0.40, 0.30]
 q_unit      = "VA_FRACTION"
 q_ref       = "VAR_MAX"
-[augment.smart_inverter.regions.Aus_B.volt_watt]
+[augment.smart_ibr.regions.Aus_B.volt_watt]
 voltage_reference = "PN_PER_PHASE"
 breakpoints = [250.0, 260.0]
 p_limits    = [0.20, 1.00]
@@ -194,13 +194,13 @@ p_unit      = "VA_FRACTION"
 p_ref       = "S_MAX"
 
 # ── Australia C (AS/NZS 4777.2:2020 — verify) ──────────────────────────────
-[augment.smart_inverter.regions.Aus_C.volt_var]
+[augment.smart_ibr.regions.Aus_C.volt_var]
 voltage_reference = "PN_PER_PHASE"
 breakpoints = [215.0, 230.0, 240.0, 255.0]
 q_limits    = [-0.60, 0.44]
 q_unit      = "VA_FRACTION"
 q_ref       = "VAR_MAX"
-[augment.smart_inverter.regions.Aus_C.volt_watt]
+[augment.smart_ibr.regions.Aus_C.volt_watt]
 voltage_reference = "PN_PER_PHASE"
 breakpoints = [253.0, 260.0]
 p_limits    = [0.20, 1.00]
@@ -208,13 +208,13 @@ p_unit      = "VA_FRACTION"
 p_ref       = "S_MAX"
 
 # ── New Zealand (AS/NZS 4777.2:2020 — verify) ──────────────────────────────
-[augment.smart_inverter.regions.NZ.volt_var]
+[augment.smart_ibr.regions.NZ.volt_var]
 voltage_reference = "PN_PER_PHASE"
 breakpoints = [207.0, 220.0, 235.0, 244.0]
 q_limits    = [-0.60, 0.60]
 q_unit      = "VA_FRACTION"
 q_ref       = "VAR_MAX"
-[augment.smart_inverter.regions.NZ.volt_watt]
+[augment.smart_ibr.regions.NZ.volt_watt]
 voltage_reference = "PN_PER_PHASE"
 breakpoints = [242.0, 250.0]
 p_limits    = [0.20, 1.00]

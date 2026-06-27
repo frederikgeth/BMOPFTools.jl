@@ -48,7 +48,7 @@ struct OpfContext
     kcl_i::Dict
     branch_inj::Dict{String,Any}
     # Per-unit bases (`nothing` when the model is built in SI units), used by the
-    # inverter Volt-var/Volt-watt droop to scale SI breakpoint voltages into model
+    # IBR Volt-var/Volt-watt droop to scale SI breakpoint voltages into model
     # units. `relu_eps` is the relative smoothing for the smooth-ReLU droop and
     # `relu_ops` caches the registered operators by (model-unit) ε.
     bases
@@ -78,7 +78,7 @@ end
     _add_device_constraints!(ctx)
 
 Add the constraints shared by *every* problem formulation: the voltage source,
-all branch/transformer/shunt couplings, and the load/generator/inverter power
+all branch/transformer/shunt couplings, and the load/generator/IBR power
 equations, each contributing to the KCL accumulators. Voltage and bus-limit
 bounds are NOT added here — a build recipe adds them explicitly so that an
 unbounded formulation (e.g. power flow) can omit them.
@@ -99,7 +99,7 @@ function _add_device_constraints!(ctx::OpfContext)
     _add_capacitor_constraints!(net, vars, kcl_r, kcl_i)
     _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
     _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
-    _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
+    _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                                bases=ctx.bases, relu_eps=ctx.relu_eps,
                                relu_ops=ctx.relu_ops)
     _add_ground_injections!(vars, kcl_r, kcl_i, ctx.grounded)

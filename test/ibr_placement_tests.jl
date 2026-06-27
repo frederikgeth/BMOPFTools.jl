@@ -57,9 +57,9 @@ _inv_1ph_net() = parse_bmopf("""
 
 @testset "I1: load-following — nameplate" begin
     net = _inv_lv_net()
-    net′, mf = add_inverters(net)
-    @test haskey(net′["inverter"], "pv_b1")
-    inv = net′["inverter"]["pv_b1"]
+    net′, mf = add_ibrs(net)
+    @test haskey(net′["ibr"], "pv_b1")
+    inv = net′["ibr"]["pv_b1"]
     @test inv["bus"] == "b1"
     @test inv["topology"] == "FOUR_LEG"            # inferred from neutral terminal
     @test inv["prime_mover"] == "PV"
@@ -70,24 +70,24 @@ _inv_1ph_net() = parse_bmopf("""
     # P/Q box is deferred to augment_case, not written here
     @test !haskey(inv, "p_max")
     @test !haskey(inv, "q_min")
-    @test !haskey(net′["inverter"], "pv_src")      # source bus skipped
+    @test !haskey(net′["ibr"], "pv_src")      # source bus skipped
 end
 
 # ── I2: input is never mutated ───────────────────────────────────────────────
 
 @testset "I2: non-mutation" begin
     net = _inv_lv_net()
-    _, _ = add_inverters(net)
-    @test !haskey(net, "inverter")
+    _, _ = add_ibrs(net)
+    @test !haskey(net, "ibr")
 end
 
 # ── I3: augment_case fills the deferred P/Q box ──────────────────────────────
 
 @testset "I3: placement → augment fills P/Q" begin
     net = _inv_lv_net()
-    net2, _ = add_inverters(net)
+    net2, _ = add_ibrs(net)
     net3, _ = augment_case(net2)
-    inv = net3["inverter"]["pv_b1"]
+    inv = net3["ibr"]["pv_b1"]
     @test inv["p_max"] ≈ [800.0, 800.0, 800.0]  atol=1e-6   # = s_max
     @test inv["p_min"] == [0.0, 0.0, 0.0]                    # PV unidirectional
     # EN 50549-1 default cos φ = 0.90 ⇒ Q = ±tan(acos(0.9)) × P_max
@@ -100,8 +100,8 @@ end
 
 @testset "I4: topology inference (1-phase)" begin
     net = _inv_1ph_net()
-    net′, _ = add_inverters(net)
-    inv = net′["inverter"]["pv_b1"]
+    net′, _ = add_ibrs(net)
+    inv = net′["ibr"]["pv_b1"]
     @test inv["topology"] == "SINGLE_PHASE"        # 2-terminal load
     @test inv["s_max"] ≈ [800.0]                atol=1e-6
 end
@@ -110,57 +110,57 @@ end
 
 @testset "I5: forced topology" begin
     net = _inv_lv_net()
-    net′, _ = add_inverters(net; recipe = InverterRecipe(inverter_topology = :THREE_LEG))
-    @test net′["inverter"]["pv_b1"]["topology"] == "THREE_LEG"
+    net′, _ = add_ibrs(net; recipe = IBRRecipe(inverter_topology = :THREE_LEG))
+    @test net′["ibr"]["pv_b1"]["topology"] == "THREE_LEG"
 end
 
-# ── I6: overwrite guard — existing inverter is not replaced ───────────────────
+# ── I6: overwrite guard — existing IBR is not replaced ───────────────────
 
 @testset "I6: overwrite guard" begin
     net = _inv_lv_net()
-    net["inverter"] = Dict("existing" => Dict(
+    net["ibr"] = Dict("existing" => Dict(
         "bus" => "b1", "terminal_map" => ["1","2","3","n"],
         "topology" => "FOUR_LEG", "prime_mover" => "PV", "s_max" => [1.0,1.0,1.0]))
-    net′, mf = add_inverters(net)
-    @test !haskey(net′["inverter"], "pv_b1")        # b1 already hosts one
-    @test haskey(net′["inverter"], "existing")
-    @test any(f.code == "W.INV.NO_CANDIDATES" for f in mf.findings_after)
+    net′, mf = add_ibrs(net)
+    @test !haskey(net′["ibr"], "pv_b1")        # b1 already hosts one
+    @test haskey(net′["ibr"], "existing")
+    @test any(f.code == "W.IBR.NO_CANDIDATES" for f in mf.findings_after)
 end
 
 # ── I7: sizing — fraction knob ───────────────────────────────────────────────
 
 @testset "I7: s_fraction sizing" begin
     net = _inv_lv_net()
-    net′, _ = add_inverters(net; recipe = InverterRecipe(s_fraction = 0.5))
-    @test net′["inverter"]["pv_b1"]["s_max"] ≈ [500.0,500.0,500.0]  atol=1e-6
+    net′, _ = add_ibrs(net; recipe = IBRRecipe(s_fraction = 0.5))
+    @test net′["ibr"]["pv_b1"]["s_max"] ≈ [500.0,500.0,500.0]  atol=1e-6
 end
 
 # ── I8: s_to_p_ratio leaves reactive headroom ────────────────────────────────
 
 @testset "I8: s_to_p_ratio" begin
     net = _inv_lv_net()
-    net′, _ = add_inverters(net; recipe = InverterRecipe(s_to_p_ratio = 0.9))
-    @test net′["inverter"]["pv_b1"]["p_avail"] ≈ 0.9 * 2400.0  atol=1e-6
+    net′, _ = add_ibrs(net; recipe = IBRRecipe(s_to_p_ratio = 0.9))
+    @test net′["ibr"]["pv_b1"]["p_avail"] ≈ 0.9 * 2400.0  atol=1e-6
 end
 
 # ── I9: topology-targeted (leaves) ───────────────────────────────────────────
 
 @testset "I9: topology-targeted leaves" begin
     net = _inv_radial_net()
-    net′, mf = add_inverters(net;
-        recipe = InverterRecipe(strategy = :topology_targeted, topology_mode = :leaves))
+    net′, mf = add_ibrs(net;
+        recipe = IBRRecipe(strategy = :topology_targeted, topology_mode = :leaves))
     # b2 is the only load-bearing degree-1 bus (b3 dangling has no load)
-    @test haskey(net′["inverter"], "pv_b2")
-    @test !haskey(net′["inverter"], "pv_b1")        # b1 is degree-3, not a leaf
-    @test any(f.code == "I.INV.PLACED" for f in mf.findings_after)
+    @test haskey(net′["ibr"], "pv_b2")
+    @test !haskey(net′["ibr"], "pv_b1")        # b1 is degree-3, not a leaf
+    @test any(f.code == "I.IBR.PLACED" for f in mf.findings_after)
 end
 
 # ── I10: findings — placement summary ────────────────────────────────────────
 
-@testset "I10: I.INV.PLACED finding" begin
+@testset "I10: I.IBR.PLACED finding" begin
     net = _inv_lv_net()
-    _, mf = add_inverters(net)
-    placed = filter(f -> f.code == "I.INV.PLACED", mf.findings_after)
+    _, mf = add_ibrs(net)
+    placed = filter(f -> f.code == "I.IBR.PLACED", mf.findings_after)
     @test length(placed) == 1
     @test placed[1].detail["n_placed"] == 1
     @test placed[1].detail["total_s_max_va"] ≈ 2400.0  atol=1e-6
@@ -170,8 +170,8 @@ end
 
 @testset "I11: apply_placement disabled" begin
     net = _inv_lv_net()
-    net′, mf = add_inverters(net; recipe = InverterRecipe(apply_placement = false))
-    @test !haskey(get(net′, "inverter", Dict()), "pv_b1")
+    net′, mf = add_ibrs(net; recipe = IBRRecipe(apply_placement = false))
+    @test !haskey(get(net′, "ibr", Dict()), "pv_b1")
     @test isempty(mf.entries)
 end
 
@@ -179,10 +179,10 @@ end
 
 @testset "I12: synthetic manifest entries" begin
     net = _inv_lv_net()
-    _, mf = add_inverters(net)
+    _, mf = add_ibrs(net)
     @test !isempty(mf.entries)
     @test all(e.confidence == :synthetic for e in mf.entries)
-    @test all(startswith(e.rule, "INVERTER_PLACEMENT/") for e in mf.entries)
+    @test all(startswith(e.rule, "IBR_PLACEMENT/") for e in mf.entries)
     @test any(e.field == "s_max"   for e in mf.entries)
     @test any(e.field == "topology" for e in mf.entries)
 end

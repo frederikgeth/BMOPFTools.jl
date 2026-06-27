@@ -499,9 +499,9 @@ When `per_unit=true` the model is built and solved in per-unit (V_base
 propagated from the source bus through transformers; S_base = `s_base` VA,
 default 1 MVA). All results are returned in SI units regardless.
 
-## Smart-inverter Volt-var / Volt-watt
+## Smart-IBR Volt-var / Volt-watt
 
-An inverter whose `control_profile` declares a `volt_var` and/or `volt_watt`
+An IBR whose `control_profile` declares a `volt_var` and/or `volt_watt`
 sub-object follows a voltage-dependent droop: Volt-watt caps active power,
 `P_k ≤ p_base · f^VW(|U_k|)`, and Volt-var pins reactive power to the curve,
 `Q_k = q_base · f^VV(|U_k|)`. Each piecewise-linear characteristic is encoded as
@@ -509,10 +509,10 @@ a sum of shifted/scaled smooth-ReLU (softplus) terms so the model stays
 differentiable for Ipopt; `volt_var_watt_eps` is the relative corner-smoothing
 (smaller → sharper kinks, larger → smoother). Breakpoint voltages are SI volts
 (phase-to-neutral) regardless of `per_unit`. Supported for SINGLE_PHASE and
-FOUR_LEG inverters; for THREE_LEG (delta) the droop is ignored (box bounds
+FOUR_LEG IBRs; for THREE_LEG (delta) the droop is ignored (box bounds
 retained) with a warning. Default characteristics for a region (e.g. AS/NZS
 4777.2:2020 "Australia A" for Queensland) can be injected by `augment_case`
-via the `[augment.smart_inverter]` config section.
+via the `[augment.smart_ibr]` config section.
 
 Returns a results dict with keys:
 - `"termination_status"` — JuMP termination status string
@@ -566,7 +566,7 @@ post-solve validation pass when limits must hold.
 
 Generators must be **fixed setpoints** (`p_min == p_max` and `q_min == q_max`); a
 non-degenerate range is rejected, since a power flow has no objective to choose a
-dispatch within the range. Inverters under a `control_profile` are voltage-
+dispatch within the range. IBRs under a `control_profile` are voltage-
 dependent and remain determined.
 
 Requires JuMP and Ipopt (same as `solve_opf`). The result dict matches
@@ -612,7 +612,7 @@ export render_markdown, render_terminal, render_ascii_tree
 export augment_case, AugmentationRecipe, default_recipe
 export fix_case, FixRecipe
 export add_generators, GeneratorRecipe, default_generator_recipe
-export add_inverters, InverterRecipe, default_inverter_recipe
+export add_ibrs, IBRRecipe, default_ibr_recipe
 export TransformationManifest, TransformEntry, manifest_to_dict, render_manifest
 export diagnose_infeasibility
 export merge_series_lines, remove_dangling_lines

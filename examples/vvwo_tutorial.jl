@@ -2,7 +2,7 @@
     vvwo_tutorial.jl  —  Volt-VAr-Watt **optimisation** on a four-wire LV feeder
 
 Most people meet Volt-var / Volt-watt (VV/VW) droop inside a *power-flow* tool
-(e.g. OpenDSS), where the inverter control is iterated to a fixed point *after*
+(e.g. OpenDSS), where the IBR control is iterated to a fixed point *after*
 each network solve. This example shows the other half of the story: the same
 AS/NZS 4777.2 droop can live **inside the constraints of an optimal power flow
 (OPF)**, solved *simultaneously* with the network equations — and, unlike a
@@ -25,7 +25,7 @@ PV export against an over-voltage problem:
       cap, and thermal limits                        → the OPF enforces the limit
                                                         the droop alone cannot
 
-A short appendix contrasts a three-phase (`FOUR_LEG`) inverter's per-phase vs
+A short appendix contrasts a three-phase (`FOUR_LEG`) IBR's per-phase vs
 phase-averaged voltage reference (`voltage_ref`).
 
 Run from the repository root with the test environment (JuMP + Ipopt):
@@ -43,7 +43,7 @@ sep(t) = println("\n", "─"^74, "\n  ", t, "\n", "─"^74)
 
 # ── Modelling constants ───────────────────────────────────────────────────────
 # AS/NZS 4777.2:2020 "Australia A" curves are injected by augment_case from the
-# [augment.smart_inverter] config preset; we only need the nominal voltage here.
+# [augment.smart_ibr] config preset; we only need the nominal voltage here.
 const LV_LN_V   = 230.0          # LV phase-to-neutral nominal (V)
 const HEAD_PU   = 1.05           # feeder-head tap (utilities run the LV head high
                                  #   to cover downstream drop — the classic setup
@@ -54,7 +54,7 @@ const SERVICE_M = 30.0           # service-cable length (m) to the two PV/load
                                  #   a representative residential service.
 const PV_KVA    = 45_000.0       # PV nameplate per connection (VA). Read as an
                                  #   aggregated cluster — ≈ 8 of the study's
-                                 #   5.25 kVA rooftop inverters behind one pole-top.
+                                 #   5.25 kVA rooftop IBRs behind one pole-top.
 const VPN_MAX_PU = 1.10          # EN 50160 / AS 4777 phase-to-neutral ceiling
 const VPN_MIN_PU = 0.90
 const VN_MAX_PU  = 0.10          # neutral-to-ground cap (a four-wire-only limit)
@@ -81,7 +81,7 @@ function base_net()
     net["line"]["l_3726"]["length"] = SERVICE_M   # drop to b3230
     net["line"]["l_2126"]["length"] = SERVICE_M   # drop to b2656
 
-    net["inverter"] = Dict{String,Any}(
+    net["ibr"] = Dict{String,Any}(
         "pv_a" => _pv("b3230", "1"),
         "pv_b" => _pv("b2656", "2"))
     return net
@@ -115,22 +115,22 @@ end
 manual_recipe(; thermal=false) = AugmentationRecipe(
     apply_v_bounds=false, apply_vpn_bounds=false, apply_vpp_bounds=false,
     apply_vneg_bounds=false, apply_thermal=thermal, apply_q_bounds=false,
-    apply_slack_generator=false, apply_inverter=false)
+    apply_slack_generator=false, apply_ibr=false)
 
-# Config with the AS/NZS 4777.2 "Australia A" smart-inverter preset enabled, so a
+# Config with the AS/NZS 4777.2 "Australia A" smart-IBR preset enabled, so a
 # blank volt_var/volt_watt sub-object gets filled with the regional curve.
 function ausA_config()
     cfg = deepcopy(BMOPFTools.load_config())
-    cfg["augment"]["smart_inverter"]["enabled"] = true
-    cfg["augment"]["smart_inverter"]["region"]  = "Aus_A"
+    cfg["augment"]["smart_ibr"]["enabled"] = true
+    cfg["augment"]["smart_ibr"]["region"]  = "Aus_A"
     return cfg
 end
 
-# Attach a (blank) VV/VW control profile to every inverter.
+# Attach a (blank) VV/VW control profile to every IBR.
 function attach_droop!(net)
     net["control_profile"] = Dict("vvw" =>
         Dict("volt_var" => Dict{String,Any}(), "volt_watt" => Dict{String,Any}()))
-    for (_, inv) in net["inverter"]
+    for (_, inv) in net["ibr"]
         inv["control_profile"] = "vvw"
     end
     return net
@@ -142,8 +142,8 @@ struct Outcome
     status::String
     max_vpn::Float64
     max_vn::Float64
-    p::Dict{String,Float64}     # inverter id → kW
-    q::Dict{String,Float64}     # inverter id → kvar
+    p::Dict{String,Float64}     # IBR id → kW
+    q::Dict{String,Float64}     # IBR id → kvar
     export_kw::Float64
 end
 
@@ -158,8 +158,8 @@ function run_scenario(label, net; config=BMOPFTools._DEFAULT_CONFIG, thermal=fal
     max_vpn = maximum(vpn_pu(res, b, t) for b in lv for t in ("1", "2", "3"))
     max_vn  = maximum(abs(res["bus"][b]["n"]["vr"] + im*res["bus"][b]["n"]["vi"])
                       for b in lv if haskey(res["bus"][b], "n")) / LV_LN_V
-    P = Dict(id => sum(v["pg"] for v in values(ph))/1000 for (id, ph) in res["inverter"])
-    Q = Dict(id => sum(v["qg"] for v in values(ph))/1000 for (id, ph) in res["inverter"])
+    P = Dict(id => sum(v["pg"] for v in values(ph))/1000 for (id, ph) in res["ibr"])
+    Q = Dict(id => sum(v["qg"] for v in values(ph))/1000 for (id, ph) in res["ibr"])
     exp = -sum(v["ps"] for v in values(first(values(res["voltage_source"]))))/1000
     return Outcome(label, st, max_vpn, max_vn, P, Q, exp)
 end
@@ -178,7 +178,7 @@ end
 # ── Scenario A: unity PF, no limits — the power-flow blind spot ────────────────
 sep("A.  PV at unity power factor, no network limits")
 netA = base_net()
-for (_, inv) in netA["inverter"]               # pin Q = 0 (unity PF baseline)
+for (_, inv) in netA["ibr"]               # pin Q = 0 (unity PF baseline)
     inv["q_min"] = [0.0]; inv["q_max"] = [0.0]
 end
 A = run_scenario("A — unity PF", netA)
@@ -229,7 +229,7 @@ println("""
   operating envelope at once.""")
 
 # ── Appendix: three-phase voltage reference (per-phase vs averaged) ────────────
-# A FOUR_LEG inverter can respond to each phase's own magnitude (PER_PHASE) or to
+# A FOUR_LEG IBR can respond to each phase's own magnitude (PER_PHASE) or to
 # the mean of the three (AVERAGE, like a single 3φ unit). On an unbalanced bus the
 # two laws dispatch reactive power very differently. We show it on a deliberately
 # unbalanced minimal feeder so the contrast is unmistakable.
@@ -249,7 +249,7 @@ function aside_net(vref)
      "load":{"la":{"bus":"lb","terminal_map":["1","n"],"configuration":"WYE","p_nom":[8000.0],"q_nom":[0.0]},
              "lc":{"bus":"lb","terminal_map":["3","n"],"configuration":"WYE","p_nom":[2000.0],"q_nom":[0.0]}},
      "control_profile":{"vvw":{"volt_var":{},"volt_watt":{}}},
-     "inverter":{"pv":{"bus":"lb","terminal_map":["1","2","3","n"],"topology":"FOUR_LEG",
+     "ibr":{"pv":{"bus":"lb","terminal_map":["1","2","3","n"],"topology":"FOUR_LEG",
          "prime_mover":"PV","voltage_ref":"$(vref)","s_max":[10000.0,10000.0,10000.0],
          "p_avail":30000.0,"p_max":[10000.0,10000.0,10000.0],"p_min":[0.0,0.0,0.0],
          "control_profile":"vvw","cost":[0.0,0.0,0.0]}}}
@@ -260,7 +260,7 @@ end
 for vref in ("PER_PHASE", "AVERAGE")
     aug, _ = augment_case(aside_net(vref); config=ausA_config(), recipe=manual_recipe())
     res = solve_opf(aug; optimizer=OPT, per_unit=true)
-    iv  = res["inverter"]["pv"]
+    iv  = res["ibr"]["pv"]
     qs  = [sum(v["qg"] for (t, v) in iv if t == ph)/1000 for ph in ("1", "2", "3")]
     vs  = [vpn_pu(res, "lb", ph) for ph in ("1", "2", "3")]
     @printf("  %-10s  V(φ-n) = [%.3f %.3f %.3f] pu   Q = [%+.2f %+.2f %+.2f] kvar\n",
@@ -270,4 +270,4 @@ println("""
   PER_PHASE: each phase reacts to its own voltage → unequal Q (the heavily loaded
              phase absorbs least, the lightly loaded/high-voltage phase most).
   AVERAGE  : every phase reacts to the mean magnitude → balanced Q, like a single
-             three-phase inverter that regulates on its average terminal voltage.""")
+             three-phase IBR that regulates on its average terminal voltage.""")

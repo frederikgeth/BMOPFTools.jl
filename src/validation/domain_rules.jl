@@ -30,7 +30,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_load_models(net, findings, n_checks)
     _check_low_impedance_lines(net, findings, thresholds, n_checks)
     _check_adjacent_line_impedance_spread(net, findings, thresholds, n_checks, result)
-    _check_inverter_capability(net, findings, n_checks)
+    _check_ibr_capability(net, findings, n_checks)
     _check_droop_breakpoint_band(net, findings, n_checks)
     _check_cost_phase_uniformity(net, findings, n_checks)
     _check_source_voltage_margin(net, findings, thresholds, n_checks)
@@ -75,14 +75,14 @@ function _check_bus_voltage_bounds(net, findings, n_checks)
 end
 
 # Warn when a Volt-var/Volt-watt breakpoint (SI phase-to-neutral volts) lies
-# outside the operational voltage band of the inverter's bus — the droop would
+# outside the operational voltage band of the IBR's bus — the droop would
 # then never engage (or always saturate) within the feasible voltage range.
 function _check_droop_breakpoint_band(net, findings, n_checks)
     profiles = get(net, "control_profile", Dict())
     profiles isa Dict && !isempty(profiles) || return
     buses = get(net, "bus", Dict())
 
-    for (inv_id, inv) in get(net, "inverter", Dict())
+    for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         cp_id = get(inv, "control_profile", nothing)
         cp_id isa AbstractString || continue
@@ -105,8 +105,8 @@ function _check_droop_breakpoint_band(net, findings, n_checks)
             n_checks[] += 1
             outside = [Float64(b) for b in bps if Float64(b) < lo || Float64(b) > hi]
             isempty(outside) || push!(findings, Finding(WARNING,
-                "W.DOM.DROOP_BREAKPOINT_OUTSIDE_BAND", :domain_rules, :inverter, inv_id,
-                "Inverter '$inv_id': $law breakpoint(s) $(outside) V lie outside the " *
+                "W.DOM.DROOP_BREAKPOINT_OUTSIDE_BAND", :domain_rules, :ibr, inv_id,
+                "IBR '$inv_id': $law breakpoint(s) $(outside) V lie outside the " *
                 "bus voltage band [$(round(lo,digits=1)), $(round(hi,digits=1))] V; " *
                 "the droop may never engage within the feasible range.",
                 Dict{String,Any}("breakpoints" => outside)))
@@ -586,7 +586,7 @@ end
 #   • a generator whose active-power range is entirely ≤ 0 only ever absorbs — it
 #     is really a load (the mirror of `I.DOM.NEGATIVE_LOAD`);
 #   • a generator connected at LV (≤ 1 kV) is almost certainly an inverter-
-#     interfaced DER, which the `inverter` object models faithfully (capability
+#     interfaced DER, which the `ibr` object models faithfully (capability
 #     curve, no inertia, current limit, volt-var/volt-watt) — a synchronous
 #     `generator` is the wrong asset class for distribution-connected DERs.
 function _check_generator_semantics(net, findings, n_checks)
@@ -596,7 +596,7 @@ function _check_generator_semantics(net, findings, n_checks)
                Dict{String,Float64}())
 
     absorbers = String[]
-    inverters = String[]
+    ibr_like = String[]
     for (id, g) in gens
         g isa Dict || continue
         n_checks[] += 1
@@ -606,7 +606,7 @@ function _check_generator_semantics(net, findings, n_checks)
             !isempty(vals) && all(<=(0.0), vals) && push!(absorbers, id)
         end
         vb = get(vmap, string(get(g, "bus", "")), nothing)
-        vb isa Number && vb > 0 && vb <= 1_000.0 && push!(inverters, id)
+        vb isa Number && vb > 0 && vb <= 1_000.0 && push!(ibr_like, id)
     end
 
     if !isempty(absorbers)
@@ -617,27 +617,27 @@ function _check_generator_semantics(net, findings, n_checks)
             "consider explicit load objects: $(join(sort(absorbers), ", ")).",
             Dict{String,Any}("generators" => sort(absorbers))))
     end
-    if !isempty(inverters)
-        push!(findings, Finding(INFO, "I.DOM.GEN_LIKELY_INVERTER", :domain_rules,
+    if !isempty(ibr_like)
+        push!(findings, Finding(INFO, "I.DOM.GEN_LIKELY_IBR", :domain_rules,
             :generator, nothing,
-            "$(length(inverters)) generator(s) sit on LV buses (≤ 1 kV) — " *
+            "$(length(ibr_like)) generator(s) sit on LV buses (≤ 1 kV) — " *
             "distribution-connected DERs are overwhelmingly inverter-interfaced; " *
-            "the `inverter` object models them faithfully (capability curve, no " *
+            "the `ibr` object models them faithfully (capability curve, no " *
             "inertia, current limit, volt-var/volt-watt control): " *
-            "$(join(sort(inverters), ", ")).",
-            Dict{String,Any}("generators" => sort(inverters))))
+            "$(join(sort(ibr_like), ", ")).",
+            Dict{String,Any}("generators" => sort(ibr_like))))
     end
 end
 
-# Inverter capability plausibility (inverter extension §3.6'):
+# IBR capability plausibility (IBR extension §3.6'):
 #   - s_max is the apparent-power nameplate and must be strictly positive;
 #   - active/reactive bound pairs must be ordered (p_min ≤ p_max, q_min ≤ q_max),
 #     else the feasible box is empty;
 #   - a P or Q bound whose magnitude exceeds the kVA nameplate is unreachable
 #     inside the apparent-power circle and is almost always a unit error;
 #   - a PV prime mover that can absorb active power (p_min < 0) is unphysical.
-function _check_inverter_capability(net, findings, n_checks)
-    for (id, inv) in get(net, "inverter", Dict())
+function _check_ibr_capability(net, findings, n_checks)
+    for (id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         n_checks[] += 1
 
@@ -647,8 +647,8 @@ function _check_inverter_capability(net, findings, n_checks)
         if smax_arr !== nothing
             if any(<=(0), smax_arr)
                 push!(findings, Finding(ERROR, "E.DOM.INV_SMAX_NONPOSITIVE", :domain_rules,
-                    :inverter, id,
-                    "inverter '$id' has a non-positive entry in s_max $(smax_arr) VA; " *
+                    :ibr, id,
+                    "IBR '$id' has a non-positive entry in s_max $(smax_arr) VA; " *
                     "all per-phase apparent-power ratings must be strictly positive.",
                     Dict{String,Any}("s_max" => smax_arr)))
             else
@@ -660,8 +660,8 @@ function _check_inverter_capability(net, findings, n_checks)
         pmax = get(inv, "p_max", nothing)
         if pmin isa Number && pmax isa Number && Float64(pmin) > Float64(pmax)
             push!(findings, Finding(ERROR, "E.DOM.INV_P_BOUNDS", :domain_rules,
-                :inverter, id,
-                "inverter '$id' has p_min = $(pmin) W > p_max = $(pmax) W; " *
+                :ibr, id,
+                "IBR '$id' has p_min = $(pmin) W > p_max = $(pmax) W; " *
                 "the active-power range is empty.",
                 Dict{String,Any}("p_min" => pmin, "p_max" => pmax)))
         end
@@ -670,8 +670,8 @@ function _check_inverter_capability(net, findings, n_checks)
         qmax = get(inv, "q_max", nothing)
         if qmin isa Number && qmax isa Number && Float64(qmin) > Float64(qmax)
             push!(findings, Finding(ERROR, "E.DOM.INV_Q_BOUNDS", :domain_rules,
-                :inverter, id,
-                "inverter '$id' has q_min = $(qmin) var > q_max = $(qmax) var; " *
+                :ibr, id,
+                "IBR '$id' has q_min = $(qmin) var > q_max = $(qmax) var; " *
                 "the reactive-power range is empty.",
                 Dict{String,Any}("q_min" => qmin, "q_max" => qmax)))
         end
@@ -683,8 +683,8 @@ function _check_inverter_capability(net, findings, n_checks)
                 v isa Number || continue
                 if abs(Float64(v)) > smax_total
                     push!(findings, Finding(WARNING, "W.DOM.INV_BOUND_EXCEEDS_SMAX",
-                        :domain_rules, :inverter, id,
-                        "inverter '$id': |$field| = $(abs(Float64(v))) exceeds the " *
+                        :domain_rules, :ibr, id,
+                        "IBR '$id': |$field| = $(abs(Float64(v))) exceeds the " *
                         "total apparent-power nameplate sum(s_max) = $(smax_total) VA; " *
                         "this bound is unreachable inside the capability circle (unit error?).",
                         Dict{String,Any}("field" => field, "value" => v,
@@ -697,8 +697,8 @@ function _check_inverter_capability(net, findings, n_checks)
         if get(inv, "prime_mover", nothing) == "PV" &&
            pmin isa Number && Float64(pmin) < 0
             push!(findings, Finding(WARNING, "W.DOM.INV_PV_ABSORBS", :domain_rules,
-                :inverter, id,
-                "inverter '$id' is prime_mover=PV but has p_min = $(pmin) W < 0 — " *
+                :ibr, id,
+                "IBR '$id' is prime_mover=PV but has p_min = $(pmin) W < 0 — " *
                 "PV cannot absorb active power; use prime_mover=BATTERY for " *
                 "bidirectional devices.",
                 Dict{String,Any}("p_min" => pmin)))

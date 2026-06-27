@@ -23,8 +23,8 @@ four-wire distribution setting with three composable, audited operations:
 - **`fix_case`** — *structural repairs*. Remove inert elements, drop
   disconnected islands, collapse near-zero-impedance lines to switches, strip
   redundant bounds. Make the graph sound before anything is written onto it.
-- **`add_generators`** / **`add_inverters`** — *deliberate DER placement*. Create
-  dispatchable `generator` elements (or richer inverter-interfaced `inverter`
+- **`add_generators`** / **`add_ibrs`** — *deliberate DER placement*. Create
+  dispatchable `generator` elements (or richer inverter-interfaced `ibr`
   elements) at semantically/topologically chosen buses so the OPF has something
   to decide. Never random; every placement is explained.
 - **`augment_case`** — *standards-grounded gap-filling*. Inject voltage bounds,
@@ -70,7 +70,7 @@ is deliberate, and each edge exists for a reason:
    topology plus the new DERs. Run last, it bounds everything once and
    completely.
 
-The placement step (`add_generators`, or `add_inverters` for converter-interfaced
+The placement step (`add_generators`, or `add_ibrs` for converter-interfaced
 DERs) is genuinely optional. If you only need a feasible power-flow benchmark
 (CVR, state estimation, maximum-load-delivery studies) you can run
 `fix_case → augment_case` and skip placement entirely — the slack remains the
@@ -110,7 +110,7 @@ net3, aug_mf = augment_case(net2; analysis=report.analysis)
 For a runnable, build-executed walk through this exact pipeline on a real
 feeder, see the [end-to-end tutorial](tutorial_end_to_end.md); the
 [DER placement tutorial](tutorial_ders.md) and [VVWO tutorial](tutorial_vvwo.md)
-then drill into placement strategies and smart-inverter control.
+then drill into placement strategies and smart-IBR control.
 
 The four `augment_case` passes below run in order. Each can be disabled
 independently via the [`AugmentationRecipe`](@ref) `apply_*` flags.  **No pass
@@ -304,33 +304,33 @@ Default `pf = 0.90` (EN 50549-1:2019, LV grid-connected DERs):
 Q_max ≈ 0.484 × P_max.  Set `q_capability_pf = 0.95` for IEEE 1547-2018
 (ANSI) deployments: Q_max ≈ 0.329 × P_max.
 
-### [Pass 4 — Inverter dispatch bounds](@id pass-4-inverter-dispatch-bounds)
+### [Pass 4 — IBR dispatch bounds](@id pass-4-IBR-dispatch-bounds)
 
-`inverter` elements carry a richer model than generators (an apparent-power
-nameplate `s_max`, a `topology`, a `prime_mover`, and an optional smart-inverter
+`ibr` (inverter-based resource) elements carry a richer model than generators (an apparent-power
+nameplate `s_max`, a `topology`, a `prime_mover`, and an optional smart-IBR
 `control_profile`). This pass fills their **active and reactive dispatch box**
 from the nameplate, leaving the nameplate itself untouched. Controlled by the
-recipe's `apply_inverter` flag; disabled with `apply_inverter = false`.
+recipe's `apply_ibr` flag; disabled with `apply_ibr = false`.
 
 **Active power.** If `p_max` is absent it is derived per phase — from `p_avail`
 (split equally across phases) or from the per-phase `s_max` ratings. For `PV`
 prime movers `p_min = 0` is also injected when absent, since PV cannot absorb
 active power.
 
-**Reactive power.** If the inverter references a `control_profile` carrying a
+**Reactive power.** If the IBR references a `control_profile` carrying a
 `power_factor` sub-object, `q_min`/`q_max` are *left absent* — the OPF enforces
 the exact PF coupling `Q = f(P)` as an equality constraint instead. Otherwise,
-for inverters lacking explicit `q_min`/`q_max`, symmetric bounds are derived from
-`p_max` using the recipe's `inverter_default_pf` (EN 50549-1:2019 default
+for IBRs lacking explicit `q_min`/`q_max`, symmetric bounds are derived from
+`p_max` using the recipe's `ibr_default_pf` (EN 50549-1:2019 default
 cos φ = 0.90), exactly as for generators:
 
 ```
 Q_max = P_max × tan(arccos(pf)),   Q_min = -Q_max
 ```
 
-This pass only *bounds* inverters that already exist in the case. To **place**
-inverters in the first place, see [Adding inverters](#adding-inverters-der-placement)
-below; the intended order is `add_inverters → augment_case`, so this pass turns
+This pass only *bounds* IBRs that already exist in the case. To **place**
+IBRs in the first place, see [Adding IBRs](#adding-IBRs-der-placement)
+below; the intended order is `add_ibrs → augment_case`, so this pass turns
 each placed nameplate into a full dispatch box.
 
 ## [`fix_case` — structural repairs](@id fix)
@@ -465,39 +465,39 @@ GeneratorRecipe
 default_generator_recipe
 ```
 
-## [Adding inverters (DER placement)](@id adding-inverters-der-placement)
+## [Adding IBRs (DER placement)](@id adding-IBRs-der-placement)
 
-[`add_inverters`](@ref) is the inverter-interfaced counterpart to
+[`add_ibrs`](@ref) is the inverter-interfaced counterpart to
 [`add_generators`](@ref). Where a `generator` is a thin active-power object, an
-`inverter` carries a richer model — an apparent-power nameplate `s_max`, a
+`ibr` carries a richer model — an apparent-power nameplate `s_max`, a
 `topology` (`FOUR_LEG` / `THREE_LEG` / `SINGLE_PHASE`), a `prime_mover`, and an
 apparent-power circle `P² + Q² ≤ s_max²` in the OPF. Use it when the benchmark
 should model PV/storage converters with explicit VA headroom rather than plain
 dispatchable generation.
 
 The division of labour mirrors generators exactly: **placement places, augment
-bounds.** `add_inverters` writes only the nameplate — `bus`, `terminal_map`,
+bounds.** `add_ibrs` writes only the nameplate — `bus`, `terminal_map`,
 `topology`, `prime_mover`, `s_max`, `p_avail`, `cost` — and
-[Pass 4 of `augment_case`](#pass-4-inverter-dispatch-bounds) then derives the
+[Pass 4 of `augment_case`](#pass-4-IBR-dispatch-bounds) then derives the
 `p_max`/`p_min`/`q_min`/`q_max` dispatch box from that nameplate. The intended
-order is therefore the same one-line pipeline with `add_inverters` in the
+order is therefore the same one-line pipeline with `add_ibrs` in the
 generator slot:
 
 ```julia
 net1, _   = fix_case(net)
-net2, imf = add_inverters(net1;
-              recipe = InverterRecipe(strategy = :load_following))
+net2, imf = add_ibrs(net1;
+              recipe = IBRRecipe(strategy = :load_following))
 render_manifest(imf)               # every placement is explained
-net3, _   = augment_case(net2)     # fills p_max/p_min/q_min/q_max on the new inverters
+net3, _   = augment_case(net2)     # fills p_max/p_min/q_min/q_max on the new IBRs
 ```
 
-Placement is controlled by an [`InverterRecipe`](@ref). The strategy, filter and
+Placement is controlled by an [`IBRRecipe`](@ref). The strategy, filter and
 cost knobs are identical in meaning to [`GeneratorRecipe`](@ref) (so the
 [strategy-diversity guidance](#why-diverse-strategies-matter) applies unchanged),
-with these inverter-specific additions:
+with these IBR-specific additions:
 
 - **`prime_mover`** — `:PV` (the MVP default; drives `p_min = 0` in the augment
-  pass). Battery and grid-forming inverters are planned but not yet placed.
+  pass). Battery and grid-forming IBRs are planned but not yet placed.
 - **`inverter_topology`** — `:infer` (FOUR_LEG when the host load has a neutral
   terminal, else SINGLE_PHASE), or a forced `:FOUR_LEG` / `:THREE_LEG` /
   `:SINGLE_PHASE`.
@@ -507,22 +507,22 @@ with these inverter-specific additions:
   below 1.0 leaves reactive headroom at full irradiance).
 
 Every field written is recorded as a `:synthetic` `TransformEntry` with rule
-`INVERTER_PLACEMENT/<strategy>`, and the run emits
-`I.INV.PLACED` / `W.INV.NO_CANDIDATES` / `W.INV.OVERSUPPLY` findings into the
+`IBR_PLACEMENT/<strategy>`, and the run emits
+`I.IBR.PLACED` / `W.IBR.NO_CANDIDATES` / `W.IBR.OVERSUPPLY` findings into the
 manifest's `findings_after`.
 
 !!! note "I/O converter support is pending"
-    `solve_opf` dispatches placed inverters once `augment_case` has filled their
-    P/Q box — the OPF engine fully models inverters (apparent-power circle,
+    `solve_opf` dispatches placed IBRs once `augment_case` has filled their
+    P/Q box — the OPF engine fully models IBRs (apparent-power circle,
     topology-dependent voltage reference, constant-PF coupling). What is *not* yet
     wired is the I/O layer: `to_pmd`/`from_dss` do not yet map
-    `inverter` elements, so inverters cannot round-trip through
+    `ibr` elements, so IBRs cannot round-trip through
     PowerModelsDistribution or OpenDSS.
 
 ```@docs
-add_inverters
-InverterRecipe
-default_inverter_recipe
+add_ibrs
+IBRRecipe
+default_ibr_recipe
 ```
 
 ## [A starting point for fine-tuning](@id starting-point)

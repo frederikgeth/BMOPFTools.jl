@@ -1,4 +1,4 @@
-# Inverter constraints for the four-wire IVR-EN OPF.
+# IBR constraints for the four-wire IVR-EN OPF.
 #
 # Topology → voltage reference mapping:
 #   FOUR_LEG    — phase-to-neutral; neutral is the last terminal in terminal_map
@@ -8,7 +8,7 @@
 #
 # Constant power-factor (PF) mode
 # ────────────────────────────────
-# When the inverter references a control_profile with a "power_factor" sub-object
+# When the IBR references a control_profile with a "power_factor" sub-object
 # the signed field "pf" determines the Q/P coupling:
 #
 #   pf > 0  (lagging, absorbing VAr):  Q_k = -tan(arccos(pf))  · P_k
@@ -20,14 +20,14 @@
 # which Ipopt handles exactly — no relaxation or bound approximation.
 #
 # Without a PF control profile, q_min/q_max box bounds are used; these are
-# normally filled by _apply_inverter_augmentation! before the OPF is called.
+# normally filled by _apply_ibr_augmentation! before the OPF is called.
 
-"Declare `cri`/`cii` inverter current variables (one per phase conductor)."
-function _add_inverter_variables!(model, net)
+"Declare `cri`/`cii` IBR current variables (one per phase conductor)."
+function _add_ibr_variables!(model, net)
     cri = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     cii = Dict{Tuple{String,Int}, JuMP.VariableRef}()
 
-    for (inv_id, inv) in get(net, "inverter", Dict())
+    for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
         topo = get(inv, "topology", "FOUR_LEG")
@@ -67,7 +67,7 @@ end
 Build the reactive-power droop curve Q/Q_base = f(U) from a `volt_var` sub-object.
 Only the Queensland default option space is supported (PN_PER_PHASE voltage
 reference, VA_FRACTION q_unit, VAR_MAX q_ref); unsupported variants warn and skip
-so the inverter falls back to its box bounds.
+so the IBR falls back to its box bounds.
 """
 function _resolve_volt_var(vv, Uscale::Float64, relu_eps::Float64)
     vv isa Dict || return nothing
@@ -113,12 +113,12 @@ function _droop_base(c::DroopCurve, idx::Int, smax, p_max, p_avail_per)
 end
 
 """
-    _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i; bases, relu_eps, relu_ops)
+    _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i; bases, relu_eps, relu_ops)
 
-Add P/Q power constraints and KCL contributions for all inverter objects.
+Add P/Q power constraints and KCL contributions for all IBR objects.
 
 For each phase k the bilinear power equations are formed from the voltage
-difference (dvr, dvi) appropriate to the inverter topology and the inverter
+difference (dvr, dvi) appropriate to the inverter topology and the IBR
 current variables (cri, cii):
 
     P_k = dvr·cri[k] + dvi·cii[k]
@@ -132,18 +132,18 @@ Constraints applied per phase:
   under a `volt_var` profile — the droop equality `Q_k = q_base · f^VV(|U_k|)`,
   otherwise the box bounds `q_min[k] ≤ Q_k ≤ q_max[k]`.
 
-Volt-var/Volt-watt droop is applied for SINGLE_PHASE and FOUR_LEG inverters only;
+Volt-var/Volt-watt droop is applied for SINGLE_PHASE and FOUR_LEG IBRs only;
 for THREE_LEG (delta) there are too few degrees of freedom for a per-phase droop,
 so a profile is ignored (box bounds retained) with a warning.
 """
-function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
+function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                                     bases=nothing, relu_eps::Float64=2e-3,
                                     relu_ops::Dict{Float64,Any}=Dict{Float64,Any}())
     vr  = vars[:vr];  vi  = vars[:vi]
     cri = vars[:cri]; cii = vars[:cii]
     profiles = get(net, "control_profile", Dict())
 
-    for (inv_id, inv) in get(net, "inverter", Dict())
+    for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         bus   = get(inv, "bus", "")
         tm    = Vector{String}(get(inv, "terminal_map", String[]))
@@ -182,9 +182,9 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
         vw = nothing
         if vv_obj !== nothing || vw_obj !== nothing
             if topo == "THREE_LEG"
-                @warn "Inverter '$inv_id': Volt-var/Volt-watt not supported for THREE_LEG — using box bounds."
+                @warn "IBR '$inv_id': Volt-var/Volt-watt not supported for THREE_LEG — using box bounds."
             elseif pf_val !== nothing
-                @warn "Inverter '$inv_id': control_profile has both power_factor and Volt-var/Volt-watt — using power_factor."
+                @warn "IBR '$inv_id': control_profile has both power_factor and Volt-var/Volt-watt — using power_factor."
             else
                 vv = _resolve_volt_var(vv_obj, Uscale, relu_eps)
                 vw = _resolve_volt_watt(vw_obj, Uscale, relu_eps)
@@ -205,12 +205,12 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
 
         # Droop reference-voltage mode: PER_PHASE (each phase sees its own
         # magnitude) or AVERAGE (every phase sees the mean of the phase
-        # magnitudes). Only meaningful for multi-phase FOUR_LEG inverters.
+        # magnitudes). Only meaningful for multi-phase FOUR_LEG IBRs.
         volt_ref = uppercase(String(get(inv, "voltage_ref", "PER_PHASE")))
         avg_ref  = volt_ref == "AVERAGE"
 
         if topo == "SINGLE_PHASE"
-            length(tm) >= 2 || (@warn "Inverter '$inv_id': SINGLE_PHASE needs ≥2 terminals"; continue)
+            length(tm) >= 2 || (@warn "IBR '$inv_id': SINGLE_PHASE needs ≥2 terminals"; continue)
             t_ph  = tm[1]
             t_ref = tm[2]
             dvr = @expression(model, vr[(bus, t_ph)] - vr[(bus, t_ref)])
@@ -219,9 +219,9 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
             p_expr = @expression(model, dvr*cri[(inv_id,1)] + dvi*cii[(inv_id,1)])
             q_expr = @expression(model, dvi*cri[(inv_id,1)] - dvr*cii[(inv_id,1)])
 
-            avg_ref && @warn "Inverter '$inv_id': voltage_ref=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
+            avg_ref && @warn "IBR '$inv_id': voltage_ref=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
             U = umag_expr(dvr, dvi)
-            _apply_inverter_phase!(model, inv_id, 1, p_expr, q_expr, U,
+            _apply_ibr_phase!(model, inv_id, 1, p_expr, q_expr, U,
                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                 vv, vw, p_avail_per, relu_ops)
 
@@ -267,7 +267,7 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
             # Second pass: stamp the per-phase constraints with the chosen reference.
             for p in phase
                 U = U_avg === nothing ? p.U : U_avg
-                _apply_inverter_phase!(model, inv_id, p.idx, p.p_expr, p.q_expr, U,
+                _apply_ibr_phase!(model, inv_id, p.idx, p.p_expr, p.q_expr, U,
                     p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                     vv, vw, p_avail_per, relu_ops)
             end
@@ -284,7 +284,7 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
                 q_expr = @expression(model, dvi*cri[(inv_id,k)] - dvr*cii[(inv_id,k)])
 
                 # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
-                _apply_inverter_phase!(model, inv_id, k, p_expr, q_expr, nothing,
+                _apply_ibr_phase!(model, inv_id, k, p_expr, q_expr, nothing,
                     p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                     nothing, nothing, p_avail_per, relu_ops)
 
@@ -293,19 +293,19 @@ function _add_inverter_constraints!(model, net, vars, kcl_r, kcl_i;
             end
 
         else
-            @warn "Inverter '$inv_id': unknown topology '$topo' — skipping."
+            @warn "IBR '$inv_id': unknown topology '$topo' — skipping."
         end
     end
 end
 
 # Stamp the per-phase active/reactive constraints and apparent-power circle for a
-# single inverter phase `idx`, given the bilinear P/Q expressions and (optionally)
+# single IBR phase `idx`, given the bilinear P/Q expressions and (optionally)
 # resolved Volt-var (`vv`) / Volt-watt (`vw`) droop curves.
 #
 # `U` is the reference voltage-magnitude expression fed into the droop curves. The
-# caller chooses it per the inverter's `voltage_ref` field: the per-phase magnitude
+# caller chooses it per the IBR's `voltage_ref` field: the per-phase magnitude
 # √(dvr²+dvi²) for PER_PHASE, or the mean of the phase magnitudes for AVERAGE.
-function _apply_inverter_phase!(model, inv_id, idx, p_expr, q_expr, U,
+function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U,
                                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                                 vv, vw, p_avail_per, relu_ops)
     # P lower bound (always a box bound).
