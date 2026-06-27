@@ -333,12 +333,12 @@ inverters in the first place, see [Adding inverters](#adding-inverters-der-place
 below; the intended order is `add_inverters → augment_case`, so this pass turns
 each placed nameplate into a full dispatch box.
 
-## `fix_case` — structural repairs
+## [`fix_case` — structural repairs](@id fix)
 
-Seven passes run in order.  Each is independently controlled by the
+Nine passes run in order.  Each is independently controlled by the
 corresponding `apply_*` flag in [`FixRecipe`](@ref).  All passes default to
-`true` except the two that change power-system semantics, which default to
-`false` and must be opted into explicitly.
+`true` except the four that change power-system semantics or representation,
+which default to `false` and must be opted into explicitly.
 
 | # | Pass | Default | Notes |
 |---|---|---|---|
@@ -349,6 +349,8 @@ corresponding `apply_*` flag in [`FixRecipe`](@ref).  All passes default to
 | 5 | Source bus bounds | `true` | Strips all voltage bounds from source buses — redundant because the voltage source pins the terminal voltages exactly. |
 | 6 | Adjacent current bounds | `false` | Infers `i_max` for lines/switches that lack it from directly adjacent elements (one hop). Transformers contribute `s_rating / (√3 × V_ref)`; lines and switches propagate their own `i_max`. Takes the minimum over all adjacent bounds. |
 | 7 | Perfect grounding | `false` | Promotes grounding shunts whose `1/\|Y₁₁\| < threshold` (default 0.1 Ω) to `perfectly_grounded_terminals` and removes the shunt. **Changes OPF physics** (forces `V_n = 0`). |
+| 8 | Capacitive shunts → capacitors | `false` | Re-represents a purely capacitive shunt (G ≈ 0; flagged by `I.PROV.SHUNT_LIKELY_CAPACITOR`) as a first-class `capacitor`. The susceptance matrix `B` is **fingerprinted** by sign pattern + sparsity + row sums into `SINGLE_PHASE`, `WYE`, or `DELTA` (or a phase-to-ground bank → WYE/SINGLE_PHASE on a grounded neutral), and the nameplate `q_rated = B·v_rated²` is recovered (`v_rated` = bus P-N nominal, or √3·P-N = L-L for DELTA). The conversion is committed **only when the emitted capacitor's susceptance reproduces `B` exactly** (round-trip guard), so it is faithful by construction; anything ambiguous or unsupported (mixed return paths, `n>3` cyclic banks, a star with no name-resolvable neutral, no grounded return for a phase-to-ground bank, or no resolvable nominal) is left untouched. |
+| 9 | Snap placeholder transformer leakage | `false` | Zeroes a two-winding transformer's **tiny non-zero** series impedance (`\|Z\| < snap_transformer_z_min_pu`, default 0.1 % on the rating base; flagged by `W.DOM.XFMR_LOW_IMPEDANCE`) — a placeholder for zero from an admittance-based tool. Exact zero is better-conditioned in the IVR formulation than a small value (the transformer analogue of the low-impedance-line → switch pass). Genuine leakage (1–15 %) is never touched; n_winding units are skipped (rating base differs). |
 
 ```@docs
 fix_case

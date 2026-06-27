@@ -25,6 +25,16 @@ r_series_min = 1e-9
 # Transformer: max step ratio in either direction (anything beyond 1000:1
 # is suspect; 33/0.4 kV ≈ 83, 132/11 kV = 12)
 xfmr_ratio_max = 1000.0
+# Transformer series impedance (Ω) at or below which a winding is treated as
+# exactly ideal (zero leakage): well-posed in the IVR formulation (I.DOM.XFMR_IDEAL).
+xfmr_z_min_ohm = 1e-6
+# Transformer series impedance, per-unit on the from-side rating base
+# (Z_base = v_ref_from²/s_rating), below which a *non-zero* leakage looks like a
+# small placeholder for zero carried over from an admittance-based tool. Tiny
+# leakage ill-conditions the IVR voltage-drop equation; exact zero is cleaner
+# (W.DOM.XFMR_LOW_IMPEDANCE). Real transformers are 1–15 %, so 0.1 % cleanly
+# separates placeholders from genuine values.
+xfmr_z_min_pu = 1e-3
 # Absolute series impedance ||Z||_F (Ω) below which a line should be a switch
 z_line_min_ohm = 1e-4
 # Adjacent-line ||Z||_F ratio thresholds (info / warning)

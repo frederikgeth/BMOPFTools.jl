@@ -40,6 +40,41 @@ function _check_bus_shunts(net::Dict{String,Any}, findings::Vector{Finding})
 end
 
 # ---------------------------------------------------------------------------
+# Capacitor-bank detection
+# ---------------------------------------------------------------------------
+# A fixed capacitor bank, when carried as a generic `shunt`, is a purely
+# capacitive admittance: no conductance (G ≈ 0) and a positive susceptance
+# (`B = ωC > 0`; a reactor would be negative). Flag such shunts so they can be
+# promoted to a first-class `capacitor` (nameplate q_rated/v_rated), optionally
+# via the `apply_shunt_to_capacitor` fix pass.
+function _check_capacitor_like_shunts(net::Dict{String,Any},
+                                      findings::Vector{Finding})::Dict{String,Any}
+    affected = String[]
+    for (id, s) in get(net, "shunt", Dict())
+        s isa Dict || continue
+        B = _pattern_keys_to_matrix(s, "B_")
+        B isa AbstractMatrix || continue
+        G = _pattern_keys_to_matrix(s, "G_")
+        bscale = max(maximum(abs, B), 1e-30)
+        gmax   = G isa AbstractMatrix ? maximum(abs, G) : 0.0
+        bdiag  = [B[i, i] for i in 1:size(B, 1)]
+        # No conductance, and every diagonal susceptance strictly positive
+        # (capacitive). Mixed/inductive banks (any negative diagonal) are excluded.
+        (gmax <= 1e-9 * bscale && all(x -> x > 1e-12 * bscale, bdiag)) || continue
+        push!(affected, id)
+        push!(findings, Finding(INFO, "I.PROV.SHUNT_LIKELY_CAPACITOR", :provenance,
+            :shunt, id,
+            "Shunt '$id' is purely capacitive (no conductance, positive diagonal " *
+            "susceptance) — it looks like a fixed capacitor bank. Consider modeling " *
+            "it as a first-class `capacitor` (nameplate q_rated/v_rated); the fix " *
+            "recipe can convert phase-to-ground banks automatically with " *
+            "`FixRecipe(apply_shunt_to_capacitor = true)`.",
+            Dict{String,Any}("b_diag" => bdiag, "g_max" => gmax)))
+    end
+    Dict{String,Any}("n" => length(affected), "ids" => affected)
+end
+
+# ---------------------------------------------------------------------------
 # Voltage bound checks
 # ---------------------------------------------------------------------------
 
