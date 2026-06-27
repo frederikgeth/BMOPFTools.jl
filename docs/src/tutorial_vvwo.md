@@ -1,27 +1,43 @@
-# Tutorial: Volt-VAr-Watt *optimisation*
+# Tutorial: PV smart inverters as distributed control
 
-Most introductions to Volt-var / Volt-watt (VV/VW) droop present it as a
-**power-flow** feature: a smart inverter follows an AS/NZS 4777.2 droop curve,
-and a simulator such as OpenDSS iterates an outer control loop until the inverter
+A fleet of rooftop PV inverters is, whether we model it that way or not, a
+**distributed control system**. Each inverter is a self-interested local agent:
+it wants to export as much of its own active power as possible, and it reacts to
+**only one signal it can measure locally** — the voltage at its own terminals —
+through an AS/NZS 4777.2 [[6]](@ref refs-vvwo) Volt-var / Volt-watt droop curve.
+No inverter sees the others; they are coupled *only* through the grid, because one unit's export lifts
+the voltage that its neighbours then sense and respond to. "Everyone maximises
+their own output, reacting to their own voltage" is therefore not a heuristic —
+it is a genuine distributed optimisation problem.
+
+The remarkable result this tutorial is built around (Farivar–Chen–Low
+[[1]](@ref refs-vvwo); Zhou–Farivar–Low [[2]](@ref refs-vvwo)) is that for a
+**balanced** network this distributed problem is *equivalent to a centralized
+one*: the equilibrium the local controllers settle into is the optimum of a
+single, well-defined network-wide optimisation. That equivalence is what makes
+local droop trustworthy — and it is also what an OPF lets us exploit and, where
+the equivalence breaks, replace.
+
+Most introductions to VV/VW droop instead present it as a **power-flow** feature:
+a simulator such as OpenDSS iterates an outer control loop until the inverter
 set-points and the network voltages agree. That is *incremental* control — the
-control law and the network are solved in alternation.
-
-This tutorial shows the other half of the picture. The very same droop can be
-written as **constraints inside an optimal power flow (OPF)** and solved
-*simultaneously* with the four-wire network equations — *non-incremental*
-control. Two things then become possible that a simulation-only tool cannot do:
+distributed algorithm run to convergence. This tutorial shows the other half of
+the picture: the very same droop can be written as **constraints inside an
+optimal power flow (OPF)** and solved *simultaneously* with the four-wire network
+equations — *non-incremental* control that lands directly on the equilibrium. Two
+things then become possible that a simulation-only tool cannot do:
 
 1. the inverter set-points and voltages are found in **one consistent solve**, with
-   no outer iteration to converge (or oscillate); and
+   no outer iteration to converge (or oscillate) — in the balanced case this is the
+   centralized optimum the distributed controllers are implicitly seeking; and
 2. you can add **hard limits** — a voltage ceiling, a neutral-rise cap, thermal
-   ratings, an export envelope — that *reshape the optimal dispatch*.
+   ratings, an export envelope — that *reshape the optimal dispatch*, in the
+   unbalanced four-wire regime where no local-droop equilibrium can guarantee them.
 
-The framing follows Mhanna, Geth, Quiertant & Mancarella, *"Volt-VAr-Watt
-Optimization in Four-Wire Low-Voltage Networks: Exact Nonlinear Models and Smooth
-Approximations"* (IEEE Trans. Power Systems, 2026). BMOPFTools encodes the
-piecewise-linear droop with the paper's **softplus** (smooth-ReLU) surrogate so
-that Ipopt differentiates it exactly — see [Optimal power flow](opf.md) for the
-encoding details.
+The four-wire VVO framing follows Mhanna, Geth, Quiertant & Mancarella
+[[5]](@ref refs-vvwo). BMOPFTools encodes the piecewise-linear droop with that
+paper's **softplus** (smooth-ReLU) surrogate so that Ipopt differentiates it
+exactly — see [Optimal power flow](opf.md) for the encoding details.
 
 The complete, runnable script is
 [`examples/vvwo_tutorial.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/vvwo_tutorial.jl):
@@ -29,6 +45,69 @@ The complete, runnable script is
 ```
 julia --project=test examples/vvwo_tutorial.jl
 ```
+
+## PV inverters as distributed control
+
+Before the scenarios, it is worth being precise about *why* a fleet of locally
+controlled inverters has anything to do with a centralized OPF — because that
+equivalence is the conceptual payoff, and it is also exactly what tells us when
+the OPF is doing something the local controllers cannot.
+
+### Each inverter is a self-interested local agent
+
+In this study PV is priced at zero while grid import is priced positively (the
+objective minimises priced import), so the optimiser pushes **every** inverter's
+active power toward its nameplate — each unit maximises its *own* export — and the
+only things that hold it back are its **local** droop response and any **hard
+limit**. The droop reads a single local quantity, the inverter's own terminal
+voltage magnitude $U_{n,k} = |\Delta v_k|$: Volt-var sets reactive power
+$q = -f^{VV}(U)$ and Volt-watt caps active power $p \le f^{VW}(U)$ (see
+[Optimal power flow](opf.md) for the encoding). There is no peer-to-peer
+messaging and no central set-point — each inverter knows only itself.
+
+### They are coupled only through the grid
+
+What turns $N$ selfish local controllers into one *problem* is the network.
+Injections move voltages — to first order, around an operating point,
+$\mathbf v \approx \mathbf R\,\mathbf p + \mathbf X\,\mathbf q + \text{const}$
+with $\mathbf R,\mathbf X$ the network sensitivity matrices — so one inverter's
+export raises the voltage that another inverter then measures and reacts to. The
+fleet is a closed feedback loop: *control law → injections → voltages → control
+law*. A power-flow simulator closes it by **iteration** (update set-points from
+the latest voltages, re-solve, repeat); that loop is precisely a distributed
+(Jacobi / gradient-type) algorithm running over the inverters.
+
+### Local selfishness ⇒ a global optimum (the balanced case)
+
+The deep result is that this distributed loop is not arbitrary. Farivar, Chen &
+Low [[1]](@ref refs-vvwo) showed that on a **balanced, radial** feeder under the
+linearised **LinDistFlow** model [[3]](@ref refs-vvwo), with a monotone droop, the
+local-control dynamics has a **unique equilibrium**, and that equilibrium is the
+**minimiser of a single convex network-wide objective**. In other words the
+selfish local rules behave as one *potential game*: there is a global potential
+function that every local controller is implicitly, collectively descending, and
+its minimum is the fixed point they converge to. Zhou, Farivar, Liu, Chen & Low
+[[2]](@ref refs-vvwo) generalised this into **reverse engineering** (read off the
+global problem any given local law is solving) and **forward engineering**
+(design the local law so its equilibrium solves a *chosen* global problem). The
+practical upshot: under those assumptions, "everyone maximises their own output,
+reacting only to their own voltage" provably lands at the optimum of a
+centralized optimisation — no coordinator required, and an OPF that encodes the
+droop can compute that optimum **in one shot** instead of iterating to it
+([[4]](@ref refs-vvwo) surveys the broader distributed-optimisation landscape).
+
+**Where the equivalence breaks — and the OPF takes over.** The guarantee rests on
+two assumptions that real LV feeders violate: the **balanced single-phase**
+LinDistFlow approximation, and a **monotone, reactive-only** droop. On an
+**unbalanced four-wire** network — explicit neutral, per-phase droop, and
+*active-power* curtailment that itself moves voltages through $\mathbf R$ — the
+clean "distributed equilibrium = centralized optimum" equivalence no longer holds,
+and a deadband droop cannot *guarantee* any particular voltage. That is exactly
+the regime BMOPFTools targets: it solves the centralized **nonlinear** four-wire
+OPF [[5]](@ref refs-vvwo) directly, so it returns the true co-optimum and can
+enforce hard limits the distributed law only approximates. The three scenarios
+below walk this arc — from no feedback, to the distributed equilibrium, to the
+constrained centralized optimum.
 
 ## The setup
 
@@ -54,10 +133,16 @@ maximises export until a constraint stops it.
 
 ## Three scenarios
 
-### A — unity power factor, no limits
+The three scenarios are the arc from the previous section made concrete: **A** is
+the fleet with the feedback loop *open*, **B** is the distributed equilibrium
+*closed and solved in one shot*, and **C** is the *constrained centralized
+optimum* that lives beyond the local-droop equivalence.
 
-PV runs at unity power factor and no network limits are imposed. The OPF simply
-maximises export.
+### A — unity power factor, no limits (no feedback)
+
+PV runs at unity power factor and no network limits are imposed: the droop
+feedback loop is open, so each inverter simply exports to nameplate with nothing
+reading the voltage it creates. This is the uncoordinated selfish maximum.
 
 ```julia
 for (_, inv) in net["inverter"]
@@ -72,10 +157,14 @@ max V (φ-n) : 1.1139 pu        P_total = 90.0 kW   Q_total =  -0.0 kvar   expor
 The worst phase-to-neutral voltage is **1.114 pu**, well over the 1.10 pu limit.
 A power-flow tool would report this over-voltage faithfully — and stop there.
 
-### B — AS/NZS 4777.2 droop in the constraints
+### B — AS/NZS 4777.2 droop in the constraints (the distributed equilibrium)
 
-Now attach a (blank) Volt-var / Volt-watt control profile to each inverter and
-let `augment_case` fill it from the "Australia A" preset:
+Now close the loop: attach a (blank) Volt-var / Volt-watt control profile to each
+inverter and let `augment_case` fill it from the "Australia A" preset. Encoding
+the droop *inside* the OPF lands directly on the fixed point that the local
+controllers would otherwise iterate to — and, in the balanced case, that fixed
+point is the centralized optimum of [[1]](@ref refs-vvwo), [[2]](@ref refs-vvwo),
+reached here with no outer loop:
 
 ```julia
 net["control_profile"] = Dict("vvw" =>
@@ -93,13 +182,16 @@ max V (φ-n) : 1.1042 pu        P_total = 81.0 kW   Q_total = -38.9 kvar   expor
 The inverters now **absorb reactive power** (Volt-var) and **curtail active
 power** (Volt-watt), pulling the voltage down — solved in *one shot* with the
 network, no outer iteration. Note the voltage still sits at **1.104 pu**: the
-4777.2 curve is a deadband droop, not a hard guarantee. That is exactly why the
-next step matters.
+4777.2 curve is a deadband droop, not a hard guarantee, and this is an unbalanced
+four-wire feeder, so we are already outside the regime where the local-droop
+equilibrium would coincide with a constraint-respecting centralized optimum. That
+is exactly why the next step matters.
 
-### C — hard limits only an optimiser can enforce
+### C — hard limits only an optimiser can enforce (beyond the equivalence)
 
-Keep the droop, and add limits to the LV buses: a 1.10 pu phase-to-neutral
-ceiling, a neutral-to-ground cap, and (via `augment_case`) thermal ratings.
+Keep the droop, and add the constraints that the distributed law provably cannot
+guarantee here: a 1.10 pu phase-to-neutral ceiling, a neutral-to-ground cap, and
+(via `augment_case`) thermal ratings on the LV buses.
 
 ```julia
 for b in lv_buses(net)
@@ -129,7 +221,11 @@ The droop (B) trades export for voltage support relative to the naive maximum
 (A); the hard limit (C) trades a little more to *guarantee* the ceiling. Adding a
 binding constraint can only raise the objective (less export) — the signature of
 an optimisation that respects the network physics and the operating envelope at
-once.
+once. Read through the lens of the previous section: A is the distributed loop
+left open, B is its equilibrium computed directly, and C is the constrained
+centralized optimum — the dispatch a fleet of purely local controllers cannot
+reach on its own, because the balanced-network equivalence that would license it
+no longer holds on a four-wire feeder under active curtailment.
 
 ## Appendix: per-phase vs averaged voltage reference
 
@@ -148,3 +244,35 @@ With `PER_PHASE`, each phase reacts to its own voltage, so the lightly-loaded
 high-voltage phase absorbs most and the heavily-loaded phase least. With
 `AVERAGE`, every phase reacts to the common mean, giving balanced reactive
 injection. The choice is set per inverter with the `voltage_ref` field.
+
+This appendix is also a concrete face of the caveat from
+[PV inverters as distributed control](#PV-inverters-as-distributed-control): the
+two laws give materially different dispatches *because the bus is unbalanced*. The
+balanced-network equivalence of [[1]](@ref refs-vvwo), [[2]](@ref refs-vvwo) is
+silent on which one is "optimal" — on a single-phase equivalent there is only one
+voltage and the distinction collapses. It is precisely the per-phase, four-wire
+detail that the centralized OPF resolves and a single-phase distributed analysis
+cannot.
+
+## [References](@id refs-vvwo)
+
+1. M. Farivar, L. Chen, S. H. Low, *Equilibrium and dynamics of local voltage
+   control in distribution systems*, 52nd IEEE Conference on Decision and Control
+   (CDC), Florence, Italy, 2013, pp. 4329–4334, doi:10.1109/CDC.2013.6760555.
+2. X. Zhou, M. Farivar, Z. Liu, L. Chen, S. H. Low, *Reverse and Forward
+   Engineering of Local Voltage Control in Distribution Networks*, IEEE
+   Transactions on Automatic Control, vol. 66, no. 3, pp. 1116–1128, 2021,
+   doi:10.1109/TAC.2020.2994184 (arXiv:1801.02015).
+3. M. E. Baran, F. F. Wu, *Optimal Capacitor Placement on Radial Distribution
+   Systems*, IEEE Transactions on Power Delivery, vol. 4, no. 1, pp. 725–734,
+   1989, doi:10.1109/61.19265. (Introduces the DistFlow / LinDistFlow branch
+   model — the balanced, radial approximation the equivalence rests on.)
+4. D. K. Molzahn, F. Dörfler, H. Sandberg, S. H. Low, S. Chakrabarti, R. Baldick,
+   J. Lavaei, *A Survey of Distributed Optimization and Control Algorithms for
+   Electric Power Systems*, IEEE Transactions on Smart Grid, vol. 8, no. 6,
+   pp. 2941–2962, 2017, doi:10.1109/TSG.2017.2720471.
+5. S. Mhanna, F. Geth, L. Quiertant, P. Mancarella, *Volt-VAr-Watt Optimization in
+   Four-Wire Low-Voltage Networks: Exact Nonlinear Models and Smooth
+   Approximations*, IEEE Transactions on Power Systems, 2026.
+6. AS/NZS 4777.2:2020, *Grid connection of energy systems via inverters, Part 2:
+   Inverter requirements*, Standards Australia / Standards New Zealand, 2020.
