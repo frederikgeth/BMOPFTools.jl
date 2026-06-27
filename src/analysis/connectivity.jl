@@ -227,7 +227,107 @@ function connectivity_analysis(net::Dict{String,Any},
         end
     end
 
+    result["supply_phase_consistency"] = _check_supply_phase_consistency(net, findings, zone_class)
+
     result
+end
+
+"""
+    _check_supply_phase_consistency(net, findings, zone_class) -> Dict
+
+Flag galvanic zones whose buses contradict their supply. Phase count and
+separation are fixed inside a galvanic zone — only a transformer (Scott-T,
+center-tap, delta-wye) can change them — so a bus cannot carry more phases than
+its feed provides, and a balanced 3-phase bus cannot sit downstream of a source
+that is not a 120° rotation.
+
+- `W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY` — a bus declares more phase conductors than
+  the zone's galvanic feed (voltage source or feeding-transformer secondary)
+  supplies. Catches a 3φ bus fed by a single-phase (1) or split-phase 180° (2-leg)
+  supply.
+- `W.PROV.PHASE_ARRANGEMENT_MISMATCH` — the zone has a 3-phase bus and enough
+  conductors, but its voltage source's angle arrangement is zero/quadrature/
+  anti-phase/incoherent rather than a 120° rotation, so it cannot establish a
+  rotating 3-phase field.
+"""
+function _check_supply_phase_consistency(net::Dict{String,Any},
+                                         findings::Vector{Finding},
+                                         zone_class)::Dict{String,Any}
+    buses = get(net, "bus", Dict())
+    vsrcs = get(net, "voltage_source", Dict())
+    xfmr  = get(net, "transformer", Dict())
+
+    _nphase(tm) = let v = Vector{String}(string.(tm)), nt = _neutral_terminal(v)
+        count(t -> t != nt && lowercase(t) != "n", v)
+    end
+    function _bus_nphase(bid)
+        b = get(buses, bid, nothing)
+        b isa Dict ? _nphase(get(b, "terminal_names", String[])) : 0
+    end
+    function _xfmr_to_nphase(subtype, id)
+        sub = get(xfmr, subtype, nothing); sub isa Dict || return 0
+        t = get(sub, id, nothing); t isa Dict || return 0
+        _nphase(get(t, "terminal_map_to", String[]))
+    end
+
+    affected = String[]
+    for z in zone_class
+        # ── supplied phase count, and the source angle arrangement if source-fed ──
+        supplied = 0
+        src_arr  = :unknown
+        src_id   = nothing
+        for (sid, vs) in vsrcs
+            vs isa Dict || continue
+            string(get(vs, "bus", "")) in z.buses || continue
+            tm = Vector{String}(string.(get(vs, "terminal_map", String[])))
+            nt = _neutral_terminal(tm)
+            va = Float64.(get(vs, "v_angle", Float64[]))
+            angs = Float64[]
+            for (k, t) in enumerate(tm)
+                (t == nt || lowercase(t) == "n") && continue
+                k <= length(va) && push!(angs, va[k])
+            end
+            np = _nphase(tm)
+            if np > supplied
+                supplied = np; src_id = sid
+                src_arr  = length(angs) >= 2 ? _phase_separation_class(angs) :
+                           np == 1            ? :single_phase : :unknown
+            end
+        end
+        for (subtype, id) in z.feed
+            supplied = max(supplied, _xfmr_to_nphase(subtype, id))
+        end
+        supplied == 0 && continue   # no identifiable supply — cannot judge
+
+        offenders = sort([bid for bid in z.buses if _bus_nphase(bid) > supplied])
+        if !isempty(offenders)
+            push!(affected, z.label)
+            push!(findings, Finding(WARNING, "W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY",
+                :connectivity, :network, nothing,
+                "Galvanic zone anchored at '$(z.label)' is supplied with $supplied " *
+                "phase(s) but contains bus(es) declaring more ($(join(offenders, ", "))). " *
+                "Phase count cannot increase without a transformer (Scott-T, " *
+                "center-tap, delta-wye).",
+                Dict{String,Any}("zone_anchor" => z.label, "supplied_phases" => supplied,
+                                 "offending_buses" => offenders)))
+            continue
+        end
+
+        if src_id !== nothing && any(bid -> _bus_nphase(bid) >= 3, z.buses) &&
+                src_arr in (:zero, :quadrature, :anti_phase, :incoherent)
+            push!(affected, z.label)
+            push!(findings, Finding(WARNING, "W.PROV.PHASE_ARRANGEMENT_MISMATCH",
+                :connectivity, :network, nothing,
+                "Galvanic zone anchored at '$(z.label)' contains a 3-phase bus but its " *
+                "voltage source '$(src_id)' has a $(src_arr) angle arrangement (not a " *
+                "120° positive/negative rotation) — it cannot establish a rotating " *
+                "3-phase field; a true 3-phase supply or a phase-converting " *
+                "transformer (e.g. Scott-T) is required.",
+                Dict{String,Any}("zone_anchor" => z.label, "source" => src_id,
+                                 "arrangement" => string(src_arr))))
+        end
+    end
+    Dict{String,Any}("n" => length(affected), "ids" => affected)
 end
 
 """Simple BFS path reconstruction."""

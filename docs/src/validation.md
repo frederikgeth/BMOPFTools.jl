@@ -360,7 +360,7 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Neutral voltage magnitude (`vn_max`) | A | `vr_n²+vi_n² ≤ vn_max²` | `bus.jl` | gap |
 | Phase-to-neutral magnitude (`vpn_min`/`vpn_max`) | A | `Δ(p,n)² ∈ [·²,·²]` | `bus.jl` | gap |
 | Phase-to-phase magnitude (`vpp_min`/`vpp_max`) | A | `Δ(k,j)² ∈ [·²,·²]` | `bus.jl` | gap |
-| Bus angle difference (`va_diff_min`/`va_diff_max`) | B | `tan·c ≤ s ≤ tan·c` (raw `θ_j−θ_k`) | `bus.jl` | scaffold (L-B1) |
+| Bus angle difference (`va_diff_min`/`va_diff_max`, centered on `va_nom`) | B | `tan·c ≤ s ≤ tan·c` on `θ_j−θ_k−Δ`, `Δ=va_nom[j]−va_nom[k]` | `bus.jl` | covered (L-B1, L-B1b) |
 | Positive-sequence voltage (`vpos_min`/`vpos_max`) | C | `|V₁|²` via Fortescue | `bus.jl` | covered (T10) |
 | Negative-sequence voltage (`vneg_max`) | C | `|V₂|² ≤ vneg_max²` | `bus.jl` | covered (L-C2, T10) |
 | Zero-sequence voltage (`vzero_max`) | C | `|V₀|² ≤ vzero_max²` (note `/3`) | `bus.jl` | covered (T10) |
@@ -372,12 +372,17 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Generator / inverter apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `inverter.jl` | scaffold (L-A8) |
 | Inverter power-factor coupling | D | `pf·q + tan_φ·p = 0` | `inverter.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
 
-> **A subtlety this surfaced.** The intra-bus angle limit bounds the *signed raw*
-> angle `θ_j − θ_k` of each ordered phase pair — which is ≈ ∓120° nominally, not a
-> deviation from nominal. A meaningful bound must therefore be supplied *around*
-> ±120°, with the sign following the pair ordering. Whether this raw-angle
-> semantics is the intended engineering meaning (vs. a deviation or
-> sequence-angle bound) is an open backlog item.
+> **A subtlety this surfaced — now resolved.** The intra-bus angle limit bounds
+> the difference `θ_j − θ_k` of each ordered phase pair *centered on a nominal
+> offset* `Δ = va_nom[j] − va_nom[k]` (per-terminal nominal angles: `[0,−2π/3,2π/3]`
+> for three-phase, `[0,π]` for split-phase legs). Centering keeps the bounded
+> deviation inside the tangent-valid `(−90°,90°)` regime, where the raw bound on
+> the ≈∓120° inter-phase angle was unsound (the cosine `c` flips sign and `tan`
+> wraps). With `va_nom` absent the offset is `0` — identical to the old raw bound,
+> so the change is backward-compatible. An optional augmentation pass
+> (`apply_va_diff_bounds`) injects `va_nom` and the window; the centered bound
+> rejects negative/zero-sequence solutions, the sequence option (`vpos`/`vneg`/
+> `vzero`) is the 3-phase-only alternative.
 
 ## Reusing this for your own tool
 

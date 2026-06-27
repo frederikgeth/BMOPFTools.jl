@@ -311,6 +311,68 @@ function _check_bus_voltage_bound_overlap(net::Dict{String,Any},
 end
 
 # ---------------------------------------------------------------------------
+# Voltage-source phase-sequence / arrangement
+# ---------------------------------------------------------------------------
+# Classify every polyphase voltage source's stored `v_angle` and flag the
+# arrangements that are degenerate or likely modeling errors. Unlike the
+# ingest-time merge guard (`_phase_sequence_class`), this runs on EVERY source,
+# including ones that arrived already-polyphase. Zero-, negative-sequence and
+# incoherent rotations are flagged; valid positive-sequence (≈120° a→b→c),
+# split-phase (≈180°) and two-phase (≈90°) supplies are recorded but not flagged
+# on their own (a 180°/90° supply is legitimate — its consistency with downstream
+# phase counts is checked separately in connectivity).
+function _check_voltage_source_sequence(net::Dict{String,Any},
+                                        findings::Vector{Finding})::Dict{String,Any}
+    affected = String[]
+    arrangements = Dict{String,String}()
+    for (sid, vs) in get(net, "voltage_source", Dict())
+        vs isa Dict || continue
+        tm  = Vector{String}(string.(get(vs, "terminal_map", String[])))
+        va  = Float64.(get(vs, "v_angle", Float64[]))
+        nt  = _neutral_terminal(tm)
+        # Phase angles in terminal_map order, neutral dropped, aligned to v_angle.
+        angs = Float64[]
+        for (k, t) in enumerate(tm)
+            (t == nt || lowercase(t) == "n") && continue
+            k <= length(va) && push!(angs, va[k])
+        end
+        length(angs) >= 2 || continue   # single-phase: no rotation to classify
+
+        arr = _phase_separation_class(angs)
+        arrangements[sid] = string(arr)
+        deg = round.(rad2deg.(angs); digits=1)
+
+        code, msg = if arr === :zero
+            ("W.PROV.SOURCE_ZERO_SEQUENCE",
+             "Voltage source '$sid' has a zero-sequence angle profile " *
+             "(v_angle ≈ $(deg)°): all phases share one angle — not a valid " *
+             "positive-sequence supply. Fix the source angles and use positive-" *
+             "sequence initialisation + va_diff/sequence bounds, or expect " *
+             "convergence failure (cf. PSCC-2026 Table VI).")
+        elseif arr === :negative
+            ("W.PROV.SOURCE_NEGATIVE_SEQUENCE",
+             "Voltage source '$sid' has a negative-sequence angle profile " *
+             "(v_angle ≈ $(deg)°): rotation is reversed vs the a→b→c phase " *
+             "labels — likely a phase-labelling error. Verify the source, and " *
+             "match voltage initialisation to the intended rotation.")
+        elseif arr === :incoherent
+            ("W.PROV.SOURCE_INCOHERENT_ROTATION",
+             "Voltage source '$sid' has an incoherent angle profile " *
+             "(v_angle ≈ $(deg)°): the per-phase separations are not a " *
+             "consistent ±120°, 90° or 180° set. Verify the source angles.")
+        else
+            ("", "")   # :positive / :anti_phase / :quadrature — valid, no finding
+        end
+        isempty(code) && continue
+        push!(affected, sid)
+        push!(findings, Finding(WARNING, code, :provenance, :voltage_source, sid, msg,
+            Dict{String,Any}("v_angle_deg" => deg, "arrangement" => string(arr))))
+    end
+    Dict{String,Any}("n" => length(affected), "ids" => affected,
+                     "arrangements" => arrangements)
+end
+
+# ---------------------------------------------------------------------------
 # OpenDSS default fingerprints
 # ---------------------------------------------------------------------------
 # When a .dss file omits a property, OpenDSS substitutes a documented default.

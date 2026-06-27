@@ -2085,17 +2085,44 @@ const IEEE13_FIXTURE = """
         @test shuffled["voltage_source"]["source"]["terminal_map"] == ["a","b","c","n"]
         @test shuffled["voltage_source"]["source"]["v_angle"] ≈ [0.0,-2.0943951,2.0943951,0.0]
 
-        # Angle coherence guard: an incidental same-bus bank that is NOT a
-        # balanced rotation (all at 0°) is left unmerged and recorded.
-        incoherent = _phase_src_net()
+        # Zero-sequence (all phases at 0°): a coherent — if degenerate — bank, so
+        # it is merged faithfully (angles preserved) but flagged, like negative.
+        zeroseq = _phase_src_net()
         for id in ("src_phb","src_phc")
-            incoherent["voltage_source"][id]["v_angle"] = [0.0, 0.0]
+            zeroseq["voltage_source"][id]["v_angle"] = [0.0, 0.0]
         end
+        BMOPFTools._merge_phase_voltage_sources!(zeroseq)
+        @test length(zeroseq["voltage_source"]) == 1
+        zgrp = zeroseq["_meta"]["merged_voltage_sources"]["groups"][1]
+        @test zgrp["sequence"] == "zero"
+        @test haskey(zgrp, "warning")
+        @test zeroseq["voltage_source"]["source"]["v_angle"] ≈ [0.0,0.0,0.0,0.0]
+
+        # Genuinely incoherent angles (no consistent canonical separation) are
+        # left unmerged and recorded.
+        incoherent = _phase_src_net()
+        incoherent["voltage_source"]["src_phb"]["v_angle"] = [-0.5, 0.0]
+        incoherent["voltage_source"]["src_phc"]["v_angle"] = [ 2.5, 0.0]
         BMOPFTools._merge_phase_voltage_sources!(incoherent)
         @test length(incoherent["voltage_source"]) == 3
         dec = incoherent["_meta"]["merged_voltage_sources"]["declined"]
         @test dec[1]["bus"] == "b_source"
+        @test dec[1]["arrangement"] == "incoherent"
         @test !haskey(incoherent["_meta"]["merged_voltage_sources"], "groups")
+
+        # A two-phase (quadrature, ≈90°) bank is not a 3-phase rotation → declined
+        # with the quadrature-specific reason.
+        quad = Dict{String,Any}("voltage_source" => Dict{String,Any}(
+            "source" => Dict{String,Any}("bus" => "b_source",
+                "terminal_map" => ["a","n"],
+                "v_magnitude" => [120.0,0.0], "v_angle" => [0.0,0.0]),
+            "src_phb" => Dict{String,Any}("bus" => "b_source",
+                "terminal_map" => ["b","n"],
+                "v_magnitude" => [120.0,0.0], "v_angle" => [π/2,0.0])))
+        BMOPFTools._merge_phase_voltage_sources!(quad)
+        @test length(quad["voltage_source"]) == 2
+        qdec = quad["_meta"]["merged_voltage_sources"]["declined"]
+        @test qdec[1]["arrangement"] == "quadrature"
 
         # Negative-sequence angles (labels a,b,c but rotation reversed): merged
         # faithfully (angles preserved, label order kept) but flagged.
@@ -2132,6 +2159,104 @@ const IEEE13_FIXTURE = """
         BMOPFTools._merge_phase_voltage_sources!(lone)
         @test length(lone["voltage_source"]) == 1
         @test lone["voltage_source"]["source"]["terminal_map"] == ["a","n"]
+    end
+
+    @testset "from_dss — phase separation classifier" begin
+        cls = BMOPFTools._phase_separation_class
+        @test cls([0.0, 0.0, 0.0])                 == :zero
+        @test cls([0.0, -2π/3, 2π/3])              == :positive
+        @test cls([0.0, 2π/3, -2π/3])              == :negative
+        @test cls([0.0, π])                        == :anti_phase
+        @test cls([0.0, π/2])                      == :quadrature
+        @test cls([0.0, -0.5, 2.5])                == :incoherent
+        @test cls([0.0])                           == :incoherent   # <2 phases
+        # Near-boundary: a 105°-ish diff resolves to the nearer canonical.
+        @test cls([0.0, deg2rad(100)])             == :quadrature    # closer to 90°
+        @test cls([0.0, deg2rad(-112)])            == :positive      # lag, closer to 120°
+    end
+
+    @testset "provenance — voltage source sequence findings" begin
+        codes(fs) = Set(f.code for f in fs)
+        mksrc(va) = Dict{String,Any}(
+            "bus" => Dict{String,Any}("b" => Dict{String,Any}(
+                "terminal_names" => ["a","b","c","n"])),
+            "voltage_source" => Dict{String,Any}("src" => Dict{String,Any}(
+                "bus" => "b", "terminal_map" => ["a","b","c","n"],
+                "v_magnitude" => [230.0,230.0,230.0,0.0], "v_angle" => va)))
+
+        f = Finding[]; provenance_analysis(mksrc([0.0,0.0,0.0,0.0]), f)
+        @test "W.PROV.SOURCE_ZERO_SEQUENCE" in codes(f)
+
+        f2 = Finding[]; provenance_analysis(mksrc([0.0,2.0944,-2.0944,0.0]), f2)
+        @test "W.PROV.SOURCE_NEGATIVE_SEQUENCE" in codes(f2)
+
+        f3 = Finding[]; provenance_analysis(mksrc([0.0,-0.5,2.5,0.0]), f3)
+        @test "W.PROV.SOURCE_INCOHERENT_ROTATION" in codes(f3)
+
+        # Valid positive-sequence source → none of the source-sequence findings.
+        f4 = Finding[]; provenance_analysis(mksrc([0.0,-2.0944,2.0944,0.0]), f4)
+        @test !any(startswith(c, "W.PROV.SOURCE_") for c in codes(f4))
+
+        # A valid split-phase (180°) source is not flagged on its own.
+        sp = Dict{String,Any}(
+            "bus" => Dict{String,Any}("b" => Dict{String,Any}(
+                "terminal_names" => ["1","n","2"])),
+            "voltage_source" => Dict{String,Any}("src" => Dict{String,Any}(
+                "bus" => "b", "terminal_map" => ["1","n","2"],
+                "v_magnitude" => [120.0,0.0,120.0], "v_angle" => [0.0,0.0,π])))
+        f5 = Finding[]; provenance_analysis(sp, f5)
+        @test !any(startswith(c, "W.PROV.SOURCE_") for c in codes(f5))
+    end
+
+    @testset "connectivity — supply phase consistency" begin
+        codes(fs) = Set(f.code for f in fs)
+
+        # Split-phase (180°, 2-leg) source feeding a 3φ bus in the same galvanic
+        # zone → phase count exceeds supply.
+        split_to_3ph = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "s" => Dict{String,Any}("terminal_names" => ["1","n","2"]),
+                "b" => Dict{String,Any}("terminal_names" => ["a","b","c","n"])),
+            "voltage_source" => Dict{String,Any}("src" => Dict{String,Any}(
+                "bus" => "s", "terminal_map" => ["1","n","2"],
+                "v_magnitude" => [120.0,0.0,120.0], "v_angle" => [0.0,0.0,π])),
+            "line" => Dict{String,Any}("l" => Dict{String,Any}(
+                "bus_from" => "s", "bus_to" => "b",
+                "terminal_map_from" => ["1","2"], "terminal_map_to" => ["a","b"])))
+        f = Finding[]; connectivity_analysis(split_to_3ph, f)
+        @test "W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY" in codes(f)
+
+        # Single-phase source feeding a 3φ bus → also exceeds supply.
+        single_to_3ph = deepcopy(split_to_3ph)
+        single_to_3ph["bus"]["s"]["terminal_names"] = ["a","n"]
+        single_to_3ph["voltage_source"]["src"]["terminal_map"] = ["a","n"]
+        single_to_3ph["voltage_source"]["src"]["v_magnitude"]  = [120.0,0.0]
+        single_to_3ph["voltage_source"]["src"]["v_angle"]      = [0.0,0.0]
+        f2 = Finding[]; connectivity_analysis(single_to_3ph, f2)
+        @test "W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY" in codes(f2)
+
+        # Legitimate 3φ source → 3φ bus: no inconsistency.
+        ok3 = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "s" => Dict{String,Any}("terminal_names" => ["a","b","c","n"]),
+                "b" => Dict{String,Any}("terminal_names" => ["a","b","c","n"])),
+            "voltage_source" => Dict{String,Any}("src" => Dict{String,Any}(
+                "bus" => "s", "terminal_map" => ["a","b","c","n"],
+                "v_magnitude" => [230.0,230.0,230.0,0.0],
+                "v_angle" => [0.0,-2.0944,2.0944,0.0])),
+            "line" => Dict{String,Any}("l" => Dict{String,Any}(
+                "bus_from" => "s", "bus_to" => "b",
+                "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"])))
+        f3 = Finding[]; connectivity_analysis(ok3, f3)
+        @test !("W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY" in codes(f3))
+        @test !("W.PROV.PHASE_ARRANGEMENT_MISMATCH" in codes(f3))
+
+        # Enough conductors (3) but zero-sequence angles feeding a 3φ bus →
+        # arrangement mismatch.
+        bad_arr = deepcopy(ok3)
+        bad_arr["voltage_source"]["src"]["v_angle"] = [0.0,0.0,0.0,0.0]
+        f4 = Finding[]; connectivity_analysis(bad_arr, f4)
+        @test "W.PROV.PHASE_ARRANGEMENT_MISMATCH" in codes(f4)
     end
 
     @testset "from_dss — center_tap normalisation" begin

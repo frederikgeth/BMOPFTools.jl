@@ -49,6 +49,7 @@ function provenance_analysis(net::Dict{String,Any},
     result["inconsistent_bounds"]         = _check_bus_voltage_bound_consistency(net, findings)
     result["inapplicable_voltage_bounds"] = _check_bus_voltage_bound_applicability(net, findings)
     result["overlapping_voltage_bounds"]  = _check_bus_voltage_bound_overlap(net, findings)
+    result["voltage_source_sequence"]     = _check_voltage_source_sequence(net, findings)
     result["i_max_incomplete"]            = _check_i_max_completeness(net, findings)
     result["switch_like_lines"]           = _check_switch_like_lines(net, findings)
     result["convention"]          = _convention_statement(result)
