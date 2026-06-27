@@ -210,6 +210,24 @@ manifest records a note.
 |---|---|---|---|
 | `vneg_max` | Four-wire, ≥ 2 phases, non-source | 0.02 × vpn_declared | EN 50160:2010 §3.5 — VUF ≤ 2 % |
 
+#### Intra-bus angle-difference bounds (opt-in)
+
+Disabled by default (`apply_va_diff_bounds = false`). When enabled, a pass injects
+the centering reference `va_nom` and a symmetric window
+`va_diff_min`/`va_diff_max = ∓va_diff_window_rad` (default ±30°) on multiphase,
+non-source buses whose nominal phasor arrangement is unambiguous:
+
+| Bus | `va_nom` (rad) | Meaning |
+|---|---|---|
+| three-phase (3 phase terminals) | `[0, −2π/3, 2π/3]` | positive-sequence |
+| split-phase (`center_tap`-fed, 2 legs) | `[0, π]` | anti-phase legs |
+
+The OPF bounds the *centered* difference `θⱼ − θₖ − (va_nom[j] − va_nom[k])`, so
+the window pins the correct rotation while staying inside the tangent-valid
+(−90°, 90°) regime (see [Bus limits](opf.md)). Single-phase and ambiguous buses
+are skipped — the offset is never guessed. Enable with
+`AugmentationRecipe(apply_va_diff_bounds = true)`.
+
 ### Pass 2 — Thermal limits
 
 Infers `i_max` for linecodes that lack it by matching the diagonal series

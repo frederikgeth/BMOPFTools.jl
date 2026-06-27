@@ -208,6 +208,18 @@ Emitted by the `:connectivity` pass after classifying each galvanic zone. Inform
 | `I.PROV.SPLIT_PHASE_ZONE` | I | A galvanic zone is fed by a `center_tap` transformer — a split-phase section (NA 120-0-120, AU 230-0-230 downstream of SWER). The two legs are anti-phase about the centre-tap neutral; the OPF warm-start initialises them 180° apart accordingly. |
 | `I.PROV.SWER_ZONE` | I | A galvanic zone is single-wire (one phase conductor across all its buses) and transformer-isolated — a Single-Wire-Earth-Return section. Distinguished from a single-phase lateral, which shares its three-phase feeder's zone. |
 
+### Voltage-source sequence & supply consistency
+
+Classify each polyphase voltage source's stored `v_angle` and check it against the phase counts of the buses it galvanically supplies. Phase count and separation are fixed inside a galvanic zone — only a transformer (Scott-T, center-tap, delta-wye) changes them.
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `W.PROV.SOURCE_ZERO_SEQUENCE` | W | A voltage source's per-phase angles are all equal (zero-sequence / co-phasal) — not a valid positive-sequence supply. A degenerate input that also predicts convergence failure (cf. PSCC-2026 Table VI); fix the angles and use positive-sequence initialisation. |
+| `W.PROV.SOURCE_NEGATIVE_SEQUENCE` | W | A source's rotation is reversed relative to its a→b→c phase labels — a likely phase-labelling error. Match voltage initialisation to the intended rotation. |
+| `W.PROV.SOURCE_INCOHERENT_ROTATION` | W | A source's per-phase separations are not a consistent ±120°, 90°, or 180° set — malformed angle data. (Valid positive-sequence 120°, split-phase 180°, and two-phase 90° supplies are *not* flagged.) |
+| `W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY` | W | A bus declares more phase conductors than its galvanic feed (voltage source or feeding-transformer secondary) supplies — e.g. a 3-phase bus downstream of a single-phase or split-phase (180°) source within one zone. Phase count cannot increase without a transformer. |
+| `W.PROV.PHASE_ARRANGEMENT_MISMATCH` | W | A zone contains a 3-phase bus and enough conductors, but its source's angle arrangement is zero/quadrature/anti-phase/incoherent rather than a 120° rotation — it cannot establish a rotating 3-phase field; a true 3-phase supply or a phase-converting transformer (e.g. Scott-T) is required. |
+
 ### Grounding & reduction conventions
 
 | Code | Sev | Trigger & rationale |
@@ -317,6 +329,8 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `E.SOL.NAN_IN_RESULT` | E | One or more numeric fields in the result dict contain `NaN` or `Inf`. Indicates a solver failure or extraction bug even when the termination status appears feasible. |
 | `E.SOL.VOLT_VIOLATION` | E | A bus terminal voltage magnitude (vm, vpn, vpp, or sequence component) lies outside its declared bound. |
 | `W.SOL.VOLT_ACTIVE` | W | A voltage magnitude is within 1 % of its bound — the constraint is near-active (binding at the tolerance level). |
+| `E.SOL.ANGLE_VIOLATION` | E | A phase pair's *centered* angle difference `θⱼ − θₖ − (va_nom[j] − va_nom[k])` lies outside the bus's `va_diff_min`/`va_diff_max`. Recomputed from the primal solution via `atan2` per terminal, independent of the constraint's own bilinear expression. |
+| `W.SOL.ANGLE_ACTIVE` | W | A centered phase-pair angle difference is near a `va_diff` bound (near-active). |
 | `E.SOL.THERMAL_VIOLATION` | E | A line or switch current magnitude exceeds the component's or linecode's `i_max` limit. |
 | `W.SOL.THERMAL_ACTIVE` | W | Current magnitude is within 1 % of `i_max` — the thermal limit is near-active. |
 | `E.SOL.GEN_VIOLATION` | E | A generator's active or reactive dispatch (`pg`/`qg` per terminal) falls outside its declared `p_min`/`p_max`/`q_min`/`q_max` bounds. |

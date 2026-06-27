@@ -301,9 +301,12 @@ source: every member is single-phase (one of `a`/`b`/`c` plus an optional
 neutral), the members cover **distinct** phases, none carries
 `p_min`/`p_max`/`q_min`/`q_max`/`cost` (a priced/bounded slack is left untouched
 — combining per-phase limits is ambiguous), and the members' angles form a
-**balanced ±120° rotation** (within 30°). A same-bus bank whose angles are *not*
-a balanced rotation (e.g. all at 0°) is judged incidental and **left unmerged**,
-recorded under `net["_meta"]["merged_voltage_sources"]["declined"]`.
+coherent **3-phase-style arrangement** — a `:positive`/`:negative` ±120° rotation
+(within 30°) or a `:zero` (all-equal) set. A bank that is instead a quadrature
+(≈90°, two-phase) or anti-phase (≈180°, split-phase) set, or simply incoherent,
+is **left unmerged** and recorded under
+`net["_meta"]["merged_voltage_sources"]["declined"]` with the recognised
+`arrangement` so the reason is specific.
 
 Phase order in the merged source is **physical-label-driven** — always
 `a`,`b`,`c` (positive-sequence rotation) followed by `n`, regardless of the order
@@ -312,10 +315,14 @@ the `VSource` objects appeared in the file. The per-phase angles are preserved
 authoritative for which physical conductor the source feeds (everything else in
 the network references that label), while the angle is independent phasor data.
 The angles serve only to *disambiguate* whether the bank is one coherent source
-and which rotation it carries. If the angle rotation is negative-sequence (it
-disagrees with the a→b→c labelling), the bank is still merged faithfully but the
-discrepancy is flagged on the group note as a likely phase-labelling error. The
-merge is recorded under `net["_meta"]["merged_voltage_sources"]`.
+and which arrangement it carries. A negative-sequence rotation (angles disagree
+with the a→b→c labelling) or a zero-sequence set (all phases co-phasal) is still
+merged faithfully, but flagged on the group note as a likely modeling error. The
+merge is recorded under `net["_meta"]["merged_voltage_sources"]`. Independently of
+the merge, [`provenance_analysis`](@ref) classifies **every** polyphase source's
+stored angles and raises `W.PROV.SOURCE_ZERO_SEQUENCE` /
+`W.PROV.SOURCE_NEGATIVE_SEQUENCE` / `W.PROV.SOURCE_INCOHERENT_ROTATION` (see
+[Findings](findings.md)), so an already-polyphase degenerate source is caught too.
 
 ### Pricing the slack source
 
