@@ -19,6 +19,7 @@ makedocs(
         "Data model"              => [
             "Buses & terminals primer" => "terminals_primer.md",
             "Data model conventions"   => "conventions.md",
+            "Object identity"          => "semantic_modeling.md",
             "Conversion guide"         => "conversion.md",
         ],
         "Analysis & diagnostics"  => [

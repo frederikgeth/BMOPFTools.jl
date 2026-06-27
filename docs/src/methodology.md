@@ -284,3 +284,17 @@ per-network degeneracy flags catch subtler problems that survive augmentation:
     Recommendation, 2013 (provenance as the mechanism that makes a non-identity
     transformation trustworthy; validity is itself defined via a normalisation
     process).
+26. D. K. Molzahn, B. C. Lesieutre, C. L. DeMarco, "Approximate Representation of
+    ZIP Loads in a Semidefinite Relaxation of the OPF Problem," *IEEE Trans.
+    Power Syst.* 29 (4) (2014) 1864–1865 (a constant-impedance load is a shunt
+    admittance `Sⱼ/|Vⱼ|²`; the load/shunt identity is a modelling choice, not a
+    physical one).
+27. H. J. Kim et al., "A Comprehensive Review of Practical Issues for
+    Interoperability Using the Common Information Model in Smart Grids,"
+    *Energies* 13 (6) (2020) 1435 (CIM as an asset-first, object-identity model
+    for semantic interoperability and data exchange).
+28. B. Bahrani et al., "Grid-Forming Inverter-Based Resource Research Landscape:
+    Understanding the Key Assets for Renewable-Rich Power Systems," *IEEE Power &
+    Energy Magazine* 22 (2) (2024) 18–29 (inverter-based resources as a distinct
+    asset class from synchronous generators — capability-limited, inertia-free,
+    control-defined).

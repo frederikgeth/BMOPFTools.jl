@@ -12,6 +12,15 @@ you would otherwise have to discover by diffing data.
 
 ## [Design philosophy: ingestion is a semantic projection](@id ingest-philosophy)
 
+!!! note "This is one instance of a model-wide principle"
+    Reconstructing the named real-world asset rather than a solver-convenient
+    encoding is a stance that governs the whole data model — validation findings
+    and [fix recipes](augmentation.md#fix) as much as ingest. The general
+    statement, and the catalogue of representational collisions it resolves
+    (capacitor-vs-shunt, load-vs-generator, line-vs-transformer, …), live on the
+    [Object identity & semantic projection](@ref object-identity) page. This
+    section covers the OpenDSS-specific *lowering*.
+
 `from_dss` does not aim to be a byte-faithful transcoder. It is closer to a
 **compiler frontend**: PowerIO does the lexing and parsing, and `from_dss` then
 performs *semantic analysis* — inferring phase and neutral identity, fingerprinting
