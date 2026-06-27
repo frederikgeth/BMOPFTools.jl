@@ -124,6 +124,7 @@ The voltage comparison (`_cmp_volts`) uses:
 |---|---:|---:|---|
 | Lines, loads, single-phase & autotransformer | 0.3 V | 1e-3 | the worst phase-node error is ≈ 0.088 V (in the 4-wire cases), so 0.3 V keeps ~3.4× margin; on a ~240 V base `atol` is the binding tolerance |
 | 3-phase Yd / Dy transformers, ≥ 70 % loading | 0.1 V | 1e-3 | at 75 % on a 500 kVA / 0.415 kV unit the LV-side series drop is ≈ 10 V, so 0.1 V demands < 1 % model agreement — any wrong sign, missing factor, or wrong impedance side shows up as > 1 V |
+| n-winding transformers (all-wye and delta `Dyn`/`Dyyn`) | 0.3 V | 1e-3 | the HV/MV nodes are tens of kV, so `rtol` binds: the delta cases agree to ≈ 5e-5 relative (≈ 0.7 V on a 14 kV node), well inside 1e-3 — a wrong `delta_roll`/30° rotation or a missing coil-base factor shows up as a ~30 % or 3× error |
 
 `isapprox` passes a node when `|ΔV| ≤ max(atol, rtol·|V|)`, so `rtol` binds the
 high-voltage nodes and `atol` the low-voltage ones.
@@ -156,6 +157,8 @@ concern, so a failure points straight at the responsible component:
 | `pf_1ph_freeneutral`, `pf_1ph_impedanceneutral`, `pf_1ph_perfectneutral` | neutral grounding: floating, grounding-reactor (Z = 0.2 Ω), and perfectly grounded |
 | `pf_zip_1ph`, `pf_zip_3ph`, `pf_zip_delta`, `pf_exp_1ph`, `pf_delta_load` | voltage-dependent load models — ZIP (distinct P/Q fractions), exponential (γ), and delta (line-to-line) connection |
 | `pf_1ph_xfmr`, `pf_yd_xfmr`, `pf_dy_xfmr`, `pf_center_tap_xfmr` | transformer windings/vector groups: YY, Yd, Dy, and split-phase center-tap |
+| `pf_3wdg_nwinding`, `pf_3wdg_nwinding_unbalanced`, `pf_4wdg_nwinding` | **general n-winding** transformer (all-wye), 3- and 4-winding, against OpenDSS's own multi-winding solve — exact ZB leakage (all pairwise reactances, no star approximation), balanced and unbalanced loading, SI and per-unit |
+| `pf_3wdg_dyn`, `pf_3wdg_dyn_unbalanced`, `pf_4wdg_dyyn`, `pf_3wdg_dyn_zgnd` | **n-winding with a DELTA winding** (`Dyn`/`Dyyn`, delta primary): winding count (3/4), neutral grounding (solid vs 0.5 Ω-shunt MV neutral), unbalanced loading, the `solve_pf`/feasibility-OPF paths, and per-unit. The delta coil is line-to-line (`delta_roll = -1` matches OpenDSS's 30° rotation; `r_winding`/`x_sc` on the delta coil base `n_ph·V_LL²/S`) |
 | `pf_center_tap_loaded`, `pf_center_tap_balanced_heavy`, `pf_center_tap_240`, `pf_center_tap_singleleg_pn`, `pf_center_tap_oneleg_extreme` | split-phase **coupled-coil** model under load — leg symmetry on a balanced heavy load, a 240 V phase-to-phase load, a single leg-to-neutral load, and an extreme one-leg load (see [Split-phase transformer depth](#Split-phase-transformer-depth)) |
 | `pf_autotransformer`, `pf_open_delta_reg` | step-voltage regulators / autotransformers and open-delta (ABBC) regulation |
 | `pf_cap_wye`, `pf_cap_delta` | fixed shunt **capacitor banks** (wye / delta) as a constant susceptance `B = q_rated/v_rated²`, validated against OpenDSS's own `Capacitor` solve in both SI and per-unit, and cross-checked against the equivalent `shunt` object |

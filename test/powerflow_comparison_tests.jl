@@ -578,6 +578,125 @@ function _net_4wdg_nwinding()
                 "s_rating" => s))))
 end
 
+# ── n-winding transformers WITH delta windings ──────────────────────────────────
+# Shared builders for the delta-winding matrix. Every winding's r_winding and the
+# x_sc entries are on the per-winding COIL base z_coil = n_ph·v_ref²/S — which is
+# V_LL²/S for a WYE winding but n_ph·V_LL²/S for a DELTA winding (the √3/coil-base
+# factor lives in v_ref). OpenDSS's standard delta is delta_roll = -1 (the 30°
+# vector-group rotation). See src/io/nwinding.jl for the convention.
+const _NWD_S   = 30.0e6
+const _NWD_NPH = 3
+
+_nwd_zcoil(kv, conn) = conn == "DELTA" ? _NWD_NPH * (kv*1e3)^2 / _NWD_S :
+                                                    (kv*1e3)^2 / _NWD_S
+
+function _nwd_winding(bus, kv, conn, pr; roll=-1)
+    if conn == "DELTA"
+        Dict{String,Any}("bus"=>bus, "terminal_map"=>["a","b","c"],
+            "v_ref"=>kv*1e3, "connection"=>"DELTA", "delta_roll"=>roll,
+            "r_winding"=>pr/100 * _nwd_zcoil(kv, "DELTA"))
+    else
+        Dict{String,Any}("bus"=>bus, "terminal_map"=>["a","b","c","n"],
+            "v_ref"=>kv*1e3/sqrt(3), "connection"=>"WYE",
+            "r_winding"=>pr/100 * _nwd_zcoil(kv, "WYE"))
+    end
+end
+
+# x_sc (Ω) from %-values, referred to winding-1's coil base.
+_nwd_xsc(kv1, conn1, xsc_pct) =
+    Dict{String,Any}(k => v/100 * _nwd_zcoil(kv1, conn1) for (k, v) in xsc_pct)
+
+_nwd_grounded() = Dict{String,Any}("terminal_names"=>["a","b","c","n"],
+    "neutral_terminal"=>"n", "perfectly_grounded_terminals"=>["n"])
+# Bus whose neutral is NOT solidly grounded (grounded through a shunt, or floats).
+_nwd_softbus() = Dict{String,Any}("terminal_names"=>["a","b","c","n"],
+    "neutral_terminal"=>"n")
+function _nwd_src(kv)
+    vpn = kv*1e3/sqrt(3)
+    Dict{String,Any}("bus"=>"hv", "terminal_map"=>["a","b","c","n"],
+        "v_magnitude"=>[vpn, vpn, vpn, 0.0],
+        "v_angle"=>[0.0, -2.0943951023931953, 2.0943951023931953, 0.0])
+end
+_nwd_wyeload(bus, p, q) = Dict{String,Any}("bus"=>bus, "terminal_map"=>["a","b","c","n"],
+    "configuration"=>"WYE", "model"=>"constant_power", "p_nom"=>[p,p,p], "q_nom"=>[q,q,q])
+_nwd_1phload(bus, ph, p, q) = Dict{String,Any}("bus"=>bus, "terminal_map"=>[ph,"n"],
+    "configuration"=>"WYE", "model"=>"constant_power", "p_nom"=>[p], "q_nom"=>[q])
+
+# Node-voltage dict from a solve_pf result, keyed "bus.<1|2|3|4>" like _ods_volts.
+function _nwd_bm_volts(res)
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+         for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+end
+
+function _net_3wdg_dyn(; roll=-1)
+    # pf_3wdg_dyn.dss: delta HV primary (source-grounded), grounded-wye MV/LV.
+    Dict{String,Any}(
+        "name" => "pf_3wdg_dyn",
+        "bus"  => Dict{String,Any}(
+            "hv"=>_nwd_grounded(), "mv"=>_nwd_grounded(), "lv"=>_nwd_grounded()),
+        "voltage_source" => Dict{String,Any}("s" => _nwd_src(115.0)),
+        "load" => Dict{String,Any}(
+            "ldmv" => _nwd_wyeload("mv", 1.0e6, 2.0e5),
+            "ldlv" => _nwd_wyeload("lv", 5.0e5, 1.0e5)),
+        "transformer" => Dict{String,Any}("n_winding" => Dict{String,Any}(
+            "t1" => Dict{String,Any}(
+                "windings" => [_nwd_winding("hv", 115.0, "DELTA", 0.3; roll=roll),
+                               _nwd_winding("mv", 24.9,  "WYE",   0.4),
+                               _nwd_winding("lv", 4.16,  "WYE",   0.4)],
+                "x_sc" => _nwd_xsc(115.0, "DELTA",
+                    Dict("1_2"=>8.0, "1_3"=>8.0, "2_3"=>6.0)),
+                "s_rating" => _NWD_S))))
+end
+
+function _net_3wdg_dyn_unbalanced()
+    # pf_3wdg_dyn_unbalanced.dss: same Dyn unit, single-phase loads on a/b (MV), c (LV).
+    net = _net_3wdg_dyn(); net["name"] = "pf_3wdg_dyn_unb"
+    net["load"] = Dict{String,Any}(
+        "m1" => _nwd_1phload("mv", "a", 2.0e6, 4.0e5),
+        "m2" => _nwd_1phload("mv", "b", 5.0e5, 5.0e4),
+        "l3" => _nwd_1phload("lv", "c", 1.2e6, 3.0e5))
+    net
+end
+
+function _net_4wdg_dyyn()
+    # pf_4wdg_dyyn.dss: delta HV primary + three grounded-wye secondaries (n=4).
+    Dict{String,Any}(
+        "name" => "pf_4wdg_dyyn",
+        "bus"  => Dict{String,Any}(
+            "hv"=>_nwd_grounded(), "mv"=>_nwd_grounded(),
+            "lv"=>_nwd_grounded(), "tv"=>_nwd_grounded()),
+        "voltage_source" => Dict{String,Any}("s" => _nwd_src(115.0)),
+        "load" => Dict{String,Any}(
+            "lm" => _nwd_wyeload("mv", 2.0e6/3, 4.0e5/3),
+            "ll" => _nwd_wyeload("lv", 1.0e6/3, 2.0e5/3),
+            "lt" => _nwd_wyeload("tv", 8.0e5/3, 1.5e5/3)),
+        "transformer" => Dict{String,Any}("n_winding" => Dict{String,Any}(
+            "t1" => Dict{String,Any}(
+                "windings" => [_nwd_winding("hv", 115.0, "DELTA", 0.3),
+                               _nwd_winding("mv", 24.9,  "WYE",   0.4),
+                               _nwd_winding("lv", 4.16,  "WYE",   0.4),
+                               _nwd_winding("tv", 2.4,   "WYE",   0.4)],
+                "x_sc" => _nwd_xsc(115.0, "DELTA",
+                    Dict("1_2"=>8.0, "1_3"=>8.0, "1_4"=>8.0,
+                         "2_3"=>6.0, "2_4"=>6.0, "3_4"=>4.0)),
+                "s_rating" => _NWD_S))))
+end
+
+function _net_3wdg_dyn_zgnd()
+    # pf_3wdg_dyn_zgnd.dss: Dyn with the MV neutral grounded through 0.5 Ω (shunt
+    # G = 2 S on mv.n), unbalanced MV load → neutral current lifts mv.4 off earth.
+    net = _net_3wdg_dyn(); net["name"] = "pf_3wdg_dyn_zgnd"
+    net["bus"]["mv"] = _nwd_softbus()
+    net["shunt"] = Dict{String,Any}("mvgrnd" => Dict{String,Any}(
+        "bus"=>"mv", "terminal_map"=>["n"], "G_1_1"=>2.0, "B_1_1"=>0.0))
+    net["load"] = Dict{String,Any}(
+        "m1"   => _nwd_1phload("mv", "a", 2.5e6, 5.0e5),
+        "m2"   => _nwd_1phload("mv", "b", 8.0e5, 1.5e5),
+        "ldlv" => _nwd_wyeload("lv", 3.0e5, 6.0e4))
+    net
+end
+
 function _net_yd_xfmr()
     # pf_yd_xfmr.dss: hv ──[Yd xfmr, 11 kV wye / 0.415 kV delta, 500 kVA]── lv
     # %r=1.0 per winding, xhl=4.0%, %noloadloss=0.3, %imag=1.5
@@ -2011,6 +2130,81 @@ end
     _cmp_volts(V_ods, V_bm; label="pf-4wdg-nwinding: ")
 end
 
+# ── n-winding transformers with DELTA windings (matrix vs OpenDSS) ───────────────
+# Validates delta-winding support across the chosen dimensions: winding count
+# (3- and 4-winding), neutral grounding (solid / impedance / delta-no-neutral),
+# and unbalanced loading. The delta coil is line-to-line (delta_roll = -1 matches
+# OpenDSS's standard 30° rotation; r_winding/x_sc on the delta coil base).
+
+@testset "PF (solve_pf) comparison — 3-winding Dyn (delta primary)" begin
+    path  = joinpath(_PF_CMP_DIR, "pf_3wdg_dyn.dss")
+    net   = _net_3wdg_dyn()
+    V_ods = _ods_volts(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    @test net["transformer"]["n_winding"]["t1"]["windings"][1]["connection"] == "DELTA"
+    _cmp_volts(V_ods, _nwd_bm_volts(res); label="pf-3wdg-dyn: ")
+end
+
+@testset "PF (solve_pf) comparison — 3-winding Dyn, unbalanced loads" begin
+    # Delta primary blocks zero-sequence; single-phase MV/LV loads still match.
+    path  = joinpath(_PF_CMP_DIR, "pf_3wdg_dyn_unbalanced.dss")
+    V_ods = _ods_volts(path)
+    res   = solve_pf(_net_3wdg_dyn_unbalanced(); optimizer=Ipopt.Optimizer)
+    _cmp_volts(V_ods, _nwd_bm_volts(res); label="pf-3wdg-dyn-unb: ")
+end
+
+@testset "PF (solve_pf) comparison — 4-winding Dyyn (delta primary)" begin
+    # Winding-count dimension: n=4 with a delta winding 1; the ZB leakage still
+    # reproduces all six pairwise reactances exactly on the delta coil base.
+    path  = joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss")
+    V_ods = _ods_volts(path)
+    res   = solve_pf(_net_4wdg_dyyn(); optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    _cmp_volts(V_ods, _nwd_bm_volts(res); label="pf-4wdg-dyyn: ")
+end
+
+@testset "feasibility OPF comparison — 3-winding Dyn (delta primary)" begin
+    # Exercises the OTHER solver path for a delta n-winding: the feasibility OPF
+    # (elastic KCL slack) must drive the slack to ≈0 and reproduce the same delta
+    # voltages as OpenDSS — mirroring the Yd/Dy 2-winding feasibility tests.
+    path  = joinpath(_PF_CMP_DIR, "pf_3wdg_dyn.dss")
+    net   = _net_3wdg_dyn()
+    V_ods = _ods_volts(path)
+    res   = solve_feasibility_opf(net; optimizer=Ipopt.Optimizer)
+    @test res["total_slack_magnitude_A"] < 1e-3
+    _cmp_volts(V_ods, _nwd_bm_volts(res); label="feas-3wdg-dyn: ")
+end
+
+@testset "PF (solve_pf) comparison — 3-winding Dyn, impedance-grounded MV neutral" begin
+    # Neutral-grounding dimension: the MV neutral is grounded through a 0.5 Ω shunt
+    # (not solidly) under unbalanced load. The bus-neutral shunt and the per-winding
+    # neutral KCL must agree with OpenDSS's grounding reactor on every node.
+    path  = joinpath(_PF_CMP_DIR, "pf_3wdg_dyn_zgnd.dss")
+    net   = _net_3wdg_dyn_zgnd()
+    V_ods = _ods_volts(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+    @test haskey(net, "shunt")             # MV neutral grounded via shunt, not solid
+    _cmp_volts(V_ods, _nwd_bm_volts(res); label="pf-3wdg-dyn-zgnd: ")
+end
+
+@testset "PF (solve_pf) comparison — 3-winding Dyn in per-unit (√3 cancellation)" begin
+    # Same Dyn net solved in per-unit. The delta v_ref is line-to-line while the bus
+    # base is line-to-neutral, so the √3 cancels and the per-unit solve must agree
+    # with both OpenDSS and the SI solve.
+    path  = joinpath(_PF_CMP_DIR, "pf_3wdg_dyn.dss")
+    V_ods = _ods_volts(path)
+    res_pu = solve_pf(_net_3wdg_dyn(); optimizer=Ipopt.Optimizer, per_unit=true)
+    @test res_pu["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    V_pu = _nwd_bm_volts(res_pu)
+    _cmp_volts(V_ods, V_pu; label="pf-3wdg-dyn-pu: ")
+    # Per-unit ≡ SI (same delta net): voltages agree to solver precision.
+    V_si = _nwd_bm_volts(solve_pf(_net_3wdg_dyn(); optimizer=Ipopt.Optimizer))
+    for (k, v) in V_pu
+        @test isapprox(v, V_si[k]; atol=1e-4, rtol=1e-7)
+    end
+end
+
 @testset "PF (solve_pf) vs feasibility OPF — voltages agree on 3-phase line" begin
     # Internal consistency: on a feasible, generator-free network the determined
     # power flow and the (slack≈0) feasibility OPF must return the same voltages.
@@ -2073,6 +2267,8 @@ _net_center_tap_ideal() = parse_bmopf("""
         ("open_delta_regulator",         _net_open_delta_reg()),
         ("n_winding (3-winding)",        _net_3wdg_nwinding()),
         ("n_winding (4-winding)",        _net_4wdg_nwinding()),
+        ("n_winding Dyn (delta)",        _net_3wdg_dyn()),
+        ("n_winding Dyyn (4w, delta)",   _net_4wdg_dyyn()),
     ]
     for (lbl, net) in cases
         _zero_all_xfmr_impedance!(net)
@@ -2096,6 +2292,17 @@ _net_center_tap_ideal() = parse_bmopf("""
                    ws[1]["v_ref"] / ws[2]["v_ref"]; rtol=1e-6)
     @test isapprox(vmag(rnw, "hv", "a") / vmag(rnw, "lv", "a"),
                    ws[1]["v_ref"] / ws[3]["v_ref"]; rtol=1e-6)
+
+    # Lossless DELTA: the delta winding-1 coil voltage is line-to-line, so the
+    # ideal ratio is V_hv(L-L) / V_mv(L-N) = v_ref_delta / v_ref_wye (the √3 is in
+    # v_ref). A wrong coil-base / v_ref convention would break this exact ratio.
+    vll(r, b, p, q) = sqrt((r["bus"][b][p]["vr"] - r["bus"][b][q]["vr"])^2 +
+                           (r["bus"][b][p]["vi"] - r["bus"][b][q]["vi"])^2)
+    dyn  = _zero_all_xfmr_impedance!(_net_3wdg_dyn())
+    rdyn = solve_pf(dyn; optimizer=Ipopt.Optimizer)
+    wsd  = dyn["transformer"]["n_winding"]["t1"]["windings"]
+    @test isapprox(vll(rdyn, "hv", "a", "b") / vmag(rdyn, "mv", "a"),
+                   wsd[1]["v_ref"] / wsd[2]["v_ref"]; rtol=1e-6)
 end
 
 # ── Fixed capacitor banks ───────────────────────────────────────────────────

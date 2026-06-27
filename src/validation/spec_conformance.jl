@@ -330,14 +330,13 @@ function spec_conformance_check(net::Dict{String,Any},
                     "$(tm).",
                     Dict{String,Any}("winding" => k, "terminal_map" => tm)))
             end
-            if w.connection == "DELTA"
+            if w.connection == "DELTA" && length(phases) < 2
                 n_issues += 1
-                push!(findings, Finding(ERROR, "E.SPEC.XFMR_NOT_IMPLEMENTED", :spec,
+                push!(findings, Finding(WARNING, "W.SPEC.XFMR_TMAP_ARITY", :spec,
                     :transformer, id,
-                    "transformer n_winding '$id' winding $k uses connection DELTA — " *
-                    "n_winding currently supports all-wye only; delta windings are " *
-                    "reserved but not yet implemented.",
-                    Dict{String,Any}("winding" => k, "connection" => "DELTA")))
+                    "transformer n_winding '$id' winding $k (DELTA): terminal map " *
+                    "should carry at least two phase conductors; found $(tm).",
+                    Dict{String,Any}("winding" => k, "terminal_map" => tm)))
             end
         end
     end

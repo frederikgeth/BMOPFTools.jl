@@ -6,18 +6,23 @@
 # it shares none of the `_add_yy_transformer!` / `_xf_kadd` / `_kcl_add!` code,
 # uses its own current variables, and its own KCL/ledger contribution closure.
 #
-# Model (all-wye), four-wire rectangular IVR. The leakage is the OpenDSS-style
-# ZB matrix referred to winding 1 (exact for any n — see `_nw_zb_matrix`), with
-# winding 1 as the reference winding. Per phase, with referred winding currents
-# `I_k^r = N_k I_k` (`N_k = v_ref[k]/v_ref[1]`, `N_1 = 1`) and referred winding
-# phase-neutral voltages `V_k^r = U_k / N_k`:
+# Model (WYE and/or DELTA windings), four-wire rectangular IVR. The leakage is
+# the OpenDSS-style ZB matrix referred to winding 1 (exact for any n — see
+# `_nw_zb_matrix`), with winding 1 as the reference winding. Per phase/leg, with
+# referred coil currents `I_k^r = N_k I_k` (`N_k = v_ref[k]/v_ref[1]`, `N_1 = 1`)
+# and referred coil voltages `V_k^r = U_k / N_k`:
 #
 #   Ampere-turn (ideal core):   Σ_k N_k I_k = 0
 #   Leakage (i = 1..n-1):       V_1^r − V_{i+1}^r = Σ_{j=1}^{n-1} ZB[i,j] I_{j+1}^r
 #
-# No internal star node is needed — referencing winding 1 folds it out. Each
-# winding injects −I_k into its bus phase terminal and +Σ_phase I_k into its
-# neutral; the optional no-load shunt (g+jb) is drawn at winding 1's terminals.
+# The per-leg leakage/ampere-turn structure is identical for WYE and DELTA; only
+# the coil↔terminal incidence differs. The coil voltage U_k is phase-to-neutral
+# for a WYE winding and line-to-line (phase pk minus its delta partner) for a
+# DELTA winding — whose `v_ref` is the line-to-line coil voltage, so the √3 lives
+# in N_k and U_k^r stays consistent (and per-unit needs no √3 fudge, since the
+# bus base is line-to-neutral). A WYE coil injects −I_k at its phase and +Σ_phase
+# I_k at its neutral; a DELTA coil injects −I_k at phase pk and +I_k at its delta
+# partner node. The optional no-load shunt (g+jb) is drawn across winding 1's coil.
 
 """
     _add_nwinding_variables!(model, net) -> (cr_nw, ci_nw)
@@ -48,9 +53,9 @@ end
 """
     _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
 
-Add the all-wye n-winding transformer leakage (ZB) + ampere-turn constraints and
-KCL contributions. Errors if any winding uses a DELTA connection (reserved, not
-implemented). Independent of `_add_transformer_constraints!`.
+Add the n-winding transformer leakage (ZB) + ampere-turn constraints and KCL
+contributions. Handles WYE and DELTA windings (connection-aware coil incidence);
+independent of `_add_transformer_constraints!`.
 """
 function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
     vr = vars[:vr]; vi = vars[:vi]
@@ -62,9 +67,6 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
         ws = BMOPFTools._nw_windings(xfmr)
         n  = length(ws)
         n < 2 && continue
-        any(w -> w.connection == "DELTA", ws) &&
-            error("n_winding transformer '$tid': DELTA winding is reserved but not " *
-                  "yet implemented (all-wye only).")
 
         N  = BMOPFTools._nw_turns_ratios(xfmr)
         ZB = BMOPFTools._nw_zb_for_opf(xfmr)          # (n-1)×(n-1), model units
@@ -85,9 +87,18 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
             end
         end
 
-        # Phase-neutral voltage of winding k at phase position pk.
+        # Coil phase voltage of winding k at leg pk: phase-to-neutral for a WYE
+        # winding, line-to-line (phase pk minus its delta partner) for a DELTA
+        # winding. The delta v_ref is the line-to-line coil voltage, so U_k/N_k
+        # stays referred consistently (the √3 lives in N_k).
         upn(k, pk) = begin
             w = ws[k]; phs, neu = BMOPFTools._nw_phase_terminals(w.terminal_map)
+            if w.connection == "DELTA"
+                po = BMOPFTools._nw_delta_other(pk, length(phs), w.delta_roll)
+                ur = @expression(model, vr[(w.bus, phs[pk])] - vr[(w.bus, phs[po])])
+                ui = @expression(model, vi[(w.bus, phs[pk])] - vi[(w.bus, phs[po])])
+                return (ur, ui)
+            end
             ur = neu === nothing ? @expression(model, vr[(w.bus, phs[pk])]) :
                                    @expression(model, vr[(w.bus, phs[pk])] - vr[(w.bus, neu)])
             ui = neu === nothing ? @expression(model, vi[(w.bus, phs[pk])]) :
@@ -120,11 +131,20 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                 @constraint(model, lhs_i + rhs_i == 0)
             end
 
-            # Inject winding currents into bus terminals.
+            # Inject coil currents into bus terminals (connection-aware). The coil
+            # current cr/ci[(tid,k,pk)] is the winding/arm current of leg pk: a WYE
+            # coil returns it through the neutral (added below); a DELTA coil flows
+            # from node pk to its delta partner, so it injects −I at pk and +I at
+            # the partner node (the line current emerges as the node-wise sum).
             for k in 1:n
                 w = ws[k]; phs, _ = BMOPFTools._nw_phase_terminals(w.terminal_map)
                 kadd(w.bus, phs[pk], @expression(model, -cr[(tid, k, pk)]),
                                      @expression(model, -ci[(tid, k, pk)]))
+                if w.connection == "DELTA"
+                    po = BMOPFTools._nw_delta_other(pk, length(phs), w.delta_roll)
+                    kadd(w.bus, phs[po], @expression(model, cr[(tid, k, pk)]),
+                                         @expression(model, ci[(tid, k, pk)]))
+                end
             end
         end
 
@@ -147,7 +167,12 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                 Imr = @expression(model, g * ur - b * ui)
                 Imi = @expression(model, g * ui + b * ur)
                 kadd(w1.bus, phs1[pk], @expression(model, -Imr), @expression(model, -Imi))
-                neu1 !== nothing && kadd(w1.bus, neu1, Imr, Imi)
+                if w1.connection == "DELTA"
+                    po = BMOPFTools._nw_delta_other(pk, length(phs1), w1.delta_roll)
+                    kadd(w1.bus, phs1[po], Imr, Imi)
+                elseif neu1 !== nothing
+                    kadd(w1.bus, neu1, Imr, Imi)
+                end
             end
         end
     end

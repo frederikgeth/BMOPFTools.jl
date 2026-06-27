@@ -360,6 +360,10 @@ function _pu_scale_nwinding!(net, bases)
         xfmr["_zb_re"] = [[real(ZBpu[i, j]) for j in 1:m] for i in 1:m]
         xfmr["_zb_im"] = [[imag(ZBpu[i, j]) for j in 1:m] for i in 1:m]
 
+        # v_ref is divided by the winding's bus base (line-to-neutral). For a DELTA
+        # winding v_ref is the line-to-line coil voltage, so v_ref_pu ≈ √3 — exactly
+        # the √3 that cancels the line-to-line node-voltage difference the delta coil
+        # spans, leaving U_k^r consistent. No delta-specific scaling is needed.
         for (j, w) in enumerate(raw)
             w isa AbstractDict || continue
             vbj = get(bases.v_base, ws[j].bus, 1.0)

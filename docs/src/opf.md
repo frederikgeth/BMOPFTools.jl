@@ -732,17 +732,22 @@ still correct but the per-phase reference floats (the unphysical
 
 ---
 
-**`n_winding` — general n-winding (ZB model, all-wye)**
+**`n_winding` — general n-winding (ZB model, WYE and/or DELTA)**
 
 The general n-winding transformer keeps the **explicit per-winding current
 variables** $c^{r,w}_{x,j,k}, c^{i,w}_{x,j,k}$ (one per winding $j$ and phase
 $k$) — it is the same rectangular IVR style as the other devices, **not** an
-admittance model that eliminates currents. The leakage is the OpenDSS-style
-$ZB$ matrix referred to winding 1 (an $(n{-}1)\times(n{-}1)$ impedance,
-exact for any $n$; see [Conversion § n-winding](@ref n-winding)).
-With referred currents $I^r_{j} = N_j\,c^{w}_{x,j,k}$
-($N_j = V^\text{ref}_j / V^\text{ref}_1$) and referred phase-neutral voltages
-$V^r_j = U_{j,k}/N_j$, per phase $k$:
+admittance model that eliminates currents. Keeping both current and voltage
+variables (rather than substituting an admittance) is what lets the leakage be
+parameterised down to **zero impedance** (a lossless / ideal transformer): the
+leakage equation below stays well-posed at $ZB = 0$ (it collapses to the ideal
+ratio $V^r_1 = V^r_{i+1}$) with no division by an impedance.
+
+The leakage is the OpenDSS-style $ZB$ matrix referred to winding 1 (an
+$(n{-}1)\times(n{-}1)$ impedance, exact for any $n$; see
+[Conversion § n-winding](@ref n-winding)). With referred currents
+$I^r_{j} = N_j\,c^{w}_{x,j,k}$ ($N_j = V^\text{ref}_j / V^\text{ref}_1$) and
+referred coil voltages $V^r_j = U_{j,k}/N_j$, per phase/leg $k$:
 
 ```math
 \sum_{j=1}^{n} N_j\,c^{r,w}_{x,j,k} = 0 \quad\text{(ideal core / ampere-turn; and imaginary)}
@@ -753,13 +758,20 @@ V^r_1 - V^r_{i+1} = -\sum_{j=1}^{n-1} ZB_{i,j}\,I^r_{j+1},
 \qquad i = 1,\dots,n-1 \quad\text{(complex; real/imag split)}
 ```
 
-Referencing winding 1 folds out the core node, so **no internal star-node
-variable is introduced** — only the explicit winding currents. Each winding
-injects $-c^{w}_{x,j,k}$ into its bus phase terminal and $+\sum_k c^{w}_{x,j,k}$
-into its neutral; the optional no-load shunt sits at winding 1. The constraints
-are all linear. This path is independent of the two-bus transformer code and is
-validated against OpenDSS's own 3- and 4-winding solves. `DELTA` windings are
-reserved (error `E.SPEC.XFMR_NOT_IMPLEMENTED`).
+The per-leg leakage/ampere-turn structure is identical for `WYE` and `DELTA`
+windings — only the coil↔terminal incidence differs. The coil voltage $U_{j,k}$
+is **phase-to-neutral** for a `WYE` winding and **line-to-line** (phase $k$ minus
+its delta partner $k^{\pm}$, selected by the winding's `delta_roll`) for a
+`DELTA` winding, whose $V^\text{ref}$ is its line-to-line coil voltage — so the
+$\sqrt3$/coil-base factor lives entirely in $N_j$ and $V^r_j$ stays consistent
+(per-unit needs no $\sqrt3$ correction, since the bus base is line-to-neutral).
+A `WYE` coil injects $-c^{w}_{x,j,k}$ at its phase and $+\sum_k c^{w}_{x,j,k}$ at
+its neutral; a `DELTA` coil injects $-c^{w}_{x,j,k}$ at phase $k$ and
+$+c^{w}_{x,j,k}$ at its delta partner. Referencing winding 1 folds out the core
+node, so **no internal star-node variable is introduced**; the optional no-load
+shunt sits across winding 1. The constraints are all linear. This path is
+independent of the two-bus transformer code and is validated against OpenDSS's
+own 3- and 4-winding solves, including delta (`Dyn`/`Dyyn`) configurations.
 
 #### Kirchhoff's Current Law
 
