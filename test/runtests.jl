@@ -2193,6 +2193,33 @@ const IEEE13_FIXTURE = """
         # Has conductance → not a pure capacitor bank.
         f3 = Finding[]; provenance_analysis(mkshunt(1e-4, 1e-4), f3)
         @test !("I.PROV.SHUNT_LIKELY_CAPACITOR" in codes(f3))
+
+        # Reactor: G≈0, negative B → SHUNT_LIKELY_REACTOR (not capacitor).
+        f4 = Finding[]; provenance_analysis(mkshunt(0.0, -1e-4), f4)
+        @test "I.PROV.SHUNT_LIKELY_REACTOR" in codes(f4)
+        @test !("I.PROV.SHUNT_LIKELY_REACTOR" in codes(
+            (g=Finding[]; provenance_analysis(mkshunt(0.0, 1e-4), g); g)))  # capacitor not flagged as reactor
+    end
+
+    @testset "provenance — line bridging voltage levels (transformer-as-line)" begin
+        codes(fs) = Set(f.code for f in fs)
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "a" => Dict{String,Any}("terminal_names" => ["1","n"]),
+                "b" => Dict{String,Any}("terminal_names" => ["1","n"])),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "a", "bus_to" => "b",
+                "terminal_map_from" => ["1"], "terminal_map_to" => ["1"])))
+        # Different nominal levels on the two ends → it's a transformer.
+        f = Finding[]
+        BMOPFTools._check_line_voltage_level_bridges(net, f,
+            Dict("a" => 11000.0, "b" => 230.0))
+        @test "W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS" in codes(f)
+        # Same level → no finding.
+        f2 = Finding[]
+        BMOPFTools._check_line_voltage_level_bridges(net, f2,
+            Dict("a" => 230.0, "b" => 230.0))
+        @test !("W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS" in codes(f2))
     end
 
     @testset "provenance — voltage source sequence findings" begin
@@ -2371,6 +2398,39 @@ const IEEE13_FIXTURE = """
         domain_rules_check(net, findings2)
         @test any(f -> f.code == "W.DOM.XFMR_RATIO_OOB" &&
                        f.component_id == "tx_dist", findings2)
+    end
+
+    @testset "Domain rules — generator object identity (inverter / load)" begin
+        codes(fs) = Set(f.code for f in fs)
+        mknet(vsrc, gen) = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"]),
+                "g"   => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a","b","c"],
+                "v_magnitude" => [vsrc,vsrc,vsrc], "v_angle" => [0.0,-2.0944,2.0944])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                "R_series_1_1" => 0.1, "R_series_2_2" => 0.1, "R_series_3_3" => 0.1)),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "src", "bus_to" => "g",
+                "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"],
+                "linecode" => "lc", "length" => 1.0)),
+            "generator" => Dict{String,Any}("g1" => merge(Dict{String,Any}(
+                "bus" => "g", "terminal_map" => ["a","b","c","n"],
+                "configuration" => "WYE"), gen)))
+        dcodes(net) = (f = Finding[]; domain_rules_check(net, f); codes(f))
+
+        normal = Dict{String,Any}("p_min"=>[0.0,0.0,0.0], "p_max"=>[1e5,1e5,1e5])
+        # LV-connected generator → likely an inverter.
+        @test "I.DOM.GEN_LIKELY_INVERTER" in dcodes(mknet(230.0, normal))
+        # MV-connected generator → not flagged as inverter.
+        @test !("I.DOM.GEN_LIKELY_INVERTER" in dcodes(mknet(11000.0, normal)))
+        # Generator that can only absorb (p_max ≤ 0) → really a load.
+        absorber = Dict{String,Any}("p_min"=>[-1e5,-1e5,-1e5], "p_max"=>[0.0,0.0,0.0])
+        @test "I.DOM.NEGATIVE_GENERATION" in dcodes(mknet(11000.0, absorber))
+        @test !("I.DOM.NEGATIVE_GENERATION" in dcodes(mknet(11000.0, normal)))
     end
 
     @testset "Domain rules — ideal / lossless transformer parameters" begin

@@ -26,6 +26,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_zero_length(net, findings, n_checks)
     _check_angle_units(net, findings, n_checks)
     _check_negative_loads(net, findings, n_checks)
+    _check_generator_semantics(net, findings, n_checks)
     _check_load_models(net, findings, n_checks)
     _check_low_impedance_lines(net, findings, thresholds, n_checks)
     _check_adjacent_line_impedance_spread(net, findings, thresholds, n_checks, result)
@@ -577,6 +578,54 @@ function _check_negative_loads(net, findings, n_checks)
             "modeled as negative load; consider explicit generator objects: " *
             "$(join(sort(neg), ", ")).",
             Dict{String,Any}("loads" => sort(neg))))
+    end
+end
+
+# Generator object-identity checks (semantic projection — see the docs on
+# "object identity"). Two collisions:
+#   • a generator whose active-power range is entirely ≤ 0 only ever absorbs — it
+#     is really a load (the mirror of `I.DOM.NEGATIVE_LOAD`);
+#   • a generator connected at LV (≤ 1 kV) is almost certainly an inverter-
+#     interfaced DER, which the `inverter` object models faithfully (capability
+#     curve, no inertia, current limit, volt-var/volt-watt) — a synchronous
+#     `generator` is the wrong asset class for distribution-connected DERs.
+function _check_generator_semantics(net, findings, n_checks)
+    gens = get(net, "generator", Dict())
+    isempty(gens) && return
+    vmap = get(voltage_level_analysis(net, Finding[]), "bus_voltage_map",
+               Dict{String,Float64}())
+
+    absorbers = String[]
+    inverters = String[]
+    for (id, g) in gens
+        g isa Dict || continue
+        n_checks[] += 1
+        pmax = get(g, "p_max", nothing)
+        if pmax !== nothing
+            vals = pmax isa AbstractVector ? Float64.(pmax) : [Float64(pmax)]
+            !isempty(vals) && all(<=(0.0), vals) && push!(absorbers, id)
+        end
+        vb = get(vmap, string(get(g, "bus", "")), nothing)
+        vb isa Number && vb > 0 && vb <= 1_000.0 && push!(inverters, id)
+    end
+
+    if !isempty(absorbers)
+        push!(findings, Finding(INFO, "I.DOM.NEGATIVE_GENERATION", :domain_rules,
+            :generator, nothing,
+            "$(length(absorbers)) generator(s) can only absorb active power " *
+            "(p_max ≤ 0 on all phases) — a consumer modeled as a generator; " *
+            "consider explicit load objects: $(join(sort(absorbers), ", ")).",
+            Dict{String,Any}("generators" => sort(absorbers))))
+    end
+    if !isempty(inverters)
+        push!(findings, Finding(INFO, "I.DOM.GEN_LIKELY_INVERTER", :domain_rules,
+            :generator, nothing,
+            "$(length(inverters)) generator(s) sit on LV buses (≤ 1 kV) — " *
+            "distribution-connected DERs are overwhelmingly inverter-interfaced; " *
+            "the `inverter` object models them faithfully (capability curve, no " *
+            "inertia, current limit, volt-var/volt-watt control): " *
+            "$(join(sort(inverters), ", ")).",
+            Dict{String,Any}("generators" => sort(inverters))))
     end
 end
 

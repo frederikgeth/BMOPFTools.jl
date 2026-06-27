@@ -74,6 +74,67 @@ function _check_capacitor_like_shunts(net::Dict{String,Any},
     Dict{String,Any}("n" => length(affected), "ids" => affected)
 end
 
+# Mirror of the capacitor check: a shunt with no conductance (G ≈ 0) and a
+# strictly NEGATIVE diagonal susceptance is a reactor (B = −1/ωL < 0) carried as
+# a generic admittance. Surfacing it keeps the asset identity explicit (a reactor
+# is a distinct device from a capacitor or a generic shunt).
+function _check_reactor_like_shunts(net::Dict{String,Any},
+                                    findings::Vector{Finding})::Dict{String,Any}
+    affected = String[]
+    for (id, s) in get(net, "shunt", Dict())
+        s isa Dict || continue
+        B = _pattern_keys_to_matrix(s, "B_")
+        B isa AbstractMatrix || continue
+        G = _pattern_keys_to_matrix(s, "G_")
+        bscale = max(maximum(abs, B), 1e-30)
+        gmax   = G isa AbstractMatrix ? maximum(abs, G) : 0.0
+        bdiag  = [B[i, i] for i in 1:size(B, 1)]
+        (gmax <= 1e-9 * bscale && all(x -> x < -1e-12 * bscale, bdiag)) || continue
+        push!(affected, id)
+        push!(findings, Finding(INFO, "I.PROV.SHUNT_LIKELY_REACTOR", :provenance,
+            :shunt, id,
+            "Shunt '$id' is purely inductive (no conductance, negative diagonal " *
+            "susceptance) — it looks like a shunt reactor, a distinct asset from a " *
+            "capacitor bank or a generic shunt. Keep its identity explicit and " *
+            "verify the sign convention.",
+            Dict{String,Any}("b_diag" => bdiag, "g_max" => gmax)))
+    end
+    Dict{String,Any}("n" => length(affected), "ids" => affected)
+end
+
+# A `line` whose two endpoint buses are assigned different nominal voltage levels
+# cannot physically be a line — a line does not change voltage level. It is a
+# transformer that was elided into the per-unit line model (textbook "the
+# transformer disappears in per-unit"), or a data error. `bus_voltage_map` comes
+# from `voltage_level_analysis`; a level ratio beyond `tol` (default 5 %) flags.
+function _check_line_voltage_level_bridges(net::Dict{String,Any},
+                                           findings::Vector{Finding},
+                                           bus_voltage_map::AbstractDict;
+                                           tol::Float64 = 0.05)::Dict{String,Any}
+    affected = String[]
+    for (id, l) in get(net, "line", Dict())
+        l isa Dict || continue
+        bf = get(l, "bus_from", nothing); bt = get(l, "bus_to", nothing)
+        (bf isa AbstractString && bt isa AbstractString) || continue
+        vf = get(bus_voltage_map, string(bf), nothing)
+        vt = get(bus_voltage_map, string(bt), nothing)
+        (vf isa Number && vt isa Number && vf > 0 && vt > 0) || continue
+        ratio = max(vf / vt, vt / vf)
+        ratio > 1 + tol || continue
+        push!(affected, id)
+        push!(findings, Finding(WARNING, "W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS",
+            :provenance, :line, id,
+            "Line '$id' joins buses at different nominal voltages " *
+            "($(round(Float64(vf), digits=1)) V and $(round(Float64(vt), digits=1)) V, " *
+            "ratio $(round(ratio, digits=2)):1). A line does not change voltage " *
+            "level — this is a transformer elided into the per-unit line model, or " *
+            "a data error. Model it as a `transformer`.",
+            Dict{String,Any}("bus_from" => string(bf), "bus_to" => string(bt),
+                             "v_from" => Float64(vf), "v_to" => Float64(vt))))
+    end
+    Dict{String,Any}("n" => length(affected), "ids" => affected)
+end
+
 # ---------------------------------------------------------------------------
 # Voltage bound checks
 # ---------------------------------------------------------------------------
