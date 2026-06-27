@@ -157,6 +157,7 @@ concern, so a failure points straight at the responsible component:
 | `pf_1ph_freeneutral`, `pf_1ph_impedanceneutral`, `pf_1ph_perfectneutral` | neutral grounding: floating, grounding-reactor (Z = 0.2 Ω), and perfectly grounded |
 | `pf_zip_1ph`, `pf_zip_3ph`, `pf_zip_delta`, `pf_exp_1ph`, `pf_delta_load` | voltage-dependent load models — ZIP (distinct P/Q fractions), exponential (γ), and delta (line-to-line) connection |
 | `pf_1ph_xfmr`, `pf_yd_xfmr`, `pf_dy_xfmr`, `pf_center_tap_xfmr` | transformer windings/vector groups: YY, Yd, Dy, and split-phase center-tap |
+| `pf_combined_3ph_split` | **source-bus angle offset**: one MV source feeding a 3-phase Dy *and* a split-phase center-tap transformer, solved both at the baseline angle and at a non-zero (+17°) source angle (see [Source-angle convention](#Source-angle-convention) below) |
 | `pf_3wdg_nwinding`, `pf_3wdg_nwinding_unbalanced`, `pf_4wdg_nwinding` | **general n-winding** transformer (all-wye), 3- and 4-winding, against OpenDSS's own multi-winding solve — exact ZB leakage (all pairwise reactances, no star approximation), balanced and unbalanced loading, SI and per-unit |
 | `pf_3wdg_dyn`, `pf_3wdg_dyn_unbalanced`, `pf_4wdg_dyyn`, `pf_3wdg_dyn_zgnd` | **n-winding with a DELTA winding** (`Dyn`/`Dyyn`, delta primary): winding count (3/4), neutral grounding (solid vs 0.5 Ω-shunt MV neutral), unbalanced loading, the `solve_pf`/feasibility-OPF paths, and per-unit. The delta coil is line-to-line (`delta_roll = -1` matches OpenDSS's 30° rotation; `r_winding`/`x_sc` on the delta coil base `n_ph·V_LL²/S`) |
 | `pf_center_tap_loaded`, `pf_center_tap_balanced_heavy`, `pf_center_tap_240`, `pf_center_tap_singleleg_pn`, `pf_center_tap_oneleg_extreme` | split-phase **coupled-coil** model under load — leg symmetry on a balanced heavy load, a 240 V phase-to-phase load, a single leg-to-neutral load, and an extreme one-leg load (see [Split-phase transformer depth](#Split-phase-transformer-depth)) |
@@ -182,6 +183,30 @@ last. The sweep stops at ×1.5 because this stiff feeder reaches its power-flow
 nose near ×2, beyond which the solution is no longer unique (the flat start and
 OpenDSS can land on different branches) — a property of the network, not a model
 disagreement.
+
+### Source-angle convention
+
+Every other fixture pins the slack reference at `New Circuit … angle=0`, so a
+mistake in the **source-angle convention** — BMOPF's `voltage_source.v_angle` is
+in **radians**, OpenDSS's `angle` in **degrees** — would never surface. The
+`pf_combined_3ph_split` case closes that gap. It is one MV source feeding two
+branches at once: a three-phase `delta_wye` (the 30° vector-group shift) and a
+split-phase `center_tap` (the leg-polarity model). It is solved twice:
+
+- **baseline** (`angle=0`) confirms the *combined* model is correct, isolating any
+  model error from a convention error;
+- **offset** rotates the slack reference by **+17°** — a non-30°-multiple, so a
+  wrong unit or a flipped sign would show as a tens-of-percent mismatch, not a
+  small one. The OpenDSS reference is re-angled in place (`Edit Vsource.source
+  angle=17; Solve`) and BMOPF's `v_angle` is shifted by the same amount in radians.
+
+Because a single-source, generator-free network has the source as its only angle
+anchor, the offset must **rigidly rotate the whole solution** — every transformer
+phase shift is relative and survives the rotation. The feasibility solve
+converging from the offset also exercises the angle-aware voltage initialisation.
+A companion analysis test asserts the corollary: **vector-group tagging**
+(terminal-map topology) and **voltage-level tagging** (`v_magnitude` / `v_ref`
+ratios) read no angle, so both are byte-identical with and without the offset.
 
 ### Split-phase transformer depth
 
