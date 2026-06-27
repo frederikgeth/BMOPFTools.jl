@@ -32,7 +32,7 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
   BMOPF NETWORK SUMMARY REPORT
 ──────────────────────────────────────────────────────────────────────
 </span>  Case name                     lv1_14bus
-  Generated                     2026-06-27 05:16:29
+  Generated                     2026-06-27 07:37:36
   Findings                      0 errors, 2 warnings, 20 info
   Convention                    MV_6.4kV: 4-wire; LV_250V: 4-wire; 4 grounding point(s)
 <span class="sgr1">
@@ -283,7 +283,7 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
     <span class="sgr36">[INFO] I.BENCH.AUGMENTATION</span>
       Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.</code></pre><h2 id="3.-Fix-—-structural-repair"><a class="docs-heading-anchor" href="#3.-Fix-—-structural-repair">3. Fix — structural repair</a><a id="3.-Fix-—-structural-repair-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Fix-—-structural-repair" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.fix_case"><code>fix_case</code></a> applies idempotent structural repairs and returns the repaired network plus a <a href="../augmentation/#TransformationManifest"><code>TransformationManifest</code></a> recording every change. The default <a href="../augmentation/#BMOPFTools.FixRecipe"><code>FixRecipe</code></a> keeps the largest connected component, merges trivial series lines, drops electrically-inert zero loads, turns near-zero-impedance lines into switches, and strips redundant voltage bounds off source buses. Two passes are opt-in because they change topology inference or OPF physics.</p><pre><code class="language-julia hljs">net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
 
-render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-27T05:16:33.446
+render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-27T07:37:39.768
   4 change(s)  |  findings before: 1  after: 1
 
 ── BUS (2 change(s)) ──
@@ -309,7 +309,7 @@ render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code
 
 net_der, der_mf = add_inverters(net_fixed; recipe = inv_recipe)
 
-render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-27T05:16:35.102
+render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-27T07:37:41.380
   14 change(s)  |  findings before: 1  after: 3
 
 ── INVERTER (14 change(s)) ──
@@ -344,7 +344,7 @@ render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code
     topology         —                    → SINGLE_PHASE
                      [INVERTER_PLACEMENT/load_following, synthetic] inferred from load terminal_map (2 terminals)</code></pre><h2 id="5.-Augment-—-standards-grounded-gap-filling"><a class="docs-heading-anchor" href="#5.-Augment-—-standards-grounded-gap-filling">5. Augment — standards-grounded gap-filling</a><a id="5.-Augment-—-standards-grounded-gap-filling-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Augment-—-standards-grounded-gap-filling" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.augment_case"><code>augment_case</code></a> fills the bounds and costs an OPF needs, <strong>without overwriting any value already present</strong>. Each fill is tagged in the manifest as <code>:standard</code> (derived from a cited standard) or <code>:synthetic</code> (a design choice). The passes draw on EN 50160 (voltage bounds), IEC 60228 (thermal limits from conductor cross-sections), and EN 50549-1 / IEEE 1547 (reactive capability). See <a href="../augmentation/">Case augmentation</a> for the full pass-by-pass rationale.</p><pre><code class="language-julia hljs">net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
 
-render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-27T05:16:36.185
+render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-06-27T07:37:42.470
   95 change(s)  |  findings before: 1  after: 1
 
 ── BUS (86 change(s)) ──
@@ -577,7 +577,7 @@ This program contains Ipopt, a library for large-scale nonlinear optimization.
 ******************************************************************************
 
 Termination : LOCALLY_SOLVED
-Objective   : -69291.4</code></pre><h3 id="Inspecting-the-result-dictionary"><a class="docs-heading-anchor" href="#Inspecting-the-result-dictionary">Inspecting the result dictionary</a><a id="Inspecting-the-result-dictionary-1"></a><a class="docs-heading-anchor-permalink" href="#Inspecting-the-result-dictionary" title="Permalink"></a></h3><p><code>result</code> is a plain <code>Dict{String,Any}</code> in SI units whose structure mirrors the network: top-level keys are component types, then component id, then terminal. The full field reference is in <a href="../results/">OPF result dictionary</a>; here we read a few solved quantities directly:</p><pre><code class="language-julia hljs">b = first(keys(result[&quot;bus&quot;]))                 # some bus id
+Objective   : -68736.6</code></pre><h3 id="Inspecting-the-result-dictionary"><a class="docs-heading-anchor" href="#Inspecting-the-result-dictionary">Inspecting the result dictionary</a><a id="Inspecting-the-result-dictionary-1"></a><a class="docs-heading-anchor-permalink" href="#Inspecting-the-result-dictionary" title="Permalink"></a></h3><p><code>result</code> is a plain <code>Dict{String,Any}</code> in SI units whose structure mirrors the network: top-level keys are component types, then component id, then terminal. The full field reference is in <a href="../results/">OPF result dictionary</a>; here we read a few solved quantities directly:</p><pre><code class="language-julia hljs">b = first(keys(result[&quot;bus&quot;]))                 # some bus id
 println(&quot;Bus &#39;&quot;, b, &quot;&#39; phase voltages (V):&quot;)
 for (t, v) in sort(collect(result[&quot;bus&quot;][b]); by = first)
     println(&quot;  terminal &quot;, rpad(t, 3), &quot; |V| = &quot;, round(v[&quot;vm&quot;]; digits = 2))
@@ -588,13 +588,13 @@ src    = first(values(result[&quot;voltage_source&quot;]))
 p_grid = sum(v[&quot;ps&quot;] for v in values(src))
 println(&quot;\nGrid import : &quot;, round(p_grid / 1e3; digits = 2), &quot; kW&quot;)
 println(&quot;Network loss: &quot;, round(result[&quot;losses&quot;][&quot;p_loss&quot;] / 1e3; digits = 2), &quot; kW&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Bus &#39;b179&#39; phase voltages (V):
-  terminal a   |V| = 250.02
-  terminal b   |V| = 250.01
+  terminal a   |V| = 252.07
+  terminal b   |V| = 252.07
   terminal c   |V| = 249.96
   terminal n   |V| = 0.04
 
-Grid import : -69.29 kW
-Network loss: 0.71 kW</code></pre><h3 id="Profiling-the-solution"><a class="docs-heading-anchor" href="#Profiling-the-solution">Profiling the solution</a><a id="Profiling-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Profiling-the-solution" title="Permalink"></a></h3><p><a href="../api/#BMOPFTools.profile_solution"><code>profile_solution</code></a> checks the result against the network bounds — flagging violations, near-active constraints, and residuals — without access to solver internals, and returns a <a href="../api/#BMOPFTools.SolutionReport"><code>SolutionReport</code></a>:</p><pre><code class="language-julia hljs">sol_report = profile_solution(net_ready, result)
+Grid import : -68.74 kW
+Network loss: 1.26 kW</code></pre><h3 id="Profiling-the-solution"><a class="docs-heading-anchor" href="#Profiling-the-solution">Profiling the solution</a><a id="Profiling-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Profiling-the-solution" title="Permalink"></a></h3><p><a href="../api/#BMOPFTools.profile_solution"><code>profile_solution</code></a> checks the result against the network bounds — flagging violations, near-active constraints, and residuals — without access to solver internals, and returns a <a href="../api/#BMOPFTools.SolutionReport"><code>SolutionReport</code></a>:</p><pre><code class="language-julia hljs">sol_report = profile_solution(net_ready, result)
 
 println(&quot;Solution ERRORs   : &quot;, length(errors(sol_report)))
 println(&quot;Solution WARNINGs : &quot;, length(warnings(sol_report)))
@@ -603,10 +603,10 @@ render_solution(sol_report, stdout)</code></pre><pre class="documenter-example-o
 Solution WARNINGs : 2
 # BMOPF Solution Profile: lv1_14bus
 
-**Generated:** 2026-06-27 05:16:56
+**Generated:** 2026-06-27 07:38:02
 **Status:** `LOCALLY_SOLVED`
-**Objective:** -69291.4251
-**Solve time:** 0.045 s
+**Objective:** -68736.6346
+**Solve time:** 0.043 s
 **Findings:** 0 errors · 2 warnings · 2 info
 
 ---
@@ -616,14 +616,14 @@ Solution WARNINGs : 2
 | Field | Value |
 |-------|-------|
 | Status | `LOCALLY_SOLVED` |
-| Total generation | 20.709 kW |
+| Total generation | 21.263 kW |
 | Total load | 20.0 kW |
-| Total network losses (P) | 708.25 W |
-| Total network losses (Q) | 65.23 W var |
-| Loss fraction | 3.5% |
+| Total network losses (P) | 1.263 kW |
+| Total network losses (Q) | 91.93 W var |
+| Loss fraction | 6.3% |
 | Active power balance error | 0.32 W |
 | Reactive power balance error | 0.0 W var |
-| Max neutral shift | 1.29 V (bus `b2656`) |
+| Max neutral shift | 1.28 V (bus `b2656`) |
 
 ### Bound status
 
@@ -639,7 +639,7 @@ Per-unit magnitudes are relative to each zone&#39;s own voltage base; volts are 
 
 | St | Zone | V base | Buses | Vm min (pu) | Vm max (pu) | Max imbalance | Max neutral shift |
 |:--:|------|-------:|------:|------------:|------------:|--------------:|------------------:|
-| ✅ | `b1133` | 250.0 V | 12 | 1.0 (`b3230`) | 1.005 (`b2656`) | 0.5 % (`b2656`) | 1.29 V (`b2656`) |
+| ✅ | `b1133` | 250.0 V | 12 | 1.0 (`b3230`) | 1.014 (`b2656`) | 1.4 % (`b2656`) | 1.28 V (`b2656`) |
 | ✅ | `b2577` | 6.35 kV | 1 | 1.0 (`b2577`) | 1.0 (`b2577`) | 0.0 % | — |
 
 ### Per-bus detail
@@ -648,18 +648,18 @@ Per-unit magnitudes are relative to each zone&#39;s own voltage base; volts are 
 
 | St | Bus | Vm min (V) | Vm max (V) | Vm min (pu) | Vm max (pu) | Imbalance | Neutral |
 |:--:|-----|-----------:|-----------:|------------:|------------:|----------:|--------:|
-| ✅ | `b2656` | 250.0 | 251.3 | 1.0 | 1.005 | 0.5 % | 1.29 V |
-| ✅ | `b3230` | 249.9 | 251.3 | 1.0 | 1.005 | 0.5 % | 1.23 V |
-| ✅ | `b232` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
-| ✅ | `b2327` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
-| ✅ | `b1133` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.02 V |
-| ✅ | `b514` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.02 V |
-| ✅ | `b2734` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
-| ✅ | `b1149` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
-| ✅ | `b3218` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
-| ✅ | `b2123` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
-| ✅ | `b2984` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.03 V |
-| ✅ | `b179` | 250.0 | 250.0 | 1.0 | 1.0 | 0.0 % | 0.04 V |
+| ✅ | `b2656` | 250.0 | 253.4 | 1.0 | 1.014 | 1.4 % | 1.28 V |
+| ✅ | `b3230` | 249.9 | 253.3 | 1.0 | 1.013 | 1.3 % | 1.22 V |
+| ✅ | `b232` | 250.0 | 252.1 | 1.0 | 1.008 | 0.9 % | 0.03 V |
+| ✅ | `b2327` | 250.0 | 252.1 | 1.0 | 1.008 | 0.9 % | 0.03 V |
+| ✅ | `b1133` | 250.0 | 252.1 | 1.0 | 1.008 | 0.9 % | 0.02 V |
+| ✅ | `b514` | 250.0 | 252.1 | 1.0 | 1.008 | 0.9 % | 0.02 V |
+| ✅ | `b1149` | 250.0 | 252.1 | 1.0 | 1.008 | 0.9 % | 0.03 V |
+| ✅ | `b3218` | 250.0 | 252.1 | 1.0 | 1.008 | 0.9 % | 0.03 V |
+| ✅ | `b2734` | 250.0 | 252.1 | 1.0 | 1.008 | 0.9 % | 0.03 V |
+| ✅ | `b2123` | 250.0 | 252.1 | 1.0 | 1.008 | 0.8 % | 0.03 V |
+| ✅ | `b2984` | 250.0 | 252.1 | 1.0 | 1.008 | 0.8 % | 0.03 V |
+| ✅ | `b179` | 250.0 | 252.1 | 1.0 | 1.008 | 0.8 % | 0.04 V |
 
 **Zone `b2577`** (base 6.35 kV):
 
@@ -676,7 +676,7 @@ Per-unit magnitudes are relative to each zone&#39;s own voltage base; volts are 
 - INFO `I.SOL.BINDING_SUMMARY`
   Solution bound summary: 0 violation(s), 0 active constraint(s). Voltage: 0V / 0A. Thermal: 0V / 0A. Generator: 0V / 0A.
 - INFO `I.SOL.NEUTRAL_SHIFT`
-  Maximum neutral terminal voltage: 1.29 V at bus &#39;b2656&#39; — reflects the neutral shift under unbalanced loading.</code></pre><div class="admonition is-success" id="When-the-OPF-is-infeasible-f49c99459b0b0fba"><header class="admonition-header">When the OPF is infeasible<a class="admonition-anchor" href="#When-the-OPF-is-infeasible-f49c99459b0b0fba" title="Permalink"></a></header><div class="admonition-body"><p>If <code>solve_opf</code> reports an infeasible status, swap in <code>solve_feasibility_opf</code>, which relaxes the problem with elastic current slacks, then call <code>diagnose_infeasibility</code> to rank the buses absorbing the most slack. The <a href="../bounds/">Bounds &amp; feasibility</a> chapter explains how to trust — and act on — the solver&#39;s verdict.</p></div></div><h2 id="8.-Export"><a class="docs-heading-anchor" href="#8.-Export">8. Export</a><a id="8.-Export-1"></a><a class="docs-heading-anchor-permalink" href="#8.-Export" title="Permalink"></a></h2><p><a href="../api/#BMOPFTools.write_bmopf"><code>write_bmopf</code></a> serialises the benchmark-ready case. <a href="../augmentation/#BMOPFTools.manifest_to_dict"><code>manifest_to_dict</code></a> turns each manifest into a JSON-serialisable <code>Dict</code>, giving every downstream consumer a complete, auditable record of what was repaired, placed, and filled.</p><p>The solved result and the solution report export the same way: <a href="../api/#BMOPFTools.write_result"><code>write_result</code></a> writes the result dict to JSON (read it back with <a href="../api/#BMOPFTools.read_result"><code>read_result</code></a>), and <a href="../api/#BMOPFTools.render_solution"><code>render_solution</code></a> writes the human-readable report to a Markdown file when given a path instead of an <code>IO</code>.</p><pre><code class="language-julia hljs">out_dir = mktempdir()
+  Maximum neutral terminal voltage: 1.28 V at bus &#39;b2656&#39; — reflects the neutral shift under unbalanced loading.</code></pre><div class="admonition is-success" id="When-the-OPF-is-infeasible-f49c99459b0b0fba"><header class="admonition-header">When the OPF is infeasible<a class="admonition-anchor" href="#When-the-OPF-is-infeasible-f49c99459b0b0fba" title="Permalink"></a></header><div class="admonition-body"><p>If <code>solve_opf</code> reports an infeasible status, swap in <code>solve_feasibility_opf</code>, which relaxes the problem with elastic current slacks, then call <code>diagnose_infeasibility</code> to rank the buses absorbing the most slack. The <a href="../bounds/">Bounds &amp; feasibility</a> chapter explains how to trust — and act on — the solver&#39;s verdict.</p></div></div><h2 id="8.-Export"><a class="docs-heading-anchor" href="#8.-Export">8. Export</a><a id="8.-Export-1"></a><a class="docs-heading-anchor-permalink" href="#8.-Export" title="Permalink"></a></h2><p><a href="../api/#BMOPFTools.write_bmopf"><code>write_bmopf</code></a> serialises the benchmark-ready case. <a href="../augmentation/#BMOPFTools.manifest_to_dict"><code>manifest_to_dict</code></a> turns each manifest into a JSON-serialisable <code>Dict</code>, giving every downstream consumer a complete, auditable record of what was repaired, placed, and filled.</p><p>The solved result and the solution report export the same way: <a href="../api/#BMOPFTools.write_result"><code>write_result</code></a> writes the result dict to JSON (read it back with <a href="../api/#BMOPFTools.read_result"><code>read_result</code></a>), and <a href="../api/#BMOPFTools.render_solution"><code>render_solution</code></a> writes the human-readable report to a Markdown file when given a path instead of an <code>IO</code>.</p><pre><code class="language-julia hljs">out_dir = mktempdir()
 write_bmopf(net_ready, joinpath(out_dir, &quot;LV1_14bus_ready.json&quot;))     # the case
 write_result(result,   joinpath(out_dir, &quot;LV1_14bus_result.json&quot;))    # solved values
 render_solution(sol_report, joinpath(out_dir, &quot;LV1_14bus_report.md&quot;)) # the report
@@ -695,5 +695,5 @@ println(&quot;Result JSON round-trips : &quot;,
 println(&quot;Wrote case, result, and report to &quot;, out_dir)
 println(&quot;Captured &quot;, sum(length(m[&quot;entries&quot;]) for m in values(manifests)),
         &quot; transformation entries across the three manifests&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Result JSON round-trips : true
-Wrote case, result, and report to /tmp/jl_nEuHbh
-Captured 113 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF, an exported result and report, and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../positioning/">Positioning &amp; ecosystem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 27 June 2026 05:17">Saturday 27 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Wrote case, result, and report to /tmp/jl_kIjPez
+Captured 113 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF, an exported result and report, and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../positioning/">Positioning &amp; ecosystem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 27 June 2026 07:38">Saturday 27 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
