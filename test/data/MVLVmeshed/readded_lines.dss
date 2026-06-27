@@ -1,0 +1,4 @@
+! Lines re-added for the derived meshed case (see README_meshed.md).
+! These were left commented-out in the per-feeder LV*/lines.dss files.
+new line.L_1299 lineCode=uglv_240al_xlpe/nyl/pvc_ug_4w_bundled bus1=B3128 bus2=B491 length=0.0102332371872 units=km phases=4
+new line.L_4689 lineCode=ugsc_16cu_xlpe/nyl/pvc_ug_4w_bundled bus1=B3227 bus2=B2 length=0.0582199262566 units=km phases=4

@@ -1,0 +1,255 @@
+clear
+new circuit.mv21_328bus angle=-30.0000000000 basekv=11.0000000000 phases=3 bus1=B1726 model=ideal
+
+set defaultbasefrequency=50.0000000000
+set basefrequency=50.0000000000
+
+redirect ../MV/MV21_328bus/Linecodes.dss
+redirect ../MV/MV21_328bus/lines.dss
+redirect ../MV/MV21_328bus/Loads.dss
+redirect ../MV/MV21_328bus/Transformers.dss
+redirect ../MV/MV21_328bus/Switches.dss
+redirect ../MV/MV21_328bus/Groundings.dss
+
+redirect ../LV/LV10_223bus/Groundings.dss
+redirect ../LV/LV10_223bus/lines.dss
+redirect ../LV/LV10_223bus/Loads.dss
+redirect ../LV/LV10_223bus/Switches.dss
+redirect ../LV/LV10_223bus/Transformers.dss
+
+redirect ../LV/LV11_216bus/Groundings.dss
+redirect ../LV/LV11_216bus/lines.dss
+redirect ../LV/LV11_216bus/Loads.dss
+redirect ../LV/LV11_216bus/Switches.dss
+redirect ../LV/LV11_216bus/Transformers.dss
+
+redirect ../LV/LV12_248bus/Groundings.dss
+redirect ../LV/LV12_248bus/lines.dss
+redirect ../LV/LV12_248bus/Loads.dss
+redirect ../LV/LV12_248bus/Switches.dss
+redirect ../LV/LV12_248bus/Transformers.dss
+
+redirect ../LV/LV13_58bus/Groundings.dss
+redirect ../LV/LV13_58bus/lines.dss
+redirect ../LV/LV13_58bus/Loads.dss
+redirect ../LV/LV13_58bus/Switches.dss
+redirect ../LV/LV13_58bus/Transformers.dss
+
+redirect ../LV/LV14_13bus/Groundings.dss
+redirect ../LV/LV14_13bus/lines.dss
+redirect ../LV/LV14_13bus/Loads.dss
+redirect ../LV/LV14_13bus/Switches.dss
+redirect ../LV/LV14_13bus/Transformers.dss
+
+redirect ../LV/LV15_137bus/Groundings.dss
+redirect ../LV/LV15_137bus/lines.dss
+redirect ../LV/LV15_137bus/Loads.dss
+redirect ../LV/LV15_137bus/Switches.dss
+redirect ../LV/LV15_137bus/Transformers.dss
+
+redirect ../LV/LV16_12bus/Groundings.dss
+redirect ../LV/LV16_12bus/lines.dss
+redirect ../LV/LV16_12bus/Loads.dss
+redirect ../LV/LV16_12bus/Switches.dss
+redirect ../LV/LV16_12bus/Transformers.dss
+
+redirect ../LV/LV17_279bus/Groundings.dss
+redirect ../LV/LV17_279bus/lines.dss
+redirect ../LV/LV17_279bus/Loads.dss
+redirect ../LV/LV17_279bus/Switches.dss
+redirect ../LV/LV17_279bus/Transformers.dss
+
+redirect ../LV/LV18_12bus/Groundings.dss
+redirect ../LV/LV18_12bus/lines.dss
+redirect ../LV/LV18_12bus/Loads.dss
+redirect ../LV/LV18_12bus/Switches.dss
+redirect ../LV/LV18_12bus/Transformers.dss
+
+redirect ../LV/LV19_13bus/Groundings.dss
+redirect ../LV/LV19_13bus/lines.dss
+redirect ../LV/LV19_13bus/Loads.dss
+redirect ../LV/LV19_13bus/Switches.dss
+redirect ../LV/LV19_13bus/Transformers.dss
+
+redirect ../LV/LV1_14bus/Groundings.dss
+redirect ../LV/LV1_14bus/lines.dss
+redirect ../LV/LV1_14bus/Loads.dss
+redirect ../LV/LV1_14bus/Switches.dss
+redirect ../LV/LV1_14bus/Transformers.dss
+
+redirect ../LV/LV20_26bus/Groundings.dss
+redirect ../LV/LV20_26bus/lines.dss
+redirect ../LV/LV20_26bus/Loads.dss
+redirect ../LV/LV20_26bus/Switches.dss
+redirect ../LV/LV20_26bus/Transformers.dss
+
+redirect ../LV/LV22_80bus/Groundings.dss
+redirect ../LV/LV22_80bus/lines.dss
+redirect ../LV/LV22_80bus/Loads.dss
+redirect ../LV/LV22_80bus/Switches.dss
+redirect ../LV/LV22_80bus/Transformers.dss
+
+redirect ../LV/LV23_13bus/Groundings.dss
+redirect ../LV/LV23_13bus/lines.dss
+redirect ../LV/LV23_13bus/Loads.dss
+redirect ../LV/LV23_13bus/Switches.dss
+redirect ../LV/LV23_13bus/Transformers.dss
+
+redirect ../LV/LV24_246bus/Groundings.dss
+redirect ../LV/LV24_246bus/lines.dss
+redirect ../LV/LV24_246bus/Loads.dss
+redirect ../LV/LV24_246bus/Switches.dss
+redirect ../LV/LV24_246bus/Transformers.dss
+
+redirect ../LV/LV25_232bus/Groundings.dss
+redirect ../LV/LV25_232bus/lines.dss
+redirect ../LV/LV25_232bus/Loads.dss
+redirect ../LV/LV25_232bus/Switches.dss
+redirect ../LV/LV25_232bus/Transformers.dss
+
+redirect ../LV/LV26_205bus/Groundings.dss
+redirect ../LV/LV26_205bus/lines.dss
+redirect ../LV/LV26_205bus/Loads.dss
+redirect ../LV/LV26_205bus/Switches.dss
+redirect ../LV/LV26_205bus/Transformers.dss
+
+redirect ../LV/LV27_23bus/Groundings.dss
+redirect ../LV/LV27_23bus/lines.dss
+redirect ../LV/LV27_23bus/Loads.dss
+redirect ../LV/LV27_23bus/Switches.dss
+redirect ../LV/LV27_23bus/Transformers.dss
+
+redirect ../LV/LV28_25bus/Groundings.dss
+redirect ../LV/LV28_25bus/lines.dss
+redirect ../LV/LV28_25bus/Loads.dss
+redirect ../LV/LV28_25bus/Switches.dss
+redirect ../LV/LV28_25bus/Transformers.dss
+
+redirect ../LV/LV29_90bus/Groundings.dss
+redirect ../LV/LV29_90bus/lines.dss
+redirect ../LV/LV29_90bus/Loads.dss
+redirect ../LV/LV29_90bus/Switches.dss
+redirect ../LV/LV29_90bus/Transformers.dss
+
+redirect ../LV/LV2_43bus/Groundings.dss
+redirect ../LV/LV2_43bus/lines.dss
+redirect ../LV/LV2_43bus/Loads.dss
+redirect ../LV/LV2_43bus/Switches.dss
+redirect ../LV/LV2_43bus/Transformers.dss
+
+redirect ../LV/LV30_315bus/Groundings.dss
+redirect ../LV/LV30_315bus/lines.dss
+redirect ../LV/LV30_315bus/Loads.dss
+redirect ../LV/LV30_315bus/Switches.dss
+redirect ../LV/LV30_315bus/Transformers.dss
+
+redirect ../LV/LV31_15bus/Groundings.dss
+redirect ../LV/LV31_15bus/lines.dss
+redirect ../LV/LV31_15bus/Loads.dss
+redirect ../LV/LV31_15bus/Switches.dss
+redirect ../LV/LV31_15bus/Transformers.dss
+
+redirect ../LV/LV32_100bus/Groundings.dss
+redirect ../LV/LV32_100bus/lines.dss
+redirect ../LV/LV32_100bus/Loads.dss
+redirect ../LV/LV32_100bus/Switches.dss
+redirect ../LV/LV32_100bus/Transformers.dss
+
+redirect ../LV/LV33_1bus/Groundings.dss
+redirect ../LV/LV33_1bus/lines.dss
+redirect ../LV/LV33_1bus/Loads.dss
+redirect ../LV/LV33_1bus/Switches.dss
+redirect ../LV/LV33_1bus/Transformers.dss
+
+redirect ../LV/LV34_20bus/Groundings.dss
+redirect ../LV/LV34_20bus/lines.dss
+redirect ../LV/LV34_20bus/Loads.dss
+redirect ../LV/LV34_20bus/Switches.dss
+redirect ../LV/LV34_20bus/Transformers.dss
+
+redirect ../LV/LV3_55bus/Groundings.dss
+redirect ../LV/LV3_55bus/lines.dss
+redirect ../LV/LV3_55bus/Loads.dss
+redirect ../LV/LV3_55bus/Switches.dss
+redirect ../LV/LV3_55bus/Transformers.dss
+
+redirect ../LV/LV4_36bus/Groundings.dss
+redirect ../LV/LV4_36bus/lines.dss
+redirect ../LV/LV4_36bus/Loads.dss
+redirect ../LV/LV4_36bus/Switches.dss
+redirect ../LV/LV4_36bus/Transformers.dss
+
+redirect ../LV/LV5_14bus/Groundings.dss
+redirect ../LV/LV5_14bus/lines.dss
+redirect ../LV/LV5_14bus/Loads.dss
+redirect ../LV/LV5_14bus/Switches.dss
+redirect ../LV/LV5_14bus/Transformers.dss
+
+redirect ../LV/LV6_17bus/Groundings.dss
+redirect ../LV/LV6_17bus/lines.dss
+redirect ../LV/LV6_17bus/Loads.dss
+redirect ../LV/LV6_17bus/Switches.dss
+redirect ../LV/LV6_17bus/Transformers.dss
+
+redirect ../LV/LV7_29bus/Groundings.dss
+redirect ../LV/LV7_29bus/lines.dss
+redirect ../LV/LV7_29bus/Loads.dss
+redirect ../LV/LV7_29bus/Switches.dss
+redirect ../LV/LV7_29bus/Transformers.dss
+
+redirect ../LV/LV8_14bus/Groundings.dss
+redirect ../LV/LV8_14bus/lines.dss
+redirect ../LV/LV8_14bus/Loads.dss
+redirect ../LV/LV8_14bus/Switches.dss
+redirect ../LV/LV8_14bus/Transformers.dss
+
+redirect ../LV/LV9_258bus/Groundings.dss
+redirect ../LV/LV9_258bus/lines.dss
+redirect ../LV/LV9_258bus/Loads.dss
+redirect ../LV/LV9_258bus/Switches.dss
+redirect ../LV/LV9_258bus/Transformers.dss
+
+! ---- derived meshed overlay: restore previously-commented switches/lines ----
+redirect readded_switches.dss
+redirect readded_lines.dss
+
+! Honor names: open the 34 normally-open tie switches (the 4 *_CLOSED stay closed).
+! NOTE: PowerIO/from_dss ignores these 'open' commands (see README.md).
+open line.Switch_1059_OPEN term=1
+open line.Switch_1147_OPEN term=1
+open line.Switch_1216_OPEN term=1
+open line.Switch_1343_OPEN term=1
+open line.Switch_1550_OPEN term=1
+open line.Switch_1672_OPEN term=1
+open line.Switch_1814_OPEN term=1
+open line.Switch_1934_OPEN term=1
+open line.Switch_2042_OPEN term=1
+open line.Switch_210_OPEN term=1
+open line.Switch_2371_OPEN term=1
+open line.Switch_2448_OPEN term=1
+open line.Switch_260_OPEN term=1
+open line.Switch_2627_OPEN term=1
+open line.Switch_2661_OPEN term=1
+open line.Switch_2883_OPEN term=1
+open line.Switch_2922_OPEN term=1
+open line.Switch_3309_OPEN term=1
+open line.Switch_355_OPEN term=1
+open line.Switch_3598_OPEN term=1
+open line.Switch_3604_OPEN term=1
+open line.Switch_3687_OPEN term=1
+open line.Switch_3700_OPEN term=1
+open line.Switch_4055_OPEN term=1
+open line.Switch_4072_OPEN term=1
+open line.Switch_4310_OPEN term=1
+open line.Switch_431_OPEN term=1
+open line.Switch_4327_OPEN term=1
+open line.Switch_4411_OPEN term=1
+open line.Switch_4543_OPEN term=1
+open line.Switch_762_OPEN term=1
+open line.Switch_808_OPEN term=1
+open line.Switch_874_OPEN term=1
+open line.Switch_956_OPEN term=1
+
+batchedit load..* kw=1
+solve
+export Voltages
