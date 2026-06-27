@@ -125,6 +125,15 @@ end
 # Helpers
 # ---------------------------------------------------------------------------
 
+# A 1-phase winding is connected phase-to-phase when its terminal map spans two
+# phase conductors with no neutral — so its v_ref is a line-to-line voltage.
+function _winding_phase_to_phase(t::Dict{String,Any}, key::String)::Bool
+    tm = get(t, key, nothing)
+    tm isa AbstractVector || return false
+    s = String.(string.(tm))
+    length(s) == 2 && !("n" in s)
+end
+
 function _build_voltage_adjacency(net::Dict{String,Any})
     # adjacency: bus => [(neighbor, edge_type, edge_id, ratio)]
     adj = Dict{String,Vector{Tuple{String,Symbol,String,Float64}}}()
@@ -149,6 +158,17 @@ function _build_voltage_adjacency(net::Dict{String,Any})
             vt = get(t, "v_ref_to",   nothing)
             ratio = (vf !== nothing && vt !== nothing && Float64(vf) > 0) ?
                     Float64(vt) / Float64(vf) : 1.0
+            # Bus nominals are phase-to-ground, but a 1-phase winding connected
+            # PHASE-TO-PHASE (terminal_map = two phases, no neutral, e.g. a SWER
+            # isolating transformer tapped across two MV phases) has its v_ref on a
+            # line-to-line basis (√3 × phase-to-ground). Correct the ratio per side
+            # so the phase-to-ground nominal propagates consistently. Scoped to
+            # single_phase/center_tap — wye/delta subtypes carry their own √3.
+            if subtype in ("single_phase", "center_tap")
+                bf = _winding_phase_to_phase(t, "terminal_map_from") ? sqrt(3.0) : 1.0
+                bt = _winding_phase_to_phase(t, "terminal_map_to")   ? sqrt(3.0) : 1.0
+                ratio *= bf / bt
+            end
             add_adj!(f, b, :transformer, id, ratio)
         end
     end

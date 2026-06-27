@@ -1,0 +1,37 @@
+! ----------------------------------------------------------------------------
+! Isolating transformer (the galvanic cut that makes the downstream zone :swer).
+! 1-phase 2-winding.  HV winding taps phase-to-phase across the 22 kV three-phase
+! line (mv.1-mv.2); LV winding is the 12.7 kV SWER conductor (= 22 kV / sqrt(3)).
+! swer_0.4 is the SWER station earth.  Tapping two phases spreads the single-phase
+! SWER load across the MV feeder (cf. the unbalance discussion in the ScienceDirect
+! paper and NOJA's two-wire-tap notes).
+! ----------------------------------------------------------------------------
+New Transformer.iso phases=1 windings=2
+~ wdg=1 bus=mv.1.2     conn=wye kv=22.0 %r=0.5 kva=100
+~ wdg=2 bus=swer_0.1.4 conn=wye kv=12.7 %r=0.5 kva=100
+~ xhl=4.0
+~ %noloadloss=0.2
+~ %imag=1.0
+
+! ----------------------------------------------------------------------------
+! dx1 - single-ended N-0 distribution transformer, 25 kVA, 12.7 kV -> 0.24 kV.
+! HV across SWER conductor (swer_1.1) and pole earth (swer_1.4).
+! ----------------------------------------------------------------------------
+New Transformer.dx1 phases=1 windings=2
+~ wdg=1 bus=swer_1.1.4 conn=wye kv=12.7  %r=1.0 kva=25
+~ wdg=2 bus=lv_1.1.4   conn=wye kv=0.240 %r=1.0 kva=25
+~ xhl=4.0
+~ %noloadloss=0.3
+~ %imag=1.5
+
+! ----------------------------------------------------------------------------
+! dx2 - split-phase centre-tapped N-0-N distribution transformer, 10 kVA,
+! 12.7 kV -> 240-0-240.  3-winding 1-phase; lv_2 nodes .1 / .4(centre) / .2,
+! centre-tap earthed (see Groundings.dss).  BMOPF subtype: center_tap.
+! ----------------------------------------------------------------------------
+New Transformer.dx2 phases=1 windings=3
+~ wdg=1 bus=swer_2.1.4 conn=wye kv=12.7  %r=0.6 kva=10
+~ wdg=2 bus=lv_2.1.4   conn=wye kv=0.240 %r=1.2 kva=10
+~ wdg=3 bus=lv_2.4.2   conn=wye kv=0.240 %r=1.2 kva=10
+~ XHL=2.04 XLT=1.36 XHT=2.04
+~ %noloadloss=0.2

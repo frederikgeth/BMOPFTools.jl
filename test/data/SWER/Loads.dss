@@ -1,0 +1,10 @@
+! Single-phase rural loads, each < 3.5 kVA.
+! model=1 Vminpu=0 Vmaxpu=2: strict constant P+Q at all voltages, matching BMOPF.
+
+! lv_1 - single-ended N-0, 240 V.
+New Load.ld_lv1 bus1=lv_1.1.4 kv=0.240 kw=2.5 kvar=0.5 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+! lv_2 - split-phase: one 240 V load on each half-winding (leg-1 heavier than leg-2
+! to drive imbalance current through the centre tap).
+New Load.ld_lv2a bus1=lv_2.1.4 kv=0.240 kw=1.5 kvar=0.3 phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.ld_lv2b bus1=lv_2.2.4 kv=0.240 kw=1.0 kvar=0.2 phases=1 model=1 Vminpu=0 Vmaxpu=2

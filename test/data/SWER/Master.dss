@@ -1,0 +1,74 @@
+! Queensland-style ISOLATED Single-Wire Earth-Return (SWER) feeder.
+! Power-flow comparison / analysis test case.
+!
+! ============================================================================
+! Topology (small canonical isolated-SWER feeder)
+! ============================================================================
+!
+!     22 kV 3-phase                         12.7 kV SWER (single wire + earth)
+!  src --3ph-- mv --[iso xfmr]-- swer_0 --line-- swer_1 --line-- swer_2
+!  (slack)      |  1-ph 12.7/12.7            |                     |
+!               |  earth confined to SWER  [dx1: 25 kVA       [dx2: 10 kVA
+!         (MV neutral earthed)               single-ended       split-phase
+!                                            N-0]               centre-tap N-0-N]
+!                                              |                    |
+!                                            lv_1 (0.24 kV)      lv_2 (0.48 kV, 0-N-0)
+!                                            1-ph load           two 0.24 kV legs
+!
+! "Isolated" SWER: a dedicated 1:1 isolating transformer galvanically separates
+! the SWER line from the three-phase MV feeder, so the earth-return current is
+! confined to the SWER system (cf. Nobbs, "Development of advanced SWER models
+! for the Ergon Energy network", UniSQ 2012 — isolated/unisolated/duplex/triplex
+! taxonomy; this is the isolated case). Downstream the zone is a single-phase,
+! transformer-isolated galvanic island, which BMOPF classifies as :swer.
+!
+! ============================================================================
+! Queensland (Ergon) design parameters
+! ============================================================================
+!   MV feeder            22 kV line-line, 3-phase
+!   SWER voltage         12.7 kV phase-earth (= 22 kV / sqrt(3))
+!   Isolating xfmr       <= 300 kVA, 12.7 kV (across one MV phase-earth) -> 12.7 kV SWER
+!   Distribution xfmrs   25 kVA single-ended N-0; 10 kVA split-phase N-0-N
+!   LV utilisation       0.24 kV single-ended; 0.48 kV centre-tapped (240-0-240)
+!   Load density         < 0.5 kVA/km; single customer < 3.5 kVA
+! Refs: ScienceDirect, "Rural SWER distribution networks - associated problems
+!   and cost-effective solutions", IJEPES 2011; Ergon Distribution Annual
+!   Planning Report.
+!
+! ============================================================================
+! Protection context (documentation only - BMOPF does not model protection)
+! ============================================================================
+!   A SWER spur tapped off a 3-phase main draws current on a single phase; a
+!   fault on the spur appears as an imbalance (overcurrent on the affected
+!   phases) detectable by Negative-Phase-Sequence (NPS) protection on the
+!   mainline recloser, allowing it to grade with the single-phase spur. Earth-
+!   fault protection is especially important because the load return path is the
+!   earth itself.  Refs: NOJA Power, "Electricity Distribution using Two Wire
+!   Single Phase" and "How to protect Two Pole Single Phase Overhead Lines with
+!   Reclosers".
+! ============================================================================
+
+Clear
+
+! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
+! rescale every reactance.  See docs/src/validation.md.
+Set DefaultBaseFreq=50
+
+! The 3-phase ideal source perfectly grounds its own star point, so no explicit
+! MV neutral-earth reactor is needed.
+New Circuit.qld_swer basekv=22.0 pu=1.0 angle=0 phases=3 bus1=mv.1.2.3 model=ideal
+
+Redirect Linecodes.dss
+Redirect Lines.dss
+Redirect Transformers.dss
+Redirect Groundings.dss
+Redirect Loads.dss
+
+Set VoltageBases=[22.0, 12.7, 0.24]
+CalcVoltageBases
+! Tolerance 1e-8 (<< the voltage-comparison tolerance) removes OpenDSS-side
+! convergence slop; MaxIterations raised so the tighter target is reached.
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve

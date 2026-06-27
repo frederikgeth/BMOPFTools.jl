@@ -1,0 +1,8 @@
+! Single-wire SWER conductor (e.g. 3/2.75 SC/GZ).  One phase; the return path is
+! the earth, established by the grounding reactors at the isolating transformer
+! star point and at each distribution-transformer pole earth (see Groundings.dss).
+New Linecode.swer nphases=1
+~ Rmatrix=[1.2]
+~ Xmatrix=[0.75]
+~ Cmatrix=[0]
+~ units=km

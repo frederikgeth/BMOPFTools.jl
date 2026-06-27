@@ -408,9 +408,15 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # Power balance: V_hv·I_s* = V_leg1·Il1* + V_leg2·Il2*  (complex power into primary = sum out)
     # Actually all currents are INTO the transformer, so power conservation:
     # V_hv·I_s* + V_leg1·Il1* + V_leg2·Il2* = 0  (three ports, all into element)
-    # With V_hv/N = V_leg1 (ideal, no losses): N·I_s* + Il1* + Il2* = 0 → N·I_s + Il1 + Il2 = 0
-    @constraint(model, N * Isr + Il1r + Il2r == 0)
-    @constraint(model, N * Isi + Il1i + Il2i == 0)
+    # With V_hv/N = V_leg1 (ideal, no losses) and winding-3 wound in REVERSE
+    # (its leg-2 voltage equation uses V_to[tn] − V_to[t2]), power conservation
+    # requires the leg-2 current to enter the coupling with a MINUS sign:
+    #   N·I_s + Il1 − Il2 = 0
+    # Using +Il2 instead violates the ideal-core power balance by 2·Re[(V_hv/N)·conj(Il2)]
+    # — a spurious source/sink proportional to the leg-2 current (latent on stiff
+    # short test feeders, first-order on long high-impedance SWER lines).
+    @constraint(model, N * Isr + Il1r - Il2r == 0)
+    @constraint(model, N * Isi + Il1i - Il2i == 0)
 
     # ── Center-tap KCL: I_n balances the two leg currents at the center-tap ──
     # At lv.n: current entering = I_n (from wdg neutral tap) − Il1 (leaving to leg-1 bus)
@@ -428,8 +434,10 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # In our BMOPF variables, Inr = cr_xf[(tid,"to",2)] = current extracted from bus lv.n.
     # KCL at internal tn node: Il1 + Inr + Il2 = 0  (all flowing through the winding, sign from bus into element)
     # This matches the power coupling: if coupling is N·Is + Il1 + Il2 = 0,
-    # then the center-tap sees the sum Il1 + Il2 = -N·Is, and I_n = -Il1 - Il2 = N·Is
-    # But I_n also has the neutral reactor load ≈ 0, so effectively:
+    # then the center-tap sees the sum Il1 + Il2 = −N·Is, and I_n = −Il1 − Il2 = N·Is.
+    # The neutral carries the leg UNBALANCE (Il1 + Il2), which is small for a
+    # balanced split-phase load — so this KCL keeps the "+Il2" sum (unlike the
+    # current-coupling above, which needs −Il2 for the reversed winding's MMF).
     @constraint(model, Inr + Il1r + Il2r == 0)
     @constraint(model, Ini + Il1i + Il2i == 0)
 
