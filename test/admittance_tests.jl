@@ -164,11 +164,13 @@
         # Y[2,2] must equal Y[1,1] - G0 - jB0 (no-load shunt only at ph, not n).
         @test abs(Y[2,1] + Y[2,3] + Y[2,4] + Y[2,5] + Y[2,2]) < 1e-10  # row sum ≈ 0 for balanced
 
-        # Symmetry of leg-1 / leg-2 (equal Z2): Y[3,:] should equal Y[5,:] with
-        # columns 3 and 5 swapped.
-        Y_leg1 = Y[3, :]
-        Y_leg2 = Y[5, [1,2,5,4,3]]   # swap indices 3↔5
-        @test maximum(abs.(Y_leg1 .- Y_leg2)) < 1e-10
+        # Leg symmetry: a symmetric centre tap excited anti-phase about the
+        # grounded centre (V_leg1 = −V_leg2, winding-3 dotted at the centre tap)
+        # draws equal-and-opposite leg currents and zero centre-tap current.
+        V_bal = [1.0+0im, 0.0, 1.0/N, 0.0, -1.0/N]
+        I_bal = Y * V_bal
+        @test abs(I_bal[3] + I_bal[5]) < 1e-10   # IL1 = −IL2
+        @test abs(I_bal[4])           < 1e-10    # I_centre = 0
     end
 
     # ─── wye_delta ────────────────────────────────────────────────────────────
@@ -380,8 +382,8 @@
         In_ = I[4]
         IL2 = I[5]
 
-        # Current coupling: N·Is + IL1 + IL2 = 0
-        @test abs(N*Is + IL1 + IL2) < 1e-8
+        # Ampere-turn (winding 3 dotted at the centre tap): N·Is + IL1 − IL2 = 0
+        @test abs(N*Is + IL1 - IL2) < 1e-8
 
         # Center-tap KCL: In + IL1 + IL2 = 0
         @test abs(In_ + IL1 + IL2) < 1e-8
@@ -396,13 +398,12 @@
         rhs1   = Z1*Is - N*Z2*IL1
         @test abs(lhs1 - rhs1) < 1e-8
 
-        # Voltage eq leg-2: Yprim winding-3 spans V_c→V_g (V[5]-V[4]).
-        # The Yprim satisfies: (V_p-V_m) - N*(V_c-V_g) = Z1*Is - N*Z2*IL2
-        # (Note: OPF uses the reversed span V_g-V_c; both represent the same device
-        # but with opposite winding-3 polarity convention.)
-        V_leg2_yprim = V[5] - V[4]   # V_c - V_g (Yprim convention)
-        lhs2 = V_hv - N*V_leg2_yprim
-        rhs2 = Z1*Is - N*Z2*IL2
+        # Voltage eq leg-2: winding 3 is dotted at the centre tap, so it spans
+        # V_g→V_c (V[4]-V[5]). With IL2 = I[5] = −Iw3 the Yprim satisfies
+        #   (V_p-V_m) - N*(V_g-V_c) = Z1*Is + N*Z2*IL2.
+        V_leg2 = V[4] - V[5]         # V_g - V_c (winding-3 span)
+        lhs2 = V_hv - N*V_leg2
+        rhs2 = Z1*Is + N*Z2*IL2
         @test abs(lhs2 - rhs2) < 1e-8
     end
 

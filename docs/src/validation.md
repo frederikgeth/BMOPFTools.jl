@@ -156,7 +156,9 @@ concern, so a failure points straight at the responsible component:
 | `pf_1ph_freeneutral`, `pf_1ph_impedanceneutral`, `pf_1ph_perfectneutral` | neutral grounding: floating, grounding-reactor (Z = 0.2 Ω), and perfectly grounded |
 | `pf_zip_1ph`, `pf_zip_3ph`, `pf_zip_delta`, `pf_exp_1ph`, `pf_delta_load` | voltage-dependent load models — ZIP (distinct P/Q fractions), exponential (γ), and delta (line-to-line) connection |
 | `pf_1ph_xfmr`, `pf_yd_xfmr`, `pf_dy_xfmr`, `pf_center_tap_xfmr` | transformer windings/vector groups: YY, Yd, Dy, and split-phase center-tap |
+| `pf_center_tap_loaded`, `pf_center_tap_balanced_heavy`, `pf_center_tap_240`, `pf_center_tap_singleleg_pn`, `pf_center_tap_oneleg_extreme` | split-phase **coupled-coil** model under load — leg symmetry on a balanced heavy load, a 240 V phase-to-phase load, a single leg-to-neutral load, and an extreme one-leg load (see [Split-phase transformer depth](#Split-phase-transformer-depth)) |
 | `pf_autotransformer`, `pf_open_delta_reg` | step-voltage regulators / autotransformers and open-delta (ABBC) regulation |
+| `pf_cap_wye`, `pf_cap_delta` | fixed shunt **capacitor banks** (wye / delta) as a constant susceptance `B = q_rated/v_rated²`, validated against OpenDSS's own `Capacitor` solve in both SI and per-unit, and cross-checked against the equivalent `shunt` object |
 | `pf_pv_1ph`, `pf_pv_4leg` | inverter current injection at a pinned dispatch — single-phase and FOUR_LEG |
 
 Single-phase, FOUR_LEG per-phase, and FOUR_LEG AVERAGE-reference **smart-inverter
@@ -177,6 +179,52 @@ last. The sweep stops at ×1.5 because this stiff feeder reaches its power-flow
 nose near ×2, beyond which the solution is no longer unique (the flat start and
 OpenDSS can land on different branches) — a property of the network, not a model
 disagreement.
+
+### Split-phase transformer depth
+
+The split-phase (`center_tap`) transformer gets extra scrutiny because its two
+LV half-windings are tightly coupled on a shared core — a per-leg *decoupled*
+drop omits that coupling and silently spreads the legs apart under load. The OPF
+therefore imposes the OpenDSS-consistent 5×5 primitive admittance (see the
+[OPF reference](opf.md) and `transformer_admittance_derivation.md`), and a family
+of fixtures pins it down rather than a single light-load case:
+
+- **Leg symmetry under a balanced heavy load** (`pf_center_tap_balanced_heavy`):
+  a perfectly balanced load must keep the two legs equal; the fixture asserts
+  `|V_leg1 − V_ctr| ≈ |V_ctr − V_leg2|` directly, which is exactly what the old
+  decoupled model failed.
+- **Phase-to-phase, single-leg, and extreme one-leg loads**
+  (`pf_center_tap_240` / `_singleleg_pn` / `_oneleg_extreme`): the 240 V load
+  exercises the series-aiding winding polarity with zero centre-tap current;
+  the unbalanced loads drive the legs apart and check the split against OpenDSS.
+  All match to **< 0.05 V** and losses to **< 0.7 %**, so the looser legacy
+  tolerance is retired — the `center_tap` cases now hold the default tight band.
+- **OPF ↔ Ybus agreement** (`center_tap OPF and Ybus models agree`): the OPF
+  builder and the Ybus exporter implement the device independently, so a test
+  asserts the centre-tap KCL closes on the `_yprim_center_tap` admittance — a
+  guard against the two paths drifting apart again.
+
+### Parse-path and primitive-admittance gates
+
+Two further testsets validate the transformer modelling beyond the hand-built
+fixtures above:
+
+- **`from_dss` transformer fidelity** (`single_phase`/`wye_delta`/`delta_wye`):
+  the vector-group cases above are built as hand-authored BMOPF nets; this set
+  runs the *parse* path (`from_dss` of the same `.dss`) through `solve_pf` and
+  compares to OpenDSS, matching to **< 0.3 V** and losses to **< 0.7 %**. It
+  guards the recovery of the no-load shunt and the `delta_wye` leakage from
+  PowerIO's `pmd` export (the `bmopf` export drops both — see
+  [conversion](conversion.md)), and the `phases=1` requirement on grounding
+  reactors without which the Dy neutral floats and the solve diverges.
+- **Transformer `Yprim` matches OpenDSS** (`single_phase`, `center_tap`): the
+  correctness gate from `transformer_admittance_derivation.md` §7 — the
+  per-element primitive admittance is compared term-by-term against OpenDSS's own
+  `CktElement.YPrim()`. This is the check that catches turns-ratio direction, √3
+  scaling, shunt placement, and winding-polarity sign errors directly (it would
+  have caught the original `center_tap` leg-split bug); the delta blocks are
+  basis-dependent in the raw matrix, so Yd/Dy are covered terminally by the
+  unbalanced-load PF comparisons instead.
 
 ### Reusing the feasibility setup
 

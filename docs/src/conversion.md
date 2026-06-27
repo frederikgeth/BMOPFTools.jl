@@ -123,6 +123,11 @@ BMOPF conventions:
   a shared bus is reassembled into one polyphase source (below).
 - **Transformer impedance normalisation** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
+- **Transformer leakage & core-shunt recovery** — PowerIO's `bmopf` export drops
+  the no-load shunt (every subtype), collapses the `center_tap` 3-winding leakage,
+  and mis-refers the `delta_wye` delta-side leakage; `from_dss` re-derives these
+  from PowerIO's `pmd` export (`_recover_transformer_params_from_pmd!`) so losses
+  and split-phase legs match OpenDSS.
 - **No slack price** — the imported `voltage_source` is left without a `cost`;
   the [augmentation pass](augmentation.md) supplies one (below).
 
@@ -369,11 +374,13 @@ x_series_from = (xhl / 2) · Z_base,from    # half of pair leakage on each side
 x_series_to   = (xhl / 2) · Z_base,to
 ```
 
-**`center_tap`** (3-winding, T-model — star-network leakage conversion required):
+**`center_tap`** (coupled-coil 3-winding — star-network leakage conversion required):
 
 OpenDSS specifies three pair-wise leakage values `XHL`, `XLT`, `XHT` (%).
 These are **not** split evenly — they must be converted via the star (Steinmetz)
-network formula before storing:
+network formula before storing. [`from_dss`](@ref) does this automatically
+(recovering the values from PowerIO's `pmd` export); the formulas below are for
+hand-built nets:
 
 ```
 x_series_from = (XHL + XHT − XLT) / 2  ×  Z_base,from / 100
@@ -450,14 +457,20 @@ b_no_load = -(cmag)       · Y_base       # cmag       = %imag       / 100
 
 ## Known limitations
 
-- **Lumped transformer impedance (from `from_dss`).** PowerIO emits
-  `wye_delta`/`delta_wye` units with a single lumped `r_series`/`x_series`
-  rather than a per-winding T-model. BMOPFTools normalises this onto
-  `r_series_from`/`x_series_from` on ingest (see
-  [Transformer impedance on ingest](#Transformer-impedance-on-ingest)), so the
-  OPF/Ybus see a nonzero leakage impedance — but the leakage is all on the
-  from-winding (the to-winding branch is zero). A faithful per-winding split
-  would require per-winding emission upstream (tracked as a PowerIO.jl issue).
+- **Transformer leakage / core shunt (from `from_dss`).** PowerIO's `bmopf`
+  export is lossy for transformers: it drops the no-load shunt for every subtype,
+  collapses the `center_tap` 3-winding leakage, and refers the `delta_wye`
+  delta-side leakage to the wrong base. `from_dss` re-derives the leakage and the
+  core-loss shunt from PowerIO's richer `pmd` export for `single_phase`,
+  `wye_delta`, `delta_wye` and `center_tap` (`_recover_transformer_params_from_pmd!`),
+  so the OPF/Ybus match OpenDSS. The magnetising susceptance (`b_no_load`) is not
+  recovered (small, ambiguous sign in the phase-to-ground stamp); `n_winding`
+  leakage is taken straight from `pmd` (`x_sc`) and not re-derived.
+- **Grounding reactors need `phases=1` (gotcha).** PowerIO silently drops a
+  `New Reactor.grnd ... bus2=X.0` neutral-grounding reactor unless it declares
+  `phases=1` (OpenDSS itself tolerates the omission). Without it the grounded
+  neutral floats — a wye-load `delta_wye` then has no neutral reference and the
+  power flow diverges. Always write grounding reactors with an explicit `phases=1`.
 - **Earth terminal `"5"` → bus neutral (from `from_dss`).** PowerIO keeps the
   OpenDSS earth node as terminal `"5"`. BMOPFTools routes it to the bus neutral
   on ingest (see [The earth terminal](@ref earth-terminal)), which

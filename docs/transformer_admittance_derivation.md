@@ -151,15 +151,18 @@ delta), i.e. $D\to D^{\mathsf T}$ in the bottom block of $C$.
 
 ---
 
-## 4. `center_tap` (split-phase, T-model)
+## 4. `center_tap` (split-phase, coupled-coil)
 
 Five nodes: $p$ (HV-phase), $m$ (HV-neutral), $a$ (LV-leg-1), $g$ (LV-center-tap),
 $c$ (LV-leg-2).
 
-This is a genuine **3-winding** unit (1 HV + 2 LV). The key modelling point is that
-both LV windings deliver current *into* the same center-tap node $g$, so both LV
-winding currents $I_{\ell1}$ (from $a$) and $I_{\ell2}$ (from $c$) flow towards
-$g$ through their respective impedances $Z_2$.
+This is a genuine **3-winding** unit (1 HV + 2 LV). The two LV half-windings share
+the center-tap node $g$ and are **series-aiding**: winding 2 spans $a\to g$ and
+winding 3 spans $g\to c$, both dotted at the same end (winding 3 dotted at the
+center tap), so $V_a-V_g$ and $V_g-V_c$ carry the *same* sign and a 120-0-120 unit
+puts $a$ and $c$ in anti-phase about $g$ ($V_a-V_c\approx 2V_\text{hv}/N$).
+The 3-port star reduction below is exact for a 3-winding transformer and
+reproduces OpenDSS's own transformer $Y_\text{prim}$ to machine precision.
 
 ### 3-port star admittance
 
@@ -170,11 +173,12 @@ star node $\star$:
 |---|---|---|
 | HV | $Z_1/N^2$ | $(V_p-V_m)/N$ |
 | LV-leg-1 | $Z_2$ | $V_a - V_g$ |
-| LV-leg-2 | $Z_2$ | $V_c - V_g$ |
+| LV-leg-2 | $Z_2$ | $V_g - V_c$ |
 
-Note the LV-leg-2 arm spans $c\to g$ (current into $c$ flows toward $g$ through
-$Z_2$), the **same direction** as LV-leg-1. This is the choice that makes the
-connection matrix produce a symmetric nodal block.
+The LV-leg-2 arm spans $g\to c$ (winding 3 is dotted at the center tap $g$), giving
+it the **same polarity** as LV-leg-1 ($V_a-V_g$). This series-aiding orientation —
+not the $V_c-V_g$ span — is what reproduces OpenDSS: the opposite sign would make
+the two legs identical instead of series-aiding, spreading them apart under load.
 
 The shunt admittance of each arm referred to LV:
 $$y_1=N^2/Z_1,\qquad y_2=1/Z_2.$$
@@ -191,7 +195,7 @@ is **symmetric** by inspection.
 
 Map node voltages $[p,m,a,g,c]$ to the three winding terminal voltages:
 
-$$C=\begin{bmatrix}1/N & -1/N & 0 & 0 & 0\\ 0 & 0 & 1 & -1 & 0\\ 0 & 0 & 0 & -1 & 1\end{bmatrix}.$$
+$$C=\begin{bmatrix}1/N & -1/N & 0 & 0 & 0\\ 0 & 0 & 1 & -1 & 0\\ 0 & 0 & 0 & 1 & -1\end{bmatrix}.$$
 
 Then
 
@@ -202,13 +206,14 @@ which is symmetric by construction ($C^{\mathsf T}[\text{symmetric}]C$).
 power-balance ($\operatorname{Re}[\bar{\mathbf V}^{\mathsf T}\mathbf I] = $ resistive loss)
 holds for any voltage vector.
 
-> **OPF voltage-equation correspondence.** The OPF leg-2 voltage equation uses
-> the span $V_g-V_c$ (center-tap *to* leg-2), which has the opposite sign from the
-> $V_c-V_g$ convention above. This sign difference is absorbed into the OPF's
-> reversed-winding-3 current coupling ($N I_s + I_{\ell1} + I_{\ell2}=0$) and is
-> self-consistent within the OPF. The $Y_\text{CT}$ built here uses the physically
-> natural $V_c-V_g$ span and is verified to satisfy the OPF voltage equations for
-> any consistent $(V, I)$ pair (checked numerically above).
+> **OPF correspondence.** The OPF (`_add_center_tap_transformer!`) imposes *this
+> same* $Y_\text{CT}$ as nodal current injections, so the two paths cannot drift
+> apart (a test asserts it). The leg-2 voltage span is $V_g-V_c$ on both sides, the
+> ampere-turn is $N I_s + I_{\ell1} - I_{\ell2}=0$, and the center-tap KCL is
+> $I_n + I_{\ell1} + I_{\ell2}=0$. The star arms come from the symmetric short-circuit
+> split $X_{1,\text{star}}=(X_{HL}+X_{HT}-X_{LT})/2$,
+> $X_{2,\text{star}}=(X_{HL}+X_{LT}-X_{HT})/2$, which `from_dss` recovers from
+> PowerIO's `pmd` export (the `bmopf` export drops the LV-side leakage).
 
 ---
 
@@ -309,10 +314,14 @@ into core so both share one definition.
    = $ sum of winding resistive losses $\sum_k |I_k|^2 R_k$. Verified analytically
    for `single_phase` and `center_tap`; for Yd/Dy verify numerically with a balanced
    three-phase excitation.
-4. **OpenDSS cross-check:** dump `Yprim` per fixture (one per subtype), permute to
-   the same node order, assert `‖Y_\text{bmopf} - Y_\text{dss}\|_\infty < \text{tol}`.
-   Catches turns-ratio direction, $\sqrt3$ scaling, delta phase-shift, and
-   shunt-placement errors in one shot.
+4. **OpenDSS cross-check:** dump `Yprim` per fixture, permute to the same node
+   order, assert `‖Y_\text{bmopf} - Y_\text{dss}\|_\infty < \text{tol}`. Catches
+   turns-ratio direction, $\sqrt3$ scaling, delta phase-shift, and shunt-placement
+   errors in one shot. _Implemented_ for `single_phase` and `center_tap` (the
+   testset "Transformer Yprim matches OpenDSS" in `powerflow_comparison_tests.jl`);
+   this is the gate that would have caught the original `center_tap` winding-3
+   polarity bug. The delta blocks are basis-dependent in the raw matrix, so Yd/Dy
+   are instead validated terminally by the unbalanced-load PF comparisons.
    Mirror [`powerflow_comparison_tests.jl`](../test/powerflow_comparison_tests.jl).
 5. **Self-consistency with the OPF:** for a consistent $(V,I)$ pair recovered
    from $I=YV$ (i.e., the transformer equations are satisfied), verify that the

@@ -2210,12 +2210,10 @@ end
     V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
                  for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
 
-    # Relaxed tolerance (vs the default tight 1e-3): the single-ended SWER backbone
-    # matches OpenDSS closely, but the split-phase centre-tap (dx2) has a residual
-    # leg-voltage spread under load (the 3-winding-star T-model approximates the
-    # tightly-coupled half-windings) — <0.8 % at this light loading. Still tight
-    # enough to reject the pre-fix 2–4× center_tap error.
-    _cmp_volts(V_ods, V_bm; label="swer: ", atol=0.5, rtol=0.015)
+    # The coupled-coil centre-tap model (primitive admittance reconstructed from
+    # the full XHL/XLT/XHT short-circuit set, recovered via from_dss's pmd path)
+    # matches OpenDSS across the whole feeder, including the split-phase legs.
+    _cmp_volts(V_ods, V_bm; label="swer: ", atol=0.3, rtol=3e-3)
 end
 
 @testset "PF comparison — loaded center_tap (power-conservation regression)" begin
@@ -2236,9 +2234,155 @@ end
 
     # Load-sensitive HV bus must match OpenDSS (spurious power would inflate it; the
     # pre-fix model put it hundreds of volts high on a long feeder).
-    @test isapprox(abs(V_bm["hv.1"]), abs(V_ods["hv.1"]); atol=2.0)
+    @test isapprox(abs(V_bm["hv.1"]), abs(V_ods["hv.1"]); atol=0.5)
     # Power must be conserved: a passive transformer cannot generate active power.
     @test res["losses"]["p_loss"] > 0
-    # Split-phase legs (looser: residual T-model leg-spread under load).
-    _cmp_volts(V_ods, V_bm; label="ct-loaded: ", atol=3.5, rtol=0.02)
+    # Coupled-coil model: legs now match OpenDSS at the default tight band.
+    _cmp_volts(V_ods, V_bm; label="ct-loaded: ", atol=0.5, rtol=2e-3)
+end
+
+# Shared driver for the split-phase center_tap cases below: solve via from_dss +
+# OpenDSS, compare all node voltages and the network loss, and return the BMOPF
+# leg/centre voltages for case-specific symmetry assertions.
+function _run_center_tap_case(fname; atol=0.3, rtol=3e-3, ploss_rtol=0.03, label="")
+    path  = joinpath(_PF_CMP_DIR, fname)
+    net   = from_dss(path)
+    V_ods = _ods_volts(path)
+    P_ods = _ods_losses_W(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer, per_unit=true)
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label=label, atol=atol, rtol=rtol)
+    # Losses: passive (positive) and matching OpenDSS.
+    @test res["losses"]["p_loss"] > 0
+    @test isapprox(res["losses"]["p_loss"], P_ods; rtol=ploss_rtol)
+    bt = res["bus"]["lv"]
+    leg(t) = (v = bt[t]; v["vr"] + im*v["vi"])
+    (leg1 = leg("a"), ctr = leg("n"), leg2 = leg("b"))
+end
+
+@testset "PF comparison — center_tap balanced heavy load (leg symmetry)" begin
+    # Perfectly balanced heavy 120 V leg loads through a long line. The two
+    # half-windings are tightly coupled; the old per-leg decoupled model spread
+    # the legs apart under load even for balanced loads. The coupled-coil model
+    # keeps them symmetric, matching OpenDSS.
+    L = _run_center_tap_case("pf_center_tap_balanced_heavy.dss"; label="ct-bal: ")
+    # Leg-symmetry regression guard: |V_leg1 − V_ctr| ≈ |V_ctr − V_leg2|.
+    @test isapprox(abs(L.leg1 - L.ctr), abs(L.ctr - L.leg2); rtol=1e-3)
+end
+
+@testset "PF comparison — center_tap 240 V phase-to-phase load" begin
+    # Pure 240 V load across both legs (no leg-to-neutral load): equal through
+    # current in both half-windings, zero centre-tap current → symmetric legs.
+    # Exercises the series-aiding winding polarity and the L-L load path.
+    L = _run_center_tap_case("pf_center_tap_240.dss"; label="ct-240: ")
+    @test isapprox(abs(L.leg1 - L.ctr), abs(L.ctr - L.leg2); rtol=1e-3)
+end
+
+@testset "PF comparison — center_tap single-leg phase-to-neutral load" begin
+    # One 120 V leg-to-neutral load only → heavy centre-tap (unbalance) current
+    # and asymmetric legs. Cross-checks the unbalanced split against OpenDSS.
+    _run_center_tap_case("pf_center_tap_singleleg_pn.dss"; label="ct-pn: ")
+end
+
+@testset "PF comparison — center_tap extreme single-leg load" begin
+    # Large load on one leg with the other open, through a long line → strongly
+    # unequal leg voltages (the case the old decoupled model got most wrong).
+    _run_center_tap_case("pf_center_tap_oneleg_extreme.dss"; label="ct-ext: ")
+end
+
+@testset "center_tap OPF and Ybus models agree (guards against drift)" begin
+    # The OPF builder and the Ybus exporter implement the split-phase transformer
+    # independently; both must reproduce the same OpenDSS-consistent primitive
+    # admittance. Solve a small loaded case via solve_pf, then confirm the
+    # node currents implied by `_yprim_center_tap` satisfy the same solution.
+    path = joinpath(_PF_CMP_DIR, "pf_center_tap_loaded.dss")
+    net  = from_dss(path)
+    res  = solve_pf(net; optimizer=Ipopt.Optimizer)
+    ct   = first(values(net["transformer"]["center_tap"]))
+    nodes, Yp = BMOPFTools._yprim_center_tap(ct)
+    V = ComplexF64[(d = res["bus"][b]; tv = d[t]; tv["vr"] + im*tv["vi"])
+                   for (b, t) in nodes]
+    I = Yp * V                         # element currents into each of the 5 nodes
+    # LV side carries no shunt, so its three winding currents close exactly:
+    # I_leg1 + I_ctr + I_leg2 ≈ 0 (centre-tap KCL).
+    @test isapprox(I[3] + I[4] + I[5], 0.0 + 0.0im; atol=1e-3)
+    # HV phase + neutral leave only the no-load shunt current (≈ 0 here).
+    @test abs(I[1] + I[2]) < 1e-2
+end
+
+@testset "PF comparison — from_dss transformer fidelity (single_phase/Yd/Dy)" begin
+    # The single_phase/Yd/Dy models are validated above with hand-built nets;
+    # this guards the from_dss PARSE path. PowerIO's `bmopf` export drops the
+    # no-load shunt for every transformer and mis-refers the delta_wye leakage;
+    # `from_dss` recovers both from the `pmd` export
+    # (`_recover_transformer_params_from_pmd!`). The grounding reactors also need
+    # an explicit `phases=1` in the .dss to survive PowerIO's parser (without it
+    # the LV neutral floats and the delta_wye solve diverges).
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    for (fname, sub) in (("pf_1ph_xfmr.dss", "single_phase"),
+                         ("pf_yd_xfmr.dss",  "wye_delta"),
+                         ("pf_dy_xfmr.dss",  "delta_wye"))
+        path  = joinpath(_PF_CMP_DIR, fname)
+        net   = from_dss(path)
+        @test haskey(get(net, "transformer", Dict()), sub)
+        V_ods = _ods_volts(path)
+        P_ods = _ods_losses_W(path)
+        res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+        V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                     for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+        _cmp_volts(V_ods, V_bm; label="$sub from_dss: ", atol=0.5, rtol=3e-3)
+        @test res["losses"]["p_loss"] > 0                       # passive
+        @test isapprox(res["losses"]["p_loss"], P_ods; rtol=0.03)
+    end
+end
+
+@testset "Transformer Yprim matches OpenDSS (single_phase, center_tap)" begin
+    # Correctness gate from docs/transformer_admittance_derivation.md §7: the
+    # per-element primitive admittance must equal OpenDSS's own Transformer
+    # `Yprim`. This is the check that directly catches turns-ratio direction,
+    # √3 scaling, shunt placement, and winding-polarity sign errors (the
+    # original center_tap leg-split bug). Delta windings are basis-dependent in
+    # the raw matrix, so they are instead covered by the unbalanced-load PF
+    # comparisons above.
+    odsnode = Dict(0=>"0", 1=>"a", 2=>"b", 3=>"c", 4=>"n", 5=>"n")
+    function ods_yprim(path)
+        OpenDSSDirect.dss("Clear")
+        OpenDSSDirect.dss("Redirect \"$(normpath(path))\"")
+        OpenDSSDirect.Circuit.SetActiveElement("Transformer.t1")
+        ce      = OpenDSSDirect.CktElement
+        buses   = ce.BusNames(); nodeord = ce.NodeOrder()
+        ncond   = ce.NumConductors(); nterm = ce.NumTerminals(); np = ncond * nterm
+        Y       = reshape(ce.YPrim(), np, np)
+        rowbus  = String[]
+        for t in 1:nterm, _ in 1:ncond
+            push!(rowbus, lowercase(split(buses[t], '.')[1]))
+        end
+        ids = [(rowbus[i], odsnode[nodeord[i]]) for i in 1:np]
+        Y, ids
+    end
+    for (fname, sub) in (("pf_1ph_xfmr.dss", "single_phase"),
+                         ("pf_center_tap_loaded.dss", "center_tap"))
+        path = joinpath(_PF_CMP_DIR, fname)
+        net  = from_dss(path)
+        xf   = first(values(net["transformer"][sub]))
+        nb, Yb = BMOPFTools.transformer_yprim(xf, sub)
+        Yo, ido = ods_yprim(path)
+        # Merge ODS rows sharing a (bus, terminal) identity (e.g. the centre tap's
+        # two `.4` nodes) and drop the ground node, then align to the BMOPF order.
+        uids = [u for u in unique(ido) if u[2] != "0"]
+        pos  = Dict(u => i for (i, u) in enumerate(uids))
+        M    = zeros(ComplexF64, length(uids), length(uids))
+        for i in eachindex(ido), j in eachindex(ido)
+            (ido[i][2] == "0" || ido[j][2] == "0") && continue
+            M[pos[ido[i]], pos[ido[j]]] += Yo[i, j]
+        end
+        idb  = [(b, t) for (b, t) in nb]
+        @test length(uids) == length(idb)
+        perm = [findfirst(==(d), uids) for d in idb]
+        @test !any(isnothing, perm)
+        rel = maximum(abs.(M[perm, perm] .- Yb)) / max(1.0, maximum(abs.(Yb)))
+        @test rel < 1e-2
+    end
 end

@@ -131,7 +131,29 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
         p_nom = Float64.(get(load, "p_nom", Float64[]))
         q_nom = Float64.(get(load, "q_nom", Float64[]))
 
-        if cfg in ("WYE", "SINGLE_PHASE")
+        if cfg == "SINGLE_PHASE" && length(tm) == 2
+            # A single-phase load is ONE two-terminal element connected between
+            # the two listed terminals — whether that is phase-to-neutral
+            # (["a","n"]) or phase-to-phase (["a","b"], e.g. a 240 V load across
+            # the two legs of a split-phase service). The generic WYE path below
+            # would mis-read a phase-to-phase map as a phase-to-ground load on
+            # the first terminal (and silently drop the second), so handle the
+            # two-terminal case explicitly here.
+            t_pos, t_neg = tm[1], tm[2]
+            if length(p_nom) >= 1
+                dvr = @expression(model, vr[(bus, t_pos)] - vr[(bus, t_neg)])
+                dvi = @expression(model, vi[(bus, t_pos)] - vi[(bus, t_neg)])
+
+                P_tot = @expression(model, dvr * crd[(lid,1)] + dvi * cid[(lid,1)])
+                Q_tot = @expression(model, dvi * crd[(lid,1)] - dvr * cid[(lid,1)])
+                _add_subload_power!(model, load, lid, 1, P_tot, Q_tot,
+                                    p_nom[1], q_nom[1], dvr, dvi)
+
+                _kcl_add!(kcl_r, kcl_i, bus, t_pos, -crd[(lid,1)], -cid[(lid,1)])
+                _kcl_add!(kcl_r, kcl_i, bus, t_neg,  crd[(lid,1)],  cid[(lid,1)])
+            end
+
+        elseif cfg in ("WYE", "SINGLE_PHASE")
             ph_pos = _phase_positions(tm)
             n_pos_idx = _neutral_pos(tm)
             t_n = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing

@@ -51,7 +51,7 @@
 
 Dispatch transformer constraints for all subtypes in the network:
 - `single_phase` → `_add_yy_transformer!` (per-phase YY with Γ-model losses)
-- `center_tap`   → `_add_center_tap_transformer!` (split-phase with T-model: per-leg LV impedance)
+- `center_tap`   → `_add_center_tap_transformer!` (split-phase, coupled-coil primitive admittance)
 - `wye_delta`    → `_add_yd_transformer!` with `wye_is_from=true`
 - `delta_wye`    → `_add_yd_transformer!` with `wye_is_from=false`
 """
@@ -251,60 +251,41 @@ Variable index mapping:
   `cr_xf[(tid,"to",2)]` — LV center-tap current I_n (KCL balance at neutral)
   `cr_xf[(tid,"to",3)]` — LV leg-2 current  (flows through winding-3 resistance)
 
-Physics (T-model: primary impedance on HV side, per-leg impedance on each LV branch):
+Physics (coupled-coil / primitive-admittance model):
 
-  The HV winding carries the total series current I_s = -(I_leg1 + I_leg2)/N.
-  Each LV leg has its own winding resistance R_lv/X_lv in addition to the
-  primary resistance referred to LV (R_hv/N², X_hv/N²).
+  The split-phase transformer is a genuine 3-winding transformer — winding 1 is
+  the HV coil (t_ph→t_n); windings 2 and 3 are the two LV half-windings, BOTH
+  dotted at the centre tap (winding 2: t1→tn, winding 3: tn→t2). The two
+  half-windings are tightly coupled on the shared core, so a per-leg decoupled
+  voltage drop (which omits the mutual term) lets the legs spread apart under
+  load. Instead we impose the OpenDSS-consistent 5×5 primitive admittance
+  reconstructed from the symmetric star leakage arms:
 
-  Voltage — leg-1 (t1→tn) and leg-2 (tn→t2) each see the same ideal EMF but
-  their own series impedance:
-    V_hv/N − R_hv/N²·I_s − R_lv·I_leg1 = V_lv_leg1
-    V_hv/N − R_hv/N²·I_s − R_lv·I_leg2 = V_lv_leg2
+    R1 = r_series_from, X1 = x_series_from  (HV winding star arm, HV side)
+    R2 = r_series_to,   X2 = x_series_to    (each LV winding star arm, LV side)
+    y1 = N²/(R1+jX1),  y2 = 1/(R2+jX2),  Y3 = star-reduce(y1, y2, y2)
+    Yp = Cᵀ Y3 C  over nodes [t_ph, t_n, t1, tn, t2]
 
-  Expanding with V_hv = V_fr_ph − V_fr_n, V_lv_leg1 = V_to[t1] − V_to[tn],
-  V_lv_leg2 = V_to[tn] − V_to[t2], and I_s from current coupling:
+  with the connection matrix C mapping node voltages to winding voltages:
+    winding 1: (V_t_ph − V_t_n)/N
+    winding 2:  V_t1 − V_tn          (dotted at leg 1)
+    winding 3:  V_tn − V_t2          (dotted at the centre tap)
 
-    (V_fr_ph − V_fr_n)/N − R_hv/N²·I_s − R_lv·I_leg1 − X_hv/N²·jI_s − X_lv·jI_leg1
-      = V_to[t1] − V_to[tn]
+  The `x_series_*` data must hold the STAR arms (not XHL/2). From an OpenDSS
+  3-winding short-circuit set they are, for a symmetric centre tap (X2=X3):
+    X1_star = (XHL + XHT − XLT)/2,  X2_star = (XHL + XLT − XHT)/2
+  (`from_dss` reconstructs these from PowerIO's `pmd` export.) This Yp matches
+  OpenDSS's transformer Yprim to machine precision (see `_yprim_center_tap`).
 
-  Rearranging to the BMOPF variable convention (HV voltage drop form):
-    (V_fr_ph − V_fr_n) − N·(V_to[t1] − V_to[tn])
-      = (R_hv + N²·R_lv)·I_s − N²·R_lv·(I_s − I_leg1/N)   [cancels partially]
+  The element current into each of the 5 nodes is I = Yp·V; the per-winding
+  current variables are pinned to those injections so `i_max` limits and the
+  result/loss writer see physical currents. The implied relations are the
+  ampere-turn N·I_s + I_leg1 − I_leg2 = 0 and the centre-tap KCL
+  I_n + I_leg1 + I_leg2 = 0.
 
-  The clean LV-side form avoids the N² coefficient explosion.  Writing:
-    R1 = r_series_from, X1 = x_series_from  (HV winding, Ω)
-    R2 = r_series_to,   X2 = x_series_to    (each LV winding, Ω)
-
-  OpenDSS uses a T-model with a star-network conversion for 3-winding leakage:
-    X1_star = (XHL + XHT − XLT) / 2   (HV winding star leakage)
-    X2_star = (XHL + XLT − XHT) / 2   (LV winding 2 star leakage)
-    X3_star = (XHT + XLT − XHL) / 2   (LV winding 3 star leakage)
-
-  The BMOPF data fields `x_series_from` / `x_series_to` must store the star values,
-  NOT XHL/2. For a symmetric center-tap (X2=X3), the data model stores:
-    x_series_from  ← X1_star × Zhv / 100
-    x_series_to    ← X2_star × Zlv / 100   (= X3_star × Zlv / 100 when symmetric)
-
-  Polarity convention for leg-2:
-    Winding 3 in DSS connects center-tap(4) → lv.2, i.e., it is wound in REVERSE
-    relative to winding 2 (which connects lv.1 → center-tap(4)). This means
-    the LV leg-2 current flows FROM lv.2 INTO the center-tap, OPPOSITE to the
-    leg-1 current (which flows from lv.1 into the center-tap). The current
-    coupling at the ideal core is therefore:
-      N·I_s + I_leg1 − I_leg2 = 0
-    (leg-2 subtracts because winding 3 is the reverse winding).
-    BMOPF convention: `cr_xf[(tid,"to",3)]` = I_leg2 defined as positive flowing
-    INTO lv.2 (out of the center-tap), which is the DSS winding-3 "to" terminal
-    current convention.
-
-  Voltage equations (HV-side form):
-    (V_fr_ph − V_fr_n) − N·(V_to[t1] − V_to[tn]) = R1·I_s + N·R2·I_leg1
-    (V_fr_ph − V_fr_n) − N·(V_to[tn] − V_to[t2]) = R1·I_s − N·R2·I_leg2
-    (leg-2 RHS has −N·R2·I_leg2 because the winding direction is reversed)
-
-  Center-tap KCL (current balance at the neutral terminal):
-    I_n = −(I_leg1 − I_leg2) = −I_leg1 + I_leg2
+  For an ideal core (zero series impedance) Yp is singular, so both legs are
+  pinned directly to V_hv/N (winding 3 dotted at the centre tap) and the
+  ampere-turn / centre-tap KCL route the currents.
 
   No-load shunt (G+jB) at HV terminals (placed on winding-1 from side).
 """
@@ -350,52 +331,96 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     Il2r = cr_xf[(tid,"to",3)]; Il2i = ci_xf[(tid,"to",3)]
     Inr  = cr_xf[(tid,"to",2)]; Ini  = ci_xf[(tid,"to",2)]
 
-    # ── Voltage constraints (T-model with per-leg secondary impedance) ────────
-    # T-model: V_hv = V_star + Z1·I_s  (HV branch, I_s flows into hv.1)
-    # Winding 2: V_star/N = V_leg1 + Z2·I_wdg2  where I_wdg2 flows from star→bus
-    #   I_wdg2 = −Il1 (Il1 is defined INTO bus terminal t1, i.e. OUT of the winding)
-    #   → V_star/N = V_leg1 − Z2·Il1  → N·V_leg1 = V_star + N·Z2·Il1
-    #   Subtracting: V_hv − N·V_leg1 = Z1·I_s − N·Z2·Il1
+    # ── Coupled-coil (primitive-admittance) formulation ───────────────────────
+    # The split-phase transformer is a genuine 3-winding transformer: winding 1
+    # is the HV coil (t_fr_ph→t_fr_n); windings 2 and 3 are the two LV
+    # half-windings, BOTH dotted at the centre tap (winding 2: t_lv_1→t_lv_n,
+    # winding 3: t_lv_n→t_lv_2). Reconstructing the OpenDSS-consistent 5×5
+    # primitive admittance from the star leakage arms captures the mutual
+    # coupling between the two half-windings — which a per-leg decoupled voltage
+    # drop omits, causing the legs to spread apart under load. This Yprim matches
+    # OpenDSS's transformer Yprim to machine precision (see `_yprim_center_tap`).
     #
-    # Winding 3 (reversed): connects tn→t2, so V_wdg3 = V(tn)−V(t2) = V_leg2
-    #   and the winding's "from" terminal is tn (center-tap).
-    #   V_star/N = V_leg2 + Z2·I_wdg3  where I_wdg3 flows from star→tn
-    #   I_wdg3 = −Il2 (Il2 INTO lv.2 = out of winding's to-terminal; current entering tn from star = −Il2)
-    #   → V_star/N = V_leg2 − Z2·Il2  → N·V_leg2 = V_star + N·Z2·Il2
-    #   Subtracting: V_hv − N·V_leg2 = Z1·I_s − N·Z2·Il2
+    # CRITICAL: winding 3 is dotted at the centre tap, so its voltage is
+    # V(t_lv_n) − V(t_lv_2) (NOT V(t_lv_2) − V(t_lv_n)). The opposite sign makes
+    # the two LV legs identical instead of series-aiding, the original bug.
     if has_series
-        # Leg-1: V_hv − N·V_leg1 = R1·Is − X1·Is_i − N·(R2·Il1 − X2·Il1_i)
-        @constraint(model,
-            (vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)]) -
-            N * (vr[(b_to, t_lv_1)] - vr[(b_to, t_lv_n)]) ==
-            R1 * Isr - X1 * Isi - N * ( R2 * Il1r - X2 * Il1i))
-        @constraint(model,
-            (vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)]) -
-            N * (vi[(b_to, t_lv_1)] - vi[(b_to, t_lv_n)]) ==
-            R1 * Isi + X1 * Isr - N * ( R2 * Il1i + X2 * Il1r))
-        # Leg-2: V_hv − N·V_leg2 = R1·Is − X1·Is_i − N·(R2·Il2 − X2·Il2_i)
-        @constraint(model,
-            (vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)]) -
-            N * (vr[(b_to, t_lv_n)] - vr[(b_to, t_lv_2)]) ==
-            R1 * Isr - X1 * Isi - N * ( R2 * Il2r - X2 * Il2i))
-        @constraint(model,
-            (vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)]) -
-            N * (vi[(b_to, t_lv_n)] - vi[(b_to, t_lv_2)]) ==
-            R1 * Isi + X1 * Isr - N * ( R2 * Il2i + X2 * Il2r))
-    else
-        @constraint(model,
-            vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)] ==
-            N * (vr[(b_to, t_lv_1)] - vr[(b_to, t_lv_n)]))
-        @constraint(model,
-            vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)] ==
-            N * (vi[(b_to, t_lv_1)] - vi[(b_to, t_lv_n)]))
-        @constraint(model,
-            vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)] ==
-            N * (vr[(b_to, t_lv_n)] - vr[(b_to, t_lv_2)]))
-        @constraint(model,
-            vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)] ==
-            N * (vi[(b_to, t_lv_n)] - vi[(b_to, t_lv_2)]))
+        Z1 = R1 + im * X1            # HV star arm  (HV side, Ω/pu)
+        Z2 = R2 + im * X2            # each LV star arm (LV side, Ω/pu)
+        y1 = N^2 / Z1
+        y2 = 1.0 / Z2
+        Ys = y1 + 2 * y2
+        yv = (y1, y2, y2)
+        # 3×3 star-equivalent winding admittance (windings [HV, LV1, LV2]).
+        Y3 = Matrix{ComplexF64}(undef, 3, 3)
+        for a in 1:3, c in 1:3
+            Y3[a, c] = a == c ? yv[a] * (Ys - yv[a]) / Ys : -yv[a] * yv[c] / Ys
+        end
+        # Connection matrix C (3×5) over nodes
+        #   [t_fr_ph, t_fr_n, t_lv_1, t_lv_n, t_lv_2]:
+        #   winding 1: (V_frph − V_frn)/N ; winding 2: V_lv1 − V_lvn ;
+        #   winding 3: V_lvn − V_lv2  (dotted at the centre tap).
+        C = zeros(ComplexF64, 3, 5)
+        C[1, 1] =  1.0 / N; C[1, 2] = -1.0 / N
+        C[2, 3] =  1.0;     C[2, 4] = -1.0
+        C[3, 4] =  1.0;     C[3, 5] = -1.0
+        Yp = transpose(C) * Y3 * C
+        Yp[1, 1] += G + im * B      # no-load shunt on the HV phase node
+
+        node_bt = ((b_fr, t_fr_ph), (b_fr, t_fr_n),
+                   (b_to, t_lv_1),  (b_to, t_lv_n), (b_to, t_lv_2))
+        # Element current INTO node m: I_m = Σ_k Yp[m,k]·V_k.
+        function inj(m)
+            er = JuMP.AffExpr(0.0); ei = JuMP.AffExpr(0.0)
+            for k in 1:5
+                (bk, tk) = node_bt[k]
+                g = real(Yp[m, k]); bb = imag(Yp[m, k])
+                JuMP.add_to_expression!(er,  g, vr[(bk, tk)])
+                JuMP.add_to_expression!(er, -bb, vi[(bk, tk)])
+                JuMP.add_to_expression!(ei,  g, vi[(bk, tk)])
+                JuMP.add_to_expression!(ei,  bb, vr[(bk, tk)])
+            end
+            er, ei
+        end
+        # Pin the per-winding current variables to the nodal injections so the
+        # result writer and i_max limits see physical winding currents.
+        I2r = cr_xf[(tid,"fr",2)]; I2i = ci_xf[(tid,"fr",2)]
+        e1r,e1i = inj(1); e2r,e2i = inj(2); e3r,e3i = inj(3); e4r,e4i = inj(4); e5r,e5i = inj(5)
+        @constraint(model, Isr  == e1r); @constraint(model, Isi  == e1i)
+        @constraint(model, I2r  == e2r); @constraint(model, I2i  == e2i)
+        @constraint(model, Il1r == e3r); @constraint(model, Il1i == e3i)
+        @constraint(model, Inr  == e4r); @constraint(model, Ini  == e4i)
+        @constraint(model, Il2r == e5r); @constraint(model, Il2i == e5i)
+        # KCL: inject −I_m into each bus terminal.
+        kadd(b_fr, t_fr_ph, -Isr, -Isi)
+        kadd(b_fr, t_fr_n,  -I2r, -I2i)
+        kadd(b_to, t_lv_1,  -Il1r, -Il1i)
+        kadd(b_to, t_lv_n,  -Inr,  -Ini)
+        kadd(b_to, t_lv_2,  -Il2r, -Il2i)
+        # Current-magnitude limits on the pinned winding-current variables.
+        length(i_max_fr)   >= 1 && @constraint(model, Isr^2  + Isi^2  <= i_max_fr[1]^2)
+        length(i_max_to_v) >= 1 && @constraint(model, Il1r^2 + Il1i^2 <= i_max_to_v[1]^2)
+        length(i_max_to_v) >= 2 && @constraint(model, Inr^2  + Ini^2  <= i_max_to_v[2]^2)
+        length(i_max_to_v) >= 3 && @constraint(model, Il2r^2 + Il2i^2 <= i_max_to_v[3]^2)
+        return
     end
+
+    # ── Ideal core (zero series impedance) ────────────────────────────────────
+    # Both LV legs are pinned to V_hv/N (winding 3 dotted at the centre tap), so
+    # the legs are automatically symmetric; the ampere-turn and centre-tap KCL
+    # below route the currents.
+    @constraint(model,
+        vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)] ==
+        N * (vr[(b_to, t_lv_1)] - vr[(b_to, t_lv_n)]))
+    @constraint(model,
+        vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)] ==
+        N * (vi[(b_to, t_lv_1)] - vi[(b_to, t_lv_n)]))
+    @constraint(model,
+        vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)] ==
+        N * (vr[(b_to, t_lv_n)] - vr[(b_to, t_lv_2)]))
+    @constraint(model,
+        vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)] ==
+        N * (vi[(b_to, t_lv_n)] - vi[(b_to, t_lv_2)]))
 
     # ── Current coupling (power conservation) ────────────────────────────────
     # Power balance at ideal core: V_hv·conj(I_s) + (V_leg1·conj(−Il1) + V_leg2·conj(−Il2)) = 0

@@ -150,7 +150,7 @@ fields are in SI units (Ω or S); `v_ref_*` in V; `s_rating` in VA.
 | Subtype | map arity (from, to) | OPF model | impedance fields |
 |---|---|---|---|
 | `single_phase` | (2, 2) | Γ-equivalent, series Z referred to HV | `r/x_series_from` (HV, Ω), `r/x_series_to` (LV, Ω), `g/b_no_load` (S) |
-| `center_tap` | (2, 3) | T-model, per-leg secondary Z | same field names — see note below |
+| `center_tap` | (2, 3) | coupled-coil 3-winding (OpenDSS-consistent primitive admittance) | same field names — see note below |
 | `wye_delta` | (4, 3) | per-winding T behind ideal Yd transform | `r/x_series_from` (wye), `r/x_series_to` (delta), `g/b_no_load` (S) |
 | `delta_wye` | (3, 4) | per-winding T behind ideal Dy transform | `r/x_series_from` (delta), `r/x_series_to` (wye), `g/b_no_load` (S) |
 | `single_phase_autotransformer` | (2, 2) | step voltage regulator: YY core at fixed-tap effective ratio `n_eff`, **shared neutral** | `r/x_series_from`, `r/x_series_to`, `g/b_no_load`; ratio from `tap_ratio` + `regulator_type` |
@@ -165,16 +165,22 @@ are the LV winding values (Ω on the LV voltage base).  The no-load shunt
 **`center_tap`**: `terminal_map_from = ["1","n"]` (HV phase + neutral),
 `terminal_map_to = ["1","n","2"]` (leg-1, center-tap neutral, leg-2).
 `v_ref_to` is the **per-leg** voltage (e.g. 120 V, not 240 V).
-The OPF uses a T-model with **independent per-leg** secondary impedance
-branches — `r_series_to`/`x_series_to` apply separately to each leg, so
-unbalanced loading produces different voltages on the two legs.
+The OPF models it as a genuine coupled-coil 3-winding transformer: the two LV
+half-windings are series-aiding about the centre tap (winding 3 dotted at the
+centre tap, span $V_g-V_c$) and the OPF imposes the same 5×5 primitive admittance
+the Ybus exporter builds. This captures the mutual coupling between the
+half-windings — a per-leg *decoupled* drop spreads the legs apart under load —
+and matches OpenDSS's transformer `Yprim` to machine precision. Unbalanced
+loading correctly produces different voltages on the two legs.
 
 !!! warning "Leakage from OpenDSS XHL/XLT/XHT"
     For `center_tap`, `x_series_from`/`x_series_to` are the **star-network**
     leakage values, not `XHL/2` — the OpenDSS pair-wise values must be converted
-    via the Steinmetz star formula. Using the 2-winding shortcut `XHL/2` on both
-    sides forces both leg voltages to be identical under unbalanced loading,
-    which is wrong. See
+    via the Steinmetz star formula. Using the 2-winding shortcut (e.g. all of
+    `XHL` on the HV side, `x_series_to = 0`) drops the LV-side leakage and spreads
+    the leg voltages apart under load. [`from_dss`](@ref) recovers the correct
+    star split (and the core shunt) from PowerIO's `pmd` export automatically —
+    PowerIO's `bmopf` export performs exactly this lossy 2-winding reduction. See
     [Conversion guide § Transformer impedance bases](conversion.md#Transformer-impedance-bases)
     for the exact formulas.
 

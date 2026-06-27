@@ -77,6 +77,7 @@ function from_dss(path::AbstractString;
     _remap_opendss_terminals!(net)
     _merge_phase_voltage_sources!(net)
     _normalize_center_tap_transformers!(net)
+    _recover_transformer_params_from_pmd!(net, dn)
 
     # Store conversion warnings so callers can inspect fidelity losses
     net["_meta"] = get(net, "_meta", Dict{String,Any}())
@@ -224,6 +225,15 @@ function _remap_opendss_terminals!(net::Dict{String,Any})
         rmap = Dict(n => _DSS_TERMINAL_MAP[n] for n in str_names)
         bus["terminal_names"] = unique(rmap[n] for n in str_names)
         "n" in values(rmap) && (bus["neutral_terminal"] = "n")
+        # Remap a `perfectly_grounded_terminals` reference that PowerIO emits with
+        # the raw OpenDSS *neutral* node number ("4"). The earth terminal ("5")
+        # is handled by the earth-routing path below, so it is intentionally not
+        # turned into a solid neutral ground here.
+        let g = get(bus, "perfectly_grounded_terminals", nothing)
+            g isa Vector &&
+                (bus["perfectly_grounded_terminals"] =
+                     unique(t == "4" ? "n" : string(t) for t in g))
+        end
         rename_maps[bus_id] = rmap
         "5" in str_names && push!(earth_routed, bus_id)
     end
@@ -337,6 +347,133 @@ function _normalize_center_tap_transformers!(net::Dict{String,Any})
         # PowerIO's v_ref_to is the full secondary; the model wants per-leg.
         v = get(c, "v_ref_to", nothing)
         v isa Real && (c["v_ref_to"] = v / 2)
+    end
+    return net
+end
+
+# Transformer subtypes whose electrical parameters we re-derive from the `pmd`
+# export. PowerIO's `bmopf` export is lossy for these: it drops the no-load shunt
+# (every subtype), collapses the 3-winding `center_tap` leakage, and mis-refers
+# the delta-side leakage of `delta_wye`. Regulators (`single_phase_autotransformer`,
+# `open_delta_regulator`) and the already-faithful `n_winding` path are left as-is.
+const _PMD_RECOVER_SUBTYPES = ("center_tap", "single_phase", "wye_delta", "delta_wye")
+
+"""
+    _recover_transformer_params_from_pmd!(net, dn)
+
+Re-derive transformer leakage and the no-load (core) shunt from PowerIO's `pmd`
+export, which retains the full electrical detail the `bmopf` export discards.
+
+The `bmopf` export drops `g_no_load`/`b_no_load` for every transformer, collapses
+the `center_tap` 3-winding leakage to a lossy 2-winding reduction (full `XHL` on
+the HV side, `x_series_to = 0`), and mis-refers the `delta_wye` delta-side
+leakage. The `pmd` export keeps the pairwise short-circuit set (`xsc`), the
+per-winding resistances (`rw`), the winding bases (`vm_nom`/`sm_nom`), and the
+core-loss fractions (`noloadloss`/`cmag`).
+
+For each transformer of a subtype in [`_PMD_RECOVER_SUBTYPES`](@ref):
+
+  * No-load shunt — `g_no_load = noloadloss·S₁ / V_stamp²` (core loss), where
+    `V_stamp` is the phase-to-ground stamping voltage (`vm_nom₁` for a 1-phase
+    from-side, `vm_nom₁/√3` for a 3-phase one). The magnetising susceptance is
+    left at zero (see the code) and the shunt is skipped for phase-to-phase
+    single-phase units, whose magnetising branch the OPF cannot place correctly.
+  * `center_tap` (3-winding) — symmetric star arms
+    `X1_star=(XHL+XHT−XLT)/2`, `X2_star=(XHL+XLT−XHT)/2`, each referred to its
+    own winding base; resistances per winding.
+  * 2-winding (`single_phase`/`wye_delta`/`delta_wye`) — half the through
+    reactance referred to each side (`x_series_{from,to}=XHL/2·Z_base_{from,to}`)
+    and the per-winding resistances; equivalent to the Γ lump but correctly
+    referred on both sides.
+
+No-op when there are no matching transformers.
+"""
+function _recover_transformer_params_from_pmd!(net::Dict{String,Any}, dn)
+    xfmr = get(net, "transformer", nothing)
+    xfmr isa Dict || return net
+    any(haskey(xfmr, s) && !isempty(xfmr[s]) for s in _PMD_RECOVER_SUBTYPES) || return net
+
+    local pmd
+    try
+        pmd_raw, _ = PowerIO.to_format(dn, "pmd")
+        pmd = JSON3.read(pmd_raw)
+    catch err
+        @warn "from_dss: could not fetch PowerIO `pmd` export to recover " *
+              "transformer leakage/core shunt; losses and split-phase legs may " *
+              "be inaccurate." err
+        return net
+    end
+
+    pmd_tr = get(pmd, :transformer, nothing)
+    pmd_tr === nothing && return net
+    # Index pmd transformers by their lower-cased key (and `name` field when
+    # present) for matching against the canonicalised bmopf transformer keys.
+    by_id = Dict{String,Any}()
+    for (k, t) in pairs(pmd_tr)
+        by_id[lowercase(String(k))] = t
+        nm = get(t, :name, nothing)
+        nm === nothing || (by_id[lowercase(String(nm))] = t)
+    end
+
+    zbase(vm, sm) = (Float64(vm) * 1e3)^2 / (Float64(sm) * 1e3)   # Ω, sm in kVA
+
+    for subtype in _PMD_RECOVER_SUBTYPES
+        coll = get(xfmr, subtype, nothing)
+        coll isa Dict || continue
+        for (tid, c) in coll
+            c isa Dict || continue
+            t = get(by_id, lowercase(String(tid)), nothing)
+            t === nothing && continue
+            xsc = get(t, :xsc, nothing);    rw  = get(t, :rw, nothing)
+            vmn = get(t, :vm_nom, nothing); smn = get(t, :sm_nom, nothing)
+            (xsc !== nothing && rw !== nothing && vmn !== nothing && smn !== nothing) || continue
+            length(rw) >= 2 && length(vmn) >= 2 && length(smn) >= 2 && length(xsc) >= 1 || continue
+
+            # No-load (core) shunt — phase-to-ground referral on the from-side.
+            # `vm_nom` is the winding voltage: for a 1-phase L-N unit
+            # (`single_phase`, `center_tap`) it IS the stamping voltage; for a
+            # 3-phase wye/delta from-side the per-phase stamping voltage is the
+            # line-to-ground value vm_nom/√3. The OPF stamps the shunt
+            # phase-to-ground, so a phase-to-PHASE single-phase unit (no neutral
+            # on the from-side, e.g. a SWER isolating transformer) would have its
+            # magnetising branch placed wrong — skip the shunt there (a small
+            # effect) rather than inject it across the wrong nodes.
+            ll_single = subtype == "single_phase" &&
+                        !("n" in string.(get(c, "terminal_map_from", String[])))
+            if !ll_single
+                three_phase = subtype in ("wye_delta", "delta_wye")
+                s1   = Float64(smn[1]) * 1e3
+                vstp = Float64(vmn[1]) * 1e3 / (three_phase ? sqrt(3) : 1.0)
+                c["g_no_load"] = Float64(get(t, :noloadloss, 0.0)) * s1 / vstp^2
+                # Only the resistive `g_no_load` (core loss) is recovered. The
+                # magnetising susceptance `cmag` is left out (b_no_load = 0): it
+                # affects only reactive power / voltage at the per-mille level
+                # here, and the OPF's phase-to-ground shunt sign convention does
+                # not cleanly carry an inductive magnetising branch.
+                c["b_no_load"] = 0.0
+            end
+
+            # Leakage is only re-derived where the bmopf export is actually
+            # wrong: `center_tap` (3-winding leakage dropped) and `delta_wye`
+            # (delta-side leakage referred to the wrong base). `single_phase`
+            # and `wye_delta` export correct leakage, so leave them untouched.
+            z_fr = zbase(vmn[1], smn[1])
+            z_to = zbase(vmn[2], smn[2])
+            if subtype == "center_tap" && length(xsc) >= 3
+                XHL, XHT, XLT = Float64(xsc[1]), Float64(xsc[2]), Float64(xsc[3])
+                c["r_series_from"] = Float64(rw[1]) * z_fr
+                c["x_series_from"] = (XHL + XHT - XLT) / 2 * z_fr
+                c["r_series_to"]   = Float64(rw[2]) * z_to
+                c["x_series_to"]   = (XHL + XLT - XHT) / 2 * z_to
+            elseif subtype == "delta_wye"
+                # Split the through reactance, referred to each winding base.
+                XHL = Float64(xsc[1])
+                c["r_series_from"] = Float64(rw[1]) * z_fr
+                c["x_series_from"] = XHL / 2 * z_fr
+                c["r_series_to"]   = Float64(rw[2]) * z_to
+                c["x_series_to"]   = XHL / 2 * z_to
+            end
+        end
     end
     return net
 end

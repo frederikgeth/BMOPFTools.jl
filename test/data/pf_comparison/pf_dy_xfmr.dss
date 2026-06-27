@@ -46,7 +46,7 @@ New Transformer.t1 phases=3 windings=2
 ~ %imag=1.5
 
 ! LV neutral earthed via 0.3 Ω reactor (matches LV1_14bus convention).
-New Reactor.grnd_lv bus1=lv.4 bus2=lv.0 R=0.3 X=0
+New Reactor.grnd_lv bus1=lv.4 bus2=lv.0 R=0.3 X=0 phases=1
 
 ! Balanced constant-power wye-to-neutral loads (120 kW / 40 kvar each phase).
 ! Balanced loading makes |I_terminal| = √3 × |I_arm| exactly for the HV delta
