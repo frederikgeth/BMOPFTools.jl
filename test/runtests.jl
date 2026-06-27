@@ -930,6 +930,36 @@ const IEEE13_FIXTURE = """
             @test any(f_ -> f_.code == "W.DOM.INV_PV_ABSORBS", f2)
         end
 
+        @testset "i_max field: schema, arity, sign" begin
+            # i_max is a known optional field — a clean per-phase array passes.
+            net = parse_bmopf(INV_FIXTURE; from_string=true)
+            net["ibr"]["pv1"]["i_max"] = [20.0, 20.0, 20.0]
+            f = Finding[]
+            schema_check(net, f)
+            integrity_check(net, f)
+            domain_rules_check(net, f)
+            @test !any(startswith(fi.code, "E.SCHEMA") for fi in f)
+            @test !any(fi.code == "W.INT.DIM_MISMATCH" &&
+                       fi.component_id == "pv1" for fi in f)
+            @test !any(fi.code == "E.DOM.IBR_IMAX_NONPOSITIVE" for fi in f)
+
+            # Wrong length → dimension mismatch (needs 3 phases).
+            net_dim = parse_bmopf(INV_FIXTURE; from_string=true)
+            net_dim["ibr"]["pv1"]["i_max"] = [20.0, 20.0]
+            f_dim = Finding[]
+            integrity_check(net_dim, f_dim)
+            @test any(fi -> fi.code == "W.INT.DIM_MISMATCH" &&
+                            fi.component_id == "pv1", f_dim)
+
+            # Non-positive entry → domain error.
+            net_neg = parse_bmopf(INV_FIXTURE; from_string=true)
+            net_neg["ibr"]["pv1"]["i_max"] = [20.0, 0.0, 20.0]
+            f_neg = Finding[]
+            domain_rules_check(net_neg, f_neg)
+            @test any(fi -> fi.code == "E.DOM.IBR_IMAX_NONPOSITIVE" &&
+                            fi.component_id == "pv1", f_neg)
+        end
+
         @testset "full analyze pipeline" begin
             net = parse_bmopf(INV_FIXTURE; from_string=true)
             report = analyze(net)

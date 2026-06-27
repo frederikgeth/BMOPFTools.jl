@@ -128,6 +128,9 @@ Constraints applied per phase:
 - `p_min[k] ≤ P_k`; upper bound is `P_k ≤ p_max[k]`, or — under a `volt_watt`
   profile — the curtailment cap `P_k ≤ p_base · f^VW(|U_k|)`.
 - `P_k² + Q_k² ≤ s_max[k]²`  (apparent-power circle)
+- `cri[k]² + cii[k]² ≤ i_max[k]²`  (optional converter current-magnitude limit;
+  only stamped when `i_max` is present, so `Q_k` rolls off ≈ linearly with voltage
+  rather than staying flat at `s_max`)
 - Reactive power: constant-PF equality `sign(pf)·Q_k + tan_phi·P_k = 0`, or —
   under a `volt_var` profile — the droop equality `Q_k = q_base · f^VV(|U_k|)`,
   otherwise the box bounds `q_min[k] ≤ Q_k ≤ q_max[k]`.
@@ -149,6 +152,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
         tm    = Vector{String}(get(inv, "terminal_map", String[]))
         topo  = get(inv, "topology", "FOUR_LEG")
         smax  = Float64.(get(inv, "s_max",  Float64[]))
+        imax  = Float64.(get(inv, "i_max",  Float64[]))
         p_min = Float64.(get(inv, "p_min",  Float64[]))
         p_max = Float64.(get(inv, "p_max",  Float64[]))
         q_min = Float64.(get(inv, "q_min",  Float64[]))
@@ -219,6 +223,9 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             p_expr = @expression(model, dvr*cri[(inv_id,1)] + dvi*cii[(inv_id,1)])
             q_expr = @expression(model, dvi*cri[(inv_id,1)] - dvr*cii[(inv_id,1)])
 
+            length(imax) >= 1 &&
+                @constraint(model, cri[(inv_id,1)]^2 + cii[(inv_id,1)]^2 <= imax[1]^2)
+
             avg_ref && @warn "IBR '$inv_id': voltage_ref=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
             U = umag_expr(dvr, dvi)
             _apply_ibr_phase!(model, inv_id, 1, p_expr, q_expr, U,
@@ -254,6 +261,9 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr,
                               U=need_U ? umag_expr(dvr, dvi) : nothing))
 
+                length(imax) >= idx &&
+                    @constraint(model, cri[(inv_id,idx)]^2 + cii[(inv_id,idx)]^2 <= imax[idx]^2)
+
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph,  cri[(inv_id,idx)],  cii[(inv_id,idx)])
                 t_n !== nothing &&
                     _kcl_add!(kcl_r, kcl_i, bus, t_n, -cri[(inv_id,idx)], -cii[(inv_id,idx)])
@@ -282,6 +292,9 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 p_expr = @expression(model, dvr*cri[(inv_id,k)] + dvi*cii[(inv_id,k)])
                 q_expr = @expression(model, dvi*cri[(inv_id,k)] - dvr*cii[(inv_id,k)])
+
+                length(imax) >= k &&
+                    @constraint(model, cri[(inv_id,k)]^2 + cii[(inv_id,k)]^2 <= imax[k]^2)
 
                 # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
                 _apply_ibr_phase!(model, inv_id, k, p_expr, q_expr, nothing,

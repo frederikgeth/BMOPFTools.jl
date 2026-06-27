@@ -70,7 +70,7 @@ const _OPTIONAL_FIELDS = Dict{String,Vector{String}}(
     "generator" => ["p_min", "p_max", "q_min", "q_max"],
     "switch"    => ["i_max"],
     "linecode"  => ["i_max", "s_max"],
-    "ibr"       => ["p_avail", "p_min", "p_max", "q_min", "q_max",
+    "ibr"       => ["i_max", "p_avail", "p_min", "p_max", "q_min", "q_max",
                     "r_filter", "x_filter", "b_filter_shunt",
                     "grid_forming", "v_ref_internal", "cost", "control_profile",
                     "voltage_ref"],

@@ -119,6 +119,7 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `E.DOM.INV_P_BOUNDS` | E | IBR `p_min > p_max` — the active-power box is empty; infeasible by construction. |
 | `E.DOM.INV_Q_BOUNDS` | E | IBR `q_min > q_max` — the reactive-power box is empty. |
 | `E.DOM.INV_SMAX_NONPOSITIVE` | E | IBR `s_max` has a non-positive entry — the apparent-power circle is empty, so no operating point exists. |
+| `E.DOM.IBR_IMAX_NONPOSITIVE` | E | IBR `i_max` (optional per-phase current limit) has a non-positive entry — the current circle is empty, so no operating point exists. |
 | `W.DOM.INV_BOUND_EXCEEDS_SMAX` | W | An IBR P or Q box-bound magnitude exceeds `s_max` — that box bound can never bind because the apparent-power circle dominates; usually a units or sizing mistake. |
 | `W.DOM.INV_PV_ABSORBS` | W | A `prime_mover=PV` IBR has `p_min < 0`, i.e. it is allowed to absorb real power — physically implausible for PV; usually a sign error. |
 
@@ -346,7 +347,7 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `W.SOL.THERMAL_ACTIVE` | W | Current magnitude is within 1 % of `i_max` — the thermal limit is near-active. |
 | `E.SOL.GEN_VIOLATION` | E | A generator's active or reactive dispatch (`pg`/`qg` per terminal) falls outside its declared `p_min`/`p_max`/`q_min`/`q_max` bounds. |
 | `W.SOL.GEN_ACTIVE` | W | Generator dispatch is within 1 % of a bound — the bound is near-active. |
-| `E.SOL.IBR_VIOLATION` | E | An IBR's solved `pg`/`qg` (per phase) falls outside its declared `p_min`/`p_max`/`q_min`/`q_max` bounds. |
+| `E.SOL.IBR_VIOLATION` | E | An IBR's solved operating point (per phase) violates a declared limit: `pg` outside `p_min`/`p_max`, the `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. |
 | `W.SOL.IBR_ACTIVE` | W | An IBR dispatch is within 1 % of a P bound — the bound is near-active. |
 | `W.SOL.IBR_PF_DEVIATION` | W | A constant-power-factor IBR's solved operating point deviates from its commanded PF beyond tolerance — the PF-coupling constraint residual is non-trivial. |
 | `W.SOL.LOAD_RESIDUAL` | W | For a `constant_power` load, solved `pd`/`qd` differs from `p_nom`/`q_nom` by more than 1 W / 1 var — the bilinear constant-power constraint has a non-trivial residual; the solver may not have converged tightly. Not emitted for voltage-dependent models (where `pd ≠ p_nom` is expected). |

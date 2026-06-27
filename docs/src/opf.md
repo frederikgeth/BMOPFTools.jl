@@ -434,6 +434,23 @@ P^{\min}_{n,k} \;\leq\; P_{n,k} \;\leq\; P^{\max}_{n,k},
 P_{n,k}^2 + Q_{n,k}^2 \;\leq\; \bigl(S^{\max}_{n,k}\bigr)^2 .
 ```
 
+Optionally, a per-phase **current-magnitude limit** `i_max` $= I^{\max}_{n,k}$
+[A] may be supplied. When present it is stamped directly on the converter
+current variables:
+
+```math
+\bigl(c^{r,n}_{n,k}\bigr)^2 + \bigl(c^{i,n}_{n,k}\bigr)^2 \;\leq\;
+\bigl(I^{\max}_{n,k}\bigr)^2 .
+```
+
+This is the physically faithful limit for a voltage-source converter
+(D-STATCOM, smart inverter): because $|S_{n,k}| = |\Delta v_k|\,|I_{n,k}|$, a
+current cap makes the reactive capability roll off **≈ linearly** with voltage
+($Q^{\max} \approx |\Delta v_k|\,I^{\max}$) rather than staying flat at
+$S^{\max}$ — the constant-MVA idealization the apparent-power circle alone
+implies. `i_max` is **optional and opt-in**: omit it and the model is unchanged;
+supply it to model the low-voltage var rolloff of a real converter.
+
 Reactive power is governed in one of two mutually exclusive ways:
 
 - **Box bounds** (default): $Q^{\min}_{n,k} \leq Q_{n,k} \leq Q^{\max}_{n,k}$.

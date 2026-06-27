@@ -656,6 +656,16 @@ function _check_ibr_capability(net, findings, n_checks)
             end
         end
 
+        imax = get(inv, "i_max", nothing)
+        imax_arr = imax isa AbstractVector ? [Float64(x) for x in imax if x isa Number] : nothing
+        if imax_arr !== nothing && any(<=(0), imax_arr)
+            push!(findings, Finding(ERROR, "E.DOM.IBR_IMAX_NONPOSITIVE", :domain_rules,
+                :ibr, id,
+                "IBR '$id' has a non-positive entry in i_max $(imax_arr) A; " *
+                "all per-phase current-magnitude limits must be strictly positive.",
+                Dict{String,Any}("i_max" => imax_arr)))
+        end
+
         pmin = get(inv, "p_min", nothing)
         pmax = get(inv, "p_max", nothing)
         if pmin isa Number && pmax isa Number && Float64(pmin) > Float64(pmax)
