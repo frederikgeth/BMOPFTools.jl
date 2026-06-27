@@ -479,4 +479,180 @@ end
         @test isempty(mf.entries)
     end
 
+    @testset "T9: Capacitive shunt → capacitor (opt-in)" begin
+        # Phase-to-ground capacitive shunt on a bus with a grounded neutral.
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"]),
+                "b1"  => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a","b","c"],
+                "v_magnitude" => [230.0,230.0,230.0], "v_angle" => [0.0,-2.0944,2.0944])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                "R_series_1_1" => 0.1, "R_series_2_2" => 0.1, "R_series_3_3" => 0.1)),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "src", "bus_to" => "b1",
+                "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"],
+                "linecode" => "lc", "length" => 1.0)),
+            "shunt" => Dict{String,Any}("cap1" => Dict{String,Any}(
+                "bus" => "b1", "terminal_map" => ["a","b","c"],
+                "B_1_1" => 1e-4, "B_2_2" => 1e-4, "B_3_3" => 1e-4)))
+
+        disabled = (apply_largest_component=false, apply_simplify_network=false,
+                    apply_remove_zero_loads=false, apply_low_impedance_to_switch=false,
+                    apply_source_bus_bounds=false)
+
+        # Off by default: untouched.
+        net_def, _ = fix_case(net; recipe = FixRecipe(; disabled...))
+        @test haskey(net_def["shunt"], "cap1")
+        @test !haskey(get(net_def, "capacitor", Dict()), "cap_cap1")
+
+        # Opt-in: converted to a WYE capacitor, shunt removed.
+        net′, mf = fix_case(net;
+            recipe = FixRecipe(; disabled..., apply_shunt_to_capacitor=true))
+        @test !haskey(get(net′, "shunt", Dict()), "cap1")
+        cap = net′["capacitor"]["cap_cap1"]
+        @test cap["configuration"] == "WYE"
+        @test cap["terminal_map"] == ["a","b","c","n"]
+        @test cap["v_rated"] ≈ 230.0  atol=1.0
+        @test all(cap["q_rated"] .≈ 1e-4 * cap["v_rated"]^2)   # q = B·v_rated²
+        @test any(e -> e.rule == "shunt_to_capacitor", mf.entries)
+    end
+
+    @testset "T9b: Capacitive shunt without grounded neutral — not converted" begin
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"]),
+                "b1"  => Dict{String,Any}("terminal_names" => ["a","b","c","n"])),  # n floats
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a","b","c"],
+                "v_magnitude" => [230.0,230.0,230.0], "v_angle" => [0.0,-2.0944,2.0944])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                "R_series_1_1" => 0.1, "R_series_2_2" => 0.1, "R_series_3_3" => 0.1)),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "src", "bus_to" => "b1",
+                "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"],
+                "linecode" => "lc", "length" => 1.0)),
+            "shunt" => Dict{String,Any}("cap1" => Dict{String,Any}(
+                "bus" => "b1", "terminal_map" => ["a","b","c"],
+                "B_1_1" => 1e-4, "B_2_2" => 1e-4, "B_3_3" => 1e-4)))
+        net′, _ = fix_case(net; recipe = FixRecipe(
+            apply_largest_component=false, apply_simplify_network=false,
+            apply_remove_zero_loads=false, apply_low_impedance_to_switch=false,
+            apply_source_bus_bounds=false, apply_shunt_to_capacitor=true))
+        @test haskey(net′["shunt"], "cap1")          # left untouched (no grounded return)
+        @test !haskey(get(net′, "capacitor", Dict()), "cap_cap1")
+    end
+
+    @testset "T9c: Non-capacitor / unsupported shunts are declined" begin
+        # A connected base feeder so the bus has a resolvable nominal (vmap),
+        # ensuring declines are structural, not nominal-missing.
+        function base(bus_terms, shunt)
+            Dict{String,Any}(
+                "bus" => Dict{String,Any}(
+                    "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                        "perfectly_grounded_terminals" => ["n"]),
+                    "b1"  => Dict{String,Any}("terminal_names" => bus_terms,
+                        "perfectly_grounded_terminals" => ["n"])),
+                "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                    "bus" => "src", "terminal_map" => ["a","b","c"],
+                    "v_magnitude" => [230.0,230.0,230.0], "v_angle" => [0.0,-2.0944,2.0944])),
+                "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                    "R_series_1_1" => 0.1, "R_series_2_2" => 0.1, "R_series_3_3" => 0.1)),
+                "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                    "bus_from" => "src", "bus_to" => "b1",
+                    "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"],
+                    "linecode" => "lc", "length" => 1.0)),
+                "shunt" => Dict{String,Any}("sh" => shunt))
+        end
+        recipe = FixRecipe(apply_largest_component=false, apply_simplify_network=false,
+            apply_remove_zero_loads=false, apply_low_impedance_to_switch=false,
+            apply_source_bus_bounds=false, apply_shunt_to_capacitor=true)
+        declined(net) = (n′ = first(fix_case(net; recipe=recipe));
+                         haskey(get(n′, "shunt", Dict()), "sh") &&
+                         !haskey(get(n′, "capacitor", Dict()), "cap_sh"))
+
+        # Conductance present → not a pure capacitor.
+        @test declined(base(["a","b","c","n"], Dict{String,Any}(
+            "bus"=>"b1", "terminal_map"=>["a"], "G_1_1"=>1e-4, "B_1_1"=>1e-4)))
+        # Negative diagonal susceptance → a reactor, not a capacitor.
+        @test declined(base(["a","b","c","n"], Dict{String,Any}(
+            "bus"=>"b1", "terminal_map"=>["a"], "B_1_1"=>-1e-4)))
+        # 4-terminal star whose hub is not a name-resolvable neutral → declined.
+        @test declined(base(["a","b","c","g"], Dict{String,Any}(
+            "bus"=>"b1", "terminal_map"=>["a","b","c","g"],
+            "B_1_1"=>5e-4, "B_2_2"=>5e-4, "B_3_3"=>5e-4, "B_4_4"=>1.5e-3,
+            "B_1_4"=>-5e-4, "B_2_4"=>-5e-4, "B_3_4"=>-5e-4)))
+        # 3-terminal incomplete star (a–b, a–c but no b–c) → not a delta → declined.
+        @test declined(base(["a","b","c","n"], Dict{String,Any}(
+            "bus"=>"b1", "terminal_map"=>["a","b","c"],
+            "B_1_1"=>1e-3, "B_2_2"=>5e-4, "B_3_3"=>5e-4,
+            "B_1_2"=>-5e-4, "B_1_3"=>-5e-4)))
+    end
+
+    @testset "T9d: Single phase-to-ground bank → SINGLE_PHASE (arity-correct)" begin
+        # Was a latent bug: the old pass emitted a non-conformant WYE (arity 2).
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"]),
+                "b1"  => Dict{String,Any}("terminal_names" => ["a","n"],
+                    "perfectly_grounded_terminals" => ["n"])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a","b","c"],
+                "v_magnitude" => [230.0,230.0,230.0], "v_angle" => [0.0,-2.0944,2.0944])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}("R_series_1_1" => 0.1)),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "src", "bus_to" => "b1",
+                "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
+                "linecode" => "lc", "length" => 1.0)),
+            "shunt" => Dict{String,Any}("sh" => Dict{String,Any}(
+                "bus" => "b1", "terminal_map" => ["a"], "B_1_1" => 1e-4)))
+        net′, _ = fix_case(net; recipe = FixRecipe(
+            apply_largest_component=false, apply_simplify_network=false,
+            apply_remove_zero_loads=false, apply_low_impedance_to_switch=false,
+            apply_source_bus_bounds=false, apply_shunt_to_capacitor=true))
+        cap = net′["capacitor"]["cap_sh"]
+        @test cap["configuration"] == "SINGLE_PHASE"
+        @test cap["terminal_map"] == ["a","n"]
+        f = Finding[]; spec_conformance_check(net′, f)   # conformant arity
+        @test !any(x -> x.code == "W.SPEC.CONFIG_ARITY" && x.component_id == "cap_sh", f)
+    end
+
+    @testset "T10: Snap placeholder transformer leakage (opt-in)" begin
+        # Z_base = 11000²/50000 = 2420 Ω.
+        mknet(xf) = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "mv" => Dict{String,Any}("terminal_names" => ["a","n"]),
+                "lv" => Dict{String,Any}("terminal_names" => ["a","n"])),
+            "transformer" => Dict{String,Any}("single_phase" => Dict{String,Any}(
+                "tx" => Dict{String,Any}(
+                    "bus_from" => "mv", "bus_to" => "lv",
+                    "terminal_map_from" => ["a","n"], "terminal_map_to" => ["a","n"],
+                    "v_ref_from" => 11000.0, "v_ref_to" => 240.0, "s_rating" => 50000.0,
+                    "r_series_from" => 0.0, "x_series_from" => xf,
+                    "r_series_to" => 0.0, "x_series_to" => 0.0))))
+        disabled = (apply_largest_component=false, apply_simplify_network=false,
+                    apply_remove_zero_loads=false, apply_low_impedance_to_switch=false,
+                    apply_source_bus_bounds=false)
+
+        # Placeholder leakage (zpu ≈ 4e-8) → snapped to exactly zero.
+        net′, mf = fix_case(mknet(1e-4);
+            recipe = FixRecipe(; disabled..., apply_snap_transformer_impedance=true))
+        @test net′["transformer"]["single_phase"]["tx"]["x_series_from"] == 0.0
+        @test any(e -> e.rule == "snap_transformer_impedance", mf.entries)
+
+        # Off by default: untouched.
+        net_def, _ = fix_case(mknet(1e-4); recipe = FixRecipe(; disabled...))
+        @test net_def["transformer"]["single_phase"]["tx"]["x_series_from"] == 1e-4
+
+        # Realistic leakage (x = 121 Ω ⇒ zpu ≈ 5 %) → NOT snapped.
+        net_r, _ = fix_case(mknet(121.0);
+            recipe = FixRecipe(; disabled..., apply_snap_transformer_impedance=true))
+        @test net_r["transformer"]["single_phase"]["tx"]["x_series_from"] == 121.0
+    end
+
 end  # @testset "Fix case"

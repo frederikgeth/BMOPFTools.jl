@@ -236,6 +236,32 @@ function spec_conformance_check(net::Dict{String,Any},
                 :capacitor, id,
                 "capacitor '$id' has non-positive v_rated ($vr).", nothing))
         end
+        # q_rated must be non-negative: a capacitor delivers Q = B·V² with B ≥ 0.
+        # A negative entry is an inductor/reactor masquerading as a capacitor and
+        # is not a valid capacitor bank — block it.
+        if q isa AbstractVector && any(x -> x isa Real && x < 0, q)
+            n_issues += 1
+            push!(findings, Finding(ERROR, "E.SPEC.CAP_NEGATIVE_Q", :spec,
+                :capacitor, id,
+                "capacitor '$id' has negative q_rated entries ($(q)) — a capacitor " *
+                "bank has non-negative susceptance (Q = B·V², B ≥ 0). A reactor " *
+                "should be modeled as a `shunt` with negative B, not a capacitor.",
+                Dict{String,Any}("q_rated" => q)))
+        end
+        # WYE requires a resolvable neutral terminal to stamp each phase against;
+        # without one the bank assembles an all-zero susceptance and silently
+        # injects nothing in the OPF.
+        if cfg == "WYE" && _neutral_pos(tm) === nothing
+            n_issues += 1
+            push!(findings, Finding(WARNING, "W.SPEC.CAP_WYE_NO_NEUTRAL", :spec,
+                :capacitor, id,
+                "WYE capacitor '$id' has no resolvable neutral terminal in " *
+                "terminal_map $(tm) — each phase is stamped against the neutral, so " *
+                "without one the bank produces zero susceptance and is silently " *
+                "ignored by the OPF. Name the return terminal 'n' (or use " *
+                "SINGLE_PHASE / DELTA).",
+                Dict{String,Any}("terminal_map" => tm)))
+        end
     end
 
     # --- duplicate terminals in lines and switches ---

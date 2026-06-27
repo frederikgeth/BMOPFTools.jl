@@ -103,6 +103,8 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `W.DOM.LC_ZERO_R` | W | Near-zero or negative self-resistance on **any** linecode diagonal — a superconducting conductor, usually a placeholder. |
 | `E.DOM.XFMR_VREF_INVALID` | E | A transformer has `v_ref_from ≤ 0` or `v_ref_to ≤ 0`. The turns ratio N = v\_ref\_from / v\_ref\_to is undefined or infinite; the OPF cannot be built. Usually caused by a missing field defaulting to zero or a unit error (kV entered as 0.0). |
 | `W.DOM.XFMR_RATIO_OOB` | W | Direction-agnostic transformer step ratio `max(r, 1/r)` above 1000:1. Calibrated so standard distribution step-downs (e.g. 11 kV/433 V ≈ 25:1) do **not** flag. |
+| `I.DOM.XFMR_IDEAL` | I | An isolating power transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`/`n_winding`) has **zero leakage reactance** (total series X ≤ `xfmr_z_min_ohm`, default 1e-6 Ω) — modeled as an ideal transformer with no series voltage drop. The IVR OPF represents the series impedance as a *coefficient* in the winding voltage-drop equation, not an inverted admittance, so zero impedance collapses cleanly to the exact voltage-ratio constraint `V_fr = N·V_to` and is **well-posed, not degenerate**. Informational because `%Z` was most likely omitted: supply realistic leakage (x ≈ 4–10 % on the rating base) if regulation across the winding matters. A lossless unit (R≈0 with finite X) is normal here and is **not** flagged. Regulators/autotransformers are excluded. |
+| `W.DOM.XFMR_LOW_IMPEDANCE` | W | A two-winding transformer has a **tiny non-zero** series impedance — `|Z| < xfmr_z_min_pu` (default 0.1 %) on the from-side rating base, where real units are 1–15 %. Almost always a small placeholder for zero carried over from an admittance-based tool (which forbids exact zero). In this IVR engine a tiny leakage ill-conditions the winding voltage-drop equation, whereas **exact zero is better conditioned** (collapses to `V_fr = N·V_to`). The transformer analogue of `W.DOM.LINE_LOW_IMPEDANCE`. Fix: set it to exactly zero (`FixRecipe(apply_snap_transformer_impedance = true)`) or to a realistic %Z. |
 | `W.DOM.ZERO_LIMIT` | W | An `i_max`/`s_max` entry exactly 0. Read literally this forces zero flow; in source tools 0 usually means "no limit" — classic semantic abuse. Drop the field instead. |
 | `W.DOM.ZERO_LENGTH` | W | A zero-length line — degenerate impedance; the spec's lossless switch object is the right model for such sections ([ref. 2](methodology.md#refs)). |
 | `W.DOM.ANGLE_UNITS` | W | A source `v_angle` entry with magnitude > 2π — angles are radians in the data model; this is almost certainly degrees. |
@@ -176,6 +178,7 @@ The largest family; full derivations in the
 | `E.PROV.NEGATIVE_G` | E | A conductance block (line shunt or bus shunt) that is not PSD / has negative diagonals — an active element. |
 | `W.PROV.B_SIGN` | W | A susceptance block that is not PSD or has negative diagonals — not a physical capacitance matrix. |
 | `I.PROV.B_OFFDIAG` | I | Positive mutual susceptance with PSD intact — deviates from the Maxwell sign pattern. Clean electrostatic pipelines (including grounded-screen elimination and bundling) preserve the pattern, so this marks fitted/averaged provenance rather than an error. |
+| `I.PROV.SHUNT_LIKELY_CAPACITOR` | I | A `shunt` is purely capacitive — no conductance (G ≈ 0) and a strictly positive diagonal susceptance (`B = ωC > 0`; a reactor would be negative). It looks like a fixed capacitor bank carried as a generic admittance. Consider modeling it as a first-class `capacitor` (nameplate `q_rated`/`v_rated`); the [fix recipe](augmentation.md#fix) can convert phase-to-ground banks automatically with `FixRecipe(apply_shunt_to_capacitor = true)`. |
 
 ### Parameterisation provenance
 
@@ -311,6 +314,10 @@ Rules the JSON Schema cannot express.
 | `E.SPEC.WYE_DUPLICATE_PHASE` | E | A `WYE` load/generator has duplicate phase terminals in the non-neutral slots. |
 | `E.SPEC.DELTA_HAS_NEUTRAL` | E | A `DELTA` load/generator includes the bus neutral in its terminal map — delta elements must be phase-to-phase only. |
 | `E.SPEC.DELTA_DUPLICATE_PHASE` | E | A `DELTA` load/generator has duplicate phase terminals. |
+| `W.SPEC.CAP_QRATED_LENGTH` | W | A capacitor's `q_rated` length is inconsistent with its configuration (SINGLE_PHASE → 1, WYE → #phases, DELTA → #pairs). |
+| `E.SPEC.CAP_VRATED` | E | A capacitor has non-positive `v_rated` — the susceptance `B = q_rated/v_rated²` is undefined. |
+| `E.SPEC.CAP_NEGATIVE_Q` | E | A capacitor has negative `q_rated` entries. A capacitor bank has non-negative susceptance (`Q = B·V²`, `B ≥ 0`); a negative value is an inductor/reactor and must be modelled as a `shunt` with negative `B`, not a capacitor. |
+| `W.SPEC.CAP_WYE_NO_NEUTRAL` | W | A `WYE` capacitor has no resolvable neutral terminal in its `terminal_map`. Each phase is stamped against the neutral, so without one the bank assembles an all-zero susceptance and is **silently ignored** by the OPF. Name the return terminal `n`, or use `SINGLE_PHASE`/`DELTA`. |
 | `W.SPEC.XFMR_TMAP_ARITY` | W | Transformer terminal-map lengths off the per-subtype spec values — also the deliberate tripwire for unconverted wye-wye units. |
 | `W.SPEC.INV_TOPOLOGY` | W | An inverter `topology` outside the spec-allowed set (`FOUR_LEG`/`THREE_LEG`/`SINGLE_PHASE`). |
 | `W.SPEC.INV_TMAP_ARITY` | W | An inverter's `terminal_map` length does not match the arity its `topology` requires. |

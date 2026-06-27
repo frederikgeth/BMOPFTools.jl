@@ -2175,6 +2175,26 @@ const IEEE13_FIXTURE = """
         @test cls([0.0, deg2rad(-112)])            == :positive      # lag, closer to 120°
     end
 
+    @testset "provenance — capacitor-like shunt finding" begin
+        codes(fs) = Set(f.code for f in fs)
+        mkshunt(g11, b11) = Dict{String,Any}(
+            "bus" => Dict{String,Any}("b" => Dict{String,Any}(
+                "terminal_names" => ["a","n"])),
+            "shunt" => Dict{String,Any}("sh" => Dict{String,Any}(
+                "bus" => "b", "terminal_map" => ["a"],
+                "G_1_1" => g11, "B_1_1" => b11)))
+
+        # Purely capacitive (G≈0, B>0) → flagged.
+        f = Finding[]; provenance_analysis(mkshunt(0.0, 1e-4), f)
+        @test "I.PROV.SHUNT_LIKELY_CAPACITOR" in codes(f)
+        # Reactor (B<0) → not flagged.
+        f2 = Finding[]; provenance_analysis(mkshunt(0.0, -1e-4), f2)
+        @test !("I.PROV.SHUNT_LIKELY_CAPACITOR" in codes(f2))
+        # Has conductance → not a pure capacitor bank.
+        f3 = Finding[]; provenance_analysis(mkshunt(1e-4, 1e-4), f3)
+        @test !("I.PROV.SHUNT_LIKELY_CAPACITOR" in codes(f3))
+    end
+
     @testset "provenance — voltage source sequence findings" begin
         codes(fs) = Set(f.code for f in fs)
         mksrc(va) = Dict{String,Any}(
@@ -2351,6 +2371,46 @@ const IEEE13_FIXTURE = """
         domain_rules_check(net, findings2)
         @test any(f -> f.code == "W.DOM.XFMR_RATIO_OOB" &&
                        f.component_id == "tx_dist", findings2)
+    end
+
+    @testset "Domain rules — ideal / lossless transformer parameters" begin
+        mkxf(rf, xf, rt, xt) = Dict{String,Any}(
+            "transformer" => Dict{String,Any}("single_phase" => Dict{String,Any}(
+                "tx" => Dict{String,Any}(
+                    "bus_from" => "a", "bus_to" => "b",
+                    "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n"],
+                    "v_ref_from" => 11000.0, "v_ref_to" => 240.0, "s_rating" => 50000.0,
+                    "r_series_from" => rf, "x_series_from" => xf,
+                    "r_series_to" => rt, "x_series_to" => xt))))
+        codes(net) = (f = Finding[]; domain_rules_check(net, f); Set(x.code for x in f))
+
+        # Zero leakage reactance (X≈0) → INFO (well-posed in IVR, but %Z likely
+        # omitted). Both the fully-ideal and the resistive-but-zero-leakage cases.
+        @test "I.DOM.XFMR_IDEAL" in codes(mkxf(0.0, 0.0, 0.0, 0.0))
+        @test "I.DOM.XFMR_IDEAL" in codes(mkxf(1.0, 0.0, 0.001, 0.0))
+        # Lossless (R≈0) WITH finite leakage reactance is normal in the IVR
+        # formulation → NOT flagged.
+        @test !("I.DOM.XFMR_IDEAL" in codes(mkxf(0.0, 5.0, 0.0, 0.002)))
+        # Tiny non-zero placeholder leakage (Z_base = 11000²/50000 = 2420 Ω, so
+        # zpu ≈ 8e-8 ≪ 0.1 %) → low-impedance WARNING, not the exact-zero INFO.
+        let c = codes(mkxf(0.0, 1e-4, 0.0, 1e-4))
+            @test "W.DOM.XFMR_LOW_IMPEDANCE" in c
+            @test !("I.DOM.XFMR_IDEAL" in c)
+        end
+        # Realistic parameters → no finding (zpu ≈ 0.2 % > threshold).
+        let c = codes(mkxf(1.0, 5.0, 0.001, 0.002))
+            @test !("I.DOM.XFMR_IDEAL" in c)
+            @test !("W.DOM.XFMR_LOW_IMPEDANCE" in c)
+        end
+        # Regulator subtype (intentionally near-ideal) is excluded.
+        reg = Dict{String,Any}("transformer" => Dict{String,Any}(
+            "single_phase_autotransformer" => Dict{String,Any}("rg" => Dict{String,Any}(
+                "bus_from" => "a", "bus_to" => "b",
+                "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n"],
+                "v_ref_from" => 11000.0, "v_ref_to" => 11000.0,
+                "r_series_from" => 0.0, "x_series_from" => 0.0,
+                "r_series_to" => 0.0, "x_series_to" => 0.0))))
+        @test !("I.DOM.XFMR_IDEAL" in codes(reg))
     end
 
     @testset "Domain rules — non-uniform per-phase cost warning" begin

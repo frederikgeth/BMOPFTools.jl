@@ -15,6 +15,8 @@ Base.@kwdef struct FixRecipe
     apply_source_bus_bounds       :: Bool    = true
     apply_adjacent_current_bounds :: Bool    = false  # opt-in: topology inference
     apply_perfect_grounding       :: Bool    = false  # opt-in: changes OPF physics
+    apply_shunt_to_capacitor      :: Bool    = false  # opt-in: re-represent capacitive shunts
+    apply_snap_transformer_impedance :: Bool = false  # opt-in: tiny placeholder leakage → 0
 
     # ── Thresholds ────────────────────────────────────────────────────────────
     # Absolute total series impedance (Ω) below which a line is replaced by a
@@ -24,6 +26,11 @@ Base.@kwdef struct FixRecipe
     # Grounding resistance (Ω) below which a shunt is promoted to a
     # perfectly_grounded_terminal.  Only used when apply_perfect_grounding=true.
     perfect_grounding_threshold_ohm :: Float64 = 0.1
+
+    # Per-unit total series impedance (on the from-side rating base) below which a
+    # transformer's non-zero leakage is treated as a placeholder for zero and
+    # snapped to exactly 0.  Only used when apply_snap_transformer_impedance=true.
+    snap_transformer_z_min_pu       :: Float64 = 1e-3
 end
 
 # ── Public entry point ───────────────────────────────────────────────────────
@@ -104,6 +111,15 @@ function fix_case(net::Dict{String,Any};
     recipe.apply_perfect_grounding &&
         _fix_perfect_grounding!(net′, entries,
                                 recipe.perfect_grounding_threshold_ohm)
+
+    # Pass 8 — capacitive shunts → capacitor objects (opt-in)
+    recipe.apply_shunt_to_capacitor &&
+        _fix_shunt_to_capacitor!(net′, entries)
+
+    # Pass 9 — snap placeholder transformer leakage to exactly zero (opt-in)
+    recipe.apply_snap_transformer_impedance &&
+        _fix_snap_transformer_impedance!(net′, entries,
+                                         recipe.snap_transformer_z_min_pu)
 
     fa = Finding[]
     benchmark_readiness_check(net′, fa)
@@ -484,5 +500,185 @@ function _fix_perfect_grounding!(net′, entries, threshold_ohm)
             "|Z_eq| = 1/|Y_11| = $(round(r_eq, sigdigits=3)) Ω < " *
             "threshold $(threshold_ohm) Ω — terminal '$t' on bus '$bus_id' " *
             "promoted to perfectly_grounded_terminals; shunt '$id' removed"))
+    end
+end
+
+# Fingerprint a purely-capacitive shunt's susceptance matrix `B` (over terminals
+# `tm`) into one of the model's capacitor configurations and recover the
+# nameplate, or return `nothing` to decline. A capacitor `B` is a sum of
+# reciprocal 2-node stamps b·[[1,−1],[−1,1]] (weighted Laplacian / M∆ᵀM∆ form):
+# symmetric, diagonal ≥ 0, off-diagonal ≤ 0. Row sums tell the return path —
+# zero for an in-map pair stamp, positive (a diagonal residual) for a
+# phase-to-ground stamp whose other node is the reference. The physical `B` is
+# preserved for any `v_rated`, so the config-appropriate nominal (P-N for WYE /
+# SINGLE_PHASE, √3·P-N = L-L for DELTA) is chosen only for nameplate readability.
+# Returns `(configuration, terminal_map, q_rated, v_rated)`.
+function _fingerprint_capacitor_shunt(tm::Vector{String}, B::AbstractMatrix,
+                                      bus::Dict, bus_id::String, vmap)
+    nb = size(B, 1)
+    (nb == length(tm) && nb >= 1) || return nothing
+    bscale = max(maximum(abs, B), 1e-30)
+    tol = 1e-9  * bscale          # "zero"
+    pos = 1e-12 * bscale          # strictly positive
+    # capacitor sign pattern: symmetric, diag ≥ 0, off-diag ≤ 0
+    maximum(abs.(B .- transpose(B))) <= tol || return nothing
+    all(B[i, i] >= -tol for i in 1:nb) || return nothing
+    all(B[i, j] <= tol for i in 1:nb, j in 1:nb if i != j) || return nothing
+
+    vpn = get(vmap, bus_id, nothing)
+    (vpn isa Number && vpn > 0) || return nothing
+    vpn = Float64(vpn); vll = sqrt(3.0) * vpn
+
+    offmax  = nb <= 1 ? 0.0 : maximum(abs(B[i, j]) for i in 1:nb, j in 1:nb if i != j)
+    rowsums = [sum(@view B[i, :]) for i in 1:nb]
+    diag    = [B[i, i] for i in 1:nb]
+    isneutral(t) = lowercase(t) == "n"
+
+    # ── (A) phase-to-ground: diagonal, positive, no internal coupling ──────────
+    if offmax <= tol && all(d -> d > pos, diag)
+        any(isneutral, tm) && return nothing          # phases only
+        nt = _neutral_terminal(bus)
+        grounded = Set(string.(get(bus, "perfectly_grounded_terminals", String[])))
+        (nt !== nothing && nt in grounded && !(nt in tm)) || return nothing
+        nb == 3 && return ("WYE", vcat(tm, nt), [diag[k] * vpn^2 for k in 1:3], vpn)
+        nb == 1 && return ("SINGLE_PHASE", [tm[1], nt], [diag[1] * vpn^2], vpn)
+        return nothing                                  # 2- or >3-phase ground bank
+    end
+
+    # ── internal returns: zero row sums ───────────────────────────────────────
+    all(r -> abs(r) <= tol, rowsums) || return nothing
+
+    if nb == 2
+        b = -B[1, 2]
+        b > pos || return nothing
+        vr = (isneutral(tm[1]) || isneutral(tm[2])) ? vpn : vll
+        return ("SINGLE_PHASE", copy(tm), [b * vr^2], vr)
+
+    elseif nb == 4
+        # star with a single hub coupling to all others (WYE), hub = neutral
+        hub = nothing
+        for h in 1:4
+            others = [i for i in 1:4 if i != h]
+            if all(abs(B[i, j]) <= tol for i in others, j in others if i != j) &&
+               all(-B[o, h] > pos for o in others)
+                hub = h; break
+            end
+        end
+        (hub !== nothing && isneutral(tm[hub])) || return nothing
+        phs = [i for i in 1:4 if i != hub]              # _phase_positions order
+        return ("WYE", copy(tm), [(-B[p, hub]) * vpn^2 for p in phs], vpn)
+
+    elseif nb == 3
+        # 3-cycle with every phase pair coupled (DELTA); phases only
+        any(isneutral, tm) && return nothing
+        (-B[1, 2] > pos && -B[2, 3] > pos && -B[1, 3] > pos) || return nothing
+        # q_rated[k] ↔ pair (k, k%3+1): (1,2),(2,3),(3,1)
+        return ("DELTA", copy(tm),
+                [(-B[1, 2]) * vll^2, (-B[2, 3]) * vll^2, (-B[1, 3]) * vll^2], vll)
+    end
+    return nothing
+end
+
+# Pass 8: convert purely-capacitive shunts into first-class `capacitor` objects.
+# The shunt's susceptance matrix is fingerprinted into a SINGLE_PHASE / WYE /
+# DELTA bank (or a phase-to-ground bank on a grounded neutral); the conversion is
+# committed only when the emitted capacitor's `_cap_bmatrix` reproduces the
+# shunt's `B` exactly (restricted to the shunt's own terminals — an appended
+# grounded neutral is pinned to 0 V and inert), guaranteeing faithfulness. Shunts
+# with conductance, a non-capacitor sign pattern, an unsupported structure, or an
+# undeterminable nominal are left untouched.
+function _fix_shunt_to_capacitor!(net′, entries)
+    shunts = get(net′, "shunt", nothing)
+    (shunts isa Dict && !isempty(shunts)) || return
+    buses = get(net′, "bus", Dict())
+    vmap  = get(voltage_level_analysis(net′, Finding[]), "bus_voltage_map",
+                Dict{String,Float64}())
+    caps  = get!(net′, "capacitor", Dict{String,Any}())
+
+    for (id, s) in collect(shunts)
+        s isa Dict || continue
+        bus_id = string(get(s, "bus", ""))
+        bus = get(buses, bus_id, nothing)
+        bus isa Dict || continue
+        tm = Vector{String}(string.(get(s, "terminal_map", String[])))
+        isempty(tm) && continue
+
+        B = _pattern_keys_to_matrix(s, "B_")
+        B isa AbstractMatrix || continue
+        size(B, 1) == length(tm) || continue
+        G = _pattern_keys_to_matrix(s, "G_")
+        bscale = max(maximum(abs, B), 1e-30)
+        # purely capacitive: negligible conductance
+        (G isa AbstractMatrix ? maximum(abs, G) : 0.0) <= 1e-9 * bscale || continue
+
+        fp = _fingerprint_capacitor_shunt(tm, B, bus, bus_id, vmap)
+        fp === nothing && continue
+        cfg, cap_tm, q, v_rated = fp
+
+        # Round-trip guard: the candidate must reproduce B on the shunt's terminals.
+        cand = Dict{String,Any}("bus" => bus_id, "terminal_map" => cap_tm,
+                                "configuration" => cfg, "v_rated" => v_rated,
+                                "q_rated" => q)
+        tm2, B2 = _cap_bmatrix(cand)
+        idx = [findfirst(==(t), tm2) for t in tm]
+        any(isnothing, idx) && continue
+        maximum(abs.(B2[idx, idx] .- B)) <= 1e-7 * bscale || continue
+
+        new_id = "cap_$(id)"
+        caps[new_id] = cand
+        delete!(shunts, id)
+        push!(entries, TransformEntry(
+            :shunt, id, "(converted_to_capacitor)",
+            Dict("bus" => bus_id, "terminal_map" => tm),
+            Dict("capacitor" => new_id, "configuration" => cfg,
+                 "q_rated" => q, "v_rated" => v_rated),
+            "shunt_to_capacitor", :heuristic,
+            "purely-capacitive shunt '$id' → $cfg capacitor '$new_id' " *
+            "(q_rated = B·v_rated², v_rated = $(round(v_rated, digits=1)) V); " *
+            "B reproduced exactly; shunt removed"))
+    end
+    isempty(caps) && delete!(net′, "capacitor")
+end
+
+# Pass 9: snap a transformer's tiny placeholder leakage to exactly zero. A small
+# non-zero series impedance (typically carried over from an admittance-based tool
+# that forbids exact zero) ill-conditions the IVR winding voltage-drop equation,
+# whereas exact zero collapses to the well-posed ideal constraint V_fr = N·V_to.
+# Only acts when the per-unit |Z| on the from-side rating base is non-zero and
+# below `z_min_pu` (real units are 1–15 %, so genuine values are never touched),
+# and only on the two-winding subtypes where the rating base is well-defined.
+const _XFMR_2WINDING_SUBTYPES = ("single_phase", "center_tap", "wye_delta", "delta_wye")
+
+function _fix_snap_transformer_impedance!(net′, entries, z_min_pu)
+    xfmr = get(net′, "transformer", Dict())
+    zkeys = ("r_series_from", "x_series_from", "r_series_to", "x_series_to",
+             "r_series", "x_series")
+    for subtype in _XFMR_2WINDING_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa Dict || continue
+        for (id, t) in sub
+            t isa Dict || continue
+            xvals = Float64[Float64(t[k]) for k in
+                            ("x_series_from", "x_series_to", "x_series") if haskey(t, k)]
+            isempty(xvals) && continue
+            rvals = Float64[Float64(t[k]) for k in
+                            ("r_series_from", "r_series_to", "r_series") if haskey(t, k)]
+            X = sum(abs, xvals)
+            R = isempty(rvals) ? 0.0 : sum(abs, rvals)
+            zpu = _xfmr_z_pu(t, R, X)
+            (zpu !== nothing && 0 < zpu < z_min_pu) || continue
+
+            old = Dict{String,Any}(k => t[k] for k in zkeys if haskey(t, k))
+            for k in zkeys
+                haskey(t, k) && (t[k] = 0.0)
+            end
+            push!(entries, TransformEntry(
+                :transformer, id, "(series_impedance_zeroed)",
+                old, Dict(k => 0.0 for k in keys(old)),
+                "snap_transformer_impedance", :heuristic,
+                "$subtype transformer '$id' had placeholder leakage |Z|≈" *
+                "$(round(zpu, sigdigits=2)) pu < $(z_min_pu) pu — snapped to exactly " *
+                "zero (well-posed ideal transformer in the IVR formulation)"))
+        end
     end
 end

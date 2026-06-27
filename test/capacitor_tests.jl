@@ -69,6 +69,21 @@ end
     f4 = Finding[]; spec_conformance_check(n4, f4)
     @test any(x -> x.code == "E.SPEC.CAP_VRATED", f4)
 
+    # negative q_rated → blocked (a reactor, not a capacitor)
+    b5 = deepcopy(good); b5["q_rated"] = [6.0e5, -6.0e5, 6.0e5]
+    n5 = Dict{String,Any}("capacitor"=>Dict{String,Any}("c1"=>b5))
+    f5 = Finding[]; spec_conformance_check(n5, f5)
+    @test any(x -> x.code == "E.SPEC.CAP_NEGATIVE_Q", f5)
+
+    # WYE with arity 4 but no resolvable neutral → silently inert ⇒ warning
+    b6 = deepcopy(good); b6["terminal_map"] = ["a","b","c","g"]   # 'g' is not a neutral
+    n6 = Dict{String,Any}("capacitor"=>Dict{String,Any}("c1"=>b6))
+    f6 = Finding[]; spec_conformance_check(n6, f6)
+    @test any(x -> x.code == "W.SPEC.CAP_WYE_NO_NEUTRAL", f6)
+    # a proper WYE (…,"n") does NOT warn
+    f6b = Finding[]; spec_conformance_check(net, f6b)
+    @test !any(x -> x.code == "W.SPEC.CAP_WYE_NO_NEUTRAL", f6b)
+
     # inventory counts it and totals q_rated
     rep = analyze(net)
     @test rep.results[:inventory]["capacitor"]["total"] == 1

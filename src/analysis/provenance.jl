@@ -45,6 +45,7 @@ function provenance_analysis(net::Dict{String,Any},
     result["earthing_zones"]      = _earthing_zones(net, vl)
     _check_regulator_patterns(net, findings, vl)
     _check_bus_shunts(net, findings)
+    result["capacitor_like_shunts"]       = _check_capacitor_like_shunts(net, findings)
     result["redundant_voltage_bounds"]    = _check_bus_voltage_bound_redundancy(net, findings)
     result["inconsistent_bounds"]         = _check_bus_voltage_bound_consistency(net, findings)
     result["inapplicable_voltage_bounds"] = _check_bus_voltage_bound_applicability(net, findings)

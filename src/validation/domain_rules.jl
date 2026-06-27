@@ -20,6 +20,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_generator_cost(net, findings, thresholds, n_checks)
     _check_line_impedance(net, findings, thresholds, n_checks)
     _check_transformer_ratings(net, findings, thresholds, n_checks)
+    _check_transformer_ideal(net, findings, thresholds, n_checks)
     _check_nonnegative_fields(net, findings, n_checks)
     _check_zero_limits(net, findings, n_checks)
     _check_zero_length(net, findings, n_checks)
@@ -692,6 +693,94 @@ function _check_transformer_ratings(net, findings, thresh, n_checks)
                     Dict{String,Any}("step_ratio" => step,
                                      "v_ref_from" => vf_f, "v_ref_to" => vt_f)))
             end
+        end
+    end
+end
+
+# Isolating power transformers whose leakage impedance is physically meaningful.
+# Regulators / autotransformers (single_phase_autotransformer, open_delta_regulator)
+# are intentionally near-ideal tap changers and are excluded.
+const _XFMR_LEAKAGE_SUBTYPES = ("single_phase", "center_tap", "wye_delta",
+                                "delta_wye", "n_winding")
+
+# Per-unit total series impedance of a transformer on its from-side rating base
+# (Z_base = v_ref_from²/s_rating). Returns `nothing` when the base is undefined.
+function _xfmr_z_pu(t::Dict, R::Real, X::Real)
+    sbase = Float64(get(t, "s_rating",   0.0))
+    vref  = Float64(get(t, "v_ref_from", 0.0))
+    (sbase > 0 && vref > 0) || return nothing
+    hypot(Float64(R), Float64(X)) / (vref^2 / sbase)
+end
+
+# Flag transformers carrying zero / near-zero placeholder leakage. The OPF uses
+# the IVR formulation, where series impedance is a *coefficient* in the winding
+# voltage-drop equation (`V_fr − N·V_to = R·I − X·jI`), not an inverted
+# admittance, so:
+#   • exactly-zero leakage collapses cleanly to the ideal constraint
+#     `V_fr = N·V_to` — well-posed, NOT degenerate (INFO `I.DOM.XFMR_IDEAL`);
+#   • a tiny non-zero leakage (a placeholder for zero carried over from an
+#     admittance tool, which forbids exact zero) weakly constrains the series
+#     current and is ill-conditioned — exact zero is better (WARNING
+#     `W.DOM.XFMR_LOW_IMPEDANCE`, the transformer analogue of a low-impedance
+#     line that should be a switch).
+# A lossless unit (`R≈0` with realistic `X`) is entirely normal here and is not
+# flagged.
+function _check_transformer_ideal(net, findings, thresh, n_checks)
+    ztol    = Float64(get(thresh, "xfmr_z_min_ohm", 1e-6))
+    zpu_min = Float64(get(thresh, "xfmr_z_min_pu",  1e-3))
+    xfmr = get(net, "transformer", Dict())
+    for subtype in _XFMR_LEAKAGE_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa Dict || continue
+        for (id, t) in sub
+            t isa Dict || continue
+            if subtype == "n_winding"
+                xvals = Float64[Float64(v) for v in values(get(t, "x_sc", Dict()))]
+                ws    = get(t, "windings", Any[])
+                rvals = Float64[Float64(get(w, "r_winding", 0.0)) for w in ws if w isa Dict]
+            else
+                xvals = Float64[Float64(t[k]) for k in
+                                ("x_series_from", "x_series_to", "x_series") if haskey(t, k)]
+                rvals = Float64[Float64(t[k]) for k in
+                                ("r_series_from", "r_series_to", "r_series") if haskey(t, k)]
+            end
+            isempty(xvals) && continue   # reactance unspecified → a completeness issue, not here
+            n_checks[] += 1
+            X = sum(abs, xvals)
+            R = isempty(rvals) ? 0.0 : sum(abs, rvals)
+
+            if X <= ztol
+                kind = R <= ztol ? "ideal (lossless, zero-impedance)" :
+                                   "zero-leakage (purely resistive)"
+                push!(findings, Finding(INFO, "I.DOM.XFMR_IDEAL", :domain_rules,
+                    :transformer, id,
+                    "Transformer '$id' ($subtype) has zero leakage reactance (X≈$(X) Ω, " *
+                    "R≈$(R) Ω) — modeled as an $kind transformer with no series voltage " *
+                    "drop. The IVR OPF represents this as the exact voltage-ratio " *
+                    "constraint V_fr = N·V_to (well-posed, not degenerate), but `%Z` was " *
+                    "most likely omitted — supply realistic leakage (x ≈ 4–10 % on the " *
+                    "rating base) if regulation across the winding matters.",
+                    Dict{String,Any}("subtype" => subtype, "x_series_total" => X,
+                                     "r_series_total" => R)))
+                continue
+            end
+
+            # Small non-zero placeholder? (per-unit; n_winding bases differ — skip)
+            subtype == "n_winding" && continue
+            zpu = _xfmr_z_pu(t, R, X)
+            (zpu !== nothing && 0 < zpu < zpu_min) || continue
+            push!(findings, Finding(WARNING, "W.DOM.XFMR_LOW_IMPEDANCE", :domain_rules,
+                :transformer, id,
+                "Transformer '$id' ($subtype) has near-zero series impedance " *
+                "(|Z| ≈ $(round(zpu, sigdigits=2)) pu < $(zpu_min) pu on the rating " *
+                "base; real units are 1–15 %) — almost certainly a small placeholder " *
+                "for zero carried over from an admittance-based tool. In this IVR " *
+                "engine a tiny leakage ill-conditions the winding voltage-drop " *
+                "equation, whereas exact zero collapses to the well-posed ideal " *
+                "constraint V_fr = N·V_to. Set it to exactly zero (the fix recipe can, " *
+                "via `apply_snap_transformer_impedance`) or to a realistic %Z.",
+                Dict{String,Any}("subtype" => subtype, "z_pu" => zpu,
+                                 "x_series_total" => X, "r_series_total" => R)))
         end
     end
 end

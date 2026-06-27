@@ -2241,4 +2241,116 @@
         @test Vll("reg", "2", "3") ≈ 1.025 * Vll_src_23   rtol=1e-3
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # CAP-EQ: the fix-recipe shunt→capacitor conversion is electrically lossless.
+    # Solve the SAME feeder twice — once with the capacitive phase-to-ground
+    # shunt, once after `apply_shunt_to_capacitor` re-represents it as a WYE
+    # capacitor — and assert an identical operating point. This proves the
+    # conversion preserves the physics in the actual OPF (the grounded neutral's
+    # free ground current absorbs the capacitor's neutral-row current).
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "CAP-EQ: shunt→capacitor conversion preserves the solution" begin
+        netdict = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"]),
+                "b1"  => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"],
+                    "v_min" => [200.0,200.0,200.0])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a","b","c"],
+                "v_magnitude" => [230.0,230.0,230.0], "v_angle" => [0.0,-2.0944,2.0944])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                "R_series_1_1" => 0.3, "R_series_2_2" => 0.3, "R_series_3_3" => 0.3,
+                "X_series_1_1" => 0.3, "X_series_2_2" => 0.3, "X_series_3_3" => 0.3)),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "src", "bus_to" => "b1",
+                "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"],
+                "linecode" => "lc", "length" => 1.0)),
+            "shunt" => Dict{String,Any}("cap1" => Dict{String,Any}(
+                "bus" => "b1", "terminal_map" => ["a","b","c"],
+                "B_1_1" => 5e-4, "B_2_2" => 5e-4, "B_3_3" => 5e-4)))
+
+        res_shunt = solve_opf(deepcopy(netdict))
+        @test res_shunt["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        net_cap, _ = fix_case(deepcopy(netdict); recipe = FixRecipe(
+            apply_largest_component=false, apply_simplify_network=false,
+            apply_remove_zero_loads=false, apply_low_impedance_to_switch=false,
+            apply_source_bus_bounds=false, apply_shunt_to_capacitor=true))
+        @test haskey(net_cap["capacitor"], "cap_cap1")
+        @test !haskey(get(net_cap, "shunt", Dict()), "cap1")
+
+        res_cap = solve_opf(net_cap)
+        @test res_cap["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        # Identical operating point at the bus carrying the converted element.
+        for t in ("a","b","c")
+            @test res_cap["bus"]["b1"][t]["vr"] ≈ res_shunt["bus"]["b1"][t]["vr"]  atol=1e-3
+            @test res_cap["bus"]["b1"][t]["vi"] ≈ res_shunt["bus"]["b1"][t]["vi"]  atol=1e-3
+        end
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CAP-EQ-CFG: the B-matrix fingerprinting recovers each capacitor config
+    # (SINGLE_PHASE / WYE / DELTA) and the converted network solves to the same
+    # operating point as the original capacitive shunt.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "CAP-EQ-CFG: fingerprinted conversion — all configs" begin
+        base() = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"]),
+                "b1"  => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"],
+                    "v_min" => [200.0,200.0,200.0])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a","b","c"],
+                "v_magnitude" => [230.0,230.0,230.0], "v_angle" => [0.0,-2.0944,2.0944])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                "R_series_1_1" => 0.3, "R_series_2_2" => 0.3, "R_series_3_3" => 0.3,
+                "X_series_1_1" => 0.3, "X_series_2_2" => 0.3, "X_series_3_3" => 0.3)),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "src", "bus_to" => "b1",
+                "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"],
+                "linecode" => "lc", "length" => 1.0)))
+
+        # (config, shunt terminal_map, upper-triangular B keys)
+        cases = [
+            ("SINGLE_PHASE", ["a","b"],
+             Dict{String,Any}("B_1_1"=>5e-4, "B_2_2"=>5e-4, "B_1_2"=>-5e-4)),
+            ("DELTA", ["a","b","c"],
+             Dict{String,Any}("B_1_1"=>1e-3, "B_2_2"=>1e-3, "B_3_3"=>1e-3,
+                              "B_1_2"=>-5e-4, "B_2_3"=>-5e-4, "B_1_3"=>-5e-4)),
+            ("WYE", ["a","b","c","n"],
+             Dict{String,Any}("B_1_1"=>5e-4, "B_2_2"=>5e-4, "B_3_3"=>5e-4,
+                              "B_4_4"=>1.5e-3, "B_1_4"=>-5e-4, "B_2_4"=>-5e-4,
+                              "B_3_4"=>-5e-4)),
+        ]
+
+        for (cfg, tm, bkeys) in cases
+            net = base()
+            net["shunt"] = Dict{String,Any}("sh" => merge(
+                Dict{String,Any}("bus" => "b1", "terminal_map" => tm), bkeys))
+
+            res_shunt = solve_opf(deepcopy(net))
+            @test res_shunt["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+            net_cap, _ = fix_case(deepcopy(net); recipe = FixRecipe(
+                apply_largest_component=false, apply_simplify_network=false,
+                apply_remove_zero_loads=false, apply_low_impedance_to_switch=false,
+                apply_source_bus_bounds=false, apply_shunt_to_capacitor=true))
+            @test haskey(get(net_cap, "capacitor", Dict()), "cap_sh")
+            @test net_cap["capacitor"]["cap_sh"]["configuration"] == cfg
+            @test !haskey(get(net_cap, "shunt", Dict()), "sh")
+
+            res_cap = solve_opf(net_cap)
+            @test res_cap["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+            for t in ("a","b","c")
+                @test res_cap["bus"]["b1"][t]["vr"] ≈ res_shunt["bus"]["b1"][t]["vr"]  atol=1e-3
+                @test res_cap["bus"]["b1"][t]["vi"] ≈ res_shunt["bus"]["b1"][t]["vi"]  atol=1e-3
+            end
+        end
+    end
+
 end  # @testset "OPF — solve_opf extension"
