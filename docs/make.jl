@@ -36,6 +36,7 @@ makedocs(
             "Optimal power flow"       => "opf.md",
             "OPF result dictionary"    => "results.md",
             "Validating the OPF"       => "validation.md",
+            "SWER case study"          => "tutorial_swer.md",
         ],
         "Bounds & feasibility"    => [
             "bounds/index.md",

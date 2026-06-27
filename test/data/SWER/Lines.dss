@@ -1,0 +1,4 @@
+! SWER backbone: single conductor (node .1), earth return.
+! Lengths kept so total load (~5 kVA) stays under 0.5 kVA/km.
+New Line.l1 bus1=swer_0.1 bus2=swer_1.1 linecode=swer length=6 units=km phases=1
+New Line.l2 bus1=swer_1.1 bus2=swer_2.1 linecode=swer length=6 units=km phases=1

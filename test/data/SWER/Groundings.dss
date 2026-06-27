@@ -1,0 +1,14 @@
+! Distributed earths that establish the SWER earth-return path.  Each is a
+! near-zero reactor tying the local earth terminal (.4) to the OpenDSS earth
+! node (.0).  Modelled as solid grounding, as in the pf_comparison cases.
+
+! SWER station earth (isolating-transformer LV star point).
+New Reactor.grnd_swer0 bus1=swer_0.4 bus2=swer_0.0 R=0.001 X=0 phases=1
+
+! Distribution-transformer pole earths (SWER side).
+New Reactor.grnd_swer1 bus1=swer_1.4 bus2=swer_1.0 R=0.001 X=0 phases=1
+New Reactor.grnd_swer2 bus1=swer_2.4 bus2=swer_2.0 R=0.001 X=0 phases=1
+
+! LV neutral / centre-tap earths (MEN).
+New Reactor.grnd_lv1 bus1=lv_1.4 bus2=lv_1.0 R=0.001 X=0 phases=1
+New Reactor.grnd_lv2 bus1=lv_2.4 bus2=lv_2.0 R=0.001 X=0 phases=1

@@ -76,6 +76,7 @@ function from_dss(path::AbstractString;
     _canonicalize_identifiers!(net)
     _remap_opendss_terminals!(net)
     _merge_phase_voltage_sources!(net)
+    _normalize_center_tap_transformers!(net)
 
     # Store conversion warnings so callers can inspect fidelity losses
     net["_meta"] = get(net, "_meta", Dict{String,Any}())
@@ -288,6 +289,56 @@ function _remap_terminal_maps!(net::Dict{String,Any},
             end
         end
     end
+end
+
+"""
+    _normalize_center_tap_transformers!(net)
+
+Convert PowerIO's `center_tap` encoding to BMOPF's canonical convention.
+
+PowerIO emits a split-phase (centre-tapped) transformer with the LV
+`terminal_map_to` listing the two legs first and the centre tap (neutral) **last**
+— e.g. `["a","b","n"]` — and `v_ref_to` set to the **full** secondary voltage
+(the sum of both half-windings, e.g. 240 V for a 120-0-120 transformer).
+
+The BMOPF OPF model ([`to_ybus`](@ref)'s `_yprim_center_tap`), the schema, the
+spec-conformance arity `(2,3)` and every hand-authored fixture instead expect the
+centre tap in the **middle** — `[leg1, "n", leg2]` — and `v_ref_to` to be the
+**per-leg** (half-winding) voltage, since the turns ratio is computed per leg.
+Left unconverted, the connection matrix wires the wrong nodes and the turns ratio
+is 2× off, giving leg voltages 2–4× too high.
+
+Both corrections are tied to the same detected condition — the neutral terminal
+not already sitting in the middle — so the function is idempotent and a no-op on
+data already in canonical form (e.g. hand-built nets or a future PowerIO that
+adopts the BMOPF convention).
+"""
+function _normalize_center_tap_transformers!(net::Dict{String,Any})
+    xfmr = get(net, "transformer", nothing)
+    xfmr isa Dict || return net
+    ct = get(xfmr, "center_tap", nothing)
+    ct isa Dict || return net
+
+    for (_, c) in ct
+        c isa Dict || continue
+        tm = get(c, "terminal_map_to", nothing)
+        (tm isa Vector && length(tm) == 3) || continue
+        tm = string.(tm)
+
+        # PowerIO convention: centre tap (neutral) listed last instead of middle.
+        # Canonical form already has "n" in the middle → leave untouched (no-op).
+        tm[2] == "n" && continue
+        ni = findfirst(==("n"), tm)
+        ni === nothing && continue      # no identifiable centre tap; leave as-is
+
+        legs = [t for t in tm if t != "n"]
+        c["terminal_map_to"] = [legs[1], "n", legs[2]]
+
+        # PowerIO's v_ref_to is the full secondary; the model wants per-leg.
+        v = get(c, "v_ref_to", nothing)
+        v isa Real && (c["v_ref_to"] = v / 2)
+    end
+    return net
 end
 
 # Phase terminals in positive-sequence rotation (a precedes b precedes c). A

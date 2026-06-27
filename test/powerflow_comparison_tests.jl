@@ -2180,3 +2180,65 @@ end
         _cmp_volts(V_ods, V_bm; label="cap-delta (pu=$pu): ")
     end
 end
+
+@testset "PF comparison — Queensland isolated SWER feeder (from_dss)" begin
+    # End-to-end isolated-SWER feeder loaded through PowerIO (from_dss): a 22 kV
+    # three-phase source, a phase-to-phase isolating transformer to a 12.7 kV
+    # single-wire earth-return backbone, a single-ended N-0 distribution
+    # transformer (dx1) and a split-phase centre-tapped N-0-N transformer (dx2).
+    # Exercises the full parse→power-flow path and validates the center_tap
+    # normalisation in from_dss against OpenDSS's own solve.
+    path = joinpath(@__DIR__, "data", "SWER", "Master.dss")
+    net  = from_dss(path)
+
+    # Structure: one isolating + one single-ended dist xfmr (single_phase), one
+    # split-phase (center_tap); the SWER backbone parsed as single-wire.
+    @test Set(keys(net["transformer"]["single_phase"])) == Set(["iso", "dx1"])
+    @test haskey(net["transformer"]["center_tap"], "dx2")
+
+    # from_dss center_tap normalisation: centre tap "n" sits in the MIDDLE of
+    # terminal_map_to and v_ref_to is the per-leg (half-winding) voltage. Without
+    # this the OPF connection matrix wires the wrong nodes and the turns ratio is
+    # 2× off (leg voltages 2–4× too high).
+    dx2 = net["transformer"]["center_tap"]["dx2"]
+    @test dx2["terminal_map_to"][2] == "n"
+    @test isapprox(dx2["v_ref_to"], 240.0; rtol=1e-6)   # 0.48 kV split → 240 V/leg
+
+    V_ods = _ods_volts(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+
+    # Relaxed tolerance (vs the default tight 1e-3): the single-ended SWER backbone
+    # matches OpenDSS closely, but the split-phase centre-tap (dx2) has a residual
+    # leg-voltage spread under load (the 3-winding-star T-model approximates the
+    # tightly-coupled half-windings) — <0.8 % at this light loading. Still tight
+    # enough to reject the pre-fix 2–4× center_tap error.
+    _cmp_volts(V_ods, V_bm; label="swer: ", atol=0.5, rtol=0.015)
+end
+
+@testset "PF comparison — loaded center_tap (power-conservation regression)" begin
+    # Regression guard for the center_tap ideal-core current-coupling sign. With the
+    # wrong sign (N·Is + Il1 + Il2 = 0) the transformer SOURCES spurious active power
+    # ∝ load, inflating the load-sensitive HV-side voltage and driving total losses
+    # negative. The correct coupling (N·Is + Il1 − Il2 = 0, reversed winding-3)
+    # conserves power and matches OpenDSS. The 5 km line makes the bug observable —
+    # on a stiff bus the source pins the voltages and hides it (which is why the
+    # other center_tap tests, all on stiff/short networks, missed it).
+    path = joinpath(_PF_CMP_DIR, "pf_center_tap_loaded.dss")
+    net  = from_dss(path)
+    V_ods = _ods_volts(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer, per_unit=true)
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+
+    # Load-sensitive HV bus must match OpenDSS (spurious power would inflate it; the
+    # pre-fix model put it hundreds of volts high on a long feeder).
+    @test isapprox(abs(V_bm["hv.1"]), abs(V_ods["hv.1"]); atol=2.0)
+    # Power must be conserved: a passive transformer cannot generate active power.
+    @test res["losses"]["p_loss"] > 0
+    # Split-phase legs (looser: residual T-model leg-spread under load).
+    _cmp_volts(V_ods, V_bm; label="ct-loaded: ", atol=3.5, rtol=0.02)
+end

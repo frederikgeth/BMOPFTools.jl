@@ -2108,6 +2108,38 @@ const IEEE13_FIXTURE = """
         @test lone["voltage_source"]["source"]["terminal_map"] == ["a","n"]
     end
 
+    @testset "from_dss — center_tap normalisation" begin
+        # PowerIO emits a centre-tapped (split-phase) transformer with the centre
+        # tap (neutral) listed LAST in terminal_map_to and v_ref_to set to the FULL
+        # secondary. The OPF model wants the centre tap in the MIDDLE and v_ref_to
+        # per-leg. _normalize_center_tap_transformers! converts to that convention.
+        mk() = Dict{String,Any}("transformer" => Dict{String,Any}(
+            "center_tap" => Dict{String,Any}("ct" => Dict{String,Any}(
+                "bus_from" => "hv", "bus_to" => "lv",
+                "terminal_map_from" => ["a","n"],
+                "terminal_map_to"   => ["a","b","n"],   # centre tap last (PowerIO)
+                "v_ref_from" => 7200.0, "v_ref_to" => 240.0))))   # full secondary
+
+        net = mk()
+        BMOPFTools._normalize_center_tap_transformers!(net)
+        ct = net["transformer"]["center_tap"]["ct"]
+        @test ct["terminal_map_to"] == ["a","n","b"]   # centre tap moved to middle
+        @test ct["v_ref_to"] == 120.0                  # halved to per-leg
+
+        # Idempotent: a second pass (or already-canonical data) is a no-op.
+        BMOPFTools._normalize_center_tap_transformers!(net)
+        @test ct["terminal_map_to"] == ["a","n","b"]
+        @test ct["v_ref_to"] == 120.0
+
+        # No identifiable centre tap → left untouched (model warns later instead).
+        no_n = Dict{String,Any}("transformer" => Dict{String,Any}(
+            "center_tap" => Dict{String,Any}("ct" => Dict{String,Any}(
+                "terminal_map_to" => ["a","b","c"], "v_ref_to" => 240.0))))
+        BMOPFTools._normalize_center_tap_transformers!(no_n)
+        @test no_n["transformer"]["center_tap"]["ct"]["terminal_map_to"] == ["a","b","c"]
+        @test no_n["transformer"]["center_tap"]["ct"]["v_ref_to"] == 240.0
+    end
+
     @testset "Completeness — transformer required fields" begin
         net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
         delete!(net["transformer"]["single_phase"]["xfm2"], "s_rating")
@@ -2739,6 +2771,65 @@ const IEEE13_FIXTURE = """
             lv_levels = [info for (_, info) in prov["wires_by_level"]
                          if info["is_lv"]]
             @test !isempty(lv_levels)
+        end
+    end
+
+    # --------------------------------------------------------------------------
+    # Queensland isolated-SWER feeder — OpenDSS integration via from_dss.
+    # Canonical small isolated-SWER network (22 kV 3-ph → phase-to-phase isolating
+    # xfmr → 12.7 kV single-wire earth-return backbone → single-ended N-0 and
+    # split-phase centre-tapped N-0-N distribution transformers). Validates the
+    # SWER/split-phase zone classification and the center_tap parse end-to-end.
+    # --------------------------------------------------------------------------
+    @testset "SWER feeder — OpenDSS integration" begin
+        net = from_dss(joinpath(@__DIR__, "data", "SWER", "Master.dss"))
+        @test net isa Dict{String,Any}
+
+        @testset "Network structure" begin
+            xfmr = net["transformer"]
+            # iso + dx1 are 1-ph (single_phase); dx2 is split-phase (center_tap).
+            @test Set(keys(xfmr["single_phase"])) == Set(["iso", "dx1"])
+            @test Set(keys(xfmr["center_tap"]))   == Set(["dx2"])
+
+            # center_tap normalised to BMOPF convention: centre tap in the middle,
+            # per-leg v_ref_to (240 V for the 240-0-240 secondary).
+            dx2 = xfmr["center_tap"]["dx2"]
+            @test dx2["terminal_map_to"][2] == "n"
+            @test isapprox(dx2["v_ref_to"], 240.0; rtol=1e-6)
+
+            # Single-wire backbone: 1-conductor linecode, 2 line segments.
+            @test length(net["line"]) == 2
+            @test all(length(l["terminal_map_from"]) == 1 for (_, l) in net["line"])
+
+            # All loads single-phase; pole/MEN earths parsed as grounding shunts.
+            @test all(l["configuration"] == "SINGLE_PHASE" for (_, l) in net["load"])
+            @test !isempty(get(net, "shunt", Dict()))
+        end
+
+        @testset "Analysis — SWER & split-phase zones" begin
+            report = analyze(net)
+            @test report isa SummaryReport
+
+            conn = report.results[:connectivity]
+            # Two single-wire earth-return zones (the isolated MV backbone and the
+            # single-ended LV section) plus one split-phase (centre-tap) zone.
+            @test conn["n_swer_zones"] == 2
+            @test conn["n_split_phase_zones"] == 1
+
+            fcodes = [f.code for f in report.findings]
+            @test "I.PROV.SWER_ZONE" in fcodes
+            @test "I.PROV.SPLIT_PHASE_ZONE" in fcodes
+
+            # The network is physically well-formed: no ERROR-level findings.
+            @test !any(f -> f.severity == ERROR, report.findings)
+
+            # Nominal-voltage propagation must treat the phase-to-phase isolating
+            # transformer's v_ref as line-to-line: the 240 V phase-to-earth LV
+            # taps must come out at 240 V, not 240/√3 ≈ 139 V. Guards the √3
+            # correction in _build_voltage_adjacency.
+            bvm = report.results[:voltage_levels]["bus_voltage_map"]
+            @test isapprox(bvm["lv_1"], 240.0; rtol=0.02)
+            @test isapprox(bvm["swer_2"], 12700.0; rtol=0.02)
         end
     end
 
