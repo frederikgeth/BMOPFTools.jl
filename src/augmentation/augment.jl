@@ -77,6 +77,9 @@ function augment_case(net::Dict{String,Any};
     # ── Pass 1: voltage bounds ────────────────────────────────────────────────
     _apply_voltage_bounds!(net′, entries, recipe, bus_voltage_map)
 
+    # ── Pass 1b: intra-bus angle-difference bounds (opt-in) ──────────────────
+    recipe.apply_va_diff_bounds && _apply_angle_diff_bounds!(net′, entries, recipe)
+
     # ── Pass 2: thermal limits ────────────────────────────────────────────────
     _apply_thermal!(net′, entries, recipe, lc_classifications)
 

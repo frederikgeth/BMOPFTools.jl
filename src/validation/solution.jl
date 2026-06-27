@@ -381,6 +381,58 @@ function solution_check(net::Dict{String,Any},
         end
     end
 
+    # ── Intra-bus angle-difference bounds (va_diff_min / va_diff_max) ────────
+    # Mirrors the OPF constraint (ext/BMOPFOpfExt/bus.jl §d): for each phase pair
+    # (k,j) in declaration order, bound the CENTERED difference
+    # θ_j − θ_k − (va_nom[j] − va_nom[k]), wrapped to (−π, π], within
+    # [va_diff_min, va_diff_max]. Pair enumeration matches vpp (i<j over the full
+    # phase list); a terminal absent from the result is skipped.
+    for (bid, bus) in buses
+        bus isa Dict || continue
+        va_diff_min = get(bus, "va_diff_min", nothing)
+        va_diff_max = get(bus, "va_diff_max", nothing)
+        va_diff_min === nothing && va_diff_max === nothing && continue
+        t_res = get(bus_res, bid, nothing)
+        t_res isa Dict || continue
+        nt = _neutral_terminal(bus)
+        term_names = Vector{String}(get(bus, "terminal_names", String[]))
+        phase_ts_ordered = [t for t in term_names if t != nt]
+        length(phase_ts_ordered) < 2 && continue
+        va_nom = get(bus, "va_nom", nothing)
+        nom(idx) = (va_nom isa AbstractVector && idx <= length(va_nom)) ?
+                   Float64(va_nom[idx]) : 0.0
+
+        for i in eachindex(phase_ts_ordered), j in (i+1):length(phase_ts_ordered)
+            ta = phase_ts_ordered[i]; tb = phase_ts_ordered[j]
+            (haskey(t_res, ta) && haskey(t_res, tb)) || continue
+            va = t_res[ta]; vb = t_res[tb]
+            vra = get(va,"vr",NaN); via = get(va,"vi",NaN)
+            vrb = get(vb,"vr",NaN); vib = get(vb,"vi",NaN)
+            (isfinite(vra) && isfinite(via) && isfinite(vrb) && isfinite(vib)) || continue
+            # θ_b − θ_a, centered on the nominal offset, wrapped to (−π, π].
+            dθ = _wrap_pi(atan(vib, vrb) - atan(via, vra) - (nom(j) - nom(i)))
+            viol, act = _bound_status(dθ, va_diff_min, va_diff_max)
+            pair = "$ta-$tb"
+            if viol
+                n_volt_viol += 1
+                push!(findings, Finding(ERROR, "E.SOL.ANGLE_VIOLATION", :solution, :bus, bid,
+                    "Bus '$bid' phase pair $pair: centered angle diff " *
+                    "$(round(dθ, digits=4)) rad violates va_diff bounds.",
+                    Dict{String,Any}("bus"=>bid,"pair"=>pair,"va_diff"=>dθ,
+                                     "va_diff_min"=>va_diff_min,"va_diff_max"=>va_diff_max,
+                                     "flavour"=>"va_diff")))
+            elseif act
+                n_volt_active += 1
+                push!(findings, Finding(WARNING, "W.SOL.ANGLE_ACTIVE", :solution, :bus, bid,
+                    "Bus '$bid' phase pair $pair: centered angle diff " *
+                    "$(round(dθ, digits=4)) rad is near a va_diff bound.",
+                    Dict{String,Any}("bus"=>bid,"pair"=>pair,"va_diff"=>dθ,
+                                     "va_diff_min"=>va_diff_min,"va_diff_max"=>va_diff_max,
+                                     "flavour"=>"va_diff")))
+            end
+        end
+    end
+
     out["n_volt_violations"] = n_volt_viol
     out["n_volt_active"]     = n_volt_active
 

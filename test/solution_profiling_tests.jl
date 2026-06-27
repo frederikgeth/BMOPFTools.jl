@@ -598,6 +598,28 @@ end
     @test "vzero" in flavours
 end
 
+# ── Intra-bus angle-difference bounds (va_diff_min / va_diff_max) ─────────────
+@testset "SOL — angle-difference bound (va_diff)" begin
+    # Balanced fixture: raw inter-phase diffs are ≈ ±120° (±2.094 rad).
+    # A tight window WITHOUT centering (no va_nom) is violated by the raw angle.
+    net = _base_net()
+    net["bus"]["b1"]["va_diff_min"] = -0.1
+    net["bus"]["b1"]["va_diff_max"] =  0.1
+    f = Finding[]; solution_check(net, _base_result(), f)
+    vf = first(x for x in f if x.code == "E.SOL.ANGLE_VIOLATION")
+    @test vf.detail["flavour"] == "va_diff"
+    @test occursin("-", vf.detail["pair"])               # "a-b" style label
+
+    # Centering on the ±120° nominal collapses the deviation to ≈ 0 → no
+    # violation under the same tight window. This is the whole point.
+    net2 = _base_net()
+    net2["bus"]["b1"]["va_nom"]      = [0.0, -2.094, 2.094]
+    net2["bus"]["b1"]["va_diff_min"] = -0.1
+    net2["bus"]["b1"]["va_diff_max"] =  0.1
+    f2 = Finding[]; solution_check(net2, _base_result(), f2)
+    @test !any(x.code == "E.SOL.ANGLE_VIOLATION" for x in f2)
+end
+
 # ── Thermal limits: line-level i_max precedence + switch thermal ──────────────
 @testset "SOL — line-level i_max precedence and switch thermal" begin
     # A line-level i_max overrides the linecode i_max (cm_fr=5 A > 3 A → violation).

@@ -248,3 +248,73 @@ function _apply_voltage_bounds!(net′::Dict{String,Any},
         end
     end
 end
+
+"""
+    _apply_angle_diff_bounds!(net′, entries, r)
+
+Inject the intra-bus angle-difference centering reference (`va_nom`) and the
+symmetric bound window (`va_diff_min`/`va_diff_max`) for multiphase, non-source
+buses, following the PSCC-2026 centered formulation. Only buses with an
+unambiguous nominal phasor arrangement are touched:
+
+- **split-phase** (in a `center_tap`-fed zone, exactly 2 phase terminals) →
+  `va_nom = [0, π]` (the two legs are anti-phase);
+- **three-phase** (exactly 3 phase terminals) → `va_nom = [0, −2π/3, 2π/3]`
+  (positive sequence, declaration order a,b,c).
+
+All other buses (single-phase, or ambiguous phase counts) are skipped — the
+nominal offset is never guessed. Existing `va_nom`/`va_diff_*` are never
+overwritten. `va_nom` is indexed in the full phase order (`terminal_names` minus
+neutral), matching the OPF and `vpn`/`vpp`.
+"""
+function _apply_angle_diff_bounds!(net′::Dict{String,Any},
+                                    entries::Vector{TransformEntry},
+                                    r::AugmentationRecipe)
+    buses = get(net′, "bus", Dict())
+
+    source_buses = Set{String}()
+    for (_, vs) in get(net′, "voltage_source", Dict())
+        b = get(vs, "bus", nothing)
+        b isa String && push!(source_buses, b)
+    end
+
+    split_phase_buses = Set{String}()
+    for z in _classify_zones(net′)
+        z.topology == :split_phase && union!(split_phase_buses, z.buses)
+    end
+
+    w = r.va_diff_window_rad
+    for (bid, bus) in buses
+        bus isa Dict || continue
+        bid in source_buses && continue                 # source phasors are pinned
+
+        nt      = _neutral_terminal(bus)
+        terms   = get(bus, "terminal_names", String[])
+        n_phase = count(t -> string(t) != nt, terms)
+
+        va_nom =
+            (bid in split_phase_buses && n_phase == 2) ? [0.0, π]             :
+            (n_phase == 3)                             ? [0.0, -2π/3, 2π/3]   :
+                                                          nothing
+        va_nom === nothing && continue                  # never guess the offset
+
+        kind = (bid in split_phase_buses && n_phase == 2) ? "split-phase (180°)" :
+                                                            "three-phase (±120°)"
+        if !haskey(bus, "va_nom")
+            bus["va_nom"] = va_nom
+            push!(entries, TransformEntry(
+                :bus, bid, "va_nom", nothing, va_nom,
+                "PSCC2026_anglediff", :heuristic,
+                "$kind nominal phase angles (rad)"))
+        end
+        for (field, val) in (("va_diff_min", -w), ("va_diff_max", w))
+            if !haskey(bus, field)
+                bus[field] = val
+                push!(entries, TransformEntry(
+                    :bus, bid, field, nothing, val,
+                    "PSCC2026_anglediff", :heuristic,
+                    "±$(round(rad2deg(w), digits=1))° window around $kind nominal"))
+            end
+        end
+    end
+end

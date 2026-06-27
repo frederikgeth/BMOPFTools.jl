@@ -68,6 +68,14 @@ Base.@kwdef struct AugmentationRecipe
     # shall not exceed 2 % of the positive-sequence component."
     vneg_max_pu :: Float64 = 0.02
 
+    # ── Intra-bus angle-difference window ─────────────────────────────────────
+    # Symmetric window (radians) injected as va_diff_min = −window, va_diff_max =
+    # +window around the nominal phase offset (va_nom). ±30° pins the positive-
+    # sequence rotation while staying well inside the tangent-valid (−π/2, π/2)
+    # regime. Applied to 3-phase (va_nom = [0,−2π/3,2π/3]) and split-phase
+    # (va_nom = [0,π]) buses only. Off by default (stricter, init-sensitive).
+    va_diff_window_rad :: Float64 = 0.5236   # ≈ 30°
+
     # ── Solver regularisation: phase-to-ground envelope ──────────────────────
     # This is a hyperparameter, not a power-quality guarantee.  It widens the
     # feasible set so the solver has room to find a feasible point even at the
@@ -105,6 +113,7 @@ Base.@kwdef struct AugmentationRecipe
     apply_vpn_bounds      :: Bool = true
     apply_vpp_bounds      :: Bool = true
     apply_vneg_bounds     :: Bool = true
+    apply_va_diff_bounds  :: Bool = false   # opt-in: angle constraints are init-sensitive
     apply_thermal         :: Bool = true
     apply_q_bounds        :: Bool = true
     apply_slack_generator :: Bool = true

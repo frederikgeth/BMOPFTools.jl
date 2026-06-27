@@ -58,8 +58,86 @@
     # (vs. a deviation/sequence-angle bound) is itself a backlog item — see
     # docs/src/validation.md "Limit correctness".
     # ─────────────────────────────────────────────────────────────────────────
-    @testset "L-B1: bus angle-difference bound — recompute via atan2" begin
-        @test_skip "scaffold: build a single-pair fixture that drives θ_j−θ_k onto va_diff_max (raw-angle semantics, see notes)"
+    # NOTE: the constraint now bounds the CENTERED difference θ_j−θ_k−Δ, where
+    # Δ = va_nom[j]−va_nom[k] is the nominal offset (±120° for 3φ, 180° for
+    # split-phase legs). A tight window around the nominal is only feasible
+    # BECAUSE of the centering rotation — the old raw-around-zero bound would be
+    # infeasible for any real multiphase solution (≈±120°). These tests recompute
+    # the centered quantity independently via atan2 per terminal.
+    @testset "L-B1: 3φ centered angle diff — recompute via atan2" begin
+        V_s = 1000.0; R = 0.5
+        win = 0.10                      # ±0.10 rad window around ±120° nominal
+        net = parse_bmopf("""
+        {"bus":{
+            "sb":{"terminal_names":["1","2","3","n"],
+                  "neutral_terminal":"n","perfectly_grounded_terminals":["n"]},
+            "lb":{"terminal_names":["1","2","3","n"],
+                  "neutral_terminal":"n","perfectly_grounded_terminals":["n"],
+                  "v_min":[800.0,800.0,800.0],
+                  "va_nom":[0.0,-2.0943951,2.0943951],
+                  "va_diff_min":$(-win),"va_diff_max":$(win)}},
+         "voltage_source":{"vs":{"bus":"sb","terminal_map":["1","2","3"],
+             "v_magnitude":[$(V_s),$(V_s),$(V_s)],
+             "v_angle":[0.0,-2.0944,2.0944]}},
+         "linecode":{"lc":{
+             "R_series_1_1":$(R),"R_series_2_2":$(R),"R_series_3_3":$(R)}},
+         "line":{"l1":{"bus_from":"sb","bus_to":"lb",
+             "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld":{"bus":"lb","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[20000.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+
+        res = solve_opf(net)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        b = res["bus"]["lb"]
+        θ(t) = atan(b[t]["vi"], b[t]["vr"])
+        nom = Dict("1"=>0.0, "2"=>-2.0943951, "3"=>2.0943951)
+        wrap(x) = (y = mod(x + π, 2π) - π; y == -π ? π : y)
+        for (k, j) in (("1","2"), ("1","3"), ("2","3"))
+            centered = wrap(θ(j) - θ(k) - (nom[j] - nom[k]))
+            @test -win - 1e-3 <= centered <= win + 1e-3       # within the window
+            raw = wrap(θ(j) - θ(k))
+            @test abs(abs(raw) - 2.0943951) < win + 1e-2       # raw diff ≈ ±120°
+        end
+    end
+
+    @testset "L-B1b: split-phase legs held ~180° apart" begin
+        V_s = 230.0; R = 0.1
+        win = 0.10
+        # Source pins leg "2" anti-phase to leg "1"; the constrained LV bus must
+        # keep the two legs ≈π apart, i.e. centered diff (raw − π) within window.
+        net = parse_bmopf("""
+        {"bus":{
+            "sb":{"terminal_names":["1","n","2"],
+                  "neutral_terminal":"n","perfectly_grounded_terminals":["n"]},
+            "lb":{"terminal_names":["1","n","2"],
+                  "neutral_terminal":"n","perfectly_grounded_terminals":["n"],
+                  "v_min":[180.0,180.0],
+                  "va_nom":[0.0,3.1415927],
+                  "va_diff_min":$(-win),"va_diff_max":$(win)}},
+         "voltage_source":{"vs":{"bus":"sb","terminal_map":["1","n","2"],
+             "v_magnitude":[$(V_s),0.0,$(V_s)],
+             "v_angle":[0.0,0.0,3.1415927]}},
+         "linecode":{"lc":{"R_series_1_1":$(R),"R_series_2_2":$(R)}},
+         "line":{"l1":{"bus_from":"sb","bus_to":"lb",
+             "terminal_map_from":["1","2"],"terminal_map_to":["1","2"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld":{"bus":"lb","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+
+        res = solve_opf(net)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        b = res["bus"]["lb"]
+        θ(t) = atan(b[t]["vi"], b[t]["vr"])
+        wrap(x) = (y = mod(x + π, 2π) - π; y == -π ? π : y)
+        raw = wrap(θ("2") - θ("1"))
+        @test abs(abs(raw) - π) < win + 1e-2                  # legs ≈ 180° apart
+        centered = wrap(raw - π)
+        @test -win - 1e-3 <= centered <= win + 1e-3
     end
 
     # ─────────────────────────────────────────────────────────────────────────

@@ -1534,6 +1534,32 @@ const IEEE13_FIXTURE = """
         @test any(x -> x.code == "W.PROV.DSS_DEFAULT_SOURCE_Z", f8)
     end
 
+    @testset "Angle-difference bound data quality (va_nom / va_diff)" begin
+        mkbus(extra) = Dict{String,Any}("bus" => Dict{String,Any}(
+            "b" => merge(Dict{String,Any}(
+                "terminal_names" => ["1","2","3","n"],
+                "neutral_terminal" => "n",
+                "perfectly_grounded_terminals" => ["n"]), extra)))
+        codes(fs) = Set(f.code for f in fs)
+
+        # va_nom length ≠ n_phase (3) → inapplicable-bounds warning.
+        f1 = Finding[]
+        provenance_analysis(mkbus(Dict("va_nom" => [0.0, 3.14])), f1)
+        @test "W.PROV.INAPPLICABLE_VOLTAGE_BOUNDS" in codes(f1)
+
+        # |va_diff_*| ≥ π/2 crosses the tangent singularity → warning.
+        f2 = Finding[]
+        provenance_analysis(mkbus(Dict("va_diff_min" => -2.0, "va_diff_max" => 2.0)), f2)
+        @test "W.PROV.INAPPLICABLE_VOLTAGE_BOUNDS" in codes(f2)
+
+        # Well-formed centered bounds (length 3, |window| < π/2) → no warning.
+        f3 = Finding[]
+        provenance_analysis(mkbus(Dict(
+            "va_nom" => [0.0, -2.0944, 2.0944],
+            "va_diff_min" => -0.5236, "va_diff_max" => 0.5236)), f3)
+        @test !("W.PROV.INAPPLICABLE_VOLTAGE_BOUNDS" in codes(f3))
+    end
+
     @testset "Earthing zones" begin
         # LV feeder: star earthed via 0.3 Ω at source bus, one 10 Ω
         # downstream neutral earth → TN-C-S / multi-earthed

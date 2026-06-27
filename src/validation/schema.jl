@@ -118,7 +118,7 @@ const _KNOWN_FIELDS = Dict{String,Set{String}}(
                   "v_min", "v_max", "vpn_min", "vpn_max",
                   "vpp_min", "vpp_max", "vpos_min", "vpos_max",
                   "vneg_max", "vzero_max",
-                  "vn_max", "va_diff_min", "va_diff_max"]),
+                  "vn_max", "va_diff_min", "va_diff_max", "va_nom"]),
     "line" => Set(["length", "linecode", "bus_from", "bus_to",
                    "terminal_map_from", "terminal_map_to",
                    "va_diff_min", "va_diff_max"]),
