@@ -558,7 +558,7 @@ $v^r_{b^\text{fr},t^\text{fr}_k} = N\,v^r_{b^\text{to},t^\text{to}_k}$.
 
 ---
 
-**`center_tap` — T-model with per-leg secondary impedance**
+**`center_tap` — coupled-coil 3-winding (primitive admittance)**
 
 Terminal map: `terminal_map_from = [t_ph, t_n]` (HV phase, HV neutral),
 `terminal_map_to = [t₁, tₙ, t₂]` (leg-1, center-tap neutral, leg-2).
@@ -566,41 +566,38 @@ $V^\text{ref}_\text{to}$ is the **per-leg** voltage (e.g. 120 V for a
 120-0-120 V unit), so $N = V^\text{ref}_\text{fr}/V^\text{ref}_\text{to} = 60$
 for a 7.2 kV / 120 V unit.
 
-Each leg has its own secondary impedance branch ($Z_2 = R_2 + jX_2$).
-For leg $\ell \in \{1, 2\}$ with LV current $c^{r,x}_{x,\ell}$ and leg
-terminals $(t_a, t_b)$:
+The split-phase unit is a genuine 3-winding transformer whose two LV
+half-windings are tightly coupled on the shared core. Modelling each leg with an
+*independent* secondary impedance drop omits that mutual coupling and spreads the
+two legs apart under load. The OPF therefore imposes the OpenDSS-consistent 5×5
+primitive admittance $Y_\text{CT}$ (the same one the Ybus exporter builds, derived
+in `docs/transformer_admittance_derivation.md`) as nodal current injections —
+element current into each of the five terminals
+$\mathbf I = Y_\text{CT}\,\mathbf V$ — and pins the per-winding current variables
+(HV series, leg-1, centre, leg-2) to those injections for the `i_max` limits and
+loss accounting. $Y_\text{CT}$ is reconstructed from the symmetric star leakage
+arms $Z_1 = R_1+jX_1$ (HV) and $Z_2 = R_2+jX_2$ (each LV leg), with winding 3
+dotted at the centre tap (leg-2 voltage span $V_{t_n} - V_{t_2}$). It matches
+OpenDSS's transformer `Yprim` to machine precision.
+
+The implied current relations are the ampere-turn
 
 ```math
-\bigl(v^r_{b^\text{fr},t^\text{ph}} - v^r_{b^\text{fr},t^\text{n}}\bigr)
-- N\bigl(v^r_{b^\text{to},t_a} - v^r_{b^\text{to},t_b}\bigr)
-= R_1\,c^{r,x}_{x,s} - X_1\,c^{i,x}_{x,s}
-  - N\bigl(R_2\,c^{r,x}_{x,\ell} - X_2\,c^{i,x}_{x,\ell}\bigr)
-```
-
-where $c^{r,x}_{x,s}$ is the HV series current (variable index 1 on `fr`
-side).  The $-N Z_2 I_\ell$ sign follows from the T-model star-node
-elimination: LV currents are defined flowing **into** the transformer from
-the bus, i.e. opposite to the direction through the winding branch from the
-star node.
-
-Current coupling (both leg currents into the transformer):
-
-```math
-N\,c^{r,x}_{x,s} + c^{r,x}_{x,\ell_1} + c^{r,x}_{x,\ell_2} = 0
+N\,c^{r,x}_{x,s} + c^{r,x}_{x,\ell_1} - c^{r,x}_{x,\ell_2} = 0
 \quad\text{(and imaginary)}
 ```
 
-Center-tap KCL (variable index 2 on `to` side):
+and the centre-tap KCL (variable index 2 on `to` side):
 
 ```math
 c^{r,x}_{x,n} + c^{r,x}_{x,\ell_1} + c^{r,x}_{x,\ell_2} = 0
 \quad\text{(and imaginary)}
 ```
 
-The no-load shunt $G_0 + jB_0$ is placed at the HV phase terminal
-$t^\text{ph}$ (same convention as `single_phase`).  The HV series current
-returns through $t^\text{n}$; the shunt is phase-to-ground and does not
-pass through the HV neutral.
+The no-load shunt $G_0 + jB_0$ is folded into $Y_\text{CT}$ at the HV phase
+terminal $t^\text{ph}$ (phase-to-ground). For an ideal core (zero series
+impedance) $Y_\text{CT}$ is singular, so both legs are instead pinned directly to
+$V_\text{hv}/N$ and the relations above route the currents.
 
 !!! note "Leakage from OpenDSS XHL/XLT/XHT"
     For a 3-winding OpenDSS unit, the per-pair leakage values must be
@@ -609,8 +606,10 @@ pass through the HV neutral.
     x_series_from = (XHL + XHT − XLT) / 2 × Vhv² / (100 · s_rating)
     x_series_to   = (XHL + XLT − XHT) / 2 × Vlv² / (100 · s_rating)
     ```
-    Using `XHL/2` for both (the 2-winding formula) forces equal leg voltages
-    regardless of load imbalance and is incorrect for `center_tap`.
+    Using the 2-winding shortcut (full `XHL` on the HV side, `x_series_to = 0`)
+    drops the LV-side leakage and spreads the legs apart under load.
+    [`from_dss`](@ref) recovers the correct star split and core shunt from
+    PowerIO's `pmd` export automatically.
 
 ---
 

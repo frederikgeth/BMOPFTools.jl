@@ -38,7 +38,7 @@ Set DefaultBaseFreq=50
 New Circuit.pf_yd_xfmr basekv=11.0 pu=1.0 angle=0 phases=3 bus1=hv.1.2.3 model=ideal
 
 ! HV wye neutral earthed via near-zero reactor.
-New Reactor.grnd_hv bus1=hv.4 bus2=hv.0 R=0.001 X=0
+New Reactor.grnd_hv bus1=hv.4 bus2=hv.0 R=0.001 X=0 phases=1
 
 ! 2-winding WYE-DELTA transformer with realistic losses.
 New Transformer.t1 phases=3 windings=2
@@ -50,7 +50,7 @@ New Transformer.t1 phases=3 windings=2
 
 ! Near-solid grounding on lv.1 to anchor the delta common mode.
 ! R=0.001 Ω → G≈1000 S (mirrored in BMOPF as grnd_lv shunt G=1000 S).
-New Reactor.grnd_lv bus1=lv.1 bus2=lv.0 R=0.001 X=0
+New Reactor.grnd_lv bus1=lv.1 bus2=lv.0 R=0.001 X=0 phases=1
 
 ! Unbalanced delta loads (3:1:2 ratio) to make per-phase voltages distinct.
 ! Vminpu=0 Vmaxpu=2: disable ODS voltage-dependent load switching so model=1

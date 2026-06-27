@@ -41,8 +41,10 @@ optimiser dispatching a controllable device per operating point can.
 !!! note "Modelling SWER faithfully"
     BMOPF models the earth return as a solidly-grounded bus neutral, so a SWER line
     is a single phase conductor whose linecode impedance carries the loop. The
-    split-phase (centre-tapped) distribution transformer and the phase-to-phase
-    isolating transformer both need care — see the
+    split-phase (centre-tapped) distribution transformer is modelled as a full
+    coupled-coil 3-winding unit — the primitive admittance is reconstructed from the
+    OpenDSS short-circuit set (`from_dss` recovers it via PowerIO's `pmd` export), so
+    its two legs track OpenDSS even under heavy, unbalanced loading. See the
     [end-to-end tutorial](tutorial_end_to_end.md) for the general pipeline and
     [Validating the OPF](validation.md) for the OpenDSS cross-checks.
 
@@ -94,9 +96,6 @@ println("backbone length (km): ", sum(l["length"] for l in values(net["line"]))/
 
 The LV taps must stay inside the **AS/NZS 4777.2** connection window (230 V nominal,
 −6 %/+10 % → **216.2–253 V**); we hold the 12.7 kV backbone to ±10 %.
-([`augment_case`](@ref) now derives equivalent phase-to-earth bounds automatically —
-the SWER √3 snap is fixed — but we set the regulatory PV limits explicitly so the
-violations are unambiguous.)
 
 ```@example swer
 function set_limits!(n)

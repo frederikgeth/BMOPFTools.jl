@@ -1,0 +1,38 @@
+! Center-tap (split-phase) transformer with a single PHASE-TO-NEUTRAL (120 V)
+! load on leg 1 only, fed through a line.
+!
+! Only one half-winding is loaded, so the centre tap carries the full leg
+! current (heavy neutral/unbalance current) and the two legs are asymmetric.
+! Cross-checks the unbalanced split against OpenDSS.
+!
+! Topology: src ──[line, 5 km]── hv ──[center-tap 7.2kV/120-0-120]── lv
+
+Clear
+
+Set DefaultBaseFreq=50
+
+New Circuit.pf_ct_pn basekv=7.2 pu=1.0 angle=0 phases=1 bus1=src.1.0
+
+New Reactor.grnd_src bus1=src.4 bus2=src.0 R=0.001 X=0 phases=1
+
+New Linecode.sp1w nphases=1 Rmatrix=[0.6] Xmatrix=[0.4] Cmatrix=[0] units=km
+New Line.l1 bus1=src.1 bus2=hv.1 linecode=sp1w length=5 units=km phases=1
+New Reactor.grnd_hv bus1=hv.4 bus2=hv.0 R=0.001 X=0 phases=1
+
+New Transformer.t1 phases=1 windings=3
+~ wdg=1 bus=hv.1.4   conn=wye kv=7.2   kva=25 %r=0.6
+~ wdg=2 bus=lv.1.4   conn=wye kv=0.120 kva=25 %r=1.2
+~ wdg=3 bus=lv.4.2   conn=wye kv=0.120 kva=25 %r=1.2
+~ XHL=2.04 XLT=1.36 XHT=2.04
+~ %noloadloss=0.2
+
+New Reactor.grnd_lv bus1=lv.4 bus2=lv.0 R=0.001 X=0 phases=1
+
+! Single 120 V phase-to-neutral load on leg 1; leg 2 unloaded.
+New Load.ld1 bus1=lv.1.4 kv=0.120 kw=10 kvar=2 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[7.2, 0.120]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve

@@ -1,0 +1,38 @@
+! Center-tap (split-phase) transformer with a pure 240 V PHASE-TO-PHASE load
+! across the two legs (no leg-to-neutral load), fed through a line.
+!
+! The 240 V load drives equal through-current in both half-windings with zero
+! centre-tap (neutral) current, so the legs must stay symmetric. Exercises the
+! series-aiding winding polarity and the phase-to-phase loss path.
+!
+! Topology: src ──[line, 5 km]── hv ──[center-tap 7.2kV/120-0-120]── lv
+
+Clear
+
+Set DefaultBaseFreq=50
+
+New Circuit.pf_ct_240 basekv=7.2 pu=1.0 angle=0 phases=1 bus1=src.1.0
+
+New Reactor.grnd_src bus1=src.4 bus2=src.0 R=0.001 X=0 phases=1
+
+New Linecode.sp1w nphases=1 Rmatrix=[0.6] Xmatrix=[0.4] Cmatrix=[0] units=km
+New Line.l1 bus1=src.1 bus2=hv.1 linecode=sp1w length=5 units=km phases=1
+New Reactor.grnd_hv bus1=hv.4 bus2=hv.0 R=0.001 X=0 phases=1
+
+New Transformer.t1 phases=1 windings=3
+~ wdg=1 bus=hv.1.4   conn=wye kv=7.2   kva=25 %r=0.6
+~ wdg=2 bus=lv.1.4   conn=wye kv=0.120 kva=25 %r=1.2
+~ wdg=3 bus=lv.4.2   conn=wye kv=0.120 kva=25 %r=1.2
+~ XHL=2.04 XLT=1.36 XHT=2.04
+~ %noloadloss=0.2
+
+New Reactor.grnd_lv bus1=lv.4 bus2=lv.0 R=0.001 X=0 phases=1
+
+! Pure 240 V phase-to-phase load across both legs (lv.1 → lv.2).
+New Load.ld bus1=lv.1.2 kv=0.240 kw=16 kvar=3 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[7.2, 0.120]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve

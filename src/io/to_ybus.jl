@@ -233,12 +233,15 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
 
     # Connection matrix C (3×5): maps node voltages [p,m,a,g,c] to winding voltages.
     # Row 1: V_HV_ref = (V_p - V_m)/N
-    # Row 2: V_leg1   = V_a - V_g
-    # Row 3: V_leg2   = V_c - V_g  (c→g, same polarity as leg1)
+    # Row 2: V_leg1   = V_a - V_g   (winding 2 dotted at leg 1)
+    # Row 3: V_leg2   = V_g - V_c   (winding 3 dotted at the centre tap g)
+    # Winding 3 is dotted at the centre tap, so its voltage is V_g − V_c (NOT
+    # V_c − V_g). The opposite sign makes the two LV legs identical instead of
+    # series-aiding; with the correct sign this Yprim matches OpenDSS exactly.
     C = zeros(ComplexF64, 3, 5)
     C[1,1] =  1.0/N;  C[1,2] = -1.0/N
     C[2,3] =  1.0;    C[2,4] = -1.0
-    C[3,5] =  1.0;    C[3,4] = -1.0
+    C[3,4] =  1.0;    C[3,5] = -1.0
 
     Y_core = transpose(C) * Y3 * C
 

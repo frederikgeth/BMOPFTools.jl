@@ -1,0 +1,41 @@
+! Center-tap (split-phase) transformer, BALANCED heavy load on both legs, fed
+! through a long line so the leg currents materially affect voltage.
+!
+! Regression guard for the center_tap leg-voltage SPLIT. The half-windings are
+! tightly coupled on a shared core; a per-leg decoupled model spreads the two
+! legs apart under load even when the loads are perfectly balanced. With the
+! coupled-coil (primitive-admittance) model the legs stay symmetric, matching
+! OpenDSS. The long line amplifies the (previously latent) effect.
+!
+! Topology: src ──[line, 20 km]── hv ──[center-tap 7.2kV/120-0-120]── lv
+
+Clear
+
+Set DefaultBaseFreq=50
+
+New Circuit.pf_ct_bal basekv=7.2 pu=1.0 angle=0 phases=1 bus1=src.1.0
+
+New Reactor.grnd_src bus1=src.4 bus2=src.0 R=0.001 X=0 phases=1
+
+New Linecode.sp1w nphases=1 Rmatrix=[0.6] Xmatrix=[0.4] Cmatrix=[0] units=km
+New Line.l1 bus1=src.1 bus2=hv.1 linecode=sp1w length=20 units=km phases=1
+New Reactor.grnd_hv bus1=hv.4 bus2=hv.0 R=0.001 X=0 phases=1
+
+New Transformer.t1 phases=1 windings=3
+~ wdg=1 bus=hv.1.4   conn=wye kv=7.2   kva=25 %r=0.6
+~ wdg=2 bus=lv.1.4   conn=wye kv=0.120 kva=25 %r=1.2
+~ wdg=3 bus=lv.4.2   conn=wye kv=0.120 kva=25 %r=1.2
+~ XHL=2.04 XLT=1.36 XHT=2.04
+~ %noloadloss=0.2
+
+New Reactor.grnd_lv bus1=lv.4 bus2=lv.0 R=0.001 X=0 phases=1
+
+! Perfectly balanced, heavy 120 V leg loads (≈ 75% of rating per leg).
+New Load.ld1 bus1=lv.1.4 kv=0.120 kw=9 kvar=1.5 phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.ld2 bus1=lv.4.2 kv=0.120 kw=9 kvar=1.5 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[7.2, 0.120]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve
