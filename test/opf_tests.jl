@@ -1394,6 +1394,144 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # T-INV5: optional i_max current limit binds (STATCOM-like IBR)
+    #
+    # A pure-reactive IBR (p_min=p_max=0, generous s_max) supplies a lagging
+    # reactive load across a lossy line, with an expensive slack so the optimum
+    # wants to source the reactive demand locally. We first solve WITHOUT i_max
+    # to measure the free current magnitude, then set i_max to 60 % of it and
+    # re-solve. The current circle cri²+cii² ≤ i_max² must bind (|I| ≈ i_max),
+    # the reactive output must drop, and the s_max circle must NOT be what limits.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T-INV5: i_max current limit binds" begin
+        mknet() = parse_bmopf("""
+        {"bus":{
+            "src": {"terminal_names":["1","2","3","n"],
+                    "perfectly_grounded_terminals":["n"],
+                    "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
+            "b1":  {"terminal_names":["1","2","3","n"],
+                    "perfectly_grounded_terminals":["n"],
+                    "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],
+             "v_angle":[0.0,-2.0944,2.0944],"cost":[100.0,100.0,100.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05,"R_series_3_3":0.05,
+             "X_series_1_1":0.05,"X_series_2_2":0.05,"X_series_3_3":0.05}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3"],
+             "linecode":"lc","length":10.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE",
+             "p_nom":[1000.0,1000.0,1000.0],"q_nom":[4000.0,4000.0,4000.0]}},
+         "ibr":{"st1":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "topology":"FOUR_LEG","prime_mover":"GENERIC",
+             "s_max":[8000.0,8000.0,8000.0],
+             "p_min":[0.0,0.0,0.0],"p_max":[0.0,0.0,0.0],
+             "q_min":[-8000.0,-8000.0,-8000.0],"q_max":[8000.0,8000.0,8000.0],
+             "cost":[0.0,0.0,0.0]}}}
+        """; from_string=true)
+
+        imag(v) = sqrt(v["cri"]^2 + v["cii"]^2)
+
+        # Free solve (no i_max) to measure the unconstrained current.
+        res_free = solve_opf(mknet())
+        @test res_free["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        I_free = imag(res_free["ibr"]["st1"]["1"])
+        @test I_free > 1.0   # the IBR actually sources reactive power
+
+        # Constrained solve: cap current at 60 % of the free magnitude.
+        ilim   = 0.6 * I_free
+        net_lim = mknet()
+        net_lim["ibr"]["st1"]["i_max"] = [ilim, ilim, ilim]
+        res_lim = solve_opf(net_lim)
+        @test res_lim["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        for t in ("1","2","3")
+            v = res_lim["ibr"]["st1"][t]
+            I = imag(v)
+            @test I ≈ ilim                       rtol=1e-3   # current circle binds
+            @test I < imag(res_free["ibr"]["st1"][t]) * 0.95 # tighter than free
+            @test abs(v["qg"]) < abs(res_free["ibr"]["st1"][t]["qg"])  # less Q delivered
+            @test sqrt(v["pg"]^2 + v["qg"]^2) < 8000.0 * 0.9          # s_max not binding
+        end
+
+        # Opt-in guarantee: a generously large (non-binding) i_max reproduces the
+        # free solve byte-for-byte in dispatch.
+        net_big = mknet()
+        net_big["ibr"]["st1"]["i_max"] = [1e6, 1e6, 1e6]
+        res_big = solve_opf(net_big)
+        for t in ("1","2","3")
+            @test res_big["ibr"]["st1"][t]["qg"] ≈ res_free["ibr"]["st1"][t]["qg"]  atol=1.0
+        end
+
+        # Solution validator must NOT flag a current violation for the i_max solve.
+        sfindings = Finding[]
+        solution_check(net_lim, res_lim, sfindings)
+        @test !any(f -> f.code == "E.SOL.IBR_VIOLATION", sfindings)
+
+        # ...but a current that exceeds a tightened i_max IS flagged post-hoc.
+        net_post = mknet()
+        net_post["ibr"]["st1"]["i_max"] = [ilim, ilim, ilim]
+        sf2 = Finding[]
+        solution_check(net_post, res_free, sf2)   # res_free violates the tight i_max
+        @test any(f -> f.code == "E.SOL.IBR_VIOLATION" &&
+                       occursin("i_max", f.message), sf2)
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # T-INV6: per-unit parity with i_max (guards the i_base scaling)
+    #
+    # Same network with a binding i_max solved in SI and PU modes must report
+    # the same dispatch and currents. _pu_scale_ibrs! scales i_max by the per-bus
+    # current base i_base = s_base / v_base; without it the PU current circle is
+    # applied at the wrong tightness.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T-INV6: per-unit parity with i_max" begin
+        net = parse_bmopf("""
+        {"bus":{
+            "src": {"terminal_names":["1","2","3","n"],
+                    "perfectly_grounded_terminals":["n"],
+                    "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
+            "b1":  {"terminal_names":["1","2","3","n"],
+                    "perfectly_grounded_terminals":["n"],
+                    "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],
+             "v_angle":[0.0,-2.0944,2.0944],"cost":[100.0,100.0,100.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05,"R_series_3_3":0.05,
+             "X_series_1_1":0.05,"X_series_2_2":0.05,"X_series_3_3":0.05}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3"],
+             "linecode":"lc","length":10.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE",
+             "p_nom":[1000.0,1000.0,1000.0],"q_nom":[4000.0,4000.0,4000.0]}},
+         "ibr":{"st1":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "topology":"FOUR_LEG","prime_mover":"GENERIC",
+             "s_max":[8000.0,8000.0,8000.0],"i_max":[8.0,8.0,8.0],
+             "p_min":[0.0,0.0,0.0],"p_max":[0.0,0.0,0.0],
+             "q_min":[-8000.0,-8000.0,-8000.0],"q_max":[8000.0,8000.0,8000.0],
+             "cost":[0.0,0.0,0.0]}}}
+        """; from_string=true)
+
+        res_si = solve_opf(net; per_unit=false)
+        res_pu = solve_opf(net; per_unit=true, s_base=1e6)
+        @test res_si["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test res_pu["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        for t in ("1","2","3")
+            si = res_si["ibr"]["st1"][t]
+            pu = res_pu["ibr"]["st1"][t]
+            @test pu["cri"] ≈ si["cri"]  rtol=5e-3 atol=1e-2
+            @test pu["cii"] ≈ si["cii"]  rtol=5e-3 atol=1e-2
+            @test pu["qg"]  ≈ si["qg"]   rtol=5e-3 atol=5.0
+            # The current circle binds at i_max = 8 A in both modes.
+            @test sqrt(si["cri"]^2 + si["cii"]^2) ≈ 8.0  rtol=5e-3
+            @test sqrt(pu["cri"]^2 + pu["cii"]^2) ≈ 8.0  rtol=5e-3
+        end
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # T-VBND: per-phase vpn arrays and per-pair vpp arrays on a 4-wire bus.
     # Regression-guards that the OPF constraint builder (and the per-unit scaler)
     # consume them as arrays rather than crashing on Float64(::Vector). Bounds

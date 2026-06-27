@@ -130,6 +130,7 @@ $P^{g,\text{min/max}}_{g,k}$, $Q^{g,\text{min/max}}_{g,k}$ & W, var & Generator 
 $c^g_1$ & \$/W & Linear generation cost coefficient & \texttt{generator.cost} \\
 $P^{n,\text{min/max}}_{n,k}$, $Q^{n,\text{min/max}}_{n,k}$ & W, var & IBR active/reactive power limits & \texttt{ibr.p\_min/max}, \texttt{q\_min/max} \\
 $S^{\max}_{n,k}$ & VA & IBR apparent-power rating, phase $k$ & \texttt{ibr.s\_max} \\
+$I^{\max}_{n,k}$ & A & IBR current-magnitude limit, phase $k$ (optional) & \texttt{ibr.i\_max} \\
 $\mathrm{pf}_n$ & -- & Signed constant power factor (if set) & \texttt{control\_profile.power\_factor.pf} \\
 $V^s_{v,k}$, $\theta^s_{v,k}$ & V, rad & Voltage source magnitude and angle at terminal $k$ & \texttt{voltage\_source.v\_magnitude/angle} \\
 $v^b_\text{min}$, $v^b_\text{max}$ & V & Phase voltage magnitude limits at bus $b$ & \texttt{bus.v\_min}, \texttt{v\_max} \\
@@ -462,6 +463,20 @@ given, by a quadratic apparent-power circle:
   \label{eq:inv-s}
 \end{align}
 %
+When a per-phase current-magnitude limit is supplied it is stamped directly on
+the converter current variables (optional; omitted otherwise):
+%
+\begin{equation}
+  \bigl(c^{r,n}_{n,k}\bigr)^2 + \bigl(c^{i,n}_{n,k}\bigr)^2 \;\leq\;
+  \bigl(I^{\max}_{n,k}\bigr)^2.
+  \label{eq:inv-i}
+\end{equation}
+%
+Since $|S_{n,k}| = |\Delta v_k|\,|I_{n,k}|$, this caps reactive capability
+$\approx$ linearly in voltage ($Q^{\max} \approx |\Delta v_k|\,I^{\max}_{n,k}$),
+the faithful voltage-source-converter behaviour, rather than holding it flat at
+$S^{\max}$ as the apparent-power circle alone would.
+
 Reactive power is handled in one of two mutually exclusive ways.  By default
 box bounds apply,
 $Q^{n,\text{min}}_{n,k} \leq Q_{n,k} \leq Q^{n,\text{max}}_{n,k}$.  When the

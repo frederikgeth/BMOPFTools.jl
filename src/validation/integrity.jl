@@ -148,7 +148,7 @@ function integrity_check(net::Dict{String,Any},
         inv isa Dict || continue
         n_phase = length(get(inv, "terminal_map", String[])) - 1
         n_phase < 1 && continue
-        for field in ("r_filter", "x_filter", "cost", "s_max")
+        for field in ("r_filter", "x_filter", "cost", "s_max", "i_max")
             v = get(inv, field, nothing)
             if v isa AbstractVector && length(v) != n_phase
                 n_dim_issues += 1

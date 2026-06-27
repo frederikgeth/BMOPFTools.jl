@@ -444,6 +444,13 @@
                             "$ref": "#/$defs/nonnegative_number"
                         }
                     },
+                    "i_max": {
+                        "type": "array",
+                        "description": "Optional per-phase converter current-magnitude limit [A]; length must match terminal_map minus 1. When present, reactive capability rolls off ~linearly with voltage instead of staying flat at s_max",
+                        "items": {
+                            "$ref": "#/$defs/nonnegative_number"
+                        }
+                    },
                     "p_avail": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Available active power [W]; upper bound on dispatch for PV prime movers"

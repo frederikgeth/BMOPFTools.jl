@@ -599,6 +599,7 @@ function solution_check(net::Dict{String,Any},
         p_min_arr = Float64.(get(inv, "p_min", Float64[]))
         p_max_arr = Float64.(get(inv, "p_max", Float64[]))
         smax_arr  = Float64.(get(inv, "s_max", Float64[]))
+        imax_arr  = Float64.(get(inv, "i_max", Float64[]))
 
         # Resolve PF for residual check
         pf_val = nothing
@@ -670,6 +671,23 @@ function solution_check(net::Dict{String,Any},
                         "exceeds s_max=$(_fmt_mw(sm)) (apparent-power circle violated).",
                         Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
                                          "pg"=>pg,"qg"=>qg,"sm"=>apparent,"s_max"=>sm)))
+                end
+            end
+
+            # Current-magnitude limit (optional): |I| = √(cri²+cii²) ≤ i_max[k].
+            if idx <= length(imax_arr)
+                cri = get(tvals, "cri", NaN); cii = get(tvals, "cii", NaN)
+                if isfinite(cri) && isfinite(cii)
+                    im   = imax_arr[idx]
+                    imag = sqrt(cri^2 + cii^2)
+                    if imag > im * (1 + 1e-6)
+                        n_inv_viol += 1
+                        push!(findings, Finding(ERROR, "E.SOL.IBR_VIOLATION", :solution, :ibr, inv_id,
+                            "IBR '$inv_id' phase '$t_ph': |I|=$(round(imag; digits=3)) A " *
+                            "exceeds i_max=$(round(im; digits=3)) A (current limit violated).",
+                            Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
+                                             "cri"=>cri,"cii"=>cii,"i_mag"=>imag,"i_max"=>im)))
+                    end
                 end
             end
 

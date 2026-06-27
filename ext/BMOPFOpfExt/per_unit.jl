@@ -282,9 +282,14 @@ function _pu_scale_ibrs!(net, bases)
     sb = bases.s_base
     for (_, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
+        bus = get(inv, "bus", "")
+        ib  = get(bases.i_base, bus, 1.0)
         for f in ("p_min", "p_max", "q_min", "q_max", "s_max")
             haskey(inv, f) && (inv[f] = Float64.(inv[f]) ./ sb)
         end
+        # Current-magnitude limit scales by the per-bus current base (mirrors
+        # _pu_scale_generators!), since the OPF current variables cri/cii are PU.
+        haskey(inv, "i_max") && (inv["i_max"] = Float64.(inv["i_max"]) ./ ib)
         # The power_factor control_profile "pf" field is dimensionless and the
         # PF equality constraint is scale-invariant — nothing to scale here.
         # topology / terminal_map are structural — untouched.
