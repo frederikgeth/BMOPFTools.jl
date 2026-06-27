@@ -82,6 +82,40 @@ function _ods_volts_loadmult(dss_path::String, mult::Real)::Dict{String,ComplexF
 end
 
 """
+    _ods_volts_angle(dss_path, deg) -> Dict{String, ComplexF64}
+
+Like `_ods_volts` but re-solves with the slack `Vsource.source` rotated to base
+angle `deg` (degrees). `New Circuit` creates `Vsource.source` whose `angle` is the
+phase-1 base angle (the 3-phase source stays internally balanced), so this offsets
+every source phase by `deg`. Used to validate the BMOPF (radians) ↔ OpenDSS
+(degrees) source-angle convention.
+"""
+function _ods_volts_angle(dss_path::String, deg::Real)::Dict{String,ComplexF64}
+    OpenDSSDirect.dss("Clear")
+    OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
+    OpenDSSDirect.dss("Edit Vsource.source angle=$deg")
+    OpenDSSDirect.dss("Solve")
+    names = Circuit.AllNodeNames()
+    volts = Circuit.AllBusVolts()
+    return Dict(n => v for (n, v) in zip(names, volts))
+end
+
+"""
+    _reangle_source(net, dθ_rad) -> net
+
+Deep-copy a BMOPF network and add `dθ_rad` (radians) to every `voltage_source`
+terminal's `v_angle`, i.e. rotate the slack reference by `dθ_rad`. Neutral entries
+carry `v_magnitude = 0`, so rotating their angle is harmless.
+"""
+function _reangle_source(net::Dict{String,Any}, dθ::Real)
+    n = deepcopy(net)
+    for (_, vs) in get(n, "voltage_source", Dict())
+        haskey(vs, "v_angle") && (vs["v_angle"] = Float64.(vs["v_angle"]) .+ dθ)
+    end
+    return n
+end
+
+"""
     _scale_loads(net, mult) -> net
 
 Deep-copy a BMOPF network and scale every load's `p_nom`/`q_nom` by `mult`,
@@ -2592,4 +2626,77 @@ end
         rel = maximum(abs.(M[perm, perm] .- Yb)) / max(1.0, maximum(abs.(Yb)))
         @test rel < 1e-2
     end
+end
+
+# ── Source-bus angle offset: convention + tagging invariance ─────────────────────
+# One MV source feeds a 3-phase delta-wye (Dy, 30° shift) AND a split-phase
+# center-tap transformer. A non-zero source angle rigidly rotates the whole
+# solution, so (B) BMOPF (radians) must match OpenDSS (degrees) under the offset,
+# and (C) vector-group / voltage-level tagging — which read topology / magnitude
+# only — must be unchanged by it. `from_dss` builds the net from the same fixture
+# (self-validating: the angle-0 baseline isolates any parse/model error).
+
+_net_combined_3ph_split() = from_dss(joinpath(_PF_CMP_DIR, "pf_combined_3ph_split.dss"))
+
+@testset "PF (feasibility) — combined 3φ Dy + split-phase, source angle 0 (baseline)" begin
+    path  = joinpath(_PF_CMP_DIR, "pf_combined_3ph_split.dss")
+    net   = _net_combined_3ph_split()
+    @test haskey(net["transformer"], "delta_wye")    # three-phase branch
+    @test haskey(net["transformer"], "center_tap")   # split-phase branch
+    V_ods = _ods_volts(path)
+    res   = solve_feasibility_opf(net; optimizer=Ipopt.Optimizer)
+    @test res["total_slack_magnitude_A"] < 1e-3
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label="combined-a0: ", atol=0.5, rtol=2e-3)
+end
+
+@testset "PF (feasibility) — combined 3φ Dy + split-phase, source angle 17° (convention)" begin
+    # The slack reference is offset by a non-30°-multiple so a wrong radians↔degrees
+    # unit or a sign flip would show as a tens-of-percent mismatch (not a small one).
+    path  = joinpath(_PF_CMP_DIR, "pf_combined_3ph_split.dss")
+    deg   = 17.0
+    net   = _reangle_source(_net_combined_3ph_split(), deg2rad(deg))
+    V_ods = _ods_volts_angle(path, deg)
+    res   = solve_feasibility_opf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    @test res["total_slack_magnitude_A"] < 1e-3   # init + solve converge under the offset
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label="combined-a17: ", atol=0.5, rtol=2e-3)
+end
+
+@testset "Tagging invariance under source angle offset (vector group, voltage levels)" begin
+    # Vector-group tagging reads terminal-map topology; voltage-level tagging reads
+    # v_magnitude and v_ref ratios. Neither depends on the source angle — so both
+    # must be byte-identical whether or not the slack reference is rotated.
+    net0 = _net_combined_3ph_split()
+    netθ = _reangle_source(net0, 0.7)            # arbitrary non-trivial offset (rad)
+
+    dy0 = first(values(net0["transformer"]["delta_wye"]))
+    ct0 = first(values(net0["transformer"]["center_tap"]))
+    dyθ = first(values(netθ["transformer"]["delta_wye"]))
+    ctθ = first(values(netθ["transformer"]["center_tap"]))
+
+    # Vector group: a non-trivial Dyn clock for the 3φ unit, Ii0 for the split-phase.
+    vg_dy0 = BMOPFTools._derive_vector_group("delta_wye", dy0)
+    vg_ct0 = BMOPFTools._derive_vector_group("center_tap", ct0)
+    @test startswith(vg_dy0, "D")                # delta primary → "Dyn…"
+    @test vg_ct0 == "Ii0"
+    @test BMOPFTools._derive_vector_group("delta_wye", dyθ) == vg_dy0   # invariant
+    @test BMOPFTools._derive_vector_group("center_tap", ctθ) == vg_ct0  # invariant
+
+    # Inventory vector-group tallies unchanged across the offset.
+    inv0 = inventory_analysis(net0, Finding[])
+    invθ = inventory_analysis(netθ, Finding[])
+    @test inv0["transformer"] == invθ["transformer"]
+
+    # Voltage-level tagging unchanged across the offset.
+    vl0 = voltage_level_analysis(net0, Finding[])
+    vlθ = voltage_level_analysis(netθ, Finding[])
+    @test vl0["bus_voltage_map"] == vlθ["bus_voltage_map"]
+    @test vl0["n_levels"] == vlθ["n_levels"]
+    @test vl0["n_levels"] >= 2                   # MV + LV levels resolved
 end
