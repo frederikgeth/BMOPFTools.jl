@@ -5,7 +5,7 @@ A single field change made by an augmentation pass.
 
 Fields
 ------
-- `component_type` — `:bus`, `:linecode`, `:generator`, `:inverter`, or `:transformer`
+- `component_type` — `:bus`, `:linecode`, `:generator`, `:ibr`, or `:transformer`
 - `component_id`   — the dict key of the modified component
 - `field`          — the field name written (e.g. `"vpn_min"`, `"i_max"`)
 - `old_value`      — previous value (`nothing` if the field was absent)
@@ -109,8 +109,8 @@ function render_manifest(m::TransformationManifest; io::IO = stdout)
 
     # Render the known types in a stable, preferred order, then any remaining
     # types present in the manifest — so a new component_type is never silently
-    # dropped from the rendered diff (as :inverter once was).
-    preferred = (:bus, :linecode, :generator, :inverter, :transformer)
+    # dropped from the rendered diff (as :ibr once was).
+    preferred = (:bus, :linecode, :generator, :ibr, :transformer)
     extra     = sort!([k for k in keys(groups) if !(k in preferred)])
     for ctype in (preferred..., extra...)
         entries = get(groups, ctype, TransformEntry[])

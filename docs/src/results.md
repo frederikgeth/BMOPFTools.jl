@@ -49,7 +49,7 @@ The `termination_status` and `solve_time` fields are always valid.
 | `switch` | Dict | Per-switch, per-conductor current results |
 | `load` | Dict | Per-load, per-phase current and absorbed power |
 | `generator` | Dict | Per-generator, per-phase current and produced power |
-| `inverter` | Dict | Per-inverter, per-phase current and produced power |
+| `ibr` | Dict | Per-IBR, per-phase current and produced power |
 | `transformer` | Dict | Per-transformer, per-winding-side currents |
 | `voltage_source` | Dict | Per-source, per-phase slack current and imported power |
 | `initialisation` | Dict | Per-bus, per-terminal Ipopt start values (see below) |
@@ -175,13 +175,13 @@ Same terminal indexing as `load` — phase terminals only, neutral absent.
 | `pg`  | W | Active power produced: `Δvr·crg + Δvi·cig` |
 | `qg`  | var | Reactive power produced: `Δvi·crg − Δvr·cig` |
 
-## `inverter` — produced power
+## `ibr` — produced power
 
 ```
-result["inverter"][inverter_id][phase_terminal] => Dict
+result["ibr"][ibr_id][phase_terminal] => Dict
 ```
 
-Inverters are keyed by **phase terminal** name, following the inverter's
+IBRs are keyed by **phase terminal** name, following the IBR's
 `topology`:
 
 - `FOUR_LEG` — keyed by each phase terminal in `terminal_map` (the neutral, the
@@ -193,15 +193,15 @@ Inverters are keyed by **phase terminal** name, following the inverter's
 
 | Field | Unit | Description |
 |---|---|---|
-| `cri` | A | Real part of phase current injected by the inverter |
-| `cii` | A | Imaginary part of phase current injected by the inverter |
+| `cri` | A | Real part of phase current injected by the IBR |
+| `cii` | A | Imaginary part of phase current injected by the IBR |
 | `pg`  | W | Active power produced: `Δvr·cri + Δvi·cii` |
 | `qg`  | var | Reactive power produced: `Δvi·cri − Δvr·cii` |
 
 `Δv` is the topology-appropriate voltage difference: phase-to-neutral for
 `FOUR_LEG`, phase-to-reference for `SINGLE_PHASE`, and across the conductor pair
 for `THREE_LEG`. Sign convention matches the generator: positive `pg`/`qg` is
-power injected into the network. See [Inverters](opf.md#inverters) for the
+power injected into the network. See [IBRs](opf.md#ibrs) for the
 constraint model (box `q_min`/`q_max` bounds, constant-power-factor coupling, and
 the `s_max` apparent-power circle).
 

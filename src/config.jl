@@ -75,5 +75,5 @@ _switch_like_cfg(cfg=_DEFAULT_CONFIG)   = cfg["provenance"]["switch_like"]
 # packaged defaults (which always carry it via the deep-merge in load_config).
 _voltage_snap_cfg(cfg=_DEFAULT_CONFIG)  =
     get(get(cfg, "augment", Dict{String,Any}()), "voltage_snap", Dict{String,Any}())
-_smart_inverter_cfg(cfg=_DEFAULT_CONFIG) =
-    get(get(cfg, "augment", Dict{String,Any}()), "smart_inverter", Dict{String,Any}())
+_smart_ibr_cfg(cfg=_DEFAULT_CONFIG) =
+    get(get(cfg, "augment", Dict{String,Any}()), "smart_ibr", Dict{String,Any}())

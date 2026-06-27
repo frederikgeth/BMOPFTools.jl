@@ -71,8 +71,8 @@ peak(K=12.0)  = (n = deepcopy(net); for (_, ld) in n["load"]
     ld["p_nom"] = ld["p_nom"].*K; ld["q_nom"] = get(ld,"q_nom",[0.0]).*K; end; n)
 light(K=2.0)  = (n = deepcopy(net); for (_, ld) in n["load"]
     ld["p_nom"] = ld["p_nom"].*K; ld["q_nom"] = get(ld,"q_nom",[0.0]).*K; end; n)
-add_pv!(n, kw) = (n["inverter"] = get(n, "inverter", Dict{String,Any}());
-    n["inverter"]["pv"] = Dict{String,Any}("bus"=>"lv_1", "terminal_map"=>["a","n"],
+add_pv!(n, kw) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
+    n["ibr"]["pv"] = Dict{String,Any}("bus"=>"lv_1", "terminal_map"=>["a","n"],
         "topology"=>"SINGLE_PHASE", "s_max"=>[kw*1100.0], "p_min"=>[kw*1000.0],
         "p_max"=>[kw*1000.0], "q_min"=>[0.0], "q_max"=>[0.0],
         "p_avail"=>[kw*1000.0], "prime_mover"=>"PV"); n)
@@ -80,10 +80,10 @@ add_pv!(n, kw) = (n["inverter"] = get(n, "inverter", Dict{String,Any}());
 add_reactor!(n, kvar) = (n["shunt"] = get(n, "shunt", Dict{String,Any}());
     n["shunt"]["reac"] = Dict{String,Any}("bus"=>"swer_2", "terminal_map"=>["a"],
         "B_1_1" => -kvar*1000.0 / 12700.0^2); n)
-# A CONTROLLABLE reactive compensator: an inverter with p≈0 and Q free in ±kvar,
+# A CONTROLLABLE reactive compensator: an IBR with p≈0 and Q free in ±kvar,
 # which the OPF dispatches per operating point (STATCOM-like).
-add_comp!(n, kvar) = (n["inverter"] = get(n, "inverter", Dict{String,Any}());
-    n["inverter"]["comp"] = Dict{String,Any}("bus"=>"swer_2", "terminal_map"=>["a","n"],
+add_comp!(n, kvar) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
+    n["ibr"]["comp"] = Dict{String,Any}("bus"=>"swer_2", "terminal_map"=>["a","n"],
         "topology"=>"SINGLE_PHASE", "s_max"=>[kvar*1000.0], "p_min"=>[0.0],
         "p_max"=>[0.0], "q_min"=>[-kvar*1000.0], "q_max"=>[kvar*1000.0],
         "p_avail"=>[0.0]); n)
@@ -91,7 +91,7 @@ add_comp!(n, kvar) = (n["inverter"] = get(n, "inverter", Dict{String,Any}());
 V(n) = vpn(solve_pf(n; optimizer=OPT, per_unit=true), "lv_1", "a")          # power flow
 function Vopf(n)                                                            # OPF dispatch
     r = solve_opf(set_limits!(n); optimizer=OPT, per_unit=true)
-    vpn(r, "lv_1", "a"), r["inverter"]["comp"]["a"]["qg"]/1000
+    vpn(r, "lv_1", "a"), r["ibr"]["comp"]["a"]["qg"]/1000
 end
 
 # ── 3. Two failure modes ──────────────────────────────────────────────────────
@@ -122,5 +122,5 @@ A single FIXED reactive setting cannot span the operating range: sized for the
 light-load PV overvoltage it deepens the peak-demand undervoltage. The OPF dispatches
 ONE controllable compensator to inject at peak and absorb under PV — voltage
 regulation is the SWER capacity limit, and per-operating-point optimal reactive
-dispatch is what unlocks it. For distributed smart-inverter Volt-var that does this
+dispatch is what unlocks it. For distributed smart-IBR Volt-var that does this
 autonomously at every PV, see the VVWO tutorial.""")

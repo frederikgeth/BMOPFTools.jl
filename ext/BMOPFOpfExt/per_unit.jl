@@ -153,7 +153,7 @@ function _to_per_unit(net::Dict{String,Any}, s_base::Float64)
     _pu_scale_linecodes!(net_pu, bases)
     _pu_scale_loads!(net_pu, bases)
     _pu_scale_generators!(net_pu, bases)
-    _pu_scale_inverters!(net_pu, bases)
+    _pu_scale_ibrs!(net_pu, bases)
     _pu_scale_transformers!(net_pu, bases)
     _pu_scale_nwinding!(net_pu, bases)
     _pu_scale_shunts!(net_pu, bases)
@@ -278,9 +278,9 @@ function _pu_scale_generators!(net, bases)
     end
 end
 
-function _pu_scale_inverters!(net, bases)
+function _pu_scale_ibrs!(net, bases)
     sb = bases.s_base
-    for (_, inv) in get(net, "inverter", Dict())
+    for (_, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         for f in ("p_min", "p_max", "q_min", "q_max", "s_max")
             haskey(inv, f) && (inv[f] = Float64.(inv[f]) ./ sb)
@@ -523,9 +523,9 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         end
     end
 
-    # Inverter currents and powers
-    invs = get(net, "inverter", Dict())
-    for (iid, ph_dict) in get(result, "inverter", Dict())
+    # IBR currents and powers
+    invs = get(net, "ibr", Dict())
+    for (iid, ph_dict) in get(result, "ibr", Dict())
         inv = get(invs, iid, Dict())
         bus = get(inv, "bus", "")
         ib  = get(bases.i_base, bus, 1.0)

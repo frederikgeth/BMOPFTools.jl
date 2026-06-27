@@ -114,7 +114,7 @@ nothing # hide
 
 Helpers for the operating points and the two candidate devices. The **fixed reactor**
 is a constant inductive shunt (no decision variable); the **controllable compensator**
-is an inverter with `p ≈ 0` and reactive power free in a band, which the OPF
+is an IBR with `p ≈ 0` and reactive power free in a band, which the OPF
 dispatches (STATCOM-like). Both sit at the SWER end, `swer_2` — the classic location
 for a SWER line reactor.
 
@@ -128,16 +128,16 @@ vpn(res, bid, ph) = (b = res["bus"][bid];
 
 scale(K)   = (n = deepcopy(net); for (_, ld) in n["load"]
     ld["p_nom"] = ld["p_nom"].*K; ld["q_nom"] = get(ld,"q_nom",[0.0]).*K; end; n)
-add_pv!(n, kw) = (n["inverter"] = get(n, "inverter", Dict{String,Any}());
-    n["inverter"]["pv"] = Dict{String,Any}("bus"=>"lv_1", "terminal_map"=>["a","n"],
+add_pv!(n, kw) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
+    n["ibr"]["pv"] = Dict{String,Any}("bus"=>"lv_1", "terminal_map"=>["a","n"],
         "topology"=>"SINGLE_PHASE", "s_max"=>[kw*1100.0], "p_min"=>[kw*1000.0],
         "p_max"=>[kw*1000.0], "q_min"=>[0.0], "q_max"=>[0.0],
         "p_avail"=>[kw*1000.0], "prime_mover"=>"PV"); n)
 add_reactor!(n, kvar) = (n["shunt"] = get(n, "shunt", Dict{String,Any}());
     n["shunt"]["reac"] = Dict{String,Any}("bus"=>"swer_2", "terminal_map"=>["a"],
         "B_1_1" => -kvar*1000.0 / 12700.0^2); n)
-add_comp!(n, kvar) = (n["inverter"] = get(n, "inverter", Dict{String,Any}());
-    n["inverter"]["comp"] = Dict{String,Any}("bus"=>"swer_2", "terminal_map"=>["a","n"],
+add_comp!(n, kvar) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
+    n["ibr"]["comp"] = Dict{String,Any}("bus"=>"swer_2", "terminal_map"=>["a","n"],
         "topology"=>"SINGLE_PHASE", "s_max"=>[kvar*1000.0], "p_min"=>[0.0],
         "p_max"=>[0.0], "q_min"=>[-kvar*1000.0], "q_max"=>[kvar*1000.0],
         "p_avail"=>[0.0]); n)
@@ -145,7 +145,7 @@ add_comp!(n, kvar) = (n["inverter"] = get(n, "inverter", Dict{String,Any}());
 Vpf(n)  = vpn(solve_pf(n; optimizer=OPT, per_unit=true), "lv_1", "a")
 function Vopf(n)
     r = solve_opf(set_limits!(n); optimizer=OPT, per_unit=true)
-    vpn(r, "lv_1", "a"), r["inverter"]["comp"]["a"]["qg"]/1000
+    vpn(r, "lv_1", "a"), r["ibr"]["comp"]["a"]["qg"]/1000
 end
 nothing # hide
 ```
@@ -208,12 +208,12 @@ the operating range — the optimiser's per-operating-point reactive dispatch is
 unlocks capacity (the controllable-reactor capacity gains of the North Jericho
 study). On a high R/X SWER feeder reactive support is a *limited* lever, which is
 itself worth seeing in the numbers; where it runs out, the same OPF machinery sizes
-and dispatches real-power DERs and smart-inverter Volt-var.
+and dispatches real-power DERs and smart-IBR Volt-var.
 
 !!! tip "Where to go next"
     The [DER placement tutorial](tutorial_ders.md) sites and sizes DERs and shows
     how the binding constraint flips; the [VVWO tutorial](tutorial_vvwo.md) puts
-    **distributed** smart-inverter Volt-var/Volt-watt control *inside* the OPF, so
+    **distributed** smart-IBR Volt-var/Volt-watt control *inside* the OPF, so
     every rooftop PV does autonomously what the lumped compensator did here. The
     runnable version of this page is
     [`examples/swer_tutorial.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/swer_tutorial.jl).

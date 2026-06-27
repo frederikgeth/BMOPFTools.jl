@@ -93,7 +93,7 @@ function integrity_check(net::Dict{String,Any},
     end
 
     # --- referential integrity: nodal elements ---
-    for comp_type in ("load", "generator", "shunt", "voltage_source", "inverter")
+    for comp_type in ("load", "generator", "shunt", "voltage_source", "ibr")
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
             b = get(c, "bus", nothing)
@@ -102,16 +102,16 @@ function integrity_check(net::Dict{String,Any},
         end
     end
 
-    # --- inverter → control_profile references ---
+    # --- ibr → control_profile references ---
     profiles = get(net, "control_profile", Dict())
-    for (id, inv) in get(net, "inverter", Dict())
+    for (id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         cp = get(inv, "control_profile", nothing)
         if cp isa AbstractString && !haskey(profiles, cp)
             n_ref_issues += 1
             push!(findings, Finding(ERROR, "E.INT.UNKNOWN_CONTROL_PROFILE", :integrity,
-                :inverter, id,
-                "inverter '$id' references unknown control_profile '$cp'.",
+                :ibr, id,
+                "IBR '$id' references unknown control_profile '$cp'.",
                 Dict{String,Any}("control_profile" => cp)))
         end
 
@@ -120,8 +120,8 @@ function integrity_check(net::Dict{String,Any},
                                  uppercase(String(vref)) in ("PER_PHASE", "AVERAGE"))
             n_ref_issues += 1
             push!(findings, Finding(ERROR, "E.INT.VOLTAGE_REF_INVALID", :integrity,
-                :inverter, id,
-                "inverter '$id' has voltage_ref = $(repr(vref)); expected \"PER_PHASE\" or \"AVERAGE\".",
+                :ibr, id,
+                "IBR '$id' has voltage_ref = $(repr(vref)); expected \"PER_PHASE\" or \"AVERAGE\".",
                 Dict{String,Any}("voltage_ref" => vref)))
         end
     end
@@ -143,8 +143,8 @@ function integrity_check(net::Dict{String,Any},
 
     n_dim_issues = 0
 
-    # inverter per-phase filter/cost vectors must match phase count = |terminal_map| - 1
-    for (id, inv) in get(net, "inverter", Dict())
+    # ibr per-phase filter/cost vectors must match phase count = |terminal_map| - 1
+    for (id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         n_phase = length(get(inv, "terminal_map", String[])) - 1
         n_phase < 1 && continue
@@ -153,8 +153,8 @@ function integrity_check(net::Dict{String,Any},
             if v isa AbstractVector && length(v) != n_phase
                 n_dim_issues += 1
                 push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :inverter, id,
-                    "inverter '$id': $field has $(length(v)) entries but the " *
+                    :ibr, id,
+                    "IBR '$id': $field has $(length(v)) entries but the " *
                     "terminal map implies $n_phase phase(s).",
                     Dict{String,Any}("field" => field, "n_phase" => n_phase)))
             end
@@ -381,7 +381,7 @@ function integrity_check(net::Dict{String,Any},
     end
 
     n_floating = 0
-    for comp_type in ("load", "generator", "inverter")
+    for comp_type in ("load", "generator", "ibr")
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
             b = get(c, "bus", nothing)
@@ -420,7 +420,7 @@ function integrity_check(net::Dict{String,Any},
             union!(get!(all_used_terminals, b, Set{String}()), ts)
         end
     end
-    for comp_type in ("load", "generator", "shunt", "voltage_source", "inverter")
+    for comp_type in ("load", "generator", "shunt", "voltage_source", "ibr")
         for (_, c) in get(net, comp_type, Dict())
             c isa Dict || continue
             b  = get(c, "bus", nothing)

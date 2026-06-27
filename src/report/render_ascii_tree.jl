@@ -96,7 +96,7 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
     for (gid, g) in gens
         push!(get!(bus_gens, get(g,"bus",""), String[]), gid)
     end
-    for (vid, v) in get(net, "inverter", Dict())
+    for (vid, v) in get(net, "ibr", Dict())
         push!(get!(bus_invs, get(v,"bus",""), String[]), vid)
     end
 

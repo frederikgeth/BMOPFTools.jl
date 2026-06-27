@@ -1,6 +1,6 @@
-# Inverter augmentation pass.
+# IBR augmentation pass.
 #
-# Derives missing P and Q bounds for inverter objects before the OPF is run.
+# Derives missing P and Q bounds for IBR objects before the OPF is run.
 #
 # P bounds
 # ────────
@@ -10,26 +10,26 @@
 #
 # Q bounds
 # ────────
-# If an inverter references a control_profile with a "power_factor" sub-object,
+# If an IBR references a control_profile with a "power_factor" sub-object,
 # q_min/q_max are left absent — the OPF engine enforces the exact PF coupling
 # as a bilinear equality constraint (Q = f(P)).
 #
-# For all other inverters that lack explicit q_min/q_max, symmetric bounds are
-# derived from p_max using the recipe's inverter_default_pf (EN 50549-1 default
+# For all other ibrs that lack explicit q_min/q_max, symmetric bounds are
+# derived from p_max using the recipe's ibr_default_pf (EN 50549-1 default
 # cos φ = 0.90 for LV-connected DERs).
 
-function _apply_inverter_augmentation!(net′::Dict{String,Any},
+function _apply_ibr_augmentation!(net′::Dict{String,Any},
                                         entries::Vector{TransformEntry},
                                         r::AugmentationRecipe)
-    inverters = get(net′, "inverter", Dict())
-    isempty(inverters) && return
+    ibrs = get(net′, "ibr", Dict())
+    isempty(ibrs) && return
     profiles  = get(net′, "control_profile", Dict())
 
-    pf      = r.inverter_default_pf
-    rule    = "EN50549-1:2019_cos_phi_$(round(pf, digits=3))_inverter_default"
+    pf      = r.ibr_default_pf
+    rule    = "EN50549-1:2019_cos_phi_$(round(pf, digits=3))_ibr_default"
     tan_phi = tan(acos(pf))
 
-    for (inv_id, inv) in inverters
+    for (inv_id, inv) in ibrs
         inv isa Dict || continue
         tm      = Vector{String}(get(inv, "terminal_map", String[]))
         n_phase = length(tm) - 1
@@ -54,8 +54,8 @@ function _apply_inverter_augmentation!(net′::Dict{String,Any},
                 src = p_avail !== nothing ? "p_avail ÷ $(n_phase) phase(s)" :
                                             "s_max per phase"
                 push!(entries, TransformEntry(
-                    :inverter, inv_id, "p_max", nothing, p_max_vec,
-                    "inverter_p_bound", :standard,
+                    :ibr, inv_id, "p_max", nothing, p_max_vec,
+                    "ibr_p_bound", :standard,
                     "p_max derived from $src"))
             end
         end
@@ -64,7 +64,7 @@ function _apply_inverter_augmentation!(net′::Dict{String,Any},
             pmin = fill(0.0, n_phase)
             inv["p_min"] = pmin
             push!(entries, TransformEntry(
-                :inverter, inv_id, "p_min", nothing, pmin,
+                :ibr, inv_id, "p_min", nothing, pmin,
                 "PV_prime_mover_unidirectional", :standard,
                 "PV cannot absorb active power; p_min = 0 per phase"))
         end
@@ -91,32 +91,32 @@ function _apply_inverter_augmentation!(net′::Dict{String,Any},
             inv["q_max"] = q_max_vec
 
             push!(entries, TransformEntry(
-                :inverter, inv_id, "q_min", nothing, q_min_vec,
+                :ibr, inv_id, "q_min", nothing, q_min_vec,
                 rule, :standard,
                 "Q_min = -P_max × tan(arccos($(pf)))"))
             push!(entries, TransformEntry(
-                :inverter, inv_id, "q_max", nothing, q_max_vec,
+                :ibr, inv_id, "q_max", nothing, q_max_vec,
                 rule, :standard,
                 "Q_max = P_max × tan(arccos($(pf))) ≈ $(round(tan_phi, digits=3)) × P_max"))
         end
     end
 end
 
-# Smart-inverter (Volt-var / Volt-watt) default-characteristic augmentation.
+# Smart-IBR (Volt-var / Volt-watt) default-characteristic augmentation.
 #
-# Config-driven (mirrors the voltage-snap pass): when [augment.smart_inverter] is
+# Config-driven (mirrors the voltage-snap pass): when [augment.smart_ibr] is
 # enabled, any volt_var/volt_watt sub-object that a control_profile declares but
 # leaves blank is filled from the selected regional preset (e.g. AS/NZS 4777.2:2020
 # "Aus_A" for Queensland). Fields already present are never overwritten, so a
 # study can pin individual breakpoints and let the rest default.
-function _apply_smart_inverter_augmentation!(net′::Dict{String,Any},
+function _apply_smart_ibr_augmentation!(net′::Dict{String,Any},
                                               entries::Vector{TransformEntry},
                                               cfg::Dict)
     get(cfg, "enabled", false) === true || return
     region  = String(get(cfg, "region", "Aus_A"))
     regions = get(cfg, "regions", Dict())
     rdef    = get(regions, region, nothing)
-    rdef isa Dict || (@warn "smart_inverter: region '$region' not found in config — skipping"; return)
+    rdef isa Dict || (@warn "smart_ibr: region '$region' not found in config — skipping"; return)
 
     profiles = get(net′, "control_profile", Dict())
     profiles isa Dict || return

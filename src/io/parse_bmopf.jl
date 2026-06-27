@@ -137,7 +137,7 @@ function each_terminal_array(f, net::Dict{String,Any})
         end
     end
     for comp_type in ("bus", "line", "load", "generator", "voltage_source",
-                      "shunt", "switch", "inverter")
+                      "shunt", "switch", "ibr")
         components = get(net, comp_type, nothing)
         components isa Dict || continue
         foreach(visit, values(components))
@@ -189,7 +189,7 @@ end
 
 function _any_component_has_ts_ref(net::Dict{String,Any})::Bool
     for key in ("bus", "line", "load", "generator", "voltage_source",
-                "shunt", "switch", "inverter", "transformer")
+                "shunt", "switch", "ibr", "transformer")
         components = get(net, key, nothing)
         components isa Dict || continue
         for (_, comp) in components
@@ -246,7 +246,7 @@ function get_snapshot(net::Dict{String,Any}, t_index::Int)::Dict{String,Any}
     ts_root = snap["time_series"]
 
     for key in ("bus", "line", "load", "generator", "voltage_source",
-                "shunt", "switch", "inverter")
+                "shunt", "switch", "ibr")
         components = get(snap, key, nothing)
         components isa Dict || continue
         for (_, comp) in components

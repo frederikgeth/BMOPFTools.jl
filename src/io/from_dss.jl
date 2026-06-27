@@ -109,7 +109,7 @@ end
 
 # Top-level component collections whose KEYS are OpenDSS identifiers.
 const _ID_COLLECTIONS = ("bus", "linecode", "line", "switch", "load",
-                         "generator", "voltage_source", "shunt", "inverter",
+                         "generator", "voltage_source", "shunt", "ibr",
                          "capacitor")
 
 """
@@ -160,7 +160,7 @@ function _canonicalize_identifiers!(net::Dict{String,Any})
     end
 
     # 2. Reference fields
-    for ct in ("load", "generator", "voltage_source", "shunt", "inverter", "capacitor")
+    for ct in ("load", "generator", "voltage_source", "shunt", "ibr", "capacitor")
         for (_, c) in get(net, ct, Dict())
             c isa Dict && foldref!(c, "bus")
         end

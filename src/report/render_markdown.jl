@@ -40,7 +40,7 @@ function _md_inventory(r::SummaryReport, io::IO)
 
     components = ["bus","line","linecode","voltage_source","load",
                   "generator","shunt","switch","transformer",
-                  "inverter","control_profile"]
+                  "ibr","control_profile"]
     for comp in components
         info = get(d, comp, nothing)
         info isa Dict || continue
@@ -58,7 +58,7 @@ function _md_inventory(r::SummaryReport, io::IO)
                 bytype = get(info, "by_type", Dict())
                 isempty(bytype) || (notes = join(["$t×$c" for (t,c) in bytype], ", "))
             end
-        elseif comp == "inverter"
+        elseif comp == "ibr"
             cap = round(get(info, "total_s_max_va", 0.0) / 1e6, digits=3)
             bypm = get(info, "by_prime_mover", Dict())
             pm_str = isempty(bypm) ? "" :

@@ -488,7 +488,7 @@ function _build_vars(model, net, bus_terminals, grounded)
     cr_src,ci_src= _add_source_variables!(model, net)
     cr_xf, ci_xf = _add_transformer_variables!(model, net)
     cr_nw, ci_nw = _add_nwinding_variables!(model, net)
-    cri,   cii   = _add_inverter_variables!(model, net)
+    cri,   cii   = _add_ibr_variables!(model, net)
     cr_gnd,ci_gnd= _add_ground_variables!(model, grounded)
 
     Dict{Symbol,Any}(

@@ -30,7 +30,7 @@ function _relabel_phases!(net::Dict{String,Any}, π::Dict{String,String})
         haskey(bus, "perfectly_grounded_terminals") &&
             (bus["perfectly_grounded_terminals"] = sub(bus["perfectly_grounded_terminals"]))
     end
-    for ct in ("load", "generator", "shunt", "voltage_source", "inverter")
+    for ct in ("load", "generator", "shunt", "voltage_source", "ibr")
         for (_, c) in get(net, ct, Dict())
             c isa Dict && haskey(c, "terminal_map") && (c["terminal_map"] = sub(c["terminal_map"]))
         end

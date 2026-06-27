@@ -293,8 +293,8 @@ per-network degeneracy flags catch subtler problems that survive augmentation:
     Interoperability Using the Common Information Model in Smart Grids,"
     *Energies* 13 (6) (2020) 1435 (CIM as an asset-first, object-identity model
     for semantic interoperability and data exchange).
-28. B. Bahrani et al., "Grid-Forming Inverter-Based Resource Research Landscape:
+28. B. Bahrani et al., "Grid-Forming IBR-Based Resource Research Landscape:
     Understanding the Key Assets for Renewable-Rich Power Systems," *IEEE Power &
-    Energy Magazine* 22 (2) (2024) 18–29 (inverter-based resources as a distinct
+    Energy Magazine* 22 (2) (2024) 18–29 (IBR-based resources as a distinct
     asset class from synchronous generators — capability-limited, inertia-free,
     control-defined).

@@ -53,7 +53,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Volt-watt: at a stiff high terminal voltage the active-power cap curtails
-    # the inverter well below p_max, binding exactly to the smooth curve.
+    # the IBR well below p_max, binding exactly to the smooth curve.
     # ─────────────────────────────────────────────────────────────────────────
     _volt_watt_net(vsrc) = parse_bmopf("""
         {"bus":{
@@ -73,7 +73,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
              "voltage_reference":"PN_PER_PHASE",
              "breakpoints":[253.0,260.0],"p_limits":[0.20,1.00],
              "p_unit":"VA_FRACTION","p_ref":"S_MAX"}}},
-         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","n"],
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","n"],
              "topology":"SINGLE_PHASE","prime_mover":"PV",
              "s_max":[3000.0],"p_max":[3000.0],"p_min":[0.0],
              "q_min":[0.0],"q_max":[0.0],
@@ -86,7 +86,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
         vm  = res["bus"]["b1"]["1"]["vm"]
-        pg  = res["inverter"]["pv1"]["1"]["pg"]
+        pg  = res["ibr"]["pv1"]["1"]["pg"]
 
         # Reconstruct the cap the builder applies at the solved voltage.
         base, tr = _OPFEXT.breakpoints_to_triples([253.0, 260.0], [1.0, 0.2])
@@ -100,8 +100,8 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
 
     @testset "volt_watt — SI / per-unit invariance" begin
         net = _volt_watt_net(260.0)
-        pg_si = solve_opf(net; per_unit=false)["inverter"]["pv1"]["1"]["pg"]
-        pg_pu = solve_opf(net; per_unit=true)["inverter"]["pv1"]["1"]["pg"]
+        pg_si = solve_opf(net; per_unit=false)["ibr"]["pv1"]["1"]["pg"]
+        pg_pu = solve_opf(net; per_unit=true)["ibr"]["pv1"]["1"]["pg"]
         @test pg_si ≈ pg_pu   rtol = 1e-3
     end
 
@@ -127,7 +127,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
              "voltage_reference":"PN_PER_PHASE",
              "breakpoints":[207.0,220.0,240.0,258.0],"q_limits":[-0.60,0.44],
              "q_unit":"VA_FRACTION","q_ref":"VAR_MAX"}}},
-         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","n"],
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","n"],
              "topology":"SINGLE_PHASE","prime_mover":"PV",
              "s_max":[3000.0],"p_max":[0.0],"p_min":[0.0],
              "control_profile":"vv","cost":[0.1]}}}
@@ -140,7 +140,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
         vm = res["bus"]["b1"]["1"]["vm"]
-        qg = res["inverter"]["pv1"]["1"]["qg"]
+        qg = res["ibr"]["pv1"]["1"]["qg"]
 
         base, tr = _OPFEXT.breakpoints_to_triples([207.0, 220.0, 240.0, 258.0],
                                                   [0.44, 0.0, 0.0, -0.60])
@@ -155,7 +155,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         net = _volt_var_net(230.0)               # between V2=220 and V3=240
         res = solve_opf(net; per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        @test abs(res["inverter"]["pv1"]["1"]["qg"]) < 30.0
+        @test abs(res["ibr"]["pv1"]["1"]["qg"]) < 30.0
     end
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
              "voltage_reference":"PN_PER_PHASE",
              "breakpoints":[207.0,220.0,240.0,258.0],"q_limits":[-0.60,0.44],
              "q_unit":"VA_FRACTION","q_ref":"VAR_MAX"}}},
-         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
              "topology":"FOUR_LEG","prime_mover":"PV","voltage_ref":"$(vref)",
              "s_max":[3000.0,3000.0,3000.0],"p_max":[0.0,0.0,0.0],"p_min":[0.0,0.0,0.0],
              "control_profile":"vv","cost":[0.1,0.1,0.1]}}}
@@ -201,7 +201,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         res = solve_opf(_volt_var_4leg_net("PER_PHASE"); per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
-        invr = res["inverter"]["pv1"]
+        invr = res["ibr"]["pv1"]
         for ph in ("1", "2", "3")
             vm = res["bus"]["b1"][ph]["vm"]
             @test invr[ph]["qg"] ≈ _vv_curve_si(vm)   atol = 10.0
@@ -215,7 +215,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         res = solve_opf(_volt_var_4leg_net("AVERAGE"); per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
-        invr = res["inverter"]["pv1"]
+        invr = res["ibr"]["pv1"]
         u_avg = sum(res["bus"]["b1"][ph]["vm"] for ph in ("1", "2", "3")) / 3
         q_expected = _vv_curve_si(u_avg)
         for ph in ("1", "2", "3")
@@ -228,12 +228,12 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
 
     @testset "voltage_ref=AVERAGE on SINGLE_PHASE — warns, no effect" begin
         net = _volt_var_net(258.0)
-        net["inverter"]["pv1"]["voltage_ref"] = "AVERAGE"
+        net["ibr"]["pv1"]["voltage_ref"] = "AVERAGE"
         res = @test_logs (:warn,) match_mode=:any solve_opf(net; per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         # Behaviour identical to PER_PHASE: Q still binds to the curve.
         vm = res["bus"]["b1"]["1"]["vm"]
-        @test res["inverter"]["pv1"]["1"]["qg"] ≈ _vv_curve_si(vm)   atol = 10.0
+        @test res["ibr"]["pv1"]["1"]["qg"] ≈ _vv_curve_si(vm)   atol = 10.0
     end
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
              "voltage_reference":"PN_PER_PHASE",
              "breakpoints":[207.0,220.0,240.0,258.0],"q_limits":[-0.60,0.44],
              "q_unit":"VA_FRACTION","q_ref":"VAR_MAX"}}},
-         "inverter":{"pv1":{"bus":"b1","terminal_map":["1","2","3"],
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","2","3"],
              "topology":"THREE_LEG","prime_mover":"PV",
              "s_max":[3000.0,3000.0,3000.0],
              "p_max":[2000.0,2000.0,2000.0],"p_min":[0.0,0.0,0.0],
@@ -309,7 +309,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
 
         bad_vref = parse_bmopf("""
         {"bus":{"b":{"terminal_names":["1","2","3","n"]}},
-         "inverter":{"pv1":{"bus":"b","terminal_map":["1","2","3","n"],
+         "ibr":{"pv1":{"bus":"b","terminal_map":["1","2","3","n"],
              "topology":"FOUR_LEG","prime_mover":"PV","voltage_ref":"MEDIAN",
              "s_max":[3000.0,3000.0,3000.0]}}}
         """; from_string=true)
@@ -323,13 +323,13 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
     # ─────────────────────────────────────────────────────────────────────────
     @testset "augmentation — Queensland defaults" begin
         cfg = deepcopy(BMOPFTools.load_config())
-        cfg["augment"]["smart_inverter"]["enabled"] = true
-        cfg["augment"]["smart_inverter"]["region"]  = "Aus_A"
+        cfg["augment"]["smart_ibr"]["enabled"] = true
+        cfg["augment"]["smart_ibr"]["region"]  = "Aus_A"
 
         net = parse_bmopf("""
         {"bus":{"b":{"terminal_names":["1","n"]}},
          "control_profile":{"qld":{"volt_var":{},"volt_watt":{}}},
-         "inverter":{"pv1":{"bus":"b","terminal_map":["1","n"],
+         "ibr":{"pv1":{"bus":"b","terminal_map":["1","n"],
              "topology":"SINGLE_PHASE","prime_mover":"PV","s_max":[3000.0],
              "control_profile":"qld"}}}
         """; from_string=true)
@@ -337,7 +337,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         net′, _ = augment_case(net; config=cfg, recipe=AugmentationRecipe(
             apply_v_bounds=false, apply_vpn_bounds=false, apply_vpp_bounds=false,
             apply_vneg_bounds=false, apply_thermal=false, apply_q_bounds=false,
-            apply_slack_generator=false, apply_inverter=false))
+            apply_slack_generator=false, apply_ibr=false))
 
         vv = net′["control_profile"]["qld"]["volt_var"]
         vw = net′["control_profile"]["qld"]["volt_watt"]

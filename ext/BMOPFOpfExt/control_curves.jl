@@ -95,7 +95,7 @@ end
 
 Return a smooth-ReLU operator for smoothing `ε`, registering it on `model` the
 first time a given `ε` is requested and caching it in `cache`
-(`Dict{Float64,Any}`). Lets inverters at different voltage bases share operators
+(`Dict{Float64,Any}`). Lets IBRs at different voltage bases share operators
 while keeping each registration unique.
 """
 function relu_operator_for!(cache::Dict{Float64,Any}, model, ε::Float64)

@@ -19,7 +19,7 @@
 | shunt | 1288 |  |
 | switch | 317 |  |
 | transformer | 33 | Dyn0×33 |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels

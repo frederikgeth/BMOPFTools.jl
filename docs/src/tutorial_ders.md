@@ -11,7 +11,7 @@ the optimum *is* the hosting-capacity answer. Which constraint binds — and whi
 DER is curtailed to respect it — is the modeling content, not the objective value.
 
 This tutorial builds that OPF from a raw LV feeder using the library's
-**recipe-driven DER placement** (`add_inverters` / `add_generators`), then runs
+**recipe-driven DER placement** (`add_ibrs` / `add_generators`), then runs
 three scenarios on the *same* feeder and DER fleet that each make a **different
 constraint bind**. The throughline:
 
@@ -39,8 +39,8 @@ recipe and let the library choose buses from the network's own semantics and
 record every field it writes:
 
 ```julia
-INV_RECIPE = InverterRecipe(
-    strategy = :load_following,   # one PV inverter per load bus
+INV_RECIPE = IBRRecipe(
+    strategy = :load_following,   # one PV IBR per load bus
     s_fraction = 5.0,             # s_max = 5.0 × local load  (≈ 50 kVA cluster)
     s_to_p_ratio = 0.90,          # p_avail = 0.9 × s_max — leaves VA headroom
     cost_basis = :uniform, der_cost_uniform = 0.2)   # cheaper than the slack (1.0)
@@ -51,7 +51,7 @@ GEN_RECIPE = GeneratorRecipe(
     cost_basis = :uniform, der_cost_uniform = 0.3)   # dearer than PV, cheaper than slack
 ```
 
-A load-following recipe drops one PV inverter on each load bus, and a thinner
+A load-following recipe drops one PV IBR on each load bus, and a thinner
 generator co-locates with it. Both are priced below the slack, so the OPF sees a
 layered **merit order** — cheap PV → mid-priced generator → expensive slack
 import:
@@ -66,7 +66,7 @@ import:
 Because the loads — and therefore the PV — sit on *different* phases, the export
 is itself unbalanced, which is where four-wire modelling (explicit neutral, no
 Kron reduction) earns its keep. `augment_case` then fills the standards-grounded
-gaps: the inverter `P²+Q²≤s_max²` circle and its EN 50549-1 reactive box, the
+gaps: the IBR `P²+Q²≤s_max²` circle and its EN 50549-1 reactive box, the
 generator reactive limits, the IEC 60228 thermal limit, and a per-phase slack
 price. We add the EN 50160 phase-to-neutral ceiling (`vpn_max = 1.10 pu`)
 explicitly so we control exactly the limit we mean.
@@ -112,7 +112,7 @@ der_b2656 =  0.18 kW                        der_b3230 =  0.00 kW
 The voltage is held at **exactly 1.10 pu** and the dispatch changes completely.
 Two things happen, co-optimised in a single solve:
 
-- **The inverters absorb reactive power for voltage support.** Each PV sits on its
+- **The IBRs absorb reactive power for voltage support.** Each PV sits on its
   apparent-power circle: at `s_max = 50 kVA` the reactive headroom at full active
   power is
 
@@ -120,7 +120,7 @@ Two things happen, co-optimised in a single solve:
   Q_{\text{avail}} = \sqrt{s_{\max}^2 - P^2} = \sqrt{50^2 - 45^2} \approx 21.8\ \text{kvar},
   ```
 
-  which is exactly the −21.79 kvar both inverters draw. The `P²+Q²≤s_max²` circle
+  which is exactly the −21.79 kvar both IBRs draw. The `P²+Q²≤s_max²` circle
   *trades active headroom for reactive absorption* — reactive support is not free.
 - **The merit order is respected on the way down.** The OPF sheds the dearer
   generator (`der_*` → ~0) before curtailing the cheaper PV, and curtails the PV

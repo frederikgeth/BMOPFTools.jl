@@ -6,7 +6,7 @@ BMOPFTools models a network as a set of objects that pass one test:
 
 > **Could two engineers, shown the thing in the real world, agree on its label?**
 
-A capacitor bank, a generator, a transformer, an inverter, a shunt reactor are
+A capacitor bank, a generator, a transformer, an IBR (inverter-based resource), a shunt reactor are
 real assets with stable identities. The data model aims to carry *those* objects —
 not whichever encoding a particular solver found convenient. This is the same
 stance taken at ingest (ingestion is a [semantic projection](conversion.md#ingest-philosophy),
@@ -40,7 +40,7 @@ conveniences of a particular solver**, frozen into the data:
 - **Backward-forward sweep wants negative loads.** Embedding a DER as a negative
   `PQ` load lets an unmodified distribution load-flow handle generation
   ([ref. 5](methodology.md#refs)) — at the cost of erasing that it is a
-  generator/inverter with its own bounds and controls
+  generator/IBR with its own bounds and controls
   ([ref. 28](methodology.md#refs)).
 - **`Ybus` embeds a constant-impedance load as a shunt.** A constant-`Z` load is
   `Sⱼ/|Vⱼ|²` on the bus admittance diagonal ([ref. 26](methodology.md#refs)); once
@@ -115,9 +115,9 @@ have an opt-in [fix-recipe](augmentation.md#fix) conversion.
 | generic `shunt` (G≈0, +B) | **capacitor** bank | `Ybus` shunt embedding; OpenDSS `Capacitor` lowered to admittance | `I.PROV.SHUNT_LIKELY_CAPACITOR` + `apply_shunt_to_capacitor` conversion |
 | generic `shunt` (G≈0, −B) | **reactor** | same admittance embedding | `I.PROV.SHUNT_LIKELY_REACTOR` |
 | constant-impedance `load` | load **model**, or a shunt | `Sⱼ/|V|²` on the `Ybus` diagonal | kept as a load model (ZIP); not silently a shunt |
-| negative `load` | **generator** / inverter | negative-`PQ` sweep convention | `I.DOM.NEGATIVE_LOAD` |
+| negative `load` | **generator** / IBR | negative-`PQ` sweep convention | `I.DOM.NEGATIVE_LOAD` |
 | `generator` that only absorbs | **load** | sign / object-class mix-up | `I.DOM.NEGATIVE_GENERATION` |
-| `generator` at LV | **inverter** (DER) | no IBR object in source tool | `I.DOM.GEN_LIKELY_INVERTER` |
+| `generator` at LV | **IBR** (DER) | no IBR object in source tool | `I.DOM.GEN_LIKELY_IBR` |
 | `line` between voltage levels | **transformer** | per-unit elision of the ideal transformer | `W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS` |
 | near-zero-`Z` `line` | **switch** | admittance-solver placeholder | `apply_low_impedance_to_switch` fix |
 | tiny placeholder leakage | exact-zero / real `%Z` | admittance solver forbids zero | `W.DOM.XFMR_LOW_IMPEDANCE` + `apply_snap_transformer_impedance` |
@@ -139,5 +139,5 @@ distribution datasets — the catalogue of real abuses), [ref. 2](methodology.md
 and [ref. 17](methodology.md#refs) (why the transformer and the conductor-level
 model cannot be dissolved), and [ref. 23](methodology.md#refs)/[ref. 27](methodology.md#refs)
 (the CIM asset-first precedent), with [ref. 26](methodology.md#refs) (constant-`Z`
-load ≡ shunt admittance) and [ref. 28](methodology.md#refs) (inverter-based
+load ≡ shunt admittance) and [ref. 28](methodology.md#refs) (IBR-based
 resources as a distinct asset class) grounding specific rows.

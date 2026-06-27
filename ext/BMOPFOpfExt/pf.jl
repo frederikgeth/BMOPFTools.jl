@@ -9,13 +9,13 @@
 #      currents and voltages result; rating violations are a separate validation
 #      concern. This mirrors PowerModels `build_pf_iv` (variable_*(bounded=false)).
 #   2. NO objective (Min 0). The voltage source fixes the slack-bus voltages and
-#      supplies the free swing current; constant-power loads/generators/inverters
+#      supplies the free swing current; constant-power loads/generators/IBRs
 #      and exact KCL then fully determine the nodal state.
 #
 # Because generators in this model are P/Q *ranges* (p_min..p_max), they would
 # leave the system underdetermined under no objective. A power flow therefore
 # requires every generator to be a fixed setpoint (p_min==p_max, q_min==q_max);
-# a non-degenerate range is rejected with a clear error. Inverters governed by a
+# a non-degenerate range is rejected with a clear error. IBRs governed by a
 # control_profile are voltage-dependent and remain determined, so they are fine.
 
 """
@@ -94,8 +94,8 @@ function _strip_operational_limits!(net::Dict{String,Any})
         end
     end
 
-    # flat component collections: switch, generator, inverter
-    for coll in ("switch", "generator", "inverter")
+    # flat component collections: switch, generator, ibr
+    for coll in ("switch", "generator", "ibr")
         for (_, comp) in get(net, coll, Dict())
             comp isa Dict || continue
             for f in _PF_LIMIT_FIELDS

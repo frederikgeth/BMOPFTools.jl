@@ -134,7 +134,7 @@ OpenDSS .dss ──(from_dss / PowerIO.jl)──► BMOPF Dict{String,Any} ◄�
                                                  │ fix_case
                                                  ▼
                                           net′ (repaired)
-                                                 │ add_generators / add_inverters  (optional DER)
+                                                 │ add_generators / add_ibrs  (optional DER)
                                                  ▼
                                           net′ + DERs
                                                  │ augment_case

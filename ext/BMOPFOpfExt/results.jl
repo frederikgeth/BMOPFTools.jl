@@ -28,7 +28,7 @@ Returned top-level keys
 - `"switch"`     — `switch_id => terminal_name => {cr, ci [A], cm [A]}`
 - `"load"`       — `load_id => terminal_name => {crd, cid [A], pd [W], qd [var]}`
 - `"generator"`  — `gen_id => terminal_name => {crg, cig [A], pg [W], qg [var]}`
-- `"inverter"`   — `inv_id => terminal_name => {cri, cii [A], pg [W], qg [var]}`
+- `"ibr"`   — `inv_id => terminal_name => {cri, cii [A], pg [W], qg [var]}`
 - `"transformer"`— `xfmr_id => {"fr" => {k => {cr, ci [A]}}, "to" => {k => {cr, ci [A]}},
                    "ground" => {cg_r, cg_i, cgm [A]}}` where the ground entry is the
                    no-load-shunt current returning through earth (nonzero only when
@@ -355,12 +355,12 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         gen_res[gid] = ph_results
     end
 
-    # ── Inverter currents and produced power ─────────────────────────────────
+    # ── IBR currents and produced power ─────────────────────────────────
     inv_res = Dict{String,Any}()
     cri_v = vars[:cri]; cii_v = vars[:cii]
     profiles_net = get(net, "control_profile", Dict())
 
-    for (inv_id, inv) in get(net, "inverter", Dict())
+    for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         bus  = get(inv, "bus", "")
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
@@ -639,7 +639,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         "switch"             => switch_res,
         "load"               => load_res,
         "generator"          => gen_res,
-        "inverter"           => inv_res,
+        "ibr"           => inv_res,
         "transformer"        => xfmr_res,
         "capacitor"          => cap_res,
         "voltage_source"     => src_res,

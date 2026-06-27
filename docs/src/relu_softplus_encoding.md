@@ -159,7 +159,7 @@ The tradeoff is the usual one:
 
 Mhanna et al. [1, §IV-C] benchmark this sweep and recommend a softplus smoothing
 small enough to stay well inside the $\pm 7.5\,\%$ voltage-accuracy band of real
-inverters while preserving reliability; in their normalisation $\varepsilon\le
+IBRs while preserving reliability; in their normalisation $\varepsilon\le
 10^{-5}$ was the sweet spot. The default here is deliberately conservative and can
 be tightened per study. The same paper presents a **quadratic Bézier spline** as
 an alternative smoothing with an equivalent $\Delta U$ tolerance; BMOPFTools ships

@@ -4,7 +4,7 @@
 # of the element ($/W): the cost of phase k is cost[k] * P_k, where
 #   P_k = dvr * cr[k] + dvi * ci[k]
 # is the per-phase active power (bilinear in voltage and current). This applies
-# uniformly to generators, the voltage source (slack), and inverters.
+# uniformly to generators, the voltage source (slack), and IBRs.
 
 # Linear cost coefficient for loop position `idx` (1-based). `cost` must be a
 # per-phase vector; a scalar (legacy/polynomial form) is rejected.
@@ -21,7 +21,7 @@ end
 
 Set the JuMP objective to minimise total active-power generation cost.
 
-The `"cost"` field on generators, the voltage source, and inverters is a
+The `"cost"` field on generators, the voltage source, and IBRs is a
 **per-phase vector of linear coefficients** `[c_1, …, c_nphase]` (\$/W); the
 objective contribution of phase `k` is `cost[k]·P_k`.  Costs are linear in the
 IVR-EN power expression and added exactly — there is no polynomial/quadratic term.
@@ -97,8 +97,8 @@ function _add_objective!(model, net, vars)
         end
     end
 
-    # ── Inverter dispatch cost (same structure as generator) ─────────────────
-    for (inv_id, inv) in get(net, "inverter", Dict())
+    # ── IBR dispatch cost (same structure as generator) ─────────────────
+    for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         bus  = get(inv, "bus", "")
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
@@ -107,7 +107,7 @@ function _add_objective!(model, net, vars)
         cost === nothing && continue
 
         if topo == "SINGLE_PHASE" && length(tm) >= 2
-            c1 = _phase_cost(cost, 1, "Inverter", inv_id)
+            c1 = _phase_cost(cost, 1, "IBR", inv_id)
             t_ph = tm[1]; t_ref = tm[2]
             dvr = @expression(model, vr[(bus,t_ph)] - vr[(bus,t_ref)])
             dvi = @expression(model, vi[(bus,t_ph)] - vi[(bus,t_ref)])
@@ -119,7 +119,7 @@ function _add_objective!(model, net, vars)
             n_pos_idx = _neutral_pos(tm)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
             for (idx, ph) in enumerate(ph_pos)
-                c1   = _phase_cost(cost, idx, "Inverter", inv_id)
+                c1   = _phase_cost(cost, idx, "IBR", inv_id)
                 t_ph = tm[ph]
                 dvr = t_n !== nothing ?
                       @expression(model, vr[(bus,t_ph)] - vr[(bus,t_n)]) : vr[(bus,t_ph)]
@@ -132,7 +132,7 @@ function _add_objective!(model, net, vars)
         elseif topo == "THREE_LEG"
             n_c = length(tm)
             for k in 1:n_c
-                c1 = _phase_cost(cost, k, "Inverter", inv_id)
+                c1 = _phase_cost(cost, k, "IBR", inv_id)
                 t_pos = tm[k]; t_neg = tm[(k % n_c) + 1]
                 dvr = @expression(model, vr[(bus,t_pos)] - vr[(bus,t_neg)])
                 dvi = @expression(model, vi[(bus,t_pos)] - vi[(bus,t_neg)])

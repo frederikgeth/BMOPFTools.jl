@@ -13,7 +13,7 @@ const _REQUIRED_FIELDS = Dict{String,Vector{String}}(
     "switch"         => ["bus_from", "bus_to", "terminal_map_from", "terminal_map_to",
                          "open_switch"],
     "linecode"       => ["R_series_1_1", "X_series_1_1"],
-    "inverter"       => ["bus", "terminal_map", "topology", "prime_mover", "s_max"],
+    "ibr"            => ["bus", "terminal_map", "topology", "prime_mover", "s_max"],
     # control_profile sub-objects are all optional; presence activates a control law
     "control_profile" => String[]
 )
@@ -70,7 +70,7 @@ const _OPTIONAL_FIELDS = Dict{String,Vector{String}}(
     "generator" => ["p_min", "p_max", "q_min", "q_max"],
     "switch"    => ["i_max"],
     "linecode"  => ["i_max", "s_max"],
-    "inverter"  => ["p_avail", "p_min", "p_max", "q_min", "q_max",
+    "ibr"       => ["p_avail", "p_min", "p_max", "q_min", "q_max",
                     "r_filter", "x_filter", "b_filter_shunt",
                     "grid_forming", "v_ref_internal", "cost", "control_profile",
                     "voltage_ref"],

@@ -9,7 +9,7 @@ the network physics and the operating envelope at once, and the **active
 constraint set** of the solution *is* the hosting-capacity answer.
 
 This tutorial builds that OPF from a raw LV feeder with the library's
-**recipe-driven DER placement** (`add_inverters` / `add_generators`) feeding the
+**recipe-driven DER placement** (`add_ibrs` / `add_generators`) feeding the
 `augment_case` → `solve_opf` pipeline, then runs three scenarios on the *same*
 feeder and DER fleet that each make a **different constraint bind**:
 
@@ -17,7 +17,7 @@ feeder and DER fleet that each make a **different constraint bind**:
                                        generation bounds bind and the surplus is
                                        exported (the economic baseline).
   B.  Healthy cable, head run high    → the EN 50160 voltage ceiling binds; the
-                                       inverter `P²+Q²≤s_max²` circle does real
+                                       IBR `P²+Q²≤s_max²` circle does real
                                        work, absorbing Q for voltage support at
                                        the cost of active export.
   C.  Same case, a thin/derated cable → the IEC 60228 thermal limit binds
@@ -39,7 +39,7 @@ of Deakin, Pandey & Geth (IEEE Task Force, draft V0.2, 2026). See
 [Positioning & ecosystem](../docs/src/positioning.md) for where this sits.
 
 The pipeline order is the one the library is designed around:
-    fix_case → add_inverters / add_generators → augment_case → solve_opf
+    fix_case → add_ibrs / add_generators → augment_case → solve_opf
 (`fix_case` is omitted — the feeder is already clean.)
 
 Run from the repository root using the test environment (JuMP + Ipopt):
@@ -75,12 +75,12 @@ const OPT = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0,
                                       "max_iter" => 2000)
 
 # ── Recipes (the showcase): where, how big, how priced — declared, not hand-fed ─
-# A load-following InverterRecipe drops one PV inverter on each load bus; a thinner
+# A load-following IBRRecipe drops one PV IBR on each load bus; a thinner
 # GeneratorRecipe co-locates a dispatchable generator there too. Both are priced
 # below the slack, giving the OPF a layered merit order:
-#   cheap PV inverter → mid-priced generator → expensive slack import.
-const INV_RECIPE = InverterRecipe(
-    strategy         = :load_following,   # one inverter per load bus
+#   cheap PV IBR → mid-priced generator → expensive slack import.
+const IBR_RECIPE = IBRRecipe(
+    strategy         = :load_following,   # one IBR per load bus
     s_fraction       = 5.0,               # s_max = 5.0 × local load (≈ 50 kVA cluster)
     s_to_p_ratio     = 0.90,              # p_avail = 0.9 × s_max — leaves VA headroom
                                           #   so the s_max circle and the EN 50549-1
@@ -97,17 +97,17 @@ const GEN_RECIPE = GeneratorRecipe(
 
 # ── Base network: load, retap the head, set the drops, place the DERs ──────────
 # The two single-phase loads sit on phase 1 (bus b3230) and phase 2 (bus b2656);
-# `add_inverters`/`add_generators` co-locate a PV cluster and a generator at each,
+# `add_ibrs`/`add_generators` co-locate a PV cluster and a generator at each,
 # so the export is itself unbalanced — exactly where four-wire modelling (explicit
 # neutral, no Kron reduction) earns its keep.
 const DROP_LINES = ("l_3726", "l_2126")
 
 function base_net(; head_pu::Float64 = HEAD_BASE, drop_m::Float64 = DROP_M,
                     derate::Bool = false, imax::Float64 = IMAX_THIN,
-                    place_inverters::Bool = true, place_generators::Bool = true)
+                    place_ibrs::Bool = true, place_generators::Bool = true)
     net = parse_bmopf(INPUT_JSON)
     # Start from a clean slate — place every DER from a recipe below.
-    delete!(net, "inverter"); delete!(net, "generator")
+    delete!(net, "ibr"); delete!(net, "generator")
 
     # Strip any source cost so augment_case prices the slack itself, and tap the
     # 11 kV source so the LV head sits at head_pu on a 230 V base.
@@ -136,7 +136,7 @@ function base_net(; head_pu::Float64 = HEAD_BASE, drop_m::Float64 = DROP_M,
         end
     end
 
-    place_inverters  && ((net, _) = add_inverters(net;  recipe = INV_RECIPE))
+    place_ibrs  && ((net, _) = add_ibrs(net;  recipe = IBR_RECIPE))
     place_generators && ((net, _) = add_generators(net; recipe = GEN_RECIPE))
     return net
 end
@@ -223,7 +223,7 @@ function run_scenario(label, net, recipe)
     max_vpn = maximum(vpn_pu(res, b, t) for b in lv for t in ("1", "2", "3"))
     thermal, _ = max_thermal(aug, res)
     P = Dict{String,Float64}(); Q = Dict{String,Float64}()
-    for kind in ("inverter", "generator")
+    for kind in ("ibr", "generator")
         for (id, ph) in get(res, kind, Dict())
             P[id] = sum(v["pg"] for v in values(ph)) / 1000
             Q[id] = sum(v["qg"] for v in values(ph)) / 1000
@@ -250,7 +250,7 @@ end
 # and the thermal pass is off). B and C impose the IEC 60228 thermal limit and we
 # add the EN 50160 ceiling by hand (set_vpn_limits!); the tighter phase-to-phase
 # and negative-sequence passes stay off so the single binding constraint in each
-# scenario is unambiguous. Both still fill the inverter / generator P/Q boxes and
+# scenario is unambiguous. Both still fill the IBR / generator P/Q boxes and
 # price the slack — placement places, augment bounds.
 const RECIPE_NOLIMITS = AugmentationRecipe(
     apply_vpn_bounds = false, apply_vpp_bounds = false,
@@ -260,10 +260,10 @@ const RECIPE_LIMITS = AugmentationRecipe(
     apply_vneg_bounds = false, apply_v_bounds = false)
 
 # ── 1. Show the recipe-driven placement once (the unique library capability) ───
-sep("1. Recipe-driven DER placement (add_inverters / add_generators)")
+sep("1. Recipe-driven DER placement (add_ibrs / add_generators)")
 demo = base_net()
 println("Placed DERs on the LV1_14bus feeder:")
-for (iid, inv) in sort(collect(get(demo, "inverter", Dict())); by = first)
+for (iid, inv) in sort(collect(get(demo, "ibr", Dict())); by = first)
     @printf("  INV  %-10s bus=%-7s topo=%-12s s_max=%s VA\n",
             iid, inv["bus"], inv["topology"], string(inv["s_max"]))
 end
@@ -286,7 +286,7 @@ sep("B.  Head tapped to 1.05 pu, healthy cable → voltage ceiling binds")
 _, _, B = run_scenario("B — voltage",
                        set_vpn_limits!(base_net(head_pu = HEAD_HIGH)), RECIPE_LIMITS)
 show_outcome(B)
-println("\n  → The EN 50160 ceiling binds. The inverters absorb reactive power")
+println("\n  → The EN 50160 ceiling binds. The IBRs absorb reactive power")
 println("    (negative Q, out to the s_max circle) for voltage support and curtail")
 println("    active power; the dearer generator is shed first. One shot, no outer")
 println("    control loop. P²+Q²≤s_max² trades active headroom for Q.")

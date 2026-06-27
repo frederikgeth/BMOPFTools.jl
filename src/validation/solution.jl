@@ -133,7 +133,7 @@ function solution_check(net::Dict{String,Any},
     # optimum routinely lands a few parts in 10⁻⁶ outside an active bound, and the
     # per-unit ⇄ SI round-trip (solve scaled by s_base, then unscale) inflates that
     # relative slack to ≈2×10⁻⁶; without this the checker would flag every
-    # saturated generator/inverter as a violation. 10⁻⁵ relative comfortably covers
+    # saturated generator/IBR as a violation. 10⁻⁵ relative comfortably covers
     # solver convergence tolerance while still catching any genuine violation, which
     # is orders of magnitude larger. Small absolute floor for bounds near zero.
     viol_frac = 1e-5
@@ -587,14 +587,14 @@ function solution_check(net::Dict{String,Any},
     out["n_gen_violations"] = n_gen_viol
     out["n_gen_active"]     = n_gen_active
 
-    # ── Inverter dispatch bounds and constant-PF residual ────────────────────
+    # ── IBR dispatch bounds and constant-PF residual ────────────────────
     n_inv_viol   = 0
     n_inv_active = 0
     pf_resid_tol = 1e-3   # relative tolerance on |sign(pf)·Q + tan_phi·P| / s_max
 
     profiles_net = get(net, "control_profile", Dict())
 
-    for (inv_id, inv) in get(net, "inverter", Dict())
+    for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         p_min_arr = Float64.(get(inv, "p_min", Float64[]))
         p_max_arr = Float64.(get(inv, "p_max", Float64[]))
@@ -618,7 +618,7 @@ function solution_check(net::Dict{String,Any},
         tan_phi = pf_val !== nothing ? tan(acos(abs(pf_val))) : nothing
         pf_sign = pf_val !== nothing ? sign(pf_val) : 0.0
 
-        ph_res = get(get(result, "inverter", Dict()), inv_id, nothing)
+        ph_res = get(get(result, "ibr", Dict()), inv_id, nothing)
         ph_res isa Dict || continue
 
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
@@ -645,17 +645,17 @@ function solution_check(net::Dict{String,Any},
                 viol, act = _bound_status(pg, lo, hi)
                 if viol
                     n_inv_viol += 1
-                    push!(findings, Finding(ERROR, "E.SOL.INV_VIOLATION", :solution, :inverter, inv_id,
-                        "Inverter '$inv_id' phase '$t_ph': pg=$(_fmt_mw(pg)) violates " *
+                    push!(findings, Finding(ERROR, "E.SOL.IBR_VIOLATION", :solution, :ibr, inv_id,
+                        "IBR '$inv_id' phase '$t_ph': pg=$(_fmt_mw(pg)) violates " *
                         "[$(lo === nothing ? "−∞" : _fmt_mw(lo)), " *
                         "$(hi === nothing ? "+∞" : _fmt_mw(hi))].",
-                        Dict{String,Any}("inverter"=>inv_id,"terminal"=>t_ph,
+                        Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
                                          "field"=>"pg","value"=>pg,"lo"=>lo,"hi"=>hi)))
                 elseif act
                     n_inv_active += 1
-                    push!(findings, Finding(WARNING, "W.SOL.INV_ACTIVE", :solution, :inverter, inv_id,
-                        "Inverter '$inv_id' phase '$t_ph': pg=$(_fmt_mw(pg)) is within 1 % of its P bound.",
-                        Dict{String,Any}("inverter"=>inv_id,"terminal"=>t_ph,"pg"=>pg,"lo"=>lo,"hi"=>hi)))
+                    push!(findings, Finding(WARNING, "W.SOL.IBR_ACTIVE", :solution, :ibr, inv_id,
+                        "IBR '$inv_id' phase '$t_ph': pg=$(_fmt_mw(pg)) is within 1 % of its P bound.",
+                        Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,"pg"=>pg,"lo"=>lo,"hi"=>hi)))
                 end
             end
 
@@ -665,10 +665,10 @@ function solution_check(net::Dict{String,Any},
                 apparent = sqrt(pg^2 + qg^2)
                 if apparent > sm * (1 + 1e-6)
                     n_inv_viol += 1
-                    push!(findings, Finding(ERROR, "E.SOL.INV_VIOLATION", :solution, :inverter, inv_id,
-                        "Inverter '$inv_id' phase '$t_ph': |S|=$(_fmt_mw(apparent)) " *
+                    push!(findings, Finding(ERROR, "E.SOL.IBR_VIOLATION", :solution, :ibr, inv_id,
+                        "IBR '$inv_id' phase '$t_ph': |S|=$(_fmt_mw(apparent)) " *
                         "exceeds s_max=$(_fmt_mw(sm)) (apparent-power circle violated).",
-                        Dict{String,Any}("inverter"=>inv_id,"terminal"=>t_ph,
+                        Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
                                          "pg"=>pg,"qg"=>qg,"sm"=>apparent,"s_max"=>sm)))
                 end
             end
@@ -678,11 +678,11 @@ function solution_check(net::Dict{String,Any},
                 s_ref = idx <= length(smax_arr) ? smax_arr[idx] : max(abs(pg), abs(qg), 1.0)
                 resid = abs(pf_sign * qg + tan_phi * pg) / s_ref
                 if resid > pf_resid_tol
-                    push!(findings, Finding(WARNING, "W.SOL.INV_PF_DEVIATION", :solution, :inverter, inv_id,
-                        "Inverter '$inv_id' phase '$t_ph': constant-PF residual " *
+                    push!(findings, Finding(WARNING, "W.SOL.IBR_PF_DEVIATION", :solution, :ibr, inv_id,
+                        "IBR '$inv_id' phase '$t_ph': constant-PF residual " *
                         "$(round(resid*100; digits=3)) % of s_max — solver may not have " *
                         "enforced the PF coupling tightly (pf=$(round(pf_val; digits=4))).",
-                        Dict{String,Any}("inverter"=>inv_id,"terminal"=>t_ph,
+                        Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
                                          "pg"=>pg,"qg"=>qg,"pf"=>pf_val,"residual"=>resid)))
                 end
             end
@@ -814,9 +814,9 @@ function solution_check(net::Dict{String,Any},
     end
 
     # ── Network-wide power balance ─────────────────────────────────────────────
-    # Σ inj (generators + inverters + voltage source) − Σ load − Σ element loss ≈ 0,
+    # Σ inj (generators + IBRs + voltage source) − Σ load − Σ element loss ≈ 0,
     # checked for BOTH active and reactive power. All injection sources must be
-    # counted: omitting inverters or the slack makes the balance spuriously fail
+    # counted: omitting IBRs or the slack makes the balance spuriously fail
     # whenever DERs dispatch or the slack imports/exports.
     #
     # Element losses come from the exact terminal-power identity computed by the
@@ -829,10 +829,10 @@ function solution_check(net::Dict{String,Any},
                  for (_, vals)    in ph_dict
                  if vals isa Dict; init=0.0)
     p_gen = _sum_injection("generator", "pg") +
-            _sum_injection("inverter",  "pg") +
+            _sum_injection("ibr",  "pg") +
             _sum_injection("voltage_source", "ps")
     q_gen = _sum_injection("generator", "qg") +
-            _sum_injection("inverter",  "qg") +
+            _sum_injection("ibr",  "qg") +
             _sum_injection("voltage_source", "qs")
     p_load = sum(get(lvals, "pd", 0.0)
                  for (_, ph_dict) in get(result, "load", Dict())

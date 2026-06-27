@@ -797,8 +797,8 @@ const IEEE13_FIXTURE = """
         @test any(f -> f.code == "W.SPEC.N_SOURCES", findings3)
     end
 
-    @testset "Inverter element" begin
-        # Self-contained network with a clean FOUR_LEG PV inverter that
+    @testset "IBR element" begin
+        # Self-contained network with a clean FOUR_LEG PV IBR that
         # references a Volt-VAr control profile.
         INV_FIXTURE = """
         {
@@ -822,7 +822,7 @@ const IEEE13_FIXTURE = """
                    "terminal_map_to":["1","2","3"],
                    "linecode":"lc","length":100.0}
           },
-          "inverter": {
+          "ibr": {
             "pv1": {"bus":"b1","terminal_map":["1","2","3","n"],
                     "topology":"FOUR_LEG","prime_mover":"PV",
                     "s_max":[5000.0,5000.0,5000.0],"p_avail":4000.0,
@@ -840,9 +840,9 @@ const IEEE13_FIXTURE = """
 
         @testset "parse + schema" begin
             net = parse_bmopf(INV_FIXTURE; from_string=true)
-            @test haskey(net, "inverter")
+            @test haskey(net, "ibr")
             @test haskey(net, "control_profile")
-            @test net["inverter"]["pv1"]["topology"] == "FOUR_LEG"
+            @test net["ibr"]["pv1"]["topology"] == "FOUR_LEG"
 
             f = Finding[]
             schema_check(net, f)
@@ -853,13 +853,13 @@ const IEEE13_FIXTURE = """
             net = parse_bmopf(INV_FIXTURE; from_string=true)
             f = Finding[]
             res = inventory_analysis(net, f)
-            @test res["inverter"]["total"] == 1
-            @test res["inverter"]["by_topology"]["FOUR_LEG"] == 1
-            @test res["inverter"]["total_s_max_va"] == 15000.0
+            @test res["ibr"]["total"] == 1
+            @test res["ibr"]["by_topology"]["FOUR_LEG"] == 1
+            @test res["ibr"]["total_s_max_va"] == 15000.0
             @test res["control_profile"]["total"] == 1
         end
 
-        @testset "clean network: no inverter findings" begin
+        @testset "clean network: no IBR findings" begin
             net = parse_bmopf(INV_FIXTURE; from_string=true)
             f = Finding[]
             spec_conformance_check(net, f)
@@ -868,12 +868,12 @@ const IEEE13_FIXTURE = """
             completeness_check(net, f)
             @test !any(occursin("INV", fi.code) ||
                        fi.code == "E.INT.UNKNOWN_CONTROL_PROFILE"
-                       for fi in f if fi.component_type == :inverter)
+                       for fi in f if fi.component_type == :ibr)
         end
 
         @testset "missing required field" begin
             net = parse_bmopf(INV_FIXTURE; from_string=true)
-            delete!(net["inverter"]["pv1"], "s_max")
+            delete!(net["ibr"]["pv1"], "s_max")
             f = Finding[]
             completeness_check(net, f)
             @test any(f_ -> f_.code == "E.COMP.MISSING_REQUIRED" &&
@@ -882,10 +882,10 @@ const IEEE13_FIXTURE = """
 
         @testset "bad topology + arity" begin
             net = parse_bmopf(INV_FIXTURE; from_string=true)
-            net["inverter"]["bad"] = Dict{String,Any}(
+            net["ibr"]["bad"] = Dict{String,Any}(
                 "bus" => "b1", "terminal_map" => ["1","2","3","n"],
                 "topology" => "FIVE_LEG", "prime_mover" => "PV", "s_max" => [1.0, 1.0, 1.0])
-            net["inverter"]["pv1"]["topology"] = "THREE_LEG"  # needs 3, has 4
+            net["ibr"]["pv1"]["topology"] = "THREE_LEG"  # needs 3, has 4
             f = Finding[]
             spec_conformance_check(net, f)
             @test any(f_ -> f_.code == "W.SPEC.INV_TOPOLOGY" &&
@@ -896,7 +896,7 @@ const IEEE13_FIXTURE = """
 
         @testset "unknown control_profile reference" begin
             net = parse_bmopf(INV_FIXTURE; from_string=true)
-            net["inverter"]["pv1"]["control_profile"] = "nope"
+            net["ibr"]["pv1"]["control_profile"] = "nope"
             f = Finding[]
             integrity_check(net, f)
             @test any(f_ -> f_.code == "E.INT.UNKNOWN_CONTROL_PROFILE" &&
@@ -905,7 +905,7 @@ const IEEE13_FIXTURE = """
 
         @testset "filter dimension mismatch" begin
             net = parse_bmopf(INV_FIXTURE; from_string=true)
-            net["inverter"]["pv1"]["r_filter"] = [0.01, 0.01]  # needs 3
+            net["ibr"]["pv1"]["r_filter"] = [0.01, 0.01]  # needs 3
             f = Finding[]
             integrity_check(net, f)
             @test any(f_ -> f_.code == "W.INT.DIM_MISMATCH" &&
@@ -914,9 +914,9 @@ const IEEE13_FIXTURE = """
 
         @testset "capability checks" begin
             net = parse_bmopf(INV_FIXTURE; from_string=true)
-            net["inverter"]["pv1"]["p_min"] = 100.0
-            net["inverter"]["pv1"]["p_max"] = -100.0   # empty range
-            net["inverter"]["pv1"]["q_max"] = 20000.0   # exceeds sum(s_max) = 15000
+            net["ibr"]["pv1"]["p_min"] = 100.0
+            net["ibr"]["pv1"]["p_max"] = -100.0   # empty range
+            net["ibr"]["pv1"]["q_max"] = 20000.0   # exceeds sum(s_max) = 15000
             f = Finding[]
             domain_rules_check(net, f)
             @test any(f_ -> f_.code == "E.DOM.INV_P_BOUNDS", f)
@@ -924,7 +924,7 @@ const IEEE13_FIXTURE = """
 
             # PV that absorbs active power
             net2 = parse_bmopf(INV_FIXTURE; from_string=true)
-            net2["inverter"]["pv1"]["p_min"] = -1000.0
+            net2["ibr"]["pv1"]["p_min"] = -1000.0
             f2 = Finding[]
             domain_rules_check(net2, f2)
             @test any(f_ -> f_.code == "W.DOM.INV_PV_ABSORBS", f2)
@@ -935,7 +935,7 @@ const IEEE13_FIXTURE = """
             report = analyze(net)
             @test report isa SummaryReport
             buf = IOBuffer(); render(report, buf; color=false)
-            @test occursin("inverter", String(take!(buf)))
+            @test occursin("ibr", String(take!(buf)))
         end
     end
 
@@ -2400,7 +2400,7 @@ const IEEE13_FIXTURE = """
                        f.component_id == "tx_dist", findings2)
     end
 
-    @testset "Domain rules — generator object identity (inverter / load)" begin
+    @testset "Domain rules — generator object identity (IBR / load)" begin
         codes(fs) = Set(f.code for f in fs)
         mknet(vsrc, gen) = Dict{String,Any}(
             "bus" => Dict{String,Any}(
@@ -2423,10 +2423,10 @@ const IEEE13_FIXTURE = """
         dcodes(net) = (f = Finding[]; domain_rules_check(net, f); codes(f))
 
         normal = Dict{String,Any}("p_min"=>[0.0,0.0,0.0], "p_max"=>[1e5,1e5,1e5])
-        # LV-connected generator → likely an inverter.
-        @test "I.DOM.GEN_LIKELY_INVERTER" in dcodes(mknet(230.0, normal))
-        # MV-connected generator → not flagged as inverter.
-        @test !("I.DOM.GEN_LIKELY_INVERTER" in dcodes(mknet(11000.0, normal)))
+        # LV-connected generator → likely an IBR.
+        @test "I.DOM.GEN_LIKELY_IBR" in dcodes(mknet(230.0, normal))
+        # MV-connected generator → not flagged as IBR.
+        @test !("I.DOM.GEN_LIKELY_IBR" in dcodes(mknet(11000.0, normal)))
         # Generator that can only absorb (p_max ≤ 0) → really a load.
         absorber = Dict{String,Any}("p_min"=>[-1e5,-1e5,-1e5], "p_max"=>[0.0,0.0,0.0])
         @test "I.DOM.NEGATIVE_GENERATION" in dcodes(mknet(11000.0, absorber))
@@ -3165,8 +3165,8 @@ const IEEE13_FIXTURE = """
         include("der_placement_tests.jl")
     end
 
-    @testset "Inverter placement" begin
-        include("inverter_placement_tests.jl")
+    @testset "IBR placement" begin
+        include("ibr_placement_tests.jl")
     end
 
     @testset "Load models — validation and analysis" begin
