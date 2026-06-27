@@ -230,10 +230,11 @@ $\sum_k N_k I_k = 0$, $N_k = v_\text{ref}[k]/v_\text{ref}[1]$), so no internal
 star node is required; a ZB entry **may be negative** for $n\ge 3$ (physical).
 Each isolated winding is its **own galvanic zone** (n_winding is treated as
 isolating, like the other non-regulator subtypes — see
-[Galvanic zones](analysis.md)).  **All-wye only** in this release; `DELTA`
-windings are reserved but raise `E.SPEC.XFMR_NOT_IMPLEMENTED`.  This is a
-**fully independent code path** from the two-bus subtypes, validated against
-OpenDSS's own 3- and 4-winding solves.  See the
+[Galvanic zones](analysis.md)).  Windings may be `WYE` **or** `DELTA` (a delta
+winding's `v_ref` is its line-to-line coil voltage, and `delta_roll` selects the
+vector-group rotation).  This is a **fully independent code path** from the
+two-bus subtypes, validated against OpenDSS's own 3- and 4-winding solves
+(including delta `Dyn`/`Dyyn`).  See the
 [conversion guide § n-winding transformers](@ref n-winding).
 
 For a three-phase wye-wye unit you therefore have two options: an `n_winding`

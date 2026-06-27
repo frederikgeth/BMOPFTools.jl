@@ -1,0 +1,29 @@
+! 4-winding Dyyn transformer (delta primary, three grounded-wye secondaries) vs
+! OpenDSS. wdg1 HV delta 115 kV (source-grounded), wdg2/3/4 MV/LV/TV grounded-wye
+! (24.9 / 4.16 / 2.4 kV). The Xscarray gives all six pairwise reactances; the ZB
+! leakage reproduces them exactly with a delta winding 1 too (referral on the
+! delta coil base). Winding-count dimension. Same conventions as pf_3wdg_dyn.dss.
+Clear
+Set DefaultBaseFreq=60
+
+New Circuit.pf_4wdg_dyyn basekv=115 pu=1.0 angle=0 phases=3 bus1=hv model=ideal
+
+New Transformer.t1 windings=4 phases=3
+~ wdg=1 bus=hv.1.2.3   conn=delta kv=115  kva=30000 %r=0.3
+~ wdg=2 bus=mv.1.2.3.4 conn=wye   kv=24.9 kva=30000 %r=0.4
+~ wdg=3 bus=lv.1.2.3.4 conn=wye   kv=4.16 kva=30000 %r=0.4
+~ wdg=4 bus=tv.1.2.3.4 conn=wye   kv=2.4  kva=30000 %r=0.4
+~ Xscarray=[8 8 8 6 6 4] %noloadloss=0 %imag=0
+
+New Reactor.grnd_mv bus1=mv.4 bus2=mv.0 R=0.0001 X=0 phases=1
+New Reactor.grnd_lv bus1=lv.4 bus2=lv.0 R=0.0001 X=0 phases=1
+New Reactor.grnd_tv bus1=tv.4 bus2=tv.0 R=0.0001 X=0 phases=1
+
+New Load.lm bus1=mv.1.2.3.4 conn=wye kv=24.9 kw=2000 kvar=400 phases=3 model=1 Vminpu=0 Vmaxpu=2
+New Load.ll bus1=lv.1.2.3.4 conn=wye kv=4.16 kw=1000 kvar=200 phases=3 model=1 Vminpu=0 Vmaxpu=2
+New Load.lt bus1=tv.1.2.3.4 conn=wye kv=2.4  kw=800  kvar=150 phases=3 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[115, 24.9, 4.16, 2.4]
+CalcVoltageBases
+Set Tolerance=1e-9
+Solve

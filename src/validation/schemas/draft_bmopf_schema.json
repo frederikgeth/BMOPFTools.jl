@@ -711,7 +711,7 @@
                 },
                 "n_winding": {
                     "$ref": "#/$defs/n_winding_transformer",
-                    "description": "General n-winding (3+) transformer as a winding-indexed list with pairwise short-circuit reactances. Winding 1 is the reference; the OPF/Ybus build a star/T-equivalent. All-wye supported; delta windings are reserved but not yet implemented."
+                    "description": "General n-winding (3+) transformer as a winding-indexed list with pairwise short-circuit reactances. Winding 1 is the reference; the OPF/Ybus build a star/T-equivalent. WYE and DELTA windings are supported (a DELTA winding's v_ref is its line-to-line coil voltage; delta_roll selects the vector-group rotation)."
                 }
             }
         }
@@ -797,15 +797,20 @@
                 },
                 "v_ref": {
                     "$ref": "#/$defs/nonnegative_number",
-                    "description": "Winding reference (nominal) voltage [V]"
+                    "description": "Winding reference (nominal) coil voltage [V]: line-to-neutral for a WYE winding, line-to-line for a DELTA winding"
                 },
                 "connection": {
                     "$ref": "#/$defs/configuration_type",
-                    "description": "Winding connection (WYE supported; DELTA reserved, not yet implemented)"
+                    "description": "Winding connection (WYE or DELTA)"
                 },
                 "r_winding": {
                     "$ref": "#/$defs/nonnegative_number",
-                    "description": "Winding series resistance [Ohm] on this winding's own base"
+                    "description": "Winding series resistance [Ohm] on this winding's own coil base (n_ph*v_ref^2/s_rating)"
+                },
+                "delta_roll": {
+                    "type": "integer",
+                    "enum": [1, -1],
+                    "description": "DELTA only: coil rotation / vector-group sense. +1 connects coil k across phases k->k+1, -1 across k->k-1 (OpenDSS's standard delta). Ignored for WYE."
                 }
             },
             "required": ["bus", "terminal_map", "v_ref", "connection"]

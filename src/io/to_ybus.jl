@@ -493,23 +493,20 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
     nodes, Y
 end
 
-# ── n_winding (general n-winding, all-wye) ──────────────────────────────────
+# ── n_winding (general n-winding, WYE and/or DELTA) ─────────────────────────
 #
 # Independent of `transformer_yprim`. Builds the exact n-winding leakage primitive
 # from the OpenDSS-style ZB matrix (referred to winding 1): YB = ZB⁻¹ is the
 # (n-1)-port admittance; expanding with winding 1 as the reference node gives the
 # referred n×n admittance Yref = Cᵀ·YB·C, and de-referring by the turns ratios
 # gives the per-winding admittance Yw = D⁻¹·Yref·D⁻¹ (D = diag(N_k)). Yw is
-# stamped per phase across each winding's phase-neutral pair (wye-wye does not
-# couple phases). The optional no-load shunt is stamped at winding 1.
+# stamped per leg via the connection-aware coil incidence P: a WYE coil maps to
+# its phase-neutral pair, a DELTA coil to its phase-phase pair (so delta windings
+# couple phase nodes). The optional no-load shunt is stamped across winding 1.
 function nwinding_yprim(xfmr::Dict{String,Any})
     ws = _nw_windings(xfmr)
     nW = length(ws)
     nW < 2 && return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
-    if any(w -> w.connection == "DELTA", ws)
-        @warn "n_winding transformer has a DELTA winding (not implemented); skipping Yprim."
-        return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
-    end
 
     N  = _nw_turns_ratios(xfmr)
     ZB = _nw_zb_matrix(xfmr)                         # (n-1)×(n-1), referred to wdg 1
@@ -556,7 +553,12 @@ function nwinding_yprim(xfmr::Dict{String,Any})
         for (k, w) in enumerate(ws)
             phs, neu = _nw_phase_terminals(w.terminal_map)
             P[k, nidx!(w.bus, phs[pk])] = 1.0
-            neu !== nothing && (P[k, nidx!(w.bus, neu)] = -1.0)
+            if w.connection == "DELTA"
+                po = _nw_delta_other(pk, length(phs), w.delta_roll)
+                P[k, nidx!(w.bus, phs[po])] = -1.0
+            elseif neu !== nothing
+                P[k, nidx!(w.bus, neu)] = -1.0
+            end
         end
         Y .+= transpose(P) * Yw * P
 
@@ -564,7 +566,12 @@ function nwinding_yprim(xfmr::Dict{String,Any})
             w1 = ws[1]; phs1, neu1 = _nw_phase_terminals(w1.terminal_map)
             Cf = zeros(ComplexF64, 1, n_tot)
             Cf[1, nidx!(w1.bus, phs1[pk])] = 1.0
-            neu1 !== nothing && (Cf[1, nidx!(w1.bus, neu1)] = -1.0)
+            if w1.connection == "DELTA"
+                po = _nw_delta_other(pk, length(phs1), w1.delta_roll)
+                Cf[1, nidx!(w1.bus, phs1[po])] = -1.0
+            elseif neu1 !== nothing
+                Cf[1, nidx!(w1.bus, neu1)] = -1.0
+            end
             Y .+= transpose(Cf) * Y0 * Cf
         end
     end

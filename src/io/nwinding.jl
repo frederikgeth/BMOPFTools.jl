@@ -10,13 +10,24 @@
 # `ext/BMOPFOpfExt/nwinding.jl`.
 #
 # Data shape (subtype "n_winding"):
-#   windings   :: Vector of {bus, terminal_map, v_ref, connection, r_winding}
+#   windings   :: Vector of {bus, terminal_map, v_ref, connection, r_winding,
+#                 delta_roll}
 #   x_sc       :: Dict "i_j" => pairwise short-circuit reactance (Ω), i<j,
-#                 ALL referred to winding-1's voltage base.
+#                 ALL referred to winding-1's COIL base (see below).
 #   s_rating, g_no_load, b_no_load (optional)
 #
-# Winding 1 is the reference. r_winding[k] is in Ω at winding k's OWN base
-# (mirroring the per-side convention of the two-bus subtypes).
+# Winding 1 is the reference. `connection` is "WYE" or "DELTA"; a WYE winding's
+# `v_ref` is its line-to-neutral coil voltage and its terminal_map carries a
+# neutral, while a DELTA winding's `v_ref` is its line-to-line coil voltage and
+# it carries no neutral. `delta_roll` (±1, DELTA only) selects the coil rotation
+# (vector group); OpenDSS's standard delta corresponds to `delta_roll = -1`.
+#
+# Impedance referral base. r_winding[k] and x_sc are in Ω on the per-winding COIL
+# base `z_coil = n_ph · v_ref² / S_rating` — line-to-neutral for WYE (= V_LL²/S)
+# and line-to-line for DELTA (= n_ph · V_LL²/S, i.e. n_ph× the naive V_LL²/S). The
+# √3/coil-base factor lives entirely in `v_ref`, so the model formulas below are
+# connection-agnostic: r_winding[k] is at winding k's own coil base (referred to
+# winding 1 via /N_k²), and x_sc is at winding 1's coil base.
 
 """
     _nw_windings(xfmr) -> Vector{NamedTuple}
@@ -37,6 +48,7 @@ function _nw_windings(xfmr::Dict{String,Any})
             v_ref        = Float64(get(w, "v_ref", 1.0)),
             connection   = uppercase(string(get(w, "connection", "WYE"))),
             r_winding    = Float64(get(w, "r_winding", 0.0)),
+            delta_roll   = Int(get(w, "delta_roll", 1)),
         ))
     end
     out
@@ -75,6 +87,18 @@ function _nw_phase_terminals(terminal_map::Vector{String})
     end
     (phases, neutral)
 end
+
+"""
+    _nw_delta_other(pk, nph, roll=1) -> Int
+
+The far-end phase position of the delta coil on leg `pk`. The coil spans phase
+terminal `pk` and the returned position: forward (`roll ≥ 0`) connects `pk → pk+1`
+(wrapping `nph → 1`), backward (`roll < 0`) connects `pk → pk-1`. Forward is the
+default 1→2→3→1 OpenDSS delta arrangement; `roll = -1` reverses it to match the
+opposite vector-group rotation.
+"""
+_nw_delta_other(pk::Int, nph::Int, roll::Int=1) =
+    roll >= 0 ? (pk % nph) + 1 : ((pk - 2 + nph) % nph) + 1
 
 """
     _nw_zb_matrix(xfmr) -> Matrix{ComplexF64}

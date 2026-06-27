@@ -111,12 +111,24 @@ end
     f2 = Finding[]; completeness_check(net2, f2)
     @test any(x -> x.code == "E.COMP.MISSING_REQUIRED", f2)
 
-    # DELTA winding → not-implemented spec error (reserved scope).
-    bad3 = deepcopy(good); bad3["windings"][3]["connection"] = "DELTA"
+    # DELTA winding is now supported: no not-implemented (or any) spec error. The
+    # delta coil is line-to-line (v_ref = kV_LL, three phase terminals, no neutral).
+    d3 = deepcopy(good)
+    d3["windings"][3]["connection"]   = "DELTA"
+    d3["windings"][3]["terminal_map"] = ["a", "b", "c"]
+    d3["windings"][3]["v_ref"]        = 4.16e3            # line-to-line coil voltage
     net3 = Dict{String,Any}("transformer" => Dict{String,Any}(
-        "n_winding" => Dict{String,Any}("t1" => bad3)))
+        "n_winding" => Dict{String,Any}("t1" => d3)))
     f3 = Finding[]; spec_conformance_check(net3, f3)
-    @test any(x -> x.code == "E.SPEC.XFMR_NOT_IMPLEMENTED", f3)
+    @test !any(x -> x.code == "E.SPEC.XFMR_NOT_IMPLEMENTED", f3)
+    @test isempty([x for x in f3 if x.severity == ERROR])
+
+    # A DELTA winding with fewer than two phase conductors → arity warning.
+    d4 = deepcopy(d3); d4["windings"][3]["terminal_map"] = ["a"]
+    net4 = Dict{String,Any}("transformer" => Dict{String,Any}(
+        "n_winding" => Dict{String,Any}("t1" => d4)))
+    f4 = Finding[]; spec_conformance_check(net4, f4)
+    @test any(x -> x.code == "W.SPEC.XFMR_TMAP_ARITY", f4)
 end
 
 @testset "n_winding — Yprim symmetry & passivity" begin
@@ -131,6 +143,20 @@ end
     @test real(V' * ((Y + Y') / 2) * V) > -1e-6
     # A uniform voltage offset draws no current (no shunt-to-ground branch).
     @test maximum(abs.(sum(Y, dims = 2))) < 1e-8
+
+    # Delta tertiary (YNynd): the delta coil is line-to-line (3 phase terminals,
+    # no neutral, v_ref = kV_LL). Yprim must still build, be reciprocal & passive.
+    xfd = _nw_xfmr([("b1", 115.0, 0.3), ("b2", 24.9, 0.4), ("b3", 4.16, 0.4)],
+                   Dict("1_2" => 8.0, "1_3" => 8.0, "2_3" => 6.0))
+    xfd["windings"][3]["connection"]   = "DELTA"
+    xfd["windings"][3]["terminal_map"] = ["a", "b", "c"]
+    xfd["windings"][3]["v_ref"]        = 4.16e3            # line-to-line
+    nd, Yd = B.nwinding_yprim(xfd)
+    @test length(nd) == 11                                # 4 + 4 + 3
+    @test maximum(abs.(Yd .- transpose(Yd))) < 1e-9       # reciprocal
+    Vd = randn(ComplexF64, length(nd))
+    @test real(Vd' * ((Yd + Yd') / 2) * Vd) > -1e-6       # passive
+    @test maximum(abs.(sum(Yd, dims = 2))) < 1e-8         # no shunt-to-ground
 end
 
 if _HAS_JUMP_IPOPT

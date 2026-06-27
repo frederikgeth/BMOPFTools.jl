@@ -283,9 +283,12 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
   by the turns ratios. An off-diagonal/leg value **may be negative** for `n≥3` —
   physically correct, not an error. The OPF/PF is validated against OpenDSS's own
   3- and 4-winding solves.
-- **All-wye only** in this release: every winding's `connection` must be `WYE`.
-  `DELTA` is reserved in the schema but raises a clear not-implemented finding
-  (`E.SPEC.XFMR_NOT_IMPLEMENTED`) and errors in the OPF builder.
+- **`WYE` and `DELTA` windings** are both supported. A `WYE` winding's coil
+  voltage is line-to-neutral (`v_ref` = L-N, terminal map carries a neutral); a
+  `DELTA` winding's coil voltage is line-to-line (`v_ref` = L-L, no neutral, and
+  `delta_roll = ±1` picks the vector-group rotation — `-1` matches OpenDSS). The
+  `√3`/coil-base factor lives in `v_ref`, so `r_winding`/`x_sc` are on the coil
+  base `n_ph·v_ref²/s_rating` and per-unit needs no `√3` correction.
 
 Ingest and export status: PowerIO does not yet emit `n_winding` (a 3-winding unit
 is currently dropped on import); this data model and its JSON Schema are the
