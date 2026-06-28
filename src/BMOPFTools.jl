@@ -306,6 +306,101 @@ function _autotransformer_ratio(xfmr::Dict{String,Any})::Float64
     _autotransformer_neff(a, rt)
 end
 
+# ── Continuous tap (free-variable) support ─────────────────────────────────────
+# A transformer's tap is OPTIMISABLE when bounds are present and strictly ordered
+# (mirrors the implicit generator/IBR free-variable pattern). Ordinary transformers
+# (single_phase, wye_delta, delta_wye) use a dimensionless multiplier `tap` on the
+# nominal from-side ratio N0 = v_ref_from/v_ref_to; the regulator subtypes use their
+# native `tap_ratio`. The OPF declares ONE variable per free tap equal to the
+# EFFECTIVE from→to ratio coefficient the winding constraints multiply (N for the
+# single_phase form, n_eff otherwise), so the constraints stay degree-2.
+
+"Fixed dimensionless tap multiplier for an ordinary transformer (`tap`, default 1.0)."
+_xfmr_tap_mult(xfmr::Dict{String,Any})::Float64 = Float64(get(xfmr, "tap", 1.0))
+
+"""
+    _xfmr_ratio_coeff_fn(subtype, N0) -> Function
+
+Effective from→to ratio coefficient as a function of the dimensionless tap `t`
+(multiplier on the nominal ratio `N0 = v_ref_from/v_ref_to`).
+"""
+function _xfmr_ratio_coeff_fn(subtype::AbstractString, N0::Float64)
+    subtype == "delta_wye" && return t -> sqrt(3.0) * N0 * t   # Dy: n_eff = N·√3
+    subtype == "wye_delta" && return t -> sqrt(3.0) / (N0 * t) # Yd: n_eff = √3/N
+    return t -> N0 * t                                          # single_phase: N
+end
+
+"""
+    _xfmr_ratio_coeff_bounds(subtype, xfmr) -> Union{Nothing,NTuple{3,Float64}}
+
+If `xfmr`'s tap is a free variable, return `(lo, hi, start)` bounds on the EFFECTIVE
+from→to ratio coefficient used by the OPF (N for `single_phase`, n_eff for
+`delta_wye`/`wye_delta`/`single_phase_autotransformer`), else `nothing`. The maps are
+monotone, so the coefficient bounds are the sorted images of the tap bounds. For
+`open_delta_regulator` use `_odr_ratio_coeff_bounds` (per regulator).
+"""
+function _xfmr_ratio_coeff_bounds(subtype::AbstractString, xfmr::Dict{String,Any})
+    if subtype in ("single_phase", "wye_delta", "delta_wye")
+        (haskey(xfmr, "tap_min") && haskey(xfmr, "tap_max")) || return nothing
+        tlo = Float64(xfmr["tap_min"]); thi = Float64(xfmr["tap_max"])
+        tlo < thi || return nothing
+        tstart = clamp(_xfmr_tap_mult(xfmr), tlo, thi)
+        coeff  = _xfmr_ratio_coeff_fn(subtype, _xfmr_turns_ratio(xfmr))
+        c1 = coeff(tlo); c2 = coeff(thi)
+        return (min(c1, c2), max(c1, c2), coeff(tstart))
+    elseif subtype == "single_phase_autotransformer"
+        (haskey(xfmr, "tap_ratio_min") && haskey(xfmr, "tap_ratio_max")) || return nothing
+        alo = Float64(xfmr["tap_ratio_min"]); ahi = Float64(xfmr["tap_ratio_max"])
+        alo < ahi || return nothing
+        rt = string(get(xfmr, "regulator_type", "B"))
+        astart = clamp(Float64(get(xfmr, "tap_ratio", 1.0)), alo, ahi)
+        c1 = _autotransformer_neff(alo, rt); c2 = _autotransformer_neff(ahi, rt)
+        return (min(c1, c2), max(c1, c2), _autotransformer_neff(astart, rt))
+    end
+    return nothing
+end
+
+"""
+    _odr_ratio_coeff_bounds(xfmr, k) -> Union{Nothing,NTuple{3,Float64}}
+
+Per-regulator (`k` = 1 or 2) effective `n_eff` bounds `(lo, hi, start)` for an
+open-delta regulator, or `nothing` when that regulator's tap is fixed.
+"""
+function _odr_ratio_coeff_bounds(xfmr::Dict{String,Any}, k::Int)
+    mn = get(xfmr, "tap_ratio_min", nothing); mx = get(xfmr, "tap_ratio_max", nothing)
+    (mn isa AbstractVector && mx isa AbstractVector &&
+     length(mn) >= k && length(mx) >= k) || return nothing
+    alo = Float64(mn[k]); ahi = Float64(mx[k]); alo < ahi || return nothing
+    taps = get(xfmr, "tap_ratio", Float64[])
+    a0 = (taps isa AbstractVector && length(taps) >= k) ? Float64(taps[k]) : 1.0
+    rt = string(get(xfmr, "regulator_type", "B"))
+    astart = clamp(a0, alo, ahi)
+    c1 = _autotransformer_neff(alo, rt); c2 = _autotransformer_neff(ahi, rt)
+    return (min(c1, c2), max(c1, c2), _autotransformer_neff(astart, rt))
+end
+
+"""
+    _xfmr_tap_from_coeff(subtype, xfmr, coeff) -> Float64
+
+Invert the solved effective ratio coefficient back to the user-facing dimensionless
+tap (`tap` for ordinary transformers, `tap_ratio` for regulators) for reporting.
+Scale-invariant: in per-unit `coeff = N0_pu·t`, so the recovered `t` is dimensionless.
+"""
+function _xfmr_tap_from_coeff(subtype::AbstractString, xfmr::Dict{String,Any}, coeff::Float64)
+    if subtype == "single_phase"
+        N0 = _xfmr_turns_ratio(xfmr); return iszero(N0) ? coeff : coeff / N0
+    elseif subtype == "delta_wye"
+        N0 = _xfmr_turns_ratio(xfmr); return iszero(N0) ? coeff : coeff / (sqrt(3.0) * N0)
+    elseif subtype == "wye_delta"
+        N0 = _xfmr_turns_ratio(xfmr)
+        return iszero(N0) || iszero(coeff) ? coeff : sqrt(3.0) / (N0 * coeff)
+    elseif subtype in ("single_phase_autotransformer", "open_delta_regulator")
+        rt = string(get(xfmr, "regulator_type", "B"))
+        return uppercase(strip(rt)) == "A" ? coeff : (iszero(coeff) ? coeff : 1.0 / coeff)
+    end
+    return coeff
+end
+
 # ---------------------------------------------------------------------------
 # Submodule includes — order matters; IO first, then analysis, then report
 # ---------------------------------------------------------------------------

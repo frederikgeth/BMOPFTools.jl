@@ -2694,4 +2694,111 @@
         @test solved(solve_opf(nactb))                         # feasible
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # TAP: Continuous free transformer tap (OLTC / regulator) optimisation.
+    #
+    # A free tap is a single decision variable equal to the effective from→to
+    # ratio coefficient the winding constraints multiply (N for single_phase,
+    # n_eff otherwise). These tests exercise the SAME constraint code as the
+    # fixed-tap model — only the coefficient is promoted to a variable — so they
+    # validate the math model directly. The crucial guarantee is "internal
+    # exactness": re-solving with the tap FIXED to the optimiser's value t* must
+    # reproduce the free-tap solution to solver tolerance.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "TAP: continuous transformer tap optimisation" begin
+        # 11 kV / 240 V, 50 kVA single-phase YY (matches the OpenDSS fixture).
+        zbf = 11_000.0^2 / 50_000.0
+        zbt =    240.0^2 / 50_000.0
+        function net_1ph(; tapf::String="", vbounds::String="", pload=40_000.0)
+            parse_bmopf("""
+            {"bus":{
+                "hv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "lv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]$vbounds}},
+             "voltage_source":{"src":{"bus":"hv","terminal_map":["1"],
+                 "v_magnitude":[11000.0],"v_angle":[0.0],"cost":[1.0]}},
+             "load":{"ld":{"bus":"lv","terminal_map":["1","n"],
+                 "configuration":"SINGLE_PHASE","p_nom":[$pload],"q_nom":[10000.0]}},
+             "transformer":{"single_phase":{"t1":{
+                 "bus_from":"hv","bus_to":"lv",
+                 "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+                 "v_ref_from":11000.0,"v_ref_to":240.0,"s_rating":50000.0,
+                 "r_series_from":$(0.01*zbf),"x_series_from":$(0.04*zbf),
+                 "r_series_to":$(0.01*zbt),"x_series_to":0.0$tapf}}}}
+            """; from_string=true)
+        end
+        vlv(r) = sqrt(r["bus"]["lv"]["1"]["vr"]^2 + r["bus"]["lv"]["1"]["vi"]^2)
+
+        # (a) Backward compatibility: absent tap ≡ fixed tap = 1.0 (no tap variable
+        #     reported), and the solution is unchanged.
+        r_none = solve_opf(net_1ph())
+        r_one  = solve_opf(net_1ph(tapf=""","tap":1.0"""))
+        @test r_none["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test !haskey(r_none["transformer"]["t1"], "tap")
+        @test vlv(r_one) ≈ vlv(r_none) atol=1e-6
+
+        # (b) Free tap is feasible, lands inside its bounds, and is reported.
+        free = ""","tap":1.0,"tap_min":0.9,"tap_max":1.1"""
+        vb   = ""","v_min":[238.0],"v_max":[250.0]"""
+        rfree = solve_opf(net_1ph(tapf=free, vbounds=vb))
+        @test rfree["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        tstar = rfree["transformer"]["t1"]["tap"]
+        @test 0.9 - 1e-6 <= tstar <= 1.1 + 1e-6
+        @test haskey(rfree["transformer"]["t1"], "tap_binding")
+        @test 238.0 - 1e-3 <= vlv(rfree) <= 250.0 + 1e-3
+
+        # (c) Internal exactness: fix the tap to t* → identical voltages & tap is
+        #     no longer a variable. This is what ties the free model to the
+        #     OpenDSS-validated fixed model.
+        rfix = solve_opf(net_1ph(tapf=""","tap":$tstar""", vbounds=vb))
+        @test !haskey(rfix["transformer"]["t1"], "tap")
+        @test vlv(rfix) ≈ vlv(rfree) atol=1e-6
+
+        # (d) Closed-form lossless regulator: with zero impedance the tap is the
+        #     pure ratio, so V_to = V_from / (N0·t). A v_min/v_max window pins |V_to|
+        #     and the optimiser must pick t = V_from / (N0 · V_to_target).
+        function net_ideal(target)
+            parse_bmopf("""
+            {"bus":{
+                "hv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "lv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                      "v_min":[$(target-0.05)],"v_max":[$(target+0.05)]}},
+             "voltage_source":{"src":{"bus":"hv","terminal_map":["1"],
+                 "v_magnitude":[11000.0],"v_angle":[0.0],"cost":[1.0]}},
+             "load":{"ld":{"bus":"lv","terminal_map":["1","n"],
+                 "configuration":"SINGLE_PHASE","p_nom":[5000.0],"q_nom":[0.0]}},
+             "transformer":{"single_phase":{"t1":{
+                 "bus_from":"hv","bus_to":"lv",
+                 "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+                 "v_ref_from":11000.0,"v_ref_to":240.0,"s_rating":50000.0,
+                 "tap":1.0,"tap_min":0.85,"tap_max":1.15}}}}
+            """; from_string=true)
+        end
+        r_id = solve_opf(net_ideal(245.0))
+        @test r_id["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        # Lossless: V_to = V_from/(N0·t) with N0 = 11000/240 and V_from = 11000, so
+        # t = V_from·v_ref_to/(v_ref_from·V_to) = 240/245 to hold |V_to| ≈ 245 V.
+        @test r_id["transformer"]["t1"]["tap"] ≈ (240.0 / 245.0) rtol=2e-3
+        @test r_id["bus"]["lv"]["1"]["vm"] ≈ 245.0 atol=0.06
+
+        # (e) Per-unit and SI solves agree on the optimised tap and voltages. The
+        #     reported tap is dimensionless (recovered from the effective coefficient
+        #     via N0 of the SAME working net), so it is scale-invariant.
+        nfree = net_1ph(tapf=free, vbounds=vb)
+        rsi = solve_opf(nfree; per_unit=false)
+        rpu = solve_opf(nfree; per_unit=true)
+        @test rsi["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test rpu["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test rsi["transformer"]["t1"]["tap"] ≈ rpu["transformer"]["t1"]["tap"] atol=1e-4
+        @test vlv(rsi) ≈ vlv(rpu) atol=1e-3
+
+        # (f) Lossless transformer (R=X=0): the free tap still solves — the voltage
+        #     constraint collapses to the ideal V_fr = N·V_to with N a variable.
+        nll = net_1ph(tapf=free, vbounds=vb)
+        t = nll["transformer"]["single_phase"]["t1"]
+        t["r_series_from"] = 0.0; t["x_series_from"] = 0.0; t["r_series_to"] = 0.0
+        rll = solve_opf(nll)
+        @test rll["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test 0.9 - 1e-6 <= rll["transformer"]["t1"]["tap"] <= 1.1 + 1e-6
+    end
+
 end  # @testset "OPF — solve_opf extension"

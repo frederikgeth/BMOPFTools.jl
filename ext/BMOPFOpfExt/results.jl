@@ -181,6 +181,39 @@ function _branch_loss(records, vr_v, vi_v, grounded, val)
     p, q, s
 end
 
+# Write the solved continuous tap onto a transformer result record `rec` when the
+# tap was a free variable. Reports the user-facing dimensionless tap (`tap` for
+# ordinary transformers, `tap_ratio` for regulators) recovered from the solved
+# effective ratio coefficient, plus a `tap_binding` flag (at a bound within tol).
+# Open-delta regulators report per-regulator `[a1, a2]`/`[b1, b2]`.
+function _report_xfmr_tap!(rec, tapd, subtype, tid, xfmr, val)
+    isempty(tapd) && return
+    _bind(v) = begin
+        c = val(v); lo = JuMP.lower_bound(v); hi = JuMP.upper_bound(v)
+        tol = 1e-6 * max(1.0, abs(lo), abs(hi))
+        (c, (abs(c - lo) <= tol) || (abs(c - hi) <= tol))
+    end
+    if subtype == "open_delta_regulator"
+        haskey(tapd, (tid, 1)) || haskey(tapd, (tid, 2)) || return
+        ratios = Any[]; binds = Bool[]
+        for k in 1:2
+            if haskey(tapd, (tid, k))
+                c, b = _bind(tapd[(tid, k)])
+                push!(ratios, BMOPFTools._xfmr_tap_from_coeff(subtype, xfmr, c)); push!(binds, b)
+            else
+                push!(ratios, missing); push!(binds, false)
+            end
+        end
+        rec["tap_ratio"] = ratios; rec["tap_binding"] = binds
+    elseif haskey(tapd, tid)
+        c, b = _bind(tapd[tid])
+        t = BMOPFTools._xfmr_tap_from_coeff(subtype, xfmr, c)
+        rec[subtype == "single_phase_autotransformer" ? "tap_ratio" : "tap"] = t
+        rec["tap_binding"] = b
+    end
+    return
+end
+
 function _extract_results(model, net, bus_terminals, grounded, vars,
                           branch_inj=nothing)
     status = string(JuMP.termination_status(model))
@@ -195,6 +228,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
     cr_to_v = vars[:cr_to]; ci_to_v = vars[:ci_to]
     cr_sw_v = vars[:cr_sw]; ci_sw_v = vars[:ci_sw]
     cr_xf_v = vars[:cr_xf]; ci_xf_v = vars[:ci_xf]
+    tapd    = get(vars, :tap, Dict{Any,Any}())
 
     feasible = JuMP.termination_status(model) in (
         JuMP.MOI.LOCALLY_SOLVED, JuMP.MOI.OPTIMAL, JuMP.MOI.ALMOST_LOCALLY_SOLVED)
@@ -475,10 +509,12 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                                                        "cm" => sqrt(cr^2 + ci^2))
             end
             cg_r, cg_i = _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
-            xfmr_res[tid] = Dict{String,Any}(
+            rec = Dict{String,Any}(
                 "fr" => fr_dict, "to" => to_dict,
                 "ground" => Dict{String,Any}(
                     "cg_r" => cg_r, "cg_i" => cg_i, "cgm" => sqrt(cg_r^2 + cg_i^2)))
+            _report_xfmr_tap!(rec, tapd, subtype, tid, xfmr, val)
+            xfmr_res[tid] = rec
         end
     end
 

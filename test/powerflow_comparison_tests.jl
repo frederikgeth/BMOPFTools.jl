@@ -2700,3 +2700,110 @@ end
     @test vl0["n_levels"] == vlθ["n_levels"]
     @test vl0["n_levels"] >= 2                   # MV + LV levels resolved
 end
+
+# ── Continuous tap optimisation: OPF-chosen tap validated against OpenDSS ───────
+#
+# Strategy (mirrors the fixed-tap comparisons): make a transformer's tap a FREE
+# continuous OPF variable, give the source a cost and the LV bus a voltage window
+# so the optimiser drives the tap to an interior value t*, then set the SAME tap on
+# the OpenDSS winding and confirm the OpenDSS power flow reproduces the OPF voltages.
+# Because the variable-tap model is exactly the fixed-tap model with the ratio
+# promoted to a variable, agreement at t* is the OpenDSS validation of the feature.
+
+"""
+    _ods_volts_tap(dss_path, xfname, wdg, tapval) -> Dict{String, ComplexF64}
+
+Like `_ods_volts` but sets transformer `xfname` winding `wdg` tap to `tapval`
+before solving — the OpenDSS oracle at the OPF-optimised tap.
+"""
+function _ods_volts_tap(dss_path::String, xfname::String, wdg::Int, tapval::Real)
+    OpenDSSDirect.dss("Clear")
+    OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
+    OpenDSSDirect.dss("Edit Transformer.$xfname wdg=$wdg tap=$tapval")
+    OpenDSSDirect.dss("Solve")
+    names = Circuit.AllNodeNames()
+    volts = Circuit.AllBusVolts()
+    return Dict(n => v for (n, v) in zip(names, volts))
+end
+
+@testset "PF comparison — optimised tap vs OpenDSS (single_phase)" begin
+    path = joinpath(_PF_CMP_DIR, "pf_1ph_xfmr.dss")
+    net  = _net_1ph_xfmr()
+    # Free tap + objective lever (source cost) + an LV voltage window so t* is interior.
+    net["voltage_source"]["source"]["cost"] = [1.0]
+    net["bus"]["lv"]["v_min"] = [238.0]
+    net["bus"]["lv"]["v_max"] = [244.0]
+    t1 = net["transformer"]["single_phase"]["t1"]
+    t1["tap"] = 1.0; t1["tap_min"] = 0.9; t1["tap_max"] = 1.1
+
+    res = solve_opf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    tstar = res["transformer"]["t1"]["tap"]
+    @test 0.9 < tstar < 0.99                      # interior tap, genuinely moved
+
+    V_bm  = Dict(bid * "." * (t == "n" ? "4" : t) => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td)
+    V_ods = _ods_volts_tap(path, "t1", 1, tstar)  # winding 1 = HV (from)
+    # The YY tap uses the exact tap²-scaled (to-referred) leakage, so it matches the
+    # OpenDSS turns-scaled Yprim at the optimised tap to the usual ~0.3 V floor.
+    _cmp_volts(V_ods, V_bm; label="1ph-tap-opt: ")
+end
+
+@testset "PF comparison — optimised tap vs OpenDSS (delta_wye Dy)" begin
+    path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr.dss")
+    net  = _net_dy_xfmr()
+    net["voltage_source"]["source"]["cost"] = [1.0, 1.0, 1.0]
+    net["bus"]["lv"]["v_min"] = [232.0, 232.0, 232.0]
+    net["bus"]["lv"]["v_max"] = [238.0, 238.0, 238.0]
+    t1 = net["transformer"]["delta_wye"]["t1"]
+    t1["tap"] = 1.0; t1["tap_min"] = 0.95; t1["tap_max"] = 1.05
+
+    res = solve_opf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    tstar = res["transformer"]["t1"]["tap"]
+    @test 0.95 <= tstar < 0.99                    # tap genuinely moved (boost)
+
+    V_bm  = Dict(bid * "." * (t == "n" ? "4" : t) => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td)
+    V_ods = _ods_volts_tap(path, "t1", 1, tstar)  # winding 1 = delta HV (from)
+    # NOTE: the Dy coupled delta-arm referral keeps the leakage at NOMINAL n_eff
+    # (unlike the exact tap²-scaled YY model), a second-order approximation that
+    # grows with tap deviation. At this ~2 % tap it agrees with the OpenDSS
+    # turns-scaled Yprim to within the rtol floor (~0.24 V on the 233 V secondary);
+    # the exact tap² referral for the coupled arm is the general-picture follow-up.
+    _cmp_volts(V_ods, V_bm; label="Dy-tap-opt: ", atol=0.1)
+end
+
+@testset "PF comparison — free regulator taps (internal exactness)" begin
+    # Regulators are already OpenDSS-validated at fixed taps; here we confirm the
+    # free tap solves and that fixing the tap to the optimiser's value reproduces
+    # the free solution exactly (the link to the OpenDSS-validated fixed model).
+    vm(r, b, t) = sqrt(r["bus"][b][t]["vr"]^2 + r["bus"][b][t]["vi"]^2)
+
+    # Single-phase autotransformer (Type B regulator).
+    na = _net_autotransformer()
+    na["voltage_source"]["vs"]["cost"] = [1.0]
+    na["transformer"]["single_phase_autotransformer"]["reg"]["tap_ratio_min"] = 0.9
+    na["transformer"]["single_phase_autotransformer"]["reg"]["tap_ratio_max"] = 1.1
+    ra = solve_opf(na; optimizer=Ipopt.Optimizer)
+    @test ra["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    astar = ra["transformer"]["reg"]["tap_ratio"]
+    @test 0.9 - 1e-6 <= astar <= 1.1 + 1e-6
+    nafix = _net_autotransformer()
+    nafix["transformer"]["single_phase_autotransformer"]["reg"]["tap_ratio"] = astar
+    rafix = solve_opf(nafix; optimizer=Ipopt.Optimizer)
+    @test !haskey(rafix["transformer"]["reg"], "tap_ratio")   # fixed ⇒ no variable
+    @test vm(rafix, "reg", "1") ≈ vm(ra, "reg", "1") atol=1e-4
+
+    # Open-delta regulator (two free per-regulator taps).
+    no = _net_open_delta_reg()
+    haskey(no["voltage_source"], "vs") && (no["voltage_source"]["vs"]["cost"] = [1.0, 1.0, 1.0])
+    od = first(values(no["transformer"]["open_delta_regulator"]))
+    od["tap_ratio_min"] = [0.9, 0.9]
+    od["tap_ratio_max"] = [1.1, 1.1]
+    ro = solve_opf(no; optimizer=Ipopt.Optimizer)
+    @test ro["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    oid = first(keys(no["transformer"]["open_delta_regulator"]))
+    aopt = ro["transformer"][oid]["tap_ratio"]
+    @test all(0.9 - 1e-6 .<= aopt .<= 1.1 + 1e-6)
+end
