@@ -2133,6 +2133,22 @@ end
     _cmp_volts(V_ods, V_bm; label="pf-3wdg-nwinding: ")
 end
 
+@testset "n_winding tap fields warn (unsupported, not silently fixed)" begin
+    # Tap optimisation is not supported for n_winding. A tap field on a winding
+    # must raise a warning at OPF build, rather than silently holding the ratio
+    # fixed. Without the field, that warning must not fire.
+    warned(net) = any(
+        l -> occursin("tap optimisation is not supported", string(l.message)),
+        first(Test.collect_test_logs(() -> solve_opf(net; optimizer=Ipopt.Optimizer))))
+
+    @test !warned(_net_3wdg_nwinding())                 # clean net: no such warning
+
+    nettap = _net_3wdg_nwinding()
+    w = first(values(nettap["transformer"]["n_winding"]))
+    w["tap_min"] = 0.9; w["tap_max"] = 1.1
+    @test warned(nettap)                                # tap field ⇒ warning fires
+end
+
 @testset "PF (solve_pf) comparison — 3-winding transformer, unbalanced loads" begin
     # Per-phase star independence: single-phase loads on different phases must
     # still match OpenDSS's 3-winding solve (the n≤3 star is exact).
@@ -2726,6 +2742,20 @@ function _ods_volts_tap(dss_path::String, xfname::String, wdg::Int, tapval::Real
     return Dict(n => v for (n, v) in zip(names, volts))
 end
 
+"""
+    _ods_losses_tap(dss_path, xfname, wdg, tapval) -> Float64
+
+Like `_ods_losses_W` but sets transformer `xfname` winding `wdg` tap to `tapval`
+before solving — the OpenDSS loss oracle at the OPF-optimised tap.
+"""
+function _ods_losses_tap(dss_path::String, xfname::String, wdg::Int, tapval::Real)::Float64
+    OpenDSSDirect.dss("Clear")
+    OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
+    OpenDSSDirect.dss("Edit Transformer.$xfname wdg=$wdg tap=$tapval")
+    OpenDSSDirect.dss("Solve")
+    return real(Circuit.Losses())
+end
+
 @testset "PF comparison — optimised tap vs OpenDSS (single_phase)" begin
     path = joinpath(_PF_CMP_DIR, "pf_1ph_xfmr.dss")
     net  = _net_1ph_xfmr()
@@ -2772,6 +2802,73 @@ end
     # turns-scaled Yprim to within the rtol floor (~0.24 V on the 233 V secondary);
     # the exact tap² referral for the coupled arm is the general-picture follow-up.
     _cmp_volts(V_ods, V_bm; label="Dy-tap-opt: ", atol=0.1)
+end
+
+@testset "PF comparison — optimised tap vs OpenDSS (center_tap: drop + unbalance + losses)" begin
+    # Split-phase OLTC on the HV winding. The loaded fixture is a 5 km feeder with
+    # heavy, UNEQUAL 120 V leg loads → strong voltage drop and leg unbalance, plus
+    # copper (%r), leakage (XHL/XLT/XHT) and core (%noloadloss) losses. The free
+    # tap is the coupled-coil Yprim model with the HV ratio promoted to a degree-2
+    # variable; agreement with the OpenDSS turns-scaled Yprim at the optimised tap,
+    # in BOTH node voltages AND total losses, is the validation. A narrow LV-leg
+    # window forces an interior boost so the tap genuinely moves.
+    path = joinpath(_PF_CMP_DIR, "pf_center_tap_loaded.dss")
+    net  = from_dss(path)
+    net["voltage_source"]["source"]["cost"] = [1.0]
+    ct = net["transformer"]["center_tap"]["t1"]
+    ct["tap"] = 1.0; ct["tap_min"] = 0.9; ct["tap_max"] = 1.1
+    # LV legs are phase terminals (a, b); lift them into a narrow window.
+    net["bus"]["lv"]["v_min"] = [120.0, 120.0]
+    net["bus"]["lv"]["v_max"] = [130.0, 130.0]
+
+    res = solve_opf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    tstar = res["transformer"]["t1"]["tap"]
+    @test 0.9 < tstar < 0.99                 # interior boost (lower ratio raises LV)
+    @test haskey(res["transformer"]["t1"], "tap_binding")
+
+    # Node voltages vs the OpenDSS oracle at the optimised tap (winding 1 = HV).
+    phmap = Dict("a"=>"1", "b"=>"2", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(_ods_volts_tap(path, "t1", 1, tstar), V_bm; label="ct-tap-opt: ", atol=0.5)
+
+    # Losses must be passive and match OpenDSS at the optimised tap — the explicit
+    # acceptance bar: correct losses under high drop + unbalance.
+    @test res["losses"]["p_loss"] > 0
+    @test isapprox(res["losses"]["p_loss"], _ods_losses_tap(path, "t1", 1, tstar); rtol=0.05)
+end
+
+@testset "center_tap free tap — internal exactness (T-model ≡ fixed Yprim at t*)" begin
+    # The degree-2 free-tap T-model and the fixed coupled-coil Yprim are the same
+    # network; re-solving with the tap FIXED to t* must reproduce the free solution
+    # to solver tolerance (and drop the tap variable). This links the new free path
+    # to the OpenDSS-validated fixed model. A WIDE tap band stresses the referral.
+    path = joinpath(_PF_CMP_DIR, "pf_center_tap_loaded.dss")
+    nf = from_dss(path); nf["voltage_source"]["source"]["cost"] = [1.0]
+    ctf = nf["transformer"]["center_tap"]["t1"]
+    ctf["tap"] = 1.0; ctf["tap_min"] = 0.85; ctf["tap_max"] = 1.15
+    nf["bus"]["lv"]["v_min"] = [120.0, 120.0]; nf["bus"]["lv"]["v_max"] = [130.0, 130.0]
+    rf = solve_opf(nf; optimizer=Ipopt.Optimizer)
+    @test rf["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    tstar = rf["transformer"]["t1"]["tap"]
+    @test 0.85 - 1e-6 <= tstar <= 1.15 + 1e-6
+
+    nfix = from_dss(path)
+    nfix["transformer"]["center_tap"]["t1"]["tap"] = tstar
+    rfix = solve_opf(nfix; optimizer=Ipopt.Optimizer)
+    @test !haskey(rfix["transformer"]["t1"], "tap")        # fixed ⇒ no variable
+    vm(r, b, t) = (v = r["bus"][b][t]; sqrt(v["vr"]^2 + v["vi"]^2))
+    for b in keys(rf["bus"]), t in keys(rf["bus"][b])
+        @test vm(rf, b, t) ≈ vm(rfix, b, t) atol = 1e-3
+    end
+
+    # The OpenDSS oracle at the wide-band optimum still agrees → the N-referral of
+    # the leakage holds at this tap excursion (≈8-9 % off nominal).
+    phmap = Dict("a"=>"1", "b"=>"2", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in rf["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(_ods_volts_tap(path, "t1", 1, tstar), V_bm; label="ct-tap-wide: ", atol=0.6)
 end
 
 @testset "PF comparison — free regulator taps (internal exactness)" begin

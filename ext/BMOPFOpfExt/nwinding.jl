@@ -50,6 +50,25 @@ function _add_nwinding_variables!(model, net)
     cr_nw, ci_nw
 end
 
+# Tap optimisation is NOT supported for n_winding (the ratio is held fixed at the
+# nominal turns ratio). If the data carries tap field(s) — on the transformer or
+# any winding — warn loudly so the unsupported request is not silently dropped.
+const _NW_TAP_KEYS = ("tap", "tap_min", "tap_max",
+                      "tap_ratio", "tap_ratio_min", "tap_ratio_max")
+function _warn_nwinding_unsupported_tap(tid, xfmr)
+    hit = any(haskey(xfmr, k) for k in _NW_TAP_KEYS)
+    if !hit
+        ws = get(xfmr, "windings", nothing)
+        ws isa AbstractVector && (hit = any(
+            w isa AbstractDict && any(haskey(w, k) for k in _NW_TAP_KEYS) for w in ws))
+    end
+    hit && @warn "n_winding transformer '$(tid)' carries tap field(s), but tap " *
+        "optimisation is not supported for n_winding — the ratio is held FIXED at " *
+        "the nominal turns ratio. Remove the tap fields, or model the regulated " *
+        "winding with a supported subtype (single_phase, center_tap, wye_delta, " *
+        "delta_wye, single_phase_autotransformer, open_delta_regulator)."
+end
+
 """
     _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
 
@@ -64,6 +83,7 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
     nwd = get(get(net, "transformer", Dict()), "n_winding", Dict())
     for (tid, xfmr) in nwd
         xfmr isa Dict || continue
+        _warn_nwinding_unsupported_tap(tid, xfmr)
         ws = BMOPFTools._nw_windings(xfmr)
         n  = length(ws)
         n < 2 && continue

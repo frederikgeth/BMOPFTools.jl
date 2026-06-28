@@ -67,7 +67,7 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_in
     end
     for (tid, xfmr) in get(xfmr_dict, "center_tap", Dict())
         _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              branch_inj=branch_inj)
+                              tap=get(tapd, tid, nothing), branch_inj=branch_inj)
     end
 
     for (tid, xfmr) in get(xfmr_dict, "wye_delta", Dict())
@@ -307,13 +307,16 @@ Physics (coupled-coil / primitive-admittance model):
   No-load shunt (G+jB) at HV terminals (placed on winding-1 from side).
 """
 function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                                      branch_inj=nothing)
+                                      tap=nothing, branch_inj=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr       = get(xfmr, "bus_from", "")
     b_to       = get(xfmr, "bus_to",   "")
     tmfr       = Vector{String}(get(xfmr, "terminal_map_from", String[]))
     tmto       = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
-    N          = _xfmr_turns_ratio(xfmr)
+    # Effective HV→LV-leg ratio N. Fixed: N0·tap multiplier (default 1.0, so legacy
+    # data is unchanged). Free: the tap variable IS N (= N0·tap), warm-started at N0.
+    N0         = _xfmr_turns_ratio(xfmr)
+    N          = tap === nothing ? N0 * BMOPFTools._xfmr_tap_mult(xfmr) : tap
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
 
@@ -361,7 +364,13 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # CRITICAL: winding 3 is dotted at the centre tap, so its voltage is
     # V(t_lv_n) − V(t_lv_2) (NOT V(t_lv_2) − V(t_lv_n)). The opposite sign makes
     # the two LV legs identical instead of series-aiding, the original bug.
-    if has_series
+    #
+    # This analytical Yprim folds N into y1 = N²/Z1 and C = ±1/N, so it is only
+    # used when the ratio is a FIXED number. A free tap (variable N) takes the
+    # degree-2 T-model branch below, which is algebraically identical at N = N0
+    # (derived from this same Yprim) but linear-in-leakage so the products stay
+    # quadratic for Ipopt.
+    if has_series && tap === nothing
         Z1 = R1 + im * X1            # HV star arm  (HV side, Ω/pu)
         Z2 = R2 + im * X2            # each LV star arm (LV side, Ω/pu)
         y1 = N^2 / Z1
@@ -422,22 +431,29 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         return
     end
 
-    # ── Ideal core (zero series impedance) ────────────────────────────────────
-    # Both LV legs are pinned to V_hv/N (winding 3 dotted at the centre tap), so
-    # the legs are automatically symmetric; the ampere-turn and centre-tap KCL
-    # below route the currents.
-    @constraint(model,
-        vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)] ==
-        N * (vr[(b_to, t_lv_1)] - vr[(b_to, t_lv_n)]))
-    @constraint(model,
-        vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)] ==
-        N * (vi[(b_to, t_lv_1)] - vi[(b_to, t_lv_n)]))
-    @constraint(model,
-        vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)] ==
-        N * (vr[(b_to, t_lv_n)] - vr[(b_to, t_lv_2)]))
-    @constraint(model,
-        vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)] ==
-        N * (vi[(b_to, t_lv_n)] - vi[(b_to, t_lv_2)]))
+    # ── T-model core (free tap, or zero series impedance) ─────────────────────
+    # Degree-2 voltage drop derived from the SAME coupled-coil Yprim as the fixed
+    # path above: with the HV core EMF E = V_hv − Z1·Is and the star node V* = E/N,
+    #   leg1:  V_hv − N·v1 = Z1·Is − N·Z2·Il1
+    #   leg2:  V_hv − N·v2 = Z1·Is + N·Z2·Il2   (winding 3 reversed at the centre tap)
+    # where v1 = V_t1 − V_tn, v2 = V_tn − V_t2, Z1 = R1+jX1 (HV Ω, HV winding) and
+    # Z2 = R2+jX2 (each LV leg, LV Ω). The shared Z1·Is term carries the
+    # half-winding mutual coupling that the 5×5 Yprim captured. At Z = 0 this
+    # collapses to the ideal V_hv = N·v1 = N·v2; at N = N0 it reproduces the fixed
+    # Yprim exactly. The only nonlinear terms are the bilinear N·v and N·Z2·Il
+    # products, so the constraint set stays quadratic when N is a free tap.
+    vr_hv = @expression(model, vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_n)])
+    vi_hv = @expression(model, vi[(b_fr, t_fr_ph)] - vi[(b_fr, t_fr_n)])
+    vr_l1 = @expression(model, vr[(b_to, t_lv_1)] - vr[(b_to, t_lv_n)])
+    vi_l1 = @expression(model, vi[(b_to, t_lv_1)] - vi[(b_to, t_lv_n)])
+    vr_l2 = @expression(model, vr[(b_to, t_lv_n)] - vr[(b_to, t_lv_2)])
+    vi_l2 = @expression(model, vi[(b_to, t_lv_n)] - vi[(b_to, t_lv_2)])
+    z1r_Is = @expression(model, R1 * Isr - X1 * Isi)   # Re(Z1·Is)
+    z1i_Is = @expression(model, R1 * Isi + X1 * Isr)   # Im(Z1·Is)
+    @constraint(model, vr_hv - N * vr_l1 == z1r_Is - N * (R2 * Il1r - X2 * Il1i))
+    @constraint(model, vi_hv - N * vi_l1 == z1i_Is - N * (R2 * Il1i + X2 * Il1r))
+    @constraint(model, vr_hv - N * vr_l2 == z1r_Is + N * (R2 * Il2r - X2 * Il2i))
+    @constraint(model, vi_hv - N * vi_l2 == z1i_Is + N * (R2 * Il2i + X2 * Il2r))
 
     # ── Current coupling (power conservation) ────────────────────────────────
     # Power balance at ideal core: V_hv·conj(I_s) + (V_leg1·conj(−Il1) + V_leg2·conj(−Il2)) = 0
@@ -482,6 +498,16 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # current-coupling above, which needs −Il2 for the reversed winding's MMF).
     @constraint(model, Inr + Il1r + Il2r == 0)
     @constraint(model, Ini + Il1i + Il2i == 0)
+
+    # ── Pin the HV neutral winding-current variable (fr,2) ────────────────────
+    # The HV coil is phase-to-neutral and the no-load shunt is phase-to-ground, so
+    # the series current returns entirely through the neutral: I_neutral = −I_s.
+    # The fixed Yprim path pins this via the nodal injection; the T-model path
+    # pins it explicitly so the result writer and loss accounting (which read the
+    # fr,2 variable) see the physical neutral current.
+    I2r = cr_xf[(tid,"fr",2)]; I2i = ci_xf[(tid,"fr",2)]
+    @constraint(model, I2r == -Isr)
+    @constraint(model, I2i == -Isi)
 
     # ── HV side KCL (terminal current = series + shunt) ──────────────────────
     if has_shunt

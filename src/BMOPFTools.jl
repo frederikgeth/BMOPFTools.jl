@@ -340,7 +340,7 @@ monotone, so the coefficient bounds are the sorted images of the tap bounds. For
 `open_delta_regulator` use `_odr_ratio_coeff_bounds` (per regulator).
 """
 function _xfmr_ratio_coeff_bounds(subtype::AbstractString, xfmr::Dict{String,Any})
-    if subtype in ("single_phase", "wye_delta", "delta_wye")
+    if subtype in ("single_phase", "center_tap", "wye_delta", "delta_wye")
         (haskey(xfmr, "tap_min") && haskey(xfmr, "tap_max")) || return nothing
         tlo = Float64(xfmr["tap_min"]); thi = Float64(xfmr["tap_max"])
         tlo < thi || return nothing
@@ -387,7 +387,7 @@ tap (`tap` for ordinary transformers, `tap_ratio` for regulators) for reporting.
 Scale-invariant: in per-unit `coeff = N0_pu·t`, so the recovered `t` is dimensionless.
 """
 function _xfmr_tap_from_coeff(subtype::AbstractString, xfmr::Dict{String,Any}, coeff::Float64)
-    if subtype == "single_phase"
+    if subtype in ("single_phase", "center_tap")
         N0 = _xfmr_turns_ratio(xfmr); return iszero(N0) ? coeff : coeff / N0
     elseif subtype == "delta_wye"
         N0 = _xfmr_turns_ratio(xfmr); return iszero(N0) ? coeff : coeff / (sqrt(3.0) * N0)
