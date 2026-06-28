@@ -428,6 +428,10 @@ function spec_conformance_check(net::Dict{String,Any},
     end
     result["n_triangular_linecodes"] = length(triangular)
     result["n_conformance_issues"]   = n_issues
+
+    # --- DC network structural conformance ---
+    _check_dc_conformance!(net, findings)
+
     result
 end
 
@@ -826,4 +830,81 @@ function benchmark_readiness_check(net::Dict{String,Any},
     end
 
     result
+end
+
+# Structural conformance for the DC network objects (dc_bus / dc_branch /
+# dc_terminal_map). DC voltage is signed-vs-earth; a dc_bus carries 1, 2, or 3
+# wires (monopole / monopole+return / bipole). A dc_branch is a 1/2/3-conductor
+# link whose from/to terminal maps and per-conductor resistance must agree in
+# length and resolve to terminals not exceeding either endpoint's wire count.
+function _check_dc_conformance!(net::Dict{String,Any}, findings::Vector{Finding})
+    dc_buses = get(net, "dc_bus", Dict())
+    nwire(b) = length(get(get(dc_buses, b, Dict()), "terminal_names", String[]))
+
+    dup_check(comp_type, id, tm) = begin
+        tm = Vector{String}(string.(tm))
+        if length(unique(tm)) < length(tm)
+            dups = [t for t in unique(tm) if count(==(t), tm) > 1]
+            push!(findings, Finding(ERROR, "E.SPEC.DUPLICATE_DC_TERMINAL", :spec,
+                Symbol(comp_type), id,
+                "$comp_type '$id' has duplicate terminal(s) in a DC terminal map " *
+                "$(tm): $(join(dups, ", ")).",
+                Dict{String,Any}("terminal_map" => tm, "duplicates" => dups)))
+        end
+    end
+
+    for (id, b) in dc_buses
+        b isa Dict || continue
+        n = length(get(b, "terminal_names", String[]))
+        if !(n in (1, 2, 3))
+            push!(findings, Finding(ERROR, "E.SPEC.DC_BUS_ARITY", :spec,
+                :dc_bus, id,
+                "dc_bus '$id' has $n terminal(s); a DC bus must have 1 " *
+                "(monopole/earth return), 2 (pole+return), or 3 (bipole) wires.",
+                Dict{String,Any}("arity" => n)))
+        end
+    end
+
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa Dict || continue
+        tmf = Vector{String}(string.(get(br, "terminal_map_from", String[])))
+        tmt = Vector{String}(string.(get(br, "terminal_map_to",   String[])))
+        r   = get(br, "r", nothing)
+        rlen = r isa AbstractVector ? length(r) : (r === nothing ? -1 : 1)
+        if length(tmf) != length(tmt)
+            push!(findings, Finding(ERROR, "E.SPEC.DC_BRANCH_ARITY", :spec,
+                :dc_branch, id,
+                "dc_branch '$id': terminal_map_from ($(length(tmf))) and " *
+                "terminal_map_to ($(length(tmt))) must have equal length.",
+                Dict{String,Any}("from" => length(tmf), "to" => length(tmt))))
+        elseif rlen >= 0 && rlen != length(tmf)
+            push!(findings, Finding(ERROR, "E.SPEC.DC_BRANCH_R_DIM", :spec,
+                :dc_branch, id,
+                "dc_branch '$id': r has $rlen entry(ies) but the branch has " *
+                "$(length(tmf)) conductor(s).",
+                Dict{String,Any}("r_len" => rlen, "conductors" => length(tmf))))
+        end
+        dup_check("dc_branch", id, tmf)
+        dup_check("dc_branch", id, tmt)
+    end
+
+    for (id, inv) in get(net, "ibr", Dict())
+        inv isa Dict || continue
+        haskey(inv, "dc_bus") || continue
+        b  = get(inv, "dc_bus", nothing)
+        tm = Vector{String}(string.(get(inv, "dc_terminal_map", String[])))
+        if isempty(tm)
+            push!(findings, Finding(ERROR, "E.SPEC.DC_PORT_MISSING_MAP", :spec,
+                :ibr, id,
+                "IBR '$id' references dc_bus '$b' but has no dc_terminal_map.",
+                Dict{String,Any}("dc_bus" => b)))
+        elseif b isa AbstractString && nwire(b) > 0 && length(tm) > nwire(b)
+            push!(findings, Finding(ERROR, "E.SPEC.DC_PORT_ARITY", :spec,
+                :ibr, id,
+                "IBR '$id' DC port spans $(length(tm)) terminal(s) but dc_bus " *
+                "'$b' has only $(nwire(b)) wire(s).",
+                Dict{String,Any}("port" => length(tm), "wires" => nwire(b))))
+        end
+        dup_check("ibr", id, tm)
+    end
 end

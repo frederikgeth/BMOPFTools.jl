@@ -1067,7 +1067,56 @@ function solution_check(net::Dict{String,Any},
             Dict{String,Any}("max_neutral_vm"=>max_neutral_vm,"bus"=>max_neutral_bus)))
     end
 
+    # ── DC network post-solve checks ──────────────────────────────────────────
+    feasible && _check_dc_solution(net, result, findings)
+
     out
+end
+
+# Post-solve DC checks: signed line-to-ground voltages within their bounds, and
+# DC branch conductor currents within their thermal limit.
+function _check_dc_solution(net, result, findings)
+    dc_bus_res = get(result, "dc_bus", Dict())
+    for (b, dcbus) in get(net, "dc_bus", Dict())
+        dcbus isa Dict || continue
+        terms = string.(get(dcbus, "terminal_names", String[]))
+        vmin  = Float64.(get(dcbus, "v_dc_min", Float64[]))
+        vmax  = Float64.(get(dcbus, "v_dc_max", Float64[]))
+        tres  = get(dc_bus_res, b, Dict())
+        for (k, t) in enumerate(terms)
+            r = get(tres, t, nothing); r isa Dict || continue
+            v = get(r, "v_dc", NaN); isnan(v) && continue
+            if k <= length(vmin) && v < vmin[k] - 1e-6
+                push!(findings, Finding(ERROR, "E.SOL.DC_VOLT_VIOLATION", :solution,
+                    :dc_bus, b,
+                    "dc_bus '$b' terminal '$t': v_dc = $(round(v;digits=2)) V < " *
+                    "v_dc_min = $(vmin[k]) V.", Dict{String,Any}("v_dc"=>v)))
+            elseif k <= length(vmax) && v > vmax[k] + 1e-6
+                push!(findings, Finding(ERROR, "E.SOL.DC_VOLT_VIOLATION", :solution,
+                    :dc_bus, b,
+                    "dc_bus '$b' terminal '$t': v_dc = $(round(v;digits=2)) V > " *
+                    "v_dc_max = $(vmax[k]) V.", Dict{String,Any}("v_dc"=>v)))
+            end
+        end
+    end
+
+    dc_br_res = get(result, "dc_branch", Dict())
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa Dict || continue
+        imax = Float64.(get(br, "i_max", Float64[]))
+        isempty(imax) && continue
+        cres = get(dc_br_res, id, Dict())
+        for (k, im) in enumerate(imax)
+            r = get(cres, string(k), nothing); r isa Dict || continue
+            i = get(r, "i_dc", NaN); isnan(i) && continue
+            if abs(i) > im + 1e-6
+                push!(findings, Finding(ERROR, "E.SOL.DC_THERMAL_VIOLATION", :solution,
+                    :dc_branch, id,
+                    "dc_branch '$id' conductor $k: |i_dc| = $(round(abs(i);digits=2)) A " *
+                    "> i_max = $(im) A.", Dict{String,Any}("i_dc"=>i)))
+            end
+        end
+    end
 end
 
 # Active power dissipated by a passive branch is ≥ 0 by construction (series

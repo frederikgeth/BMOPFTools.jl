@@ -92,6 +92,9 @@ function augment_case(net::Dict{String,Any};
     # ── Pass 5: smart-IBR Volt-var/Volt-watt defaults (config-driven) ───
     _apply_smart_ibr_augmentation!(net′, entries, _smart_ibr_cfg(config))
 
+    # ── Pass 6: DC network defaults (dc_bus bounds, dc_source dispatch) ──
+    recipe.apply_dc && _apply_dc_network_augmentation!(net′, entries, recipe)
+
     # ── Snapshot findings_after ───────────────────────────────────────────────
     fa = Finding[]
     benchmark_readiness_check(net′, fa)

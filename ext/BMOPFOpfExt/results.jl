@@ -664,6 +664,33 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         cap_res[cid] = Dict{String,Any}("terminals" => term_d, "q" => q_tot)
     end
 
+    # ── DC network: signed node voltages + per-conductor branch currents ─────
+    dc_bus_res    = Dict{String,Any}()
+    dc_branch_res = Dict{String,Any}()
+    if haskey(vars, :v_dc)
+        v_dc_v = vars[:v_dc]
+        for (b, dcbus) in get(net, "dc_bus", Dict())
+            dcbus isa Dict || continue
+            term_d = Dict{String,Any}()
+            for t in string.(get(dcbus, "terminal_names", String[]))
+                haskey(v_dc_v, (b, t)) || continue
+                term_d[t] = Dict{String,Any}("v_dc" => val(v_dc_v[(b, t)]))
+            end
+            dc_bus_res[b] = term_d
+        end
+        idc_br_v = get(vars, :idc_br, Dict())
+        for (id, br) in get(net, "dc_branch", Dict())
+            br isa Dict || continue
+            tmf = string.(get(br, "terminal_map_from", String[]))
+            cond = Dict{String,Any}()
+            for k in eachindex(tmf)
+                haskey(idc_br_v, (id, k)) || continue
+                cond[string(k)] = Dict{String,Any}("i_dc" => val(idc_br_v[(id, k)]))
+            end
+            dc_branch_res[id] = cond
+        end
+    end
+
     Dict{String,Any}(
         "termination_status" => status,
         "feasible"           => feasible,
@@ -679,6 +706,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         "transformer"        => xfmr_res,
         "capacitor"          => cap_res,
         "voltage_source"     => src_res,
+        "dc_bus"             => dc_bus_res,
+        "dc_branch"          => dc_branch_res,
         "initialisation"     => init_res,
         "losses"             => Dict{String,Any}(
             "p_loss" => total_p_loss, "q_loss" => total_q_loss),

@@ -374,10 +374,8 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
 
     print_legend(root_load_ids, root_gen_ids, root_load_num, root_gen_num)
 
-    do_split || return
-
     # ── 13. LV sections ───────────────────────────────────────────────────────
-    for (sec_idx, (sroot, stid, slabel)) in enumerate(sections_ordered)
+    do_split && for (sec_idx, (sroot, stid, slabel)) in enumerate(sections_ordered)
         println(io, "\n" * "─"^60)
         sec_set = sec_bus_sets[sroot]
         n_sec   = length(sec_set)
@@ -404,4 +402,77 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
 
         print_legend(sec_load_ids, sec_gen_ids, sec_load_num, sec_gen_num)
     end
+
+    _render_dc_network!(net, io)
+end
+
+# Append a compact DC-network overlay: each converter station (the IBRs sharing a
+# dc_bus) and the DC branches/groundings tying the dc_buses together. The DC side
+# is an overlay on the AC spanning tree, so it is listed separately rather than
+# embedded in it. `⏚` marks a grounded DC terminal.
+function _render_dc_network!(net::Dict{String,Any}, io::IO)
+    dc_buses = get(net, "dc_bus", Dict())
+    (dc_buses isa Dict && !isempty(dc_buses)) || return
+
+    # converters grouped by dc_bus
+    conv_by_bus = Dict{String,Vector{String}}()
+    for (id, inv) in get(net, "ibr", Dict())
+        inv isa Dict && haskey(inv, "dc_bus") || continue
+        push!(get!(conv_by_bus, string(inv["dc_bus"]), String[]), id)
+    end
+    # perfectly/resistively grounded terminals per dc_bus
+    gnd = Dict{String,Vector{String}}()
+    for (_, g) in get(net, "dc_grounding", Dict())
+        g isa Dict || continue
+        b = get(g, "dc_bus", nothing); t = get(g, "terminal", nothing)
+        (b isa AbstractString && t isa AbstractString) || continue
+        push!(get!(gnd, b, String[]), string(t))
+    end
+    for (b, dcbus) in dc_buses
+        dcbus isa Dict || continue
+        for t in string.(get(dcbus, "perfectly_grounded_terminals", String[]))
+            push!(get!(gnd, b, String[]), t)
+        end
+    end
+
+    n_branch = length(get(net, "dc_branch", Dict()))
+    n_station = count(>=(2), length.(values(conv_by_bus)))
+    println(io, "\n" * "─"^60)
+    println(io, "# DC network (MVDC/LVDC): $(length(dc_buses)) dc bus(es), " *
+                "$n_branch dc line(s), $n_station converter station(s)")
+    println(io)
+
+    grounded(b, t) = t in get(gnd, b, String[])
+    for b in sort(collect(keys(dc_buses)))
+        dcbus = dc_buses[b]
+        dcbus isa Dict || continue
+        terms = string.(get(dcbus, "terminal_names", String[]))
+        tlabel = join(String[grounded(b, t) ? "$(t)⏚" : t for t in terms], ",")
+        vmin = Float64.(get(dcbus, "v_dc_min", Float64[]))
+        vmax = Float64.(get(dcbus, "v_dc_max", Float64[]))
+        vtxt = (!isempty(vmin) && !isempty(vmax)) ?
+               "  v_dc $(minimum(vmin))…$(maximum(vmax)) V" : ""
+        println(io, "$b  [$tlabel]$vtxt")
+        convs = sort(get(conv_by_bus, b, String[]))
+        for (i, cid) in enumerate(convs)
+            inv = net["ibr"][cid]
+            acbus = get(inv, "bus", "?")
+            port  = join(string.(get(inv, "dc_terminal_map", String[])), ",")
+            lead  = i == length(convs) ? "└─" : "├─"
+            println(io, "   $lead converter $cid ↔ AC $acbus  [$port]")
+        end
+    end
+
+    dc_branches = get(net, "dc_branch", Dict())
+    for id in sort(collect(keys(dc_branches)))
+        br = dc_branches[id]
+        br isa Dict || continue
+        bf = get(br, "dc_bus_from", "?"); bt = get(br, "dc_bus_to", "?")
+        r  = Float64.(get(br, "r", Float64[]))
+        rtxt = isempty(r) ? "" : "r=$(join(r, "/"))Ω"
+        tmf = join(string.(get(br, "terminal_map_from", String[])), ",")
+        tmt = join(string.(get(br, "terminal_map_to", String[])), ",")
+        println(io, "$(bf)[$tmf] ──$(rtxt)──> $(bt)[$tmt]   ($id)")
+    end
+    println(io, "\n⏚ = grounded DC terminal")
 end

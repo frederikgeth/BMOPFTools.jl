@@ -18,8 +18,61 @@ function redundancy_check(net::Dict{String,Any},
     result["zero_shunts"]        = _check_zero_shunts(net, findings)
     result["unused_linecodes"]   = _check_unused_linecodes(net, findings)
     result["duplicate_linecodes"] = _check_duplicate_linecodes(net, findings)
+    result["dc_redundancies"]    = _check_dc_redundancies(net, findings)
 
     result
+end
+
+# DC-network redundancies: self-loop branches, duplicate parallel branches, and
+# a grounding declared on a terminal already perfectly grounded by its dc_bus.
+function _check_dc_redundancies(net, findings)
+    n = 0
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa Dict || continue
+        if get(br, "dc_bus_from", nothing) == get(br, "dc_bus_to", nothing) !== nothing
+            n += 1
+            push!(findings, Finding(WARNING, "W.RED.DC_BRANCH_SELF_LOOP", :redundancy,
+                :dc_branch, id,
+                "dc_branch '$id' connects dc_bus '$(get(br,"dc_bus_from",""))' to " *
+                "itself — it carries no transfer.", nothing))
+        end
+    end
+
+    # duplicate parallel branches (same unordered endpoint pair)
+    seen = Dict{Tuple{String,String},String}()
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa Dict || continue
+        f = get(br, "dc_bus_from", nothing); t = get(br, "dc_bus_to", nothing)
+        (f isa AbstractString && t isa AbstractString && f != t) || continue
+        key = f <= t ? (f, t) : (t, f)
+        if haskey(seen, key)
+            n += 1
+            push!(findings, Finding(INFO, "I.RED.DC_PARALLEL_BRANCHES", :redundancy,
+                :dc_branch, id,
+                "dc_branch '$id' is parallel to '$(seen[key])' (same dc_bus pair " *
+                "$(key)).", Dict{String,Any}("other" => seen[key])))
+        else
+            seen[key] = id
+        end
+    end
+
+    # grounding on an already-perfectly-grounded terminal
+    dc_buses = get(net, "dc_bus", Dict())
+    for (id, g) in get(net, "dc_grounding", Dict())
+        g isa Dict || continue
+        b = get(g, "dc_bus", nothing); t = get(g, "terminal", nothing)
+        (b isa AbstractString && t isa AbstractString) || continue
+        bus = get(dc_buses, b, nothing)
+        bus isa Dict || continue
+        if string(t) in string.(get(bus, "perfectly_grounded_terminals", String[]))
+            n += 1
+            push!(findings, Finding(WARNING, "W.RED.DC_REDUNDANT_GROUNDING", :redundancy,
+                :dc_grounding, id,
+                "dc_grounding '$id' earths terminal '$t' of dc_bus '$b', which is " *
+                "already in perfectly_grounded_terminals.", nothing))
+        end
+    end
+    n
 end
 
 function _check_zero_loads(net, findings)

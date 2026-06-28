@@ -108,6 +108,12 @@ Base.@kwdef struct AugmentationRecipe
     # power_factor control profile.  EN 50549-1:2019: cos φ ≥ 0.90 for LV DERs.
     ibr_default_pf :: Float64 = 0.90
 
+    # ── DC network defaults ──────────────────────────────────────────────────
+    # Fractional band around the nominal line-to-ground DC voltage used to fill
+    # missing dc_bus v_dc_min/v_dc_max (e.g. 0.10 → ±10 %). The nominal magnitude
+    # is taken from any present |v_dc_min|/|v_dc_max| midpoint, else left absent.
+    dc_v_band_frac :: Float64 = 0.10
+
     # ── Pass enable flags ────────────────────────────────────────────────────
     apply_v_bounds        :: Bool = true
     apply_vpn_bounds      :: Bool = true
@@ -118,6 +124,7 @@ Base.@kwdef struct AugmentationRecipe
     apply_q_bounds        :: Bool = true
     apply_slack_generator :: Bool = true
     apply_ibr        :: Bool = true
+    apply_dc         :: Bool = true
 end
 
 """

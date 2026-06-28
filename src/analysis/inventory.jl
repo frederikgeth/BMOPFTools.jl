@@ -220,5 +220,27 @@ function inventory_analysis(net::Dict{String,Any},
         "by_vector_group" => by_vg
     )
 
+    # --- DC network (converter stations / MVDC-LVDC) ---
+    dc_buses = get(net, "dc_bus", Dict())
+    if !isempty(dc_buses) || !isempty(get(net, "dc_branch", Dict()))
+        # Converter stations: groups of IBRs sharing a dc_bus.
+        conv_by_bus = Dict{String,Int}()
+        for (_, inv) in get(net, "ibr", Dict())
+            inv isa Dict && haskey(inv, "dc_bus") || continue
+            b = string(inv["dc_bus"])
+            conv_by_bus[b] = get(conv_by_bus, b, 0) + 1
+        end
+        n_stations = count(>=(2), values(conv_by_bus))   # ≥2 converters = a station
+        result["dc_network"] = Dict{String,Any}(
+            "dc_bus"            => length(dc_buses),
+            "dc_branch"         => length(get(net, "dc_branch", Dict())),
+            "dc_grounding"      => length(get(net, "dc_grounding", Dict())),
+            "dc_load"           => length(get(net, "dc_load", Dict())),
+            "dc_source"         => length(get(net, "dc_source", Dict())),
+            "converters"        => sum(values(conv_by_bus); init=0),
+            "converter_stations" => n_stations,
+        )
+    end
+
     result
 end

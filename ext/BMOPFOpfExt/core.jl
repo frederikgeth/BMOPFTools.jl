@@ -99,6 +99,9 @@ function _add_device_constraints!(ctx::OpfContext)
     _add_capacitor_constraints!(net, vars, kcl_r, kcl_i)
     _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
     _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
+    # DC network (branches/grounding/loads/sources) must populate the DC KCL
+    # accumulator before the IBR builder adds converter DC-port injections.
+    _add_dc_network_constraints!(model, net, vars)
     _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                                bases=ctx.bases, relu_eps=ctx.relu_eps,
                                relu_ops=ctx.relu_ops)
@@ -167,6 +170,7 @@ function _build_and_solve(net::Dict{String,Any};
     grounded      = _grounded_terminals(working)
 
     vars = _build_vars(model, working, bus_terminals, grounded)
+    _set_dc_start_values!(vars, working)
 
     kcl_r, kcl_i = _init_kcl(bus_terminals, grounded)
     branch_inj = _new_branch_ledger()
@@ -177,6 +181,7 @@ function _build_and_solve(net::Dict{String,Any};
     build!(ctx)
 
     _add_kcl_constraints!(model, kcl_r, kcl_i)
+    _add_dc_kcl_constraints!(model, vars)
 
     JuMP.optimize!(model)
 
