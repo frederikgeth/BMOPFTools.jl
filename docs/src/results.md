@@ -175,6 +175,10 @@ Same terminal indexing as `load` — phase terminals only, neutral absent.
 | `pg`  | W | Active power produced: `Δvr·crg + Δvi·cig` |
 | `qg`  | var | Reactive power produced: `Δvi·crg − Δvr·cig` |
 
+When the optional `s_max` / `i_max` ratings are supplied the dispatch also
+respects the apparent-power circle `pg² + qg² ≤ s_max²` and the
+current-magnitude circle `crg² + cig² ≤ i_max²` (see [Generators](opf.md#generators-section)).
+
 ## `ibr` — produced power
 
 ```

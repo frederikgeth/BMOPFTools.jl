@@ -11,7 +11,8 @@
 #   E.SOL.NAN_IN_RESULT      — non-finite value in a claimed-feasible result
 #   E.SOL.VOLT_VIOLATION     — vm / vpn / vpp / vpos / vneg / vzero outside bounds
 #   E.SOL.THERMAL_VIOLATION  — line or switch current exceeds i_max / s_max
-#   E.SOL.GEN_VIOLATION      — generator pg/qg outside [p_min, p_max] / [q_min, q_max]
+#   E.SOL.GEN_VIOLATION      — generator pg/qg outside [p_min, p_max] / [q_min, q_max],
+#                              or |S| > s_max, or |I| > i_max
 #   W.SOL.VOLT_ACTIVE        — voltage bound within the active threshold
 #   W.SOL.THERMAL_ACTIVE     — thermal limit within the active threshold
 #   W.SOL.GEN_ACTIVE         — generator bound within the active threshold
@@ -540,7 +541,10 @@ function solution_check(net::Dict{String,Any},
         p_max = Float64.(get(gen, "p_max", Float64[]))
         q_min = Float64.(get(gen, "q_min", Float64[]))
         q_max = Float64.(get(gen, "q_max", Float64[]))
-        (isempty(p_min) && isempty(p_max) && isempty(q_min) && isempty(q_max)) && continue
+        smax_arr = Float64.(get(gen, "s_max", Float64[]))
+        imax_arr = Float64.(get(gen, "i_max", Float64[]))
+        (isempty(p_min) && isempty(p_max) && isempty(q_min) && isempty(q_max) &&
+         isempty(smax_arr) && isempty(imax_arr)) && continue
 
         ph_res = get(get(result, "generator", Dict()), gid, nothing)
         ph_res isa Dict || continue
@@ -579,6 +583,39 @@ function solution_check(net::Dict{String,Any},
                         "1 % of its bound (active).",
                         Dict{String,Any}("generator"=>gid,"terminal"=>t_ph,
                                          "field"=>field,"value"=>v,"lo"=>lo,"hi"=>hi)))
+                end
+            end
+
+            # Apparent-power circle (optional): √(pg²+qg²) ≤ s_max[k].
+            if idx <= length(smax_arr) && isfinite(pg) && isfinite(qg)
+                sm = smax_arr[idx]
+                apparent = sqrt(pg^2 + qg^2)
+                if apparent > sm * (1 + 1e-6)
+                    n_gen_viol += 1
+                    push!(findings, Finding(ERROR, "E.SOL.GEN_VIOLATION",
+                        :solution, :generator, gid,
+                        "Generator '$gid' phase '$t_ph': |S|=$(_fmt_mw(apparent)) " *
+                        "exceeds s_max=$(_fmt_mw(sm)) (apparent-power circle violated).",
+                        Dict{String,Any}("generator"=>gid,"terminal"=>t_ph,
+                                         "pg"=>pg,"qg"=>qg,"s"=>apparent,"s_max"=>sm)))
+                end
+            end
+
+            # Current-magnitude limit (optional): |I| = √(crg²+cig²) ≤ i_max[k].
+            if idx <= length(imax_arr)
+                crg = get(gvals, "crg", NaN); cig = get(gvals, "cig", NaN)
+                if isfinite(crg) && isfinite(cig)
+                    im   = imax_arr[idx]
+                    imag = sqrt(crg^2 + cig^2)
+                    if imag > im * (1 + 1e-6)
+                        n_gen_viol += 1
+                        push!(findings, Finding(ERROR, "E.SOL.GEN_VIOLATION",
+                            :solution, :generator, gid,
+                            "Generator '$gid' phase '$t_ph': |I|=$(_fmt_a(imag)) " *
+                            "exceeds i_max=$(_fmt_a(im)) (current limit violated).",
+                            Dict{String,Any}("generator"=>gid,"terminal"=>t_ph,
+                                             "crg"=>crg,"cig"=>cig,"i_mag"=>imag,"i_max"=>im)))
+                    end
                 end
             end
         end

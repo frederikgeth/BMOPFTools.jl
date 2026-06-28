@@ -404,6 +404,26 @@ Q^{g,\text{min}}_{g,k}
 \;\leq\; Q^{g,\text{max}}_{g,k}
 ```
 
+Two optional per-phase limits may also be supplied. An **apparent-power
+rating** `s_max` $= S^{\max}_{g,k}$ [VA] stamps the power circle
+
+```math
+P_{g,k}^2 + Q_{g,k}^2 \;\leq\; \bigl(S^{\max}_{g,k}\bigr)^2 ,
+```
+
+and a **current-magnitude limit** `i_max` $= I^{\max}_{g,k}$ [A] stamps the
+current circle directly on the terminal current variables
+
+```math
+\bigl(c^{r,g}_{g,k}\bigr)^2 + \bigl(c^{i,g}_{g,k}\bigr)^2 \;\leq\;
+\bigl(I^{\max}_{g,k}\bigr)^2 .
+```
+
+Both are **optional and opt-in** — omit them and the model is unchanged. As for
+IBRs, the current circle is the physically faithful thermal limit: since
+$|S_{g,k}| = |\Delta v_k|\,|I_{g,k}|$, a current cap makes the deliverable power
+roll off with voltage rather than staying flat at $S^{\max}$.
+
 #### IBRs
 
 IBRs use the same bilinear current/power model as generators, with the

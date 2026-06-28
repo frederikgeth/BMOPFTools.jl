@@ -99,6 +99,8 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `W.DOM.LOAD_PF_LOW` | W | Load power factor below 0.70 — plausible but unusual for aggregated demand; often a P/Q unit mix-up. |
 | `W.DOM.GEN_COST_NEGATIVE` | W | Negative generation cost — the optimizer will dispatch it to its bound; verify it is intended (e.g. must-run subsidy). |
 | `W.DOM.GEN_COST_HIGH` | W | Cost above 10 \$/kWh — beyond any realistic tariff; suspect units. |
+| `E.DOM.GEN_SMAX_NONPOSITIVE` | E | Generator `s_max` (optional per-phase apparent-power rating) has a non-positive entry — the apparent-power circle is empty, so no operating point exists. |
+| `E.DOM.GEN_IMAX_NONPOSITIVE` | E | Generator `i_max` (optional per-phase current limit) has a non-positive entry — the current circle is empty, so no operating point exists. |
 | `W.DOM.COST_PHASE_NONUNIFORM` | W | A dispatchable element (`generator` or `voltage_source`) has a per-phase `cost` vector whose entries differ across phases. Costs are normally a single \$/W price applied symmetrically; a non-uniform vector is more often a data-entry slip than an intended per-phase price signal. Scalar costs are uniform by definition and never flag. |
 | `W.DOM.LC_ZERO_R` | W | Near-zero or negative self-resistance on **any** linecode diagonal — a superconducting conductor, usually a placeholder. |
 | `E.DOM.XFMR_VREF_INVALID` | E | A transformer has `v_ref_from ≤ 0` or `v_ref_to ≤ 0`. The turns ratio N = v\_ref\_from / v\_ref\_to is undefined or infinite; the OPF cannot be built. Usually caused by a missing field defaulting to zero or a unit error (kV entered as 0.0). |
@@ -122,6 +124,7 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `E.DOM.IBR_IMAX_NONPOSITIVE` | E | IBR `i_max` (optional per-phase current limit) has a non-positive entry — the current circle is empty, so no operating point exists. |
 | `W.DOM.INV_BOUND_EXCEEDS_SMAX` | W | An IBR P or Q box-bound magnitude exceeds `s_max` — that box bound can never bind because the apparent-power circle dominates; usually a units or sizing mistake. |
 | `W.DOM.INV_PV_ABSORBS` | W | A `prime_mover=PV` IBR has `p_min < 0`, i.e. it is allowed to absorb real power — physically implausible for PV; usually a sign error. |
+| `W.DOM.DROOP_BREAKPOINT_OUTSIDE_BAND` | W | An IBR's Volt-var/Volt-watt droop has breakpoint voltages outside the bus's `[v_min, v_max]` band — the droop may never engage within the feasible operating range, so the control is effectively inert. |
 
 ## LOAD — load model validation & analysis
 
@@ -156,6 +159,7 @@ and [`load_model_analysis`](@ref) (`load_models` pass).
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `W.RED.ZERO_LOADS` | W | Loads with `p_nom = q_nom = 0` — electrically inert objects that still create variables/constraints. |
+| `W.REDUND.ZERO_LOAD` | W | The structural-repair pass (`fix_case`) analogue of `W.RED.ZERO_LOADS`: a load with `p_nom = q_nom = 0` on all phases is flagged as electrically inert during the fix workflow. |
 | `I.RED.LOAD_SPARSE_PHASES` | I | WYE loads where at least one phase has `p≈0` and `q≈0` while another is active. Each dead phase still generates a current variable and two bilinear constraints in the OPF; splitting into per-phase `SINGLE_PHASE` loads eliminates them. SINGLE_PHASE and DELTA loads are excluded (no clean per-phase equivalent). |
 | `I.RED.LOAD_MERGEABLE` | I | Groups of loads on the same bus sharing the same `configuration` and `terminal_map` (WYE/SINGLE_PHASE keys are phase-order-insensitive; DELTA keys are normalised to the smallest cyclic rotation). Each group can be collapsed into one load with summed `p_nom`/`q_nom`. Loads with `time_series` references are excluded (merging profiles is non-trivial). |
 | `I.RED.ZERO_SHUNTS` | I | Shunts whose every G/B matrix entry is zero — same. |
@@ -285,6 +289,14 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 | `E.INT.UNKNOWN_LINECODE` | E | A line references a linecode that does not exist (distinct from *unused* linecodes). |
 | `E.INT.UNKNOWN_TERMINAL` | E | A terminal-map entry is not a terminal of the referenced bus — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10). |
 | `E.INT.UNKNOWN_CONTROL_PROFILE` | E | An IBR references a `control_profile` id that does not exist in the network's `control_profile` table. |
+| `E.INT.VOLTAGE_REF_INVALID` | E | An IBR's `voltage_ref` is neither `PER_PHASE` nor `AVERAGE` — the engine cannot resolve which voltage the droop/limits reference. |
+| `E.INT.CONTROL_PROFILE_CONFLICT` | E | A `control_profile` declares both `power_factor` and a Volt-var/Volt-watt droop. These are mutually exclusive reactive-control modes; only one may be active. |
+| `E.INT.VOLT_VAR_SHAPE` | E | A `volt_var` droop does not have exactly 4 breakpoints and 2 `q_limits` — the piecewise curve is malformed and cannot be stamped. |
+| `E.INT.VOLT_VAR_BREAKPOINTS` | E | A `volt_var` droop's voltage breakpoints are not strictly increasing — the piecewise-linear curve is non-monotone and ill-defined. |
+| `W.INT.VOLT_VAR_QLIMITS` | W | A `volt_var` droop's `q_limits` are not in the expected `[absorb ≤ 0, inject ≥ 0]` order — usually a sign or ordering slip, though the curve still builds. |
+| `E.INT.VOLT_WATT_SHAPE` | E | A `volt_watt` droop does not have exactly 2 breakpoints and 2 `p_limits` — the curtailment curve is malformed and cannot be stamped. |
+| `E.INT.VOLT_WATT_BREAKPOINTS` | E | A `volt_watt` droop's voltage breakpoints are not strictly increasing — the curtailment curve is non-monotone and ill-defined. |
+| `E.INT.DROOP_UNSUPPORTED` | E | A Volt-var/Volt-watt droop uses an option the engine does not yet implement — a `voltage_reference` other than `PN_PER_PHASE`, or a `q_unit`/`p_unit`/`q_ref`/`p_ref` outside the supported set. |
 | `W.INT.DIM_MISMATCH` | W | Terminal-map arity vs linecode matrix size, `i_max` length vs conductor count, setpoint length vs configuration, source `vm`/`va` vs map length. |
 | `W.INT.PADDED_MATRIX` | W | All-zero row/column pairs in linecode impedances — padded conductors demonstrably wreck NLP performance (22 → 590 Ipopt iterations in ([ref. 2](methodology.md#refs)) Table 3); shrink the matrix and use terminal maps. |
 | `E.INT.NO_VOLTAGE_REFERENCE` | E | A galvanic island (transformer windings are separations) with no source, perfect grounding, or grounding shunt — voltages there are defined only up to a shift (the IEEE-123 "bus 610" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. |
@@ -345,7 +357,7 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `W.SOL.ANGLE_ACTIVE` | W | A centered phase-pair angle difference is near a `va_diff` bound (near-active). |
 | `E.SOL.THERMAL_VIOLATION` | E | A line or switch current magnitude exceeds the component's or linecode's `i_max` limit. |
 | `W.SOL.THERMAL_ACTIVE` | W | Current magnitude is within 1 % of `i_max` — the thermal limit is near-active. |
-| `E.SOL.GEN_VIOLATION` | E | A generator's active or reactive dispatch (`pg`/`qg` per terminal) falls outside its declared `p_min`/`p_max`/`q_min`/`q_max` bounds. |
+| `E.SOL.GEN_VIOLATION` | E | A generator's solved operating point (per terminal) violates a declared limit: `pg`/`qg` outside `p_min`/`p_max`/`q_min`/`q_max`, the optional `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. |
 | `W.SOL.GEN_ACTIVE` | W | Generator dispatch is within 1 % of a bound — the bound is near-active. |
 | `E.SOL.IBR_VIOLATION` | E | An IBR's solved operating point (per phase) violates a declared limit: `pg` outside `p_min`/`p_max`, the `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. |
 | `W.SOL.IBR_ACTIVE` | W | An IBR dispatch is within 1 % of a P bound — the bound is near-active. |

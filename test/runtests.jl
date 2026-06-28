@@ -969,6 +969,57 @@ const IEEE13_FIXTURE = """
         end
     end
 
+    @testset "Generator current/apparent limit fields" begin
+        # Clean per-phase i_max / s_max arrays pass every static validator.
+        @testset "schema, arity, sign" begin
+            net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+            net["generator"]["gen_634"]["i_max"] = [50.0, 50.0, 50.0]
+            net["generator"]["gen_634"]["s_max"] = [60000.0, 60000.0, 60000.0]
+            f = Finding[]
+            schema_check(net, f)
+            integrity_check(net, f)
+            domain_rules_check(net, f)
+            @test !any(fi -> startswith(fi.code, "E.SCHEMA"), f)
+            @test !any(fi -> fi.code == "W.INT.DIM_MISMATCH" &&
+                             fi.component_id == "gen_634", f)
+            @test !any(fi -> fi.code in ("E.DOM.GEN_IMAX_NONPOSITIVE",
+                                         "E.DOM.GEN_SMAX_NONPOSITIVE"), f)
+
+            # Wrong length → dimension mismatch (gen_634 has 3 phases).
+            net_dim = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+            net_dim["generator"]["gen_634"]["i_max"] = [50.0, 50.0]
+            f_dim = Finding[]
+            integrity_check(net_dim, f_dim)
+            @test any(fi -> fi.code == "W.INT.DIM_MISMATCH" &&
+                            fi.component_id == "gen_634", f_dim)
+
+            # Non-positive entries → domain errors (one per field).
+            net_neg = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+            net_neg["generator"]["gen_634"]["i_max"] = [50.0, 0.0, 50.0]
+            net_neg["generator"]["gen_634"]["s_max"] = [60000.0, -1.0, 60000.0]
+            f_neg = Finding[]
+            domain_rules_check(net_neg, f_neg)
+            @test any(fi -> fi.code == "E.DOM.GEN_IMAX_NONPOSITIVE" &&
+                            fi.component_id == "gen_634", f_neg)
+            @test any(fi -> fi.code == "E.DOM.GEN_SMAX_NONPOSITIVE" &&
+                            fi.component_id == "gen_634", f_neg)
+        end
+
+        # i_max / s_max are catalogued as known optional fields (no unknown-field
+        # INFO) — guards the schema.jl _KNOWN_FIELDS and completeness wiring.
+        @testset "known optional fields" begin
+            net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+            net["generator"]["gen_634"]["i_max"] = [50.0, 50.0, 50.0]
+            net["generator"]["gen_634"]["s_max"] = [60000.0, 60000.0, 60000.0]
+            f = Finding[]
+            schema_check(net, f)
+            @test !any(fi -> occursin("i_max", fi.message) &&
+                             fi.severity == INFO, f)
+            @test !any(fi -> occursin("s_max", fi.message) &&
+                             fi.severity == INFO, f)
+        end
+    end
+
     @testset "Terminal map convention checks" begin
         # Minimal 3-phase bus used across sub-tests
         _tmap_net(extra_components="") = parse_bmopf("""

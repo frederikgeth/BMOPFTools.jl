@@ -27,6 +27,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_angle_units(net, findings, n_checks)
     _check_negative_loads(net, findings, n_checks)
     _check_generator_semantics(net, findings, n_checks)
+    _check_generator_capability(net, findings, n_checks)
     _check_load_models(net, findings, n_checks)
     _check_low_impedance_lines(net, findings, thresholds, n_checks)
     _check_adjacent_line_impedance_spread(net, findings, thresholds, n_checks, result)
@@ -626,6 +627,33 @@ function _check_generator_semantics(net, findings, n_checks)
             "inertia, current limit, volt-var/volt-watt control): " *
             "$(join(sort(ibr_like), ", ")).",
             Dict{String,Any}("generators" => sort(ibr_like))))
+    end
+end
+
+# Generator capability plausibility (mirrors `_check_ibr_capability`):
+#   - the optional apparent-power rating `s_max` and current-magnitude limit
+#     `i_max` stamp empty feasible circles if any per-phase entry is ≤ 0, so a
+#     non-positive entry is an error (a literal zero is caught more gently as a
+#     forced-zero-flow warning, consistent with line/switch handling).
+function _check_generator_capability(net, findings, n_checks)
+    for (id, gen) in get(net, "generator", Dict())
+        gen isa Dict || continue
+        n_checks[] += 1
+
+        for (field, code, unit) in (
+                ("s_max", "E.DOM.GEN_SMAX_NONPOSITIVE", "VA"),
+                ("i_max", "E.DOM.GEN_IMAX_NONPOSITIVE", "A"))
+            v = get(gen, field, nothing)
+            arr = v isa AbstractVector ? [Float64(x) for x in v if x isa Number] : nothing
+            if arr !== nothing && any(<=(0), arr)
+                push!(findings, Finding(ERROR, code, :domain_rules,
+                    :generator, id,
+                    "Generator '$id' has a non-positive entry in $field $(arr) $unit; " *
+                    "all per-phase limits must be strictly positive (a zero entry " *
+                    "collapses the feasible circle to a point).",
+                    Dict{String,Any}(field => arr)))
+            end
+        end
     end
 end
 

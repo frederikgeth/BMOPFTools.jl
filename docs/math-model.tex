@@ -128,6 +128,8 @@ $I^\text{max}_{\ell,k}$ & A & Current magnitude limit, conductor $k$ of line $\e
 $P^{d,\text{nom}}_{d,k}$, $Q^{d,\text{nom}}_{d,k}$ & W, var & Nominal active/reactive demand, phase $k$ & \texttt{load.p\_nom}, \texttt{q\_nom} \\
 $P^{g,\text{min/max}}_{g,k}$, $Q^{g,\text{min/max}}_{g,k}$ & W, var & Generator active/reactive power limits & \texttt{generator.p\_min/max}, \texttt{q\_min/max} \\
 $c^g_1$ & \$/W & Linear generation cost coefficient & \texttt{generator.cost} \\
+$S^{\max}_{g,k}$ & VA & Generator apparent-power rating, phase $k$ (optional) & \texttt{generator.s\_max} \\
+$I^{\max}_{g,k}$ & A & Generator current-magnitude limit, phase $k$ (optional) & \texttt{generator.i\_max} \\
 $P^{n,\text{min/max}}_{n,k}$, $Q^{n,\text{min/max}}_{n,k}$ & W, var & IBR active/reactive power limits & \texttt{ibr.p\_min/max}, \texttt{q\_min/max} \\
 $S^{\max}_{n,k}$ & VA & IBR apparent-power rating, phase $k$ & \texttt{ibr.s\_max} \\
 $I^{\max}_{n,k}$ & A & IBR current-magnitude limit, phase $k$ (optional) & \texttt{ibr.i\_max} \\
@@ -427,6 +429,19 @@ The voltage drop $(\dvr_k, \dvi_k)$ is phase-to-neutral for WYE generators and
 line-to-line for DELTA generators, following the same convention as loads.
 Generator currents contribute positively to KCL at the phase terminal and
 negatively at the neutral terminal (current flows \emph{out of} the neutral).
+
+Two optional per-phase ratings may additionally be supplied (omitted otherwise).
+An apparent-power rating $S^{\max}_{g,k}$ stamps the power circle, and a
+current-magnitude limit $I^{\max}_{g,k}$ stamps the current circle directly on
+the terminal current variables:
+%
+\begin{align}
+  P_{g,k}^2 + Q_{g,k}^2 &\;\leq\; \bigl(S^{\max}_{g,k}\bigr)^2,
+  \label{eq:gen-s}\\
+  \bigl(c^{r,g}_{g,k}\bigr)^2 + \bigl(c^{i,g}_{g,k}\bigr)^2
+  &\;\leq\; \bigl(I^{\max}_{g,k}\bigr)^2.
+  \label{eq:gen-i}
+\end{align}
 
 \subsection{IBRs}
 \label{sec:ibrs}
