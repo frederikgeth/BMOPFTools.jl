@@ -2481,6 +2481,61 @@ const IEEE13_FIXTURE = """
                        f.component_id == "tx_dist", findings2)
     end
 
+    @testset "Domain rules — transformer orientation / step direction" begin
+        # Radial feeder: source 'src' → line → 'mv' → transformer → 'lv'.
+        # The transformer should be oriented from='mv' (source side) to='lv',
+        # stepping 11kV down to 433V.
+        mknet(bf, bt, vf, vt) = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"]),
+                "mv"  => Dict{String,Any}("terminal_names" => ["a","b","c","n"]),
+                "lv"  => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a","b","c"],
+                "v_magnitude" => [6350.0,6350.0,6350.0],
+                "v_angle" => [0.0,-2.0944,2.0944])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                "R_series_1_1" => 0.1, "R_series_2_2" => 0.1, "R_series_3_3" => 0.1)),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "src", "bus_to" => "mv",
+                "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"],
+                "linecode" => "lc", "length" => 1.0)),
+            "transformer" => Dict{String,Any}("delta_wye" => Dict{String,Any}(
+                "tx" => Dict{String,Any}(
+                    "bus_from" => bf, "bus_to" => bt,
+                    "terminal_map_from" => ["a","b","c"],
+                    "terminal_map_to"   => ["a","b","c","n"],
+                    "s_rating" => 100_000.0,
+                    "v_ref_from" => vf, "v_ref_to" => vt))))
+        dcodes(net) = (f = Finding[]; domain_rules_check(net, f); Set(x.code for x in f))
+
+        # Correctly oriented step-down → neither finding.
+        let c = dcodes(mknet("mv", "lv", 11000.0, 433.0))
+            @test !("W.DOM.XFMR_REVERSED" in c)
+            @test !("W.DOM.XFMR_STEP_UP"  in c)
+        end
+        # Swapped bus_from/bus_to (and v_ref) → reversed orientation flagged.
+        # v_ref still consistent with the (reversed) orientation, so no step-up.
+        let c = dcodes(mknet("lv", "mv", 433.0, 11000.0))
+            @test "W.DOM.XFMR_REVERSED" in c
+            @test !("W.DOM.XFMR_STEP_UP" in c)
+        end
+        # Correct terminals but v_ref swapped → boosts away from source.
+        let c = dcodes(mknet("mv", "lv", 433.0, 11000.0))
+            @test "W.DOM.XFMR_STEP_UP" in c
+            @test !("W.DOM.XFMR_REVERSED" in c)
+        end
+        # No voltage source → orientation undefined → nothing flagged.
+        let net = mknet("lv", "mv", 433.0, 11000.0)
+            delete!(net, "voltage_source")
+            c = dcodes(net)
+            @test !("W.DOM.XFMR_REVERSED" in c)
+            @test !("W.DOM.XFMR_STEP_UP"  in c)
+        end
+    end
+
     @testset "Domain rules — generator object identity (IBR / load)" begin
         codes(fs) = Set(f.code for f in fs)
         mknet(vsrc, gen) = Dict{String,Any}(
