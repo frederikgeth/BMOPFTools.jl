@@ -128,6 +128,70 @@ sets `cost` on the source by default. See
 generator at the source bus duplicates the slack and is flagged by the pre-flight
 check (`W.PRE.SOURCE_BUS_GENERATOR`).
 
+## IBRs (inverter-based resources)
+
+An `ibr` models a PV array, battery, or generic converter (including STATCOMs)
+interfaced through an inverter. Required fields are `bus`, `terminal_map`,
+`topology` (`SINGLE_PHASE` / `THREE_LEG` / `FOUR_LEG`), `prime_mover` (`PV` /
+`BATTERY` / `GENERIC` / `STATCOM` / `DSTATCOM`), and the per-phase apparent-power
+rating `s_max` (VA). Optional fields include the available active power `p_avail`
+(W), explicit flow bounds `p_min/p_max/q_min/q_max`, a per-phase `cost`, a
+converter current limit `i_max` (A), the filter/grid-forming fields, and the
+shared-DC-link coupling (`dc_link_coupled`, `p_dc_min/p_dc_max`). Bounds left
+absent are filled by the augmentation pass.
+
+IBR control laws are attached by reference: `control_profile` names a
+shared [`control_profile`](#Control-profiles) entry carrying `volt_var`,
+`volt_watt`, or `power_factor`. Each droop law's `voltage_reference` selects the
+**monitored-voltage quantity and aggregation** (one of the six
+`voltage_reference_type` values — phase-to-ground / phase-to-neutral /
+phase-to-phase, per-phase or averaged). The optional IBR-level `voltage_ref`
+field (`PER_PHASE` / `AVERAGE`) is a convenience that overrides only the
+*aggregation* a control law implies, applied across all of that IBR's curves. See
+[the OPF IBR model](opf.md#IBRs) for the full formulation.
+
+## Control profiles
+
+A `control_profile` is a **named, reusable bundle of IBR control laws**, shared by
+IBRs the way a `linecode` is shared by lines: many `ibr` objects point at one
+profile through their `control_profile` field. These are the **AC-side** laws —
+they set a converter's active/reactive power from its *AC* terminal voltage (the
+DC-port counterpart is configured separately; see below). Each profile holds one or
+more optional sub-objects, and the *presence* of a sub-object activates that law:
+
+- **`volt_var`** — reactive-power droop `Q = f(U)`. Fields: `breakpoints`
+  `[U1,U2,U3,U4]` (V, non-decreasing); `q_limits` `[q_absorb ≤ 0, q_inject ≥ 0]`;
+  `q_unit` (`VA_FRACTION` of `s_max`, or `VAR`); `q_ref` (`VAR_MAX`, or
+  `VAR_AVAILABLE` scaling with `√(s_max² − P²)`); and `voltage_reference`.
+  Optional `p_min_for_q` / `p_min_for_q_max` mirror OpenDSS's low-power cut-ins.
+- **`volt_watt`** — active-power curtailment cap `P ≤ f(U)`. Fields: `breakpoints`
+  `[U5,U6]`; `p_limits` `[p_low, p_high]`; `p_unit` (`VA_FRACTION` or `W`); `p_ref`
+  (`S_MAX` / `P_MAX` / `P_AVAILABLE`); and `voltage_reference`.
+- **`power_factor`** — constant power factor: a signed `pf` (positive = lagging,
+  absorbing VAr; negative = leading, injecting VAr), coupling `Q` to `P` by an
+  exact equality. Mutually exclusive with `volt_var` on the same IBR.
+
+`voltage_reference` is one of the six `voltage_reference_type` values — the
+monitored-voltage **quantity** (phase-to-ground `PG`, phase-to-neutral `PN`, or
+phase-to-phase `PP`) crossed with **aggregation** (`_PER_PHASE` or `_AVERAGED`);
+`volt_var` and `volt_watt` may each choose their own. Voltages are SI volts on the
+monitored quantity (e.g. ≈230 V phase-to-neutral nominal).
+
+The augmentation pass can fill a *declared-but-blank* sub-object from a regional
+preset (e.g. AS/NZS 4777.2 "Aus_A"), so a study can pin individual breakpoints and
+default the rest. The OPF currently implements `volt_var` with `q_unit =
+VA_FRACTION` and `q_ref = VAR_MAX`; other variants warn and fall back to box
+bounds. See [the OPF IBR model](opf.md#IBRs) for how each law is stamped as a
+smooth constraint, and the [VVWO tutorial](tutorial_vvwo.md) for a worked example.
+
+**DC-port control.** A converter's DC-side law is *also* an IBR control law, but it
+acts on the **signed DC-port voltage** rather than an AC magnitude, so it lives on
+the `ibr` directly via `dc_control` — not in a `control_profile`. Its `"droop"`
+mode is a **power–voltage (V–P) droop** stamped as an equality
+`P = dc_p_ref + (v_dc − dc_v_set)/dc_droop` (saturated at the converter limits)
+using the same smooth-ReLU machinery as `volt_var`/`volt_watt`. See the
+[DC network](@ref dc-network) section's `dc_control`.
+
 ## Capacitors
 
 A `capacitor` is a fixed shunt capacitor bank with fields `bus`, `terminal_map`,
@@ -142,7 +206,7 @@ element (`G_i_j`/`B_i_j`, S); the `capacitor` adds nameplate and connection
 semantics. Controllable/smooth capacitors are a future extension. See the
 [conversion guide § Capacitor banks](@ref capacitor).
 
-## DC network (MVDC/LVDC) — terminals, poles, grounding
+## [DC network (MVDC/LVDC) — terminals, poles, grounding](@id dc-network)
 
 The DC side (`dc_bus`, `dc_branch`, `dc_grounding`, `dc_load`, `dc_source`) models
 MVDC/LVDC converter stations. AC/DC converters are ordinary `ibr` objects that

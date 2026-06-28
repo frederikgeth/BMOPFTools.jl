@@ -50,24 +50,92 @@ struct DroopCurve
     triples::Vector{Tuple{Float64,Float64}}
     eps::Float64
     ref::Symbol           # :S_MAX | :P_MAX | :P_AVAILABLE | :VAR_MAX
+    quantity::Symbol      # :PN | :PG | :PP   (monitored voltage quantity)
+    averaged::Bool        # true ⇒ every phase sees the mean phase magnitude
 end
 
 # Map SI breakpoints into model units and pick a smoothing ε proportional to the
 # voltage scale (so the corner rounding tracks SI/per-unit automatically).
-function _curve_from_points(xs_si, ys, Uscale::Float64, relu_eps::Float64, ref::Symbol)
+function _curve_from_points(xs_si, ys, Uscale::Float64, relu_eps::Float64, ref::Symbol,
+                            quantity::Symbol, averaged::Bool)
     xs = Float64.(xs_si) ./ Uscale
     base, triples = breakpoints_to_triples(xs, ys)
     ε = relu_eps * (sum(xs) / length(xs))
-    return DroopCurve(base, triples, ε, ref)
+    return DroopCurve(base, triples, ε, ref, quantity, averaged)
+end
+
+# The six `voltage_reference_type` enum values split into a monitored quantity
+# (phase-to-neutral / phase-to-ground / phase-to-phase) and a per-phase-vs-average
+# aggregation. Unknown values fall back to the PN-per-phase default with a warning.
+const _VREF_VALUES = ("PN_PER_PHASE","PG_PER_PHASE","PP_PER_PHASE",
+                      "PN_AVERAGED","PG_AVERAGED","PP_AVERAGED")
+function _split_voltage_reference(raw)
+    s = uppercase(String(raw))
+    if !(s in _VREF_VALUES)
+        @warn "volt-var/watt: unsupported voltage_reference '$raw' — using PN_PER_PHASE."
+        return (:PN, false)
+    end
+    quantity = startswith(s, "PG") ? :PG : startswith(s, "PP") ? :PP : :PN
+    (quantity, endswith(s, "AVERAGED"))
+end
+
+"""
+    _monitor_U(model, vr, vi, bus, ph_terms, t_n, c, override_avg) -> Vector
+
+Per-phase monitored-voltage magnitude expressions for droop curve `c`, one entry
+per controlled phase in `ph_terms`:
+
+- `:PG` → `|V_φ|` (phase-to-ground; ground is the rectangular-frame zero)
+- `:PN` → `|V_φ − V_n|` (phase-to-neutral; falls back to PG with a warning if the
+  IBR has no neutral terminal)
+- `:PP` → `|V_φ − V_ψ|` with ψ the next phase cyclically (phase-to-phase)
+
+When the effective aggregation is averaged (`override_avg`, else the curve's own
+`averaged` flag) every phase is fed the mean of the per-phase magnitudes.
+`override_avg` lets the IBR-level legacy `voltage_ref` field win when present.
+"""
+function _monitor_U(model, vr, vi, bus, ph_terms, t_n, c::DroopCurve, override_avg)
+    n = length(ph_terms)
+    perphase = Vector{Any}(undef, n)
+    for k in 1:n
+        tk = ph_terms[k]
+        if c.quantity == :PG
+            perphase[k] = umag_expr(vr[(bus,tk)], vi[(bus,tk)])
+        elseif c.quantity == :PN
+            if t_n === nothing
+                @warn "IBR at bus '$bus': PN voltage_reference but no neutral terminal — using PG."
+                perphase[k] = umag_expr(vr[(bus,tk)], vi[(bus,tk)])
+            else
+                perphase[k] = umag_expr(@expression(model, vr[(bus,tk)] - vr[(bus,t_n)]),
+                                        @expression(model, vi[(bus,tk)] - vi[(bus,t_n)]))
+            end
+        else # :PP
+            if n < 2
+                @warn "IBR at bus '$bus': PP voltage_reference needs ≥2 phases — using PG."
+                perphase[k] = umag_expr(vr[(bus,tk)], vi[(bus,tk)])
+            else
+                tj = ph_terms[mod1(k+1, n)]
+                perphase[k] = umag_expr(@expression(model, vr[(bus,tk)] - vr[(bus,tj)]),
+                                        @expression(model, vi[(bus,tk)] - vi[(bus,tj)]))
+            end
+        end
+    end
+    averaged = override_avg === nothing ? c.averaged : override_avg
+    if averaged && n >= 1
+        ubar = @expression(model, sum(perphase) / n)
+        return Any[ubar for _ in 1:n]
+    end
+    perphase
 end
 
 """
     _resolve_volt_var(vv, Uscale, relu_eps) -> DroopCurve | nothing
 
 Build the reactive-power droop curve Q/Q_base = f(U) from a `volt_var` sub-object.
-Only the Queensland default option space is supported (PN_PER_PHASE voltage
-reference, VA_FRACTION q_unit, VAR_MAX q_ref); unsupported variants warn and skip
-so the IBR falls back to its box bounds.
+The monitored-voltage quantity/aggregation is taken from `voltage_reference` (any
+of the six `voltage_reference_type` values; see [`_split_voltage_reference`]).
+`q_unit` must be VA_FRACTION and `q_ref` VAR_MAX; other variants warn and skip so
+the IBR falls back to its box bounds.
 """
 function _resolve_volt_var(vv, Uscale::Float64, relu_eps::Float64)
     vv isa Dict || return nothing
@@ -79,7 +147,8 @@ function _resolve_volt_var(vv, Uscale::Float64, relu_eps::Float64)
     # ys: [inject (≥0) at U1, 0 at U2, 0 at U3, absorb (≤0) at U4]
     q_absorb, q_inject = ql[1], ql[2]
     ys = [q_inject, 0.0, 0.0, q_absorb]
-    return _curve_from_points(bps, ys, Uscale, relu_eps, :VAR_MAX)
+    quantity, averaged = _split_voltage_reference(get(vv, "voltage_reference", "PN_PER_PHASE"))
+    return _curve_from_points(bps, ys, Uscale, relu_eps, :VAR_MAX, quantity, averaged)
 end
 
 """
@@ -100,7 +169,8 @@ function _resolve_volt_watt(vw, Uscale::Float64, relu_eps::Float64)
     # ys: [p_high at U5, p_low at U6]  (p_limits given as [p_low, p_high])
     p_low, p_high = pl[1], pl[2]
     ys = [p_high, p_low]
-    return _curve_from_points(bps, ys, Uscale, relu_eps, Symbol(ref))
+    quantity, averaged = _split_voltage_reference(get(vw, "voltage_reference", "PN_PER_PHASE"))
+    return _curve_from_points(bps, ys, Uscale, relu_eps, Symbol(ref), quantity, averaged)
 end
 
 # Per-phase normalisation base for a resolved curve, in model units.
@@ -207,11 +277,15 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
         # sign(pf) < 0 (leading): Q = +tan_phi*P  →  -1*Q + tan_phi*P = 0
         pf_sign  = pf_val !== nothing ? sign(pf_val) : 0.0
 
-        # Droop reference-voltage mode: PER_PHASE (each phase sees its own
-        # magnitude) or AVERAGE (every phase sees the mean of the phase
-        # magnitudes). Only meaningful for multi-phase FOUR_LEG IBRs.
-        volt_ref = uppercase(String(get(inv, "voltage_ref", "PER_PHASE")))
-        avg_ref  = volt_ref == "AVERAGE"
+        # Aggregation across phases is normally taken from each curve's
+        # `voltage_reference` (the _AVERAGED suffix). The legacy IBR-level
+        # `voltage_ref` field, when explicitly present, overrides it (PER_PHASE /
+        # AVERAGE) for backward compatibility. `override_avg === nothing` means
+        # "defer to the curve".
+        has_vref_field = haskey(inv, "voltage_ref")
+        volt_ref    = uppercase(String(get(inv, "voltage_ref", "PER_PHASE")))
+        avg_ref     = volt_ref == "AVERAGE"
+        override_avg = has_vref_field ? avg_ref : nothing
 
         # Shared-DC-link coupling: collect each phase's active-power expression
         # so the net active power can be bounded by [p_dc_min, p_dc_max] after the
@@ -237,8 +311,13 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 @constraint(model, cri[(inv_id,1)]^2 + cii[(inv_id,1)]^2 <= imax[1]^2)
 
             avg_ref && @warn "IBR '$inv_id': voltage_ref=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
-            U = umag_expr(dvr, dvi)
-            _apply_ibr_phase!(model, inv_id, 1, p_expr, q_expr, U,
+            # PG monitors |V_φ|; PN/PP both monitor the terminal-pair difference
+            # |V_φ − V_ref| (ref = tm[2], a neutral for PN-wired or the second
+            # phase for PP-wired units). Aggregation is moot for one phase.
+            U_pg   = umag_expr(vr[(bus, t_ph)], vi[(bus, t_ph)])
+            U_diff = umag_expr(dvr, dvi)
+            single_U(c) = c === nothing ? nothing : (c.quantity == :PG ? U_pg : U_diff)
+            _apply_ibr_phase!(model, inv_id, 1, p_expr, q_expr, single_U(vv), single_U(vw),
                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                 vv, vw, p_avail_per, relu_ops)
 
@@ -249,12 +328,10 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             ph_pos    = _phase_positions(tm)
             n_pos_idx = _neutral_pos(tm)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
+            ph_terms  = [tm[ph] for ph in ph_pos]
 
-            # The droop reference magnitude is only needed when a curve consumes it.
-            need_U = vv !== nothing || vw !== nothing
-
-            # First pass: build the per-phase voltage differences, P/Q expressions
-            # and (when droop is active) per-phase magnitudes, and stamp KCL.
+            # First pass: build the per-phase power voltage differences (phase-to-
+            # neutral, the inverter's own terminal pair), P/Q expressions, KCL.
             phase = NamedTuple[]
             for (idx, ph) in enumerate(ph_pos)
                 t_ph = tm[ph]
@@ -268,8 +345,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 p_expr = @expression(model, dvr*cri[(inv_id,idx)] + dvi*cii[(inv_id,idx)])
                 q_expr = @expression(model, dvi*cri[(inv_id,idx)] - dvr*cii[(inv_id,idx)])
 
-                push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr,
-                              U=need_U ? umag_expr(dvr, dvi) : nothing))
+                push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr))
                 collect_p && push!(p_exprs, p_expr)
 
                 length(imax) >= idx &&
@@ -280,15 +356,16 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                     _kcl_add!(kcl_r, kcl_i, bus, t_n, -cri[(inv_id,idx)], -cii[(inv_id,idx)])
             end
 
-            # AVERAGE feeds the mean phase magnitude into every phase's droop curve.
-            U_avg = (need_U && avg_ref && length(phase) >= 1) ?
-                    @expression(model, sum(p.U for p in phase) / length(phase)) :
-                    nothing
+            # Monitored droop voltages, per curve (quantity + aggregation from each
+            # curve's voltage_reference; legacy voltage_ref overrides aggregation).
+            U_vv = vv !== nothing ? _monitor_U(model, vr, vi, bus, ph_terms, t_n, vv, override_avg) : nothing
+            U_vw = vw !== nothing ? _monitor_U(model, vr, vi, bus, ph_terms, t_n, vw, override_avg) : nothing
 
-            # Second pass: stamp the per-phase constraints with the chosen reference.
+            # Second pass: stamp the per-phase constraints.
             for p in phase
-                U = U_avg === nothing ? p.U : U_avg
-                _apply_ibr_phase!(model, inv_id, p.idx, p.p_expr, p.q_expr, U,
+                _apply_ibr_phase!(model, inv_id, p.idx, p.p_expr, p.q_expr,
+                    U_vv === nothing ? nothing : U_vv[p.idx],
+                    U_vw === nothing ? nothing : U_vw[p.idx],
                     p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                     vv, vw, p_avail_per, relu_ops)
             end
@@ -309,7 +386,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                     @constraint(model, cri[(inv_id,k)]^2 + cii[(inv_id,k)]^2 <= imax[k]^2)
 
                 # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
-                _apply_ibr_phase!(model, inv_id, k, p_expr, q_expr, nothing,
+                _apply_ibr_phase!(model, inv_id, k, p_expr, q_expr, nothing, nothing,
                     p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                     nothing, nothing, p_avail_per, relu_ops)
 
@@ -352,7 +429,7 @@ end
 # `U` is the reference voltage-magnitude expression fed into the droop curves. The
 # caller chooses it per the IBR's `voltage_ref` field: the per-phase magnitude
 # √(dvr²+dvi²) for PER_PHASE, or the mean of the phase magnitudes for AVERAGE.
-function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U,
+function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
                                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                                 vv, vw, p_avail_per, relu_ops)
     # P lower bound (always a box bound).
@@ -362,7 +439,7 @@ function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U,
     if vw !== nothing
         op   = relu_operator_for!(relu_ops, model, vw.eps)
         base = _droop_base(vw, idx, smax, p_max, p_avail_per)
-        @constraint(model, p_expr <= curve_expr(op, U, base * vw.baseline,
+        @constraint(model, p_expr <= curve_expr(op, U_vw, base * vw.baseline,
                                                  [(base*a, x̄) for (a, x̄) in vw.triples]))
     else
         length(p_max) >= idx && @constraint(model, p_expr <= p_max[idx])
@@ -374,7 +451,7 @@ function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U,
     elseif vv !== nothing
         op   = relu_operator_for!(relu_ops, model, vv.eps)
         base = _droop_base(vv, idx, smax, p_max, p_avail_per)
-        @constraint(model, q_expr == curve_expr(op, U, base * vv.baseline,
+        @constraint(model, q_expr == curve_expr(op, U_vv, base * vv.baseline,
                                                 [(base*a, x̄) for (a, x̄) in vv.triples]))
     else
         length(q_min) >= idx && @constraint(model, q_expr >= q_min[idx])

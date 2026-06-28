@@ -511,7 +511,7 @@
                     },
                     "dc_droop": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Droop coefficient k [V/W] for dc_control=droop: P = dc_p_ref + (dc_v_set - v_dc_port)/k, saturated at the converter power limits. Larger k = softer droop."
+                        "description": "Droop coefficient k [V/W] for dc_control=droop: P = dc_p_ref + (v_dc_port - dc_v_set)/k, so the converter exports more as the DC-port voltage rises, saturated at the converter power limits. Larger k = softer droop."
                     },
                     "dc_deadband": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -561,6 +561,11 @@
                     "control_profile": {
                         "type": "string",
                         "description": "Reference to a control_profile id encoding smart-IBR control laws"
+                    },
+                    "voltage_ref": {
+                        "type": "string",
+                        "enum": ["PER_PHASE", "AVERAGE"],
+                        "description": "Cross-phase aggregation of the droop monitored voltage for a multi-phase IBR: PER_PHASE (default, each phase reacts to its own magnitude) or AVERAGE (every phase reacts to the mean phase magnitude). When present it overrides the per-phase/averaged aggregation implied by a control law's voltage_reference."
                     },
                     "time_series": {
                         "type": "object",
