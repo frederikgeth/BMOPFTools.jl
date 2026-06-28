@@ -352,6 +352,15 @@ which default to `false` and must be opted into explicitly.
 | 8 | Capacitive shunts → capacitors | `false` | Re-represents a purely capacitive shunt (G ≈ 0; flagged by `I.PROV.SHUNT_LIKELY_CAPACITOR`) as a first-class `capacitor`. The susceptance matrix `B` is **fingerprinted** by sign pattern + sparsity + row sums into `SINGLE_PHASE`, `WYE`, or `DELTA` (or a phase-to-ground bank → WYE/SINGLE_PHASE on a grounded neutral), and the nameplate `q_rated = B·v_rated²` is recovered (`v_rated` = bus P-N nominal, or √3·P-N = L-L for DELTA). The conversion is committed **only when the emitted capacitor's susceptance reproduces `B` exactly** (round-trip guard), so it is faithful by construction; anything ambiguous or unsupported (mixed return paths, `n>3` cyclic banks, a star with no name-resolvable neutral, no grounded return for a phase-to-ground bank, or no resolvable nominal) is left untouched. |
 | 9 | Snap placeholder transformer leakage | `false` | Zeroes a two-winding transformer's **tiny non-zero** series impedance (`\|Z\| < snap_transformer_z_min_pu`, default 0.1 % on the rating base; flagged by `W.DOM.XFMR_LOW_IMPEDANCE`) — a placeholder for zero from an admittance-based tool. Exact zero is better-conditioned in the IVR formulation than a small value (the transformer analogue of the low-impedance-line → switch pass). Genuine leakage (1–15 %) is never touched; n_winding units are skipped (rating base differs). |
 
+!!! note "Why exact zero, not a small ε (passes 4 and 9)"
+    Both passes replace a near-zero impedance with an *exact* zero handled
+    semantically (a switch, or the ideal-transformer constraint) rather than a
+    small numerical placeholder. This is deliberate: a small `ε` impedance is the
+    single most ill-conditioned point on the whole axis, whereas an exact zero is
+    well-conditioned. See
+    [Zero impedance: represent it honestly](@ref zero-impedance) in the developer
+    guide for the conditioning argument and the figure.
+
 ```@docs
 fix_case
 FixRecipe
