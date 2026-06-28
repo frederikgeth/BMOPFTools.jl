@@ -186,3 +186,72 @@ end
     @test any(e.field == "s_max"   for e in mf.entries)
     @test any(e.field == "topology" for e in mf.entries)
 end
+
+# ── I13: add_statcom! writes a STATCOM IBR; augment fills ∓s_max Q box ────────
+
+@testset "I13: add_statcom! nameplate + augment" begin
+    net = _inv_lv_net()
+    iid = add_statcom!(net, "b1"; s_max = 200_000.0)
+    @test iid == "statcom_b1"
+    inv = net["ibr"][iid]
+    @test inv["bus"] == "b1"
+    @test inv["prime_mover"] == "STATCOM"
+    @test inv["topology"] == "FOUR_LEG"               # inferred from 4-terminal bus
+    @test inv["terminal_map"] == ["1","2","3","n"]
+    @test inv["s_max"] ≈ [200_000.0, 200_000.0, 200_000.0]
+    @test inv["p_avail"] == 0.0
+    @test !haskey(inv, "q_min")                        # deferred to augment_case
+
+    net2, _ = augment_case(net)
+    a = net2["ibr"][iid]
+    @test a["p_min"] == [0.0, 0.0, 0.0]                # no active source
+    @test a["p_max"] == [0.0, 0.0, 0.0]
+    @test a["q_max"] ≈ [200_000.0, 200_000.0, 200_000.0]   # = s_max
+    @test a["q_min"] ≈ [-200_000.0, -200_000.0, -200_000.0]
+end
+
+# ── I14: add_statcom! single-phase bus + per-phase s_max + custom id ──────────
+
+@testset "I14: add_statcom! 1-phase, vector s_max, custom id" begin
+    net = _inv_1ph_net()
+    iid = add_statcom!(net, "b1"; s_max = [50_000.0], id = "dstat_1")
+    @test iid == "dstat_1"
+    inv = net["ibr"]["dstat_1"]
+    @test inv["topology"] == "SINGLE_PHASE"
+    @test inv["s_max"] ≈ [50_000.0]
+    @test_throws ArgumentError add_statcom!(net, "b1"; s_max = 1.0, id = "dstat_1")  # dup id
+    @test_throws ArgumentError add_statcom!(net, "nope"; s_max = 1.0)               # bad bus
+end
+
+# ── I15: add_statcom! dc_link_coupled — active-power circulation augment ──────
+
+@testset "I15: add_statcom! dc_link_coupled" begin
+    net = _inv_lv_net()
+    iid = add_statcom!(net, "b1"; s_max = 15_000.0, dc_link_coupled = true)
+    inv = net["ibr"][iid]
+    @test inv["dc_link_coupled"] == true
+    @test inv["prime_mover"] == "STATCOM"
+
+    net2, _ = augment_case(net)
+    a = net2["ibr"][iid]
+    # Per-phase active power is freed to ±s_max (circulation)…
+    @test a["p_min"] ≈ [-15_000.0, -15_000.0, -15_000.0]
+    @test a["p_max"] ≈ [ 15_000.0,  15_000.0,  15_000.0]
+    # …but the net DC-side active power is clamped to zero.
+    @test a["p_dc_min"] == 0.0
+    @test a["p_dc_max"] == 0.0
+    # Reactive capability is still the full converter rating.
+    @test a["q_max"] ≈ [15_000.0, 15_000.0, 15_000.0]
+    @test a["q_min"] ≈ [-15_000.0, -15_000.0, -15_000.0]
+
+    # Default (reactive-only) path is unchanged: P clamped to zero, no DC fields.
+    net3 = _inv_lv_net()
+    add_statcom!(net3, "b1"; s_max = 15_000.0)
+    @test !haskey(net3["ibr"]["statcom_b1"], "dc_link_coupled")
+    net4, _ = augment_case(net3)
+    b = net4["ibr"]["statcom_b1"]
+    @test b["p_min"] == [0.0, 0.0, 0.0]
+    @test b["p_max"] == [0.0, 0.0, 0.0]
+    @test !haskey(b, "p_dc_min")
+    @test !haskey(b, "p_dc_max")
+end

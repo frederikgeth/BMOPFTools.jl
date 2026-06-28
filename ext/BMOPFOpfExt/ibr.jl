@@ -213,6 +213,13 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
         volt_ref = uppercase(String(get(inv, "voltage_ref", "PER_PHASE")))
         avg_ref  = volt_ref == "AVERAGE"
 
+        # Shared-DC-link coupling: collect each phase's active-power expression
+        # so the net active power can be bounded by [p_dc_min, p_dc_max] after the
+        # per-phase constraints are stamped (Heidari & Geth 2024; Deakin, Heidari
+        # & Deng 2025). Only assembled when the IBR declares dc_link_coupled.
+        dc_coupled = get(inv, "dc_link_coupled", false) === true
+        p_exprs    = JuMP.QuadExpr[]
+
         if topo == "SINGLE_PHASE"
             length(tm) >= 2 || (@warn "IBR '$inv_id': SINGLE_PHASE needs ≥2 terminals"; continue)
             t_ph  = tm[1]
@@ -222,6 +229,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
             p_expr = @expression(model, dvr*cri[(inv_id,1)] + dvi*cii[(inv_id,1)])
             q_expr = @expression(model, dvi*cri[(inv_id,1)] - dvr*cii[(inv_id,1)])
+            dc_coupled && push!(p_exprs, p_expr)
 
             length(imax) >= 1 &&
                 @constraint(model, cri[(inv_id,1)]^2 + cii[(inv_id,1)]^2 <= imax[1]^2)
@@ -260,6 +268,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr,
                               U=need_U ? umag_expr(dvr, dvi) : nothing))
+                dc_coupled && push!(p_exprs, p_expr)
 
                 length(imax) >= idx &&
                     @constraint(model, cri[(inv_id,idx)]^2 + cii[(inv_id,idx)]^2 <= imax[idx]^2)
@@ -292,6 +301,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 p_expr = @expression(model, dvr*cri[(inv_id,k)] + dvi*cii[(inv_id,k)])
                 q_expr = @expression(model, dvi*cri[(inv_id,k)] - dvr*cii[(inv_id,k)])
+                dc_coupled && push!(p_exprs, p_expr)
 
                 length(imax) >= k &&
                     @constraint(model, cri[(inv_id,k)]^2 + cii[(inv_id,k)]^2 <= imax[k]^2)
@@ -307,6 +317,18 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
         else
             @warn "IBR '$inv_id': unknown topology '$topo' — skipping."
+        end
+
+        # Shared-DC-link active-power balance: bound the net (sum of per-phase)
+        # active power, letting the converter circulate active power between
+        # phases. p_dc_min/p_dc_max default to 0/0 for a STATCOM (pure
+        # circulation) — see the augmentation pass and `add_statcom!`.
+        if dc_coupled && !isempty(p_exprs)
+            p_net = @expression(model, sum(p_exprs))
+            p_dc_min = get(inv, "p_dc_min", 0.0)
+            p_dc_max = get(inv, "p_dc_max", 0.0)
+            @constraint(model, p_net >= Float64(p_dc_min))
+            @constraint(model, p_net <= Float64(p_dc_max))
         end
     end
 end

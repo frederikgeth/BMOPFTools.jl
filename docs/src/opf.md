@@ -495,6 +495,48 @@ Active power follows either the box upper bound above or, when the
 `control_profile` declares a `volt_watt` sub-object, a **Volt-watt** curtailment
 cap $P_{n,k} \leq P^{\text{base}}_{n,k}\, f^{\mathrm{VW}}(U_{n,k})$.
 
+##### STATCOMs (D-STATCOMs)
+
+A **STATCOM** — a *D-STATCOM* in distribution-system terminology — is a
+shunt-connected voltage-source converter with no active-power source. It is
+modelled as an IBR with `prime_mover = "STATCOM"`: there is no separate object
+category, because a STATCOM is physically the same VSC-shunt as any other
+grid-tied inverter, exchanging reactive power bounded by the converter rating.
+The augmentation pass clamps active power to zero
+($P^{\min}_{n,k} = P^{\max}_{n,k} = 0$, converter losses neglected) and exposes
+the full per-phase rating as symmetric reactive capability
+($Q^{\max}_{n,k} = S^{\max}_{n,k}$, $Q^{\min}_{n,k} = -S^{\max}_{n,k}$), after
+which the apparent-power circle, the optional current-magnitude limit `i_max`,
+and any Volt-var `control_profile` apply unchanged. The
+[`add_statcom!`](@ref) helper writes such an IBR directly. A battery-backed
+D-STATCOM that can also dispatch active power is simply an IBR with a non-zero
+`prime_mover` (e.g. `BATTERY`).
+
+###### Shared DC link: active power circulation between phases
+
+A four-wire converter's three phase legs share a single DC link, so the
+*per-phase* active powers are not independent — they are coupled by the net
+DC-side power balance. When an IBR sets `dc_link_coupled = true`, the engine adds
+the aggregate constraint
+
+```math
+P^{dc}_{\min} \;\le\; \sum_{k} P_{n,k} \;\le\; P^{dc}_{\max},
+```
+
+over that IBR's phases, while each phase's $P_{n,k}$ is freed within its
+apparent-power circle. With $P^{dc}_{\min} = P^{dc}_{\max} = 0$ — the default the
+augmentation derives for a STATCOM — the converter exchanges **no net active
+power** yet may *circulate* active power between phases: sourcing real power on a
+heavily-loaded phase and sinking it on a lightly-loaded one. Because LV feeders
+are resistive ($R \gg X$), this active redistribution is a far stronger lever on
+per-phase voltage and unbalance than reactive support alone, which is the central
+result of [the D-STATCOM unbalance study](@ref statcom-unbalance). The
+constraint is the steady-state DC-link power balance of the four-wire converter
+models in Heidari & Geth (2024) and Deakin, Heidari & Deng (2025); for a
+non-STATCOM source (e.g. PV) the augmentation defaults the band to
+$[0, P^{\text{avail}}]$, so the same coupling lets a curtailable inverter
+redistribute its available power across phases.
+
 ##### Piecewise-linear droop encoding
 
 Each characteristic $f$ through non-decreasing breakpoints

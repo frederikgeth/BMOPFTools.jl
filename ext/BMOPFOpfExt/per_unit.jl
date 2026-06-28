@@ -287,6 +287,10 @@ function _pu_scale_ibrs!(net, bases)
         for f in ("p_min", "p_max", "q_min", "q_max", "s_max")
             haskey(inv, f) && (inv[f] = Float64.(inv[f]) ./ sb)
         end
+        # DC-link net active-power bounds are scalars (Σ over phases); scale by sb.
+        for f in ("p_dc_min", "p_dc_max")
+            haskey(inv, f) && (inv[f] = Float64(inv[f]) / sb)
+        end
         # Current-magnitude limit scales by the per-bus current base (mirrors
         # _pu_scale_generators!), since the OPF current variables cri/cii are PU.
         haskey(inv, "i_max") && (inv["i_max"] = Float64.(inv["i_max"]) ./ ib)

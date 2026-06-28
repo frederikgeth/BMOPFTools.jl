@@ -2614,4 +2614,84 @@
         end
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # STATCOM on an unbalanced four-wire LV feeder: reactive-only vs. active
+    # power circulation (DC-link coupling). In LV networks R≫X, so reactive
+    # support has weak voltage authority while active power redistribution
+    # between phases (∑ₖ Pₖ = 0) directly balances the feeder.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "STATCOM DC-link active circulation vs reactive-only" begin
+        # Resistive (R/X = 5) four-wire LV feeder; phase 1 heavily loaded.
+        feeder(vmin) = parse_bmopf("""
+        {"bus":{
+            "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+            "b1": {"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]$vmin}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944]}},
+         "linecode":{"lc":{"R_series_1_1":0.4,"X_series_1_1":0.08,
+                           "R_series_2_2":0.4,"X_series_2_2":0.08,
+                           "R_series_3_3":0.4,"X_series_3_3":0.08,
+                           "R_series_4_4":0.4,"X_series_4_4":0.08}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],"configuration":"WYE",
+             "p_nom":[18000.0,3000.0,3000.0],"q_nom":[2000.0,500.0,500.0]}}}
+        """; from_string=true)
+
+        solved(r) = r["termination_status"] in
+            ("LOCALLY_SOLVED", "OPTIMAL", "ALMOST_LOCALLY_SOLVED")
+        function vuf(r, bus)
+            b = r["bus"][bus]
+            V = [b[t]["vr"] + im*b[t]["vi"] for t in ("1","2","3")]
+            a = exp(im*2pi/3)
+            V1 = (V[1] + a*V[2] + a^2*V[3]) / 3
+            V2 = (V[1] + a^2*V[2] + a*V[3]) / 3
+            abs(V2) / abs(V1) * 100
+        end
+
+        # Unconstrained voltages: both no-STATCOM and active-circulation solve;
+        # active circulation strictly improves unbalance and losses.
+        base = feeder("")
+        r0   = solve_opf(deepcopy(base))
+        @test solved(r0)
+
+        nact = deepcopy(base)
+        add_statcom!(nact, "b1"; s_max = 15000.0, dc_link_coupled = true)
+        @test nact["ibr"]["statcom_b1"]["dc_link_coupled"] == true
+        nact, _ = augment_case(nact)
+        @test nact["ibr"]["statcom_b1"]["p_min"] ≈ [-15000.0, -15000.0, -15000.0]
+        @test nact["ibr"]["statcom_b1"]["p_max"] ≈ [ 15000.0,  15000.0,  15000.0]
+        @test nact["ibr"]["statcom_b1"]["p_dc_min"] == 0.0
+        @test nact["ibr"]["statcom_b1"]["p_dc_max"] == 0.0
+        ract = solve_opf(nact)
+        @test solved(ract)
+
+        # The DC-link balances the net active power to zero...
+        ph = ract["ibr"]["statcom_b1"]
+        sumP = sum(ph[t]["pg"] for t in ("1","2","3"))
+        @test isapprox(sumP, 0.0; atol = 1.0)
+        # ...and the converter sources active power on the heavy phase.
+        @test ph["1"]["pg"] > 1000.0
+        # Unbalance and losses both fall sharply.
+        @test vuf(ract, "b1") < vuf(r0, "b1")
+        @test vuf(ract, "b1") < 0.5
+        @test ract["losses"]["p_loss"] < r0["losses"]["p_loss"]
+
+        # With a per-phase voltage limit the heavy phase cannot be held up by
+        # reactive support at any rating (R≫X), but active circulation can.
+        bounded = feeder(""","v_min":[218.0,218.0,218.0],"v_max":[253.0,253.0,253.0]""")
+
+        nreact = deepcopy(bounded)
+        add_statcom!(nreact, "b1"; s_max = 30000.0)            # reactive-only
+        nreact, _ = augment_case(nreact)
+        @test nreact["ibr"]["statcom_b1"]["p_max"] == [0.0, 0.0, 0.0]
+        @test !solved(solve_opf(nreact))                       # infeasible
+
+        nactb = deepcopy(bounded)
+        add_statcom!(nactb, "b1"; s_max = 30000.0, dc_link_coupled = true)
+        nactb, _ = augment_case(nactb)
+        @test solved(solve_opf(nactb))                         # feasible
+    end
+
 end  # @testset "OPF — solve_opf extension"

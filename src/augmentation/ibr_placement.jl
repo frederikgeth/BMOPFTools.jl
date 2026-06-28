@@ -168,6 +168,101 @@ function add_ibrs(net::Dict{String,Any};
     (net′, manifest)
 end
 
+# ── STATCOM convenience constructor ───────────────────────────────────────────
+
+"""
+    add_statcom!(net, bus; s_max, id=nothing, terminal_map=nothing,
+                 topology=nothing, dc_link_coupled=false, cost=nothing) -> String
+
+Add a STATCOM (a *D-STATCOM* in distribution-system parlance) to `net` at `bus`
+and return its id. A STATCOM is a shunt-connected voltage-source converter with
+no active-power source: it is modelled as an IBR whose `prime_mover` is
+`"STATCOM"`, so [`augment_case`](@ref) exposes the full per-phase converter
+rating as symmetric reactive capability (`q_max = s_max`, `q_min = -s_max`).
+Converter losses are neglected at this fidelity.
+
+`dc_link_coupled` selects the active-power behaviour:
+
+  * `false` (default) — **reactive-only**: each phase's active power is clamped to
+    zero (`p_min = p_max = 0`).
+  * `true` — **active power circulation**: the phases share one DC link, so
+    per-phase active power is free within the `s_max` circle but the *net* active
+    power is zero (`∑ₖ Pₖ = 0`). The converter can then move active power between
+    phases to balance an unbalanced feeder, where reactive support has weak
+    authority because LV networks are resistive (R≫X). See the
+    [D-STATCOM unbalance study](@ref statcom-unbalance) tutorial.
+
+`net` **is mutated** (an entry is written under `net["ibr"]`); use a `deepcopy`
+first if you need to preserve the original.
+
+`s_max` is the converter apparent-power rating in VA, given either as a scalar
+(replicated across phases) or as a per-phase vector. `terminal_map` and
+`topology` are inferred from the bus's `terminal_names` when omitted (last
+terminal treated as the neutral/reference, as elsewhere in the IBR model).
+
+Reactive limits are intentionally left for [`augment_case`](@ref) to derive, in
+keeping with [`add_ibrs`](@ref). For a controlled STATCOM, attach a
+`control_profile` (e.g. a Volt-var droop) by setting the IBR's
+`control_profile` field after this call.
+
+# Example
+```julia
+add_statcom!(net, "bus_650"; s_max = 200_000.0)   # 200 kVA reactive-only D-STATCOM
+net2, _ = augment_case(net)                        # fills q_min/q_max = ∓s_max
+
+add_statcom!(net, "bus_675"; s_max = 50_000.0, dc_link_coupled = true)  # phase balancer
+```
+"""
+function add_statcom!(net::Dict{String,Any}, bus::AbstractString;
+                      s_max,
+                      id::Union{Nothing,AbstractString} = nothing,
+                      terminal_map::Union{Nothing,AbstractVector} = nothing,
+                      topology::Union{Nothing,AbstractString} = nothing,
+                      dc_link_coupled::Bool = false,
+                      cost = nothing)::String
+
+    haskey(net, "bus") && haskey(net["bus"], bus) ||
+        throw(ArgumentError("add_statcom!: bus '$bus' not found in net"))
+
+    tm = if terminal_map !== nothing
+        Vector{String}(terminal_map)
+    else
+        Vector{String}(get(net["bus"][bus], "terminal_names", String[]))
+    end
+    length(tm) >= 2 ||
+        throw(ArgumentError("add_statcom!: bus '$bus' needs ≥2 terminals " *
+                            "(got $(length(tm))); pass terminal_map explicitly"))
+    n_phase = length(tm) - 1
+
+    topo = topology !== nothing ? uppercase(String(topology)) :
+           (length(tm) <= 2 ? "SINGLE_PHASE" : "FOUR_LEG")
+
+    smax_vec = s_max isa AbstractVector ? Float64.(collect(s_max)) :
+                                          fill(Float64(s_max), n_phase)
+    length(smax_vec) == n_phase ||
+        throw(ArgumentError("add_statcom!: s_max has $(length(smax_vec)) entries " *
+                            "but bus '$bus' has $n_phase phase(s)"))
+
+    iid = id !== nothing ? String(id) : string("statcom_", bus)
+    invs = get!(net, "ibr", Dict{String,Any}())
+    haskey(invs, iid) &&
+        throw(ArgumentError("add_statcom!: ibr id '$iid' already exists"))
+
+    obj = Dict{String,Any}(
+        "bus"          => String(bus),
+        "terminal_map" => tm,
+        "topology"     => topo,
+        "prime_mover"  => "STATCOM",
+        "s_max"        => smax_vec,
+        "p_avail"      => 0.0)
+    dc_link_coupled && (obj["dc_link_coupled"] = true)
+    cost !== nothing && (obj["cost"] = cost isa AbstractVector ?
+        Float64.(collect(cost)) : fill(Float64(cost), n_phase))
+
+    invs[iid] = obj
+    return iid
+end
+
 # ── Core placement ───────────────────────────────────────────────────────────
 
 function _apply_ibr_placement!(net′::Dict{String,Any},

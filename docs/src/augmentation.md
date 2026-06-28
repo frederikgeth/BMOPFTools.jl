@@ -534,6 +534,31 @@ IBRRecipe
 default_ibr_recipe
 ```
 
+### STATCOMs and active power circulation
+
+[`add_statcom!`](@ref) places a single shunt converter (a STATCOM / *D-STATCOM*)
+at a named bus as an IBR with `prime_mover = "STATCOM"`. Its dispatch box is left
+to `augment_case`, which fills it according to the `dc_link_coupled` flag:
+
+- **reactive-only** (default) — per-phase active power is clamped to zero
+  (`p_min = p_max = 0`); the full per-phase rating becomes symmetric reactive
+  capability (`q_max = s_max`, `q_min = -s_max`).
+- **active power circulation** (`dc_link_coupled = true`) — per-phase active power
+  is opened to `±s_max` and the net DC-side power is bounded by
+  `p_dc_min … p_dc_max`, defaulted to `0 … 0` for a STATCOM. The OPF then enforces
+  `∑ₖ Pₖ ∈ [p_dc_min, p_dc_max]`, letting the converter move active power between
+  phases (see the [OPF model](opf.md#IBRs) and the
+  [D-STATCOM unbalance study](@ref statcom-unbalance)).
+
+The same `dc_link_coupled` augmentation applies to any IBR: for a non-STATCOM
+source it defaults the band to `0 … p_avail`, so a curtailable PV inverter can
+redistribute its available power across phases. Every derived bound is recorded as
+a `:standard` `TransformEntry`.
+
+```@docs
+add_statcom!
+```
+
 ## [A starting point for fine-tuning](@id starting-point)
 
 The three passes do **not** claim to produce the one true benchmark. They

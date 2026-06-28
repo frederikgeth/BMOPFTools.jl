@@ -613,6 +613,7 @@ export augment_case, AugmentationRecipe, default_recipe
 export fix_case, FixRecipe
 export add_generators, GeneratorRecipe, default_generator_recipe
 export add_ibrs, IBRRecipe, default_ibr_recipe
+export add_statcom!
 export TransformationManifest, TransformEntry, manifest_to_dict, render_manifest
 export diagnose_infeasibility
 export merge_series_lines, remove_dangling_lines
