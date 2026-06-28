@@ -1,0 +1,34 @@
+{
+  "schema": "bmopf-transformer-library/v1",
+  "region": "AU-QLD",
+  "description": "Realistic distribution-transformer parameters for snapping (filling missing values). First dataset is Energex/Ergon (Queensland) oriented. Percentage impedance and X/R are rating-dependent (and largely HV-class independent across 11/22/33 kV); no-load loss and magnetising current fall with rating per the AS 2374.1.2 / AS 60076.11 MEPS regime.",
+  "sources": [
+    "Horizon Power, Specification - Distribution Transformers (Z% ladder 3.3/4.0/6.0%, vector group Dyn1, taps +10/-5% in 2.5% steps; close WA analogue to Energex/Ergon)",
+    "AS 2374.1.2-2003 (R2025) MEPS / AS 60076.11 (no-load & load loss regime, 10-2500 kVA, <=24 kV)",
+    "Ergon Energy JTS02-03-01 (QLD distribution transformer standard)",
+    "IEEE Std 242 / ANSI C57.12 (X/R guidance rising with rating)"
+  ],
+  "notes": [
+    "z_pct is the percentage short-circuit impedance on the unit's own rating base; percentage impedance is base-invariant, so it applies referred to either side.",
+    "xr_ratio splits z_pct into resistance and reactance: x_pct = z_pct*xr/sqrt(1+xr^2), r_pct = z_pct/sqrt(1+xr^2).",
+    "g_no_load_pct is core (iron) loss as a percent of rated VA; mag_current_pct is the no-load magnetising current as a percent of rated current. Both are MEPS-consistent typicals and should be verified against purchased AS 2374.1.2 tables / actual Energex spec sheets before use in loss-critical studies.",
+    "vector_group is informational for the two-winding subtypes (the subtype already encodes wye/delta); it is not written into the schema-constrained transformer dict.",
+    "Matching is primarily on (subtype, rated power); v_from_class / v_to_class document the covered voltage envelope and gate implausible matches."
+  ],
+  "subtypes": ["single_phase", "center_tap", "wye_delta", "delta_wye"],
+  "v_from_class": [6350, 11000, 12700, 19100, 22000, 33000],
+  "v_to_class": [240, 250, 415, 433, 480],
+  "entries": [
+    {"id": "au_qld_10kVA",   "s_rating": 10000,   "z_pct": 3.3, "xr_ratio": 1.0, "g_no_load_pct": 0.45, "mag_current_pct": 2.5, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_25kVA",   "s_rating": 25000,   "z_pct": 3.3, "xr_ratio": 1.3, "g_no_load_pct": 0.35, "mag_current_pct": 2.2, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_50kVA",   "s_rating": 50000,   "z_pct": 3.3, "xr_ratio": 1.6, "g_no_load_pct": 0.30, "mag_current_pct": 2.0, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_63kVA",   "s_rating": 63000,   "z_pct": 3.3, "xr_ratio": 1.8, "g_no_load_pct": 0.28, "mag_current_pct": 1.9, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_100kVA",  "s_rating": 100000,  "z_pct": 4.0, "xr_ratio": 2.5, "g_no_load_pct": 0.25, "mag_current_pct": 1.7, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_200kVA",  "s_rating": 200000,  "z_pct": 4.0, "xr_ratio": 3.5, "g_no_load_pct": 0.20, "mag_current_pct": 1.4, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_315kVA",  "s_rating": 315000,  "z_pct": 4.0, "xr_ratio": 4.5, "g_no_load_pct": 0.18, "mag_current_pct": 1.3, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_500kVA",  "s_rating": 500000,  "z_pct": 4.0, "xr_ratio": 5.0, "g_no_load_pct": 0.16, "mag_current_pct": 1.2, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_630kVA",  "s_rating": 630000,  "z_pct": 4.0, "xr_ratio": 5.5, "g_no_load_pct": 0.15, "mag_current_pct": 1.1, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_1000kVA", "s_rating": 1000000, "z_pct": 6.0, "xr_ratio": 6.0, "g_no_load_pct": 0.13, "mag_current_pct": 1.0, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025},
+    {"id": "au_qld_1500kVA", "s_rating": 1500000, "z_pct": 5.5, "xr_ratio": 6.5, "g_no_load_pct": 0.12, "mag_current_pct": 0.9, "vector_group": "Dyn1", "tap_min": 0.95, "tap_max": 1.10, "tap_step": 0.025}
+  ]
+}

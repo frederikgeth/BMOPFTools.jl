@@ -3298,6 +3298,10 @@ const IEEE13_FIXTURE = """
         include("fix_tests.jl")
     end
 
+    @testset "Transformer library" begin
+        include("transformer_library_tests.jl")
+    end
+
     @testset "DER placement" begin
         include("der_placement_tests.jl")
     end

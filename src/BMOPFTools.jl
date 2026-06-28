@@ -706,6 +706,7 @@ export benchmark_readiness_check
 export render_markdown, render_terminal, render_ascii_tree
 export augment_case, AugmentationRecipe, default_recipe
 export fix_case, FixRecipe
+export apply_snap_transformer_library!
 export add_generators, GeneratorRecipe, default_generator_recipe
 export add_ibrs, IBRRecipe, default_ibr_recipe
 export add_statcom!

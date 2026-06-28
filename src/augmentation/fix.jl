@@ -17,6 +17,7 @@ Base.@kwdef struct FixRecipe
     apply_perfect_grounding       :: Bool    = false  # opt-in: changes OPF physics
     apply_shunt_to_capacitor      :: Bool    = false  # opt-in: re-represent capacitive shunts
     apply_snap_transformer_impedance :: Bool = false  # opt-in: tiny placeholder leakage → 0
+    apply_snap_transformer_library   :: Bool = false  # opt-in: fill missing params from library
 
     # ── Thresholds ────────────────────────────────────────────────────────────
     # Absolute total series impedance (Ω) below which a line is replaced by a
@@ -31,6 +32,11 @@ Base.@kwdef struct FixRecipe
     # transformer's non-zero leakage is treated as a placeholder for zero and
     # snapped to exactly 0.  Only used when apply_snap_transformer_impedance=true.
     snap_transformer_z_min_pu       :: Float64 = 1e-3
+
+    # Regional dataset used by `apply_snap_transformer_library` to fill missing
+    # transformer parameters (impedance, no-load shunt, tap range). See
+    # `src/io/data/transformer_library.json`.
+    snap_transformer_library_region :: String  = "AU-QLD"
 end
 
 # ── Public entry point ───────────────────────────────────────────────────────
@@ -120,6 +126,11 @@ function fix_case(net::Dict{String,Any};
     recipe.apply_snap_transformer_impedance &&
         _fix_snap_transformer_impedance!(net′, entries,
                                          recipe.snap_transformer_z_min_pu)
+
+    # Pass 10 — fill missing transformer parameters from the regional library (opt-in)
+    recipe.apply_snap_transformer_library &&
+        _fix_snap_transformer_library!(net′, entries;
+                                       region = recipe.snap_transformer_library_region)
 
     fa = Finding[]
     benchmark_readiness_check(net′, fa)
