@@ -225,17 +225,14 @@ files are in `/test/data/`.
 
 ## How to contribute
 
-BMOPFTools is a community-driven initiative.  Contributions of all kinds are
-welcome:
+BMOPFTools is a community-driven initiative and contributions of all kinds are
+welcome — bug reports, new network cases, tooling, and documentation. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the workflow, and the **Reference →
+Developer guide** section of the documentation for the full style guide,
+versioning policy, and scope notes.
 
-- **Bug reports and questions** — open an issue in the tracker.
-- **New network cases** — fork the repository, convert and validate your case
-  with BMOPFTools, then submit a pull request.  All data contributions go
-  through a quality-assurance review before merging.
-- **Tooling improvements** — pull requests for new analysis passes, conversion
-  fixes, or documentation are encouraged.
-
-By contributing data you agree to release it under CC BY 4.0.
+By contributing data you agree to release it under CC BY 4.0; by contributing
+code you agree to the BSD-3-Clause licence.
 
 ## Citation
 
