@@ -262,6 +262,32 @@ end
     @test contains(e.note, "outside lookup range")
 end
 
+@testset "i_max: single-phase length-1 standardised to per-conductor [phase, neutral]" begin
+    net = parse_bmopf("""
+    {"bus":{"b":{"terminal_names":["1","n"]}},
+     "voltage_source":{"vs":{"bus":"b","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
+     "ibr":{"v":{"bus":"b","terminal_map":["1","n"],"topology":"SINGLE_PHASE","prime_mover":"PV",
+         "s_max":[5000.0],"i_max":[20.0]}},
+     "generator":{"g":{"bus":"b","terminal_map":["1","n"],"configuration":"SINGLE_PHASE",
+         "p_max":[1000.0],"i_max":[15.0]}}}
+    """; from_string=true)
+    net′, mf = augment_case(net)
+    @test net′["ibr"]["v"]["i_max"] == [20.0, 20.0]
+    @test net′["generator"]["g"]["i_max"] == [15.0, 15.0]
+    @test any(e -> e.component_id == "v" && e.field == "i_max" &&
+                   e.new_value == [20.0, 20.0], mf.entries)
+
+    # A length-2 single-phase i_max is already canonical — left untouched.
+    net2 = parse_bmopf("""
+    {"bus":{"b":{"terminal_names":["1","n"]}},
+     "voltage_source":{"vs":{"bus":"b","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
+     "ibr":{"v":{"bus":"b","terminal_map":["1","n"],"topology":"SINGLE_PHASE","prime_mover":"PV",
+         "s_max":[5000.0],"i_max":[20.0,8.0]}}}
+    """; from_string=true)
+    net2′, _ = augment_case(net2)
+    @test net2′["ibr"]["v"]["i_max"] == [20.0, 8.0]
+end
+
 @testset "T2: Thermal — low-confidence linecode skipped at default threshold" begin
     # Make linecode look sequence-derived by making R matrix exactly balanced
     # so verdict = "exactly_balanced" → confidence = :low < threshold :medium

@@ -307,8 +307,13 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             q_expr = @expression(model, dvi*cri[(inv_id,1)] - dvr*cii[(inv_id,1)])
             collect_p && push!(p_exprs, p_expr)
 
-            length(imax) >= 1 &&
-                @constraint(model, cri[(inv_id,1)]^2 + cii[(inv_id,1)]^2 <= imax[1]^2)
+            # Per-conductor i_max: a single-phase IBR has ONE current (phase and
+            # return carry the same magnitude), so stamp one circle at the tighter
+            # of the (≤2) entries — never constrain the same variable twice.
+            if !isempty(imax)
+                ilim_sp = minimum(imax)
+                @constraint(model, cri[(inv_id,1)]^2 + cii[(inv_id,1)]^2 <= ilim_sp^2)
+            end
 
             avg_ref && @warn "IBR '$inv_id': voltage_ref=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
             # PG monitors |V_φ|; PN/PP both monitor the terminal-pair difference
@@ -354,6 +359,16 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph,  cri[(inv_id,idx)],  cii[(inv_id,idx)])
                 t_n !== nothing &&
                     _kcl_add!(kcl_r, kcl_i, bus, t_n, -cri[(inv_id,idx)], -cii[(inv_id,idx)])
+            end
+
+            # Neutral-conductor current limit: when i_max carries one extra
+            # (per-conductor) entry beyond the phases, cap the neutral return
+            # current = −Σ phase currents.
+            n_ph = length(ph_pos)
+            if t_n !== nothing && length(imax) == n_ph + 1
+                _neutral_current_limit!(model,
+                    [cri[(inv_id,idx)] for idx in 1:n_ph],
+                    [cii[(inv_id,idx)] for idx in 1:n_ph], imax[n_ph + 1])
             end
 
             # Monitored droop voltages, per curve (quantity + aggregation from each

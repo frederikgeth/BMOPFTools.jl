@@ -85,6 +85,7 @@ function augment_case(net::Dict{String,Any};
 
     # ── Pass 3: generation ────────────────────────────────────────────────────
     _apply_generation!(net′, entries, recipe)
+    _normalize_single_phase_imax!(net′, entries)
 
     # ── Pass 4: IBR dispatch bounds ─────────────────────────────────────
     recipe.apply_ibr && _apply_ibr_augmentation!(net′, entries, recipe)

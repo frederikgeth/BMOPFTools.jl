@@ -402,7 +402,7 @@
                     },
                     "i_max": {
                         "type": "array",
-                        "description": "Optional per-phase current-magnitude limit [A]; one entry per phase conductor. Stamps the current circle crg²+cig² ≤ i_max² directly on the terminal currents",
+                        "description": "Optional per-conductor current-magnitude limit [A]. WYE: one entry per phase plus a recommended final entry for the neutral return conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, since the neutral may carry more than the phases under unbalance). SINGLE_PHASE: length 1 or 2 (phase and return are the same current — a length-1 vector is standardised to 2). DELTA: exactly one entry per conductor. Stamps crg²+cig² ≤ i_max² on each phase current and (Σ crg)²+(Σ cig)² ≤ i_max_neutral² on the neutral return when the extra entry is present",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
@@ -460,7 +460,7 @@
                     },
                     "i_max": {
                         "type": "array",
-                        "description": "Optional per-phase converter current-magnitude limit [A]; length must match terminal_map minus 1. When present, reactive capability rolls off ~linearly with voltage instead of staying flat at s_max",
+                        "description": "Optional per-conductor converter current-magnitude limit [A]. FOUR_LEG: one entry per phase plus a recommended final entry for the neutral conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, as it may carry more than the phases under unbalance compensation). SINGLE_PHASE: length 1 or 2 (phase and return are the same current — length-1 is standardised to 2). THREE_LEG: one entry per conductor (no neutral). When present, reactive capability rolls off ~linearly with voltage instead of staying flat at s_max; the neutral entry bounds Σ phase currents",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }

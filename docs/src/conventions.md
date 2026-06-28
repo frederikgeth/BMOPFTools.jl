@@ -138,7 +138,13 @@ rating `s_max` (VA). Optional fields include the available active power `p_avail
 (W), explicit flow bounds `p_min/p_max/q_min/q_max`, a per-phase `cost`, a
 converter current limit `i_max` (A), the filter/grid-forming fields, and the
 shared-DC-link coupling (`dc_link_coupled`, `p_dc_min/p_dc_max`). Bounds left
-absent are filled by the augmentation pass.
+absent are filled by the augmentation pass. `i_max` is **per conductor** (like a
+line's): for a `FOUR_LEG` IBR, one entry per phase plus a recommended trailing
+entry capping the **neutral** return $-\sum_k I_k$ (which can exceed the phase
+currents under unbalance compensation; a phases-only vector warns). A
+`SINGLE_PHASE` IBR has one current, so `i_max` is length 1 or 2 (the two collapse
+to a single limit; a length-1 vector is standardised to 2). Generators take the
+same per-conductor `i_max` convention.
 
 IBR control laws are attached by reference: `control_profile` names a
 shared [`control_profile`](#Control-profiles) entry carrying `volt_var`,

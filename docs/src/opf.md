@@ -424,6 +424,27 @@ IBRs, the current circle is the physically faithful thermal limit: since
 $|S_{g,k}| = |\Delta v_k|\,|I_{g,k}|$, a current cap makes the deliverable power
 roll off with voltage rather than staying flat at $S^{\max}$.
 
+`i_max` is **per conductor**, not per phase: a star (`WYE`/`SINGLE_PHASE`)
+generator may carry one extra trailing entry that caps the **neutral return
+conductor**. The neutral current is implicit (the device injects on phases and
+returns on the neutral, $I_n = -\sum_k I_{g,k}$), so the extra entry stamps a
+second-order cone on the summed phase currents,
+
+```math
+\Bigl(\textstyle\sum_k c^{r,g}_{g,k}\Bigr)^2 +
+\Bigl(\textstyle\sum_k c^{i,g}_{g,k}\Bigr)^2 \;\leq\;
+\bigl(I^{\max}_{g,n}\bigr)^2 .
+```
+
+So a 3-phase wye `i_max` is length 4 (phases + neutral); a length-3 phases-only
+vector is accepted but leaves the neutral unrated (`W.INT.IMAX_NO_NEUTRAL`), which
+matters because the neutral can carry **more** current than the phases under
+unbalance. A **single-phase** generator has a single current (phase and return
+are the same), so its `i_max` is length 1 or 2 — the two entries describe one
+conductor pair and collapse to a **single** circle at the tighter limit (never
+constraining the variable twice); a length-1 vector is standardised to 2 by the
+augmentation pass. `DELTA` has no neutral and takes exactly one entry per conductor.
+
 #### IBRs
 
 IBRs use the same bilinear current/power model as generators, with the
@@ -470,6 +491,14 @@ current cap makes the reactive capability roll off **≈ linearly** with voltage
 $S^{\max}$ — the constant-MVA idealization the apparent-power circle alone
 implies. `i_max` is **optional and opt-in**: omit it and the model is unchanged;
 supply it to model the low-voltage var rolloff of a real converter.
+
+Like the generator, `i_max` is **per conductor**: a `FOUR_LEG` IBR carries a
+trailing entry capping the **neutral conductor** ($\sum_k c^{r,n}_{n,k}$,
+$\sum_k c^{i,n}_{n,k}$) — recommended, since a four-wire converter doing unbalance
+compensation can drive a neutral current *larger* than any phase. A phases-only
+length-3 vector warns (`W.INT.IMAX_NO_NEUTRAL`). A `SINGLE_PHASE` IBR has a single
+current, so its `i_max` is length 1 or 2 and collapses to one circle at the tighter
+limit. `THREE_LEG` (delta) has no neutral.
 
 Reactive power is governed in one of two mutually exclusive ways:
 
