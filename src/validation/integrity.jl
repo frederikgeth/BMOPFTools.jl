@@ -741,10 +741,11 @@ end
 function _check_droop_options!(findings, cp_id, law, obj,
                                unit_field, unit_ok, ref_field, ref_ok)
     vref = get(obj, "voltage_reference", "PN_PER_PHASE")
-    vref == "PN_PER_PHASE" || push!(findings, Finding(ERROR,
+    vref in ("PN_PER_PHASE", "PG_PER_PHASE", "PP_PER_PHASE",
+             "PN_AVERAGED", "PG_AVERAGED", "PP_AVERAGED") || push!(findings, Finding(ERROR,
         "E.INT.DROOP_UNSUPPORTED", :integrity, :control_profile, cp_id,
-        "$law in '$cp_id': voltage_reference '$vref' not yet supported " *
-        "(only PN_PER_PHASE).", Dict{String,Any}()))
+        "$law in '$cp_id': voltage_reference '$vref' is not a valid " *
+        "voltage_reference_type value.", Dict{String,Any}()))
     unit = get(obj, unit_field, unit_ok)
     unit == unit_ok || push!(findings, Finding(ERROR,
         "E.INT.DROOP_UNSUPPORTED", :integrity, :control_profile, cp_id,

@@ -227,12 +227,26 @@ centralized optimum — the dispatch a fleet of purely local controllers cannot
 reach on its own, because the balanced-network equivalence that would license it
 no longer holds on a four-wire feeder under active curtailment.
 
-## Appendix: per-phase vs averaged voltage reference
+## Appendix: the monitored voltage — quantity and aggregation
 
-A three-phase (`FOUR_LEG`) IBR can respond to **each phase's own** voltage
-magnitude (`voltage_ref = "PER_PHASE"`, the default) or to the **mean** of the
-three (`voltage_ref = "AVERAGE"`, like a single three-phase unit that regulates
-on its average terminal voltage). On an unbalanced bus the two laws dispatch
+The voltage a droop law reacts to has two independent degrees of freedom, both
+set through the curve's `voltage_reference` (one of the six
+`voltage_reference_type` values; see [the OPF model](opf.md#IBRs)).
+
+**Quantity — what the magnitude is taken between.** `PN_*` uses phase-to-neutral
+$\lvert v_\varphi - v_n\rvert$ (the default), `PG_*` phase-to-ground
+$\lvert v_\varphi\rvert$, and `PP_*` phase-to-phase. The phase-to-ground vs
+phase-to-neutral choice is exactly the **`Connection`** switch of the source
+study — on a four-wire feeder the neutral is displaced from ground, so the two
+references make the inverters see different voltages and dispatch differently. On
+this network the phase-to-ground (`PG_PER_PHASE`) variant absorbs noticeably less
+reactive power than the phase-to-neutral one, because the worst phase-to-ground
+magnitude sits below the phase-to-neutral magnitude once the neutral lifts.
+
+**Aggregation — how phases combine.** A three-phase (`FOUR_LEG`) IBR can respond
+to **each phase's own** magnitude (the `_PER_PHASE` suffix, the default) or to the
+**mean** of the three (the `_AVERAGED` suffix, like a single three-phase unit that
+regulates on its average terminal voltage). On an unbalanced bus the two dispatch
 reactive power very differently:
 
 ```
@@ -240,10 +254,11 @@ PER_PHASE   V(φ-n) = [1.073 1.109 1.104] pu   Q = [-2.28 -4.99 -4.61] kvar
 AVERAGE     V(φ-n) = [1.065 1.119 1.106] pu   Q = [-4.10 -4.10 -4.10] kvar
 ```
 
-With `PER_PHASE`, each phase reacts to its own voltage, so the lightly-loaded
-high-voltage phase absorbs most and the heavily-loaded phase least. With
-`AVERAGE`, every phase reacts to the common mean, giving balanced reactive
-injection. The choice is set per IBR with the `voltage_ref` field.
+With per-phase, each phase reacts to its own voltage, so the lightly-loaded
+high-voltage phase absorbs most and the heavily-loaded phase least. With averaged,
+every phase reacts to the common mean, giving balanced reactive injection. (The
+legacy IBR-level `voltage_ref = "PER_PHASE" | "AVERAGE"` field still selects the
+aggregation and overrides the enum's suffix when present.)
 
 This appendix is also a concrete face of the caveat from
 [PV IBRs as distributed control](#PV-IBRs-as-distributed-control): the

@@ -237,6 +237,75 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # voltage_reference enum: quantity (PN/PG/PP) × aggregation (per-phase/avg).
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "voltage_reference — enum split" begin
+        @test _OPFEXT._split_voltage_reference("PN_PER_PHASE") == (:PN, false)
+        @test _OPFEXT._split_voltage_reference("PG_PER_PHASE") == (:PG, false)
+        @test _OPFEXT._split_voltage_reference("PP_PER_PHASE") == (:PP, false)
+        @test _OPFEXT._split_voltage_reference("PN_AVERAGED")  == (:PN, true)
+        @test _OPFEXT._split_voltage_reference("PG_AVERAGED")  == (:PG, true)
+        @test _OPFEXT._split_voltage_reference("PP_AVERAGED")  == (:PP, true)
+        # unknown value ⇒ warn and fall back to PN per-phase
+        local split
+        @test_logs (:warn,) match_mode=:any begin
+            split = _OPFEXT._split_voltage_reference("BOGUS")
+        end
+        @test split == (:PN, false)
+    end
+
+    @testset "enum _AVERAGED suffix drives aggregation (no legacy voltage_ref)" begin
+        net = _volt_var_4leg_net("PER_PHASE")
+        delete!(net["ibr"]["pv1"], "voltage_ref")       # let the enum decide
+        net["control_profile"]["vv"]["volt_var"]["voltage_reference"] = "PN_AVERAGED"
+        res = solve_opf(net; per_unit=true)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        qs = [res["ibr"]["pv1"][ph]["qg"] for ph in ("1", "2", "3")]
+        @test maximum(qs) - minimum(qs) < 10.0          # averaged ⇒ equal Q
+    end
+
+    # A displaced (ungrounded) neutral makes PG (|V_φ|) and PN (|V_φ − V_n|)
+    # genuinely different references, so the volt-var solution must differ.
+    _vv_4leg_disp(quantity) = parse_bmopf("""
+        {"bus":{
+            "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+                   "v_min":[200.0,200.0,200.0],"v_max":[290.0,290.0,290.0]},
+            "b1": {"terminal_names":["1","2","3","n"],
+                   "v_min":[200.0,200.0,200.0],"v_max":[290.0,290.0,290.0],"vn_max":40.0}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[255.0,255.0,255.0],
+             "v_angle":[0.0,-2.0944,2.0944],"cost":[1.0,1.0,1.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05,
+                           "R_series_3_3":0.05,"R_series_4_4":0.05}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE","p_nom":[4000.0,0.0,0.0],"q_nom":[0.0,0.0,0.0]}},
+         "control_profile":{"vv":{"volt_var":{
+             "voltage_reference":"$(quantity)",
+             "breakpoints":[207.0,220.0,240.0,258.0],"q_limits":[-0.60,0.44],
+             "q_unit":"VA_FRACTION","q_ref":"VAR_MAX"}}},
+         "ibr":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "topology":"FOUR_LEG","prime_mover":"PV",
+             "s_max":[3000.0,3000.0,3000.0],"p_max":[0.0,0.0,0.0],"p_min":[0.0,0.0,0.0],
+             "control_profile":"vv","cost":[0.1,0.1,0.1]}}}
+        """; from_string=true)
+
+    @testset "PG vs PN differ when the neutral is displaced" begin
+        qvec(quantity) = begin
+            res = solve_opf(_vv_4leg_disp(quantity); per_unit=true)
+            @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+            [res["ibr"]["pv1"][ph]["qg"] for ph in ("1", "2", "3")]
+        end
+        # PG monitors |V_φ|, PN monitors |V_φ − V_n|; a displaced neutral makes the
+        # per-phase droop responses differ even if the totals happen to coincide.
+        q_pg = qvec("PG_PER_PHASE")
+        q_pn = qvec("PN_PER_PHASE")
+        @test maximum(abs.(q_pg .- q_pn)) > 30.0
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # THREE_LEG: droop unsupported — warns and falls back to box bounds.
     # ─────────────────────────────────────────────────────────────────────────
     @testset "THREE_LEG — droop ignored with warning" begin

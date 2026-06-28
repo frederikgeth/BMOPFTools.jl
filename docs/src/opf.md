@@ -486,14 +486,33 @@ Reactive power is governed in one of two mutually exclusive ways:
   with $\mathrm{pf} > 0$ lagging (absorbing VAr) and $\mathrm{pf} < 0$ leading
   (injecting VAr).
 - **Volt-var droop**: when the `control_profile` declares a `volt_var`
-  sub-object, $Q$ is pinned to a piecewise-linear function of the phase
-  voltage magnitude $U_{n,k} = |\Delta v_k|$,
+  sub-object, $Q$ is pinned to a piecewise-linear function of a **monitored
+  voltage magnitude** $U_{n,k}$,
   $Q_{n,k} = Q^{\text{base}}_{n,k}\, f^{\mathrm{VV}}(U_{n,k})$ (an equality — the
   IBR follows the curve).
 
 Active power follows either the box upper bound above or, when the
 `control_profile` declares a `volt_watt` sub-object, a **Volt-watt** curtailment
 cap $P_{n,k} \leq P^{\text{base}}_{n,k}\, f^{\mathrm{VW}}(U_{n,k})$.
+
+The monitored voltage $U_{n,k}$ is **independent of the power voltage difference**
+$\Delta v_k$ above: it is chosen per curve by the curve's `voltage_reference`
+(`volt_var` and `volt_watt` may each pick their own), one of the six
+`voltage_reference_type` values — a *quantity* crossed with an *aggregation*:
+
+| `voltage_reference` | monitored quantity | aggregation |
+|---|---|---|
+| `PN_PER_PHASE` (default) | phase-to-neutral $\lvert v_{b,t_k}-v_{b,t_n}\rvert$ | per phase |
+| `PG_PER_PHASE` | phase-to-ground $\lvert v_{b,t_k}\rvert$ | per phase |
+| `PP_PER_PHASE` | phase-to-phase $\lvert v_{b,t_k}-v_{b,t_{k^+}}\rvert$ (cyclic $k^+$) | per phase |
+| `PN_AVERAGED` / `PG_AVERAGED` / `PP_AVERAGED` | as above | every phase sees the mean of the per-phase magnitudes |
+
+Phase-to-ground and phase-to-neutral differ only when the neutral is displaced
+from ground. For a `SINGLE_PHASE` IBR the two phase-pair quantities (`PN`/`PP`)
+coincide — the reference is `terminal_map[2]` — and aggregation is moot. The
+legacy IBR-level `voltage_ref` field (`PER_PHASE`/`AVERAGE`), when present,
+overrides the aggregation the enum implies, for backward compatibility.
+`THREE_LEG` droop is unsupported (box bounds, with a warning).
 
 ##### STATCOMs (D-STATCOMs)
 

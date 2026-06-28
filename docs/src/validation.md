@@ -328,10 +328,15 @@ droop curve in every regime:
   (`atol = 5 W`) once the droop region is active (`V > 253 V`);
 - **Volt-var** — reactive power follows the four-point characteristic, absorbing
   near `V4` (`atol = 5 var`) and ≈ 0 in the deadband (`|Q| < 30 var`);
-- **voltage reference** — `PER_PHASE` gives three distinct per-phase `Q`'s on an
-  unbalanced bus while `AVERAGE` gives one common `Q` (the contrast the VVWO
-  tutorial's appendix shows), plus the exact-vs-smooth encoding agreement as the
-  corner-smoothing `ε → 0` (`atol = 2e-3`).
+- **voltage reference — aggregation** — `PER_PHASE` gives three distinct per-phase
+  `Q`'s on an unbalanced bus while `AVERAGE` gives one common `Q` (the contrast the
+  VVWO tutorial's appendix shows), plus the exact-vs-smooth encoding agreement as
+  the corner-smoothing `ε → 0` (`atol = 2e-3`);
+- **voltage reference — quantity** — the six `voltage_reference_type` values split
+  correctly into quantity × aggregation, the `_AVERAGED` suffix drives aggregation
+  on its own (without the legacy `voltage_ref` field), and phase-to-ground
+  (`PG_PER_PHASE`) and phase-to-neutral (`PN_PER_PHASE`) dispatch differently once
+  the neutral is displaced from ground.
 
 ## Limit correctness — each network limit encodes what it claims
 

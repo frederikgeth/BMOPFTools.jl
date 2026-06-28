@@ -1,0 +1,1939 @@
+{
+  "voltage_source": {
+    "source": {
+      "v_magnitude": [
+        230.0000000000001,
+        230.0000000000001,
+        230.0000000000001,
+        0.0
+      ],
+      "terminal_map": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "bus": "sourcebus",
+      "v_angle": [
+        0,
+        -2.0943951023931953,
+        2.0943951023931957,
+        0
+      ]
+    }
+  },
+  "line": {
+    "line106": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "107",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line84": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "85",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line83": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "84",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line87": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "88",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line101": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "102",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line92": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "93",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line105": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "106",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line89": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "90",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line85": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "86",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line86": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "87",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line100": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "101",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line102": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "103",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line91": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "92",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line90": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "91",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line37": {
+      "length": 525.46891,
+      "bus_from": "79",
+      "bus_to": "sourcebus",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc8"
+    },
+    "line94": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "95",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line104": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "105",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line103": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "104",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line81": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "82",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line97": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "98",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line80": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "81",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line93": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "94",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line99": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "100",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line98": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "99",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line95": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "96",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line82": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "83",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line79": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "80",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line88": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "89",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    },
+    "line96": {
+      "length": 179.94599999999997,
+      "bus_from": "79",
+      "bus_to": "97",
+      "terminal_map_from": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "linecode": "lc1"
+    }
+  },
+  "ibr": {
+    "pv_12": {
+      "p_avail": 2083.683118132647,
+      "s_max": [
+        5250
+      ],
+      "bus": "86",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2083.683118132647,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_7": {
+      "p_avail": 2169.0782747926596,
+      "s_max": [
+        5250
+      ],
+      "bus": "87",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2169.0782747926596,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_21": {
+      "p_avail": 1905.6296130610388,
+      "s_max": [
+        5250
+      ],
+      "bus": "100",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1905.6296130610388,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_3": {
+      "p_avail": 2150.3001010176954,
+      "s_max": [
+        5250
+      ],
+      "bus": "103",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2150.3001010176954,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_28": {
+      "p_avail": 1842.0938612594005,
+      "s_max": [
+        5250
+      ],
+      "bus": "81",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1842.0938612594005,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_11": {
+      "p_avail": 2082.8608901438174,
+      "s_max": [
+        5250
+      ],
+      "bus": "89",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2082.8608901438174,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_1": {
+      "p_avail": 2106.7476646823384,
+      "s_max": [
+        5250
+      ],
+      "bus": "96",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2106.7476646823384,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_22": {
+      "p_avail": 2080.11302749964,
+      "s_max": [
+        5250
+      ],
+      "bus": "88",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2080.11302749964,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_4": {
+      "p_avail": 1990.6856947529004,
+      "s_max": [
+        5250
+      ],
+      "bus": "107",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1990.6856947529004,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_14": {
+      "p_avail": 1830.6800358107937,
+      "s_max": [
+        5250
+      ],
+      "bus": "106",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1830.6800358107937,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_23": {
+      "p_avail": 1917.2572684372533,
+      "s_max": [
+        5250
+      ],
+      "bus": "84",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1917.2572684372533,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_16": {
+      "p_avail": 2169.057136381154,
+      "s_max": [
+        5250
+      ],
+      "bus": "104",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2169.057136381154,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_10": {
+      "p_avail": 1998.0167238087035,
+      "s_max": [
+        5250
+      ],
+      "bus": "102",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1998.0167238087035,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_9": {
+      "p_avail": 2117.201980197778,
+      "s_max": [
+        5250
+      ],
+      "bus": "98",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2117.201980197778,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_25": {
+      "p_avail": 2136.221334864225,
+      "s_max": [
+        5250
+      ],
+      "bus": "83",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2136.221334864225,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_8": {
+      "p_avail": 1959.761538244261,
+      "s_max": [
+        5250
+      ],
+      "bus": "85",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1959.761538244261,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_2": {
+      "p_avail": 1912.4700501945963,
+      "s_max": [
+        5250
+      ],
+      "bus": "90",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1912.4700501945963,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_18": {
+      "p_avail": 2209.2690701765046,
+      "s_max": [
+        5250
+      ],
+      "bus": "94",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2209.2690701765046,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_6": {
+      "p_avail": 2140.3244250524444,
+      "s_max": [
+        5250
+      ],
+      "bus": "105",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2140.3244250524444,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_15": {
+      "p_avail": 2161.1692536825763,
+      "s_max": [
+        5250
+      ],
+      "bus": "95",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2161.1692536825763,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_24": {
+      "p_avail": 1982.2262310109875,
+      "s_max": [
+        5250
+      ],
+      "bus": "101",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1982.2262310109875,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_20": {
+      "p_avail": 2045.4237252363014,
+      "s_max": [
+        5250
+      ],
+      "bus": "92",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 2045.4237252363014,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_19": {
+      "p_avail": 1856.84296281131,
+      "s_max": [
+        5250
+      ],
+      "bus": "99",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1856.84296281131,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_5": {
+      "p_avail": 1840.743598845427,
+      "s_max": [
+        5250
+      ],
+      "bus": "93",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1840.743598845427,
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_13": {
+      "p_avail": 1849.5938856658183,
+      "s_max": [
+        5250
+      ],
+      "bus": "82",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1849.5938856658183,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_17": {
+      "p_avail": 1829.5797702916846,
+      "s_max": [
+        5250
+      ],
+      "bus": "97",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1829.5797702916846,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_26": {
+      "p_avail": 1829.9304296164416,
+      "s_max": [
+        5250
+      ],
+      "bus": "91",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1829.9304296164416,
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    },
+    "pv_27": {
+      "p_avail": 1899.3237861045495,
+      "s_max": [
+        5250
+      ],
+      "bus": "80",
+      "control_profile": "as_nzs_4777_pg",
+      "topology": "SINGLE_PHASE",
+      "p_max": 1899.3237861045495,
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "p_min": 0,
+      "q_max": 5250,
+      "prime_mover": "PV",
+      "q_min": -5250
+    }
+  },
+  "control_profile": {
+    "as_nzs_4777_pg": {
+      "volt_var": {
+        "voltage_reference": "PG_PER_PHASE",
+        "breakpoints": [
+          207,
+          220,
+          240,
+          258
+        ],
+        "q_limits": [
+          -0.6,
+          0.44
+        ],
+        "q_unit": "VA_FRACTION",
+        "q_ref": "VAR_MAX"
+      },
+      "volt_watt": {
+        "voltage_reference": "PG_PER_PHASE",
+        "p_limits": [
+          0.2,
+          1.0
+        ],
+        "p_unit": "VA_FRACTION",
+        "p_ref": "S_MAX",
+        "breakpoints": [
+          253,
+          260
+        ]
+      }
+    }
+  },
+  "meta": {
+    "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json",
+    "created": "2026-06-28T07:01:39Z",
+    "title": "VVWO reduced ENWL feeder 30bus",
+    "generator": {
+      "tool": "VVWO to_bmopf.jl"
+    },
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "sources": [
+      {
+        "name": "ENWL LVNS dataset (reduced via PMD reduce_lines!)",
+        "format": "OpenDSS"
+      }
+    ]
+  },
+  "load": {
+    "load24": {
+      "p_nom": [
+        1991.5901747155192
+      ],
+      "q_nom": [
+        654.6040344593863
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "103",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load26": {
+      "p_nom": [
+        303.9181029633931
+      ],
+      "q_nom": [
+        99.89304972018049
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "105",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load2": {
+      "p_nom": [
+        295.24826609722356
+      ],
+      "q_nom": [
+        97.04341214777682
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "81",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load11": {
+      "p_nom": [
+        292.4595066993263
+      ],
+      "q_nom": [
+        96.12679126051982
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "90",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load3": {
+      "p_nom": [
+        2611.4632907974446
+      ],
+      "q_nom": [
+        858.3464749432076
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "82",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load8": {
+      "p_nom": [
+        304.6090633755715
+      ],
+      "q_nom": [
+        100.12015742497135
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "87",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load13": {
+      "p_nom": [
+        233.40610531580722
+      ],
+      "q_nom": [
+        76.7168768690096
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "92",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load21": {
+      "p_nom": [
+        356.69886620867163
+      ],
+      "q_nom": [
+        117.24124765811229
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "100",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load12": {
+      "p_nom": [
+        338.3333215578197
+      ],
+      "q_nom": [
+        111.20478504842457
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "91",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load22": {
+      "p_nom": [
+        992.3268865622828
+      ],
+      "q_nom": [
+        326.16207475465126
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "101",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load10": {
+      "p_nom": [
+        267.2127911894179
+      ],
+      "q_nom": [
+        87.82859716444025
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "89",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load28": {
+      "p_nom": [
+        261.64157509410967
+      ],
+      "q_nom": [
+        85.99742698739577
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "107",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load7": {
+      "p_nom": [
+        1855.1712071142654
+      ],
+      "q_nom": [
+        609.7652881639436
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "86",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load15": {
+      "p_nom": [
+        736.2756386528548
+      ],
+      "q_nom": [
+        242.00209945560962
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "94",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load27": {
+      "p_nom": [
+        287.9244855390726
+      ],
+      "q_nom": [
+        94.63620188849461
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "106",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load18": {
+      "p_nom": [
+        337.38882742119085
+      ],
+      "q_nom": [
+        110.89434483828002
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "97",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load5": {
+      "p_nom": [
+        1255.68433399818
+      ],
+      "q_nom": [
+        412.72348170730857
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "84",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load1": {
+      "p_nom": [
+        2087.920544852795
+      ],
+      "q_nom": [
+        686.2662959695053
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "80",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load4": {
+      "p_nom": [
+        334.8418997153993
+      ],
+      "q_nom": [
+        110.05721018434667
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "83",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load14": {
+      "p_nom": [
+        1865.2663920836792
+      ],
+      "q_nom": [
+        613.0834150022308
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "93",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load20": {
+      "p_nom": [
+        270.0140542920933
+      ],
+      "q_nom": [
+        88.74932782071367
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "99",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load23": {
+      "p_nom": [
+        258.9008489806534
+      ],
+      "q_nom": [
+        85.09659387725404
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "102",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load19": {
+      "p_nom": [
+        2068.6420620851363
+      ],
+      "q_nom": [
+        679.9297651118113
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "98",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load17": {
+      "p_nom": [
+        304.34896758226483
+      ],
+      "q_nom": [
+        100.03466807188757
+      ],
+      "terminal_map": [
+        "b",
+        "n"
+      ],
+      "bus": "96",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load6": {
+      "p_nom": [
+        3088.07298137603
+      ],
+      "q_nom": [
+        1015.0005046106046
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "85",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load9": {
+      "p_nom": [
+        278.8649959879981
+      ],
+      "q_nom": [
+        91.65849167202244
+      ],
+      "terminal_map": [
+        "c",
+        "n"
+      ],
+      "bus": "88",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load16": {
+      "p_nom": [
+        113.89982060517629
+      ],
+      "q_nom": [
+        37.43706061564542
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "95",
+      "configuration": "SINGLE_PHASE"
+    },
+    "load25": {
+      "p_nom": [
+        296.28848191823124
+      ],
+      "q_nom": [
+        97.38531455409762
+      ],
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "bus": "104",
+      "configuration": "SINGLE_PHASE"
+    }
+  },
+  "bus": {
+    "87": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "97": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "81": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "79": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "101": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "84": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "80": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "104": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "106": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "89": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "98": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "90": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "100": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "83": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "96": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "92": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "94": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "88": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "86": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "93": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "95": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "sourcebus": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    },
+    "99": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "91": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "85": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "107": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "102": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "103": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "82": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "105": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    }
+  },
+  "linecode": {
+    "lc8": {
+      "X_series_2_3": 5.5430067470072175e-5,
+      "R_series_1_3": 0.00015199066219448172,
+      "B_from_4_2": 0,
+      "R_series_1_2": 0.00015199066219448172,
+      "R_series_2_4": 0.00015199066219448172,
+      "B_to_4_1": 0,
+      "R_series_2_2": 0.00025864666219448167,
+      "G_to_1_3": 0,
+      "G_from_2_2": 0,
+      "B_from_3_3": 0,
+      "G_to_2_1": 0,
+      "B_to_4_4": 0,
+      "B_from_2_2": 0,
+      "G_from_1_3": 0,
+      "B_from_3_2": 0,
+      "B_from_1_2": 0,
+      "B_from_3_1": 0,
+      "B_to_3_4": 0,
+      "X_series_3_4": 5.5430067470072175e-5,
+      "X_series_2_1": 5.5430067470072175e-5,
+      "B_from_1_3": 0,
+      "B_from_1_1": 0,
+      "B_to_2_3": 0,
+      "G_from_2_4": 0,
+      "R_series_2_1": 0.00015199066219448172,
+      "G_to_3_3": 0,
+      "G_to_4_3": 0,
+      "R_series_4_4": 0.00025864666219448167,
+      "R_series_3_1": 0.00015199066219448172,
+      "G_from_3_3": 0,
+      "G_from_3_4": 0,
+      "X_series_4_3": 5.5430067470072175e-5,
+      "X_series_3_3": 0.00011602806747007222,
+      "G_to_2_3": 0,
+      "G_from_4_2": 0,
+      "B_to_1_2": 0,
+      "B_to_2_1": 0,
+      "B_to_2_2": 0,
+      "G_from_3_1": 0,
+      "R_series_4_2": 0.00015199066219448172,
+      "R_series_4_3": 0.00015199066219448172,
+      "B_from_2_1": 0,
+      "R_series_1_1": 0.00025864666219448167,
+      "G_to_1_4": 0,
+      "X_series_4_4": 0.00011602806747007222,
+      "G_to_3_1": 0,
+      "G_from_3_2": 0,
+      "G_to_3_4": 0,
+      "B_to_1_1": 0,
+      "X_series_2_2": 0.00011602806747007222,
+      "G_to_2_2": 0,
+      "X_series_1_2": 5.5430067470072175e-5,
+      "G_to_3_2": 0,
+      "X_series_2_4": 3.3463067470072214e-5,
+      "G_from_4_4": 0,
+      "R_series_3_2": 0.00015199066219448172,
+      "G_from_4_3": 0,
+      "G_to_4_2": 0,
+      "B_from_2_3": 0,
+      "B_from_3_4": 0,
+      "R_series_3_4": 0.00015199066219448172,
+      "G_from_1_1": 0,
+      "G_to_2_4": 0,
+      "G_to_1_2": 0,
+      "X_series_1_3": 3.3463067470072214e-5,
+      "B_from_2_4": 0,
+      "G_from_2_3": 0,
+      "B_to_4_3": 0,
+      "G_to_4_1": 0,
+      "X_series_1_4": 5.5430067470072175e-5,
+      "R_series_3_3": 0.00025864666219448167,
+      "B_to_3_2": 0,
+      "X_series_3_2": 5.5430067470072175e-5,
+      "X_series_4_2": 3.3463067470072214e-5,
+      "G_from_4_1": 0,
+      "B_to_1_3": 0,
+      "B_from_1_4": 0,
+      "B_from_4_3": 0,
+      "B_to_2_4": 0,
+      "G_from_1_4": 0,
+      "R_series_2_3": 0.00015199066219448172,
+      "G_from_1_2": 0,
+      "B_to_4_2": 0,
+      "R_series_1_4": 0.00015199066219448172,
+      "X_series_1_1": 0.00011602806747007222,
+      "G_to_1_1": 0,
+      "B_to_1_4": 0,
+      "B_to_3_1": 0,
+      "G_to_4_4": 0,
+      "B_from_4_1": 0,
+      "B_from_4_4": 0,
+      "B_to_3_3": 0,
+      "R_series_4_1": 0.00015199066219448172,
+      "X_series_4_1": 5.5430067470072175e-5,
+      "G_from_2_1": 0,
+      "X_series_3_1": 3.3463067470072214e-5
+    },
+    "lc1": {
+      "X_series_2_3": 0.0007013701531485135,
+      "R_series_1_3": 0.0001960530575502449,
+      "B_from_4_2": 0,
+      "R_series_1_2": 0.00019622205755024492,
+      "R_series_2_4": 0.0001960530575502449,
+      "B_to_4_1": 0,
+      "R_series_2_2": 0.0013480120575502447,
+      "G_to_1_3": 0,
+      "G_from_2_2": 0,
+      "B_from_3_3": 0,
+      "G_to_2_1": 0,
+      "B_to_4_4": 0,
+      "B_from_2_2": 0,
+      "G_from_1_3": 0,
+      "B_from_3_2": 0,
+      "B_from_1_2": 0,
+      "B_from_3_1": 0,
+      "B_to_3_4": 0,
+      "X_series_3_4": 0.0007014021531485135,
+      "X_series_2_1": 0.0007013971531485135,
+      "B_from_1_3": 0,
+      "B_from_1_1": 0,
+      "B_to_2_3": 0,
+      "G_from_2_4": 0,
+      "R_series_2_1": 0.00019622205755024492,
+      "G_to_3_3": 0,
+      "G_to_4_3": 0,
+      "R_series_4_4": 0.0013480270575502449,
+      "R_series_3_1": 0.0001960530575502449,
+      "G_from_3_3": 0,
+      "G_from_3_4": 0,
+      "X_series_4_3": 0.0007014021531485135,
+      "X_series_3_3": 0.0007813721531485135,
+      "G_to_2_3": 0,
+      "G_from_4_2": 0,
+      "B_to_1_2": 0,
+      "B_to_2_1": 0,
+      "B_to_2_2": 0,
+      "G_from_3_1": 0,
+      "R_series_4_2": 0.0001960530575502449,
+      "R_series_4_3": 0.0001962230575502449,
+      "B_from_2_1": 0,
+      "R_series_1_1": 0.0013480250575502448,
+      "G_to_1_4": 0,
+      "X_series_4_4": 0.0007814381531485135,
+      "G_to_3_1": 0,
+      "G_from_3_2": 0,
+      "G_to_3_4": 0,
+      "B_to_1_1": 0,
+      "X_series_2_2": 0.0007813811531485134,
+      "G_to_2_2": 0,
+      "X_series_1_2": 0.0007013971531485135,
+      "G_to_3_2": 0,
+      "X_series_2_4": 0.0006774341531485135,
+      "G_from_4_4": 0,
+      "R_series_3_2": 0.0001962160575502449,
+      "G_from_4_3": 0,
+      "G_to_4_2": 0,
+      "B_from_2_3": 0,
+      "B_from_3_4": 0,
+      "R_series_3_4": 0.0001962230575502449,
+      "G_from_1_1": 0,
+      "G_to_2_4": 0,
+      "G_to_1_2": 0,
+      "X_series_1_3": 0.0006774311531485134,
+      "B_from_2_4": 0,
+      "G_from_2_3": 0,
+      "B_to_4_3": 0,
+      "G_to_4_1": 0,
+      "X_series_1_4": 0.0007014261531485134,
+      "R_series_3_3": 0.0013480130575502449,
+      "B_to_3_2": 0,
+      "X_series_3_2": 0.0007013701531485135,
+      "X_series_4_2": 0.0006774341531485135,
+      "G_from_4_1": 0,
+      "B_to_1_3": 0,
+      "B_from_1_4": 0,
+      "B_from_4_3": 0,
+      "B_to_2_4": 0,
+      "G_from_1_4": 0,
+      "R_series_2_3": 0.0001962160575502449,
+      "G_from_1_2": 0,
+      "B_to_4_2": 0,
+      "R_series_1_4": 0.0001962290575502449,
+      "X_series_1_1": 0.0007814251531485135,
+      "G_to_1_1": 0,
+      "B_to_1_4": 0,
+      "B_to_3_1": 0,
+      "G_to_4_4": 0,
+      "B_from_4_1": 0,
+      "B_from_4_4": 0,
+      "B_to_3_3": 0,
+      "R_series_4_1": 0.0001962290575502449,
+      "X_series_4_1": 0.0007014261531485134,
+      "G_from_2_1": 0,
+      "X_series_3_1": 0.0006774311531485134
+    }
+  }
+}
