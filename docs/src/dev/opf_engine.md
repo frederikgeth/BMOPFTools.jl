@@ -47,7 +47,7 @@ The expectation for a new formulation, constraint, or element is therefore:
 
 ## Modeling preferences
 
-New constraints should stay consistent with how the engine is built. Two
+New constraints should stay consistent with how the engine is built. A few
 preferences in particular:
 
 - **Current limits over power limits.** Branch and thermal ratings are already
@@ -78,6 +78,34 @@ preferences in particular:
   current bound: the case may carry one, both, or neither, by design. Stamp a
   constraint only from data that is actually present; never synthesise a missing
   bound from an unrelated one.
+
+### [Zero impedance: represent it honestly, don't approximate it](@id zero-impedance)
+
+The impedance-over-admittance choice has a sharp practical corollary for
+near-zero branches (jumpers, bus ties, idealised regulators, placeholder
+transformer leakage). The temptation is to model "approximately zero" impedance
+as a small number `ε`. That is the **worst** option on the whole axis:
+
+![Numerical conditioning of a branch as a function of its impedance magnitude: an exact zero is well-conditioned, the physical range is well-conditioned, but the small-but-nonzero placeholder region in between has a condition number that grows like 1/|Z|.](../assets/impedance_conditioning.svg)
+
+- **`Z = 0` exactly** is well-conditioned — the engine handles it *semantically*,
+  by merging the nodes / imposing the ideal-transformer constraint
+  `V_fr = N·V_to`, rather than inverting a near-singular admittance.
+- The **physical range** (real conductors and transformers) is well-conditioned.
+- The **gap between them** is the only ill-conditioned region on the axis. A
+  small `ε` placeholder lands you exactly there, where the condition number grows
+  like `1/|Z|` and the solver's effective tolerance floor rises with it.
+
+So `lim_{Z→0⁺} κ = ∞` while `κ(0) = O(1)`: approximating a true zero by a small
+value moves it *away* from the well-conditioned point, not toward the physical
+range. In pure admittance form this is unavoidable — `Y = 1/Z → ∞` at `Z = 0` —
+which is the same reason series elements are kept in impedance form. **The remedy
+is semantic, not numerical:** represent the branch honestly as zero and switch
+formulation. BMOPFTools' [`fix_case`](../augmentation.md#fix) does exactly this —
+collapsing low-impedance lines to switches (pass 4) and snapping placeholder
+transformer leakage to exact zero (pass 9) — and the
+[zero-voltage / ill-conditioning traps](../bounds/known_traps.md) page catalogues
+what happens when this is gotten wrong.
 
 ## Keep it behind the extension boundary
 
