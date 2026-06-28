@@ -19,7 +19,7 @@ const _IBR_ARITY = Dict{String,Int}(
     "FOUR_LEG"     => 4    # phases a, b, c, n
 )
 
-const _PRIME_MOVER_VALUES = ("PV", "BATTERY", "GENERIC")
+const _PRIME_MOVER_VALUES = ("PV", "BATTERY", "GENERIC", "STATCOM", "DSTATCOM")
 
 # Spec §4.2: terminal-map arities (from, to) per transformer subtype
 const _XFMR_ARITY = Dict{String,Tuple{Int,Int}}(
@@ -353,7 +353,7 @@ function spec_conformance_check(net::Dict{String,Any},
             push!(findings, Finding(WARNING, "W.SPEC.INV_PRIME_MOVER", :spec,
                 :ibr, id,
                 "IBR '$id' has prime_mover '$pm' — spec allows " *
-                "PV, BATTERY, GENERIC.", nothing))
+                "PV, BATTERY, GENERIC, STATCOM, DSTATCOM.", nothing))
         end
 
         if !(topo isa AbstractString) || !haskey(_IBR_ARITY, topo)

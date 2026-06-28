@@ -141,6 +141,7 @@ const _KNOWN_FIELDS = Dict{String,Set{String}}(
                      "terminal_map_to", "open_switch", "i_max"]),
     "ibr" => Set(["bus", "terminal_map", "topology", "prime_mover",
                        "s_max", "i_max", "p_avail", "p_min", "p_max", "q_min", "q_max",
+                       "dc_link_coupled", "p_dc_min", "p_dc_max",
                        "r_filter", "x_filter", "b_filter_shunt",
                        "grid_forming", "v_ref_internal", "cost",
                        "control_profile", "voltage_ref"]),

@@ -477,6 +477,18 @@
                         "type": "number",
                         "description": "Maximum active power [W]"
                     },
+                    "dc_link_coupled": {
+                        "type": "boolean",
+                        "description": "True if the converter's phases share a single DC link, so the per-phase active powers are coupled by a net DC-side balance (sum of phase P bounded by [p_dc_min, p_dc_max]). Lets the converter circulate active power BETWEEN phases (e.g. a four-wire STATCOM balancing an unbalanced feeder) while net active power stays inside the DC bound. False (default) treats each phase independently"
+                    },
+                    "p_dc_min": {
+                        "type": "number",
+                        "description": "Minimum net DC-side active power [W] when dc_link_coupled; sum over phases of P >= p_dc_min. 0 for a STATCOM (no active source); negative permits absorption (battery)"
+                    },
+                    "p_dc_max": {
+                        "type": "number",
+                        "description": "Maximum net DC-side active power [W] when dc_link_coupled; sum over phases of P <= p_dc_max. 0 for a STATCOM; p_avail for curtailable PV"
+                    },
                     "q_min": {
                         "type": "number",
                         "description": "Minimum reactive power [var]; negative indicates absorption (default -s_max)"
@@ -759,8 +771,8 @@
         },
         "prime_mover_type": {
             "type": "string",
-            "description": "Energy source behind the inverter: PV (non-negative, resource-limited active power), BATTERY (bidirectional), or GENERIC",
-            "enum": ["PV", "BATTERY", "GENERIC"]
+            "description": "Energy source behind the inverter: PV (non-negative, resource-limited active power), BATTERY (bidirectional), GENERIC, or STATCOM (no active source — pure reactive shunt compensator; DSTATCOM is the distribution-system alias)",
+            "enum": ["PV", "BATTERY", "GENERIC", "STATCOM", "DSTATCOM"]
         },
         "voltage_reference_type": {
             "type": "string",

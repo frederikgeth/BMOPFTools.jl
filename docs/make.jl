@@ -38,6 +38,7 @@ makedocs(
             "OPF result dictionary"    => "results.md",
             "Validating the OPF"       => "validation.md",
             "SWER case study"          => "tutorial_swer.md",
+            "D-STATCOM unbalance study" => "tutorial_statcom.md",
         ],
         "Bounds & feasibility"    => [
             "bounds/index.md",
