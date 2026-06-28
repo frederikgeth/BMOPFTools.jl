@@ -36,6 +36,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_cost_phase_uniformity(net, findings, n_checks)
     _check_source_voltage_margin(net, findings, thresholds, n_checks)
     _check_shunt_on_grounded_terminal(net, findings, n_checks)
+    _check_dc_network(net, findings, n_checks)
 
     result["n_checks_run"] = n_checks[]
     result
@@ -71,6 +72,248 @@ function _check_bus_voltage_bounds(net, findings, n_checks)
             push!(findings, Finding(ERROR, "E.DOM.VNMAX_NEGATIVE", :domain_rules, :bus, id,
                 "Bus '$id': vn_max = $(vnmax) V is negative.",
                 Dict{String,Any}("vn_max" => vnmax)))
+        end
+    end
+end
+
+# DC-network plausibility: resistances ≥ 0, signed line-to-ground / line-to-neutral
+# / line-to-line voltage bounds ordered and self-consistent, ratings positive,
+# pole-sign sanity, and grounding-topology heads-up (islanded DC, multi-point
+# grounding / earth loop).
+function _check_dc_network(net, findings, n_checks)
+    dc_buses = get(net, "dc_bus", Dict())
+    isempty(dc_buses) && isempty(get(net, "dc_branch", Dict())) &&
+        isempty(get(net, "dc_grounding", Dict())) && return
+
+    # --- dc_bus voltage bounds (three families) + pole-sign sanity ---
+    for (id, b) in dc_buses
+        b isa Dict || continue
+        n_checks[] += 1
+        terms = string.(get(b, "terminal_names", String[]))
+        nwire = length(terms)
+        pole  = get(b, "pole", Dict())
+
+        vmin = get(b, "v_dc_min", nothing)
+        vmax = get(b, "v_dc_max", nothing)
+        if vmin isa AbstractVector && vmax isa AbstractVector &&
+           length(vmin) == length(vmax)
+            for k in eachindex(vmin)
+                if Float64(vmin[k]) > Float64(vmax[k])
+                    push!(findings, Finding(ERROR, "E.DOM.DC_VBOUND_INVALID",
+                        :domain_rules, :dc_bus, id,
+                        "dc_bus '$id': line-to-ground v_dc_min[$k] = $(vmin[k]) > " *
+                        "v_dc_max[$k] = $(vmax[k]) V.",
+                        Dict{String,Any}("v_dc_min" => vmin, "v_dc_max" => vmax)))
+                end
+                # pole-sign consistency
+                if pole isa Dict && k <= nwire
+                    role = get(pole, terms[k], nothing)
+                    if role == "POSITIVE" && Float64(vmax[k]) <= 0
+                        push!(findings, Finding(WARNING, "W.DOM.DC_POLE_SIGN",
+                            :domain_rules, :dc_bus, id,
+                            "dc_bus '$id': terminal '$(terms[k])' is a POSITIVE " *
+                            "pole but v_dc_max[$k] = $(vmax[k]) ≤ 0.", nothing))
+                    elseif role == "NEGATIVE" && Float64(vmin[k]) >= 0
+                        push!(findings, Finding(WARNING, "W.DOM.DC_POLE_SIGN",
+                            :domain_rules, :dc_bus, id,
+                            "dc_bus '$id': terminal '$(terms[k])' is a NEGATIVE " *
+                            "pole but v_dc_min[$k] = $(vmin[k]) ≥ 0.", nothing))
+                    end
+                end
+            end
+        end
+
+        # line-to-neutral / line-to-line family ordering + topology validity
+        lnlo = get(b, "vdc_ln_min", nothing); lnhi = get(b, "vdc_ln_max", nothing)
+        lllo = get(b, "vdc_ll_min", nothing); llhi = get(b, "vdc_ll_max", nothing)
+        has_ln = lnlo !== nothing || lnhi !== nothing
+        has_ll = lllo !== nothing || llhi !== nothing
+        if lnlo !== nothing && lnhi !== nothing && Float64(lnlo) > Float64(lnhi)
+            push!(findings, Finding(ERROR, "E.DOM.DC_VBOUND_INVALID",
+                :domain_rules, :dc_bus, id,
+                "dc_bus '$id': vdc_ln_min ($lnlo) > vdc_ln_max ($lnhi) V.", nothing))
+        end
+        if lllo !== nothing && llhi !== nothing && Float64(lllo) > Float64(llhi)
+            push!(findings, Finding(ERROR, "E.DOM.DC_VBOUND_INVALID",
+                :domain_rules, :dc_bus, id,
+                "dc_bus '$id': vdc_ll_min ($lllo) > vdc_ll_max ($llhi) V.", nothing))
+        end
+        # Oriented (linear) bounds require pole roles to fix the sign. A line-to-
+        # neutral bound needs each non-return terminal tagged POSITIVE/NEGATIVE; a
+        # line-to-line bound needs both a POSITIVE and a NEGATIVE pole.
+        if has_ln
+            ret = nothing
+            if pole isa Dict
+                for (t, r) in pole; String(r) == "METALLIC_RETURN" && (ret = t) end
+            end
+            for t in terms
+                t == ret && continue
+                role = pole isa Dict ? String(get(pole, t, "")) : ""
+                if !(role in ("POSITIVE", "NEGATIVE"))
+                    push!(findings, Finding(ERROR, "E.DOM.DC_POLE_ROLE_REQUIRED",
+                        :domain_rules, :dc_bus, id,
+                        "dc_bus '$id': terminal '$t' needs a POSITIVE/NEGATIVE pole " *
+                        "role to orient its line-to-neutral voltage bound.",
+                        Dict{String,Any}("terminal" => t)))
+                end
+            end
+        end
+        if has_ll
+            haspos = pole isa Dict && any(String(r) == "POSITIVE"  for (_, r) in pole)
+            hasneg = pole isa Dict && any(String(r) == "NEGATIVE"  for (_, r) in pole)
+            if !(haspos && hasneg)
+                push!(findings, Finding(ERROR, "E.DOM.DC_POLE_ROLE_REQUIRED",
+                    :domain_rules, :dc_bus, id,
+                    "dc_bus '$id': line-to-line bound needs both a POSITIVE and a " *
+                    "NEGATIVE pole role.", nothing))
+            end
+        end
+        # line-to-line needs two poles (≥ 3-wire bipole)
+        if has_ll && nwire < 3
+            push!(findings, Finding(ERROR, "E.DOM.DC_LL_BOUND_NO_POLE",
+                :domain_rules, :dc_bus, id,
+                "dc_bus '$id' has a line-to-line bound but only $nwire wire(s) — " *
+                "line-to-line voltage needs a positive and a negative pole (bipole).",
+                Dict{String,Any}("wires" => nwire)))
+        end
+        # line-to-neutral needs a return/neutral conductor (≥ 2-wire)
+        if has_ln && nwire < 2
+            push!(findings, Finding(ERROR, "E.DOM.DC_LN_BOUND_NO_NEUTRAL",
+                :domain_rules, :dc_bus, id,
+                "dc_bus '$id' has a line-to-neutral bound but only $nwire wire(s) — " *
+                "no return/neutral conductor.",
+                Dict{String,Any}("wires" => nwire)))
+        end
+        # families that cannot hold simultaneously: a symmetric bipole has
+        # V_ll ≈ 2·V_lg, so an L-L ceiling below twice the L-G floor is infeasible.
+        if has_ll && llhi !== nothing && vmin isa AbstractVector && !isempty(vmin)
+            lg_floor = maximum(abs.(Float64.(vmin)))
+            if Float64(llhi) < 2 * lg_floor - 1e-6
+                push!(findings, Finding(WARNING, "W.DOM.DC_VBOUND_INCONSISTENT",
+                    :domain_rules, :dc_bus, id,
+                    "dc_bus '$id': vdc_ll_max ($llhi V) < 2 × line-to-ground floor " *
+                    "($(round(lg_floor; digits=1)) V); line-to-line and " *
+                    "line-to-ground bounds cannot hold simultaneously for a bipole.",
+                    Dict{String,Any}("vdc_ll_max" => llhi, "lg_floor" => lg_floor)))
+            end
+        end
+    end
+
+    # --- dc_branch: resistance ≥ 0, ratings > 0 ---
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa Dict || continue
+        n_checks[] += 1
+        r = get(br, "r", nothing)
+        if r isa AbstractVector && any(<(0), Float64.(r))
+            push!(findings, Finding(ERROR, "E.DOM.DC_R_NEGATIVE", :domain_rules,
+                :dc_branch, id,
+                "dc_branch '$id': r = $(r) Ω has a negative per-conductor entry.",
+                Dict{String,Any}("r" => r)))
+        end
+        imax = get(br, "i_max", nothing)
+        if imax isa AbstractVector && any(<=(0), Float64.(imax))
+            push!(findings, Finding(ERROR, "E.DOM.DC_RATING_NONPOSITIVE",
+                :domain_rules, :dc_branch, id,
+                "dc_branch '$id': i_max = $(imax) A has a non-positive entry.",
+                Dict{String,Any}("i_max" => imax)))
+        end
+        pmax = get(br, "p_max", nothing)
+        if pmax !== nothing && Float64(pmax) <= 0
+            push!(findings, Finding(ERROR, "E.DOM.DC_RATING_NONPOSITIVE",
+                :domain_rules, :dc_branch, id,
+                "dc_branch '$id': p_max = $(pmax) W is non-positive.",
+                Dict{String,Any}("p_max" => pmax)))
+        end
+    end
+
+    # --- dc_grounding: r ≥ 0; multi-point grounding heads-up per DC island ---
+    groundings = get(net, "dc_grounding", Dict())
+    for (id, g) in groundings
+        g isa Dict || continue
+        n_checks[] += 1
+        r = get(g, "r", nothing)
+        if r !== nothing && Float64(r) < 0
+            push!(findings, Finding(ERROR, "E.DOM.DC_GROUNDING_R_NEGATIVE",
+                :domain_rules, :dc_grounding, id,
+                "dc_grounding '$id': r = $(r) Ω is negative.",
+                Dict{String,Any}("r" => r)))
+        end
+    end
+
+    # multi-point grounding: union-find dc_buses over dc_branches, count groundings
+    if !isempty(dc_buses) && length(groundings) > 1
+        dc_busset = Set(keys(dc_buses))
+        parent = Dict(b => b for b in dc_busset)
+        find(x) = (parent[x] == x ? x : (parent[x] = find(parent[x])))
+        for (_, br) in get(net, "dc_branch", Dict())
+            br isa Dict || continue
+            a = get(br, "dc_bus_from", nothing); c = get(br, "dc_bus_to", nothing)
+            (a in dc_busset && c in dc_busset) && (parent[find(a)] = find(c))
+        end
+        per_island = Dict{String,Int}()
+        for (_, g) in groundings
+            g isa Dict || continue
+            b = get(g, "dc_bus", nothing)
+            b in dc_busset || continue
+            per_island[find(b)] = get(per_island, find(b), 0) + 1
+        end
+        for (_, cnt) in per_island
+            cnt > 1 || continue
+            push!(findings, Finding(WARNING, "W.DOM.DC_MULTIPOINT_GROUNDING",
+                :domain_rules, :dc_grounding, nothing,
+                "A connected DC island has $cnt grounding points — this closes an " *
+                "earth loop and permits circulating earth-return current " *
+                "(often intentional for bipoles; verify it is deliberate).",
+                Dict{String,Any}("groundings" => cnt)))
+        end
+    end
+
+    # --- islanded DC bus (no converter attached) ---
+    ibr_dc_buses = Set(string(get(inv, "dc_bus", "")) for (_, inv) in
+                       get(net, "ibr", Dict()) if inv isa Dict && haskey(inv, "dc_bus"))
+    for (id, _) in dc_buses
+        id in ibr_dc_buses && continue
+        push!(findings, Finding(WARNING, "W.DOM.DC_BUS_NO_CONVERTER",
+            :domain_rules, :dc_bus, id,
+            "dc_bus '$id' has no converter (IBR) attached — islanded DC node.",
+            nothing))
+    end
+
+    # --- droop control consistent with the converter's P/Q/S capability ---
+    # The droop law P = f(v_dc) is a hard equality; if its reference or saturation
+    # range fights the converter's own active-power box or apparent-power circle the
+    # OPF turns infeasible. Flag the static conflicts.
+    profiles = get(net, "control_profile", Dict())
+    for (id, inv) in get(net, "ibr", Dict())
+        inv isa Dict && String(get(inv, "dc_control", "P")) == "droop" || continue
+        smax = Float64.(get(inv, "s_max", Float64[]))
+        pmax = Float64.(get(inv, "p_max", Float64[]))
+        pmin = Float64.(get(inv, "p_min", Float64[]))
+        P_hi = !isempty(pmax) ? sum(pmax) : (isempty(smax) ? 0.0 :  sum(smax))
+        P_lo = !isempty(pmin) ? sum(pmin) : (isempty(smax) ? 0.0 : -sum(smax))
+        p_ref = Float64(get(inv, "dc_p_ref", 0.0))
+        if p_ref > P_hi + 1e-6 || p_ref < P_lo - 1e-6
+            push!(findings, Finding(WARNING, "W.DOM.DC_DROOP_BOUNDS",
+                :domain_rules, :ibr, id,
+                "IBR '$id': droop dc_p_ref = $(p_ref) W is outside the converter's " *
+                "net active-power capability [$(round(P_lo)), $(round(P_hi))] W — the " *
+                "droop equality will fight the P bounds (risking infeasibility).",
+                Dict{String,Any}("dc_p_ref" => p_ref, "p_lo" => P_lo, "p_hi" => P_hi)))
+        end
+        # Droop saturates at ±ΣP, but a power-factor profile forces Q = tanφ·P, so the
+        # apparent-power circle caps P at s_max·cosφ < ΣP: the saturation is then
+        # unreachable.
+        cp = get(inv, "control_profile", nothing)
+        has_pf = cp isa AbstractString && haskey(profiles, cp) &&
+                 get(profiles[cp], "power_factor", nothing) isa Dict
+        if has_pf && !isempty(smax)
+            push!(findings, Finding(WARNING, "W.DOM.DC_DROOP_BOUNDS",
+                :domain_rules, :ibr, id,
+                "IBR '$id': droop control combined with a power_factor profile — the " *
+                "forced reactive power shrinks the active-power headroom (s_max " *
+                "circle) below the droop's saturation limit, which can make the droop " *
+                "setpoint unreachable.",
+                Dict{String,Any}("control_profile" => cp)))
         end
     end
 end

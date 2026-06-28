@@ -15,8 +15,20 @@ const _REQUIRED_FIELDS = Dict{String,Vector{String}}(
     "linecode"       => ["R_series_1_1", "X_series_1_1"],
     "ibr"            => ["bus", "terminal_map", "topology", "prime_mover", "s_max"],
     # control_profile sub-objects are all optional; presence activates a control law
-    "control_profile" => String[]
+    "control_profile" => String[],
+    # DC network objects
+    "dc_bus"         => ["terminal_names"],
+    "dc_branch"      => ["dc_bus_from", "dc_bus_to", "terminal_map_from",
+                         "terminal_map_to", "r"],
+    "dc_grounding"   => ["dc_bus", "terminal"],
+    "dc_load"        => ["dc_bus", "terminal_map", "p"],
+    "dc_source"      => ["dc_bus", "terminal_map"]
 )
+
+# Optional fields whose presence is worth tracking for coverage reporting.
+const _OPTIONAL_DC_BUS_FIELDS = ["v_dc_min", "v_dc_max", "pole",
+                                 "vdc_ln_min", "vdc_ln_max",
+                                 "vdc_ll_min", "vdc_ll_max"]
 
 # Required fields for the two-bus transformer subtypes
 const _REQUIRED_TRANSFORMER_FIELDS = ["bus_from", "bus_to",
@@ -73,8 +85,12 @@ const _OPTIONAL_FIELDS = Dict{String,Vector{String}}(
     "ibr"       => ["i_max", "p_avail", "p_min", "p_max", "q_min", "q_max",
                     "r_filter", "x_filter", "b_filter_shunt",
                     "grid_forming", "v_ref_internal", "cost", "control_profile",
-                    "voltage_ref"],
-    "control_profile" => ["volt_var", "volt_watt", "power_factor"]
+                    "voltage_ref", "dc_bus", "dc_terminal_map"],
+    "control_profile" => ["volt_var", "volt_watt", "power_factor"],
+    "dc_bus"    => _OPTIONAL_DC_BUS_FIELDS,
+    "dc_branch" => ["i_max", "p_max"],
+    "dc_grounding" => ["r"],
+    "dc_source" => ["p", "p_min", "p_max"]
 )
 
 """

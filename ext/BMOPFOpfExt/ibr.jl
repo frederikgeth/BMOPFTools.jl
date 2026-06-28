@@ -218,6 +218,8 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
         # per-phase constraints are stamped (Heidari & Geth 2024; Deakin, Heidari
         # & Deng 2025). Only assembled when the IBR declares dc_link_coupled.
         dc_coupled = get(inv, "dc_link_coupled", false) === true
+        has_dc_bus = haskey(inv, "dc_bus")
+        collect_p  = dc_coupled || has_dc_bus
         p_exprs    = JuMP.QuadExpr[]
 
         if topo == "SINGLE_PHASE"
@@ -229,7 +231,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
             p_expr = @expression(model, dvr*cri[(inv_id,1)] + dvi*cii[(inv_id,1)])
             q_expr = @expression(model, dvi*cri[(inv_id,1)] - dvr*cii[(inv_id,1)])
-            dc_coupled && push!(p_exprs, p_expr)
+            collect_p && push!(p_exprs, p_expr)
 
             length(imax) >= 1 &&
                 @constraint(model, cri[(inv_id,1)]^2 + cii[(inv_id,1)]^2 <= imax[1]^2)
@@ -268,7 +270,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr,
                               U=need_U ? umag_expr(dvr, dvi) : nothing))
-                dc_coupled && push!(p_exprs, p_expr)
+                collect_p && push!(p_exprs, p_expr)
 
                 length(imax) >= idx &&
                     @constraint(model, cri[(inv_id,idx)]^2 + cii[(inv_id,idx)]^2 <= imax[idx]^2)
@@ -301,7 +303,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 p_expr = @expression(model, dvr*cri[(inv_id,k)] + dvi*cii[(inv_id,k)])
                 q_expr = @expression(model, dvi*cri[(inv_id,k)] - dvr*cii[(inv_id,k)])
-                dc_coupled && push!(p_exprs, p_expr)
+                collect_p && push!(p_exprs, p_expr)
 
                 length(imax) >= k &&
                     @constraint(model, cri[(inv_id,k)]^2 + cii[(inv_id,k)]^2 <= imax[k]^2)
@@ -319,11 +321,21 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             @warn "IBR '$inv_id': unknown topology '$topo' — skipping."
         end
 
-        # Shared-DC-link active-power balance: bound the net (sum of per-phase)
-        # active power, letting the converter circulate active power between
-        # phases. p_dc_min/p_dc_max default to 0/0 for a STATCOM (pure
-        # circulation) — see the augmentation pass and `add_statcom!`.
-        if dc_coupled && !isempty(p_exprs)
+        # DC-side active-power coupling of the per-phase active powers.
+        if has_dc_bus && !isempty(p_exprs)
+            # Shared DC bus: the converter's AC active power equals the power
+            # drawn from the DC node (lossless), balanced against the other
+            # converters/loads/sources through DC KCL. This forms a converter
+            # station / back-to-back SOP / MVDC tie.
+            p_ac = @expression(model, sum(p_exprs))
+            _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac, smax,
+                                     p_min, p_max;
+                                     relu_eps=relu_eps, relu_ops=relu_ops, net=net)
+        elseif dc_coupled && !isempty(p_exprs)
+            # Isolated DC link: bound the net (sum of per-phase) active power,
+            # letting the converter circulate active power between phases.
+            # p_dc_min/p_dc_max default to 0/0 for a STATCOM (pure circulation)
+            # — see the augmentation pass and `add_statcom!`.
             p_net = @expression(model, sum(p_exprs))
             p_dc_min = get(inv, "p_dc_min", 0.0)
             p_dc_max = get(inv, "p_dc_max", 0.0)

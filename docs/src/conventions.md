@@ -142,6 +142,57 @@ element (`G_i_j`/`B_i_j`, S); the `capacitor` adds nameplate and connection
 semantics. Controllable/smooth capacitors are a future extension. See the
 [conversion guide § Capacitor banks](@ref capacitor).
 
+## DC network (MVDC/LVDC) — terminals, poles, grounding
+
+The DC side (`dc_bus`, `dc_branch`, `dc_grounding`, `dc_load`, `dc_source`) models
+MVDC/LVDC converter stations. AC/DC converters are ordinary `ibr` objects that
+carry a `dc_bus` reference and a `dc_terminal_map`; several converters sharing one
+`dc_bus` form a converter station / back-to-back soft open point / MVDC tie.
+
+**Signed voltage, no angle.** A DC terminal holds a single real `v_dc`, the
+voltage **to earth** — positive pole `> 0`, negative pole `< 0`, metallic return
+`≈ 0`. There is no DC angle. Line-to-ground bounds are `v_dc_min`/`v_dc_max`
+(signed, per terminal); line-to-neutral (`vdc_ln_*`) and line-to-line (`vdc_ll_*`,
+bipole only) are magnitude bounds.
+
+**Bus arity.** `dc_bus.terminal_names` has length 1 (single pole, earth return),
+2 (pole + return), or 3 (bipole: positive pole, negative pole, metallic return).
+
+**Return-conductor recognition** (mirrors the AC neutral rule above): the DC
+return / neutral is the terminal whose `pole` role is `METALLIC_RETURN`; failing
+that, a terminal named `m` (metallic return) or `n`. This is what line-to-neutral
+bounds are measured against.
+
+**Grounding — perfect vs through impedance.** A `dc_grounding` (or a
+`perfectly_grounded_terminals` entry on the `dc_bus`) sets the signed-voltage
+reference and provides the earth-return path. `r = 0`/omitted is **perfect**
+grounding (the terminal's `v_dc` is fixed to 0, with a free earth-return current);
+`r > 0` is grounding **through impedance** (earth current `= v_dc / r`, with the
+electrode floating to the ground-potential rise `I·r`). Every connected DC island
+needs at least one grounding, else `E.INT.NO_DC_VOLTAGE_REFERENCE` fires.
+
+**Converters are lossless** at this fidelity: a converter's DC-port power equals
+its AC active power, so a back-to-back SOP conserves power exactly and an MVDC tie
+loses only the `I²R` of its DC line.
+
+**DC-voltage control (`dc_control`).** Like an AC network needs a slack/reference,
+an MVDC zone needs a converter that sets the DC voltage — otherwise `v_dc` is
+underdetermined. Mirroring HVDC/MVDC practice (master–slave and droop):
+- `"P"` (default) — constant power; the OPF dispatches the converter's power.
+- `"V"` — DC-voltage **master**: holds `v_dc(pole−return) = dc_v_set` (a fixed
+  setpoint, like an AC source's `v_magnitude`); its AC power floats to balance the
+  zone.
+- `"droop"` — **saturated** V–P droop: the AC power follows
+  `P = dc_p_ref + (v_dc − dc_v_set)/dc_droop` inside an optional `±dc_deadband`,
+  and **clamps to the converter's power limits** outside the droop band (a
+  piecewise-linear P–V curve, implemented with the smooth-ReLU machinery so it is
+  Ipopt-friendly). Higher `dc_droop` = softer droop; `dc_droop → 0` is the stiff
+  (constant-V) limit.
+
+Every connected DC island must have ≥1 `"V"` or `"droop"` converter, else
+`E.INT.DC_NO_VOLTAGE_CONTROL` fires. Line-to-neutral / line-to-line bounds require
+`pole` roles to orient them (`E.DOM.DC_POLE_ROLE_REQUIRED`).
+
 ## Transformer subtypes
 
 Six subtypes, each its own sub-dict under `transformer`.  All impedance

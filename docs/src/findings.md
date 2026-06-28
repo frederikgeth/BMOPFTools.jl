@@ -383,3 +383,38 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `W.BENCH.GEN_ZERO_COST` | W | One or more dispatchable generators (`p_max > p_min` on at least one phase) have a cost vector of all zeros — the objective is flat in their dispatch direction, making the optimal solution primal non-unique. Assign a non-zero cost to each dispatchable unit. |
 | `W.BENCH.GEN_DEGENERATE_COST` | W | Two or more dispatchable generators on the same bus or one line/switch hop apart share an identical cost coefficient. The solver can redistribute power between them freely without changing the objective, producing primal non-uniqueness and benchmarks that are sensitive to solver tolerances. |
 | `I.BENCH.LOAD_ZERO_PNOM` | I | One or more loads have `p_nom = 0` on all phases — they impose no real power demand and are electrically inert. These loads may indicate missing data or placeholder entries that should be populated before benchmark use. |
+
+## DC — MVDC/LVDC network
+
+Checks for the DC side: `dc_bus` nodes (signed line-to-ground voltage, no angle), `dc_branch` lines, `dc_grounding` earth-return points, and `dc_load`/`dc_source`. A converter station / back-to-back SOP / MVDC tie is several IBRs sharing a `dc_bus` (see [semantic_modeling.md](semantic_modeling.md) and the [conventions](conventions.md) for DC terminal/pole/return recognition).
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `E.INT.UNKNOWN_DC_BUS` | E | An `ibr.dc_bus`, `dc_branch` endpoint, `dc_load`/`dc_source.dc_bus`, or `dc_grounding.dc_bus` references a `dc_bus` id that does not exist. |
+| `E.INT.UNKNOWN_DC_TERMINAL` | E | A DC terminal-map entry (converter DC port, branch from/to, grounding, load/source) names a terminal not in the target `dc_bus.terminal_names`. |
+| `E.INT.NO_DC_VOLTAGE_REFERENCE` | E | A connected DC island (dc_buses joined by dc_branches) has no `dc_grounding` (perfect or resistive) — the signed DC voltages float (rank-deficient). The DC analog of `E.INT.NO_VOLTAGE_REFERENCE`. |
+| `W.INT.DC_FED_AC_ISLAND` | W | A converter feeds an AC bus whose AC island has no AC voltage reference (source/grounding) and no grid-forming converter — the bus is energised only through the MVDC link (a dangling converter, not embedded in a referenced AC system). Intentional DC-fed feeders should mark a converter `grid_forming`. |
+| `E.INT.DC_NO_VOLTAGE_CONTROL` | E | A connected DC island has no converter on DC-voltage control (`dc_control = "V"` or `"droop"`) — the DC operating voltage is underdetermined. The DC analog of needing an AC slack; designate a master/droop converter (master–slave or droop, per MTDC practice). |
+| `E.DOM.DC_POLE_ROLE_REQUIRED` | E | A `dc_bus` carries a line-to-neutral or line-to-line voltage bound but lacks the `pole` role(s) needed to orient it (POSITIVE/NEGATIVE, and a return for L-N). The roles are the sign tag that keeps the bound linear; without them it cannot be applied. |
+| `W.DOM.DC_DROOP_BOUNDS` | W | A `dc_control="droop"` converter's droop conflicts with its own capability: either `dc_p_ref` lies outside the net active-power box `[Σp_min, Σp_max]` (else ±Σs_max), or the converter also runs a `power_factor` profile whose forced reactive power shrinks the s_max-circle active headroom below the droop's saturation. The droop equality then fights the P/Q/S limits and the OPF can turn infeasible. |
+| `E.SPEC.DC_BUS_ARITY` | E | A `dc_bus` does not have 1 (monopole/earth return), 2 (pole+return), or 3 (bipole) terminals. |
+| `E.SPEC.DC_BRANCH_ARITY` | E | A `dc_branch`'s `terminal_map_from` and `terminal_map_to` differ in length (conductor count must match end to end). |
+| `E.SPEC.DC_BRANCH_R_DIM` | E | A `dc_branch`'s per-conductor `r` array length does not equal its conductor count. |
+| `E.SPEC.DC_PORT_MISSING_MAP` | E | An IBR references a `dc_bus` but has no `dc_terminal_map`. |
+| `E.SPEC.DC_PORT_ARITY` | E | An IBR's `dc_terminal_map` spans more terminals than its `dc_bus` has wires. |
+| `E.SPEC.DUPLICATE_DC_TERMINAL` | E | A DC terminal map (branch or converter port) lists the same terminal twice. |
+| `E.DOM.DC_R_NEGATIVE` | E | A `dc_branch.r` (or `dc_grounding.r`) has a negative entry — resistances are nonnegative. |
+| `E.DOM.DC_GROUNDING_R_NEGATIVE` | E | A `dc_grounding.r` is negative. |
+| `E.DOM.DC_VBOUND_INVALID` | E | Within a bound family (`v_dc`, `vdc_ln`, `vdc_ll`) a minimum exceeds its maximum. |
+| `E.DOM.DC_LL_BOUND_NO_POLE` | E | A line-to-line bound is declared on a dc_bus with fewer than 3 wires (no positive+negative pole). |
+| `E.DOM.DC_LN_BOUND_NO_NEUTRAL` | E | A line-to-neutral bound is declared on a dc_bus with no return/neutral conductor (fewer than 2 wires). |
+| `E.DOM.DC_RATING_NONPOSITIVE` | E | A `dc_branch.i_max`/`p_max` is non-positive. |
+| `W.DOM.DC_VBOUND_INCONSISTENT` | W | The line-to-ground / line-to-neutral / line-to-line bound families cannot hold simultaneously given the topology + grounding (e.g. `vdc_ll_max < 2 ×` the line-to-ground floor on a midpoint-grounded symmetric bipole). |
+| `W.DOM.DC_POLE_SIGN` | W | A terminal's bound sign contradicts its declared `pole` role (a POSITIVE pole with `v_dc_max ≤ 0`, or a NEGATIVE pole with `v_dc_min ≥ 0`). |
+| `W.DOM.DC_MULTIPOINT_GROUNDING` | W | A connected DC island has more than one grounding point — this closes an earth loop and permits circulating earth-return current (often deliberate for bipoles; verify). |
+| `W.DOM.DC_BUS_NO_CONVERTER` | W | A `dc_bus` has no converter (IBR) attached — an islanded DC node. |
+| `W.RED.DC_BRANCH_SELF_LOOP` | W | A `dc_branch` connects a `dc_bus` to itself — it carries no transfer. |
+| `I.RED.DC_PARALLEL_BRANCHES` | I | Two `dc_branch`es connect the same unordered `dc_bus` pair. |
+| `W.RED.DC_REDUNDANT_GROUNDING` | W | A `dc_grounding` earths a terminal already in the dc_bus's `perfectly_grounded_terminals`. |
+| `E.SOL.DC_VOLT_VIOLATION` | E | Post-solve: a signed DC node voltage lies outside its `[v_dc_min, v_dc_max]` band. |
+| `E.SOL.DC_THERMAL_VIOLATION` | E | Post-solve: a DC branch conductor current exceeds its `i_max`. |

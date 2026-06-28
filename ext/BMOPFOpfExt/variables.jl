@@ -532,7 +532,7 @@ function _build_vars(model, net, bus_terminals, grounded)
     cri,   cii   = _add_ibr_variables!(model, net)
     cr_gnd,ci_gnd= _add_ground_variables!(model, grounded)
 
-    Dict{Symbol,Any}(
+    base = Dict{Symbol,Any}(
         :vr => vr, :vi => vi,
         :cr_gnd=> cr_gnd,:ci_gnd=> ci_gnd,
         :cr_fr => cr_fr, :ci_fr => ci_fr,
@@ -546,4 +546,7 @@ function _build_vars(model, net, bus_terminals, grounded)
         :cr_nw => cr_nw, :ci_nw => ci_nw,
         :cri   => cri,   :cii   => cii,
     )
+    # DC-network variables (only when the case declares a DC side).
+    haskey(net, "dc_bus") && merge!(base, _add_dc_variables!(model, net))
+    base
 end

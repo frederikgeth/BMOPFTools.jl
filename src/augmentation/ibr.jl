@@ -190,6 +190,9 @@ end
 function _apply_dc_link_bounds!(inv::Dict, inv_id, entries::Vector{TransformEntry},
                                 is_statcom::Bool)
     get(inv, "dc_link_coupled", false) === true || return
+    # When the converter attaches to a shared dc_bus, the active-power balance is
+    # enforced on the DC node (DC KCL), not as a private per-IBR bound.
+    haskey(inv, "dc_bus") && return
 
     p_dc_min = haskey(inv, "p_dc_min")
     p_dc_max = haskey(inv, "p_dc_max")
@@ -219,6 +222,61 @@ function _apply_dc_link_bounds!(inv::Dict, inv_id, entries::Vector{TransformEntr
         push!(entries, TransformEntry(
             :ibr, inv_id, "p_dc_max", nothing, hi, rule, :standard,
             "DC-link net active-power upper bound Σ P_k ≤ $(hi) W"))
+    end
+end
+
+# DC-network augmentation.
+#
+# Fills missing operational defaults on the DC side so a converter-station case is
+# OPF-ready without hand-specifying every bound:
+#   • dc_bus    → signed line-to-ground v_dc_min/v_dc_max from v_dc_nom ± a band
+#                 (recipe.dc_v_band_frac); only when both are absent and v_dc_nom
+#                 is present. Sign-preserving so the ordering min ≤ max holds.
+#   • dc_source → p_min = 0, p_max = p (curtailable) when bounds are absent.
+# Existing values are never overwritten.
+function _apply_dc_network_augmentation!(net′::Dict{String,Any},
+                                               entries::Vector{TransformEntry},
+                                               r::AugmentationRecipe)
+    frac = r.dc_v_band_frac
+
+    for (id, b) in get(net′, "dc_bus", Dict())
+        b isa Dict || continue
+        (haskey(b, "v_dc_min") || haskey(b, "v_dc_max")) && continue
+        nom = get(b, "v_dc_nom", nothing)
+        nom isa AbstractVector && !isempty(nom) || continue
+        nomf = Float64.(nom)
+        vmin = [v - frac * abs(v) for v in nomf]
+        vmax = [v + frac * abs(v) for v in nomf]
+        b["v_dc_min"] = vmin
+        b["v_dc_max"] = vmax
+        push!(entries, TransformEntry(
+            :dc_bus, id, "v_dc_min", nothing, vmin,
+            "dc_v_band_$(round(frac, digits=3))", :standard,
+            "Signed line-to-ground v_dc_min = v_dc_nom − $(round(100frac))% |v_dc_nom|"))
+        push!(entries, TransformEntry(
+            :dc_bus, id, "v_dc_max", nothing, vmax,
+            "dc_v_band_$(round(frac, digits=3))", :standard,
+            "Signed line-to-ground v_dc_max = v_dc_nom + $(round(100frac))% |v_dc_nom|"))
+    end
+
+    for (id, s) in get(net′, "dc_source", Dict())
+        s isa Dict || continue
+        p = get(s, "p", nothing)
+        p isa Number || continue
+        if !haskey(s, "p_min")
+            s["p_min"] = 0.0
+            push!(entries, TransformEntry(
+                :dc_source, id, "p_min", nothing, 0.0,
+                "dc_source_curtailable", :standard,
+                "DC source p_min = 0 (curtailable)"))
+        end
+        if !haskey(s, "p_max")
+            s["p_max"] = Float64(p)
+            push!(entries, TransformEntry(
+                :dc_source, id, "p_max", nothing, Float64(p),
+                "dc_source_curtailable", :standard,
+                "DC source p_max = p (rated injection)"))
+        end
     end
 end
 

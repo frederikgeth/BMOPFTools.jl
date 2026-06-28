@@ -489,6 +489,34 @@
                         "type": "number",
                         "description": "Maximum net DC-side active power [W] when dc_link_coupled; sum over phases of P <= p_dc_max. 0 for a STATCOM; p_avail for curtailable PV"
                     },
+                    "dc_bus": {
+                        "type": "string",
+                        "description": "Optional reference to a dc_bus id. When present, the converter's DC port injects into that shared DC node (participating in its DC KCL) instead of an isolated private DC link — this is how converter stations / back-to-back SOPs / MVDC ties are formed (several IBRs sharing one dc_bus). When absent, dc_link_coupled retains its isolated-link meaning (p_dc_min/p_dc_max bound)."
+                    },
+                    "dc_terminal_map": {
+                        "$ref": "#/$defs/terminal_map_type",
+                        "description": "DC terminals of the referenced dc_bus the converter's DC port spans (e.g. [pole, return], or [pole] with earth return). Required when dc_bus is set."
+                    },
+                    "dc_control": {
+                        "$ref": "#/$defs/dc_control_type",
+                        "description": "DC-side control mode for a dc_bus-coupled converter: P (constant power, default), V (DC-voltage master holding dc_v_set), or droop (saturated V-P droop). Each connected DC island needs at least one V or droop converter, else the DC voltage is underdetermined."
+                    },
+                    "dc_v_set": {
+                        "type": "number",
+                        "description": "DC-voltage setpoint [V], pole-to-return, for dc_control=V (held exactly) or droop (reference voltage). Defaults to the dc_bus pole-to-return v_dc_nom when absent."
+                    },
+                    "dc_p_ref": {
+                        "type": "number",
+                        "description": "Droop reference active power [W] at dc_v_set (the converter's AC active power when v_dc_port = dc_v_set). Used only for dc_control=droop."
+                    },
+                    "dc_droop": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Droop coefficient k [V/W] for dc_control=droop: P = dc_p_ref + (dc_v_set - v_dc_port)/k, saturated at the converter power limits. Larger k = softer droop."
+                    },
+                    "dc_deadband": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Optional half-width [V] of a dead-band around dc_v_set within which the droop holds P = dc_p_ref (no response to small DC-voltage deviations). Used only for dc_control=droop."
+                    },
                     "q_min": {
                         "type": "number",
                         "description": "Minimum reactive power [var]; negative indicates absorption (default -s_max)"
@@ -747,6 +775,151 @@
                     "description": "General n-winding (3+) transformer as a winding-indexed list with pairwise short-circuit reactances. Winding 1 is the reference; the OPF/Ybus build a star/T-equivalent. WYE and DELTA windings are supported (a DELTA winding's v_ref is its line-to-line coil voltage; delta_roll selects the vector-group rotation)."
                 }
             }
+        },
+        "dc_bus": {
+            "type": "object",
+            "description": "Collection of DC buses (nodes of an MVDC/LVDC network). DC voltage is a signed magnitude relative to earth — no angle. A 1- or 2-terminal dc_bus is a monopole, a 3-terminal dc_bus is a bipole (positive pole, negative pole, metallic return).",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "terminal_names": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Ordered DC terminal names. Length 1 (single pole, earth return), 2 (pole + return), or 3 (bipole: positive pole, negative pole, metallic return)."
+                    },
+                    "perfectly_grounded_terminals": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "DC terminal names held perfectly at earth potential (v_dc = 0). Same idiom as the AC bus."
+                    },
+                    "pole": {
+                        "type": "object",
+                        "description": "Optional map from terminal name to its pole role (POSITIVE, NEGATIVE, or METALLIC_RETURN), used for sign checks and line-to-line/line-to-neutral bound interpretation.",
+                        "additionalProperties": {"$ref": "#/$defs/dc_pole_type"}
+                    },
+                    "v_dc_nom": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "description": "Per-terminal SIGNED nominal line-to-ground voltage [V] (positive pole > 0, negative pole < 0, return ~ 0). Used to derive v_dc_min/v_dc_max during augmentation when those are absent."
+                    },
+                    "v_dc_min": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "description": "Per-terminal SIGNED line-to-ground voltage lower bound [V]; one entry per terminal. Negative for a negative pole."
+                    },
+                    "v_dc_max": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "description": "Per-terminal SIGNED line-to-ground voltage upper bound [V]; one entry per terminal."
+                    },
+                    "vdc_ln_min": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Minimum line-to-neutral DC voltage magnitude [V] (pole minus return / metallic-return conductor). Requires a return/neutral terminal."
+                    },
+                    "vdc_ln_max": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Maximum line-to-neutral DC voltage magnitude [V]."
+                    },
+                    "vdc_ll_min": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Minimum line-to-line DC voltage magnitude [V] (positive pole minus negative pole). Bipole only."
+                    },
+                    "vdc_ll_max": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Maximum line-to-line DC voltage magnitude [V]. Bipole only."
+                    }
+                },
+                "required": ["terminal_names"]
+            }
+        },
+        "dc_branch": {
+            "type": "object",
+            "description": "Collection of DC lines/cables. Each branch is a multi-conductor (1/2/3-wire) link between two dc_bus nodes with per-conductor scalar resistance (no inter-conductor mutual coupling).",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "dc_bus_from": {"type": "string", "description": "Originating dc_bus id"},
+                    "dc_bus_to": {"type": "string", "description": "Terminating dc_bus id"},
+                    "terminal_map_from": {
+                        "$ref": "#/$defs/terminal_map_type",
+                        "description": "DC terminals of dc_bus_from this branch connects to; length = wire count (1/2/3)."
+                    },
+                    "terminal_map_to": {
+                        "$ref": "#/$defs/terminal_map_type",
+                        "description": "DC terminals of dc_bus_to this branch connects to; same length as terminal_map_from."
+                    },
+                    "r": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/nonnegative_number"},
+                        "description": "Per-conductor resistance [Ohm]; one entry per wire."
+                    },
+                    "i_max": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/nonnegative_number"},
+                        "description": "Optional per-conductor current-magnitude limit [A]."
+                    },
+                    "p_max": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Optional branch active-power limit [W]."
+                    }
+                },
+                "required": ["dc_bus_from", "dc_bus_to", "terminal_map_from", "terminal_map_to", "r"]
+            }
+        },
+        "dc_grounding": {
+            "type": "object",
+            "description": "Collection of DC earthing/return points. r = 0 (or omitted) is perfect grounding (v_dc fixed to 0 at the terminal, with free earth-return current); r > 0 is grounding through impedance (earth current = v_dc / r). At least one grounding per connected DC island sets the signed-voltage reference.",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "dc_bus": {"type": "string", "description": "dc_bus being earthed"},
+                    "terminal": {"type": "string", "description": "Which dc_bus terminal is earthed (typically the metallic return / midpoint)"},
+                    "r": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Grounding resistance [Ohm]; 0 or omitted = perfect grounding, > 0 = grounding through impedance."
+                    }
+                },
+                "required": ["dc_bus", "terminal"]
+            }
+        },
+        "dc_load": {
+            "type": "object",
+            "description": "Constant-power DC loads connected to a dc_bus terminal pair.",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "dc_bus": {"type": "string", "description": "dc_bus the load connects to"},
+                    "terminal_map": {
+                        "$ref": "#/$defs/terminal_map_type",
+                        "description": "DC terminals the load draws across (e.g. [pole, return])."
+                    },
+                    "p": {"type": "number", "description": "Active power drawn [W]"}
+                },
+                "required": ["dc_bus", "terminal_map", "p"]
+            }
+        },
+        "dc_source": {
+            "type": "object",
+            "description": "DC-side sources (DC-coupled PV/storage feeding the DC network) connected to a dc_bus terminal pair.",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "dc_bus": {"type": "string", "description": "dc_bus the source injects into"},
+                    "terminal_map": {
+                        "$ref": "#/$defs/terminal_map_type",
+                        "description": "DC terminals the source injects across (e.g. [pole, return])."
+                    },
+                    "p": {"type": "number", "description": "Active power injected [W]; fixed setpoint when p_min/p_max absent"},
+                    "p_min": {"type": "number", "description": "Minimum active power [W]"},
+                    "p_max": {"type": "number", "description": "Maximum active power [W]"}
+                },
+                "required": ["dc_bus", "terminal_map"]
+            }
         }
     },
     "required": [
@@ -773,6 +946,16 @@
             "type": "string",
             "description": "Energy source behind the inverter: PV (non-negative, resource-limited active power), BATTERY (bidirectional), GENERIC, or STATCOM (no active source — pure reactive shunt compensator; DSTATCOM is the distribution-system alias)",
             "enum": ["PV", "BATTERY", "GENERIC", "STATCOM", "DSTATCOM"]
+        },
+        "dc_pole_type": {
+            "type": "string",
+            "description": "DC terminal pole role: POSITIVE pole (v_dc > 0), NEGATIVE pole (v_dc < 0), or METALLIC_RETURN / midpoint (v_dc ~ 0)",
+            "enum": ["POSITIVE", "NEGATIVE", "METALLIC_RETURN"]
+        },
+        "dc_control_type": {
+            "type": "string",
+            "description": "Converter DC-side control mode: P (constant power), V (DC-voltage master / slack), or droop (saturated V-P droop)",
+            "enum": ["P", "V", "droop"]
         },
         "voltage_reference_type": {
             "type": "string",

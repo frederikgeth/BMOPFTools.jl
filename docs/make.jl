@@ -39,6 +39,7 @@ makedocs(
             "Validating the OPF"       => "validation.md",
             "SWER case study"          => "tutorial_swer.md",
             "D-STATCOM unbalance study" => "tutorial_statcom.md",
+            "MVDC/LVDC converter stations" => "tutorial_mvdc.md",
             "Transformer tap optimisation" => "tutorial_tap.md",
         ],
         "Bounds & feasibility"    => [

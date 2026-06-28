@@ -132,6 +132,129 @@ function integrity_check(net::Dict{String,Any},
         _check_droop_profile!(findings, cp_id, cp)
     end
 
+    # --- DC network referential integrity ---
+    #   dc_bus refs resolve; DC terminal maps resolve to dc_bus.terminal_names;
+    #   each connected DC island (dc_buses joined by dc_branches) is referenced
+    #   by at least one dc_grounding (perfect or resistive), else signed DC
+    #   voltages float — the DC analog of E.INT.NO_VOLTAGE_REFERENCE.
+    dc_buses  = get(net, "dc_bus", Dict())
+    dc_busset = Set(keys(dc_buses))
+    dc_term_set(b) = Set(string.(get(get(dc_buses, b, Dict()),
+                                     "terminal_names", String[])))
+
+    check_dc_bus_ref(comp_type, id, b) = begin
+        if !(b in dc_busset)
+            n_ref_issues += 1
+            push!(findings, Finding(ERROR, "E.INT.UNKNOWN_DC_BUS", :integrity,
+                Symbol(comp_type), id,
+                "$comp_type '$id' references unknown dc_bus '$b'.",
+                Dict{String,Any}("dc_bus" => b)))
+            return false
+        end
+        true
+    end
+
+    check_dc_tmap(comp_type, id, b, tm) = begin
+        bad = [t for t in string.(tm) if !(t in dc_term_set(b))]
+        if !isempty(bad)
+            n_ref_issues += 1
+            push!(findings, Finding(ERROR, "E.INT.UNKNOWN_DC_TERMINAL", :integrity,
+                Symbol(comp_type), id,
+                "$comp_type '$id' DC terminal map references terminal(s) " *
+                "$(bad) not defined at dc_bus '$b'.",
+                Dict{String,Any}("dc_bus" => b, "terminals" => bad)))
+        end
+    end
+
+    # IBR DC ports
+    for (id, inv) in get(net, "ibr", Dict())
+        inv isa Dict || continue
+        b = get(inv, "dc_bus", nothing)
+        b isa AbstractString || continue
+        check_dc_bus_ref("ibr", id, b) &&
+            check_dc_tmap("ibr", id, b, get(inv, "dc_terminal_map", String[]))
+    end
+    # DC loads / sources
+    for comp_type in ("dc_load", "dc_source")
+        for (id, c) in get(net, comp_type, Dict())
+            c isa Dict || continue
+            b = get(c, "dc_bus", nothing)
+            b isa AbstractString || continue
+            check_dc_bus_ref(comp_type, id, b) &&
+                check_dc_tmap(comp_type, id, b, get(c, "terminal_map", String[]))
+        end
+    end
+    # DC grounding
+    for (id, g) in get(net, "dc_grounding", Dict())
+        g isa Dict || continue
+        b = get(g, "dc_bus", nothing)
+        b isa AbstractString || continue
+        if check_dc_bus_ref("dc_grounding", id, b)
+            t = get(g, "terminal", nothing)
+            t isa AbstractString && check_dc_tmap("dc_grounding", id, b, [t])
+        end
+    end
+    # DC branches (both ends)
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa Dict || continue
+        for (busfield, tmfield) in (("dc_bus_from", "terminal_map_from"),
+                                    ("dc_bus_to",   "terminal_map_to"))
+            b = get(br, busfield, nothing)
+            b isa AbstractString || continue
+            check_dc_bus_ref("dc_branch", id, b) &&
+                check_dc_tmap("dc_branch", id, b, get(br, tmfield, String[]))
+        end
+    end
+
+    # DC islands: union-find over dc_buses joined by dc_branches; require a
+    # grounding in each island.
+    if !isempty(dc_busset)
+        parent = Dict(b => b for b in dc_busset)
+        find(x) = (parent[x] == x ? x : (parent[x] = find(parent[x])))
+        for (_, br) in get(net, "dc_branch", Dict())
+            br isa Dict || continue
+            a = get(br, "dc_bus_from", nothing); c = get(br, "dc_bus_to", nothing)
+            (a in dc_busset && c in dc_busset) && (parent[find(a)] = find(c))
+        end
+        grounded_dc = Set(find(get(g, "dc_bus", "")) for (_, g) in
+                          get(net, "dc_grounding", Dict())
+                          if g isa Dict && get(g, "dc_bus", "") in dc_busset)
+        dc_islands = Dict{String,Vector{String}}()
+        for b in dc_busset
+            push!(get!(dc_islands, find(b), String[]), b)
+        end
+        for (root, members) in dc_islands
+            root in grounded_dc && continue
+            push!(findings, Finding(ERROR, "E.INT.NO_DC_VOLTAGE_REFERENCE", :integrity,
+                :network, nothing,
+                "DC island of $(length(members)) dc_bus(es) has no grounding " *
+                "(perfect or resistive) — signed DC voltages float: " *
+                "$(join(sort(members), ", ")).",
+                Dict{String,Any}("dc_buses" => sort(members))))
+        end
+
+        # DC-voltage control: each island needs ≥1 converter on V or droop control,
+        # else the DC operating voltage is underdetermined (the DC analog of needing
+        # an AC slack). Master-slave / droop per MTDC practice.
+        controlled = Set{String}()
+        for (_, inv) in get(net, "ibr", Dict())
+            inv isa Dict && haskey(inv, "dc_bus") || continue
+            String(get(inv, "dc_control", "P")) in ("V", "droop") || continue
+            b = get(inv, "dc_bus", "")
+            b in dc_busset && push!(controlled, find(b))
+        end
+        for (root, members) in dc_islands
+            root in controlled && continue
+            push!(findings, Finding(ERROR, "E.INT.DC_NO_VOLTAGE_CONTROL", :integrity,
+                :network, nothing,
+                "DC island of $(length(members)) dc_bus(es) has no converter on " *
+                "DC-voltage control (dc_control = \"V\" or \"droop\") — the DC " *
+                "operating voltage is underdetermined. Designate a master/droop " *
+                "converter: $(join(sort(members), ", ")).",
+                Dict{String,Any}("dc_buses" => sort(members))))
+        end
+    end
+
     # --- linecode references + dimension consistency ---
     linecodes = get(net, "linecode", Dict())
     lc_dims = Dict{String,Int}()
@@ -339,6 +462,44 @@ function integrity_check(net::Dict{String,Any},
             "voltages are defined only up to a shift (rank-deficient): " *
             "$(join(comp, ", ")).",
             Dict{String,Any}("buses" => comp)))
+    end
+
+    # --- MVDC embedding: converters must land in a referenced AC system ---
+    # An MVDC/LVDC subsystem is expected to be embedded within a referenced AC
+    # network: every converter's AC bus should sit in an AC galvanic island that
+    # carries its own AC voltage reference (source / grounding). A converter whose
+    # AC bus is energised ONLY through the DC link — the dangling case
+    # "AC system — converter — dc line — converter — bare bus" — is flagged,
+    # unless that island hosts a grid-forming converter (which can set the AC
+    # reference itself).
+    if !isempty(dc_busset)
+        island_of = Dict{String,Int}()
+        for (i, comp) in enumerate(islands), b in comp
+            island_of[b] = i
+        end
+        referenced = Set(i for (i, comp) in enumerate(islands)
+                         if any(b -> b in src_buses || b in grounded_buses, comp))
+        # AC islands made referenceable by a grid-forming converter.
+        for (_, inv) in get(net, "ibr", Dict())
+            inv isa Dict && get(inv, "grid_forming", false) === true || continue
+            ab = get(inv, "bus", nothing)
+            ab isa AbstractString && haskey(island_of, ab) &&
+                push!(referenced, island_of[ab])
+        end
+        for (id, inv) in get(net, "ibr", Dict())
+            inv isa Dict && haskey(inv, "dc_bus") || continue
+            ab = get(inv, "bus", nothing)
+            ab isa AbstractString && haskey(island_of, ab) || continue
+            island_of[ab] in referenced && continue
+            push!(findings, Finding(WARNING, "W.INT.DC_FED_AC_ISLAND", :integrity,
+                :ibr, id,
+                "Converter '$id' feeds AC bus '$ab', whose AC island has no AC " *
+                "voltage reference (no source/grounding) and no grid-forming " *
+                "converter — it is energised only through the MVDC link " *
+                "(dangling / not embedded in a referenced AC system). If this is " *
+                "an intentional DC-fed feeder, mark a converter grid_forming.",
+                Dict{String,Any}("bus" => ab)))
+        end
     end
 
     # --- wye without neutral ---
