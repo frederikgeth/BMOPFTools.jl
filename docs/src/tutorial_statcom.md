@@ -19,8 +19,8 @@ reactive management with STATCOMs is an active research thread for four-wire LV
 feeders ([2](@ref refs-statcom)).
 
 The instinct misfires in LV, and the reason is the network impedance. Voltage
-magnitude responds to a power injection roughly as ``\Delta|V| \approx (R\,\Delta P
-+ X\,\Delta Q)/|V|``. On the transmission grid ``X \gg R`` so reactive power is the
+magnitude responds to a power injection roughly as
+``\Delta|V| \approx (R\,\Delta P + X\,\Delta Q)/|V|``. On the transmission grid ``X \gg R`` so reactive power is the
 lever; on an LV feeder the cables are **resistive**, ``X/R \approx 0.2\!-\!0.5``, so
 it is **active** power that moves the voltage ([1](@ref refs-statcom)). A var source
 therefore has weak authority over the very phase that needs help.

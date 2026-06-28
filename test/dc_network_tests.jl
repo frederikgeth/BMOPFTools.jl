@@ -34,7 +34,8 @@
          "ibr":{
             "vsc1":{"bus":"f1","terminal_map":["a","n"],"topology":"SINGLE_PHASE",
                     "prime_mover":"GENERIC","s_max":[8000.0],
-                    "dc_bus":"dcA","dc_terminal_map":["p","m"]},
+                    "dc_bus":"dcA","dc_terminal_map":["p","m"],
+                    "dc_control":"V","dc_v_set":800.0},
             "vsc2":{"bus":"f2","terminal_map":["a","n"],"topology":"SINGLE_PHASE",
                     "prime_mover":"GENERIC","s_max":[8000.0],
                     "dc_bus":"dcA","dc_terminal_map":["p","m"]}},
@@ -55,9 +56,10 @@
         # Economic direction: import on the cheap feeder (vsc1 absorbs, p1 < 0).
         @test p1 < -1.0
         @test p2 > 1.0
-        # Signed DC pole voltage within its band; return pinned to 0.
+        # The V-master pins the DC pole-to-return voltage to its 800 V setpoint;
+        # return pinned to 0.
         vp = res["dc_bus"]["dcA"]["p"]["v_dc"]
-        @test 700.0 - 1e-3 <= vp <= 900.0 + 1e-3
+        @test vp ≈ 800.0 atol=1e-2
         @test res["dc_bus"]["dcA"]["m"]["v_dc"] ≈ 0.0 atol=1e-6
     end
 
@@ -85,7 +87,8 @@
          "ibr":{
             "vsc1":{"bus":"f1","terminal_map":["a","n"],"topology":"SINGLE_PHASE",
                     "prime_mover":"GENERIC","s_max":[8000.0],
-                    "dc_bus":"dcA","dc_terminal_map":["p","m"]},
+                    "dc_bus":"dcA","dc_terminal_map":["p","m"],
+                    "dc_control":"V","dc_v_set":850.0},
             "vsc2":{"bus":"f2","terminal_map":["a","n"],"topology":"SINGLE_PHASE",
                     "prime_mover":"GENERIC","s_max":[8000.0],
                     "dc_bus":"dcB","dc_terminal_map":["p","m"]}},
@@ -138,7 +141,8 @@
          "ibr":{
             "vsc1":{"bus":"f1","terminal_map":["a","n"],"topology":"SINGLE_PHASE",
                     "prime_mover":"STATCOM","s_max":[5000.0],
-                    "dc_bus":"dcA","dc_terminal_map":["p","m"]}},
+                    "dc_bus":"dcA","dc_terminal_map":["p","m"],
+                    "dc_control":"V","dc_v_set":800.0}},
          "dc_bus":{
             "dcA":{"terminal_names":["p","m"],"pole":{"p":"POSITIVE","m":"METALLIC_RETURN"},
                    "v_dc_min":[700.0,0.0],"v_dc_max":[900.0,0.0]}},
@@ -180,8 +184,77 @@ end
 
     @test "E.INT.UNKNOWN_DC_BUS" in codes          # dc_branch → "nope"
     @test "E.INT.NO_DC_VOLTAGE_REFERENCE" in codes # no grounding on the island
+    @test "E.INT.DC_NO_VOLTAGE_CONTROL" in codes   # both converters default P-control
     @test "E.SPEC.DC_BUS_ARITY" in codes           # 4-wire dc_bus
     @test "E.DOM.DC_R_NEGATIVE" in codes           # r = −0.1
+
+    # Line-to-neutral bound without a pole role to orient it → required-role error.
+    net2 = Dict{String,Any}(
+        "bus" => Dict{String,Any}("b1" => Dict{String,Any}("terminal_names"=>["a","n"])),
+        "voltage_source" => Dict{String,Any}("s" => Dict{String,Any}(
+            "bus"=>"b1","terminal_map"=>["a","n"],
+            "v_magnitude"=>[230.0,0.0],"v_angle"=>[0.0,0.0])),
+        "dc_bus" => Dict{String,Any}("dcA" => Dict{String,Any}(
+            "terminal_names"=>["p","m"], "vdc_ln_max"=>800.0)),   # no `pole` map
+    )
+    f2 = BMOPFTools.Finding[]
+    BMOPFTools.domain_rules_check(net2, f2)
+    @test "E.DOM.DC_POLE_ROLE_REQUIRED" in [f.code for f in f2]
+
+    # Droop reference power beyond the converter's capability → DC_DROOP_BOUNDS.
+    net3 = Dict{String,Any}(
+        "ibr" => Dict{String,Any}("vD" => Dict{String,Any}(
+            "bus"=>"b1","terminal_map"=>["a","n"],"topology"=>"SINGLE_PHASE",
+            "prime_mover"=>"GENERIC","s_max"=>[5000.0],
+            "dc_bus"=>"dcA","dc_terminal_map"=>["p","m"],
+            "dc_control"=>"droop","dc_v_set"=>800.0,"dc_droop"=>0.001,
+            "dc_p_ref"=>20000.0)),                       # 20 kW ≫ 5 kVA capability
+        "dc_bus" => Dict{String,Any}("dcA" => Dict{String,Any}(
+            "terminal_names"=>["p","m"])),
+    )
+    f3 = BMOPFTools.Finding[]
+    BMOPFTools.domain_rules_check(net3, f3)
+    @test "W.DOM.DC_DROOP_BOUNDS" in [f.code for f in f3]
+end
+
+@testset "DC network — converter DC-voltage control" begin
+    # Two converters share dcA: vM is the V-master (pins v_dc = v_set), vD runs
+    # droop. Driven at its reference voltage the droop converter outputs dc_p_ref;
+    # driven far past its band it saturates at the converter limit ±Σs_max.
+    mk(vset_master, vD_extra) = parse_bmopf("""
+    {"bus":{
+        "f1":{"terminal_names":["a","n"],"perfectly_grounded_terminals":["n"],"v_min":[210.0],"v_max":[250.0]},
+        "f2":{"terminal_names":["a","n"],"perfectly_grounded_terminals":["n"],"v_min":[210.0],"v_max":[250.0]}},
+     "voltage_source":{
+        "s1":{"bus":"f1","terminal_map":["a","n"],"v_magnitude":[230.0,0.0],"v_angle":[0.0,0.0],"cost":[1.0]},
+        "s2":{"bus":"f2","terminal_map":["a","n"],"v_magnitude":[230.0,0.0],"v_angle":[0.0,0.0],"cost":[1.0]}},
+     "ibr":{
+        "vM":{"bus":"f1","terminal_map":["a","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC","s_max":[20000.0],
+              "dc_bus":"dcA","dc_terminal_map":["p","m"],"dc_control":"V","dc_v_set":$(vset_master)},
+        "vD":{"bus":"f2","terminal_map":["a","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC","s_max":[8000.0],
+              "dc_bus":"dcA","dc_terminal_map":["p","m"],"dc_control":"droop",$(vD_extra)}},
+     "dc_bus":{"dcA":{"terminal_names":["p","m"],"pole":{"p":"POSITIVE","m":"METALLIC_RETURN"},
+                      "v_dc_min":[600.0,0.0],"v_dc_max":[1000.0,0.0]}},
+     "dc_grounding":{"g":{"dc_bus":"dcA","terminal":"m","r":0.0}}}
+    """; from_string=true)
+
+    @testset "droop at reference → p_ref" begin
+        # master pins v_dc = 800 = vD's dc_v_set ⇒ droop sits at its reference power.
+        net = mk(800.0, "\"dc_v_set\":800.0,\"dc_droop\":0.001,\"dc_p_ref\":3000.0")
+        res = solve_opf(net)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test res["dc_bus"]["dcA"]["p"]["v_dc"] ≈ 800.0 atol=1e-2
+        @test res["ibr"]["vD"]["a"]["pg"] ≈ 3000.0 atol=5.0
+    end
+
+    @testset "droop driven past band → saturates at Σs_max" begin
+        # master pins v_dc = 1000, vD's droop centred at 600 with a stiff slope ⇒
+        # the droop line demands huge power; it must clamp at +s_max = 8000 W.
+        net = mk(1000.0, "\"dc_v_set\":600.0,\"dc_droop\":1.0e-5,\"dc_p_ref\":0.0")
+        res = solve_opf(net)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test res["ibr"]["vD"]["a"]["pg"] ≈ 8000.0 atol=20.0   # saturated, not >>8000
+    end
 end
 
 @testset "DC network — dangling converter detection" begin

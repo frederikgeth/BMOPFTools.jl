@@ -2,7 +2,7 @@
 
 This tutorial shows how BMOPFTools models **MVDC/LVDC converter stations** —
 back-to-back soft open points (SOPs), MVDC ties, and DC feeders — by reusing the
-[`ibr`](@ref) object. There is no separate "converter" object: an AC/DC converter
+`ibr` object. There is no separate "converter" object: an AC/DC converter
 is an `ibr` that carries a `dc_bus` reference, and **several converters sharing one
 `dc_bus` form a station**. The DC side balances active power, so the station can
 route power between AC feeders that the AC topology alone could not.
@@ -54,7 +54,7 @@ net = parse_bmopf("""
    "La_load":{"bus":"a","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[50000.0],"q_nom":[0.0]},
    "Lb_load":{"bus":"b","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[10000.0],"q_nom":[0.0]}},
  "ibr":{
-   "vA":{"bus":"a","terminal_map":["1","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC","s_max":[60000.0],"dc_bus":"dc","dc_terminal_map":["p","m"]},
+   "vA":{"bus":"a","terminal_map":["1","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC","s_max":[60000.0],"dc_bus":"dc","dc_terminal_map":["p","m"],"dc_control":"V","dc_v_set":1500.0},
    "vB":{"bus":"b","terminal_map":["1","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC","s_max":[60000.0],"dc_bus":"dc","dc_terminal_map":["p","m"]}},
  "dc_bus":{
    "dc":{"terminal_names":["p","m"],"pole":{"p":"POSITIVE","m":"METALLIC_RETURN"},
@@ -73,6 +73,14 @@ must supply — and with the loads fixed, that is exactly the network loss. The 
 converters share `dc_bus = "dc"`, which is what makes them one station; each spans
 the pole `p` and the grounded metallic return `m`.
 
+Converter `vA` is the **DC-voltage master** (`dc_control = "V"`, `dc_v_set = 1500`):
+like an AC slack bus, an MVDC zone needs one converter to set the DC voltage, or
+its `v_dc` is underdetermined (the validator flags `E.INT.DC_NO_VOLTAGE_CONTROL`
+otherwise). The master holds `v_dc`; its AC power floats to balance the zone, while
+`vB` controls power. Real systems also use **V–P droop** (`dc_control = "droop"`),
+which shares DC-voltage regulation across converters and saturates at their power
+limits — see the [conventions](conventions.md#DC-network-MVDC/LVDC-—-terminals-poles-grounding).
+
 ## The answer the optimiser computes
 
 The two feeders start at 50 kW and 10 kW. The OPF chooses to move **20 kW** across
@@ -84,6 +92,54 @@ to **1917 W** — a **34 % reduction** — with no change to the loads served.
 Crucially, `20 kW` is not something you could read off a load-flow run; it is the
 *decision* the optimisation makes. Drop the converters and you get the radial 2889 W;
 the SOP's value only appears once you let the OPF choose the transfer.
+
+## Droop control: shared DC-voltage regulation
+
+The case above uses one **V-master** (`dc_control = "V"`) — fine when a single
+converter can hold the DC voltage. Real MVDC zones usually prefer **V–P droop**,
+where several converters *share* the DC-voltage regulation, so no single converter
+is a single point of failure ([droop-vs-margin comparison](https://www.researchgate.net/publication/330396056_Comparison_Between_Voltage_Droop_and_Voltage_Margin_Controllers_for_MTDC_Systems);
+[generalized voltage droop](https://www.researchgate.net/publication/256627306_A_Generalized_Voltage_Droop_Strategy_for_Control_of_Multi-Terminal_DC_Drids)).
+Droop is a **control law**, not free dispatch: each converter's power follows its
+own P–V characteristic, `P = dc_p_ref + (v_dc − dc_v_set)/dc_droop`, saturated at
+its power limits.
+
+Put two droop converters (`vA`, `vB`) on one `dc_bus` that jointly feed a DC load,
+both with `dc_v_set = 1500`, `dc_p_ref = 0`:
+
+```julia
+"ibr":{
+  "vA":{…,"dc_bus":"dc","dc_terminal_map":["p","m"],
+        "dc_control":"droop","dc_v_set":1500.0,"dc_p_ref":0.0,"dc_droop":kA},
+  "vB":{…,"dc_bus":"dc","dc_terminal_map":["p","m"],
+        "dc_control":"droop","dc_v_set":1500.0,"dc_p_ref":0.0,"dc_droop":kB}},
+"dc_load":{"dl":{"dc_bus":"dc","terminal_map":["p","m"],"p":P_load}}
+```
+
+Solving gives the textbook droop behaviour — and it is the OPF that finds the
+self-consistent `(v_dc, P_A, P_B)`, not a hand-iterated controller model:
+
+| `kA` | `kB` | `P_load` | `P_A` | `P_B` | `v_dc` |
+|------|------|----------|-------|-------|--------|
+| 0.005 | 0.005 | 10 kW | 5.0 kW | 5.0 kW | 1475 V |
+| 0.0025 | 0.005 | 10 kW | 6.67 kW | 3.33 kW | 1483 V |
+| 0.005 | 0.005 | 60 kW | 30 kW | 30 kW | 1350 V |
+
+Three things to read off:
+- **The DC voltage droops** below the 1500 V reference as load rises (1475 → 1350 V)
+  — that voltage *deviation* is the shared signal that tells every converter how
+  much to contribute.
+- **Power shares inversely to the droop coefficient.** Halving `kA` (a stiffer
+  converter) makes `vA` carry twice `vB` (6.67 vs 3.33 kW) — each obeys
+  `P = (dc_v_set − v_dc)/dc_droop`.
+- **Saturation is built in.** Drive the load past the converters' headroom and each
+  `P` clamps at its `s_max` instead of following the line to infinity — the curve is
+  a *saturated* piecewise-linear P–V characteristic, encoded with the same smooth
+  (softplus) machinery as the Volt-watt/Volt-var droops so it stays well-behaved for
+  Ipopt.
+
+Every DC zone needs at least one `"V"` or `"droop"` converter; an all-`"P"` zone
+leaves `v_dc` undetermined and is flagged `E.INT.DC_NO_VOLTAGE_CONTROL`.
 
 ## Extending the story
 

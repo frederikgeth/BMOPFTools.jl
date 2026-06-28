@@ -138,6 +138,36 @@ function _check_dc_network(net, findings, n_checks)
                 :domain_rules, :dc_bus, id,
                 "dc_bus '$id': vdc_ll_min ($lllo) > vdc_ll_max ($llhi) V.", nothing))
         end
+        # Oriented (linear) bounds require pole roles to fix the sign. A line-to-
+        # neutral bound needs each non-return terminal tagged POSITIVE/NEGATIVE; a
+        # line-to-line bound needs both a POSITIVE and a NEGATIVE pole.
+        if has_ln
+            ret = nothing
+            if pole isa Dict
+                for (t, r) in pole; String(r) == "METALLIC_RETURN" && (ret = t) end
+            end
+            for t in terms
+                t == ret && continue
+                role = pole isa Dict ? String(get(pole, t, "")) : ""
+                if !(role in ("POSITIVE", "NEGATIVE"))
+                    push!(findings, Finding(ERROR, "E.DOM.DC_POLE_ROLE_REQUIRED",
+                        :domain_rules, :dc_bus, id,
+                        "dc_bus '$id': terminal '$t' needs a POSITIVE/NEGATIVE pole " *
+                        "role to orient its line-to-neutral voltage bound.",
+                        Dict{String,Any}("terminal" => t)))
+                end
+            end
+        end
+        if has_ll
+            haspos = pole isa Dict && any(String(r) == "POSITIVE"  for (_, r) in pole)
+            hasneg = pole isa Dict && any(String(r) == "NEGATIVE"  for (_, r) in pole)
+            if !(haspos && hasneg)
+                push!(findings, Finding(ERROR, "E.DOM.DC_POLE_ROLE_REQUIRED",
+                    :domain_rules, :dc_bus, id,
+                    "dc_bus '$id': line-to-line bound needs both a POSITIVE and a " *
+                    "NEGATIVE pole role.", nothing))
+            end
+        end
         # line-to-line needs two poles (≥ 3-wire bipole)
         if has_ll && nwire < 3
             push!(findings, Finding(ERROR, "E.DOM.DC_LL_BOUND_NO_POLE",
@@ -247,6 +277,44 @@ function _check_dc_network(net, findings, n_checks)
             :domain_rules, :dc_bus, id,
             "dc_bus '$id' has no converter (IBR) attached — islanded DC node.",
             nothing))
+    end
+
+    # --- droop control consistent with the converter's P/Q/S capability ---
+    # The droop law P = f(v_dc) is a hard equality; if its reference or saturation
+    # range fights the converter's own active-power box or apparent-power circle the
+    # OPF turns infeasible. Flag the static conflicts.
+    profiles = get(net, "control_profile", Dict())
+    for (id, inv) in get(net, "ibr", Dict())
+        inv isa Dict && String(get(inv, "dc_control", "P")) == "droop" || continue
+        smax = Float64.(get(inv, "s_max", Float64[]))
+        pmax = Float64.(get(inv, "p_max", Float64[]))
+        pmin = Float64.(get(inv, "p_min", Float64[]))
+        P_hi = !isempty(pmax) ? sum(pmax) : (isempty(smax) ? 0.0 :  sum(smax))
+        P_lo = !isempty(pmin) ? sum(pmin) : (isempty(smax) ? 0.0 : -sum(smax))
+        p_ref = Float64(get(inv, "dc_p_ref", 0.0))
+        if p_ref > P_hi + 1e-6 || p_ref < P_lo - 1e-6
+            push!(findings, Finding(WARNING, "W.DOM.DC_DROOP_BOUNDS",
+                :domain_rules, :ibr, id,
+                "IBR '$id': droop dc_p_ref = $(p_ref) W is outside the converter's " *
+                "net active-power capability [$(round(P_lo)), $(round(P_hi))] W — the " *
+                "droop equality will fight the P bounds (risking infeasibility).",
+                Dict{String,Any}("dc_p_ref" => p_ref, "p_lo" => P_lo, "p_hi" => P_hi)))
+        end
+        # Droop saturates at ±ΣP, but a power-factor profile forces Q = tanφ·P, so the
+        # apparent-power circle caps P at s_max·cosφ < ΣP: the saturation is then
+        # unreachable.
+        cp = get(inv, "control_profile", nothing)
+        has_pf = cp isa AbstractString && haskey(profiles, cp) &&
+                 get(profiles[cp], "power_factor", nothing) isa Dict
+        if has_pf && !isempty(smax)
+            push!(findings, Finding(WARNING, "W.DOM.DC_DROOP_BOUNDS",
+                :domain_rules, :ibr, id,
+                "IBR '$id': droop control combined with a power_factor profile — the " *
+                "forced reactive power shrinks the active-power headroom (s_max " *
+                "circle) below the droop's saturation limit, which can make the droop " *
+                "setpoint unreachable.",
+                Dict{String,Any}("control_profile" => cp)))
+        end
     end
 end
 

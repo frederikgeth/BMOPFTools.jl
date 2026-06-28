@@ -497,6 +497,26 @@
                         "$ref": "#/$defs/terminal_map_type",
                         "description": "DC terminals of the referenced dc_bus the converter's DC port spans (e.g. [pole, return], or [pole] with earth return). Required when dc_bus is set."
                     },
+                    "dc_control": {
+                        "$ref": "#/$defs/dc_control_type",
+                        "description": "DC-side control mode for a dc_bus-coupled converter: P (constant power, default), V (DC-voltage master holding dc_v_set), or droop (saturated V-P droop). Each connected DC island needs at least one V or droop converter, else the DC voltage is underdetermined."
+                    },
+                    "dc_v_set": {
+                        "type": "number",
+                        "description": "DC-voltage setpoint [V], pole-to-return, for dc_control=V (held exactly) or droop (reference voltage). Defaults to the dc_bus pole-to-return v_dc_nom when absent."
+                    },
+                    "dc_p_ref": {
+                        "type": "number",
+                        "description": "Droop reference active power [W] at dc_v_set (the converter's AC active power when v_dc_port = dc_v_set). Used only for dc_control=droop."
+                    },
+                    "dc_droop": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Droop coefficient k [V/W] for dc_control=droop: P = dc_p_ref + (dc_v_set - v_dc_port)/k, saturated at the converter power limits. Larger k = softer droop."
+                    },
+                    "dc_deadband": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Optional half-width [V] of a dead-band around dc_v_set within which the droop holds P = dc_p_ref (no response to small DC-voltage deviations). Used only for dc_control=droop."
+                    },
                     "q_min": {
                         "type": "number",
                         "description": "Minimum reactive power [var]; negative indicates absorption (default -s_max)"
@@ -931,6 +951,11 @@
             "type": "string",
             "description": "DC terminal pole role: POSITIVE pole (v_dc > 0), NEGATIVE pole (v_dc < 0), or METALLIC_RETURN / midpoint (v_dc ~ 0)",
             "enum": ["POSITIVE", "NEGATIVE", "METALLIC_RETURN"]
+        },
+        "dc_control_type": {
+            "type": "string",
+            "description": "Converter DC-side control mode: P (constant power), V (DC-voltage master / slack), or droop (saturated V-P droop)",
+            "enum": ["P", "V", "droop"]
         },
         "voltage_reference_type": {
             "type": "string",

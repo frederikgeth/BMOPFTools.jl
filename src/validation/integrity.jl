@@ -232,6 +232,27 @@ function integrity_check(net::Dict{String,Any},
                 "$(join(sort(members), ", ")).",
                 Dict{String,Any}("dc_buses" => sort(members))))
         end
+
+        # DC-voltage control: each island needs ≥1 converter on V or droop control,
+        # else the DC operating voltage is underdetermined (the DC analog of needing
+        # an AC slack). Master-slave / droop per MTDC practice.
+        controlled = Set{String}()
+        for (_, inv) in get(net, "ibr", Dict())
+            inv isa Dict && haskey(inv, "dc_bus") || continue
+            String(get(inv, "dc_control", "P")) in ("V", "droop") || continue
+            b = get(inv, "dc_bus", "")
+            b in dc_busset && push!(controlled, find(b))
+        end
+        for (root, members) in dc_islands
+            root in controlled && continue
+            push!(findings, Finding(ERROR, "E.INT.DC_NO_VOLTAGE_CONTROL", :integrity,
+                :network, nothing,
+                "DC island of $(length(members)) dc_bus(es) has no converter on " *
+                "DC-voltage control (dc_control = \"V\" or \"droop\") — the DC " *
+                "operating voltage is underdetermined. Designate a master/droop " *
+                "converter: $(join(sort(members), ", ")).",
+                Dict{String,Any}("dc_buses" => sort(members))))
+        end
     end
 
     # --- linecode references + dimension consistency ---

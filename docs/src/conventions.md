@@ -175,6 +175,24 @@ needs at least one grounding, else `E.INT.NO_DC_VOLTAGE_REFERENCE` fires.
 its AC active power, so a back-to-back SOP conserves power exactly and an MVDC tie
 loses only the `I²R` of its DC line.
 
+**DC-voltage control (`dc_control`).** Like an AC network needs a slack/reference,
+an MVDC zone needs a converter that sets the DC voltage — otherwise `v_dc` is
+underdetermined. Mirroring HVDC/MVDC practice (master–slave and droop):
+- `"P"` (default) — constant power; the OPF dispatches the converter's power.
+- `"V"` — DC-voltage **master**: holds `v_dc(pole−return) = dc_v_set` (a fixed
+  setpoint, like an AC source's `v_magnitude`); its AC power floats to balance the
+  zone.
+- `"droop"` — **saturated** V–P droop: the AC power follows
+  `P = dc_p_ref + (v_dc − dc_v_set)/dc_droop` inside an optional `±dc_deadband`,
+  and **clamps to the converter's power limits** outside the droop band (a
+  piecewise-linear P–V curve, implemented with the smooth-ReLU machinery so it is
+  Ipopt-friendly). Higher `dc_droop` = softer droop; `dc_droop → 0` is the stiff
+  (constant-V) limit.
+
+Every connected DC island must have ≥1 `"V"` or `"droop"` converter, else
+`E.INT.DC_NO_VOLTAGE_CONTROL` fires. Line-to-neutral / line-to-line bounds require
+`pole` roles to orient them (`E.DOM.DC_POLE_ROLE_REQUIRED`).
+
 ## Transformer subtypes
 
 Six subtypes, each its own sub-dict under `transformer`.  All impedance

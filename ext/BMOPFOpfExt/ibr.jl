@@ -328,7 +328,9 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             # converters/loads/sources through DC KCL. This forms a converter
             # station / back-to-back SOP / MVDC tie.
             p_ac = @expression(model, sum(p_exprs))
-            _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac)
+            _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac, smax,
+                                     p_min, p_max;
+                                     relu_eps=relu_eps, relu_ops=relu_ops, net=net)
         elseif dc_coupled && !isempty(p_exprs)
             # Isolated DC link: bound the net (sum of per-phase) active power,
             # letting the converter circulate active power between phases.
