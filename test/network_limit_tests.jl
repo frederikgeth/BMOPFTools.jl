@@ -218,4 +218,73 @@
         @test_skip "scaffold: add i_max line fixture, assert cm_fr ≈ i_max at the bound"
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # L-A9: neutral-conductor current limit (trailing per-conductor `i_max` entry)
+    #
+    # Class A on the IMPLICIT neutral current. A star device's neutral return
+    # carries −Σ(phase currents); a 4th i_max entry caps it via
+    # (Σ crg)² + (Σ cig)² ≤ i_max_neutral². We incentivise injection on phase a
+    # only (so |Iₙ| ≈ |Iₐ|), drive it onto a small neutral cap, and recompute the
+    # neutral magnitude from the primal phase currents.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "L-A9: neutral current bound — recompute |Iₙ| = |Σ Iₖ|" begin
+        _net(comp) = parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+                "b":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+                     "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
+         "linecode":{"lc":{"R_series_1_1":0.1,"R_series_2_2":0.1,"R_series_3_3":0.1,"R_series_4_4":0.1}},
+         "line":{"l":{"bus_from":"src","bus_to":"b","terminal_map_from":["1","2","3","n"],
+             "terminal_map_to":["1","2","3","n"],"linecode":"lc","length":1.0}},
+         $(comp)}
+        """; from_string=true)
+
+        # (a) WYE generator
+        gnet = _net("""
+        "generator":{"g":{"bus":"b","terminal_map":["1","2","3","n"],"configuration":"WYE",
+            "p_min":[0.0,0.0,0.0],"p_max":[20000.0,0.0,0.0],"q_min":[0.0,0.0,0.0],"q_max":[0.0,0.0,0.0],
+            "cost":[-1.0,0.0,0.0],"i_max":[1000.0,1000.0,1000.0,10.0]}}""")
+        res = solve_opf(gnet)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        g  = res["generator"]["g"]
+        crn = g["1"]["crg"] + g["2"]["crg"] + g["3"]["crg"]
+        cin = g["1"]["cig"] + g["2"]["cig"] + g["3"]["cig"]
+        @test hypot(crn, cin) ≈ 10.0 atol = 1e-1          # neutral current binds the cap
+        @test hypot(g["1"]["crg"], g["1"]["cig"]) ≈ 10.0 atol = 1e-1   # only phase a flows
+
+        # (b) FOUR_LEG IBR — same neutral cap via the shared helper
+        inet = _net("""
+        "ibr":{"v":{"bus":"b","terminal_map":["1","2","3","n"],"topology":"FOUR_LEG",
+            "prime_mover":"GENERIC","s_max":[20000.0,20000.0,20000.0],
+            "p_min":[0.0,0.0,0.0],"p_max":[20000.0,0.0,0.0],"q_min":[0.0,0.0,0.0],"q_max":[0.0,0.0,0.0],
+            "cost":[-1.0,0.0,0.0],"i_max":[1000.0,1000.0,1000.0,10.0]}}""")
+        res2 = solve_opf(inet)
+        @test res2["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        v   = res2["ibr"]["v"]
+        crn2 = v["1"]["cri"] + v["2"]["cri"] + v["3"]["cri"]
+        cin2 = v["1"]["cii"] + v["2"]["cii"] + v["3"]["cii"]
+        @test hypot(crn2, cin2) ≈ 10.0 atol = 1e-1
+
+        # (c) SINGLE_PHASE IBR: phase and return are ONE current, so a per-conductor
+        # i_max = [phase, neutral] must bind at the tighter entry (one constraint,
+        # not two). 1φ feeder, incentivise injection, cap the return at 8 A.
+        spnet = parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "b":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                     "v_min":[200.0],"v_max":[260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.1,"R_series_2_2":0.1}},
+         "line":{"l":{"bus_from":"src","bus_to":"b","terminal_map_from":["1","n"],
+             "terminal_map_to":["1","n"],"linecode":"lc","length":1.0}},
+         "ibr":{"v":{"bus":"b","terminal_map":["1","n"],"topology":"SINGLE_PHASE",
+             "prime_mover":"GENERIC","s_max":[20000.0],"p_min":[0.0],"p_max":[20000.0],
+             "q_min":[0.0],"q_max":[0.0],"cost":[-1.0],"i_max":[20.0,8.0]}}}
+        """; from_string=true)
+        res3 = solve_opf(spnet)
+        @test res3["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        v3 = res3["ibr"]["v"]["1"]
+        @test hypot(v3["cri"], v3["cii"]) ≈ 8.0 atol = 1e-1   # binds the tighter of [20, 8]
+    end
+
 end

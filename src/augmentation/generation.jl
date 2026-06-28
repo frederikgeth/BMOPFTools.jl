@@ -78,3 +78,33 @@ function _apply_generation!(net′::Dict{String,Any},
         end
     end
 end
+
+# Standardise a single-phase device's `i_max` to the per-conductor [phase, neutral]
+# form. A single-phase generator/IBR has ONE current (the phase and its return
+# carry the same magnitude), so a length-1 `i_max` is duplicated to length 2 — the
+# canonical per-conductor shape — without changing the physics (the engine still
+# stamps a single current circle). Star devices with ≥2 phases are left untouched
+# (their neutral rating, if any, is a genuinely independent value).
+function _normalize_single_phase_imax!(net′::Dict{String,Any},
+                                       entries::Vector{TransformEntry})
+    pad!(ctype, id, dev, is_single) = begin
+        is_single || return
+        v = get(dev, "i_max", nothing)
+        (v isa AbstractVector && length(v) == 1) || return
+        old = copy(v)
+        dev["i_max"] = [Float64(v[1]), Float64(v[1])]
+        push!(entries, TransformEntry(ctype, id, "i_max", old, dev["i_max"],
+            "per_conductor_imax_single_phase", :standard,
+            "single-phase i_max standardised to per-conductor [phase, neutral]"))
+    end
+    for (gid, g) in get(net′, "generator", Dict())
+        g isa Dict || continue
+        is_single = get(g, "configuration", "WYE") != "DELTA" &&
+                    length(Vector{String}(get(g, "terminal_map", String[]))) == 2
+        pad!(:generator, gid, g, is_single)
+    end
+    for (iid, inv) in get(net′, "ibr", Dict())
+        inv isa Dict || continue
+        pad!(:ibr, iid, inv, get(inv, "topology", "") == "SINGLE_PHASE")
+    end
+end

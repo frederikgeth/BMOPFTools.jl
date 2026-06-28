@@ -45,6 +45,24 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
             ph_pos    = _phase_positions(tm)
             n_pos_idx = _neutral_pos(tm)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
+            n_ph      = length(ph_pos)
+
+            # i_max is per CONDUCTOR. For a single-phase device (one phase + its
+            # return) the phase and neutral are the SAME current, so collapse any
+            # entries to one circle at the tighter limit (never constrain twice).
+            # For ≥2 phases the per-phase entries and the trailing neutral entry
+            # bound genuinely distinct quantities.
+            phase_ilim  = fill!(Vector{Union{Float64,Nothing}}(undef, n_ph), nothing)
+            neutral_ilim = nothing
+            if n_ph == 1
+                isempty(i_max_g) || (phase_ilim[1] = minimum(i_max_g))
+            else
+                for idx in 1:n_ph
+                    length(i_max_g) >= idx && (phase_ilim[idx] = i_max_g[idx])
+                end
+                t_n !== nothing && length(i_max_g) == n_ph + 1 &&
+                    (neutral_ilim = i_max_g[n_ph + 1])
+            end
 
             for (idx, ph) in enumerate(ph_pos)
                 t_ph = tm[ph]
@@ -64,11 +82,11 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
                 length(q_min) >= idx && @constraint(model, q_expr >= q_min[idx])
                 length(q_max) >= idx && @constraint(model, q_expr <= q_max[idx])
 
-                # Current magnitude limit
-                if length(i_max_g) >= idx
+                # Current magnitude limit (per conductor; single-phase collapsed)
+                if phase_ilim[idx] !== nothing
                     @constraint(model,
-                        crg[(gid,idx)]^2 + cig[(gid,idx)]^2 <= i_max_g[idx]^2)
-                    _limit_current_box!(crg[(gid,idx)], cig[(gid,idx)], i_max_g[idx])
+                        crg[(gid,idx)]^2 + cig[(gid,idx)]^2 <= phase_ilim[idx]^2)
+                    _limit_current_box!(crg[(gid,idx)], cig[(gid,idx)], phase_ilim[idx])
                 end
 
                 # Apparent power limit (via auxiliary variables to keep quadratic)
@@ -84,6 +102,14 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
                 if t_n !== nothing
                     _kcl_add!(kcl_r, kcl_i, bus, t_n, -crg[(gid,idx)], -cig[(gid,idx)])
                 end
+            end
+
+            # Neutral-conductor current limit (≥2 phases): cap the neutral return
+            # current = −Σ phase currents at the trailing per-conductor entry.
+            if neutral_ilim !== nothing
+                _neutral_current_limit!(model,
+                    [crg[(gid,idx)] for idx in 1:n_ph],
+                    [cig[(gid,idx)] for idx in 1:n_ph], neutral_ilim)
             end
 
         elseif cfg == "DELTA"

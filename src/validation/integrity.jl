@@ -10,6 +10,48 @@
 #   §3     symmetry/degeneracy       → identical generator costs
 # plus referential integrity (dangling bus/linecode/terminal references).
 
+# Validate a per-CONDUCTOR `i_max` vector for a star/single-phase/delta device
+# (generator or IBR). Returns the number of hard dimension issues (0/1) and may
+# also append a soft `W.INT.IMAX_NO_NEUTRAL` recommendation. Rules:
+#   • no neutral (delta / phase-to-phase)  → exactly `n_phase` (one per conductor);
+#   • single-phase (`n_phase == 1`)        → 1 or 2 (phase ≡ return, one current);
+#   • ≥2-phase star                        → `n_phase+1` (standard, phases+neutral),
+#                                            or `n_phase` (warns: neutral unrated).
+function _check_conductor_imax!(findings::Vector{Finding}, ctype::Symbol,
+                                label::AbstractString, id, v,
+                                n_phase::Int, has_neutral::Bool)::Int
+    v isa AbstractVector || return 0
+    L = length(v)
+    if !has_neutral
+        L == n_phase && return 0
+        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
+            "$label '$id': i_max has $L entries; expected $n_phase (one per conductor).",
+            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
+        return 1
+    elseif n_phase == 1
+        L in (1, 2) && return 0
+        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
+            "$label '$id': single-phase i_max has $L entries; expected 1 or 2.",
+            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
+        return 1
+    else
+        L == n_phase + 1 && return 0
+        if L == n_phase
+            push!(findings, Finding(WARNING, "W.INT.IMAX_NO_NEUTRAL", :integrity, ctype, id,
+                "$label '$id': i_max has $n_phase entries (phases only); add a " *
+                "$(n_phase + 1)-th entry to rate the neutral conductor, which can carry " *
+                "more current than the phases under unbalance compensation.",
+                Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
+            return 0
+        end
+        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
+            "$label '$id': i_max has $L entries; expected $n_phase (phases) or " *
+            "$(n_phase + 1) (phases + neutral).",
+            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
+        return 1
+    end
+end
+
 """
     integrity_check(net, findings) -> Dict{String,Any}
 
@@ -271,7 +313,7 @@ function integrity_check(net::Dict{String,Any},
         inv isa Dict || continue
         n_phase = length(get(inv, "terminal_map", String[])) - 1
         n_phase < 1 && continue
-        for field in ("r_filter", "x_filter", "cost", "s_max", "i_max")
+        for field in ("r_filter", "x_filter", "cost", "s_max")
             v = get(inv, field, nothing)
             if v isa AbstractVector && length(v) != n_phase
                 n_dim_issues += 1
@@ -282,6 +324,15 @@ function integrity_check(net::Dict{String,Any},
                     Dict{String,Any}("field" => field, "n_phase" => n_phase)))
             end
         end
+        # i_max is per CONDUCTOR; topology sets phase count and neutral presence.
+        let tm_i = Vector{String}(get(inv, "terminal_map", String[])),
+            topo = get(inv, "topology", "FOUR_LEG")
+            n_ph_i, has_n = topo == "THREE_LEG" ? (length(tm_i), false) :
+                            topo == "SINGLE_PHASE" ? (1, length(tm_i) >= 2) :
+                            (length(tm_i) - 1, true)        # FOUR_LEG
+            n_dim_issues += _check_conductor_imax!(findings, :ibr, "IBR", id,
+                get(inv, "i_max", nothing), n_ph_i, has_n)
+        end
     end
 
     # generator per-phase vectors must match the phase-conductor count, which is
@@ -290,10 +341,10 @@ function integrity_check(net::Dict{String,Any},
     for (id, gen) in get(net, "generator", Dict())
         gen isa Dict || continue
         tm = get(gen, "terminal_map", String[])
-        n_phase = get(gen, "configuration", "WYE") == "DELTA" ?
-                      length(tm) : length(_phase_positions(tm))
+        is_delta = get(gen, "configuration", "WYE") == "DELTA"
+        n_phase = is_delta ? length(tm) : length(_phase_positions(tm))
         n_phase < 1 && continue
-        for field in ("p_min", "p_max", "q_min", "q_max", "cost", "s_max", "i_max")
+        for field in ("p_min", "p_max", "q_min", "q_max", "cost", "s_max")
             v = get(gen, field, nothing)
             if v isa AbstractVector && length(v) != n_phase
                 n_dim_issues += 1
@@ -303,6 +354,11 @@ function integrity_check(net::Dict{String,Any},
                     "terminal map implies $n_phase phase(s).",
                     Dict{String,Any}("field" => field, "n_phase" => n_phase)))
             end
+        end
+        # i_max is per CONDUCTOR; a star generator may rate its neutral too.
+        let has_neutral = !is_delta && _neutral_pos(tm) !== nothing
+            n_dim_issues += _check_conductor_imax!(findings, :generator, "Generator",
+                id, get(gen, "i_max", nothing), n_phase, has_neutral)
         end
     end
 

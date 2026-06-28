@@ -154,6 +154,28 @@ function _limit_current_box!(cr::JuMP.VariableRef, ci::JuMP.VariableRef, ilim::R
 end
 
 """
+    _neutral_current_limit!(model, cr_terms, ci_terms, ilim)
+
+Cap the magnitude of a WYE/FOUR_LEG device's **neutral-conductor** current at
+`ilim` [A]. The neutral return current is the negative sum of the device's phase
+currents, so its magnitude limit is the second-order cone
+
+    (Σ_k cr_k)² + (Σ_k ci_k)² ≤ ilim² .
+
+`cr_terms`/`ci_terms` are the per-phase rectangular current variables. This makes
+`i_max` per **conductor** (phases + neutral) for star-connected devices, matching
+the per-conductor `i_max` already carried by lines and switches. No-op for a
+non-finite or negative `ilim`.
+"""
+function _neutral_current_limit!(model, cr_terms, ci_terms, ilim::Real)
+    (isfinite(ilim) && ilim >= 0) || return
+    cr_n = @expression(model, sum(cr_terms))
+    ci_n = @expression(model, sum(ci_terms))
+    @constraint(model, cr_n^2 + ci_n^2 <= ilim^2)
+    return
+end
+
+"""
     _terminal_vmax_to_ground(bus, terminal, grounded) -> Union{Float64,Nothing}
 
 Sound upper bound on the **to-ground** voltage magnitude `|V_{bus,terminal}|`,

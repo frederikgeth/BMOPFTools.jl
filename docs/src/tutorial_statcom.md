@@ -201,15 +201,18 @@ report("active circulation", solve_opf(n; optimizer = OPT))
 The apparent-power circle ``P_k^2 + Q_k^2 \le s_{\max}^2`` is the constant-MVA
 idealisation. A real converter is limited by its **current**, and ``|S_k| =
 |\Delta V_k|\,|I_k|``, so its capability shrinks as the terminal voltage sags. Supply
-an optional per-phase `i_max` and the model captures that rolloff
+an optional per-conductor `i_max` and the model captures that rolloff
 ([3](@ref refs-statcom)); the balancing authority is then bounded by amps, not VA.
-On the unconstrained feeder of §4 — where active circulation alone drove the VUF to
-zero — adding a 40 A per-phase current cap leaves a small residual unbalance, the
-visible signature of the var/active rolloff under load.
+`i_max` is **per conductor** — one entry per phase plus a final entry for the
+**neutral**, which on a four-wire converter doing unbalance compensation can carry
+*more* current than any phase. On the unconstrained feeder of §4 — where active
+circulation alone drove the VUF to zero — adding a 40 A per-phase current cap
+(here with a generously-rated neutral, so the phase limit is what binds) leaves a
+small residual unbalance, the visible signature of the var/active rolloff under load.
 
 ```@example statcom
 n = feeder(); add_statcom!(n, "b1"; s_max = 30_000.0, dc_link_coupled = true)
-n["ibr"]["statcom_b1"]["i_max"] = [40.0, 40.0, 40.0]   # A per phase
+n["ibr"]["statcom_b1"]["i_max"] = [40.0, 40.0, 40.0, 120.0]   # A per conductor: a,b,c,n
 n, _ = augment_case(n)
 report("active circulation + i_max = 40 A", solve_opf(n; optimizer = OPT))
 ```
