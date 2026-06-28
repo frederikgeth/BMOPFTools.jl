@@ -393,6 +393,20 @@
                             "description": "Maximum reactive power value [var]"
                         }
                     },
+                    "s_max": {
+                        "type": "array",
+                        "description": "Optional per-phase apparent-power rating [VA]; one entry per phase conductor. Stamps the apparent-power circle pg²+qg² ≤ s_max²",
+                        "items": {
+                            "$ref": "#/$defs/nonnegative_number"
+                        }
+                    },
+                    "i_max": {
+                        "type": "array",
+                        "description": "Optional per-phase current-magnitude limit [A]; one entry per phase conductor. Stamps the current circle crg²+cig² ≤ i_max² directly on the terminal currents",
+                        "items": {
+                            "$ref": "#/$defs/nonnegative_number"
+                        }
+                    },
                     "cost": {
                         "type": "array",
                         "description": "Per-phase linear generating cost [$/kWh], one entry per phase conductor",

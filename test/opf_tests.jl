@@ -1532,6 +1532,129 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # T-GEN-IMAX: optional generator i_max current limit binds.
+    #
+    # A cheap (profit-seeking) generator wants to inject as much active power as
+    # its p_max allows across a lossy line to an expensive slack. We first solve
+    # WITHOUT i_max to measure the free current, then cap i_max at 60 % of it and
+    # re-solve. The current circle crg²+cig² ≤ i_max² must bind (|I| ≈ i_max) and
+    # the injected power must drop. A generously large i_max reproduces the free
+    # dispatch; the solution validator flags a post-hoc i_max breach.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T-GEN-IMAX: generator i_max current limit binds" begin
+        mknet() = parse_bmopf("""
+        {"bus":{
+            "src": {"terminal_names":["1","2","3","n"],
+                    "perfectly_grounded_terminals":["n"],
+                    "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
+            "b1":  {"terminal_names":["1","2","3","n"],
+                    "perfectly_grounded_terminals":["n"],
+                    "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],
+             "v_angle":[0.0,-2.0944,2.0944],"cost":[100.0,100.0,100.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05,"R_series_3_3":0.05,
+             "X_series_1_1":0.05,"X_series_2_2":0.05,"X_series_3_3":0.05}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3"],
+             "linecode":"lc","length":10.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE",
+             "p_nom":[3000.0,3000.0,3000.0],"q_nom":[0.0,0.0,0.0]}},
+         "generator":{"g1":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE",
+             "p_min":[0.0,0.0,0.0],"p_max":[5000.0,5000.0,5000.0],
+             "q_min":[-5000.0,-5000.0,-5000.0],"q_max":[5000.0,5000.0,5000.0],
+             "cost":[-0.05,-0.05,-0.05]}}}
+        """; from_string=true)
+
+        imag(v) = sqrt(v["crg"]^2 + v["cig"]^2)
+
+        res_free = solve_opf(mknet())
+        @test res_free["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        I_free = imag(res_free["generator"]["g1"]["1"])
+        @test I_free > 1.0
+
+        ilim    = 0.6 * I_free
+        net_lim = mknet()
+        net_lim["generator"]["g1"]["i_max"] = [ilim, ilim, ilim]
+        res_lim = solve_opf(net_lim)
+        @test res_lim["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        for t in ("1","2","3")
+            v = res_lim["generator"]["g1"][t]
+            @test imag(v) ≈ ilim                                  rtol=1e-3
+            @test imag(v) < imag(res_free["generator"]["g1"][t]) * 0.95
+            @test v["pg"] < res_free["generator"]["g1"][t]["pg"]
+        end
+
+        # Opt-in: a non-binding i_max reproduces the free dispatch.
+        net_big = mknet()
+        net_big["generator"]["g1"]["i_max"] = [1e6, 1e6, 1e6]
+        res_big = solve_opf(net_big)
+        for t in ("1","2","3")
+            @test res_big["generator"]["g1"][t]["pg"] ≈
+                  res_free["generator"]["g1"][t]["pg"]  atol=1.0
+        end
+
+        # Validator: no violation for the i_max solve; a breach IS flagged.
+        sf1 = Finding[]
+        solution_check(net_lim, res_lim, sf1)
+        @test !any(f -> f.code == "E.SOL.GEN_VIOLATION", sf1)
+
+        net_post = mknet()
+        net_post["generator"]["g1"]["i_max"] = [ilim, ilim, ilim]
+        sf2 = Finding[]
+        solution_check(net_post, res_free, sf2)
+        @test any(f -> f.code == "E.SOL.GEN_VIOLATION" &&
+                       occursin("i_max", f.message), sf2)
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # T-GEN-IMAX-PU: per-unit parity for generator i_max (guards i_base scaling).
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T-GEN-IMAX-PU: per-unit parity with generator i_max" begin
+        net = parse_bmopf("""
+        {"bus":{
+            "src": {"terminal_names":["1","2","3","n"],
+                    "perfectly_grounded_terminals":["n"],
+                    "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
+            "b1":  {"terminal_names":["1","2","3","n"],
+                    "perfectly_grounded_terminals":["n"],
+                    "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],
+             "v_angle":[0.0,-2.0944,2.0944],"cost":[100.0,100.0,100.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05,"R_series_3_3":0.05,
+             "X_series_1_1":0.05,"X_series_2_2":0.05,"X_series_3_3":0.05}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3"],
+             "linecode":"lc","length":10.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE",
+             "p_nom":[3000.0,3000.0,3000.0],"q_nom":[0.0,0.0,0.0]}},
+         "generator":{"g1":{"bus":"b1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE",
+             "p_min":[0.0,0.0,0.0],"p_max":[5000.0,5000.0,5000.0],
+             "q_min":[0.0,0.0,0.0],"q_max":[0.0,0.0,0.0],
+             "i_max":[8.0,8.0,8.0],"cost":[-0.05,-0.05,-0.05]}}}
+        """; from_string=true)
+
+        res_si = solve_opf(net; per_unit=false)
+        res_pu = solve_opf(net; per_unit=true, s_base=1e6)
+        @test res_si["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test res_pu["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        for t in ("1","2","3")
+            si = res_si["generator"]["g1"][t]
+            pu = res_pu["generator"]["g1"][t]
+            @test pu["crg"] ≈ si["crg"]  rtol=5e-3 atol=1e-2
+            @test pu["cig"] ≈ si["cig"]  rtol=5e-3 atol=1e-2
+            @test pu["pg"]  ≈ si["pg"]   rtol=5e-3 atol=5.0
+            @test sqrt(si["crg"]^2 + si["cig"]^2) ≈ 8.0  rtol=5e-3
+            @test sqrt(pu["crg"]^2 + pu["cig"]^2) ≈ 8.0  rtol=5e-3
+        end
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # T-VBND: per-phase vpn arrays and per-pair vpp arrays on a 4-wire bus.
     # Regression-guards that the OPF constraint builder (and the per-unit scaler)
     # consume them as arrays rather than crashing on Float64(::Vector). Bounds

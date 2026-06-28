@@ -161,6 +161,28 @@ function integrity_check(net::Dict{String,Any},
         end
     end
 
+    # generator per-phase vectors must match the phase-conductor count, which is
+    # configuration-dependent: DELTA carries one current per conductor (|tm|),
+    # WYE/SINGLE_PHASE one per non-neutral phase (|tm| minus the neutral).
+    for (id, gen) in get(net, "generator", Dict())
+        gen isa Dict || continue
+        tm = get(gen, "terminal_map", String[])
+        n_phase = get(gen, "configuration", "WYE") == "DELTA" ?
+                      length(tm) : length(_phase_positions(tm))
+        n_phase < 1 && continue
+        for field in ("p_min", "p_max", "q_min", "q_max", "cost", "s_max", "i_max")
+            v = get(gen, field, nothing)
+            if v isa AbstractVector && length(v) != n_phase
+                n_dim_issues += 1
+                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
+                    :generator, id,
+                    "Generator '$id': $field has $(length(v)) entries but the " *
+                    "terminal map implies $n_phase phase(s).",
+                    Dict{String,Any}("field" => field, "n_phase" => n_phase)))
+            end
+        end
+    end
+
     z_tot = Dict{String,Float64}()   # per-line total series impedance proxy
     for (id, l) in get(net, "line", Dict())
         l isa Dict || continue

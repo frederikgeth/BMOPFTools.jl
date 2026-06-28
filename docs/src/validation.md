@@ -397,8 +397,9 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Switch current | A | `cr_sw²+ci_sw² ≤ ilim²` | `branch.jl` | gap |
 | Transformer winding/terminal currents | A | `Is²,It²,In² ≤ i_max²` | `transformer.jl` | gap |
 | Generator / source P,Q limits | D | bounds on `p=vr·ir+vi·ii` | `generator.jl`, `source.jl` | covered (T3, T4) |
-| Generator / IBR apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `IBR.jl` | scaffold (L-A8) |
-| IBR power-factor coupling | D | `pf·q + tan_φ·p = 0` | `IBR.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
+| Generator / IBR apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `ibr.jl` | covered (T-INV3); strict recompute scaffold (L-A8) |
+| Generator / IBR current magnitude (`i_max`) | A | `cr²+ci² ≤ i_max²` (optional, opt-in) | `generator.jl`, `ibr.jl` | covered (T-INV5, T-INV6, T-GEN-IMAX, T-GEN-IMAX-PU) |
+| IBR power-factor coupling | D | `pf·q + tan_φ·p = 0` | `ibr.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
 
 > **A subtlety this surfaced — now resolved.** The intra-bus angle limit bounds
 > the difference `θ_j − θ_k` of each ordered phase pair *centered on a nominal
