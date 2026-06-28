@@ -21,6 +21,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_line_impedance(net, findings, thresholds, n_checks)
     _check_transformer_ratings(net, findings, thresholds, n_checks)
     _check_transformer_ideal(net, findings, thresholds, n_checks)
+    _check_transformer_orientation(net, findings, n_checks)
     _check_nonnegative_fields(net, findings, n_checks)
     _check_zero_limits(net, findings, n_checks)
     _check_zero_length(net, findings, n_checks)
@@ -1032,6 +1033,132 @@ end
 # are intentionally near-ideal tap changers and are excluded.
 const _XFMR_LEAKAGE_SUBTYPES = ("single_phase", "center_tap", "wye_delta",
                                 "delta_wye", "n_winding")
+
+# Two-bus isolating transformers that have a well-defined `bus_from`/`bus_to`
+# orientation and a step direction. Excludes `n_winding` (winding-list shape, no
+# from/to pair) and the regulator/autotransformer subtypes (intentionally
+# near-unity tap changers, not directional step transformers).
+const _XFMR_ORIENTED_SUBTYPES = ("single_phase", "center_tap", "wye_delta",
+                                 "delta_wye")
+
+# Flag isolating transformers whose terminals are wired the wrong way round, or
+# that step voltage *up* as you move away from the source, in a radial feeder.
+#
+# Orientation is only meaningful relative to a reference; the natural reference is
+# the voltage source. We BFS the connectivity graph (lines, closed switches, and
+# all transformers as edges) from every voltage-source bus and label each bus
+# with its hop distance to the nearest source. For an isolating transformer the
+# endpoint with the smaller distance is *upstream* (toward the source). Then:
+#   • if `bus_to` is strictly upstream of `bus_from`, the from/to terminals are
+#     reversed relative to power flow → W.DOM.XFMR_REVERSED;
+#   • if the upstream-side `v_ref` is strictly below the downstream-side `v_ref`,
+#     the transformer boosts voltage away from the source → W.DOM.XFMR_STEP_UP.
+# Both are almost always data-entry slips (swapped `bus_*` or swapped `v_ref_*`),
+# but genuine boost transformers and meshed/multi-source feeds exist, so both are
+# warnings. Ambiguous endpoints — equal distance (a loop/mesh) or unreachable
+# from any source — are skipped, which makes the check safe on non-radial parts
+# without a separate radiality gate.
+function _check_transformer_orientation(net, findings, n_checks)
+    xfmr = get(net, "transformer", Dict())
+    any(get(xfmr, st, nothing) isa Dict for st in _XFMR_ORIENTED_SUBTYPES) || return
+
+    # Source buses define the orientation reference; without one, "away from the
+    # source" is undefined and we cannot orient anything.
+    source_buses = Set{String}()
+    for (_, vs) in get(net, "voltage_source", Dict())
+        vs isa Dict || continue
+        b = get(vs, "bus", nothing)
+        b isa AbstractString && push!(source_buses, string(b))
+    end
+    isempty(source_buses) && return
+
+    # Connectivity graph: lines, closed switches, and *all* transformers as edges
+    # (the transformer being checked is itself an edge, so its two endpoints sit
+    # one hop apart and the upstream side is unambiguous).
+    adj = Dict{String,Vector{String}}()
+    add!(a, b) = (push!(get!(adj, a, String[]), b); push!(get!(adj, b, String[]), a))
+    for (_, l) in get(net, "line", Dict())
+        l isa Dict || continue
+        f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
+        (f isa AbstractString && t isa AbstractString) && add!(string(f), string(t))
+    end
+    for (_, sw) in get(net, "switch", Dict())
+        sw isa Dict || continue
+        get(sw, "open_switch", false) && continue
+        f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
+        (f isa AbstractString && t isa AbstractString) && add!(string(f), string(t))
+    end
+    for subtype in TRANSFORMER_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa Dict || continue
+        for (_, t) in sub
+            t isa Dict || continue
+            f = get(t, "bus_from", nothing); tb = get(t, "bus_to", nothing)
+            (f isa AbstractString && tb isa AbstractString) && add!(string(f), string(tb))
+        end
+    end
+
+    # Multi-source BFS: dist[bus] = hops to the nearest voltage-source bus.
+    dist = Dict{String,Int}()
+    q = String[]
+    for b in source_buses
+        dist[b] = 0; push!(q, b)
+    end
+    while !isempty(q)
+        b = popfirst!(q)
+        d = dist[b]
+        for nb in get(adj, b, String[])
+            haskey(dist, nb) && continue
+            dist[nb] = d + 1; push!(q, nb)
+        end
+    end
+
+    for subtype in _XFMR_ORIENTED_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa Dict || continue
+        for (id, t) in sub
+            t isa Dict || continue
+            fb = get(t, "bus_from", nothing); tb = get(t, "bus_to", nothing)
+            (fb isa AbstractString && tb isa AbstractString) || continue
+            fb = string(fb); tb = string(tb)
+            df = get(dist, fb, nothing); dt = get(dist, tb, nothing)
+            # Unreachable from any source, or equidistant (loop/mesh) → ambiguous.
+            (df === nothing || dt === nothing || df == dt) && continue
+            n_checks[] += 1
+
+            reversed = dt < df                       # bus_to is the upstream side
+            if reversed
+                push!(findings, Finding(WARNING, "W.DOM.XFMR_REVERSED", :domain_rules,
+                    :transformer, id,
+                    "Transformer '$id' is oriented toward the source: its " *
+                    "downstream terminal `bus_to`='$tb' is closer to a voltage " *
+                    "source ($(dt) hops) than `bus_from`='$fb' ($(df) hops). In a " *
+                    "radial feeder `bus_from` should be the source-side terminal; " *
+                    "the terminals (and likely `v_ref_from`/`v_ref_to`) are swapped.",
+                    Dict{String,Any}("bus_from" => fb, "bus_to" => tb,
+                                     "dist_from" => df, "dist_to" => dt)))
+            end
+
+            # Step direction along source → load. v_ref_from pairs with bus_from.
+            vf = get(t, "v_ref_from", nothing); vt = get(t, "v_ref_to", nothing)
+            (vf === nothing || vt === nothing) && continue
+            vf_f, vt_f = Float64(vf), Float64(vt)
+            (vf_f > 0 && vt_f > 0) || continue       # XFMR_VREF_INVALID covers this
+            v_up, v_dn = reversed ? (vt_f, vf_f) : (vf_f, vt_f)
+            if v_up < v_dn
+                push!(findings, Finding(WARNING, "W.DOM.XFMR_STEP_UP", :domain_rules,
+                    :transformer, id,
+                    "Transformer '$id' steps voltage *up* away from the source: " *
+                    "upstream v_ref=$(round(v_up, digits=1)) V < downstream " *
+                    "v_ref=$(round(v_dn, digits=1)) V. Distribution step transformers " *
+                    "normally step down toward the load; this is usually swapped " *
+                    "`v_ref_from`/`v_ref_to` (or a genuine boost transformer, if intended).",
+                    Dict{String,Any}("v_ref_upstream" => v_up, "v_ref_downstream" => v_dn,
+                                     "reversed" => reversed)))
+            end
+        end
+    end
+end
 
 # Per-unit total series impedance of a transformer on its from-side rating base
 # (Z_base = v_ref_from²/s_rating). Returns `nothing` when the base is undefined.
