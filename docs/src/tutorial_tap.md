@@ -20,11 +20,16 @@ numbers are real.
 A transformer tap is exposed with the same *implicit* free-variable pattern as
 generators and IBRs: **bounds make it optimisable**.
 
-- Ordinary transformers (`single_phase`, `delta_wye`, `wye_delta`) take a
-  dimensionless multiplier `tap` on the nominal from-side ratio
-  ``N_0 = v_{\text{ref,from}}/v_{\text{ref,to}}``, with `tap_min`/`tap_max`.
+- Ordinary transformers (`single_phase`, `center_tap`, `delta_wye`, `wye_delta`)
+  take a dimensionless multiplier `tap` on the nominal from-side ratio
+  ``N_0 = v_{\text{ref,from}}/v_{\text{ref,to}}``, with `tap_min`/`tap_max`. For
+  `center_tap` this taps the HV winding, so both LV legs scale together.
 - Regulator subtypes (`single_phase_autotransformer`, `open_delta_regulator`) make
   their native `tap_ratio` free with `tap_ratio_min`/`tap_ratio_max`.
+
+`n_winding` is the one subtype **without** tap support: its ratio is always held at
+the nominal turns ratio. Supplying a tap field on an `n_winding` raises a warning at
+OPF-build time (rather than silently fixing the ratio).
 
 If `tap_min < tap_max` the tap becomes a decision variable; otherwise it is fixed
 (so existing data is unchanged). Internally the solved tap enters the winding
@@ -194,16 +199,24 @@ to *every* transformer:
   leakage and a voltage drop that is linear-in-current and quadratic-in-tap — and it
   matches the OpenDSS turns-scaled `Yprim` at the optimised tap to the usual ~0.3 V
   validation floor.
+- **The split-phase (`center_tap`) tap also admits an exact, degree-2 model.** Its
+  free tap reuses the same coupled-coil `Yprim` as the fixed model, but with the HV
+  ratio promoted to a variable and the voltage drop written in the degree-2 T-model
+  form (``N\cdot v`` and ``N\cdot Z_2 I`` products only). It is algebraically
+  identical to the fixed `Yprim` — re-solving with the tap fixed to ``t^\star``
+  reproduces the free solution to **0.0 V** — so the leakage referral is exact, not
+  approximate, even under heavy drop and leg unbalance.
 - **The Dy coupled delta-arm model currently holds the leakage at the nominal
   ratio.** This is a second-order approximation: exact at ``t = 1`` and within the
   validation tolerance at a few-percent tap, but the error grows with tap deviation.
-  Carrying the ``t^2`` referral through the coupled delta-arm transformation — and
-  the analogous treatment for `center_tap` and `n_winding`, plus to-side taps and
-  discrete steps — is the natural **general-picture** follow-up.
+  Carrying the ``t^2`` referral through the coupled delta-arm transformation — plus
+  free taps for `n_winding`, to-side taps and discrete steps — is the natural
+  **general-picture** follow-up.
 
 The optimiser, the JSON schema and the result reporting are already uniform across
 all the covered subtypes; what remains to generalise is purely the *leakage
-referral* of the coupled multi-winding cores.
+referral* of the coupled `delta_wye`/`wye_delta` cores and the unsupported
+`n_winding` subtype.
 
 ## Validation
 
@@ -213,6 +226,12 @@ bus voltages are compared to the OPF solution (see
 `test/powerflow_comparison_tests.jl`, *optimised tap vs OpenDSS*). Because the
 variable-tap model is the fixed-tap model with the ratio promoted to a variable,
 agreement at ``t^\star`` is the validation of the feature.
+
+For `center_tap` the cross-check is deliberately stressed: a 5 km feeder with heavy,
+**unequal** 120 V leg loads (high voltage drop + unbalance) — node voltages agree
+with the OpenDSS turns-scaled `Yprim` at ``t^\star`` to ≈ 0.25 V and **total losses
+to ≈ 2.5 %**, and the free T-model reproduces the fixed-`Yprim` re-solve at
+``t^\star`` exactly (0.0 V).
 ```@example tap
 nothing # hide
 ```

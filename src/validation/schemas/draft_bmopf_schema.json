@@ -1122,7 +1122,7 @@
                     },
                     "tap": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Dimensionless tap multiplier on the from-side ratio; N_eff = (v_ref_from/v_ref_to)*tap. Default 1.0. Ignored for center_tap."
+                        "description": "Dimensionless tap multiplier on the from-side (HV) ratio; N_eff = (v_ref_from/v_ref_to)*tap. Default 1.0. For center_tap this taps the HV winding (both LV legs scale together)."
                     },
                     "tap_min": {
                         "$ref": "#/$defs/nonnegative_number",

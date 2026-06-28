@@ -231,6 +231,15 @@ of fixtures pins it down rather than a single light-load case:
   builder and the Ybus exporter implement the device independently, so a test
   asserts the centre-tap KCL closes on the `_yprim_center_tap` admittance — a
   guard against the two paths drifting apart again.
+- **Continuous tap optimisation under drop + unbalance** (*optimised tap vs
+  OpenDSS (center_tap)*): a free HV tap on `pf_center_tap_loaded` (5 km feeder,
+  heavy unequal legs) is optimised, then OpenDSS is solved with that tap set on
+  winding 1. Node voltages match to **≈ 0.25 V** and **total losses to ≈ 2.5 %**
+  (`rtol = 0.05`), and a wide-band internal-exactness check confirms the free
+  degree-2 T-model reproduces the fixed-`Yprim` re-solve at ``t^\star`` to
+  **0.0 V** — so promoting the ratio to a variable adds no modelling error. The
+  free tap reuses the *exact* coupled-coil leakage (not the nominal-ratio
+  approximation that the `delta_wye`/`wye_delta` free taps still carry).
 
 ### Parse-path and primitive-admittance gates
 

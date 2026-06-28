@@ -215,7 +215,7 @@ per-regulator taps. Bounded and warm-started at the nominal coefficient.
 function _add_tap_variables!(model, net)
     tap = Dict{Any, JuMP.VariableRef}()
     xfmr_dict = get(net, "transformer", Dict())
-    for subtype in ("single_phase", "wye_delta", "delta_wye",
+    for subtype in ("single_phase", "center_tap", "wye_delta", "delta_wye",
                     "single_phase_autotransformer")
         for (tid, xfmr) in get(xfmr_dict, subtype, Dict())
             xfmr isa Dict || continue
