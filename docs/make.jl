@@ -50,6 +50,13 @@ makedocs(
         ],
         "Reference"               => [
             "API reference"            => "api.md",
+            "Developer guide"          => [
+                "Contributing & workflow"      => "dev/contributing.md",
+                "Style guide"                  => "dev/style_guide.md",
+                "Versioning & the data model"  => "dev/versioning.md",
+                "OPF engine: scope & status"   => "dev/opf_engine.md",
+                "Profiling pipeline"           => "dev/profiling.md",
+            ],
         ],
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)
