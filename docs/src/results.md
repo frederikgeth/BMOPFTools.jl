@@ -248,6 +248,18 @@ Alongside the `"fr"`/`"to"` winding keys, the transformer dict carries a
 `"ground"` entry (net current into earth: `cg_r`, `cg_i`, `cgm` [A]) and a
 `"loss"` entry (see [`losses`](@ref results-losses)).
 
+When the transformer's tap is a **free decision variable** (see
+[continuous tap optimisation](opf.md)), the solved tap is also reported:
+
+| Field | Unit | Description |
+|---|---|---|
+| `tap` | — | Optimised dimensionless tap multiplier (`single_phase`, `delta_wye`, `wye_delta`) |
+| `tap_ratio` | — | Optimised regulation ratio — scalar (`single_phase_autotransformer`) or `[a₁, a₂]` (`open_delta_regulator`) |
+| `tap_binding` | — | `true` when the optimised tap sits at a `tap_min`/`tap_max` bound (regulation range exhausted); per-regulator vector for `open_delta_regulator` |
+
+These keys are present **only** when the tap was free (`tap_min < tap_max`); a
+fixed-tap transformer reports neither.
+
 ## [`losses` — active/reactive losses](@id results-losses)
 
 Losses are computed exactly from the **terminal-power identity**

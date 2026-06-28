@@ -204,6 +204,46 @@ function _add_transformer_variables!(model, net)
 end
 
 """
+    _add_tap_variables!(model, net) -> Dict
+
+Declare one continuous tap variable per FREE transformer tap, equal to the effective
+from→to ratio coefficient used by the winding constraints (`N` for `single_phase`,
+`n_eff` otherwise). Fixed taps allocate nothing (so the constraint set is unchanged).
+Keyed by `tid` for the one-tap subtypes and by `(tid, k)` for the open-delta
+per-regulator taps. Bounded and warm-started at the nominal coefficient.
+"""
+function _add_tap_variables!(model, net)
+    tap = Dict{Any, JuMP.VariableRef}()
+    xfmr_dict = get(net, "transformer", Dict())
+    for subtype in ("single_phase", "wye_delta", "delta_wye",
+                    "single_phase_autotransformer")
+        for (tid, xfmr) in get(xfmr_dict, subtype, Dict())
+            xfmr isa Dict || continue
+            spec = BMOPFTools._xfmr_ratio_coeff_bounds(subtype, xfmr)
+            spec === nothing && continue
+            lo, hi, start = spec
+            v = @variable(model, base_name = "tap_$(tid)",
+                          lower_bound = lo, upper_bound = hi)
+            JuMP.set_start_value(v, start)
+            tap[tid] = v
+        end
+    end
+    for (tid, xfmr) in get(xfmr_dict, "open_delta_regulator", Dict())
+        xfmr isa Dict || continue
+        for k in 1:2
+            spec = BMOPFTools._odr_ratio_coeff_bounds(xfmr, k)
+            spec === nothing && continue
+            lo, hi, start = spec
+            v = @variable(model, base_name = "tap_$(tid)_$(k)",
+                          lower_bound = lo, upper_bound = hi)
+            JuMP.set_start_value(v, start)
+            tap[(tid, k)] = v
+        end
+    end
+    tap
+end
+
+"""
     _split_phase_init_angles(net, base_angle) -> Dict{String,Dict{String,Float64}}
 
 For every split-phase galvanic zone (fed by a `center_tap` transformer, per
@@ -487,6 +527,7 @@ function _build_vars(model, net, bus_terminals, grounded)
     crg,   cig   = _add_generator_variables!(model, net)
     cr_src,ci_src= _add_source_variables!(model, net)
     cr_xf, ci_xf = _add_transformer_variables!(model, net)
+    tap          = _add_tap_variables!(model, net)
     cr_nw, ci_nw = _add_nwinding_variables!(model, net)
     cri,   cii   = _add_ibr_variables!(model, net)
     cr_gnd,ci_gnd= _add_ground_variables!(model, grounded)
@@ -501,6 +542,7 @@ function _build_vars(model, net, bus_terminals, grounded)
         :crg   => crg,   :cig   => cig,
         :cr_src=> cr_src,:ci_src=> ci_src,
         :cr_xf => cr_xf, :ci_xf => ci_xf,
+        :tap   => tap,
         :cr_nw => cr_nw, :ci_nw => ci_nw,
         :cri   => cri,   :cii   => cii,
     )

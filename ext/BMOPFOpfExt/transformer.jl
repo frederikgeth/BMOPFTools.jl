@@ -58,11 +58,12 @@ Dispatch transformer constraints for all subtypes in the network:
 function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     cr_xf = vars[:cr_xf]; ci_xf = vars[:ci_xf]
+    tapd  = get(vars, :tap, Dict{Any,Any}())
     xfmr_dict = get(net, "transformer", Dict())
 
     for (tid, xfmr) in get(xfmr_dict, "single_phase", Dict())
         _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              branch_inj=branch_inj)
+                              tap=get(tapd, tid, nothing), branch_inj=branch_inj)
     end
     for (tid, xfmr) in get(xfmr_dict, "center_tap", Dict())
         _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
@@ -71,20 +72,22 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_in
 
     for (tid, xfmr) in get(xfmr_dict, "wye_delta", Dict())
         _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              wye_is_from=true, branch_inj=branch_inj)
+                              wye_is_from=true, tap=get(tapd, tid, nothing),
+                              branch_inj=branch_inj)
     end
     for (tid, xfmr) in get(xfmr_dict, "delta_wye", Dict())
         _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              wye_is_from=false, branch_inj=branch_inj)
+                              wye_is_from=false, tap=get(tapd, tid, nothing),
+                              branch_inj=branch_inj)
     end
 
     for (tid, xfmr) in get(xfmr_dict, "single_phase_autotransformer", Dict())
         _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              branch_inj=branch_inj)
+                              tap=get(tapd, tid, nothing), branch_inj=branch_inj)
     end
     for (tid, xfmr) in get(xfmr_dict, "open_delta_regulator", Dict())
         _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              branch_inj=branch_inj)
+                              tap=tapd, branch_inj=branch_inj)
     end
 end
 
@@ -135,13 +138,16 @@ previous ideal transformer.
 Used for both `single_phase` and `center_tap` transformer subtypes.
 """
 function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              branch_inj=nothing)
+                              tap=nothing, branch_inj=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr       = get(xfmr, "bus_from", "")
     b_to       = get(xfmr, "bus_to",   "")
     tmfr       = Vector{String}(get(xfmr, "terminal_map_from", String[]))
     tmto       = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
-    N          = _xfmr_turns_ratio(xfmr)
+    # Effective from→to ratio N. Fixed: N0·tap multiplier (default 1.0, so legacy
+    # data is unchanged). Free: the tap variable (= N), warm-started at N0·tap.
+    N0         = _xfmr_turns_ratio(xfmr)
+    N          = tap === nothing ? N0 * BMOPFTools._xfmr_tap_mult(xfmr) : tap
     # Each winding spans a terminal pair (p, q): line-to-neutral when a neutral
     # terminal is present (q = neutral, shared by all phases), line-to-line for a
     # two-terminal map with no neutral (q = the other phase), or phase-to-ground
@@ -158,8 +164,15 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     x_fr = Float64(get(xfmr, "x_series_from", 0.0))
     r_to = Float64(get(xfmr, "r_series_to",   0.0))
     x_to = Float64(get(xfmr, "x_series_to",   0.0))
-    R = r_fr + N^2 * r_to
-    X = x_fr + N^2 * x_to
+    # To-side-referred leakage (constant). An OLTC changes the from-winding turns,
+    # so the from-referred leakage scales with tap²; referred to the TO side it is
+    # tap-independent: R' = r_to + r_fr/N0², X' = x_to + x_fr/N0². This matches the
+    # OpenDSS turns-scaled Yprim and, combined with the coupling N·Is = −I_to, keeps
+    # the voltage drop degree-2 in N (see the constraint below). At N = N0 it is
+    # identical to the legacy R = r_fr + N0²·r_to form.
+    invN0sq = N0 == 0.0 ? 0.0 : 1.0 / N0^2
+    Rp = r_to + r_fr * invN0sq
+    Xp = x_to + x_fr * invN0sq
 
     # No-load admittance (S) on the from side, split equally per winding.
     # OpenDSS places the no-load branch on winding 1 (from side).
@@ -168,7 +181,7 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     G = n_c > 0 ? G_total / n_c : 0.0
     B = n_c > 0 ? B_total / n_c : 0.0
 
-    has_series = (R != 0.0 || X != 0.0)
+    has_series = (r_fr != 0.0 || x_fr != 0.0 || r_to != 0.0 || x_to != 0.0)
     has_shunt  = (G != 0.0 || B != 0.0)
 
     # Winding voltage V_p − V_q (q absent → reference ground, i.e. V_p).
@@ -188,10 +201,14 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         Isr = cr_xf[(tid,"fr",k)]; Isi = ci_xf[(tid,"fr",k)]
         Itr = cr_xf[(tid,"to",k)]; Iti = ci_xf[(tid,"to",k)]
 
-        # Voltage: (V_p_fr − V_q_fr) − N·(V_p_to − V_q_to) = Z·I_series
+        # Voltage: (V_p_fr − V_q_fr) − N·(V_p_to − V_q_to) = Z·I_series. Using the
+        # ideal coupling N·I_series = −I_to and the tap²-scaled (to-referred) leakage
+        # R'/X', the drop collapses to −N·(R'·I_to ∓ X'·I_to): degree-2 in N, with the
+        # cubic/tap² terms eliminated. At N = N0 this equals the legacy
+        # R = r_fr + N0²·r_to stamping exactly.
         if has_series
-            @constraint(model, vr_fr - N * vr_to == R * Isr - X * Isi)
-            @constraint(model, vi_fr - N * vi_to == R * Isi + X * Isr)
+            @constraint(model, vr_fr - N * vr_to == -N * (Rp * Itr - Xp * Iti))
+            @constraint(model, vi_fr - N * vi_to == -N * (Rp * Iti + Xp * Itr))
         else
             @constraint(model, vr_fr == N * vr_to)
             @constraint(model, vi_fr == N * vi_to)
@@ -551,7 +568,7 @@ the model collapses to the previous ideal transform.  A legacy single
 (wye side) with the to-side branch zero.
 """
 function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                               wye_is_from::Bool, branch_inj=nothing)
+                               wye_is_from::Bool, tap=nothing, branch_inj=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     N = _xfmr_turns_ratio(xfmr)   # v_ref_from / v_ref_to
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
@@ -563,7 +580,6 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         tm_wye   = Vector{String}(get(xfmr, "terminal_map_from", String[]))
         tm_del   = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
         side_wye = "fr"; side_del = "to"
-        n_eff    = sqrt(3.0) / N   # Yd: delta is LV secondary
     else
         b_del    = get(xfmr, "bus_from", "")
         b_wye    = get(xfmr, "bus_to",   "")
@@ -572,8 +588,24 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         side_del = "fr"; side_wye = "to"
     end
 
-    N     = _xfmr_turns_ratio(xfmr)   # v_ref_from / v_ref_to (phase-to-neutral convention)
-    n_eff = wye_is_from ? sqrt(3) / N : N * sqrt(3)
+    # Effective from→to ratio n_eff. Fixed: from N0·tap multiplier (default 1.0, so
+    # legacy data is unchanged). Free: the tap variable IS n_eff (= N·√3 for Dy,
+    # √3/N for Yd), warm-started at nominal. `inv_neff` carries the 1/n_eff factor of
+    # the delta-arm referral: a Float64 when fixed, else an auxiliary variable pinned
+    # by n_eff·inv_neff = 1 so the rows stay degree-2 (no rational term).
+    if tap === nothing
+        N     = _xfmr_turns_ratio(xfmr) * BMOPFTools._xfmr_tap_mult(xfmr)
+        n_eff = wye_is_from ? sqrt(3) / N : N * sqrt(3)
+        inv_neff = 1.0 / n_eff
+    else
+        n_eff = tap
+        lo = JuMP.lower_bound(tap); hi = JuMP.upper_bound(tap)
+        inv_neff = @variable(model, base_name = "inv_neff_$(tid)",
+                             lower_bound = 1.0 / hi, upper_bound = 1.0 / lo)
+        s0 = JuMP.start_value(tap)
+        s0 === nothing || JuMP.set_start_value(inv_neff, 1.0 / s0)
+        @constraint(model, n_eff * inv_neff == 1)
+    end
 
     n_ph  = length(tm_del)             # number of delta (phase) conductors
     n_wye = length(tm_wye)
@@ -628,7 +660,7 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     # the delta-COIL (line-to-line) base (V_LL²/S vs V_LL²/(S/n_ph)).  So
     # Zd_coil = n_ph·(Rd+jXd).  Combined with I_arm,k = I_wye,k/n_eff, the delta
     # drop coefficient on the wye current is (n_ph/n_eff)·(Rd+jXd).
-    Zd_coil_coef = n_ph / n_eff   # (n_ph·Zd) on arm current = (n_ph/n_eff)·Zd on wye current
+    Zd_coil_coef = n_ph * inv_neff   # (n_ph·Zd) on arm current = (n_ph/n_eff)·Zd on wye current
     for k in 1:n_ph
         t_del_k   = tm_del[k]
         ph_pos    = ph_idx[k]
@@ -797,7 +829,7 @@ end
 # A lossless ideal regulator (R=X=G=B=0) collapses to V_to = n_eff·V_fr_pn.
 
 """
-    _add_regulating_winding!(model, refs, n_eff, R, X) -> nothing
+    _add_regulating_winding!(model, refs, n_eff, r_fr, x_fr, r_to, x_to) -> nothing
 
 Apply the per-winding autotransformer voltage and current-coupling constraints
 for one regulating winding spanning a `from` terminal pair (p_fr, q_fr) and a
@@ -812,15 +844,25 @@ single-phase regulator and a phase-to-phase pair gives an open-delta winding.
 Voltage : (V_fr_p − V_fr_q) − n_eff·(V_to_p − V_to_q) = R·Isr − X·Isi  (+ imag)
 Current : n_eff·Isr + Itr = 0  (+ imag)
 """
-function _add_regulating_winding!(model, refs, n_eff::Float64, R::Float64, X::Float64)
+function _add_regulating_winding!(model, refs, n_eff,
+                                  r_fr::Float64, x_fr::Float64,
+                                  r_to::Float64, x_to::Float64)
     dvr_fr = @expression(model, refs.vr_fr_p - refs.vr_fr_q)
     dvi_fr = @expression(model, refs.vi_fr_p - refs.vi_fr_q)
     dvr_to = @expression(model, refs.vr_to_p - refs.vr_to_q)
     dvi_to = @expression(model, refs.vi_to_p - refs.vi_to_q)
 
-    if R != 0.0 || X != 0.0
-        @constraint(model, dvr_fr - n_eff * dvr_to == R * refs.Isr - X * refs.Isi)
-        @constraint(model, dvi_fr - n_eff * dvi_to == R * refs.Isi + X * refs.Isr)
+    has_series = (r_fr != 0.0 || x_fr != 0.0 || r_to != 0.0 || x_to != 0.0)
+    if has_series
+        # Series drop with the to-side-referred impedance written via I_to (using the
+        # coupling n_eff·Isr = −Itr below): degree-2 when n_eff is a tap VARIABLE and
+        # exactly equivalent to R = r_fr + n_eff²·r_to when n_eff is fixed.
+        @constraint(model, dvr_fr - n_eff * dvr_to ==
+            r_fr * refs.Isr - n_eff * r_to * refs.Itr
+            - x_fr * refs.Isi + n_eff * x_to * refs.Iti)
+        @constraint(model, dvi_fr - n_eff * dvi_to ==
+            r_fr * refs.Isi - n_eff * r_to * refs.Iti
+            + x_fr * refs.Isr - n_eff * x_to * refs.Itr)
     else
         @constraint(model, dvr_fr == n_eff * dvr_to)
         @constraint(model, dvi_fr == n_eff * dvi_to)
@@ -846,13 +888,15 @@ it as two terminals (`t_fr_q`, `t_to_q`), each coil returns at its own reference
 bond the secondary return would leak to earth / dangle.
 """
 function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                               branch_inj=nothing)
+                               tap=nothing, branch_inj=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tmfr  = Vector{String}(get(xfmr, "terminal_map_from", String[]))
     tmto  = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
-    n_eff = BMOPFTools._autotransformer_ratio(xfmr)
+    # Effective ratio n_eff: fixed from `tap_ratio` (default 1.0) or the free tap
+    # variable (= n_eff, warm-started at the nominal regulation ratio).
+    n_eff = tap === nothing ? BMOPFTools._autotransformer_ratio(xfmr) : tap
 
     # Winding terminal pairs (p, q): q = neutral for a line-to-neutral SVR, or the
     # second phase for a line-to-line SVR. The regulating winding spans (V_p − V_q)
@@ -869,13 +913,12 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
     t_fr_ph = tmfr[p_fr]; t_fr_q = q_fr === nothing ? nothing : tmfr[q_fr]
     t_to_ph = tmto[p_to]; t_to_q = q_to === nothing ? nothing : tmto[q_to]
 
-    # Series impedance referred to from (Γ convention, identical to YY).
+    # Winding impedances (Γ convention, identical to YY). The regulating-winding
+    # helper refers the to-side branch via I_to so n_eff may be a tap variable.
     r_fr = Float64(get(xfmr, "r_series_from", 0.0))
     x_fr = Float64(get(xfmr, "x_series_from", 0.0))
     r_to = Float64(get(xfmr, "r_series_to",   0.0))
     x_to = Float64(get(xfmr, "x_series_to",   0.0))
-    R = r_fr + n_eff^2 * r_to
-    X = x_fr + n_eff^2 * x_to
 
     G = Float64(get(xfmr, "g_no_load", 0.0))
     B = Float64(get(xfmr, "b_no_load", 0.0))
@@ -898,7 +941,7 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
             vr_to_p = vr[(b_to, t_to_ph)], vr_to_q = vr_to_q,
             vi_to_p = vi[(b_to, t_to_ph)], vi_to_q = vi_to_q,
             Isr = Isr, Isi = Isi, Itr = Itr, Iti = Iti)
-    _add_regulating_winding!(model, refs, n_eff, R, X)
+    _add_regulating_winding!(model, refs, n_eff, r_fr, x_fr, r_to, x_to)
 
     # From-side phase terminal current = series + magnetising shunt (V_p − V_q).
     if has_shunt
@@ -999,7 +1042,7 @@ arity (4,4): `["1","2","3","n"]` on both sides; the neutral carries no winding
 current. `tap_ratio` is `[a1, a2]` (per regulator); `regulator_type` shared.
 """
 function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                                    branch_inj=nothing)
+                                    tap=nothing, branch_inj=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr = get(xfmr, "bus_from", "")
     b_to = get(xfmr, "bus_to",   "")
@@ -1038,9 +1081,10 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
 
     for (j, (pj, qj)) in enumerate(pairs)
-        ne = n_eff[j]
-        R = r_fr + ne^2 * r_to
-        X = x_fr + ne^2 * x_to
+        # Per-regulator effective ratio: the free tap variable when present, else the
+        # fixed n_eff. The winding helper refers the to-side branch via I_to so a
+        # variable ratio keeps the rows degree-2.
+        ne = (tap isa AbstractDict && haskey(tap, (tid, j))) ? tap[(tid, j)] : n_eff[j]
         # Phase terminals spanned by this regulator (line-to-line).
         t_fr_p = tmfr[ph_fr[pj]]; t_fr_q = tmfr[ph_fr[qj]]
         t_to_p = tmto[ph_to[pj]]; t_to_q = tmto[ph_to[qj]]
@@ -1053,7 +1097,7 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
                 vr_to_p = vr[(b_to, t_to_p)], vr_to_q = vr[(b_to, t_to_q)],
                 vi_to_p = vi[(b_to, t_to_p)], vi_to_q = vi[(b_to, t_to_q)],
                 Isr = Isr, Isi = Isi, Itr = Itr, Iti = Iti)
-        _add_regulating_winding!(model, refs, ne, R, X)
+        _add_regulating_winding!(model, refs, ne, r_fr, x_fr, r_to, x_to)
 
         # KCL: the from-side series current enters at phase p and returns at q;
         # the to-side current is injected at p and returned at q (line-to-line).

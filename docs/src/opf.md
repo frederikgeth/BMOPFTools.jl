@@ -585,12 +585,39 @@ current is also added to the neutral terminal.
 
 #### Transformers
 
-All transformer constraints are **linear**.  The turns ratio for the four
+Transformer constraints are **linear at a fixed tap**.  The turns ratio for the four
 two-winding subtypes is $N = V^\text{ref}_\text{fr} / V^\text{ref}_\text{to}$
-(SI volts).  The two regulator subtypes
-(`single_phase_autotransformer`, `open_delta_regulator`) instead use a
-**fixed-tap effective ratio** $n_\text{eff}$ derived from `tap_ratio` and
-`regulator_type` (see below).
+(SI volts), optionally scaled by a dimensionless multiplier `tap`
+($N = N_0\cdot\texttt{tap}$).  The two regulator subtypes
+(`single_phase_autotransformer`, `open_delta_regulator`) use an effective ratio
+$n_\text{eff}$ derived from `tap_ratio` and `regulator_type` (see below).
+
+##### Continuous tap optimisation
+
+The tap can be a **free continuous decision variable** instead of a constant, so the
+OPF chooses OLTC/regulator settings to reduce losses and hold voltages in band. It
+follows the implicit free-variable pattern (bounds make it optimisable):
+
+| subtype | tap field | free when |
+|---|---|---|
+| `single_phase`, `delta_wye`, `wye_delta` | `tap` (mult. on $N_0$) | `tap_min` < `tap_max` |
+| `single_phase_autotransformer` | `tap_ratio` | `tap_ratio_min` < `tap_ratio_max` |
+| `open_delta_regulator` | `tap_ratio` (per reg.) | `tap_ratio_min` < `tap_ratio_max` (element-wise) |
+
+A free tap adds **one variable per tap** equal to the effective from→to ratio
+coefficient ($N$ for `single_phase`, $n_\text{eff}$ otherwise). Using the ideal-core
+coupling $N\,I_\text{series} = -I_\text{to}$, the voltage drop stays **quadratic** in
+the tap (no cubic), so the existing Ipopt NLP solves it unchanged. For the YY family
+the from-winding leakage of an OLTC scales with the winding turns ($\propto
+\texttt{tap}^2$); referred to the to side it is **constant**
+($R' = r_\text{to} + r_\text{fr}/N_0^2$, $X' = x_\text{to} + x_\text{fr}/N_0^2$) and
+the drop is $v_\text{fr} - N v_\text{to} = -N\,(R'\,I_\text{to} \mp X'\,I_\text{to})$,
+matching OpenDSS's turns-scaled `Yprim`; at `tap = 1` it is identical to the
+fixed-tap stamping. (The `delta_wye`/`wye_delta` coupled delta-arm currently holds the
+leakage at the nominal ratio — a second-order approximation away from `tap = 1`.) The
+solved tap is reported in the [result dictionary](results.md) as `tap`/`tap_ratio`
+with a `tap_binding` flag. See the
+[tap-optimisation tutorial](@ref tap-optimisation).
 
 Because every subtype is expressed as voltage/current **equalities** (the IVR
 impedance form $v_\text{fr} - N v_\text{to} = Z\,I$) rather than a nodal
