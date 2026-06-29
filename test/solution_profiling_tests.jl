@@ -425,6 +425,56 @@ end
     @test "E.SOL.GEN_VIOLATION" in codes(f2)
 end
 
+# ── T-VW: IBR active power validated against min(p_max, volt-watt cap) ─────────
+# An IBR under a volt_watt profile is bounded by BOTH the available-power box
+# `p_max` and the curtailment cap `p_base·f^VW(|U|)` — the validator checks the
+# tighter of the two, mirroring the OPF. Exercises both binding cases.
+@testset "SOL — IBR volt-watt cap and p_max (min of both)" begin
+    function _net_vw(; p_max)
+        net = _base_net()
+        net["control_profile"] = Dict{String,Any}(
+            "vw" => Dict{String,Any}(
+                "volt_watt" => Dict{String,Any}(
+                    "breakpoints" => [253.0, 260.0],
+                    "p_limits"    => [0.2, 1.0],   # [p_low, p_high]
+                    "p_ref"       => "S_MAX",
+                    "p_unit"      => "VA_FRACTION",
+                    "voltage_reference" => "PG_PER_PHASE",
+                )))
+        net["ibr"] = Dict{String,Any}(
+            "pv1" => Dict{String,Any}(
+                "bus" => "b1", "topology" => "SINGLE_PHASE",
+                "terminal_map" => ["a","n"],
+                "p_min" => [0.0], "p_max" => [p_max],
+                "s_max" => [5000.0], "control_profile" => "vw"))
+        net
+    end
+    # Drive the IBR-bus phase 'a' into the droop region (256.5 V → f^VW = 0.6),
+    # so the S_MAX-referenced cap = 5000·0.6 = 3000 W.
+    function _res_vw(pg)
+        result = _base_result()
+        result["bus"]["b1"]["a"] = Dict("vr"=>256.5,"vi"=>0.0,"vm"=>256.5,"va"=>0.0)
+        result["ibr"] = Dict{String,Any}(
+            "pv1" => Dict{String,Any}(
+                "a" => Dict("cri"=>0.0,"cii"=>0.0,"pg"=>pg,"qg"=>0.0)))
+        result
+    end
+
+    # ── Cap binds (p_max = 6000 W > cap 3000 W) ──
+    f_ok = Finding[]; solution_check(_net_vw(; p_max=6000.0), _res_vw(2500.0), f_ok)
+    @test !("E.SOL.IBR_VIOLATION" in codes(f_ok))           # 2500 < cap 3000 → clean
+    f_cap = Finding[]; solution_check(_net_vw(; p_max=6000.0), _res_vw(3500.0), f_cap)
+    @test "E.SOL.IBR_VIOLATION" in codes(f_cap)             # 3500 > cap 3000 → flagged
+
+    # ── p_max binds (p_max = 2000 W < cap 3000 W) ──
+    f_pm = Finding[]; solution_check(_net_vw(; p_max=2000.0), _res_vw(2500.0), f_pm)
+    @test "E.SOL.IBR_VIOLATION" in codes(f_pm)              # 2500 > available 2000 → flagged
+
+    # ── available power = 0 (night): any dispatch is a violation ──
+    f_night = Finding[]; solution_check(_net_vw(; p_max=0.0), _res_vw(1000.0), f_night)
+    @test "E.SOL.IBR_VIOLATION" in codes(f_night)
+end
+
 # ── T-BAL: power balance counts ALL injection sources ─────────────────────────
 # p_gen must include IBRs and the voltage source, not just generators —
 # otherwise the balance check spuriously fails whenever a DER dispatches or the

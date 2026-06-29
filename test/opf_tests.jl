@@ -181,6 +181,56 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # T4b: Uniform cost convention — voltage source ≡ generator
+    #
+    # The `cost` field is `$/W of active power INJECTED into the network`, with the
+    # SAME sign convention for generators and the voltage source (both stamp +I
+    # into KCL; both report power as +injection). So a POSITIVE cost minimises that
+    # element's injection in both cases:
+    #   • costly generator  → generates as little as possible (pg → p_min);
+    #   • costly source     → imports as little as possible, i.e. exports (ps → −).
+    # This locks the convention so source costs are never silently flipped vs
+    # generator/IBR costs. (To maximise exports: positive slack cost = import price.)
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T4b: uniform cost convention (source ≡ generator)" begin
+        P_load = 100_000.0;  P_max = 150_000.0
+        mknet(c_gen, c_src) = parse_bmopf("""
+        {"bus":{
+            "sourcebus":{"terminal_names":["1","n"],
+                         "perfectly_grounded_terminals":["n"]},
+            "bus1":     {"terminal_names":["1","n"],
+                         "perfectly_grounded_terminals":["n"],
+                         "v_min":[900.0],"v_max":[1100.0]}},
+         "voltage_source":{"vs":{"bus":"sourcebus","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0],"cost":[$c_src]}},
+         "linecode":{"lc":{"R_series_1_1":1.0e-4}},
+         "line":{"l1":{"bus_from":"sourcebus","bus_to":"bus1",
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld1":{"bus":"bus1","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[$P_load],"q_nom":[0.0]}},
+         "generator":{"gen1":{"bus":"bus1","terminal_map":["1"],
+             "configuration":"WYE","p_min":[0.0],"p_max":[$P_max],
+             "q_min":[0.0],"q_max":[0.0],"cost":[$c_gen]}}}
+        """; from_string=true)
+
+        # Case A: source free, generator costly → costly generator minimises its
+        # injection (pg → 0); the source supplies the load (ps > 0).
+        resA = solve_opf(mknet(1.0, 0.0))
+        @test resA["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test resA["generator"]["gen1"]["1"]["pg"] ≈ 0.0   atol=1.0
+        @test resA["voltage_source"]["vs"]["1"]["ps"] > P_load - 1.0   # source imports
+
+        # Case B: generator free, source costly → costly source minimises its
+        # injection, driving it NEGATIVE (export), while the generator maxes out.
+        # Same positive-cost-→-less-injection rule as the generator in Case A.
+        resB = solve_opf(mknet(0.0, 1.0))
+        @test resB["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test resB["generator"]["gen1"]["1"]["pg"] ≈ P_max   atol=2.0
+        @test resB["voltage_source"]["vs"]["1"]["ps"] < 0.0           # source exports
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # T5: Power balance identity
     #
     # For any converged OPF:  P_source = P_load + P_line_loss
