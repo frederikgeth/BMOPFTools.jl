@@ -1288,7 +1288,8 @@ end
 
 # Matching BMOPF network: single-phase PV (phase "1" to perfectly-grounded "n")
 # plus a single-phase load on bus lb, with the Aus A droop control_profile.
-function _net_pv_1ph_droop(; vsrc, kVA, Pmpp, load_kw, load_kvar, mode::Symbol)
+function _net_pv_1ph_droop(; vsrc, kVA, Pmpp, load_kw, load_kvar, mode::Symbol,
+                             p_ref::String="P_MAX")
     net = _net_1ph_line()
     delete!(net, "load")
     net["voltage_source"]["source"]["v_magnitude"] = [vsrc]
@@ -1311,7 +1312,7 @@ function _net_pv_1ph_droop(; vsrc, kVA, Pmpp, load_kw, load_kvar, mode::Symbol)
     if mode === :vw || mode === :vvvw
         cp["volt_watt"] = Dict{String,Any}(
             "voltage_reference" => "PN_PER_PHASE", "breakpoints" => copy(_AUSA_VW_X),
-            "p_limits" => copy(_AUSA_VW_P), "p_unit" => "VA_FRACTION", "p_ref" => "P_MAX")
+            "p_limits" => copy(_AUSA_VW_P), "p_unit" => "VA_FRACTION", "p_ref" => p_ref)
     end
     net["control_profile"] = Dict{String,Any}("cp" => cp)
     inv = Dict{String,Any}(
@@ -1840,6 +1841,26 @@ end
     res, P, _ = _check_pv_droop((vsrc=272.0, kVA=14.0, Pmpp=10.0, load_kw=3.0,
                                  load_kvar=1.0, mode=:vw), "vw-saturation: ")
     @test P ≈ 2_000.0   atol=150.0
+end
+
+@testset "PV droop vs OpenDSS — S_MAX volt-watt respects available power" begin
+    # Regression for the available-power bug: with volt-watt p_ref=S_MAX the
+    # curtailment cap is a fraction of *rated* (kVA), NOT of available solar, so it
+    # must NOT be the only P upper bound — the p_max (Pmpp) box has to still bind.
+    # Operate BELOW the volt-watt threshold (uncurtailed) with rated ≫ available:
+    # a correct model dispatches P ≈ Pmpp; the buggy one ran up to ≈ s_max.
+    # OpenDSS PVSystem can never exceed Pmpp·irradiance, so it is the truth source.
+    params = (vsrc=242.0, kVA=20.0, Pmpp=5.0, load_kw=3.0, load_kvar=1.0, mode=:vw)
+    V_ods, P_ods, _ = _ods_pv_droop(; params...)
+    Vbm, res = _bmopf_volts_opf(_net_pv_1ph_droop(; params..., p_ref="S_MAX"))
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+    P_bm = res["ibr"]["pv"]["1"]["pg"]
+    @test P_ods ≈ 5_000.0   atol=100.0            # OpenDSS: available-limited
+    @test P_bm  ≈ 5_000.0   atol=100.0            # BMOPF must match (was ≈ s_max)
+    @test P_bm  ≤ 5_000.0 * (1 + 1e-3)            # never exceeds available power
+    @test P_bm  < 0.9 * 20_000.0                  # and is nowhere near rated kVA
+    _cmp_volts(V_ods, Vbm; label="vw-Smax-available: ", atol=1.0)
 end
 
 @testset "PV droop vs OpenDSS — combined VV+VW (var priority)" begin

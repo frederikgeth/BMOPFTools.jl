@@ -3,8 +3,18 @@
 # `cost` is a per-phase vector of linear coefficients, one element per phase term
 # of the element ($/W): the cost of phase k is cost[k] * P_k, where
 #   P_k = dvr * cr[k] + dvi * ci[k]
-# is the per-phase active power (bilinear in voltage and current). This applies
-# uniformly to generators, the voltage source (slack), and IBRs.
+# is the per-phase active power (bilinear in voltage and current).
+#
+# CONVENTION (uniform across generators, IBRs, AND the voltage source): P_k is the
+# active power *injected into the network* by the element — every element stamps
+# +I into KCL and reports power as +injection (see generator.jl / source.jl /
+# results.jl). A POSITIVE cost therefore minimises that element's injection, and a
+# NEGATIVE cost maximises it — identically for all element types. The source is NOT
+# a special case: for the slack, +injection means importing from the grid, so a
+# positive cost reads as the grid import price (and export, a negative injection,
+# is credited at that same price). Maximising system exports = positive slack cost
+# with free DERs. Do not flip the sign for the source; the convention is enforced
+# by the "uniform cost convention (source ≡ generator)" OPF test.
 
 # Linear cost coefficient for loop position `idx` (1-based). `cost` must be a
 # per-phase vector; a scalar (legacy/polynomial form) is rejected.

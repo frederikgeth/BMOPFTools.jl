@@ -71,6 +71,95 @@ function _load_model_power(load, component::String, idx::Int,
     nothing
 end
 
+# ── Volt-watt active-power cap (validator mirror of the OPF) ──────────────────
+#
+# When an IBR references a control_profile with a `volt_watt` sub-object, the OPF
+# replaces the static P upper bound with the voltage-dependent curtailment cap
+# P ≤ p_base · f^VW(|U|)  (see ext/BMOPFOpfExt/ibr.jl). The validator must apply
+# the *same* upper bound, otherwise it falsely flags the (often placeholder)
+# p_max box bound. These helpers re-derive that cap at the solved voltage in SI
+# (result voltages are always SI), matching the OPF gating exactly:
+#   - skipped for THREE_LEG (droop not applied there),
+#   - skipped when a power_factor sub-object is present (PF wins),
+#   - skipped for unsupported units/arity (OPF falls back to the p_max box).
+
+# Solved monitored-voltage magnitude (SI volts) for IBR phase terminal `t_ph`,
+# per the volt_watt `voltage_reference` quantity. `t_res` is result["bus"][bus].
+function _ibr_monitor_vmag(t_res, t_ph, t_n, t_pp, quantity::Symbol)
+    _vm(t)  = get(get(t_res, t, Dict()), "vm", NaN)
+    _vr(t)  = get(get(t_res, t, Dict()), "vr", NaN)
+    _vi(t)  = get(get(t_res, t, Dict()), "vi", NaN)
+    if quantity == :PG || (quantity == :PN && t_n === nothing) ||
+       (quantity == :PP && t_pp === nothing)
+        return _vm(t_ph)
+    elseif quantity == :PN
+        return sqrt((_vr(t_ph) - _vr(t_n))^2 + (_vi(t_ph) - _vi(t_n))^2)
+    else # :PP
+        return sqrt((_vr(t_ph) - _vr(t_pp))^2 + (_vi(t_ph) - _vi(t_pp))^2)
+    end
+end
+
+# Evaluate the ideal piecewise-linear volt-watt fraction f^VW(U) from two
+# breakpoints [V5, V6] (ascending) with p_limits [p_low, p_high]: f = p_high at
+# V5, p_low at V6, clamped flat outside, linear between.
+function _volt_watt_fraction(U::Float64, bps::Vector{Float64}, p_low::Float64, p_high::Float64)
+    v5, v6 = bps[1], bps[2]
+    U <= v5 && return p_high
+    U >= v6 && return p_low
+    v6 == v5 && return p_high
+    p_high + (p_low - p_high) * (U - v5) / (v6 - v5)
+end
+
+# Effective volt-watt P upper bound (SI W) for IBR phase `idx`/terminal `t_ph` at
+# the solution, or `nothing` when no volt_watt curve governs this IBR (in which
+# case the caller keeps the static p_max box bound). `cp` is the resolved
+# control_profile dict; `pf_present` mirrors the OPF's PF-override gate.
+function _volt_watt_cap(inv, cp, pf_present::Bool, topo::String,
+                        idx::Int, t_ph, t_res, smax_arr, p_max_arr, n_phase::Int)
+    (cp isa Dict && !pf_present && topo != "THREE_LEG") || return nothing
+    vw = get(cp, "volt_watt", nothing)
+    vw isa Dict || return nothing
+    bps = Float64.(get(vw, "breakpoints", Float64[]))
+    pl  = Float64.(get(vw, "p_limits",    Float64[]))
+    (length(bps) == 2 && length(pl) == 2) || return nothing
+    get(vw, "p_unit", "VA_FRACTION") == "VA_FRACTION" || return nothing
+    ref = get(vw, "p_ref", "S_MAX")
+    ref in ("S_MAX", "P_MAX", "P_AVAILABLE") || return nothing
+
+    base = if ref == "S_MAX"
+        idx <= length(smax_arr) ? smax_arr[idx] : return nothing
+    elseif ref == "P_MAX"
+        idx <= length(p_max_arr) ? p_max_arr[idx] : return nothing
+    else # P_AVAILABLE
+        pa = get(inv, "p_avail", nothing)
+        pa isa Number ? Float64(pa) / max(n_phase, 1) : return nothing
+    end
+
+    # Parse the voltage_reference enum (mirrors ext _split_voltage_reference):
+    # a monitored quantity (PG/PN/PP) and a per-phase-vs-averaged aggregation.
+    vref = uppercase(String(get(vw, "voltage_reference", "PN_PER_PHASE")))
+    quantity = startswith(vref, "PG") ? :PG : startswith(vref, "PP") ? :PP : :PN
+    averaged = endswith(vref, "AVERAGED")
+    # Averaged aggregation feeds every phase the mean magnitude; for the common
+    # SINGLE_PHASE / per-phase cases this is just the phase's own magnitude.
+    tm   = Vector{String}(get(inv, "terminal_map", String[]))
+    np   = _neutral_pos(tm)
+    t_n  = np !== nothing ? tm[np] : nothing
+    phase_terms = [tm[p] for p in _phase_positions(tm)]
+    t_pp = length(phase_terms) >= 2 ? phase_terms[mod1(idx + 1, length(phase_terms))] : nothing
+
+    U = if averaged && !isempty(phase_terms)
+        mags = [_ibr_monitor_vmag(t_res, tp, t_n,
+                    length(phase_terms) >= 2 ? phase_terms[mod1(k + 1, length(phase_terms))] : nothing,
+                    quantity) for (k, tp) in enumerate(phase_terms)]
+        all(isfinite, mags) ? sum(mags) / length(mags) : return nothing
+    else
+        _ibr_monitor_vmag(t_res, t_ph, t_n, t_pp, quantity)
+    end
+    isfinite(U) || return nothing
+    base * _volt_watt_fraction(U, bps, pl[1], pl[2])
+end
+
 """
     solution_check(net, result, findings) -> Dict{String,Any}
 
@@ -640,6 +729,7 @@ function solution_check(net::Dict{String,Any},
 
         # Resolve PF for residual check
         pf_val = nothing
+        cp     = nothing
         cp_id  = get(inv, "control_profile", nothing)
         if cp_id isa String
             cp = get(profiles_net, cp_id, nothing)
@@ -661,6 +751,8 @@ function solution_check(net::Dict{String,Any},
 
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
         topo = get(inv, "topology", "FOUR_LEG")
+        n_phase = max(length(_phase_positions(tm)), 1)
+        t_res   = get(bus_res, get(inv, "bus", ""), Dict())
 
         phase_keys = if topo == "SINGLE_PHASE"
             length(tm) >= 1 ? [(1, tm[1])] : Tuple{Int,String}[]
@@ -676,9 +768,17 @@ function solution_check(net::Dict{String,Any},
             pg = get(tvals, "pg", NaN); qg = get(tvals, "qg", NaN)
             isfinite(pg) && isfinite(qg) || continue
 
-            # P bounds
+            # P bounds. Lower bound is always the box `p_min`. The upper bound is
+            # the available-power box `p_max`, tightened by the volt_watt
+            # curtailment cap `p_base·f^VW(|U|)` when a volt_watt profile governs
+            # this IBR — i.e. hi = min(p_max, cap), mirroring the OPF.
             lo = idx <= length(p_min_arr) ? p_min_arr[idx] : nothing
             hi = idx <= length(p_max_arr) ? p_max_arr[idx] : nothing
+            vw_cap = _volt_watt_cap(inv, cp, pf_val !== nothing, topo,
+                                    idx, t_ph, t_res, smax_arr, p_max_arr, n_phase)
+            if vw_cap !== nothing
+                hi = hi === nothing ? vw_cap : min(hi, vw_cap)
+            end
             if lo !== nothing || hi !== nothing
                 viol, act = _bound_status(pg, lo, hi)
                 if viol

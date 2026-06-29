@@ -195,8 +195,9 @@ current variables (cri, cii):
     Q_k = dvi·cri[k] − dvr·cii[k]
 
 Constraints applied per phase:
-- `p_min[k] ≤ P_k`; upper bound is `P_k ≤ p_max[k]`, or — under a `volt_watt`
-  profile — the curtailment cap `P_k ≤ p_base · f^VW(|U_k|)`.
+- `p_min[k] ≤ P_k`; the available-power box `P_k ≤ p_max[k]` always applies, and a
+  `volt_watt` profile adds the curtailment cap `P_k ≤ p_base · f^VW(|U_k|)` on top,
+  so the effective upper bound is the tighter of the two.
 - `P_k² + Q_k² ≤ s_max[k]²`  (apparent-power circle)
 - `cri[k]² + cii[k]² ≤ i_max[k]²`  (optional converter current-magnitude limit;
   only stamped when `i_max` is present, so `Q_k` rolls off ≈ linearly with voltage
@@ -450,14 +451,18 @@ function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     # P lower bound (always a box bound).
     length(p_min) >= idx && @constraint(model, p_expr >= p_min[idx])
 
-    # P upper bound: Volt-watt curtailment cap, else box.
+    # P upper bound(s). The available-power box `p_max` always applies — you cannot
+    # generate more active power than is available, regardless of any curtailment
+    # curve. A Volt-watt profile adds a voltage-dependent curtailment cap on top, so
+    # the effective bound is the tighter of the two (P ≤ min(p_max, p_base·f^VW)).
+    # (When p_ref=P_MAX the cap is already ≤ p_max and binds first; when p_ref=S_MAX
+    # the cap is a fraction of rated and p_max is what enforces availability.)
+    length(p_max) >= idx && @constraint(model, p_expr <= p_max[idx])
     if vw !== nothing
         op   = relu_operator_for!(relu_ops, model, vw.eps)
         base = _droop_base(vw, idx, smax, p_max, p_avail_per)
         @constraint(model, p_expr <= curve_expr(op, U_vw, base * vw.baseline,
                                                  [(base*a, x̄) for (a, x̄) in vw.triples]))
-    else
-        length(p_max) >= idx && @constraint(model, p_expr <= p_max[idx])
     end
 
     # Reactive power: constant-PF equality, Volt-var droop equality, or box.
