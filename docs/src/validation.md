@@ -415,18 +415,6 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Generator / IBR current magnitude (`i_max`) | A | `cr²+ci² ≤ i_max²` (optional, opt-in) | `generator.jl`, `ibr.jl` | covered (T-INV5, T-INV6, T-GEN-IMAX, T-GEN-IMAX-PU) |
 | IBR power-factor coupling | D | `pf·q + tan_φ·p = 0` | `ibr.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
 
-> **A subtlety this surfaced — now resolved.** The intra-bus angle limit bounds
-> the difference `θ_j − θ_k` of each ordered phase pair *centered on a nominal
-> offset* `Δ = va_nom[j] − va_nom[k]` (per-terminal nominal angles: `[0,−2π/3,2π/3]`
-> for three-phase, `[0,π]` for split-phase legs). Centering keeps the bounded
-> deviation inside the tangent-valid `(−90°,90°)` regime, where the raw bound on
-> the ≈∓120° inter-phase angle was unsound (the cosine `c` flips sign and `tan`
-> wraps). With `va_nom` absent the offset is `0` — identical to the old raw bound,
-> so the change is backward-compatible. An optional augmentation pass
-> (`apply_va_diff_bounds`) injects `va_nom` and the window; the centered bound
-> rejects negative/zero-sequence solutions, the sequence option (`vpos`/`vneg`/
-> `vzero`) is the 3-phase-only alternative.
-
 ## Reusing this for your own tool
 
 | You want to … | Use | What it proves |
