@@ -1,0 +1,85 @@
+# roundtrip_fidelity_tests.jl
+#
+# Regression guard for the BMOPF → OpenDSS export (`to_dss`). For every
+# pf_comparison feature case we round-trip DSS → BMOPF → DSS and check two
+# signals:
+#
+#   1. Semantic diff — the re-parsed BMOPF dict (net2) must match the original
+#      (net1) structurally. Cases that round-trip cleanly today are asserted to
+#      STAY clean (@test); known-lossy cases are documented with @test_broken so
+#      a future fix surfaces as an unexpected pass.
+#   2. OpenDSS power-flow cross-check — solve original vs regenerated DSS in
+#      OpenDSS and compare node voltages (gated on OpenDSSDirect). A *coarse*
+#      tolerance (atol=2 V, rtol=2%) is used deliberately: it ignores the benign
+#      systemic drift (`to_dss` currently writes DefaultBaseFrequency=60 and adds
+#      line charging) while still catching the severe failures — islanding from a
+#      dropped transformer, or a regenerated deck that will not converge.
+#
+# The allowlists below are a snapshot of today's fidelity. When `to_dss`
+# improves, the corresponding @test_broken flips to an unexpected pass and this
+# file must be updated to lock in the gain. See scripts/roundtrip_fidelity.jl for
+# the full diagnostic sweep (per-case matrix + failure map) this distills.
+
+include(joinpath(@__DIR__, "roundtrip_helpers.jl"))
+
+const _RT_PF_DIR = joinpath(@__DIR__, "data", "pf_comparison")
+
+# Cases whose DSS → BMOPF → DSS round trip is structurally lossless today.
+const RT_SEMANTIC_CLEAN = Set([
+    "pf_1ph_freeneutral", "pf_1ph_impedanceneutral", "pf_1ph_line",
+    "pf_1ph_perfectneutral", "pf_3ph_line", "pf_3wdg_dyn", "pf_4wdg_dyyn",
+    "pf_delta_load", "pf_exp_1ph", "pf_open_delta_reg", "pf_pv_1ph",
+    "pf_pv_4leg", "pf_zip_1ph", "pf_zip_3ph", "pf_zip_delta",
+])
+
+# Cases that survive the OpenDSS power-flow cross-check at the coarse tolerance
+# (solve + match, or legitimately skipped). Everything else either islands
+# (dropped transformer) or fails to converge — see the failure map.
+const RT_PF_SOUND = Set([
+    "pf_1ph_line", "pf_exp_1ph", "pf_zip_1ph", "pf_open_delta_reg",
+])
+
+const RT_PF_ATOL = 2.0
+const RT_PF_RTOL = 0.02
+
+@testset "to_dss round-trip fidelity" begin
+    cases = sort(filter(f -> endswith(f, ".dss"), readdir(_RT_PF_DIR)))
+    @test !isempty(cases)
+    workdir = mktempdir()
+
+    @testset "semantic diff — $(first(splitext(case)))" for case in cases
+        stem = first(splitext(case))
+        net1 = from_dss(joinpath(_RT_PF_DIR, case))
+        regen = joinpath(workdir, "$stem.dss")
+        to_dss(net1, regen)
+        net2 = from_dss(regen)
+        diffs = semantic_diff(net1, net2)
+        if stem in RT_SEMANTIC_CLEAN
+            @test isempty(diffs)
+        else
+            # Documented round-trip loss. If this passes, to_dss improved —
+            # move the case into RT_SEMANTIC_CLEAN.
+            @test_broken isempty(diffs)
+        end
+    end
+
+    if _HAS_ODS
+        @testset "PF cross-check — $(first(splitext(case)))" for case in cases
+            stem = first(splitext(case))
+            net1 = from_dss(joinpath(_RT_PF_DIR, case))
+            regen = joinpath(workdir, "$stem.dss")
+            to_dss(net1, regen)
+            pf = pf_cross_check(joinpath(_RT_PF_DIR, case), regen;
+                                atol=RT_PF_ATOL, rtol=RT_PF_RTOL)
+            if stem in RT_PF_SOUND
+                @test pf_ok(pf)
+            else
+                # Islanding or non-convergence in the regenerated deck. If this
+                # passes, to_dss improved — move the case into RT_PF_SOUND.
+                @test_broken pf_ok(pf)
+            end
+        end
+    else
+        @test_skip "PF cross-check requires OpenDSSDirect"
+    end
+end
