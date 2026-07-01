@@ -27,7 +27,7 @@ _der_mv_lv_net() = parse_bmopf("""
      "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0944,2.0944]}},
  "transformer":{"single_phase":{"tx":{"bus_from":"mv_src","bus_to":"lv_bus",
      "terminal_map_from":["a","b","c"],"terminal_map_to":["1","2","3"],
-     "s_rating":100000.0,"v_ref_from":11000.0,"v_ref_to":400.0,
+     "s_rating":100000.0,"v_nom_from":11000.0,"v_nom_to":400.0,
      "r_series_from":1.0,"r_series_to":0.01,"x_series_from":5.0,"x_series_to":0.05}}},
  "load":{"ld":{"bus":"lv_bus","terminal_map":["1","2","3","n"],"configuration":"WYE",
      "p_nom":[2000.0,2000.0,2000.0],"q_nom":[0.0,0.0,0.0]}}}

@@ -136,7 +136,7 @@
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         },
-                        "description": "Maxmimum symmetric component voltage values [V]"
+                        "description": "Maximum symmetric component voltage values [V]"
                     }
                 },
                 "required": ["terminal_names"]
@@ -233,11 +233,11 @@
                     }
                 },
                 "patternProperties": {
-                    "^G_\\d_\\d": {
+                    "^G_\\d+_\\d+$": {
                         "type": "number",
                         "description": "Array elements of the conductance [S]"
                     },
-                    "^B_\\d_\\d": {
+                    "^B_\\d+_\\d+$": {
                         "type": "number",
                         "description": "Array elements of the susceptance [S]"
                     }
@@ -252,7 +252,7 @@
         },
         "capacitor": {
             "type": "object",
-            "description": "Fixed (nameplate-rated) shunt capacitor banks. Susceptance B = q_rated/v_rated^2; delivers Q = B*V^2.",
+            "description": "Fixed (nameplate-rated) shunt capacitor banks. Susceptance B = q_rated/v_nom^2; delivers Q = B*V^2.",
             "additionalProperties": {
                 "type": "object",
                 "additionalProperties": false,
@@ -268,12 +268,12 @@
                         "description": "Rated reactive power [var] per phase (WYE) or per phase-pair (DELTA), length 1 for SINGLE_PHASE",
                         "items": { "$ref": "#/$defs/nonnegative_number" }
                     },
-                    "v_rated": {
+                    "v_nom": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Rated voltage [V]: phase-to-neutral for WYE/SINGLE_PHASE, line-to-line for DELTA"
                     }
                 },
-                "required": ["bus", "terminal_map", "configuration", "q_rated", "v_rated"]
+                "required": ["bus", "terminal_map", "configuration", "q_rated", "v_nom"]
             }
         },
         "load": {
@@ -395,7 +395,7 @@
                     },
                     "s_max": {
                         "type": "array",
-                        "description": "Optional per-phase apparent-power rating [VA]; one entry per phase conductor. Stamps the apparent-power circle pg²+qg² ≤ s_max²",
+                        "description": "Optional per-phase apparent-power rating [VA]; one entry per phase conductor (length = terminal_map - 1). Stamps the apparent-power circle pg²+qg² ≤ s_max²",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
@@ -453,7 +453,7 @@
                     },
                     "s_max": {
                         "type": "array",
-                        "description": "Per-phase apparent-power nameplate ratings [VA]; length must match terminal_map minus 1",
+                        "description": "Per-phase apparent-power nameplate ratings [VA]; one entry per phase conductor (length = terminal_map - 1)",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
@@ -470,12 +470,14 @@
                         "description": "Available active power [W]; upper bound on dispatch for PV prime movers"
                     },
                     "p_min": {
-                        "type": "number",
-                        "description": "Minimum active power [W]; negative indicates absorption (battery charging)"
+                        "type": "array",
+                        "description": "Per-phase minimum active power [W]; one entry per phase conductor (length = terminal_map - 1). Negative indicates absorption (battery charging)",
+                        "items": { "type": "number" }
                     },
                     "p_max": {
-                        "type": "number",
-                        "description": "Maximum active power [W]"
+                        "type": "array",
+                        "description": "Per-phase maximum active power [W]; one entry per phase conductor (length = terminal_map - 1)",
+                        "items": { "type": "number" }
                     },
                     "dc_link_coupled": {
                         "type": "boolean",
@@ -518,12 +520,14 @@
                         "description": "Optional half-width [V] of a dead-band around dc_v_set within which the droop holds P = dc_p_ref (no response to small DC-voltage deviations). Used only for dc_control=droop."
                     },
                     "q_min": {
-                        "type": "number",
-                        "description": "Minimum reactive power [var]; negative indicates absorption (default -s_max)"
+                        "type": "array",
+                        "description": "Per-phase minimum reactive power [var]; one entry per phase conductor (length = terminal_map - 1). Negative indicates absorption (default -s_max)",
+                        "items": { "type": "number" }
                     },
                     "q_max": {
-                        "type": "number",
-                        "description": "Maximum reactive power [var] (default s_max)"
+                        "type": "array",
+                        "description": "Per-phase maximum reactive power [var]; one entry per phase conductor (length = terminal_map - 1) (default s_max)",
+                        "items": { "type": "number" }
                     },
                     "r_filter": {
                         "type": "array",
@@ -562,7 +566,7 @@
                         "type": "string",
                         "description": "Reference to a control_profile id encoding smart-IBR control laws"
                     },
-                    "voltage_ref": {
+                    "voltage_aggregation": {
                         "type": "string",
                         "enum": ["PER_PHASE", "AVERAGE"],
                         "description": "Cross-phase aggregation of the droop monitored voltage for a multi-phase IBR: PER_PHASE (default, each phase reacts to its own magnitude) or AVERAGE (every phase reacts to the mean phase magnitude). When present it overrides the per-phase/averaged aggregation implied by a control law's voltage_reference."
@@ -679,27 +683,27 @@
                     }
                 },
                 "patternProperties":{
-                    "^R_series_\\d_\\d": {
+                    "^R_series_\\d+_\\d+$": {
                         "type": "number",
                         "description": "Element of the series resistance matrix [Ohm/m]"
                     },
-                    "^X_series_\\d_\\d": {
+                    "^X_series_\\d+_\\d+$": {
                         "type": "number",
                         "description": "Element of the series reactance matrix [Ohm/m]"
                     },
-                    "^G_from_\\d_\\d": {
+                    "^G_from_\\d+_\\d+$": {
                         "type": "number",
                         "description": "Element of the shunt conductance matrix [S/m]"
                     },
-                    "^G_to_\\d_\\d": {
+                    "^G_to_\\d+_\\d+$": {
                         "type": "number",
                         "description": "Element of the shunt conductance matrix [S/m]"
                     },
-                    "^B_from_\\d_\\d": {
+                    "^B_from_\\d+_\\d+$": {
                         "type": "number",
                         "description": "Element of the shunt susceptance matrix [S/m]"
                     },
-                    "^B_to_\\d_\\d": {
+                    "^B_to_\\d+_\\d+$": {
                         "type": "number",
                         "description": "Element of the shunt susceptance matrix [S/m]"
                     }
@@ -736,7 +740,8 @@
                     },
                     "i_max": {
                         "type": "array",
-                        "description": "Maximum permitted current passing through each conductor of the switch [A]"
+                        "description": "Maximum permitted current passing through each conductor of the switch [A]",
+                        "items": { "$ref": "#/$defs/nonnegative_number" }
                     }
                 },
                 "required": [
@@ -753,11 +758,11 @@
             "properties": {
                 "single_phase": {
                     "$ref": "#/$defs/single_phase_or_center_tap_transformer",
-                    "description": "Single phase transfomrer object"
+                    "description": "Single phase transformer object"
                 },
                 "center_tap": {
                     "$ref": "#/$defs/single_phase_or_center_tap_transformer",
-                    "description": "Center tap transfomrer object, with a single-phase winding on the 'from' side and split winding on the 'to' side."
+                    "description": "Center tap transformer object, with a single-phase winding on the 'from' side and split winding on the 'to' side."
                 },
                 "wye_delta": {
                     "$ref": "#/$defs/three_phase_transformer",
@@ -777,7 +782,7 @@
                 },
                 "n_winding": {
                     "$ref": "#/$defs/n_winding_transformer",
-                    "description": "General n-winding (3+) transformer as a winding-indexed list with pairwise short-circuit reactances. Winding 1 is the reference; the OPF/Ybus build a star/T-equivalent. WYE and DELTA windings are supported (a DELTA winding's v_ref is its line-to-line coil voltage; delta_roll selects the vector-group rotation)."
+                    "description": "General n-winding (3+) transformer as a winding-indexed list with pairwise short-circuit reactances. Winding 1 is the reference; the OPF/Ybus build a star/T-equivalent. WYE and DELTA windings are supported (a DELTA winding's v_nom is its line-to-line coil voltage; delta_roll selects the vector-group rotation)."
                 }
             }
         },
@@ -1016,17 +1021,17 @@
                     "$ref": "#/$defs/terminal_map_type",
                     "description": "Mapping of this winding's terminals to the bus terminals"
                 },
-                "v_ref": {
+                "v_nom": {
                     "$ref": "#/$defs/nonnegative_number",
                     "description": "Winding reference (nominal) coil voltage [V]: line-to-neutral for a WYE winding, line-to-line for a DELTA winding"
                 },
-                "connection": {
+                "configuration": {
                     "$ref": "#/$defs/configuration_type",
-                    "description": "Winding connection (WYE or DELTA)"
+                    "description": "Winding configuration (WYE or DELTA)"
                 },
                 "r_winding": {
                     "$ref": "#/$defs/nonnegative_number",
-                    "description": "Winding series resistance [Ohm] on this winding's own coil base (n_ph*v_ref^2/s_rating)"
+                    "description": "Winding series resistance [Ohm] on this winding's own coil base (n_ph*v_nom^2/s_rating)"
                 },
                 "delta_roll": {
                     "type": "integer",
@@ -1034,7 +1039,7 @@
                     "description": "DELTA only: coil rotation / vector-group sense. +1 connects coil k across phases k->k+1, -1 across k->k-1 (OpenDSS's standard delta). Ignored for WYE."
                 }
             },
-            "required": ["bus", "terminal_map", "v_ref", "connection"]
+            "required": ["bus", "terminal_map", "v_nom", "configuration"]
         },
         "n_winding_transformer":{
             "type": "object",
@@ -1062,7 +1067,7 @@
                     },
                     "g_no_load": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "No-load (magnetising) shunt conductance [S], referenced at winding 1"
+                        "description": "No-load (core-loss) shunt conductance [S], referenced at winding 1"
                     },
                     "b_no_load": {
                         "type": "number",
@@ -1112,17 +1117,25 @@
                     "terminal_map_from": {
                         "$ref": "#/$defs/terminal_map_type"
                     },
-                    "v_ref_to": {
+                    "v_nom_to": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Nominal voltage of the 'to'-side winding [V]"
                     },
-                    "v_ref_from": {
+                    "v_nom_from": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Nominal voltage of the 'from'-side winding [V]"
                     },
+                    "g_no_load": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "No-load (core-loss) shunt conductance [S], stamped across the 'from'-side winding"
+                    },
+                    "b_no_load": {
+                        "type": "number",
+                        "description": "No-load (magnetising) shunt susceptance [S], stamped across the 'from'-side winding"
+                    },
                     "tap": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Dimensionless tap multiplier on the from-side (HV) ratio; N_eff = (v_ref_from/v_ref_to)*tap. Default 1.0. For center_tap this taps the HV winding (both LV legs scale together)."
+                        "description": "Dimensionless tap multiplier on the from-side (HV) ratio; N_eff = (v_nom_from/v_nom_to)*tap. Default 1.0. For center_tap this taps the HV winding (both LV legs scale together)."
                     },
                     "tap_min": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -1139,8 +1152,8 @@
                     "terminal_map_from",
                     "terminal_map_to",
                     "s_rating",
-                    "v_ref_from",
-                    "v_ref_to"
+                    "v_nom_from",
+                    "v_nom_to"
                 ]
             }
         },
@@ -1160,7 +1173,7 @@
                     },
                     "x_series": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Series reactance on the wye-conencted winding [Ohm]"
+                        "description": "Series reactance on the wye-connected winding [Ohm]"
                     },
                     "bus_from": {
                         "type": "string",
@@ -1176,17 +1189,25 @@
                     "terminal_map_from": {
                         "$ref": "#/$defs/terminal_map_type"
                     },
-                    "v_ref_to": {
+                    "v_nom_to": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Nominal phase-to-phase voltage of the 'to'-side winding [V]"
                     },
-                    "v_ref_from": {
+                    "v_nom_from": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Nominal phase-to-phase voltage of the 'from'-side winding [V]"
                     },
+                    "g_no_load": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "No-load (core-loss) shunt conductance [S], stamped across the 'from'-side (wye) winding"
+                    },
+                    "b_no_load": {
+                        "type": "number",
+                        "description": "No-load (magnetising) shunt susceptance [S], stamped across the 'from'-side (wye) winding"
+                    },
                     "tap": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Dimensionless tap multiplier on the from-side ratio; N_eff = (v_ref_from/v_ref_to)*tap. Default 1.0."
+                        "description": "Dimensionless tap multiplier on the from-side ratio; N_eff = (v_nom_from/v_nom_to)*tap. Default 1.0."
                     },
                     "tap_min": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -1203,17 +1224,17 @@
                     "terminal_map_from",
                     "terminal_map_to",
                     "s_rating",
-                    "v_ref_from",
-                    "v_ref_to"
+                    "v_nom_from",
+                    "v_nom_to"
                 ]
             }
         },
-        "regulator_type_kind": {
+        "regulator_type": {
             "type": "string",
             "description": "ANSI step-voltage-regulator connection: A (series winding on the regulated/output side; n_eff = 1/tap_ratio) or B (series winding on the source side, standard SVR; n_eff = tap_ratio)",
             "enum": ["A", "B"]
         },
-        "open_delta_connection_kind": {
+        "open_delta_connection_type": {
             "type": "string",
             "description": "Open-delta phase-pair wiring (GridLAB-D convention): which two line-to-line pairs carry a regulating winding",
             "enum": ["ABBC", "BCAC", "CABA"]
@@ -1279,7 +1300,7 @@
                         "description": "Upper bound on tap_ratio (see tap_ratio_min)."
                     },
                     "regulator_type": {
-                        "$ref": "#/$defs/regulator_type_kind"
+                        "$ref": "#/$defs/regulator_type"
                     },
                     "i_max_from": {
                         "type": "array",
@@ -1349,7 +1370,7 @@
                         "$ref": "#/$defs/terminal_map_type"
                     },
                     "connection": {
-                        "$ref": "#/$defs/open_delta_connection_kind"
+                        "$ref": "#/$defs/open_delta_connection_type"
                     },
                     "tap_ratio": {
                         "type": "array",
@@ -1367,7 +1388,7 @@
                         "description": "Per-regulator upper bounds [a1_max, a2_max] (see tap_ratio_min)."
                     },
                     "regulator_type": {
-                        "$ref": "#/$defs/regulator_type_kind"
+                        "$ref": "#/$defs/regulator_type"
                     },
                     "i_max_from": {
                         "type": "array",

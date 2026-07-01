@@ -1739,7 +1739,7 @@
   "name": "Three-wire-Kron-reduced / network_13 / Feeder_3",
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:29:10Z",
+    "created": "2026-07-01T03:30:08Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"
@@ -2198,7 +2198,7 @@
     },
     "84": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2294,7 +2294,7 @@
     },
     "107": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2495,7 +2495,7 @@
     },
     "sourcebus": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",

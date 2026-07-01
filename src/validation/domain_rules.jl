@@ -995,21 +995,21 @@ function _check_transformer_ratings(net, findings, thresh, n_checks)
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
-            vf = get(t, "v_ref_from", nothing)
-            vt = get(t, "v_ref_to",   nothing)
+            vf = get(t, "v_nom_from", nothing)
+            vt = get(t, "v_nom_to",   nothing)
             (vf === nothing || vt === nothing) && continue
             n_checks[] += 1
             vf_f, vt_f = Float64(vf), Float64(vt)
 
-            # Non-positive v_ref yields an undefined or infinite turns ratio —
+            # Non-positive v_nom yields an undefined or infinite turns ratio —
             # the OPF will fail to build.
             if vf_f <= 0 || vt_f <= 0
                 push!(findings, Finding(ERROR, "E.DOM.XFMR_VREF_INVALID", :domain_rules,
                     :transformer, id,
-                    "Transformer '$id' has non-positive v_ref_from=$(vf) V or " *
-                    "v_ref_to=$(vt) V. The turns ratio N = v_ref_from/v_ref_to " *
+                    "Transformer '$id' has non-positive v_nom_from=$(vf) V or " *
+                    "v_nom_to=$(vt) V. The turns ratio N = v_nom_from/v_nom_to " *
                     "is undefined; the OPF cannot be built.",
-                    Dict{String,Any}("v_ref_from" => vf, "v_ref_to" => vt)))
+                    Dict{String,Any}("v_nom_from" => vf, "v_nom_to" => vt)))
                 continue
             end
 
@@ -1022,7 +1022,7 @@ function _check_transformer_ratings(net, findings, thresh, n_checks)
                     "Transformer '$id' step ratio $(round(step, digits=1)):1 exceeds " *
                     "plausibility threshold $(ratio_max):1.",
                     Dict{String,Any}("step_ratio" => step,
-                                     "v_ref_from" => vf_f, "v_ref_to" => vt_f)))
+                                     "v_nom_from" => vf_f, "v_nom_to" => vt_f)))
             end
         end
     end
@@ -1051,9 +1051,9 @@ const _XFMR_ORIENTED_SUBTYPES = ("single_phase", "center_tap", "wye_delta",
 # endpoint with the smaller distance is *upstream* (toward the source). Then:
 #   • if `bus_to` is strictly upstream of `bus_from`, the from/to terminals are
 #     reversed relative to power flow → W.DOM.XFMR_REVERSED;
-#   • if the upstream-side `v_ref` is strictly below the downstream-side `v_ref`,
+#   • if the upstream-side `v_nom` is strictly below the downstream-side `v_nom`,
 #     the transformer boosts voltage away from the source → W.DOM.XFMR_STEP_UP.
-# Both are almost always data-entry slips (swapped `bus_*` or swapped `v_ref_*`),
+# Both are almost always data-entry slips (swapped `bus_*` or swapped `v_nom_*`),
 # but genuine boost transformers and meshed/multi-source feeds exist, so both are
 # warnings. Ambiguous endpoints — equal distance (a loop/mesh) or unreachable
 # from any source — are skipped, which makes the check safe on non-radial parts
@@ -1134,13 +1134,13 @@ function _check_transformer_orientation(net, findings, n_checks)
                     "downstream terminal `bus_to`='$tb' is closer to a voltage " *
                     "source ($(dt) hops) than `bus_from`='$fb' ($(df) hops). In a " *
                     "radial feeder `bus_from` should be the source-side terminal; " *
-                    "the terminals (and likely `v_ref_from`/`v_ref_to`) are swapped.",
+                    "the terminals (and likely `v_nom_from`/`v_nom_to`) are swapped.",
                     Dict{String,Any}("bus_from" => fb, "bus_to" => tb,
                                      "dist_from" => df, "dist_to" => dt)))
             end
 
-            # Step direction along source → load. v_ref_from pairs with bus_from.
-            vf = get(t, "v_ref_from", nothing); vt = get(t, "v_ref_to", nothing)
+            # Step direction along source → load. v_nom_from pairs with bus_from.
+            vf = get(t, "v_nom_from", nothing); vt = get(t, "v_nom_to", nothing)
             (vf === nothing || vt === nothing) && continue
             vf_f, vt_f = Float64(vf), Float64(vt)
             (vf_f > 0 && vt_f > 0) || continue       # XFMR_VREF_INVALID covers this
@@ -1149,11 +1149,11 @@ function _check_transformer_orientation(net, findings, n_checks)
                 push!(findings, Finding(WARNING, "W.DOM.XFMR_STEP_UP", :domain_rules,
                     :transformer, id,
                     "Transformer '$id' steps voltage *up* away from the source: " *
-                    "upstream v_ref=$(round(v_up, digits=1)) V < downstream " *
-                    "v_ref=$(round(v_dn, digits=1)) V. Distribution step transformers " *
+                    "upstream v_nom=$(round(v_up, digits=1)) V < downstream " *
+                    "v_nom=$(round(v_dn, digits=1)) V. Distribution step transformers " *
                     "normally step down toward the load; this is usually swapped " *
-                    "`v_ref_from`/`v_ref_to` (or a genuine boost transformer, if intended).",
-                    Dict{String,Any}("v_ref_upstream" => v_up, "v_ref_downstream" => v_dn,
+                    "`v_nom_from`/`v_nom_to` (or a genuine boost transformer, if intended).",
+                    Dict{String,Any}("v_nom_upstream" => v_up, "v_nom_downstream" => v_dn,
                                      "reversed" => reversed)))
             end
         end
@@ -1161,10 +1161,10 @@ function _check_transformer_orientation(net, findings, n_checks)
 end
 
 # Per-unit total series impedance of a transformer on its from-side rating base
-# (Z_base = v_ref_from²/s_rating). Returns `nothing` when the base is undefined.
+# (Z_base = v_nom_from²/s_rating). Returns `nothing` when the base is undefined.
 function _xfmr_z_pu(t::Dict, R::Real, X::Real)
     sbase = Float64(get(t, "s_rating",   0.0))
-    vref  = Float64(get(t, "v_ref_from", 0.0))
+    vref  = Float64(get(t, "v_nom_from", 0.0))
     (sbase > 0 && vref > 0) || return nothing
     hypot(Float64(R), Float64(X)) / (vref^2 / sbase)
 end

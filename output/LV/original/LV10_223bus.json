@@ -3843,7 +3843,7 @@
   },
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:34:00Z",
+    "created": "2026-07-01T03:34:57Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"
@@ -4614,7 +4614,7 @@
   "transformer": {
     "delta_wye": {
       "tx2187": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -4622,17 +4622,19 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b185",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b1862"
       }
     }
@@ -7099,7 +7101,7 @@
     },
     "b185": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",

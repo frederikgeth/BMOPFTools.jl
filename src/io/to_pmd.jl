@@ -342,8 +342,8 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
         get(xfmr, "terminal_map_to", String[]), bus_to, terminal_int_map)
     pmd["connections"] = [f_conn, t_conn]
 
-    if haskey(xfmr, "v_ref_from") && haskey(xfmr, "v_ref_to")
-        pmd["vm_nom"] = [xfmr["v_ref_from"] / vscale, xfmr["v_ref_to"] / vscale]
+    if haskey(xfmr, "v_nom_from") && haskey(xfmr, "v_nom_to")
+        pmd["vm_nom"] = [xfmr["v_nom_from"] / vscale, xfmr["v_nom_to"] / vscale]
     end
     haskey(xfmr, "s_rating") &&
         (pmd["sm_nom"] = [xfmr["s_rating"] / pscale, xfmr["s_rating"] / pscale])
@@ -357,19 +357,19 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
     has_r1 = haskey(xfmr, "r_series")
     has_x1 = haskey(xfmr, "x_series")
     if has_r1 || has_x1 || has_r2 || has_x2
-        if haskey(xfmr, "v_ref_from") && haskey(xfmr, "v_ref_to") &&
+        if haskey(xfmr, "v_nom_from") && haskey(xfmr, "v_nom_to") &&
            haskey(xfmr, "s_rating") && Float64(xfmr["s_rating"]) > 0
             s = Float64(xfmr["s_rating"])
             if subtype in ("wye_delta", "delta_wye") && (has_r1 || has_x1)
-                v_ref_wye = subtype == "wye_delta" ? Float64(xfmr["v_ref_from"]) :
-                                                     Float64(xfmr["v_ref_to"])
-                z_base = v_ref_wye^2 / s
+                v_nom_wye = subtype == "wye_delta" ? Float64(xfmr["v_nom_from"]) :
+                                                     Float64(xfmr["v_nom_to"])
+                z_base = v_nom_wye^2 / s
                 # inverse of from_pmd lumping: split the total evenly
                 has_r1 && (pmd["rw"] = fill(Float64(xfmr["r_series"]) / z_base / 2, 2))
                 has_x1 && (pmd["xsc"] = [Float64(xfmr["x_series"]) / z_base])
             else
-                z_base_from = Float64(xfmr["v_ref_from"])^2 / s
-                z_base_to   = Float64(xfmr["v_ref_to"])^2   / s
+                z_base_from = Float64(xfmr["v_nom_from"])^2 / s
+                z_base_to   = Float64(xfmr["v_nom_to"])^2   / s
                 has_r2 && (pmd["rw"] = [Float64(xfmr["r_series_from"]) / z_base_from,
                                         Float64(xfmr["r_series_to"])   / z_base_to])
                 # inverse of the even split in from_pmd: pair total = sum of halves
@@ -378,20 +378,20 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
             end
         else
             @warn "Transformer: cannot convert r_series/x_series (Ω) to PMD p.u. — " *
-                  "missing v_ref or s_rating. Winding impedance omitted."
+                  "missing v_nom or s_rating. Winding impedance omitted."
         end
     end
 
     # No-load branch: BMOPF g_no_load/b_no_load (S) → PMD noloadloss/cmag
     # (both dimensionless, relative to s_rating). Inverse of from_pmd: g_no_load is
-    # referred to the phase-to-ground stamping voltage V_LN = v_ref_from/√3 for a
-    # 3-phase winding, or v_ref_from for single-phase (selected by phase count).
+    # referred to the phase-to-ground stamping voltage V_LN = v_nom_from/√3 for a
+    # 3-phase winding, or v_nom_from for single-phase (selected by phase count).
     has_g = haskey(xfmr, "g_no_load")
     has_b = haskey(xfmr, "b_no_load")
     if (has_g || has_b) &&
-       haskey(xfmr, "v_ref_from") && haskey(xfmr, "s_rating") &&
+       haskey(xfmr, "v_nom_from") && haskey(xfmr, "s_rating") &&
        Float64(xfmr["s_rating"]) > 0
-        vf    = Float64(xfmr["v_ref_from"])
+        vf    = Float64(xfmr["v_nom_from"])
         s     = Float64(xfmr["s_rating"])
         n_from_ph = count(!=("n"), Vector{String}(get(xfmr, "terminal_map_from", String[])))
         v_stamp = n_from_ph >= 3 ? vf / sqrt(3) : vf
@@ -402,7 +402,7 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
         pmd["cmag"]       = sqrt(G^2 + B^2) / y_base
     elseif has_g || has_b
         @warn "Transformer: cannot convert g_no_load/b_no_load to PMD — " *
-              "missing v_ref_from or s_rating. No-load branch omitted."
+              "missing v_nom_from or s_rating. No-load branch omitted."
     end
 
     pmd["status"] = "ENABLED"

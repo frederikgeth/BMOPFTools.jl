@@ -1,6 +1,6 @@
 # Simplification log: LV25_232bus
 
-**Generated:** 2026-06-23 21:34:01  
+**Generated:** 2026-07-01 13:34:58  
 **Buses:** 233 → 176 (−57)  
 **Lines:** 223 → 174 (−49)  
 **Operations:** 63

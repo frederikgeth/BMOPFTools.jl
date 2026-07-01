@@ -1,6 +1,6 @@
 # Simplification log: DSuite_SPD_Urban
 
-**Generated:** 2026-06-23 21:26:48  
+**Generated:** 2026-07-01 13:27:45  
 **Buses:** 1220 → 652 (−568)  
 **Lines:** 1218 → 650 (−568)  
 **Operations:** 715

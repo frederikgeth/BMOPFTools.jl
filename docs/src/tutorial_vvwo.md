@@ -257,7 +257,7 @@ AVERAGE     V(φ-n) = [1.065 1.119 1.106] pu   Q = [-4.10 -4.10 -4.10] kvar
 With per-phase, each phase reacts to its own voltage, so the lightly-loaded
 high-voltage phase absorbs most and the heavily-loaded phase least. With averaged,
 every phase reacts to the common mean, giving balanced reactive injection. (The
-legacy IBR-level `voltage_ref = "PER_PHASE" | "AVERAGE"` field still selects the
+legacy IBR-level `voltage_aggregation = "PER_PHASE" | "AVERAGE"` field still selects the
 aggregation and overrides the enum's suffix when present.)
 
 This appendix is also a concrete face of the caveat from

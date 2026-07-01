@@ -13463,7 +13463,7 @@
     },
     "b1726": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -75419,7 +75419,7 @@
   ],
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:34:05Z",
+    "created": "2026-07-01T03:35:02Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"
@@ -85734,7 +85734,7 @@
   "transformer": {
     "delta_wye": {
       "tx3913": {
-        "x_series_to": 0,
+        "x_series_to": 0.00016874534838020035,
         "s_rating": 200000,
         "terminal_map_to": [
           "a",
@@ -85742,21 +85742,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.006889,
-        "x_series_from": 0.0003374906967604007,
+        "b_no_load": 0,
+        "r_series_from": 2.42,
+        "v_nom_to": 415,
+        "x_series_from": 0.11855530355061251,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b598",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 415,
+        "r_series_to": 0.0034445,
         "bus_to": "b897"
       },
       "tx848": {
-        "x_series_to": 0,
+        "x_series_to": 0.00011663552568490511,
         "s_rating": 315000,
         "terminal_map_to": [
           "a",
@@ -85764,21 +85766,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.004761625396825397,
-        "x_series_from": 0.00023327105136981022,
+        "b_no_load": 0,
+        "r_series_from": 1.5365079365079366,
+        "v_nom_to": 433,
+        "x_series_from": 0.07527320860356351,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2407",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.0023808126984126987,
         "bus_to": "b2581"
       },
       "tx1777": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -85786,21 +85790,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b449",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b1595"
       },
       "tx269": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -85808,21 +85814,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b3309",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b451"
       },
       "tx3703": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -85830,21 +85838,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b804",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b641"
       },
       "tx1108": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -85852,21 +85862,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b271",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b468"
       },
       "tx1632": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -85874,21 +85886,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b212",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b557"
       },
       "tx2620": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -85896,21 +85910,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b1690",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b342"
       },
       "tx2615": {
-        "x_series_to": 0,
+        "x_series_to": 0.00011663552568490511,
         "s_rating": 315000,
         "terminal_map_to": [
           "a",
@@ -85918,21 +85934,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.004761625396825397,
-        "x_series_from": 0.00023327105136981022,
+        "b_no_load": 0,
+        "r_series_from": 1.5365079365079366,
+        "v_nom_to": 433,
+        "x_series_from": 0.07527320860356351,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2700",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.0023808126984126987,
         "bus_to": "b3001"
       },
       "tx215": {
-        "x_series_to": 0,
+        "x_series_to": 6.123365098466891e-5,
         "s_rating": 750000,
         "terminal_map_to": [
           "a",
@@ -85940,21 +85958,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.0024998533333333334,
-        "x_series_from": 0.00012246730196933782,
+        "b_no_load": 0,
+        "r_series_from": 0.8066666666666668,
+        "v_nom_to": 433,
+        "x_series_from": 0.039518434516931336,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b467",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.0012499266666666667,
         "bus_to": "b1520"
       },
       "tx2458": {
-        "x_series_to": 0,
+        "x_series_to": 4.592523823850168e-5,
         "s_rating": 1000000,
         "terminal_map_to": [
           "a",
@@ -85962,21 +85982,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.00187489,
-        "x_series_from": 9.185047647700336e-5,
+        "b_no_load": 0,
+        "r_series_from": 0.605,
+        "v_nom_to": 433,
+        "x_series_from": 0.0296388258876985,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2439",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.000937445,
         "bus_to": "b2549"
       },
       "tx2177": {
-        "x_series_to": 0,
+        "x_series_to": 4.592523823850168e-5,
         "s_rating": 1000000,
         "terminal_map_to": [
           "a",
@@ -85984,21 +86006,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.00187489,
-        "x_series_from": 9.185047647700336e-5,
+        "b_no_load": 0,
+        "r_series_from": 0.605,
+        "v_nom_to": 433,
+        "x_series_from": 0.0296388258876985,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b3190",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.000937445,
         "bus_to": "b1279"
       },
       "tx1941": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86006,21 +86030,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b3125",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b1041"
       },
       "tx3394": {
-        "x_series_to": 0,
+        "x_series_to": 0.00011663552568490511,
         "s_rating": 315000,
         "terminal_map_to": [
           "a",
@@ -86028,21 +86054,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.004761625396825397,
-        "x_series_from": 0.00023327105136981022,
+        "b_no_load": 0,
+        "r_series_from": 1.5365079365079366,
+        "v_nom_to": 433,
+        "x_series_from": 0.07527320860356351,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b169",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.0023808126984126987,
         "bus_to": "b921"
       },
       "tx1257": {
-        "x_series_to": 0,
+        "x_series_to": 4.592523823850168e-5,
         "s_rating": 1000000,
         "terminal_map_to": [
           "a",
@@ -86050,21 +86078,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.00187489,
-        "x_series_from": 9.185047647700336e-5,
+        "b_no_load": 0,
+        "r_series_from": 0.605,
+        "v_nom_to": 433,
+        "x_series_from": 0.0296388258876985,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2755",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.000937445,
         "bus_to": "b395"
       },
       "tx1840": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86072,21 +86102,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2157",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b2824"
       },
       "tx2187": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86094,21 +86126,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b185",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b1862"
       },
       "tx3170": {
-        "x_series_to": 0,
+        "x_series_to": 0.00036740190590745105,
         "s_rating": 100000,
         "terminal_map_to": [
           "a",
@@ -86116,21 +86150,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.01499912,
-        "x_series_from": 0.0007348038118149021,
+        "b_no_load": 0,
+        "r_series_from": 4.84,
+        "v_nom_to": 433,
+        "x_series_from": 0.23711060710122503,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2577",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.00749956,
         "bus_to": "b179"
       },
       "tx4271": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86138,21 +86174,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b3198",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b1522"
       },
       "tx4279": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86160,21 +86198,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2995",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b639"
       },
       "tx2677": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86182,21 +86222,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b1386",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b1337"
       },
       "tx3831": {
-        "x_series_to": 0,
+        "x_series_to": 4.592523823850168e-5,
         "s_rating": 1000000,
         "terminal_map_to": [
           "a",
@@ -86204,21 +86246,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.00187489,
-        "x_series_from": 9.185047647700336e-5,
+        "b_no_load": 0,
+        "r_series_from": 0.605,
+        "v_nom_to": 433,
+        "x_series_from": 0.0296388258876985,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2234",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.000937445,
         "bus_to": "b3041"
       },
       "tx2059": {
-        "x_series_to": 0,
+        "x_series_to": 6.123365098466891e-5,
         "s_rating": 750000,
         "terminal_map_to": [
           "a",
@@ -86226,21 +86270,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.0024998533333333334,
-        "x_series_from": 0.00012246730196933782,
+        "b_no_load": 0,
+        "r_series_from": 0.8066666666666668,
+        "v_nom_to": 433,
+        "x_series_from": 0.039518434516931336,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b380",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.0012499266666666667,
         "bus_to": "b255"
       },
       "tx1621": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86248,21 +86294,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b1569",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b2161"
       },
       "tx2831": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86270,21 +86318,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b325",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b1090"
       },
       "tx475": {
-        "x_series_to": 0,
+        "x_series_to": 4.592523823850168e-5,
         "s_rating": 1000000,
         "terminal_map_to": [
           "a",
@@ -86292,21 +86342,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.00187489,
-        "x_series_from": 9.185047647700336e-5,
+        "b_no_load": 0,
+        "r_series_from": 0.605,
+        "v_nom_to": 433,
+        "x_series_from": 0.0296388258876985,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2650",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.000937445,
         "bus_to": "b2885"
       },
       "tx377": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86314,21 +86366,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b3271",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b1609"
       },
       "tx1902": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86336,21 +86390,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2918",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b915"
       },
       "tx381": {
-        "x_series_to": 0,
+        "x_series_to": 4.592523823850168e-5,
         "s_rating": 1000000,
         "terminal_map_to": [
           "a",
@@ -86358,21 +86414,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.00187489,
-        "x_series_from": 9.185047647700336e-5,
+        "b_no_load": 0,
+        "r_series_from": 0.605,
+        "v_nom_to": 433,
+        "x_series_from": 0.0296388258876985,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2262",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.000937445,
         "bus_to": "b1163"
       },
       "tx4258": {
-        "x_series_to": 0,
+        "x_series_to": 0.00011663552568490511,
         "s_rating": 315000,
         "terminal_map_to": [
           "a",
@@ -86380,21 +86438,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.004761625396825397,
-        "x_series_from": 0.00023327105136981022,
+        "b_no_load": 0,
+        "r_series_from": 1.5365079365079366,
+        "v_nom_to": 433,
+        "x_series_from": 0.07527320860356351,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b784",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.0023808126984126987,
         "bus_to": "b855"
       },
       "tx3676": {
-        "x_series_to": 0,
+        "x_series_to": 4.592523823850168e-5,
         "s_rating": 1000000,
         "terminal_map_to": [
           "a",
@@ -86402,21 +86462,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.00187489,
-        "x_series_from": 9.185047647700336e-5,
+        "b_no_load": 0,
+        "r_series_from": 0.605,
+        "v_nom_to": 433,
+        "x_series_from": 0.0296388258876985,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b548",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.000937445,
         "bus_to": "b694"
       },
       "tx3270": {
-        "x_series_to": 0,
+        "x_series_to": 6.123365098466891e-5,
         "s_rating": 750000,
         "terminal_map_to": [
           "a",
@@ -86424,21 +86486,23 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.0024998533333333334,
-        "x_series_from": 0.00012246730196933782,
+        "b_no_load": 0,
+        "r_series_from": 0.8066666666666668,
+        "v_nom_to": 433,
+        "x_series_from": 0.039518434516931336,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b1504",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.0012499266666666667,
         "bus_to": "b1080"
       },
       "tx2382": {
-        "x_series_to": 0,
+        "x_series_to": 7.34803811814902e-5,
         "s_rating": 500000,
         "terminal_map_to": [
           "a",
@@ -86446,17 +86510,19 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.002999824,
-        "x_series_from": 0.0001469607623629804,
+        "b_no_load": 0,
+        "r_series_from": 0.968,
+        "v_nom_to": 433,
+        "x_series_from": 0.047422121420245,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "b2268",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 433,
+        "r_series_to": 0.001499912,
         "bus_to": "b908"
       }
     }

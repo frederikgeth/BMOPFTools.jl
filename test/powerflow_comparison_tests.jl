@@ -432,7 +432,7 @@ function _net_1ph_xfmr()
     # load: 30 kW + 10 kVAr on lv
     #
     # Impedance conversion (single_phase subtype, WYE-WYE):
-    #   v_ref_from = 11 000 V, v_ref_to = 240 V, s_rating = 50 000 VA
+    #   v_nom_from = 11 000 V, v_nom_to = 240 V, s_rating = 50 000 VA
     #   z_base_from = 11000² / 50000 = 2420 Ω
     #   z_base_to   =   240² / 50000 = 1.152 Ω
     #   r_series_from = 0.01 × 2420 = 24.2 Ω
@@ -441,7 +441,7 @@ function _net_1ph_xfmr()
     #   x_series_to   = 0.0
     #
     # No-load branch (on from side):
-    #   y_base = s / v_ref_from² = 50000 / 11000² = 4.132e-7 S
+    #   y_base = s / v_nom_from² = 50000 / 11000² = 4.132e-7 S
     #   G = noloadloss × y_base = 0.003 × 4.132e-7 = 1.240e-9 S
     #   |Y| = cmag × y_base = 0.015 × 4.132e-7 = 6.198e-9 S
     #   B = sqrt(|Y|² − G²) ≈ 6.073e-9 S
@@ -489,8 +489,8 @@ function _net_1ph_xfmr()
                     "bus_to"           => "lv",
                     "terminal_map_from"=> ["1", "n"],
                     "terminal_map_to"  => ["1", "n"],
-                    "v_ref_from"       => vf,
-                    "v_ref_to"         => vt,
+                    "v_nom_from"       => vf,
+                    "v_nom_to"         => vt,
                     "s_rating"         => s,
                     "r_series_from"    => 0.01 * zbf,
                     "r_series_to"      => 0.01 * zbt,
@@ -512,7 +512,7 @@ function _net_3wdg_nwinding()
     #   wdg1 hv 115 kV, wdg2 mv 24.9 kV, wdg3 lv 4.16 kV; 30 MVA; %r = 0.3/0.4/0.4
     #   XHL=8 XHT=8 XLT=6 (% on winding-1 base)
     #
-    # Impedance conversion (all on a per-phase basis; v_ref is phase-to-neutral):
+    # Impedance conversion (all on a per-phase basis; v_nom is phase-to-neutral):
     #   z_base_k     = (kv_k·1000)² / s_rating          [per-phase Ω]
     #   r_winding[k] = %r_k/100 · z_base_k              [own base]
     #   x_sc["i_j"]  = X_ij%/100 · z_base_1             [referred to winding 1]
@@ -522,8 +522,8 @@ function _net_3wdg_nwinding()
     mkw(bus, kv, pr) = Dict{String,Any}(
         "bus"          => bus,
         "terminal_map" => ["a", "b", "c", "n"],
-        "v_ref"        => vpn(kv),
-        "connection"   => "WYE",
+        "v_nom"        => vpn(kv),
+        "configuration"   => "WYE",
         "r_winding"    => pr / 100 * zb(kv))
     grounded(_) = Dict{String,Any}(
         "terminal_names" => ["a", "b", "c", "n"],
@@ -580,7 +580,7 @@ function _net_4wdg_nwinding()
     vpn(kv) = kv * 1e3 / sqrt(3)
     mkw(bus, kv, pr) = Dict{String,Any}(
         "bus" => bus, "terminal_map" => ["a","b","c","n"],
-        "v_ref" => vpn(kv), "connection" => "WYE", "r_winding" => pr / 100 * zb(kv))
+        "v_nom" => vpn(kv), "configuration" => "WYE", "r_winding" => pr / 100 * zb(kv))
     grounded(_) = Dict{String,Any}(
         "terminal_names" => ["a","b","c","n"], "neutral_terminal" => "n",
         "perfectly_grounded_terminals" => ["n"])
@@ -614,9 +614,9 @@ end
 
 # ── n-winding transformers WITH delta windings ──────────────────────────────────
 # Shared builders for the delta-winding matrix. Every winding's r_winding and the
-# x_sc entries are on the per-winding COIL base z_coil = n_ph·v_ref²/S — which is
+# x_sc entries are on the per-winding COIL base z_coil = n_ph·v_nom²/S — which is
 # V_LL²/S for a WYE winding but n_ph·V_LL²/S for a DELTA winding (the √3/coil-base
-# factor lives in v_ref). OpenDSS's standard delta is delta_roll = -1 (the 30°
+# factor lives in v_nom). OpenDSS's standard delta is delta_roll = -1 (the 30°
 # vector-group rotation). See src/io/nwinding.jl for the convention.
 const _NWD_S   = 30.0e6
 const _NWD_NPH = 3
@@ -627,11 +627,11 @@ _nwd_zcoil(kv, conn) = conn == "DELTA" ? _NWD_NPH * (kv*1e3)^2 / _NWD_S :
 function _nwd_winding(bus, kv, conn, pr; roll=-1)
     if conn == "DELTA"
         Dict{String,Any}("bus"=>bus, "terminal_map"=>["a","b","c"],
-            "v_ref"=>kv*1e3, "connection"=>"DELTA", "delta_roll"=>roll,
+            "v_nom"=>kv*1e3, "configuration"=>"DELTA", "delta_roll"=>roll,
             "r_winding"=>pr/100 * _nwd_zcoil(kv, "DELTA"))
     else
         Dict{String,Any}("bus"=>bus, "terminal_map"=>["a","b","c","n"],
-            "v_ref"=>kv*1e3/sqrt(3), "connection"=>"WYE",
+            "v_nom"=>kv*1e3/sqrt(3), "configuration"=>"WYE",
             "r_winding"=>pr/100 * _nwd_zcoil(kv, "WYE"))
     end
 end
@@ -740,8 +740,8 @@ function _net_yd_xfmr()
     # loads: unbalanced (3:1:2) delta loads to expose per-phase errors
     #
     # Impedance conversion (wye_delta subtype):
-    #   v_ref_from = 11 000 V (wye, line voltage)
-    #   v_ref_to   =    415 V (delta, line voltage)
+    #   v_nom_from = 11 000 V (wye, line voltage)
+    #   v_nom_to   =    415 V (delta, line voltage)
     #   s_rating   = 500 000 VA
     #   zbf = 11000² / 500000 = 242 Ω
     #   zbt =   415² / 500000 = 0.34445 Ω
@@ -806,8 +806,8 @@ function _net_yd_xfmr()
                     "bus_to"           => "lv",
                     "terminal_map_from"=> ["1", "2", "3", "n"],
                     "terminal_map_to"  => ["1", "2", "3"],
-                    "v_ref_from"       => vf,
-                    "v_ref_to"         => vt,
+                    "v_nom_from"       => vf,
+                    "v_nom_to"         => vt,
                     "s_rating"         => s,
                     "r_series_from"    => 0.01 * zbf,
                     "r_series_to"      => 0.01 * zbt,
@@ -843,8 +843,8 @@ function _net_dy_xfmr()
     # loads: unbalanced wye-to-neutral 120 kW + 40 kVAr each phase (3:3:3 here, balanced)
     #
     # Impedance conversion (delta_wye subtype):
-    #   v_ref_from = 11 000 V (delta, line voltage)
-    #   v_ref_to   =    415 V (wye, line voltage)
+    #   v_nom_from = 11 000 V (delta, line voltage)
+    #   v_nom_to   =    415 V (wye, line voltage)
     #   s_rating   = 500 000 VA
     #   zbf = 11000² / 500000 = 242 Ω
     #   zbt =   415² / 500000 = 0.34445 Ω
@@ -901,8 +901,8 @@ function _net_dy_xfmr()
                     "bus_to"           => "lv",
                     "terminal_map_from"=> ["1", "2", "3"],
                     "terminal_map_to"  => ["1", "2", "3", "n"],
-                    "v_ref_from"       => vf,
-                    "v_ref_to"         => vt,
+                    "v_nom_from"       => vf,
+                    "v_nom_to"         => vt,
                     "s_rating"         => s,
                     "r_series_from"    => 0.01 * zbf,
                     "r_series_to"      => 0.01 * zbt,
@@ -1419,7 +1419,7 @@ function _net_pv_3ph_droop(; vsrc, kVA, Pmpp, loads, mode::Symbol, vref::String=
     net["control_profile"] = Dict{String,Any}("cp" => cp)
     inv = Dict{String,Any}(
         "bus" => "lb", "terminal_map" => ["1", "2", "3", "n"],
-        "topology" => "FOUR_LEG", "prime_mover" => "PV", "voltage_ref" => vref,
+        "topology" => "FOUR_LEG", "prime_mover" => "PV", "voltage_aggregation" => vref,
         "s_max" => fill(kVA * 1e3, 3), "p_min" => fill(0.0, 3), "p_max" => fill(Pmpp * 1e3, 3),
         "control_profile" => "cp", "cost" => fill(0.1, 3))
     if mode === :vw
@@ -1434,7 +1434,7 @@ end
 # The averaging counterpart of the per-phase test above. Here OpenDSS models the
 # control as ONE 3φ PVSystem with ONE InvControl whose MonVoltageCalc=AVG averages
 # the monitored phase voltages and injects balanced power — exactly BMOPF's
-# voltage_ref=AVERAGE (every phase sees the mean magnitude, equal s_max ⇒ balanced
+# voltage_aggregation=AVERAGE (every phase sees the mean magnitude, equal s_max ⇒ balanced
 # P/Q). The same unbalanced same-bus loads that spread the phases under PER_PHASE
 # now leave the two models on a common operating point: identical balanced
 # injection ⇒ identical node voltages despite the per-phase voltage spread.
@@ -1925,7 +1925,7 @@ end
 end
 
 @testset "PV 3φ FOUR_LEG droop vs OpenDSS — AVERAGE reference (Volt-var)" begin
-    # Same unbalanced loads as the per-phase case, but voltage_ref=AVERAGE: every
+    # Same unbalanced loads as the per-phase case, but voltage_aggregation=AVERAGE: every
     # phase responds to the mean magnitude, so BMOPF injects balanced vars and
     # matches a single 3φ OpenDSS PVSystem with an averaging InvControl.
     Pbm, Qbm = _check_pv_3ph_avg_droop((vsrc=255.0, kVA=10.0, Pmpp=7.0,
@@ -2213,7 +2213,7 @@ end
     V_ods = _ods_volts(path)
     res   = solve_pf(net; optimizer=Ipopt.Optimizer)
     @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-    @test net["transformer"]["n_winding"]["t1"]["windings"][1]["connection"] == "DELTA"
+    @test net["transformer"]["n_winding"]["t1"]["windings"][1]["configuration"] == "DELTA"
     _cmp_volts(V_ods, _nwd_bm_volts(res); label="pf-3wdg-dyn: ")
 end
 
@@ -2260,7 +2260,7 @@ end
 end
 
 @testset "PF (solve_pf) comparison — 3-winding Dyn in per-unit (√3 cancellation)" begin
-    # Same Dyn net solved in per-unit. The delta v_ref is line-to-line while the bus
+    # Same Dyn net solved in per-unit. The delta v_nom is line-to-line while the bus
     # base is line-to-neutral, so the √3 cancels and the per-unit solve must agree
     # with both OpenDSS and the SI solve.
     path  = joinpath(_PF_CMP_DIR, "pf_3wdg_dyn.dss")
@@ -2322,7 +2322,7 @@ _net_center_tap_ideal() = parse_bmopf("""
  "voltage_source":{"src":{"bus":"mv","terminal_map":["1"],"v_magnitude":[2400.0],"v_angle":[0.0]}},
  "transformer":{"center_tap":{"ct":{"bus_from":"mv","bus_to":"lv",
      "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
-     "v_ref_from":2400.0,"v_ref_to":120.0,"s_rating":25000.0,
+     "v_nom_from":2400.0,"v_nom_to":120.0,"s_rating":25000.0,
      "r_series_from":0.1,"x_series_from":0.4,"r_series_to":0.001,"x_series_to":0.004}}},
  "load":{"l1":{"bus":"lv","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]},
          "l2":{"bus":"lv","terminal_map":["2","n"],"configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]}}}
@@ -2352,36 +2352,36 @@ _net_center_tap_ideal() = parse_bmopf("""
 
     yy = _zero_all_xfmr_impedance!(_net_1ph_xfmr())
     ryy = solve_pf(yy; optimizer=Ipopt.Optimizer)
-    N_yy = yy["transformer"]["single_phase"]["t1"]["v_ref_from"] /
-           yy["transformer"]["single_phase"]["t1"]["v_ref_to"]
+    N_yy = yy["transformer"]["single_phase"]["t1"]["v_nom_from"] /
+           yy["transformer"]["single_phase"]["t1"]["v_nom_to"]
     @test isapprox(vmag(ryy, "hv", "1") / vmag(ryy, "lv", "1"), N_yy; rtol=1e-6)
 
     nw = _zero_all_xfmr_impedance!(_net_3wdg_nwinding())
     rnw = solve_pf(nw; optimizer=Ipopt.Optimizer)
     ws  = nw["transformer"]["n_winding"]["t1"]["windings"]
     @test isapprox(vmag(rnw, "hv", "a") / vmag(rnw, "mv", "a"),
-                   ws[1]["v_ref"] / ws[2]["v_ref"]; rtol=1e-6)
+                   ws[1]["v_nom"] / ws[2]["v_nom"]; rtol=1e-6)
     @test isapprox(vmag(rnw, "hv", "a") / vmag(rnw, "lv", "a"),
-                   ws[1]["v_ref"] / ws[3]["v_ref"]; rtol=1e-6)
+                   ws[1]["v_nom"] / ws[3]["v_nom"]; rtol=1e-6)
 
     # Lossless DELTA: the delta winding-1 coil voltage is line-to-line, so the
-    # ideal ratio is V_hv(L-L) / V_mv(L-N) = v_ref_delta / v_ref_wye (the √3 is in
-    # v_ref). A wrong coil-base / v_ref convention would break this exact ratio.
+    # ideal ratio is V_hv(L-L) / V_mv(L-N) = v_nom_delta / v_nom_wye (the √3 is in
+    # v_nom). A wrong coil-base / v_nom convention would break this exact ratio.
     vll(r, b, p, q) = sqrt((r["bus"][b][p]["vr"] - r["bus"][b][q]["vr"])^2 +
                            (r["bus"][b][p]["vi"] - r["bus"][b][q]["vi"])^2)
     dyn  = _zero_all_xfmr_impedance!(_net_3wdg_dyn())
     rdyn = solve_pf(dyn; optimizer=Ipopt.Optimizer)
     wsd  = dyn["transformer"]["n_winding"]["t1"]["windings"]
     @test isapprox(vll(rdyn, "hv", "a", "b") / vmag(rdyn, "mv", "a"),
-                   wsd[1]["v_ref"] / wsd[2]["v_ref"]; rtol=1e-6)
+                   wsd[1]["v_nom"] / wsd[2]["v_nom"]; rtol=1e-6)
 end
 
 # ── Fixed capacitor banks ───────────────────────────────────────────────────
-# A capacitor is a constant susceptance B = q_rated/v_rated² delivering Q = B·V².
+# A capacitor is a constant susceptance B = q_rated/v_nom² delivering Q = B·V².
 # Validate (1) it compiles to the same physics as an equivalent shunt and
 # (2) WYE and DELTA banks match OpenDSS's own Capacitor solve. Nameplate
 # convention: q_rated per phase (WYE) / per pair (DELTA) = kvar_3ph/3;
-# v_rated = line-to-neutral (WYE) / line-to-line (DELTA).
+# v_nom = line-to-neutral (WYE) / line-to-line (DELTA).
 
 function _net_cap_base()
     vpn(kv) = kv * 1e3 / sqrt(3)
@@ -2409,7 +2409,7 @@ function _net_cap_wye()
     net = _net_cap_base(); vpn = 12.47e3/sqrt(3)
     net["capacitor"] = Dict{String,Any}("c1"=>Dict{String,Any}(
         "bus"=>"b1","terminal_map"=>["a","b","c","n"],"configuration"=>"WYE",
-        "q_rated"=>[3e5,3e5,3e5],"v_rated"=>vpn))
+        "q_rated"=>[3e5,3e5,3e5],"v_nom"=>vpn))
     net
 end
 
@@ -2417,7 +2417,7 @@ function _net_cap_delta()
     net = _net_cap_base()
     net["capacitor"] = Dict{String,Any}("c1"=>Dict{String,Any}(
         "bus"=>"b1","terminal_map"=>["a","b","c"],"configuration"=>"DELTA",
-        "q_rated"=>[3e5,3e5,3e5],"v_rated"=>12.47e3))
+        "q_rated"=>[3e5,3e5,3e5],"v_nom"=>12.47e3))
     net
 end
 
@@ -2475,12 +2475,12 @@ end
     @test haskey(net["transformer"]["center_tap"], "dx2")
 
     # from_dss center_tap normalisation: centre tap "n" sits in the MIDDLE of
-    # terminal_map_to and v_ref_to is the per-leg (half-winding) voltage. Without
+    # terminal_map_to and v_nom_to is the per-leg (half-winding) voltage. Without
     # this the OPF connection matrix wires the wrong nodes and the turns ratio is
     # 2× off (leg voltages 2–4× too high).
     dx2 = net["transformer"]["center_tap"]["dx2"]
     @test dx2["terminal_map_to"][2] == "n"
-    @test isapprox(dx2["v_ref_to"], 240.0; rtol=1e-6)   # 0.48 kV split → 240 V/leg
+    @test isapprox(dx2["v_nom_to"], 240.0; rtol=1e-6)   # 0.48 kV split → 240 V/leg
 
     V_ods = _ods_volts(path)
     res   = solve_pf(net; optimizer=Ipopt.Optimizer)
@@ -2707,7 +2707,7 @@ end
 
 @testset "Tagging invariance under source angle offset (vector group, voltage levels)" begin
     # Vector-group tagging reads terminal-map topology; voltage-level tagging reads
-    # v_magnitude and v_ref ratios. Neither depends on the source angle — so both
+    # v_magnitude and v_nom ratios. Neither depends on the source angle — so both
     # must be byte-identical whether or not the slack reference is rotated.
     net0 = _net_combined_3ph_split()
     netθ = _reangle_source(net0, 0.7)            # arbitrary non-trivial offset (rad)

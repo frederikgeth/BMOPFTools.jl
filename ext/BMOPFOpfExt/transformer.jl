@@ -3,7 +3,7 @@
 # All transformer constraints are linear.
 #
 # ── single_phase (per-phase YY) ────────────────────────────────────────────
-#   N = v_ref_from / v_ref_to
+#   N = v_nom_from / v_nom_to
 #   Voltage : vr_fr − N·vr_to = R·cr_series − X·ci_series
 #   Current : N·I_series_fr + I_to = 0
 #   Shunt   : I_mag = (G + jB)·V_fr  added to KCL at from terminals
@@ -11,7 +11,7 @@
 # ── center_tap (split-phase, North American distribution) ──────────────────
 #   from: bus_fr  terminal_map_from = ["1","n"]      (HV phase + neutral)
 #   to:   bus_lv  terminal_map_to   = ["1","n","2"]  (leg-1, center-tap, leg-2)
-#   N = v_ref_from / v_ref_to  (v_ref_to is the 120 V leg rating)
+#   N = v_nom_from / v_nom_to  (v_nom_to is the 120 V leg rating)
 #
 #   T-model: primary impedance (R1,X1) on HV; per-leg secondary (R2,X2) on each LV branch.
 #   This correctly captures load-asymmetry: unequal leg currents → unequal leg voltages.
@@ -31,7 +31,7 @@
 # ── wye_delta (Yd) ─────────────────────────────────────────────────────────
 #   Wye side (from) : n_ph phase terminals + 1 neutral
 #   Delta side (to) : n_ph terminals
-#   N = v_ref_from / v_ref_to  (both v_ref as phase-to-neutral equivalents)
+#   N = v_nom_from / v_nom_to  (both v_nom as phase-to-neutral equivalents)
 #   n_eff = √3 / N             (effective turns ratio per winding)
 #
 #   Voltage (k = 1..n_ph, k_next = k%n_ph + 1):
@@ -562,7 +562,7 @@ Add wye-delta (Yd) or delta-wye (Dy) transformer constraints.
 `wye_is_from=false` → wye side is `bus_to`   (Dy: delta is HV primary).
 
 The effective per-winding turns ratio accounts for the √3 factor introduced by the
-delta connection geometry (phase-to-neutral `v_ref` on both sides as convention):
+delta connection geometry (phase-to-neutral `v_nom` on both sides as convention):
 ```
   n_eff = √3 / N   (Yd, wye is HV,    N = V_wye_ref / V_del_ref)
   n_eff = N · √3   (Dy, delta is HV,  N = V_del_ref / V_wye_ref)
@@ -596,7 +596,7 @@ the model collapses to the previous ideal transform.  A legacy single
 function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                                wye_is_from::Bool, tap=nothing, branch_inj=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
-    N = _xfmr_turns_ratio(xfmr)   # v_ref_from / v_ref_to
+    N = _xfmr_turns_ratio(xfmr)   # v_nom_from / v_nom_to
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
 
@@ -1106,6 +1106,13 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
 
+    # Per-regulator no-load (core-loss) shunt, stamped across each from-side
+    # line-to-line pair (V_p − V_q), consistent with the single-phase and Yd
+    # builders and with `_yprim_open_delta`.
+    G0 = Float64(get(xfmr, "g_no_load", 0.0))
+    B0 = Float64(get(xfmr, "b_no_load", 0.0))
+    has_shunt = (G0 != 0.0 || B0 != 0.0)
+
     for (j, (pj, qj)) in enumerate(pairs)
         # Per-regulator effective ratio: the free tap variable when present, else the
         # fixed n_eff. The winding helper refers the to-side branch via I_to so a
@@ -1127,8 +1134,18 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
 
         # KCL: the from-side series current enters at phase p and returns at q;
         # the to-side current is injected at p and returned at q (line-to-line).
-        kadd(b_fr, t_fr_p, -Isr, -Isi)
-        kadd(b_fr, t_fr_q,  Isr,  Isi)
+        # The from-side current also carries the no-load shunt Y0·(V_p − V_q).
+        if has_shunt
+            vr_ll = @expression(model, refs.vr_fr_p - refs.vr_fr_q)
+            vi_ll = @expression(model, refs.vi_fr_p - refs.vi_fr_q)
+            imr = @expression(model, Isr + G0 * vr_ll - B0 * vi_ll)
+            imi = @expression(model, Isi + G0 * vi_ll + B0 * vr_ll)
+            kadd(b_fr, t_fr_p, -imr, -imi)
+            kadd(b_fr, t_fr_q,  imr,  imi)
+        else
+            kadd(b_fr, t_fr_p, -Isr, -Isi)
+            kadd(b_fr, t_fr_q,  Isr,  Isi)
+        end
         kadd(b_to, t_to_p, -Itr, -Iti)
         kadd(b_to, t_to_q,  Itr,  Iti)
 

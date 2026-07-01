@@ -2,7 +2,7 @@
 #
 # Fixed (nameplate-rated) shunt capacitor banks.
 #
-# A capacitor is a constant susceptance B = q_rated / v_rated² (per phase for
+# A capacitor is a constant susceptance B = q_rated / v_nom² (per phase for
 # WYE, per pair for DELTA, single for SINGLE_PHASE) that delivers the
 # voltage-dependent reactive power Q = B·V². It is electrically a
 # connection-aware shunt, so the OPF compiles it to a terminal-space susceptance
@@ -12,19 +12,19 @@
 # Data shape (subtype-less top-level `capacitor`):
 #   bus, terminal_map, configuration ∈ {WYE, SINGLE_PHASE, DELTA},
 #   q_rated :: Vector  (var; per phase for WYE, per pair for DELTA, length 1 for
-#                       SINGLE_PHASE), v_rated :: Number (V).
+#                       SINGLE_PHASE), v_nom :: Number (V).
 #
-# `v_rated` is phase-to-neutral for WYE/SINGLE_PHASE and line-to-line for DELTA.
+# `v_nom` is phase-to-neutral for WYE/SINGLE_PHASE and line-to-line for DELTA.
 
 """
     _cap_susceptances(cap) -> Vector{Float64}
 
-Per-unit-of-configuration susceptances `B = q_rated ./ v_rated²` (S), in whatever
+Per-unit-of-configuration susceptances `B = q_rated ./ v_nom²` (S), in whatever
 units the dict currently holds (SI, or per-unit after `_pu_scale_capacitors!`).
 """
 function _cap_susceptances(cap::Dict{String,Any})::Vector{Float64}
     q = Float64.(get(cap, "q_rated", Float64[]))
-    v = Float64(get(cap, "v_rated", 1.0))
+    v = Float64(get(cap, "v_nom", 1.0))
     iszero(v) && return zeros(length(q))
     q ./ v^2
 end

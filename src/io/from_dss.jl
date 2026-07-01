@@ -308,12 +308,12 @@ Convert PowerIO's `center_tap` encoding to BMOPF's canonical convention.
 
 PowerIO emits a split-phase (centre-tapped) transformer with the LV
 `terminal_map_to` listing the two legs first and the centre tap (neutral) **last**
-— e.g. `["a","b","n"]` — and `v_ref_to` set to the **full** secondary voltage
+— e.g. `["a","b","n"]` — and `v_nom_to` set to the **full** secondary voltage
 (the sum of both half-windings, e.g. 240 V for a 120-0-120 transformer).
 
 The BMOPF OPF model ([`to_ybus`](@ref)'s `_yprim_center_tap`), the schema, the
 spec-conformance arity `(2,3)` and every hand-authored fixture instead expect the
-centre tap in the **middle** — `[leg1, "n", leg2]` — and `v_ref_to` to be the
+centre tap in the **middle** — `[leg1, "n", leg2]` — and `v_nom_to` to be the
 **per-leg** (half-winding) voltage, since the turns ratio is computed per leg.
 Left unconverted, the connection matrix wires the wrong nodes and the turns ratio
 is 2× off, giving leg voltages 2–4× too high.
@@ -344,9 +344,9 @@ function _normalize_center_tap_transformers!(net::Dict{String,Any})
         legs = [t for t in tm if t != "n"]
         c["terminal_map_to"] = [legs[1], "n", legs[2]]
 
-        # PowerIO's v_ref_to is the full secondary; the model wants per-leg.
-        v = get(c, "v_ref_to", nothing)
-        v isa Real && (c["v_ref_to"] = v / 2)
+        # PowerIO's v_nom_to is the full secondary; the model wants per-leg.
+        v = get(c, "v_nom_to", nothing)
+        v isa Real && (c["v_nom_to"] = v / 2)
     end
     return net
 end

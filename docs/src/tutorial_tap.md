@@ -66,7 +66,7 @@ feeder(tapfields, vbounds) = parse_bmopf("""
  "transformer":{"single_phase":{"t1":{
      "bus_from":"hv","bus_to":"lv",
      "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
-     "v_ref_from":11000.0,"v_ref_to":240.0,"s_rating":50000.0,
+     "v_nom_from":11000.0,"v_nom_to":240.0,"s_rating":50000.0,
      "r_series_from":$(0.01*zbf),"x_series_from":$(0.04*zbf),
      "r_series_to":$(0.01*zbt),"x_series_to":0.0$tapfields}}}}
 """; from_string=true)
@@ -174,7 +174,7 @@ dy(tapfields, vb) = parse_bmopf("""
  "transformer":{"delta_wye":{"t1":{
      "bus_from":"hv","bus_to":"lv",
      "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3","n"],
-     "v_ref_from":11000.0,"v_ref_to":415.0,"s_rating":500000.0,
+     "v_nom_from":11000.0,"v_nom_to":415.0,"s_rating":500000.0,
      "r_series_from":$(0.01*zf),"x_series_from":$(0.02*zf),
      "r_series_to":$(0.01*zt),"x_series_to":$(0.02*zt)$tapfields}}}}
 """; from_string=true)

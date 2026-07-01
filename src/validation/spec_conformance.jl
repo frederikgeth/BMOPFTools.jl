@@ -187,7 +187,7 @@ function spec_conformance_check(net::Dict{String,Any},
         end
     end
 
-    # --- capacitor banks: configuration, arity, q_rated length, v_rated ---
+    # --- capacitor banks: configuration, arity, q_rated length, v_nom ---
     for (id, c) in get(net, "capacitor", Dict())
         c isa Dict || continue
         cfg = get(c, "configuration", nothing)
@@ -229,12 +229,12 @@ function spec_conformance_check(net::Dict{String,Any},
                 "expected $nq_expected.",
                 Dict{String,Any}("configuration" => cfg, "n" => length(q))))
         end
-        vr = get(c, "v_rated", nothing)
+        vr = get(c, "v_nom", nothing)
         if vr isa Real && !(vr > 0)
             n_issues += 1
             push!(findings, Finding(ERROR, "E.SPEC.CAP_VRATED", :spec,
                 :capacitor, id,
-                "capacitor '$id' has non-positive v_rated ($vr).", nothing))
+                "capacitor '$id' has non-positive v_nom ($vr).", nothing))
         end
         # q_rated must be non-negative: a capacitor delivers Q = B·V² with B ≥ 0.
         # A negative entry is an inductor/reactor masquerading as a capacitor and

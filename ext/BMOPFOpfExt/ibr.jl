@@ -92,7 +92,7 @@ per controlled phase in `ph_terms`:
 
 When the effective aggregation is averaged (`override_avg`, else the curve's own
 `averaged` flag) every phase is fed the mean of the per-phase magnitudes.
-`override_avg` lets the IBR-level legacy `voltage_ref` field win when present.
+`override_avg` lets the IBR-level legacy `voltage_aggregation` field win when present.
 """
 function _monitor_U(model, vr, vi, bus, ph_terms, t_n, c::DroopCurve, override_avg)
     n = length(ph_terms)
@@ -280,11 +280,11 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
         # Aggregation across phases is normally taken from each curve's
         # `voltage_reference` (the _AVERAGED suffix). The legacy IBR-level
-        # `voltage_ref` field, when explicitly present, overrides it (PER_PHASE /
+        # `voltage_aggregation` field, when explicitly present, overrides it (PER_PHASE /
         # AVERAGE) for backward compatibility. `override_avg === nothing` means
         # "defer to the curve".
-        has_vref_field = haskey(inv, "voltage_ref")
-        volt_ref    = uppercase(String(get(inv, "voltage_ref", "PER_PHASE")))
+        has_vref_field = haskey(inv, "voltage_aggregation")
+        volt_ref    = uppercase(String(get(inv, "voltage_aggregation", "PER_PHASE")))
         avg_ref     = volt_ref == "AVERAGE"
         override_avg = has_vref_field ? avg_ref : nothing
 
@@ -316,7 +316,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 @constraint(model, cri[(inv_id,1)]^2 + cii[(inv_id,1)]^2 <= ilim_sp^2)
             end
 
-            avg_ref && @warn "IBR '$inv_id': voltage_ref=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
+            avg_ref && @warn "IBR '$inv_id': voltage_aggregation=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
             # PG monitors |V_φ|; PN/PP both monitor the terminal-pair difference
             # |V_φ − V_ref| (ref = tm[2], a neutral for PN-wired or the second
             # phase for PP-wired units). Aggregation is moot for one phase.
@@ -373,7 +373,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             end
 
             # Monitored droop voltages, per curve (quantity + aggregation from each
-            # curve's voltage_reference; legacy voltage_ref overrides aggregation).
+            # curve's voltage_reference; legacy voltage_aggregation overrides aggregation).
             U_vv = vv !== nothing ? _monitor_U(model, vr, vi, bus, ph_terms, t_n, vv, override_avg) : nothing
             U_vw = vw !== nothing ? _monitor_U(model, vr, vi, bus, ph_terms, t_n, vw, override_avg) : nothing
 
@@ -443,7 +443,7 @@ end
 # resolved Volt-var (`vv`) / Volt-watt (`vw`) droop curves.
 #
 # `U` is the reference voltage-magnitude expression fed into the droop curves. The
-# caller chooses it per the IBR's `voltage_ref` field: the per-phase magnitude
+# caller chooses it per the IBR's `voltage_aggregation` field: the per-phase magnitude
 # √(dvr²+dvi²) for PER_PHASE, or the mean of the phase magnitudes for AVERAGE.
 function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
                                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,

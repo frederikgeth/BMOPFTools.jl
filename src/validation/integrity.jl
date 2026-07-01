@@ -157,14 +157,14 @@ function integrity_check(net::Dict{String,Any},
                 Dict{String,Any}("control_profile" => cp)))
         end
 
-        vref = get(inv, "voltage_ref", nothing)
+        vref = get(inv, "voltage_aggregation", nothing)
         if vref !== nothing && !(vref isa AbstractString &&
                                  uppercase(String(vref)) in ("PER_PHASE", "AVERAGE"))
             n_ref_issues += 1
-            push!(findings, Finding(ERROR, "E.INT.VOLTAGE_REF_INVALID", :integrity,
+            push!(findings, Finding(ERROR, "E.INT.VOLTAGE_AGGREGATION_INVALID", :integrity,
                 :ibr, id,
-                "IBR '$id' has voltage_ref = $(repr(vref)); expected \"PER_PHASE\" or \"AVERAGE\".",
-                Dict{String,Any}("voltage_ref" => vref)))
+                "IBR '$id' has voltage_aggregation = $(repr(vref)); expected \"PER_PHASE\" or \"AVERAGE\".",
+                Dict{String,Any}("voltage_aggregation" => vref)))
         end
     end
 

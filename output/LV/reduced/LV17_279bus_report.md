@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV17_279bus
 
-**Generated:** 2026-06-23 21:34:01  
+**Generated:** 2026-07-01 13:34:58  
 **Findings:** 0 errors · 3 warnings · 24 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 143 grounding point(s)
 
@@ -19,7 +19,7 @@
 | shunt | 142 |  |
 | switch | 0 |  |
 | transformer | 1 | Dyn0×1 |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels

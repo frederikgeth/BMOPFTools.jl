@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV5_14bus
 
-**Generated:** 2026-06-23 21:34:02  
+**Generated:** 2026-07-01 13:34:59  
 **Findings:** 0 errors · 1 warnings · 20 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 4 grounding point(s)
 
@@ -19,7 +19,7 @@
 | shunt | 3 |  |
 | switch | 0 |  |
 | transformer | 1 | Dyn0×1 |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels

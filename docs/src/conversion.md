@@ -193,11 +193,11 @@ object — a nameplate-faithful, connection-aware shunt:
 net["capacitor"]["c1"] = {
   "bus": "b035", "terminal_map": ["a","b","c","n"], "configuration": "WYE",
   "q_rated": [600000.0, 600000.0, 600000.0],   // var, per phase (WYE)/pair (DELTA)
-  "v_rated": 14400.0                            // V (L-N for WYE, L-L for DELTA)
+  "v_nom": 14400.0                            // V (L-N for WYE, L-L for DELTA)
 }
 ```
 
-A capacitor is a **constant susceptance** `B = q_rated / v_rated²`, so it
+A capacitor is a **constant susceptance** `B = q_rated / v_nom²`, so it
 delivers the voltage-dependent reactive power `Q = B·V²` (exact capacitor
 physics — only equal to the nameplate kvar at the rated voltage). Connections:
 `WYE` (phase-to-neutral), `SINGLE_PHASE` (two terminals), `DELTA`
@@ -208,7 +208,7 @@ is a documented future extension.
 
 **Nameplate convention** (matches OpenDSS `Capacitor`): for a 3-phase bank of
 total `kvar`, `q_rated` is the per-phase (WYE) or per-pair (DELTA) share
-(`kvar_3ph/3`), and `v_rated` is phase-to-neutral for WYE/SINGLE_PHASE,
+(`kvar_3ph/3`), and `v_nom` is phase-to-neutral for WYE/SINGLE_PHASE,
 line-to-line for DELTA. Validated against OpenDSS's own Capacitor solve for WYE
 and DELTA.
 
@@ -254,9 +254,9 @@ Data shape (`net["transformer"]["n_winding"][id]`):
 ```json
 {
   "windings": [
-    {"bus":"hv","terminal_map":["a","b","c","n"],"v_ref":66395.0,"connection":"WYE","r_winding":0.21},
-    {"bus":"mv","terminal_map":["a","b","c","n"],"v_ref":14376.0,"connection":"WYE","r_winding":0.31},
-    {"bus":"lv","terminal_map":["a","b","c","n"],"v_ref":2402.0, "connection":"WYE","r_winding":0.32}
+    {"bus":"hv","terminal_map":["a","b","c","n"],"v_nom":66395.0,"connection":"WYE","r_winding":0.21},
+    {"bus":"mv","terminal_map":["a","b","c","n"],"v_nom":14376.0,"connection":"WYE","r_winding":0.31},
+    {"bus":"lv","terminal_map":["a","b","c","n"],"v_nom":2402.0, "connection":"WYE","r_winding":0.32}
   ],
   "x_sc": {"1_2":5.0,"1_3":5.0,"2_3":3.0},
   "s_rating": 30.0e6,
@@ -266,8 +266,8 @@ Data shape (`net["transformer"]["n_winding"][id]`):
 
 Conventions (mirroring OpenDSS, the n-winding reference data model):
 
-- `windings` is ordered; **winding 1 is the reference** (`v_ref` are
-  phase-to-neutral volts; `N_k = v_ref[k]/v_ref[1]`).
+- `windings` is ordered; **winding 1 is the reference** (`v_nom` are
+  phase-to-neutral volts; `N_k = v_nom[k]/v_nom[1]`).
 - Inter-winding leakage is stored as **pairwise short-circuit reactances**
   `x_sc["i_j"]` (i<j, Ω, all referred to **winding 1's** base) — the OpenDSS
   `XHL`/`XHT`/`XLT` / `Xscarray` form. Per-winding resistance `r_winding[k]` is in
@@ -284,11 +284,11 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
   physically correct, not an error. The OPF/PF is validated against OpenDSS's own
   3- and 4-winding solves.
 - **`WYE` and `DELTA` windings** are both supported. A `WYE` winding's coil
-  voltage is line-to-neutral (`v_ref` = L-N, terminal map carries a neutral); a
-  `DELTA` winding's coil voltage is line-to-line (`v_ref` = L-L, no neutral, and
+  voltage is line-to-neutral (`v_nom` = L-N, terminal map carries a neutral); a
+  `DELTA` winding's coil voltage is line-to-line (`v_nom` = L-L, no neutral, and
   `delta_roll = ±1` picks the vector-group rotation — `-1` matches OpenDSS). The
-  `√3`/coil-base factor lives in `v_ref`, so `r_winding`/`x_sc` are on the coil
-  base `n_ph·v_ref²/s_rating` and per-unit needs no `√3` correction.
+  `√3`/coil-base factor lives in `v_nom`, so `r_winding`/`x_sc` are on the coil
+  base `n_ph·v_nom²/s_rating` and per-unit needs no `√3` correction.
 
 Ingest and export status: PowerIO does not yet emit `n_winding` (a 3-winding unit
 is currently dropped on import); this data model and its JSON Schema are the
@@ -385,8 +385,8 @@ BMOPF stores ohms on each winding's own voltage base.
 **`single_phase`** (2-winding, Γ-model):
 
 ```
-Z_base,from = v_ref_from² / s_rating
-Z_base,to   = v_ref_to²   / s_rating
+Z_base,from = v_nom_from² / s_rating
+Z_base,to   = v_nom_to²   / s_rating
 r_series_from = rw₁ · Z_base,from
 r_series_to   = rw₂ · Z_base,to
 x_series_from = (xhl / 2) · Z_base,from    # half of pair leakage on each side
@@ -422,7 +422,7 @@ r_series_from = rw₁ · Z_base,from      # wdg1 (HV)
 r_series_to   = rw₂ · Z_base,to        # wdg2 = wdg3 for a symmetric unit
 ```
 
-Note: `v_ref_to` is the **per-leg** voltage (e.g. 120 V), not the full
+Note: `v_nom_to` is the **per-leg** voltage (e.g. 120 V), not the full
 secondary span (240 V).
 
 **No-load branch** (applies to both `single_phase` and `center_tap`):
@@ -431,9 +431,9 @@ OpenDSS `%noloadloss` and `%imag` (or `cmag`) convert to SI admittances
 at the HV terminals:
 
 ```
-Y_base = s_rating / v_ref_from²
+Y_base = s_rating / v_nom_from²
 G = (%noloadloss / 100) · Y_base                      → g_no_load  (S)
-Y_mag = cmag · Y_base          # cmag = %imag/100 · s_rating/v_ref_from
+Y_mag = cmag · Y_base          # cmag = %imag/100 · s_rating/v_nom_from
 B = sqrt(Y_mag² − G²)                                 → b_no_load  (S)
 ```
 
@@ -449,8 +449,8 @@ a voltage drop on the winding currents behind the ideal Yd/Dy transform; the
 delta side is no longer assumed ideal.
 
 ```
-Z_base,from = v_ref_from² / s_rating
-Z_base,to   = v_ref_to²   / s_rating
+Z_base,from = v_nom_from² / s_rating
+Z_base,to   = v_nom_to²   / s_rating
 r_series_from = rw₁ · Z_base,from
 r_series_to   = rw₂ · Z_base,to
 x_series_from = xsc₁ · Z_base,from     # PMD lumps all leakage on winding 1
@@ -460,7 +460,7 @@ x_series_to   = 0                      # 2-winding star: LV branch is zero
 The no-load branch maps as for the two-winding types:
 
 ```
-Y_base = s_rating / v_ref_from²
+Y_base = s_rating / v_nom_from²
 g_no_load =  (noloadloss) · Y_base       # noloadloss = %noloadloss / 100
 b_no_load = -(cmag)       · Y_base       # cmag       = %imag       / 100
 ```

@@ -117,7 +117,7 @@ _relabel_feeder() = parse_bmopf("""
                 "bus_from" => "src", "bus_to" => "b1",
                 "terminal_map_from" => ["b","a","c","n"],   # permuted on purpose
                 "terminal_map_to"   => ["c","b","a"],
-                "v_ref_from" => 1e4, "v_ref_to" => 400.0)))
+                "v_nom_from" => 1e4, "v_nom_to" => 400.0)))
         f4 = Finding[]; spec_conformance_check(net4, f4)
         @test !any(x.component_id == "tx" &&
                    x.code in ("I.TMAP.PERMUTED_ORDER", "I.TMAP.CROSS_PHASE_LINE") for x in f4)

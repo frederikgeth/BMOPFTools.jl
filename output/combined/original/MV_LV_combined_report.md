@@ -1,6 +1,6 @@
 # BMOPF Network Summary: MV_LV_combined
 
-**Generated:** 2026-06-23 21:34:05  
+**Generated:** 2026-07-01 13:35:02  
 **Findings:** 0 errors · 14 warnings · 118 info  
 **Convention:** MV_6.4kV: mixed; LV_250V: 4-wire; 1289 grounding point(s)
 
@@ -19,7 +19,7 @@
 | shunt | 1288 |  |
 | switch | 279 |  |
 | transformer | 33 | Dyn0×33 |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels

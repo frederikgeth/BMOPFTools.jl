@@ -159,7 +159,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
     end
 
     # ─────────────────────────────────────────────────────────────────────────
-    # FOUR_LEG voltage_ref: PER_PHASE feeds each phase its own magnitude;
+    # FOUR_LEG voltage_aggregation: PER_PHASE feeds each phase its own magnitude;
     # AVERAGE feeds every phase the mean of the phase magnitudes. An unbalanced
     # source puts the three phases at different voltages, so the two modes are
     # distinguishable: PER_PHASE gives three different Q values, AVERAGE gives
@@ -185,7 +185,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
              "breakpoints":[207.0,220.0,240.0,258.0],"q_limits":[-0.60,0.44],
              "q_unit":"VA_FRACTION","q_ref":"VAR_MAX"}}},
          "ibr":{"pv1":{"bus":"b1","terminal_map":["1","2","3","n"],
-             "topology":"FOUR_LEG","prime_mover":"PV","voltage_ref":"$(vref)",
+             "topology":"FOUR_LEG","prime_mover":"PV","voltage_aggregation":"$(vref)",
              "s_max":[3000.0,3000.0,3000.0],"p_max":[0.0,0.0,0.0],"p_min":[0.0,0.0,0.0],
              "control_profile":"vv","cost":[0.1,0.1,0.1]}}}
         """; from_string=true)
@@ -197,7 +197,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         3000.0 * _OPFEXT.curve_value_smooth(base, tr, u, ε)
     end
 
-    @testset "voltage_ref=PER_PHASE — each phase sees its own magnitude" begin
+    @testset "voltage_aggregation=PER_PHASE — each phase sees its own magnitude" begin
         res = solve_opf(_volt_var_4leg_net("PER_PHASE"); per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
@@ -211,7 +211,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         @test maximum(qs) - minimum(qs) > 100.0
     end
 
-    @testset "voltage_ref=AVERAGE — all phases see the mean magnitude" begin
+    @testset "voltage_aggregation=AVERAGE — all phases see the mean magnitude" begin
         res = solve_opf(_volt_var_4leg_net("AVERAGE"); per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
@@ -226,9 +226,9 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         @test maximum(qs) - minimum(qs) < 10.0
     end
 
-    @testset "voltage_ref=AVERAGE on SINGLE_PHASE — warns, no effect" begin
+    @testset "voltage_aggregation=AVERAGE on SINGLE_PHASE — warns, no effect" begin
         net = _volt_var_net(258.0)
-        net["ibr"]["pv1"]["voltage_ref"] = "AVERAGE"
+        net["ibr"]["pv1"]["voltage_aggregation"] = "AVERAGE"
         res = @test_logs (:warn,) match_mode=:any solve_opf(net; per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         # Behaviour identical to PER_PHASE: Q still binds to the curve.
@@ -254,9 +254,9 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         @test split == (:PN, false)
     end
 
-    @testset "enum _AVERAGED suffix drives aggregation (no legacy voltage_ref)" begin
+    @testset "enum _AVERAGED suffix drives aggregation (no legacy voltage_aggregation)" begin
         net = _volt_var_4leg_net("PER_PHASE")
-        delete!(net["ibr"]["pv1"], "voltage_ref")       # let the enum decide
+        delete!(net["ibr"]["pv1"], "voltage_aggregation")       # let the enum decide
         net["control_profile"]["vv"]["volt_var"]["voltage_reference"] = "PN_AVERAGED"
         res = solve_opf(net; per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
@@ -379,12 +379,12 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         bad_vref = parse_bmopf("""
         {"bus":{"b":{"terminal_names":["1","2","3","n"]}},
          "ibr":{"pv1":{"bus":"b","terminal_map":["1","2","3","n"],
-             "topology":"FOUR_LEG","prime_mover":"PV","voltage_ref":"MEDIAN",
+             "topology":"FOUR_LEG","prime_mover":"PV","voltage_aggregation":"MEDIAN",
              "s_max":[3000.0,3000.0,3000.0]}}}
         """; from_string=true)
         f = Finding[]
         BMOPFTools.integrity_check(bad_vref, f)
-        @test any(x -> x.code == "E.INT.VOLTAGE_REF_INVALID", f)
+        @test any(x -> x.code == "E.INT.VOLTAGE_AGGREGATION_INVALID", f)
     end
 
     # ─────────────────────────────────────────────────────────────────────────

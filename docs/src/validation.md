@@ -162,7 +162,7 @@ concern, so a failure points straight at the responsible component:
 | `pf_3wdg_dyn`, `pf_3wdg_dyn_unbalanced`, `pf_4wdg_dyyn`, `pf_3wdg_dyn_zgnd` | **n-winding with a DELTA winding** (`Dyn`/`Dyyn`, delta primary): winding count (3/4), neutral grounding (solid vs 0.5 Ω-shunt MV neutral), unbalanced loading, the `solve_pf`/feasibility-OPF paths, and per-unit. The delta coil is line-to-line (`delta_roll = -1` matches OpenDSS's 30° rotation; `r_winding`/`x_sc` on the delta coil base `n_ph·V_LL²/S`) |
 | `pf_center_tap_loaded`, `pf_center_tap_balanced_heavy`, `pf_center_tap_240`, `pf_center_tap_singleleg_pn`, `pf_center_tap_oneleg_extreme` | split-phase **coupled-coil** model under load — leg symmetry on a balanced heavy load, a 240 V phase-to-phase load, a single leg-to-neutral load, and an extreme one-leg load (see [Split-phase transformer depth](#Split-phase-transformer-depth)) |
 | `pf_autotransformer`, `pf_open_delta_reg` | step-voltage regulators / autotransformers and open-delta (ABBC) regulation |
-| `pf_cap_wye`, `pf_cap_delta` | fixed shunt **capacitor banks** (wye / delta) as a constant susceptance `B = q_rated/v_rated²`, validated against OpenDSS's own `Capacitor` solve in both SI and per-unit, and cross-checked against the equivalent `shunt` object |
+| `pf_cap_wye`, `pf_cap_delta` | fixed shunt **capacitor banks** (wye / delta) as a constant susceptance `B = q_rated/v_nom²`, validated against OpenDSS's own `Capacitor` solve in both SI and per-unit, and cross-checked against the equivalent `shunt` object |
 | `pf_pv_1ph`, `pf_pv_4leg` | IBR current injection at a pinned dispatch — single-phase and FOUR_LEG |
 
 Single-phase, FOUR_LEG per-phase, and FOUR_LEG AVERAGE-reference **smart-IBR
@@ -205,7 +205,7 @@ anchor, the offset must **rigidly rotate the whole solution** — every transfor
 phase shift is relative and survives the rotation. The feasibility solve
 converging from the offset also exercises the angle-aware voltage initialisation.
 A companion analysis test asserts the corollary: **vector-group tagging**
-(terminal-map topology) and **voltage-level tagging** (`v_magnitude` / `v_ref`
+(terminal-map topology) and **voltage-level tagging** (`v_magnitude` / `v_nom`
 ratios) read no angle, so both are byte-identical with and without the offset.
 
 ### Split-phase transformer depth
@@ -343,7 +343,7 @@ droop curve in every regime:
   the corner-smoothing `ε → 0` (`atol = 2e-3`);
 - **voltage reference — quantity** — the six `voltage_reference_type` values split
   correctly into quantity × aggregation, the `_AVERAGED` suffix drives aggregation
-  on its own (without the legacy `voltage_ref` field), and phase-to-ground
+  on its own (without the legacy `voltage_aggregation` field), and phase-to-ground
   (`PG_PER_PHASE`) and phase-to-neutral (`PN_PER_PHASE`) dispatch differently once
   the neutral is displaced from ground.
 

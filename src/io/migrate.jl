@@ -50,6 +50,7 @@ an already-parsed dict.
 function migrate(net::Dict{String,Any})::Dict{String,Any}
     # Field-level migrations run unconditionally (independent of spec version).
     _migrate_transformer_series_fields!(net)
+    _migrate_field_renames!(net)
     _reject_scalar_v_bounds!(net)
 
     v = _detect_spec_version(net)
@@ -119,6 +120,82 @@ function _migrate_one_transformer_series_fields!(net::Dict{String,Any},
         "subtype"   => subtype,
         "message"   => "Migrated lumped r_series/x_series to per-winding r/x_series_from/to (r/x_series_to=0).",
     ))
+end
+
+"""
+    _migrate_field_renames!(net::Dict{String,Any}) -> nothing
+
+In-place, unconditional rename of legacy field names to the current spec so that
+JSON written against an earlier schema still parses. Renames (old → new):
+
+  * capacitor `v_rated` → `v_nom`
+  * two-winding / three-phase / autotransformer / open-delta transformer
+    `v_ref_from`/`v_ref_to` → `v_nom_from`/`v_nom_to`
+  * n_winding winding `v_ref` → `v_nom`, `connection` → `configuration`
+  * ibr `voltage_ref` → `voltage_aggregation`
+
+The open-delta `connection` (phase-pair wiring, ABBC/BCAC/CABA) is a distinct
+concept from a winding's `configuration` and is deliberately left unchanged.
+Only renames when the old key is present and the new key is absent, so already
+current files are untouched.
+"""
+function _migrate_field_renames!(net::Dict{String,Any})
+    _rename!(d, old, new) = begin
+        d isa AbstractDict && haskey(d, old) && !haskey(d, new) || return false
+        d[new] = d[old]; delete!(d, old); true
+    end
+
+    renamed = false
+
+    # capacitor v_rated -> v_nom
+    caps = get(net, "capacitor", nothing)
+    if caps isa AbstractDict
+        for (_, c) in caps
+            renamed |= _rename!(c, "v_rated", "v_nom")
+        end
+    end
+
+    # ibr voltage_ref -> voltage_aggregation
+    ibrs = get(net, "ibr", nothing)
+    if ibrs isa AbstractDict
+        for (_, inv) in ibrs
+            renamed |= _rename!(inv, "voltage_ref", "voltage_aggregation")
+        end
+    end
+
+    # transformers, nested by subtype
+    xfmrs = get(net, "transformer", nothing)
+    if xfmrs isa AbstractDict
+        for (subtype, subdict) in xfmrs
+            subdict isa AbstractDict || continue
+            for (_, xfmr) in subdict
+                xfmr isa AbstractDict || continue
+                renamed |= _rename!(xfmr, "v_ref_from", "v_nom_from")
+                renamed |= _rename!(xfmr, "v_ref_to",   "v_nom_to")
+                if subtype == "n_winding"
+                    ws = get(xfmr, "windings", nothing)
+                    if ws isa AbstractVector
+                        for w in ws
+                            w isa AbstractDict || continue
+                            renamed |= _rename!(w, "v_ref", "v_nom")
+                            renamed |= _rename!(w, "connection", "configuration")
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if renamed
+        meta  = get!(net, "_meta", Dict{String,Any}())
+        notes = get!(meta, "migration_notes", Any[])
+        push!(notes, Dict(
+            "code"    => "W.MIGRATE.FIELD_RENAMES",
+            "message" => "Renamed legacy fields to current spec (v_rated/v_ref*→v_nom*, " *
+                         "winding connection→configuration, ibr voltage_ref→voltage_aggregation).",
+        ))
+    end
+    return nothing
 end
 
 """

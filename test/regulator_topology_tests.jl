@@ -56,7 +56,7 @@ const _M = BMOPFTools
                   "r_series_from" => 0.5, "x_series_from" => 2.0))
     isolating() = build("single_phase";                 # true galvanic separation
         tmfr = ["1","n"], tmto = ["1","n"],
-        extra = D("v_ref_from" => 2400.0, "v_ref_to" => 240.0, "s_rating" => 1e5,
+        extra = D("v_nom_from" => 2400.0, "v_nom_to" => 240.0, "s_rating" => 1e5,
                   "r_series_from" => 0.5, "x_series_from" => 2.0))
 
     zones(net)    = Set(Set.(_M._galvanic_zones(net)))

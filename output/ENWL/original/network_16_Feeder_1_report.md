@@ -1,7 +1,7 @@
 # BMOPF Network Summary: network_16 / Feeder_1
 
-**Generated:** 2026-06-23 21:27:42  
-**Findings:** 0 errors · 14 warnings · 56 info  
+**Generated:** 2026-07-01 13:28:38  
+**Findings:** 0 errors · 14 warnings · 57 info  
 **Convention:** LV_240V: 4-wire; 1 grounding point(s)
 
 ---
@@ -19,7 +19,7 @@
 | shunt | 1 |  |
 | switch | 0 |  |
 | transformer | 0 |  |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels
@@ -125,6 +125,7 @@
 
 > 🔵 **[I.PROV.NO_PI_SHUNT]** All 6 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
 > 🔵 **[I.PROV.DSS_DEFAULT_LENGTH]** 1 of 471 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
+> 🔵 **[I.PROV.SHUNT_LIKELY_REACTOR]** Shunt 'grounding' is purely inductive (no conductance, negative diagonal susceptance) — it looks like a shunt reactor, a distinct asset from a capacitor bank or a generic shunt. Keep its identity explicit and verify the sign convention.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line10' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line17' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line19' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
@@ -210,7 +211,7 @@
 
 ## 9. Data Quality Summary
 
-**Total findings:** 70 (0 errors, 14 warnings, 56 info)
+**Total findings:** 71 (0 errors, 14 warnings, 57 info)
 
 ### 🟡 Warnings
 
@@ -251,6 +252,8 @@
   All 6 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
 - **[I.PROV.DSS_DEFAULT_LENGTH]** `line`  
   1 of 471 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
+- **[I.PROV.SHUNT_LIKELY_REACTOR]** `grounding`  
+  Shunt 'grounding' is purely inductive (no conductance, negative diagonal susceptance) — it looks like a shunt reactor, a distinct asset from a capacitor bank or a generic shunt. Keep its identity explicit and verify the sign convention.
 - **[I.PROV.LINE_SWITCH_LIKE]** `line10`  
   Line 'line10' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 - **[I.PROV.LINE_SWITCH_LIKE]** `line17`  
