@@ -15,8 +15,9 @@ data, so data flows naturally to and from JSON without conversion.
     report = analyze(net)               # run all analyses
     render(report, stdout)              # terminal output
     render(report, "report.md")         # markdown file
+    to_dss(net, "out/Master.dss")       # write OpenDSS (via PowerIO.jl)
 
-See also: `write_bmopf`, `to_pmd`.
+See also: `write_bmopf`, `to_pmd`, `to_dss`.
 """
 module BMOPFTools
 
@@ -413,6 +414,7 @@ include("io/write_bmopf.jl")
 include("io/result_io.jl")
 include("io/to_pmd.jl")
 include("io/from_dss.jl")
+include("io/to_dss.jl")
 include("io/sideload_coordinates.jl")
 include("io/nwinding.jl")
 include("io/capacitor.jl")
@@ -681,7 +683,7 @@ export profile_solution, render_solution, solution_check, voltage_zone_summary
 export parse_bmopf, write_bmopf, migrate
 export write_result, read_result
 export to_pmd
-export from_dss
+export from_dss, to_dss
 export sideload_coordinates!
 export analyze, render
 export load_config                      # tunable thresholds (config/default.toml)

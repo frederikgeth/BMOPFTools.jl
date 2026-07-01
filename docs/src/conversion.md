@@ -5,7 +5,8 @@ This page documents both directions of format conversion:
 - **Ingest** — OpenDSS `.dss` models are read by [`from_dss`](@ref) and emitted
   as a BMOPF data model.
 - **Export** — a BMOPF data model is written to a PowerModelsDistribution
-  ENGINEERING dict by [`to_pmd`](@ref).
+  ENGINEERING dict by [`to_pmd`](@ref), or back to an OpenDSS `.dss` model by
+  [`to_dss`](@ref).
 
 Each section records the deliberate decisions in those converters — the things
 you would otherwise have to discover by diffing data.
@@ -473,6 +474,36 @@ b_no_load = -(cmag)       · Y_base       # cmag       = %imag       / 100
     is migrated onto these fields at parse time — see
     [Transformer impedance on ingest](#Transformer-impedance-on-ingest).
     `to_pmd` writes the per-winding fields back to PMD `rw`/`xsc`.
+
+## [OpenDSS export (`to_dss`)](@id to-dss-export)
+
+[`to_dss`](@ref) is the inverse of [`from_dss`](@ref): it serialises a BMOPF data
+model to BMOPF JSON (via [`write_bmopf`](@ref)) and hands it to PowerIO's DSS
+writer, which emits OpenDSS text.
+
+```
+BMOPF data model ──write_bmopf──► BMOPF JSON ──PowerIO.jl──► OpenDSS .dss text
+```
+
+`to_dss(net)` returns the generated text and PowerIO's fidelity-loss warnings;
+`to_dss(net, path)` writes the text to `path` (creating parent directories) and
+returns the warnings. A `name` keyword overrides the circuit name without
+mutating the input dict.
+
+BMOPF terminal labels (`"a"`, `"b"`, `"c"`, `"n"`) are accepted by the writer and
+re-normalised to OpenDSS numeric nodes (`.1`, `.2`, `.3`, `.0`); merged polyphase
+sources are re-expanded by the writer as needed.
+
+!!! note "Valid, not (yet) validated"
+    The current target is **valid** OpenDSS — text that PowerIO (and OpenDSS)
+    can parse and solve — not a byte-faithful or power-flow-validated round trip.
+    A `from_dss → to_dss` cycle is not guaranteed to reproduce the original file
+    or to solve identically in OpenDSS; the warnings PowerIO returns list what its
+    writer had to assume or could not represent. Byte-fidelity and an OpenDSS
+    power-flow cross-check are future work, tracked alongside the known lossy
+    points below (earth-terminal collapse, identifier case-folding, transformer
+    fidelity). Every `test/data/pf_comparison` fixture is round-tripped
+    (DSS → BMOPF → DSS) and the output re-parsed to guard validity.
 
 ## Known limitations
 
