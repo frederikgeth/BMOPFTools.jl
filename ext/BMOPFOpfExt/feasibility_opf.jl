@@ -111,12 +111,12 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
     slack[:cs_i] = cs_i
 
     # ── Objective: minimise L2² of all slack injections ───────────────────────
-    # A small linear term on Yd/Dy wye winding currents (1e-6 × cr_xf_wye) breaks
-    # the sign degeneracy that arises because both I_wye>0 and I_wye<0 give zero
-    # slack for passive transformers with resistive loads.  The penalty is tiny
-    # relative to slack magnitudes (|cs| order 1-100 A when KCL fails) so it does
-    # not bias the physical solution; it merely selects the physical branch when
-    # both are equally feasible.
+    # A tiny linear term (−1e-6 × delta-side cr_xf) breaks the sign/circulation
+    # degeneracy of Yd/Dy transformers: both current branches (and any uniform
+    # delta loop current) give identical slack for passive transformers with
+    # resistive loads.  The coefficient must stay ≪ 1 so the tie-break cannot
+    # compete with the slack L2² term or reward circulating current — it merely
+    # selects the physical branch when both are equally feasible.
     slack_obj = JuMP.QuadExpr()
     for key in keys(cs_r)
         JuMP.add_to_expression!(slack_obj, 1.0, cs_r[key], cs_r[key])
@@ -137,7 +137,7 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
                 get(xfmr, "terminal_map_to",   String[]) :
                 get(xfmr, "terminal_map_from", String[]))
             for k in 1:length(tm_del)
-                JuMP.add_to_expression!(slack_obj, -1.0, cr_xf[(tid, side_del, k)])
+                JuMP.add_to_expression!(slack_obj, -1e-6, cr_xf[(tid, side_del, k)])
             end
         end
     end
@@ -159,7 +159,9 @@ function extract_feasibility!(ctx::OpfContext, result::Dict{String,Any},
 
     solved = JuMP.termination_status(model) in (JuMP.MOI.LOCALLY_SOLVED,
                                                  JuMP.MOI.OPTIMAL,
-                                                 JuMP.MOI.ALMOST_LOCALLY_SOLVED)
+                                                 JuMP.MOI.ALMOST_LOCALLY_SOLVED) &&
+             JuMP.result_count(model) >= 1 &&
+             JuMP.primal_status(model) != JuMP.MOI.NO_SOLUTION
     val(v) = solved ? JuMP.value(v) : NaN
 
     # Slack injection results — keyed by bus then terminal

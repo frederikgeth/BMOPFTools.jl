@@ -35,6 +35,21 @@ function write_bmopf(net::Dict{String,Any}, io::IO;
     base     = get(net, "meta", Dict{String,Any}())
     out_meta = _build_meta(base, meta)
 
+    # Persist tool provenance (_meta: fidelity-loss inventory, migration
+    # notes, earth-terminal routing, …) under meta.provenance so it survives
+    # the save/load round trip. Caller-set meta.provenance keys win; volatile
+    # per-parse stamps are not persisted.
+    priv = get(net, "_meta", Dict{String,Any}())
+    if priv isa Dict && !isempty(priv)
+        prov = Dict{String,Any}(k => v for (k, v) in priv
+                                if k ∉ ("parsed_at",))
+        existing = get(out_meta, "provenance", nothing)
+        if existing isa Dict
+            for (k, v) in existing; prov[k] = v; end
+        end
+        isempty(prov) || (out_meta["provenance"] = prov)
+    end
+
     # Build output without mutating net; drop _meta (tool-private, not spec)
     out = Dict{String,Any}(k => v for (k, v) in net
                            if k != "meta" && k != "_meta")

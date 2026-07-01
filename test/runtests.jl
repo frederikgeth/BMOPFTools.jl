@@ -2087,6 +2087,80 @@ const IEEE13_FIXTURE = """
         @test net2["transformer"]["delta_wye"]["t1"]["r_series_from"] ≈ 0.015
     end
 
+    @testset "Schema — own output validates (layer drift)" begin
+        # Regression: the bundled JSON schema only allowed the legacy lumped
+        # r_series/x_series on wye/delta transformers and had no time_series
+        # declarations, so every migrated or DSS-sourced net failed Layer-1
+        # validation on its own schema (and the spurious first issue masked
+        # real errors, since JSONSchema reports one issue per run).
+        uri = BMOPFTools._BMOPF_SCHEMA_URI
+        json = """
+        {"meta":{"\$schema":"$uri"},
+         "bus":{"hv":{"terminal_names":["a","b","c"]},
+                "lv":{"terminal_names":["a","b","c","n"],
+                      "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"hv","terminal_map":["a","b","c"],
+             "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0944,2.0944]}},
+         "transformer":{"delta_wye":{"t1":{
+            "bus_from":"hv","bus_to":"lv",
+            "terminal_map_from":["a","b","c"],"terminal_map_to":["a","b","c","n"],
+            "v_nom_from":11000.0,"v_nom_to":433.0,"s_rating":100000.0,
+            "r_series":0.015,"x_series":0.0007,
+            "i_max_from":[6.0,6.0,6.0],"i_max_to":[150.0,150.0,150.0]}}}}
+        """
+        net = parse_bmopf(json; from_string=true)   # migrates to per-winding
+        f = Finding[]
+        schema_check(net, f)
+        @test isempty(f)
+
+        json_ts = """
+        {"meta":{"\$schema":"$uri"},
+         "bus":{"b1":{"terminal_names":["a","n"],
+                      "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"b1","terminal_map":["a"],
+             "v_magnitude":[230.0],"v_angle":[0.0]}},
+         "load":{"l1":{"bus":"b1","terminal_map":["a","n"],"configuration":"WYE",
+             "p_nom":[1000.0],"q_nom":[0.0],"time_series":{"p_nom":"ts1"}}},
+         "time_series":{"ts1":{"values":[0.8,1.0,1.2]}}}
+        """
+        net_ts = parse_bmopf(json_ts; from_string=true)
+        f_ts = Finding[]
+        schema_check(net_ts, f_ts)
+        @test isempty(f_ts)
+    end
+
+    @testset "IO — _meta provenance survives write/parse round trip" begin
+        # Regression: write_bmopf dropped _meta entirely, so the PowerIO
+        # fidelity-loss inventory and migration notes vanished on save.
+        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net["_meta"] = get(net, "_meta", Dict{String,Any}())
+        net["_meta"]["powerio_warnings"] = ["loadshape daily dropped"]
+        net["_meta"]["migration_notes"] = Any[Dict("code" => "W.MIGRATE.TEST")]
+        buf = IOBuffer()
+        write_bmopf(net, buf)
+        net2 = parse_bmopf(String(take!(buf)); from_string=true)
+        @test net2["_meta"]["powerio_warnings"] == ["loadshape daily dropped"]
+        @test net2["_meta"]["migration_notes"][1]["code"] == "W.MIGRATE.TEST"
+        # and the persisted form is schema-valid
+        f = Finding[]
+        schema_check(net2, f)
+        @test !any(fi -> fi.code == "I.SCHEMA.UNKNOWN_FIELDS", f)
+    end
+
+    @testset "OPF stubs — extension error hint" begin
+        # A MethodError on the stubs must point at the missing extension.
+        err = try
+            Base.invokelatest(solve_opf)   # no method with zero args, ever
+            nothing
+        catch e
+            e
+        end
+        @test err isa MethodError
+        msg = sprint(Base.showerror, err)
+        @test occursin("BMOPFOpfExt", msg)
+        @test occursin("JuMP", msg)
+    end
+
     @testset "Migration — spec-version guard" begin
         base = """{"meta":{"\$schema":URI},
                    "bus":{"b1":{"terminal_names":["a"]}},

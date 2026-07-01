@@ -718,4 +718,22 @@ export remove_open_switches, collapse_closed_switches
 export simplify_network
 export transformer_yprim, export_yprim, write_yprim
 
+# ---------------------------------------------------------------------------
+# Error hints
+# ---------------------------------------------------------------------------
+
+function __init__()
+    # The OPF entry points are stubs whose methods live in the BMOPFOpfExt
+    # package extension; without it a call raises a bare MethodError. Point
+    # the user at the missing extension instead.
+    Base.Experimental.register_error_hint(MethodError) do io, exc, _argtypes, _kwargs
+        if exc.f in (solve_opf, solve_pf, solve_feasibility_opf)
+            print(io, "\n\n`$(nameof(exc.f))` is provided by the BMOPFOpfExt " *
+                      "package extension, which activates when JuMP and Ipopt " *
+                      "are loaded. Run `import Pkg; Pkg.add([\"JuMP\", \"Ipopt\"])` " *
+                      "once, then `using JuMP, Ipopt` before calling it.")
+        end
+    end
+end
+
 end # module BMOPFTools
