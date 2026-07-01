@@ -3049,6 +3049,23 @@ const IEEE13_FIXTURE = """
     # LV1_14bus — real OpenDSS network integration test, parsed via from_dss
     # (PowerIO.jl). PowerIO is a hard dependency, so this always runs.
     # --------------------------------------------------------------------------
+    @testset "OpenDSS generator conversion via PowerIO" begin
+        net = from_dss(joinpath(@__DIR__, "data", "issue190_generator.dss"))
+
+        @test haskey(net, "generator")
+        @test haskey(net["generator"], "g1")
+        @test !haskey(get(net, "load", Dict{String,Any}()), "g1")
+
+        gen = net["generator"]["g1"]
+        @test gen["bus"] == "sourcebus"
+        @test gen["configuration"] == "SINGLE_PHASE"
+        @test gen["terminal_map"] == ["a", "n"]
+        @test gen["p_min"] ≈ [10000.0]
+        @test gen["p_max"] ≈ [10000.0]
+        @test gen["q_min"] ≈ [2000.0]
+        @test gen["q_max"] ≈ [2000.0]
+    end
+
     @testset "LV1_14bus — OpenDSS integration" begin
         dss_master = joinpath(@__DIR__, "data", "LV", "LV1_14bus", "Master.dss")
 

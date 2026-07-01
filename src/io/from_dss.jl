@@ -63,9 +63,9 @@ function from_dss(path::AbstractString;
     abspath_dss = abspath(path)
     isfile(abspath_dss) || throw(ArgumentError("DSS file not found: $abspath_dss"))
 
-    # PowerIO parses to a DistNetwork handle, then emits BMOPF JSON plus a list
-    # of fidelity-loss warnings.
-    dn = PowerIO.parse_file(PowerIO.DistNetwork, abspath_dss)
+    # PowerIO parses to a MulticonductorNetwork handle, then emits BMOPF JSON
+    # plus a list of fidelity-loss warnings.
+    dn = PowerIO.parse_file(PowerIO.MulticonductorNetwork, abspath_dss)
     json_raw, warnings_list = PowerIO.to_format(dn, "bmopf")
 
     if isempty(json_raw)

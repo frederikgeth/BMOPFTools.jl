@@ -1,0 +1,3 @@
+Clear
+New Circuit.issue190 basekv=12.47 bus1=sourcebus
+New Generator.g1 bus1=sourcebus.1 phases=1 kv=7.2 kw=10 kvar=2
