@@ -3199,6 +3199,58 @@ const IEEE13_FIXTURE = """
     end
 
     # --------------------------------------------------------------------------
+    # to_dss — BMOPF → OpenDSS via PowerIO. Goal at this stage is *valid*
+    # OpenDSS (parseable by PowerIO), not power-flow-validated fidelity. Every
+    # pf_comparison fixture is round-tripped DSS → BMOPF → DSS and the output
+    # is re-parsed to prove it is valid OpenDSS.
+    # --------------------------------------------------------------------------
+    @testset "to_dss — BMOPF → OpenDSS" begin
+        @testset "two-arg returns (text, warnings)" begin
+            net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
+            dss_text, warns = to_dss(net)
+            @test dss_text isa String
+            @test !isempty(dss_text)
+            @test occursin("New Circuit.", dss_text)
+            @test occursin("New Line.", dss_text)
+            @test warns isa Vector{String}
+        end
+
+        @testset "name override does not mutate input" begin
+            net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
+            orig_name = net["name"]
+            dss_text, _ = to_dss(net; name="renamed_circuit")
+            @test occursin("New Circuit.renamed_circuit", dss_text)
+            @test net["name"] == orig_name          # input dict untouched
+        end
+
+        @testset "file-writing overload" begin
+            net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
+            out = joinpath(mktempdir(), "sub", "Master.dss")   # nested dir must be created
+            warns = to_dss(net, out)
+            @test isfile(out)
+            @test warns isa Vector{String}
+            @test occursin("New Circuit.", read(out, String))
+        end
+
+        @testset "every pf_comparison case yields valid OpenDSS" begin
+            dir = joinpath(@__DIR__, "data", "pf_comparison")
+            cases = filter(f -> endswith(f, ".dss"), readdir(dir))
+            @test !isempty(cases)
+            for case in sort(cases)
+                net = from_dss(joinpath(dir, case))
+                dss_text, _ = to_dss(net)
+                @test !isempty(dss_text)
+                # Prove the generated DSS is valid by re-parsing it via PowerIO.
+                tmp = joinpath(mktempdir(), "regen.dss")
+                write(tmp, dss_text)
+                net2 = from_dss(tmp)
+                @test net2 isa Dict{String,Any}
+                @test !isempty(get(net2, "bus", Dict()))
+            end
+        end
+    end
+
+    # --------------------------------------------------------------------------
     # Queensland isolated-SWER feeder — OpenDSS integration via from_dss.
     # Canonical small isolated-SWER network (22 kV 3-ph → phase-to-phase isolating
     # xfmr → 12.7 kV single-wire earth-return backbone → single-ended N-0 and
