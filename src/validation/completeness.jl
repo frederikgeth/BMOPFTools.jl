@@ -9,7 +9,7 @@ const _REQUIRED_FIELDS = Dict{String,Vector{String}}(
     "load"           => ["bus", "terminal_map", "configuration", "p_nom", "q_nom"],
     "generator"      => ["bus", "terminal_map", "configuration", "cost"],
     "shunt"          => ["bus", "terminal_map", "G_1_1", "B_1_1"],
-    "capacitor"      => ["bus", "terminal_map", "configuration", "q_rated", "v_rated"],
+    "capacitor"      => ["bus", "terminal_map", "configuration", "q_rated", "v_nom"],
     "switch"         => ["bus_from", "bus_to", "terminal_map_from", "terminal_map_to",
                          "open_switch"],
     "linecode"       => ["R_series_1_1", "X_series_1_1"],
@@ -33,16 +33,16 @@ const _OPTIONAL_DC_BUS_FIELDS = ["v_dc_min", "v_dc_max", "pole",
 # Required fields for the two-bus transformer subtypes
 const _REQUIRED_TRANSFORMER_FIELDS = ["bus_from", "bus_to",
                                       "terminal_map_from", "terminal_map_to",
-                                      "v_ref_from", "v_ref_to", "s_rating"]
+                                      "v_nom_from", "v_nom_to", "s_rating"]
 
 # Required fields for an n_winding transformer per winding
-const _REQUIRED_WINDING_FIELDS = ["bus", "terminal_map", "v_ref", "connection"]
+const _REQUIRED_WINDING_FIELDS = ["bus", "terminal_map", "v_nom", "configuration"]
 
 """
     _nwinding_missing_fields(comp) -> Vector{String}
 
 Required-field check for an `n_winding` transformer: the top-level `windings`,
-`x_sc`, `s_rating`, plus each winding's `bus`/`terminal_map`/`v_ref`/`connection`
+`x_sc`, `s_rating`, plus each winding's `bus`/`terminal_map`/`v_nom`/`configuration`
 and `x_sc` coverage of every winding pair. Returns human-readable missing-field
 descriptions (empty when complete).
 """
@@ -85,7 +85,7 @@ const _OPTIONAL_FIELDS = Dict{String,Vector{String}}(
     "ibr"       => ["i_max", "p_avail", "p_min", "p_max", "q_min", "q_max",
                     "r_filter", "x_filter", "b_filter_shunt",
                     "grid_forming", "v_ref_internal", "cost", "control_profile",
-                    "voltage_ref", "dc_bus", "dc_terminal_map"],
+                    "voltage_aggregation", "dc_bus", "dc_terminal_map"],
     "control_profile" => ["volt_var", "volt_watt", "power_factor"],
     "dc_bus"    => _OPTIONAL_DC_BUS_FIELDS,
     "dc_branch" => ["i_max", "p_max"],

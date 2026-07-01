@@ -2827,7 +2827,7 @@
   "name": "Three-wire-modified-phase-to-neutral / Network_14 / Feeder_6",
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:30:29Z",
+    "created": "2026-07-01T03:31:28Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"
@@ -3489,7 +3489,7 @@
     },
     "168": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3501,7 +3501,7 @@
     },
     "159": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3548,7 +3548,7 @@
     },
     "160": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3560,7 +3560,7 @@
     },
     "149": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3607,7 +3607,7 @@
     },
     "143": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3633,7 +3633,7 @@
     },
     "137": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3666,7 +3666,7 @@
     },
     "172": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3699,7 +3699,7 @@
     },
     "167": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3746,7 +3746,7 @@
     },
     "131": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3779,7 +3779,7 @@
     },
     "139": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3847,7 +3847,7 @@
     },
     "162": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3901,7 +3901,7 @@
     },
     "161": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3913,7 +3913,7 @@
     },
     "146": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3925,7 +3925,7 @@
     },
     "142": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3958,7 +3958,7 @@
     },
     "157": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3977,7 +3977,7 @@
     },
     "165": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -3989,7 +3989,7 @@
     },
     "173": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4001,7 +4001,7 @@
     },
     "171": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4013,7 +4013,7 @@
     },
     "130": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4067,7 +4067,7 @@
     },
     "170": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4079,7 +4079,7 @@
     },
     "151": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4098,7 +4098,7 @@
     },
     "147": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4124,7 +4124,7 @@
     },
     "135": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4171,7 +4171,7 @@
     },
     "155": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4211,7 +4211,7 @@
     },
     "141": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4237,7 +4237,7 @@
     },
     "154": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4277,7 +4277,7 @@
     },
     "164": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4303,7 +4303,7 @@
     },
     "152": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4364,7 +4364,7 @@
     },
     "140": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4418,7 +4418,7 @@
     },
     "136": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4430,7 +4430,7 @@
     },
     "134": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4442,7 +4442,7 @@
     },
     "133": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4454,7 +4454,7 @@
     },
     "148": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4487,7 +4487,7 @@
     },
     "sourcebus": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4513,7 +4513,7 @@
     },
     "132": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4595,7 +4595,7 @@
     },
     "163": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4628,7 +4628,7 @@
     },
     "166": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4654,7 +4654,7 @@
     },
     "169": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4673,7 +4673,7 @@
     },
     "150": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4783,7 +4783,7 @@
     },
     "158": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4795,7 +4795,7 @@
     },
     "156": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4807,7 +4807,7 @@
     },
     "144": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4861,7 +4861,7 @@
     },
     "145": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4880,7 +4880,7 @@
     },
     "138": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -4899,7 +4899,7 @@
     },
     "153": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",

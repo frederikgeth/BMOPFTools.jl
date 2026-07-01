@@ -10,22 +10,22 @@
 # `ext/BMOPFOpfExt/nwinding.jl`.
 #
 # Data shape (subtype "n_winding"):
-#   windings   :: Vector of {bus, terminal_map, v_ref, connection, r_winding,
+#   windings   :: Vector of {bus, terminal_map, v_nom, connection, r_winding,
 #                 delta_roll}
 #   x_sc       :: Dict "i_j" => pairwise short-circuit reactance (Ω), i<j,
 #                 ALL referred to winding-1's COIL base (see below).
 #   s_rating, g_no_load, b_no_load (optional)
 #
 # Winding 1 is the reference. `connection` is "WYE" or "DELTA"; a WYE winding's
-# `v_ref` is its line-to-neutral coil voltage and its terminal_map carries a
-# neutral, while a DELTA winding's `v_ref` is its line-to-line coil voltage and
+# `v_nom` is its line-to-neutral coil voltage and its terminal_map carries a
+# neutral, while a DELTA winding's `v_nom` is its line-to-line coil voltage and
 # it carries no neutral. `delta_roll` (±1, DELTA only) selects the coil rotation
 # (vector group); OpenDSS's standard delta corresponds to `delta_roll = -1`.
 #
 # Impedance referral base. r_winding[k] and x_sc are in Ω on the per-winding COIL
-# base `z_coil = n_ph · v_ref² / S_rating` — line-to-neutral for WYE (= V_LL²/S)
+# base `z_coil = n_ph · v_nom² / S_rating` — line-to-neutral for WYE (= V_LL²/S)
 # and line-to-line for DELTA (= n_ph · V_LL²/S, i.e. n_ph× the naive V_LL²/S). The
-# √3/coil-base factor lives entirely in `v_ref`, so the model formulas below are
+# √3/coil-base factor lives entirely in `v_nom`, so the model formulas below are
 # connection-agnostic: r_winding[k] is at winding k's own coil base (referred to
 # winding 1 via /N_k²), and x_sc is at winding 1's coil base.
 
@@ -33,7 +33,7 @@
     _nw_windings(xfmr) -> Vector{NamedTuple}
 
 Return the ordered winding list of an `n_winding` transformer as
-`(bus, terminal_map, v_ref, connection, r_winding)` named tuples. Reads only the
+`(bus, terminal_map, v_nom, connection, r_winding)` named tuples. Reads only the
 `windings` field — never `bus_from`/`bus_to`.
 """
 function _nw_windings(xfmr::Dict{String,Any})
@@ -45,8 +45,8 @@ function _nw_windings(xfmr::Dict{String,Any})
         push!(out, (
             bus          = string(get(w, "bus", "")),
             terminal_map = Vector{String}(string.(get(w, "terminal_map", String[]))),
-            v_ref        = Float64(get(w, "v_ref", 1.0)),
-            connection   = uppercase(string(get(w, "connection", "WYE"))),
+            v_nom        = Float64(get(w, "v_nom", 1.0)),        # JSON key: v_nom
+            connection   = uppercase(string(get(w, "configuration", "WYE"))),  # JSON key: configuration
             r_winding    = Float64(get(w, "r_winding", 0.0)),
             delta_roll   = Int(get(w, "delta_roll", 1)),
         ))
@@ -57,14 +57,14 @@ end
 """
     _nw_turns_ratios(xfmr) -> Vector{Float64}
 
-Per-winding turns ratio `N_k = v_ref[k] / v_ref[1]` (so `N_1 == 1`). Winding 1 is
+Per-winding turns ratio `N_k = v_nom[k] / v_nom[1]` (so `N_1 == 1`). Winding 1 is
 the reference. Independent of `_xfmr_turns_ratio`.
 """
 function _nw_turns_ratios(xfmr::Dict{String,Any})::Vector{Float64}
     ws = _nw_windings(xfmr)
     isempty(ws) && return Float64[]
-    v1 = ws[1].v_ref
-    iszero(v1) ? fill(1.0, length(ws)) : [w.v_ref / v1 for w in ws]
+    v1 = ws[1].v_nom
+    iszero(v1) ? fill(1.0, length(ws)) : [w.v_nom / v1 for w in ws]
 end
 
 """
@@ -120,7 +120,7 @@ for `n ≤ 3` it equals the star/T model). A diagonal entry can be negative for
 `n ≥ 3`, which is physical.
 
 `r_winding[k]` is referred from winding k's own base to winding 1 via `/N_k²`
-(`N_k = v_ref[k]/v_ref[1]`); `x_sc` is already on winding 1's base.
+(`N_k = v_nom[k]/v_nom[1]`); `x_sc` is already on winding 1's base.
 """
 function _nw_zb_matrix(xfmr::Dict{String,Any})::Matrix{ComplexF64}
     ws = _nw_windings(xfmr)

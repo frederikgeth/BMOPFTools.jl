@@ -7,7 +7,7 @@
 # ──────────
 # A single system MVA base (s_base, VA) is chosen by the caller.
 # V_base at the source bus comes from the first voltage source's v_magnitude[1].
-# V_base propagates through transformers by the turns ratio N = v_ref_from/v_ref_to:
+# V_base propagates through transformers by the turns ratio N = v_nom_from/v_nom_to:
 #   V_base[to] = V_base[from] / N
 # Lines and switches do not change the voltage base.
 # Buses not reachable from the BFS receive the source V_base as a fallback.
@@ -53,7 +53,7 @@ function _compute_bases(net::Dict{String,Any}, s_base::Float64)
     src_bus != "" && (v_base[src_bus] = src_vbase)
 
     # BFS through transformers to propagate V_base.
-    # Build adjacency: bus -> [(neighbour_bus, v_ref_from, v_ref_to, from_is_from)]
+    # Build adjacency: bus -> [(neighbour_bus, v_nom_from, v_nom_to, from_is_from)]
     xfmr_adj = Dict{String,Vector{Tuple{String,Float64,Float64}}}()
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
@@ -61,8 +61,8 @@ function _compute_bases(net::Dict{String,Any}, s_base::Float64)
         for (_, xfmr) in get(xfmr_dict, subtype, Dict())
             bf = get(xfmr, "bus_from", "")
             bt = get(xfmr, "bus_to",   "")
-            vrf = Float64(get(xfmr, "v_ref_from", 1.0))
-            vrt = Float64(get(xfmr, "v_ref_to",   1.0))
+            vrf = Float64(get(xfmr, "v_nom_from", 1.0))
+            vrt = Float64(get(xfmr, "v_nom_to",   1.0))
             (isempty(bf) || isempty(bt)) && continue
             push!(get!(xfmr_adj, bf, Tuple{String,Float64,Float64}[]), (bt, vrf, vrt))
             push!(get!(xfmr_adj, bt, Tuple{String,Float64,Float64}[]), (bf, vrt, vrf))
@@ -73,10 +73,10 @@ function _compute_bases(net::Dict{String,Any}, s_base::Float64)
     for (_, xfmr) in get(xfmr_dict, "n_winding", Dict())
         ws = BMOPFTools._nw_windings(xfmr)
         isempty(ws) && continue
-        b1, v1 = ws[1].bus, ws[1].v_ref
+        b1, v1 = ws[1].bus, ws[1].v_nom
         isempty(b1) && continue
         for j in 2:length(ws)
-            bj, vj = ws[j].bus, ws[j].v_ref
+            bj, vj = ws[j].bus, ws[j].v_nom
             isempty(bj) && continue
             push!(get!(xfmr_adj, b1, Tuple{String,Float64,Float64}[]), (bj, v1, vj))
             push!(get!(xfmr_adj, bj, Tuple{String,Float64,Float64}[]), (b1, vj, v1))
@@ -315,8 +315,8 @@ function _pu_scale_transformers!(net, bases)
             ib_fr = get(bases.i_base, bf, 1.0)
             ib_to = get(bases.i_base, bt, 1.0)
 
-            haskey(xfmr, "v_ref_from") && (xfmr["v_ref_from"] = Float64(xfmr["v_ref_from"]) / vb_fr)
-            haskey(xfmr, "v_ref_to")   && (xfmr["v_ref_to"]   = Float64(xfmr["v_ref_to"])   / vb_to)
+            haskey(xfmr, "v_nom_from") && (xfmr["v_nom_from"] = Float64(xfmr["v_nom_from"]) / vb_fr)
+            haskey(xfmr, "v_nom_to")   && (xfmr["v_nom_to"]   = Float64(xfmr["v_nom_to"])   / vb_to)
             haskey(xfmr, "s_rating")   && (xfmr["s_rating"]   = Float64(xfmr["s_rating"])   / sb)
 
             haskey(xfmr, "r_series_from") && (xfmr["r_series_from"] = Float64(xfmr["r_series_from"]) / zb_fr)
@@ -351,7 +351,7 @@ end
 # n-winding transformers: an independent per-unit pass. The OPF leakage is the
 # ZB matrix referred to winding 1, so it converts to p.u. with a single divide by
 # z_base(bus_1); the result is stashed as `_zb_re`/`_zb_im` (read by
-# `_nw_zb_for_opf`). v_ref is scaled per winding bus so N_j stays the off-nominal
+# `_nw_zb_for_opf`). v_nom is scaled per winding bus so N_j stays the off-nominal
 # ratio; the no-load shunt (referenced at winding 1) scales by ×z_base(bus_1);
 # s_rating by ÷s_base.
 function _pu_scale_nwinding!(net, bases)
@@ -369,14 +369,14 @@ function _pu_scale_nwinding!(net, bases)
         xfmr["_zb_re"] = [[real(ZBpu[i, j]) for j in 1:m] for i in 1:m]
         xfmr["_zb_im"] = [[imag(ZBpu[i, j]) for j in 1:m] for i in 1:m]
 
-        # v_ref is divided by the winding's bus base (line-to-neutral). For a DELTA
-        # winding v_ref is the line-to-line coil voltage, so v_ref_pu ≈ √3 — exactly
+        # v_nom is divided by the winding's bus base (line-to-neutral). For a DELTA
+        # winding v_nom is the line-to-line coil voltage, so v_nom_pu ≈ √3 — exactly
         # the √3 that cancels the line-to-line node-voltage difference the delta coil
         # spans, leaving U_k^r consistent. No delta-specific scaling is needed.
         for (j, w) in enumerate(raw)
             w isa AbstractDict || continue
             vbj = get(bases.v_base, ws[j].bus, 1.0)
-            haskey(w, "v_ref") && (w["v_ref"] = Float64(w["v_ref"]) / vbj)
+            haskey(w, "v_nom") && (w["v_nom"] = Float64(w["v_nom"]) / vbj)
         end
 
         haskey(xfmr, "s_rating") && (xfmr["s_rating"] = Float64(xfmr["s_rating"]) / sb)
@@ -397,9 +397,9 @@ function _pu_scale_shunts!(net, bases)
     end
 end
 
-# Capacitors: the OPF derives B = q_rated/v_rated² in the builder, so scaling
-# q_rated by s_base and v_rated by the bus voltage base makes the derived B come
-# out in per-unit automatically:  (q/s_base)/(v_rated/v_base)² = B_SI · z_base.
+# Capacitors: the OPF derives B = q_rated/v_nom² in the builder, so scaling
+# q_rated by s_base and v_nom by the bus voltage base makes the derived B come
+# out in per-unit automatically:  (q/s_base)/(v_nom/v_base)² = B_SI · z_base.
 function _pu_scale_capacitors!(net, bases)
     sb = bases.s_base
     for (_, cap) in get(net, "capacitor", Dict())
@@ -407,7 +407,7 @@ function _pu_scale_capacitors!(net, bases)
         bus = get(cap, "bus", "")
         vb  = get(bases.v_base, bus, 1.0)
         haskey(cap, "q_rated") && (cap["q_rated"] = Float64.(cap["q_rated"]) ./ sb)
-        haskey(cap, "v_rated") && (cap["v_rated"] = Float64(cap["v_rated"]) / vb)
+        haskey(cap, "v_nom") && (cap["v_nom"] = Float64(cap["v_nom"]) / vb)
     end
 end
 

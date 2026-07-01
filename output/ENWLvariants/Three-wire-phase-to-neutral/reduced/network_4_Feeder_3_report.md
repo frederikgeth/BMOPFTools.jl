@@ -1,7 +1,7 @@
 # BMOPF Network Summary: Three-wire-phase-to-neutral / network_4 / Feeder_3
 
-**Generated:** 2026-06-23 21:33:42  
-**Findings:** 0 errors · 2 warnings · 10 info  
+**Generated:** 2026-07-01 13:34:39  
+**Findings:** 0 errors · 1 warnings · 10 info  
 **Convention:** LV_240V: mixed; implicit (Kron-style) grounding
 
 ---
@@ -19,7 +19,7 @@
 | shunt | 0 |  |
 | switch | 0 |  |
 | transformer | 0 |  |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels
@@ -104,7 +104,7 @@
 |-------------------|------:|
 | Buses with neutral | 18 |
 | Neutral branches | 0 |
-| Grounding points | 1 |
+| Grounding points | 18 |
 | Neutral sections | 18 |
 | Floating sections | 0 |
 
@@ -120,10 +120,9 @@
 
 | Zone | Buses | Wires | Star point | Downstream earths | Likely system |
 |------|------:|-------|------------|------------------:|---------------|
-| 240.0 V | 39 | ≤3-wire | solid | 0 | indeterminate (3-wire / Kron-style implicit grounding) |
+| 240.0 V | 39 | ≤3-wire | solid | 17 | indeterminate (3-wire / Kron-style implicit grounding) |
 
 > 🔵 **[I.PROV.NO_PI_SHUNT]** All 4 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
-> 🟡 **[W.PROV.IMPLICIT_GROUNDING]** No branch carries a neutral conductor, but 17 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
 > 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_PN]** 4 three-wire linecode(s) match the impedance signature of phase-to-neutral approximation — R block is circulant with mutual ≈ ½ self (neutral resistance folded into phase self-terms); X block retains the original geometric structure. Valid approximation for equal phase/neutral conductors; error grows with grounding impedance.: lc1, lc4, lc6, lc7.
 
 ## 8. Spec Conformance & Benchmark Readiness
@@ -163,14 +162,12 @@
 
 ## 9. Data Quality Summary
 
-**Total findings:** 12 (0 errors, 2 warnings, 10 info)
+**Total findings:** 11 (0 errors, 1 warnings, 10 info)
 
 ### 🟡 Warnings
 
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.02 MW).
-- **[W.PROV.IMPLICIT_GROUNDING]** `network`  
-  No branch carries a neutral conductor, but 17 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
 
 ### 🔵 Info
 

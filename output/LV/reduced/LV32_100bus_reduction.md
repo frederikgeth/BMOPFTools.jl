@@ -1,6 +1,6 @@
 # Simplification log: LV32_100bus
 
-**Generated:** 2026-06-23 21:34:02  
+**Generated:** 2026-07-01 13:34:59  
 **Buses:** 101 → 39 (−62)  
 **Lines:** 92 → 37 (−55)  
 **Operations:** 67

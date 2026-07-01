@@ -135,8 +135,8 @@ const IEEE13_FIXTURE = """
         "terminal_map_from": ["1","2","3","n"],
         "terminal_map_to": ["1","2","3"],
         "s_rating": 5000000.0,
-        "v_ref_from": 4160.0,
-        "v_ref_to": 4160.0
+        "v_nom_from": 4160.0,
+        "v_nom_to": 4160.0
       }
     },
     "single_phase": {
@@ -146,8 +146,8 @@ const IEEE13_FIXTURE = """
         "terminal_map_from": ["1","2","3"],
         "terminal_map_to": ["1","2","3"],
         "s_rating": 500000.0,
-        "v_ref_from": 4160.0,
-        "v_ref_to": 480.0
+        "v_nom_from": 4160.0,
+        "v_nom_to": 480.0
       }
     }
   },
@@ -387,7 +387,7 @@ const IEEE13_FIXTURE = """
             "transformer" => Dict{String,Any}("center_tap" => Dict{String,Any}(
                 "ct" => Dict{String,Any}("bus_from" => "mv", "bus_to" => "lv",
                     "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n","2"],
-                    "v_ref_from" => 2400.0, "v_ref_to" => 120.0))),
+                    "v_nom_from" => 2400.0, "v_nom_to" => 120.0))),
             "load" => Dict{String,Any}("l1" => Dict{String,Any}("bus" => "lv",
                 "terminal_map" => ["1","n"], "configuration" => "SINGLE_PHASE",
                 "p_nom" => [1000.0], "q_nom" => [0.0])))
@@ -408,7 +408,7 @@ const IEEE13_FIXTURE = """
             "transformer" => Dict{String,Any}("single_phase" => Dict{String,Any}(
                 "iso" => Dict{String,Any}("bus_from" => "mv", "bus_to" => "sw",
                     "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n"],
-                    "v_ref_from" => 6350.0, "v_ref_to" => 6350.0))),
+                    "v_nom_from" => 6350.0, "v_nom_to" => 6350.0))),
             "load" => Dict{String,Any}("l1" => Dict{String,Any}("bus" => "sw",
                 "terminal_map" => ["1","n"], "configuration" => "SINGLE_PHASE",
                 "p_nom" => [1000.0], "q_nom" => [0.0])))
@@ -424,7 +424,7 @@ const IEEE13_FIXTURE = """
         net_au["transformer"]["center_tap"] = Dict{String,Any}("ct" => Dict{String,Any}(
             "bus_from" => "sw", "bus_to" => "lv",
             "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n","2"],
-            "v_ref_from" => 6350.0, "v_ref_to" => 230.0))
+            "v_nom_from" => 6350.0, "v_nom_to" => 230.0))
         f = Finding[]
         r = connectivity_analysis(net_au, f)
         @test r["n_swer_zones"] == 1          # the single-wire MV section
@@ -471,7 +471,7 @@ const IEEE13_FIXTURE = """
             "transformer" => Dict{String,Any}("center_tap" => Dict{String,Any}(
                 "ct" => Dict{String,Any}("bus_from" => "mv", "bus_to" => "lv",
                     "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n","2"],
-                    "v_ref_from" => 2400.0, "v_ref_to" => 120.0))),
+                    "v_nom_from" => 2400.0, "v_nom_to" => 120.0))),
             "load" => Dict{String,Any}(
                 "l1" => Dict{String,Any}("bus" => "lv", "terminal_map" => ["1","n"],
                     "configuration" => "SINGLE_PHASE", "p_nom" => [2000.0], "q_nom" => [0.0]),
@@ -1579,7 +1579,7 @@ const IEEE13_FIXTURE = """
 
         # default kv = 12.47
         net5 = deepcopy(base)
-        net5["transformer"]["single_phase"]["xfm2"]["v_ref_from"] = 12470.0
+        net5["transformer"]["single_phase"]["xfm2"]["v_nom_from"] = 12470.0
         f5 = Finding[]
         provenance_analysis(net5, f5)
         @test any(x -> x.code == "I.PROV.DSS_DEFAULT_KV", f5)
@@ -1710,7 +1710,7 @@ const IEEE13_FIXTURE = """
                         "bus_from" => "a", "bus_to" => "b",
                         "terminal_map_from" => ["1","n"],
                         "terminal_map_to"   => ["1","n"],
-                        "v_ref_from" => 2400.0, "v_ref_to" => 2400.0,
+                        "v_nom_from" => 2400.0, "v_nom_to" => 2400.0,
                         "s_rating" => 500_000.0,
                         "x_series_from" => 0.0005 * 2400.0^2 / 500_000.0,
                         "x_series_to"   => 0.0005 * 2400.0^2 / 500_000.0,
@@ -1725,7 +1725,7 @@ const IEEE13_FIXTURE = """
         net2["transformer"]["single_phase"]["auto1"] = Dict{String,Any}(
             "bus_from" => "a", "bus_to" => "a",
             "terminal_map_from" => ["1","n"], "terminal_map_to" => ["2","n"],
-            "v_ref_from" => 7200.0, "v_ref_to" => 720.0,
+            "v_nom_from" => 7200.0, "v_nom_to" => 720.0,
             "s_rating" => 50_000.0)
         f2 = Finding[]
         provenance_analysis(net2, f2)
@@ -1951,7 +1951,7 @@ const IEEE13_FIXTURE = """
                             "bus_from" => "a", "bus_to" => "b",
                             "terminal_map_from" => ["1","2","3"],
                             "terminal_map_to"   => ["1","2","3","n"],
-                            "v_ref_from" => 11000.0, "v_ref_to" => 433.0))))
+                            "v_nom_from" => 11000.0, "v_nom_to" => 433.0))))
             ground === :shunt && (net["shunt"] = Dict{String,Any}(
                 "gnd" => Dict{String,Any}("bus" => "b", "terminal_map" => ["n"],
                     "G_1_1" => 0.1, "B_1_1" => 0.0)))
@@ -1987,7 +1987,7 @@ const IEEE13_FIXTURE = """
                         "bus_from" => "a", "bus_to" => "b",
                         "terminal_map_from" => ["1","n"],
                         "terminal_map_to"   => ["1","n"],
-                        "v_ref_from" => 11000.0, "v_ref_to" => 230.0))))
+                        "v_nom_from" => 11000.0, "v_nom_to" => 230.0))))
         f4 = Finding[]; provenance_analysis(sp, f4)
         @test !has(f4)
     end
@@ -2065,7 +2065,7 @@ const IEEE13_FIXTURE = """
          "transformer":{"delta_wye":{"t1":{
             "bus_from":"hv","bus_to":"lv",
             "terminal_map_from":["a","b","c"],"terminal_map_to":["a","b","c","n"],
-            "v_ref_from":11000.0,"v_ref_to":433.0,"s_rating":100000.0,
+            "v_nom_from":11000.0,"v_nom_to":433.0,"s_rating":100000.0,
             "r_series":0.015,"x_series":0.0007}}}}
         """
         net = parse_bmopf(json; from_string=true)
@@ -2389,34 +2389,34 @@ const IEEE13_FIXTURE = """
 
     @testset "from_dss — center_tap normalisation" begin
         # PowerIO emits a centre-tapped (split-phase) transformer with the centre
-        # tap (neutral) listed LAST in terminal_map_to and v_ref_to set to the FULL
-        # secondary. The OPF model wants the centre tap in the MIDDLE and v_ref_to
+        # tap (neutral) listed LAST in terminal_map_to and v_nom_to set to the FULL
+        # secondary. The OPF model wants the centre tap in the MIDDLE and v_nom_to
         # per-leg. _normalize_center_tap_transformers! converts to that convention.
         mk() = Dict{String,Any}("transformer" => Dict{String,Any}(
             "center_tap" => Dict{String,Any}("ct" => Dict{String,Any}(
                 "bus_from" => "hv", "bus_to" => "lv",
                 "terminal_map_from" => ["a","n"],
                 "terminal_map_to"   => ["a","b","n"],   # centre tap last (PowerIO)
-                "v_ref_from" => 7200.0, "v_ref_to" => 240.0))))   # full secondary
+                "v_nom_from" => 7200.0, "v_nom_to" => 240.0))))   # full secondary
 
         net = mk()
         BMOPFTools._normalize_center_tap_transformers!(net)
         ct = net["transformer"]["center_tap"]["ct"]
         @test ct["terminal_map_to"] == ["a","n","b"]   # centre tap moved to middle
-        @test ct["v_ref_to"] == 120.0                  # halved to per-leg
+        @test ct["v_nom_to"] == 120.0                  # halved to per-leg
 
         # Idempotent: a second pass (or already-canonical data) is a no-op.
         BMOPFTools._normalize_center_tap_transformers!(net)
         @test ct["terminal_map_to"] == ["a","n","b"]
-        @test ct["v_ref_to"] == 120.0
+        @test ct["v_nom_to"] == 120.0
 
         # No identifiable centre tap → left untouched (model warns later instead).
         no_n = Dict{String,Any}("transformer" => Dict{String,Any}(
             "center_tap" => Dict{String,Any}("ct" => Dict{String,Any}(
-                "terminal_map_to" => ["a","b","c"], "v_ref_to" => 240.0))))
+                "terminal_map_to" => ["a","b","c"], "v_nom_to" => 240.0))))
         BMOPFTools._normalize_center_tap_transformers!(no_n)
         @test no_n["transformer"]["center_tap"]["ct"]["terminal_map_to"] == ["a","b","c"]
-        @test no_n["transformer"]["center_tap"]["ct"]["v_ref_to"] == 240.0
+        @test no_n["transformer"]["center_tap"]["ct"]["v_nom_to"] == 240.0
     end
 
     @testset "Completeness — transformer required fields" begin
@@ -2467,14 +2467,14 @@ const IEEE13_FIXTURE = """
                 "terminal_map_from" => ["1","2","3"],
                 "terminal_map_to"   => ["1","2","3","n"],
                 "s_rating" => 100_000.0,
-                "v_ref_from" => 11000.0, "v_ref_to" => 433.0))
+                "v_nom_from" => 11000.0, "v_nom_to" => 433.0))
         findings = Finding[]
         domain_rules_check(net, findings)
         @test !any(f -> f.code == "W.DOM.XFMR_RATIO_OOB" &&
                         f.component_id == "tx_dist", findings)
 
         # but an implausible 11kV/1V ratio is flagged
-        net["transformer"]["delta_wye"]["tx_dist"]["v_ref_to"] = 1.0
+        net["transformer"]["delta_wye"]["tx_dist"]["v_nom_to"] = 1.0
         findings2 = Finding[]
         domain_rules_check(net, findings2)
         @test any(f -> f.code == "W.DOM.XFMR_RATIO_OOB" &&
@@ -2508,7 +2508,7 @@ const IEEE13_FIXTURE = """
                     "terminal_map_from" => ["a","b","c"],
                     "terminal_map_to"   => ["a","b","c","n"],
                     "s_rating" => 100_000.0,
-                    "v_ref_from" => vf, "v_ref_to" => vt))))
+                    "v_nom_from" => vf, "v_nom_to" => vt))))
         dcodes(net) = (f = Finding[]; domain_rules_check(net, f); Set(x.code for x in f))
 
         # Correctly oriented step-down → neither finding.
@@ -2516,13 +2516,13 @@ const IEEE13_FIXTURE = """
             @test !("W.DOM.XFMR_REVERSED" in c)
             @test !("W.DOM.XFMR_STEP_UP"  in c)
         end
-        # Swapped bus_from/bus_to (and v_ref) → reversed orientation flagged.
-        # v_ref still consistent with the (reversed) orientation, so no step-up.
+        # Swapped bus_from/bus_to (and v_nom) → reversed orientation flagged.
+        # v_nom still consistent with the (reversed) orientation, so no step-up.
         let c = dcodes(mknet("lv", "mv", 433.0, 11000.0))
             @test "W.DOM.XFMR_REVERSED" in c
             @test !("W.DOM.XFMR_STEP_UP" in c)
         end
-        # Correct terminals but v_ref swapped → boosts away from source.
+        # Correct terminals but v_nom swapped → boosts away from source.
         let c = dcodes(mknet("mv", "lv", 433.0, 11000.0))
             @test "W.DOM.XFMR_STEP_UP" in c
             @test !("W.DOM.XFMR_REVERSED" in c)
@@ -2575,7 +2575,7 @@ const IEEE13_FIXTURE = """
                 "tx" => Dict{String,Any}(
                     "bus_from" => "a", "bus_to" => "b",
                     "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n"],
-                    "v_ref_from" => 11000.0, "v_ref_to" => 240.0, "s_rating" => 50000.0,
+                    "v_nom_from" => 11000.0, "v_nom_to" => 240.0, "s_rating" => 50000.0,
                     "r_series_from" => rf, "x_series_from" => xf,
                     "r_series_to" => rt, "x_series_to" => xt))))
         codes(net) = (f = Finding[]; domain_rules_check(net, f); Set(x.code for x in f))
@@ -2603,7 +2603,7 @@ const IEEE13_FIXTURE = """
             "single_phase_autotransformer" => Dict{String,Any}("rg" => Dict{String,Any}(
                 "bus_from" => "a", "bus_to" => "b",
                 "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n"],
-                "v_ref_from" => 11000.0, "v_ref_to" => 11000.0,
+                "v_nom_from" => 11000.0, "v_nom_to" => 11000.0,
                 "r_series_from" => 0.0, "x_series_from" => 0.0,
                 "r_series_to" => 0.0, "x_series_to" => 0.0))))
         @test !("I.DOM.XFMR_IDEAL" in codes(reg))
@@ -3082,8 +3082,8 @@ const IEEE13_FIXTURE = """
             @test haskey(xfmr, "delta_wye")
             @test length(xfmr["delta_wye"]) == 1
             tx = first(values(xfmr["delta_wye"]))
-            @test tx["v_ref_from"] > tx["v_ref_to"]               # step-down
-            @test tx["v_ref_from"] / tx["v_ref_to"] ≈ 11.0/0.433  rtol=0.02
+            @test tx["v_nom_from"] > tx["v_nom_to"]               # step-down
+            @test tx["v_nom_from"] / tx["v_nom_to"] ≈ 11.0/0.433  rtol=0.02
             # PowerIO emits a lumped Γ-model; the parse-time migration normalises
             # it to the per-winding fields the OPF/Ybus builders consume, so a
             # nonzero leakage impedance reaches them (not silently zero).
@@ -3216,10 +3216,10 @@ const IEEE13_FIXTURE = """
             @test Set(keys(xfmr["center_tap"]))   == Set(["dx2"])
 
             # center_tap normalised to BMOPF convention: centre tap in the middle,
-            # per-leg v_ref_to (240 V for the 240-0-240 secondary).
+            # per-leg v_nom_to (240 V for the 240-0-240 secondary).
             dx2 = xfmr["center_tap"]["dx2"]
             @test dx2["terminal_map_to"][2] == "n"
-            @test isapprox(dx2["v_ref_to"], 240.0; rtol=1e-6)
+            @test isapprox(dx2["v_nom_to"], 240.0; rtol=1e-6)
 
             # Single-wire backbone: 1-conductor linecode, 2 line segments.
             @test length(net["line"]) == 2
@@ -3248,7 +3248,7 @@ const IEEE13_FIXTURE = """
             @test !any(f -> f.severity == ERROR, report.findings)
 
             # Nominal-voltage propagation must treat the phase-to-phase isolating
-            # transformer's v_ref as line-to-line: the 240 V phase-to-earth LV
+            # transformer's v_nom as line-to-line: the 240 V phase-to-earth LV
             # taps must come out at 240 V, not 240/√3 ≈ 139 V. Guards the √3
             # correction in _build_voltage_adjacency.
             bvm = report.results[:voltage_levels]["bus_voltage_map"]

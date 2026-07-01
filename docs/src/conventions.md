@@ -151,7 +151,7 @@ shared [`control_profile`](#Control-profiles) entry carrying `volt_var`,
 `volt_watt`, or `power_factor`. Each droop law's `voltage_reference` selects the
 **monitored-voltage quantity and aggregation** (one of the six
 `voltage_reference_type` values — phase-to-ground / phase-to-neutral /
-phase-to-phase, per-phase or averaged). The optional IBR-level `voltage_ref`
+phase-to-phase, per-phase or averaged). The optional IBR-level `voltage_aggregation`
 field (`PER_PHASE` / `AVERAGE`) is a convenience that overrides only the
 *aggregation* a control law implies, applied across all of that IBR's curves. See
 [the OPF IBR model](opf.md#IBRs) for the full formulation.
@@ -201,11 +201,11 @@ using the same smooth-ReLU machinery as `volt_var`/`volt_watt`. See the
 ## Capacitors
 
 A `capacitor` is a fixed shunt capacitor bank with fields `bus`, `terminal_map`,
-`configuration` (`WYE` / `SINGLE_PHASE` / `DELTA`), `q_rated` (var) and `v_rated`
-(V). It is a **constant susceptance** `B = q_rated / v_rated²` delivering the
+`configuration` (`WYE` / `SINGLE_PHASE` / `DELTA`), `q_rated` (var) and `v_nom`
+(V). It is a **constant susceptance** `B = q_rated / v_nom²` delivering the
 voltage-dependent reactive power `Q = B·V²` (= the nameplate `q_rated` only at
-`v_rated`). `q_rated` is a per-phase array for WYE, per-pair for DELTA, length 1
-for SINGLE_PHASE; `v_rated` is phase-to-neutral (WYE/SINGLE_PHASE) or
+`v_nom`). `q_rated` is a per-phase array for WYE, per-pair for DELTA, length 1
+for SINGLE_PHASE; `v_nom` is phase-to-neutral (WYE/SINGLE_PHASE) or
 line-to-line (DELTA). It is electrically a connection-aware `shunt` and adds **no
 OPF variables** (fixed). A `shunt` remains the general constant-admittance
 element (`G_i_j`/`B_i_j`, S); the `capacitor` adds nameplate and connection
@@ -266,7 +266,7 @@ Every connected DC island must have ≥1 `"V"` or `"droop"` converter, else
 ## Transformer subtypes
 
 Six subtypes, each its own sub-dict under `transformer`.  All impedance
-fields are in SI units (Ω or S); `v_ref_*` in V; `s_rating` in VA.
+fields are in SI units (Ω or S); `v_nom_*` in V; `s_rating` in VA.
 
 | Subtype | map arity (from, to) | OPF model | impedance fields |
 |---|---|---|---|
@@ -285,7 +285,7 @@ are the LV winding values (Ω on the LV voltage base).  The no-load shunt
 
 **`center_tap`**: `terminal_map_from = ["1","n"]` (HV phase + neutral),
 `terminal_map_to = ["1","n","2"]` (leg-1, center-tap neutral, leg-2).
-`v_ref_to` is the **per-leg** voltage (e.g. 120 V, not 240 V).
+`v_nom_to` is the **per-leg** voltage (e.g. 120 V, not 240 V).
 The OPF models it as a genuine coupled-coil 3-winding transformer: the two LV
 half-windings are series-aiding about the centre tap (winding 3 dotted at the
 centre tap, span $V_g-V_c$) and the OPF imposes the same 5×5 primitive admittance
@@ -309,7 +309,7 @@ loading correctly produces different voltages on the two legs.
 transform, matching the OpenDSS / PMD reference loss network.  Each winding
 carries its own series impedance (`r/x_series_from`, `r/x_series_to`) and a
 `g/b_no_load` core-loss shunt sits at the from-side (HV) phase terminals.
-`v_ref_*` are phase-to-neutral equivalents (the √3 factor is absorbed into
+`v_nom_*` are phase-to-neutral equivalents (the √3 factor is absorbed into
 the effective turns ratio `n_eff`).  The older single `r_series`/`x_series`
 (wye-side lumped, delta ideal) is accepted as legacy shorthand and migrated
 onto `r_series_from`/`x_series_from` with the secondary branch zero — see the
@@ -323,7 +323,7 @@ connection, giving the effective from→to ratio $n_\text{eff}=1/a$ (Type B,
 default) or $n_\text{eff}=a$ (Type A).  The OPF voltage/current constraints are
 the `single_phase` YY form with $N:=n_\text{eff}$, plus a **shared-neutral KCL**
 ($I_n + I_\text{series} + I_\text{to}=0$) that closes the common-winding return.
-`v_ref_*` are not used (the ratio is `tap_ratio`); per-unit propagates the same
+`v_nom_*` are not used (the ratio is `tap_ratio`); per-unit propagates the same
 base across the galvanic tie (no voltage-level change).
 
 **`open_delta_regulator`**: a monolithic three-phase open-delta regulator — two
@@ -339,7 +339,7 @@ note `docs/transformer_admittance_derivation.md`.
 **`n_winding`**: a general n-winding (3+) transformer for three or more
 galvanically isolated voltage levels (e.g. an HV→MV→LV substation, or a
 dual-secondary unit).  Unlike the two-bus subtypes it is a **winding-indexed
-list** (`windings = [{bus, terminal_map, v_ref, connection, r_winding}, …]`)
+list** (`windings = [{bus, terminal_map, v_nom, connection, r_winding}, …]`)
 with inter-winding leakage stored as **pairwise short-circuit reactances**
 `x_sc["i_j"]` (referred to winding 1).  The leakage is the OpenDSS-style **ZB
 matrix** referred to winding 1 ($ZB[i,i]=Z_{1,i+1}$,
@@ -352,7 +352,7 @@ star node is required; a ZB entry **may be negative** for $n\ge 3$ (physical).
 Each isolated winding is its **own galvanic zone** (n_winding is treated as
 isolating, like the other non-regulator subtypes — see
 [Galvanic zones](analysis.md)).  Windings may be `WYE` **or** `DELTA` (a delta
-winding's `v_ref` is its line-to-line coil voltage, and `delta_roll` selects the
+winding's `v_nom` is its line-to-line coil voltage, and `delta_roll` selects the
 vector-group rotation).  This is a **fully independent code path** from the
 two-bus subtypes, validated against OpenDSS's own 3- and 4-winding solves
 (including delta `Dyn`/`Dyyn`).  See the

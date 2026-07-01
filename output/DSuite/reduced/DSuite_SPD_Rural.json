@@ -914,7 +914,7 @@
     "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json",
     "source": "D-Suite Alpha v1.1",
     "reference": "M. Deakin, DOI: 10.25405/data.ncl.27175317",
-    "created": "2026-06-23T11:26:47Z",
+    "created": "2026-07-01T03:27:44Z",
     "generator": {
       "version": "0.1.0",
       "tool": "BMOPFTools.jl"
@@ -924,7 +924,7 @@
   "transformer": {
     "delta_wye": {
       "dist_transformer_14216629_9089776": {
-        "x_series_to": 0,
+        "x_series_to": 0.08439025,
         "s_rating": 50000,
         "terminal_map_to": [
           "a",
@@ -932,17 +932,19 @@
           "c",
           "n"
         ],
-        "r_series_from": 0.013778,
-        "x_series_from": 0.1687805,
+        "b_no_load": 0,
+        "r_series_from": 4.84,
+        "v_nom_to": 415,
+        "x_series_from": 59.29,
+        "v_nom_from": 11000,
+        "g_no_load": 0,
         "bus_from": "sourcebusz",
         "terminal_map_from": [
           "a",
           "b",
           "c"
         ],
-        "v_ref_from": 11000,
-        "r_series_to": 0,
-        "v_ref_to": 415,
+        "r_series_to": 0.006889,
         "bus_to": "9089776"
       }
     }
@@ -1776,7 +1778,7 @@
     "11056295": {
       "latitude": -0.00739,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1799,7 +1801,7 @@
     "9089776": {
       "latitude": 9.6e-5,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1822,7 +1824,7 @@
     "10637594": {
       "latitude": -0.00989,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1843,7 +1845,7 @@
     "11056946": {
       "latitude": -0.0108,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1857,7 +1859,7 @@
     "13212201": {
       "latitude": -0.00473,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1880,7 +1882,7 @@
     "12219819": {
       "latitude": -0.0144,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1894,7 +1896,7 @@
     "11089750": {
       "latitude": -0.00643,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1908,7 +1910,7 @@
     "13221537": {
       "latitude": -0.00842,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1940,7 +1942,7 @@
     "12004807": {
       "latitude": -0.00118,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1954,7 +1956,7 @@
     "13284933": {
       "latitude": -0.00403,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1968,7 +1970,7 @@
     "17439336": {
       "latitude": 9.6e-5,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1991,7 +1993,7 @@
     "11834427": {
       "latitude": -0.000216,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2005,7 +2007,7 @@
     "10987351": {
       "latitude": -0.00921,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2028,7 +2030,7 @@
     "12491308": {
       "latitude": -0.00199,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2042,7 +2044,7 @@
     "12447746": {
       "latitude": -0.00197,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2065,7 +2067,7 @@
     "10960343": {
       "latitude": -0.00405,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2142,7 +2144,7 @@
     "12295316": {
       "latitude": -0.00703,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2174,7 +2176,7 @@
     "11526642": {
       "latitude": -0.00269,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2215,7 +2217,7 @@
     "10952569": {
       "latitude": -0.00621,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2229,7 +2231,7 @@
     "11434169": {
       "latitude": -0.00873,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2243,7 +2245,7 @@
     "11754850": {
       "latitude": -0.00499,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2257,7 +2259,7 @@
     "12121550": {
       "latitude": -0.0139,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2271,7 +2273,7 @@
     "10952568": {
       "latitude": -0.00264,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2285,7 +2287,7 @@
     "10983375": {
       "latitude": -0.000816,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2317,7 +2319,7 @@
     "10952551": {
       "latitude": -0.000984,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2331,7 +2333,7 @@
     "14522889": {
       "latitude": -0.00593,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2345,7 +2347,7 @@
     "11022643": {
       "latitude": -0.00809,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2359,7 +2361,7 @@
     "12298311": {
       "latitude": -0.00216,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2390,7 +2392,7 @@
     },
     "sourcebus": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -2403,7 +2405,7 @@
     "10987352": {
       "latitude": -0.00379,
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",

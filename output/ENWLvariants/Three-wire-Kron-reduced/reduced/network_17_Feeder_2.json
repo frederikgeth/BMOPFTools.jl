@@ -352,7 +352,7 @@
   "name": "Three-wire-Kron-reduced / network_17 / Feeder_2",
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:29:34Z",
+    "created": "2026-07-01T03:30:33Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"
@@ -6622,7 +6622,7 @@
     },
     "254": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -6641,7 +6641,7 @@
     },
     "30": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -6660,7 +6660,7 @@
     },
     "460": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -6672,7 +6672,7 @@
     },
     "110": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -6691,7 +6691,7 @@
     },
     "186": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -6724,7 +6724,7 @@
     },
     "193": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -6736,7 +6736,7 @@
     },
     "118": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -6748,7 +6748,7 @@
     },
     "sourcebus": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -6760,7 +6760,7 @@
     },
     "259": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",

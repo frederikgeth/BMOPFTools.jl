@@ -127,7 +127,7 @@ const _KNOWN_FIELDS = Dict{String,Set{String}}(
                              "cost"]),
     "shunt" => Set(["bus", "terminal_map"]),
     "capacitor" => Set(["bus", "terminal_map", "configuration",
-                        "q_rated", "v_rated"]),
+                        "q_rated", "v_nom"]),
     "load" => Set(["p_nom", "q_nom", "bus", "configuration", "terminal_map",
                    "model", "v_nom",
                    "alpha_z", "alpha_i", "alpha_p",
@@ -144,7 +144,7 @@ const _KNOWN_FIELDS = Dict{String,Set{String}}(
                        "dc_link_coupled", "p_dc_min", "p_dc_max",
                        "r_filter", "x_filter", "b_filter_shunt",
                        "grid_forming", "v_ref_internal", "cost",
-                       "control_profile", "voltage_ref"]),
+                       "control_profile", "voltage_aggregation"]),
     # control_profile components are keyed by control-law name; list all nine
     # so future laws beyond the currently-wired three are not flagged as unknown
     "control_profile" => Set(["volt_var", "volt_watt", "watt_var", "watt_pf",
@@ -156,14 +156,14 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
     "single_phase" => Set(["s_rating", "r_series_from", "x_series_from",
                            "r_series_to", "x_series_to", "bus_from", "bus_to",
                            "terminal_map_from", "terminal_map_to",
-                           "v_ref_from", "v_ref_to",
+                           "v_nom_from", "v_nom_to",
                            "i_max_from", "i_max_to",
                            "g_no_load", "b_no_load",
                            "tap", "tap_min", "tap_max"]),
     "center_tap"   => Set(["s_rating", "r_series_from", "x_series_from",
                            "r_series_to", "x_series_to", "bus_from", "bus_to",
                            "terminal_map_from", "terminal_map_to",
-                           "v_ref_from", "v_ref_to",
+                           "v_nom_from", "v_nom_to",
                            "i_max_from", "i_max_to",
                            "g_no_load", "b_no_load"]),
     "wye_delta"    => Set(["s_rating",
@@ -173,7 +173,7 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "g_no_load", "b_no_load",
                            "bus_from", "bus_to",
                            "terminal_map_from", "terminal_map_to",
-                           "v_ref_from", "v_ref_to",
+                           "v_nom_from", "v_nom_to",
                            "i_max_from", "i_max_to",
                            "tap", "tap_min", "tap_max"]),
     "delta_wye"    => Set(["s_rating",
@@ -183,11 +183,11 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "g_no_load", "b_no_load",
                            "bus_from", "bus_to",
                            "terminal_map_from", "terminal_map_to",
-                           "v_ref_from", "v_ref_to",
+                           "v_nom_from", "v_nom_to",
                            "i_max_from", "i_max_to",
                            "tap", "tap_min", "tap_max"]),
     # Single-phase step voltage regulator / autotransformer. The ratio is the
-    # fixed `tap_ratio` (not v_ref_from/v_ref_to); `regulator_type` picks ANSI A/B.
+    # fixed `tap_ratio` (not v_nom_from/v_nom_to); `regulator_type` picks ANSI A/B.
     "single_phase_autotransformer" =>
                       Set(["s_rating", "r_series_from", "x_series_from",
                            "r_series_to", "x_series_to", "bus_from", "bus_to",

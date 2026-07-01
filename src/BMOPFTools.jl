@@ -267,12 +267,12 @@ end
 """
     _xfmr_turns_ratio(xfmr) -> Float64
 
-Return N = v_ref_from / v_ref_to, defaulting to 1.0 if either field is missing
-or v_ref_to is zero.
+Return N = v_nom_from / v_nom_to, defaulting to 1.0 if either field is missing
+or v_nom_to is zero.
 """
 function _xfmr_turns_ratio(xfmr::Dict{String,Any})::Float64
-    vf = Float64(get(xfmr, "v_ref_from", 1.0))
-    vt = Float64(get(xfmr, "v_ref_to",   1.0))
+    vf = Float64(get(xfmr, "v_nom_from", 1.0))
+    vt = Float64(get(xfmr, "v_nom_to",   1.0))
     iszero(vt) ? 1.0 : vf / vt
 end
 
@@ -310,7 +310,7 @@ end
 # A transformer's tap is OPTIMISABLE when bounds are present and strictly ordered
 # (mirrors the implicit generator/IBR free-variable pattern). Ordinary transformers
 # (single_phase, wye_delta, delta_wye) use a dimensionless multiplier `tap` on the
-# nominal from-side ratio N0 = v_ref_from/v_ref_to; the regulator subtypes use their
+# nominal from-side ratio N0 = v_nom_from/v_nom_to; the regulator subtypes use their
 # native `tap_ratio`. The OPF declares ONE variable per free tap equal to the
 # EFFECTIVE from→to ratio coefficient the winding constraints multiply (N for the
 # single_phase form, n_eff otherwise), so the constraints stay degree-2.
@@ -322,7 +322,7 @@ _xfmr_tap_mult(xfmr::Dict{String,Any})::Float64 = Float64(get(xfmr, "tap", 1.0))
     _xfmr_ratio_coeff_fn(subtype, N0) -> Function
 
 Effective from→to ratio coefficient as a function of the dimensionless tap `t`
-(multiplier on the nominal ratio `N0 = v_ref_from/v_ref_to`).
+(multiplier on the nominal ratio `N0 = v_nom_from/v_nom_to`).
 """
 function _xfmr_ratio_coeff_fn(subtype::AbstractString, N0::Float64)
     subtype == "delta_wye" && return t -> sqrt(3.0) * N0 * t   # Dy: n_eff = N·√3

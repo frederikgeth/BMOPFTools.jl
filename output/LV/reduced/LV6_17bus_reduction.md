@@ -1,6 +1,6 @@
 # Simplification log: LV6_17bus
 
-**Generated:** 2026-06-23 21:34:02  
+**Generated:** 2026-07-01 13:34:59  
 **Buses:** 18 → 4 (−14)  
 **Lines:** 11 → 2 (−9)  
 **Operations:** 15

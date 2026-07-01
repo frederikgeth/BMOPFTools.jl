@@ -306,8 +306,8 @@ function _transformer_diversity(net::Dict{String,Any},
     turn_ratios = Float64[]
     for (_, t) in all_xfmrs
         haskey(t, "s_rating") && push!(s_ratings, Float64(t["s_rating"]))
-        vf = get(t, "v_ref_from", nothing)
-        vt = get(t, "v_ref_to",   nothing)
+        vf = get(t, "v_nom_from", nothing)
+        vt = get(t, "v_nom_to",   nothing)
         (vf !== nothing && vt !== nothing && Float64(vf) > 0) &&
             push!(turn_ratios, Float64(vt) / Float64(vf))
     end

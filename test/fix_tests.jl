@@ -120,7 +120,7 @@ function _transformer_net()
          "terminal_map_from":["a","b","c"],
          "terminal_map_to":  ["1","2","3"],
          "s_rating":100000.0,
-         "v_ref_from":11000.0,"v_ref_to":400.0,
+         "v_nom_from":11000.0,"v_nom_to":400.0,
          "r_series_from":1.0,"r_series_to":0.01,
          "x_series_from":5.0,"x_series_to":0.05}}},
      "linecode":{"lc":{"R_series_1_1":0.000396,"R_series_2_2":0.000396,
@@ -337,7 +337,7 @@ end
                            apply_adjacent_current_bounds=true)
         net′, mf = fix_case(net; recipe=recipe)
 
-        # l1 had no i_max; transformer s_rating=100kVA, v_ref_to=400V, 3-phase
+        # l1 had no i_max; transformer s_rating=100kVA, v_nom_to=400V, 3-phase
         # expected i_max = 100e3 / (√3 × 400) ≈ 144.3 A
         l1 = net′["line"]["l1"]
         @test haskey(l1, "i_max")
@@ -516,8 +516,8 @@ end
         cap = net′["capacitor"]["cap_cap1"]
         @test cap["configuration"] == "WYE"
         @test cap["terminal_map"] == ["a","b","c","n"]
-        @test cap["v_rated"] ≈ 230.0  atol=1.0
-        @test all(cap["q_rated"] .≈ 1e-4 * cap["v_rated"]^2)   # q = B·v_rated²
+        @test cap["v_nom"] ≈ 230.0  atol=1.0
+        @test all(cap["q_rated"] .≈ 1e-4 * cap["v_nom"]^2)   # q = B·v_nom²
         @test any(e -> e.rule == "shunt_to_capacitor", mf.entries)
     end
 
@@ -632,7 +632,7 @@ end
                 "tx" => Dict{String,Any}(
                     "bus_from" => "mv", "bus_to" => "lv",
                     "terminal_map_from" => ["a","n"], "terminal_map_to" => ["a","n"],
-                    "v_ref_from" => 11000.0, "v_ref_to" => 240.0, "s_rating" => 50000.0,
+                    "v_nom_from" => 11000.0, "v_nom_to" => 240.0, "s_rating" => 50000.0,
                     "r_series_from" => 0.0, "x_series_from" => xf,
                     "r_series_to" => 0.0, "x_series_to" => 0.0))))
         disabled = (apply_largest_component=false, apply_simplify_network=false,

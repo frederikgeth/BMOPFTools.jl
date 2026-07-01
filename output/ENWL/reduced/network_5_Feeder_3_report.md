@@ -1,7 +1,7 @@
 # BMOPF Network Summary: network_5 / Feeder_3
 
-**Generated:** 2026-06-23 21:28:26  
-**Findings:** 0 errors · 3 warnings · 8 info  
+**Generated:** 2026-07-01 13:29:24  
+**Findings:** 0 errors · 3 warnings · 9 info  
 **Convention:** LV_240V: 4-wire; 1 grounding point(s)
 
 ---
@@ -19,7 +19,7 @@
 | shunt | 1 |  |
 | switch | 0 |  |
 | transformer | 0 |  |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels
@@ -124,6 +124,7 @@
 | 240.0 V | 315 | 4-wire | solid | 0 | TN-S or TT (source-earthed only — protective-earth side not representable in the data model) |
 
 > 🔵 **[I.PROV.NO_PI_SHUNT]** All 5 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
+> 🔵 **[I.PROV.SHUNT_LIKELY_REACTOR]** Shunt 'grounding' is purely inductive (no conductance, negative diagonal susceptance) — it looks like a shunt reactor, a distinct asset from a capacitor bank or a generic shunt. Keep its identity explicit and verify the sign convention.
 
 ## 8. Spec Conformance & Benchmark Readiness
 
@@ -162,7 +163,7 @@
 
 ## 9. Data Quality Summary
 
-**Total findings:** 11 (0 errors, 3 warnings, 8 info)
+**Total findings:** 12 (0 errors, 3 warnings, 9 info)
 
 ### 🟡 Warnings
 
@@ -181,6 +182,8 @@
   All 156 loads share the 'SINGLE_PHASE' configuration — no connection diversity.
 - **[I.PROV.NO_PI_SHUNT]** `linecode`  
   All 5 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
+- **[I.PROV.SHUNT_LIKELY_REACTOR]** `grounding`  
+  Shunt 'grounding' is purely inductive (no conductance, negative diagonal susceptance) — it looks like a shunt reactor, a distinct asset from a capacitor bank or a generic shunt. Keep its identity explicit and verify the sign convention.
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
   315 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
 - **[I.PRE.SINGLE_SOURCE]** `network`  

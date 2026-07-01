@@ -45,7 +45,7 @@ end
 # A fixed capacitor bank, when carried as a generic `shunt`, is a purely
 # capacitive admittance: no conductance (G ≈ 0) and a positive susceptance
 # (`B = ωC > 0`; a reactor would be negative). Flag such shunts so they can be
-# promoted to a first-class `capacitor` (nameplate q_rated/v_rated), optionally
+# promoted to a first-class `capacitor` (nameplate q_rated/v_nom), optionally
 # via the `apply_shunt_to_capacitor` fix pass.
 function _check_capacitor_like_shunts(net::Dict{String,Any},
                                       findings::Vector{Finding})::Dict{String,Any}
@@ -66,7 +66,7 @@ function _check_capacitor_like_shunts(net::Dict{String,Any},
             :shunt, id,
             "Shunt '$id' is purely capacitive (no conductance, positive diagonal " *
             "susceptance) — it looks like a fixed capacitor bank. Consider modeling " *
-            "it as a first-class `capacitor` (nameplate q_rated/v_rated); the fix " *
+            "it as a first-class `capacitor` (nameplate q_rated/v_nom); the fix " *
             "recipe can convert phase-to-ground banks automatically with " *
             "`FixRecipe(apply_shunt_to_capacitor = true)`.",
             Dict{String,Any}("b_diag" => bdiag, "g_max" => gmax)))
@@ -491,8 +491,8 @@ const _DSS_KV_LL      = (Float64(_dss_defaults_cfg()["basekv_v"]),
 # total per-unit series impedance of a transformer on its own rating base
 function _xfmr_pu(t::Dict{String,Any}, subtype::String)
     s  = get(t, "s_rating", nothing)
-    vf = get(t, "v_ref_from", nothing)
-    vt = get(t, "v_ref_to",   nothing)
+    vf = get(t, "v_nom_from", nothing)
+    vt = get(t, "v_nom_to",   nothing)
     (s === nothing || vf === nothing || vt === nothing) && return nothing
     s, vf, vt = Float64(s), Float64(vf), Float64(vt)
     (s > 0 && vf > 0 && vt > 0) || return nothing
@@ -642,7 +642,7 @@ function _check_opendss_defaults(net::Dict{String,Any},
         sub = get(get(net, "transformer", Dict()), subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
-            for f in ("v_ref_from", "v_ref_to")
+            for f in ("v_nom_from", "v_nom_to")
                 v = get(t, f, nothing)
                 v === nothing && continue
                 any(isapprox(Float64(v), kv; rtol=1e-4) for kv in _DSS_KV_LL) &&
@@ -820,7 +820,7 @@ function _check_regulator_patterns(net::Dict{String,Any},
             end
 
             # Pattern A: near-1:1 regulator transformer (never delta-coupled)
-            vf = get(t, "v_ref_from", nothing); vt = get(t, "v_ref_to", nothing)
+            vf = get(t, "v_nom_from", nothing); vt = get(t, "v_nom_to", nothing)
             if isempty(evidence) && subtype == "single_phase" &&
                vf !== nothing && vt !== nothing && Float64(vf) > 0
                 ratio = Float64(vt) / Float64(vf)

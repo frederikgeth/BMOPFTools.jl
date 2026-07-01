@@ -7227,7 +7227,7 @@
   "name": "Three-wire-Kron-reduced / network_10 / Feeder_5",
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:29:02Z",
+    "created": "2026-07-01T03:30:00Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"
@@ -7476,7 +7476,7 @@
     },
     "299": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -7985,7 +7985,7 @@
     },
     "300": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -8088,7 +8088,7 @@
     },
     "276": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -8380,7 +8380,7 @@
     },
     "275": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -8693,7 +8693,7 @@
     },
     "273": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -8712,7 +8712,7 @@
     },
     "312": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -9256,7 +9256,7 @@
     },
     "298": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -9394,7 +9394,7 @@
     },
     "272": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -9728,7 +9728,7 @@
     },
     "sourcebus": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -9747,7 +9747,7 @@
     },
     "301": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -9997,7 +9997,7 @@
     },
     "274": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -10457,7 +10457,7 @@
     },
     "271": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",

@@ -13,7 +13,7 @@ function _nw_xfmr(windings, xsc_pct; s_rating=30e6, kva=30000, g=0.0, b=0.0)
     zb1 = (kv1 * 1e3)^2 / s_rating            # per-phase Ω, winding-1 base
     ws = [Dict{String,Any}(
             "bus" => bus, "terminal_map" => ["a", "b", "c", "n"],
-            "v_ref" => kv * 1e3 / sqrt(3), "connection" => "WYE",
+            "v_nom" => kv * 1e3 / sqrt(3), "configuration" => "WYE",
             "r_winding" => pr / 100 * (kv * 1e3)^2 / s_rating)
           for (bus, kv, pr) in windings]
     xsc = Dict{String,Any}(k => v / 100 * zb1 for (k, v) in xsc_pct)
@@ -105,18 +105,18 @@ end
     @test any(x -> x.code == "E.COMP.MISSING_REQUIRED", f1)
 
     # Missing a required per-winding field → completeness error.
-    bad2 = deepcopy(good); delete!(bad2["windings"][2], "v_ref")
+    bad2 = deepcopy(good); delete!(bad2["windings"][2], "v_nom")
     net2 = Dict{String,Any}("transformer" => Dict{String,Any}(
         "n_winding" => Dict{String,Any}("t1" => bad2)))
     f2 = Finding[]; completeness_check(net2, f2)
     @test any(x -> x.code == "E.COMP.MISSING_REQUIRED", f2)
 
     # DELTA winding is now supported: no not-implemented (or any) spec error. The
-    # delta coil is line-to-line (v_ref = kV_LL, three phase terminals, no neutral).
+    # delta coil is line-to-line (v_nom = kV_LL, three phase terminals, no neutral).
     d3 = deepcopy(good)
-    d3["windings"][3]["connection"]   = "DELTA"
+    d3["windings"][3]["configuration"]   = "DELTA"
     d3["windings"][3]["terminal_map"] = ["a", "b", "c"]
-    d3["windings"][3]["v_ref"]        = 4.16e3            # line-to-line coil voltage
+    d3["windings"][3]["v_nom"]        = 4.16e3            # line-to-line coil voltage
     net3 = Dict{String,Any}("transformer" => Dict{String,Any}(
         "n_winding" => Dict{String,Any}("t1" => d3)))
     f3 = Finding[]; spec_conformance_check(net3, f3)
@@ -145,12 +145,12 @@ end
     @test maximum(abs.(sum(Y, dims = 2))) < 1e-8
 
     # Delta tertiary (YNynd): the delta coil is line-to-line (3 phase terminals,
-    # no neutral, v_ref = kV_LL). Yprim must still build, be reciprocal & passive.
+    # no neutral, v_nom = kV_LL). Yprim must still build, be reciprocal & passive.
     xfd = _nw_xfmr([("b1", 115.0, 0.3), ("b2", 24.9, 0.4), ("b3", 4.16, 0.4)],
                    Dict("1_2" => 8.0, "1_3" => 8.0, "2_3" => 6.0))
-    xfd["windings"][3]["connection"]   = "DELTA"
+    xfd["windings"][3]["configuration"]   = "DELTA"
     xfd["windings"][3]["terminal_map"] = ["a", "b", "c"]
-    xfd["windings"][3]["v_ref"]        = 4.16e3            # line-to-line
+    xfd["windings"][3]["v_nom"]        = 4.16e3            # line-to-line
     nd, Yd = B.nwinding_yprim(xfd)
     @test length(nd) == 11                                # 4 + 4 + 3
     @test maximum(abs.(Yd .- transpose(Yd))) < 1e-9       # reciprocal

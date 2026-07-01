@@ -75,8 +75,8 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
     for subtype in TRANSFORMER_SUBTYPES
         for (tid, tx) in get(xfmr_dict, subtype, Dict())
             vg    = _derive_vector_group(subtype, tx)
-            vf    = get(tx, "v_ref_from", nothing)
-            vt    = get(tx, "v_ref_to",   nothing)
+            vf    = get(tx, "v_nom_from", nothing)
+            vt    = get(tx, "v_nom_to",   nothing)
             ratio = (vf !== nothing && vt !== nothing) ?
                     " $(round(Float64(vf)/1000, digits=1))kV/$(round(Int, Float64(vt)))V" : ""
             add_edge!(get(tx,"bus_from",""), get(tx,"bus_to",""),
@@ -112,8 +112,8 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
     if split_by_level
         for subtype in TRANSFORMER_SUBTYPES
             for (tid, tx) in get(xfmr_dict, subtype, Dict())
-                vf = get(tx, "v_ref_from", nothing)
-                vt = get(tx, "v_ref_to",   nothing)
+                vf = get(tx, "v_nom_from", nothing)
+                vt = get(tx, "v_nom_to",   nothing)
                 (vf === nothing || vt === nothing) && continue
                 vf_f, vt_f = Float64(vf), Float64(vt)
                 abs(vf_f - vt_f) / max(vf_f, vt_f, 1.0) > 0.05 &&

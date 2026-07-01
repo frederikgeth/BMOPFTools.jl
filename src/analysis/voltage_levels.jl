@@ -32,7 +32,7 @@ function voltage_level_analysis(net::Dict{String,Any},
 
     # --- BFS propagation ---
     # Build adjacency: bus => Vector of (neighbor_bus, edge_type, edge_id, ratio)
-    # ratio = 1.0 for same-level edges; v_ref_to/v_ref_from for transformers
+    # ratio = 1.0 for same-level edges; v_nom_to/v_nom_from for transformers
     adjacency = _build_voltage_adjacency(net)
 
     queue = collect(keys(assigned_level))
@@ -126,7 +126,7 @@ end
 # ---------------------------------------------------------------------------
 
 # A 1-phase winding is connected phase-to-phase when its terminal map spans two
-# phase conductors with no neutral — so its v_ref is a line-to-line voltage.
+# phase conductors with no neutral — so its v_nom is a line-to-line voltage.
 function _winding_phase_to_phase(t::Dict{String,Any}, key::String)::Bool
     tm = get(t, key, nothing)
     tm isa AbstractVector || return false
@@ -154,13 +154,13 @@ function _build_voltage_adjacency(net::Dict{String,Any})
         for (id, t) in sub
             f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
             (f isa AbstractString && b isa AbstractString) || continue
-            vf = get(t, "v_ref_from", nothing)
-            vt = get(t, "v_ref_to",   nothing)
+            vf = get(t, "v_nom_from", nothing)
+            vt = get(t, "v_nom_to",   nothing)
             ratio = (vf !== nothing && vt !== nothing && Float64(vf) > 0) ?
                     Float64(vt) / Float64(vf) : 1.0
             # Bus nominals are phase-to-ground, but a 1-phase winding connected
             # PHASE-TO-PHASE (terminal_map = two phases, no neutral, e.g. a SWER
-            # isolating transformer tapped across two MV phases) has its v_ref on a
+            # isolating transformer tapped across two MV phases) has its v_nom on a
             # line-to-line basis (√3 × phase-to-ground). Correct the ratio per side
             # so the phase-to-ground nominal propagates consistently. Scoped to
             # single_phase/center_tap — wye/delta subtypes carry their own √3.
@@ -173,14 +173,14 @@ function _build_voltage_adjacency(net::Dict{String,Any})
         end
     end
 
-    # n-winding: edge from winding 1 to every other winding (ratio v_ref_j/v_ref_1).
+    # n-winding: edge from winding 1 to every other winding (ratio v_nom_j/v_nom_1).
     for (id, t) in get(xfmr, "n_winding", Dict())
         ws = _nw_windings(t)
         isempty(ws) && continue
-        b1, v1 = ws[1].bus, ws[1].v_ref
+        b1, v1 = ws[1].bus, ws[1].v_nom
         isempty(b1) && continue
         for j in 2:length(ws)
-            bj, vj = ws[j].bus, ws[j].v_ref
+            bj, vj = ws[j].bus, ws[j].v_nom
             (isempty(bj) || bj == b1) && continue
             ratio = v1 > 0 ? vj / v1 : 1.0
             add_adj!(b1, bj, :transformer, id, ratio)
@@ -322,8 +322,8 @@ function _check_transformer_ratio_consistency(net::Dict{String,Any},
             f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
             vf_bus = get(assigned, f, nothing)
             vt_bus = get(assigned, b, nothing)
-            vf_ref = get(t, "v_ref_from", nothing)
-            vt_ref = get(t, "v_ref_to",   nothing)
+            vf_ref = get(t, "v_nom_from", nothing)
+            vt_ref = get(t, "v_nom_to",   nothing)
             (vf_bus === nothing || vt_bus === nothing) && continue
             (vf_ref === nothing || vt_ref === nothing) && continue
             expected_ratio = Float64(vt_ref) / Float64(vf_ref)
@@ -346,7 +346,7 @@ end
     _assign_nominal_voltages(net) -> Dict{String,Float64}
 
 BFS from every voltage source to assign a phase-to-neutral nominal voltage (V)
-to every reachable bus. Transformer edges apply the v_ref_to/v_ref_from ratio.
+to every reachable bus. Transformer edges apply the v_nom_to/v_nom_from ratio.
 Used by `diagnose_infeasibility` to derive per-unit voltage thresholds for buses
 that have no explicit v_min/v_max.
 """

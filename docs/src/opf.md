@@ -539,7 +539,7 @@ $\Delta v_k$ above: it is chosen per curve by the curve's `voltage_reference`
 Phase-to-ground and phase-to-neutral differ only when the neutral is displaced
 from ground. For a `SINGLE_PHASE` IBR the two phase-pair quantities (`PN`/`PP`)
 coincide — the reference is `terminal_map[2]` — and aggregation is moot. The
-legacy IBR-level `voltage_ref` field (`PER_PHASE`/`AVERAGE`), when present,
+legacy IBR-level `voltage_aggregation` field (`PER_PHASE`/`AVERAGE`), when present,
 overrides the aggregation the enum implies, for backward compatibility.
 `THREE_LEG` droop is unsupported (box bounds, with a warning).
 
@@ -618,7 +618,7 @@ ignored (box bounds retained) with a warning. Regional default characteristics
 [`augment_case`](@ref) from the `[augment.smart_ibr]` config section.
 
 By default each phase responds to its own magnitude $U_{n,k}$. Setting the
-IBR field **`voltage_ref`** to `"AVERAGE"` (default `"PER_PHASE"`) instead
+IBR field **`voltage_aggregation`** to `"AVERAGE"` (default `"PER_PHASE"`) instead
 feeds every phase the mean of the phase magnitudes,
 $\bar U_n = \tfrac{1}{m}\sum_k U_{n,k}$, as the common reference for both the
 Volt-var and Volt-watt curves — modelling IBRs that regulate on the average

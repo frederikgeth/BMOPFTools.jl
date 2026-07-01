@@ -1,6 +1,6 @@
 # Simplification log: Three-wire-modified-phase-to-neutral / network_22 / Feeder_2
 
-**Generated:** 2026-06-23 21:31:44  
+**Generated:** 2026-07-01 13:32:41  
 **Buses:** 252 → 28 (−224)  
 **Lines:** 251 → 27 (−224)  
 **Operations:** 226

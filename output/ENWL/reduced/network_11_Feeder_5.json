@@ -2930,7 +2930,7 @@
   "name": "network_11 / Feeder_5",
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:27:15Z",
+    "created": "2026-07-01T03:28:11Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"

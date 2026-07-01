@@ -1,7 +1,7 @@
 # BMOPF Network Summary: Three-wire-modified-phase-to-neutral / network_13 / Feeder_3
 
-**Generated:** 2026-06-23 21:30:56  
-**Findings:** 0 errors · 6 warnings · 22 info  
+**Generated:** 2026-07-01 13:31:54  
+**Findings:** 0 errors · 5 warnings · 22 info  
 **Convention:** LV_240V: mixed; implicit (Kron-style) grounding
 
 ---
@@ -19,7 +19,7 @@
 | shunt | 0 |  |
 | switch | 0 |  |
 | transformer | 0 |  |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels
@@ -104,7 +104,7 @@
 |-------------------|------:|
 | Buses with neutral | 3 |
 | Neutral branches | 0 |
-| Grounding points | 1 |
+| Grounding points | 3 |
 | Neutral sections | 3 |
 | Floating sections | 0 |
 
@@ -121,11 +121,10 @@
 
 | Zone | Buses | Wires | Star point | Downstream earths | Likely system |
 |------|------:|-------|------------|------------------:|---------------|
-| 240.0 V | 108 | ≤3-wire | solid | 0 | indeterminate (3-wire / Kron-style implicit grounding) |
+| 240.0 V | 108 | ≤3-wire | solid | 2 | indeterminate (3-wire / Kron-style implicit grounding) |
 
 > 🔵 **[I.PROV.SEQ_DERIVED]** 2 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: lc8, lc9.
 > 🔵 **[I.PROV.NO_PI_SHUNT]** All 3 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
-> 🟡 **[W.PROV.IMPLICIT_GROUNDING]** No branch carries a neutral conductor, but 2 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
 > 🔵 **[I.PROV.DSS_DEFAULT_LENGTH]** 1 of 107 line(s) have length exactly 1.0 among otherwise varied lengths — the OpenDSS default; these lengths were likely never set.
 > 🔵 **[I.PROV.IMPEDANCE_TRANSFORM_MPN]** 3 three-wire linecode(s) match the impedance signature of modified phase-to-neutral approximation — both R and X blocks are circulant with mutual ≈ ½ self. X is further symmetrised relative to the standard phase-to-neutral form, introducing additional modelling error particularly for asymmetric cable geometries.: lc1, lc8, lc9.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line2' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
@@ -178,7 +177,7 @@
 
 ## 9. Data Quality Summary
 
-**Total findings:** 28 (0 errors, 6 warnings, 22 info)
+**Total findings:** 27 (0 errors, 5 warnings, 22 info)
 
 ### 🟡 Warnings
 
@@ -186,8 +185,6 @@
   1 bus(es) are degree-1 with no attached load, generator, or shunt.
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.0 MW).
-- **[W.PROV.IMPLICIT_GROUNDING]** `network`  
-  No branch carries a neutral conductor, but 2 bus(es) have components referencing terminal 'n' without an explicit grounding — the model implicitly assumes every bus is grounded (Kron-style convention). Make this assumption explicit.
 - **[W.DOM.LINE_LOW_IMPEDANCE]** `line66`  
   Line 'line66' has ||Z||_F = 9.89e-5 Ω < threshold 0.0001 Ω — near-zero series impedance; consider replacing with a switch object to avoid ill-conditioned KVL constraints.
 - **[W.DOM.LINE_LOW_IMPEDANCE]** `line60`  

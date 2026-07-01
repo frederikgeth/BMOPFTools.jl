@@ -44,7 +44,7 @@ function _mv_lv_net()
          "terminal_map_from":["a","b","c"],
          "terminal_map_to":["1","2","3"],
          "s_rating":100000.0,
-         "v_ref_from":11000.0,"v_ref_to":400.0,
+         "v_nom_from":11000.0,"v_nom_to":400.0,
          "r_series_from":1.0,"r_series_to":0.01,
          "x_series_from":5.0,"x_series_to":0.05}}},
      "load":{"ld":{"bus":"lv_bus","terminal_map":["1","2","3","n"],
@@ -569,7 +569,7 @@ function _split_phase_net()
          "v_magnitude":[2400.0],"v_angle":[0.0]}},
      "transformer":{"center_tap":{"ct":{"bus_from":"mv","bus_to":"lv",
          "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
-         "v_ref_from":2400.0,"v_ref_to":120.0}}},
+         "v_nom_from":2400.0,"v_nom_to":120.0}}},
      "load":{"l1":{"bus":"lv","terminal_map":["1","n"],
          "configuration":"SINGLE_PHASE","p_nom":[1000.0],"q_nom":[0.0]}}}
     """; from_string=true)

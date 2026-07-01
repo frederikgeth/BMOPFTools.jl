@@ -377,7 +377,7 @@ function _fix_adjacent_current_bounds!(net′, entries)
         bt isa String && _add_adj!(bt, :switch, sid, imax)
     end
 
-    # Transformers — derive i_max from s_rating and v_ref
+    # Transformers — derive i_max from s_rating and v_nom
     for (_, xfmr_sub) in get(net′, "transformer", Dict())
         xfmr_sub isa Dict || continue
         for (tid, xfmr) in xfmr_sub
@@ -385,8 +385,8 @@ function _fix_adjacent_current_bounds!(net′, entries)
             s_rating = get(xfmr, "s_rating", nothing)
             s_rating isa Number || continue
             for (side, vref_key, bus_key) in (
-                    ("fr", "v_ref_from", "bus_from"),
-                    ("to", "v_ref_to",   "bus_to"))
+                    ("fr", "v_nom_from", "bus_from"),
+                    ("to", "v_nom_to",   "bus_to"))
                 vref = get(xfmr, vref_key, nothing)
                 bus  = get(xfmr, bus_key, nothing)
                 (vref isa Number && bus isa String) || continue
@@ -510,9 +510,9 @@ end
 # symmetric, diagonal ≥ 0, off-diagonal ≤ 0. Row sums tell the return path —
 # zero for an in-map pair stamp, positive (a diagonal residual) for a
 # phase-to-ground stamp whose other node is the reference. The physical `B` is
-# preserved for any `v_rated`, so the config-appropriate nominal (P-N for WYE /
+# preserved for any `v_nom`, so the config-appropriate nominal (P-N for WYE /
 # SINGLE_PHASE, √3·P-N = L-L for DELTA) is chosen only for nameplate readability.
-# Returns `(configuration, terminal_map, q_rated, v_rated)`.
+# Returns `(configuration, terminal_map, q_rated, v_nom)`.
 function _fingerprint_capacitor_shunt(tm::Vector{String}, B::AbstractMatrix,
                                       bus::Dict, bus_id::String, vmap)
     nb = size(B, 1)
@@ -613,11 +613,11 @@ function _fix_shunt_to_capacitor!(net′, entries)
 
         fp = _fingerprint_capacitor_shunt(tm, B, bus, bus_id, vmap)
         fp === nothing && continue
-        cfg, cap_tm, q, v_rated = fp
+        cfg, cap_tm, q, v_nom = fp
 
         # Round-trip guard: the candidate must reproduce B on the shunt's terminals.
         cand = Dict{String,Any}("bus" => bus_id, "terminal_map" => cap_tm,
-                                "configuration" => cfg, "v_rated" => v_rated,
+                                "configuration" => cfg, "v_nom" => v_nom,
                                 "q_rated" => q)
         tm2, B2 = _cap_bmatrix(cand)
         idx = [findfirst(==(t), tm2) for t in tm]
@@ -631,10 +631,10 @@ function _fix_shunt_to_capacitor!(net′, entries)
             :shunt, id, "(converted_to_capacitor)",
             Dict("bus" => bus_id, "terminal_map" => tm),
             Dict("capacitor" => new_id, "configuration" => cfg,
-                 "q_rated" => q, "v_rated" => v_rated),
+                 "q_rated" => q, "v_nom" => v_nom),
             "shunt_to_capacitor", :heuristic,
             "purely-capacitive shunt '$id' → $cfg capacitor '$new_id' " *
-            "(q_rated = B·v_rated², v_rated = $(round(v_rated, digits=1)) V); " *
+            "(q_rated = B·v_nom², v_nom = $(round(v_nom, digits=1)) V); " *
             "B reproduced exactly; shunt removed"))
     end
     isempty(caps) && delete!(net′, "capacitor")

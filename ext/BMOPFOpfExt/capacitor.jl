@@ -2,7 +2,7 @@
 #
 # Fixed (nameplate-rated) shunt capacitor banks — OPF KCL contribution.
 #
-# A capacitor is a constant susceptance B = q_rated / v_rated² that delivers the
+# A capacitor is a constant susceptance B = q_rated / v_nom² that delivers the
 # voltage-dependent reactive power Q = B·V². It is electrically a connection-aware
 # shunt: `_cap_bmatrix` (src/io/capacitor.jl) assembles the terminal-space
 # susceptance matrix, and the current is injected with the SAME machinery as a
@@ -12,7 +12,7 @@
     _add_capacitor_constraints!(net, vars, kcl_r, kcl_i)
 
 Register the KCL contribution of every fixed `capacitor`. The susceptance matrix
-is built from the nameplate (`q_rated`/`v_rated`) and connection, then the
+is built from the nameplate (`q_rated`/`v_nom`) and connection, then the
 constant-admittance current (linear in the bus voltages) is subtracted from the
 KCL accumulators — identical to a `shunt`.
 """

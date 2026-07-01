@@ -1,7 +1,7 @@
 # BMOPF Network Summary: network_12 / Feeder_3
 
-**Generated:** 2026-06-23 21:27:20  
-**Findings:** 0 errors · 3 warnings · 12 info  
+**Generated:** 2026-07-01 13:28:17  
+**Findings:** 0 errors · 3 warnings · 13 info  
 **Convention:** LV_240V: 4-wire; 1 grounding point(s)
 
 ---
@@ -19,7 +19,7 @@
 | shunt | 1 |  |
 | switch | 0 |  |
 | transformer | 0 |  |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels
@@ -122,6 +122,7 @@
 | 240.0 V | 152 | 4-wire | solid | 0 | TN-S or TT (source-earthed only — protective-earth side not representable in the data model) |
 
 > 🔵 **[I.PROV.NO_PI_SHUNT]** All 6 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
+> 🔵 **[I.PROV.SHUNT_LIKELY_REACTOR]** Shunt 'grounding' is purely inductive (no conductance, negative diagonal susceptance) — it looks like a shunt reactor, a distinct asset from a capacitor bank or a generic shunt. Keep its identity explicit and verify the sign convention.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line1018' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line219' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 > 🔵 **[I.PROV.LINE_SWITCH_LIKE]** Line 'line916' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
@@ -163,7 +164,7 @@
 
 ## 9. Data Quality Summary
 
-**Total findings:** 15 (0 errors, 3 warnings, 12 info)
+**Total findings:** 16 (0 errors, 3 warnings, 13 info)
 
 ### 🟡 Warnings
 
@@ -180,6 +181,8 @@
   All 90 loads use the constant_power model — no load exercises voltage dependence (ZIP/exponential); the case does not test voltage-dependent load behaviour.
 - **[I.PROV.NO_PI_SHUNT]** `linecode`  
   All 6 linecode(s) have no π-shunt admittance (G_from/B_from/G_to/B_to absent or zero) — the line model reduces to a series impedance only. Shunt capacitance is typically negligible for short LV cables but may be significant for long MV/HV lines.
+- **[I.PROV.SHUNT_LIKELY_REACTOR]** `grounding`  
+  Shunt 'grounding' is purely inductive (no conductance, negative diagonal susceptance) — it looks like a shunt reactor, a distinct asset from a capacitor bank or a generic shunt. Keep its identity explicit and verify the sign convention.
 - **[I.PROV.LINE_SWITCH_LIKE]** `line1018`  
   Line 'line1018' has near-zero series impedance and may be modelled more accurately as a switch: effective impedance (Z·length) < 0.0001 Ω on all diagonals.
 - **[I.PROV.LINE_SWITCH_LIKE]** `line219`  

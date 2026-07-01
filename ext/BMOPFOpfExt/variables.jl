@@ -420,7 +420,7 @@ function _set_yd_dy_start_values!(vars, net, grounded)
             tm_del = Vector{String}(wye_is_from ?
                 get(xfmr, "terminal_map_to",   String[]) :
                 get(xfmr, "terminal_map_from", String[]))
-            N     = Float64(get(xfmr, "v_ref_from", 1.0)) / Float64(get(xfmr, "v_ref_to", 1.0))
+            N     = Float64(get(xfmr, "v_nom_from", 1.0)) / Float64(get(xfmr, "v_nom_to", 1.0))
             n_eff = wye_is_from ? sqrt(3) / N : N * sqrt(3)
             ph_idx = BMOPFTools._phase_positions(tm_wye)
             n_pos  = BMOPFTools._neutral_pos(tm_wye)

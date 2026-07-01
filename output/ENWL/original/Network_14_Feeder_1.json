@@ -42291,7 +42291,7 @@
   "name": "Network_14 / Feeder_1",
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:26:53Z",
+    "created": "2026-07-01T03:27:49Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"

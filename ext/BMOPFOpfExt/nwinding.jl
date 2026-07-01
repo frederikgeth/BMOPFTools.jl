@@ -9,7 +9,7 @@
 # Model (WYE and/or DELTA windings), four-wire rectangular IVR. The leakage is
 # the OpenDSS-style ZB matrix referred to winding 1 (exact for any n — see
 # `_nw_zb_matrix`), with winding 1 as the reference winding. Per phase/leg, with
-# referred coil currents `I_k^r = N_k I_k` (`N_k = v_ref[k]/v_ref[1]`, `N_1 = 1`)
+# referred coil currents `I_k^r = N_k I_k` (`N_k = v_nom[k]/v_nom[1]`, `N_1 = 1`)
 # and referred coil voltages `V_k^r = U_k / N_k`:
 #
 #   Ampere-turn (ideal core):   Σ_k N_k I_k = 0
@@ -18,7 +18,7 @@
 # The per-leg leakage/ampere-turn structure is identical for WYE and DELTA; only
 # the coil↔terminal incidence differs. The coil voltage U_k is phase-to-neutral
 # for a WYE winding and line-to-line (phase pk minus its delta partner) for a
-# DELTA winding — whose `v_ref` is the line-to-line coil voltage, so the √3 lives
+# DELTA winding — whose `v_nom` is the line-to-line coil voltage, so the √3 lives
 # in N_k and U_k^r stays consistent (and per-unit needs no √3 fudge, since the
 # bus base is line-to-neutral). A WYE coil injects −I_k at its phase and +Σ_phase
 # I_k at its neutral; a DELTA coil injects −I_k at phase pk and +I_k at its delta
@@ -109,7 +109,7 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
 
         # Coil phase voltage of winding k at leg pk: phase-to-neutral for a WYE
         # winding, line-to-line (phase pk minus its delta partner) for a DELTA
-        # winding. The delta v_ref is the line-to-line coil voltage, so U_k/N_k
+        # winding. The delta v_nom is the line-to-line coil voltage, so U_k/N_k
         # stays referred consistently (the √3 lives in N_k).
         upn(k, pk) = begin
             w = ws[k]; phs, neu = BMOPFTools._nw_phase_terminals(w.terminal_map)

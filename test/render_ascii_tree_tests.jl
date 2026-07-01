@@ -46,10 +46,10 @@
          "transformer":{"delta_wye":{
              "txA":{"bus_from":"mv1","bus_to":"lvA","terminal_map_from":["1","2","3"],
                  "terminal_map_to":["1","2","3","n"],"s_rating":250000.0,
-                 "v_ref_from":11000.0,"v_ref_to":400.0},
+                 "v_nom_from":11000.0,"v_nom_to":400.0},
              "txB":{"bus_from":"mv2","bus_to":"lvB","terminal_map_from":["1","2","3"],
                  "terminal_map_to":["1","2","3","n"],"s_rating":250000.0,
-                 "v_ref_from":11000.0,"v_ref_to":400.0}}},
+                 "v_nom_from":11000.0,"v_nom_to":400.0}}},
          "load":{
              "ldA":{"bus":"lvA","terminal_map":["1","2","3","n"],"configuration":"WYE",
                  "p_nom":[1000.0,1000.0,1000.0],"q_nom":[0.0,0.0,0.0]},

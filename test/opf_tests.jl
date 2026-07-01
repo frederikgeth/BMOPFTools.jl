@@ -687,7 +687,7 @@
              "v_magnitude":[2400.0],"v_angle":[0.0]}},
          "transformer":{"single_phase":{"t1":{"bus_from":"hv","bus_to":"lv",
              "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
-             "v_ref_from":2400.0,"v_ref_to":240.0,"s_rating":50000.0,
+             "v_nom_from":2400.0,"v_nom_to":240.0,"s_rating":50000.0,
              "r_series_from":0.1,"x_series_from":0.2,"r_series_to":0.001,"x_series_to":0.002,
              "g_no_load":2e-5,"b_no_load":8e-5}}},
          "load":{"ld":{"bus":"lv","terminal_map":["1","n"],"configuration":"SINGLE_PHASE",
@@ -705,7 +705,7 @@
          "shunt":{"grnd_lv":{"bus":"lv","terminal_map":["1"],"G_1_1":1000.0,"B_1_1":0.0}},
          "transformer":{"wye_delta":{"t1":{"bus_from":"hv","bus_to":"lv",
              "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3"],
-             "v_ref_from":11000.0,"v_ref_to":415.0,"s_rating":500000.0,
+             "v_nom_from":11000.0,"v_nom_to":415.0,"s_rating":500000.0,
              "r_series_from":2.42,"r_series_to":0.0034,"x_series_from":4.84,"x_series_to":0.0069,
              "g_no_load":1e-4,"b_no_load":2e-4}}},
          "load":{"ld":{"bus":"lv","terminal_map":["1","2"],"configuration":"DELTA",
@@ -720,7 +720,7 @@
              "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
          "transformer":{"delta_wye":{"t1":{"bus_from":"hv","bus_to":"lv",
              "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3","n"],
-             "v_ref_from":11000.0,"v_ref_to":415.0,"s_rating":500000.0,
+             "v_nom_from":11000.0,"v_nom_to":415.0,"s_rating":500000.0,
              "r_series_from":2.42,"r_series_to":0.0034,"x_series_from":4.84,"x_series_to":0.0069,
              "g_no_load":1e-4,"b_no_load":2e-4}}},
          "load":{"ld1":{"bus":"lv","terminal_map":["1","n"],"configuration":"WYE","p_nom":[80000.0],"q_nom":[20000.0]},
@@ -735,7 +735,7 @@
          "voltage_source":{"src":{"bus":"mv","terminal_map":["1"],"v_magnitude":[2400.0],"v_angle":[0.0]}},
          "transformer":{"center_tap":{"ct":{"bus_from":"mv","bus_to":"lv",
              "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
-             "v_ref_from":2400.0,"v_ref_to":120.0,"s_rating":25000.0,
+             "v_nom_from":2400.0,"v_nom_to":120.0,"s_rating":25000.0,
              "r_series_from":0.1,"x_series_from":0.4,"r_series_to":0.001,"x_series_to":0.004,
              "g_no_load":2e-5,"b_no_load":8e-5}}},
          "load":{"l1":{"bus":"lv","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]},
@@ -781,7 +781,7 @@
              "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
          "transformer":{"wye_delta":{"t1":{"bus_from":"hv","bus_to":"lv",
              "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3"],
-             "v_ref_from":11000.0,"v_ref_to":415.0,"s_rating":500000.0,
+             "v_nom_from":11000.0,"v_nom_to":415.0,"s_rating":500000.0,
              "r_series_from":2.42,"r_series_to":0.0034,"x_series_from":4.84,"x_series_to":0.0069,
              "g_no_load":1e-4,"b_no_load":2e-4}}},
          "load":{"ld":{"bus":"lv","terminal_map":["1","2"],"configuration":"DELTA",
@@ -1096,7 +1096,7 @@
              "terminal_map_from":["a","b","c"],
              "terminal_map_to":["a","b","c"],
              "s_rating":100000.0,
-             "v_ref_from":11000.0,"v_ref_to":400.0,
+             "v_nom_from":11000.0,"v_nom_to":400.0,
              "r_series_from":0.01,"r_series_to":0.0001,
              "x_series_from":0.05,"x_series_to":0.0005}}},
          "load":{"ld":{"bus":"lv","terminal_map":["a","b","c","n"],
@@ -1216,7 +1216,7 @@
              "v_magnitude":[2400.0],"v_angle":[0.0]}},
          "transformer":{"center_tap":{"ct":{"bus_from":"mv","bus_to":"lv",
              "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
-             "v_ref_from":2400.0,"v_ref_to":120.0,"s_rating":25000.0,
+             "v_nom_from":2400.0,"v_nom_to":120.0,"s_rating":25000.0,
              "r_series_from":0.1,"x_series_from":0.4,
              "r_series_to":0.001,"x_series_to":0.004}}},
          "load":{
@@ -2423,7 +2423,7 @@
          "transformer":{"single_phase":{"t1":{
              "bus_from":"hv","bus_to":"lv",
              "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
-             "v_ref_from":2400.0,"v_ref_to":240.0,"s_rating":50000.0,
+             "v_nom_from":2400.0,"v_nom_to":240.0,"s_rating":50000.0,
              "r_series_from":0.1,"x_series_from":0.0}}},
          "load":{"ld":{"bus":"lv","terminal_map":["1","n"],
              "configuration":"SINGLE_PHASE","p_nom":[20000.0],"q_nom":[0.0]}}}
@@ -2478,7 +2478,7 @@
          "transformer":{"single_phase":{"t1":{
              "bus_from":"hv","bus_to":"lv",
              "terminal_map_from":["1","2"],"terminal_map_to":["1","n"],
-             "v_ref_from":4160.0,"v_ref_to":240.0,"s_rating":50000.0,
+             "v_nom_from":4160.0,"v_nom_to":240.0,"s_rating":50000.0,
              "r_series_from":0.1,"x_series_from":0.0}}},
          "load":{"ld":{"bus":"lv","terminal_map":["1","n"],
              "configuration":"SINGLE_PHASE","p_nom":[8000.0],"q_nom":[0.0]}}}
@@ -2771,7 +2771,7 @@
              "transformer":{"single_phase":{"t1":{
                  "bus_from":"hv","bus_to":"lv",
                  "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
-                 "v_ref_from":11000.0,"v_ref_to":240.0,"s_rating":50000.0,
+                 "v_nom_from":11000.0,"v_nom_to":240.0,"s_rating":50000.0,
                  "r_series_from":$(0.01*zbf),"x_series_from":$(0.04*zbf),
                  "r_series_to":$(0.01*zbt),"x_series_to":0.0$tapf}}}}
             """; from_string=true)
@@ -2819,14 +2819,14 @@
              "transformer":{"single_phase":{"t1":{
                  "bus_from":"hv","bus_to":"lv",
                  "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
-                 "v_ref_from":11000.0,"v_ref_to":240.0,"s_rating":50000.0,
+                 "v_nom_from":11000.0,"v_nom_to":240.0,"s_rating":50000.0,
                  "tap":1.0,"tap_min":0.85,"tap_max":1.15}}}}
             """; from_string=true)
         end
         r_id = solve_opf(net_ideal(245.0))
         @test r_id["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         # Lossless: V_to = V_from/(N0·t) with N0 = 11000/240 and V_from = 11000, so
-        # t = V_from·v_ref_to/(v_ref_from·V_to) = 240/245 to hold |V_to| ≈ 245 V.
+        # t = V_from·v_nom_to/(v_nom_from·V_to) = 240/245 to hold |V_to| ≈ 245 V.
         @test r_id["transformer"]["t1"]["tap"] ≈ (240.0 / 245.0) rtol=2e-3
         @test r_id["bus"]["lv"]["1"]["vm"] ≈ 245.0 atol=0.06
 

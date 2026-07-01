@@ -1,6 +1,6 @@
 # BMOPF Network Summary: LV13_58bus
 
-**Generated:** 2026-06-23 21:34:00  
+**Generated:** 2026-07-01 13:34:57  
 **Findings:** 0 errors · 2 warnings · 22 info  
 **Convention:** MV_6.4kV: 4-wire; LV_250V: 4-wire; 13 grounding point(s)
 
@@ -19,7 +19,7 @@
 | shunt | 12 |  |
 | switch | 0 |  |
 | transformer | 1 | Dyn0×1 |
-| inverter | 0 | capacity: 0.0 MVA |
+| ibr | 0 | capacity: 0.0 MVA |
 | control_profile | 0 |  |
 
 ## 2. Voltage Levels

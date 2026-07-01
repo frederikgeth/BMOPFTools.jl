@@ -955,7 +955,7 @@
   "name": "Three-wire-phase-to-neutral / network_23 / Feeder_3",
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:33:32Z",
+    "created": "2026-07-01T03:34:29Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"
@@ -1113,7 +1113,7 @@
     },
     "58": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1258,7 +1258,7 @@
     },
     "57": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",
@@ -1382,7 +1382,7 @@
     },
     "sourcebus": {
       "perfectly_grounded_terminals": [
-        "4"
+        "n"
       ],
       "terminal_names": [
         "a",

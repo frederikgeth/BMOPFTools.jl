@@ -19791,7 +19791,7 @@
   "name": "network_19 / Feeder_4",
   "meta": {
     "$schema": "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks",
-    "created": "2026-06-23T11:28:05Z",
+    "created": "2026-07-01T03:29:02Z",
     "generator": {
       "version": "0.3.2",
       "tool": "powerio"

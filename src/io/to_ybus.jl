@@ -34,7 +34,7 @@ The regulator subtypes `"single_phase_autotransformer"` and
 (`BMOPFTools._autotransformer_ratio`) in place of the nameplate turns ratio.
 
 Raises an `ArgumentError` for unknown subtypes. Returns `([], zeros(0,0))` when
-the transformer is degenerate (zero `v_ref_to`, missing terminal maps).
+the transformer is degenerate (zero `v_nom_to`, missing terminal maps).
 """
 function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString)
     subtype == "single_phase" && return _yprim_single_phase(xfmr)
@@ -459,6 +459,10 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
     r2 = Float64(get(xfmr, "r_series_to",   0.0))
     x2 = Float64(get(xfmr, "x_series_to",   0.0))
 
+    # Per-regulator no-load (core-loss) shunt, stamped across each from-side
+    # line-to-line pair (mirrors the OPF builder _add_open_delta_regulator!).
+    Y0 = Float64(get(xfmr, "g_no_load", 0.0)) + im*Float64(get(xfmr, "b_no_load", 0.0))
+
     # Node order: all from terminals (terminal_map order), then all to terminals.
     nodes = vcat([(b_fr, t) for t in tm_fr], [(b_to, t) for t in tm_to])
     n_fr  = length(tm_fr)
@@ -470,13 +474,20 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
     for (j, (p, q)) in enumerate(pairs)
         ne = n_eff[j]
         Z  = (r1 + ne^2 * r2) + im*(x1 + ne^2 * x2)
-        iszero(Z) && continue
-        yt = 1.0 / Z
-        C = zeros(ComplexF64, 2, n_tot)
-        C[1, fr_pos(p)] = 1.0;  C[1, fr_pos(q)] = -1.0
-        C[2, to_pos(p)] = 1.0;  C[2, to_pos(q)] = -1.0
-        prim = yt * [1.0 -ne; -ne ne^2]
-        Y .+= transpose(C) * prim * C
+        if !iszero(Z)
+            yt = 1.0 / Z
+            C = zeros(ComplexF64, 2, n_tot)
+            C[1, fr_pos(p)] = 1.0;  C[1, fr_pos(q)] = -1.0
+            C[2, to_pos(p)] = 1.0;  C[2, to_pos(q)] = -1.0
+            prim = yt * [1.0 -ne; -ne ne^2]
+            Y .+= transpose(C) * prim * C
+        end
+        # No-load shunt across the from-side line-to-line pair (p − q).
+        if !iszero(Y0)
+            Cf = zeros(ComplexF64, 1, n_tot)
+            Cf[1, fr_pos(p)] = 1.0;  Cf[1, fr_pos(q)] = -1.0
+            Y .+= transpose(Cf) * Y0 * Cf
+        end
     end
 
     # This is the device's natural line-to-line primitive admittance — exactly
