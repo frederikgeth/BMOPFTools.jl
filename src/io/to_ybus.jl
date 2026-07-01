@@ -266,7 +266,7 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
         tm_wye = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
     end
 
-    isempty(tm_wye) || isempty(tm_del) && return (Tuple{String,String}[], zeros(ComplexF64,0,0))
+    (isempty(tm_wye) || isempty(tm_del)) && return (Tuple{String,String}[], zeros(ComplexF64,0,0))
 
     N     = _xfmr_turns_ratio(xfmr)
     n_eff = wye_is_from ? sqrt(3.0)/N : N*sqrt(3.0)

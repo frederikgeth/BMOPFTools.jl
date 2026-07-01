@@ -177,6 +177,40 @@ end
                        occursin("island", lowercase(e.note)), mf.entries)
     end
 
+    @testset "T1c: Largest component — island shunt/ibr/capacitor pruned" begin
+        # Regression: shunts were deleted by dict KEY compared against bus
+        # names (never matching), and ibr/capacitor/voltage_source entries on
+        # dropped buses were not pruned at all — leaving dangling bus refs.
+        net = _disconnected_net()
+        net["shunt"] = Dict{String,Any}("sh_island" => Dict{String,Any}(
+            "bus" => "island", "terminal_map" => ["n"], "G_1_1" => 1.0))
+        net["ibr"] = Dict{String,Any}("pv_island" => Dict{String,Any}(
+            "bus" => "island", "terminal_map" => ["1","2","3","n"],
+            "topology" => "FOUR_LEG", "prime_mover" => "PV",
+            "s_max" => [5000.0, 5000.0, 5000.0]))
+        net["capacitor"] = Dict{String,Any}("cap_island" => Dict{String,Any}(
+            "bus" => "island", "terminal_map" => ["1","2","3"],
+            "q_rated" => [1000.0, 1000.0, 1000.0]))
+        recipe = FixRecipe(apply_simplify_network=false,
+                           apply_remove_zero_loads=false,
+                           apply_low_impedance_to_switch=false,
+                           apply_source_bus_bounds=false)
+        net′, _ = fix_case(net; recipe=recipe)
+
+        @test !haskey(net′["bus"],       "island")
+        @test !haskey(net′["shunt"],     "sh_island")
+        @test !haskey(net′["ibr"],       "pv_island")
+        @test !haskey(net′["capacitor"], "cap_island")
+
+        # No surviving component may reference a dropped bus
+        buses = Set(keys(net′["bus"]))
+        for ctype in ("load", "shunt", "ibr", "capacitor")
+            for (_, el) in get(net′, ctype, Dict())
+                @test el["bus"] in buses
+            end
+        end
+    end
+
     @testset "T1b: Already-connected network — no change" begin
         net = _fix_lv_net()
         recipe = FixRecipe(apply_simplify_network=false,

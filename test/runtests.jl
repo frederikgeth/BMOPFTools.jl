@@ -2122,6 +2122,20 @@ const IEEE13_FIXTURE = """
         @test_throws ErrorException BMOPFTools._canonicalize_identifiers!(bad)
     end
 
+    @testset "from_dss — OpenDSS terminal remap covers ibr" begin
+        # Regression: _remap_terminal_maps! omitted "ibr" from the single-bus
+        # component list, so an ibr kept numeric terminals ("1","2",…) while
+        # its bus was renamed to a/b/c/n — silently dangling references.
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}("b1" => Dict{String,Any}(
+                "terminal_names" => ["1","2","3","4"])),
+            "ibr" => Dict{String,Any}("pv1" => Dict{String,Any}(
+                "bus" => "b1", "terminal_map" => ["1","2","3","4"])))
+        BMOPFTools._remap_opendss_terminals!(net)
+        @test net["bus"]["b1"]["terminal_names"] == ["a","b","c","n"]
+        @test net["ibr"]["pv1"]["terminal_map"] == ["a","b","c","n"]
+    end
+
     @testset "from_dss — per-phase voltage source merge" begin
         # OpenDSS models a 3-phase substation source as a Circuit + per-phase
         # VSource bank (…_phB, …_phC), each single-phase on a shared bus.
@@ -3493,6 +3507,34 @@ const IEEE13_FIXTURE = """
     # Regulator subtypes: galvanic zone/island and neutral-continuity topology
     # -----------------------------------------------------------------------
     include("regulator_topology_tests.jl")
+
+    @testset "Domain rules — zero-impedance line excluded from spread ratio" begin
+        # Regression: the pair-skip guard mis-parsed as `za == 0.0 || (zb ==
+        # 0.0 && continue)`, so a zero-impedance line was NOT skipped and
+        # max/min produced ratio = Inf plus a spurious spread warning.
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a"]),
+                "m"   => Dict{String,Any}("terminal_names" => ["a"]),
+                "e"   => Dict{String,Any}("terminal_names" => ["a"])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a"],
+                "v_magnitude" => [230.0], "v_angle" => [0.0])),
+            "linecode" => Dict{String,Any}(
+                "lc"      => Dict{String,Any}("R_series_1_1" => 0.1, "X_series_1_1" => 0.1),
+                "lc_zero" => Dict{String,Any}("R_series_1_1" => 0.0, "X_series_1_1" => 0.0)),
+            "line" => Dict{String,Any}(
+                "l1" => Dict{String,Any}("bus_from" => "src", "bus_to" => "m",
+                    "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
+                    "linecode" => "lc", "length" => 100.0),
+                "l2" => Dict{String,Any}("bus_from" => "m", "bus_to" => "e",
+                    "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
+                    "linecode" => "lc_zero", "length" => 100.0)))
+        f = Finding[]
+        res = domain_rules_check(net, f)
+        @test res["max_adjacent_impedance_ratio"] == 1.0
+        @test !any(fi -> occursin("LINE_IMPEDANCE_SPREAD", fi.code), f)
+    end
 
     @testset "Config — TOML thresholds" begin
         # Defaults load and match the historical hardcoded values.

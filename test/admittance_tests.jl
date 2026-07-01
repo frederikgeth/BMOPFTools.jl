@@ -219,6 +219,16 @@
         ))
         nodes2, Y2 = transformer_yprim(xfmr2, "wye_delta")
         check_symmetry(Y2)
+
+        # Regression: an empty terminal map on either side must return the
+        # empty Yprim; the guard previously mis-parsed as
+        # `a || (b && return)` and fell through to a BoundsError.
+        xfmr3 = merge(xfmr, Dict{String,Any}("terminal_map_from" => String[]))
+        nodes3, Y3 = transformer_yprim(xfmr3, "wye_delta")
+        @test isempty(nodes3) && isempty(Y3)
+        xfmr4 = merge(xfmr, Dict{String,Any}("terminal_map_to" => String[]))
+        nodes4, Y4 = transformer_yprim(xfmr4, "wye_delta")
+        @test isempty(nodes4) && isempty(Y4)
     end
 
     # ─── delta_wye ────────────────────────────────────────────────────────────

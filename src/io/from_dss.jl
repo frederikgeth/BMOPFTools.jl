@@ -255,8 +255,8 @@ end
 
 function _remap_terminal_maps!(net::Dict{String,Any},
                                rename_maps::Dict{String,Dict{String,String}})
-    # Single-bus components: load, generator, voltage_source, shunt, capacitor
-    for comp_type in ("load", "generator", "voltage_source", "shunt", "capacitor")
+    # Single-bus components: load, generator, voltage_source, shunt, ibr, capacitor
+    for comp_type in ("load", "generator", "voltage_source", "shunt", "ibr", "capacitor")
         for (_, comp) in get(net, comp_type, Dict())
             comp isa Dict || continue
             rmap = get(rename_maps, get(comp, "bus", ""), nothing)

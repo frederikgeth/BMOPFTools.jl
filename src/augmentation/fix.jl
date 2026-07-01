@@ -166,8 +166,7 @@ function _fix_largest_component!(net′, entries)
     n_gens  = count(((_, g),) -> get(g, "bus", nothing) in drop_buses,
                     get(net′, "generator", Dict()))
 
-    for ctype in ("bus", "shunt")
-        d = get(net′, ctype, Dict())
+    let d = get(net′, "bus", Dict())
         for bid in collect(keys(d))
             bid in drop_buses || continue
             delete!(d, bid)
@@ -180,7 +179,7 @@ function _fix_largest_component!(net′, entries)
              get(el, "bus_to",   nothing) in drop_buses) && delete!(d, id)
         end
     end
-    for ctype in ("load", "generator")
+    for ctype in ("load", "generator", "shunt", "voltage_source", "ibr", "capacitor")
         d = get(net′, ctype, Dict())
         for (id, el) in collect(d)
             get(el, "bus", nothing) in drop_buses && delete!(d, id)
