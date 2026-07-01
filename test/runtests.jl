@@ -3470,6 +3470,12 @@ const IEEE13_FIXTURE = """
         end
     end
 
+    # -----------------------------------------------------------------------
+    # to_dss (BMOPF → OpenDSS) round-trip fidelity regression. Semantic diff
+    # always runs; the OpenDSS PF cross-check self-gates on _HAS_ODS.
+    # -----------------------------------------------------------------------
+    include("roundtrip_fidelity_tests.jl")
+
     include("admittance_tests.jl")
 
     # -----------------------------------------------------------------------
