@@ -2087,6 +2087,34 @@ const IEEE13_FIXTURE = """
         @test net2["transformer"]["delta_wye"]["t1"]["r_series_from"] ≈ 0.015
     end
 
+    @testset "Migration — spec-version guard" begin
+        base = """{"meta":{"\$schema":URI},
+                   "bus":{"b1":{"terminal_names":["a"]}},
+                   "voltage_source":{"vs":{"bus":"b1","terminal_map":["a"],
+                       "v_magnitude":[230.0],"v_angle":[0.0]}}}"""
+        mk(uri) = replace(base, "URI" => uri === nothing ? "null" :
+                                          "\"" * uri * "\"")
+
+        # Current URI and the legacy alias are accepted.
+        @test parse_bmopf(mk(BMOPFTools._BMOPF_SCHEMA_URI);
+                          from_string=true) isa Dict
+        @test parse_bmopf(
+            mk("https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks");
+            from_string=true) isa Dict
+
+        # No meta.$schema at all (hand-written fixture) is accepted.
+        json_nometa = """{"bus":{"b1":{"terminal_names":["a"]}},
+                          "voltage_source":{"vs":{"bus":"b1","terminal_map":["a"],
+                              "v_magnitude":[230.0],"v_angle":[0.0]}}}"""
+        @test parse_bmopf(json_nometa; from_string=true) isa Dict
+
+        # An unrecognised URI — most likely a file written against a NEWER
+        # spec than this build understands — must refuse loudly, not parse
+        # silently under the wrong data model.
+        @test_throws ArgumentError parse_bmopf(
+            mk("https://example.org/bmopf/v99/schema.json"); from_string=true)
+    end
+
     @testset "from_dss — identifier case-folding (canonicalisation)" begin
         # OpenDSS identifiers are unique up to case; from_dss folds every id and
         # reference to lower case so case-inconsistent references resolve under

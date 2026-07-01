@@ -17,6 +17,9 @@
 # internal version tag symbols. Entries should be added in chronological order.
 const _SPEC_VERSIONS = Dict{String,Symbol}(
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json" => :draft,
+    # Legacy URI written by earlier exports (e.g. output/LV, output/MV cases);
+    # same draft data model, kept as an accepted alias.
+    "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks" => :draft,
 )
 
 # The tag for the spec version this build of BMOPFTools targets.
@@ -39,9 +42,13 @@ end
 
 Forward-migrate a BMOPF network dict to the current spec version.
 
-If the dict already targets the current spec (or has no recognisable `\$schema`
-URI) it is returned unchanged. Otherwise each intermediate migration step is
-applied in sequence and a `W.MIGRATE.UPGRADED` finding is appended to
+If the dict already targets the current spec — or carries no `meta.\$schema`
+at all (hand-written fixtures) — it is returned unchanged apart from the
+unconditional field-level migrations. A `meta.\$schema` URI that this build
+does **not** recognise raises an `ArgumentError`: the file was most likely
+written against a newer BMOPF spec than this BMOPFTools build understands, and
+silently proceeding could corrupt results. Once older spec versions exist,
+each intermediate migration step is applied in sequence and recorded under
 `net["_meta"]["migration_notes"]` so the transformation is auditable.
 
 Called automatically by [`parse_bmopf`](@ref); can also be called directly on
@@ -54,9 +61,22 @@ function migrate(net::Dict{String,Any})::Dict{String,Any}
     _reject_scalar_v_bounds!(net)
 
     v = _detect_spec_version(net)
+    v == _CURRENT_SPEC && return net
 
-    # Nothing to do: current spec or unrecognised (let validation report it).
-    (v == _CURRENT_SPEC || v == :unknown) && return net
+    # A declared-but-unrecognised URI means a newer spec (or a typo) — refuse
+    # rather than silently interpreting the data under the wrong model.
+    uri = get(get(net, "meta", Dict()), "\$schema", nothing)
+    if v == :unknown && uri isa String
+        supported = join(sort(collect(keys(_SPEC_VERSIONS))), "\n  ")
+        throw(ArgumentError(
+            "meta.\$schema declares an unrecognised BMOPF spec URI:\n  $uri\n" *
+            "This build of BMOPFTools supports:\n  $supported\n" *
+            "The file was likely written against a newer spec — upgrade " *
+            "BMOPFTools, or correct the URI if it is a typo."))
+    end
+
+    # No meta.$schema at all: accept (hand-written dicts and fixtures).
+    v == :unknown && return net
 
     # Migration chain — extend when new spec versions are added.
     # (currently empty: only one spec version exists)

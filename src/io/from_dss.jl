@@ -79,10 +79,20 @@ function from_dss(path::AbstractString;
     _normalize_center_tap_transformers!(net)
     _recover_transformer_params_from_pmd!(net, dn)
 
-    # Store conversion warnings so callers can inspect fidelity losses
+    # Store conversion warnings so callers can inspect fidelity losses, and
+    # surface an aggregate @warn so the losses are visible even when the
+    # caller never looks at _meta.
     net["_meta"] = get(net, "_meta", Dict{String,Any}())
     net["_meta"]["powerio_warnings"] = collect(String, warnings_list)
     net["_meta"]["powerio_source"]   = abspath_dss
+    if !isempty(warnings_list)
+        n_w = length(warnings_list)
+        preview = join(first(collect(String, warnings_list), 5), "\n  ")
+        n_w > 5 && (preview *= "\n  … and $(n_w - 5) more")
+        @warn "from_dss: $n_w piece(s) of OpenDSS information could not be " *
+              "represented in BMOPF (full list on net[\"_meta\"][\"powerio_warnings\"]):\n  " *
+              preview
+    end
 
     if !isnothing(name)
         net["name"] = name

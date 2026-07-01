@@ -305,6 +305,27 @@ end
         @test mf.entries[e].new_value == sw_id
     end
 
+    @testset "T4c: Converted switch keeps the line's current rating" begin
+        # Regression: the replacement switch used to carry no i_max, silently
+        # dropping the thermal constraint of a rated jumper.
+        net = _low_z_net()
+        net["linecode"]["lc_zero"]["i_max"] = [120.0, 120.0, 120.0]
+        recipe = FixRecipe(apply_largest_component=false,
+                           apply_simplify_network=false,
+                           apply_remove_zero_loads=false,
+                           apply_source_bus_bounds=false,
+                           low_impedance_threshold_ohm=1e-4)
+        net′, _ = fix_case(net; recipe=recipe)
+        @test net′["switch"]["_sw_l1"]["i_max"] == [120.0, 120.0, 120.0]
+
+        # A line-level override beats the linecode rating.
+        net2 = _low_z_net()
+        net2["linecode"]["lc_zero"]["i_max"] = [120.0, 120.0, 120.0]
+        net2["line"]["l1"]["i_max"] = [80.0, 80.0, 80.0]
+        net2′, _ = fix_case(net2; recipe=recipe)
+        @test net2′["switch"]["_sw_l1"]["i_max"] == [80.0, 80.0, 80.0]
+    end
+
     @testset "T4b: Normal-impedance line NOT converted" begin
         net = _fix_lv_net()   # lc has R~0.04 Ω over 100 m — well above 1e-4 Ω threshold
         recipe = FixRecipe(apply_largest_component=false,
@@ -372,10 +393,12 @@ end
         net′, mf = fix_case(net; recipe=recipe)
 
         # l1 had no i_max; transformer s_rating=100kVA, v_nom_to=400V, 3-phase
-        # expected i_max = 100e3 / (√3 × 400) ≈ 144.3 A
+        # expected i_max = 100e3 / (√3 × 400) ≈ 144.3 A, written per conductor
         l1 = net′["line"]["l1"]
         @test haskey(l1, "i_max")
-        @test l1["i_max"] ≈ 100e3 / (sqrt(3) * 400.0)  atol=0.5
+        @test l1["i_max"] isa Vector
+        @test length(l1["i_max"]) == length(l1["terminal_map_from"])
+        @test all(v -> isapprox(v, 100e3 / (sqrt(3) * 400.0); atol=0.5), l1["i_max"])
 
         # Manifest entry recorded with :medium confidence
         e = findfirst(e -> e.component_type == :line &&
