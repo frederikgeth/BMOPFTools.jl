@@ -7,12 +7,15 @@ the catalogue, with safe reformulations.
 
 ## The one test
 
-A relaxation stays exact, and the nonconvex problem stays on the high-voltage branch,
-when the objective is **non-decreasing in every nodal generation — equivalently, in line
-losses** ([Low, 2014](https://doi.org/10.1109/TCNS.2014.2323634);
+An objective **non-decreasing in every nodal generation — equivalently, in line losses**
+is the *objective-side* condition for a relaxation to stay exact and for the nonconvex
+problem to stay on the high-voltage branch ([Low, 2014](https://doi.org/10.1109/TCNS.2014.2323634);
 [Gan et al., 2015](https://arxiv.org/abs/1311.7170);
-[Yuan & Paolone, 2020](https://arxiv.org/abs/1906.06105)). So, for any objective not on
-the safe list:
+[Yuan & Paolone, 2020](https://arxiv.org/abs/1906.06105)). It is not sufficient on its
+own — the theorems additionally assume radiality, non-binding upper voltage bounds, and
+no binding generator lower bounds (or permitted load over-satisfaction) — but it is the
+condition the objective *itself* controls, so it is the one to screen for. For any
+objective not on the safe list:
 
 !!! tip "Self-diagnosis"
     At fixed loads and topology, **does the optimizer prefer larger branch current
@@ -49,14 +52,17 @@ the safe list:
 - **Maximize $\sum_i |V_i|$.** Counterintuitively this is usually loss-*reducing* and
   correctly selects the high-voltage branch. The residual risk is different: it can
   drive into binding **upper** voltage bounds, which is a separate exactness-failure
-  mode (condition C2 in [Gan et al., 2015](https://arxiv.org/abs/1311.7170)). Safe for
-  branch selection; watch the ceiling for relaxation tightness.
+  mode — the non-binding-upper-voltage-bound hypothesis of the radial exactness theorem
+  ([Gan et al., 2015](https://arxiv.org/abs/1311.7170)). Safe for branch selection; watch
+  the ceiling for relaxation tightness.
 
 - **Minimize generation / min slack power / min cost (non-negative coeffs).** The
   canonical safe family. Because slack power $=$ losses $+$ net load, minimizing it
-  *is* loss minimization — which is exactly why a feasibility problem is so often turned
-  into min-slack to make it well posed and branch-correct
-  ([§5](index.md)).
+  *is* loss minimization *when the other injections are fixed* — which is exactly why a
+  feasibility problem is so often turned into min-slack to make it well posed and
+  branch-correct ([§5](index.md)). With other dispatchable generators free, min-slack
+  minimizes losses plus their output, which can drive local injection against upper
+  voltage bounds; see the min-import caveat in the [decision matrix](decision_matrix.md).
 
 ## When loss-maximizing is the actual research question
 

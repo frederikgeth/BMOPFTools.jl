@@ -19,10 +19,10 @@ Legend: ✓ = well behaved / exact / physical; ⚠ = conditional, verify;
 
 | Objective family | Bounded? (no op. limits) | Bounded? (full op. limits) | Branch selected | Relaxation exactness (SOC/SDP) | Recommended model |
 |---|:---:|:---:|---|:---:|---|
-| **Min generation cost** (non-neg. coeffs) | ⚠ coercive only if strictly convex | ✓ | High-voltage | ✓ under standard conditions | Relaxation, verify ex post |
+| **Min generation cost** (non-neg. coeffs) | ⚠ coercive only if strongly convex (e.g. strictly convex quadratic) | ✓ | High-voltage | ✓ under standard conditions | Relaxation, verify ex post |
 | **Min losses / min slack power** | ✓ (coercive) | ✓ | High-voltage | ✓ | Relaxation |
-| **Feasibility (constant objective)** | ✗ unbounded directions remain | ✓ | Undetermined among feasible pts | ⚠ one-sided certificate only | Nonconvex or verified relaxation |
-| **Min import from grid** | ✓ | ✓ | High-voltage | ✓ | Relaxation |
+| **Feasibility (constant objective)** | ✗ vacuous: every profile feasible, iterates drift (not "unbounded" — a constant objective can't be) | ✓ | Undetermined among feasible pts | ⚠ one-sided certificate only | Nonconvex or verified relaxation |
+| **Min import from grid** | ✓ | ✓ | High-voltage | ⚠ with dispatchable DER (drives local injection up → upper `v` bounds) | Relaxation, watch upper bounds |
 | **Max Σ voltage magnitude** | ⚠ unbounded above without `v̄` | ✓ | High-voltage | ⚠ fails when upper `v` bounds bind | Relaxation, watch upper bounds |
 | **Max PV / DER injection** | ✗ | ⚠ bounded but boundary-seeking | Drives to upper `v` bound | ✗ typically inexact | Nonconvex; see [list](loss_maximization.md) |
 | **Max load served / loadability** | ✗ | ⚠ drives to the nose | Toward low-voltage / nose | ✗ inexact near collapse | Nonconvex + continuation |
