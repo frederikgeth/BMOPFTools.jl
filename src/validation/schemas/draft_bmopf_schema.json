@@ -53,6 +53,10 @@
                         "version": { "type": "string" }
                     },
                     "additionalProperties": false
+                },
+                "provenance": {
+                    "type": "object",
+                    "description": "Free-form conversion/audit provenance written by tooling (e.g. BMOPFTools' fidelity-loss inventory, migration notes, earth-terminal routing). Round-trips to the in-memory _meta block."
                 }
             },
             "additionalProperties": false
@@ -137,6 +141,10 @@
                             "$ref": "#/$defs/nonnegative_number"
                         },
                         "description": "Maximum symmetric component voltage values [V]"
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "required": ["terminal_names"]
@@ -170,6 +178,10 @@
                     "bus_to": {
                         "type": "string",
                         "description": "'to' bus for the element"
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "required": [
@@ -208,6 +220,10 @@
                     },
                     "bus": {
                         "$ref": "#/$defs/bus_type"
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "required": [
@@ -230,6 +246,10 @@
                     },
                     "terminal_map": {
                         "$ref": "#/$defs/terminal_map_type"
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "patternProperties": {
@@ -347,6 +367,10 @@
                     "gamma_q": {
                         "type": "array",
                         "items": {"type": "number", "description": "Reactive-power voltage exponent (exponential model)"}
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "required": [
@@ -422,6 +446,10 @@
                     },
                     "terminal_map": {
                         "$ref": "#/$defs/terminal_map_type"
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "required": [
@@ -742,6 +770,10 @@
                         "type": "array",
                         "description": "Maximum permitted current passing through each conductor of the switch [A]",
                         "items": { "$ref": "#/$defs/nonnegative_number" }
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "required": [
@@ -929,6 +961,26 @@
                     "p_max": {"type": "number", "description": "Maximum active power [W]"}
                 },
                 "required": ["dc_bus", "terminal_map"]
+            }
+        },
+        "time_series": {
+            "type": "object",
+            "description": "Named time-series profiles. Components reference a profile via their own time_series map (parameter name -> profile id); get_snapshot multiplies the static parameter by values[t_index].",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "time": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "Optional time stamps for the steps"
+                    },
+                    "values": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "description": "Multiplicative scale factors applied to the referenced static parameter"
+                    }
+                },
+                "required": ["values"]
             }
         }
     },
@@ -1144,6 +1196,20 @@
                     "tap_max": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Upper bound on the continuous tap multiplier (see tap_min)."
+                    },
+                    "i_max_from": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/nonnegative_number" },
+                        "description": "Per-conductor 'from'-side current limit [A]"
+                    },
+                    "i_max_to": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/nonnegative_number" },
+                        "description": "Per-conductor 'to'-side current limit [A]"
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "required": [
@@ -1169,11 +1235,37 @@
                     },
                     "r_series": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Series resistance on the wye-connected winding [Ohm]"
+                        "description": "Legacy lumped series resistance on the wye-connected winding [Ohm]; migrated on parse to r_series_from (with r_series_to = 0)"
                     },
                     "x_series": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Series reactance on the wye-connected winding [Ohm]"
+                        "description": "Legacy lumped series reactance on the wye-connected winding [Ohm]; migrated on parse to x_series_from (with x_series_to = 0)"
+                    },
+                    "r_series_from": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Transformer series resistance on the 'from'-side winding [Ohm]"
+                    },
+                    "x_series_from": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Transformer series reactance on the 'from'-side winding [Ohm]"
+                    },
+                    "r_series_to": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Transformer series resistance on the 'to'-side winding [Ohm]"
+                    },
+                    "x_series_to": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Transformer series reactance on the 'to'-side winding [Ohm]"
+                    },
+                    "i_max_from": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/nonnegative_number" },
+                        "description": "Per-conductor 'from'-side current limit [A]"
+                    },
+                    "i_max_to": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/nonnegative_number" },
+                        "description": "Per-conductor 'to'-side current limit [A]"
                     },
                     "bus_from": {
                         "type": "string",
@@ -1216,6 +1308,10 @@
                     "tap_max": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Upper bound on the continuous tap multiplier (see tap_min)."
+                    },
+                    "time_series": {
+                        "type": "object",
+                        "description": "Map from parameter name to time_series id for time-varying scaling"
                     }
                 },
                 "required": [

@@ -916,7 +916,7 @@ function solution_check(net::Dict{String,Any},
 
                 pd_model = _load_model_power(load, "p", idx, p_ref, W, Vnom)
                 qd_model = _load_model_power(load, "q", idx, q_ref, W, Vnom)
-                pd_model === nothing || qd_model === nothing && continue
+                (pd_model === nothing || qd_model === nothing) && continue
 
                 p_err = abs(pd - pd_model); q_err = abs(qd - qd_model)
                 if p_err > resid_tol || q_err > resid_tol

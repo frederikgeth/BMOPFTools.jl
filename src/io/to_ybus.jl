@@ -29,6 +29,10 @@ Return the nodal admittance block for a single transformer data dict.
 `subtype` must be one of `"single_phase"`, `"center_tap"`, `"wye_delta"`,
 `"delta_wye"`.
 
+The ordinary subtypes use the effective ratio
+`N_eff = (v_nom_from/v_nom_to) · tap` (schema convention; `tap` defaults to
+1.0), so a fixed off-nominal tap is reflected in the exported admittance.
+
 The regulator subtypes `"single_phase_autotransformer"` and
 `"open_delta_regulator"` use the fixed-tap effective ratio `n_eff`
 (`BMOPFTools._autotransformer_ratio`) in place of the nameplate turns ratio.
@@ -128,7 +132,7 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
     tm_to = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
     (isempty(tm_fr) || isempty(tm_to)) && return (Tuple{String,String}[], zeros(ComplexF64,0,0))
 
-    N        = _xfmr_turns_ratio(xfmr)
+    N        = _xfmr_turns_ratio(xfmr) * _xfmr_tap_mult(xfmr)
     # One coupled winding per terminal pair (p, q): line-to-neutral (q = neutral),
     # line-to-line (q = second phase), or phase-to-ground (q absent). The winding
     # voltage and the no-load shunt are taken across (V_p − V_q) via Y = Cᵀ·prim·C.
@@ -199,7 +203,7 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
         return (Tuple{String,String}[], zeros(ComplexF64,0,0))
     end
 
-    N  = _xfmr_turns_ratio(xfmr)
+    N  = _xfmr_turns_ratio(xfmr) * _xfmr_tap_mult(xfmr)
     Z1 = Float64(get(xfmr, "r_series_from", 0.0)) + im*Float64(get(xfmr, "x_series_from", 0.0))
     Z2 = Float64(get(xfmr, "r_series_to",   0.0)) + im*Float64(get(xfmr, "x_series_to",   0.0))
     G0 = Float64(get(xfmr, "g_no_load", 0.0))
@@ -266,9 +270,9 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
         tm_wye = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
     end
 
-    isempty(tm_wye) || isempty(tm_del) && return (Tuple{String,String}[], zeros(ComplexF64,0,0))
+    (isempty(tm_wye) || isempty(tm_del)) && return (Tuple{String,String}[], zeros(ComplexF64,0,0))
 
-    N     = _xfmr_turns_ratio(xfmr)
+    N     = _xfmr_turns_ratio(xfmr) * _xfmr_tap_mult(xfmr)
     n_eff = wye_is_from ? sqrt(3.0)/N : N*sqrt(3.0)
 
     # Per-winding impedances mapped to wye/delta sides.

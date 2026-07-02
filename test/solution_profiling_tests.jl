@@ -759,6 +759,19 @@ end
     @test out["vd_p_nom_total"]  ≈ 4000.0                       # 4 × 1000 W
 end
 
+@testset "SOL — unknown load model is skipped, not a crash" begin
+    # Regression: the skip guard mis-parsed as `a || (b && continue)`, so an
+    # unrecognised model string reached `abs(pd - nothing)` → MethodError.
+    net = _base_net()
+    net["load"]["ld1"]["model"] = "constant_mystery"
+    net["load"]["ld1"]["v_nom"] = [230.0, 230.0, 230.0]
+    result = _base_result()
+    f = Finding[]
+    out = solution_check(net, result, f)                        # must not throw
+    @test out["n_load_model_residuals"] == 0
+    @test !("W.SOL.LOAD_MODEL_RESIDUAL" in codes(f))
+end
+
 # ── Reactive-power balance ────────────────────────────────────────────────────
 @testset "SOL — reactive power balance error" begin
     net = _base_net()

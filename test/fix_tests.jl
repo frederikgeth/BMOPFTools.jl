@@ -177,6 +177,40 @@ end
                        occursin("island", lowercase(e.note)), mf.entries)
     end
 
+    @testset "T1c: Largest component — island shunt/ibr/capacitor pruned" begin
+        # Regression: shunts were deleted by dict KEY compared against bus
+        # names (never matching), and ibr/capacitor/voltage_source entries on
+        # dropped buses were not pruned at all — leaving dangling bus refs.
+        net = _disconnected_net()
+        net["shunt"] = Dict{String,Any}("sh_island" => Dict{String,Any}(
+            "bus" => "island", "terminal_map" => ["n"], "G_1_1" => 1.0))
+        net["ibr"] = Dict{String,Any}("pv_island" => Dict{String,Any}(
+            "bus" => "island", "terminal_map" => ["1","2","3","n"],
+            "topology" => "FOUR_LEG", "prime_mover" => "PV",
+            "s_max" => [5000.0, 5000.0, 5000.0]))
+        net["capacitor"] = Dict{String,Any}("cap_island" => Dict{String,Any}(
+            "bus" => "island", "terminal_map" => ["1","2","3"],
+            "q_rated" => [1000.0, 1000.0, 1000.0]))
+        recipe = FixRecipe(apply_simplify_network=false,
+                           apply_remove_zero_loads=false,
+                           apply_low_impedance_to_switch=false,
+                           apply_source_bus_bounds=false)
+        net′, _ = fix_case(net; recipe=recipe)
+
+        @test !haskey(net′["bus"],       "island")
+        @test !haskey(net′["shunt"],     "sh_island")
+        @test !haskey(net′["ibr"],       "pv_island")
+        @test !haskey(net′["capacitor"], "cap_island")
+
+        # No surviving component may reference a dropped bus
+        buses = Set(keys(net′["bus"]))
+        for ctype in ("load", "shunt", "ibr", "capacitor")
+            for (_, el) in get(net′, ctype, Dict())
+                @test el["bus"] in buses
+            end
+        end
+    end
+
     @testset "T1b: Already-connected network — no change" begin
         net = _fix_lv_net()
         recipe = FixRecipe(apply_simplify_network=false,
@@ -271,6 +305,27 @@ end
         @test mf.entries[e].new_value == sw_id
     end
 
+    @testset "T4c: Converted switch keeps the line's current rating" begin
+        # Regression: the replacement switch used to carry no i_max, silently
+        # dropping the thermal constraint of a rated jumper.
+        net = _low_z_net()
+        net["linecode"]["lc_zero"]["i_max"] = [120.0, 120.0, 120.0]
+        recipe = FixRecipe(apply_largest_component=false,
+                           apply_simplify_network=false,
+                           apply_remove_zero_loads=false,
+                           apply_source_bus_bounds=false,
+                           low_impedance_threshold_ohm=1e-4)
+        net′, _ = fix_case(net; recipe=recipe)
+        @test net′["switch"]["_sw_l1"]["i_max"] == [120.0, 120.0, 120.0]
+
+        # A line-level override beats the linecode rating.
+        net2 = _low_z_net()
+        net2["linecode"]["lc_zero"]["i_max"] = [120.0, 120.0, 120.0]
+        net2["line"]["l1"]["i_max"] = [80.0, 80.0, 80.0]
+        net2′, _ = fix_case(net2; recipe=recipe)
+        @test net2′["switch"]["_sw_l1"]["i_max"] == [80.0, 80.0, 80.0]
+    end
+
     @testset "T4b: Normal-impedance line NOT converted" begin
         net = _fix_lv_net()   # lc has R~0.04 Ω over 100 m — well above 1e-4 Ω threshold
         recipe = FixRecipe(apply_largest_component=false,
@@ -338,10 +393,12 @@ end
         net′, mf = fix_case(net; recipe=recipe)
 
         # l1 had no i_max; transformer s_rating=100kVA, v_nom_to=400V, 3-phase
-        # expected i_max = 100e3 / (√3 × 400) ≈ 144.3 A
+        # expected i_max = 100e3 / (√3 × 400) ≈ 144.3 A, written per conductor
         l1 = net′["line"]["l1"]
         @test haskey(l1, "i_max")
-        @test l1["i_max"] ≈ 100e3 / (sqrt(3) * 400.0)  atol=0.5
+        @test l1["i_max"] isa Vector
+        @test length(l1["i_max"]) == length(l1["terminal_map_from"])
+        @test all(v -> isapprox(v, 100e3 / (sqrt(3) * 400.0); atol=0.5), l1["i_max"])
 
         # Manifest entry recorded with :medium confidence
         e = findfirst(e -> e.component_type == :line &&

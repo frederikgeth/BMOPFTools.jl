@@ -55,6 +55,15 @@
         # Power balance
         check_power_balance(Y, [1.0+0im, 1.0/N])
 
+        # Fixed off-nominal tap: N_eff = N·tap, equivalent to scaling
+        # v_nom_from by the tap (regression — tap used to be ignored).
+        xfmr_tap = merge(xfmr, Dict{String,Any}("tap" => 0.95))
+        xfmr_ref = merge(xfmr, Dict{String,Any}("v_nom_from" => 0.95 * 11000.0))
+        _, Y_tap = transformer_yprim(xfmr_tap, "single_phase")
+        _, Y_ref2 = transformer_yprim(xfmr_ref, "single_phase")
+        @test Y_tap ≈ Y_ref2
+        @test !(Y_tap ≈ Y)
+
         # 3-phase block is block-diagonal over phase pairs
         xfmr3 = Dict{String,Any}(
             "bus_from"          => "hv",
@@ -219,6 +228,28 @@
         ))
         nodes2, Y2 = transformer_yprim(xfmr2, "wye_delta")
         check_symmetry(Y2)
+
+        # An off-nominal fixed tap scales the effective ratio: N_eff =
+        # (v_nom_from/v_nom_to)·tap (schema convention). Regression — the tap
+        # field used to be ignored entirely, so Yprim disagreed with the OPF
+        # model and OpenDSS for tap ≠ 1.
+        xfmr_tap = merge(xfmr, Dict{String,Any}("tap" => 1.05))
+        xfmr_ref = merge(xfmr, Dict{String,Any}("v_nom_from" => 1.05 * 11000.0))
+        nodes_tap, Y_tap = transformer_yprim(xfmr_tap, "wye_delta")
+        nodes_ref, Y_ref = transformer_yprim(xfmr_ref, "wye_delta")
+        @test nodes_tap == nodes_ref
+        @test Y_tap ≈ Y_ref
+        @test !(Y_tap ≈ Y)     # tap actually changed the stamp
+
+        # Regression: an empty terminal map on either side must return the
+        # empty Yprim; the guard previously mis-parsed as
+        # `a || (b && return)` and fell through to a BoundsError.
+        xfmr3 = merge(xfmr, Dict{String,Any}("terminal_map_from" => String[]))
+        nodes3, Y3 = transformer_yprim(xfmr3, "wye_delta")
+        @test isempty(nodes3) && isempty(Y3)
+        xfmr4 = merge(xfmr, Dict{String,Any}("terminal_map_to" => String[]))
+        nodes4, Y4 = transformer_yprim(xfmr4, "wye_delta")
+        @test isempty(nodes4) && isempty(Y4)
     end
 
     # ─── delta_wye ────────────────────────────────────────────────────────────

@@ -166,8 +166,7 @@ function _fix_largest_component!(net′, entries)
     n_gens  = count(((_, g),) -> get(g, "bus", nothing) in drop_buses,
                     get(net′, "generator", Dict()))
 
-    for ctype in ("bus", "shunt")
-        d = get(net′, ctype, Dict())
+    let d = get(net′, "bus", Dict())
         for bid in collect(keys(d))
             bid in drop_buses || continue
             delete!(d, bid)
@@ -180,7 +179,7 @@ function _fix_largest_component!(net′, entries)
              get(el, "bus_to",   nothing) in drop_buses) && delete!(d, id)
         end
     end
-    for ctype in ("load", "generator")
+    for ctype in ("load", "generator", "shunt", "voltage_source", "ibr", "capacitor")
         d = get(net′, ctype, Dict())
         for (id, el) in collect(d)
             get(el, "bus", nothing) in drop_buses && delete!(d, id)
@@ -270,7 +269,9 @@ function _fix_low_impedance!(net′, entries, threshold_ohm)
         z_max === nothing && continue
         z_max >= threshold_ohm && continue
 
-        # Build a switch from the line's topology
+        # Build a switch from the line's topology, carrying the effective
+        # current rating (line override, else linecode) so the thermal
+        # constraint is not lost in the conversion.
         sw = Dict{String,Any}(
             "bus_from"         => get(line, "bus_from", ""),
             "bus_to"           => get(line, "bus_to",   ""),
@@ -278,6 +279,9 @@ function _fix_low_impedance!(net′, entries, threshold_ohm)
             "terminal_map_to"  => get(line, "terminal_map_to",   String[]),
             "open_switch"      => false,
         )
+        i_max = get(line, "i_max", nothing)
+        i_max === nothing && lc isa Dict && (i_max = get(lc, "i_max", nothing))
+        i_max !== nothing && (sw["i_max"] = deepcopy(i_max))
         sw_id = "_sw_$(id)"
         switches[sw_id] = sw
         delete!(lines, id)
@@ -449,7 +453,10 @@ function _infer_and_write_i_max!(el, etype, eid, adj, entries)
     end
 
     derived = minimum(bounds)
-    el["i_max"] = derived
+    # i_max is per-conductor in the data model (and the solution checker only
+    # honours vectors) — apply the bound uniformly across the conductors.
+    n_cond = length(get(el, "terminal_map_from", String[]))
+    el["i_max"] = fill(derived, max(n_cond, 1))
     push!(entries, TransformEntry(
         etype, eid, "i_max", nothing, derived,
         "adjacent_current_bound+IEC60076-7", :medium,

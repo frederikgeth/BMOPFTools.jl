@@ -88,6 +88,15 @@ function _postprocess(raw::Dict{String,Any},
         d["_meta"]["terminal_coercions"] = Dict{String,Any}(
             "n" => n_coerced, "mode" => mode)
     end
+    # Restore tool provenance persisted by write_bmopf (meta.provenance) into
+    # the in-memory _meta block, so fidelity-loss inventories and migration
+    # notes survive a save/load round trip. In-memory _meta keys win.
+    prov = get(get(d, "meta", Dict{String,Any}()), "provenance", nothing)
+    if prov isa Dict
+        for (k, v) in prov
+            get!(d["_meta"], k, v)
+        end
+    end
     d
 end
 

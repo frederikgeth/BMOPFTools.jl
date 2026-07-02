@@ -1370,7 +1370,7 @@ function _check_adjacent_line_impedance_spread(net, findings, thresh, n_checks, 
         for i in eachindex(entries), j in (i+1):length(entries)
             id_a, za = entries[i]
             id_b, zb = entries[j]
-            za == 0.0 || zb == 0.0 && continue
+            (za == 0.0 || zb == 0.0) && continue
             ratio = max(za, zb) / min(za, zb)
             if ratio > worst_ratio
                 worst_ratio = ratio

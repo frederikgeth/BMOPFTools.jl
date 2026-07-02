@@ -2087,6 +2087,108 @@ const IEEE13_FIXTURE = """
         @test net2["transformer"]["delta_wye"]["t1"]["r_series_from"] ≈ 0.015
     end
 
+    @testset "Schema — own output validates (layer drift)" begin
+        # Regression: the bundled JSON schema only allowed the legacy lumped
+        # r_series/x_series on wye/delta transformers and had no time_series
+        # declarations, so every migrated or DSS-sourced net failed Layer-1
+        # validation on its own schema (and the spurious first issue masked
+        # real errors, since JSONSchema reports one issue per run).
+        uri = BMOPFTools._BMOPF_SCHEMA_URI
+        json = """
+        {"meta":{"\$schema":"$uri"},
+         "bus":{"hv":{"terminal_names":["a","b","c"]},
+                "lv":{"terminal_names":["a","b","c","n"],
+                      "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"hv","terminal_map":["a","b","c"],
+             "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0944,2.0944]}},
+         "transformer":{"delta_wye":{"t1":{
+            "bus_from":"hv","bus_to":"lv",
+            "terminal_map_from":["a","b","c"],"terminal_map_to":["a","b","c","n"],
+            "v_nom_from":11000.0,"v_nom_to":433.0,"s_rating":100000.0,
+            "r_series":0.015,"x_series":0.0007,
+            "i_max_from":[6.0,6.0,6.0],"i_max_to":[150.0,150.0,150.0]}}}}
+        """
+        net = parse_bmopf(json; from_string=true)   # migrates to per-winding
+        f = Finding[]
+        schema_check(net, f)
+        @test isempty(f)
+
+        json_ts = """
+        {"meta":{"\$schema":"$uri"},
+         "bus":{"b1":{"terminal_names":["a","n"],
+                      "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"b1","terminal_map":["a"],
+             "v_magnitude":[230.0],"v_angle":[0.0]}},
+         "load":{"l1":{"bus":"b1","terminal_map":["a","n"],"configuration":"WYE",
+             "p_nom":[1000.0],"q_nom":[0.0],"time_series":{"p_nom":"ts1"}}},
+         "time_series":{"ts1":{"values":[0.8,1.0,1.2]}}}
+        """
+        net_ts = parse_bmopf(json_ts; from_string=true)
+        f_ts = Finding[]
+        schema_check(net_ts, f_ts)
+        @test isempty(f_ts)
+    end
+
+    @testset "IO — _meta provenance survives write/parse round trip" begin
+        # Regression: write_bmopf dropped _meta entirely, so the PowerIO
+        # fidelity-loss inventory and migration notes vanished on save.
+        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net["_meta"] = get(net, "_meta", Dict{String,Any}())
+        net["_meta"]["powerio_warnings"] = ["loadshape daily dropped"]
+        net["_meta"]["migration_notes"] = Any[Dict("code" => "W.MIGRATE.TEST")]
+        buf = IOBuffer()
+        write_bmopf(net, buf)
+        net2 = parse_bmopf(String(take!(buf)); from_string=true)
+        @test net2["_meta"]["powerio_warnings"] == ["loadshape daily dropped"]
+        @test net2["_meta"]["migration_notes"][1]["code"] == "W.MIGRATE.TEST"
+        # and the persisted form is schema-valid
+        f = Finding[]
+        schema_check(net2, f)
+        @test !any(fi -> fi.code == "I.SCHEMA.UNKNOWN_FIELDS", f)
+    end
+
+    @testset "OPF stubs — extension error hint" begin
+        # A MethodError on the stubs must point at the missing extension.
+        err = try
+            Base.invokelatest(solve_opf)   # no method with zero args, ever
+            nothing
+        catch e
+            e
+        end
+        @test err isa MethodError
+        msg = sprint(Base.showerror, err)
+        @test occursin("BMOPFOpfExt", msg)
+        @test occursin("JuMP", msg)
+    end
+
+    @testset "Migration — spec-version guard" begin
+        base = """{"meta":{"\$schema":URI},
+                   "bus":{"b1":{"terminal_names":["a"]}},
+                   "voltage_source":{"vs":{"bus":"b1","terminal_map":["a"],
+                       "v_magnitude":[230.0],"v_angle":[0.0]}}}"""
+        mk(uri) = replace(base, "URI" => uri === nothing ? "null" :
+                                          "\"" * uri * "\"")
+
+        # Current URI and the legacy alias are accepted.
+        @test parse_bmopf(mk(BMOPFTools._BMOPF_SCHEMA_URI);
+                          from_string=true) isa Dict
+        @test parse_bmopf(
+            mk("https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks");
+            from_string=true) isa Dict
+
+        # No meta.$schema at all (hand-written fixture) is accepted.
+        json_nometa = """{"bus":{"b1":{"terminal_names":["a"]}},
+                          "voltage_source":{"vs":{"bus":"b1","terminal_map":["a"],
+                              "v_magnitude":[230.0],"v_angle":[0.0]}}}"""
+        @test parse_bmopf(json_nometa; from_string=true) isa Dict
+
+        # An unrecognised URI — most likely a file written against a NEWER
+        # spec than this build understands — must refuse loudly, not parse
+        # silently under the wrong data model.
+        @test_throws ArgumentError parse_bmopf(
+            mk("https://example.org/bmopf/v99/schema.json"); from_string=true)
+    end
+
     @testset "from_dss — identifier case-folding (canonicalisation)" begin
         # OpenDSS identifiers are unique up to case; from_dss folds every id and
         # reference to lower case so case-inconsistent references resolve under
@@ -2120,6 +2222,20 @@ const IEEE13_FIXTURE = """
             "Bus1" => Dict{String,Any}("terminal_names" => ["a"]),
             "bus1" => Dict{String,Any}("terminal_names" => ["b"])))
         @test_throws ErrorException BMOPFTools._canonicalize_identifiers!(bad)
+    end
+
+    @testset "from_dss — OpenDSS terminal remap covers ibr" begin
+        # Regression: _remap_terminal_maps! omitted "ibr" from the single-bus
+        # component list, so an ibr kept numeric terminals ("1","2",…) while
+        # its bus was renamed to a/b/c/n — silently dangling references.
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}("b1" => Dict{String,Any}(
+                "terminal_names" => ["1","2","3","4"])),
+            "ibr" => Dict{String,Any}("pv1" => Dict{String,Any}(
+                "bus" => "b1", "terminal_map" => ["1","2","3","4"])))
+        BMOPFTools._remap_opendss_terminals!(net)
+        @test net["bus"]["b1"]["terminal_names"] == ["a","b","c","n"]
+        @test net["ibr"]["pv1"]["terminal_map"] == ["a","b","c","n"]
     end
 
     @testset "from_dss — per-phase voltage source merge" begin
@@ -3493,6 +3609,34 @@ const IEEE13_FIXTURE = """
     # Regulator subtypes: galvanic zone/island and neutral-continuity topology
     # -----------------------------------------------------------------------
     include("regulator_topology_tests.jl")
+
+    @testset "Domain rules — zero-impedance line excluded from spread ratio" begin
+        # Regression: the pair-skip guard mis-parsed as `za == 0.0 || (zb ==
+        # 0.0 && continue)`, so a zero-impedance line was NOT skipped and
+        # max/min produced ratio = Inf plus a spurious spread warning.
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a"]),
+                "m"   => Dict{String,Any}("terminal_names" => ["a"]),
+                "e"   => Dict{String,Any}("terminal_names" => ["a"])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a"],
+                "v_magnitude" => [230.0], "v_angle" => [0.0])),
+            "linecode" => Dict{String,Any}(
+                "lc"      => Dict{String,Any}("R_series_1_1" => 0.1, "X_series_1_1" => 0.1),
+                "lc_zero" => Dict{String,Any}("R_series_1_1" => 0.0, "X_series_1_1" => 0.0)),
+            "line" => Dict{String,Any}(
+                "l1" => Dict{String,Any}("bus_from" => "src", "bus_to" => "m",
+                    "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
+                    "linecode" => "lc", "length" => 100.0),
+                "l2" => Dict{String,Any}("bus_from" => "m", "bus_to" => "e",
+                    "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
+                    "linecode" => "lc_zero", "length" => 100.0)))
+        f = Finding[]
+        res = domain_rules_check(net, f)
+        @test res["max_adjacent_impedance_ratio"] == 1.0
+        @test !any(fi -> occursin("LINE_IMPEDANCE_SPREAD", fi.code), f)
+    end
 
     @testset "Config — TOML thresholds" begin
         # Defaults load and match the historical hardcoded values.

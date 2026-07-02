@@ -1887,6 +1887,34 @@
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # T-NANOBJ: an infeasible solve must report objective = NaN, never the
+    # stale candidate-point value the solver stopped at (regression — the
+    # objective used to be read before the feasibility check).
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T-NANOBJ: infeasible solve reports NaN objective" begin
+        net = parse_bmopf("""
+        {"bus":{
+            "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+            "b1": {"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+                   "v_min":[240.0,240.0,240.0],"v_max":[250.0,250.0,250.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944]}},
+         "linecode":{"lc":{"R_series_1_1":3.96e-4,"R_series_2_2":3.96e-4,
+                           "R_series_3_3":3.96e-4,"R_series_4_4":3.96e-4}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
+             "linecode":"lc","length":100.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],"configuration":"WYE",
+             "p_nom":[1000.0,1000.0,1000.0],"q_nom":[0.0,0.0,0.0]}}}
+        """; from_string=true)
+        # b1 must sit above 240 V while the source is fixed at 230 V and the
+        # load only drops voltage — infeasible by construction.
+        res = solve_opf(net)
+        @test res["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL")
+        @test isnan(res["objective"])
+    end
+
     # ═════════════════════════════════════════════════════════════════════════
     # Feasibility-OPF parity guards (refactor safety net).
     #

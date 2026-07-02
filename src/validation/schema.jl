@@ -165,7 +165,8 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "terminal_map_from", "terminal_map_to",
                            "v_nom_from", "v_nom_to",
                            "i_max_from", "i_max_to",
-                           "g_no_load", "b_no_load"]),
+                           "g_no_load", "b_no_load",
+                           "tap", "tap_min", "tap_max"]),
     "wye_delta"    => Set(["s_rating",
                            "r_series_from", "x_series_from",
                            "r_series_to",   "x_series_to",
@@ -351,7 +352,7 @@ end
 const _META_KNOWN_FIELDS = Set([
     "\$schema", "version", "title", "description",
     "created", "modified", "license",
-    "authors", "sources", "generator",
+    "authors", "sources", "generator", "provenance",
 ])
 const _META_AUTHOR_FIELDS  = Set(["name", "email", "orcid"])
 const _META_SOURCE_FIELDS  = Set(["name", "url", "format", "doi", "version"])
