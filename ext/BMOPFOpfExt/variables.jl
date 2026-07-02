@@ -243,6 +243,26 @@ function _add_tap_variables!(model, net)
     tap
 end
 
+# Canonical 3-phase start angle (rad) for a terminal NAME under any of the
+# supported naming conventions ("1"/"2"/"3"/"4", "a"/"b"/"c"/"n", "L1"…"N"),
+# resolved through the same table `to_pmd` uses. Unknown names fall back to 0
+# (co-phasal) — the previous behaviour, but now only for genuinely unknown
+# conventions rather than for everything that wasn't literally "1"/"2"/"3".
+const _CANONICAL_PHASE_ANGLE = Dict{Int,Float64}(
+    1 => 0.0, 2 => -2.0944, 3 => 2.0944, 4 => 0.0)
+
+function _canonical_start_angle(t::AbstractString)::Float64
+    i = get(BMOPFTools._TERMINAL_NAME_TO_INT, lowercase(String(t)), nothing)
+    i === nothing ? 0.0 : _CANONICAL_PHASE_ANGLE[i]
+end
+
+# Angle for terminal `t`: the actual source angle when the source declares it,
+# else the canonical 120°-spaced start for its naming convention.
+_start_angle(t_angle::Dict{String,Float64}, t::AbstractString)::Float64 =
+    get(t_angle, String(t)) do
+        _canonical_start_angle(t)
+    end
+
 """
     _split_phase_init_angles(net, base_angle) -> Dict{String,Dict{String,Float64}}
 
@@ -274,7 +294,7 @@ function _split_phase_init_angles(net, base_angle::Dict{String,Float64})
         nt_to = BMOPFTools._neutral_terminal(get(buses, get(ct, "bus_to",   ""), Dict()))
 
         ph_fr = findfirst(t -> t != nt_fr, tmfr)
-        θ     = ph_fr === nothing ? 0.0 : get(base_angle, tmfr[ph_fr], 0.0)
+        θ     = ph_fr === nothing ? 0.0 : _start_angle(base_angle, tmfr[ph_fr])
 
         legs = [t for t in tmto if t != nt_to]
         length(legs) >= 2 || continue
@@ -309,10 +329,12 @@ problems.
 function _set_voltage_start_values!(vars, net, bus_terminals, grounded)
     vr = vars[:vr]; vi = vars[:vi]
 
-    # Canonical 3-phase angles (rad) keyed by terminal name.
-    # These are overwritten by whatever the actual source specifies.
-    t_angle = Dict{String,Float64}(
-        "1" => 0.0, "2" => -2.0944, "3" => 2.0944, "n" => 0.0)
+    # Source-declared angles keyed by terminal name; any terminal the source
+    # does not declare falls back to the canonical 120°-spaced start for its
+    # naming convention via `_start_angle` (works for "1"/"2"/"3", "a"/"b"/"c",
+    # "L1"/"L2"/"L3" alike — previously only literal "1"/"2"/"3" got angles,
+    # every other convention started degenerately co-phasal).
+    t_angle = Dict{String,Float64}()
     v_nom = 0.0
 
     for (_, vs) in get(net, "voltage_source", Dict())
@@ -339,7 +361,7 @@ function _set_voltage_start_values!(vars, net, bus_terminals, grounded)
                 JuMP.set_start_value(vi[key], 0.0)
             else
                 ang = haskey(sp, bid) && haskey(sp[bid], t) ?
-                      sp[bid][t] : get(t_angle, t, 0.0)
+                      sp[bid][t] : _start_angle(t_angle, t)
                 JuMP.set_start_value(vr[key], v_nom * cos(ang))
                 JuMP.set_start_value(vi[key], v_nom * sin(ang))
             end
@@ -359,8 +381,9 @@ that arises in the unconstrained feasibility OPF.
 function _set_level_aware_start_values!(vars, net, bus_terminals, grounded)
     vr = vars[:vr]; vi = vars[:vi]
 
-    t_angle = Dict{String,Float64}(
-        "1" => 0.0, "2" => -2.0944, "3" => 2.0944, "n" => 0.0)
+    # Source-declared angles; other terminals get the canonical 120° start
+    # for their naming convention via `_start_angle` (see above).
+    t_angle = Dict{String,Float64}()
 
     for (_, vs) in get(net, "voltage_source", Dict())
         tm   = Vector{String}(get(vs, "terminal_map", String[]))
@@ -386,7 +409,7 @@ function _set_level_aware_start_values!(vars, net, bus_terminals, grounded)
                 JuMP.set_start_value(vi[key], 0.0)
             else
                 ang = haskey(sp, bid) && haskey(sp[bid], t) ?
-                      sp[bid][t] : get(t_angle, t, 0.0)
+                      sp[bid][t] : _start_angle(t_angle, t)
                 JuMP.set_start_value(vr[key], v_nom * cos(ang))
                 JuMP.set_start_value(vi[key], v_nom * sin(ang))
             end

@@ -137,12 +137,21 @@ function _add_voltage_and_bus_bounds!(ctx::OpfContext)
 end
 
 """
-    _build_and_solve(net; optimizer, t_index, per_unit, s_base, build!, extract!, configure!) -> Dict
+    _build_and_solve(net; optimizer, t_index, per_unit, s_base, build!, extract!,
+                     configure!, verbose, solver_options, model_hook!) -> Dict
 
 Generic build/solve engine. `build!(ctx)` is the per-problem recipe run after
 variables exist and before KCL is enforced. `extract!(ctx, result)` is an
 optional post-solve hook to append problem-specific result keys. `configure!`
 is an optional hook to set solver attributes on the freshly created model.
+
+User-facing knobs threaded through from the public solve entry points:
+- `verbose`        — when `false` (default) the solver output is silenced.
+- `solver_options` — iterable of `name => value` pairs applied as raw solver
+  attributes *after* the problem's own `configure!`, so user options win.
+- `model_hook!`    — optional `hook!(ctx)` called after the standard `build!`
+  recipe and **before** KCL is enforced, so a hook can add constraints,
+  replace the objective, or stamp extra injections into `ctx.kcl_r`/`ctx.kcl_i`.
 """
 function _build_and_solve(net::Dict{String,Any};
                           optimizer,
@@ -152,7 +161,10 @@ function _build_and_solve(net::Dict{String,Any};
                           build!::Function,
                           extract!::Union{Function,Nothing}=nothing,
                           configure!::Union{Function,Nothing}=nothing,
-                          relu_eps::Float64=2e-3)
+                          relu_eps::Float64=2e-3,
+                          verbose::Bool=false,
+                          solver_options=(),
+                          model_hook!::Union{Function,Nothing}=nothing)
 
     working = BMOPFTools.is_timeseries(net) ?
               BMOPFTools.get_snapshot(net, t_index) : deepcopy(net)
@@ -163,8 +175,11 @@ function _build_and_solve(net::Dict{String,Any};
     end
 
     model = JuMP.Model(optimizer)
-    JuMP.set_silent(model)
+    verbose || JuMP.set_silent(model)
     configure! === nothing || configure!(model)
+    for (name, value) in solver_options
+        JuMP.set_attribute(model, string(name), value)
+    end
 
     bus_terminals = _bus_terminals(working)
     grounded      = _grounded_terminals(working)
@@ -179,6 +194,7 @@ function _build_and_solve(net::Dict{String,Any};
                      kcl_r, kcl_i, branch_inj, bases, relu_eps, Dict{Float64,Any}())
 
     build!(ctx)
+    model_hook! === nothing || model_hook!(ctx)
 
     _add_kcl_constraints!(model, kcl_r, kcl_i)
     _add_dc_kcl_constraints!(model, vars)

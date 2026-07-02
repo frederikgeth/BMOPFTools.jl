@@ -37,11 +37,25 @@ function _check_generation_adequacy(net::Dict{String,Any},
         for (_, g) in get(net, "generator", Dict());
         init=0.0
     )
-    ratio = total_p_load > 0 ? total_p_cap / total_p_load : nothing
+    # IBRs contribute local capacity too: prefer the explicit active-power
+    # ceiling (p_max, else p_avail), falling back to the apparent-power rating.
+    _ibr_p_cap(inv) = begin
+        for key in ("p_max", "p_avail", "s_max")
+            v = get(inv, key, nothing)
+            v === nothing && continue
+            return sum(Float64.(v isa AbstractVector ? v : [v]))
+        end
+        0.0
+    end
+    total_ibr_cap = sum(_ibr_p_cap(inv) for (_, inv) in get(net, "ibr", Dict());
+                        init=0.0)
+    total_cap = total_p_cap + total_ibr_cap
+    ratio = total_p_load > 0 ? total_cap / total_p_load : nothing
 
     Dict{String,Any}(
         "total_load_w"      => total_p_load,
         "total_gen_cap_w"   => total_p_cap,
+        "total_ibr_cap_w"   => total_ibr_cap,
         "adequacy_ratio"    => ratio,
         "import_dependent"  => ratio === nothing || ratio < 0.5
     )

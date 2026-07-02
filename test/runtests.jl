@@ -1297,6 +1297,26 @@ const IEEE13_FIXTURE = """
                         x.component_id == "g_far", f9)
         @test r9["source_bus_generators"]["n_unbounded_source_bus_generators"] == 1
         @test r9["source_bus_generators"]["n_bounded_source_bus_generators"]   == 1
+
+        # preflight: IBR capacity counts towards generation adequacy
+        # (regression — a network served entirely by IBRs was reported
+        # import_dependent because only generator.p_max was summed).
+        net10 = parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "b1":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],
+             "v_magnitude":[230.0],"v_angle":[0.0]}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","n"],"configuration":"WYE",
+             "p_nom":[1000.0],"q_nom":[0.0]}},
+         "ibr":{"pv":{"bus":"b1","terminal_map":["1","n"],"topology":"SINGLE_PHASE",
+             "prime_mover":"PV","s_max":[5000.0],"p_max":[4000.0]}}}
+        """; from_string=true)
+        f10 = Finding[]
+        r10 = infeasibility_preflight(net10, f10)
+        adequacy = r10["generation_adequacy"]
+        @test adequacy["total_ibr_cap_w"] ≈ 4000.0      # p_max preferred over s_max
+        @test adequacy["adequacy_ratio"] ≈ 4.0
+        @test adequacy["import_dependent"] == false
     end
 
     @testset "Integrity checks" begin
@@ -2052,6 +2072,73 @@ const IEEE13_FIXTURE = """
         eng2 = to_pmd(net2)
         @test eng2["shunt"]["sh1"]["gs"][1,1] ≈ 0.5
         @test eng2["shunt"]["sh1"]["bs"][1,1] ≈ -0.1
+    end
+
+    @testset "to_pmd — transformer fidelity (cmag, tap, center_tap, settings)" begin
+        mk_xfmr(extra) = parse_bmopf("""
+        {"bus":{"hv":{"terminal_names":["1","2","3","n"],
+                      "perfectly_grounded_terminals":["n"]},
+                "lv":{"terminal_names":["1","2","3","n"],
+                      "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"hv","terminal_map":["1","2","3"],
+             "v_magnitude":[6350.0,6350.0,6350.0],"v_angle":[0.0,-2.0944,2.0944]}},
+         "transformer":{"wye_delta":{"t1":{
+            "bus_from":"hv","bus_to":"lv",
+            "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3"],
+            "v_nom_from":11000.0,"v_nom_to":400.0,"s_rating":100000.0,
+            "r_series_from":0.5,"x_series_from":2.0,
+            "r_series_to":0.0,"x_series_to":0.0$(extra)}}}}
+        """; from_string=true)
+
+        # Regression: cmag is the magnetising susceptance ONLY. With B = 0
+        # (every DSS round trip, since from_dss sets b_no_load = 0) the old
+        # sqrt(G²+B²) made cmag == noloadloss, double-counting core loss as
+        # magnetising current.
+        net = mk_xfmr(""","g_no_load":2e-4,"b_no_load":0.0""")
+        t = to_pmd(net)["transformer"]["t1"]
+        @test t["noloadloss"] > 0
+        @test t["cmag"] == 0.0
+
+        net_b = mk_xfmr(""","g_no_load":2e-4,"b_no_load":-5e-4""")
+        t_b = to_pmd(net_b)["transformer"]["t1"]
+        y_base = 100000.0 / (11000.0 / sqrt(3))^2
+        @test t_b["cmag"] ≈ 5e-4 / y_base
+        @test t_b["noloadloss"] ≈ 2e-4 / y_base
+
+        # A fixed off-nominal tap is exported as PMD tm_set on the from
+        # winding (same N_eff convention), not silently dropped.
+        net_tap = mk_xfmr(""","tap":1.05""")
+        t_tap = to_pmd(net_tap)["transformer"]["t1"]
+        @test t_tap["tm_set"] == [[1.05, 1.05, 1.05], [1.0, 1.0, 1.0]]
+        @test t_tap["tm_fix"] == [[true, true, true], [true, true, true]]
+
+        # Free-tap bounds warn (dropped), fixed tap of 1.0 emits no tm_set.
+        net_free = mk_xfmr(""","tap":1.0,"tap_min":0.9,"tap_max":1.1""")
+        t_free = @test_logs (:warn, r"tap_min") (:warn, r"tap_max") match_mode=:any begin
+            to_pmd(net_free)["transformer"]["t1"]
+        end
+        @test !haskey(t_free, "tm_set")
+
+        # center_tap is skipped with a warning, not exported malformed.
+        net_ct = parse_bmopf("""
+        {"bus":{"hv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "lv":{"terminal_names":["1","n","2"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"hv","terminal_map":["1"],
+             "v_magnitude":[2400.0],"v_angle":[0.0]}},
+         "transformer":{"center_tap":{"ct1":{
+            "bus_from":"hv","bus_to":"lv",
+            "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
+            "v_nom_from":2400.0,"v_nom_to":120.0,"s_rating":25000.0,
+            "r_series_from":0.1,"x_series_from":0.4,
+            "r_series_to":0.001,"x_series_to":0.004}}}}
+        """; from_string=true)
+        eng_ct = @test_logs (:warn, r"center_tap") match_mode=:any to_pmd(net_ct)
+        @test isempty(get(eng_ct, "transformer", Dict()))
+
+        # settings are overridable (60 Hz North American feeder).
+        eng60 = to_pmd(net; frequency=60.0, sbase=5e6)
+        @test eng60["settings"]["base_frequency"] == 60.0
+        @test eng60["settings"]["sbase_default"] == 5e6
     end
 
     @testset "Migration — lumped transformer series fields → per-winding" begin
@@ -2897,8 +2984,12 @@ const IEEE13_FIXTURE = """
             "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
             "linecode" => "lc", "length" => 0.0)
         findings = Finding[]
-        connectivity_analysis(net, findings)
+        res = connectivity_analysis(net, findings)
         @test any(f -> f.code == "E.CONN.SELF_LOOP" && f.component_id == "loop", findings)
+        # Regression: the self-loop must not inflate the branch count — the
+        # graph drops it, so counting it flagged a radial network as meshed.
+        @test res["is_radial"]
+        @test !any(f -> f.code == "W.CONN.MESHED", findings)
     end
 
     @testset "Connectivity — E.CONN.SELF_LOOP on switch" begin
@@ -3678,6 +3769,16 @@ const IEEE13_FIXTURE = """
             "xfmr_ratio_max" => 1000.0, "z_line_min_ohm" => 1e-4,
             "z_spread_info" => 1e3, "z_spread_warn" => 1e5))
         @test any(f -> f.code == "W.DOM.LOAD_PF_LOW" && f.component_id == "load_632", f_strict)
+
+        # Regression: a negative-p (export) load with a healthy |pf| must not
+        # be flagged — the check used the signed pf, so every export load read
+        # as pf < 0 < pf_min.
+        net_exp = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net_exp["load"]["load_632"]["p_nom"] = [-800.0, -800.0, -800.0]
+        net_exp["load"]["load_632"]["q_nom"] = [-100.0, -100.0, -100.0]  # |pf| ≈ 0.99
+        f_exp = Finding[]
+        domain_rules_check(net_exp, f_exp)
+        @test !any(f -> f.code == "W.DOM.LOAD_PF_LOW" && f.component_id == "load_632", f_exp)
     end
 
 end  # @testset "BMOPFTools"

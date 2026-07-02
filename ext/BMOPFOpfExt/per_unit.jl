@@ -209,15 +209,35 @@ function _pu_scale_linecodes!(net, bases)
     # Linecodes are shared across buses; we need a representative Z_base.
     # Since lines don't change V_base, any bus on the line has the same Z_base.
     # Strategy: build a map linecode_id -> z_base from line elements.
+    #
+    # A linecode may legally be shared by lines at *different* voltage levels;
+    # scaling it with a single z_base would silently corrupt the impedances of
+    # every other level. Detect that case and split: the first z_base keeps
+    # the original id, each further z_base gets a cloned linecode (this runs
+    # on the OPF's working copy, so the user's dict is untouched).
     lc_zbase = Dict{String,Float64}()
     lc_ibase = Dict{String,Float64}()
+    linecodes = get(net, "linecode", Dict())
+    clone_of = Dict{Tuple{String,Float64},String}()
     for (_, line) in get(net, "line", Dict())
         lcid = get(line, "linecode", nothing)
         lcid === nothing && continue
-        haskey(lc_zbase, lcid) && continue   # already assigned
         bus = get(line, "bus_from", "")
-        lc_zbase[lcid] = get(bases.z_base, bus, 1.0)
-        lc_ibase[lcid] = get(bases.i_base, bus, 1.0)
+        zb  = get(bases.z_base, bus, 1.0)
+        ib  = get(bases.i_base, bus, 1.0)
+        if !haskey(lc_zbase, lcid)
+            lc_zbase[lcid] = zb
+            lc_ibase[lcid] = ib
+        elseif !isapprox(lc_zbase[lcid], zb; rtol=1e-9)
+            new_id = get!(clone_of, (String(lcid), zb)) do
+                nid = string(lcid, "__zbase", length(clone_of) + 1)
+                haskey(linecodes, lcid) && (linecodes[nid] = deepcopy(linecodes[lcid]))
+                lc_zbase[nid] = zb
+                lc_ibase[nid] = ib
+                nid
+            end
+            line["linecode"] = new_id
+        end
     end
 
     series_fields = ("R_series_", "X_series_")

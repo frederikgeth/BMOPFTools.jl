@@ -475,6 +475,26 @@ b_no_load = -(cmag)       · Y_base       # cmag       = %imag       / 100
     [Transformer impedance on ingest](#Transformer-impedance-on-ingest).
     `to_pmd` writes the per-winding fields back to PMD `rw`/`xsc`.
 
+### `to_pmd` transformer specifics
+
+- **No-load branch**: `noloadloss = g_no_load / Y_base` and
+  `cmag = |b_no_load| / Y_base` — `cmag` carries the magnetising susceptance
+  only, mirroring the ingest convention above (where `b_no_load` is
+  deliberately left at 0, `cmag` is 0 too; core loss is never double-counted
+  as magnetising current).
+- **Fixed tap**: a `tap ≠ 1` exports as PMD `tm_set = [fill(tap, n_ph), fill(1, n_ph)]`
+  with `tm_fix = true` — the same `N_eff = (v_nom_from/v_nom_to)·tap`
+  convention, so a fixed off-nominal tap round-trips exactly. Free-tap bounds
+  (`tap_min`/`tap_max`), per-winding current limits (`i_max_from`/`i_max_to`),
+  and regulator `tap_ratio` have no faithful counterpart in this exporter and
+  are dropped **with a warning**.
+- **`center_tap` is skipped with a warning**: the split-phase unit needs PMD's
+  3-winding representation, which this exporter does not implement; emitting a
+  2-winding WYE-WYE with a 3-terminal secondary would be malformed.
+- **Settings**: BMOPF carries no frequency field, so
+  `to_pmd(net; frequency=60.0, sbase=...)` sets `settings.base_frequency` /
+  `settings.sbase_default` (defaults 50 Hz, 1 MVA).
+
 ## [OpenDSS export (`to_dss`)](@id to-dss-export)
 
 [`to_dss`](@ref) is the inverse of [`from_dss`](@ref): it serialises a BMOPF data

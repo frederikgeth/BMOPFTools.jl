@@ -1,0 +1,38 @@
+name: CompatHelper
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  CompatHelper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if Julia is already available
+        id: julia_in_path
+        run: which julia
+        continue-on-error: true
+      - name: Install Julia, but only if it is not already available
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+        if: steps.julia_in_path.outcome != 'success'
+      - name: Use Julia cache
+        uses: julia-actions/cache@v2
+      - name: Install CompatHelper
+        run: |
+          import Pkg
+          name = "CompatHelper"
+          version = "3"
+          Pkg.add(; name, version)
+        shell: julia --color=yes {0}
+      - name: Run CompatHelper
+        run: |
+          import CompatHelper
+          CompatHelper.main()
+        shell: julia --color=yes {0}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPATHELPER_PRIV: ${{ secrets.DOCUMENTER_KEY }}

@@ -40,7 +40,10 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                                            t_index::Int=1,
                                            per_unit::Bool=false,
                                            s_base::Float64=1e6,
-                                           volt_var_watt_eps::Float64=2e-3)
+                                           volt_var_watt_eps::Float64=2e-3,
+                                           verbose::Bool=false,
+                                           solver_options=(),
+                                           model_hook!::Union{Function,Nothing}=nothing)
     # cs_r/cs_i are created inside build! and read again in extract!; share them
     # across the two hooks via this closed-over scratch dict.
     slack = Dict{Symbol,Any}()
@@ -48,15 +51,25 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                      per_unit=per_unit, s_base=s_base, relu_eps=volt_var_watt_eps,
                      configure! = _configure_feasibility!,
                      build! = ctx -> build_feasibility!(ctx, slack),
-                     extract! = (ctx, result) -> extract_feasibility!(ctx, result, slack))
+                     extract! = (ctx, result) -> extract_feasibility!(ctx, result, slack),
+                     verbose, solver_options, model_hook!)
 end
 
 # Disable "acceptable level" early stopping so Ipopt always converges to the
 # regular tolerance (1e-8).  Without this, problems with bilinear P/Q
 # constraints and active thermal limits can exit prematurely, producing
-# inaccurate voltages.
-_configure_feasibility!(model) =
-    JuMP.set_optimizer_attribute(model, "acceptable_tol", 1e-8)
+# inaccurate voltages. Ipopt-specific: skipped (with a warning) for any other
+# optimizer instead of erroring on an unsupported attribute.
+function _configure_feasibility!(model)
+    if occursin("Ipopt", JuMP.solver_name(model))
+        JuMP.set_optimizer_attribute(model, "acceptable_tol", 1e-8)
+    else
+        @warn "solve_feasibility_opf: skipping the Ipopt-specific " *
+              "`acceptable_tol` setting — solver is $(JuMP.solver_name(model)). " *
+              "Consider disabling its own early-acceptance heuristics via " *
+              "`solver_options` for accurate residuals."
+    end
+end
 
 """
     build_feasibility!(ctx, slack)

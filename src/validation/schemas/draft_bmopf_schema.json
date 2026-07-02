@@ -179,6 +179,16 @@
                         "type": "string",
                         "description": "'to' bus for the element"
                     },
+                    "i_max": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/nonnegative_number" },
+                        "description": "Per-conductor current-magnitude limit [A]; overrides the linecode's i_max for this line"
+                    },
+                    "s_max": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/nonnegative_number" },
+                        "description": "Per-phase apparent-power limit [VA]; overrides the linecode's s_max for this line"
+                    },
                     "time_series": {
                         "type": "object",
                         "description": "Map from parameter name to time_series id for time-varying scaling"

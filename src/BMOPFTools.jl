@@ -586,7 +586,9 @@ end
 """
     solve_opf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,
               per_unit::Bool=false, s_base::Float64=1e6,
-              volt_var_watt_eps::Float64=2e-3) -> Dict{String,Any}
+              volt_var_watt_eps::Float64=2e-3,
+              verbose::Bool=false, solver_options=(),
+              model_hook!=nothing) -> Dict{String,Any}
 
 Solve the four-wire rectangular current-voltage (IVR-EN) optimal power flow
 on a BMOPF network dict. Requires JuMP and Ipopt to be loaded in the calling
@@ -595,6 +597,37 @@ environment before calling this function.
 When `per_unit=true` the model is built and solved in per-unit (V_base
 propagated from the source bus through transformers; S_base = `s_base` VA,
 default 1 MVA). All results are returned in SI units regardless.
+
+## Solver control and formulation extension
+
+- `verbose=true` streams the solver log (by default the model is silenced).
+- `solver_options` is an iterable of `name => value` pairs applied as raw
+  solver attributes, e.g. `solver_options = ["max_iter" => 3000, "tol" => 1e-9]`
+  for Ipopt. Applied after the problem's own defaults, so user options win.
+- `model_hook!` is the formulation extension point: a function `hook!(ctx)`
+  called after the standard model is built and **before** KCL is enforced and
+  the model is solved. `ctx` carries the JuMP model and every index structure
+  a build recipe uses — the stable fields are:
+  `ctx.model` (JuMP model), `ctx.net` (the engine's working copy of the
+  network), `ctx.vars` (variable dict keyed by `:vr`, `:vi`, `:crg`, `:cig`,
+  `:cr_fr`, …, each mapping `(id, terminal)`-style keys to JuMP variables),
+  `ctx.bus_terminals` (bus → ordered terminal names), `ctx.grounded`
+  (set of perfectly-grounded `(bus, terminal)` pairs), and `ctx.kcl_r`/`ctx.kcl_i`
+  (per-`(bus, terminal)` KCL accumulator expressions — add to these to inject
+  current from a custom device). A hook can add constraints
+  (`JuMP.@constraint(ctx.model, …)`), replace the objective
+  (`JuMP.@objective(ctx.model, …)`), or stamp new devices into the KCL
+  accumulators. Example — cap one generator's phase-a active power:
+
+  ```julia
+  result = solve_opf(net; model_hook! = ctx -> begin
+      vr = ctx.vars[:vr]; vi = ctx.vars[:vi]
+      crg = ctx.vars[:crg]; cig = ctx.vars[:cig]
+      b = net["generator"]["g1"]["bus"]
+      JuMP.@constraint(ctx.model,
+          vr[(b,"a")]*crg[("g1",1)] + vi[(b,"a")]*cig[("g1",1)] <= 5_000.0)
+  end)
+  ```
 
 ## Smart-IBR Volt-var / Volt-watt
 
