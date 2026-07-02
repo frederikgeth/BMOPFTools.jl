@@ -101,17 +101,22 @@ the signal toward certainty:
 !!! tip "Takeaway"
     Under a loss- or cost-minimising objective (non-decreasing in generation) with full
     bounds, the operationally meaningful **high-voltage solution is the unique attractor**
-    that fixed-point, relaxation, and energy-function methods all converge to. So a
-    `LOCALLY_SOLVED` from a sane start is very likely *the* physical optimum. The only
-    *proof* of globality is an exact relaxation or a global solver.
+    that fixed-point, relaxation, and energy-function methods all converge to *on radial
+    networks*. So a `LOCALLY_SOLVED` from a sane start is very likely *the* physical
+    optimum. The only *proof* of globality is an exact relaxation or a global solver — and
+    on the meshed or multiphase/unbalanced networks this engine also targets, even the
+    attractor argument is extrapolation, not theorem.
 
-This is the optimistic mirror of [§2](index.md) and [§5](index.md). The high-voltage
-solution is the last one to vanish as the system loads toward its limit, and the standard
-computational routes return exactly it when one exists
-([Dvijotham, Mallada & Simpson-Porco, 2017](https://arxiv.org/abs/1706.05290)). A
-loss-minimising objective is the lever ([§5](index.md)) that pins the nonconvex solve to
-that branch. Put together: sane start + loss-min objective + full bounds ⇒ the local
-optimum Ipopt returns is, with high probability, the global one.
+This is the optimistic mirror of [§2](index.md) and [§5](index.md). On a radial network
+the high-voltage solution is the last one to vanish as the system loads toward its limit,
+and the standard computational routes return exactly it when one exists
+([Dvijotham, Mallada & Simpson-Porco, 2017](https://arxiv.org/abs/1706.05290), a radial,
+single-phase result). A loss-minimising objective is the lever ([§5](index.md)) that pins
+the nonconvex solve to that branch. Put together: sane start + loss-min objective + full
+bounds ⇒ the local optimum Ipopt returns is, with high probability, the global one — with
+the honest caveat that the underlying uniqueness theorems are radial and single-phase, so
+on a four-wire unbalanced feeder this is calibrated trust resting on an analogy, not a
+guarantee that carries over ([Bernstein et al., 2018](https://doi.org/10.1109/TPWRS.2018.2823277)).
 
 !!! details "Derivation: what an actual globality certificate would require"
     "Probably global" is a statement about attractors, not a theorem about your specific
@@ -132,11 +137,11 @@ optimum Ipopt returns is, with high probability, the global one.
 !!! warning "Why there is no cheap certificate: AC OPF is NP-hard"
     The absence of a free globality certificate is **fundamental, not a tooling gap**.
     AC OPF is a nonconvex, NP-hard optimization problem, and the hardness does not come
-    from the objective or from network size alone: even deciding **AC
-    *feasibility*** — is there *any* operating point at all — is **strongly NP-hard, and
-    remains so on radial / tree networks**
-    ([Lehmann, Grastien & Van Hentenryck, 2016](https://doi.org/10.1109/TPWRS.2015.2407363);
-    [Bienstock & Verma, 2019](https://doi.org/10.1016/j.orl.2019.08.009)). That radial result
+    from the objective or from network size alone: even deciding **AC *feasibility*** — is
+    there *any* operating point at all — is **NP-hard even on radial / tree networks**
+    ([Lehmann, Grastien & Van Hentenryck, 2016](https://doi.org/10.1109/TPWRS.2015.2407363))
+    and **strongly NP-hard** in general
+    ([Bienstock & Verma, 2019](https://doi.org/10.1016/j.orl.2019.08.009)). The tree result
     is the pointed one here: the distribution feeders this package targets are precisely
     where one might hope topology buys tractability, and it does not. So a polynomial-time
     local solver such as Ipopt *cannot*, in general, hand you a certificate of globality or
@@ -212,8 +217,8 @@ which fails LICQ only on a measure-zero parameter set, a structural redundancy b
     So a "sanity" constraint $\sum_g S^g = \sum_d S^d + \text{losses}$ added *on top of*
     full per-terminal KCL is **already implied** — its gradient row is a linear combination
     of the KCL rows. LICQ then fails everywhere: duals become non-unique, and the
-    interior-point iteration stalls or reports `DUAL_INFEASIBLE` on a problem that is
-    otherwise perfectly well posed. This is the same redundancy that makes classical
+    interior-point iteration stalls or terminates with diverging iterates
+    (`NORM_LIMIT`) on a problem that is otherwise perfectly well posed. This is the same redundancy that makes classical
     transmission OPF **drop the slack-bus balance** and let the reference absorb the
     mismatch ([cycle-flow formulations](https://arxiv.org/abs/1704.01881)); in this
     package the slack *source* plays that role, so the global balance is never needed.
@@ -232,13 +237,17 @@ which fails LICQ only on a measure-zero parameter set, a structural redundancy b
     ([on multiplier behaviour in infeasible IPMs](https://arxiv.org/abs/1707.07327)).
 
     For AC OPF, LICQ holds *generically* — it fails only on a measure-zero set of
-    parameter values. The trouble is that **augmentation deliberately steers you onto that
+    parameter values, a fact made precise with tools from differential topology by
+    [Hauswirth, Bolognani, Hug & Dörfler (2018)](https://arxiv.org/abs/1806.06615), who
+    show the LICQ is satisfied almost everywhere and unique multipliers therefore exist
+    generically. The trouble is that **augmentation deliberately steers you onto that
     set**: identical generator costs, zero-cost generators, and pinned injections are
     exactly the structured coincidences that make active-constraint gradients dependent.
     This is why these are caught structurally *before* you solve, by the benchmark-
     readiness flags `W.BENCH.GEN_NO_DOF`, `W.BENCH.GEN_ZERO_COST`, and
     `W.BENCH.GEN_DEGENERATE_COST` ([Methodology § Benchmark readiness](../methodology.md));
-    a `DUAL_INFEASIBLE` from a zero-cost generator is the runtime echo of
+    a zero-cost generator's non-coercive objective surfaces at runtime as diverging
+    iterates (`NORM_LIMIT`) or an unbounded-objective termination — the runtime echo of
     `W.BENCH.GEN_ZERO_COST`.
 
 The trust message: clear the `W.BENCH.GEN_*` flags, keep redundant equations out of your

@@ -88,17 +88,20 @@ adjust to match. The feasible set is all of $\mathbb{C}^n$: closed, but unbounde
 
     - **State unboundedness.** Even on the power-flow manifold, $|V_i|$ can grow
       without limit. Nothing in the equations bounds it.
-    - **Objective unboundedness.** With several free injections, $\mathcal{F}$ has
-      *recession directions* — rays along which you can move forever. A linear
-      objective $c^\top S$ decreases without bound along any recession direction with
-      $c^\top d < 0$.
+    - **Objective unboundedness.** With several free injections, $\mathcal{F}$ admits
+      *unbounded feasible directions* — rays (or, on the nonconvex manifold, feasible
+      paths) along which you can move forever. A linear objective $c^\top S$ decreases
+      without bound along any such direction $d$ with $c^\top d < 0$. (Strictly, the
+      "recession cone" language is exact for the convex relaxation of $\mathcal{F}$; on
+      the manifold itself read it as an asymptotic feasible direction.)
 
     The practical consequence: "the problem is unbounded" is really the conjunction
     *non-compact feasible set* **and** *non-coercive objective*. Fixing either one
-    repairs well-posedness. A strictly convex generation cost can be coercive in the
-    injection coordinates and bound that part of the problem — yet still leave voltage
-    magnitude free. This is why a cost objective alone does not save you: you must
-    still bound the voltages.
+    repairs well-posedness. A *strongly* convex generation cost (a strictly convex
+    quadratic, say — strict convexity alone is not enough: $e^{-x}$ is strictly convex yet
+    bounded below with no minimizer) can be coercive in the injection coordinates and
+    bound that part of the problem — yet still leave voltage magnitude free. This is why a
+    cost objective alone does not save you: you must still bound the voltages.
 
 The takeaway for dataset authors: a benchmark instance with no voltage bounds and a
 non-coercive (e.g. linear, or loss-rewarding) objective is *ill-posed by construction*,
@@ -122,14 +125,16 @@ polynomial system, which generically has finitely many isolated solutions — no
 
 !!! details "Derivation: the two-bus quadratic and the high/low branch"
     Take a source $E\angle 0$ feeding a load bus through a lossless reactance $X$, with
-    the load drawing $P + jQ$. The power-balance relations are
+    the load *consuming* $P + jQ$ (load-positive convention). Writing
+    $\delta = \theta_{\text{source}} - \theta_{\text{load}}$, the power-balance relations
+    at the load bus are
 
     ```math
     P = \frac{EV}{X}\sin\delta, \qquad
     Q = \frac{EV}{X}\cos\delta - \frac{V^2}{X},
     ```
 
-    where $V = |V_2|$ and $\delta$ is the angle difference. Eliminating $\delta$
+    where $V = |V_2|$. Eliminating $\delta$
     (square and add) gives a quadratic in $u = V^2$:
 
     ```math
@@ -156,19 +161,25 @@ distribution feeders,
 [Wang et al. (2018)](https://doi.org/10.1109/TSG.2016.2572060).
 
 The second half is the deeper and more useful fact, and it is why the objective matters
-so much: the high-voltage solution is *the last one to vanish as the system is loaded
-toward its limit*, and the standard computational routes —
+so much: on a **radial** network the high-voltage solution is *the last one to vanish as
+the system is loaded toward its limit*, and the standard computational routes —
 [fixed-point iteration, convex relaxation, and energy-function minimization — all return
 exactly that solution if and only if one exists](https://arxiv.org/abs/1706.05290)
-([Dvijotham, Mallada & Simpson-Porco, 2017](https://arxiv.org/abs/1706.05290)). A
-voltage-maximizing / loss-minimizing objective is the lever that pins you to the
-physical branch.
+([Dvijotham, Mallada & Simpson-Porco, 2017](https://arxiv.org/abs/1706.05290), a radial
+result). A voltage-maximizing / loss-minimizing objective is the lever that pins you to
+the physical branch. On meshed and on multiphase/unbalanced networks this is an
+*extrapolation*, not a theorem — see the caveat in the scope section above
+([Bernstein et al., 2018](https://doi.org/10.1109/TPWRS.2018.2823277)).
 
 !!! warning "Definition matters"
     "Single voltage source" here means **one** bus that fixes both angle and magnitude,
-    with *every other bus PQ*. Any PV / voltage-regulating unit reintroduces reactive
-    degrees of freedom and `Q`-limits, and the determined-system argument no longer
-    applies as stated.
+    with *every other bus PQ*. A PV / voltage-regulating bus keeps the system **square**
+    — it swaps the reactive-balance equation for a magnitude specification — so the
+    determined-system count still holds. What it *does* break is (a) the PQ-network
+    uniqueness theorems cited below, whose hypotheses assume constant-power buses, and
+    (b) smoothness: once a `Q`-limit is hit, the bus switches PV↔PQ, introducing a
+    complementarity condition (and, in an OPF, a non-smooth active set) that the clean
+    two-branch picture does not cover.
 
 ## 3. Bounds turn power flow into OPF — even as a feasibility problem
 
@@ -221,9 +232,11 @@ well-posedness in Section 1.
 Voltage collapse is a saddle-node bifurcation: the high- and low-voltage solutions
 coalesce and disappear at the nose, and the power-flow Jacobian is singular there
 ([Dobson & Lu, 1993](https://doi.org/10.1109/59.260912);
-[Simpson-Porco, Dörfler & Bullo, 2016](https://doi.org/10.1038/ncomms10790)). Beyond the
-nose the AC equations have **no real solution** — genuine infeasibility. So with
-constant-power loads, feasibility silently encodes the stability limit.
+[Simpson-Porco, Dörfler & Bullo, 2016](https://doi.org/10.1038/ncomms10790)). In the
+two-bus system, beyond the nose the AC equations have **no real solution** — genuine
+infeasibility; in a network it is the coalescing high/low pair that vanishes along the
+loading ray (other, more remote solution branches may persist, but not the operational
+one). So with constant-power loads, feasibility silently encodes the stability limit.
 
 !!! warning "Collapse is not exactly the nose, once loads are voltage-dependent"
     The saddle-node point coincides with the maximum-power (nose) point only for pure
@@ -256,11 +269,16 @@ constant-power loads, feasibility silently encodes the stability limit.
 ## 5. The objective decides everything
 
 !!! tip "Takeaway"
-    A relaxation is exact, and the nonconvex problem stays on the high-voltage branch,
-    when the objective is **non-decreasing in every nodal generation — equivalently, in
-    line losses**. Loss / cost / slack-power minimization satisfies this. An objective
-    that rewards higher losses or currents both drags the exact model toward the
-    low-voltage branch **and** breaks relaxation exactness, so the relaxed answer stops
+    An objective **non-decreasing in every nodal generation — equivalently, in line
+    losses** is the *objective-side* condition for a relaxation to be exact and for the
+    nonconvex problem to stay on the high-voltage branch. It is necessary in practice but
+    **not sufficient on its own**: the exactness theorems also need *network-side*
+    conditions (radiality, non-binding upper voltage bounds, and either no binding
+    generator lower bounds or permitted load over-satisfaction — see the proof sketch
+    below and Section 3). Loss / cost /
+    slack-power minimization supplies the objective-side condition; an objective that
+    rewards higher losses or currents fails even that, dragging the exact model toward the
+    low-voltage branch **and** breaking relaxation exactness, so the relaxed answer stops
     corresponding to any real operating point.
 
 In the branch-flow relaxation the squared-current variable $\ell_{ij}$ satisfies the
@@ -286,20 +304,25 @@ the solution is no longer physical
     worsen the objective, contradicting optimality. The physical reading is that
     reducing a line's loss increases every upstream reverse flow.
 
-    The recurring technical conditions in the exactness literature —
-    [no generator lower bounds, or allowing **load over-satisfaction**](https://doi.org/10.1109/TPWRS.2015.2402640)
+    The recurring technical conditions in the exactness literature — no generator lower
+    bounds, or allowing **load over-satisfaction**
     ([Sojoudi & Lavaei, 2012](https://doi.org/10.1109/PESGM.2012.6345272);
     [Gan et al., 2015](https://arxiv.org/abs/1311.7170)) — are exactly the assumptions
     that *simultaneously* guarantee boundedness (Section 1), keep you on the
     high-voltage branch (Section 2), and hold you away from collapse (Section 4). They
-    are one set of conditions wearing three hats. When the relaxation is not exact,
-    [it is generally impossible to attach a physical meaning to the
-    solution](https://www2.isye.gatech.edu/~xsun84/publications/OPFCycle_optonline.pdf).
+    are one set of conditions wearing three hats. When the relaxation is not exact, its
+    optimum need not correspond to any AC-feasible point, so attaching a physical meaning
+    to it is generally unjustified
+    ([Kocuk, Dey & Sun, 2016](https://doi.org/10.1109/TPWRS.2015.2402640);
+    [Molzahn & Hiskens, 2019](https://doi.org/10.1561/3100000012)).
 
 A useful identity ties this back to feasibility: slack power $=$ losses $+$ net load, so
-**minimizing slack injection is loss minimization**. This is why a bare feasibility
-problem is so often quietly turned into a min-slack (loss-min) problem — it makes the
-problem well-posed *and* branch-correct in one move.
+**with all other injections fixed, minimizing slack injection is loss minimization**
+(when other generators are also free, min-slack minimizes losses *plus* their net output,
+which is why min-import can push dispatchable DER against upper voltage bounds — see the
+[decision matrix](decision_matrix.md)). This is why a bare feasibility problem is so often
+quietly turned into a min-slack (loss-min) problem — it makes the problem well-posed *and*
+branch-correct in one move.
 
 The objectives that violate the monotonicity test, and the reformulations that fix them,
 are catalogued in [Objectives that imply loss maximization](loss_maximization.md).

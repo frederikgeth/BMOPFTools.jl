@@ -25,8 +25,9 @@ relaxed solution against the AC equations is the exactness test of
     - **Ill-posedness *before* you solve** — flat objectives, free injections, and
       cost degeneracy — is caught structurally by the benchmark-readiness flags
       (`W.BENCH.GEN_ZERO_COST`, `W.BENCH.GEN_DEGENERATE_COST`, `W.BENCH.GEN_NO_DOF`;
-      see [Methodology § Benchmark readiness](../methodology.md)). A `DUAL_INFEASIBLE`
-      from a zero-cost generator is the runtime echo of `W.BENCH.GEN_ZERO_COST`.
+      see [Methodology § Benchmark readiness](../methodology.md)). Diverging iterates
+      (`NORM_LIMIT`) from a zero-cost generator are the runtime echo of
+      `W.BENCH.GEN_ZERO_COST`.
 
 ## Symptom 1 — `INFEASIBLE_OR_UNBOUNDED` / `DUAL_INFEASIBLE`
 
@@ -105,8 +106,12 @@ violation. JuMP's
 this against any model:
 
 ```julia
-# Solve the relaxation, then test its point against the AC model:
-report = primal_feasibility_report(ac_model, Dict(v => value(v) for v in all_variables(relaxed_model)))
+# Schematic — solve the relaxation, then test its point against the AC model.
+# NOTE: the two models do not share a variable space (ℓ, w vs V, S), so you must
+# first map the relaxed solution into the AC model's variables (recover V from w and
+# the flows, keyed by name/bus), not copy variable objects across models:
+point  = recover_ac_point(relaxed_model)          # your relaxation → AC-variable map
+report = primal_feasibility_report(ac_model, point)
 isempty(report) ? @info("AC-feasible: relaxation exact") :
                   @info("AC-infeasible: relaxation INEXACT", report)
 ```
@@ -124,7 +129,8 @@ slack_A < 1e-3 ? @info("AC-feasible: candidate is a valid power flow") :
                  @info("AC-infeasible: relaxation/candidate INEXACT", slack_A)
 ```
 
-For the branch-flow relaxation you can also read the gap directly per branch:
+For the branch-flow relaxation on a **radial** network you can also read the gap directly
+per branch:
 
 ```math
 \text{gap}_{ij} \;=\; \ell_{ij} \;-\; \frac{|S_{ij}|^2}{v_i}\,,
@@ -135,6 +141,17 @@ slack. For the SDP / BIM relaxation, check the per-clique voltage matrix **rank*
 the ratio of the two largest eigenvalues): a rank-1 matrix (eigenratio $\to \infty$,
 second eigenvalue $\to 0$) means exact
 ([Lupien & Lesage-Landry, 2023](https://arxiv.org/abs/2311.07781)).
+
+!!! warning "Cone tightness is not sufficient on meshed networks"
+    On a **mesh**, all branch cones can bind while the point is still AC-infeasible: the
+    SOC branch-flow relaxation drops the cycle angle-consistency (KVL-around-loops)
+    constraints, so a solution with every $\text{gap}_{ij}\approx 0$ can fail to admit
+    any consistent voltage-angle assignment around a loop. Per-branch tightness certifies
+    exactness only on radial feeders. On meshes, fall back to the direct AC-residual
+    checks above — `primal_feasibility_report` against the AC model, or
+    [`solve_feasibility_opf`](../validation.md)'s slack current — which remain valid
+    regardless of topology because they test the recovered point against the full AC
+    equations rather than the relaxation's own constraints.
 
 !!! tip "Where to expect inexactness"
     Empirically the relaxation goes inexact precisely when **upper voltage bounds bind**

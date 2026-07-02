@@ -49,7 +49,8 @@ formal list.
 - J.-L. Lupien and A. Lesage-Landry, "Ex post conditions for the exactness of optimal
   power flow conic relaxations," 2023. [arXiv](https://arxiv.org/abs/2311.07781)
 - D. K. Molzahn and I. A. Hiskens, "A survey of relaxations and approximations of the
-  power flow equations," *Foundations and Trends in Electric Energy Systems*, 2019.
+  power flow equations," *Foundations and Trends in Electric Energy Systems*, vol. 4,
+  no. 1–2, pp. 1–221, 2019. [DOI](https://doi.org/10.1561/3100000012)
 - L. Bobo, A. Venzke, and S. Chatzivasileiadis, "Second-order cone relaxations of the
   optimal power flow for active distribution grids," 2020.
   [arXiv](https://arxiv.org/abs/2001.00898)
@@ -107,6 +108,11 @@ formal list.
 - O. Hinder and Y. Ye, "A one-phase interior point method for nonconvex optimization"
   (first-order certificates of local infeasibility, local optimality, or unboundedness),
   2018. [arXiv](https://arxiv.org/abs/1801.03072)
+- A. Hauswirth, S. Bolognani, G. Hug, and F. Dörfler, "Generic existence of unique
+  Lagrange multipliers in AC optimal power flow" (LICQ holds generically, via differential
+  topology), *IEEE Control Systems Letters*, vol. 2, no. 4, pp. 791–796, 2018.
+  [DOI](https://doi.org/10.1109/LCSYS.2018.2849657) ·
+  [arXiv](https://arxiv.org/abs/1806.06615)
 - G. Haeser, O. Hinder, and Y. Ye, "On the behavior of Lagrange multipliers in convex and
   non-convex infeasible interior point methods" (LICQ/MFCQ and multiplier boundedness),
   *Mathematical Programming*, vol. 186, pp. 257–288, 2021.

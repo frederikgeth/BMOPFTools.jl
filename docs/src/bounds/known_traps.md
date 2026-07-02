@@ -137,9 +137,9 @@ failure leaves the multipliers non-unique without corrupting the primal point.
 coefficients, or a single generator a zero cost vector.
 
 **Expected behaviour:** `LOCALLY_SOLVED` with a sane primal dispatch but **non-unique or
-blown-up duals**; convergence is slow; a zero-cost generator can even surface as
-`DUAL_INFEASIBLE`. The *dispatch* is unaffected — re-solving from a second start returns
-the same primal point with different multipliers.
+blown-up duals**; convergence is slow; a zero-cost generator (non-coercive objective) can
+even surface as diverging iterates (`NORM_LIMIT`). The *dispatch* is unaffected — re-solving
+from a second start returns the same primal point with different multipliers.
 
 **Look for:** large / start-dependent shadow prices; many iterations for a small problem;
 a primal point that is stable across starts while duals are not.
@@ -201,8 +201,9 @@ Because summing the nodal balances already yields this identity, the added row i
 combination of the KCL rows.
 
 **Expected behaviour:** the problem is mathematically unchanged but the KKT system is
-singular along the redundant direction; Ipopt reports `DUAL_INFEASIBLE` or stalls with
-non-unique multipliers, even though the primal dispatch (if it converges) is fine.
+singular along the redundant direction; Ipopt stalls with non-unique multipliers or
+terminates with diverging iterates (`NORM_LIMIT`), even though the primal dispatch (if it
+converges) is fine.
 
 **Look for:** a model that was well posed becomes ill-conditioned the moment a
 "sanity-check" equality is added; removing that one constraint restores a clean solve.
