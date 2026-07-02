@@ -4,7 +4,8 @@
 #   - output is parseable JSON (bytes → JSON3.read succeeds)
 #   - default output is pretty-printed (multi-line, indented)
 #   - indent=nothing produces compact output
-#   - _meta is never serialised
+#   - the literal "_meta" key is never serialised (its content is persisted
+#     under meta.provenance instead — see the provenance round-trip test)
 #   - no NaN or Inf values in output (JSON does not support these)
 #   - round-trip preserves all top-level keys
 
@@ -67,14 +68,29 @@ end
         @test count('\n', raw) == 0
     end
 
-    @testset "_meta is never serialised" begin
+    @testset "the literal _meta key is never serialised" begin
+        # _meta's *content* is intentionally persisted (under meta.provenance,
+        # see the provenance round-trip test below) so fidelity-loss
+        # inventories and migration notes survive a save/load cycle; only the
+        # top-level "_meta" key itself must never appear verbatim in the JSON.
         net2 = deepcopy(net)
         net2["_meta"] = Dict{String,Any}("tool_private" => "yes")
         buf = IOBuffer()
         write_bmopf(net2, buf)
         raw = String(take!(buf))
-        @test !occursin("\"_meta\"",      raw)
-        @test !occursin("tool_private",   raw)
+        @test !occursin("\"_meta\"", raw)
+        @test occursin("tool_private", raw)   # persisted under meta.provenance
+        parsed = JSON3.read(raw, Dict{String,Any})
+        @test parsed["meta"]["provenance"]["tool_private"] == "yes"
+    end
+
+    @testset "_meta provenance survives a save/load round trip" begin
+        net2 = deepcopy(net)
+        net2["_meta"] = Dict{String,Any}("powerio_warnings" => ["dropped a loadshape"])
+        buf = IOBuffer()
+        write_bmopf(net2, buf)
+        net3 = parse_bmopf(String(take!(buf)); from_string=true)
+        @test net3["_meta"]["powerio_warnings"] == ["dropped a loadshape"]
     end
 
     @testset "all top-level keys are present after round-trip" begin
@@ -83,7 +99,7 @@ end
         raw  = String(take!(buf))
         net2 = parse_bmopf(raw; from_string=true)
         for k in keys(net)
-            k == "_meta" && continue   # tool-private, intentionally dropped
+            k == "_meta" && continue   # re-derived from meta.provenance, not a literal top-level key
             @test haskey(net2, k)
         end
     end
