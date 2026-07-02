@@ -1,11 +1,17 @@
 """
-    to_pmd(net::Dict{String,Any}) -> Dict{String,Any}
+    to_pmd(net::Dict{String,Any}; frequency=50.0, sbase=1e6) -> Dict{String,Any}
 
 Convert a BMOPF network dict to a PowerModelsDistribution ENGINEERING
 model dictionary, suitable for passing directly to PMD's `solve_mc_*`
 functions or `transform_data_model`.
 
 The output includes the `"data_model" => ENGINEERING` marker that PMD expects.
+
+# Keyword arguments
+- `frequency`: system frequency [Hz] written to `settings.base_frequency`
+  (default 50.0 — set 60.0 for North American feeders; BMOPF itself carries
+  no frequency field).
+- `sbase`: power base [W] written to `settings.sbase_default` (default 1e6).
 
 # Key reverse mappings
 - BMOPF `terminal_names` string arrays → PMD `terminals` int arrays
@@ -21,14 +27,15 @@ The output includes the `"data_model" => ENGINEERING` marker that PMD expects.
 - If the BMOPF net contains `_pmd` sub-dicts (carried through from a PMD
   ENGINEERING source), those fields are merged back into the PMD component.
 """
-function to_pmd(net::Dict{String,Any})::Dict{String,Any}
+function to_pmd(net::Dict{String,Any};
+                frequency::Real=50.0, sbase::Real=1e6)::Dict{String,Any}
     eng = Dict{String,Any}()
 
     # PMD requires this marker
     eng["data_model"] = "ENGINEERING"   # caller should set to PMD Enum if using PMD directly
 
     # settings — use defaults if not derivable from BMOPF
-    eng["settings"] = _infer_settings(net)
+    eng["settings"] = _infer_settings(net; frequency, sbase)
     vscale = eng["settings"]["voltage_scale_factor"]
     pscale = eng["settings"]["power_scale_factor"]
 
@@ -88,12 +95,13 @@ end
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-function _infer_settings(net::Dict{String,Any})::Dict{String,Any}
+function _infer_settings(net::Dict{String,Any};
+                         frequency::Real=50.0, sbase::Real=1e6)::Dict{String,Any}
     Dict{String,Any}(
         "voltage_scale_factor" => 1.0,   # BMOPF is in SI (V), PMD default kV → use 1.0
         "power_scale_factor"   => 1.0,   # BMOPF is in SI (W), adjust if needed
-        "base_frequency"       => 50.0,
-        "sbase_default"        => 1e6,
+        "base_frequency"       => Float64(frequency),
+        "sbase_default"        => Float64(sbase),
         "vbases_default"       => Dict{String,Any}()
     )
 end
@@ -316,6 +324,17 @@ function _transformers_to_pmd(xfmr_dict::Dict{String,Any},
             end
             continue
         end
+        if subtype == "center_tap"
+            # A split-phase transformer needs PMD's 3-winding representation;
+            # a 2-winding WYE-WYE with a 3-terminal secondary is malformed.
+            # Skip rather than emit an element PMD cannot interpret.
+            for id in keys(subtypes_dict)
+                @warn "to_pmd: skipping center_tap transformer '$id' — the " *
+                      "split-phase (3-winding) PMD mapping is not implemented; " *
+                      "exporting it as a 2-winding WYE-WYE would be malformed."
+            end
+            continue
+        end
         for (id, xfmr) in subtypes_dict
             pmd_xfmr = _transformer_to_pmd(xfmr, subtype, terminal_int_map, vscale, pscale)
             result[id] = pmd_xfmr
@@ -399,10 +418,42 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
         G = has_g ? Float64(xfmr["g_no_load"]) : 0.0
         B = has_b ? Float64(xfmr["b_no_load"]) : 0.0
         pmd["noloadloss"] = G / y_base
-        pmd["cmag"]       = sqrt(G^2 + B^2) / y_base
+        # cmag is the magnetising susceptance only — matching from_dss's
+        # recovery convention (g_no_load ← noloadloss, b_no_load ← cmag).
+        # Including G here (the old sqrt(G²+B²)) double-counted the core loss
+        # as magnetising current after a DSS round trip, where B is 0.
+        pmd["cmag"]       = abs(B) / y_base
     elseif has_g || has_b
         @warn "Transformer: cannot convert g_no_load/b_no_load to PMD — " *
               "missing v_nom_from or s_rating. No-load branch omitted."
+    end
+
+    # Fixed off-nominal tap: BMOPF `tap` multiplies the from-side ratio
+    # (N_eff = (v_nom_from/v_nom_to)·tap) — PMD's per-winding tm_set carries
+    # the same convention, so a fixed tap round-trips exactly.
+    tap = get(xfmr, "tap", nothing)
+    if tap isa Number && !isapprox(Float64(tap), 1.0)
+        nph_f = count(c -> c != 4, f_conn)
+        nph_t = count(c -> c != 4, t_conn)
+        pmd["tm_set"] = [fill(Float64(tap), max(nph_f, 1)),
+                         fill(1.0, max(nph_t, 1))]
+        pmd["tm_fix"] = [fill(true, max(nph_f, 1)),
+                         fill(true, max(nph_t, 1))]
+    end
+    # Free-tap bounds and per-winding current limits have no faithful PMD
+    # counterpart in this exporter — warn instead of dropping silently.
+    for k in ("tap_min", "tap_max")
+        haskey(xfmr, k) && @warn "to_pmd: transformer field `$k` dropped — " *
+            "free-tap bounds are not mapped to PMD (tm_lb/tm_ub not emitted)."
+    end
+    for k in ("i_max_from", "i_max_to")
+        haskey(xfmr, k) && @warn "to_pmd: transformer field `$k` dropped — " *
+            "PMD has no per-winding current limit on the ENGINEERING transformer."
+    end
+    tr = get(xfmr, "tap_ratio", nothing)
+    if tr !== nothing && !(tr isa Number && isapprox(Float64(tr), 1.0))
+        @warn "to_pmd: regulator `tap_ratio` dropped — the $(subtype) subtype " *
+              "is exported as a plain two-winding transformer at nominal ratio."
     end
 
     pmd["status"] = "ENABLED"

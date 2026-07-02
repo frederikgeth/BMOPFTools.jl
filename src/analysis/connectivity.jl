@@ -40,12 +40,15 @@ function connectivity_analysis(net::Dict{String,Any},
         end
     end
 
-    # Helper: add an edge if both endpoints are known buses
+    # Helper: add an edge if both endpoints are known buses. Self-loops are
+    # excluded from the branch count: SimpleGraph silently drops them, so
+    # counting them would flag a radial network as meshed. They are already
+    # reported separately as E.CONN.SELF_LOOP.
     function add_edge_safe!(bus_a, bus_b)
         (bus_a isa AbstractString && bus_b isa AbstractString) || return
         i = get(bus_index, bus_a, nothing)
         j = get(bus_index, bus_b, nothing)
-        (i === nothing || j === nothing) && return
+        (i === nothing || j === nothing || i == j) && return
         n_branches[] += 1
         add_edge!(g, i, j)
     end

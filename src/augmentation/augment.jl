@@ -81,7 +81,7 @@ function augment_case(net::Dict{String,Any};
     recipe.apply_va_diff_bounds && _apply_angle_diff_bounds!(net′, entries, recipe)
 
     # ── Pass 2: thermal limits ────────────────────────────────────────────────
-    _apply_thermal!(net′, entries, recipe, lc_classifications)
+    _apply_thermal!(net′, entries, recipe, lc_classifications; config)
 
     # ── Pass 3: generation ────────────────────────────────────────────────────
     _apply_generation!(net′, entries, recipe)

@@ -94,6 +94,48 @@ _log_sevs(net)  = [e["severity"] for e in get(net, "_simplification_log", [])]
     @test haskey(net["bus"], "B")
 end
 
+@testset "merge_series_lines — absorbed line's i_max/s_max preserved" begin
+    # Regression: the corridor rating was silently dropped when the rated
+    # segment was the absorbed one; and with both present, the tighter wins.
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(), "B" => _bus(), "C" => _bus()),
+        "linecode" => _lc("lc1"),
+        "line"     => Dict(
+            "l1" => _line("A", "B"; len=100.0),
+            "l2" => _line("B", "C"; len=200.0)),
+        "load"     => Dict("ld" => _load("C")),
+    )
+    net["line"]["l2"]["i_max"] = [80.0, 80.0]
+    net′ = merge_series_lines(net)
+    l = only(values(net′["line"]))
+    @test l["i_max"] == [80.0, 80.0]
+
+    net2 = deepcopy(net)
+    net2["line"]["l1"]["i_max"] = [120.0, 60.0]
+    net2′ = merge_series_lines(net2)
+    l2 = only(values(net2′["line"]))
+    @test l2["i_max"] == [80.0, 60.0]   # elementwise min
+end
+
+@testset "merge_series_lines — self-loop line not merged or destroyed" begin
+    # Regression: a self-loop registers twice at its bus, passed the two-line
+    # gate with l1 ≡ l2, and the "merge" deleted the line and bus outright.
+    # Bus B carries ONLY the self-loop: it registers twice, so B passes the
+    # "exactly two lines, nothing else" pass-through gate.
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(), "B" => _bus(), "C" => _bus()),
+        "linecode" => _lc("lc1"),
+        "line"     => Dict(
+            "l1"   => _line("A", "C"; len=100.0),
+            "loop" => _line("B", "B"; len=5.0)),
+        "load"     => Dict("ld" => _load("C")),
+    )
+    net′ = merge_series_lines(net)
+    @test haskey(net′["line"], "loop")
+    @test haskey(net′["line"], "l1")
+    @test haskey(net′["bus"], "B")
+end
+
 @testset "merge_series_lines — reversed orientation" begin
     # l1: B→A, l2: B→C  (both depart from B — still a valid pass-through)
     net = Dict{String,Any}(
@@ -355,6 +397,49 @@ end
 
     @test net′["bus"]["A"]["v_min"] ≈ [210.0]   # max of 200, 210
     @test net′["bus"]["A"]["v_max"] ≈ [250.0]   # min of 260, 250
+end
+
+@testset "collapse_closed_switches — bounds aligned by phase name" begin
+    # Regression: bounds were combined element-wise by INDEX, so two buses
+    # ordering their phases differently had different phases' bounds paired.
+    net = Dict{String,Any}(
+        "bus" => Dict(
+            "A" => Dict("terminal_names" => ["1","2","n"],
+                        "v_min" => [200.0, 220.0], "v_max" => [260.0, 262.0]),
+            "B" => Dict("terminal_names" => ["2","1","n"],       # reversed order
+                        "v_min" => [230.0, 210.0], "v_max" => [250.0, 252.0])),
+        "switch" => Dict("sw" => _switch("A", "B"; open=false, tmap=["1","2","n"])),
+    )
+    net′ = collapse_closed_switches(net)
+    A = net′["bus"]["A"]
+    # Merged phase order follows A: ["1","2"].
+    # phase 1: max(200, 210) = 210; min(260, 252) = 252
+    # phase 2: max(220, 230) = 230; min(262, 250) = 250
+    @test A["v_min"] ≈ [210.0, 230.0]
+    @test A["v_max"] ≈ [252.0, 250.0]
+
+    # A phase only one side bounds keeps that side's bound; a phase neither
+    # side bounds drops the field with a warning log entry.
+    net2 = Dict{String,Any}(
+        "bus" => Dict(
+            "A" => Dict("terminal_names" => ["1","n"], "v_max" => [260.0]),
+            "B" => Dict("terminal_names" => ["1","2","n"], "v_max" => [250.0, 255.0])),
+        "switch" => Dict("sw" => _switch("A", "B"; open=false, tmap=["1","n"])),
+    )
+    net2′ = collapse_closed_switches(net2)
+    A2 = net2′["bus"]["A"]
+    @test A2["terminal_names"] == ["1","n","2"]
+    @test A2["v_max"] ≈ [min(260.0, 250.0), 255.0]   # phase 2 from B only
+
+    net3 = Dict{String,Any}(
+        "bus" => Dict(
+            "A" => Dict("terminal_names" => ["1","n"], "v_max" => [260.0]),
+            "B" => Dict("terminal_names" => ["1","2","n"])),   # no bounds, adds phase 2
+        "switch" => Dict("sw" => _switch("A", "B"; open=false, tmap=["1","n"])),
+    )
+    net3′ = collapse_closed_switches(net3)
+    @test !haskey(net3′["bus"]["A"], "v_max")
+    @test "BOUND_DROPPED" in _log_codes(net3′)
 end
 
 @testset "collapse_closed_switches — terminal union from both buses" begin

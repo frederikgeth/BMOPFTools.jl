@@ -601,6 +601,114 @@
         @test res["generator"]["g1"]["1"]["pg"] ≈ 200_000.0   rtol=1e-3
     end
 
+    @testset "T11b: per-unit — linecode shared across voltage levels is split" begin
+        # Regression: one z_base was taken per linecode (from the first
+        # referencing line), so a linecode shared by MV and LV lines had the
+        # other level's impedances scaled with the wrong base — silently.
+        net = parse_bmopf("""
+        {"bus":{
+            "mvsrc":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "mvb":  {"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "lvb":  {"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "lvb2": {"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"mvsrc","terminal_map":["1"],
+             "v_magnitude":[11000.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.4,"R_series_2_2":0.4}},
+         "line":{
+             "lmv":{"bus_from":"mvsrc","bus_to":"mvb",
+                 "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+                 "linecode":"lc","length":100.0},
+             "llv":{"bus_from":"lvb","bus_to":"lvb2",
+                 "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+                 "linecode":"lc","length":50.0}},
+         "transformer":{"single_phase":{"tx":{"bus_from":"mvb","bus_to":"lvb",
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
+             "s_rating":100000.0,"v_nom_from":11000.0,"v_nom_to":230.0,
+             "r_series_from":1.0,"x_series_from":5.0}}},
+         "load":{"ld":{"bus":"lvb2","terminal_map":["1","n"],"configuration":"WYE",
+             "p_nom":[1000.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+
+        ext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
+        @test ext !== nothing
+        net_pu, bases = ext._to_per_unit(net, 1e6)
+
+        # The shared linecode must have been split into two.
+        @test length(net_pu["linecode"]) == 2
+        lc_mv_id = net_pu["line"]["lmv"]["linecode"]
+        lc_lv_id = net_pu["line"]["llv"]["linecode"]
+        @test lc_mv_id != lc_lv_id
+
+        # Each copy is scaled with its own level's z_base.
+        zb_mv = bases.z_base["mvsrc"]
+        zb_lv = bases.z_base["lvb"]
+        @test zb_mv != zb_lv
+        @test net_pu["linecode"][lc_mv_id]["R_series_1_1"] ≈ 0.4 / zb_mv
+        @test net_pu["linecode"][lc_lv_id]["R_series_1_1"] ≈ 0.4 / zb_lv
+
+        # The user's dict is untouched.
+        @test collect(keys(net["linecode"])) == ["lc"]
+        @test net["line"]["llv"]["linecode"] == "lc"
+    end
+
+    @testset "T-HOOK: verbose, solver_options, model_hook!" begin
+        net = _pu_net()
+
+        # model_hook! can replace the objective — the standard cost objective
+        # (−10 000, see T11) is overridden with a feasibility objective.
+        res = solve_opf(net; model_hook! = ctx -> JuMP.@objective(ctx.model, Min, 0.0))
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test abs(res["objective"]) < 1e-6
+
+        # model_hook! can add a constraint: cap the generator's export below
+        # its unconstrained optimum (p_max = 200 kW binds at cost −0.05).
+        # bus1's neutral is perfectly grounded, so P = vr·crg + vi·cig.
+        res2 = solve_opf(net; model_hook! = ctx -> begin
+            vr = ctx.vars[:vr];  vi = ctx.vars[:vi]
+            crg = ctx.vars[:crg]; cig = ctx.vars[:cig]
+            JuMP.@constraint(ctx.model,
+                vr[("bus1","1")]*crg[("g1",1)] +
+                vi[("bus1","1")]*cig[("g1",1)] <= 150_000.0)
+        end)
+        @test res2["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test res2["objective"] ≈ -0.05 * 150_000.0   rtol=1e-3
+        @test res2["generator"]["g1"]["1"]["pg"] ≈ 150_000.0   rtol=1e-3
+
+        # solver_options are applied as raw solver attributes.
+        res3 = solve_opf(net; solver_options=["max_iter" => 1])
+        @test res3["termination_status"] == "ITERATION_LIMIT"
+
+        # verbose=true streams the solver log (smoke: still solves).
+        res4 = solve_opf(net; verbose=true)
+        @test res4["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    end
+
+    @testset "T-WSTART: warm start honours a/b/c terminal naming" begin
+        # Regression: canonical 120° start angles were keyed by the literal
+        # names "1"/"2"/"3"; a bus using another convention (not covered by
+        # the source's own terminal_map) started degenerately co-phasal.
+        net = parse_bmopf("""
+        {"bus":{
+            "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+            "b1": {"terminal_names":["a","b","c","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944]}},
+         "linecode":{"lc":{"R_series_1_1":3.96e-4,"R_series_2_2":3.96e-4,
+                           "R_series_3_3":3.96e-4,"R_series_4_4":3.96e-4}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["a","b","c","n"],
+             "linecode":"lc","length":10.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["a","b","c","n"],"configuration":"WYE",
+             "p_nom":[1000.0,1000.0,1000.0],"q_nom":[0.0,0.0,0.0]}}}
+        """; from_string=true)
+        res = solve_opf(net)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        init = res["initialisation"]["b1"]
+        @test init["a"]["va_init"] ≈ 0.0      atol=1e-6
+        @test init["b"]["va_init"] ≈ -2.0944  atol=1e-3
+        @test init["c"]["va_init"] ≈  2.0944  atol=1e-3
+    end
+
     @testset "T12: per_unit=true and per_unit=false agree" begin
         net    = _pu_net()
         r_si   = solve_opf(net)

@@ -57,9 +57,13 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
         # source's terminal_map lists only phase terminals; lines/loads attached
         # to this bus also bring a neutral terminal there, which would otherwise
         # be a free variable with no voltage reference (a KKT null space). The
-        # slack neutral return current below satisfies neutral KCL.
+        # slack neutral return current below satisfies neutral KCL. The neutral
+        # name comes from the bus's own declaration (neutral_terminal field /
+        # convention heuristics) rather than assuming the literal name "n".
+        src_bus_nt = BMOPFTools._neutral_terminal(
+            get(get(net, "bus", Dict()), bus, Dict{String,Any}()))
         for (b, t) in keys(vr)
-            b == bus && lowercase(t) == "n" || continue
+            b == bus && (t == src_bus_nt || lowercase(t) == "n") || continue
             JuMP.is_fixed(vr[(bus, t)]) || fix(vr[(bus, t)], 0.0; force=true)
             JuMP.is_fixed(vi[(bus, t)]) || fix(vi[(bus, t)], 0.0; force=true)
         end

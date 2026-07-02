@@ -182,8 +182,15 @@ function _merge_series_lines!(net)
             end
 
             l1_id, l2_id = lids[1], lids[2]
+            # A self-loop line registers twice at its bus and would satisfy the
+            # two-line gate with l1 ≡ l2; "merging" it would delete the element
+            # and its bus outright. Skip — self-loops are a data error reported
+            # by connectivity_analysis.
+            (l1_id == l2_id) && continue
             l1 = lines[l1_id]
             l2 = lines[l2_id]
+            (get(l1, "bus_from", nothing) == get(l1, "bus_to", nothing) ||
+             get(l2, "bus_from", nothing) == get(l2, "bus_to", nothing)) && continue
 
             lc1 = get(l1, "linecode", nothing)
             lc2 = get(l2, "linecode", nothing)
@@ -241,6 +248,19 @@ function _merge_series_lines!(net)
             l1["terminal_map_to"]   = tmap_C
             l1["length"]          = len1 + len2
             l1["_merged_from"]    = vcat(get(l1, "_merged_from", String[]), [l2_id])
+
+            # The corridor's rating is the tighter of the two segments'
+            # line-level overrides; dropping the absorbed line's i_max/s_max
+            # would silently relax a thermal constraint.
+            for key in ("i_max", "s_max")
+                v1 = get(l1, key, nothing); v2 = get(l2, key, nothing)
+                if v1 isa AbstractVector && v2 isa AbstractVector
+                    n = min(length(v1), length(v2))
+                    l1[key] = [min(Float64(v1[k]), Float64(v2[k])) for k in 1:n]
+                elseif v1 === nothing && v2 !== nothing
+                    l1[key] = deepcopy(v2)
+                end
+            end
 
             delete!(lines, l2_id)
             delete!(get(net, "bus", Dict()), bus_id)
@@ -363,7 +383,19 @@ function _collapse_closed_switches!(net)
                 continue
             end
 
-            # Merge: b_fr survives, b_to absorbed.
+            # Merge: b_fr survives, b_to absorbed. Capture each bus's own
+            # phase-terminal order first — the per-phase bound arrays are
+            # indexed by it, and the two buses may order their phases
+            # differently.
+            _phases(bus) = begin
+                tn = String.(get(bus, "terminal_names", String[]))
+                nt = get(bus, "neutral_terminal", nothing)
+                nt === nothing && (nt = _neutral_terminal(tn))
+                [t for t in tn if t != nt]
+            end
+            ph_f = _phases(bus_f)
+            ph_t = _phases(bus_t)
+
             merged_terminals = copy(get(bus_f, "terminal_names", String[]))
             for t in get(bus_t, "terminal_names", String[])
                 t in merged_terminals || push!(merged_terminals, t)
@@ -375,17 +407,45 @@ function _collapse_closed_switches!(net)
                 Set(String.(get(bus_t, "perfectly_grounded_terminals", String[])))))
             isempty(pg_merged) || (bus_f["perfectly_grounded_terminals"] = pg_merged)
 
-            # Tighter voltage bounds. v_min/v_max are per-phase arrays; combine
-            # element-wise (max of the lower bounds, min of the upper bounds).
+            # Tighter voltage bounds, aligned by phase-terminal NAME (max of
+            # the lower bounds, min of the upper bounds where both buses bound
+            # the same phase). A blind element-wise combine would pair
+            # different phases whenever the orderings differ.
+            merged_phases = _phases(bus_f)
+            _by_name(phs, vals) = Dict(phs[i] => Float64(vals[i])
+                                       for i in 1:min(length(phs), length(vals)))
             for (field, op) in (("v_min", max), ("v_max", min))
                 vf = get(bus_f, field, nothing)
                 vt = get(bus_t, field, nothing)
-                if vf !== nothing && vt !== nothing
-                    fv = Float64.(vf); tv = Float64.(vt)
-                    n = min(length(fv), length(tv))
-                    bus_f[field] = [op(fv[i], tv[i]) for i in 1:n]
-                elseif vt !== nothing
-                    bus_f[field] = Float64.(vt)
+                (vf === nothing && vt === nothing) && continue
+                bf = vf isa AbstractVector ? _by_name(ph_f, vf) : Dict{String,Float64}()
+                bt = vt isa AbstractVector ? _by_name(ph_t, vt) : Dict{String,Float64}()
+                vals = Float64[]
+                complete = true
+                for t in merged_phases
+                    hf = haskey(bf, t); ht = haskey(bt, t)
+                    if hf && ht
+                        push!(vals, op(bf[t], bt[t]))
+                    elseif hf || ht
+                        push!(vals, hf ? bf[t] : bt[t])
+                    else
+                        complete = false
+                        break
+                    end
+                end
+                if complete
+                    bus_f[field] = vals
+                else
+                    # A merged phase has no bound from either side; a per-phase
+                    # array cannot carry holes, so drop the field with a log
+                    # entry rather than fabricate a value.
+                    delete!(bus_f, field)
+                    _simlog!(net, "collapse_closed_switches", "BOUND_DROPPED",
+                        "warning", "bus", b_fr,
+                        "Merged bus $b_fr: `$field` dropped — phase set after " *
+                        "collapsing switch $sid has phases with no bound on " *
+                        "either side.",
+                        detail=Dict("field" => field, "bus_absorbed" => b_to))
                 end
             end
 

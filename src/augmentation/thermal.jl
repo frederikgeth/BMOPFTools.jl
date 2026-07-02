@@ -63,7 +63,8 @@ Find the nearest IEC 60228 table entry for the given R₁₁ (Ω/m).
 Returns (cross_section_mm2, ampacity_A, note_string) or nothing if no match
 within tolerance.
 """
-function _lookup_ampacity(r11_ohm_per_m::Float64, conductor_type::Symbol)
+function _lookup_ampacity(r11_ohm_per_m::Float64, conductor_type::Symbol;
+                          tolerance::Float64=_THERMAL_TOLERANCE)
     r11_mohm = r11_ohm_per_m * 1000.0   # convert to mΩ/m
 
     best_row  = nothing
@@ -77,7 +78,7 @@ function _lookup_ampacity(r11_ohm_per_m::Float64, conductor_type::Symbol)
     end
 
     best_row === nothing && return nothing
-    best_reld > _THERMAL_TOLERANCE && return nothing
+    best_reld > tolerance && return nothing
 
     r_tab, mm2, amp_ug, amp_oh = best_row
     amp = if conductor_type == :overhead
@@ -96,8 +97,12 @@ end
 function _apply_thermal!(net′::Dict{String,Any},
                           entries::Vector{TransformEntry},
                           r::AugmentationRecipe,
-                          linecode_classifications::Dict{String,String})
+                          linecode_classifications::Dict{String,String};
+                          config::Dict=_DEFAULT_CONFIG)
     r.apply_thermal || return
+    # Read the tolerance from the per-call config (a module-load-time constant
+    # would silently ignore an augment_case(...; config=) override).
+    tolerance = Float64(_thermal_cfg(config)["tolerance"])
 
     linecodes = get(net′, "linecode", Dict())
 
@@ -127,13 +132,13 @@ function _apply_thermal!(net′::Dict{String,Any},
             continue
         end
 
-        result = _lookup_ampacity(Float64(r11), r.conductor_type)
+        result = _lookup_ampacity(Float64(r11), r.conductor_type; tolerance)
         if result === nothing
             push!(entries, TransformEntry(
                 :linecode, lcid, "i_max", nothing, nothing,
                 "IEC60228:2004+IEC60364-5-52:2009", confidence,
                 "skipped: R₁₁=$(round(Float64(r11)*1000, digits=3)) mΩ/m " *
-                "outside lookup range (no match within $(round(_THERMAL_TOLERANCE*100))%)"))
+                "outside lookup range (no match within $(round(tolerance*100))%)"))
             continue
         end
 

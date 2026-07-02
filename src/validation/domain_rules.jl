@@ -369,7 +369,9 @@ function _check_load_power_factor(net, findings, thresh, n_checks)
         for (pi, qi) in zip(p, q)
             s = hypot(pi, qi)
             s <= 0 && continue
-            pf = pi / s
+            # |p|/s: a negative-p load (embedded export, tolerated by
+            # I.DOM.NEGATIVE_LOAD) must not read as pf < 0 here.
+            pf = abs(pi) / s
             if pf < pf_min
                 push!(findings, Finding(WARNING, "W.DOM.LOAD_PF_LOW", :domain_rules, :load, id,
                     "Load '$id' has power factor $(round(pf, digits=3)) < $pf_min.",

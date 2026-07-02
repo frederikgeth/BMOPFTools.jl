@@ -320,6 +320,25 @@ end
     # But with thermal_min_confidence = :low it should be written
     net2′, _ = augment_case(net; recipe=AugmentationRecipe(thermal_min_confidence=:low))
     @test haskey(net2′["linecode"]["lc_seq"], "i_max")
+
+    # Regression: a per-call config override of [thermal].tolerance must be
+    # honoured (the tolerance used to be baked into a module-load constant).
+    # R₁₁ = 0.45 mΩ/m sits ~14 % from the nearest table row (0.396): it
+    # matches under the default 15 % tolerance but not under a 1 % override.
+    net_off = deepcopy(net)
+    for k in ("R_series_1_1", "R_series_2_2", "R_series_3_3")
+        net_off["linecode"]["lc_seq"][k] = 0.00045
+    end
+    recipe_low = AugmentationRecipe(thermal_min_confidence=:low)
+    netd′, _ = augment_case(net_off; recipe=recipe_low)
+    @test haskey(netd′["linecode"]["lc_seq"], "i_max")   # default 15 % matches
+
+    tight = deepcopy(load_config())
+    tight["thermal"]["tolerance"] = 0.01
+    net3′, mf3 = augment_case(net_off; recipe=recipe_low, config=tight)
+    @test !haskey(net3′["linecode"]["lc_seq"], "i_max")
+    e3 = only(filter(x -> x.component_id == "lc_seq" && x.field == "i_max", mf3.entries))
+    @test contains(e3.note, "outside lookup range")
 end
 
 # ── T3: Generation ───────────────────────────────────────────────────────────

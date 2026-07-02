@@ -1045,6 +1045,51 @@ println(diag["is_feasible"])            # false if network is overloaded
 println(diag["total_infeasibility_A"])  # L2 norm of all slacks (A)
 ```
 
+## Solver control and extending the formulation
+
+All three entry points (`solve_opf`, `solve_pf`, `solve_feasibility_opf`)
+accept:
+
+- `verbose=true` — stream the solver log instead of silencing it.
+- `solver_options` — an iterable of `name => value` pairs applied as raw
+  solver attributes *after* the problem's own defaults (so yours win), e.g.
+  `solver_options = ["max_iter" => 3000, "tol" => 1e-9]` for Ipopt.
+- `optimizer` — any JuMP-compatible NLP optimizer, e.g.
+  `optimizer = MadNLP.Optimizer` (Ipopt is only the default; the one
+  Ipopt-specific setting in `solve_feasibility_opf` is skipped with a warning
+  for other solvers).
+
+Researchers who need to modify the formulation — add a constraint, swap the
+objective, or stamp a new device — can pass a **`model_hook!`** without
+forking the package. The hook is called as `hook!(ctx)` after the standard
+model is built and *before* Kirchhoff's current law is enforced and the model
+is solved. `ctx` exposes:
+
+| field | contents |
+|---|---|
+| `ctx.model` | the JuMP model — `@constraint`/`@objective` work directly |
+| `ctx.net` | the engine's working copy of the network (snapshot + per-unit applied) |
+| `ctx.vars` | variable dict: `:vr`/`:vi` keyed `(bus, terminal)`, `:crg`/`:cig` keyed `(gen_id, conductor)`, `:cr_fr`/`:ci_fr`/… (see the module docstring of `BMOPFOpfExt` for the full list) |
+| `ctx.bus_terminals` | bus id → ordered terminal names |
+| `ctx.grounded` | set of perfectly-grounded `(bus, terminal)` pairs |
+| `ctx.kcl_r` / `ctx.kcl_i` | per-`(bus, terminal)` KCL accumulator expressions — `JuMP.add_to_expression!` into these to inject current from a custom device |
+
+Example — cap one generator's phase active power below its box bound:
+
+```julia
+using JuMP
+result = solve_opf(net; model_hook! = ctx -> begin
+    vr, vi   = ctx.vars[:vr],  ctx.vars[:vi]
+    crg, cig = ctx.vars[:crg], ctx.vars[:cig]
+    # P = (v_ph − v_n)·crg + … ; with a grounded neutral this reduces to:
+    @constraint(ctx.model,
+        vr[("bus1","1")]*crg[("g1",1)] + vi[("bus1","1")]*cig[("g1",1)] <= 150e3)
+end)
+```
+
+The model is solved in the model's working units: SI by default, per-unit
+when `per_unit=true` — scale hand-written constants accordingly.
+
 ---
 
 ## API reference
