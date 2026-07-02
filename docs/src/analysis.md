@@ -33,7 +33,7 @@ upper bound.
 ## The report
 
 [`render`](@ref) writes nine sections (terminal with ANSI colour, or
-Markdown via a `.md` path / [`render_markdown`](@ref)):
+Markdown via a `.md` path / [`BMOPFTools.render_markdown`](@ref)):
 
 1. **Component inventory**
 2. **Voltage levels** — level table + transformer transitions

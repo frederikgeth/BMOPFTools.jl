@@ -358,7 +358,7 @@ end
     net    = _base_net()
     result = _base_result()   # all phases at 230 V, source base 230 V
 
-    vz = voltage_zone_summary(net, result)
+    vz = BMOPFTools.voltage_zone_summary(net, result)
     @test vz["n_zones"] == 1   # sourcebus—b1 joined by line l1: one galvanic zone
     z = vz["zones"][1]
 
@@ -380,7 +380,7 @@ end
     result["bus"]["b1"]["a"]["vm"] = 150.0
     result["bus"]["b1"]["n"]["vm"] = 5.0
 
-    vz = voltage_zone_summary(net, result)
+    vz = BMOPFTools.voltage_zone_summary(net, result)
     z  = vz["zones"][1]
     @test z["status"] == "violation"
     @test z["vm_min_bus"] == "b1"
@@ -565,7 +565,7 @@ end
     result = _base_result()
     result["bus"]["b1"]["a"]["vm"] = 150.0   # b1 below v_min, worst deviation
 
-    vz = voltage_zone_summary(net, result)
+    vz = BMOPFTools.voltage_zone_summary(net, result)
     rows = vz["zones"][1]["bus_rows"]
     @test length(rows) == 2                  # sourcebus + b1
     @test rows[1]["bus"] == "b1"             # sorted worst-deviation-first
@@ -815,7 +815,7 @@ end
     result["bus"]["b1"]["b"]["vm"] = 259.0   # within 1 % of v_max 260 → active
     result["bus"]["b1"]["c"]["vm"] = 261.0   # above v_max 260       → violation
 
-    vz = voltage_zone_summary(net, result)
+    vz = BMOPFTools.voltage_zone_summary(net, result)
     zone = vz["zones"][1]
     @test zone["v_base"] ≈ 235.0             # (230 + 240) / 2
     @test zone["status"] == "violation"      # the 261 V phase dominates

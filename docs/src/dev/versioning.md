@@ -7,7 +7,7 @@ break a downstream user or an existing case file:
 1. The **package version** — the Julia package SemVer in `Project.toml`
    (currently `0.1.0`). Governs the *code* API.
 2. The **data-model (spec) version** — the BMOPF JSON schema version, tracked in
-   `meta.$schema` and migrated by [`migrate`](../api.md). Governs the *data*.
+   `meta.$schema` and migrated by [`BMOPFTools.migrate`](../api.md). Governs the *data*.
 
 A change can touch one, the other, or both. They are released on different
 cadences and have different compatibility promises.
@@ -38,6 +38,13 @@ these is breaking and must bump the minor version:
 - **Finding codes** — renaming or removing a code, or changing a code's
   *semantics* (what triggers it). Adding a new code is additive, not breaking,
   but still needs a [`findings.md`](../findings.md) row.
+
+Some documented functions are deliberately **not exported** and must be called
+qualified (`BMOPFTools.migrate`, `BMOPFTools.render_markdown`,
+`BMOPFTools.render_terminal`, `BMOPFTools.voltage_zone_summary`): their
+*behaviour* follows the same stability rules, but their *names* are not part of
+the export surface and may move with a documented deprecation rather than a
+breaking bump.
 - **Result-dict shape** — the structure of the dict returned by
   [`solve_opf`](../opf.md) / consumed by [`profile_solution`](../results.md).
 - **Report shape** — the fields of `Finding`, `SummaryReport`, `SolutionReport`.
@@ -54,8 +61,8 @@ The machinery lives in `src/io/migrate.jl`:
 - `_SPEC_VERSIONS` maps each canonical `meta.$schema` URI to an internal version
   tag symbol.
 - `_CURRENT_SPEC` is the tag this build targets (currently `:draft`).
-- [`parse_bmopf`](../api.md) calls [`migrate`](../api.md) automatically; you can
-  also call `migrate` directly on an already-parsed dict.
+- [`parse_bmopf`](../api.md) calls [`BMOPFTools.migrate`](../api.md) automatically; you can
+  also call `BMOPFTools.migrate` directly on an already-parsed dict.
 - Each upgrade appends a `W.MIGRATE.UPGRADED` note to `_meta` so the
   transformation is auditable.
 

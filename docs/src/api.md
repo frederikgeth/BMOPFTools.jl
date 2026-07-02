@@ -51,7 +51,7 @@ parse_bmopf
 write_bmopf
 write_result
 read_result
-migrate
+BMOPFTools.migrate
 is_timeseries
 get_snapshot
 sideload_coordinates!
@@ -78,8 +78,8 @@ to_dss
 ```@docs
 analyze
 render
-render_terminal
-render_markdown
+BMOPFTools.render_terminal
+BMOPFTools.render_markdown
 render_ascii_tree
 ```
 
@@ -89,7 +89,7 @@ render_ascii_tree
 profile_solution
 render_solution
 solution_check
-voltage_zone_summary
+BMOPFTools.voltage_zone_summary
 ```
 
 ## Configuration
