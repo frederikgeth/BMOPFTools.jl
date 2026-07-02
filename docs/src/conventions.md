@@ -483,7 +483,7 @@ fields if they are absent: `$schema`, `generator`, and `created`.
 Caller-supplied values are never overwritten.
 
 **On parse.** [`parse_bmopf`](@ref) and [`from_dss`](@ref)
-carry `net["meta"]` through unchanged.  [`migrate`](@ref) reads
+carry `net["meta"]` through unchanged.  [`BMOPFTools.migrate`](@ref) reads
 `meta.$schema` to detect the spec version and apply forward migrations.
 The schema checker validates known fields and flags format violations as
 warnings (`W.SCHEMA.META_*`).
@@ -517,7 +517,7 @@ downstream code should treat them as advisory.
 | `terminal_coercions` | [`parse_bmopf`](@ref) | `{"n": <count>, "mode": "<alias|verbatim>"}` — populated when non-string terminal IDs were normalised. See `W.SPEC.TERMINAL_TYPES`. |
 | `powerio_source` | `from_dss` | Absolute path of the `.dss` file that was converted. |
 | `powerio_warnings` | `from_dss` | Array of warning strings emitted by the DSS→JSON converter. |
-| `migration_notes` | [`migrate`](@ref) | Array of `W.MIGRATE.UPGRADED` finding dicts appended when a forward migration is applied. |
+| `migration_notes` | [`BMOPFTools.migrate`](@ref) | Array of `W.MIGRATE.UPGRADED` finding dicts appended when a forward migration is applied. |
 
 ## Time series (extension)
 

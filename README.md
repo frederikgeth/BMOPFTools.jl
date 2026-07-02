@@ -46,12 +46,24 @@ the line, to enable versioning and control.
 
 **Code** — BSD-3-Clause License.
 
-**Benchmark cases and task force outputs** (everything in `/output`,
-`/test/data`, and `docs/taskforce_feedback.md`) — [Creative Commons Attribution
-4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-Anyone may copy, redistribute, and adapt these materials provided appropriate
-credit is given, a link to the licence is included, and changes are indicated. 
-Note that some cases are restricted to non-commercial use ("MV" and "LV"). 
+**Benchmark cases and task force outputs** — the licence is inherited from
+each dataset's upstream source and therefore differs **per dataset**. The
+matching directories under `/output` are derivatives and carry the same
+licence as their source. Every data directory contains a `License.md`/
+`license.md` with the exact terms and citation; the licence is also stamped
+into each generated case's `meta.license` field.
+
+| Dataset (`test/data/…`) | Licence | Commercial use | Source |
+|---|---|---|---|
+| `ENWL`, `ENWLvariants` | CC BY 4.0 | yes | CSIRO four-wire LV dataset, [10.25919/jaae-vc35](https://doi.org/10.25919/jaae-vc35) |
+| `LV`, `MV`, `Master.dss` (combined), `MVLVmeshed` | **CC BY-NC-SA 4.0** | **no** (non-commercial, share-alike) | CSIRO Australian MV/LV feeder set, [10.25919/ghnz-bk28](https://doi.org/10.25919/ghnz-bk28) |
+| `dsuite_networks_scaled_v1.1` | CC BY 4.0 | yes | D-Suite LV networks (Newcastle University), [10.25405/data.ncl.27175317](https://doi.org/10.25405/data.ncl.27175317) |
+| `SWER`, `pf_comparison`, small fixtures | CC BY 4.0 | yes | authored for BMOPFTools |
+
+Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0. Note that
+CC BY-NC-SA derivatives must be redistributed under the same
+non-commercial/share-alike terms — plan accordingly if you are building a
+commercial offering on these cases.
 
 ## What it does
 

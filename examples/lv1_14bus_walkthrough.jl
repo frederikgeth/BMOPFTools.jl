@@ -270,6 +270,6 @@ sep("12. Export Markdown summary")
 
 md_out = joinpath(@__DIR__, "lv1_14bus_report.md")
 open(md_out, "w") do io
-    render_markdown(report, io)
+    BMOPFTools.render_markdown(report, io)
 end
 println("Written: ", relpath(md_out), "  (", round(filesize(md_out) / 1024, digits=1), " kB)")

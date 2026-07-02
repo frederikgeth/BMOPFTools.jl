@@ -712,8 +712,8 @@ export solve_pf
 export Severity, ERROR, WARNING, INFO
 export Finding, SummaryReport, SolutionReport
 export errors, warnings, infos
-export profile_solution, render_solution, solution_check, voltage_zone_summary
-export parse_bmopf, write_bmopf, migrate
+export profile_solution, render_solution, solution_check
+export parse_bmopf, write_bmopf
 export write_result, read_result
 export to_pmd
 export from_dss, to_dss
@@ -722,7 +722,15 @@ export analyze, render
 export load_config                      # tunable thresholds (config/default.toml)
 export is_timeseries, get_snapshot      # useful for interactive use
 
-# Analysis and validation functions (used directly in tests)
+# NOT exported (call qualified; stable in behaviour, not committed by name):
+#   migrate               — runs automatically inside parse_bmopf
+#   render_markdown/render_terminal — backends of the `render` verb
+#   voltage_zone_summary  — internal aggregation behind profile_solution
+
+# Per-pass analysis and validation entry points. These are deliberate public
+# API (documented in analysis.md and toured by the walkthrough example):
+# each pass is callable standalone for targeted checks, and its finding codes
+# are covered by the stability contract in dev/versioning.md.
 export inventory_analysis
 export voltage_level_analysis
 export connectivity_analysis
@@ -738,7 +746,7 @@ export redundancy_check
 export integrity_check
 export spec_conformance_check
 export benchmark_readiness_check
-export render_markdown, render_terminal, render_ascii_tree
+export render_ascii_tree
 export augment_case, AugmentationRecipe, default_recipe
 export fix_case, FixRecipe
 export add_generators, GeneratorRecipe, default_generator_recipe

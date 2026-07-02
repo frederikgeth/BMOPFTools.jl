@@ -679,7 +679,7 @@ const IEEE13_FIXTURE = """
 
         # render to markdown — should not error
         buf = IOBuffer()
-        render_markdown(report, buf)
+        BMOPFTools.render_markdown(report, buf)
         md = String(take!(buf))
         @test occursin("# BMOPF", md)
         @test occursin("##", md)

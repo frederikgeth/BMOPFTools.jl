@@ -117,20 +117,36 @@ function add_case!(dataset, stem, master, name; meta=nothing)
     push!(cases, (dataset, stem, master, name, meta))
 end
 
+# Per-dataset provenance stamped into meta of every generated case. The
+# licence is inherited from the upstream dataset — see the License.md next to
+# each source directory. NOTE: the CSIRO MV/LV set is NonCommercial-ShareAlike;
+# derivatives must carry the same licence.
+const META_CSIRO_MVLV = Dict{String,Any}(
+    "source"    => "Realistic Australian Medium Voltage Feeder with Associated LV Feeders (CSIRO)",
+    "reference" => "Geth, Heidari, Clark, Lucas & Nimalsiri, 2025, DOI: 10.25919/ghnz-bk28",
+    "license"   => "CC-BY-NC-SA-4.0",
+)
+const META_CSIRO_ENWL = Dict{String,Any}(
+    "source"    => "Four-wire low voltage power network dataset (CSIRO)",
+    "reference" => "Heidarihaei, Geth & Claeys, 2024, DOI: 10.25919/jaae-vc35",
+    "license"   => "CC-BY-4.0",
+)
+
 # ── LV: test/data/LV/<name>/Master.dss ───────────────────────────────────────
 lv_dir = joinpath(DATA_DIR, "LV")
 if isdir(lv_dir)
     for entry in sort(readdir(lv_dir))
         master = joinpath(lv_dir, entry, "Master.dss")
         isfile(master) || continue
-        add_case!("LV", entry, master, entry)
+        add_case!("LV", entry, master, entry; meta=META_CSIRO_MVLV)
     end
 end
 
 # ── Combined MV+LV: test/data/Master.dss ────────────────────────────────────
 combined_master = joinpath(DATA_DIR, "Master.dss")
 if isfile(combined_master)
-    add_case!("combined", "MV_LV_combined", combined_master, "MV_LV_combined")
+    add_case!("combined", "MV_LV_combined", combined_master, "MV_LV_combined";
+              meta=META_CSIRO_MVLV)
 end
 
 # ── ENWL 4-wire: test/data/ENWL/<network>/<feeder>/Master.dss ───────────────
@@ -142,7 +158,8 @@ if isdir(enwl_dir)
         parts = splitpath(rel)
         stem  = join(parts, "_")
         name  = join(parts, " / ")
-        add_case!("ENWL", stem, joinpath(root, "Master.dss"), name)
+        add_case!("ENWL", stem, joinpath(root, "Master.dss"), name;
+                  meta=META_CSIRO_ENWL)
     end
 end
 
@@ -158,7 +175,8 @@ if isdir(enwlv_dir)
         stem     = join(parts[2:end], "_")
         name     = join(parts, " / ")
         dataset  = joinpath("ENWLvariants", variant)
-        add_case!(dataset, stem, joinpath(root, "Master.dss"), name)
+        add_case!(dataset, stem, joinpath(root, "Master.dss"), name;
+                  meta=META_CSIRO_ENWL)
     end
 end
 
