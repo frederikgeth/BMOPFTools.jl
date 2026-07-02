@@ -50,7 +50,8 @@ for (_, l) in net["line"]; l["length"] *= 8.0; end          # 12 km → 96 km
 net["linecode"]["swer"]["R_series_1_1"] = 2.5 / 1000        # Ω/m (realistic SWER)
 println("backbone length   : ", sum(l["length"] for l in values(net["line"]))/1000, " km")
 
-# AS/NZS 4777.2 connection limits at the LV taps (230 V nominal, −6 %/+10 %), and a
+# AS 60038 / AS 61000.3.100 supply-voltage limits at the LV taps (230 V nominal,
+# −6 %/+10 % — the window inverter standards like AS/NZS 4777.2 key off), and a
 # ±10 % envelope on the 12.7 kV backbone. (augment_case now derives equivalent
 # phase-to-earth bounds automatically — the √3 SWER snap is fixed — but we set the
 # regulatory PV limits explicitly so the violations are unambiguous.)
@@ -95,7 +96,7 @@ function Vopf(n)                                                            # OP
 end
 
 # ── 3. Two failure modes ──────────────────────────────────────────────────────
-sep("3. The two failure modes (vs AS/NZS 216.2–253 V at the LV tap)")
+sep("3. The two failure modes (vs AS 60038 216.2–253 V at the LV tap)")
 println("PEAK demand        lv_1 = ", round(V(peak()),  digits=1), " V   (< 216.2 → UNDERVOLTAGE)")
 println("LIGHT load + 55 kW lv_1 = ", round(V(add_pv!(light(), 55.0)), digits=1),
         " V   (> 253 → OVERVOLTAGE)")

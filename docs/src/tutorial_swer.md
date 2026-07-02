@@ -4,6 +4,12 @@ This case study follows one rural feeder — a **Single-Wire Earth-Return (SWER)
 line — to show *where optimisation earns its keep* in distribution planning. Every
 code block runs when the docs are built, so the voltages below are real.
 
+!!! note "Prerequisites"
+    A Julia session with BMOPFTools plus **JuMP** and **Ipopt**
+    (`using Pkg; Pkg.add(["JuMP", "Ipopt"])`), or `julia --project=docs` from a
+    clone of the repository. Building this page runs six Ipopt solves (four
+    power flows, two OPFs) — a few seconds on a laptop.
+
 ## What SWER is, and why it is hard
 
 A SWER line carries single-phase power on **one conductor**, using the **earth
@@ -27,9 +33,11 @@ modes that the literature documents well:
   severe (Sultan & Hawkins, *Rural SWER networks — associated problems and
   cost-effective solutions*, IJEPES 2011).
 - **Light load + rooftop PV → overvoltage.** Modern rural customers export solar.
-  Reverse power flow on the same high-impedance line, plus the light-load
-  line-charging rise, pushes the far end *above* its limit (the North Jericho SWER
-  study, *Capacity improvements for rural SWER systems*, IEEE).
+  Reverse power flow on the same high-impedance line pushes the far end *above*
+  its limit (the North Jericho SWER study, *Capacity improvements for rural SWER
+  systems*, IEEE). On real, very long SWER lines the light-load line-charging
+  (Ferranti) rise adds to this; the fixture used below models no shunt
+  capacitance, so the overvoltage demonstrated here is purely PV reverse flow.
 
 Because **voltage regulation is the capacity-limiting factor**, the cheapest way to
 carry more load or host more PV is not a bigger conductor — it is *better voltage
@@ -94,8 +102,10 @@ net["linecode"]["swer"]["R_series_1_1"] = 2.5 / 1000      # Ω/m
 println("backbone length (km): ", sum(l["length"] for l in values(net["line"]))/1000)
 ```
 
-The LV taps must stay inside the **AS/NZS 4777.2** connection window (230 V nominal,
-−6 %/+10 % → **216.2–253 V**); we hold the 12.7 kV backbone to ±10 %.
+The LV taps must stay inside the Australian **AS 60038 / AS 61000.3.100**
+supply-voltage range (230 V nominal, −6 %/+10 % → **216.2–253 V**) — the same
+window that inverter standards such as AS/NZS 4777.2 key their responses off; we
+hold the 12.7 kV backbone to ±10 %.
 
 ```@example swer
 function set_limits!(n)
@@ -112,30 +122,65 @@ end
 nothing # hide
 ```
 
-Helpers for the operating points and the two candidate devices. The **fixed reactor**
-is a constant inductive shunt (no decision variable); the **controllable compensator**
-is an IBR with `p ≈ 0` and reactive power free in a band, which the OPF
-dispatches (STATCOM-like). Both sit at the SWER end, `swer_2` — the classic location
-for a SWER line reactor.
+Next, the measurement helper and the operating points. `vpn` reads the
+phase-to-neutral magnitude out of a solved result — the quantity the limits bind.
+An operating point is just a scaled copy of the loads: the fixture ships **5 kW**
+of canonical load, so `scale(12.0)` lifts it to a **60 kW aggregated peak**
+approaching the 100 kVA isolating-transformer rating (real SWER peaks are
+transformer-limited), and `scale(2.0)` is a **10 kW light-load trough**.
 
 ```@example swer
-using JuMP, Ipopt
+using JuMP, Ipopt, Printf
 const OPT = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
+# Phase-to-neutral voltage magnitude at bus `bid`, terminal `ph`, from a result.
 vpn(res, bid, ph) = (b = res["bus"][bid];
     abs((b[ph]["vr"] + im*b[ph]["vi"]) -
         (haskey(b, "n") ? b["n"]["vr"] + im*b["n"]["vi"] : 0.0 + 0im)))
 
-scale(K)   = (n = deepcopy(net); for (_, ld) in n["load"]
+# Operating point = the fixture's loads scaled by K (deepcopy → scenarios stay independent).
+scale(K) = (n = deepcopy(net); for (_, ld) in n["load"]
     ld["p_nom"] = ld["p_nom"].*K; ld["q_nom"] = get(ld,"q_nom",[0.0]).*K; end; n)
-add_pv!(n, kw) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
-    n["ibr"]["pv"] = Dict{String,Any}("bus"=>"lv_1", "terminal_map"=>["a","n"],
-        "topology"=>"SINGLE_PHASE", "s_max"=>[kw*1100.0], "p_min"=>[kw*1000.0],
-        "p_max"=>[kw*1000.0], "q_min"=>[0.0], "q_max"=>[0.0],
-        "p_avail"=>[kw*1000.0], "prime_mover"=>"PV"); n)
+nothing # hide
+```
+
+The overvoltage driver is rooftop PV at the `lv_1` tap. **55 kW** — roughly a
+dozen 5 kW rooftop systems behind one tap — pushes ~45 kW *back up* the line
+against the 10 kW trough. The IBR dict pins the unit at full, unity-power-factor
+output, so the power flow sees a fixed injection rather than a dispatchable
+device:
+
+```@example swer
+function add_pv!(n, kw)
+    n["ibr"] = get(n, "ibr", Dict{String,Any}())
+    n["ibr"]["pv"] = Dict{String,Any}(
+        "bus" => "lv_1", "terminal_map" => ["a","n"], "topology" => "SINGLE_PHASE",
+        "prime_mover" => "PV",
+        "s_max"   => [kw*1100.0],   # VA rating: 10 % headroom over P, typical sizing
+        "p_min"   => [kw*1000.0],   # p_min = p_max pins P at full output —
+        "p_max"   => [kw*1000.0],   #   a fixed injection, not a decision variable
+        "q_min"   => [0.0],
+        "q_max"   => [0.0],         # q pinned to 0: unity power factor
+        "p_avail" => [kw*1000.0])   # irradiance-limited available power (= P here)
+    return n
+end
+nothing # hide
+```
+
+Finally the two candidate devices. The **fixed reactor** is a constant inductive
+shunt (no decision variable), at **120 kVAr** sized by trial so the light-load PV
+overvoltage comes back inside 253 V. The **controllable compensator** is an IBR with
+`p = 0` and reactive power free in a band, which the OPF dispatches
+(STATCOM-like); its **180 kVAr** band gives headroom in *both* directions so the
+voltage limits, not the device rating, are what bind. Both sit at the SWER end,
+`swer_2` — the classic location for a SWER line reactor. `Vpf` solves a power
+flow; `Vopf` solves an OPF and returns the voltage plus the compensator dispatch,
+erroring readably if the solve fails.
+
+```@example swer
 add_reactor!(n, kvar) = (n["shunt"] = get(n, "shunt", Dict{String,Any}());
     n["shunt"]["reac"] = Dict{String,Any}("bus"=>"swer_2", "terminal_map"=>["a"],
-        "B_1_1" => -kvar*1000.0 / 12700.0^2); n)
+        "B_1_1" => -kvar*1000.0 / 12700.0^2); n)   # fixed inductive susceptance (S)
 add_comp!(n, kvar) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
     n["ibr"]["comp"] = Dict{String,Any}("bus"=>"swer_2", "terminal_map"=>["a","n"],
         "topology"=>"SINGLE_PHASE", "s_max"=>[kvar*1000.0], "p_min"=>[0.0],
@@ -145,6 +190,8 @@ add_comp!(n, kvar) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
 Vpf(n)  = vpn(solve_pf(n; optimizer=OPT, per_unit=true), "lv_1", "a")
 function Vopf(n)
     r = solve_opf(set_limits!(n); optimizer=OPT, per_unit=true)
+    st = r["termination_status"]
+    st in ("LOCALLY_SOLVED", "OPTIMAL") || error("OPF did not solve: status = ", st)
     vpn(r, "lv_1", "a"), r["ibr"]["comp"]["a"]["qg"]/1000
 end
 nothing # hide
@@ -153,12 +200,16 @@ nothing # hide
 ## 3. The two failure modes
 
 A determined power flow ([`solve_pf`](@ref)) at each operating point shows the
-feeder fall out of the AS/NZS window at *both* ends of its operating range.
+feeder fall out of the AS 60038 supply-voltage window at *both* ends of its
+operating range.
 
 ```@example swer
-println("PEAK demand          lv_1 = ", round(Vpf(scale(12.0)), digits=1),
+v_peak_nc = Vpf(scale(12.0))
+v_pv_nc   = Vpf(add_pv!(scale(2.0), 55.0))
+
+println("PEAK demand            lv_1 = ", round(v_peak_nc, digits=1),
         " V   (< 216.2  → UNDERVOLTAGE)")
-println("LIGHT load + 55 kW PV  lv_1 = ", round(Vpf(add_pv!(scale(2.0), 55.0)), digits=1),
+println("LIGHT load + 55 kW PV  lv_1 = ", round(v_pv_nc, digits=1),
         " V   (> 253    → OVERVOLTAGE)")
 ```
 
@@ -170,10 +221,11 @@ exact mechanism the North Jericho study gives for why fixed reactors cap SWER
 capacity.
 
 ```@example swer
-println("PEAK  + fixed 120 kVAr reactor  lv_1 = ",
-        round(Vpf(add_reactor!(scale(12.0), 120.0)), digits=1), " V   (WORSE)")
-println("PV    + fixed 120 kVAr reactor  lv_1 = ",
-        round(Vpf(add_reactor!(add_pv!(scale(2.0), 55.0), 120.0)), digits=1), " V   (better)")
+v_peak_fr = Vpf(add_reactor!(scale(12.0), 120.0))
+v_pv_fr   = Vpf(add_reactor!(add_pv!(scale(2.0), 55.0), 120.0))
+
+println("PEAK  + fixed 120 kVAr reactor  lv_1 = ", round(v_peak_fr, digits=1), " V   (WORSE)")
+println("PV    + fixed 120 kVAr reactor  lv_1 = ", round(v_pv_fr, digits=1), " V   (better)")
 ```
 
 ## 5. One controllable compensator, optimally dispatched
@@ -193,15 +245,22 @@ println("PV    + compensator  lv_1 = ", round(vl, digits=1),
         " V   (OPF absorbs ", round(ql, digits=0), " kVAr)")
 ```
 
-Both operating points are now inside the AS/NZS window, served by one device, only
+Both operating points are now inside the AS 60038 window, served by one device, only
 because the OPF dispatches it per operating point.
 
 ## Why optimisation matters
 
-| Operating point | No control | Fixed 120 kVAr reactor | Controllable compensator (OPF) |
-|---|---|---|---|
-| Peak demand     | 214 V — under | **195 V — worse** | inject +130 kVAr → **231 V** ✓ |
-| Light + 55 kW PV| 255 V — over  | 237 V ✓ | absorb −52 kVAr → **247 V** ✓ |
+The table is computed from the results above — the same live numbers, side by side:
+
+```@example swer
+@printf("%-18s | %-14s | %-20s | %s\n",
+        "operating point", "no control", "fixed 120 kVAr", "compensator (OPF)")
+println("-"^85)
+@printf("%-18s | %6.1f V under | %6.1f V worse      | %6.1f V ok  (%+.0f kVAr)\n",
+        "peak demand", v_peak_nc, v_peak_fr, vp, qp)
+@printf("%-18s | %6.1f V over  | %6.1f V ok         | %6.1f V ok  (%+.0f kVAr)\n",
+        "light + 55 kW PV", v_pv_nc, v_pv_fr, vl, ql)
+```
 
 Voltage regulation is the SWER capacity limit, and no single static setting spans
 the operating range — the optimiser's per-operating-point reactive dispatch is what
