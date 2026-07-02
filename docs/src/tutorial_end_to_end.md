@@ -15,9 +15,16 @@ not hand-transcribed. The complete copy-paste scripts live in
 [`examples/augment_and_solve.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/augment_and_solve.jl)
 (preparation and solve).
 
-The feeder is `LV1_14bus`: a real 14-bus LV network with an 11 kV / 433 V
-delta–wye transformer, nine cables, four normally-closed switches, two
-single-phase loads and three neutral reactors.
+The feeder is `LV1_14bus`: a real LV network — 14 LV buses plus the 11 kV
+source bus, 15 buses in total — with an 11 kV / 433 V delta–wye transformer,
+nine cables, four normally-closed switches, two single-phase loads and three
+neutral reactors.
+
+!!! note "Prerequisites"
+    A Julia session with BMOPFTools plus **JuMP** and **Ipopt** for the solve
+    step: `using Pkg; Pkg.add(["JuMP", "Ipopt"])` in your own environment. If
+    you are working from a clone of the repository, the docs environment
+    already has everything: `julia --project=docs`.
 
 !!! note "Two deep-dive tutorials branch off this one"
     Once the pipeline makes sense, [DER placement](tutorial_ders.md) explores the
@@ -46,6 +53,11 @@ println(rpad("transformer", 16), ": ", sum(length(v) for v in values(xfmr) if v 
         "  (", join(keys(xfmr), ", "), ")")
 ```
 
+`from_dss` is loud about fidelity: the `Warning` it prints above lists every
+piece of OpenDSS information that has no BMOPF representation and was dropped
+(here mostly cosmetic fields such as linecode `units`); the full list stays
+inspectable at `net["_meta"]["powerio_warnings"]`.
+
 ## 2. Analyze & diagnose
 
 [`analyze`](@ref) runs fifteen passes — inventory, connectivity, voltage levels,
@@ -63,10 +75,14 @@ println("WARNINGs : ", length(warnings(report)))
 println("INFOs    : ", length(infos(report)))
 ```
 
-Findings are meant to be matched on their **code**, never on message text. A raw
-import like this one typically lands clean on structure but flags missing
-operating bounds and modeling-provenance observations — exactly the gaps the
-later steps fill:
+Findings are meant to be matched on their **code**, never on message text. This
+feeder imports with zero errors and two warnings: a handful of degree-1 buses
+with nothing attached (`W.CONN.DANGLING` — switch and stub endpoints), and
+`W.OPS.IMPORT_DEPENDENT` — the feeder has **no local generation at all**. That
+second warning is the analyzer telling you the import is a *passive load
+feeder*: there is nothing for an OPF to optimise yet, which is exactly what the
+DER-placement step below is for. The missing operating bounds show up as INFO
+findings such as `I.PRE.NO_VOLT_BOUNDS`, which the augmentation step fills.
 
 ```@example e2e
 for f in warnings(report)
@@ -89,8 +105,10 @@ repaired network plus a [`TransformationManifest`](@ref) recording every change.
 The default [`FixRecipe`](@ref) keeps the largest connected component, merges
 trivial series lines, drops electrically-inert zero loads, turns
 near-zero-impedance lines into switches, and strips redundant voltage bounds off
-source buses. Two passes are opt-in because they change topology inference or OPF
-physics.
+source buses. Four passes are opt-in because they change topology inference,
+representation, or OPF physics: `apply_adjacent_current_bounds`,
+`apply_perfect_grounding`, `apply_shunt_to_capacitor`, and
+`apply_snap_transformer_impedance`.
 
 ```@example e2e
 net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
@@ -110,14 +128,14 @@ See the [DER placement tutorial](tutorial_ders.md) for the full menu of
 placement strategies, sizing bases, and cost knobs.
 
 ```@example e2e
-inv_recipe = IBRRecipe(
+ibr_recipe = IBRRecipe(
     strategy     = :load_following,   # one PV IBR per load bus
     s_fraction   = 5.0,               # s_max = 5 × local load
     s_to_p_ratio = 0.90,              # leave VA headroom for reactive support
     cost_basis   = :uniform, der_cost_uniform = 0.2,   # cheaper than the slack
 )
 
-net_der, der_mf = add_ibrs(net_fixed; recipe = inv_recipe)
+net_der, der_mf = add_ibrs(net_fixed; recipe = ibr_recipe)
 
 render_manifest(der_mf)
 ```
@@ -139,16 +157,32 @@ render_manifest(aug_mf)
 
 ## 6. Re-validate
 
-Re-running [`analyze`](@ref) on the augmented case confirms the operating-bound
-warnings have cleared — the case is now a well-posed OPF instance.
+Re-running [`analyze`](@ref) on the prepared case shows what the pipeline
+actually changed. Raw counts are a blunt instrument — the interesting signal is
+*which* finding codes appeared and disappeared, so we diff them:
 
 ```@example e2e
 report2 = analyze(net_ready)
 
-println("Before → after augmentation")
-println("  ERRORs   : ", length(errors(report)),  " → ", length(errors(report2)))
-println("  WARNINGs : ", length(warnings(report)), " → ", length(warnings(report2)))
+all_codes(r) = Set(f.code for f in [errors(r); warnings(r); infos(r)])
+before, after = all_codes(report), all_codes(report2)
+
+println("ERRORs   : ", length(errors(report)),   " → ", length(errors(report2)))
+println("WARNINGs : ", length(warnings(report)), " → ", length(warnings(report2)))
+println("Cleared  : ", join(sort(collect(setdiff(before, after))), ", "))
+println("New      : ", join(sort(collect(setdiff(after, before))), ", "))
 ```
+
+Augmentation cleared `I.PRE.NO_VOLT_BOUNDS` — every bus now has voltage bounds,
+so the OPF is well-posed — and the new INFO codes are consequences of the fills
+(e.g. `I.PROV.OVERLAPPING_VOLTAGE_BOUNDS` notes that the phase-to-ground and
+phase-to-neutral envelopes now coexist). The warning count, however, stays at
+two: these are **structural** findings that gap-filling does not (and should
+not) touch. A few degree-1 stub buses survive `fix_case` because they are live
+switch endpoints (`W.CONN.DANGLING` did drop from 5 buses to 3), and
+`W.OPS.IMPORT_DEPENDENT` persists because that pass inventories dispatchable
+`generator` capacity — the PV fleet we placed lives under `ibr`, so it does not
+register there. Re-validation is a diff to be read, not a score to be zeroed.
 
 ## 7. Solve
 
@@ -167,6 +201,11 @@ println("Termination : ", result["termination_status"])
 println("Objective   : ", round(result["objective"]; sigdigits = 6))
 ```
 
+The **negative objective is correct**: the PV fleet placed in step 4 is priced
+well below the slack and sized at five times the local load, so the cheap DERs
+over-generate and the feeder *exports* the surplus. Negative grid import is
+revenue at the slack price, hence a negative cost objective.
+
 ### Inspecting the result dictionary
 
 `result` is a plain `Dict{String,Any}` in SI units whose structure mirrors the
@@ -175,8 +214,8 @@ The full field reference is in [OPF result dictionary](results.md); here we read
 a few solved quantities directly:
 
 ```@example e2e
-b = first(keys(result["bus"]))                 # some bus id
-println("Bus '", b, "' phase voltages (V):")
+b = "b2656"                                    # a load bus with a 1-phase customer
+println("Bus '", b, "' terminal voltages (V):")
 for (t, v) in sort(collect(result["bus"][b]); by = first)
     println("  terminal ", rpad(t, 3), " |V| = ", round(v["vm"]; digits = 2))
 end
@@ -187,6 +226,15 @@ p_grid = sum(v["ps"] for v in values(src))
 println("\nGrid import : ", round(p_grid / 1e3; digits = 2), " kW")
 println("Network loss: ", round(result["losses"]["p_loss"] / 1e3; digits = 2), " kW")
 ```
+
+Note the fourth terminal: the neutral at `b2656` sits at ≈ 1.3 V above ground,
+not 0. The single-phase load and PV cluster on this bus load the phases
+unevenly, the imbalance current returns through the neutral conductor, and the
+neutral point shifts — so the phase-to-*neutral* voltages the customer actually
+sees differ from the phase-to-ground magnitudes. This neutral-point shift is
+exactly what the four-wire model resolves and a Kron-reduced three-wire model
+would silently ground away. Grid import is negative, as anticipated above: the
+feeder exports ≈ 69 kW of PV surplus.
 
 ### Profiling the solution
 
@@ -234,12 +282,17 @@ manifests = Dict(
     "augment" => manifest_to_dict(aug_mf),
 )
 
+# The manifests are plain dicts — write them next to the case with any JSON
+# library, and the audit trail ships with the benchmark.
+using JSON3
+open(io -> JSON3.write(io, manifests), joinpath(out_dir, "LV1_14bus_manifests.json"), "w")
+
 # The result JSON round-trips back to an identical dict.
 roundtrip = read_result(joinpath(out_dir, "LV1_14bus_result.json"))
 println("Result JSON round-trips : ",
         roundtrip["bus"] == result["bus"])
 
-println("Wrote case, result, and report to ", out_dir)
+println("Wrote case, result, report, and manifests to ", out_dir)
 println("Captured ", sum(length(m["entries"]) for m in values(manifests)),
         " transformation entries across the three manifests")
 ```

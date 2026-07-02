@@ -15,6 +15,13 @@ This page makes the tap a **free continuous variable** and lets
 [`solve_opf`](@ref) choose it. Every code block runs when the docs are built, so the
 numbers are real.
 
+**Prerequisites:** a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`
+(`Pkg.add(["JuMP", "Ipopt"])`), and basic familiarity with the JSON input format from
+the [end-to-end tutorial](tutorial_end_to_end.md). The result-dictionary layout used
+below is documented in [OPF result dictionary](results.md). The
+[VVWO tutorial](tutorial_vvwo.md) covers the complementary voltage-control lever —
+IBR droop — on a real LV feeder.
+
 ## The model
 
 A transformer tap is exposed with the same *implicit* free-variable pattern as
@@ -22,7 +29,8 @@ generators and IBRs: **bounds make it optimisable**.
 
 - Ordinary transformers (`single_phase`, `center_tap`, `delta_wye`, `wye_delta`)
   take a dimensionless multiplier `tap` on the nominal from-side ratio
-  ``N_0 = v_{\text{ref,from}}/v_{\text{ref,to}}``, with `tap_min`/`tap_max`. For
+  ``N_0 = v_{\text{nom,from}}/v_{\text{nom,to}}`` (the `v_nom_from`/`v_nom_to`
+  fields), with `tap_min`/`tap_max`. For
   `center_tap` this taps the HV winding, so both LV legs scale together.
 - Regulator subtypes (`single_phase_autotransformer`, `open_delta_regulator`) make
   their native `tap_ratio` free with `tap_ratio_min`/`tap_ratio_max`.
@@ -189,7 +197,21 @@ for t in ("1","2","3")
 end
 ```
 
+The load is balanced, so the optimiser boosts all three LV phases together into the
+tight 236–240 V band with a single tap — the three-phase analogue of Section 2's
+rescue, with no per-phase code changes.
+
+!!! warning "Dy leakage referral is approximate under tap deviation"
+    For `delta_wye`/`wye_delta` the coupled delta-arm **leakage is held at the
+    nominal ratio**: the model is exact at ``t = 1`` and within the validation
+    tolerance at a few-percent tap, but the error grows with tap deviation. The YY
+    and `center_tap` models carry the exact ``t^2`` referral. See the next section
+    for the full picture.
+
 ## What single-phase and Dy tell us about the general picture
+
+*(A developer-oriented aside — skip to [Validation](#Validation) if you only want to
+use the feature.)*
 
 Working the two cases out side by side surfaces the design choice for extending taps
 to *every* transformer:
@@ -232,6 +254,3 @@ For `center_tap` the cross-check is deliberately stressed: a 5 km feeder with he
 with the OpenDSS turns-scaled `Yprim` at ``t^\star`` to ≈ 0.25 V and **total losses
 to ≈ 2.5 %**, and the free T-model reproduces the fixed-`Yprim` re-solve at
 ``t^\star`` exactly (0.0 V).
-```@example tap
-nothing # hide
-```

@@ -8,6 +8,10 @@ distribution-system parlance — can and cannot do about voltage unbalance, and 
 the answer is an optimisation problem rather than a simulation one*. Every code
 block runs when the docs are built, so the numbers below are real.
 
+*Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` installed,
+and familiarity with the JSON input format — see the
+[end-to-end tutorial](tutorial_end_to_end.md) first.*
+
 ## Why unbalance is hard to fix with reactive power
 
 LV feeders are unbalanced by construction: single-phase loads (and single-phase
@@ -126,16 +130,19 @@ report("fixed +5 kVAr/phase (solve_pf)", solve_pf(sim; optimizer = OPT))
 
 The unbalance hardly budges. The reactive injection lifts *all three* phase voltages
 together — it cannot preferentially raise the sagging phase, because on a resistive
-feeder reactive power is the wrong lever ([1](@ref refs-statcom)). A different
-constant setpoint would land somewhere else equally arbitrary; a simulation can only
-*evaluate* a guess, never *find* the right per-phase split.
+feeder reactive power is the wrong lever ([1](@ref refs-statcom)). Worse, the guess
+is actively counterproductive: the extra reactive current *raises* the feeder losses
+from 3723 W to 4009 W. A different constant setpoint would land somewhere else
+equally arbitrary; a simulation can only *evaluate* a guess, never *find* the right
+per-phase split.
 
 ## 3. Reactive-only, optimally dispatched — still not enough
 
 Give the device its full reactive freedom and let [`solve_opf`](@ref) choose the
 per-phase vars optimally, but keep it **reactive-only**. To make the limit concrete
-we now impose the AS/NZS 4777.2 lower voltage bound (``0.94 \times 230 = 216 V``, here
-held at 218 V) on the load bus, and ask whether reactive support can hold it.
+we now impose a lower voltage bound on the load bus and ask whether reactive support
+can hold it. The AS/NZS 4777.2 floor is ``0.94 \times 230 \approx 216\,V``; we
+require 218 V — the floor plus a small operating margin.
 
 ```@example statcom
 bounded() = (n = feeder();
@@ -148,9 +155,10 @@ for s in (15_000.0, 30_000.0, 60_000.0)
 end
 ```
 
-At **no** rating can the reactive-only STATCOM hold the heavy phase above its limit:
-the problem is infeasible however large the converter. More vars cannot substitute
-for the active power the phase is short of.
+The reactive-only STATCOM cannot hold the heavy phase above its limit even at
+60 kVA — twice the nameplate that will balance the feeder outright in §4, and more
+than twice the feeder's total load. More vars cannot substitute for the active
+power the phase is short of.
 
 ## 4. Active power circulation balances the feeder
 
@@ -209,12 +217,21 @@ an optional per-conductor `i_max` and the model captures that rolloff
 circulation alone drove the VUF to zero — adding a 40 A per-phase current cap
 (here with a generously-rated neutral, so the phase limit is what binds) leaves a
 small residual unbalance, the visible signature of the var/active rolloff under load.
+Printing the per-conductor current magnitudes makes "bounded by amps" concrete —
+the heavy-phase leg sits at its 40 A cap:
 
 ```@example statcom
 n = feeder(); add_statcom!(n, "b1"; s_max = 30_000.0, dc_link_coupled = true)
 n["ibr"]["statcom_b1"]["i_max"] = [40.0, 40.0, 40.0, 120.0]   # A per conductor: a,b,c,n
 n, _ = augment_case(n)
-report("active circulation + i_max = 40 A", solve_opf(n; optimizer = OPT))
+r5 = solve_opf(n; optimizer = OPT)
+report("active circulation + i_max = 40 A", r5)
+st = r5["ibr"]["statcom_b1"]
+I  = [st[t]["cri"] + im*st[t]["cii"] for t in ("1", "2", "3")]
+for (t, i) in zip(("1", "2", "3"), I)
+    println("phase $t   : |I| = ", round(abs(i), digits=1), " A")
+end
+println("neutral   : |I| = ", round(abs(-sum(I)), digits=1), " A")
 ```
 
 ## Why optimisation matters
@@ -223,7 +240,7 @@ report("active circulation + i_max = 40 A", solve_opf(n; optimizer = OPT))
 |---|---|---|
 | None | severe (see §1) | — |
 | Fixed reactive setpoint (*simulation*) | barely changed (§2) | no |
-| Reactive-only, optimally dispatched | infeasible at any rating (§3) | **no** |
+| Reactive-only, optimally dispatched | infeasible even at 60 kVA (§3) | **no** |
 | **Active power circulation (OPF)** | driven to ≈ 0 (§4) | **yes** |
 
 The lesson is not that a STATCOM is powerful — it is that *which* degree of freedom
