@@ -2590,6 +2590,130 @@ end
     @test abs(I[1] + I[2]) < 1e-2
 end
 
+# ── Generic OPF ↔ Yprim-export drift gate ────────────────────────────────────
+# The OPF builders (ext/BMOPFOpfExt/transformer.jl) and the Yprim export
+# (src/io/to_ybus.jl) implement each subtype independently. At a solved PF
+# setpoint the element current implied by the exported Yprim (I = Yp·V) must
+# equal, node by node, the injection reconstructed from the solved OPF
+# winding-current variables (series/winding current + the magnetising-shunt
+# share the OPF folds into the from-side terminal current). The center_tap
+# variant of this gate is above; these helpers cover the other two-bus
+# subtypes, including off-nominal fixed taps (which is where the export
+# historically diverged: un-tap-scaled single_phase leakage, inverted Yd/Dy
+# primitive).
+
+# single_phase: per winding pair k, terminal current = series + Y0/n_c·(V_p−V_q),
+# injected +I at p and −I at q on each side.
+function _sp_node_injections(xf, nodes, V, res_t)
+    b_fr = xf["bus_from"]; b_to = xf["bus_to"]
+    tm_fr = Vector{String}(xf["terminal_map_from"])
+    tm_to = Vector{String}(xf["terminal_map_to"])
+    pairs_fr = BMOPFTools._xfmr_winding_pairs(tm_fr)
+    pairs_to = BMOPFTools._xfmr_winding_pairs(tm_to)
+    n_c = min(length(pairs_fr), length(pairs_to))
+    Y0per = n_c > 0 ?
+        (Float64(get(xf, "g_no_load", 0.0)) + im*Float64(get(xf, "b_no_load", 0.0))) / n_c :
+        0.0 + 0.0im
+    idx = Dict(n => i for (i, n) in enumerate(nodes))
+    inj = zeros(ComplexF64, length(nodes))
+    for k in 1:n_c
+        (p_fr, q_fr) = pairs_fr[k]; (p_to, q_to) = pairs_to[k]
+        Is  = res_t["fr"][string(k)]["cr"] + im*res_t["fr"][string(k)]["ci"]
+        Ito = res_t["to"][string(k)]["cr"] + im*res_t["to"][string(k)]["ci"]
+        v_fr = V[idx[(b_fr, tm_fr[p_fr])]] -
+               (q_fr === nothing ? 0.0im : V[idx[(b_fr, tm_fr[q_fr])]])
+        Ifr = Is + Y0per * v_fr
+        inj[idx[(b_fr, tm_fr[p_fr])]] += Ifr
+        q_fr === nothing || (inj[idx[(b_fr, tm_fr[q_fr])]] -= Ifr)
+        inj[idx[(b_to, tm_to[p_to])]] += Ito
+        q_to === nothing || (inj[idx[(b_to, tm_to[q_to])]] -= Ito)
+    end
+    inj
+end
+
+# wye_delta / delta_wye: wye node k carries the wye winding current, the delta
+# node k the delta LINE current; the from-side phase nodes add the
+# phase-to-ground magnetising share Gph·V.
+function _yd_node_injections(xf, sub, nodes, V, res_t)
+    wye_is_from = sub == "wye_delta"
+    b_wye = wye_is_from ? xf["bus_from"] : xf["bus_to"]
+    b_del = wye_is_from ? xf["bus_to"]   : xf["bus_from"]
+    tm_wye = Vector{String}(wye_is_from ? xf["terminal_map_from"] : xf["terminal_map_to"])
+    tm_del = Vector{String}(wye_is_from ? xf["terminal_map_to"]   : xf["terminal_map_from"])
+    side_wye = wye_is_from ? "fr" : "to"
+    side_del = wye_is_from ? "to" : "fr"
+    ph_idx = BMOPFTools._phase_positions(tm_wye)
+    n_from_ph = wye_is_from ? length(ph_idx) : length(tm_del)
+    Gph = n_from_ph > 0 ?
+        (Float64(get(xf, "g_no_load", 0.0)) + im*Float64(get(xf, "b_no_load", 0.0))) / n_from_ph :
+        0.0 + 0.0im
+    # Internal neutral-grounding branch (rneut/xneut) at the wye neutral node.
+    rn = Float64(get(xf, wye_is_from ? "r_neutral_from" : "r_neutral_to", 0.0))
+    xn = Float64(get(xf, wye_is_from ? "x_neutral_from" : "x_neutral_to", 0.0))
+    yn = (rn == 0.0 && xn == 0.0) ? 0.0im : 1.0 / (rn + im*xn)
+    n_pos = BMOPFTools._neutral_pos(tm_wye)
+    idx = Dict(n => i for (i, n) in enumerate(nodes))
+    inj = zeros(ComplexF64, length(nodes))
+    for k in eachindex(tm_wye)
+        Iw = res_t[side_wye][string(k)]["cr"] + im*res_t[side_wye][string(k)]["ci"]
+        i = idx[(b_wye, tm_wye[k])]
+        inj[i] += Iw + (wye_is_from && k in ph_idx ? Gph * V[i] : 0.0im) +
+                  (k == n_pos ? yn * V[i] : 0.0im)
+    end
+    for k in eachindex(tm_del)
+        Id = res_t[side_del][string(k)]["cr"] + im*res_t[side_del][string(k)]["ci"]
+        i = idx[(b_del, tm_del[k])]
+        inj[i] += Id + (wye_is_from ? 0.0im : Gph * V[i])
+    end
+    inj
+end
+
+@testset "OPF and Yprim export agree at a solved setpoint (single_phase/Yd/Dy)" begin
+    cases = (
+        ("pf_1ph_xfmr.dss", "single_phase", 1.0),
+        ("pf_1ph_xfmr.dss", "single_phase", 0.96),   # off-nominal fixed tap
+        ("pf_yd_xfmr.dss",  "wye_delta",    1.0),
+        ("pf_yd_xfmr.dss",  "wye_delta",    1.04),
+        ("pf_dy_xfmr.dss",  "delta_wye",    1.0),
+        ("pf_dy_xfmr.dss",  "delta_wye",    0.97),
+        # rneut/xneut fixture: unbalanced load + internal neutral grounding
+        # (fields set below — PowerIO drops them on parse).
+        ("pf_dy_xfmr_rneut.dss", "delta_wye", 1.0),
+    )
+    for (fname, sub, tapm) in cases
+        net = from_dss(joinpath(_PF_CMP_DIR, fname))
+        tid, xf = first(net["transformer"][sub])
+        tapm != 1.0 && (xf["tap"] = tapm)
+        if fname == "pf_dy_xfmr_rneut.dss"
+            xf["r_neutral_to"] = 2.0; xf["x_neutral_to"] = 1.0
+        end
+        res = solve_pf(net; optimizer=Ipopt.Optimizer)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        nodes, Yp = BMOPFTools.transformer_yprim(xf, sub)
+        V = ComplexF64[(tv = res["bus"][b][t]; tv["vr"] + im*tv["vi"]) for (b, t) in nodes]
+        I = Yp * V
+        inj = sub == "single_phase" ?
+            _sp_node_injections(xf, nodes, V, res["transformer"][tid]) :
+            _yd_node_injections(xf, sub, nodes, V, res["transformer"][tid])
+        rel = maximum(abs.(I .- inj)) / max(1.0, maximum(abs.(I)))
+        @test rel < 1e-5
+    end
+end
+
+@testset "center_tap OPF solve with one zero star arm (NaN regression)" begin
+    # XHT = XHL + XLT gives an exactly-zero LV star arm — legitimate data. The
+    # fixed-Yprim OPF path previously computed y2 = 1/0 = Inf and NaN-poisoned
+    # the stamp; any zero arm must route to the (exact) T-model branch.
+    net = from_dss(joinpath(_PF_CMP_DIR, "pf_center_tap_loaded.dss"))
+    _, ct = first(net["transformer"]["center_tap"])
+    ct["r_series_to"] = 0.0
+    ct["x_series_to"] = 0.0
+    res = solve_pf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    hv = res["transformer"][first(keys(net["transformer"]["center_tap"]))]["fr"]["1"]
+    @test isfinite(hv["cr"]) && isfinite(hv["ci"]) && hv["cm"] > 0
+end
+
 @testset "PF comparison — from_dss transformer fidelity (single_phase/Yd/Dy)" begin
     # The single_phase/Yd/Dy models are validated above with hand-built nets;
     # this guards the from_dss PARSE path. PowerIO's `bmopf` export drops the
@@ -2616,14 +2740,98 @@ end
     end
 end
 
-@testset "Transformer Yprim matches OpenDSS (single_phase, center_tap)" begin
+@testset "PF comparison — from_dss fixed off-nominal tap recovery (Dy)" begin
+    # PowerIO's bmopf export drops OpenDSS `taps=` entirely with only a warning
+    # — the network silently solved at the NOMINAL ratio (≈2% voltage error per
+    # 2% tap). `from_dss` now recovers the multiplier from the pmd `tm_set`.
+    # End-to-end: parse → `tap` present → solve_pf matches the OpenDSS solve of
+    # the same tapped unit (which also validates the OPF's fixed off-nominal
+    # Dy tap referral against OpenDSS — previously only exercised at nominal).
+    path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_tap.dss")
+    net  = from_dss(path)
+    xf   = first(values(net["transformer"]["delta_wye"]))
+    @test isapprox(Float64(get(xf, "tap", 1.0)), 1.02; atol=1e-9)
+    V_ods = _ods_volts(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label="dy-tap from_dss: ", atol=0.5, rtol=3e-3)
+    @test isapprox(res["losses"]["p_loss"], _ods_losses_W(path); rtol=0.03)
+end
+
+@testset "PF comparison — internal winding neutral grounding (rneut/xneut, Dy)" begin
+    # OpenDSS rneut/xneut is a transformer-INTERNAL grounding branch from the
+    # wye winding's neutral terminal to earth (verified: the OpenDSS Yprim's
+    # neutral-node diagonal gains exactly 1/(rneut+jxneut); the star point
+    # stays solid on the neutral node). The fixture has NO external LV
+    # grounding — the internal branch is the ONLY absolute reference of the
+    # galvanically isolated LV island. In healthy power flow the grounded-wye
+    # star absorbs the (unbalanced) neutral current metallically, so both
+    # engines put lv.4 at ≈0 V — the PF-level assertions are convergence of
+    # the otherwise-floating island and node-for-node agreement with OpenDSS;
+    # the branch's numerical sensitivity is carried by the entry-wise Yprim
+    # gate below. PowerIO drops rneut/xneut (from_dss emits a targeted
+    # warning); the BMOPF fields are set by hand.
+    path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_rneut.dss")
+    net  = from_dss(path)
+    xf   = first(values(net["transformer"]["delta_wye"]))
+    xf["r_neutral_to"] = 2.0
+    xf["x_neutral_to"] = 1.0
+    V_ods = _ods_volts(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label="dy-rneut: ", atol=0.5, rtol=3e-3)
+    # The island reference is anchored by the internal branch: lv.4 agrees with
+    # OpenDSS at ≈0 V (the star absorbs the zero-sequence load current
+    # metallically, so the grounding branch carries only the residual).
+    @test abs(V_bm["lv.4"] - V_ods["lv.4"]) < 0.5
+    @test isapprox(res["losses"]["p_loss"], _ods_losses_W(path); rtol=0.03)
+end
+
+@testset "PF comparison — from_dss 3-winding recovery (n_winding)" begin
+    # PowerIO's bmopf export drops every 3-phase 3+-winding transformer
+    # entirely; `from_dss` reconstructs them as `n_winding` from the pmd
+    # record. End-to-end against OpenDSS on the same fixtures the hand-built
+    # n_winding nets above validate (YYY, Dyn, Dyn-unbalanced), so agreement at
+    # the default tolerance means the reconstruction is byte-equivalent in
+    # effect to the validated hand mapping.
+    for f in ("pf_3wdg_nwinding.dss", "pf_3wdg_dyn.dss", "pf_3wdg_dyn_unbalanced.dss")
+        path = joinpath(_PF_CMP_DIR, f)
+        net  = from_dss(path)
+        @test haskey(get(net, "transformer", Dict()), "n_winding")
+        @test get(get(net, "_meta", Dict()), "recovered_n_winding", nothing) == ["t1"]
+        V_ods = _ods_volts(path)
+        res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        _cmp_volts(V_ods, _nwd_bm_volts(res); label="recov-$(f): ")
+    end
+    # 4+ windings: PowerIO's pmd export currently mangles `Xscarray` (it emits
+    # the three XHL/XHT/XLT class DEFAULTS, 7/35/30%, instead of the six pairs),
+    # so the reconstruction refuses loudly rather than building a wrong unit.
+    # Upstream PowerIO gap — when fixed, drop this block and extend the loop.
+    net4 = @test_logs (:warn, r"pmd record is incomplete") match_mode=:any from_dss(
+        joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
+    @test !haskey(get(net4, "transformer", Dict()), "n_winding")
+end
+
+@testset "Transformer Yprim matches OpenDSS (single_phase, center_tap, Yd, Dy)" begin
     # Correctness gate from docs/transformer_admittance_derivation.md §7: the
     # per-element primitive admittance must equal OpenDSS's own Transformer
     # `Yprim`. This is the check that directly catches turns-ratio direction,
     # √3 scaling, shunt placement, and winding-polarity sign errors (the
-    # original center_tap leg-split bug). Delta windings are basis-dependent in
-    # the raw matrix, so they are instead covered by the unbalanced-load PF
-    # comparisons above.
+    # original center_tap leg-split bug, and the inverted Yd/Dy primitive that
+    # survived while the delta subtypes were excluded from this gate). The
+    # Yd/Dy fixtures declare the wye neutral as an explicit bus terminal with
+    # EXTERNAL grounding reactors, so the OpenDSS element node set matches the
+    # BMOPF one directly; the padded delta ground conductor (node 0) is dropped
+    # by the merge below. Residual differences (the dropped %imag magnetising
+    # susceptance and the phase-to-ground vs across-coil core-loss stamp) are
+    # ≲1e-4 relative — well inside the 1e-2 gate.
     odsnode = Dict(0=>"0", 1=>"a", 2=>"b", 3=>"c", 4=>"n", 5=>"n")
     function ods_yprim(path)
         OpenDSSDirect.dss("Clear")
@@ -2641,7 +2849,9 @@ end
         Y, ids
     end
     for (fname, sub) in (("pf_1ph_xfmr.dss", "single_phase"),
-                         ("pf_center_tap_loaded.dss", "center_tap"))
+                         ("pf_center_tap_loaded.dss", "center_tap"),
+                         ("pf_yd_xfmr.dss", "wye_delta"),
+                         ("pf_dy_xfmr.dss", "delta_wye"))
         path = joinpath(_PF_CMP_DIR, fname)
         net  = from_dss(path)
         xf   = first(values(net["transformer"][sub]))
@@ -2661,6 +2871,39 @@ end
         perm = [findfirst(==(d), uids) for d in idb]
         @test !any(isnothing, perm)
         rel = maximum(abs.(M[perm, perm] .- Yb)) / max(1.0, maximum(abs.(Yb)))
+        @test rel < 1e-2
+    end
+
+    # Internal winding neutral grounding (rneut/xneut): OpenDSS adds exactly
+    # y_n = 1/(rneut+jxneut) to the neutral-node DIAGONAL of the Yprim. The
+    # matrix-wide rel gate above is not sensitive to it (y_n ≪ max|Y|), so the
+    # neutral diagonal is compared entry-wise, with a counterfactual check that
+    # omitting the stamp would miss OpenDSS by ≈|y_n|.
+    let path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_rneut.dss")
+        net = from_dss(path)
+        xf  = first(values(net["transformer"]["delta_wye"]))
+        nb0, Yb0 = BMOPFTools.transformer_yprim(xf, "delta_wye")   # fields absent
+        xf["r_neutral_to"] = 2.0; xf["x_neutral_to"] = 1.0
+        nb, Yb = BMOPFTools.transformer_yprim(xf, "delta_wye")
+        Yo, ido = ods_yprim(path)
+        uids = [u for u in unique(ido) if u[2] != "0"]
+        pos  = Dict(u => i for (i, u) in enumerate(uids))
+        M    = zeros(ComplexF64, length(uids), length(uids))
+        for i in eachindex(ido), j in eachindex(ido)
+            (ido[i][2] == "0" || ido[j][2] == "0") && continue
+            M[pos[ido[i]], pos[ido[j]]] += Yo[i, j]
+        end
+        perm = [findfirst(==(d), uids) for d in nb]
+        @test !any(isnothing, perm)
+        Mp  = M[perm, perm]
+        i_n = findfirst(==(("lv", "n")), nb)
+        yn  = 1.0 / (2.0 + 1.0im)
+        # 0.1·|y_n| clears the ≈1.3e-4-relative leakage-recovery floor on the
+        # 3y part of the diagonal (~0.026 S here) while staying 5× under the
+        # counterfactual miss.
+        @test abs(Mp[i_n, i_n] - Yb[i_n, i_n])  < 0.1 * abs(yn)    # with the stamp
+        @test abs(Mp[i_n, i_n] - Yb0[i_n, i_n]) > 0.5  * abs(yn)   # counterfactual
+        rel = maximum(abs.(Mp .- Yb)) / max(1.0, maximum(abs.(Yb)))
         @test rel < 1e-2
     end
 end

@@ -135,7 +135,10 @@ KCL contributions use the terminal current (series + shunt).
 When all loss parameters are absent or zero the model collapses to the
 previous ideal transformer.
 
-Used for both `single_phase` and `center_tap` transformer subtypes.
+`r/x_neutral_from` / `r/x_neutral_to` (OpenDSS rneut/xneut) add an internal
+neutral-grounding branch y_n = 1/(R_n+jX_n) from the side's shared neutral
+terminal to earth (verified against OpenDSS Yprim — the neutral-node diagonal
+gains exactly y_n).
 """
 function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               tap=nothing, branch_inj=nothing)
@@ -183,6 +186,35 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
 
     has_series = (r_fr != 0.0 || x_fr != 0.0 || r_to != 0.0 || x_to != 0.0)
     has_shunt  = (G != 0.0 || B != 0.0)
+
+    # Winding neutral grounding impedance (OpenDSS rneut/xneut): a grounding
+    # branch y_n = 1/(R_n + jX_n) from the side's shared neutral TERMINAL to
+    # earth, INTERNAL to the transformer (verified against OpenDSS's Yprim: the
+    # neutral-node diagonal gains exactly y_n). Stand-alone transformer
+    # property — external groundings stay on buses/shunts. Applies only when
+    # the side actually has a shared neutral terminal (L-N maps).
+    rn_fr = Float64(get(xfmr, "r_neutral_from", 0.0))
+    xn_fr = Float64(get(xfmr, "x_neutral_from", 0.0))
+    rn_to = Float64(get(xfmr, "r_neutral_to",   0.0))
+    xn_to = Float64(get(xfmr, "x_neutral_to",   0.0))
+    n_pos_fr = BMOPFTools._neutral_pos(tmfr)
+    n_pos_to = BMOPFTools._neutral_pos(tmto)
+    for (side, rn, xn, n_pos) in (("from", rn_fr, xn_fr, n_pos_fr),
+                                  ("to",   rn_to, xn_to, n_pos_to))
+        b, tm = side == "from" ? (b_fr, tmfr) : (b_to, tmto)
+        (rn != 0.0 || xn != 0.0) || continue
+        if n_pos === nothing
+            @warn "single_phase '$tid': r/x_neutral_$(side) set but the $(side) " *
+                  "side has no shared neutral terminal; ignored."
+            continue
+        end
+        zn2 = rn^2 + xn^2
+        Gn  = rn / zn2; Bn = -xn / zn2      # y_n = 1/(R_n + jX_n)
+        t_n = tm[n_pos]
+        igr = @expression(model, Gn * vr[(b, t_n)] - Bn * vi[(b, t_n)])
+        igi = @expression(model, Gn * vi[(b, t_n)] + Bn * vr[(b, t_n)])
+        kadd(b, t_n, -igr, -igi)
+    end
 
     # Winding voltage V_p − V_q (q absent → reference ground, i.e. V_p).
     _vpair(b, tp, tq) = tq === nothing ?
@@ -337,7 +369,13 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     X1 = Float64(get(xfmr, "x_series_from", 0.0))
     R2 = Float64(get(xfmr, "r_series_to",   0.0))
     X2 = Float64(get(xfmr, "x_series_to",   0.0))
-    has_series = (R1 != 0.0 || X1 != 0.0 || R2 != 0.0 || X2 != 0.0)
+    # The analytical Yprim path needs BOTH star arms finite: a zero arm makes
+    # the coupling partly ideal (y = 1/Z → ∞) and the star reduction would
+    # produce NaN. A zero arm is legitimate data (e.g. XHT = XHL + XLT gives an
+    # exactly-zero LV arm), so any-zero-arm cases take the T-model branch below,
+    # which is linear in the impedances and exact for zero arms.
+    arm1 = (R1 != 0.0 || X1 != 0.0)
+    arm2 = (R2 != 0.0 || X2 != 0.0)
 
     # No-load admittance at HV terminals.
     G = Float64(get(xfmr, "g_no_load", 0.0))
@@ -369,8 +407,9 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # used when the ratio is a FIXED number. A free tap (variable N) takes the
     # degree-2 T-model branch below, which is algebraically identical at N = N0
     # (derived from this same Yprim) but linear-in-leakage so the products stay
-    # quadratic for Ipopt.
-    if has_series && tap === nothing
+    # quadratic for Ipopt. It also requires both star arms nonzero (see arm1/arm2
+    # above); a zero arm previously produced y = Inf and NaN-poisoned the stamp.
+    if arm1 && arm2 && tap === nothing
         Z1 = R1 + im * X1            # HV star arm  (HV side, Ω/pu)
         Z2 = R2 + im * X2            # each LV star arm (LV side, Ω/pu)
         y1 = N^2 / Z1
@@ -431,7 +470,7 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         return
     end
 
-    # ── T-model core (free tap, or zero series impedance) ─────────────────────
+    # ── T-model core (free tap, or a zero series star arm) ────────────────────
     # Degree-2 voltage drop derived from the SAME coupled-coil Yprim as the fixed
     # path above: with the HV core EMF E = V_hv − Z1·Is and the star node V* = E/N,
     #   leg1:  V_hv − N·v1 = Z1·Is − N·Z2·Il1
@@ -587,6 +626,9 @@ Loss model (per-winding T behind the ideal transform — matches OpenDSS / PMD):
   - `r/x_series_from` → series impedance on the from-side winding branch
   - `r/x_series_to`   → series impedance on the to-side winding branch
   - `g/b_no_load`     → core-loss shunt at the from-side (HV) phase terminals
+  - `r/x_neutral_*` (wye side) → internal neutral-grounding branch
+    y_n = 1/(R_n+jX_n) from the wye neutral terminal to earth (OpenDSS
+    rneut/xneut; verified against OpenDSS Yprim)
 
 The series drop enters the voltage constraint; with all impedance fields zero
 the model collapses to the previous ideal transform.  A legacy single
@@ -655,6 +697,33 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         Rw, Xw = r_to, x_to   # wye branch = to
     end
     has_series = (Rw != 0.0 || Xw != 0.0 || Rd != 0.0 || Xd != 0.0)
+
+    # Winding neutral grounding impedance (OpenDSS rneut/xneut): a grounding
+    # branch y_n = 1/(R_n + jX_n) from the wye winding's neutral TERMINAL to
+    # earth, INTERNAL to the transformer (verified against OpenDSS's Yprim:
+    # the neutral-node diagonal gains exactly y_n; the star point itself stays
+    # solidly on the neutral node). Stand-alone transformer property — external
+    # groundings stay on buses/shunts. The delta side has no neutral; its
+    # fields are ignored (warned).
+    rn_key_w = wye_is_from ? "r_neutral_from" : "r_neutral_to"
+    xn_key_w = wye_is_from ? "x_neutral_from" : "x_neutral_to"
+    rn_key_d = wye_is_from ? "r_neutral_to"   : "r_neutral_from"
+    xn_key_d = wye_is_from ? "x_neutral_to"   : "x_neutral_from"
+    Rn = Float64(get(xfmr, rn_key_w, 0.0))
+    Xn = Float64(get(xfmr, xn_key_w, 0.0))
+    if get(xfmr, rn_key_d, 0.0) != 0.0 || get(xfmr, xn_key_d, 0.0) != 0.0
+        @warn "Transformer '$tid': $(rn_key_d)/$(xn_key_d) set on the DELTA side, " *
+              "which has no neutral; ignored."
+    end
+    has_zn = (Rn != 0.0 || Xn != 0.0)
+    if has_zn && n_pos === nothing
+        @warn "Transformer '$tid': $(rn_key_w)/$(xn_key_w) set but the wye side " *
+              "has no neutral terminal; ignored."
+        has_zn = false
+    end
+    zn2 = Rn^2 + Xn^2
+    Gn  = has_zn ? Rn / zn2 : 0.0     # y_n = 1/(R_n + jX_n) = G_n + jB_n
+    Bn  = has_zn ? -Xn / zn2 : 0.0
 
     # Voltage constraints.
     # For Yd (wye_is_from=true):  V_del[k] - V_del[k_next] = n_eff*(V_wye[k] - V_n)
@@ -774,7 +843,9 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     has_shunt = (Gph != 0.0 || Bph != 0.0)
 
     # ── KCL contributions ─────────────────────────────────────────────────────
-    # From-side phase terminals carry winding current + magnetising shunt.
+    # From-side phase terminals carry winding current + magnetising shunt; the
+    # wye neutral terminal additionally carries the internal neutral-grounding
+    # branch current y_n·V_n (rneut/xneut).
     for k in 1:n_wye
         t = tm_wye[k]
         is_from_phase = from_is_wye && (k in ph_idx)
@@ -786,6 +857,15 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             JuMP.add_to_expression!(icr, -Bph, vi[(b_wye, t)])
             JuMP.add_to_expression!(ici,  Gph, vi[(b_wye, t)])
             JuMP.add_to_expression!(ici,  Bph, vr[(b_wye, t)])
+            kadd(b_wye, t, -icr, -ici)
+        elseif has_zn && n_pos !== nothing && k == n_pos
+            icr = JuMP.AffExpr(0.0); ici = JuMP.AffExpr(0.0)
+            JuMP.add_to_expression!(icr,  1.0, cr_xf[(tid, side_wye, k)])
+            JuMP.add_to_expression!(ici,  1.0, ci_xf[(tid, side_wye, k)])
+            JuMP.add_to_expression!(icr,  Gn, vr[(b_wye, t)])
+            JuMP.add_to_expression!(icr, -Bn, vi[(b_wye, t)])
+            JuMP.add_to_expression!(ici,  Gn, vi[(b_wye, t)])
+            JuMP.add_to_expression!(ici,  Bn, vr[(b_wye, t)])
             kadd(b_wye, t, -icr, -ici)
         else
             kadd(b_wye, t, -cr_xf[(tid, side_wye, k)], -ci_xf[(tid, side_wye, k)])

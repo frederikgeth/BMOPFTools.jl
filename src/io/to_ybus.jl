@@ -123,6 +123,17 @@ function _node_list(bus, tm)
     [(bus, string(t)) for t in tm]
 end
 
+# Winding neutral grounding admittance (OpenDSS rneut/xneut) for one side:
+# y_n = 1/(R_n + jX_n) from the winding's neutral terminal to earth, INTERNAL
+# to the transformer (matches OpenDSS's Yprim, where the neutral-node diagonal
+# gains exactly y_n). Returns 0 when the fields are absent/zero.
+function _xfmr_yn(xfmr, side::String)
+    rn = Float64(get(xfmr, "r_neutral_$(side)", 0.0))
+    xn = Float64(get(xfmr, "x_neutral_$(side)", 0.0))
+    (rn == 0.0 && xn == 0.0) && return 0.0 + 0.0im
+    1.0 / (rn + im * xn)
+end
+
 # ── single_phase ────────────────────────────────────────────────────────────
 
 function _yprim_single_phase(xfmr::Dict{String,Any})
@@ -132,7 +143,9 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
     tm_to = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
     (isempty(tm_fr) || isempty(tm_to)) && return (Tuple{String,String}[], zeros(ComplexF64,0,0))
 
-    N        = _xfmr_turns_ratio(xfmr) * _xfmr_tap_mult(xfmr)
+    N0   = _xfmr_turns_ratio(xfmr)
+    tapm = _xfmr_tap_mult(xfmr)
+    N    = N0 * tapm
     # One coupled winding per terminal pair (p, q): line-to-neutral (q = neutral),
     # line-to-line (q = second phase), or phase-to-ground (q absent). The winding
     # voltage and the no-load shunt are taken across (V_p − V_q) via Y = Cᵀ·prim·C.
@@ -144,11 +157,31 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
     x1 = Float64(get(xfmr, "x_series_from", 0.0))
     r2 = Float64(get(xfmr, "r_series_to",   0.0))
     x2 = Float64(get(xfmr, "x_series_to",   0.0))
-    Z  = (r1 + N^2 * r2) + im*(x1 + N^2 * x2)
+    # An off-nominal tap changes the FROM-winding turns, so the from-winding
+    # leakage scales with tap² while the to-winding term carries the full N²
+    # referral: Z = tap²·z_fr + N²·z_to = N²·(z_to + z_fr/N0²). This matches the
+    # OPF builder `_add_yy_transformer!` (to-referred leakage held at nominal)
+    # and OpenDSS's turns-scaled Yprim; at tap = 1 it is the classical
+    # z_fr + N0²·z_to. (The from term was previously not tap-scaled, so the
+    # export disagreed with both at any off-nominal tap.)
+    Z  = (tapm^2 * r1 + N^2 * r2) + im*(tapm^2 * x1 + N^2 * x2)
 
     G0 = Float64(get(xfmr, "g_no_load", 0.0))
     B0 = Float64(get(xfmr, "b_no_load", 0.0))
     Y0_per = n_c > 0 ? (G0 + im*B0) / n_c : 0.0 + 0.0im
+
+    # Internal neutral-grounding branch (OpenDSS rneut/xneut): y_n from the
+    # side's shared neutral terminal to earth — a diagonal stamp, matching
+    # OpenDSS's Yprim and the OPF builder `_add_yy_transformer!`. Applies only
+    # to sides whose windings share a neutral (L-N maps).
+    yn_fr = _xfmr_yn(xfmr, "from")
+    yn_to = _xfmr_yn(xfmr, "to")
+    use_yn_fr = !iszero(yn_fr) && _neutral_pos(tm_fr) !== nothing
+    use_yn_to = !iszero(yn_to) && _neutral_pos(tm_to) !== nothing
+    (!iszero(yn_fr) && !use_yn_fr) &&
+        @warn "single_phase transformer: r/x_neutral_from set but the from side has no shared neutral terminal; ignored."
+    (!iszero(yn_to) && !use_yn_to) &&
+        @warn "single_phase transformer: r/x_neutral_to set but the to side has no shared neutral terminal; ignored."
 
     nodes    = Tuple{String,String}[]
     node_idx = Dict{Tuple{String,String},Int}()
@@ -186,6 +219,12 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
         end
     end
 
+    # Neutral-grounding branch: diagonal stamp at the shared neutral terminal.
+    use_yn_fr && (Y[nidx!(b_fr, tm_fr[_neutral_pos(tm_fr)]),
+                    nidx!(b_fr, tm_fr[_neutral_pos(tm_fr)])] += yn_fr)
+    use_yn_to && (Y[nidx!(b_to, tm_to[_neutral_pos(tm_to)]),
+                    nidx!(b_to, tm_to[_neutral_pos(tm_to)])] += yn_to)
+
     nodes, Y
 end
 
@@ -219,9 +258,14 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
     # Arms: HV (impedance Z1/N², admitted y1=N²/Z1), LV1 (Z2, y2), LV2 (Z2, y2).
     # LV-leg-2 winding spans V_c→V_g (same direction as leg-1 V_a→V_g).
     if iszero(Z1) || iszero(Z2)
-        # Degenerate (ideal): Y is singular; return zero matrix as placeholder.
-        @warn "center_tap transformer has zero series impedance; Yprim is singular."
-        return nodes, zeros(ComplexF64, 5, 5)
+        # A zero star arm makes the coupling (partly) ideal, which has no
+        # admittance form: the series block is singular. Still stamp the no-load
+        # shunt (previously dropped) so a zero-leakage unit keeps its core loss.
+        @warn "center_tap transformer has a zero series star arm; the ideal " *
+              "coupling has no admittance form — exporting the (singular) shunt-only Yprim."
+        Y_deg = zeros(ComplexF64, 5, 5)
+        Y_deg[1,1] += G0 + im*B0
+        return nodes, Y_deg
     end
 
     y1 = N^2 / Z1
@@ -273,6 +317,8 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
     (isempty(tm_wye) || isempty(tm_del)) && return (Tuple{String,String}[], zeros(ComplexF64,0,0))
 
     N     = _xfmr_turns_ratio(xfmr) * _xfmr_tap_mult(xfmr)
+    # Delta-coil / wye-coil voltage ratio: V_del_coil = n_eff·V_wye_pn
+    # (same convention as the OPF builder `_add_yd_transformer!`).
     n_eff = wye_is_from ? sqrt(3.0)/N : N*sqrt(3.0)
 
     # Per-winding impedances mapped to wye/delta sides.
@@ -285,8 +331,6 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
     else
         Zd = (r_fr + im*x_fr); Zw = (r_to + im*x_to)
     end
-    # Γ-equivalent: fold both winding leakages into one series admittance referred to wye.
-    Z_total = Zw + n_eff^2 * Zd
 
     G0 = Float64(get(xfmr, "g_no_load", 0.0))
     B0 = Float64(get(xfmr, "b_no_load", 0.0))
@@ -295,9 +339,29 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
     n_pos = _neutral_pos(tm_wye)
     ph_idx = _phase_positions(tm_wye)
 
+    # Γ-equivalent series leakage referred to the WYE side. The delta-side r/x
+    # arrive on the delta BUS line-to-neutral base, which is 1/n_ph of the delta
+    # COIL (line-to-line) base, so the coil impedance is n_ph·Zd; the ideal
+    # transform V_del_coil = n_eff·V_wye_pn refers it to the wye row by 1/n_eff²
+    # (matches `_add_yd_transformer!`: Zeff = n_eff·Zw + (n_ph/n_eff)·Zd on the
+    # wye current is Z_total·n_eff with Z_total below).
+    Z_total = Zw + (n_ph / n_eff^2) * Zd
+
     n_wye  = length(tm_wye)
     n_tot  = n_wye + n_ph
-    Y      = zeros(ComplexF64, n_tot, n_tot)
+
+    # Internal neutral-grounding branch (OpenDSS rneut/xneut) on the wye side:
+    # y_n from the wye neutral terminal to earth — a diagonal stamp, matching
+    # OpenDSS's Yprim and the OPF builder `_add_yd_transformer!`. The delta
+    # side has no neutral; its fields are ignored (warned).
+    yn_wye = _xfmr_yn(xfmr, wye_is_from ? "from" : "to")
+    yn_del = _xfmr_yn(xfmr, wye_is_from ? "to" : "from")
+    iszero(yn_del) ||
+        @warn "wye_delta/delta_wye transformer: neutral impedance set on the DELTA side, which has no neutral; ignored."
+    use_yn = !iszero(yn_wye) && n_pos !== nothing
+    (!iszero(yn_wye) && !use_yn) &&
+        @warn "wye_delta/delta_wye transformer: r/x_neutral set but the wye side has no neutral terminal; ignored."
+    Y = zeros(ComplexF64, n_tot, n_tot)
 
     # Node ordering: [wye terminals..., delta terminals...]
     nodes = vcat(
@@ -306,44 +370,55 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
     )
 
     if iszero(Z_total)
-        @warn "wye_delta/delta_wye transformer has zero effective series impedance; Yprim is singular."
-        return nodes, Y
-    end
+        @warn "wye_delta/delta_wye transformer has zero effective series impedance; " *
+              "the ideal coupling has no admittance form — exporting the (singular) shunt-only Yprim."
+    else
+        yt = 1.0 / Z_total
 
-    yt = 1.0 / Z_total
+        # Per-core primitive with rows [wye, delta]. The ideal coil relation is
+        # V_del_coil = n_eff·V_wye_pn, i.e. V_wye = a·V_del with a = 1/n_eff, and
+        # the series leakage Z_total sits on the wye row:
+        #   I_wye = (V_wye − a·V_del)/Z_total,   I_del_coil = −a·I_wye
+        # ⇒ y_prim^(k) = yt·[1, −a; −a, a²].  (Stamping n_eff instead of a here
+        # inverts the transformer — the exported no-load point lands at
+        # V_del = V_wye/n_eff instead of n_eff·V_wye.)
+        #
+        # Connection matrix C (2*n_ph × n_tot):
+        #   Row k (wye winding k):   C[k, ph_idx[k]] = 1, C[k, neutral] = -1
+        #   Row n_ph+k (delta winding k): C[n_ph+k, n_wye+k] = 1, C[n_ph+k, n_wye+k_other] = -1
+        #
+        # Build C and y_prim, then Y = C' * y_prim * C.
+        n_rows = 2 * n_ph
+        C      = zeros(ComplexF64, n_rows, n_tot)
 
-    # Per-core primitive: y_prim^(k) = yt * [1, -n_eff; -n_eff, n_eff²]
-    # Connection matrix C (2*n_ph × n_tot):
-    #   Row k (wye winding k):   C[k, ph_idx[k]] = 1, C[k, neutral] = -1
-    #   Row n_ph+k (delta winding k): C[n_ph+k, n_wye+k] = 1, C[n_ph+k, n_wye+k_next] = -1
-    #
-    # Build C and y_prim, then Y = C' * y_prim * C.
-    n_rows = 2 * n_ph
-    C      = zeros(ComplexF64, n_rows, n_tot)
-
-    for k in 1:n_ph
-        ph = ph_idx[k]
-        # Wye winding k: voltage = V_wye_ph[k] - V_wye_neutral
-        C[k, ph] = 1.0
-        if n_pos !== nothing
-            C[k, n_pos] = -1.0
+        for k in 1:n_ph
+            ph = ph_idx[k]
+            # Wye winding k: voltage = V_wye_ph[k] - V_wye_neutral
+            C[k, ph] = 1.0
+            if n_pos !== nothing
+                C[k, n_pos] = -1.0
+            end
+            # Delta winding k:
+            # Yd uses k_next; Dy uses k_prev (backward delta convention from OPF).
+            k_other = wye_is_from ? (k % n_ph) + 1 : ((k - 2 + n_ph) % n_ph) + 1
+            C[n_ph+k, n_wye+k]       =  1.0
+            C[n_ph+k, n_wye+k_other] = -1.0
         end
-        # Delta winding k:
-        # Yd uses k_next; Dy uses k_prev (backward delta convention from OPF).
-        k_other = wye_is_from ? (k % n_ph) + 1 : ((k - 2 + n_ph) % n_ph) + 1
-        C[n_ph+k, n_wye+k]       =  1.0
-        C[n_ph+k, n_wye+k_other] = -1.0
+
+        # y_prim: 2n_ph × 2n_ph block-diagonal, each core's 2×2 in rows [k, n_ph+k].
+        a = 1.0 / n_eff
+        prim_block = yt * [1.0 -a; -a a^2]
+        y_prim = zeros(ComplexF64, n_rows, n_rows)
+        for k in 1:n_ph
+            rows = [k, n_ph+k]
+            y_prim[rows, rows] .= prim_block
+        end
+
+        Y .= transpose(C) * y_prim * C
     end
 
-    # y_prim: 2n_ph × 2n_ph block-diagonal, each core's 2×2 in rows [k, n_ph+k].
-    prim_block = yt * [1.0 -n_eff; -n_eff n_eff^2]
-    y_prim = zeros(ComplexF64, n_rows, n_rows)
-    for k in 1:n_ph
-        rows = [k, n_ph+k]
-        y_prim[rows, rows] .= prim_block
-    end
-
-    Y .= transpose(C) * y_prim * C
+    # Neutral-grounding branch: diagonal stamp at the wye neutral terminal.
+    use_yn && (Y[n_pos, n_pos] += yn_wye)
 
     # No-load shunt Y0 split equally across from-side phase terminals.
     if !iszero(G0) || !iszero(B0)
@@ -403,25 +478,30 @@ function _yprim_autotransformer(xfmr::Dict{String,Any})
 
     Y = zeros(ComplexF64, n_tot, n_tot)
     if iszero(Z)
-        # Ideal regulator: Yprim singular. Only the no-load shunt (if any) is finite.
-        if !iszero(G0) || !iszero(B0)
-            Y[1,1] += G0 + im*B0
-        else
+        # Ideal regulator: the series block is singular; only the shunt is finite.
+        iszero(G0) && iszero(B0) &&
             @warn "single_phase_autotransformer has zero series impedance; Yprim is singular."
-        end
-        return nodes, Y
+    else
+        yt = 1.0 / Z
+        # C (2 winding-voltage rows × n_tot): row 1 = from coil (ph_fr − n_fr),
+        # row 2 = to coil (ph_to − n_to).
+        C = zeros(ComplexF64, 2, n_tot)
+        C[1, 1] = 1.0;  idx_fr_n != 0 && (C[1, idx_fr_n] = -1.0)
+        C[2, 2] = 1.0;  idx_to_n != 0 && (C[2, idx_to_n] = -1.0)
+        prim = yt * [1.0 -n_eff; -n_eff n_eff^2]
+        Y .= transpose(C) * prim * C
     end
 
-    yt = 1.0 / Z
-    # C (2 winding-voltage rows × n_tot): row 1 = from coil (ph_fr − n_fr),
-    # row 2 = to coil (ph_to − n_to).
-    C = zeros(ComplexF64, 2, n_tot)
-    C[1, 1] = 1.0;  idx_fr_n != 0 && (C[1, idx_fr_n] = -1.0)
-    C[2, 2] = 1.0;  idx_to_n != 0 && (C[2, idx_to_n] = -1.0)
-    prim = yt * [1.0 -n_eff; -n_eff n_eff^2]
-    Y .= transpose(C) * prim * C
-
-    (!iszero(G0) || !iszero(B0)) && (Y[1,1] += G0 + im*B0)
+    # No-load shunt ACROSS the from winding (ph_fr − ref_fr), matching the OPF
+    # builder `_add_regulating_winding!`, which injects the shunt return at the
+    # winding reference terminal (phase-to-ground only when no reference exists).
+    # Previously stamped Y[1,1]-only (phase-to-ground), which diverged from the
+    # OPF whenever the reference/neutral voltage was nonzero.
+    if !iszero(G0) || !iszero(B0)
+        Cf = zeros(ComplexF64, 1, n_tot)
+        Cf[1, 1] = 1.0;  idx_fr_n != 0 && (Cf[1, idx_fr_n] = -1.0)
+        Y .+= transpose(Cf) * (G0 + im*B0) * Cf
+    end
     nodes, Y
 end
 

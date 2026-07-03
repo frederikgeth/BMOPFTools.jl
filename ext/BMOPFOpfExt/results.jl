@@ -111,41 +111,70 @@ end
 
 # Transformer device ground current (A), positive = into earth.
 #
-# The only galvanic earth path in the transformer models is the no-load
-# (magnetising) shunt G+jB. Whether its return is earth or a neutral wire
-# depends on the subtype — this mirrors the build (`transformer.jl`):
+# Two galvanic earth paths exist in the transformer models:
 #
-#   single_phase / single_phase_autotransformer : shunt is phase-to-neutral when
-#       the from side has a neutral terminal (return folded into the neutral KCL
-#       → no earth current); phase-to-ground when it does not (→ earth current).
-#   center_tap / wye_delta / delta_wye : shunt is on the from side referenced
-#       phase-to-ground regardless, so its return is always earth.
-#   open_delta_regulator : ideal, no shunt → zero.
+# 1. The no-load (magnetising) shunt G+jB. Whether its return is earth or a
+#    neutral wire depends on the subtype — this mirrors the build
+#    (`transformer.jl`):
+#      single_phase / single_phase_autotransformer : shunt is phase-to-neutral
+#          when the from side has a neutral terminal (return folded into the
+#          neutral KCL → no earth current); phase-to-ground when it does not.
+#      center_tap / wye_delta / delta_wye : shunt is on the from side referenced
+#          phase-to-ground regardless, so its return is always earth.
+#      open_delta_regulator : ideal, no shunt → zero.
+# 2. The internal neutral-grounding branch y_n = 1/(r_neutral+jx_neutral)
+#    (OpenDSS rneut/xneut) from a side's shared neutral terminal to earth
+#    (single_phase, wye_delta, delta_wye).
 #
-# Returns (cg_r, cg_i) in A. When the shunt return is a neutral wire, or there
-# is no shunt, both are zero.
+# Returns (cg_r, cg_i) in A; zero when neither path is present.
 function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
+    cg_r = 0.0; cg_i = 0.0
+
+    # Internal neutral-grounding branches (rneut/xneut).
+    for (side, bkey, tmkey) in (("from", "bus_from", "terminal_map_from"),
+                                ("to",   "bus_to",   "terminal_map_to"))
+        rn = Float64(get(xfmr, "r_neutral_$(side)", 0.0))
+        xn = Float64(get(xfmr, "x_neutral_$(side)", 0.0))
+        (rn == 0.0 && xn == 0.0) && continue
+        tm   = Vector{String}(get(xfmr, tmkey, String[]))
+        npos = BMOPFTools._neutral_pos(tm)
+        npos === nothing && continue
+        b   = string(get(xfmr, bkey, ""))
+        haskey(vr_v, (b, tm[npos])) || continue
+        zn2 = rn^2 + xn^2
+        gn  = rn / zn2; bn = -xn / zn2
+        vnr = val(vr_v[(b, tm[npos])]); vni = val(vi_v[(b, tm[npos])])
+        cg_r += gn * vnr - bn * vni
+        cg_i += gn * vni + bn * vnr
+    end
+
     G = Float64(get(xfmr, "g_no_load", 0.0))
     B = Float64(get(xfmr, "b_no_load", 0.0))
-    (iszero(G) && iszero(B)) && return 0.0, 0.0
+    (iszero(G) && iszero(B)) && return cg_r, cg_i
 
     b_fr  = string(get(xfmr, "bus_from", ""))
     tmfr  = Vector{String}(get(xfmr, "terminal_map_from", String[]))
     ph_fr = [tmfr[p] for p in BMOPFTools._phase_positions(tmfr)]
-    isempty(ph_fr) && return 0.0, 0.0
+    isempty(ph_fr) && return cg_r, cg_i
     # Build splits the total no-load admittance equally across phase conductors.
     n_c   = length(ph_fr)
     g_ph  = G / n_c; b_ph = B / n_c
 
-    if subtype in ("center_tap", "Yd", "Dy")
+    # (Historical note: this dispatch previously tested the short names
+    # "Yy"/"Yd"/"Dy", which never occur — the canonical subtype strings are
+    # passed in — so the shunt earth current of single_phase/wye_delta/delta_wye
+    # was silently reported as zero.)
+    if subtype in ("center_tap", "wye_delta", "delta_wye")
         # phase-to-ground shunt → always an earth return
-        return _shunt_ground_current(vr_v, vi_v, val, g_ph, b_ph, b_fr, ph_fr)
-    elseif subtype in ("Yy", "single_phase_autotransformer")
+        sr, si = _shunt_ground_current(vr_v, vi_v, val, g_ph, b_ph, b_fr, ph_fr)
+        return cg_r + sr, cg_i + si
+    elseif subtype in ("single_phase", "single_phase_autotransformer")
         # earth return only when the from side has no neutral terminal
-        BMOPFTools._neutral_pos(tmfr) === nothing || return 0.0, 0.0
-        return _shunt_ground_current(vr_v, vi_v, val, g_ph, b_ph, b_fr, ph_fr)
+        BMOPFTools._neutral_pos(tmfr) === nothing || return cg_r, cg_i
+        sr, si = _shunt_ground_current(vr_v, vi_v, val, g_ph, b_ph, b_fr, ph_fr)
+        return cg_r + sr, cg_i + si
     else
-        return 0.0, 0.0
+        return cg_r, cg_i
     end
 end
 

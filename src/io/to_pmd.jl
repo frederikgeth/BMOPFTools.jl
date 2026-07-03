@@ -450,6 +450,11 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
         haskey(xfmr, k) && @warn "to_pmd: transformer field `$k` dropped — " *
             "PMD has no per-winding current limit on the ENGINEERING transformer."
     end
+    for k in ("r_neutral_from", "x_neutral_from", "r_neutral_to", "x_neutral_to")
+        get(xfmr, k, 0.0) != 0.0 && @warn "to_pmd: transformer field `$k` " *
+            "(internal winding neutral grounding, OpenDSS rneut/xneut) dropped — " *
+            "not mapped by this exporter; the neutral loses its earth path."
+    end
     tr = get(xfmr, "tap_ratio", nothing)
     if tr !== nothing && !(tr isa Number && isapprox(Float64(tr), 1.0))
         @warn "to_pmd: regulator `tap_ratio` dropped — the $(subtype) subtype " *

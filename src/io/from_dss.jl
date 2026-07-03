@@ -93,6 +93,19 @@ function from_dss(path::AbstractString;
               "represented in BMOPF (full list on net[\"_meta\"][\"powerio_warnings\"]):\n  " *
               preview
     end
+    # rneut/xneut carry the transformer-INTERNAL winding neutral grounding;
+    # PowerIO drops them from every export it produces (bmopf AND pmd), so the
+    # affected neutral is left ungrounded — physically wrong for an
+    # impedance-grounded wye. BMOPF has fields for it; surface a targeted,
+    # actionable warning on top of the generic dropped-field list.
+    if any(occursin("`rneut`", String(w)) || occursin("`xneut`", String(w))
+           for w in warnings_list)
+        @warn "from_dss: OpenDSS transformer rneut/xneut (internal winding " *
+              "neutral grounding) was dropped by PowerIO — the affected " *
+              "neutral(s) are left UNGROUNDED. Set r_neutral_from/to and " *
+              "x_neutral_from/to on the transformer(s) manually; BMOPF models " *
+              "the internal grounding branch (see the schema)."
+    end
 
     if !isnothing(name)
         net["name"] = name
@@ -363,10 +376,25 @@ end
 
 # Transformer subtypes whose electrical parameters we re-derive from the `pmd`
 # export. PowerIO's `bmopf` export is lossy for these: it drops the no-load shunt
-# (every subtype), collapses the 3-winding `center_tap` leakage, and mis-refers
-# the delta-side leakage of `delta_wye`. Regulators (`single_phase_autotransformer`,
-# `open_delta_regulator`) and the already-faithful `n_winding` path are left as-is.
+# (every subtype), drops fixed off-nominal taps (every subtype), collapses the
+# 3-winding `center_tap` leakage, and mis-refers the delta-side leakage of
+# `delta_wye`. Regulators (`single_phase_autotransformer`, `open_delta_regulator`)
+# are left as-is. PowerIO emits NO `n_winding` transformers at all — any unit
+# outside the four two-bus subtypes (3-phase 3+-winding, Dd, …) is dropped from
+# the bmopf export entirely and is reconstructed from the pmd record by
+# `_reconstruct_nwinding_from_pmd!`.
 const _PMD_RECOVER_SUBTYPES = ("center_tap", "single_phase", "wye_delta", "delta_wye")
+
+# First scalar of a pmd per-phase tap vector. BMOPF carries one tap per
+# transformer side, so non-uniform per-phase taps collapse to phase 1 (warned).
+function _pmd_tap_scalar(tm, tid, wdg)::Float64
+    v = tm isa AbstractVector ? Float64.(tm) : Float64[Float64(tm)]
+    isempty(v) && return 1.0
+    all(x -> isapprox(x, v[1]; atol=1e-9), v) ||
+        @warn "from_dss: transformer '$tid' winding $wdg has non-uniform per-phase " *
+              "taps $v; using the phase-1 tap $(v[1])."
+    v[1]
+end
 
 """
     _recover_transformer_params_from_pmd!(net, dn)
@@ -395,13 +423,27 @@ For each transformer of a subtype in [`_PMD_RECOVER_SUBTYPES`](@ref):
     reactance referred to each side (`x_series_{from,to}=XHL/2·Z_base_{from,to}`)
     and the per-winding resistances; equivalent to the Γ lump but correctly
     referred on both sides.
+  * Fixed off-nominal taps — recovered from the pmd `tm_set` as the single
+    from-side `tap` multiplier `t₁/t₂` (the bmopf export drops `taps=`
+    entirely). `tap_min`/`tap_max` are deliberately NOT populated from OpenDSS
+    `mintap`/`maxtap`: in BMOPF their presence opts the tap into optimisation,
+    whereas in OpenDSS they are ubiquitous data defaults.
 
-No-op when there are no matching transformers.
+Transformers the bmopf export dropped entirely (3-phase 3+-winding units, Dd,
+…) are rebuilt as `n_winding` via [`_reconstruct_nwinding_from_pmd!`](@ref) and
+listed under `net["_meta"]["recovered_n_winding"]`.
+
+No-op when there are no transformers in either export.
 """
 function _recover_transformer_params_from_pmd!(net::Dict{String,Any}, dn)
-    xfmr = get(net, "transformer", nothing)
-    xfmr isa Dict || return net
-    any(haskey(xfmr, s) && !isempty(xfmr[s]) for s in _PMD_RECOVER_SUBTYPES) || return net
+    # The bmopf export may lack the "transformer" key entirely when its ONLY
+    # transformer(s) were dropped (e.g. a single 3-winding unit), so the pmd
+    # export must be consulted before concluding there is nothing to recover.
+    had_xfmr_key = haskey(net, "transformer")
+    xfmr = get!(net, "transformer", Dict{String,Any}())
+    if !(xfmr isa Dict)
+        return net
+    end
 
     local pmd
     try
@@ -411,11 +453,15 @@ function _recover_transformer_params_from_pmd!(net::Dict{String,Any}, dn)
         @warn "from_dss: could not fetch PowerIO `pmd` export to recover " *
               "transformer leakage/core shunt; losses and split-phase legs may " *
               "be inaccurate." err
+        had_xfmr_key || delete!(net, "transformer")
         return net
     end
 
     pmd_tr = get(pmd, :transformer, nothing)
-    pmd_tr === nothing && return net
+    if pmd_tr === nothing
+        had_xfmr_key || delete!(net, "transformer")
+        return net
+    end
     # Index pmd transformers by their lower-cased key (and `name` field when
     # present) for matching against the canonicalised bmopf transformer keys.
     by_id = Dict{String,Any}()
@@ -463,6 +509,35 @@ function _recover_transformer_params_from_pmd!(net::Dict{String,Any}, dn)
                 c["b_no_load"] = 0.0
             end
 
+            # Fixed off-nominal taps. PowerIO's bmopf export drops OpenDSS
+            # `taps=` entirely (with only a warning), silently solving at the
+            # nominal ratio, even though BMOPF has a `tap` field. Recover from
+            # the pmd `tm_set`: BMOPF's single from-side multiplier carries
+            # t₁/t₂ — exact for the ideal ratio; when t₂ ≠ 1 the to-winding
+            # leakage referral stays at nominal turns (warned, small effect).
+            # (`tap_min`/`tap_max` are NOT populated from OpenDSS mintap/maxtap:
+            # in BMOPF their presence opts the tap into OPTIMISATION, whereas in
+            # OpenDSS they are ubiquitous defaults, 0.9/1.1 on every unit.)
+            tms = get(t, :tm_set, nothing)
+            if tms isa AbstractVector && length(tms) >= 2 &&
+               Float64(get(c, "tap", 1.0)) == 1.0
+                t1 = _pmd_tap_scalar(tms[1], tid, 1)
+                t2 = _pmd_tap_scalar(tms[2], tid, 2)
+                if subtype == "center_tap" && length(tms) >= 3
+                    t3 = _pmd_tap_scalar(tms[3], tid, 3)
+                    isapprox(t2, t3; atol=1e-9) ||
+                        @warn "from_dss: center_tap '$tid' has unequal LV leg " *
+                              "taps ($t2, $t3); using the leg-1 tap."
+                end
+                isapprox(t2, 1.0; atol=1e-9) ||
+                    @warn "from_dss: transformer '$tid' has an off-nominal " *
+                          "TO-side tap ($t2), folded into the single from-side " *
+                          "ratio (tap = t₁/t₂) — exact for the ideal ratio; the " *
+                          "to-winding leakage referral stays at nominal turns."
+                tap = t1 / t2
+                isapprox(tap, 1.0; atol=1e-12) || (c["tap"] = tap)
+            end
+
             # Leakage is only re-derived where the bmopf export is actually
             # wrong: `center_tap` (3-winding leakage dropped) and `delta_wye`
             # (delta-side leakage referred to the wrong base). `single_phase`
@@ -485,7 +560,169 @@ function _recover_transformer_params_from_pmd!(net::Dict{String,Any}, dn)
             end
         end
     end
+
+    # Transformers PowerIO's bmopf export dropped ENTIRELY — any 3-phase unit
+    # with 3+ windings, and any connection set outside the four two-bus
+    # subtypes (e.g. Dd) — are rebuilt as BMOPF `n_winding` from the pmd
+    # record, which carries everything needed.
+    present = Set{String}()
+    for (_, coll) in xfmr
+        coll isa Dict || continue
+        for id in keys(coll)
+            push!(present, lowercase(String(id)))
+        end
+    end
+    recovered = String[]
+    for (k, t) in pairs(pmd_tr)
+        id = lowercase(String(k))
+        nm = get(t, :name, nothing)
+        nm_l = nm === nothing ? id : lowercase(String(nm))
+        (id in present || nm_l in present) && continue
+        _reconstruct_nwinding_from_pmd!(net, nm_l, t) && push!(recovered, nm_l)
+    end
+    if !isempty(recovered)
+        meta = get!(net, "_meta", Dict{String,Any}())
+        meta["recovered_n_winding"] = sort(recovered)
+        @info "from_dss: $(length(recovered)) transformer(s) dropped by PowerIO's " *
+              "bmopf export were reconstructed as `n_winding` from the pmd " *
+              "export: $(join(sort(recovered), ", "))"
+    end
+
+    (had_xfmr_key || !isempty(xfmr)) || delete!(net, "transformer")
     return net
+end
+
+"""
+    _reconstruct_nwinding_from_pmd!(net, tid, t) -> Bool
+
+Rebuild a transformer that PowerIO's `bmopf` export dropped (any 3-phase unit
+with 3+ windings, or a connection pattern outside the four two-bus subtypes,
+e.g. Dd) as a BMOPF `n_winding` transformer from its `pmd` record `t`.
+
+Mapping — mirrors the hand-built `n_winding` fixtures validated against OpenDSS
+in `test/powerflow_comparison_tests.jl`:
+
+  * winding k: `bus`, `configuration` from pmd; `terminal_map` in natural phase
+    order (`a`,`b`,`c`[,`n`]). PMD's rolled `connections` + `polarity` encoding
+    of the OpenDSS vector group is deliberately NOT copied — the BMOPF
+    `n_winding` model expresses the standard OpenDSS delta arrangement as
+    `delta_roll = -1` on the DELTA winding(s) with natural terminal order.
+  * `v_nom` = winding kV·tap — line-to-neutral (kv/√3) for a WYE winding, the
+    coil line-to-line voltage for DELTA. Folding the fixed tap into the
+    effective winding voltage scales the leakage referral by tap²
+    (turns-scaled, as OpenDSS). Only 3-phase windings are reconstructed —
+    dropped 1-/2-phase units (e.g. L-L regulator banks) refuse loudly.
+  * `r_winding` = rw·z_coil with z_coil = n_ph·v_nom²/s_rating (the per-winding
+    COIL base, see `src/io/nwinding.jl`); `x_sc["i_j"]` = xsc·z_coil₁, pmd pair
+    order (1,2),(1,3),…,(1,n),(2,3),….
+  * `g_no_load` = noloadloss·S/(n_ph₁·v_nom₁²) — the PER-COIL winding-1 stamp
+    the n_winding builders apply once per phase leg (total core loss
+    = noloadloss·S); `b_no_load` = 0 (magnetising susceptance dropped, matching
+    the two-bus recovery above).
+
+Buses missing from the bmopf export (possible when a bus served only the
+dropped transformer) are synthesised from the winding terminal map, ungrounded.
+Returns `false` (with a warning) when the pmd record is incomplete.
+"""
+function _reconstruct_nwinding_from_pmd!(net::Dict{String,Any}, tid::String, t)::Bool
+    buses = get(t, :bus, nothing);   conf = get(t, :configuration, nothing)
+    conns = get(t, :connections, nothing)
+    vmn   = get(t, :vm_nom, nothing); smn = get(t, :sm_nom, nothing)
+    rw    = get(t, :rw, nothing);     xsc = get(t, :xsc, nothing)
+    ok = all(x -> x isa AbstractVector && !isempty(x),
+             (buses, conf, conns, vmn, smn, rw, xsc))
+    nW = ok ? length(buses) : 0
+    if !ok || nW < 2 || length(conf) < nW || length(conns) < nW ||
+       length(vmn) < nW || length(rw) < nW || length(xsc) < binomial(nW, 2)
+        @warn "from_dss: transformer '$tid' was dropped by PowerIO's bmopf export " *
+              "and its pmd record is incomplete; cannot reconstruct — the unit is " *
+              "MISSING from the network."
+        return false
+    end
+    tms = get(t, :tm_set, nothing)
+    tapk(k) = (tms isa AbstractVector && length(tms) >= k) ?
+              _pmd_tap_scalar(tms[k], tid, k) : 1.0
+    s_rating = Float64(smn[1]) * 1e3           # kVA → VA
+
+    phmap = Dict("1" => "a", "2" => "b", "3" => "c")
+    windings = Dict{String,Any}[]
+    for k in 1:nW
+        terms  = [string(Int(c)) for c in conns[k]]
+        phases = sort([c for c in terms if haskey(phmap, c)])
+        has_n  = any(c -> c in ("4", "5"), terms)
+        # Only 3-phase windings map cleanly onto the n_winding model (the
+        # validated class: YYY/Dyn/Dyyn). A dropped 1- or 2-phase unit (e.g. a
+        # bank of L-L regulator transformers) would need a different mapping —
+        # the kv/√3 and per-leg conventions below do not apply — so refuse
+        # loudly rather than build a wrong unit.
+        if length(phases) != 3
+            @warn "from_dss: transformer '$tid' was dropped by PowerIO's bmopf " *
+                  "export and winding $k is not 3-phase; only 3-phase windings " *
+                  "can be reconstructed as n_winding — the unit is MISSING " *
+                  "from the network."
+            return false
+        end
+        cfg    = uppercase(String(conf[k]))
+        n_ph   = length(phases)
+        kv_eff = Float64(vmn[k]) * 1e3 * tapk(k)
+        v_nom  = (cfg == "WYE" && n_ph >= 2) ? kv_eff / sqrt(3) : kv_eff
+        z_coil = n_ph * v_nom^2 / s_rating
+        w = Dict{String,Any}(
+            "bus"           => lowercase(String(buses[k])),
+            "terminal_map"  => vcat([phmap[c] for c in phases],
+                                    has_n ? ["n"] : String[]),
+            "v_nom"         => v_nom,
+            "configuration" => cfg,
+            "r_winding"     => Float64(rw[k]) * z_coil)
+        cfg == "DELTA" && (w["delta_roll"] = -1)
+        push!(windings, w)
+    end
+
+    n_ph1  = count(x -> lowercase(x) in ("a", "b", "c"), windings[1]["terminal_map"])
+    v_nom1 = Float64(windings[1]["v_nom"])
+    z1     = n_ph1 * v_nom1^2 / s_rating
+    x_sc = Dict{String,Any}()
+    idx = 0
+    for i in 1:nW-1, j in i+1:nW
+        idx += 1
+        x_sc["$(i)_$(j)"] = Float64(xsc[idx]) * z1
+    end
+
+    nl = Float64(get(t, :noloadloss, 0.0))
+    xf = Dict{String,Any}(
+        "windings"  => windings,
+        "x_sc"      => x_sc,
+        "s_rating"  => s_rating,
+        "g_no_load" => nl > 0 ? nl * s_rating / (n_ph1 * v_nom1^2) : 0.0,
+        "b_no_load" => 0.0)
+
+    busd = get!(net, "bus", Dict{String,Any}())
+    for w in windings
+        b = get(busd, w["bus"], nothing)
+        if b === nothing
+            b = Dict{String,Any}("terminal_names" => copy(w["terminal_map"]))
+            "n" in w["terminal_map"] && (b["neutral_terminal"] = "n")
+            busd[w["bus"]] = b
+            @warn "from_dss: bus '$(w["bus"])' was absent from the bmopf export " *
+                  "(it served only the dropped transformer '$tid'); synthesised it " *
+                  "from the winding terminal map, UNGROUNDED — check grounding."
+        else
+            # The dropped transformer was the only element using some of this
+            # bus's conductors, so the bmopf export omitted them from
+            # terminal_names — reinstate the winding's terminals.
+            names  = string.(get(b, "terminal_names", String[]))
+            absent = [t for t in w["terminal_map"] if !(t in names)]
+            if !isempty(absent)
+                b["terminal_names"] = vcat(names, absent)
+                "n" in absent && !haskey(b, "neutral_terminal") &&
+                    (b["neutral_terminal"] = "n")
+            end
+        end
+    end
+
+    nwd = get!(net["transformer"], "n_winding", Dict{String,Any}())
+    nwd[tid] = xf
+    return true
 end
 
 # Phase terminals in positive-sequence rotation (a precedes b precedes c). A

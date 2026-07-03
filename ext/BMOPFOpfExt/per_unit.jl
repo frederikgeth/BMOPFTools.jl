@@ -344,6 +344,13 @@ function _pu_scale_transformers!(net, bases)
             haskey(xfmr, "r_series_to")   && (xfmr["r_series_to"]   = Float64(xfmr["r_series_to"])   / zb_to)
             haskey(xfmr, "x_series_to")   && (xfmr["x_series_to"]   = Float64(xfmr["x_series_to"])   / zb_to)
 
+            # Winding neutral impedance (rneut/xneut): same side-base scaling as
+            # the series leakage.
+            haskey(xfmr, "r_neutral_from") && (xfmr["r_neutral_from"] = Float64(xfmr["r_neutral_from"]) / zb_fr)
+            haskey(xfmr, "x_neutral_from") && (xfmr["x_neutral_from"] = Float64(xfmr["x_neutral_from"]) / zb_fr)
+            haskey(xfmr, "r_neutral_to")   && (xfmr["r_neutral_to"]   = Float64(xfmr["r_neutral_to"])   / zb_to)
+            haskey(xfmr, "x_neutral_to")   && (xfmr["x_neutral_to"]   = Float64(xfmr["x_neutral_to"])   / zb_to)
+
             # No-load (core-loss) shunt admittance is stamped at the from side, so
             # it scales by the from-bus base. An admittance goes to p.u. by ×z_base
             # (= ÷y_base), the reciprocal of an impedance — without this the core

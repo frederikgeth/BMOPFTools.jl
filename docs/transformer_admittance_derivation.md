@@ -28,7 +28,8 @@ exporter.
 | Node = | a `(bus, terminal)` pair. |
 | Turns ratio | $N = V^\text{ref}_\text{fr}/V^\text{ref}_\text{to}$ (both SI volts; for `center_tap`, $V^\text{ref}_\text{to}$ is the per-leg 120 V rating). |
 | Series impedance | $Z_1=R_1+jX_1$ from `r_series_from`/`x_series_from`; $Z_2=R_2+jX_2$ from `r_series_to`/`x_series_to`. |
-| No-load shunt | $Y_0=G_0+jB_0$ from `g_no_load`/`b_no_load`, placed phase-to-ground at the **HV** terminals. |
+| Neutral grounding | `r/x_neutral_from`/`r/x_neutral_to` (OpenDSS `rneut`/`xneut`): an INTERNAL grounding branch $y_n = 1/(R_n+jX_n)$ from the winding's shared neutral terminal to earth — a diagonal stamp at the neutral node (verified against OpenDSS: its Yprim's neutral diagonal gains exactly $y_n$; the star point stays solid on the neutral node). Supported for `single_phase` and the wye side of Yd/Dy; stand-alone transformer property, external groundings stay on buses/shunts. |
+| No-load shunt | $Y_0=G_0+jB_0$ from `g_no_load`/`b_no_load`, on the **from** (HV) side. Placement mirrors the OPF builders: **across the from winding** ($p{-}q$) for `single_phase` and `single_phase_autotransformer`; **phase-to-ground** at the from-side phase terminals for `center_tap` and Yd/Dy; across each from-side L-L pair for `open_delta_regulator`. |
 
 **Reciprocity.** A transformer built from linear impedances and ideal cores is
 a reciprocal network, so the exported $Y$ **must be symmetric**,
@@ -55,7 +56,8 @@ impedance). We then *verify* that the IVR constraints in
 **Finiteness.** $Y$ is finite only for **nonzero leakage impedance**. The ideal
 ($Z\to 0$) transformer has infinite primitive admittance and a singular nodal
 block — OpenDSS always carries a small nonzero leakage, and so must any case we
-export.
+export. The degenerate branches still stamp the no-load shunt, so a zero-leakage
+unit with core loss exports its (singular) shunt-only block rather than zeros.
 
 ---
 
@@ -65,9 +67,15 @@ Per phase-pair $k$: HV node $p=(b_\text{fr},t^\text{fr}_k)$, LV node
 $q=(b_\text{to},t^\text{to}_k)$. The two windings of the pair are lumped into one
 series leakage referred to HV (the Γ model used by the OPF):
 
-$$Z = (R_1 + N^2 R_2) + j(X_1 + N^2 X_2),\qquad y = 1/Z,\qquad Y_0' = Y_0/n_c$$
+$$Z = (t^2 R_1 + N^2 R_2) + j(t^2 X_1 + N^2 X_2),\qquad y = 1/Z,\qquad Y_0' = Y_0/n_c$$
 
-(the no-load shunt is split equally across the $n_c$ pairs, matching the code).
+with $N = N_0\,t$ ($N_0$ the nameplate ratio, $t$ the fixed `tap` multiplier,
+default 1). An off-nominal tap changes the *from*-winding turns, so the
+from-winding leakage scales with $t^2$ — equivalently $Z = N^2(z_2 + z_1/N_0^2)$,
+the to-referred leakage held at nominal. This matches the OPF builder
+(`_add_yy_transformer!`) and OpenDSS's turns-scaled `Yprim`; at $t=1$ it is the
+classical $z_1 + N_0^2 z_2$. (The no-load shunt is split equally across the
+$n_c$ pairs, matching the code.)
 
 The $2\times2$ block for pair $k$, from $C^{\mathsf T}y_\text{prim}C$ with
 $C=\begin{psmallmatrix}1&-N\end{psmallmatrix}$ (one winding spanning $p$ and $q$
@@ -114,14 +122,28 @@ phase-to-neutral equivalents (same convention as the OPF, see math-model §3).
 Per core, fold both winding leakages into one referred-to-wye series admittance
 (Γ, matching the Yd voltage equation structure):
 
-$$y_t = \frac{1}{Z_w + n_\text{eff}^2 Z_d},$$
+$$y_t = \frac{1}{Z_w + (n_\phi/n_\text{eff}^2)\, Z_d},$$
 
-where $Z_w$ = from-side winding impedance and $Z_d$ = to-side winding impedance
-(mapped by `wye_is_from`). The $2\times2$ per-core primitive is
+where $Z_w$ is the wye-side and $Z_d$ the delta-side winding impedance (mapped
+by `wye_is_from`). The $n_\phi$ factor converts $Z_d$ from the delta **bus**
+line-to-neutral base it is stored on to the delta **coil** (line-to-line) base
+($n_\phi Z_d$), and the ideal transform refers the coil impedance to the wye
+row by $1/n_\text{eff}^2$ — the same referral the OPF applies
+(`_add_yd_transformer!`: $Z_\text{eff} = n_\text{eff} Z_w + (n_\phi/n_\text{eff}) Z_d$
+on the wye current $= n_\text{eff}\cdot$ the $y_t$ denominator).
 
-$$y_\text{prim}^{(k)}=y_t\begin{bmatrix}1 & -n_\text{eff}\\ -n_\text{eff} & n_\text{eff}^2\end{bmatrix},$$
+The ideal coil relation is $U^d_k = n_\text{eff}\, U^w_k$, i.e.
+$U^w_k = a\, U^d_k$ with $a = 1/n_\text{eff}$, and the leakage sits on the wye
+row, so the $2\times2$ per-core primitive (rows $[w_k, d_k]$) is
 
-symmetric by construction. Stack 3 such blocks block-diagonally with ordering
+$$y_\text{prim}^{(k)}=y_t\begin{bmatrix}1 & -a\\ -a & a^2\end{bmatrix},
+\qquad a = \frac{1}{n_\text{eff}},$$
+
+symmetric by construction. **Orientation matters:** stamping $n_\text{eff}$
+instead of $a$ builds the *inverse* transformer — its no-load point sits at
+$U^d = U^w/n_\text{eff}$ instead of $n_\text{eff} U^w$ (a $\sim n_\text{eff}^2$
+error), yet it passes every symmetry/passivity check. This was a real export
+bug, caught only when the OpenDSS `Yprim` gate was extended to Yd/Dy. Stack 3 such blocks block-diagonally with ordering
 [wye-winding-1, delta-winding-1, wye-winding-2, delta-winding-2, ...] (reordering
 rows/cols of $C$ accordingly).
 
@@ -135,12 +157,12 @@ evaluates to the explicit symmetric block:
 
 $$Y_\text{Yd}=y_w
 \begin{bmatrix}
- \mathbf{1}_3 & -\mathbf{1} & -D\\[4pt]
- -\mathbf{1}^{\mathsf T} & 3 & \mathbf{1}^{\mathsf T}D\\[4pt]
- -D^{\mathsf T} & D^{\mathsf T}\mathbf{1} & D^{\mathsf T}D
+ \mathbf{1}_3 & -\mathbf{1} & -aD\\[4pt]
+ -\mathbf{1}^{\mathsf T} & 3 & a\,\mathbf{1}^{\mathsf T}D\\[4pt]
+ -aD^{\mathsf T} & a\,D^{\mathsf T}\mathbf{1} & a^2 D^{\mathsf T}D
 \end{bmatrix}.$$
 
-The cross blocks $-y_wD$ (wye↔delta) and $-y_w D^{\mathsf T}$ (delta↔wye) are
+The cross blocks $-a y_wD$ (wye↔delta) and $-a y_w D^{\mathsf T}$ (delta↔wye) are
 transposes of each other, confirming symmetry. The $3$ on the wye neutral is the
 zero-sequence admittance path ($\propto y_w$), so a zero from-side impedance
 makes the neutral row singular.
@@ -317,16 +339,23 @@ into core so both share one definition.
 4. **OpenDSS cross-check:** dump `Yprim` per fixture, permute to the same node
    order, assert `‖Y_\text{bmopf} - Y_\text{dss}\|_\infty < \text{tol}`. Catches
    turns-ratio direction, $\sqrt3$ scaling, delta phase-shift, and shunt-placement
-   errors in one shot. _Implemented_ for `single_phase` and `center_tap` (the
-   testset "Transformer Yprim matches OpenDSS" in `powerflow_comparison_tests.jl`);
-   this is the gate that would have caught the original `center_tap` winding-3
-   polarity bug. The delta blocks are basis-dependent in the raw matrix, so Yd/Dy
-   are instead validated terminally by the unbalanced-load PF comparisons.
+   errors in one shot. _Implemented_ for `single_phase`, `center_tap`,
+   `wye_delta`, and `delta_wye` (the testset "Transformer Yprim matches OpenDSS"
+   in `powerflow_comparison_tests.jl`); this is the gate that caught both the
+   original `center_tap` winding-3 polarity bug and the inverted Yd/Dy primitive
+   (43× relative deviation while every symmetry/passivity oracle passed). The
+   Yd/Dy fixtures declare the wye neutral as an explicit bus terminal with
+   external grounding, so the OpenDSS node set aligns directly and the earlier
+   "delta blocks are basis-dependent" exclusion no longer applies.
    Mirror [`powerflow_comparison_tests.jl`](../test/powerflow_comparison_tests.jl).
 5. **Self-consistency with the OPF:** for a consistent $(V,I)$ pair recovered
    from $I=YV$ (i.e., the transformer equations are satisfied), verify that the
    OPF voltage and current coupling constraints in `transformer.jl` hold to
-   numerical tolerance.
+   numerical tolerance. _Implemented_ algebraically for `single_phase`,
+   `center_tap`, `wye_delta`, and `delta_wye` (`admittance_tests.jl`), and at a
+   **solved PF setpoint** — node-by-node, $Y_p V$ vs the solved winding-current
+   variables, including off-nominal fixed taps — in the testset "OPF and Yprim
+   export agree at a solved setpoint" (`powerflow_comparison_tests.jl`).
 6. **Open-delta vs published model:** the `open_delta_regulator` $Y$ block
    matches Yan et al. (2018) Eq. (11) term-by-term in per unit ($r=1-n_R\equiv
    n_\text{eff}$). The galvanic straight-through (common-neutral, Eq. 14/15) is

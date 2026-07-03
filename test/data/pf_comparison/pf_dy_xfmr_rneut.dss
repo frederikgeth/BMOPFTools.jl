@@ -1,0 +1,39 @@
+! Delta-wye (Dy) transformer with an INTERNAL winding neutral grounding
+! impedance (OpenDSS rneut/xneut) — validation case for the BMOPF
+! r_neutral_to/x_neutral_to transformer fields.
+!
+! The LV wye neutral is brought out to lv.4 but there is deliberately NO
+! external grounding reactor: the ONLY earth path at the LV neutral is the
+! transformer-internal rneut+jxneut branch (star point solid on lv.4, then
+! 2+j1 Ohm to earth inside the transformer — verified topology: the OpenDSS
+! Yprim gains exactly 1/(rneut+jxneut) on the neutral-node diagonal).
+! In healthy power flow the grounded-wye star absorbs the unbalanced load
+! neutral current metallically, so lv.4 sits at ~0 V in BOTH engines — the
+! branch anchors the isolated LV island reference; its numerical value is
+! validated entry-wise against the OpenDSS Yprim.
+!
+! PowerIO drops rneut/xneut on conversion; the BMOPF test sets
+! r_neutral_to=2, x_neutral_to=1 on the parsed transformer by hand.
+
+Clear
+Set DefaultBaseFreq=50
+
+New Circuit.pf_dy_xfmr_rneut basekv=11.0 pu=1.0 angle=0 phases=3 bus1=hv.1.2.3 model=ideal
+
+New Transformer.t1 phases=3 windings=2
+~ wdg=1 bus=hv.1.2.3   conn=delta kv=11.0  %r=1.0 kva=500
+~ wdg=2 bus=lv.1.2.3.4 conn=wye   kv=0.415 %r=1.0 kva=500 rneut=2 xneut=1
+~ xhl=4.0
+~ %noloadloss=0.3
+~ %imag=0
+
+! Unbalanced constant-power wye loads (3:1:2) -> neutral current through rneut.
+New Load.ld1 bus1=lv.1.4 kv=0.240 kw=180 kvar=60 phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.ld2 bus1=lv.2.4 kv=0.240 kw=60  kvar=20 phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.ld3 bus1=lv.3.4 kv=0.240 kw=120 kvar=40 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[11.0, 0.415]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve

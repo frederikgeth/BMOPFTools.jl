@@ -1,0 +1,66 @@
+! Delta-wye (Dy) three-phase transformer power-flow comparison case.
+! (BMOPF subtype: delta_wye)
+!
+! Topology: hv ──[Dy xfmr, 11 kV delta / 0.415 kV wye]── lv
+!   hv.1/2/3    = HV delta terminals (no neutral on delta bus)
+!   lv.1/2/3/4  = LV wye phases and neutral
+!
+! Design intent for high-confidence cross-validation:
+!
+!   (a) Series impedance is load-bearing:
+!       %r=1.0 per winding, xhl=4.0% → at 75% rated load the delta-winding
+!       series drop is ≈ (0.01+j0.04)×0.75×242 Ω × I, giving several volts
+!       on the LV side — well above the 0.1 V comparison tolerance.
+!
+!   (b) No-load shunt is exercised:
+!       %noloadloss=0.3 %imag=1.5 → core loss ≈ 1.5 kW, magnetising
+!       current ≈ 7.5 A (HV), both visible in the KCL balance.
+!
+!   (c) Load unbalance produces neutral displacement:
+!       Loads in ratio 3:1:2 across the three wye phases → significant
+!       neutral shift on the LV bus and inter-phase voltage spread of
+!       several volts.  Any per-phase constraint sign error or a wrong
+!       neutral-current term would shift the neutral by >1 V (detectable).
+!
+!   (d) LV neutral earthed through 0.3 Ω (matches LV1_14bus convention),
+!       so the neutral displacement is non-trivial and exercises the
+!       grounding shunt path in BMOPF.
+!
+! Total load ≈ 360 kW + 120 kvar (≈ 72 % of rated at 0.95 pf).
+
+Clear
+
+! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
+! rescale every reactance.  See docs/src/validation.md.
+Set DefaultBaseFreq=50
+
+New Circuit.pf_dy_xfmr_tap basekv=11.0 pu=1.0 angle=0 phases=3 bus1=hv.1.2.3 model=ideal
+
+! 2-winding DELTA-WYE transformer with realistic losses.
+New Transformer.t1 phases=3 windings=2
+~ wdg=1 bus=hv.1.2.3   conn=delta kv=11.0  %r=1.0 kva=500 tap=1.02
+~ wdg=2 bus=lv.1.2.3.4 conn=wye   kv=0.415 %r=1.0 kva=500
+~ xhl=4.0
+~ %noloadloss=0.3
+~ %imag=1.5
+
+! LV neutral earthed via 0.3 Ω reactor (matches LV1_14bus convention).
+New Reactor.grnd_lv bus1=lv.4 bus2=lv.0 R=0.3 X=0 phases=1
+
+! Balanced constant-power wye-to-neutral loads (120 kW / 40 kvar each phase).
+! Balanced loading makes |I_terminal| = √3 × |I_arm| exactly for the HV delta
+! winding, so the BMOPF terminal-current series-drop formula is exact.
+! Vminpu=0 Vmaxpu=2: disable ODS voltage-dependent load switching so model=1
+! behaves as strict constant P+Q at all voltages, matching BMOPF.
+New Load.ld1 bus1=lv.1.4 kv=0.240 kw=120 kvar=40 phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.ld2 bus1=lv.2.4 kv=0.240 kw=120 kvar=40 phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.ld3 bus1=lv.3.4 kv=0.240 kw=120 kvar=40 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[11.0, 0.415]
+CalcVoltageBases
+! Tolerance 1e-8 (<< the voltage-comparison tolerance) removes OpenDSS-side
+! convergence slop; MaxIterations raised so the tighter target is reached.
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve

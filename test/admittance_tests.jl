@@ -55,13 +55,21 @@
         # Power balance
         check_power_balance(Y, [1.0+0im, 1.0/N])
 
-        # Fixed off-nominal tap: N_eff = N·tap, equivalent to scaling
-        # v_nom_from by the tap (regression — tap used to be ignored).
-        xfmr_tap = merge(xfmr, Dict{String,Any}("tap" => 0.95))
-        xfmr_ref = merge(xfmr, Dict{String,Any}("v_nom_from" => 0.95 * 11000.0))
+        # Fixed off-nominal tap: N_eff = N·tap, with the FROM-winding leakage
+        # turns-scaled by tap² (OLTC changes the from-winding turns), matching
+        # the OPF's to-referred stamping and OpenDSS's turns-scaled Yprim:
+        #   Z(tap) = tap²·z_fr + N_eff²·z_to = N_eff²·(z_to + z_fr/N0²)
+        # (Two regressions: the tap used to be ignored entirely; then the
+        # from-winding term was not tap-scaled, so Yprim disagreed with the OPF
+        # and OpenDSS at any off-nominal tap.)
+        tapm  = 0.95
+        Nt    = N * tapm
+        Z_t   = (tapm^2*0.5 + Nt^2*0.01) + im*(tapm^2*2.0 + Nt^2*0.04)
+        y_t   = 1.0 / Z_t
+        xfmr_tap = merge(xfmr, Dict{String,Any}("tap" => tapm))
         _, Y_tap = transformer_yprim(xfmr_tap, "single_phase")
-        _, Y_ref2 = transformer_yprim(xfmr_ref, "single_phase")
-        @test Y_tap ≈ Y_ref2
+        Y_tref = [y_t+Y0  -Nt*y_t; -Nt*y_t  Nt^2*y_t]
+        @test maximum(abs.(Y_tap .- Y_tref)) < 1e-12
         @test !(Y_tap ≈ Y)
 
         # 3-phase block is block-diagonal over phase pairs
@@ -438,6 +446,162 @@
         @test abs(lhs2 - rhs2) < 1e-8
     end
 
+    # ─── OPF self-consistency: wye_delta / delta_wye ──────────────────────────
+    # Same idea as the single_phase/center_tap checks above: at an ARBITRARY
+    # (unbalanced, neutral-shifted) voltage point, the currents implied by the
+    # exported Yprim must satisfy the OPF builder's constraint equations
+    # (`_add_yd_transformer!`): the delta voltage loop with the wye-referred
+    # leakage Zeff = n_eff·Zw + (n_ph/n_eff)·Zd, the delta line-current
+    # coupling, and the star-point KCL. This is the algebraic drift guard the
+    # delta subtypes lacked — the orientation of the ideal transform is
+    # invisible to the symmetry/passivity checks above (the historical export
+    # bug stamped n_eff instead of 1/n_eff in the primitive, i.e. the inverse
+    # transformer, and passed every one of them).
+    for (sub, wye_is_from) in (("wye_delta", true), ("delta_wye", false))
+        @testset "OPF self-consistency — $sub" begin
+            Zw = 0.35 + 1.4im          # wye winding (Ω, wye-bus L-N base)
+            Zd = 0.0004 + 0.0016im     # delta winding (Ω, delta-bus L-N base)
+            G0 = 2e-4; B0 = -8e-4
+            N  = 11000.0 / 400.0       # v_nom_from / v_nom_to
+            xfmr = Dict{String,Any}(
+                "bus_from"   => "hv",     "bus_to"    => "lv",
+                "v_nom_from" => 11000.0,  "v_nom_to"  => 400.0,
+                "g_no_load"  => G0,       "b_no_load" => B0,
+            )
+            if wye_is_from
+                xfmr["terminal_map_from"] = ["1","2","3","n"]
+                xfmr["terminal_map_to"]   = ["1","2","3"]
+                xfmr["r_series_from"] = real(Zw); xfmr["x_series_from"] = imag(Zw)
+                xfmr["r_series_to"]   = real(Zd); xfmr["x_series_to"]   = imag(Zd)
+                n_eff   = sqrt(3.0) / N
+                v_wye_m = 11000.0 / sqrt(3.0)
+            else
+                xfmr["terminal_map_from"] = ["1","2","3"]
+                xfmr["terminal_map_to"]   = ["1","2","3","n"]
+                xfmr["r_series_from"] = real(Zd); xfmr["x_series_from"] = imag(Zd)
+                xfmr["r_series_to"]   = real(Zw); xfmr["x_series_to"]   = imag(Zw)
+                n_eff   = N * sqrt(3.0)
+                v_wye_m = 400.0 / sqrt(3.0)
+            end
+            nodes, Y = transformer_yprim(xfmr, sub)
+            @test length(nodes) == 7
+            # Node order from _yprim_yd: [wye 1, 2, 3, n, delta 1, 2, 3].
+            # Voltages near (but off) the physical operating point so all
+            # currents are nonzero: unbalanced phases, shifted neutral, and a
+            # delta common-mode offset.
+            V_wye_ph = v_wye_m .* [1.02*cis(0.01), 0.96*cis(-2π/3 + 0.03),
+                                   1.05*cis(2π/3 - 0.02)]
+            V_n      = 3.0 + 2.0im
+            V_del    = [n_eff * (V_wye_ph[k] - V_n) * (1.0 + 0.01k) + (5.0 - 1.0im)
+                        for k in 1:3]
+            # (V_del here is a per-node guess, not the coil voltage; only its
+            # differences enter the coil equations, which is what we test.)
+            Vfull = vcat(V_wye_ph, V_n, V_del)
+            I = Y * Vfull
+
+            # Recover the OPF winding-current variables from the node currents:
+            # phase-to-ground magnetising shunt sits on the FROM-side phases.
+            Gph = (G0 + im*B0) / 3
+            Iw = [I[k]   - (wye_is_from ? Gph * Vfull[k]   : 0.0im) for k in 1:3]
+            Id = [I[4+k] - (wye_is_from ? 0.0im : Gph * Vfull[4+k]) for k in 1:3]
+            In = I[4]
+
+            Zeff = n_eff * Zw + (3.0 / n_eff) * Zd
+            atol = 1e-9 * v_wye_m
+            for k in 1:3
+                k_v = wye_is_from ? mod1(k + 1, 3) : mod1(k - 1, 3)  # voltage-loop partner
+                k_c = wye_is_from ? mod1(k - 1, 3) : mod1(k + 1, 3)  # current-coupling partner
+                # Voltage: V_del[k] − V_del[k_other] = n_eff·(V_wye[k] − V_n) − Zeff·I_wye[k]
+                lhs = Vfull[4+k] - Vfull[4+k_v]
+                rhs = n_eff * (V_wye_ph[k] - V_n) - Zeff * Iw[k]
+                @test abs(lhs - rhs) < atol
+                # Current coupling: n_eff·I_del[k] = −(I_wye[k] − I_wye[k_other])
+                @test abs(n_eff * Id[k] + (Iw[k] - Iw[k_c])) < atol
+            end
+            # Star-point KCL: I_n + Σ I_wye = 0
+            @test abs(In + sum(Iw)) < atol
+        end
+    end
+
+    # ─── internal winding neutral grounding (OpenDSS rneut/xneut) ─────────────
+    # Verified OpenDSS topology: the winding star point stays solidly on the
+    # neutral terminal and y_n = 1/(r_neutral+jx_neutral) is a grounding branch
+    # from that terminal to earth — so the ONLY change to the Yprim is a
+    # diagonal add of y_n at the neutral node. Winding equations are unchanged.
+    @testset "neutral grounding branch (rneut/xneut)" begin
+        yn = 1.0 / (2.0 + 1.0im)
+        yd = Dict{String,Any}(
+            "bus_from" => "hv", "bus_to" => "lv",
+            "terminal_map_from" => ["1","2","3","n"],
+            "terminal_map_to"   => ["1","2","3"],
+            "v_nom_from" => 11000.0, "v_nom_to" => 400.0,
+            "r_series_from" => 0.5, "x_series_from" => 2.0,
+            "g_no_load" => 1e-4, "b_no_load" => 5e-4,
+        )
+        ydn = merge(yd, Dict{String,Any}("r_neutral_from" => 2.0,
+                                         "x_neutral_from" => 1.0))
+        _, Y0m = transformer_yprim(yd,  "wye_delta")
+        _, Y1m = transformer_yprim(ydn, "wye_delta")
+        D = Y1m .- Y0m
+        @test isapprox(D[4, 4], yn; atol=1e-12)   # node 4 = wye neutral
+        D[4, 4] = 0.0
+        @test maximum(abs.(D)) < 1e-12            # nothing else changes
+
+        # single_phase, both sides L-N: diagonal adds at each shared neutral.
+        sp = Dict{String,Any}(
+            "bus_from" => "hv", "bus_to" => "lv",
+            "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n"],
+            "v_nom_from" => 11000.0, "v_nom_to" => 400.0,
+            "r_series_from" => 0.5, "x_series_from" => 2.0,
+        )
+        spn = merge(sp, Dict{String,Any}(
+            "r_neutral_from" => 2.0, "x_neutral_from" => 1.0,
+            "r_neutral_to"   => 5.0, "x_neutral_to"   => 0.0))
+        nodes_sp, Y0s = transformer_yprim(sp,  "single_phase")
+        _,        Y1s = transformer_yprim(spn, "single_phase")
+        i_nf = findfirst(==(("hv","n")), nodes_sp)
+        i_nt = findfirst(==(("lv","n")), nodes_sp)
+        Ds = Y1s .- Y0s
+        @test isapprox(Ds[i_nf, i_nf], yn;        atol=1e-12)
+        @test isapprox(Ds[i_nt, i_nt], 1.0/5.0;   atol=1e-12)
+        Ds[i_nf, i_nf] = 0.0; Ds[i_nt, i_nt] = 0.0
+        @test maximum(abs.(Ds)) < 1e-12
+
+        # Ignored (warned) placements: delta side, and a side with no neutral.
+        yd_del = merge(yd, Dict{String,Any}("r_neutral_to" => 2.0))
+        _, Yd_del = @test_logs (:warn, r"DELTA side") transformer_yprim(yd_del, "wye_delta")
+        @test Yd_del ≈ Y0m
+        sp_ll = merge(sp, Dict{String,Any}(
+            "terminal_map_from" => ["1","2"], "r_neutral_from" => 2.0))
+        @test_logs (:warn, r"no shared neutral") transformer_yprim(sp_ll, "single_phase")
+    end
+
+    # ─── zero-leakage units keep their no-load shunt ──────────────────────────
+    # The degenerate (singular series block) branches previously returned before
+    # stamping the shunt, so a lossless-leakage unit with core loss exported an
+    # all-zero Yprim.
+    @testset "zero-leakage Yprim keeps the shunt" begin
+        base = Dict{String,Any}(
+            "bus_from" => "hv", "bus_to" => "lv",
+            "v_nom_from" => 11000.0, "v_nom_to" => 400.0,
+            "g_no_load"  => 1e-4, "b_no_load" => 5e-4,
+        )
+        Y0 = 1e-4 + im*5e-4
+        # wye_delta: shunt split across the three from-side phase nodes.
+        yd = merge(base, Dict{String,Any}(
+            "terminal_map_from" => ["1","2","3","n"], "terminal_map_to" => ["1","2","3"]))
+        _, Y_yd = transformer_yprim(yd, "wye_delta")
+        for k in 1:3
+            @test Y_yd[k, k] ≈ Y0 / 3
+        end
+        # center_tap: shunt at the HV phase node.
+        ct = merge(base, Dict{String,Any}(
+            "terminal_map_from" => ["ph","n"], "terminal_map_to" => ["1","n","2"]))
+        _, Y_ct = transformer_yprim(ct, "center_tap")
+        @test Y_ct[1, 1] ≈ Y0
+        @test all(iszero, Y_ct[2:5, 2:5])
+    end
+
     # ─── single_phase_autotransformer ─────────────────────────────────────────
 
     @testset "single_phase_autotransformer" begin
@@ -482,6 +646,21 @@
         _, YA = transformer_yprim(xfmrA, "single_phase_autotransformer")
         @test abs(YA[2,2] - a^2*y) < 1e-10
         @test abs(YA[1,2] + a*y)   < 1e-10
+
+        # No-load shunt is stamped ACROSS the from winding (ph_fr − n_fr, i.e.
+        # nodes 1–3), matching the OPF's `_add_regulating_winding!` return at
+        # the reference terminal — not phase-to-ground (the old Y[1,1]-only
+        # stamp, which lost the neutral coupling and broke column conservation).
+        Y0 = 1e-4 + im*5e-4
+        xfmrS = merge(xfmr, Dict{String,Any}("g_no_load" => real(Y0),
+                                             "b_no_load" => imag(Y0)))
+        _, YS = transformer_yprim(xfmrS, "single_phase_autotransformer")
+        E = zeros(ComplexF64, 4, 4)
+        E[1,1] = 1; E[3,3] = 1; E[1,3] = -1; E[3,1] = -1
+        @test maximum(abs.((YS .- Y) .- Y0 .* E)) < 1e-12
+        for j in 1:4
+            @test abs(sum(YS[:, j])) < 1e-9
+        end
     end
 
     @testset "single_phase_autotransformer — line-to-line" begin
