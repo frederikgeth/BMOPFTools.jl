@@ -102,8 +102,8 @@ net["linecode"]["swer"]["R_series_1_1"] = 2.5 / 1000      # Ω/m
 println("backbone length (km): ", sum(l["length"] for l in values(net["line"]))/1000)
 ```
 
-The LV taps must stay inside the Australian **AS 60038 / AS 61000.3.100**
-supply-voltage range (230 V nominal, −6 %/+10 % → **216.2–253 V**) — the same
+The LV taps must stay inside the Australian **AS IEC 60038:2022**
+supply-voltage range (230 V nominal, −10 %/+10 % → **207–253 V**) — the same
 window that inverter standards such as AS/NZS 4777.2 key their responses off; we
 hold the 12.7 kV backbone to ±10 %.
 
@@ -111,7 +111,7 @@ hold the 12.7 kV backbone to ±10 %.
 function set_limits!(n)
     for b in ("lv_1", "lv_2")
         nph = count(t -> t != "n", n["bus"][b]["terminal_names"])
-        n["bus"][b]["vpn_min"] = fill(216.2, nph)
+        n["bus"][b]["vpn_min"] = fill(207.0, nph)
         n["bus"][b]["vpn_max"] = fill(253.0, nph)
     end
     for b in ("swer_0", "swer_1", "swer_2")
@@ -125,7 +125,7 @@ nothing # hide
 Next, the measurement helper and the operating points. `vpn` reads the
 phase-to-neutral magnitude out of a solved result — the quantity the limits bind.
 An operating point is just a scaled copy of the loads: the fixture ships **5 kW**
-of canonical load, so `scale(12.0)` lifts it to a **60 kW aggregated peak**
+of canonical load, so `scale(16.0)` lifts it to an **80 kW aggregated peak**
 approaching the 100 kVA isolating-transformer rating (real SWER peaks are
 transformer-limited), and `scale(2.0)` is a **10 kW light-load trough**.
 
@@ -200,15 +200,15 @@ nothing # hide
 ## 3. The two failure modes
 
 A determined power flow ([`solve_pf`](@ref)) at each operating point shows the
-feeder fall out of the AS 60038 supply-voltage window at *both* ends of its
+feeder fall out of the AS IEC 60038:2022 supply-voltage window at *both* ends of its
 operating range.
 
 ```@example swer
-v_peak_nc = Vpf(scale(12.0))
+v_peak_nc = Vpf(scale(16.0))
 v_pv_nc   = Vpf(add_pv!(scale(2.0), 55.0))
 
 println("PEAK demand            lv_1 = ", round(v_peak_nc, digits=1),
-        " V   (< 216.2  → UNDERVOLTAGE)")
+        " V   (< 207    → UNDERVOLTAGE)")
 println("LIGHT load + 55 kW PV  lv_1 = ", round(v_pv_nc, digits=1),
         " V   (> 253    → OVERVOLTAGE)")
 ```
@@ -221,7 +221,7 @@ exact mechanism the North Jericho study gives for why fixed reactors cap SWER
 capacity.
 
 ```@example swer
-v_peak_fr = Vpf(add_reactor!(scale(12.0), 120.0))
+v_peak_fr = Vpf(add_reactor!(scale(16.0), 120.0))
 v_pv_fr   = Vpf(add_reactor!(add_pv!(scale(2.0), 55.0), 120.0))
 
 println("PEAK  + fixed 120 kVAr reactor  lv_1 = ", round(v_peak_fr, digits=1), " V   (WORSE)")
@@ -236,7 +236,7 @@ Replace the fixed reactor with a **controllable** compensator and let
 of freedom that a fixed setting lacks.
 
 ```@example swer
-vp, qp = Vopf(add_comp!(scale(12.0), 180.0))
+vp, qp = Vopf(add_comp!(scale(16.0), 180.0))
 vl, ql = Vopf(add_comp!(add_pv!(scale(2.0), 55.0), 180.0))
 
 println("PEAK  + compensator  lv_1 = ", round(vp, digits=1),
@@ -245,7 +245,7 @@ println("PV    + compensator  lv_1 = ", round(vl, digits=1),
         " V   (OPF absorbs ", round(ql, digits=0), " kVAr)")
 ```
 
-Both operating points are now inside the AS 60038 window, served by one device, only
+Both operating points are now inside the AS IEC 60038:2022 window, served by one device, only
 because the OPF dispatches it per operating point.
 
 ## Why optimisation matters

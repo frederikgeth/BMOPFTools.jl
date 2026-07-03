@@ -26,8 +26,8 @@ and familiarity with the JSON input format — see the
 
 A 230 V single-phase source feeds two load buses in series through resistive LV
 cable (0.4 Ω per segment, ``R/X = 5``), 2 kW at each bus. The voltage window is a
-builder argument so we can tighten it in one place; 216 V is the AS/NZS 4777.2
-floor of ``0.94 \times 230`` V.
+builder argument so we can tighten it in one place; 207 V is the AS IEC 60038:2022
+supply floor of ``0.90 \times 230`` V.
 
 ```@example infeas
 using BMOPFTools, JuMP, Ipopt
@@ -53,7 +53,7 @@ feeder(v_min) = parse_bmopf("""
      "p_nom":[2000.0],"q_nom":[0.0]}}}
 """; from_string=true)
 
-r_ok = solve_opf(feeder(216.0); optimizer = OPT)
+r_ok = solve_opf(feeder(207.0); optimizer = OPT)
 println("status : ", r_ok["termination_status"])
 for b in ("b1", "b2")
     println("V(", b, ")  : ", round(r_ok["bus"][b]["1"]["vm"], digits=1), " V")
@@ -61,7 +61,7 @@ end
 ```
 
 The feeder is healthy: the end of the line sags to about 219 V, comfortably above
-the 216 V floor. Note those solved voltages — they are the *achievable* profile,
+the 207 V floor. Note those solved voltages — they are the *achievable* profile,
 and they will explain everything that follows.
 
 ## 2. Tighten a bound until the physics gives out
@@ -94,8 +94,8 @@ voltage window, generation adequacy, and topology. It appends structured
 a bus whose `v_min`/`v_max` got swapped:
 
 ```@example infeas
-swapped = feeder(216.0)
-swapped["bus"]["b2"]["v_min"], swapped["bus"]["b2"]["v_max"] = [253.0], [216.0]
+swapped = feeder(207.0)
+swapped["bus"]["b2"]["v_min"], swapped["bus"]["b2"]["v_max"] = [253.0], [207.0]
 
 findings = Finding[]
 pf = infeasibility_preflight(swapped, findings)
@@ -216,14 +216,14 @@ and the load current's own voltage dependence, so treat it as a lower bound). Th
 true gap we engineered is 222 − 219.1 ≈ 2.9 V. Either number says the same thing:
 the 222 V floor overshoots what this feeder can deliver by *a couple of volts* —
 this is a marginal bound to renegotiate, not a feeder to rebuild. Restoring the
-216 V statutory floor gives comfortable margin:
+207 V statutory floor gives comfortable margin:
 
 ```@example infeas
-fixed = feeder(216.0)
+fixed = feeder(207.0)
 r_fix = solve_opf(fixed; optimizer = OPT)
 println("status : ", r_fix["termination_status"])
 println("V(b2)  : ", round(r_fix["bus"]["b2"]["1"]["vm"], digits=1),
-        " V  ≥ 216 V floor")
+        " V  ≥ 207 V floor")
 
 d_fix = diagnose_infeasibility(
     solve_feasibility_opf(fixed; optimizer = OPT), fixed)

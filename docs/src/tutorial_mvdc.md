@@ -211,18 +211,105 @@ voltage regulation; the burden shifts entirely to the ones with headroom.
 Every DC zone needs at least one `"V"` or `"droop"` converter; an all-`"P"` zone
 leaves `v_dc` undetermined and is flagged `E.INT.DC_NO_VOLTAGE_CONTROL`.
 
+## [MVDC feeder: a resistive DC tie](@id mvdc-feeder)
+
+The back-to-back SOP above is a point device: both converters share **one**
+`dc_bus`, so the DC link is electrically a single node and its only loss is in the
+converters. Pull the two converters apart onto **separate** DC buses (`dcA`, `dcB`)
+and join them with a `dc_branch` carrying a real pole resistance, and the tie
+becomes a *distributed* **MVDC feeder**: the pole conductor now has its own `I²R`
+loss and a pole-voltage drop `I·R`, exactly like an AC line. This is the same D2/D4
+physics the test-suite pins to Ohm's law.
+
+The far feeder `b` now carries the whole 40 kW load; there is no AC path to it, so
+**all** of that power must cross the MVDC feeder. `vscA` is the DC-voltage master
+(pins `dcA` at 1500 V); `vscB` floats and delivers into feeder `b`. The pole
+resistance is a deliberately stiff `5 Ω` so the drop is clearly visible:
+
+```@example mvdc
+const R_POLE = 5.0   # Ω, DC pole conductor
+
+feeder_tie(; v_dc_min_far = 1200.0) = parse_bmopf("""
+{"bus":{
+   "sub":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+   "a":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],"v_min":[600.0],"v_max":[1100.0]},
+   "b":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],"v_min":[600.0],"v_max":[1100.0]}},
+ "linecode":{"lc":{"R_series_1_1":1.0,"X_series_1_1":0.0}},
+ "line":{
+   "La":{"bus_from":"sub","bus_to":"a","terminal_map_from":["1","n"],"terminal_map_to":["1","n"],"length":1.0,"linecode":"lc"}},
+ "voltage_source":{
+   "s":{"bus":"sub","terminal_map":["1","n"],"v_magnitude":[1000.0,0.0],"v_angle":[0.0,0.0],"cost":[1.0]}},
+ "load":{
+   "Lb_load":{"bus":"b","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[40000.0],"q_nom":[0.0]}},
+ "ibr":{
+   "vscA":{"bus":"a","terminal_map":["1","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC","s_max":[60000.0],
+           "dc_bus":"dcA","dc_terminal_map":["p","m"],"dc_control":"V","dc_v_set":1500.0},
+   "vscB":{"bus":"b","terminal_map":["1","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC","s_max":[60000.0],
+           "dc_bus":"dcB","dc_terminal_map":["p","m"]}},
+ "dc_bus":{
+   "dcA":{"terminal_names":["p","m"],"pole":{"p":"POSITIVE","m":"METALLIC_RETURN"},
+          "v_dc_min":[1400.0,0.0],"v_dc_max":[1800.0,0.0]},
+   "dcB":{"terminal_names":["p","m"],"pole":{"p":"POSITIVE","m":"METALLIC_RETURN"},
+          "v_dc_min":[$v_dc_min_far,0.0],"v_dc_max":[1800.0,0.0]}},
+ "dc_branch":{
+   "tie":{"dc_bus_from":"dcA","dc_bus_to":"dcB","terminal_map_from":["p","m"],"terminal_map_to":["p","m"],"r":[$R_POLE,0.0]}},
+ "dc_grounding":{"g":{"dc_bus":"dcA","terminal":"m","r":0.0}}}
+"""; from_string=true)
+
+res = solve_opf(feeder_tie(); optimizer = OPT)
+pA = res["ibr"]["vscA"]["1"]["pg"]
+pB = res["ibr"]["vscB"]["1"]["pg"]
+i  = res["dc_branch"]["tie"]["1"]["i_dc"]
+vA = res["dc_bus"]["dcA"]["p"]["v_dc"]
+vB = res["dc_bus"]["dcB"]["p"]["v_dc"]
+println("status  : ", res["termination_status"])
+println("vscA pg : ", round(pA, digits=0), " W  (master, draws from feeder a into the DC tie)")
+println("vscB pg : ", round(pB, digits=0), " W  (delivers into feeder b's load)")
+println("i_dc    : ", round(i, digits=1), " A")
+println("v_dc A  : ", round(vA, digits=1), " V   (master setpoint)")
+println("v_dc B  : ", round(vB, digits=1), " V   (drooped by the pole drop)")
+```
+
+Read the physics straight off the solution — and both identities hold to the
+digit, because the OPF solves the DC network to the same Ohm's-law equations:
+
+```@example mvdc
+println("pole-voltage drop : ", round(vA - vB, digits=1), " V   vs  i·R  = ", round(i * R_POLE, digits=1), " V")
+println("DC feeder loss    : ", round(-pA - pB, digits=1), " W   vs  i²·R = ", round(i^2 * R_POLE, digits=1), " W")
+```
+
+`vscA` draws **44.4 kW** off feeder `a` to serve a **40 kW** load on feeder `b`: the
+`4.4 kW` gap is precisely the `i²·R = 29.6² × 5 ≈ 4376 W` dissipated in the pole
+conductor. The pole voltage sags from the master's `1500 V` at `dcA` to `1352 V`
+at `dcB`, a `148 V ≈ i·R` drop — the DC analogue of an AC feeder's voltage droop.
+Unlike the shared-bus SOP, whose only loss was in the converters, this MVDC feeder
+carries a **real, quantified line loss** that the optimiser now trades against the
+AC-side losses when it chooses the transfer.
+
+**Remember to widen the far bus.** The pole drop pushes `dcB` down to `1352 V`,
+*below* the master's `1400 V` floor — so if `dcB` inherited `dcA`'s `[1400, 1800]`
+window the problem is genuinely infeasible, not just harder:
+
+```@example mvdc
+r_narrow = solve_opf(feeder_tie(; v_dc_min_far = 1400.0); optimizer = OPT)
+println("narrow far-bus bound → ", r_narrow["termination_status"])
+```
+
+The lower `v_dc_min` on `dcB` is not a solver hint; it is the physical headroom the
+resistive feeder needs to *develop its drop*. (This is also why pinning both
+metallic returns to exactly 0 V while the return conductor has resistance would
+force the tie current to zero — grounding only `dcA`'s return leaves `dcB`'s free
+to float down by `i·R`.)
+
 ## Extending the story
 
 - **Loss vs hosting capacity.** Swap a load for DER on one feeder and the same
   formulation finds how much extra generation the feeders can host before a voltage
   or thermal limit binds — the SOP redistributing the surplus ([3](@ref refs-mvdc)).
-- **A real DC line.** Put the two converters on separate `dc_bus` nodes joined by a
-  `dc_branch` and the tie becomes an **MVDC feeder** with its own `I²R` loss: the
-  importing and exporting powers then differ by exactly that loss, and the
-  pole-voltage drop equals `I·R`. Remember to widen the far bus's
-  metallic-return voltage bounds (`v_dc_min`/`v_dc_max` on the `m` terminal) —
-  pinning both returns to 0 V while the return conductor has resistance forces the
-  tie current to zero.
+- **A real DC line.** Putting the two converters on separate `dc_bus` nodes joined
+  by a resistive `dc_branch` turns the tie into an **MVDC feeder** with its own
+  `I²R` loss and an `I·R` pole-voltage drop — worked end-to-end in
+  [MVDC feeder: a resistive DC tie](@ref mvdc-feeder) above.
 - **Bipolar / DC loads.** Use 3-wire `dc_bus`/`dc_branch` for bipolar feeders, and
   add `dc_load`/`dc_source` for DC-connected demand or DC-coupled PV/storage.
 

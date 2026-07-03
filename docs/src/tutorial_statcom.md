@@ -141,12 +141,12 @@ per-phase split.
 Give the device its full reactive freedom and let [`solve_opf`](@ref) choose the
 per-phase vars optimally, but keep it **reactive-only**. To make the limit concrete
 we now impose a lower voltage bound on the load bus and ask whether reactive support
-can hold it. The AS/NZS 4777.2 floor is ``0.94 \times 230 \approx 216\,V``; we
-require 218 V — the floor plus a small operating margin.
+can hold it. The AS IEC 60038:2022 supply floor is ``0.90 \times 230 = 207\,V``; we
+require 209 V — the floor plus a small operating margin.
 
 ```@example statcom
 bounded() = (n = feeder();
-    n["bus"]["b1"]["v_min"] = [218.0, 218.0, 218.0];
+    n["bus"]["b1"]["v_min"] = [209.0, 209.0, 209.0];
     n["bus"]["b1"]["v_max"] = [253.0, 253.0, 253.0]; n)
 
 for s in (15_000.0, 30_000.0, 60_000.0)
