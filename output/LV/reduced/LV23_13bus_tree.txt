@@ -1,9 +1,0 @@
-# Network graph  (4 buses)
-
-b325 (SRC)
-└── [tx2831: Dyn0 11.0kV/433V]── b1090
-    └── b2635
-        └── b635 (L1)
-
-Loads (1 total):
-  L1 = ld4032_load_a      10.0 kW  SINGLE_PHASE  terminals: a,n

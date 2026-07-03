@@ -1,9 +1,0 @@
-# Network graph  (4 buses)
-
-b2918 (SRC)
-└── [tx1902: Dyn0 11.0kV/433V]── b915
-    └── b2337
-        └── b3353 (L1)
-
-Loads (1 total):
-  L1 = ld826_load_a       10.0 kW  SINGLE_PHASE  terminals: a,n
