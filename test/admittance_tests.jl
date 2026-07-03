@@ -244,17 +244,26 @@
         nodes2, Y2 = transformer_yprim(xfmr2, "wye_delta")
         check_symmetry(Y2)
 
-        # An off-nominal fixed tap scales the effective ratio: N_eff =
-        # (v_nom_from/v_nom_to)·tap (schema convention). Regression — the tap
-        # field used to be ignored entirely, so Yprim disagreed with the OPF
-        # model and OpenDSS for tap ≠ 1.
-        xfmr_tap = merge(xfmr, Dict{String,Any}("tap" => 1.05))
-        xfmr_ref = merge(xfmr, Dict{String,Any}("v_nom_from" => 1.05 * 11000.0))
+        # An off-nominal fixed tap applies the EXACT tap² referral (matching
+        # OpenDSS): the wye-side (tapped side) short-circuit impedance scales as
+        # tap². A tap is therefore NOT equivalent to rescaling v_nom_from — that
+        # would move the nominal ratio n_eff0 and hence the leakage base — so the
+        # two Yprims genuinely differ (they were equal only under the earlier
+        # uniform-n_eff approximation). Verify the tap² scaling directly on the
+        # positive-sequence wye short-circuit impedance (delta grounded = the
+        # wye 3×3 block; the magnetising shunt sits on the delta side, so this
+        # block is pure leakage).
+        tapm = 1.05
+        xfmr_tap = merge(xfmr, Dict{String,Any}("tap" => tapm))
         nodes_tap, Y_tap = transformer_yprim(xfmr_tap, "wye_delta")
-        nodes_ref, Y_ref = transformer_yprim(xfmr_ref, "wye_delta")
-        @test nodes_tap == nodes_ref
-        @test Y_tap ≈ Y_ref
-        @test !(Y_tap ≈ Y)     # tap actually changed the stamp
+        xfmr_ref = merge(xfmr, Dict{String,Any}("v_nom_from" => tapm * 11000.0))
+        _, Y_ref = transformer_yprim(xfmr_ref, "wye_delta")
+        @test nodes_tap == nodes[1:7]
+        @test !(Y_tap ≈ Y)          # tap changed the stamp
+        @test !(Y_tap ≈ Y_ref)      # and is NOT a v_nom rescaling (exact referral)
+        ω   = exp(2im*π/3); Vp = ComplexF64[1, ω^2, ω]
+        zsc(Ym) = 1 / ((Vp' * (Ym[1:3, 1:3] * Vp)) / (Vp' * Vp))  # wye pos-seq Z_sc
+        @test isapprox(imag(zsc(Y_tap)) / imag(zsc(Y)), tapm^2; rtol=1e-9)
 
         # Regression: an empty terminal map on either side must return the
         # empty Yprim; the guard previously mis-parsed as

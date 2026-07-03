@@ -768,13 +768,33 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     # OpenDSS builds Y_term[i,j] = Y_1volt[i,j]/(VBase_i·VBase_j) with the
     # per-winding VBase line-to-NEUTRAL for a wye winding (kVLL/√3) but the full
     # line-to-LINE coil voltage (kVLL) for a delta winding — the √3 lives
-    # entirely in VBase_delta, and the delta connection (1→2→3→1) is a pure
-    # incidence matrix that scales nothing.  Our `r/x_series_to` (delta side)
-    # arrive referred to the delta BUS line-to-neutral base, which is 1/n_ph of
-    # the delta-COIL (line-to-line) base (V_LL²/S vs V_LL²/(S/n_ph)).  So
-    # Zd_coil = n_ph·(Rd+jXd).  Combined with I_arm,k = I_wye,k/n_eff, the delta
-    # drop coefficient on the wye current is (n_ph/n_eff)·(Rd+jXd).
-    Zd_coil_coef = n_ph * inv_neff   # (n_ph·Zd) on arm current = (n_ph/n_eff)·Zd on wye current
+    # entirely in VBase_delta.  Our `r/x_series_to` (delta side) arrive referred
+    # to the delta BUS line-to-neutral base, which is 1/n_ph of the delta-COIL
+    # (line-to-line) base, so Zd_coil = n_ph·(Rd+jXd).
+    #
+    # EXACT tap scaling (verified against OpenDSS's short-circuit Yprim). OpenDSS
+    # scales winding 1's self-impedance by tap², so the short-circuit impedance
+    # referred to the TAPPED (winding-1 / from) side scales as tap² while the
+    # NON-tapped (to) side referral is held at nominal. Expressing the drop on
+    # the wye phase current as Reff·I_wye (delta-side voltage), Reff = n_eff·Z_sc
+    # with Z_sc the wye-referred short-circuit impedance:
+    #   Z_sc_nom = Zw + (n_ph/n_eff0²)·Zd          (nominal, tap-independent)
+    #   Yd (wye = from, tapped) : Z_sc = (n_eff0/n_eff)²·Z_sc_nom  ⇒ ∝ tap²
+    #     Reff = n_eff·Z_sc = inv_neff·(n_eff0²·Zw + n_ph·Zd)
+    #   Dy (delta = from, tapped): Z_sc = Z_sc_nom (constant on the non-tapped wye)
+    #     Reff = n_eff·Z_sc = n_eff·(Zw + (n_ph/n_eff0²)·Zd)
+    # At n_eff = n_eff0 both reduce to the legacy n_eff·Zw + (n_ph/n_eff)·Zd.
+    # `n_eff0` is the NOMINAL effective ratio (before the tap). Both coefficients
+    # are degree-1 in {n_eff, inv_neff}, so the drop stays quadratic for a free tap.
+    N0     = _xfmr_turns_ratio(xfmr)
+    n_eff0 = wye_is_from ? sqrt(3) / N0 : N0 * sqrt(3)
+    if wye_is_from      # Yd: the wye (from) winding is tapped
+        Rw_coef = n_eff0^2 * inv_neff
+        Rd_coef = n_ph * inv_neff
+    else                # Dy: the delta (from) winding is tapped
+        Rw_coef = n_eff
+        Rd_coef = (n_ph / n_eff0^2) * n_eff
+    end
     for k in 1:n_ph
         t_del_k   = tm_del[k]
         ph_pos    = ph_idx[k]
@@ -798,11 +818,10 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
 
         if has_series
             Iwr = cr_xf[(tid, side_wye, ph_pos)]; Iwi = ci_xf[(tid, side_wye, ph_pos)]
-            # Effective wye-referred series impedance on the wye phase current:
-            #   wye coil  : n_eff·(Rw+jXw)
-            #   delta coil: (n_ph/n_eff)·(Rd+jXd)   via I_arm = I_wye/n_eff
-            Reff = n_eff * Rw + Zd_coil_coef * Rd
-            Xeff = n_eff * Xw + Zd_coil_coef * Xd
+            # Delta-side voltage drop on the wye phase current, with the exact
+            # tap² referral (Rw_coef/Rd_coef derived above).
+            Reff = Rw_coef * Rw + Rd_coef * Rd
+            Xeff = Rw_coef * Xw + Rd_coef * Xd
             @constraint(model,
                 vr[(b_del, t_del_k)] - vr[(b_del, t_del_other)] ==
                 n_eff * vr_wye_pn

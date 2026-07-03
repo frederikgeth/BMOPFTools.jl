@@ -356,13 +356,20 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
     n_pos = _neutral_pos(tm_wye)
     ph_idx = _phase_positions(tm_wye)
 
-    # Γ-equivalent series leakage referred to the WYE side. The delta-side r/x
-    # arrive on the delta BUS line-to-neutral base, which is 1/n_ph of the delta
-    # COIL (line-to-line) base, so the coil impedance is n_ph·Zd; the ideal
-    # transform V_del_coil = n_eff·V_wye_pn refers it to the wye row by 1/n_eff²
-    # (matches `_add_yd_transformer!`: Zeff = n_eff·Zw + (n_ph/n_eff)·Zd on the
-    # wye current is Z_total·n_eff with Z_total below).
-    Z_total = Zw + (n_ph / n_eff^2) * Zd
+    # Γ-equivalent series leakage referred to the WYE row of the primitive. The
+    # delta-side r/x arrive on the delta BUS line-to-neutral base (1/n_ph of the
+    # delta COIL base), so the coil impedance is n_ph·Zd.
+    #
+    # EXACT tap scaling (matches `_add_yd_transformer!` and OpenDSS's
+    # short-circuit Yprim, verified: the tapped-side Z_sc ∝ tap²). With the
+    # nominal wye-referred leakage Z_sc_nom = Zw + (n_ph/n_eff0²)·Zd:
+    #   Yd (wye = from, tapped) : Z_total = (n_eff0/n_eff)²·Z_sc_nom   (∝ tap²)
+    #   Dy (delta = from, tapped): Z_total = Z_sc_nom                  (constant)
+    # At n_eff = n_eff0 both equal the legacy Zw + (n_ph/n_eff²)·Zd.
+    n_eff0 = wye_is_from ? sqrt(3.0) / _xfmr_turns_ratio(xfmr) :
+                           _xfmr_turns_ratio(xfmr) * sqrt(3.0)
+    Z_sc_nom = Zw + (n_ph / n_eff0^2) * Zd
+    Z_total  = wye_is_from ? (n_eff0 / n_eff)^2 * Z_sc_nom : Z_sc_nom
 
     n_wye  = length(tm_wye)
     n_tot  = n_wye + n_ph

@@ -95,15 +95,18 @@ is hidden.
 
 | Area | Status |
 |---|---|
-| **Dy/Yd leakage under tap** | The delta-arm referral is **exact at nominal** and both coil drops scale with the tapped `n_eff` rather than OpenDSS's exact `tap²` winding-1 self-impedance split. Measured deviation from OpenDSS on 4 %-leakage units: Yd ≈1.1 V (±5 %) / ≈2.0 V (±10 %); Dy ≈0.5 V / ≈0.9 V — i.e. ~0.3–0.5 % of the LV secondary, worse for Yd, growing with the excursion. Not yet fixed: a correct fix must re-derive the fixed- **and** free-tap coupled constraints together (a partial fix breaks the OPF↔Yprim consistency), and this constraint historically produced a negative-loss bug when gotten wrong. A recommended follow-up for tap-heavy Yd/Dy studies. |
 | **`n_winding` tap** | No tap optimisation — the ratio is held at nominal. Tap fields on an `n_winding` transformer are warned and ignored. Model a regulated winding with a two-bus subtype instead. |
 | **4+ winding import** | `from_dss` reconstructs 3-phase 3-winding units as `n_winding`, but refuses 4+ windings: PowerIO's `pmd` export currently mangles `Xscarray`. Refused loudly, not built wrong. |
 | **Discrete taps** | Optimised taps are continuous; there is no discrete-step (`numtaps`) model. |
 | **Per-winding ratings** | One `s_rating` per transformer; OpenDSS per-winding `kVA` is not retained. |
 
-Not approximations (common misconceptions): the magnetising **susceptance**
-(`%imag`) is now retained; zero-loss transformers are exact; the `n_winding` ZB
-leakage is exact for any winding count.
+Not approximations (common misconceptions): the **Dy/Yd leakage under tap** is
+exact (it matches OpenDSS's `tap²` winding-1 self-impedance scaling — the
+short-circuit impedance referred to the tapped side goes as `tap²`, the
+non-tapped side is held at nominal; verified against OpenDSS's short-circuit
+`Yprim`, applied identically in the OPF and the `Yprim` export); the magnetising
+**susceptance** (`%imag`) is retained; zero-loss transformers are exact; the
+`n_winding` ZB leakage is exact for any winding count.
 
 ## Grounding: the stand-alone contract
 

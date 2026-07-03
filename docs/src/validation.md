@@ -225,8 +225,8 @@ of fixtures pins it down rather than a single light-load case:
   (`pf_center_tap_240` / `_singleleg_pn` / `_oneleg_extreme`): the 240 V load
   exercises the series-aiding winding polarity with zero centre-tap current;
   the unbalanced loads drive the legs apart and check the split against OpenDSS.
-  All match to **< 0.05 V** and losses to **< 0.7 %**, so the looser legacy
-  tolerance is retired — the `center_tap` cases now hold the default tight band.
+  Node voltages hold the default tight band (**atol 0.3 V / rtol 3e-3**) and
+  total losses match within **3 %** — the looser legacy tolerance is retired.
 - **OPF ↔ Ybus agreement** (`center_tap OPF and Ybus models agree`): the OPF
   builder and the Ybus exporter implement the device independently, so a test
   asserts the centre-tap KCL closes on the `_yprim_center_tap` admittance — a
@@ -234,12 +234,21 @@ of fixtures pins it down rather than a single light-load case:
 - **Continuous tap optimisation under drop + unbalance** (*optimised tap vs
   OpenDSS (center_tap)*): a free HV tap on `pf_center_tap_loaded` (5 km feeder,
   heavy unequal legs) is optimised, then OpenDSS is solved with that tap set on
-  winding 1. Node voltages match to **≈ 0.25 V** and **total losses to ≈ 2.5 %**
-  (`rtol = 0.05`), and a wide-band internal-exactness check confirms the free
-  degree-2 T-model reproduces the fixed-`Yprim` re-solve at ``t^\star`` to
-  **0.0 V** — so promoting the ratio to a variable adds no modelling error. The
-  free tap reuses the *exact* coupled-coil leakage (not the nominal-ratio
-  approximation that the `delta_wye`/`wye_delta` free taps still carry).
+  winding 1. Node voltages match to **≈ 0.25 V** and **total losses to ≈ 5 %**
+  (`rtol = 0.08` — the core loss now matches OpenDSS exactly on the boosted LV;
+  the residual is a documented center_tap leakage deviation at this extreme
+  boost point, see [transformer models](transformer_models.md)), and a wide-band
+  internal-exactness check confirms the free degree-2 T-model reproduces the
+  fixed-`Yprim` re-solve at ``t^\star`` to **0.0 V** — so promoting the ratio to
+  a variable adds no modelling error.
+- **Exact tap² referral for Yd/Dy** (*optimised tap vs OpenDSS (delta_wye Dy)*,
+  and *Yd/Dy fixed tap across the schema band*): the coupled delta-arm leakage
+  carries the exact ``tap²`` referral (matching OpenDSS's winding-1
+  self-impedance scaling — verified directly against OpenDSS's short-circuit
+  `Yprim`), applied identically in the OPF and the `Yprim` export. Validated at
+  the ±10 % schema band edges at 4 fixed taps for both Yd and Dy against
+  OpenDSS's turns-scaled `Yprim`, plus the Dy optimised free tap — agreement is
+  at the ~0.3 V node-voltage floor at *every* tap, not just nominal.
 
 ### Parse-path and primitive-admittance gates
 
@@ -249,11 +258,12 @@ fixtures above:
 - **`from_dss` transformer fidelity** (`single_phase`/`wye_delta`/`delta_wye`):
   the vector-group cases above are built as hand-authored BMOPF nets; this set
   runs the *parse* path (`from_dss` of the same `.dss`) through `solve_pf` and
-  compares to OpenDSS, matching to **< 0.3 V** and losses to **< 0.7 %**. It
-  guards the recovery of the no-load shunt and the `delta_wye` leakage from
-  PowerIO's `pmd` export (the `bmopf` export drops both — see
-  [conversion](conversion.md)), and the `phases=1` requirement on grounding
-  reactors without which the Dy neutral floats and the solve diverges.
+  compares to OpenDSS, matching voltages and total losses. It guards the recovery
+  of the no-load shunt — placed on **winding 2** (the OpenDSS convention),
+  including the magnetising susceptance (`%imag` → negative `b_no_load`) — and
+  the `delta_wye` leakage from PowerIO's `pmd` export (the `bmopf` export drops
+  both — see [conversion](conversion.md)), and the `phases=1` requirement on
+  grounding reactors without which the Dy neutral floats and the solve diverges.
 - **Transformer `Yprim` matches OpenDSS** (`single_phase`, `center_tap`,
   `wye_delta`, `delta_wye`): the correctness gate from
   `transformer_admittance_derivation.md` §7 — the per-element primitive

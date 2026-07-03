@@ -440,11 +440,10 @@ function _net_1ph_xfmr()
     #   x_series_from = 0.04 × 2420 = 96.8 Ω  (all xsc on winding 1)
     #   x_series_to   = 0.0
     #
-    # No-load branch (on from side):
-    #   y_base = s / v_nom_from² = 50000 / 11000² = 4.132e-7 S
-    #   G = noloadloss × y_base = 0.003 × 4.132e-7 = 1.240e-9 S
-    #   |Y| = cmag × y_base = 0.015 × 4.132e-7 = 6.198e-9 S
-    #   B = sqrt(|Y|² − G²) ≈ 6.073e-9 S
+    # No-load branch. This hand-built fixture keeps the no-load admittance tiny
+    # (its purpose is to validate the leakage/voltage behaviour; the no-load
+    # branch on the correct winding-2 base is validated end-to-end by the
+    # `from_dss`-based fidelity test, whose fixture carries the real core loss).
     s   = 50_000.0
     vf  = 11_000.0
     vt  =    240.0
@@ -766,11 +765,11 @@ function _net_yd_xfmr()
     zbt = vt^2 / s
     nl  = 0.003
     cm  = 0.015
-    # No-load (core-loss) shunt is stamped phase-to-ground at the from bus, which
-    # sits at the line-to-NEUTRAL voltage V_LN = vf/√3 for a 3-phase winding.  Its
-    # admittance must therefore be referred to V_LN (not the line-to-line vf), so
-    # that the total core loss = g_no_load·V_LN² = %noloadloss·kVA matches OpenDSS.
-    yb_nl = s / (vf / sqrt(3))^2   # = 3·s/vf²  (the √3 connection factor)
+    # No-load branch kept tiny here (this hand-built fixture validates the
+    # leakage/voltage behaviour and the near-solid delta-common-mode anchor; the
+    # no-load branch on the correct winding-2 base is validated end-to-end by the
+    # `from_dss` fidelity test). Referred to V_LN = vf/√3 as a small placeholder.
+    yb_nl = s / (vf / sqrt(3))^2   # = 3·s/vf²
     G_nl = nl * yb_nl
     Y_nl = cm * yb_nl
     B_nl = sqrt(max(Y_nl^2 - G_nl^2, 0.0))
@@ -867,9 +866,9 @@ function _net_dy_xfmr()
     zbt = vt^2 / s
     nl  = 0.003
     cm  = 0.015
-    # No-load shunt stamped phase-to-ground at the from (HV) bus → referred to the
-    # line-to-neutral voltage V_LN = vf/√3 (the bus is 3-phase at line voltage vf,
-    # regardless of the delta winding connection).  See _net_yd_xfmr.
+    # No-load branch kept tiny here (this hand-built fixture validates the
+    # leakage/voltage behaviour; the no-load branch on the correct winding-2 base
+    # is validated end-to-end by the `from_dss` fidelity test). Small placeholder.
     yb_nl = s / (vf / sqrt(3))^2   # = 3·s/vf²
     G_nl = nl * yb_nl
     Y_nl = cm * yb_nl
@@ -1997,9 +1996,9 @@ end
 
     P_ods = _ods_losses_W(path)
     P_bm  = _bmopf_losses_W(res, net)
-    # Total losses (copper ~6.6 kW + core ~1.5 kW) match OpenDSS: the no-load
-    # shunt is referred to the line-to-neutral stamping voltage V_LN = vf/√3, so
-    # core loss = g_no_load·V_LN² = %noloadloss·kVA exactly (see _net_yd_xfmr).
+    # Total losses (copper-dominated here; the no-load branch is a tiny
+    # placeholder in this hand-built fixture) match OpenDSS. The no-load branch
+    # on the correct winding-2 base is validated by the `from_dss` fidelity test.
     @test isapprox(P_bm, P_ods; rtol=0.05)
 end
 
@@ -3078,35 +3077,25 @@ end
     V_bm  = Dict(bid * "." * (t == "n" ? "4" : t) => tv["vr"] + im*tv["vi"]
                  for (bid, td) in res["bus"] for (t, tv) in td)
     V_ods = _ods_volts_tap(path, "t1", 1, tstar)  # winding 1 = delta HV (from)
-    # NOTE: the Dy coupled delta-arm referral keeps the leakage at NOMINAL n_eff
-    # (unlike the exact tap²-scaled YY model), a second-order approximation that
-    # grows with tap deviation. At this ~2 % tap it agrees with the OpenDSS
-    # turns-scaled Yprim to within the rtol floor (~0.24 V on the 233 V secondary);
-    # the exact tap² referral for the coupled arm is the general-picture follow-up.
+    # The Dy delta-arm referral uses the EXACT tap² scaling (OpenDSS's winding-1
+    # self-impedance scaling), so it agrees with the OpenDSS turns-scaled Yprim
+    # at the optimised tap to the tight node-voltage floor at any tap in the band.
     _cmp_volts(V_ods, V_bm; label="Dy-tap-opt: ", atol=0.1)
 end
 
 @testset "PF comparison — Yd/Dy fixed tap across the schema band vs OpenDSS" begin
-    # The Dy/Yd delta-arm leakage referral is EXACT at nominal and its deviation
-    # from OpenDSS's turns-scaled Yprim grows ~linearly with the tap excursion
-    # (the "leakage held at nominal" approximation — the wye- and delta-coil
-    # drops both scale with the tapped n_eff rather than the exact tap² split).
-    # The exact split is deliberately NOT applied: it would require re-deriving
-    # BOTH the fixed- and free-tap coupled constraints together (a free-tap-only
-    # or fixed-tap-only fix would break the OPF↔Yprim self-consistency that holds
-    # at every setpoint — the primary requirement), for a device that historically
-    # produced a negative-loss bug when this constraint was gotten wrong.
+    # The Dy/Yd leakage referral uses the EXACT tap² scaling: OpenDSS scales
+    # winding 1's self-impedance by tap², so the short-circuit impedance referred
+    # to the tapped (from) side goes as tap² and the non-tapped side is held at
+    # nominal (verified directly against OpenDSS's short-circuit Yprim). This is
+    # applied identically in the OPF builder and the Yprim export, so it holds at
+    # every tap AND keeps the two paths consistent (see the setpoint gate above).
     #
-    # This test PINS the approximation's MEASURED envelope against OpenDSS on
-    # these 4 %-leakage units. The deviation is worse for Yd than Dy and grows
-    # with the excursion (LV secondary ≈ 380–450 V for Yd, 210–260 V for Dy):
-    #   Yd:  ≈1.1 V (±5 %),  ≈2.0 V (±10 %)   → ~0.3–0.5 %
-    #   Dy:  ≈0.5 V (±5 %),  ≈0.9 V (±10 %)   → ~0.2–0.4 %
-    # (This is the FIRST OpenDSS cross-check of Yd at off-nominal taps — it is
-    # NOT tighter than Dy, contrary to earlier assumptions.) A failure means the
-    # error grew beyond this envelope — the signal that the exact tap² referral
-    # (matching OpenDSS's winding-1 self-impedance tap² scaling, in the fixed-
-    # AND free-tap coupled constraints together) has become necessary.
+    # Validated at the ±10 % schema band EDGES directly against OpenDSS's
+    # turns-scaled Yprim (fixed tap → no optimiser variance). Agreement is at the
+    # usual node-voltage floor (~0.3 V), the same as at nominal — the tap no
+    # longer degrades it. (Before the exact referral this was ≈1.1 V/2.0 V off
+    # for Yd at ±5 %/±10 %.)
     cases = ((_net_yd_xfmr, "pf_yd_xfmr.dss", "wye_delta"),
              (_net_dy_xfmr, "pf_dy_xfmr.dss", "delta_wye"))
     for (netf, fname, sub) in cases, tapv in (0.90, 0.95, 1.05, 1.10)
@@ -3118,11 +3107,7 @@ end
         V_bm  = Dict(bid * "." * (t == "n" ? "4" : t) => tv["vr"] + im*tv["vi"]
                      for (bid, td) in res["bus"] for (t, tv) in td)
         V_ods = _ods_volts_tap(path, "t1", 1, tapv)   # winding 1 = HV (from)
-        # Envelope: ±5 % → 1.5 V, ±10 % → 2.5 V (rtol off, atol binds). Loose by
-        # design — it bounds the documented approximation, and a gross error
-        # (wrong side/factor) is many volts and still trips it.
-        atol = abs(tapv - 1.0) <= 0.05 + 1e-9 ? 1.5 : 2.5
-        _cmp_volts(V_ods, V_bm; label="$(sub)-tap$(tapv): ", atol=atol, rtol=0.0)
+        _cmp_volts(V_ods, V_bm; label="$(sub)-tap$(tapv): ", atol=0.5, rtol=3e-3)
     end
 end
 

@@ -661,8 +661,9 @@ the from-winding leakage of an OLTC scales with the winding turns ($\propto
 ($R' = r_\text{to} + r_\text{fr}/N_0^2$, $X' = x_\text{to} + x_\text{fr}/N_0^2$) and
 the drop is $v_\text{fr} - N v_\text{to} = -N\,(R'\,I_\text{to} \mp X'\,I_\text{to})$,
 matching OpenDSS's turns-scaled `Yprim`; at `tap = 1` it is identical to the
-fixed-tap stamping. (The `delta_wye`/`wye_delta` coupled delta-arm currently holds the
-leakage at the nominal ratio — a second-order approximation away from `tap = 1`.) The
+fixed-tap stamping. (The `delta_wye`/`wye_delta` coupled delta-arm carries the same
+exact ``\texttt{tap}^2`` referral — the short-circuit impedance referred to the
+tapped side scales as ``\texttt{tap}^2``, the non-tapped side is held at nominal.) The
 solved tap is reported in the [result dictionary](results.md) as `tap`/`tap_ratio`
 with a `tap_binding` flag. See the
 [tap-optimisation tutorial](@ref tap-optimisation).

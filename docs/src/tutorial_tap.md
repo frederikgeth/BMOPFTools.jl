@@ -201,12 +201,14 @@ The load is balanced, so the optimiser boosts all three LV phases together into 
 tight 236–240 V band with a single tap — the three-phase analogue of Section 2's
 rescue, with no per-phase code changes.
 
-!!! warning "Dy leakage referral is approximate under tap deviation"
-    For `delta_wye`/`wye_delta` the coupled delta-arm **leakage is held at the
-    nominal ratio**: the model is exact at ``t = 1`` and within the validation
-    tolerance at a few-percent tap, but the error grows with tap deviation. The YY
-    and `center_tap` models carry the exact ``t^2`` referral. See the next section
-    for the full picture.
+!!! note "Dy/Yd leakage referral is exact under tap"
+    For `delta_wye`/`wye_delta` the coupled delta-arm leakage carries the exact
+    ``t^2`` referral, matching OpenDSS's winding-1 self-impedance scaling: the
+    short-circuit impedance referred to the tapped (from) side scales as ``t^2``
+    and the non-tapped side is held at nominal (verified directly against
+    OpenDSS's short-circuit `Yprim`). The same referral is used in the OPF and
+    the exported `Yprim`, so they stay consistent at every tap — as do the YY,
+    `center_tap`, and regulator models.
 
 ## What single-phase and Dy tell us about the general picture
 
@@ -228,17 +230,19 @@ to *every* transformer:
   identical to the fixed `Yprim` — re-solving with the tap fixed to ``t^\star``
   reproduces the free solution to **0.0 V** — so the leakage referral is exact, not
   approximate, even under heavy drop and leg unbalance.
-- **The Dy coupled delta-arm model currently holds the leakage at the nominal
-  ratio.** This is a second-order approximation: exact at ``t = 1`` and within the
-  validation tolerance at a few-percent tap, but the error grows with tap deviation.
-  Carrying the ``t^2`` referral through the coupled delta-arm transformation — plus
-  free taps for `n_winding`, to-side taps and discrete steps — is the natural
-  **general-picture** follow-up.
+- **The Dy/Yd coupled delta-arm model also carries the exact ``t^2`` referral.**
+  OpenDSS scales winding 1's self-impedance by ``t^2``, so the short-circuit
+  impedance referred to the tapped (from) side scales as ``t^2`` and the
+  non-tapped side is held at nominal (verified directly against OpenDSS's
+  short-circuit `Yprim`). The coefficients are degree-1 in the tap variables
+  (``n_\text{eff}`` and its reciprocal), so the coupled-arm drop stays degree-2
+  for a free tap, and the same referral is used in the exported `Yprim` — so the
+  two paths agree at every tap.
 
-The optimiser, the JSON schema and the result reporting are already uniform across
-all the covered subtypes; what remains to generalise is purely the *leakage
-referral* of the coupled `delta_wye`/`wye_delta` cores and the unsupported
-`n_winding` subtype.
+The optimiser, the JSON schema and the result reporting are uniform across all the
+covered subtypes, and the leakage referral is now exact for every two-bus subtype.
+What remains to generalise is free taps for the `n_winding` subtype, to-side taps,
+and discrete steps.
 
 ## Validation
 
