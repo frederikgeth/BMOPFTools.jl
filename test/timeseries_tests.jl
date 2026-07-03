@@ -112,7 +112,11 @@ _ts_mini_net() = parse_bmopf("""
         net["time_series"] = Dict{String,Any}(
             "shape" => Dict{String,Any}("values" => [1.0]))
         net["load"]["ld"]["time_series"] = Dict{String,Any}("p_nom" => "no_such_series")
-        @test_throws KeyError get_snapshot(net, 1)
+        err = try get_snapshot(net, 1); nothing catch e; e end
+        @test err isa ArgumentError
+        @test occursin("no_such_series", err.msg)   # names the missing series
+        @test occursin("'ld'", err.msg)             # names the offending component
+        @test occursin("p_nom", err.msg)            # names the parameter
     end
 
     @testset "get_snapshot — transformer subtype refs" begin

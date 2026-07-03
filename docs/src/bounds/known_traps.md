@@ -166,9 +166,10 @@ currents; Ipopt churns in restoration or returns a physically meaningless point.
 restoration thrash that clears the moment a positive floor is restored.
 
 *In BMOPFTools:* strip the positive voltage floor to reproduce; contrast with the
-feasibility OPF's widened-but-positive bounds ($0.5\times v_{\min}$, $2\times v_{\max}$ in
-`_add_wide_voltage_bounds!`), which admit the low-voltage branch without inviting the
-zero-voltage degeneracy.
+feasibility OPF, which keeps the case's own (strictly positive) voltage bounds and
+relaxes only nodal current balance — the low-voltage branch is excluded by design,
+and violations show up as slack currents instead (see the
+[infeasibility diagnosis tutorial](../tutorial_infeasibility.md)).
 
 ## Trap 8 — Non-smooth ZIP exponent near zero voltage
 

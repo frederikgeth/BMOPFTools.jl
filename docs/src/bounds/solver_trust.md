@@ -319,11 +319,11 @@ become ill-conditioned ([Molzahn, Lesieutre & DeMarco,
     loadability — and that is right, but it means dropping the **operational** bound
     (e.g. $0.9$ p.u.), not setting it to zero. The low-voltage branch you want to expose
     lives well above zero; the all-zero solution of this section is a different, spurious
-    object. BMOPFTools' feasibility OPF keeps this distinction concretely: it widens the
-    bounds to $0.5\times v_{\min}$ and $2\times v_{\max}$ — wide enough to admit the
-    low-voltage branch, never so wide as to invite the zero-voltage degeneracy
-    (`_add_wide_voltage_bounds!` in
-    [`bus.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/bus.jl)).
+    object. BMOPFTools' feasibility OPF keeps this distinction concretely: it retains the
+    case's own (strictly positive) voltage bounds unchanged and relaxes only nodal current
+    balance, so infeasibility surfaces as localised slack currents rather than as a
+    collapsed voltage solution (see the
+    [infeasibility diagnosis tutorial](../tutorial_infeasibility.md)).
 
 ## 7. A trust checklist
 

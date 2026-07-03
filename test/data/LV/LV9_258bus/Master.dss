@@ -10,7 +10,7 @@ redirect Transformers.dss
 redirect Switches.dss
 redirect Groundings.dss
 
-batchedit load..* kw=1
+! batchedit removed: loads carry explicit kW=2.0 pf=0.95 (PowerIO drops batchedit silently, which desynced OpenDSS vs BMOPF)
 solve
 export Voltages
 
