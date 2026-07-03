@@ -3752,6 +3752,12 @@ const IEEE13_FIXTURE = """
     # -----------------------------------------------------------------------
     include("roundtrip_fidelity_tests.jl")
 
+    # -----------------------------------------------------------------------
+    # OPF-solution → OpenDSS snapshot projection + 3-way feasibility oracle.
+    # A≈B (projection vs solve_pf) needs JuMP/Ipopt; A≈C adds OpenDSS (gated).
+    # -----------------------------------------------------------------------
+    include("projection_tests.jl")
+
     include("admittance_tests.jl")
 
     # -----------------------------------------------------------------------

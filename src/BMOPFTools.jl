@@ -415,6 +415,7 @@ include("io/result_io.jl")
 include("io/to_pmd.jl")
 include("io/from_dss.jl")
 include("io/to_dss.jl")
+include("io/project_solution.jl")
 include("io/sideload_coordinates.jl")
 include("io/nwinding.jl")
 include("io/capacitor.jl")
@@ -731,6 +732,7 @@ export parse_bmopf, write_bmopf
 export write_result, read_result
 export to_pmd
 export from_dss, to_dss
+export project_solution, dispatch_as_loads
 export sideload_coordinates!
 export analyze, render
 export load_config                      # tunable thresholds (config/default.toml)

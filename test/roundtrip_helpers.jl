@@ -18,6 +18,13 @@
 #   3. PF cross-check    — solve original vs regenerated DSS in OpenDSS, compare
 #                          node voltages (isolates export fidelity).
 
+# Load-once guard: several test files (`roundtrip_fidelity_tests.jl`,
+# `projection_tests.jl`) include this helper, and re-evaluating the `struct`
+# definitions in the same module would error. A top-level `if` introduces no new
+# scope, so the definitions below still land in the enclosing module.
+if !@isdefined(_ROUNDTRIP_HELPERS_LOADED)
+const _ROUNDTRIP_HELPERS_LOADED = true
+
 # ── Data structures ─────────────────────────────────────────────────────────
 
 """
@@ -365,6 +372,176 @@ function pf_cross_check(orig_path::String, regen_path::String; atol=0.3, rtol=1e
     PFResult(true, isempty(over), false, max_dV, n, over, note)
 end
 
+# ── OPF-solution ↔ OpenDSS oracle ────────────────────────────────────────────
+# Validates a *solved* OPF snapshot (not a DSS round trip): compares the OPF's own
+# predicted bus voltages against an independent power flow. Three signal sources:
+#   A = result_volts(result)                        — the OPF prediction
+#   B = result_volts(solve_pf(projected))           — BMOPF's own determined re-solve
+#   C = ods_solve_volts(to_dss(dispatch_as_loads))  — OpenDSS, via PowerIO export
+# A≈B≈C ⇒ the OPF solution is feasible AND the export is faithful. See
+# project_solution / dispatch_as_loads in BMOPFTools.
+
+# BMOPF result terminals are a/b/c/n (from_dss-normalized); OpenDSS AllNodeNames
+# uses .1/.2/.3/.4. Numeric terminals pass through (hand-built dicts use them).
+const _RESULT_NODE_OF = Dict("a"=>"1","b"=>"2","c"=>"3","n"=>"4",
+                             "1"=>"1","2"=>"2","3"=>"3","4"=>"4")
+
+"""
+    result_volts(result) -> Dict{String,ComplexF64}
+
+Map an OPF/PF result dict to `"busid.node" => complex volts`, using the a/b/c/n →
+1/2/3/4 terminal bridge and lowercasing bus ids to align with `ods_solve_volts`.
+"""
+function result_volts(result::AbstractDict)::Dict{String,ComplexF64}
+    V = Dict{String,ComplexF64}()
+    for (bid, td) in get(result, "bus", Dict())
+        td isa AbstractDict || continue
+        for (t, vv) in td
+            vv isa AbstractDict && haskey(vv, "vr") && haskey(vv, "vi") || continue
+            node = get(_RESULT_NODE_OF, string(t), string(t))
+            V[lowercase(string(bid)) * "." * node] = ComplexF64(vv["vr"], vv["vi"])
+        end
+    end
+    return V
+end
+
+"""
+    compare_volts(V1, V2; atol=0.3, rtol=1e-3, skip_below=1e-4) -> PFResult
+
+Pure node-voltage comparison of two `"node" => complex` dicts. Compares only nodes
+in both, skipping references with `|V1| < skip_below` (earth/neutral). `solved` is
+`true` (no solve is performed here); `matched` requires ≥1 compared node all within
+tolerance. Shared core for the A/B/C pairings.
+"""
+function compare_volts(V1::AbstractDict, V2::AbstractDict;
+                       atol=0.3, rtol=1e-3, skip_below=1e-4)::PFResult
+    max_dV = 0.0; n = 0
+    over = Tuple{String,Float64}[]
+    for (node, v1) in V1
+        haskey(V2, node) || continue
+        abs(v1) < skip_below && continue
+        n += 1
+        dV = abs(v1 - V2[node])
+        max_dV = max(max_dV, dV)
+        isapprox(V2[node], v1; atol, rtol) || push!(over, (node, dV))
+    end
+    note = n == 0 ? "no comparable nodes" :
+           isempty(over) ? "" : "$(length(over)) node(s) over tolerance"
+    PFResult(true, n > 0 && isempty(over), false, max_dV, n, over, note)
+end
+
+_pf_skipped(note) = PFResult(false, false, true, NaN, 0, Tuple{String,Float64}[], note)
+_pf_unsolved(note) = PFResult(false, false, false, NaN, 0, Tuple{String,Float64}[], note)
+
+"""
+    oracle_cross_check(result, dss_path; atol=0.3, rtol=1e-3) -> PFResult
+
+Solve `dss_path` in OpenDSS and compare its node voltages to the OPF prediction in
+`result` (via `result_volts`). Non-convergence is a *failure* (a projected snapshot
+should solve), not a skip. References `OpenDSSDirect` (must be in scope).
+"""
+function oracle_cross_check(result::AbstractDict, dss_path::String;
+                            atol=0.3, rtol=1e-3)::PFResult
+    local conv, V
+    try
+        conv, V = ods_solve_volts(dss_path)
+    catch e
+        return _pf_unsolved("OpenDSS failed to load/solve: $(sprint(showerror, e))")
+    end
+    conv || return _pf_unsolved("OpenDSS did not converge")
+    compare_volts(result_volts(result), V; atol, rtol)
+end
+
+"Three-way projection/feasibility report for one solved OPF case."
+struct ProjectionReport
+    case::String
+    projected_ok::Bool                 # project_solution succeeded
+    n_pinned::Int                      # generators + IBRs pinned
+    ab::PFResult                       # A (result) vs B (solve_pf(projected))
+    ac::PFResult                       # A (result) vs C (OpenDSS(export))
+    bc::PFResult                       # B vs C
+    export_warnings::Vector{String}    # to_dss fidelity-loss warnings
+    projection_meta::Dict{String,Any}  # what was pinned / converted
+    errors::Vector{String}
+end
+
+"""
+    run_projection_case(case, net, result; optimizer, has_ods=false, workdir,
+                        atol=0.5, rtol=2e-3) -> ProjectionReport
+
+Run the full 3-way check for one solved OPF case: pin setpoints
+(`project_solution`), re-solve as a determined power flow (`solve_pf` → B), export
+the negative-load form (`dispatch_as_loads` → `to_dss`) and solve it in OpenDSS
+(→ C). Each stage is isolated so one failure degrades into `errors`.
+
+`optimizer` is the JuMP optimizer factory for the B re-solve (e.g.
+`optimizer_with_attributes(Ipopt.Optimizer, "print_level"=>0)`). The OpenDSS leg
+(C, and B-vs-C) runs only when `has_ods` is true.
+"""
+function run_projection_case(case::String, net::AbstractDict, result::AbstractDict;
+                             optimizer, has_ods::Bool=false,
+                             workdir::String=mktempdir(), atol=0.5, rtol=2e-3)::ProjectionReport
+    errors = String[]
+    local projected
+    try
+        projected = BMOPFTools.project_solution(Dict{String,Any}(net), Dict{String,Any}(result))
+    catch e
+        return ProjectionReport(case, false, 0, _pf_skipped("no projection"),
+            _pf_skipped("no projection"), _pf_skipped("no projection"),
+            String[], Dict{String,Any}(), ["project_solution: $(sprint(showerror, e))"])
+    end
+    pmeta = get(get(projected, "_meta", Dict()), "projection", Dict{String,Any}())
+    n_pinned = length(get(pmeta, "generators", [])) + length(get(pmeta, "ibrs", []))
+
+    V_A = result_volts(result)
+
+    # ── B: solve_pf on the pinned net ────────────────────────────────────────
+    ab = _pf_skipped("solve_pf not run")
+    V_B = nothing
+    try
+        resB = BMOPFTools.solve_pf(projected; optimizer=optimizer)
+        V_B = result_volts(resB)
+        ab = compare_volts(V_A, V_B; atol, rtol)
+    catch e
+        push!(errors, "solve_pf: $(sprint(showerror, e))")
+    end
+
+    # ── Export the negative-load form ────────────────────────────────────────
+    snapL = BMOPFTools.dispatch_as_loads(projected)
+    dsspath = joinpath(workdir, "$(case).dss")
+    export_warnings = String[]
+    exported = false
+    try
+        export_warnings = BMOPFTools.to_dss(snapL, dsspath)
+        exported = true
+    catch e
+        push!(errors, "to_dss: $(sprint(showerror, e))")
+    end
+
+    # ── C: OpenDSS on the exported deck ──────────────────────────────────────
+    ac = _pf_skipped("OpenDSS gate off")
+    bc = _pf_skipped("OpenDSS gate off")
+    if has_ods && exported
+        local conv, V_C
+        ok = false
+        try
+            conv, V_C = ods_solve_volts(dsspath)
+            ok = conv
+            ok || (ac = _pf_unsolved("OpenDSS did not converge"))
+        catch e
+            ac = _pf_unsolved("OpenDSS failed to load/solve: $(sprint(showerror, e))")
+        end
+        if ok
+            ac = compare_volts(V_A, V_C; atol, rtol)
+            bc = V_B === nothing ? _pf_skipped("no B") : compare_volts(V_B, V_C; atol, rtol)
+        elseif !(bc.note == "OpenDSS gate off")
+            # keep bc as skipped
+        end
+    end
+
+    ProjectionReport(case, true, n_pinned, ab, ac, bc, export_warnings, Dict{String,Any}(pmeta), errors)
+end
+
 # ── Per-case runner ─────────────────────────────────────────────────────────
 
 """
@@ -474,3 +651,5 @@ function run_corpus(paths; has_ods::Bool=false, workdir::String=mktempdir(),
     end
     reports
 end
+
+end # _ROUNDTRIP_HELPERS_LOADED guard
