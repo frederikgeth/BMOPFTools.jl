@@ -166,6 +166,13 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                     kadd(w.bus, phs[po], @expression(model, cr[(tid, k, pk)]),
                                          @expression(model, ci[(tid, k, pk)]))
                 end
+                # Per-winding current-magnitude limit on the (bare) coil current
+                # of each phase leg: |I_{k,pk}| ≤ i_max_k. Optional per winding.
+                ilim = w.i_max
+                if ilim !== nothing && ilim > 0.0
+                    @constraint(model, cr[(tid, k, pk)]^2 + ci[(tid, k, pk)]^2 <= ilim^2)
+                    _limit_current_box!(cr[(tid, k, pk)], ci[(tid, k, pk)], ilim)
+                end
             end
         end
 

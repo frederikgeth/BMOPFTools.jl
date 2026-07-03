@@ -87,6 +87,14 @@ function export_yprim(net::Dict{String,Any})::Dict{String,Any}
         end
     end
 
+    # Unknown subtypes are silently absent from the export otherwise — flag them.
+    known = Set(TRANSFORMER_SUBTYPES)
+    for (subtype, sub) in xfmr_dict
+        (subtype in known || !(sub isa Dict) || isempty(sub)) && continue
+        @warn "export_yprim: transformer subtype '$subtype' has no Yprim " *
+              "builder — its $(length(sub)) device(s) are omitted from the export."
+    end
+
     # n-winding transformers use their own (independent) Yprim builder.
     nwd = get(xfmr_dict, "n_winding", Dict())
     if !isempty(nwd)

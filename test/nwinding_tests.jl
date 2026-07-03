@@ -212,6 +212,23 @@ if _HAS_JUMP_IPOPT
         lva = abs(res["bus"]["lv"]["a"]["vr"] + im*res["bus"]["lv"]["a"]["vi"])
         @test 0.9 * vpn(24.9) < mva < vpn(24.9)
         @test 0.9 * vpn(4.16) < lva < vpn(4.16)
+
+        # Per-winding current limit `i_max`: the unconstrained winding-2 (MV)
+        # coil current sets the scale; a loose cap (2×) is inert, a tight cap
+        # (0.5×) cannot be met with the fixed load → the solve is infeasible.
+        i2 = res["transformer"]["t1"]["w2"]["1"]["cm"]
+        @test i2 > 0
+        loose = deepcopy(net); loose["transformer"]["n_winding"]["t1"]["windings"][2]["i_max"] = 2 * i2
+        rl = solve_pf(loose; optimizer = Ipopt.Optimizer)
+        @test rl["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test isapprox(rl["transformer"]["t1"]["w2"]["1"]["cm"], i2; rtol = 1e-4)  # inert
+
+        tight = deepcopy(net); tight["transformer"]["n_winding"]["t1"]["windings"][2]["i_max"] = 0.5 * i2
+        rt = solve_pf(tight; optimizer = Ipopt.Optimizer)
+        # Either Ipopt flags infeasibility, or it clamps at the limit — never
+        # returns the unconstrained (over-limit) current as a clean solve.
+        @test rt["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL") ||
+              rt["transformer"]["t1"]["w2"]["1"]["cm"] <= 0.5 * i2 * (1 + 1e-3)
     end
 
 end

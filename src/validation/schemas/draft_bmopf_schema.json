@@ -1099,6 +1099,10 @@
                     "type": "integer",
                     "enum": [1, -1],
                     "description": "DELTA only: coil rotation / vector-group sense. +1 connects coil k across phases k->k+1, -1 across k->k-1 (OpenDSS's standard delta). Ignored for WYE."
+                },
+                "i_max": {
+                    "$ref": "#/$defs/nonnegative_number",
+                    "description": "Optional per-winding current-magnitude limit [A], applied to each phase coil current of this winding"
                 }
             },
             "required": ["bus", "terminal_map", "v_nom", "configuration"]

@@ -42,6 +42,7 @@ function _nw_windings(xfmr::Dict{String,Any})
     out = NamedTuple[]
     for w in raw
         w isa AbstractDict || continue
+        imx = get(w, "i_max", nothing)
         push!(out, (
             bus          = string(get(w, "bus", "")),
             terminal_map = Vector{String}(string.(get(w, "terminal_map", String[]))),
@@ -49,6 +50,7 @@ function _nw_windings(xfmr::Dict{String,Any})
             connection   = uppercase(string(get(w, "configuration", "WYE"))),  # JSON key: configuration
             r_winding    = Float64(get(w, "r_winding", 0.0)),
             delta_roll   = Int(get(w, "delta_roll", 1)),
+            i_max        = imx isa Real ? Float64(imx) : nothing,  # optional per-winding current limit (A)
         ))
     end
     out

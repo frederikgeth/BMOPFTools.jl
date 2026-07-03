@@ -3086,6 +3086,46 @@ end
     _cmp_volts(V_ods, V_bm; label="Dy-tap-opt: ", atol=0.1)
 end
 
+@testset "PF comparison — Yd/Dy fixed tap across the schema band vs OpenDSS" begin
+    # The Dy/Yd delta-arm leakage referral is EXACT at nominal and its deviation
+    # from OpenDSS's turns-scaled Yprim grows ~linearly with the tap excursion
+    # (the "leakage held at nominal" approximation — the wye- and delta-coil
+    # drops both scale with the tapped n_eff rather than the exact tap² split).
+    # The exact split is deliberately NOT applied: it would require re-deriving
+    # BOTH the fixed- and free-tap coupled constraints together (a free-tap-only
+    # or fixed-tap-only fix would break the OPF↔Yprim self-consistency that holds
+    # at every setpoint — the primary requirement), for a device that historically
+    # produced a negative-loss bug when this constraint was gotten wrong.
+    #
+    # This test PINS the approximation's MEASURED envelope against OpenDSS on
+    # these 4 %-leakage units. The deviation is worse for Yd than Dy and grows
+    # with the excursion (LV secondary ≈ 380–450 V for Yd, 210–260 V for Dy):
+    #   Yd:  ≈1.1 V (±5 %),  ≈2.0 V (±10 %)   → ~0.3–0.5 %
+    #   Dy:  ≈0.5 V (±5 %),  ≈0.9 V (±10 %)   → ~0.2–0.4 %
+    # (This is the FIRST OpenDSS cross-check of Yd at off-nominal taps — it is
+    # NOT tighter than Dy, contrary to earlier assumptions.) A failure means the
+    # error grew beyond this envelope — the signal that the exact tap² referral
+    # (matching OpenDSS's winding-1 self-impedance tap² scaling, in the fixed-
+    # AND free-tap coupled constraints together) has become necessary.
+    cases = ((_net_yd_xfmr, "pf_yd_xfmr.dss", "wye_delta"),
+             (_net_dy_xfmr, "pf_dy_xfmr.dss", "delta_wye"))
+    for (netf, fname, sub) in cases, tapv in (0.90, 0.95, 1.05, 1.10)
+        path = joinpath(_PF_CMP_DIR, fname)
+        net  = netf()
+        net["transformer"][sub]["t1"]["tap"] = tapv
+        res  = solve_pf(net; optimizer=Ipopt.Optimizer)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        V_bm  = Dict(bid * "." * (t == "n" ? "4" : t) => tv["vr"] + im*tv["vi"]
+                     for (bid, td) in res["bus"] for (t, tv) in td)
+        V_ods = _ods_volts_tap(path, "t1", 1, tapv)   # winding 1 = HV (from)
+        # Envelope: ±5 % → 1.5 V, ±10 % → 2.5 V (rtol off, atol binds). Loose by
+        # design — it bounds the documented approximation, and a gross error
+        # (wrong side/factor) is many volts and still trips it.
+        atol = abs(tapv - 1.0) <= 0.05 + 1e-9 ? 1.5 : 2.5
+        _cmp_volts(V_ods, V_bm; label="$(sub)-tap$(tapv): ", atol=atol, rtol=0.0)
+    end
+end
+
 @testset "PF comparison — optimised tap vs OpenDSS (center_tap: drop + unbalance + losses)" begin
     # Split-phase OLTC on the HV winding. The loaded fixture is a 5 km feeder with
     # heavy, UNEQUAL 120 V leg loads → strong voltage drop and leg unbalance, plus

@@ -89,6 +89,17 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_in
         _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               tap=tapd, branch_inj=branch_inj)
     end
+    # n_winding is built by a separate pass (`_add_nwinding_constraints!`). Any
+    # OTHER key under `transformer` is an unmodeled subtype whose devices would
+    # be silently absent from KCL — surface it loudly rather than drop it.
+    known = Set(BMOPFTools.TRANSFORMER_SUBTYPES)
+    recognized = join(BMOPFTools.TRANSFORMER_SUBTYPES, ", ")
+    for (subtype, sub) in xfmr_dict
+        (subtype in known || !(sub isa Dict) || isempty(sub)) && continue
+        @warn "OPF: transformer subtype '$subtype' is not modeled — its " *
+              "$(length(sub)) device(s) contribute NO constraints and are absent " *
+              "from KCL. Recognized subtypes: $recognized."
+    end
 end
 
 # Per-transformer KCL-add closure: records into the branch-loss ledger under
