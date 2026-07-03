@@ -1,151 +1,152 @@
-new load.Ld3_LOAD_A phases=1 bus1=B2632.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld56_LOAD_B phases=1 bus1=B3083.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld67_LOAD_C phases=1 bus1=B2805.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld101_LOAD_A phases=1 bus1=B124.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld126_LOAD_B phases=1 bus1=B2065.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld138_LOAD_C phases=1 bus1=B187.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld150_LOAD_A phases=1 bus1=B2893.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld159_LOAD_B phases=1 bus1=B11.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld167_LOAD_C phases=1 bus1=B438.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld293_LOAD_A phases=1 bus1=B2053.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld347_LOAD_B phases=1 bus1=B2657.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld349_LOAD_C phases=1 bus1=B183.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld369_LOAD_A phases=1 bus1=B819.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld390_LOAD_B phases=1 bus1=B2144.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld488_LOAD_C phases=1 bus1=B163.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld542_LOAD_A phases=1 bus1=B201.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld615_LOAD_B phases=1 bus1=B1401.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld690_LOAD_C phases=1 bus1=B3225.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld730_LOAD_A phases=1 bus1=B411.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld797_LOAD_B phases=1 bus1=B3405.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld804_LOAD_C phases=1 bus1=B3375.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld820_LOAD_A phases=1 bus1=B1766.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld852_LOAD_B phases=1 bus1=B2291.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld942_LOAD_C phases=1 bus1=B2706.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld985_LOAD_A phases=1 bus1=B795.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1063_LOAD_B phases=1 bus1=B2675.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1127_LOAD_C phases=1 bus1=B1791.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1178_LOAD_A phases=1 bus1=B989.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1197_LOAD_B phases=1 bus1=B70.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1248_LOAD_C phases=1 bus1=B46.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1267_LOAD_A phases=1 bus1=B2840.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1308_LOAD_B phases=1 bus1=B567.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1315_LOAD_C phases=1 bus1=B835.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1368_LOAD_A phases=1 bus1=B2201.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1389_LOAD_B phases=1 bus1=B1652.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1415_LOAD_C phases=1 bus1=B2910.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1449_LOAD_A phases=1 bus1=B82.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1479_LOAD_B phases=1 bus1=B812.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1480_LOAD_C phases=1 bus1=B1144.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1496_LOAD_A phases=1 bus1=B3306.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1511_LOAD_B phases=1 bus1=B1039.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1559_LOAD_C phases=1 bus1=B3006.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1561_LOAD_A phases=1 bus1=B3173.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1603_LOAD_B phases=1 bus1=B1.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1607_LOAD_C phases=1 bus1=B1108.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1622_LOAD_A phases=1 bus1=B3103.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1638_LOAD_B phases=1 bus1=B3058.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1654_LOAD_C phases=1 bus1=B2362.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1660_LOAD_A phases=1 bus1=B3274.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1678_LOAD_B phases=1 bus1=B2802.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1707_LOAD_C phases=1 bus1=B1354.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1730_LOAD_A phases=1 bus1=B2990.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1898_LOAD_B phases=1 bus1=B2514.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1943_LOAD_C phases=1 bus1=B1601.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1945_LOAD_A phases=1 bus1=B1773.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1953_LOAD_B phases=1 bus1=B147.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1973_LOAD_C phases=1 bus1=B1994.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld1993_LOAD_A phases=1 bus1=B522.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2011_LOAD_B phases=1 bus1=B1859.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2092_LOAD_C phases=1 bus1=B1850.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2096_LOAD_A phases=1 bus1=B303.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2138_LOAD_B phases=1 bus1=B2309.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2139_LOAD_C phases=1 bus1=B846.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2172_LOAD_A phases=1 bus1=B1947.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2179_LOAD_B phases=1 bus1=B568.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2192_LOAD_C phases=1 bus1=B2323.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2201_LOAD_A phases=1 bus1=B1570.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2260_LOAD_B phases=1 bus1=B1523.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2300_LOAD_C phases=1 bus1=B1185.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2345_LOAD_A phases=1 bus1=B2450.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2368_LOAD_B phases=1 bus1=B102.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2396_LOAD_C phases=1 bus1=B2401.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2409_LOAD_A phases=1 bus1=B355.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2457_LOAD_B phases=1 bus1=B731.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2483_LOAD_C phases=1 bus1=B1813.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2499_LOAD_A phases=1 bus1=B2701.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2501_LOAD_B phases=1 bus1=B2451.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2512_LOAD_C phases=1 bus1=B157.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2529_LOAD_A phases=1 bus1=B1545.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2567_LOAD_B phases=1 bus1=B3296.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2593_LOAD_C phases=1 bus1=B316.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2596_LOAD_A phases=1 bus1=B2998.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2636_LOAD_B phases=1 bus1=B2205.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2644_LOAD_C phases=1 bus1=B3123.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2646_LOAD_A phases=1 bus1=B3210.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2665_LOAD_B phases=1 bus1=B1094.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2672_LOAD_C phases=1 bus1=B2143.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2679_LOAD_A phases=1 bus1=B2679.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2695_LOAD_B phases=1 bus1=B2278.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2757_LOAD_C phases=1 bus1=B1009.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2762_LOAD_A phases=1 bus1=B1227.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2780_LOAD_B phases=1 bus1=B1129.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2841_LOAD_C phases=1 bus1=B1769.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2857_LOAD_A phases=1 bus1=B4.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2858_LOAD_B phases=1 bus1=B1839.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2864_LOAD_C phases=1 bus1=B1285.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2926_LOAD_A phases=1 bus1=B811.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3027_LOAD_B phases=1 bus1=B1605.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3045_LOAD_C phases=1 bus1=B1922.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3073_LOAD_A phases=1 bus1=B2486.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3107_LOAD_B phases=1 bus1=B2270.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3175_LOAD_C phases=1 bus1=B2101.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3198_LOAD_A phases=1 bus1=B2987.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3201_LOAD_B phases=1 bus1=B1583.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3205_LOAD_C phases=1 bus1=B944.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3217_LOAD_A phases=1 bus1=B575.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3266_LOAD_B phases=1 bus1=B360.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3276_LOAD_C phases=1 bus1=B2163.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3277_LOAD_A phases=1 bus1=B1310.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3281_LOAD_B phases=1 bus1=B1741.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3327_LOAD_C phases=1 bus1=B3234.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3330_LOAD_A phases=1 bus1=B1682.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3425_LOAD_B phases=1 bus1=B1558.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3500_LOAD_C phases=1 bus1=B161.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3589_LOAD_A phases=1 bus1=B2358.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3642_LOAD_B phases=1 bus1=B2826.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3649_LOAD_C phases=1 bus1=B3000.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3705_LOAD_A phases=1 bus1=B1573.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3762_LOAD_B phases=1 bus1=B2544.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3771_LOAD_C phases=1 bus1=B1333.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3789_LOAD_A phases=1 bus1=B3076.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3794_LOAD_B phases=1 bus1=B1530.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3930_LOAD_C phases=1 bus1=B2254.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3971_LOAD_A phases=1 bus1=B3159.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4014_LOAD_B phases=1 bus1=B489.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4019_LOAD_C phases=1 bus1=B137.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4028_LOAD_A phases=1 bus1=B2336.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4044_LOAD_B phases=1 bus1=B177.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4063_LOAD_C phases=1 bus1=B1594.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4095_LOAD_A phases=1 bus1=B1489.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4103_LOAD_B phases=1 bus1=B2709.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4106_LOAD_C phases=1 bus1=B2728.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4120_LOAD_A phases=1 bus1=B1395.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4158_LOAD_B phases=1 bus1=B2433.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4170_LOAD_C phases=1 bus1=B1516.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4199_LOAD_A phases=1 bus1=B1355.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4277_LOAD_B phases=1 bus1=B707.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4291_LOAD_C phases=1 bus1=B2699.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4320_LOAD_A phases=1 bus1=B1753.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4355_LOAD_B phases=1 bus1=B2983.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4367_LOAD_C phases=1 bus1=B2421.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4404_LOAD_A phases=1 bus1=B2176.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4449_LOAD_B phases=1 bus1=B2457.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4490_LOAD_C phases=1 bus1=B1032.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4495_LOAD_A phases=1 bus1=B1121.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4532_LOAD_B phases=1 bus1=B785.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4620_LOAD_C phases=1 bus1=B2335.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4652_LOAD_A phases=1 bus1=B3260.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4671_LOAD_B phases=1 bus1=B2470.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4680_LOAD_C phases=1 bus1=B2806.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4696_LOAD_A phases=1 bus1=B3233.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
+! Diversified residential demand 2 kW @ 0.95 pf per customer (placeholder-free values added 2026-07)
+new load.Ld3_LOAD_A phases=1 bus1=B2632.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld56_LOAD_B phases=1 bus1=B3083.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld67_LOAD_C phases=1 bus1=B2805.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld101_LOAD_A phases=1 bus1=B124.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld126_LOAD_B phases=1 bus1=B2065.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld138_LOAD_C phases=1 bus1=B187.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld150_LOAD_A phases=1 bus1=B2893.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld159_LOAD_B phases=1 bus1=B11.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld167_LOAD_C phases=1 bus1=B438.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld293_LOAD_A phases=1 bus1=B2053.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld347_LOAD_B phases=1 bus1=B2657.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld349_LOAD_C phases=1 bus1=B183.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld369_LOAD_A phases=1 bus1=B819.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld390_LOAD_B phases=1 bus1=B2144.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld488_LOAD_C phases=1 bus1=B163.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld542_LOAD_A phases=1 bus1=B201.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld615_LOAD_B phases=1 bus1=B1401.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld690_LOAD_C phases=1 bus1=B3225.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld730_LOAD_A phases=1 bus1=B411.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld797_LOAD_B phases=1 bus1=B3405.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld804_LOAD_C phases=1 bus1=B3375.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld820_LOAD_A phases=1 bus1=B1766.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld852_LOAD_B phases=1 bus1=B2291.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld942_LOAD_C phases=1 bus1=B2706.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld985_LOAD_A phases=1 bus1=B795.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1063_LOAD_B phases=1 bus1=B2675.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1127_LOAD_C phases=1 bus1=B1791.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1178_LOAD_A phases=1 bus1=B989.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1197_LOAD_B phases=1 bus1=B70.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1248_LOAD_C phases=1 bus1=B46.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1267_LOAD_A phases=1 bus1=B2840.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1308_LOAD_B phases=1 bus1=B567.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1315_LOAD_C phases=1 bus1=B835.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1368_LOAD_A phases=1 bus1=B2201.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1389_LOAD_B phases=1 bus1=B1652.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1415_LOAD_C phases=1 bus1=B2910.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1449_LOAD_A phases=1 bus1=B82.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1479_LOAD_B phases=1 bus1=B812.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1480_LOAD_C phases=1 bus1=B1144.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1496_LOAD_A phases=1 bus1=B3306.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1511_LOAD_B phases=1 bus1=B1039.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1559_LOAD_C phases=1 bus1=B3006.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1561_LOAD_A phases=1 bus1=B3173.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1603_LOAD_B phases=1 bus1=B1.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1607_LOAD_C phases=1 bus1=B1108.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1622_LOAD_A phases=1 bus1=B3103.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1638_LOAD_B phases=1 bus1=B3058.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1654_LOAD_C phases=1 bus1=B2362.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1660_LOAD_A phases=1 bus1=B3274.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1678_LOAD_B phases=1 bus1=B2802.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1707_LOAD_C phases=1 bus1=B1354.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1730_LOAD_A phases=1 bus1=B2990.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1898_LOAD_B phases=1 bus1=B2514.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1943_LOAD_C phases=1 bus1=B1601.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1945_LOAD_A phases=1 bus1=B1773.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1953_LOAD_B phases=1 bus1=B147.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1973_LOAD_C phases=1 bus1=B1994.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld1993_LOAD_A phases=1 bus1=B522.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2011_LOAD_B phases=1 bus1=B1859.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2092_LOAD_C phases=1 bus1=B1850.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2096_LOAD_A phases=1 bus1=B303.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2138_LOAD_B phases=1 bus1=B2309.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2139_LOAD_C phases=1 bus1=B846.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2172_LOAD_A phases=1 bus1=B1947.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2179_LOAD_B phases=1 bus1=B568.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2192_LOAD_C phases=1 bus1=B2323.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2201_LOAD_A phases=1 bus1=B1570.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2260_LOAD_B phases=1 bus1=B1523.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2300_LOAD_C phases=1 bus1=B1185.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2345_LOAD_A phases=1 bus1=B2450.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2368_LOAD_B phases=1 bus1=B102.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2396_LOAD_C phases=1 bus1=B2401.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2409_LOAD_A phases=1 bus1=B355.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2457_LOAD_B phases=1 bus1=B731.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2483_LOAD_C phases=1 bus1=B1813.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2499_LOAD_A phases=1 bus1=B2701.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2501_LOAD_B phases=1 bus1=B2451.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2512_LOAD_C phases=1 bus1=B157.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2529_LOAD_A phases=1 bus1=B1545.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2567_LOAD_B phases=1 bus1=B3296.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2593_LOAD_C phases=1 bus1=B316.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2596_LOAD_A phases=1 bus1=B2998.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2636_LOAD_B phases=1 bus1=B2205.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2644_LOAD_C phases=1 bus1=B3123.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2646_LOAD_A phases=1 bus1=B3210.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2665_LOAD_B phases=1 bus1=B1094.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2672_LOAD_C phases=1 bus1=B2143.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2679_LOAD_A phases=1 bus1=B2679.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2695_LOAD_B phases=1 bus1=B2278.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2757_LOAD_C phases=1 bus1=B1009.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2762_LOAD_A phases=1 bus1=B1227.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2780_LOAD_B phases=1 bus1=B1129.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2841_LOAD_C phases=1 bus1=B1769.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2857_LOAD_A phases=1 bus1=B4.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2858_LOAD_B phases=1 bus1=B1839.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2864_LOAD_C phases=1 bus1=B1285.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld2926_LOAD_A phases=1 bus1=B811.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3027_LOAD_B phases=1 bus1=B1605.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3045_LOAD_C phases=1 bus1=B1922.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3073_LOAD_A phases=1 bus1=B2486.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3107_LOAD_B phases=1 bus1=B2270.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3175_LOAD_C phases=1 bus1=B2101.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3198_LOAD_A phases=1 bus1=B2987.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3201_LOAD_B phases=1 bus1=B1583.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3205_LOAD_C phases=1 bus1=B944.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3217_LOAD_A phases=1 bus1=B575.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3266_LOAD_B phases=1 bus1=B360.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3276_LOAD_C phases=1 bus1=B2163.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3277_LOAD_A phases=1 bus1=B1310.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3281_LOAD_B phases=1 bus1=B1741.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3327_LOAD_C phases=1 bus1=B3234.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3330_LOAD_A phases=1 bus1=B1682.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3425_LOAD_B phases=1 bus1=B1558.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3500_LOAD_C phases=1 bus1=B161.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3589_LOAD_A phases=1 bus1=B2358.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3642_LOAD_B phases=1 bus1=B2826.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3649_LOAD_C phases=1 bus1=B3000.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3705_LOAD_A phases=1 bus1=B1573.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3762_LOAD_B phases=1 bus1=B2544.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3771_LOAD_C phases=1 bus1=B1333.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3789_LOAD_A phases=1 bus1=B3076.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3794_LOAD_B phases=1 bus1=B1530.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3930_LOAD_C phases=1 bus1=B2254.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld3971_LOAD_A phases=1 bus1=B3159.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4014_LOAD_B phases=1 bus1=B489.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4019_LOAD_C phases=1 bus1=B137.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4028_LOAD_A phases=1 bus1=B2336.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4044_LOAD_B phases=1 bus1=B177.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4063_LOAD_C phases=1 bus1=B1594.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4095_LOAD_A phases=1 bus1=B1489.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4103_LOAD_B phases=1 bus1=B2709.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4106_LOAD_C phases=1 bus1=B2728.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4120_LOAD_A phases=1 bus1=B1395.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4158_LOAD_B phases=1 bus1=B2433.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4170_LOAD_C phases=1 bus1=B1516.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4199_LOAD_A phases=1 bus1=B1355.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4277_LOAD_B phases=1 bus1=B707.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4291_LOAD_C phases=1 bus1=B2699.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4320_LOAD_A phases=1 bus1=B1753.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4355_LOAD_B phases=1 bus1=B2983.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4367_LOAD_C phases=1 bus1=B2421.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4404_LOAD_A phases=1 bus1=B2176.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4449_LOAD_B phases=1 bus1=B2457.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4490_LOAD_C phases=1 bus1=B1032.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4495_LOAD_A phases=1 bus1=B1121.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4532_LOAD_B phases=1 bus1=B785.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4620_LOAD_C phases=1 bus1=B2335.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4652_LOAD_A phases=1 bus1=B3260.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4671_LOAD_B phases=1 bus1=B2470.2.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4680_LOAD_C phases=1 bus1=B2806.3.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2
+new load.Ld4696_LOAD_A phases=1 bus1=B3233.1.4 kv=0.249992666559  kW=2.0 pf=0.95 vminpu=0.1 vmaxpu=2

@@ -76,42 +76,6 @@ function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars)
 end
 
 """
-    _add_wide_voltage_bounds!(model, net, bus_terminals, grounded, vars)
-
-Like `_add_voltage_bounds!` but uses 0.5× v_min and 2× v_max so the NLP is
-anchored in the physical operating region without ever being infeasible.
-Used by the feasibility OPF to prevent degenerate high/low-voltage solutions
-while keeping operational bounds as soft (post-solve) checks.
-"""
-function _add_wide_voltage_bounds!(model, net, bus_terminals, grounded, vars)
-    vr = vars[:vr]; vi = vars[:vi]
-    fixed = _source_fixed_terminals(net)
-
-    for (bid, bus) in get(net, "bus", Dict())
-        v_min = get(bus, "v_min", nothing)
-        v_max = get(bus, "v_max", nothing)
-        (v_min === nothing && v_max === nothing) && continue
-
-        terminals = get(bus_terminals, bid, String[])
-        neutral   = BMOPFTools._neutral_terminal(terminals)
-        phase_terms = [t for t in terminals if t != neutral]
-        _check_per_phase_bound(v_min, length(phase_terms), bid, "v_min")
-        _check_per_phase_bound(v_max, length(phase_terms), bid, "v_max")
-
-        for (k, t) in enumerate(phase_terms)
-            (bid, t) in grounded && continue
-            (bid, t) in fixed   && continue
-            vr_t = vr[(bid, t)]; vi_t = vi[(bid, t)]
-            v2 = @expression(model, vr_t^2 + vi_t^2)
-            lb = v_min isa AbstractVector ? get(v_min, k, nothing) : v_min
-            ub = v_max isa AbstractVector ? get(v_max, k, nothing) : v_max
-            lb !== nothing && @constraint(model, v2 >= (Float64(lb) * 0.5)^2)
-            ub !== nothing && @constraint(model, v2 <= (Float64(ub) * 2.0)^2)
-        end
-    end
-end
-
-"""
     _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars)
 
 Enforce operational bus-level voltage limits (not called from feasibility OPF):

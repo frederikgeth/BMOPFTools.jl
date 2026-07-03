@@ -258,9 +258,9 @@ function get_snapshot(net::Dict{String,Any}, t_index::Int)::Dict{String,Any}
                 "shunt", "switch", "ibr")
         components = get(snap, key, nothing)
         components isa Dict || continue
-        for (_, comp) in components
+        for (cid, comp) in components
             comp isa Dict || continue
-            _resolve_component_ts!(comp, ts_root, t_index)
+            _resolve_component_ts!(comp, ts_root, t_index, cid)
         end
     end
 
@@ -270,9 +270,9 @@ function get_snapshot(net::Dict{String,Any}, t_index::Int)::Dict{String,Any}
         for subtype in TRANSFORMER_SUBTYPES
             sub = get(xfmr, subtype, nothing)
             sub isa Dict || continue
-            for (_, comp) in sub
+            for (cid, comp) in sub
                 comp isa Dict || continue
-                _resolve_component_ts!(comp, ts_root, t_index)
+                _resolve_component_ts!(comp, ts_root, t_index, cid)
             end
         end
     end
@@ -283,18 +283,22 @@ end
 
 function _resolve_component_ts!(comp::Dict{String,Any},
                                 ts_root::Dict{String,Any},
-                                t_index::Int)
+                                t_index::Int,
+                                comp_id::AbstractString="")
     ts_refs = get(comp, "time_series", nothing)
     ts_refs isa Dict || return
 
     for (param, ts_id) in ts_refs
         ts_id = string(ts_id)
+        where_ = isempty(comp_id) ? "a component" : "component '$comp_id'"
         haskey(ts_root, ts_id) ||
-            throw(KeyError("time_series id '$ts_id' referenced by component but not found at root level"))
+            throw(ArgumentError(
+                "time_series id '$ts_id' (referenced by $where_ for parameter " *
+                "'$param') not found in the root-level \"time_series\" collection"))
 
         ts = ts_root[ts_id]
         values = ts["values"]
-        t_index <= length(values) ||
+        1 <= t_index <= length(values) ||
             throw(BoundsError(values, t_index))
 
         scale = values[t_index]
