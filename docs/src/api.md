@@ -71,6 +71,8 @@ write_yprim
 to_pmd
 from_dss
 to_dss
+project_solution
+dispatch_as_loads
 ```
 
 ## Top-level analysis and rendering
