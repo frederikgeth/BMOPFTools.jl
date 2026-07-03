@@ -29,7 +29,7 @@ exporter.
 | Turns ratio | $N = V^\text{ref}_\text{fr}/V^\text{ref}_\text{to}$ (both SI volts; for `center_tap`, $V^\text{ref}_\text{to}$ is the per-leg 120 V rating). |
 | Series impedance | $Z_1=R_1+jX_1$ from `r_series_from`/`x_series_from`; $Z_2=R_2+jX_2$ from `r_series_to`/`x_series_to`. |
 | Neutral grounding | `r/x_neutral_from`/`r/x_neutral_to` (OpenDSS `rneut`/`xneut`): an INTERNAL grounding branch $y_n = 1/(R_n+jX_n)$ from the winding's shared neutral terminal to earth — a diagonal stamp at the neutral node (verified against OpenDSS: its Yprim's neutral diagonal gains exactly $y_n$; the star point stays solid on the neutral node). Supported for `single_phase` and the wye side of Yd/Dy; stand-alone transformer property, external groundings stay on buses/shunts. |
-| No-load shunt | $Y_0=G_0+jB_0$ from `g_no_load`/`b_no_load`, on the **from** (HV) side. Placement mirrors the OPF builders: **across the from winding** ($p{-}q$) for `single_phase` and `single_phase_autotransformer`; **phase-to-ground** at the from-side phase terminals for `center_tap` and Yd/Dy; across each from-side L-L pair for `open_delta_regulator`. |
+| No-load shunt | $Y_0=G_0+jB_0$ from `g_no_load`/`b_no_load`, across **winding 2** (the to-side coil), referred to winding 2's coil voltage — OpenDSS places the exciting branch on winding 2 (verified against its Yprim). Per subtype: the to coil ($p_\text{to}{-}q_\text{to}$) for `single_phase`; a delta of $Y_0/n_\phi$ branches across the LV delta coils for Yd, phase-to-neutral $Y_0/n_\phi$ on the LV wye for Dy; the LV leg-1 coil ($t_1{-}t_n$, the ENTIRE $Y_0$) for `center_tap`. Inductive, so $B_0<0$. |
 
 **Reciprocity.** A transformer built from linear impedances and ideal cores is
 a reciprocal network, so the exported $Y$ **must be symmetric**,
@@ -39,7 +39,7 @@ is lossy). We use $\|Y-Y^{\mathsf T}\|_\infty < \epsilon$ as a hard correctness 
 **The construction we use.** We build $Y$ from the textbook *primitive
 admittance + connection matrix* form
 
-$$\boxed{\,Y = C^{\mathsf T}\, y_\text{prim}\, C \;+\; Y_0\,\text{(shunt at HV nodes)}\,}$$
+$$\boxed{\,Y = C^{\mathsf T}\, y_\text{prim}\, C \;+\; Y_0\,\text{(shunt across the winding-2 coil)}\,}$$
 
 where $C$ maps node voltages to per-core winding voltages and $y_\text{prim}$
 is the (block-)diagonal primitive admittance of the winding-pairs. This form is
@@ -79,11 +79,13 @@ $n_c$ pairs, matching the code.)
 
 The $2\times2$ block for pair $k$, from $C^{\mathsf T}y_\text{prim}C$ with
 $C=\begin{psmallmatrix}1&-N\end{psmallmatrix}$ (one winding spanning $p$ and $q$
-with ratio $1\!:\!N$) plus the HV shunt, is
+with ratio $1\!:\!N$) plus the winding-2 shunt, is
 
 $$\begin{bmatrix}I_p\\ I_q\end{bmatrix}
-=\begin{bmatrix} y+Y_0' & -Ny\\[2pt] -Ny & N^2 y\end{bmatrix}
-\begin{bmatrix}V_p\\ V_q\end{bmatrix}.$$
+=\begin{bmatrix} y & -Ny\\[2pt] -Ny & N^2 y+Y_0'\end{bmatrix}
+\begin{bmatrix}V_p\\ V_q\end{bmatrix},$$
+
+with the no-load shunt $Y_0'$ on the **to** node (winding 2), not the from node.
 
 The full block is **block-diagonal** over the $n_c$ phase-pairs. Symmetric ✓
 (verified: `‖Y − Yᵀ‖ = 0` analytically). Ideal limit $Z\to0$: entries $\to\infty$
@@ -149,7 +151,7 @@ rows/cols of $C$ accordingly).
 
 ### Nodal block
 
-$$Y_\text{Yd}=C^{\mathsf T} y_\text{prim} C + Y_0\,\text{(wye phases)}.$$
+$$Y_\text{Yd}=C^{\mathsf T} y_\text{prim} C + Y_0\,\text{(delta of branches on the LV delta = winding 2)}.$$
 
 Numerically verified symmetric ($\|Y-Y^{\mathsf T}\|=0$ to machine precision).
 For the common lossless-delta case ($Z_d=0$, $y_t=y_w=1/Z_w$, no shunt) this
@@ -167,9 +169,10 @@ transposes of each other, confirming symmetry. The $3$ on the wye neutral is the
 zero-sequence admittance path ($\propto y_w$), so a zero from-side impedance
 makes the neutral row singular.
 
-**Dy** is identical with from/to swapped, $n_\text{eff}=N\sqrt3$, shunt on delta
-phases, and the delta winding voltage convention uses $k_\text{prev}$ (backward
-delta), i.e. $D\to D^{\mathsf T}$ in the bottom block of $C$.
+**Dy** is identical with from/to swapped, $n_\text{eff}=N\sqrt3$, shunt
+phase-to-neutral on the LV wye (winding 2), and the delta winding voltage
+convention uses $k_\text{prev}$ (backward delta), i.e. $D\to D^{\mathsf T}$ in
+the bottom block of $C$.
 
 ---
 
@@ -219,9 +222,10 @@ Map node voltages $[p,m,a,g,c]$ to the three winding terminal voltages:
 
 $$C=\begin{bmatrix}1/N & -1/N & 0 & 0 & 0\\ 0 & 0 & 1 & -1 & 0\\ 0 & 0 & 0 & 1 & -1\end{bmatrix}.$$
 
-Then
+Then, with the no-load shunt across winding 2 = LV leg 1 (the $a$–$g$ coil, so
+$c_{ag}=e_a-e_g$; OpenDSS places the entire exciting branch on winding 2):
 
-$$Y_\text{CT}=C^{\mathsf T}\,Y_\text{3port}\,C + Y_0\,e_p\,e_p^{\mathsf T},$$
+$$Y_\text{CT}=C^{\mathsf T}\,Y_\text{3port}\,C + Y_0\,c_{ag}\,c_{ag}^{\mathsf T},$$
 
 which is symmetric by construction ($C^{\mathsf T}[\text{symmetric}]C$).
 **Numerically verified:** $\|Y_\text{CT}-Y_\text{CT}^{\mathsf T}\|=0$ and

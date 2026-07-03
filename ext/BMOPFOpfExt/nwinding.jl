@@ -22,7 +22,8 @@
 # in N_k and U_k^r stays consistent (and per-unit needs no √3 fudge, since the
 # bus base is line-to-neutral). A WYE coil injects −I_k at its phase and +Σ_phase
 # I_k at its neutral; a DELTA coil injects −I_k at phase pk and +I_k at its delta
-# partner node. The optional no-load shunt (g+jb) is drawn across winding 1's coil.
+# partner node. The optional no-load shunt (g+jb) is drawn across winding 2's coil
+# (OpenDSS convention, verified against its Yprim).
 
 """
     _add_nwinding_variables!(model, net) -> (cr_nw, ci_nw)
@@ -177,21 +178,23 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                  @expression(model, sum(ci[(tid, k, pk)] for pk in 1:length(phs))))
         end
 
-        # Optional no-load (magnetising) shunt drawn at winding 1's terminals.
+        # Optional no-load (magnetising) shunt across WINDING 2's coil — OpenDSS
+        # places the exciting branch on winding 2 (verified against its Yprim),
+        # referred to winding 2's coil voltage.
         g = Float64(get(xfmr, "_g_no_load_pu", get(xfmr, "g_no_load", 0.0)))
         b = Float64(get(xfmr, "_b_no_load_pu", get(xfmr, "b_no_load", 0.0)))
-        if g != 0.0 || b != 0.0
-            w1 = ws[1]; phs1, neu1 = BMOPFTools._nw_phase_terminals(w1.terminal_map)
+        if (g != 0.0 || b != 0.0) && nW >= 2
+            w2 = ws[2]; phs2, neu2 = BMOPFTools._nw_phase_terminals(w2.terminal_map)
             for pk in 1:nph
-                ur, ui = upn(1, pk)
+                ur, ui = upn(2, pk)
                 Imr = @expression(model, g * ur - b * ui)
                 Imi = @expression(model, g * ui + b * ur)
-                kadd(w1.bus, phs1[pk], @expression(model, -Imr), @expression(model, -Imi))
-                if w1.connection == "DELTA"
-                    po = BMOPFTools._nw_delta_other(pk, length(phs1), w1.delta_roll)
-                    kadd(w1.bus, phs1[po], Imr, Imi)
-                elseif neu1 !== nothing
-                    kadd(w1.bus, neu1, Imr, Imi)
+                kadd(w2.bus, phs2[pk], @expression(model, -Imr), @expression(model, -Imi))
+                if w2.connection == "DELTA"
+                    po = BMOPFTools._nw_delta_other(pk, length(phs2), w2.delta_roll)
+                    kadd(w2.bus, phs2[po], Imr, Imi)
+                elseif neu2 !== nothing
+                    kadd(w2.bus, neu2, Imr, Imi)
                 end
             end
         end

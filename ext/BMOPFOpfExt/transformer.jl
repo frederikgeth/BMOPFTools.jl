@@ -108,12 +108,13 @@ _xf_kadd(kcl_r, kcl_i, branch_inj, tid) =
 Add per-phase wye-wye (YY) transformer constraints using a Γ-equivalent model.
 
 `cr_xf[(tid,"fr",k)]` / `ci_xf[(tid,"fr",k)]` are the **series** (ideal-core)
-currents.  The from-side terminal current is series + magnetising shunt:
+currents.  The TO-side terminal current is series + magnetising shunt:
 
-  I_term_fr = I_series + I_mag,   I_mag = (G + jB) · V_fr
+  I_term_to = I_series_to + I_mag,   I_mag = (G + jB) · V_to_coil
 
 where `G = g_no_load`, `B = b_no_load` are the total no-load admittance (S)
-referred to the from side, shared equally across the `n_c` per-phase pairs.
+referred to the TO side (OpenDSS places the exciting branch on winding 2 —
+verified against its Yprim), shared equally across the `n_c` per-phase pairs.
 
 Series impedance (Ω), referred to the from side (Γ convention):
 
@@ -177,8 +178,10 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     Rp = r_to + r_fr * invN0sq
     Xp = x_to + x_fr * invN0sq
 
-    # No-load admittance (S) on the from side, split equally per winding.
-    # OpenDSS places the no-load branch on winding 1 (from side).
+    # No-load (magnetising) admittance (S), split equally per winding. OpenDSS
+    # places the exciting branch across winding 2 (the TO coil), referred to
+    # winding 2's coil voltage — verified against its Yprim. `g/b_no_load` are
+    # therefore on the to-side base (`from_dss` derives them there).
     G_total = Float64(get(xfmr, "g_no_load", 0.0))
     B_total = Float64(get(xfmr, "b_no_load", 0.0))
     G = n_c > 0 ? G_total / n_c : 0.0
@@ -250,35 +253,33 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         @constraint(model, N * Isr + Itr == 0)
         @constraint(model, N * Isi + Iti == 0)
 
-        # From-side terminal current = series + magnetising shunt (across p−q).
-        # Inject −I at p and +I at q so the winding's return closes at q (the
-        # neutral for L-N, the second phase for L-L). For L-N windings that share
-        # one neutral, the +I terms accumulate Σ I there.
-        if has_shunt
-            icr_mag = @expression(model,  G * vr_fr - B * vi_fr)
-            ici_mag = @expression(model,  G * vi_fr + B * vr_fr)
-            icr_term = @expression(model, Isr + icr_mag)
-            ici_term = @expression(model, Isi + ici_mag)
-            kadd(b_fr, t_p_fr, -icr_term, -ici_term)
-            t_q_fr !== nothing && kadd(b_fr, t_q_fr, icr_term, ici_term)
-            length(i_max_fr) >= k &&
-                @constraint(model, icr_term^2 + ici_term^2 <= i_max_fr[k]^2)
-        else
-            kadd(b_fr, t_p_fr, -Isr, -Isi)
-            t_q_fr !== nothing && kadd(b_fr, t_q_fr, Isr, Isi)
-            if length(i_max_fr) >= k
-                @constraint(model, Isr^2 + Isi^2 <= i_max_fr[k]^2)
-                # No-load shunt absent, so the limit is on the bare variable.
-                _limit_current_box!(Isr, Isi, i_max_fr[k])
-            end
+        # From-side terminal current = series only (the magnetising branch is on
+        # the to side now). Inject −I at p and +I at q so the return closes at q.
+        kadd(b_fr, t_p_fr, -Isr, -Isi)
+        t_q_fr !== nothing && kadd(b_fr, t_q_fr, Isr, Isi)
+        if length(i_max_fr) >= k
+            @constraint(model, Isr^2 + Isi^2 <= i_max_fr[k]^2)
+            _limit_current_box!(Isr, Isi, i_max_fr[k])
         end
 
-        # To-side terminal current: −I_to at p, +I_to at q (return closes at q).
-        kadd(b_to, t_p_to, -Itr, -Iti)
-        t_q_to !== nothing && kadd(b_to, t_q_to, Itr, Iti)
-        if length(i_max_to_v) >= k
-            @constraint(model, Itr^2 + Iti^2 <= i_max_to_v[k]^2)
-            _limit_current_box!(Itr, Iti, i_max_to_v[k])
+        # To-side terminal current = series + magnetising shunt across the TO
+        # coil (V_p_to − V_q_to). Inject −I at p and +I at q (return at q).
+        if has_shunt
+            icr_mag = @expression(model,  G * vr_to - B * vi_to)
+            ici_mag = @expression(model,  G * vi_to + B * vr_to)
+            icr_term = @expression(model, Itr + icr_mag)
+            ici_term = @expression(model, Iti + ici_mag)
+            kadd(b_to, t_p_to, -icr_term, -ici_term)
+            t_q_to !== nothing && kadd(b_to, t_q_to, icr_term, ici_term)
+            length(i_max_to_v) >= k &&
+                @constraint(model, icr_term^2 + ici_term^2 <= i_max_to_v[k]^2)
+        else
+            kadd(b_to, t_p_to, -Itr, -Iti)
+            t_q_to !== nothing && kadd(b_to, t_q_to, Itr, Iti)
+            if length(i_max_to_v) >= k
+                @constraint(model, Itr^2 + Iti^2 <= i_max_to_v[k]^2)
+                _limit_current_box!(Itr, Iti, i_max_to_v[k])
+            end
         end
     end
 end
@@ -430,7 +431,11 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         C[2, 3] =  1.0;     C[2, 4] = -1.0
         C[3, 4] =  1.0;     C[3, 5] = -1.0
         Yp = transpose(C) * Y3 * C
-        Yp[1, 1] += G + im * B      # no-load shunt on the HV phase node
+        # No-load shunt across winding 2 = LV leg 1 (nodes 3-4, the t1-tn coil).
+        # OpenDSS places the ENTIRE exciting branch on winding 2 at the per-leg
+        # voltage — not on the HV node (verified against its Yprim).
+        Y0 = G + im * B
+        Yp[3, 3] += Y0; Yp[4, 4] += Y0; Yp[3, 4] -= Y0; Yp[4, 3] -= Y0
 
         node_bt = ((b_fr, t_fr_ph), (b_fr, t_fr_n),
                    (b_to, t_lv_1),  (b_to, t_lv_n), (b_to, t_lv_2))
@@ -539,39 +544,40 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     @constraint(model, Ini + Il1i + Il2i == 0)
 
     # ── Pin the HV neutral winding-current variable (fr,2) ────────────────────
-    # The HV coil is phase-to-neutral and the no-load shunt is phase-to-ground, so
-    # the series current returns entirely through the neutral: I_neutral = −I_s.
-    # The fixed Yprim path pins this via the nodal injection; the T-model path
-    # pins it explicitly so the result writer and loss accounting (which read the
-    # fr,2 variable) see the physical neutral current.
+    # The HV coil is phase-to-neutral, so the series current returns entirely
+    # through the neutral: I_neutral = −I_s. The fixed Yprim path pins this via
+    # the nodal injection; the T-model path pins it explicitly so the result
+    # writer and loss accounting (which read the fr,2 variable) see the physical
+    # neutral current.
     I2r = cr_xf[(tid,"fr",2)]; I2i = ci_xf[(tid,"fr",2)]
     @constraint(model, I2r == -Isr)
     @constraint(model, I2i == -Isi)
 
-    # ── HV side KCL (terminal current = series + shunt) ──────────────────────
-    if has_shunt
-        icr_ph = JuMP.AffExpr(0.0); ici_ph = JuMP.AffExpr(0.0)
-        JuMP.add_to_expression!(icr_ph,  1.0, Isr)
-        JuMP.add_to_expression!(ici_ph,  1.0, Isi)
-        JuMP.add_to_expression!(icr_ph,  G,   vr[(b_fr, t_fr_ph)])
-        JuMP.add_to_expression!(icr_ph, -B,   vi[(b_fr, t_fr_ph)])
-        JuMP.add_to_expression!(ici_ph,  G,   vi[(b_fr, t_fr_ph)])
-        JuMP.add_to_expression!(ici_ph,  B,   vr[(b_fr, t_fr_ph)])
-        kadd(b_fr, t_fr_ph, -icr_ph, -ici_ph)
-        length(i_max_fr) >= 1 && @constraint(model, icr_ph^2 + ici_ph^2 <= i_max_fr[1]^2)
-    else
-        kadd(b_fr, t_fr_ph, -Isr, -Isi)
-        if length(i_max_fr) >= 1
-            @constraint(model, Isr^2 + Isi^2 <= i_max_fr[1]^2)
-            _limit_current_box!(Isr, Isi, i_max_fr[1])  # bare HV series-current variable
-        end
+    # ── HV side KCL (pure series current; the exciting branch is on winding 2) ──
+    kadd(b_fr, t_fr_ph, -Isr, -Isi)
+    if length(i_max_fr) >= 1
+        @constraint(model, Isr^2 + Isi^2 <= i_max_fr[1]^2)
+        _limit_current_box!(Isr, Isi, i_max_fr[1])  # bare HV series-current variable
     end
-    # HV neutral: series current returns here (shunt is phase-to-ground, not phase-to-neutral).
-    kadd(b_fr, t_fr_n, Isr, Isi)
+    kadd(b_fr, t_fr_n, Isr, Isi)   # HV neutral: series return
 
     # ── LV side KCL contributions ─────────────────────────────────────────────
-    kadd(b_to, t_lv_1, -Il1r, -Il1i)
-    kadd(b_to, t_lv_n, -Inr,  -Ini)
+    # The no-load (magnetising) branch sits across winding 2 = LV leg 1
+    # (V_lv1 − V_lvn), the entire Y0 at the per-leg voltage — OpenDSS places the
+    # exciting branch on winding 2 (verified against its Yprim). Injected −I_mag
+    # at t_lv_1 and +I_mag at t_lv_n on top of the winding currents.
+    if has_shunt
+        vr_leg1 = @expression(model, vr[(b_to, t_lv_1)] - vr[(b_to, t_lv_n)])
+        vi_leg1 = @expression(model, vi[(b_to, t_lv_1)] - vi[(b_to, t_lv_n)])
+        imr = @expression(model, G * vr_leg1 - B * vi_leg1)
+        imi = @expression(model, G * vi_leg1 + B * vr_leg1)
+        il1r_t = @expression(model, Il1r + imr); il1i_t = @expression(model, Il1i + imi)
+        kadd(b_to, t_lv_1, -il1r_t, -il1i_t)
+        kadd(b_to, t_lv_n, -Inr + imr, -Ini + imi)
+    else
+        kadd(b_to, t_lv_1, -Il1r, -Il1i)
+        kadd(b_to, t_lv_n, -Inr,  -Ini)
+    end
     kadd(b_to, t_lv_2, -Il2r, -Il2i)
 
     # ── Current magnitude limits (Il1/In/Il2 are bare LV winding-current
@@ -625,7 +631,9 @@ Neutral KCL at the transformer star point:
 Loss model (per-winding T behind the ideal transform — matches OpenDSS / PMD):
   - `r/x_series_from` → series impedance on the from-side winding branch
   - `r/x_series_to`   → series impedance on the to-side winding branch
-  - `g/b_no_load`     → core-loss shunt at the from-side (HV) phase terminals
+  - `g/b_no_load`     → magnetising shunt across the winding-2 (to-side) coils
+    (delta of branches for a delta winding 2, phase-to-neutral for a wye
+    winding 2) — OpenDSS places the exciting branch on winding 2
   - `r/x_neutral_*` (wye side) → internal neutral-grounding branch
     y_n = 1/(R_n+jX_n) from the wye neutral terminal to earth (OpenDSS
     rneut/xneut; verified against OpenDSS Yprim)
@@ -830,60 +838,62 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             sum(ci_xf[(tid, side_wye, ph)] for ph in ph_idx) == 0)
     end
 
-    # ── No-load (core-loss) shunt at the from-side phase terminals ─────────────
-    # OpenDSS places the magnetising branch on winding 1 (from side), phase-to-
-    # ground. Split equally across the from-side phase conductors.
+    # ── No-load (magnetising) shunt across the WINDING-2 (to-side) coils ───────
+    # OpenDSS places the exciting branch on winding 2, referred to winding 2's
+    # coil voltage (verified against its Yprim): a delta of branches across the
+    # LV delta coils when the delta is winding 2 (Yd), phase-to-neutral across
+    # the LV wye coils when the wye is winding 2 (Dy). `g/b_no_load` are the
+    # total on the to-side coil base, split equally over the n_ph coils.
     G_total = Float64(get(xfmr, "g_no_load", 0.0))
     B_total = Float64(get(xfmr, "b_no_load", 0.0))
-    # The from side is the wye phases (Yd) or the delta phases (Dy).
-    from_is_wye = wye_is_from
-    n_from_ph   = from_is_wye ? length(ph_idx) : n_ph
-    Gph = (n_from_ph > 0) ? G_total / n_from_ph : 0.0
-    Bph = (n_from_ph > 0) ? B_total / n_from_ph : 0.0
-    has_shunt = (Gph != 0.0 || Bph != 0.0)
+    Gp = n_ph > 0 ? G_total / n_ph : 0.0
+    Bp = n_ph > 0 ? B_total / n_ph : 0.0
+    has_shunt = (Gp != 0.0 || Bp != 0.0)
 
-    # ── KCL contributions ─────────────────────────────────────────────────────
-    # From-side phase terminals carry winding current + magnetising shunt; the
-    # wye neutral terminal additionally carries the internal neutral-grounding
-    # branch current y_n·V_n (rneut/xneut).
+    # ── KCL contributions: winding currents (+ rneut branch at the wye neutral) ─
     for k in 1:n_wye
         t = tm_wye[k]
-        is_from_phase = from_is_wye && (k in ph_idx)
-        if is_from_phase && has_shunt
-            icr = JuMP.AffExpr(0.0); ici = JuMP.AffExpr(0.0)
-            JuMP.add_to_expression!(icr,  1.0, cr_xf[(tid, side_wye, k)])
-            JuMP.add_to_expression!(ici,  1.0, ci_xf[(tid, side_wye, k)])
-            JuMP.add_to_expression!(icr,  Gph, vr[(b_wye, t)])
-            JuMP.add_to_expression!(icr, -Bph, vi[(b_wye, t)])
-            JuMP.add_to_expression!(ici,  Gph, vi[(b_wye, t)])
-            JuMP.add_to_expression!(ici,  Bph, vr[(b_wye, t)])
-            kadd(b_wye, t, -icr, -ici)
-        elseif has_zn && n_pos !== nothing && k == n_pos
-            icr = JuMP.AffExpr(0.0); ici = JuMP.AffExpr(0.0)
-            JuMP.add_to_expression!(icr,  1.0, cr_xf[(tid, side_wye, k)])
-            JuMP.add_to_expression!(ici,  1.0, ci_xf[(tid, side_wye, k)])
-            JuMP.add_to_expression!(icr,  Gn, vr[(b_wye, t)])
-            JuMP.add_to_expression!(icr, -Bn, vi[(b_wye, t)])
-            JuMP.add_to_expression!(ici,  Gn, vi[(b_wye, t)])
-            JuMP.add_to_expression!(ici,  Bn, vr[(b_wye, t)])
+        if has_zn && n_pos !== nothing && k == n_pos
+            icr = @expression(model, cr_xf[(tid, side_wye, k)] +
+                              Gn * vr[(b_wye, t)] - Bn * vi[(b_wye, t)])
+            ici = @expression(model, ci_xf[(tid, side_wye, k)] +
+                              Gn * vi[(b_wye, t)] + Bn * vr[(b_wye, t)])
             kadd(b_wye, t, -icr, -ici)
         else
             kadd(b_wye, t, -cr_xf[(tid, side_wye, k)], -ci_xf[(tid, side_wye, k)])
         end
     end
     for k in 1:n_ph
-        t = tm_del[k]
-        if !from_is_wye && has_shunt
-            icr = JuMP.AffExpr(0.0); ici = JuMP.AffExpr(0.0)
-            JuMP.add_to_expression!(icr,  1.0, cr_xf[(tid, side_del, k)])
-            JuMP.add_to_expression!(ici,  1.0, ci_xf[(tid, side_del, k)])
-            JuMP.add_to_expression!(icr,  Gph, vr[(b_del, t)])
-            JuMP.add_to_expression!(icr, -Bph, vi[(b_del, t)])
-            JuMP.add_to_expression!(ici,  Gph, vi[(b_del, t)])
-            JuMP.add_to_expression!(ici,  Bph, vr[(b_del, t)])
-            kadd(b_del, t, -icr, -ici)
+        kadd(b_del, tm_del[k], -cr_xf[(tid, side_del, k)], -ci_xf[(tid, side_del, k)])
+    end
+
+    # ── Magnetising-shunt injections on the to-side coils ──────────────────────
+    if has_shunt
+        if wye_is_from
+            # to = delta: a branch across each coil (del_k, del_{k_next}).
+            for k in 1:n_ph
+                ta = tm_del[k]; tb = tm_del[(k % n_ph) + 1]
+                vdr = @expression(model, vr[(b_del, ta)] - vr[(b_del, tb)])
+                vdi = @expression(model, vi[(b_del, ta)] - vi[(b_del, tb)])
+                imr = @expression(model, Gp * vdr - Bp * vdi)
+                imi = @expression(model, Gp * vdi + Bp * vdr)
+                kadd(b_del, ta, -imr, -imi)
+                kadd(b_del, tb,  imr,  imi)
+            end
         else
-            kadd(b_del, t, -cr_xf[(tid, side_del, k)], -ci_xf[(tid, side_del, k)])
+            # to = wye: a branch phase-to-neutral (implicit ground if no neutral).
+            t_n = n_pos !== nothing ? tm_wye[n_pos] : nothing
+            for k in 1:n_ph
+                tph = tm_wye[ph_idx[k]]
+                vwr = t_n === nothing ? vr[(b_wye, tph)] :
+                      @expression(model, vr[(b_wye, tph)] - vr[(b_wye, t_n)])
+                vwi = t_n === nothing ? vi[(b_wye, tph)] :
+                      @expression(model, vi[(b_wye, tph)] - vi[(b_wye, t_n)])
+                imr = @expression(model, Gp * vwr - Bp * vwi)
+                imi = @expression(model, Gp * vwi + Bp * vwr)
+                kadd(b_wye, tph, -imr, -imi)
+                t_n !== nothing && kadd(b_wye, t_n, imr, imi)
+            end
         end
     end
 

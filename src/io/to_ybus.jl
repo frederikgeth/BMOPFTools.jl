@@ -7,9 +7,10 @@
 # Convention matches OpenDSS Yprim / DumpYprim: SI units (siemens), positive
 # current = into the element, symmetric (Y = Yᵀ — reciprocal, NOT Hermitian).
 #
-# Construction: C' * y_prim * C + Y₀ (shunt at HV nodes), where C maps node
-# voltages to per-core winding voltages and y_prim is the block-diagonal
-# primitive admittance. This guarantees Y = Yᵀ. See docs/transformer_admittance_derivation.md.
+# Construction: C' * y_prim * C + Y₀ (magnetising shunt across the winding-2 /
+# to-side coil, the OpenDSS convention), where C maps node voltages to per-core
+# winding voltages and y_prim is the block-diagonal primitive admittance. This
+# guarantees Y = Yᵀ. See docs/transformer_admittance_derivation.md.
 #
 # All four subtypes are supported:
 #   single_phase  — per-phase YY, Γ-model referred to HV (§2 of the note)
@@ -212,9 +213,12 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
         if !iszero(Z)
             Y .+= transpose(C) * ((1.0/Z) * [1.0 -N; -N N^2]) * C
         end
-        # No-load shunt on the from coil (across p_fr − q_fr).
+        # No-load (magnetising) shunt across the TO coil (p_to − q_to). OpenDSS
+        # places the exciting branch on winding 2, referred to winding 2's coil
+        # voltage — verified against its Yprim. `g/b_no_load` are therefore on
+        # the to-side base (`from_dss` derives them there).
         if !iszero(Y0_per)
-            Cf = reshape(C[1, :], 1, n_tot)
+            Cf = reshape(C[2, :], 1, n_tot)
             Y .+= transpose(Cf) * Y0_per * Cf
         end
     end
@@ -264,7 +268,8 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
         @warn "center_tap transformer has a zero series star arm; the ideal " *
               "coupling has no admittance form — exporting the (singular) shunt-only Yprim."
         Y_deg = zeros(ComplexF64, 5, 5)
-        Y_deg[1,1] += G0 + im*B0
+        Y0 = G0 + im*B0                    # across winding 2 (LV leg 1: nodes 3-4)
+        Y_deg[3,3] += Y0; Y_deg[4,4] += Y0; Y_deg[3,4] -= Y0; Y_deg[4,3] -= Y0
         return nodes, Y_deg
     end
 
@@ -293,8 +298,12 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
 
     Y_core = transpose(C) * Y3 * C
 
-    # Add Y0 shunt at HV-phase node (index 1).
-    Y_core[1,1] += G0 + im*B0
+    # No-load (magnetising) shunt across winding 2 = LV leg 1 (nodes 3-4, the
+    # t1-tn coil at the per-leg voltage). OpenDSS places the ENTIRE exciting
+    # branch on winding 2 — not split across the legs, and not on the HV side
+    # (verified against its Yprim). `g/b_no_load` are on the per-leg LV base.
+    Y0 = G0 + im*B0
+    Y_core[3,3] += Y0; Y_core[4,4] += Y0; Y_core[3,4] -= Y0; Y_core[4,3] -= Y0
 
     nodes, Y_core
 end
@@ -420,13 +429,29 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
     # Neutral-grounding branch: diagonal stamp at the wye neutral terminal.
     use_yn && (Y[n_pos, n_pos] += yn_wye)
 
-    # No-load shunt Y0 split equally across from-side phase terminals.
+    # No-load (magnetising) shunt across the WINDING-2 (to-side) coils, referred
+    # to winding 2's coil voltage — OpenDSS places the exciting branch on
+    # winding 2 (verified against its Yprim). `g/b_no_load` is the total on the
+    # to-side coil base, split equally over the n_ph coils and stamped across
+    # each: a delta of branches for a delta winding 2 (Yd), phase-to-neutral for
+    # a wye winding 2 (Dy).
     if !iszero(G0) || !iszero(B0)
-        from_ph_indices = wye_is_from ? ph_idx : collect(n_wye+1:n_wye+n_ph)
-        n_from_ph = length(from_ph_indices)
-        Y0_per = (G0 + im*B0) / n_from_ph
-        for idx in from_ph_indices
-            Y[idx, idx] += Y0_per
+        y_per = (G0 + im*B0) / n_ph
+        for k in 1:n_ph
+            if wye_is_from
+                # to side = delta: coil across delta terminals k and k_next.
+                a = n_wye + k
+                b = n_wye + (k % n_ph) + 1
+            else
+                # to side = wye: coil phase-to-neutral (implicit ground if no n).
+                a = ph_idx[k]
+                b = n_pos
+            end
+            Y[a, a] += y_per
+            if b !== nothing
+                Y[b, b] += y_per
+                Y[a, b] -= y_per; Y[b, a] -= y_per
+            end
         end
     end
 
@@ -597,7 +622,7 @@ end
 # gives the per-winding admittance Yw = D⁻¹·Yref·D⁻¹ (D = diag(N_k)). Yw is
 # stamped per leg via the connection-aware coil incidence P: a WYE coil maps to
 # its phase-neutral pair, a DELTA coil to its phase-phase pair (so delta windings
-# couple phase nodes). The optional no-load shunt is stamped across winding 1.
+# couple phase nodes). The optional no-load shunt is stamped across winding 2 (OpenDSS convention).
 function nwinding_yprim(xfmr::Dict{String,Any})
     ws = _nw_windings(xfmr)
     nW = length(ws)
@@ -657,15 +682,18 @@ function nwinding_yprim(xfmr::Dict{String,Any})
         end
         Y .+= transpose(P) * Yw * P
 
-        if !iszero(Y0)
-            w1 = ws[1]; phs1, neu1 = _nw_phase_terminals(w1.terminal_map)
+        # No-load (magnetising) shunt across WINDING 2's coil — OpenDSS places
+        # the exciting branch on winding 2 (verified against its Yprim), not
+        # winding 1. `g/b_no_load` are on winding 2's coil base.
+        if !iszero(Y0) && nW >= 2
+            w2 = ws[2]; phs2, neu2 = _nw_phase_terminals(w2.terminal_map)
             Cf = zeros(ComplexF64, 1, n_tot)
-            Cf[1, nidx!(w1.bus, phs1[pk])] = 1.0
-            if w1.connection == "DELTA"
-                po = _nw_delta_other(pk, length(phs1), w1.delta_roll)
-                Cf[1, nidx!(w1.bus, phs1[po])] = -1.0
-            elseif neu1 !== nothing
-                Cf[1, nidx!(w1.bus, neu1)] = -1.0
+            Cf[1, nidx!(w2.bus, phs2[pk])] = 1.0
+            if w2.connection == "DELTA"
+                po = _nw_delta_other(pk, length(phs2), w2.delta_roll)
+                Cf[1, nidx!(w2.bus, phs2[po])] = -1.0
+            elseif neu2 !== nothing
+                Cf[1, nidx!(w2.bus, neu2)] = -1.0
             end
             Y .+= transpose(Cf) * Y0 * Cf
         end

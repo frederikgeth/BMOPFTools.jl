@@ -446,14 +446,16 @@ secondary span (240 V).
 
 **No-load branch** (applies to both `single_phase` and `center_tap`):
 
-OpenDSS `%noloadloss` and `%imag` (or `cmag`) convert to SI admittances
-at the HV terminals:
+OpenDSS places the exciting (no-load) branch across **winding 2** — verified
+against its `Yprim` — so `%noloadloss`/`%imag` (`cmag`) convert to SI
+admittances on winding 2's coil voltage `V_stamp` (the per-leg LV voltage for
+`center_tap`; the to-winding voltage for `single_phase`). The magnetising
+branch is inductive, so `b_no_load` is **negative**:
 
 ```
-Y_base = s_rating / v_nom_from²
-G = (%noloadloss / 100) · Y_base                      → g_no_load  (S)
-Y_mag = cmag · Y_base          # cmag = %imag/100 · s_rating/v_nom_from
-B = sqrt(Y_mag² − G²)                                 → b_no_load  (S)
+V_stamp = v_nom_to (coil voltage of winding 2)
+g_no_load =  (%noloadloss / 100) · s_rating / V_stamp²    (S)
+b_no_load = -(%imag       / 100) · s_rating / V_stamp²    (S)
 ```
 
 Both fields are omitted when zero.
@@ -476,12 +478,15 @@ x_series_from = xsc₁ · Z_base,from     # PMD lumps all leakage on winding 1
 x_series_to   = 0                      # 2-winding star: LV branch is zero
 ```
 
-The no-load branch maps as for the two-winding types:
+The no-load branch is on **winding 2** (the to side): a delta of branches
+across the LV delta coils for `wye_delta`, phase-to-neutral on the LV wye for
+`delta_wye`. `V_stamp` is winding 2's coil voltage — the full line-to-line
+`v_nom_to` for a delta winding 2, the line-to-neutral `v_nom_to/√3` for a wye
+winding 2:
 
 ```
-Y_base = s_rating / v_nom_from²
-g_no_load =  (noloadloss) · Y_base       # noloadloss = %noloadloss / 100
-b_no_load = -(cmag)       · Y_base       # cmag       = %imag       / 100
+g_no_load =  (noloadloss) · s_rating / V_stamp²   # noloadloss = %noloadloss / 100
+b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       / 100
 ```
 
 !!! note "Leakage placement"

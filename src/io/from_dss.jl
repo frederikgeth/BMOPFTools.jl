@@ -485,29 +485,21 @@ function _recover_transformer_params_from_pmd!(net::Dict{String,Any}, dn)
             (xsc !== nothing && rw !== nothing && vmn !== nothing && smn !== nothing) || continue
             length(rw) >= 2 && length(vmn) >= 2 && length(smn) >= 2 && length(xsc) >= 1 || continue
 
-            # No-load (core) shunt — phase-to-ground referral on the from-side.
-            # `vm_nom` is the winding voltage: for a 1-phase L-N unit
-            # (`single_phase`, `center_tap`) it IS the stamping voltage; for a
-            # 3-phase wye/delta from-side the per-phase stamping voltage is the
-            # line-to-ground value vm_nom/√3. The OPF stamps the shunt
-            # phase-to-ground, so a phase-to-PHASE single-phase unit (no neutral
-            # on the from-side, e.g. a SWER isolating transformer) would have its
-            # magnetising branch placed wrong — skip the shunt there (a small
-            # effect) rather than inject it across the wrong nodes.
-            ll_single = subtype == "single_phase" &&
-                        !("n" in string.(get(c, "terminal_map_from", String[])))
-            if !ll_single
-                three_phase = subtype in ("wye_delta", "delta_wye")
-                s1   = Float64(smn[1]) * 1e3
-                vstp = Float64(vmn[1]) * 1e3 / (three_phase ? sqrt(3) : 1.0)
-                c["g_no_load"] = Float64(get(t, :noloadloss, 0.0)) * s1 / vstp^2
-                # Only the resistive `g_no_load` (core loss) is recovered. The
-                # magnetising susceptance `cmag` is left out (b_no_load = 0): it
-                # affects only reactive power / voltage at the per-mille level
-                # here, and the OPF's phase-to-ground shunt sign convention does
-                # not cleanly carry an inductive magnetising branch.
-                c["b_no_load"] = 0.0
-            end
+            # No-load (magnetising) shunt — OpenDSS places it across the
+            # WINDING-2 (to-side) coil, referred to winding 2's coil voltage
+            # (verified against its Yprim). V_stamp is that coil voltage:
+            # line-to-neutral (vm_nom₂/√3) for a WYE winding 2 (`delta_wye`), and
+            # the full line-to-line / winding voltage (vm_nom₂) otherwise
+            # (`single_phase`, `center_tap`, `wye_delta`). Both the resistive
+            # core loss (`noloadloss` → g_no_load) and the inductive magnetising
+            # branch (`cmag` → b_no_load, NEGATIVE) are recovered — the
+            # across-coil placement carries the susceptance cleanly, unlike the
+            # earlier phase-to-ground stamp. pmd `noloadloss`/`cmag` are
+            # fractions of the rated power.
+            s1   = Float64(smn[1]) * 1e3
+            vstp = Float64(vmn[2]) * 1e3 / (subtype == "delta_wye" ? sqrt(3) : 1.0)
+            c["g_no_load"] =  Float64(get(t, :noloadloss, 0.0)) * s1 / vstp^2
+            c["b_no_load"] = -Float64(get(t, :cmag, 0.0))       * s1 / vstp^2
 
             # Fixed off-nominal taps. PowerIO's bmopf export drops OpenDSS
             # `taps=` entirely (with only a warning), silently solving at the
@@ -615,10 +607,11 @@ in `test/powerflow_comparison_tests.jl`:
   * `r_winding` = rw·z_coil with z_coil = n_ph·v_nom²/s_rating (the per-winding
     COIL base, see `src/io/nwinding.jl`); `x_sc["i_j"]` = xsc·z_coil₁, pmd pair
     order (1,2),(1,3),…,(1,n),(2,3),….
-  * `g_no_load` = noloadloss·S/(n_ph₁·v_nom₁²) — the PER-COIL winding-1 stamp
-    the n_winding builders apply once per phase leg (total core loss
-    = noloadloss·S); `b_no_load` = 0 (magnetising susceptance dropped, matching
-    the two-bus recovery above).
+  * `g_no_load`/`b_no_load` = per-coil admittances on WINDING 2's coil base
+    (`noloadloss`/`−cmag · S/(n_ph₂·v_nom₂²)`) — OpenDSS places the exciting
+    branch on winding 2 (verified against its Yprim). The n_winding builders
+    stamp them once per phase leg, so the total core loss is noloadloss·S;
+    b_no_load is inductive (negative).
 
 Buses missing from the bmopf export (possible when a bus served only the
 dropped transformer) are synthesised from the winding terminal map, ungrounded.
@@ -688,13 +681,22 @@ function _reconstruct_nwinding_from_pmd!(net::Dict{String,Any}, tid::String, t):
         x_sc["$(i)_$(j)"] = Float64(xsc[idx]) * z1
     end
 
+    # No-load (magnetising) shunt on WINDING 2's coil — OpenDSS places the
+    # exciting branch on winding 2 (verified against its Yprim), so g/b_no_load
+    # are the PER-COIL admittances on winding 2's coil base (stamped once per
+    # phase leg; total core loss = noloadloss·S). b_no_load is inductive
+    # (negative). z_coil₂ = n_ph₂·v_nom₂² / S.
+    n_ph2  = count(x -> lowercase(x) in ("a", "b", "c"), windings[2]["terminal_map"])
+    v_nom2 = Float64(windings[2]["v_nom"])
+    zc2    = n_ph2 * v_nom2^2 / s_rating
     nl = Float64(get(t, :noloadloss, 0.0))
+    cm = Float64(get(t, :cmag, 0.0))
     xf = Dict{String,Any}(
         "windings"  => windings,
         "x_sc"      => x_sc,
         "s_rating"  => s_rating,
-        "g_no_load" => nl > 0 ? nl * s_rating / (n_ph1 * v_nom1^2) : 0.0,
-        "b_no_load" => 0.0)
+        "g_no_load" =>  nl > 0 ? nl * s_rating / zc2 : 0.0,
+        "b_no_load" => -cm * s_rating / zc2)
 
     busd = get!(net, "bus", Dict{String,Any}())
     for w in windings

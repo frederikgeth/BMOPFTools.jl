@@ -144,6 +144,26 @@ end
     # A uniform voltage offset draws no current (no shunt-to-ground branch).
     @test maximum(abs.(sum(Y, dims = 2))) < 1e-8
 
+    # The magnetising shunt sits on WINDING 2 (b2), not winding 1 — OpenDSS
+    # places the exciting branch on winding 2 (verified against its Yprim).
+    # Difference against a shunt-free copy isolates the branch: it must land
+    # entirely on the winding-2 (b2) coil, phase-to-neutral.
+    xf0 = _nw_xfmr([("b1", 115.0, 0.3), ("b2", 24.9, 0.4), ("b3", 4.16, 0.4)],
+                   Dict("1_2" => 8.0, "1_3" => 8.0, "2_3" => 6.0))
+    _, Y0 = B.nwinding_yprim(xf0)
+    D = Y .- Y0
+    b2 = [i for (i, nd) in enumerate(nodes) if nd[1] == "b2"]   # winding-2 nodes
+    others = setdiff(1:length(nodes), b2)
+    @test maximum(abs.(D[others, others])) < 1e-12             # nothing off winding 2
+    y = 1e-6 + im*5e-6                                          # per-coil admittance
+    b2ph = [i for i in b2 if nodes[i][2] in ("a","b","c")]
+    b2n  = only(i for i in b2 if nodes[i][2] == "n")
+    for i in b2ph
+        @test isapprox(D[i, i], y;    atol=1e-12)              # phase diagonal
+        @test isapprox(D[i, b2n], -y; atol=1e-12)              # phase→neutral
+    end
+    @test isapprox(D[b2n, b2n], 3y; atol=1e-12)                # neutral diagonal
+
     # Delta tertiary (YNynd): the delta coil is line-to-line (3 phase terminals,
     # no neutral, v_nom = kV_LL). Yprim must still build, be reciprocal & passive.
     xfd = _nw_xfmr([("b1", 115.0, 0.3), ("b2", 24.9, 0.4), ("b3", 4.16, 0.4)],

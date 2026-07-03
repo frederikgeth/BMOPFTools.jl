@@ -249,7 +249,7 @@ $-(\tilde{c}^r_{\ell,k} + I^{\text{sh},r}_k(b^\text{to}))$ at the to-bus.
     `vpn_max` together with a neutral-to-ground bound `vn_max`. With only a
     `vpn_max` on a floating neutral (no `vn_max`) the to-ground voltage is
     unbounded, so the series variable is **left free** rather than risk an
-    unsound box. A transformer's from-side winding with a no-load shunt is the
+    unsound box. A transformer's winding with a no-load shunt is the
     one remaining cone-on-an-expression case; it is left cone-only for now (the
     same construction would apply).
 

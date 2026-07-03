@@ -44,12 +44,14 @@
 
         # Closed-form oracle (§2 of derivation note):
         #   Z = (R1 + N²R2) + j(X1 + N²X2),  y = 1/Z,  Y0 = G0+jB0
-        #   Y = [y+Y0, -Ny; -Ny, N²y]
+        # The magnetising shunt sits on WINDING 2 (the to coil) — here the to
+        # side is phase-to-ground, so Y0 lands on the to diagonal:
+        #   Y = [y, -Ny; -Ny, N²y + Y0]
         N  = 11000.0 / 400.0
         Z  = (0.5 + N^2*0.01) + im*(2.0 + N^2*0.04)
         y  = 1.0 / Z
         Y0 = 1e-4 + im*5e-4
-        Y_ref = [y+Y0  -N*y; -N*y  N^2*y]
+        Y_ref = [y  -N*y; -N*y  N^2*y+Y0]
         @test maximum(abs.(Y .- Y_ref)) < 1e-12
 
         # Power balance
@@ -68,7 +70,7 @@
         y_t   = 1.0 / Z_t
         xfmr_tap = merge(xfmr, Dict{String,Any}("tap" => tapm))
         _, Y_tap = transformer_yprim(xfmr_tap, "single_phase")
-        Y_tref = [y_t+Y0  -Nt*y_t; -Nt*y_t  Nt^2*y_t]
+        Y_tref = [y_t  -Nt*y_t; -Nt*y_t  Nt^2*y_t+Y0]
         @test maximum(abs.(Y_tap .- Y_tref)) < 1e-12
         @test !(Y_tap ≈ Y)
 
@@ -177,17 +179,22 @@
         V = [1.0+0im, 0.0, 1.0/N, 0.0, -1.0/N]
         check_power_balance(Y, V)
 
-        # HV-neutral row: should see return current only (no shunt at m).
-        # Y[2,2] must equal Y[1,1] - G0 - jB0 (no-load shunt only at ph, not n).
-        @test abs(Y[2,1] + Y[2,3] + Y[2,4] + Y[2,5] + Y[2,2]) < 1e-10  # row sum ≈ 0 for balanced
+        # HV rows: the magnetising shunt is on winding 2 (LV leg 1, nodes 3-4),
+        # so the HV phase/neutral rows are pure series-star and each sums to 0.
+        @test abs(Y[2,1] + Y[2,3] + Y[2,4] + Y[2,5] + Y[2,2]) < 1e-10  # row sum ≈ 0
+        @test abs(sum(Y[1,:])) < 1e-10
 
         # Leg symmetry: a symmetric centre tap excited anti-phase about the
-        # grounded centre (V_leg1 = −V_leg2, winding-3 dotted at the centre tap)
-        # draws equal-and-opposite leg currents and zero centre-tap current.
+        # grounded centre draws equal-and-opposite leg WINDING currents and zero
+        # centre-tap winding current. The magnetising shunt across leg 1 (Y0 on
+        # nodes 3-4) is subtracted out to recover the winding currents.
+        Y0 = 1e-5 + im*5e-5
         V_bal = [1.0+0im, 0.0, 1.0/N, 0.0, -1.0/N]
         I_bal = Y * V_bal
-        @test abs(I_bal[3] + I_bal[5]) < 1e-10   # IL1 = −IL2
-        @test abs(I_bal[4])           < 1e-10    # I_centre = 0
+        Imag  = Y0 * (V_bal[3] - V_bal[4])
+        IL1 = I_bal[3] - Imag; Ictr = I_bal[4] + Imag; IL2 = I_bal[5]
+        @test abs(IL1 + IL2) < 1e-10   # IL1 = −IL2
+        @test abs(Ictr)      < 1e-10   # I_centre = 0
     end
 
     # ─── wye_delta ────────────────────────────────────────────────────────────
@@ -369,15 +376,15 @@
         Z   = 0.5 + 2.0im
         Y0  = 1e-4 + 5e-4im
         y   = 1.0 / Z
-        Y_  = [y+Y0  -N*y; -N*y  N^2*y]   # closed-form oracle
+        Y_  = [y  -N*y; -N*y  N^2*y+Y0]   # closed-form oracle (shunt on winding 2)
 
         # Pick an arbitrary voltage pair and get terminal currents.
         V = [1.1 + 0.05im, 0.04 - 0.01im]
         I = Y_ * V
 
-        # Recover winding current: I_term[HV] = I_s + Y0·V_HV
-        Is  = I[1] - Y0*V[1]
-        Ito = I[2]
+        # From current is pure series; the TO terminal current is I_s + Y0·V_to.
+        Is  = I[1]
+        Ito = I[2] - Y0*V[2]
 
         # OPF voltage eq: V_fr - N·V_to = Z·I_s
         lhs_v = V[1] - N*V[2]
@@ -413,12 +420,16 @@
         V = [1.0+0im, 0.0, 1.0/N - 0.001, 0.0, -(1.0/N - 0.002)]
         I = Y * V
 
-        # Recover OPF variables.
+        # Recover OPF variables. The magnetising shunt is across winding 2 =
+        # LV leg 1 (nodes 3-4), so the HV terminal current is pure series and
+        # the leg-1/centre-tap winding currents are the terminal currents minus
+        # the shunt current Y0·(V3−V4).
         Y0_val = G0 + im*B0
-        Is  = I[1] - Y0_val*V[1]   # HV phase terminal = Is + shunt
-        Im_  = I[2]                 # HV neutral = -Is
-        IL1 = I[3]
-        In_ = I[4]
+        Imag   = Y0_val * (V[3] - V[4])
+        Is  = I[1]                  # HV phase terminal = pure series
+        Im_ = I[2]                  # HV neutral = -Is
+        IL1 = I[3] - Imag
+        In_ = I[4] + Imag
         IL2 = I[5]
 
         # Ampere-turn (winding 3 dotted at the centre tap): N·Is + IL1 − IL2 = 0
@@ -499,12 +510,22 @@
             Vfull = vcat(V_wye_ph, V_n, V_del)
             I = Y * Vfull
 
-            # Recover the OPF winding-current variables from the node currents:
-            # phase-to-ground magnetising shunt sits on the FROM-side phases.
-            Gph = (G0 + im*B0) / 3
-            Iw = [I[k]   - (wye_is_from ? Gph * Vfull[k]   : 0.0im) for k in 1:3]
-            Id = [I[4+k] - (wye_is_from ? 0.0im : Gph * Vfull[4+k]) for k in 1:3]
-            In = I[4]
+            # Recover the OPF winding-current variables from the node currents.
+            # The magnetising shunt is on WINDING 2 (the to side): a delta of
+            # y=Y0/3 branches across the LV delta coils (Yd) or phase-to-neutral
+            # on the LV wye (Dy). Subtract its node injections to get the pure
+            # winding/line currents.
+            y = (G0 + im*B0) / 3
+            if wye_is_from   # to = delta (nodes 5-7); wye currents are pure
+                Iw = [I[k] for k in 1:3]
+                Id = [I[4+k] - y*(2*Vfull[4+k] - Vfull[4+mod1(k+1,3)] -
+                                  Vfull[4+mod1(k-1,3)]) for k in 1:3]
+                In = I[4]
+            else             # to = wye (nodes 1-3 phase, 4 neutral); delta pure
+                Iw = [I[k] - y*(Vfull[k] - Vfull[4]) for k in 1:3]
+                Id = [I[4+k] for k in 1:3]
+                In = I[4] + sum(y*(Vfull[k] - Vfull[4]) for k in 1:3)
+            end
 
             Zeff = n_eff * Zw + (3.0 / n_eff) * Zd
             atol = 1e-9 * v_wye_m
@@ -587,19 +608,24 @@
             "g_no_load"  => 1e-4, "b_no_load" => 5e-4,
         )
         Y0 = 1e-4 + im*5e-4
-        # wye_delta: shunt split across the three from-side phase nodes.
+        # wye_delta: magnetising delta across the three LV (to-side, winding-2)
+        # delta coils (nodes 5-7). Each delta node sits in two coils → diag 2·y,
+        # off-diag −y, with y = Y0/3.
         yd = merge(base, Dict{String,Any}(
             "terminal_map_from" => ["1","2","3","n"], "terminal_map_to" => ["1","2","3"]))
         _, Y_yd = transformer_yprim(yd, "wye_delta")
-        for k in 1:3
-            @test Y_yd[k, k] ≈ Y0 / 3
+        for k in 5:7
+            @test Y_yd[k, k] ≈ 2 * Y0 / 3
+            @test Y_yd[k, 5 + (k - 5 + 1) % 3] ≈ -Y0 / 3
         end
-        # center_tap: shunt at the HV phase node.
+        @test all(iszero, Y_yd[1:4, 1:4])   # wye side carries no shunt
+        # center_tap: shunt across winding 2 = LV leg 1 (nodes 3-4).
         ct = merge(base, Dict{String,Any}(
             "terminal_map_from" => ["ph","n"], "terminal_map_to" => ["1","n","2"]))
         _, Y_ct = transformer_yprim(ct, "center_tap")
-        @test Y_ct[1, 1] ≈ Y0
-        @test all(iszero, Y_ct[2:5, 2:5])
+        @test Y_ct[3, 3] ≈ Y0 && Y_ct[4, 4] ≈ Y0
+        @test Y_ct[3, 4] ≈ -Y0 && Y_ct[4, 3] ≈ -Y0
+        @test all(iszero, Y_ct[1:2, 1:2])   # HV side carries no shunt
     end
 
     # ─── single_phase_autotransformer ─────────────────────────────────────────

@@ -351,13 +351,13 @@ function _pu_scale_transformers!(net, bases)
             haskey(xfmr, "r_neutral_to")   && (xfmr["r_neutral_to"]   = Float64(xfmr["r_neutral_to"])   / zb_to)
             haskey(xfmr, "x_neutral_to")   && (xfmr["x_neutral_to"]   = Float64(xfmr["x_neutral_to"])   / zb_to)
 
-            # No-load (core-loss) shunt admittance is stamped at the from side, so
-            # it scales by the from-bus base. An admittance goes to p.u. by ×z_base
-            # (= ÷y_base), the reciprocal of an impedance — without this the core
-            # loss silently vanishes in per_unit mode (G in S::S applied to ~1 p.u.
-            # voltages ≈ 0).
-            haskey(xfmr, "g_no_load") && (xfmr["g_no_load"] = Float64(xfmr["g_no_load"]) * zb_fr)
-            haskey(xfmr, "b_no_load") && (xfmr["b_no_load"] = Float64(xfmr["b_no_load"]) * zb_fr)
+            # No-load (magnetising) shunt admittance is stamped across the
+            # winding-2 (to-side) coil, so it scales by the TO-bus base. An
+            # admittance goes to p.u. by ×z_base (= ÷y_base), the reciprocal of
+            # an impedance — without this the core loss silently vanishes in
+            # per_unit mode (G in S applied to ~1 p.u. voltages ≈ 0).
+            haskey(xfmr, "g_no_load") && (xfmr["g_no_load"] = Float64(xfmr["g_no_load"]) * zb_to)
+            haskey(xfmr, "b_no_load") && (xfmr["b_no_load"] = Float64(xfmr["b_no_load"]) * zb_to)
 
             # delta_wye: single wye-side impedance; wye bus determines the base
             wye_bus = subtype == "delta_wye" ? bt : bf

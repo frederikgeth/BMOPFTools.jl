@@ -113,20 +113,19 @@ end
 #
 # Two galvanic earth paths exist in the transformer models:
 #
-# 1. The no-load (magnetising) shunt G+jB. Whether its return is earth or a
-#    neutral wire depends on the subtype — this mirrors the build
-#    (`transformer.jl`):
-#      single_phase / single_phase_autotransformer : shunt is phase-to-neutral
-#          when the from side has a neutral terminal (return folded into the
-#          neutral KCL → no earth current); phase-to-ground when it does not.
-#      center_tap / wye_delta / delta_wye : shunt is on the from side referenced
-#          phase-to-ground regardless, so its return is always earth.
-#      open_delta_regulator : ideal, no shunt → zero.
+# 1. The no-load (magnetising) shunt G+jB — now placed ACROSS the winding-2
+#    (to-side) coil (OpenDSS convention, verified against its Yprim). It reaches
+#    earth only when that coil's reference is ground:
+#      wye_delta (to = delta) : line-to-line delta coils → never earth.
+#      center_tap             : across LV leg 1 (lv1−lvn) → never earth.
+#      delta_wye (to = wye)   : phase-to-neutral → earth only if the wye has NO
+#          neutral terminal.
+#      single_phase / single_phase_autotransformer : across each to-side coil
+#          → earth only for a coil with no return terminal (phase-to-ground).
 # 2. The internal neutral-grounding branch y_n = 1/(r_neutral+jx_neutral)
-#    (OpenDSS rneut/xneut) from a side's shared neutral terminal to earth
-#    (single_phase, wye_delta, delta_wye).
+#    (OpenDSS rneut/xneut) from a side's shared neutral terminal to earth.
 #
-# Returns (cg_r, cg_i) in A; zero when neither path is present.
+# Returns (cg_r, cg_i) in A; zero when neither path reaches earth.
 function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
     cg_r = 0.0; cg_i = 0.0
 
@@ -152,26 +151,28 @@ function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
     B = Float64(get(xfmr, "b_no_load", 0.0))
     (iszero(G) && iszero(B)) && return cg_r, cg_i
 
-    b_fr  = string(get(xfmr, "bus_from", ""))
-    tmfr  = Vector{String}(get(xfmr, "terminal_map_from", String[]))
-    ph_fr = [tmfr[p] for p in BMOPFTools._phase_positions(tmfr)]
-    isempty(ph_fr) && return cg_r, cg_i
-    # Build splits the total no-load admittance equally across phase conductors.
-    n_c   = length(ph_fr)
-    g_ph  = G / n_c; b_ph = B / n_c
+    b_to = string(get(xfmr, "bus_to", ""))
+    tmto = Vector{String}(get(xfmr, "terminal_map_to", String[]))
 
-    # (Historical note: this dispatch previously tested the short names
-    # "Yy"/"Yd"/"Dy", which never occur — the canonical subtype strings are
-    # passed in — so the shunt earth current of single_phase/wye_delta/delta_wye
-    # was silently reported as zero.)
-    if subtype in ("center_tap", "wye_delta", "delta_wye")
-        # phase-to-ground shunt → always an earth return
-        sr, si = _shunt_ground_current(vr_v, vi_v, val, g_ph, b_ph, b_fr, ph_fr)
+    # Delta winding 2 and center_tap keep the magnetising branch off earth.
+    (subtype in ("wye_delta", "center_tap")) && return cg_r, cg_i
+
+    if subtype == "delta_wye"
+        # Phase-to-neutral wye shunt: earth only when the wye has no neutral.
+        BMOPFTools._neutral_pos(tmto) === nothing || return cg_r, cg_i
+        ph_to = [tmto[p] for p in BMOPFTools._phase_positions(tmto)]
+        isempty(ph_to) && return cg_r, cg_i
+        n = length(ph_to)
+        sr, si = _shunt_ground_current(vr_v, vi_v, val, G/n, B/n, b_to, ph_to)
         return cg_r + sr, cg_i + si
     elseif subtype in ("single_phase", "single_phase_autotransformer")
-        # earth return only when the from side has no neutral terminal
-        BMOPFTools._neutral_pos(tmfr) === nothing || return cg_r, cg_i
-        sr, si = _shunt_ground_current(vr_v, vi_v, val, g_ph, b_ph, b_fr, ph_fr)
+        # One coil per to-side pair; earth only for phase-to-ground coils (no q).
+        pairs_to = BMOPFTools._xfmr_winding_pairs(tmto)
+        n_c = length(pairs_to)
+        n_c == 0 && return cg_r, cg_i
+        ground_ph = [tmto[p] for (p, q) in pairs_to if q === nothing]
+        isempty(ground_ph) && return cg_r, cg_i
+        sr, si = _shunt_ground_current(vr_v, vi_v, val, G/n_c, B/n_c, b_to, ground_ph)
         return cg_r + sr, cg_i + si
     else
         return cg_r, cg_i
