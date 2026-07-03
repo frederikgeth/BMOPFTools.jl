@@ -29,6 +29,7 @@ makedocs(
         ],
         "Case preparation"        => [
             "Case augmentation"        => "augmentation.md",
+            "Simplification tutorial"  => "tutorial_simplify.md",
             "DER placement tutorial"   => "tutorial_ders.md",
             "VVWO tutorial"            => "tutorial_vvwo.md",
             "Smooth droop encoding"    => "relu_softplus_encoding.md",
@@ -41,9 +42,11 @@ makedocs(
             "D-STATCOM unbalance study" => "tutorial_statcom.md",
             "MVDC/LVDC converter stations" => "tutorial_mvdc.md",
             "Transformer tap optimisation" => "tutorial_tap.md",
+            "Time series: a day on an LV feeder" => "tutorial_timeseries.md",
         ],
         "Bounds & feasibility"    => [
             "bounds/index.md",
+            "Infeasibility diagnosis tutorial" => "tutorial_infeasibility.md",
             "bounds/decision_matrix.md",
             "bounds/loss_maximization.md",
             "bounds/diagnostics.md",

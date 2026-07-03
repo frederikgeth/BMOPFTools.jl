@@ -3522,6 +3522,11 @@ const IEEE13_FIXTURE = """
     include("write_bmopf_tests.jl")
 
     # -----------------------------------------------------------------------
+    # Time-series support — snapshot semantics plus a gated OPF sweep
+    # -----------------------------------------------------------------------
+    include("timeseries_tests.jl")
+
+    # -----------------------------------------------------------------------
     # Network simplification
     # -----------------------------------------------------------------------
     include("simplify_tests.jl")
