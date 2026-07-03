@@ -133,7 +133,40 @@ function _compute_bases(net::Dict{String,Any}, s_base::Float64)
     i_base = Dict(b => s_base / v_base[b]   for b in keys(v_base))
     y_base = Dict(b => s_base / v_base[b]^2 for b in keys(v_base))
 
-    (s_base=s_base, v_base=v_base, z_base=z_base, i_base=i_base, y_base=y_base)
+    # ── DC voltage base ──────────────────────────────────────────────────────
+    # A single global DC base is used for every dc_bus: the DC network's
+    # fixed-voltage converter (dc_control="V") is its uniqueness anchor, so its
+    # set voltage is the natural base; a shared base also keeps DC KCL consistent
+    # across dc_branches (per-bus bases would mismatch branch vs converter
+    # currents at a terminal). Fallbacks: the largest pole-to-ground nominal,
+    # then the pole ceiling. The base is not user-exposed — any O(V_dc) choice
+    # removes the v·I port ill-conditioning.
+    dc_base = 0.0
+    for (_, inv) in get(net, "ibr", Dict())          # 1) fixed-voltage anchor
+        inv isa Dict && String(get(inv, "dc_control", "P")) == "V" || continue
+        vs = get(inv, "dc_v_set", nothing)
+        if vs isa Number && abs(Float64(vs)) > 0
+            dc_base = abs(Float64(vs)); break
+        end
+    end
+    if dc_base <= 0                                   # 2) nominal, then 3) ceiling
+        for f in ("v_dc_nom", "v_dc_max")
+            for (_, dcbus) in get(net, "dc_bus", Dict())
+                dcbus isa Dict || continue
+                v = Float64.(get(dcbus, f, Float64[]))
+                isempty(v) || (dc_base = max(dc_base, maximum(abs, v)))
+            end
+            dc_base > 0 && break
+        end
+    end
+    dc_base > 0 || (dc_base = 1.0)
+    dc_ids    = collect(keys(get(net, "dc_bus", Dict())))
+    v_dc_base = Dict(b => dc_base            for b in dc_ids)
+    z_dc_base = Dict(b => dc_base^2 / s_base for b in dc_ids)
+    i_dc_base = Dict(b => s_base / dc_base   for b in dc_ids)
+
+    (s_base=s_base, v_base=v_base, z_base=z_base, i_base=i_base, y_base=y_base,
+     v_dc_base=v_dc_base, z_dc_base=z_dc_base, i_dc_base=i_dc_base)
 end
 
 # ── Conversion to per unit ────────────────────────────────────────────────────
@@ -158,7 +191,21 @@ function _to_per_unit(net::Dict{String,Any}, s_base::Float64)
     _pu_scale_nwinding!(net_pu, bases)
     _pu_scale_shunts!(net_pu, bases)
     _pu_scale_capacitors!(net_pu, bases)
+    _pu_scale_switches!(net_pu, bases)
+    _pu_scale_dc!(net_pu, bases)
     net_pu, bases
+end
+
+# Switches are ideal (no impedance), so only the per-conductor current limit
+# needs scaling — by the from-bus current base, like a line's i_max. Without
+# this the current variables are p.u. but i_max stays in A, leaving the thermal
+# cap ~I_base too loose.
+function _pu_scale_switches!(net, bases)
+    for (_, sw) in get(net, "switch", Dict())
+        sw isa Dict && haskey(sw, "i_max") || continue
+        ib = get(bases.i_base, get(sw, "bus_from", ""), 1.0)
+        sw["i_max"] = Float64.(sw["i_max"]) ./ ib
+    end
 end
 
 # ── Per-element scalers ───────────────────────────────────────────────────────
@@ -435,6 +482,65 @@ end
 # Capacitors: the OPF derives B = q_rated/v_nom² in the builder, so scaling
 # q_rated by s_base and v_nom by the bus voltage base makes the derived B come
 # out in per-unit automatically:  (q/s_base)/(v_nom/v_base)² = B_SI · z_base.
+function _pu_scale_dc!(net, bases)
+    haskey(net, "dc_bus") || return
+    sb  = bases.s_base
+    vdb = bases.v_dc_base; zdb = bases.z_dc_base; idb = bases.i_dc_base
+
+    # dc_bus voltage fields (per-terminal vectors v_dc_*, scalar pair bounds).
+    for (b, dcbus) in get(net, "dc_bus", Dict())
+        dcbus isa Dict || continue
+        vb = get(vdb, b, 1.0)
+        for f in ("v_dc_min", "v_dc_max", "v_dc_nom")
+            haskey(dcbus, f) && (dcbus[f] = Float64.(dcbus[f]) ./ vb)
+        end
+        for f in ("vdc_ln_min", "vdc_ln_max", "vdc_ll_min", "vdc_ll_max")
+            haskey(dcbus, f) && (dcbus[f] = Float64(dcbus[f]) / vb)
+        end
+    end
+
+    # Constant-power DC loads / sources (W → pu).
+    for (_, l) in get(net, "dc_load", Dict())
+        l isa Dict && haskey(l, "p") && (l["p"] = Float64(l["p"]) / sb)
+    end
+    for (_, s) in get(net, "dc_source", Dict())
+        s isa Dict || continue
+        for f in ("p", "p_min", "p_max")
+            haskey(s, f) && (s[f] = Float64(s[f]) / sb)
+        end
+    end
+
+    # dc_branch: r (Ω → pu via the from-bus Z base), i_max (A → pu), p_max (W → pu).
+    for (_, br) in get(net, "dc_branch", Dict())
+        br isa Dict || continue
+        bf = String(get(br, "dc_bus_from", ""))
+        zb = get(zdb, bf, 1.0); ib = get(idb, bf, 1.0)
+        haskey(br, "r")     && (br["r"]     = Float64.(br["r"]) ./ zb)
+        haskey(br, "i_max") && (br["i_max"] = Float64.(br["i_max"]) ./ ib)
+        haskey(br, "p_max") && (br["p_max"] = Float64(br["p_max"]) / sb)
+    end
+
+    # Resistive DC grounding (Ω → pu). Perfect grounds (r ≤ 0) stay ≤ 0.
+    for (_, gr) in get(net, "dc_grounding", Dict())
+        gr isa Dict || continue
+        zb = get(zdb, String(get(gr, "dc_bus", "")), 1.0)
+        haskey(gr, "r") && (gr["r"] = Float64(gr["r"]) / zb)
+    end
+
+    # Converter DC-control fields on each IBR referencing a dc_bus.
+    #   dc_v_set, dc_deadband : volts → /v_dc_base
+    #   dc_p_ref              : watts → /s_base
+    #   dc_droop k (V/W)      : P = p_ref + (v − v_set)/k  ⇒  k_pu = k·s_base/v_dc_base
+    for (_, inv) in get(net, "ibr", Dict())
+        inv isa Dict && haskey(inv, "dc_bus") || continue
+        vb = get(vdb, String(inv["dc_bus"]), 1.0)
+        haskey(inv, "dc_v_set")    && (inv["dc_v_set"]    = Float64(inv["dc_v_set"]) / vb)
+        haskey(inv, "dc_deadband") && (inv["dc_deadband"] = Float64(inv["dc_deadband"]) / vb)
+        haskey(inv, "dc_p_ref")    && (inv["dc_p_ref"]    = Float64(inv["dc_p_ref"]) / sb)
+        haskey(inv, "dc_droop")    && (inv["dc_droop"]    = Float64(inv["dc_droop"]) * sb / vb)
+    end
+end
+
 function _pu_scale_capacitors!(net, bases)
     sb = bases.s_base
     for (_, cap) in get(net, "capacitor", Dict())
@@ -631,6 +737,47 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         if haskey(winding_dict, "loss") && winding_dict["loss"] isa Dict
             l = winding_dict["loss"]
             for f in ("p_loss", "q_loss"); haskey(l, f) && (l[f] = l[f] * sb); end
+        end
+    end
+
+    # n-winding transformer winding currents ("w1".."wN") ← × I_base[winding bus].
+    # Keyed by "w\$j" (not "fr"/"to"), so the loop above skips them; unscale here
+    # with the same per-winding base that _pu_scale_nwinding! used for i_max.
+    nw_dict = get(xfmr_dict, "n_winding", Dict())
+    for (tid, winding_dict) in get(result, "transformer", Dict())
+        (winding_dict isa Dict && haskey(nw_dict, tid)) || continue
+        for (j, w) in enumerate(BMOPFTools._nw_windings(nw_dict[tid]))
+            wd = get(winding_dict, "w$j", nothing)
+            wd isa Dict || continue
+            ib = get(bases.i_base, w.bus, 1.0)
+            for (_, cvals) in wd
+                cvals isa Dict || continue
+                for f in ("cr", "ci", "cm")
+                    haskey(cvals, f) && (cvals[f] = cvals[f] * ib)
+                end
+            end
+        end
+    end
+
+    # DC bus voltages: v_dc ← × V_dc_base
+    for (b, t_dict) in get(result, "dc_bus", Dict())
+        t_dict isa Dict || continue
+        vb = get(bases.v_dc_base, b, 1.0)
+        for (_, tvals) in t_dict
+            tvals isa Dict || continue
+            haskey(tvals, "v_dc") && (tvals["v_dc"] = tvals["v_dc"] * vb)
+        end
+    end
+
+    # DC branch currents: i_dc ← × I_dc_base[dc_bus_from]
+    dc_branches = get(net, "dc_branch", Dict())
+    for (id, cond_dict) in get(result, "dc_branch", Dict())
+        cond_dict isa Dict || continue
+        bf = String(get(get(dc_branches, id, Dict()), "dc_bus_from", ""))
+        ib = get(bases.i_dc_base, bf, 1.0)
+        for (_, cvals) in cond_dict
+            cvals isa Dict || continue
+            haskey(cvals, "i_dc") && (cvals["i_dc"] = cvals["i_dc"] * ib)
         end
     end
 

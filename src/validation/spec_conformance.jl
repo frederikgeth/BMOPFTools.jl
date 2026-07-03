@@ -645,20 +645,32 @@ function benchmark_readiness_check(net::Dict{String,Any},
     src_with_cost = [id for (id, vs) in srcs if vs isa Dict && haskey(vs, "cost")]
     has_slack_cost = !isempty(src_with_cost) ||
                      any(id -> get(gens[id], "_slack", false), with_cost)
+    # IBRs (inverter-based resources) are dispatchable DERs too. A STATCOM-type
+    # IBR has no active source, but it can still be a priced/dispatchable Q
+    # resource; here we only count IBRs that contribute active capacity so the
+    # "only slack — dispatch is trivial" suggestion clears once a real DER fleet
+    # (e.g. a PV IBR fleet) exists.
+    ibrs = get(net, "ibr", Dict())
+    ibr_dispatch = [id for (id, inv) in ibrs
+                    if inv isa Dict &&
+                       !(get(inv, "prime_mover", nothing) in ("STATCOM", "DSTATCOM"))]
     result["n_generators"]        = length(gens)
+    result["n_ibrs"]              = length(ibrs)
     result["n_with_cost"]         = length(with_cost)
     result["objective_wellposed"] = !isempty(with_cost) || !isempty(src_with_cost)
     # "Only slack generation" = the objective is well-posed but the only priced
-    # element is the slack source — dispatch is trivial (loss minimisation).
+    # element is the slack source and there is no dispatchable DER fleet —
+    # dispatch is trivial (loss minimisation).
     result["only_slack_generation"] =
-        result["objective_wellposed"] && isempty(non_slack) && has_slack_cost
+        result["objective_wellposed"] && isempty(non_slack) &&
+        isempty(ibr_dispatch) && has_slack_cost
 
     if !result["objective_wellposed"]
         push!(suggestions,
             "no priced slack or generator — the generation-cost objective is " *
             "degenerate; add a cost to the voltage source at the source bus " *
             "(augment_case does this by default) or dispatchable DERs")
-    elseif isempty(non_slack)
+    elseif isempty(non_slack) && isempty(ibr_dispatch)
         push!(suggestions,
             "only slack generation — dispatch is trivial (loss minimisation); " *
             "add dispatchable DERs with diverse costs and p/q bounds")

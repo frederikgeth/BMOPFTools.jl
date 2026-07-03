@@ -417,9 +417,11 @@ end
     @test "W.SOL.GEN_ACTIVE" in codes(findings)
     @test out["n_gen_violations"] == 0
 
-    # …but a genuine overshoot (relative 1e-3) is still flagged.
+    # …but a genuine overshoot (relative 5e-3) is still flagged. (The threshold
+    # sits above the per-unit convergence-slack tolerance viol_frac=2e-3, so this
+    # exercises a real violation rather than solver noise.)
     result2 = _base_result()
-    result2["generator"]["g1"]["a"]["pg"] = 2000.0 * (1 + 1e-3)
+    result2["generator"]["g1"]["a"]["pg"] = 2000.0 * (1 + 5e-3)
     f2 = Finding[]
     solution_check(net, result2, f2)
     @test "E.SOL.GEN_VIOLATION" in codes(f2)

@@ -51,6 +51,15 @@ struct OpfContext
     # IBR Volt-var/Volt-watt droop to scale SI breakpoint voltages into model
     # units. `relu_eps` is the relative smoothing for the smooth-ReLU droop and
     # `relu_ops` caches the registered operators by (model-unit) ε.
+    #
+    # `bases` also lets a `model_hook!` author express physical-unit constraints:
+    # by default `per_unit=true`, so `ctx.model`'s variables (voltages, currents,
+    # powers) are per-unit and any watt/volt/amp literal in a hook must be divided
+    # by the matching base. When present, `bases` is a NamedTuple carrying
+    # `s_base` (VA), per-bus `v_base`/`i_base`/`z_base`/`y_base` Dicts, and the DC
+    # `v_dc_base`/`i_dc_base`/`z_dc_base`; e.g. a watt cap becomes
+    # `expr <= P_watts / ctx.bases.s_base`. In SI mode `bases === nothing` and the
+    # literal is used as-is (divide by 1.0).
     bases
     relu_eps::Float64
     relu_ops::Dict{Float64,Any}

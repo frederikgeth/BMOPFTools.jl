@@ -585,7 +585,7 @@ end
 
 """
     solve_opf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,
-              per_unit::Bool=false, s_base::Float64=1e6,
+              per_unit::Bool=true, s_base::Float64=1e6,
               volt_var_watt_eps::Float64=2e-3,
               verbose::Bool=false, solver_options=(),
               model_hook!=nothing) -> Dict{String,Any}
@@ -594,9 +594,12 @@ Solve the four-wire rectangular current-voltage (IVR-EN) optimal power flow
 on a BMOPF network dict. Requires JuMP and Ipopt to be loaded in the calling
 environment before calling this function.
 
-When `per_unit=true` the model is built and solved in per-unit (V_base
-propagated from the source bus through transformers; S_base = `s_base` VA,
-default 1 MVA). All results are returned in SI units regardless.
+When `per_unit=true` (the default) the model is built and solved in per-unit
+(V_base propagated from the source bus through transformers; S_base = `s_base`
+VA, default 1 MVA; a DC network is scaled against its fixed-voltage anchor).
+All results are returned in SI units regardless. Per-unit conditioning is
+particularly important for DC networks, whose converter ports couple voltage
+and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
 
 ## Solver control and formulation extension
 
@@ -617,15 +620,26 @@ default 1 MVA). All results are returned in SI units regardless.
   current from a custom device). A hook can add constraints
   (`JuMP.@constraint(ctx.model, …)`), replace the objective
   (`JuMP.@objective(ctx.model, …)`), or stamp new devices into the KCL
-  accumulators. Example — cap one generator's phase-a active power:
+  accumulators.
+
+  **Units.** With `per_unit=true` (the default) the model — and therefore every
+  `ctx.vars` variable — is in per-unit, so any physical-unit literal in a hook
+  must be scaled by the matching base. `ctx.bases` carries these: it is a
+  NamedTuple with `s_base` (VA), per-bus `v_base`/`i_base`/`z_base`/`y_base`
+  Dicts and the DC `v_dc_base`/`i_dc_base`/`z_dc_base`, or `nothing` in SI mode
+  (`per_unit=false`), where no scaling is needed. A watt cap, for instance,
+  becomes `expr <= P_watts / (ctx.bases === nothing ? 1.0 : ctx.bases.s_base)`.
+
+  Example — cap one generator's phase-a active power at 5 kW:
 
   ```julia
   result = solve_opf(net; model_hook! = ctx -> begin
       vr = ctx.vars[:vr]; vi = ctx.vars[:vi]
       crg = ctx.vars[:crg]; cig = ctx.vars[:cig]
-      b = net["generator"]["g1"]["bus"]
+      b  = net["generator"]["g1"]["bus"]
+      sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base   # W → per-unit power
       JuMP.@constraint(ctx.model,
-          vr[(b,"a")]*crg[("g1",1)] + vi[(b,"a")]*cig[("g1",1)] <= 5_000.0)
+          vr[(b,"a")]*crg[("g1",1)] + vi[(b,"a")]*cig[("g1",1)] <= 5_000.0 / sb)
   end)
   ```
 
@@ -683,7 +697,7 @@ export solve_feasibility_opf
 
 """
     solve_pf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,
-             per_unit::Bool=false, s_base::Float64=1e6) -> Dict{String,Any}
+             per_unit::Bool=true, s_base::Float64=1e6) -> Dict{String,Any}
 
 Determined four-wire rectangular current-voltage (IVR-EN) power flow on a BMOPF
 network dict. Same device models as [`solve_opf`](@ref) but with **no operational

@@ -176,13 +176,14 @@ println("New      : ", join(sort(collect(setdiff(after, before))), ", "))
 Augmentation cleared `I.PRE.NO_VOLT_BOUNDS` — every bus now has voltage bounds,
 so the OPF is well-posed — and the new INFO codes are consequences of the fills
 (e.g. `I.PROV.OVERLAPPING_VOLTAGE_BOUNDS` notes that the phase-to-ground and
-phase-to-neutral envelopes now coexist). The warning count, however, stays at
-two: these are **structural** findings that gap-filling does not (and should
-not) touch. A few degree-1 stub buses survive `fix_case` because they are live
-switch endpoints (`W.CONN.DANGLING` did drop from 5 buses to 3), and
-`W.OPS.IMPORT_DEPENDENT` persists because that pass inventories dispatchable
-`generator` capacity — the PV fleet we placed lives under `ibr`, so it does not
-register there. Re-validation is a diff to be read, not a score to be zeroed.
+phase-to-neutral envelopes now coexist). `W.OPS.IMPORT_DEPENDENT` also cleared:
+the DER-placement step gave the feeder local active capacity, and that pass
+counts both dispatchable `generator` units and the `ibr` fleet we placed (a PV
+IBR on each load bus, sized well above the local load), so the feeder is no
+longer a passive import. The lone surviving warning is `W.CONN.DANGLING`: a few
+degree-1 stub buses that are live switch endpoints (it dropped from 5 buses to
+3) — a **structural** finding that gap-filling does not (and should not) touch.
+Re-validation is a diff to be read, not a score to be zeroed.
 
 ## 7. Solve
 

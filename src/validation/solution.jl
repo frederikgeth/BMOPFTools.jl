@@ -222,28 +222,41 @@ function solution_check(net::Dict{String,Any},
     # sitting *at* the bound (active), not violating it. A solved interior-point
     # optimum routinely lands a few parts in 10⁻⁶ outside an active bound, and the
     # per-unit ⇄ SI round-trip (solve scaled by s_base, then unscale) inflates that
-    # relative slack to ≈2×10⁻⁶; without this the checker would flag every
-    # saturated generator/IBR as a violation. 10⁻⁵ relative comfortably covers
-    # solver convergence tolerance while still catching any genuine violation, which
-    # is orders of magnitude larger. Small absolute floor for bounds near zero.
-    viol_frac = 1e-5
-    viol_tol(bound) = max(viol_frac * abs(bound), 1e-6)
+    # relative slack. On small toy cases (currents ≈ few A against a 1 MVA base) the
+    # per-unit current variables are O(10⁻³), so the solver's absolute slack
+    # becomes ≈1×10⁻³ relative once a binding i_max circle is unscaled back to A
+    # (worst observed ≈8.5×10⁻⁴ on the STATCOM toy case); without this the checker
+    # would flag every saturated generator/IBR as a violation. 2×10⁻³ relative
+    # comfortably covers that per-unit convergence slack while still catching any
+    # genuine violation, which is orders of magnitude larger (real breaches exceed
+    # the bound by tens of percent). Small absolute floor for bounds near zero.
+    viol_frac = 2e-3
+    viol_tol(bound; abs_floor::Float64=1e-6) = max(viol_frac * abs(bound), abs_floor)
+
+    # Absolute violation floor for power (W/var) bounds. A pinned-zero bound
+    # (p_min=p_max=0, e.g. a STATCOM) gets no relative slack, yet the per-unit ⇄ SI
+    # round-trip against the 1 MVA default s_base leaves ≈0.01 W of spurious active
+    # power; a 1e-6 W floor would false-flag it. 1 W is negligible against any real
+    # device rating (kW–MW) while absorbing that round-trip noise.
+    power_floor = 1.0
 
     # Returns (violated, active) given value v, lower lb, upper ub (either may be nothing).
-    # Uses an absolute fallback of 0.01 × |bound| for bounds near zero.
-    function _bound_status(v::Float64, lb, ub)
+    # Uses an absolute fallback of 0.01 × |bound| for bounds near zero. `abs_floor`
+    # sets the absolute violation slack for quantities whose bound can be exactly
+    # zero (powers), where a relative tolerance vanishes.
+    function _bound_status(v::Float64, lb, ub; abs_floor::Float64=1e-6)
         violated = false
         active   = false
         if lb !== nothing
             lb_f = Float64(lb)
             tol  = max(active_frac * abs(lb_f), 1e-6)
-            v < lb_f - viol_tol(lb_f) && (violated = true)
+            v < lb_f - viol_tol(lb_f; abs_floor) && (violated = true)
             !violated && v < lb_f + tol && (active = true)
         end
         if ub !== nothing
             ub_f = Float64(ub)
             tol  = max(active_frac * abs(ub_f), 1e-6)
-            v > ub_f + viol_tol(ub_f) && (violated = true)
+            v > ub_f + viol_tol(ub_f; abs_floor) && (violated = true)
             !violated && v > ub_f - tol && (active = true)
         end
         violated, active
@@ -654,7 +667,7 @@ function solution_check(net::Dict{String,Any},
                 lo = idx <= length(lo_arr) ? lo_arr[idx] : nothing
                 hi = idx <= length(hi_arr) ? hi_arr[idx] : nothing
                 lo === nothing && hi === nothing && continue
-                viol, act = _bound_status(v, lo, hi)
+                viol, act = _bound_status(v, lo, hi; abs_floor=power_floor)
                 if viol
                     n_gen_viol += 1
                     push!(findings, Finding(ERROR, "E.SOL.GEN_VIOLATION",
@@ -696,7 +709,10 @@ function solution_check(net::Dict{String,Any},
                 if isfinite(crg) && isfinite(cig)
                     im   = imax_arr[idx]
                     imag = sqrt(crg^2 + cig^2)
-                    if imag > im * (1 + 1e-6)
+                    # Same per-unit convergence-slack tolerance as the box bounds
+                    # (viol_tol): a binding i_max circle unscaled from p.u. lands
+                    # ~6×10⁻⁴ over the limit on toy cases; a 1e-6 floor false-flags it.
+                    if imag > im + viol_tol(im)
                         n_gen_viol += 1
                         push!(findings, Finding(ERROR, "E.SOL.GEN_VIOLATION",
                             :solution, :generator, gid,
@@ -780,7 +796,7 @@ function solution_check(net::Dict{String,Any},
                 hi = hi === nothing ? vw_cap : min(hi, vw_cap)
             end
             if lo !== nothing || hi !== nothing
-                viol, act = _bound_status(pg, lo, hi)
+                viol, act = _bound_status(pg, lo, hi; abs_floor=power_floor)
                 if viol
                     n_inv_viol += 1
                     push!(findings, Finding(ERROR, "E.SOL.IBR_VIOLATION", :solution, :ibr, inv_id,
@@ -817,7 +833,9 @@ function solution_check(net::Dict{String,Any},
                 if isfinite(cri) && isfinite(cii)
                     im   = imax_arr[idx]
                     imag = sqrt(cri^2 + cii^2)
-                    if imag > im * (1 + 1e-6)
+                    # Same per-unit convergence-slack tolerance as the box bounds
+                    # (viol_tol); see the generator i_max check above.
+                    if imag > im + viol_tol(im)
                         n_inv_viol += 1
                         push!(findings, Finding(ERROR, "E.SOL.IBR_VIOLATION", :solution, :ibr, inv_id,
                             "IBR '$inv_id' phase '$t_ph': |I|=$(round(imag; digits=3)) A " *

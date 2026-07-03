@@ -154,6 +154,53 @@
         @test res["dc_bus"]["dcA"]["m"]["v_dc"] ≈ 0.0 atol=1e-6
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # D4: per-unit scaling of the DC network. The DC quantities (v_dc ~ 850,
+    # dc_branch r, dc_load p) must be scaled consistently with the AC side, so a
+    # per_unit=true solve (a) succeeds and (b) reproduces the SI answer exactly
+    # on a genuine-transfer case whose physics is pinned by Ohm's law + i²R.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "D4: per_unit reproduces SI on a DC transfer case" begin
+        mk() = parse_bmopf("""
+        {"bus":{"f1":{"terminal_names":["a","n"],"perfectly_grounded_terminals":["n"]},
+                "f2":{"terminal_names":["a","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{
+            "s1":{"bus":"f1","terminal_map":["a","n"],"v_magnitude":[230.0],"v_angle":[0.0],"cost":[1.0]},
+            "s2":{"bus":"f2","terminal_map":["a","n"],"v_magnitude":[230.0],"v_angle":[0.0],"cost":[10.0]}},
+         "load":{"L2":{"bus":"f2","terminal_map":["a","n"],"configuration":"SINGLE_PHASE",
+                       "p_nom":[5000.0],"q_nom":[0.0]}},
+         "ibr":{
+            "vsc1":{"bus":"f1","terminal_map":["a","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC",
+                    "s_max":[8000.0],"dc_bus":"dcA","dc_terminal_map":["p","m"],
+                    "dc_control":"V","dc_v_set":850.0},
+            "vsc2":{"bus":"f2","terminal_map":["a","n"],"topology":"SINGLE_PHASE","prime_mover":"GENERIC",
+                    "s_max":[8000.0],"dc_bus":"dcB","dc_terminal_map":["p","m"]}},
+         "dc_bus":{
+            "dcA":{"terminal_names":["p","m"],"pole":{"p":"POSITIVE","m":"METALLIC_RETURN"},
+                   "v_dc_min":[700.0,0.0],"v_dc_max":[900.0,0.0],"v_dc_nom":[850.0,0.0]},
+            "dcB":{"terminal_names":["p","m"],"pole":{"p":"POSITIVE","m":"METALLIC_RETURN"},
+                   "v_dc_min":[700.0,0.0],"v_dc_max":[900.0,0.0],"v_dc_nom":[850.0,0.0]}},
+         "dc_branch":{"line":{"dc_bus_from":"dcA","dc_bus_to":"dcB",
+                    "terminal_map_from":["p","m"],"terminal_map_to":["p","m"],"r":[0.5,0.0]}},
+         "dc_grounding":{"gA":{"dc_bus":"dcA","terminal":"m","r":0.0}}}
+        """; from_string=true)
+
+        si = solve_opf(mk(); per_unit=false)
+        pu = solve_opf(mk(); per_unit=true)
+        @test pu["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        vA = pu["dc_bus"]["dcA"]["p"]["v_dc"]; vB = pu["dc_bus"]["dcB"]["p"]["v_dc"]
+        i  = pu["dc_branch"]["line"]["1"]["i_dc"]
+        # Results are returned in SI regardless of the internal per-unit solve.
+        @test vA ≈ si["dc_bus"]["dcA"]["p"]["v_dc"] atol=1e-1
+        @test vB ≈ si["dc_bus"]["dcB"]["p"]["v_dc"] atol=1e-1
+        @test i  ≈ si["dc_branch"]["line"]["1"]["i_dc"] atol=1e-2
+        # Physics holds on the unscaled result: Ohm's law and DC line loss.
+        @test i ≈ (vA - vB) / 0.5 atol=1e-2
+        loss = -pu["ibr"]["vsc1"]["a"]["pg"] - pu["ibr"]["vsc2"]["a"]["pg"]
+        @test loss ≈ i^2 * 0.5 atol=1.0
+        @test 700.0 - 1e-3 <= vB <= 900.0 + 1e-3
+    end
+
 end
 
 # ── Validation findings (no solver needed) ──────────────────────────────────

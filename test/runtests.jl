@@ -1163,6 +1163,33 @@ const IEEE13_FIXTURE = """
         @test res3["objective_wellposed"] == true
         @test res3["only_slack_generation"] == true
         @test any(occursin("slack", s) for s in res3["suggestions"])
+
+        # slack + a PV IBR fleet → dispatch is non-trivial; the "only slack /
+        # add DERs" suggestion must clear because the IBRs are dispatchable DERs.
+        net4 = deepcopy(net3)
+        net4["ibr"] = Dict{String,Any}(
+            "pv1" => Dict{String,Any}(
+                "bus" => "634", "terminal_map" => ["1","n"],
+                "topology" => "SINGLE_PHASE", "prime_mover" => "PV",
+                "s_max" => [5.0e4], "p_max" => [4.0e4]))
+        findings4 = Finding[]
+        res4 = benchmark_readiness_check(net4, findings4)
+        @test res4["objective_wellposed"] == true
+        @test res4["only_slack_generation"] == false
+        @test !any(occursin("only slack", s) for s in res4["suggestions"])
+
+        # A STATCOM-only IBR is reactive-only, not a dispatchable active DER →
+        # the "only slack" suggestion should still fire.
+        net5 = deepcopy(net3)
+        net5["ibr"] = Dict{String,Any}(
+            "st1" => Dict{String,Any}(
+                "bus" => "634", "terminal_map" => ["1","n"],
+                "topology" => "SINGLE_PHASE", "prime_mover" => "STATCOM",
+                "s_max" => [5.0e4]))
+        findings5 = Finding[]
+        res5 = benchmark_readiness_check(net5, findings5)
+        @test res5["only_slack_generation"] == true
+        @test any(occursin("slack", s) for s in res5["suggestions"])
     end
 
     @testset "Sign & definiteness checks" begin
@@ -3107,6 +3134,43 @@ const IEEE13_FIXTURE = """
         findings = Finding[]
         operational_analysis(net, findings; config=cfg)
         @test !any(f -> f.code in ("I.OPS.FEEDER_SHORT", "I.OPS.FEEDER_LONG"), findings)
+    end
+
+    @testset "Operational — W.OPS.IMPORT_DEPENDENT counts ibr capacity" begin
+        # Baseline _spec_net: 10 kW load, no local generation → import-dependent.
+        base = _spec_net()
+        fb = Finding[]
+        rb = operational_analysis(base, fb)
+        @test any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fb)
+
+        # Feeder with only a PV IBR (no `generator`) sized well above the load:
+        # its active capacity must clear the import-dependent warning.
+        net_ibr = _spec_net(""","ibr":{"pv":{"bus":"b1","terminal_map":["a","n"],
+            "topology":"SINGLE_PHASE","prime_mover":"PV",
+            "s_max":[5e4],"p_max":[4e4]}}""")
+        fi = Finding[]
+        ri = operational_analysis(net_ibr, fi)
+        @test ri["total_generation_capacity"]["ibr_p_w"] ≈ 4e4   # p_max preferred
+        @test ri["total_generation_capacity"]["p_max_w"] ≈ 4e4
+        @test !any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fi)
+
+        # p_avail (scalar) fallback when p_max is absent.
+        net_avail = _spec_net(""","ibr":{"pv":{"bus":"b1","terminal_map":["a","n"],
+            "topology":"SINGLE_PHASE","prime_mover":"PV","p_avail":4e4}}""")
+        fa = Finding[]
+        ra = operational_analysis(net_avail, fa)
+        @test ra["total_generation_capacity"]["ibr_p_w"] ≈ 4e4
+        @test !any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fa)
+
+        # A STATCOM-only feeder is reactive-only: it must NOT count as
+        # import-reducing active generation, so the warning still fires — even
+        # though the STATCOM carries an s_max rating.
+        net_statcom = _spec_net(""","ibr":{"st":{"bus":"b1","terminal_map":["a","n"],
+            "topology":"SINGLE_PHASE","prime_mover":"STATCOM","s_max":[5e4]}}""")
+        fs = Finding[]
+        rs = operational_analysis(net_statcom, fs)
+        @test rs["total_generation_capacity"]["ibr_p_w"] ≈ 0.0
+        @test any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fs)
     end
 
     @testset "Diversity — I.DIV.LOAD_PF_DSS_DEFAULT near 0.88" begin

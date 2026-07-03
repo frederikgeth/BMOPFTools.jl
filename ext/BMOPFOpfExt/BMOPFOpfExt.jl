@@ -104,7 +104,7 @@ The formulation follows the PMD IVRENPowerModel convention:
 function BMOPFTools.solve_opf(net::Dict{String,Any};
                                optimizer=Ipopt.Optimizer,
                                t_index::Int=1,
-                               per_unit::Bool=false,
+                               per_unit::Bool=true,
                                s_base::Float64=1e6,
                                volt_var_watt_eps::Float64=2e-3,
                                verbose::Bool=false,

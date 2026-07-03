@@ -666,9 +666,14 @@
         res2 = solve_opf(net; model_hook! = ctx -> begin
             vr = ctx.vars[:vr];  vi = ctx.vars[:vi]
             crg = ctx.vars[:crg]; cig = ctx.vars[:cig]
+            # model_hook! sees the model in its build units — per-unit by default
+            # (per_unit=true). ctx.bases carries the conversion: divide a physical
+            # watt cap by s_base to express it in the model's per-unit power, or 1.0
+            # in SI mode where ctx.bases === nothing.
+            sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base
             JuMP.@constraint(ctx.model,
                 vr[("bus1","1")]*crg[("g1",1)] +
-                vi[("bus1","1")]*cig[("g1",1)] <= 150_000.0)
+                vi[("bus1","1")]*cig[("g1",1)] <= 150_000.0 / sb)
         end)
         @test res2["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         @test res2["objective"] ≈ -0.05 * 150_000.0   rtol=1e-3
@@ -1080,7 +1085,10 @@
         res = solve_opf(net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         cm = res["switch"]["sw1"]["1"]["cm"]
-        @test cm <= 0.03 + 1e-6
+        # i_max = 0.03 A binds; the per-unit solve (this tiny current sits at
+        # O(1e-8) p.u. against the 1 MVA base) satisfies it to ~3e-4 relative, so
+        # allow a realistic per-unit convergence slack rather than a 1e-6 floor.
+        @test cm <= 0.03 * (1 + 1e-3)
     end
 
     @testset "T15b: switch without i_max is unconstrained" begin
@@ -1188,6 +1196,13 @@
         # Build a two-voltage-level network (MV source → LV load via transformer).
         # _set_voltage_start_values! uses source vm (6350 V) for all buses, so
         # LV buses (~230 V solved) will have vm_init ≈ 6350 V → ratio >> 10×.
+        #
+        # This test is specifically about the SI-scale flat-start level mismatch:
+        # solved per_unit=false so the flat start really does seed the LV bus at
+        # the 6350 V source level (in per-unit mode, the default, the start is
+        # ~1 p.u. everywhere and no mismatch arises — the profiler's detection is
+        # then correctly silent, so there would be nothing to flag). We pin the SI
+        # path here to keep the INIT_LEVEL_MISMATCH detection genuinely exercised.
         net = parse_bmopf("""
         {"bus":{
             "hv":{"terminal_names":["a","b","c","n"],
@@ -1212,7 +1227,7 @@
              "p_nom":[5000.0,5000.0,5000.0],"q_nom":[0.0,0.0,0.0]}}}
         """; from_string=true)
 
-        res    = solve_opf(net)
+        res    = solve_opf(net; per_unit=false)
         report = profile_solution(net, res)
 
         @test haskey(res, "initialisation")

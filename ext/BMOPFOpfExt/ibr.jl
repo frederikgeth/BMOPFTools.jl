@@ -42,6 +42,65 @@ function _add_ibr_variables!(model, net)
     cri, cii
 end
 
+# Warm-start an IBR phase current variable near the *physical* (high-voltage,
+# low-current) root of the bilinear power equations. The pinned-/box-power
+# problem P_k = dvr·cri + dvi·cii also admits a spurious low-voltage/high-current
+# root; from the default cri=cii=0 start Ipopt can slide into it, and per-unit
+# scaling (tiny currents/powers) makes that far more likely — collapsing FOUR_LEG
+# phase voltages. Seeding I ≈ conj(S)/conj(V) at the terminals' nominal voltage
+# start (already set by `_set_voltage_start_values!`, in whatever unit system the
+# model is built) puts the initial guess on the physical branch in BOTH SI and
+# per-unit modes, since S = V·conj(I) ⇒ I = conj(S/V) = conj(S)/conj(V).
+function _warmstart_ibr_current!(cri_var, cii_var, dvr, dvi, p_tgt, q_tgt)
+    # dvr/dvi are the phase-to-reference voltage-difference expressions; read their
+    # value at the current variable starts (the voltage vars are already seeded).
+    vr0 = _safe_start_value(dvr); vi0 = _safe_start_value(dvi)
+    v2  = vr0^2 + vi0^2
+    v2 > 1e-12 || return                       # degenerate start — leave at 0
+    # I = conj(S)/conj(V): cri = (P·vr − Q·vi)/|V|², cii = (P·vi + Q·vr)/|V|²
+    JuMP.set_start_value(cri_var, (p_tgt*vr0 - q_tgt*vi0) / v2)
+    JuMP.set_start_value(cii_var, (p_tgt*vi0 + q_tgt*vr0) / v2)
+    return
+end
+
+# Value of a scalar (variable or affine expression) at its start values; used to
+# read the seeded voltage-difference for the IBR current warm-start. Missing
+# starts count as 0 (the JuMP default before seeding).
+_safe_start_value(x::JuMP.VariableRef) =
+    (s = JuMP.start_value(x); s === nothing ? 0.0 : s)
+function _safe_start_value(x::JuMP.AffExpr)
+    v = JuMP.constant(x)
+    for (var, coef) in x.terms
+        s = JuMP.start_value(var)
+        v += coef * (s === nothing ? 0.0 : s)
+    end
+    v
+end
+
+# Estimate a per-phase (P, Q) operating point for the current warm-start, in the
+# model's units. Prefers the midpoint of the active-power box (pinned ⇒ the pinned
+# value); reactive power comes from the constant-PF law when present, else the
+# reactive box midpoint. A missing active box falls back to ~90 % of s_max (a
+# sensible non-degenerate seed). Only used to steer Ipopt onto the physical root;
+# the true operating point is decided by the constraints, so a rough seed suffices.
+function _ibr_phase_target(idx, p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign)
+    pmid(lo, hi, i) = length(hi) >= i ?
+        (length(lo) >= i ? 0.5*(lo[i] + hi[i]) : hi[i]) :
+        (length(lo) >= i ? lo[i] : nothing)
+    pt = pmid(p_min, p_max, idx)
+    if pt === nothing
+        pt = length(smax) >= idx ? 0.9*smax[idx] : 0.0
+    end
+    if tan_phi !== nothing
+        # sign(pf)>0 (lagging): Q = −tan_phi·P; sign(pf)<0 (leading): Q = +tan_phi·P.
+        qt = -pf_sign * tan_phi * pt
+    else
+        qt = pmid(q_min, q_max, idx)
+        qt === nothing && (qt = 0.0)
+    end
+    (Float64(pt), Float64(qt))
+end
+
 # Resolved Volt-var / Volt-watt droop curve, ready to stamp into the model.
 # `triples`/`eps` are in model voltage units (SI volts, or per-unit when the
 # model is solved per-unit); `ref` selects the per-phase normalisation base.
@@ -308,6 +367,10 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             q_expr = @expression(model, dvi*cri[(inv_id,1)] - dvr*cii[(inv_id,1)])
             collect_p && push!(p_exprs, p_expr)
 
+            let (pt, qt) = _ibr_phase_target(1, p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign)
+                _warmstart_ibr_current!(cri[(inv_id,1)], cii[(inv_id,1)], dvr, dvi, pt, qt)
+            end
+
             # Per-conductor i_max: a single-phase IBR has ONE current (phase and
             # return carry the same magnitude), so stamp one circle at the tighter
             # of the (≤2) entries — never constrain the same variable twice.
@@ -350,6 +413,9 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 p_expr = @expression(model, dvr*cri[(inv_id,idx)] + dvi*cii[(inv_id,idx)])
                 q_expr = @expression(model, dvi*cri[(inv_id,idx)] - dvr*cii[(inv_id,idx)])
+
+                pt, qt = _ibr_phase_target(idx, p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign)
+                _warmstart_ibr_current!(cri[(inv_id,idx)], cii[(inv_id,idx)], dvr, dvi, pt, qt)
 
                 push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr))
                 collect_p && push!(p_exprs, p_expr)
@@ -397,6 +463,10 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 p_expr = @expression(model, dvr*cri[(inv_id,k)] + dvi*cii[(inv_id,k)])
                 q_expr = @expression(model, dvi*cri[(inv_id,k)] - dvr*cii[(inv_id,k)])
                 collect_p && push!(p_exprs, p_expr)
+
+                let (pt, qt) = _ibr_phase_target(k, p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign)
+                    _warmstart_ibr_current!(cri[(inv_id,k)], cii[(inv_id,k)], dvr, dvi, pt, qt)
+                end
 
                 length(imax) >= k &&
                     @constraint(model, cri[(inv_id,k)]^2 + cii[(inv_id,k)]^2 <= imax[k]^2)

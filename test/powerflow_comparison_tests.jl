@@ -1911,7 +1911,8 @@ end
                                     loads=[0.0, 5.0, 14.0], mode=:vv), "3ph-vv: ")
     @test Qbm[1] ≈ -6_000.0   atol=120.0       # phase 1 saturated at -0.6·s_max
     @test Qbm[1] < Qbm[2] < Qbm[3] < 0.0       # monotone: higher V → more absorption
-    @test all(p -> p ≈ 7_000.0, Pbm)           # volt-var only → P uncurtailed at Pmpp
+    # volt-var only → P uncurtailed at Pmpp (p_max binds; allow per-unit slack).
+    @test all(p -> isapprox(p, 7_000.0; atol=1.0), Pbm)
 end
 
 @testset "PV 3φ FOUR_LEG droop vs OpenDSS — combined VV+VW under unbalance" begin
@@ -1929,7 +1930,8 @@ end
     # matches a single 3φ OpenDSS PVSystem with an averaging InvControl.
     Pbm, Qbm = _check_pv_3ph_avg_droop((vsrc=255.0, kVA=10.0, Pmpp=7.0,
                                         loads=[0.0, 5.0, 14.0], mode=:vv), "3ph-avg-vv: ")
-    @test all(p -> p ≈ 7_000.0, Pbm)           # volt-var only → P uncurtailed
+    # volt-var only → P uncurtailed at Pmpp (p_max binds; allow per-unit slack).
+    @test all(p -> isapprox(p, 7_000.0; atol=1.0), Pbm)
     @test all(q -> q < 0.0, Qbm)               # mean voltage is high → all absorb
 end
 

@@ -33,15 +33,22 @@ function operational_analysis(net::Dict{String,Any},
 
     # --- Total generation capacity ---
     gens = get(net, "generator", Dict())
-    total_p_cap = 0.0
+    total_gen_p_cap = 0.0
     total_q_cap = 0.0
     for (_, g) in gens
-        total_p_cap += sum(Float64.(get(g, "p_max", Float64[])))
+        total_gen_p_cap += sum(Float64.(get(g, "p_max", Float64[])))
         total_q_cap += sum(Float64.(get(g, "q_max", Float64[])))
     end
+    # IBRs (inverter-based resources) are local active-power capacity too.
+    # STATCOM-type IBRs are reactive-only and do NOT reduce import (see
+    # `_ibr_active_capacity`).
+    total_ibr_p_cap = _ibr_active_capacity(net)
+    total_p_cap = total_gen_p_cap + total_ibr_p_cap
     result["total_generation_capacity"] = Dict{String,Any}(
-        "p_max_w"   => total_p_cap,
-        "q_max_var" => total_q_cap
+        "p_max_w"       => total_p_cap,
+        "generator_p_w" => total_gen_p_cap,
+        "ibr_p_w"       => total_ibr_p_cap,
+        "q_max_var"     => total_q_cap
     )
     result["generation_load_ratio"] =
         total_p_w > 0 ? round(100.0 * total_p_cap / total_p_w, digits=1) : nothing
@@ -178,6 +185,34 @@ function operational_analysis(net::Dict{String,Any},
     result["feeder_length"] = _feeder_length_check(net, zones, findings, config)
 
     result
+end
+
+"""
+    _ibr_active_capacity(net) -> Float64
+
+Total local active-power capability (W) contributed by `ibr`
+(inverter-based-resource) objects. Prefers the explicit active-power ceiling
+(`p_max`, else `p_avail`), falling back to the apparent-power rating (`s_max`).
+
+STATCOM-type IBRs (`prime_mover` ∈ {"STATCOM", "DSTATCOM"}) are shunt reactive
+compensators with no active-power source: even DC-link-coupled STATCOMs only
+*circulate* active power between phases (net P = 0), so none of them reduce grid
+import. They are excluded — regardless of any explicit/derived p_max/s_max —
+so an s_max fallback never mistakes a reactive rating for real generation.
+"""
+function _ibr_active_capacity(net::Dict{String,Any})::Float64
+    total = 0.0
+    for (_, inv) in get(net, "ibr", Dict())
+        inv isa Dict || continue
+        get(inv, "prime_mover", nothing) in ("STATCOM", "DSTATCOM") && continue
+        for key in ("p_max", "p_avail", "s_max")
+            v = get(inv, key, nothing)
+            v === nothing && continue
+            total += sum(Float64.(v isa AbstractVector ? v : [v]))
+            break
+        end
+    end
+    total
 end
 
 """

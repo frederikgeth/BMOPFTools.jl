@@ -20,7 +20,7 @@
 
 """
     BMOPFTools.solve_pf(net; optimizer=Ipopt.Optimizer, t_index=1,
-                        per_unit=false, s_base=1e6) -> Dict
+                        per_unit=true, s_base=1e6) -> Dict
 
 Determined four-wire rectangular current-voltage (IVR-EN) power flow on a BMOPF
 network dict.
@@ -41,7 +41,7 @@ The result dict has the same structure as `solve_opf` (`bus`, `line`, `load`,
 function BMOPFTools.solve_pf(net::Dict{String,Any};
                               optimizer=Ipopt.Optimizer,
                               t_index::Int=1,
-                              per_unit::Bool=false,
+                              per_unit::Bool=true,
                               s_base::Float64=1e6,
                               verbose::Bool=false,
                               solver_options=(),

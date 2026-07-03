@@ -38,7 +38,7 @@ Non-zero residuals localise and quantify the infeasibility. Pass the result to
 function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                                            optimizer=Ipopt.Optimizer,
                                            t_index::Int=1,
-                                           per_unit::Bool=false,
+                                           per_unit::Bool=true,
                                            s_base::Float64=1e6,
                                            volt_var_watt_eps::Float64=2e-3,
                                            verbose::Bool=false,
