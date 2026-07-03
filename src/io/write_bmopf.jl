@@ -53,6 +53,8 @@ function write_bmopf(net::Dict{String,Any}, io::IO;
     # Build output without mutating net; drop _meta (tool-private, not spec)
     out = Dict{String,Any}(k => v for (k, v) in net
                            if k != "meta" && k != "_meta")
+    buses = get(net, "bus", nothing)
+    buses isa Dict && (out["bus"] = _strip_derived_bus_fields(buses))
     out["meta"] = out_meta
     if isnothing(indent)
         JSON3.write(io, out)
@@ -67,6 +69,36 @@ function write_bmopf(net::Dict{String,Any}, path::AbstractString;
     open(path, "w") do io
         write_bmopf(net, io; meta, indent)
     end
+end
+
+# ---------------------------------------------------------------------------
+# Internal: drop tool-derived bus fields that are not part of the spec
+# ---------------------------------------------------------------------------
+
+# Fields the tool attaches to buses for internal convenience but which are not
+# in the BMOPF schema (bus objects declare additionalProperties:false). They are
+# derivable from `terminal_names` on read (see `_neutral_terminal`), so dropping
+# them on write keeps the JSON spec-compliant without losing information.
+const _DERIVED_BUS_FIELDS = ("neutral_terminal",)
+
+"""
+    _strip_derived_bus_fields(buses) -> Dict{String,Any}
+
+Return a shallow copy of the bus collection with tool-derived, non-spec fields
+(see `_DERIVED_BUS_FIELDS`) removed from each bus object. Does not mutate the
+input; buses that carry none of these fields are passed through unchanged.
+"""
+function _strip_derived_bus_fields(buses::Dict)::Dict{String,Any}
+    out = Dict{String,Any}()
+    for (id, bus) in buses
+        if bus isa Dict && any(haskey(bus, k) for k in _DERIVED_BUS_FIELDS)
+            out[id] = Dict{String,Any}(k => v for (k, v) in bus
+                                       if k ∉ _DERIVED_BUS_FIELDS)
+        else
+            out[id] = bus
+        end
+    end
+    out
 end
 
 # ---------------------------------------------------------------------------

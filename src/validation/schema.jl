@@ -114,7 +114,7 @@ end
 # ---------------------------------------------------------------------------
 
 const _KNOWN_FIELDS = Dict{String,Set{String}}(
-    "bus" => Set(["terminal_names", "neutral_terminal", "perfectly_grounded_terminals",
+    "bus" => Set(["terminal_names", "perfectly_grounded_terminals",
                   "v_min", "v_max", "vpn_min", "vpn_max",
                   "vpp_min", "vpp_max", "vpos_min", "vpos_max",
                   "vneg_max", "vzero_max",
