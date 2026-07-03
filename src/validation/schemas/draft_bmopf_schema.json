@@ -1165,6 +1165,22 @@
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Transformer series reactance on the 'to' side [Ohm]"
                     },
+                    "r_neutral_from": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Winding neutral grounding resistance on the 'from' side [Ohm]: internal grounding branch from the winding's shared neutral terminal to earth (OpenDSS rneut); stand-alone transformer property, external groundings stay on buses/shunts"
+                    },
+                    "x_neutral_from": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Winding neutral grounding reactance on the 'from' side [Ohm]: internal grounding branch from the winding's shared neutral terminal to earth (OpenDSS xneut)"
+                    },
+                    "r_neutral_to": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Winding neutral grounding resistance on the 'to' side [Ohm]: internal grounding branch from the winding's shared neutral terminal to earth (OpenDSS rneut); stand-alone transformer property, external groundings stay on buses/shunts"
+                    },
+                    "x_neutral_to": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Winding neutral grounding reactance on the 'to' side [Ohm]: internal grounding branch from the winding's shared neutral terminal to earth (OpenDSS xneut)"
+                    },
                     "bus_from": {
                         "type": "string",
                         "description": "'from' bus for the element"
@@ -1266,6 +1282,22 @@
                     "x_series_to": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Transformer series reactance on the 'to'-side winding [Ohm]"
+                    },
+                    "r_neutral_from": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Winding neutral grounding resistance on the 'from' side [Ohm]: internal grounding branch from the winding's shared neutral terminal to earth (OpenDSS rneut); stand-alone transformer property, external groundings stay on buses/shunts"
+                    },
+                    "x_neutral_from": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Winding neutral grounding reactance on the 'from' side [Ohm]: internal grounding branch from the winding's shared neutral terminal to earth (OpenDSS xneut)"
+                    },
+                    "r_neutral_to": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Winding neutral grounding resistance on the 'to' side [Ohm]: internal grounding branch from the winding's shared neutral terminal to earth (OpenDSS rneut); stand-alone transformer property, external groundings stay on buses/shunts"
+                    },
+                    "x_neutral_to": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Winding neutral grounding reactance on the 'to' side [Ohm]: internal grounding branch from the winding's shared neutral terminal to earth (OpenDSS xneut)"
                     },
                     "i_max_from": {
                         "type": "array",

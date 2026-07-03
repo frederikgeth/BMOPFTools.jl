@@ -2647,12 +2647,18 @@ function _yd_node_injections(xf, sub, nodes, V, res_t)
     Gph = n_from_ph > 0 ?
         (Float64(get(xf, "g_no_load", 0.0)) + im*Float64(get(xf, "b_no_load", 0.0))) / n_from_ph :
         0.0 + 0.0im
+    # Internal neutral-grounding branch (rneut/xneut) at the wye neutral node.
+    rn = Float64(get(xf, wye_is_from ? "r_neutral_from" : "r_neutral_to", 0.0))
+    xn = Float64(get(xf, wye_is_from ? "x_neutral_from" : "x_neutral_to", 0.0))
+    yn = (rn == 0.0 && xn == 0.0) ? 0.0im : 1.0 / (rn + im*xn)
+    n_pos = BMOPFTools._neutral_pos(tm_wye)
     idx = Dict(n => i for (i, n) in enumerate(nodes))
     inj = zeros(ComplexF64, length(nodes))
     for k in eachindex(tm_wye)
         Iw = res_t[side_wye][string(k)]["cr"] + im*res_t[side_wye][string(k)]["ci"]
         i = idx[(b_wye, tm_wye[k])]
-        inj[i] += Iw + (wye_is_from && k in ph_idx ? Gph * V[i] : 0.0im)
+        inj[i] += Iw + (wye_is_from && k in ph_idx ? Gph * V[i] : 0.0im) +
+                  (k == n_pos ? yn * V[i] : 0.0im)
     end
     for k in eachindex(tm_del)
         Id = res_t[side_del][string(k)]["cr"] + im*res_t[side_del][string(k)]["ci"]
@@ -2670,11 +2676,17 @@ end
         ("pf_yd_xfmr.dss",  "wye_delta",    1.04),
         ("pf_dy_xfmr.dss",  "delta_wye",    1.0),
         ("pf_dy_xfmr.dss",  "delta_wye",    0.97),
+        # rneut/xneut fixture: unbalanced load + internal neutral grounding
+        # (fields set below — PowerIO drops them on parse).
+        ("pf_dy_xfmr_rneut.dss", "delta_wye", 1.0),
     )
     for (fname, sub, tapm) in cases
         net = from_dss(joinpath(_PF_CMP_DIR, fname))
         tid, xf = first(net["transformer"][sub])
         tapm != 1.0 && (xf["tap"] = tapm)
+        if fname == "pf_dy_xfmr_rneut.dss"
+            xf["r_neutral_to"] = 2.0; xf["x_neutral_to"] = 1.0
+        end
         res = solve_pf(net; optimizer=Ipopt.Optimizer)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         nodes, Yp = BMOPFTools.transformer_yprim(xf, sub)
@@ -2726,6 +2738,85 @@ end
         @test res["losses"]["p_loss"] > 0                       # passive
         @test isapprox(res["losses"]["p_loss"], P_ods; rtol=0.03)
     end
+end
+
+@testset "PF comparison — from_dss fixed off-nominal tap recovery (Dy)" begin
+    # PowerIO's bmopf export drops OpenDSS `taps=` entirely with only a warning
+    # — the network silently solved at the NOMINAL ratio (≈2% voltage error per
+    # 2% tap). `from_dss` now recovers the multiplier from the pmd `tm_set`.
+    # End-to-end: parse → `tap` present → solve_pf matches the OpenDSS solve of
+    # the same tapped unit (which also validates the OPF's fixed off-nominal
+    # Dy tap referral against OpenDSS — previously only exercised at nominal).
+    path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_tap.dss")
+    net  = from_dss(path)
+    xf   = first(values(net["transformer"]["delta_wye"]))
+    @test isapprox(Float64(get(xf, "tap", 1.0)), 1.02; atol=1e-9)
+    V_ods = _ods_volts(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label="dy-tap from_dss: ", atol=0.5, rtol=3e-3)
+    @test isapprox(res["losses"]["p_loss"], _ods_losses_W(path); rtol=0.03)
+end
+
+@testset "PF comparison — internal winding neutral grounding (rneut/xneut, Dy)" begin
+    # OpenDSS rneut/xneut is a transformer-INTERNAL grounding branch from the
+    # wye winding's neutral terminal to earth (verified: the OpenDSS Yprim's
+    # neutral-node diagonal gains exactly 1/(rneut+jxneut); the star point
+    # stays solid on the neutral node). The fixture has NO external LV
+    # grounding — the internal branch is the ONLY absolute reference of the
+    # galvanically isolated LV island. In healthy power flow the grounded-wye
+    # star absorbs the (unbalanced) neutral current metallically, so both
+    # engines put lv.4 at ≈0 V — the PF-level assertions are convergence of
+    # the otherwise-floating island and node-for-node agreement with OpenDSS;
+    # the branch's numerical sensitivity is carried by the entry-wise Yprim
+    # gate below. PowerIO drops rneut/xneut (from_dss emits a targeted
+    # warning); the BMOPF fields are set by hand.
+    path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_rneut.dss")
+    net  = from_dss(path)
+    xf   = first(values(net["transformer"]["delta_wye"]))
+    xf["r_neutral_to"] = 2.0
+    xf["x_neutral_to"] = 1.0
+    V_ods = _ods_volts(path)
+    res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+    @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
+    V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
+                 for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
+    _cmp_volts(V_ods, V_bm; label="dy-rneut: ", atol=0.5, rtol=3e-3)
+    # The island reference is anchored by the internal branch: lv.4 agrees with
+    # OpenDSS at ≈0 V (the star absorbs the zero-sequence load current
+    # metallically, so the grounding branch carries only the residual).
+    @test abs(V_bm["lv.4"] - V_ods["lv.4"]) < 0.5
+    @test isapprox(res["losses"]["p_loss"], _ods_losses_W(path); rtol=0.03)
+end
+
+@testset "PF comparison — from_dss 3-winding recovery (n_winding)" begin
+    # PowerIO's bmopf export drops every 3-phase 3+-winding transformer
+    # entirely; `from_dss` reconstructs them as `n_winding` from the pmd
+    # record. End-to-end against OpenDSS on the same fixtures the hand-built
+    # n_winding nets above validate (YYY, Dyn, Dyn-unbalanced), so agreement at
+    # the default tolerance means the reconstruction is byte-equivalent in
+    # effect to the validated hand mapping.
+    for f in ("pf_3wdg_nwinding.dss", "pf_3wdg_dyn.dss", "pf_3wdg_dyn_unbalanced.dss")
+        path = joinpath(_PF_CMP_DIR, f)
+        net  = from_dss(path)
+        @test haskey(get(net, "transformer", Dict()), "n_winding")
+        @test get(get(net, "_meta", Dict()), "recovered_n_winding", nothing) == ["t1"]
+        V_ods = _ods_volts(path)
+        res   = solve_pf(net; optimizer=Ipopt.Optimizer)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        _cmp_volts(V_ods, _nwd_bm_volts(res); label="recov-$(f): ")
+    end
+    # 4+ windings: PowerIO's pmd export currently mangles `Xscarray` (it emits
+    # the three XHL/XHT/XLT class DEFAULTS, 7/35/30%, instead of the six pairs),
+    # so the reconstruction refuses loudly rather than building a wrong unit.
+    # Upstream PowerIO gap — when fixed, drop this block and extend the loop.
+    net4 = @test_logs (:warn, r"pmd record is incomplete") match_mode=:any from_dss(
+        joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
+    @test !haskey(get(net4, "transformer", Dict()), "n_winding")
 end
 
 @testset "Transformer Yprim matches OpenDSS (single_phase, center_tap, Yd, Dy)" begin
@@ -2780,6 +2871,39 @@ end
         perm = [findfirst(==(d), uids) for d in idb]
         @test !any(isnothing, perm)
         rel = maximum(abs.(M[perm, perm] .- Yb)) / max(1.0, maximum(abs.(Yb)))
+        @test rel < 1e-2
+    end
+
+    # Internal winding neutral grounding (rneut/xneut): OpenDSS adds exactly
+    # y_n = 1/(rneut+jxneut) to the neutral-node DIAGONAL of the Yprim. The
+    # matrix-wide rel gate above is not sensitive to it (y_n ≪ max|Y|), so the
+    # neutral diagonal is compared entry-wise, with a counterfactual check that
+    # omitting the stamp would miss OpenDSS by ≈|y_n|.
+    let path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_rneut.dss")
+        net = from_dss(path)
+        xf  = first(values(net["transformer"]["delta_wye"]))
+        nb0, Yb0 = BMOPFTools.transformer_yprim(xf, "delta_wye")   # fields absent
+        xf["r_neutral_to"] = 2.0; xf["x_neutral_to"] = 1.0
+        nb, Yb = BMOPFTools.transformer_yprim(xf, "delta_wye")
+        Yo, ido = ods_yprim(path)
+        uids = [u for u in unique(ido) if u[2] != "0"]
+        pos  = Dict(u => i for (i, u) in enumerate(uids))
+        M    = zeros(ComplexF64, length(uids), length(uids))
+        for i in eachindex(ido), j in eachindex(ido)
+            (ido[i][2] == "0" || ido[j][2] == "0") && continue
+            M[pos[ido[i]], pos[ido[j]]] += Yo[i, j]
+        end
+        perm = [findfirst(==(d), uids) for d in nb]
+        @test !any(isnothing, perm)
+        Mp  = M[perm, perm]
+        i_n = findfirst(==(("lv", "n")), nb)
+        yn  = 1.0 / (2.0 + 1.0im)
+        # 0.1·|y_n| clears the ≈1.3e-4-relative leakage-recovery floor on the
+        # 3y part of the diagonal (~0.026 S here) while staying 5× under the
+        # counterfactual miss.
+        @test abs(Mp[i_n, i_n] - Yb[i_n, i_n])  < 0.1 * abs(yn)    # with the stamp
+        @test abs(Mp[i_n, i_n] - Yb0[i_n, i_n]) > 0.5  * abs(yn)   # counterfactual
+        rel = maximum(abs.(Mp .- Yb)) / max(1.0, maximum(abs.(Yb)))
         @test rel < 1e-2
     end
 end

@@ -160,6 +160,8 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "v_nom_from", "v_nom_to",
                            "i_max_from", "i_max_to",
                            "g_no_load", "b_no_load",
+                           "r_neutral_from", "x_neutral_from",
+                           "r_neutral_to", "x_neutral_to",
                            "tap", "tap_min", "tap_max"]),
     "center_tap"   => Set(["s_rating", "r_series_from", "x_series_from",
                            "r_series_to", "x_series_to", "bus_from", "bus_to",
@@ -173,6 +175,8 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "r_series_to",   "x_series_to",
                            "r_series", "x_series",          # legacy shorthand
                            "g_no_load", "b_no_load",
+                           "r_neutral_from", "x_neutral_from",
+                           "r_neutral_to", "x_neutral_to",
                            "bus_from", "bus_to",
                            "terminal_map_from", "terminal_map_to",
                            "v_nom_from", "v_nom_to",
@@ -183,6 +187,8 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "r_series_to",   "x_series_to",
                            "r_series", "x_series",          # legacy shorthand
                            "g_no_load", "b_no_load",
+                           "r_neutral_from", "x_neutral_from",
+                           "r_neutral_to", "x_neutral_to",
                            "bus_from", "bus_to",
                            "terminal_map_from", "terminal_map_to",
                            "v_nom_from", "v_nom_to",

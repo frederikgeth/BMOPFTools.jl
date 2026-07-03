@@ -523,6 +523,59 @@
         end
     end
 
+    # ─── internal winding neutral grounding (OpenDSS rneut/xneut) ─────────────
+    # Verified OpenDSS topology: the winding star point stays solidly on the
+    # neutral terminal and y_n = 1/(r_neutral+jx_neutral) is a grounding branch
+    # from that terminal to earth — so the ONLY change to the Yprim is a
+    # diagonal add of y_n at the neutral node. Winding equations are unchanged.
+    @testset "neutral grounding branch (rneut/xneut)" begin
+        yn = 1.0 / (2.0 + 1.0im)
+        yd = Dict{String,Any}(
+            "bus_from" => "hv", "bus_to" => "lv",
+            "terminal_map_from" => ["1","2","3","n"],
+            "terminal_map_to"   => ["1","2","3"],
+            "v_nom_from" => 11000.0, "v_nom_to" => 400.0,
+            "r_series_from" => 0.5, "x_series_from" => 2.0,
+            "g_no_load" => 1e-4, "b_no_load" => 5e-4,
+        )
+        ydn = merge(yd, Dict{String,Any}("r_neutral_from" => 2.0,
+                                         "x_neutral_from" => 1.0))
+        _, Y0m = transformer_yprim(yd,  "wye_delta")
+        _, Y1m = transformer_yprim(ydn, "wye_delta")
+        D = Y1m .- Y0m
+        @test isapprox(D[4, 4], yn; atol=1e-12)   # node 4 = wye neutral
+        D[4, 4] = 0.0
+        @test maximum(abs.(D)) < 1e-12            # nothing else changes
+
+        # single_phase, both sides L-N: diagonal adds at each shared neutral.
+        sp = Dict{String,Any}(
+            "bus_from" => "hv", "bus_to" => "lv",
+            "terminal_map_from" => ["1","n"], "terminal_map_to" => ["1","n"],
+            "v_nom_from" => 11000.0, "v_nom_to" => 400.0,
+            "r_series_from" => 0.5, "x_series_from" => 2.0,
+        )
+        spn = merge(sp, Dict{String,Any}(
+            "r_neutral_from" => 2.0, "x_neutral_from" => 1.0,
+            "r_neutral_to"   => 5.0, "x_neutral_to"   => 0.0))
+        nodes_sp, Y0s = transformer_yprim(sp,  "single_phase")
+        _,        Y1s = transformer_yprim(spn, "single_phase")
+        i_nf = findfirst(==(("hv","n")), nodes_sp)
+        i_nt = findfirst(==(("lv","n")), nodes_sp)
+        Ds = Y1s .- Y0s
+        @test isapprox(Ds[i_nf, i_nf], yn;        atol=1e-12)
+        @test isapprox(Ds[i_nt, i_nt], 1.0/5.0;   atol=1e-12)
+        Ds[i_nf, i_nf] = 0.0; Ds[i_nt, i_nt] = 0.0
+        @test maximum(abs.(Ds)) < 1e-12
+
+        # Ignored (warned) placements: delta side, and a side with no neutral.
+        yd_del = merge(yd, Dict{String,Any}("r_neutral_to" => 2.0))
+        _, Yd_del = @test_logs (:warn, r"DELTA side") transformer_yprim(yd_del, "wye_delta")
+        @test Yd_del ≈ Y0m
+        sp_ll = merge(sp, Dict{String,Any}(
+            "terminal_map_from" => ["1","2"], "r_neutral_from" => 2.0))
+        @test_logs (:warn, r"no shared neutral") transformer_yprim(sp_ll, "single_phase")
+    end
+
     # ─── zero-leakage units keep their no-load shunt ──────────────────────────
     # The degenerate (singular series block) branches previously returned before
     # stamping the shunt, so a lossless-leakage unit with core loss exported an

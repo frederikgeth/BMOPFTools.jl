@@ -28,6 +28,7 @@ exporter.
 | Node = | a `(bus, terminal)` pair. |
 | Turns ratio | $N = V^\text{ref}_\text{fr}/V^\text{ref}_\text{to}$ (both SI volts; for `center_tap`, $V^\text{ref}_\text{to}$ is the per-leg 120 V rating). |
 | Series impedance | $Z_1=R_1+jX_1$ from `r_series_from`/`x_series_from`; $Z_2=R_2+jX_2$ from `r_series_to`/`x_series_to`. |
+| Neutral grounding | `r/x_neutral_from`/`r/x_neutral_to` (OpenDSS `rneut`/`xneut`): an INTERNAL grounding branch $y_n = 1/(R_n+jX_n)$ from the winding's shared neutral terminal to earth — a diagonal stamp at the neutral node (verified against OpenDSS: its Yprim's neutral diagonal gains exactly $y_n$; the star point stays solid on the neutral node). Supported for `single_phase` and the wye side of Yd/Dy; stand-alone transformer property, external groundings stay on buses/shunts. |
 | No-load shunt | $Y_0=G_0+jB_0$ from `g_no_load`/`b_no_load`, on the **from** (HV) side. Placement mirrors the OPF builders: **across the from winding** ($p{-}q$) for `single_phase` and `single_phase_autotransformer`; **phase-to-ground** at the from-side phase terminals for `center_tap` and Yd/Dy; across each from-side L-L pair for `open_delta_regulator`. |
 
 **Reciprocity.** A transformer built from linear impedances and ideal cores is

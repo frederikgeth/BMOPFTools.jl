@@ -272,6 +272,22 @@ fixtures above:
   exported admittance (``I = Y_p V``) is compared node-by-node against the
   solved winding-current variables. This is the standing drift guard between
   the OPF engine and the exported primitive matrices.
+- **Internal winding neutral grounding (`rneut`/`xneut`)**: OpenDSS grounds an
+  impedance-grounded wye star point through a transformer-internal branch; the
+  BMOPF `r/x_neutral_from`/`to` fields reproduce it. Validated three ways on an
+  unbalanced Dy fixture whose ONLY LV earth path is that branch: full PF node
+  voltages vs OpenDSS (the branch anchors the galvanically isolated LV island's
+  reference; the grounded-wye star absorbs the zero-sequence load current
+  metallically, so both engines agree at ≈0 V on the neutral), the
+  `Yprim` neutral-node diagonal entry-wise vs `CktElement.YPrim()` (with a
+  counterfactual check that omitting the stamp misses OpenDSS by ≈``|y_n|``),
+  and the OPF↔`Yprim` setpoint gate.
+- **Import recovery** (`from_dss`): fixed off-nominal `taps=` recovered from
+  the pmd `tm_set` (end-to-end tapped-Dy PF vs OpenDSS), and 3-phase 3-winding
+  transformers — dropped entirely by PowerIO's bmopf export — reconstructed as
+  `n_winding` from the pmd record (end-to-end YYY / Dyn / unbalanced-Dyn PF vs
+  OpenDSS at the default tolerance). 4+ windings currently refuse loudly:
+  PowerIO's pmd export mangles `Xscarray` (upstream gap).
 
 ### Reusing the feasibility setup
 

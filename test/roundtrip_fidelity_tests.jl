@@ -25,9 +25,19 @@ include(joinpath(@__DIR__, "roundtrip_helpers.jl"))
 const _RT_PF_DIR = joinpath(@__DIR__, "data", "pf_comparison")
 
 # Cases whose DSS → BMOPF → DSS round trip is structurally lossless today.
+#
+# pf_3wdg_dyn moved OUT of this list when `from_dss` started reconstructing
+# dropped 3-winding transformers as `n_winding`: the case was only "clean"
+# because the transformer was silently LOST at both ends of the round trip.
+# The unit now survives import, but `to_dss` lowers `n_winding` to a
+# single-phase bank with synthetic per-winding buses, so the reparse differs
+# structurally (documented loss; the PF cross-check still agrees).
+# pf_4wdg_dyyn stays clean only because PowerIO's pmd export mangles
+# `Xscarray` and the reconstruction refuses — when that upstream bug is fixed,
+# it moves out of this list too.
 const RT_SEMANTIC_CLEAN = Set([
     "pf_1ph_freeneutral", "pf_1ph_impedanceneutral", "pf_1ph_line",
-    "pf_1ph_perfectneutral", "pf_3ph_line", "pf_3wdg_dyn", "pf_4wdg_dyyn",
+    "pf_1ph_perfectneutral", "pf_3ph_line", "pf_4wdg_dyyn",
     "pf_delta_load", "pf_exp_1ph", "pf_open_delta_reg", "pf_pv_1ph",
     "pf_pv_4leg", "pf_zip_1ph", "pf_zip_3ph", "pf_zip_delta",
 ])

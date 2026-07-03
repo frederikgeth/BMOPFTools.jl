@@ -123,6 +123,17 @@ function _node_list(bus, tm)
     [(bus, string(t)) for t in tm]
 end
 
+# Winding neutral grounding admittance (OpenDSS rneut/xneut) for one side:
+# y_n = 1/(R_n + jX_n) from the winding's neutral terminal to earth, INTERNAL
+# to the transformer (matches OpenDSS's Yprim, where the neutral-node diagonal
+# gains exactly y_n). Returns 0 when the fields are absent/zero.
+function _xfmr_yn(xfmr, side::String)
+    rn = Float64(get(xfmr, "r_neutral_$(side)", 0.0))
+    xn = Float64(get(xfmr, "x_neutral_$(side)", 0.0))
+    (rn == 0.0 && xn == 0.0) && return 0.0 + 0.0im
+    1.0 / (rn + im * xn)
+end
+
 # ── single_phase ────────────────────────────────────────────────────────────
 
 function _yprim_single_phase(xfmr::Dict{String,Any})
@@ -159,6 +170,19 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
     B0 = Float64(get(xfmr, "b_no_load", 0.0))
     Y0_per = n_c > 0 ? (G0 + im*B0) / n_c : 0.0 + 0.0im
 
+    # Internal neutral-grounding branch (OpenDSS rneut/xneut): y_n from the
+    # side's shared neutral terminal to earth — a diagonal stamp, matching
+    # OpenDSS's Yprim and the OPF builder `_add_yy_transformer!`. Applies only
+    # to sides whose windings share a neutral (L-N maps).
+    yn_fr = _xfmr_yn(xfmr, "from")
+    yn_to = _xfmr_yn(xfmr, "to")
+    use_yn_fr = !iszero(yn_fr) && _neutral_pos(tm_fr) !== nothing
+    use_yn_to = !iszero(yn_to) && _neutral_pos(tm_to) !== nothing
+    (!iszero(yn_fr) && !use_yn_fr) &&
+        @warn "single_phase transformer: r/x_neutral_from set but the from side has no shared neutral terminal; ignored."
+    (!iszero(yn_to) && !use_yn_to) &&
+        @warn "single_phase transformer: r/x_neutral_to set but the to side has no shared neutral terminal; ignored."
+
     nodes    = Tuple{String,String}[]
     node_idx = Dict{Tuple{String,String},Int}()
     nidx!(b, t) = get!(node_idx, (b, t)) do
@@ -194,6 +218,12 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
             Y .+= transpose(Cf) * Y0_per * Cf
         end
     end
+
+    # Neutral-grounding branch: diagonal stamp at the shared neutral terminal.
+    use_yn_fr && (Y[nidx!(b_fr, tm_fr[_neutral_pos(tm_fr)]),
+                    nidx!(b_fr, tm_fr[_neutral_pos(tm_fr)])] += yn_fr)
+    use_yn_to && (Y[nidx!(b_to, tm_to[_neutral_pos(tm_to)]),
+                    nidx!(b_to, tm_to[_neutral_pos(tm_to)])] += yn_to)
 
     nodes, Y
 end
@@ -319,7 +349,19 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
 
     n_wye  = length(tm_wye)
     n_tot  = n_wye + n_ph
-    Y      = zeros(ComplexF64, n_tot, n_tot)
+
+    # Internal neutral-grounding branch (OpenDSS rneut/xneut) on the wye side:
+    # y_n from the wye neutral terminal to earth — a diagonal stamp, matching
+    # OpenDSS's Yprim and the OPF builder `_add_yd_transformer!`. The delta
+    # side has no neutral; its fields are ignored (warned).
+    yn_wye = _xfmr_yn(xfmr, wye_is_from ? "from" : "to")
+    yn_del = _xfmr_yn(xfmr, wye_is_from ? "to" : "from")
+    iszero(yn_del) ||
+        @warn "wye_delta/delta_wye transformer: neutral impedance set on the DELTA side, which has no neutral; ignored."
+    use_yn = !iszero(yn_wye) && n_pos !== nothing
+    (!iszero(yn_wye) && !use_yn) &&
+        @warn "wye_delta/delta_wye transformer: r/x_neutral set but the wye side has no neutral terminal; ignored."
+    Y = zeros(ComplexF64, n_tot, n_tot)
 
     # Node ordering: [wye terminals..., delta terminals...]
     nodes = vcat(
@@ -374,6 +416,9 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
 
         Y .= transpose(C) * y_prim * C
     end
+
+    # Neutral-grounding branch: diagonal stamp at the wye neutral terminal.
+    use_yn && (Y[n_pos, n_pos] += yn_wye)
 
     # No-load shunt Y0 split equally across from-side phase terminals.
     if !iszero(G0) || !iszero(B0)
