@@ -337,7 +337,13 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     X1 = Float64(get(xfmr, "x_series_from", 0.0))
     R2 = Float64(get(xfmr, "r_series_to",   0.0))
     X2 = Float64(get(xfmr, "x_series_to",   0.0))
-    has_series = (R1 != 0.0 || X1 != 0.0 || R2 != 0.0 || X2 != 0.0)
+    # The analytical Yprim path needs BOTH star arms finite: a zero arm makes
+    # the coupling partly ideal (y = 1/Z → ∞) and the star reduction would
+    # produce NaN. A zero arm is legitimate data (e.g. XHT = XHL + XLT gives an
+    # exactly-zero LV arm), so any-zero-arm cases take the T-model branch below,
+    # which is linear in the impedances and exact for zero arms.
+    arm1 = (R1 != 0.0 || X1 != 0.0)
+    arm2 = (R2 != 0.0 || X2 != 0.0)
 
     # No-load admittance at HV terminals.
     G = Float64(get(xfmr, "g_no_load", 0.0))
@@ -369,8 +375,9 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # used when the ratio is a FIXED number. A free tap (variable N) takes the
     # degree-2 T-model branch below, which is algebraically identical at N = N0
     # (derived from this same Yprim) but linear-in-leakage so the products stay
-    # quadratic for Ipopt.
-    if has_series && tap === nothing
+    # quadratic for Ipopt. It also requires both star arms nonzero (see arm1/arm2
+    # above); a zero arm previously produced y = Inf and NaN-poisoned the stamp.
+    if arm1 && arm2 && tap === nothing
         Z1 = R1 + im * X1            # HV star arm  (HV side, Ω/pu)
         Z2 = R2 + im * X2            # each LV star arm (LV side, Ω/pu)
         y1 = N^2 / Z1
@@ -431,7 +438,7 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         return
     end
 
-    # ── T-model core (free tap, or zero series impedance) ─────────────────────
+    # ── T-model core (free tap, or a zero series star arm) ────────────────────
     # Degree-2 voltage drop derived from the SAME coupled-coil Yprim as the fixed
     # path above: with the HV core EMF E = V_hv − Z1·Is and the star node V* = E/N,
     #   leg1:  V_hv − N·v1 = Z1·Is − N·Z2·Il1

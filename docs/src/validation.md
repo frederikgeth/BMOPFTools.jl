@@ -254,14 +254,24 @@ fixtures above:
   PowerIO's `pmd` export (the `bmopf` export drops both — see
   [conversion](conversion.md)), and the `phases=1` requirement on grounding
   reactors without which the Dy neutral floats and the solve diverges.
-- **Transformer `Yprim` matches OpenDSS** (`single_phase`, `center_tap`): the
-  correctness gate from `transformer_admittance_derivation.md` §7 — the
-  per-element primitive admittance is compared term-by-term against OpenDSS's own
+- **Transformer `Yprim` matches OpenDSS** (`single_phase`, `center_tap`,
+  `wye_delta`, `delta_wye`): the correctness gate from
+  `transformer_admittance_derivation.md` §7 — the per-element primitive
+  admittance is compared term-by-term against OpenDSS's own
   `CktElement.YPrim()`. This is the check that catches turns-ratio direction, √3
-  scaling, shunt placement, and winding-polarity sign errors directly (it would
-  have caught the original `center_tap` leg-split bug); the delta blocks are
-  basis-dependent in the raw matrix, so Yd/Dy are covered terminally by the
-  unbalanced-load PF comparisons instead.
+  scaling, shunt placement, and winding-polarity sign errors directly: it would
+  have caught the original `center_tap` leg-split bug, and extending it to the
+  delta subtypes exposed (and now guards) an inverted Yd/Dy export primitive
+  that every symmetry/passivity oracle had passed. The Yd/Dy fixtures carry the
+  wye neutral as an explicit bus terminal with external grounding, so the
+  OpenDSS node set aligns directly with the BMOPF one.
+- **OPF ↔ `Yprim` export at a solved setpoint** (`single_phase`, `wye_delta`,
+  `delta_wye`, incl. off-nominal fixed taps; plus the `center_tap` variant
+  above): the OPF builders and the `Yprim` export implement each subtype
+  independently, so after a `solve_pf` the element current implied by the
+  exported admittance (``I = Y_p V``) is compared node-by-node against the
+  solved winding-current variables. This is the standing drift guard between
+  the OPF engine and the exported primitive matrices.
 
 ### Reusing the feasibility setup
 
