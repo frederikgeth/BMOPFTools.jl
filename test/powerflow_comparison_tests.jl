@@ -2812,30 +2812,44 @@ end
     @test isapprox(res["losses"]["p_loss"], _ods_losses_W(path); rtol=0.03)
 end
 
-@testset "PF comparison — from_dss 3-winding recovery (n_winding)" begin
-    # PowerIO's bmopf export drops every 3-phase 3+-winding transformer
-    # entirely; `from_dss` reconstructs them as `n_winding` from the pmd
-    # record. End-to-end against OpenDSS on the same fixtures the hand-built
-    # n_winding nets above validate (YYY, Dyn, Dyn-unbalanced), so agreement at
-    # the default tolerance means the reconstruction is byte-equivalent in
-    # effect to the validated hand mapping.
+@testset "PF comparison — from_dss n_winding (native PowerIO export)" begin
+    # PowerIO ≥0.6 exports every 3-phase 3+-winding transformer directly as a
+    # bmopf `n_winding` unit (earlier versions dropped them from the bmopf export
+    # and `from_dss` reconstructed them from the pmd record — still the fallback
+    # for connections PowerIO cannot express, see `_reconstruct_nwinding_from_pmd!`).
+    # `from_dss` normalises the winding terminal maps to a/b/c/n and restores the
+    # OpenDSS delta vector group (`delta_roll = -1`). End-to-end agreement with
+    # OpenDSS on the same fixtures the hand-built n_winding nets above validate
+    # (YYY, Dyn, Dyn-unbalanced) means the native import is equivalent in effect
+    # to the validated hand mapping.
     for f in ("pf_3wdg_nwinding.dss", "pf_3wdg_dyn.dss", "pf_3wdg_dyn_unbalanced.dss")
         path = joinpath(_PF_CMP_DIR, f)
         net  = from_dss(path)
         @test haskey(get(net, "transformer", Dict()), "n_winding")
-        @test get(get(net, "_meta", Dict()), "recovered_n_winding", nothing) == ["t1"]
         V_ods = _ods_volts(path)
         res   = solve_pf(net; optimizer=Ipopt.Optimizer)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        _cmp_volts(V_ods, _nwd_bm_volts(res); label="recov-$(f): ")
+        _cmp_volts(V_ods, _nwd_bm_volts(res); label="nwd-$(f): ")
     end
-    # 4+ windings: PowerIO's pmd export currently mangles `Xscarray` (it emits
-    # the three XHL/XHT/XLT class DEFAULTS, 7/35/30%, instead of the six pairs),
-    # so the reconstruction refuses loudly rather than building a wrong unit.
-    # Upstream PowerIO gap — when fixed, drop this block and extend the loop.
-    net4 = @test_logs (:warn, r"pmd record is incomplete") match_mode=:any from_dss(
-        joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
-    @test !haskey(get(net4, "transformer", Dict()), "n_winding")
+
+    # 4+ windings: PowerIO's bmopf export still mangles `Xscarray` — it emits the
+    # three XHL/XHT/XLT class DEFAULTS (7/35/30%) on the 1_2/1_3/2_3 pairs and
+    # ZERO for every pair touching winding 4 (1_4, 2_4, 3_4), instead of the six
+    # deck values [8 8 8 6 6 4]. The unit imports and solves, but the missing
+    # coupling reactances leave the low-side voltages ~1.3 % off OpenDSS. Upstream
+    # PowerIO gap (persists in 0.6.0) — when fixed, fold pf_4wdg_dyyn back into the
+    # loop above and drop this block.
+    net4 = from_dss(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
+    @test haskey(get(net4, "transformer", Dict()), "n_winding")
+    xsc4 = first(values(net4["transformer"]["n_winding"]))["x_sc"]
+    @test all(iszero, (xsc4["1_4"], xsc4["2_4"], xsc4["3_4"]))  # documents the gap
+    res4 = solve_pf(net4; optimizer=Ipopt.Optimizer)
+    @test res4["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    V_ods4 = _ods_volts(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
+    V_bm4  = _nwd_bm_volts(res4)
+    # Documented loss: low-side buses miss by more than the default tolerance.
+    @test_broken all(isapprox(V_ods4[k], V_bm4[k]; atol=2.0, rtol=3e-3)
+                     for k in keys(V_ods4) if haskey(V_bm4, k))
 end
 
 @testset "Transformer Yprim matches OpenDSS (single_phase, center_tap, Yd, Dy)" begin

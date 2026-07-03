@@ -77,6 +77,7 @@ function from_dss(path::AbstractString;
     _remap_opendss_terminals!(net)
     _merge_phase_voltage_sources!(net)
     _normalize_center_tap_transformers!(net)
+    _normalize_nwinding_delta_roll!(net)
     _recover_transformer_params_from_pmd!(net, dn)
 
     # Store conversion warnings so callers can inspect fidelity losses, and
@@ -312,6 +313,7 @@ function _remap_terminal_maps!(net::Dict{String,Any},
         subdict isa Dict || continue
         for (_, comp) in subdict
             comp isa Dict || continue
+            # Two-bus subtypes: terminal_map_from / terminal_map_to.
             for (tmap_key, bus_key) in (("terminal_map_from", "bus_from"),
                                         ("terminal_map_to",   "bus_to"))
                 rmap = get(rename_maps, get(comp, bus_key, ""), nothing)
@@ -320,6 +322,49 @@ function _remap_terminal_maps!(net::Dict{String,Any},
                 tmap isa Vector &&
                     (comp[tmap_key] = [get(rmap, string(t), string(t)) for t in tmap])
             end
+            # n_winding subtype: each winding carries its own `bus` + `terminal_map`.
+            windings = get(comp, "windings", nothing)
+            windings isa Vector || continue
+            for w in windings
+                w isa Dict || continue
+                rmap = get(rename_maps, get(w, "bus", ""), nothing)
+                rmap === nothing && continue
+                tmap = get(w, "terminal_map", nothing)
+                tmap isa Vector &&
+                    (w["terminal_map"] = [get(rmap, string(t), string(t)) for t in tmap])
+            end
+        end
+    end
+end
+
+"""
+    _normalize_nwinding_delta_roll!(net)
+
+Set `delta_roll = -1` on every DELTA winding of a PowerIO-exported `n_winding`
+transformer that does not already carry the field.
+
+PowerIO's bmopf export emits `n_winding` transformers directly (since v0.6) but
+does not populate BMOPF's `delta_roll` field, so the winding falls back to the
+`n_winding` model default of `+1`. OpenDSS's standard delta connection — the only
+one PowerIO produces from a `.dss` deck — corresponds to `delta_roll = -1` (the
+−30° vector-group rotation). This mirrors the convention BMOPF's own pmd
+reconstruction sets explicitly (see `_reconstruct_nwinding_from_pmd!`), so a
+natively-exported unit agrees with OpenDSS and with the hand-built fixtures. An
+explicit `delta_roll` (should PowerIO ever emit one) is left untouched.
+"""
+function _normalize_nwinding_delta_roll!(net::Dict{String,Any})
+    xfmr = get(net, "transformer", nothing)
+    xfmr isa Dict || return
+    nwd = get(xfmr, "n_winding", nothing)
+    nwd isa Dict || return
+    for (_, comp) in nwd
+        comp isa Dict || continue
+        windings = get(comp, "windings", nothing)
+        windings isa Vector || continue
+        for w in windings
+            w isa Dict || continue
+            get(w, "configuration", nothing) == "DELTA" || continue
+            haskey(w, "delta_roll") || (w["delta_roll"] = -1)
         end
     end
 end

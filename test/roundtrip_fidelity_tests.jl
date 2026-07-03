@@ -32,12 +32,12 @@ const _RT_PF_DIR = joinpath(@__DIR__, "data", "pf_comparison")
 # The unit now survives import, but `to_dss` lowers `n_winding` to a
 # single-phase bank with synthetic per-winding buses, so the reparse differs
 # structurally (documented loss; the PF cross-check still agrees).
-# pf_4wdg_dyyn stays clean only because PowerIO's pmd export mangles
-# `Xscarray` and the reconstruction refuses — when that upstream bug is fixed,
-# it moves out of this list too.
+# pf_4wdg_dyyn moved OUT when PowerIO ≥0.6 began exporting the 4-winding unit
+# directly (earlier it was dropped, and the reconstruction refused): it now
+# imports as `n_winding` and `to_dss` lowers it lossily, so the reparse differs.
 const RT_SEMANTIC_CLEAN = Set([
     "pf_1ph_freeneutral", "pf_1ph_impedanceneutral", "pf_1ph_line",
-    "pf_1ph_perfectneutral", "pf_3ph_line", "pf_4wdg_dyyn",
+    "pf_1ph_perfectneutral", "pf_3ph_line",
     "pf_delta_load", "pf_exp_1ph", "pf_open_delta_reg", "pf_pv_1ph",
     "pf_pv_4leg", "pf_zip_1ph", "pf_zip_3ph", "pf_zip_delta",
 ])
@@ -45,8 +45,17 @@ const RT_SEMANTIC_CLEAN = Set([
 # Cases that survive the OpenDSS power-flow cross-check at the coarse tolerance
 # (solve + match, or legitimately skipped). Everything else either islands
 # (dropped transformer) or fails to converge — see the failure map.
+#
+# The transformer cases (xfmr / 3wdg / 4wdg / autotransformer / cap) joined this
+# list once PowerIO ≥0.6 exported the multi-winding units directly and `from_dss`
+# normalised their winding terminals + delta vector group: the regenerated deck
+# now converges and matches at the coarse tolerance (the residual 4-winding
+# `Xscarray` gap is well within rtol=2 %).
 const RT_PF_SOUND = Set([
     "pf_1ph_line", "pf_exp_1ph", "pf_zip_1ph", "pf_open_delta_reg",
+    "pf_1ph_xfmr", "pf_3wdg_dyn", "pf_3wdg_dyn_unbalanced", "pf_3wdg_dyn_zgnd",
+    "pf_3wdg_nwinding", "pf_3wdg_nwinding_unbalanced", "pf_4wdg_dyyn",
+    "pf_4wdg_nwinding", "pf_autotransformer", "pf_cap_delta", "pf_cap_wye",
 ])
 
 const RT_PF_ATOL = 2.0
