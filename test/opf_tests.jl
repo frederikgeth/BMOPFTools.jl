@@ -3002,4 +3002,110 @@
         @test 0.9 - 1e-6 <= rll["transformer"]["t1"]["tap"] <= 1.1 + 1e-6
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # T15: Optimization profile — the solution "fingerprint" attached by the
+    # BMOPFOpfExt profiler (ext/BMOPFOpfExt/profile.jl). A negative-cost generator
+    # is driven to p_max on all three phases, so exactly those three dispatch
+    # upper bounds are active at the optimum — a case that MUST bind.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T15: optimization profile — DOF, active set, complementarity" begin
+        P_max_ph = 50_000.0
+        net = parse_bmopf("""
+        {"bus":{
+            "sourcebus":{"terminal_names":["1","2","3","n"],
+                         "perfectly_grounded_terminals":["n"]},
+            "bus1":     {"terminal_names":["1","2","3","n"],
+                         "perfectly_grounded_terminals":["n"],
+                         "v_min":[990.0, 990.0, 990.0],"v_max":[1001.0, 1001.0, 1001.0]}},
+         "voltage_source":{"vs":{"bus":"sourcebus",
+             "terminal_map":["1","2","3"],
+             "v_magnitude":[1000.0,1000.0,1000.0],
+             "v_angle":[0.0,-2.0944,2.0944]}},
+         "linecode":{"lc":{
+             "R_series_1_1":1.0e-4,"R_series_2_2":1.0e-4,"R_series_3_3":1.0e-4}},
+         "line":{"l1":{"bus_from":"sourcebus","bus_to":"bus1",
+             "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld1":{"bus":"bus1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE",
+             "p_nom":[150000.0,150000.0,150000.0],"q_nom":[0.0,0.0,0.0]}},
+         "generator":{"gen1":{"bus":"bus1","terminal_map":["1","2","3","n"],
+             "configuration":"WYE",
+             "p_min":[0.0,0.0,0.0],"p_max":[50000.0,50000.0,50000.0],
+             "q_min":[0.0,0.0,0.0],"q_max":[0.0,0.0,0.0],"cost":[-1.0,-1.0,-1.0]}}}
+        """; from_string=true)
+
+        res = solve_opf(net)   # default per_unit=true
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test haskey(res, "opt_profile")
+        p = res["opt_profile"]
+
+        # counts / degrees of freedom
+        @test p["n_variables"] isa Int && p["n_variables"] > 0
+        @test p["n_eq_constraints"] isa Int && p["n_eq_constraints"] > 0
+        @test p["n_ineq_constraints"] isa Int && p["n_ineq_constraints"] > 0
+        @test p["degrees_of_freedom"] == p["n_variables"] - p["n_eq_constraints"]
+        @test p["degrees_of_freedom"] > 0
+
+        # solver-reported effort
+        @test p["barrier_iterations"] isa Int && p["barrier_iterations"] > 0
+        @test p["solve_time_s"] isa Real && p["solve_time_s"] >= 0
+        @test p["units"] == "per_unit"
+
+        # dual-based active set: the three generator p_max bounds must bind, each
+        # with a strictly positive multiplier (non-degenerate).
+        @test p["has_duals"] == true
+        @test p["n_active"] isa Int && p["n_active"] >= 3
+        @test p["n_weakly_active"] == 0
+        @test p["strict_complementarity"] == true
+        @test p["min_active_multiplier"] isa Real && p["min_active_multiplier"] > 0
+        @test p["max_shadow_price"] >= p["min_active_multiplier"]
+
+        # profile_solution surfaces it and derives the flags
+        rep = profile_solution(net, res)
+        o = rep.results[:optimization]
+        @test o["available"] == true
+        @test o["is_opf"] == true          # something binds → a genuine OPF
+        @test o["degenerate"] == false     # strict complementarity holds
+
+        # render_solution includes the section
+        io = IOBuffer()
+        render_solution(rep, io)
+        @test occursin("Optimization Profile", String(take!(io)))
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # T16: Interior optimum — no operational constraint binds, so the case is
+    # effectively a power-flow instance and `is_opf` must be false.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "T16: interior optimum — is_opf false" begin
+        # Single-phase resistive, no generator, slack V=1000, high-V solution ≈947
+        # sits strictly inside [900, 999] and there are no thermal limits → nothing
+        # binds.
+        net = parse_bmopf("""
+        {"bus":{
+            "sourcebus":{"terminal_names":["1","n"],
+                         "perfectly_grounded_terminals":["n"]},
+            "bus1":     {"terminal_names":["1","n"],
+                         "perfectly_grounded_terminals":["n"],
+                         "v_min":[900.0],"v_max":[999.0]}},
+         "voltage_source":{"vs":{"bus":"sourcebus","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.5}},
+         "line":{"l1":{"bus_from":"sourcebus","bus_to":"bus1",
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld1":{"bus":"bus1","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE",
+             "p_nom":[100000.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+
+        res = solve_opf(net)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        p = res["opt_profile"]
+        @test p["n_active"] == 0
+        rep = profile_solution(net, res)
+        @test rep.results[:optimization]["is_opf"] == false
+    end
+
 end  # @testset "OPF — solve_opf extension"

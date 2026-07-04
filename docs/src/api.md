@@ -82,6 +82,7 @@ analyze
 render
 BMOPFTools.render_terminal
 BMOPFTools.render_markdown
+BMOPFTools.render_json
 render_ascii_tree
 ```
 

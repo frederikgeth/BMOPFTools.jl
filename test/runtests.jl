@@ -3605,6 +3605,7 @@ const IEEE13_FIXTURE = """
     # -----------------------------------------------------------------------
     include("sideload_coordinates_tests.jl")
     include("render_ascii_tree_tests.jl")
+    include("render_json_tests.jl")
 
     # -----------------------------------------------------------------------
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve

@@ -1494,6 +1494,33 @@ function voltage_zone_summary(net::Dict{String,Any}, result::Dict{String,Any})
     out
 end
 
+"""
+    _optimization_summary(result) -> Dict{String,Any}
+
+Surface the optimization fingerprint attached to an OPF `result` by the solver
+(`result["opt_profile"]`, from the BMOPFOpfExt profiler) and derive two flags:
+
+- `is_opf` — at least one operational constraint binds at the best-known solution
+  (`n_active > 0`); if false the instance is effectively a feasibility/power-flow
+  problem, not a discriminating OPF.
+- `degenerate` — duals available but complementarity is not strict (a binding
+  constraint has a ~zero multiplier).
+
+Returns `{"available": false}` when no profile is present (e.g. a third-party
+solver result), so downstream consumers can branch cleanly.
+"""
+function _optimization_summary(result::Dict{String,Any})::Dict{String,Any}
+    p = get(result, "opt_profile", nothing)
+    p isa Dict || return Dict{String,Any}("available" => false)
+    out = Dict{String,Any}(p)
+    out["available"] = true
+    n_active = get(p, "n_active", nothing)
+    out["is_opf"] = n_active isa Number && n_active > 0
+    sc = get(p, "strict_complementarity", nothing)
+    out["degenerate"] = get(p, "has_duals", false) === true && sc === false
+    out
+end
+
 # ── Formatting helpers (local to this file) ───────────────────────────────────
 _fmt_v(v::Float64)  = "$(round(v; digits=2)) V"
 _fmt_a(v::Float64)  = "$(round(v; digits=2)) A"

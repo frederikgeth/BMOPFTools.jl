@@ -213,5 +213,9 @@ function _build_and_solve(net::Dict{String,Any};
     result = _extract_results(model, working, bus_terminals, grounded, vars, branch_inj)
     extract! === nothing || extract!(ctx, result)
 
+    # Optimization fingerprint of the best-known solution — must be captured here,
+    # while `model` is live (it is discarded when this function returns).
+    result["opt_profile"] = _optimization_profile(model; per_unit=per_unit)
+
     bases !== nothing ? _from_per_unit(result, bases, net) : result
 end

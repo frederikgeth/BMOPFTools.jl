@@ -31,6 +31,7 @@ function render_solution_markdown(report::SolutionReport, io::IO; verbose::Bool=
     _sol_md_thermal(report, io)
     _sol_md_generator(report, io)
     _sol_md_residuals(report, io)
+    _sol_md_optimization(report, io)
     _sol_md_findings(report, io; verbose)
 end
 
@@ -275,6 +276,30 @@ function _sol_md_residuals(r::SolutionReport, io::IO)
         end
         println(io)
     end
+end
+
+# ── Optimization fingerprint ──────────────────────────────────────────────────
+
+function _sol_md_optimization(r::SolutionReport, io::IO)
+    o = get(r.results, :optimization, nothing)
+    (o isa Dict && get(o, "available", false) === true) || return
+    println(io, "## Optimization Profile\n")
+    _row(k, v) = v === nothing ? nothing : println(io, "| $k | $v |")
+    println(io, "| Metric | Value |")
+    println(io, "|--------|-------|")
+    _row("Variables",              get(o, "n_variables", nothing))
+    _row("Equality constraints",   get(o, "n_eq_constraints", nothing))
+    _row("Inequality constraints", get(o, "n_ineq_constraints", nothing))
+    _row("Degrees of freedom",     get(o, "degrees_of_freedom", nothing))
+    _row("Active (binding) constraints", get(o, "n_active", nothing))
+    _row("Genuine OPF (something binds)", get(o, "is_opf", nothing))
+    _row("Strictly complementary", get(o, "strict_complementarity", nothing))
+    _row("Weakly-active (degenerate)", get(o, "n_weakly_active", nothing))
+    _row("Barrier iterations",     get(o, "barrier_iterations", nothing))
+    _row("Solve time (s)",         get(o, "solve_time_s", nothing))
+    sp = get(o, "max_shadow_price", nothing)
+    sp === nothing || println(io, "| Max shadow price ($(get(o,"units","?"))) | $(round(sp; sigdigits=4)) |")
+    println(io)
 end
 
 # ── 6. All findings ───────────────────────────────────────────────────────────

@@ -445,6 +445,7 @@ include("report/render_terminal.jl")
 include("report/render_markdown.jl")
 include("report/render_ascii_tree.jl")
 include("report/render_solution_markdown.jl")
+include("report/render_json.jl")
 
 include("infeasibility/infeasibility.jl")
 
@@ -509,7 +510,8 @@ Render a [`SummaryReport`](@ref) to `dest`.
 
 - `dest::IO`            — writes terminal-formatted text (ANSI colour if tty)
 - `dest::AbstractString` — writes to file; format inferred from extension
-  (`.md` → Markdown, anything else → plain text)
+  (`.json` → structured JSON via [`render_json`](@ref), `.md` → Markdown,
+  anything else → plain text)
 
 # Keyword arguments
 - `color::Bool` — force-enable/disable ANSI colour for IO dest (default: auto)
@@ -520,7 +522,11 @@ function render(report::SummaryReport, dest::IO; color::Bool=get(dest, :color, f
 end
 
 function render(report::SummaryReport, path::AbstractString; verbose::Bool=true)
-    if endswith(path, ".md")
+    if endswith(path, ".json")
+        open(path, "w") do io
+            render_json(report, io)
+        end
+    elseif endswith(path, ".md")
         open(path, "w") do io
             render_markdown(report, io; verbose=verbose)
         end
@@ -553,6 +559,7 @@ function profile_solution(net::Dict{String,Any}, result::Dict{String,Any};
     results  = Dict{Symbol,Dict{String,Any}}()
     results[:solution] = solution_check(working, result, findings)
     results[:voltage_zones] = voltage_zone_summary(working, result)
+    results[:optimization] = _optimization_summary(result)
     meta = Dict{String,Any}(
         "termination_status" => get(result, "termination_status", "UNKNOWN"),
         "objective"          => get(result, "objective",          NaN),

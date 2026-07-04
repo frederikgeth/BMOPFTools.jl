@@ -316,6 +316,78 @@ end
     @test isempty(errors(report))
 end
 
+# ── Optimization summary: derivation of is_opf / degenerate from opt_profile ──
+# Solver-free: profile_solution reads result["opt_profile"] (attached by the OPF
+# extension) and derives the flags via _optimization_summary. Here we synthesise
+# the profile directly.
+
+@testset "SOL — optimization summary: binding, non-degenerate" begin
+    net    = _base_net()
+    result = _base_result()
+    result["opt_profile"] = Dict{String,Any}(
+        "n_variables" => 24, "n_eq_constraints" => 14, "n_ineq_constraints" => 16,
+        "degrees_of_freedom" => 10, "barrier_iterations" => 12, "solve_time_s" => 0.03,
+        "has_duals" => true, "n_active" => 5, "n_weakly_active" => 0,
+        "strict_complementarity" => true, "units" => "per_unit",
+    )
+    o = profile_solution(net, result).results[:optimization]
+    @test o["available"] == true
+    @test o["is_opf"] == true
+    @test o["degenerate"] == false
+    @test o["degrees_of_freedom"] == 10
+    @test o["n_active"] == 5
+end
+
+@testset "SOL — optimization summary: nothing binds → is_opf false" begin
+    net    = _base_net()
+    result = _base_result()
+    result["opt_profile"] = Dict{String,Any}(
+        "has_duals" => true, "n_active" => 0, "n_weakly_active" => 0,
+        "strict_complementarity" => true,
+    )
+    o = profile_solution(net, result).results[:optimization]
+    @test o["available"] == true
+    @test o["is_opf"] == false
+    @test o["degenerate"] == false
+end
+
+@testset "SOL — optimization summary: weakly-active → degenerate" begin
+    net    = _base_net()
+    result = _base_result()
+    result["opt_profile"] = Dict{String,Any}(
+        "has_duals" => true, "n_active" => 3, "n_weakly_active" => 1,
+        "strict_complementarity" => false,
+    )
+    o = profile_solution(net, result).results[:optimization]
+    @test o["is_opf"] == true
+    @test o["degenerate"] == true
+end
+
+@testset "SOL — optimization summary: absent profile" begin
+    net    = _base_net()
+    result = _base_result()   # no opt_profile
+    o = profile_solution(net, result).results[:optimization]
+    @test o["available"] == false
+    @test !haskey(o, "is_opf")
+end
+
+@testset "SOL — optimization profile renders / omits section" begin
+    net = _base_net()
+    # with a profile → section present
+    r1 = _base_result()
+    r1["opt_profile"] = Dict{String,Any}(
+        "n_variables" => 24, "n_eq_constraints" => 14, "degrees_of_freedom" => 10,
+        "n_active" => 5, "has_duals" => true, "strict_complementarity" => true,
+        "n_ineq_constraints" => 16, "barrier_iterations" => 12,
+    )
+    io = IOBuffer(); render_solution(profile_solution(net, r1), io)
+    @test occursin("## Optimization Profile", String(take!(io)))
+
+    # without a profile → section omitted
+    io2 = IOBuffer(); render_solution(profile_solution(net, _base_result()), io2)
+    @test !occursin("## Optimization Profile", String(take!(io2)))
+end
+
 # ── T12: render_solution produces valid Markdown ───────────────────────────────
 
 @testset "SOL — render_solution markdown" begin
