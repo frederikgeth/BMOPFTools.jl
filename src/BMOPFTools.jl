@@ -421,6 +421,13 @@ include("io/nwinding.jl")
 include("io/capacitor.jl")
 include("io/to_ybus.jl")
 
+include("lineconstants/wire.jl")
+include("lineconstants/earth.jl")
+include("lineconstants/series.jl")
+include("lineconstants/shunt.jl")
+include("lineconstants/kron.jl")
+include("lineconstants/compile.jl")
+
 include("analysis/inventory.jl")
 include("analysis/voltage_levels.jl")
 include("analysis/connectivity.jl")
@@ -781,6 +788,7 @@ export merge_series_lines, remove_dangling_lines
 export remove_open_switches, collapse_closed_switches
 export simplify_network
 export transformer_yprim, export_yprim, write_yprim
+export compile_linecode, compile_linecodes!
 
 # ---------------------------------------------------------------------------
 # Error hints

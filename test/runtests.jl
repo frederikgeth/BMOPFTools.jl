@@ -3773,6 +3773,12 @@ const IEEE13_FIXTURE = """
     include("capacitor_tests.jl")
 
     # -----------------------------------------------------------------------
+    # Geometry-based line constants — wire_data/line_geometry → linecode
+    # (IEEE test-feeder reference matrices; PF comparison gated on JuMP/Ipopt)
+    # -----------------------------------------------------------------------
+    include("lineconstants_tests.jl")
+
+    # -----------------------------------------------------------------------
     # Regulator subtypes: galvanic zone/island and neutral-continuity topology
     # -----------------------------------------------------------------------
     include("regulator_topology_tests.jl")

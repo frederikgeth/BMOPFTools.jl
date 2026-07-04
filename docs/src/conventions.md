@@ -104,6 +104,16 @@ upper-triangular shorthand (mirroring the missing transpose entries) and
 reports it as `I.SPEC.MATRIX_TRIANGULAR`. It always *writes* all n²
 entries.
 
+Linecodes may optionally record their origin: `source` (free-form:
+`"geometry"`, `"fem"`, `"datasheet"`, `"import"`, …), a `line_geometry`
+back-reference, and a `derivation` block (method, earth resistivity,
+frequency, defaults applied, tool + version). Two companion libraries hold
+construction data in SI units — `wire_data` (conductor/cable types: Ω/m,
+metres; `kind` ∈ `overhead`/`cn_cable`/`ts_cable`) and `line_geometry`
+(wire placements at (x, y) metres, y < 0 = burial depth, each conductor
+mapped to a terminal) — from which [`compile_linecode`](@ref) derives
+linecodes. See the [line-geometry tutorial](tutorial_line_geometry.md).
+
 ## Loads and generators
 
 `configuration` ∈ `SINGLE_PHASE` (2 terminals, between any two nodes),

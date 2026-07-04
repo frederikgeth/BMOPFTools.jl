@@ -297,6 +297,38 @@ function integrity_check(net::Dict{String,Any},
         end
     end
 
+    # --- wire_data / line_geometry references ---
+    wire_ids = Set(keys(get(net, "wire_data", Dict())))
+    for (id, geo) in get(net, "line_geometry", Dict())
+        geo isa Dict || continue
+        conds = get(geo, "conductors", nothing)
+        conds isa AbstractVector || continue
+        for (k, c) in enumerate(conds)
+            c isa Dict || continue
+            w = get(c, "wire_data", nothing)
+            if w isa AbstractString && !(w in wire_ids)
+                n_ref_issues += 1
+                push!(findings, Finding(ERROR, "E.INT.UNKNOWN_WIRE_DATA", :integrity,
+                    :line_geometry, id,
+                    "line_geometry '$id' conductor $k references unknown " *
+                    "wire_data '$w'.",
+                    Dict{String,Any}("wire_data" => w, "conductor" => k)))
+            end
+        end
+    end
+    geo_ids = Set(keys(get(net, "line_geometry", Dict())))
+    for (id, lc) in get(net, "linecode", Dict())
+        lc isa Dict || continue
+        g = get(lc, "line_geometry", nothing)
+        if g isa AbstractString && !(g in geo_ids)
+            n_ref_issues += 1
+            push!(findings, Finding(ERROR, "E.INT.UNKNOWN_LINE_GEOMETRY", :integrity,
+                :linecode, id,
+                "Linecode '$id' references unknown line_geometry '$g'.",
+                Dict{String,Any}("line_geometry" => g)))
+        end
+    end
+
     # --- linecode references + dimension consistency ---
     linecodes = get(net, "linecode", Dict())
     lc_dims = Dict{String,Int}()

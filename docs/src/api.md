@@ -65,6 +65,13 @@ export_yprim
 write_yprim
 ```
 
+## Line constants
+
+```@docs
+compile_linecode
+compile_linecodes!
+```
+
 ## Conversion
 
 ```@docs

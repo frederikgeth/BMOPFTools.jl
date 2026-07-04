@@ -379,3 +379,70 @@ function _classify_impedance_transformation(net::Dict{String,Any},
 
     Dict{String,Any}("by_linecode" => classified, "by_type" => by_type)
 end
+
+# ---------------------------------------------------------------------------
+# Geometry cross-check: linecodes that carry a `line_geometry` back-reference
+# are re-derived from the geometry and compared to their stored matrices.
+# Catches stale hand-edits and geometry changes that were not recompiled
+# (analogous to the transformer Yprim cross-check gate).
+# ---------------------------------------------------------------------------
+
+function _crosscheck_geometry_linecodes(net::Dict{String,Any},
+                                        findings::Vector{Finding})::Dict{String,Any}
+    checked = String[]
+    mismatched = String[]
+    for (id, lc) in get(net, "linecode", Dict())
+        lc isa Dict || continue
+        gid = get(lc, "line_geometry", nothing)
+        gid isa AbstractString || continue
+        haskey(get(net, "line_geometry", Dict()), gid) || continue  # E.INT covers this
+
+        tmp = Dict{String,Any}(
+            "wire_data"     => get(net, "wire_data", Dict{String,Any}()),
+            "line_geometry" => get(net, "line_geometry", Dict{String,Any}()),
+            "linecode"      => Dict{String,Any}())
+        derived = try
+            compile_linecode(tmp, String(gid))
+            tmp["linecode"][gid]
+        catch err
+            push!(findings, Finding(WARNING, "W.PROV.GEOMETRY_UNCOMPILABLE",
+                :provenance, :linecode, id,
+                "Linecode '$id' references line_geometry '$gid' which fails " *
+                "to compile: $(sprint(showerror, err))"))
+            continue
+        end
+        push!(checked, id)
+
+        worst = 0.0
+        for prefix in ("R_series_", "X_series_", "B_from_", "B_to_")
+            A = _pattern_keys_to_matrix(lc,      prefix)
+            D = _pattern_keys_to_matrix(derived, prefix)
+            A === nothing && D === nothing && continue
+            n = D === nothing ? size(A, 1) : size(D, 1)
+            Am = A === nothing ? zeros(n, n) : A
+            Dm = D === nothing ? zeros(n, n) : D
+            if size(Am) != size(Dm)
+                worst = Inf
+                continue
+            end
+            scale = max(maximum(abs.(Am)), maximum(abs.(Dm)), 1e-300)
+            worst = max(worst, maximum(abs.(Am - Dm)) / scale)
+        end
+        if worst > 1e-6
+            push!(mismatched, id)
+            push!(findings, Finding(WARNING, "W.PROV.GEOMETRY_MISMATCH",
+                :provenance, :linecode, id,
+                "Linecode '$id' does not match a re-derivation from its " *
+                "line_geometry '$gid' (worst relative deviation " *
+                "$(round(worst, sigdigits=3))) — the stored matrices are " *
+                "stale or hand-edited; recompile with " *
+                "compile_linecode(net, \"$gid\"; force=true) or drop the " *
+                "back-reference.",
+                Dict{String,Any}("line_geometry" => gid,
+                                 "relative_deviation" => worst)))
+        end
+    end
+    Dict{String,Any}("n_checked" => length(checked),
+                     "checked" => sort(checked),
+                     "mismatched" => sort(mismatched))
+end

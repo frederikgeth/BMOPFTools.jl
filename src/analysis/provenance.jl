@@ -35,6 +35,7 @@ function provenance_analysis(net::Dict{String,Any},
     result = Dict{String,Any}()
     vl = voltage_level_analysis(net, Finding[])   # duplicate findings discarded
     result["linecodes"]           = _classify_linecodes(net, findings)
+    result["geometry_crosscheck"] = _crosscheck_geometry_linecodes(net, findings)
     result["wires_by_level"]      = _wires_by_level(net, findings, vl)
     result["grounding"]           = _grounding_analysis(net, findings)
     _check_ungrounded_wye_neutrals(net, findings)

@@ -718,6 +718,54 @@
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
+                    },
+                    "source": {
+                        "type": "string",
+                        "description": "Origin of the impedance matrices, e.g. \"geometry\" (compiled from a line_geometry), \"fem\" (finite-element derived), \"datasheet\", \"import\""
+                    },
+                    "line_geometry": {
+                        "type": "string",
+                        "description": "Back-reference to the line_geometry this linecode was compiled from"
+                    },
+                    "derivation": {
+                        "type": "object",
+                        "description": "Provenance of the impedance computation: method, earth parameters, defaults applied, tool version. Stamped by compile_linecode; free-form for external tools (e.g. FEM)",
+                        "properties": {
+                            "method": {
+                                "type": "string",
+                                "description": "Impedance-calculation method, e.g. \"modified_carson\", \"full_carson\", \"deri\", \"fem_2d\""
+                            },
+                            "earth_resistivity": {
+                                "type": "number",
+                                "description": "Earth resistivity used [Ohm-m]"
+                            },
+                            "frequency": {
+                                "type": "number",
+                                "description": "Frequency the matrices were computed at [Hz]"
+                            },
+                            "temperature": {
+                                "type": "number",
+                                "description": "Conductor temperature the resistances were corrected to [degC]"
+                            },
+                            "shields_reduced": {
+                                "type": "array",
+                                "description": "Cable shield/concentric-neutral subconductors internally reduced into equivalent conductors, e.g. [\"cn:1\"]",
+                                "items": {"type": "string"}
+                            },
+                            "defaults_applied": {
+                                "type": "array",
+                                "description": "Cross-defaults applied during compilation, e.g. [\"gmr:acsr_40\"] when GMR was derived from radius",
+                                "items": {"type": "string"}
+                            },
+                            "tool": {
+                                "type": "string",
+                                "description": "Tool that produced the matrices"
+                            },
+                            "tool_version": {
+                                "type": "string",
+                                "description": "Version of the tool that produced the matrices"
+                            }
+                        }
                     }
                 },
                 "patternProperties":{
@@ -750,6 +798,162 @@
                     "R_series_1_1",
                     "X_series_1_1"
                 ]
+            }
+        },
+        "wire_data": {
+            "type": "object",
+            "description": "Reusable conductor/cable type library (geometry-free construction data). Referenced by line_geometry conductors. All quantities SI: Ohm/m, m, A, degC",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "description": "Conductor construction: bare overhead round wire, concentric-neutral cable, or tape-shield cable",
+                        "enum": ["overhead", "cn_cable", "ts_cable"]
+                    },
+                    "r_dc": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "DC resistance per unit length at temperature_ref [Ohm/m]. At least one of r_dc/r_ac is required (checked in the Julia layer); the other defaults via r_ac = 1.02 r_dc"
+                    },
+                    "r_ac": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "AC resistance per unit length at power frequency and temperature_ref [Ohm/m]"
+                    },
+                    "temperature_ref": {
+                        "type": "number",
+                        "description": "Reference temperature of r_dc/r_ac [degC]; default 20"
+                    },
+                    "alpha_20": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Temperature coefficient of resistance at 20 degC [1/K] for temperature correction, e.g. 0.00393 (Cu), 0.00403 (Al)"
+                    },
+                    "gmr": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Geometric mean radius of the (phase) conductor [m]. At least one of gmr/radius required; the other defaults via gmr = 0.7788 radius (solid round)"
+                    },
+                    "radius": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Physical outside radius of the (phase) conductor [m]"
+                    },
+                    "cap_radius": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Electrostatic (capacitance) radius [m]; defaults to radius. Distinct field so bundled conductors can use an equivalent radius"
+                    },
+                    "i_max": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Continuous current rating of the conductor [A]"
+                    },
+                    "i_max_emergency": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Emergency current rating [A]"
+                    },
+                    "eps_r": {
+                        "type": "number",
+                        "exclusiveMinimum": 1,
+                        "description": "Relative permittivity of the cable insulation (cables only); OpenDSS default 2.3"
+                    },
+                    "t_insulation": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Insulation layer thickness [m] (cables only)"
+                    },
+                    "d_insulation": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Diameter over the insulation [m] (cables only)"
+                    },
+                    "d_cable": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Overall cable diameter [m] (cables only)"
+                    },
+                    "n_strands": {
+                        "type": "integer",
+                        "minimum": 2,
+                        "description": "Number of concentric-neutral strands (cn_cable only)"
+                    },
+                    "d_strand": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Diameter of one concentric-neutral strand [m] (cn_cable only)"
+                    },
+                    "gmr_strand": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "GMR of one concentric-neutral strand [m] (cn_cable only); defaults to 0.7788 d_strand/2"
+                    },
+                    "r_strand": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Resistance per unit length of one concentric-neutral strand [Ohm/m] (cn_cable only)"
+                    },
+                    "d_shield": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Diameter over the tape shield [m] (ts_cable only)"
+                    },
+                    "t_tape": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Tape shield thickness [m] (ts_cable only)"
+                    },
+                    "tape_lap": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Tape shield overlap [percent] (ts_cable only); OpenDSS default 20"
+                    }
+                },
+                "required": ["kind"]
+            }
+        },
+        "line_geometry": {
+            "type": "object",
+            "description": "Reusable line/cable cross-section assemblies: wire_data types placed at coordinates, each mapped to a circuit terminal. Compiled into linecodes by compile_linecode. Every conductor maps to a terminal - the compiled matrix is the full primitive matrix (no Kron elimination pathway; grounding lives on bus perfectly_grounded_terminals)",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "conductors": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": "Ordered conductor placements; the order defines the compiled linecode's matrix row order",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "wire_data": {
+                                    "type": "string",
+                                    "description": "Reference to a wire_data id"
+                                },
+                                "x": {
+                                    "type": "number",
+                                    "description": "Horizontal coordinate of the conductor centre [m]"
+                                },
+                                "y": {
+                                    "type": "number",
+                                    "description": "Vertical coordinate of the conductor centre [m]; positive above ground, negative = burial depth"
+                                },
+                                "terminal": {
+                                    "type": "string",
+                                    "description": "Circuit terminal this conductor carries, e.g. \"a\", \"b\", \"c\", \"n\""
+                                }
+                            },
+                            "required": ["wire_data", "x", "y", "terminal"]
+                        }
+                    },
+                    "earth_model": {
+                        "type": "string",
+                        "description": "Earth-return formulation; default modified_carson (Kersting two-term). Note OpenDSS defaults to deri",
+                        "enum": ["modified_carson", "full_carson", "deri"]
+                    },
+                    "earth_resistivity": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Homogeneous earth resistivity [Ohm-m]; default 100"
+                    },
+                    "frequency": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Frequency the linecode is compiled at [Hz]; default 50"
+                    },
+                    "temperature": {
+                        "type": "number",
+                        "description": "Conductor operating temperature [degC]; resistances are corrected from wire_data temperature_ref using alpha_20 when present"
+                    }
+                },
+                "required": ["conductors"]
             }
         },
         "switch": {
