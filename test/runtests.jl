@@ -1378,7 +1378,8 @@ const IEEE13_FIXTURE = """
         @test any(x -> x.code == "E.INT.UNKNOWN_TERMINAL" &&
                        x.component_id == "bad3", f1)
 
-        # dimension mismatch: 1-terminal maps on a 3×3 linecode
+        # dimension mismatch: 1-terminal maps on a 3×3 linecode — a hard error,
+        # not a warning (silent truncation drops conductors / misaligns rows)
         net2 = deepcopy(base)
         net2["line"]["dim"] = Dict{String,Any}(
             "bus_from" => "650", "bus_to" => "632",
@@ -1386,7 +1387,7 @@ const IEEE13_FIXTURE = """
             "linecode" => "lc601", "length" => 1.0)
         f2 = Finding[]
         integrity_check(net2, f2)
-        @test any(x -> x.code == "W.INT.DIM_MISMATCH" &&
+        @test any(x -> x.code == "E.INT.LINE_DIM_MISMATCH" &&
                        x.component_id == "dim", f2)
 
         # padded matrix: zero third row+column

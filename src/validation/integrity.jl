@@ -425,11 +425,13 @@ function integrity_check(net::Dict{String,Any},
             nf = length(get(l, "terminal_map_from", String[]))
             nt = length(get(l, "terminal_map_to",   String[]))
             if nf != n || nt != n
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
+                n_ref_issues += 1
+                push!(findings, Finding(ERROR, "E.INT.LINE_DIM_MISMATCH", :integrity,
                     :line, id,
                     "Line '$id' has terminal maps of length ($nf, $nt) but its " *
-                    "inline impedance matrix is $n×$n.",
+                    "inline impedance matrix is $n×$n. Matrix row k is the " *
+                    "impedance seen by terminal-map entry k, so the counts must " *
+                    "match exactly; there is no meaningful truncation.",
                     Dict{String,Any}("n" => n, "from" => nf, "to" => nt)))
             end
             z_tot[id] = maximum(hypot(R[i, i],
@@ -452,11 +454,16 @@ function integrity_check(net::Dict{String,Any},
         nf = length(get(l, "terminal_map_from", String[]))
         nt = length(get(l, "terminal_map_to",   String[]))
         if nf != n || nt != n
-            n_dim_issues += 1
-            push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
+            n_ref_issues += 1
+            push!(findings, Finding(ERROR, "E.INT.LINE_DIM_MISMATCH", :integrity,
                 :line, id,
                 "Line '$id' has terminal maps of length ($nf, $nt) but its " *
-                "linecode '$lcid' is $n×$n.",
+                "linecode '$lcid' is $n×$n. Matrix row k is the impedance seen " *
+                "by terminal-map entry k, so the counts must match exactly — a " *
+                "$n-conductor linecode belongs on a $n-terminal line. Silently " *
+                "truncating to the shorter length (as some tools do) drops " *
+                "conductors and mutual coupling, or misaligns matrix rows with " *
+                "terminal roles, producing plausible-but-wrong results.",
                 Dict{String,Any}("linecode" => lcid, "n" => n,
                                  "from" => nf, "to" => nt)))
         end

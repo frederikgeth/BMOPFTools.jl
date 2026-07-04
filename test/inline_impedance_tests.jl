@@ -82,11 +82,11 @@ end
         hit = [f for f in fs if f.code == "E.PROV.NONRECIPROCAL"]
         @test !isempty(hit) && hit[1].component_type == :line
 
-        # dimension mismatch vs terminal maps
+        # dimension mismatch vs terminal maps — a hard error (no silent truncation)
         net2 = _inline_fixture(inline=true)
         net2["line"]["l1"]["terminal_map_from"] = ["a", "b", "c"]
         net2["line"]["l1"]["terminal_map_to"]   = ["a", "b", "c"]
-        @test "W.INT.DIM_MISMATCH" in [f.code for f in analyze(net2).findings]
+        @test "E.INT.LINE_DIM_MISMATCH" in [f.code for f in analyze(net2).findings]
 
         # implied per-length plausibility: values far too small for totals
         # over 500 m (e.g. per-metre data pasted in as totals, then some)

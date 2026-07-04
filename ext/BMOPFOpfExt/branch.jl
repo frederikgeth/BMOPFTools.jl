@@ -76,7 +76,20 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
         b_to  = line["bus_to"]
         tmfr  = Vector{String}(get(line, "terminal_map_from", String[]))
         tmto  = Vector{String}(get(line, "terminal_map_to",   String[]))
-        n_map = min(length(tmfr), length(tmto), n_c)
+        # The impedance matrix is n_c×n_c and matrix row k is the impedance seen
+        # by conductor k of each terminal map. The counts must match exactly —
+        # silently truncating to the minimum (as admittance tools do) would drop
+        # conductors and mutual coupling, or misalign rows with terminal roles,
+        # and solve to a plausible-but-wrong answer. Refuse instead.
+        if length(tmfr) != n_c || length(tmto) != n_c
+            error("Line '$lid': impedance matrix is $(n_c)×$(n_c) but the " *
+                  "terminal maps have lengths ($(length(tmfr)), $(length(tmto))). " *
+                  "A $(n_c)-conductor linecode/inline matrix must be used on a " *
+                  "$(n_c)-terminal line; there is no meaningful truncation. " *
+                  "Fix the linecode/geometry or the terminal maps " *
+                  "(validation reports this as E.INT.LINE_DIM_MISMATCH).")
+        end
+        n_map = n_c
 
         # ── KVL ───────────────────────────────────────────────────────────────
         for k in 1:n_map
