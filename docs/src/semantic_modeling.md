@@ -136,12 +136,14 @@ fidelity" stance, applied one level down:
 - **A matrix is frozen at one frequency; geometry is not.** Compiled matrices
   hold only at the frequency they were computed for — which is why
   `line_geometry.frequency` is required and stamped into every linecode's
-  `derivation`. The geometry is frequency-free: the same `wire_data`/
-  `line_geometry` recompiles at 50 or 60 Hz, and is the natural starting point
-  for **harmonic** impedance models (per-frequency skin effect and earth return,
-  which the `full_carson`/Bessel-internal-impedance machinery already
-  anticipates). A frozen 50 Hz matrix cannot be re-derived at harmonics without
-  the geometry it came from.
+  `derivation`. The geometry itself is frequency-free: the same `wire_data`/
+  `line_geometry` recompiles at 50 or 60 Hz, and — unlike a frozen matrix — it
+  retains the physical description a *frequency-dependent* (harmonic) impedance
+  method would need (per-frequency skin effect and earth return). The present
+  `compile_linecode` engine is fundamental-frequency (constant-`r_ac` modified
+  Carson, and it warns above the critical skin frequency); a harmonic-capable
+  model is future work, but only the geometry keeps the door open to it — a
+  frozen 50 Hz matrix cannot be re-derived at harmonics at all.
 - **Geometry is the better feature for learning problems.** Physical parameters
   (spacings, GMRs, heights, soil resistivity) are low-dimensional, bounded, and
   interpretable; the impedance matrix is their nonlinear, over-parameterised

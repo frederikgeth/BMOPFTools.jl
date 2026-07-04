@@ -15,15 +15,21 @@ in two library objects, and derives linecodes from them:
 | `line_geometry` | wire types placed at (x, y) coordinates, each mapped to a circuit terminal, plus the earth model | OpenDSS `LineGeometry`+`LineSpacing`, CIM `WirePosition` |
 | `linecode` | the compiled per-metre impedance matrices + provenance | OpenDSS `LineCode` |
 
-[`compile_linecode`](@ref) is the bridge. Lines keep referencing linecodes
-only — the OPF/PF stack sees a single impedance pathway whether a linecode
-came from geometry, finite elements, a datasheet, or an import.
+[`compile_linecode`](@ref) is the bridge. Most lines reference a linecode
+(compiled from geometry, or from finite elements, a datasheet, or an import); a
+line may alternatively carry its own inline absolute matrices (see
+[conventions](conventions.md#Lines,-linecodes-and-matrices)). Either way the
+compiled matrices are what the OPF/PF stack consumes — geometry is an *input*
+to the linecode, never a second solve-time pathway.
 
 Geometry is the **top of the impedance fidelity ladder** (geometry > per-length
 linecode > inline total matrices): prefer it when the construction data exists,
 because it is the only rung whose physical realisability is checkable directly
-(no inverse-Carson problem), that recompiles at other frequencies for harmonic
-studies, and that keeps a live provenance link back to the matrices it produced.
+(no inverse-Carson problem), the only one that carries the data a
+*frequency-dependent* (harmonic) impedance method would need, and the one that
+keeps a live provenance link back to the matrices it produced. (This engine's
+modified-Carson path is fundamental-frequency; see the
+[validity-domain note](#Validity-domain-of-the-analytical-models) below.)
 The full rationale is in [object identity](semantic_modeling.md#impedance-ladder).
 For *why the impedance model changes OPF feasibility and decisions* — the
 symmetry-breaking argument, with worked examples — see
@@ -55,10 +61,15 @@ construction (as below) rather than carrying unit fields around.
   default lands in `derivation.defaults_applied`, so a dataset audit can see
   which numbers were assumed rather than supplied.
 - **GMR vs radii.** `gmr` enters the series (magnetic) terms — using it there
-  includes the internal inductance implicitly, so the engine adds **no
-  separate internal-reactance term** (adding one double-counts it, a known
-  OpenDSS quirk). `cap_radius` (default `radius`) enters the electrostatic
-  terms; mixing GMR into capacitance is the classic implementation bug.
+  incorporates the internal inductance implicitly (`gmr = e^{-μᵣ/4}·radius` for
+  a solid round conductor), so the engine adds **no separate internal-reactance
+  term**; adding one on top of GMR would double-count it. (In the 40–1000 Hz
+  power band this is exactly OpenDSS's convention too, which is why the
+  cross-check below matches to five significant figures; the double-counting
+  critique in the impedance-modelling literature concerns a different,
+  higher-frequency code path.) `cap_radius` (default `radius`) enters the
+  electrostatic terms; mixing GMR into capacitance is the classic implementation
+  bug.
 
 ## Overhead example: IEEE 13 configuration 601
 
