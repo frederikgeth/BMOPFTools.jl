@@ -35,11 +35,12 @@ const _RT_PF_DIR = joinpath(@__DIR__, "data", "pf_comparison")
 # pf_4wdg_dyyn moved OUT when PowerIO ≥0.6 began exporting the 4-winding unit
 # directly (earlier it was dropped, and the reconstruction refused): it now
 # imports as `n_winding` and `to_dss` lowers it lossily, so the reparse differs.
+# PowerIO v0.6.1 preserves source neutral grounding on import. The current
+# `to_dss` writer does not emit that source side grounding, so those fixtures are
+# no longer structurally clean even though their regenerated decks solve.
 const RT_SEMANTIC_CLEAN = Set([
-    "pf_1ph_freeneutral", "pf_1ph_impedanceneutral", "pf_1ph_line",
-    "pf_1ph_perfectneutral", "pf_3ph_line",
-    "pf_delta_load", "pf_exp_1ph", "pf_open_delta_reg", "pf_pv_1ph",
-    "pf_pv_4leg", "pf_zip_1ph", "pf_zip_3ph", "pf_zip_delta",
+    "pf_1ph_line", "pf_exp_1ph", "pf_open_delta_reg", "pf_pv_1ph",
+    "pf_zip_1ph",
 ])
 
 # Cases that survive the OpenDSS power-flow cross-check at the coarse tolerance
@@ -52,10 +53,13 @@ const RT_SEMANTIC_CLEAN = Set([
 # now converges and matches at the coarse tolerance (the residual 4-winding
 # `Xscarray` gap is well within rtol=2 %).
 const RT_PF_SOUND = Set([
-    "pf_1ph_line", "pf_exp_1ph", "pf_zip_1ph", "pf_open_delta_reg",
-    "pf_1ph_xfmr", "pf_3wdg_dyn", "pf_3wdg_dyn_unbalanced", "pf_3wdg_dyn_zgnd",
+    "pf_1ph_freeneutral", "pf_1ph_impedanceneutral", "pf_1ph_line",
+    "pf_1ph_perfectneutral", "pf_1ph_xfmr", "pf_3ph_line",
+    "pf_3wdg_dyn", "pf_3wdg_dyn_unbalanced", "pf_3wdg_dyn_zgnd",
     "pf_3wdg_nwinding", "pf_3wdg_nwinding_unbalanced", "pf_4wdg_dyyn",
     "pf_4wdg_nwinding", "pf_autotransformer", "pf_cap_delta", "pf_cap_wye",
+    "pf_delta_load", "pf_exp_1ph", "pf_open_delta_reg", "pf_pv_1ph",
+    "pf_pv_4leg", "pf_zip_1ph", "pf_zip_3ph", "pf_zip_delta",
 ])
 
 const RT_PF_ATOL = 2.0

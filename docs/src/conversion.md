@@ -133,28 +133,20 @@ BMOPF conventions:
   a shared bus is reassembled into one polyphase source (below).
 - **Transformer impedance normalisation** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
-- **Transformer leakage & core-shunt recovery** — PowerIO's `bmopf` export drops
-  the no-load shunt (every subtype), collapses the `center_tap` 3-winding leakage,
-  and mis-refers the `delta_wye` delta-side leakage; `from_dss` re-derives these
-  from PowerIO's `pmd` export (`_recover_transformer_params_from_pmd!`) so losses
-  and split-phase legs match OpenDSS.
-- **Fixed off-nominal tap recovery** — the `bmopf` export drops OpenDSS `taps=`
-  entirely (silently solving at nominal ratio); `from_dss` recovers the single
-  from-side `tap` multiplier `t₁/t₂` from the pmd `tm_set`. OpenDSS
+- **Transformer leakage and core-shunt normalisation** — PowerIO v0.6.1 emits
+  BMOPF core shunts and neutral grounding directly. `from_dss` still consults
+  PowerIO's `pmd` export (`_recover_transformer_params_from_pmd!`) for the
+  stricter BMOPFTools conventions around center-tap leakage layout and the
+  `delta_wye` delta-side leakage reference.
+- **Fixed off-nominal tap recovery** — `from_dss` recovers the single from side
+  `tap` multiplier `t₁/t₂` from the pmd `tm_set`. OpenDSS
   `mintap`/`maxtap` are deliberately **not** mapped to `tap_min`/`tap_max`: in
   BMOPF their presence opts the tap into optimisation, whereas in OpenDSS they
   are ubiquitous class defaults (0.9/1.1 on every unit).
-- **3-winding reconstruction** — the `bmopf` export drops every 3-phase
-  3+-winding transformer (and any connection set outside the four two-bus
-  subtypes, e.g. Dd); `from_dss` rebuilds them as `n_winding` from the pmd
-  record (`_reconstruct_nwinding_from_pmd!`), validated end-to-end against
-  OpenDSS (YYY, Dyn, unbalanced Dyn). 4+ windings currently refuse loudly:
-  PowerIO's pmd export mangles `Xscarray` (upstream gap).
-- **Winding neutral grounding (`rneut`/`xneut`)** — PowerIO drops these from
-  every export, leaving an impedance-grounded wye neutral floating; `from_dss`
-  emits a targeted warning. BMOPF models them as the transformer-internal
-  grounding branch `r/x_neutral_from`/`to` (set the fields manually until
-  PowerIO exports them).
+- **n-winding transformers** — PowerIO v0.6.1 emits native BMOPF `n_winding`
+  data for the validated OpenDSS 3-winding cases. `from_dss` still normalises
+  the delta vector group and keeps the PMD reconstruction fallback for
+  connection sets the BMOPF export cannot express.
 - **System frequency capture** — the OpenDSS base frequency (`Set
   DefaultBaseFreq`, itself defaulting to 60 Hz; European decks set it to 50)
   is otherwise absent from BMOPF impedance data, so `from_dss` reads
@@ -172,10 +164,11 @@ BMOPF conventions:
 - **No slack price** — the imported `voltage_source` is left without a `cost`;
   the [augmentation pass](augmentation.md) supplies one (below).
 
-What is **faithful**: connectivity, phasing, linecode matrices, load models, and
-SI impedances pass through unchanged. What is **lossy or not-yet-supported** —
-lumped transformer leakage, earth-terminal grounding through the bus neutral, and
-the OpenDSS regulator/auto-transformer families — is catalogued under
+What is **faithful**: connectivity, phasing, linecode matrices, load models,
+transformer neutral grounding, native 3-winding transformer data, and SI
+impedances pass through unchanged. What is **lossy or not yet supported** —
+earth terminal grounding through the bus neutral and the OpenDSS
+regulator/auto-transformer families — is catalogued under
 [Known limitations](#Known-limitations); most are tracked as upstream PowerIO.jl
 issues.
 
@@ -322,12 +315,12 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
   `√3`/coil-base factor lives in `v_nom`, so `r_winding`/`x_sc` are on the coil
   base `n_ph·v_nom²/s_rating` and per-unit needs no `√3` correction.
 
-Ingest and export status: PowerIO does not yet emit `n_winding` from its `bmopf`
-export, but `from_dss` reconstructs dropped 3-winding units from the `pmd`
-export (see the conversion list above); this data model and its JSON Schema
-remain the target PowerIO should populate directly. `to_pmd` **skips** `n_winding` transformers with a
-warning, since PowerModelsDistribution has no general n-winding model. The OPF/PF
-model is validated to match OpenDSS's own 3-winding solve.
+Ingest and export status: PowerIO v0.6.1 emits `n_winding` from its BMOPF export
+for the validated 3-winding OpenDSS cases, and `from_dss` preserves the PMD
+reconstruction fallback for unsupported connection sets. `to_pmd` **skips**
+`n_winding` transformers with a warning, since PowerModelsDistribution has no
+general n-winding model. The OPF/PF model is validated to match OpenDSS's own
+3-winding solve.
 
 ### [Per-phase voltage source merge](@id source-merge)
 

@@ -135,9 +135,9 @@ Every IBR field written is recorded in the returned
 run internally.
 
 The placed IBRs are dispatched by [`solve_opf`](@ref) once
-[`augment_case`](@ref) has filled their P/Q box. (The OPF *engine* fully supports
-IBRs; only the `from_pmd`/`to_pmd`/`from_dss` I/O converters do not yet map
-IBR elements.)
+[`augment_case`](@ref) has filled their P/Q box. The OPF engine supports IBRs,
+and PowerIO v0.6.1 can import IBR/control data where the source carries it.
+BMOPFTools still treats `to_pmd` and `to_dss` IBR export as a follow up.
 
 # Example
 ```julia

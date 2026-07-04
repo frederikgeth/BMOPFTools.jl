@@ -520,13 +520,12 @@ Every field written is recorded as a `:synthetic` `TransformEntry` with rule
 `I.IBR.PLACED` / `W.IBR.NO_CANDIDATES` / `W.IBR.OVERSUPPLY` findings into the
 manifest's `findings_after`.
 
-!!! note "I/O converter support is pending"
+!!! note "I/O converter support"
     `solve_opf` dispatches placed IBRs once `augment_case` has filled their
     P/Q box — the OPF engine fully models IBRs (apparent-power circle,
-    topology-dependent voltage reference, constant-PF coupling). What is *not* yet
-    wired is the I/O layer: `to_pmd`/`from_dss` do not yet map
-    `ibr` elements, so IBRs cannot round-trip through
-    PowerModelsDistribution or OpenDSS.
+    topology-dependent voltage reference, constant-PF coupling). PowerIO v0.6.1
+    can import IBR/control data where the source carries it. BMOPFTools still
+    treats `to_pmd` and `to_dss` IBR export as an explicit follow up.
 
 ```@docs
 add_ibrs

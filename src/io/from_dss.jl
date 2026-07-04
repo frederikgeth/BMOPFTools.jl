@@ -133,20 +133,6 @@ function from_dss(path::AbstractString;
               "represented in BMOPF (full list on net[\"_meta\"][\"powerio_warnings\"]):\n  " *
               preview
     end
-    # rneut/xneut carry the transformer-INTERNAL winding neutral grounding;
-    # PowerIO drops them from every export it produces (bmopf AND pmd), so the
-    # affected neutral is left ungrounded — physically wrong for an
-    # impedance-grounded wye. BMOPF has fields for it; surface a targeted,
-    # actionable warning on top of the generic dropped-field list.
-    if any(occursin("`rneut`", String(w)) || occursin("`xneut`", String(w))
-           for w in warnings_list)
-        @warn "from_dss: OpenDSS transformer rneut/xneut (internal winding " *
-              "neutral grounding) was dropped by PowerIO — the affected " *
-              "neutral(s) are left UNGROUNDED. Set r_neutral_from/to and " *
-              "x_neutral_from/to on the transformer(s) manually; BMOPF models " *
-              "the internal grounding branch (see the schema)."
-    end
-
     if !isnothing(name)
         net["name"] = name
     elseif !haskey(net, "name") || isempty(get(net, "name", ""))
@@ -459,14 +445,13 @@ function _normalize_center_tap_transformers!(net::Dict{String,Any})
 end
 
 # Transformer subtypes whose electrical parameters we re-derive from the `pmd`
-# export. PowerIO's `bmopf` export is lossy for these: it drops the no-load shunt
-# (every subtype), drops fixed off-nominal taps (every subtype), collapses the
-# 3-winding `center_tap` leakage, and mis-refers the delta-side leakage of
-# `delta_wye`. Regulators (`single_phase_autotransformer`, `open_delta_regulator`)
-# are left as-is. PowerIO emits NO `n_winding` transformers at all — any unit
-# outside the four two-bus subtypes (3-phase 3+-winding, Dd, …) is dropped from
-# the bmopf export entirely and is reconstructed from the pmd record by
-# `_reconstruct_nwinding_from_pmd!`.
+# export. PowerIO v0.6.1 carries neutral grounding and native `n_winding` data.
+# BMOPFTools still re-derives a few transformer fields from PMD to preserve its
+# OPF conventions: fixed off-nominal taps, center-tap leakage layout, and the
+# delta-side leakage reference for `delta_wye`. Regulators
+# (`single_phase_autotransformer`, `open_delta_regulator`) are left as-is. The
+# n-winding reconstruction path remains as a fallback for connection sets the
+# BMOPF export cannot express.
 const _PMD_RECOVER_SUBTYPES = ("center_tap", "single_phase", "wye_delta", "delta_wye")
 
 # First scalar of a pmd per-phase tap vector. BMOPF carries one tap per
@@ -483,15 +468,15 @@ end
 """
     _recover_transformer_params_from_pmd!(net, dn)
 
-Re-derive transformer leakage and the no-load (core) shunt from PowerIO's `pmd`
-export, which retains the full electrical detail the `bmopf` export discards.
+Re-derive selected transformer details from PowerIO's `pmd` export.
 
-The `bmopf` export drops `g_no_load`/`b_no_load` for every transformer, collapses
-the `center_tap` 3-winding leakage to a lossy 2-winding reduction (full `XHL` on
-the HV side, `x_series_to = 0`), and mis-refers the `delta_wye` delta-side
-leakage. The `pmd` export keeps the pairwise short-circuit set (`xsc`), the
-per-winding resistances (`rw`), the winding bases (`vm_nom`/`sm_nom`), and the
-core-loss fractions (`noloadloss`/`cmag`).
+PowerIO v0.6.1 emits BMOPF neutral grounding, core shunts, and native
+`n_winding` transformers directly. BMOPFTools still uses the PMD export as a
+normalisation source for fields whose BMOPF interpretation is stricter here:
+fixed off-nominal taps, center-tap leakage layout, and the delta-side leakage
+reference for `delta_wye`. The `pmd` export keeps the pairwise short-circuit set
+(`xsc`), the per-winding resistances (`rw`), the winding bases
+(`vm_nom`/`sm_nom`), and the core-loss fractions (`noloadloss`/`cmag`).
 
 For each transformer of a subtype in [`_PMD_RECOVER_SUBTYPES`](@ref):
 
@@ -508,14 +493,14 @@ For each transformer of a subtype in [`_PMD_RECOVER_SUBTYPES`](@ref):
     and the per-winding resistances; equivalent to the Γ lump but correctly
     referred on both sides.
   * Fixed off-nominal taps — recovered from the pmd `tm_set` as the single
-    from-side `tap` multiplier `t₁/t₂` (the bmopf export drops `taps=`
-    entirely). `tap_min`/`tap_max` are deliberately NOT populated from OpenDSS
-    `mintap`/`maxtap`: in BMOPF their presence opts the tap into optimisation,
-    whereas in OpenDSS they are ubiquitous data defaults.
+    from side `tap` multiplier `t₁/t₂`. `tap_min`/`tap_max` are deliberately
+    NOT populated from OpenDSS `mintap`/`maxtap`: in BMOPF their presence opts
+    the tap into optimisation, whereas in OpenDSS they are ubiquitous data
+    defaults.
 
-Transformers the bmopf export dropped entirely (3-phase 3+-winding units, Dd,
-…) are rebuilt as `n_winding` via [`_reconstruct_nwinding_from_pmd!`](@ref) and
-listed under `net["_meta"]["recovered_n_winding"]`.
+Transformers the bmopf export cannot express are rebuilt as `n_winding` via
+[`_reconstruct_nwinding_from_pmd!`](@ref) and listed under
+`net["_meta"]["recovered_n_winding"]`.
 
 No-op when there are no transformers in either export.
 """
@@ -659,8 +644,8 @@ function _recover_transformer_params_from_pmd!(net::Dict{String,Any}, dn)
     if !isempty(recovered)
         meta = get!(net, "_meta", Dict{String,Any}())
         meta["recovered_n_winding"] = sort(recovered)
-        @info "from_dss: $(length(recovered)) transformer(s) dropped by PowerIO's " *
-              "bmopf export were reconstructed as `n_winding` from the pmd " *
+        @info "from_dss: $(length(recovered)) transformer(s) not present in the " *
+              "BMOPF export were reconstructed as `n_winding` from the pmd " *
               "export: $(join(sort(recovered), ", "))"
     end
 
@@ -671,9 +656,9 @@ end
 """
     _reconstruct_nwinding_from_pmd!(net, tid, t) -> Bool
 
-Rebuild a transformer that PowerIO's `bmopf` export dropped (any 3-phase unit
-with 3+ windings, or a connection pattern outside the four two-bus subtypes,
-e.g. Dd) as a BMOPF `n_winding` transformer from its `pmd` record `t`.
+Rebuild a transformer not present in the BMOPF export (for example, a connection
+pattern outside the supported two-bus subtypes) as a BMOPF `n_winding`
+transformer from its `pmd` record `t`.
 
 Mapping — mirrors the hand-built `n_winding` fixtures validated against OpenDSS
 in `test/powerflow_comparison_tests.jl`:
@@ -698,7 +683,7 @@ in `test/powerflow_comparison_tests.jl`:
     b_no_load is inductive (negative).
 
 Buses missing from the bmopf export (possible when a bus served only the
-dropped transformer) are synthesised from the winding terminal map, ungrounded.
+fallback transformer) are synthesised from the winding terminal map, ungrounded.
 Returns `false` (with a warning) when the pmd record is incomplete.
 """
 function _reconstruct_nwinding_from_pmd!(net::Dict{String,Any}, tid::String, t)::Bool
@@ -711,9 +696,9 @@ function _reconstruct_nwinding_from_pmd!(net::Dict{String,Any}, tid::String, t):
     nW = ok ? length(buses) : 0
     if !ok || nW < 2 || length(conf) < nW || length(conns) < nW ||
        length(vmn) < nW || length(rw) < nW || length(xsc) < binomial(nW, 2)
-        @warn "from_dss: transformer '$tid' was dropped by PowerIO's bmopf export " *
-              "and its pmd record is incomplete; cannot reconstruct — the unit is " *
-              "MISSING from the network."
+        @warn "from_dss: transformer '$tid' was not present in the BMOPF export " *
+              "and its pmd record is incomplete; cannot reconstruct — the unit " *
+              "is MISSING from the network."
         return false
     end
     tms = get(t, :tm_set, nothing)
@@ -733,7 +718,7 @@ function _reconstruct_nwinding_from_pmd!(net::Dict{String,Any}, tid::String, t):
         # the kv/√3 and per-leg conventions below do not apply — so refuse
         # loudly rather than build a wrong unit.
         if length(phases) != 3
-            @warn "from_dss: transformer '$tid' was dropped by PowerIO's bmopf " *
+            @warn "from_dss: transformer '$tid' was not present in the BMOPF " *
                   "export and winding $k is not 3-phase; only 3-phase windings " *
                   "can be reconstructed as n_winding — the unit is MISSING " *
                   "from the network."
