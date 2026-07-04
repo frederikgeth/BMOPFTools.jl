@@ -16,7 +16,9 @@ each separately:
 
 1. **Is the solution a valid power flow?** — *feasibility*: do the solved
    voltages and currents actually satisfy Kirchhoff's laws and the component
-   models? We check this against **OpenDSS**.
+   models? We check this against **OpenDSS**. The same check is available for
+   **your own** solved cases by [projecting the OPF onto a determined power
+   flow](@ref opf-projection).
 2. **Is it the optimum?** — *optimality*: given the objective and the operating
    bounds, does the optimizer reach the right dispatch? We check this against
    **closed-form solutions** and against **PowerModelsDistribution (PMD)**. 
@@ -305,6 +307,103 @@ The `.dss` files are portable and engine-agnostic: point your own solver at a
 case, solve the same `.dss` in OpenDSS for the reference voltages, and compare
 node-by-node with the mapping and tolerances above. No BMOPFTools dependency is
 needed to reuse the baseline.
+
+## [Validating a solution end-to-end — projecting the OPF onto a power flow](@id opf-projection)
+
+The feasibility harness above validates the **engine** on a fixed set of `.dss`
+fixtures. But you will also want to validate a **particular solution you just
+computed** on your own network: is the dispatch `solve_opf` returned actually a
+feasible power flow? [`project_solution`](@ref) generalises the feasibility
+cross-check to any solved case, so you can run the same OpenDSS oracle test on
+your own OPF results rather than only on the shipped fixtures.
+
+### The idea: pin the solution, re-solve as a determined power flow
+
+An OPF has *degrees of freedom* — generator/IBR dispatch, free transformer taps,
+smart-inverter setpoints — that a power flow does not. If you **pin every one of
+those to the value it takes in the OPF solution**, the only quantities still free
+are the nodal voltages: the network is now a fully *determined* power flow, and
+that power flow can be re-solved by an independent solver to check that the OPF's
+predicted voltages and currents really do satisfy Kirchhoff's laws and the
+component models.
+
+[`project_solution(net, result)`](@ref) does exactly this pinning and returns a
+deep copy of `net` (the input is never mutated):
+
+- **Generators and IBRs** — per-phase active/reactive dispatch is frozen to the
+  solved values (`p_min == p_max == pg`, `q_min == q_max == qg`). An IBR running a
+  Volt-var / power-factor `control_profile` has the profile dropped and explicit
+  fixed bounds written, freezing the smart-inverter control at its solved operating
+  point (the profile couples `Q` to `P` internally, so pinning both fixes it).
+- **Free transformer taps** — a tap that was an OPF decision variable (reported as
+  `tap` / `tap_ratio` in the result) is written back onto the winding. Fixed-tap
+  transformers are left untouched.
+
+The result is a legal input to [`solve_pf`](@ref) and, via [`to_dss`](@ref), an
+OpenDSS deck whose only free quantities are the voltages.
+`result["_meta"]["projection"]` on the returned net records exactly what was
+pinned (`generators`, `ibrs`, `control_profiles_frozen`, `free_taps`) so a later
+oracle mismatch can be attributed.
+
+### The three-way triangulation
+
+With a determined snapshot in hand there are three independent estimates of the
+same voltages, and comparing them *localises* any disagreement:
+
+| | Source | What it is |
+|---|---|---|
+| **A** | `result["bus"]` | the OPF's own predicted voltages |
+| **B** | `solve_pf(project_solution(net, result))` | BMOPF re-solving the pinned snapshot as a power flow (self-oracle) |
+| **C** | OpenDSS solving `to_dss(...)` of the snapshot | an *independent* engine (external oracle) |
+
+Reading the pattern:
+
+- **A ≈ B** confirms the projection is exact and the OPF's rectangular solution is
+  a self-consistent power flow — in practice these agree to ``\sim\!10^{-7}`` V, so
+  a divergence here points at the OPF or the projection, not the network.
+- **A ≈ B ≉ C** isolates a *conversion* problem — the model BMOPF solved and the
+  model OpenDSS solved differ (an export gap), not the OPF itself. This is how the
+  [PowerIO export gaps](conversion.md#to-dss-export) were found.
+
+The A ≈ B leg needs no external dependency; the C leg needs an OpenDSS solve, and
+is subject to the [`to_dss` fidelity limits](conversion.md#Known-limitations) —
+notably that PowerIO cannot yet emit a BMOPF `ibr`/`generator`, and currently
+writes `kvs = NaN` for transformers, so the OpenDSS oracle is exercised on
+transformer-free cases while that gap is upstream.
+
+### Exporting the dispatch to OpenDSS — `dispatch_as_loads`
+
+Because [`to_dss`](@ref) cannot yet serialise a BMOPF `ibr`/`generator`,
+[`dispatch_as_loads`](@ref) bridges the gap: it rewrites every **pinned**
+generator/IBR as an equivalent constant-power **negative load**
+(`p_nom = -p_min`, `q_nom = -q_min`) — which PowerIO exports faithfully — carrying
+the device's terminal map and connection. A fixed PQ injection *is* a negative
+constant-power load, so under the determined power flow the two forms are
+equivalent (`solve_pf` agrees to ``\sim\!10^{-6}`` V). Generation sitting on a
+`voltage_source` bus is **dropped, not converted** — the slack source is the
+reference injector in a power flow and its dispatch must not be re-imposed as a
+load. This bridge can be retired once PowerIO maps `ibr`/`generator` directly.
+
+### Putting it together
+
+```julia
+net    = from_dss("my_feeder.dss")
+result = solve_opf(net)                    # your OPF solution
+
+snap   = project_solution(net, result)     # pin every setpoint → determined snapshot
+res_B  = solve_pf(snap)                     # B: BMOPF self-oracle  (expect A ≈ B)
+
+deck   = dispatch_as_loads(snap)            # generators/IBRs → negative loads
+to_dss(deck, "snap.dss")                    # C: hand to OpenDSS   (expect A ≈ B ≈ C)
+```
+
+The comparators used in the test suite (`test/roundtrip_helpers.jl`) apply the
+same node-name bridge and skip tolerance (`|V| < 1e-4` earth/neutral nodes) as the
+feasibility harness above, so the projection cross-check reuses the OpenDSS
+comparison method verbatim — the only new machinery is the pinning.
+[`test/projection_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/projection_tests.jl)
+runs this on DER-augmented feeders and free-tap fixtures (the raw `pf_comparison`
+cases have no decision variables, so projection is a no-op there).
 
 ## Optimality — agreement with known optima
 

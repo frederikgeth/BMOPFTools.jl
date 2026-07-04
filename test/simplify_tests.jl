@@ -117,6 +117,51 @@ end
     @test l2["i_max"] == [80.0, 60.0]   # elementwise min
 end
 
+@testset "merge_series_lines — effective limit: linecode reliance vs loosening override" begin
+    # Regression: one segment relied on the linecode rating (100 A) while the
+    # other carried a LOOSER line-level override (150 A). Comparing raw overrides
+    # alone would pin 150 A on the merged line — beating the 100 A linecode and
+    # silently RELAXING the corridor. The effective-limit rule must keep 100 A.
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(), "B" => _bus(), "C" => _bus()),
+        "linecode" => Dict("lc1" => Dict{String,Any}(
+            "R_series_1_1" => 1e-3, "i_max" => [100.0, 100.0])),
+        "line"     => Dict(
+            "l1" => _line("A", "B"; len=100.0),   # no override → effective 100 (linecode)
+            "l2" => _line("B", "C"; len=200.0)),  # loosening override 150
+        "load"     => Dict("ld" => _load("C")),
+    )
+    net["line"]["l2"]["i_max"] = [150.0, 150.0]
+    l = only(values(merge_series_lines(net)["line"]))
+    # Effective merged limit = min(linecode 100, override 150) = 100, not relaxed.
+    @test get(l, "i_max", nothing) == [100.0, 100.0]
+
+    # When neither segment overrides, the shared linecode still carries the
+    # rating — no redundant override is pinned on the merged line.
+    net2 = deepcopy(net); delete!(net2["line"]["l2"], "i_max")
+    l2 = only(values(merge_series_lines(net2)["line"]))
+    @test !haskey(l2, "i_max")   # relies on linecode, unchanged
+end
+
+@testset "merge_series_lines — grounded intermediate bus blocked, GROUNDED_BUS logged" begin
+    # A modelled ground at the pass-through bus fixes terminal voltages; merging
+    # would delete the bus and silently drop the ground.
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(), "B" => _bus(grounded=["n"]), "C" => _bus()),
+        "linecode" => _lc("lc1"),
+        "line"     => Dict(
+            "l1" => _line("A", "B"; len=100.0),
+            "l2" => _line("B", "C"; len=200.0)),
+        "load"     => Dict("ld" => _load("C")),
+    )
+    net′ = merge_series_lines(net)
+
+    @test haskey(net′["bus"], "B")          # not deleted
+    @test length(net′["line"]) == 2         # not merged
+    @test "GROUNDED_BUS" in _log_codes(net′)
+    @test "warning" in _log_sevs(net′)
+end
+
 @testset "merge_series_lines — self-loop line not merged or destroyed" begin
     # Regression: a self-loop registers twice at its bus, passed the two-line
     # gate with l1 ≡ l2, and the "merge" deleted the line and bus outright.
@@ -291,6 +336,48 @@ end
     @test count(e["code"] == "LINE_REMOVED" for e in net′["_simplification_log"]) == 3
 end
 
+@testset "remove_dangling_lines — shunt-bearing stub still removed but flagged" begin
+    # A stub with shunt admittance is a shunt-to-earth: pruning it can move the
+    # feasible set, so it is still removed (topology pass) but flagged.
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(), "B" => _bus(), "X" => _bus()),
+        "linecode" => _lc("lc1"),
+        "line"     => Dict(
+            "main" => _line("A", "B"),
+            "stub" => _line("A", "X")),
+        "load"     => Dict("ld" => _load("B")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net["line"]["stub"]["B_from_1_1"] = 3.0e-6   # non-zero charging susceptance
+    net′ = remove_dangling_lines(net)
+
+    @test !haskey(net′["bus"],  "X")             # still pruned
+    @test !haskey(net′["line"], "stub")
+    @test "SHUNT_DROPPED" in _log_codes(net′)
+    shunt_entry = only(e for e in net′["_simplification_log"] if e["code"] == "SHUNT_DROPPED")
+    @test shunt_entry["severity"] == "warning"
+    @test shunt_entry["detail"]["surviving_bus"] == "A"
+
+    # A shunt-free stub is removed with no SHUNT_DROPPED entry.
+    net2 = deepcopy(net); delete!(net2["line"]["stub"], "B_from_1_1")
+    @test "SHUNT_DROPPED" ∉ _log_codes(remove_dangling_lines(net2))
+end
+
+@testset "remove_dangling_lines — shunt via linecode also flagged" begin
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(), "B" => _bus(), "X" => _bus()),
+        "linecode" => Dict(
+            "lc1" => Dict{String,Any}("R_series_1_1" => 1e-3),
+            "cab" => Dict{String,Any}("R_series_1_1" => 1e-3, "B_from_1_1" => 1.0e-7)),
+        "line"     => Dict(
+            "main" => _line("A", "B"; lc="lc1"),
+            "stub" => _line("A", "X"; lc="cab")),
+        "load"     => Dict("ld" => _load("B")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    @test "SHUNT_DROPPED" in _log_codes(remove_dangling_lines(net))
+end
+
 @testset "remove_dangling_lines — load at leaf prevents removal" begin
     net = Dict{String,Any}(
         "bus"      => Dict("A" => _bus(), "B" => _bus()),
@@ -382,6 +469,31 @@ end
 
     @test "SWITCH_COLLAPSED" in _log_codes(net′)
     @test all(s == "info" for s in _log_sevs(net′))
+end
+
+@testset "collapse_closed_switches — rated switch flags SWITCH_LIMIT_DROPPED" begin
+    # A closed switch with an enforced i_max is flow-limited in the OPF; the
+    # collapse fuses its buses into one node so the limit cannot be projected and
+    # is lost. It is still collapsed, but flagged so the loss is on the record.
+    net = Dict{String,Any}(
+        "bus"    => Dict("A" => _bus(), "B" => _bus()),
+        "switch" => Dict("sw" => _switch("A", "B"; open=false)),
+        "load"   => Dict("ld" => _load("B")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net["switch"]["sw"]["i_max"] = [100.0, 100.0]
+    net′ = collapse_closed_switches(net)
+
+    @test !haskey(net′["bus"], "B")              # still collapsed
+    @test !haskey(net′["switch"], "sw")
+    entry = only(e for e in net′["_simplification_log"] if e["code"] == "SWITCH_LIMIT_DROPPED")
+    @test entry["severity"] == "warning"
+    @test entry["detail"]["i_max"] == [100.0, 100.0]
+
+    # A switch with no limit (or an all-zero one) collapses without the flag.
+    net2 = deepcopy(net); delete!(net2["switch"], "sw")
+    net2["switch"] = Dict("sw" => _switch("A", "B"; open=false))
+    @test "SWITCH_LIMIT_DROPPED" ∉ _log_codes(collapse_closed_switches(net2))
 end
 
 @testset "collapse_closed_switches — voltage bounds tightened" begin

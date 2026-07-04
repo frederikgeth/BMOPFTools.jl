@@ -66,6 +66,30 @@ The machinery lives in `src/io/migrate.jl`:
 - Each upgrade appends a `W.MIGRATE.UPGRADED` note to `_meta` so the
   transformation is auditable.
 
+### What the spec does *not* track: derived reductions
+
+Not everything a case dict can carry is part of the versioned spec. Keys with a
+leading underscore — notably `_simplification_log` and the per-line
+`_merged_from` written by the [simplification passes](../tutorial_simplify.md) —
+are **package-level provenance conventions, not schema fields**. They are not
+validated, not migrated, and carry no compatibility promise.
+
+This has a consequence worth stating plainly, because the data model is meant for
+**exchanging benchmark cases**: a network that has been run through
+`simplify_network` (merged corridors, pruned stubs, collapsed switches) is a
+*lossy, derived compile target*, and the fact that it was reduced — let alone how
+to undo it — is **not recorded at the spec level**. A downstream tool that reads
+a simplified case sees only the reduced topology, with no schema signal that
+intermediate buses, per-segment impedances, or shunt-bearing stubs were removed.
+
+The guidance follows directly: **exchange the source case and simplify at solve
+time** (as [`fix_case`](@ref) does), rather than distributing the reduced form as
+the artefact of record. The design rationale — keep the fuller representation
+canonical, treat the dense form as derived — is in
+[Object identity: derived reductions](../semantic_modeling.md#derived-reductions).
+Making the dense compiled form a first-class, spec-tracked companion to the full
+model (so both travel together) is a candidate for a future schema revision.
+
 ### Adding a new spec version
 
 When the data model advances, add a migration step (recipe mirrored from the
