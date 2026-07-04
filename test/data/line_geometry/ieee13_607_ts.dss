@@ -1,0 +1,31 @@
+! IEEE-13 configuration 607 underground line: a single 1/0 AA tape-shield
+! cable plus a separate 1/0 bare copper neutral, 1 inch apart. OpenDSS
+! computes the series matrix with the tape shield internally reduced into the
+! cable's equivalent conductor, keeping the separate neutral as its own
+! conductor -> a 2x2 (phase + neutral). Reference for the TS-cable cross-check
+! in test/lineconstants_tests.jl.
+!
+!  - reduce=no yields the full 2x2 (the neutral is a real circuit conductor,
+!    NOT shield structure, so it is retained). BMOPFTools keeps it too; the
+!    test compares the 2x2 and, separately, its neutral-Kron-reduced 1x1
+!    against Kersting's published z = 1.3425 + j0.5124 ohm/mile.
+!  - TapeLap=50 reproduces Kersting's tape-shield resistance convention.
+!  - EarthModel=Carson == BMOPFTools "modified_carson".
+!  - Line units=m: Lines.RMatrix()/XMatrix() in ohm/m.
+
+clear
+new circuit.ieee13_607 basekv=4.16 phases=1 bus1=sourcebus
+set defaultbasefreq=60
+set earthmodel=Carson
+
+new TSData.ts10 DiaShield=0.88 TapeLayer=0.005 TapeLap=50
+~ Rac=0.97 GmrAC=0.0111 radius=0.184 DiaIns=0.82 InsLayer=0.220 EpsR=2.3
+~ Runits=mi GmrUnits=ft radunits=in
+new WireData.cu10 Rac=0.607 GmrAC=0.01113 radius=0.184 Runits=mi GmrUnits=ft radunits=in
+
+new linegeometry.g607 nconds=2 nphases=1 reduce=no
+~ cond=1 tscable=ts10 x=0      h=-3 units=ft
+~ cond=2 wire=cu10    x=0.0833 h=-3 units=ft
+
+new line.l1 bus1=sourcebus.1 bus2=b2.1 geometry=g607 length=1 units=m
+solve

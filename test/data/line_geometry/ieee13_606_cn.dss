@@ -1,0 +1,31 @@
+! IEEE-13 configuration 606 underground line: three 250 kcmil AA concentric-
+! neutral cables in a flat 6-inch trench. OpenDSS computes the series matrix
+! (concentric-neutral strands internally reduced into each cable's equivalent
+! conductor) and the coaxial shunt capacitance. Reference for the CN-cable
+! cross-check in test/lineconstants_tests.jl — BMOPFTools builds the same
+! cable as a cn_cable wire_data and compares compile_linecode output.
+!
+!  - reduce=no still yields a 3x3: OpenDSS ALWAYS reduces the CN shield
+!    subconductors, which BMOPFTools also does (shields are sub-terminal
+!    structure). So both engines return the 3x3 phase matrix directly.
+!  - EarthModel=Carson == BMOPFTools "modified_carson".
+!  - InsLayer/DiaIns/EpsR give the coaxial phase-to-shield capacitance
+!    (diagonal C, no interphase term) — the shunt cross-check reads CMatrix.
+!  - Line units=m: Lines.RMatrix()/XMatrix() in ohm/m, CMatrix() in nF/m.
+
+clear
+new circuit.ieee13_606 basekv=4.16 phases=3 bus1=sourcebus
+set defaultbasefreq=60
+set earthmodel=Carson
+
+new CNData.cn250 k=13 DiaStrand=0.0641 GmrStrand=0.00208 Rstrand=14.8722
+~ Rac=0.4100 GmrAC=0.0171 radius=0.2835 DiaCable=1.29 DiaIns=1.06 InsLayer=0.220 EpsR=2.3
+~ Runits=mi GmrUnits=ft radunits=in
+
+new linegeometry.g606 nconds=3 nphases=3 reduce=no
+~ cond=1 cncable=cn250 x=-0.5 h=-3 units=ft
+~ cond=2 cncable=cn250 x=0    h=-3 units=ft
+~ cond=3 cncable=cn250 x=0.5  h=-3 units=ft
+
+new line.l1 bus1=sourcebus bus2=b2 geometry=g606 length=1 units=m
+solve

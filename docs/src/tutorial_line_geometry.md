@@ -19,6 +19,13 @@ in two library objects, and derives linecodes from them:
 only — the OPF/PF stack sees a single impedance pathway whether a linecode
 came from geometry, finite elements, a datasheet, or an import.
 
+Geometry is the **top of the impedance fidelity ladder** (geometry > per-length
+linecode > inline total matrices): prefer it when the construction data exists,
+because it is the only rung whose physical realisability is checkable directly
+(no inverse-Carson problem), that recompiles at other frequencies for harmonic
+studies, and that keeps a live provenance link back to the matrices it produced.
+The full rationale is in [object identity](semantic_modeling.md#impedance-ladder).
+
 Everything is SI: Ω/m, metres, amps. Convert imperial datasheet values at
 construction (as below) rather than carrying unit fields around.
 

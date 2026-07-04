@@ -125,6 +125,14 @@ and `E.INT.LINE_IMPEDANCE_SOURCE`. This is the sanctioned home for FEM
 results, measured section impedances, and imports that previously abused
 `length = 1`.
 
+These three ways of recording a line's impedance — geometry, per-length
+linecode, inline totals — form a deliberate **fidelity ladder**: prefer
+geometry over a linecode-with-matrices, and a shared linecode over inline
+totals, reaching for a lower rung only when the construction data genuinely
+does not exist. The reasoning (realizability without solving inverse Carson,
+recompilation at other frequencies for harmonics, better features for
+learning, live provenance) is in [object identity](semantic_modeling.md#impedance-ladder).
+
 ### Units of the wire/geometry libraries
 
 One unit per field, fixed by the schema — there are no unit-selector fields

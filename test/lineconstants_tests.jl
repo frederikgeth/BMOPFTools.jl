@@ -540,30 +540,69 @@ end
     end
 end
 
+@testset "Line constants — temperature correction of resistance" begin
+    # r_ac(T) = r_ac(t_ref)·(1 + α₂₀(T − 20)) / (1 + α₂₀(t_ref − 20))  [IEC 60287].
+    # The earth-return real part (ωμ₀/8) is temperature-independent, so the
+    # compiled self-R diagonal minus that constant recovers the corrected r_ac.
+    mu0 = 4e-7 * pi
+    earth_R(f) = 2pi * f * mu0 / 8      # ohm/m, self earth-return resistance
+
+    function _compiled_rac(; r_ac, alpha_20, t_ref, temperature, f = 50.0)
+        w = Dict{String,Any}("kind" => "overhead", "r_ac" => r_ac,
+                             "radius" => 0.01, "temperature_ref" => t_ref)
+        alpha_20 === nothing || (w["alpha_20"] = alpha_20)
+        geo = Dict{String,Any}("frequency" => f,
+            "conductors" => Any[Dict{String,Any}(
+                "wire_data" => "w", "x" => 0.0, "y" => 8.0, "terminal" => "a")])
+        temperature === nothing || (geo["temperature"] = temperature)
+        net = Dict{String,Any}("wire_data" => Dict{String,Any}("w" => w),
+                               "line_geometry" => Dict{String,Any}("g" => geo))
+        compile_linecode(net, "g")
+        net["linecode"]["g"]["R_series_1_1"] - earth_R(f)
+    end
+
+    r20 = 3.0e-4; a = 0.00393              # copper, α at 20 °C
+    # correct up from 20 °C to 75 °C
+    @test _compiled_rac(r_ac = r20, alpha_20 = a, t_ref = 20.0, temperature = 75.0) ≈
+          r20 * (1 + a * (75.0 - 20.0))            rtol = 1e-10
+    # reference at 50 °C, operate at 90 °C — both offsets from 20 °C apply
+    @test _compiled_rac(r_ac = r20, alpha_20 = a, t_ref = 50.0, temperature = 90.0) ≈
+          r20 * (1 + a * (90.0 - 20.0)) / (1 + a * (50.0 - 20.0))  rtol = 1e-10
+    # no temperature and no alpha_20 → resistance is left untouched
+    @test _compiled_rac(r_ac = r20, alpha_20 = nothing, t_ref = 20.0, temperature = nothing) ≈
+          r20                                       rtol = 1e-10
+    # temperature given but no alpha_20 → still untouched (no coefficient to use)
+    @test _compiled_rac(r_ac = r20, alpha_20 = nothing, t_ref = 20.0, temperature = 90.0) ≈
+          r20                                       rtol = 1e-10
+    # higher temperature ⇒ higher resistance (monotone)
+    @test _compiled_rac(r_ac = r20, alpha_20 = a, t_ref = 20.0, temperature = 90.0) >
+          _compiled_rac(r_ac = r20, alpha_20 = a, t_ref = 20.0, temperature = 25.0)
+end
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Live differential cross-check against OpenDSS (via OpenDSSDirect), gated on
 # _HAS_ODS so CI without OpenDSS still runs the published-literal tests above.
 #
 # Geometry-defined linecodes do NOT round-trip through PowerIO yet, so we can't
-# use `from_dss`. Instead OpenDSS computes the matrices from a hand-written
-# WireData+LineGeometry deck (test/data/line_geometry/ieee13_601.dss), and
-# BMOPFTools builds the SAME geometry independently as wire_data/line_geometry
-# (the _wire_556_acsr/_geometry_601 helpers — a separate transcription of the
-# identical physical data). The two engines' matrices are then compared.
+# use `from_dss`. Instead OpenDSS computes the matrices from hand-written
+# WireData/CNData/TSData + LineGeometry decks (test/data/line_geometry/*.dss),
+# and BMOPFTools builds the SAME geometry independently as wire_data/
+# line_geometry — a separate transcription of the identical physical data. The
+# two engines' matrices are then compared.
 #
-# This is complementary to the published-literal tests: those pin us to
-# Kersting's MODIFIED-CARSON numbers; this pins us to OpenDSS's own engine for
-# BOTH earth models, including Deri (OpenDSS's default), for which no published
-# reference matrix exists.
+# Complementary to the published-literal tests: those pin us to Kersting's
+# MODIFIED-CARSON numbers; this pins us to OpenDSS's own engine across all four
+# earth-model/frequency combinations (Carson, FullCarson, Deri, and 50 Hz) and
+# across overhead, concentric-neutral, and tape-shield construction — including
+# cases (Deri, cable shunt C) for which no published reference matrix exists.
 # ─────────────────────────────────────────────────────────────────────────────
 if @isdefined(_HAS_ODS) && _HAS_ODS
     @testset "geometry cross-check vs OpenDSS (live)" begin
         _dss_dir = joinpath(@__DIR__, "data", "line_geometry")
-        carson_dss = joinpath(_dss_dir, "ieee13_601.dss")
 
-        # OpenDSS returns the full 4×4 in ohm/m (units=m, reduce=no) and
-        # CMatrix in nF/m.
-        function _ods_line_matrices(dss_path)
+        # OpenDSS returns the full primitive matrix (units=m, reduce=no; CN/TS
+        # shields are always internally reduced) in ohm/m, and CMatrix in nF/m.
+        function _ods_matrices(dss_path)
             OpenDSSDirect.dss("Clear")
             OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
             OpenDSSDirect.Lines.Name("l1")
@@ -572,53 +611,139 @@ if @isdefined(_HAS_ODS) && _HAS_ODS
              C = Matrix{Float64}(OpenDSSDirect.Lines.CMatrix()))
         end
 
-        # BMOPFTools engine on the independently hand-built geometry.
-        function _bmopf_line_matrices(earth_model)
-            geo = _geometry_601(); geo["earth_model"] = earth_model
-            net = Dict{String,Any}(
+        # Compile a hand-built geometry and return its per-metre matrices; C in
+        # nF/m to match OpenDSS (C_total = 2·B_from/ω, ×1e9).
+        function _bmopf_matrices(net, gid, f)
+            compile_linecode(net, gid)
+            lc = net["linecode"][gid]
+            Bf = BMOPFTools._pattern_keys_to_matrix(lc, "B_from_")
+            (R = BMOPFTools._pattern_keys_to_matrix(lc, "R_series_"),
+             X = BMOPFTools._pattern_keys_to_matrix(lc, "X_series_"),
+             C = Bf === nothing ? nothing : (2 .* Bf ./ (2pi * f)) .* 1e9)
+        end
+
+        # Overhead config 601, hand-built, at a given earth model and frequency.
+        function _net_601(earth_model, f)
+            geo = _geometry_601()
+            geo["earth_model"] = earth_model; geo["frequency"] = f
+            Dict{String,Any}(
                 "wire_data" => Dict{String,Any}("acsr556" => _wire_556_acsr(),
                                                 "acsr40"  => _wire_4_0_acsr()),
                 "line_geometry" => Dict{String,Any}("g" => geo))
-            compile_linecode(net, "g")
-            lc = net["linecode"]["g"]
-            R = BMOPFTools._pattern_keys_to_matrix(lc, "R_series_")
-            X = BMOPFTools._pattern_keys_to_matrix(lc, "X_series_")
-            Bf = BMOPFTools._pattern_keys_to_matrix(lc, "B_from_")
-            C_nF = (2 .* Bf ./ (2pi * 60.0)) .* 1e9      # F/m → nF/m
-            (R = R, X = X, C = C_nF)
         end
 
-        @testset "Carson ≡ modified_carson — tight" begin
-            ods = _ods_line_matrices(carson_dss)
-            us  = _bmopf_line_matrices("modified_carson")
-            # OpenDSS EarthModel=Carson is the same constant-term truncation as
-            # our modified_carson; the matrices agree to numerical precision.
-            @test maximum(abs.(us.R .- ods.R)) / maximum(abs.(ods.R)) < 1e-4
-            @test maximum(abs.(us.X .- ods.X)) / maximum(abs.(ods.X)) < 1e-4
-            @test maximum(abs.(us.C .- ods.C)) / maximum(abs.(ods.C)) < 1e-3
+        # Write an in-memory variant of a committed deck (earth model / freq).
+        function _variant(base, subs...)
+            path = joinpath(mktempdir(), "variant.dss")
+            txt = read(joinpath(_dss_dir, base), String)
+            for (from, to) in subs
+                txt = replace(txt, from => to)
+            end
+            write(path, txt)
+            path
         end
 
-        @testset "Deri ≡ deri — X/mutual exact, self-R within convention" begin
-            deri_dss = joinpath(mktempdir(), "ieee13_601_deri.dss")
-            write(deri_dss,
-                  replace(read(carson_dss, String),
-                          "earthmodel=Carson" => "earthmodel=Deri"))
-            ods = _ods_line_matrices(deri_dss)
-            us  = _bmopf_line_matrices("deri")
+        relerr(a, b) = maximum(abs.(a .- b)) / maximum(abs.(b))
+
+        @testset "overhead 601 — Carson ≡ modified_carson (60 Hz), R/X/C tight" begin
+            ods = _ods_matrices(joinpath(_dss_dir, "ieee13_601.dss"))
+            us  = _bmopf_matrices(_net_601("modified_carson", 60.0), "g", 60.0)
+            @test relerr(us.R, ods.R) < 1e-4
+            @test relerr(us.X, ods.X) < 1e-4
+            @test relerr(us.C, ods.C) < 1e-3
+        end
+
+        @testset "overhead 601 — FullCarson ≡ full_carson (60 Hz)" begin
+            ods = _ods_matrices(_variant("ieee13_601.dss",
+                                         "earthmodel=Carson" => "earthmodel=FullCarson"))
+            us  = _bmopf_matrices(_net_601("full_carson", 60.0), "g", 60.0)
+            @test relerr(us.R, ods.R) < 1e-4
+            @test relerr(us.X, ods.X) < 1e-4
+        end
+
+        @testset "overhead 601 — 50 Hz Carson (frequency handled from ω, no rescale)" begin
+            ods = _ods_matrices(_variant("ieee13_601.dss",
+                                         "defaultbasefreq=60" => "defaultbasefreq=50"))
+            us  = _bmopf_matrices(_net_601("modified_carson", 50.0), "g", 50.0)
+            @test relerr(us.R, ods.R) < 1e-4
+            @test relerr(us.X, ods.X) < 1e-4
+            # sanity: the 50 Hz reactance is genuinely ~5/6 of the 60 Hz one
+            us60 = _bmopf_matrices(_net_601("modified_carson", 60.0), "g", 60.0)
+            @test 0.80 < us.X[1, 1] / us60.X[1, 1] < 0.87
+        end
+
+        @testset "overhead 601 — Deri: X/mutual exact, self-R within convention" begin
+            ods = _ods_matrices(_variant("ieee13_601.dss",
+                                         "earthmodel=Carson" => "earthmodel=Deri"))
+            us  = _bmopf_matrices(_net_601("deri", 60.0), "g", 60.0)
             # Reactance and mutual (off-diagonal) resistance match OpenDSS's
             # Deri to machine precision — the complex-depth external and
             # earth-return terms are identical. Only the self (diagonal)
             # earth-RESISTANCE differs, by up to ~1.6 % (largest on the
             # smaller-GMR neutral): a genuine convention difference in the
-            # complex-depth SELF term between the two Deri implementations.
-            # Note our modified_carson (the default) matches OpenDSS's Carson
-            # exactly including self-R — see the tight test above. The
-            # differential is documented rather than papered over: if it ever
+            # complex-depth SELF term between the two Deri implementations. Our
+            # modified_carson (the default) matches OpenDSS's Carson exactly
+            # including self-R (test above). Documented, not papered over: if it
             # widens, this fails and points at the self-term formula.
             offdiag = [(i, j) for i in 1:4 for j in 1:4 if i != j]
-            @test maximum(abs.(us.X .- ods.X)) / maximum(abs.(ods.X)) < 1e-4
+            @test relerr(us.X, ods.X) < 1e-4
             @test maximum(abs(us.R[i, j] - ods.R[i, j]) for (i, j) in offdiag) < 1e-9
-            @test maximum(abs.(us.R .- ods.R)) / maximum(abs.(ods.R)) < 0.02
+            @test relerr(us.R, ods.R) < 0.02
+        end
+
+        @testset "concentric-neutral cable 606 — R/X and coaxial shunt C" begin
+            ods = _ods_matrices(joinpath(_dss_dir, "ieee13_606_cn.dss"))
+            cn = Dict{String,Any}(
+                "kind" => "cn_cable", "r_ac" => 0.4100 / _MILE,
+                "gmr" => 0.0171 * _FT, "radius" => 0.2835 * _IN,
+                "d_cable" => 1.29 * _IN, "n_strands" => 13,
+                "d_strand" => 0.0641 * _IN, "gmr_strand" => 0.00208 * _FT,
+                "r_strand" => 14.8722 / _MILE, "eps_r" => 2.3,
+                "d_insulation" => 1.06 * _IN, "t_insulation" => 0.220 * _IN)
+            net = Dict{String,Any}(
+                "wire_data" => Dict{String,Any}("cn250" => cn),
+                "line_geometry" => Dict{String,Any}("g" => Dict{String,Any}(
+                    "frequency" => 60.0, "earth_model" => "modified_carson",
+                    "earth_resistivity" => 100.0,
+                    "conductors" => Any[
+                        Dict{String,Any}("wire_data" => "cn250", "x" => -0.5 * _FT, "y" => -3.0 * _FT, "terminal" => "a"),
+                        Dict{String,Any}("wire_data" => "cn250", "x" =>  0.0,       "y" => -3.0 * _FT, "terminal" => "b"),
+                        Dict{String,Any}("wire_data" => "cn250", "x" =>  0.5 * _FT, "y" => -3.0 * _FT, "terminal" => "c")])))
+            us = _bmopf_matrices(net, "g", 60.0)
+            # both engines return the 3×3 phase matrix (CN strands reduced)
+            @test size(us.R) == (3, 3)
+            @test relerr(us.R, ods.R) < 1e-3
+            @test relerr(us.X, ods.X) < 1e-3
+            # coaxial phase-to-shield capacitance: diagonal, no interphase term
+            @test relerr(us.C, ods.C) < 1e-3
+            @test maximum(abs.(us.C[i, j] for i in 1:3 for j in 1:3 if i != j)) < 1e-12
+        end
+
+        @testset "tape-shield cable 607 — 2×2 (shield reduced, neutral kept)" begin
+            ods = _ods_matrices(joinpath(_dss_dir, "ieee13_607_ts.dss"))
+            ts = Dict{String,Any}(
+                "kind" => "ts_cable", "r_ac" => 0.97 / _MILE,
+                "gmr" => 0.0111 * _FT, "radius" => 0.184 * _IN,
+                "d_shield" => 0.88 * _IN, "t_tape" => 0.005 * _IN, "tape_lap" => 50.0)
+            nw = Dict{String,Any}(
+                "kind" => "overhead", "r_ac" => 0.607 / _MILE,
+                "gmr" => 0.01113 * _FT, "radius" => 0.184 * _IN)
+            net = Dict{String,Any}(
+                "wire_data" => Dict{String,Any}("ts10" => ts, "cu10" => nw),
+                "line_geometry" => Dict{String,Any}("g" => Dict{String,Any}(
+                    "frequency" => 60.0, "earth_model" => "modified_carson",
+                    "earth_resistivity" => 100.0,
+                    "conductors" => Any[
+                        Dict{String,Any}("wire_data" => "ts10", "x" => 0.0,          "y" => -3.0 * _FT, "terminal" => "a"),
+                        Dict{String,Any}("wire_data" => "cu10", "x" => 0.0833 * _FT, "y" => -3.0 * _FT, "terminal" => "n")])))
+            us = _bmopf_matrices(net, "g", 60.0)
+            @test size(us.R) == (2, 2)
+            @test relerr(us.R, ods.R) < 1e-3
+            @test relerr(us.X, ods.X) < 1e-3
+            # neutral-reduced 1×1 matches Kersting's published 607 value
+            Z = (us.R .+ im .* us.X)
+            z1 = BMOPFTools._kron_reduce(Z, [1])[1, 1] * _MILE
+            @test abs(z1 - (1.3425 + 0.5124im)) < 2e-3
         end
     end
 end

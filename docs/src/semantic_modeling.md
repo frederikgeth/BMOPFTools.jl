@@ -103,6 +103,65 @@ near-zero-impedance line → `switch` fix). Choosing the right *value*, like
 choosing the right *object*, is therefore not cosmetic: it is what gives the
 downstream optimisation good numerics.
 
+## [The line-impedance fidelity ladder](@id impedance-ladder)
+
+The object-identity principle has a *within-asset* corollary. A line's electrical
+behaviour can be recorded at three fidelity levels, and they are not
+interchangeable — each higher level expresses and lets you *verify* strictly more
+than the ones below:
+
+1. **Geometry** (`wire_data` + `line_geometry`) — the physical construction:
+   which conductor, of what material, at which coordinates, over what earth. The
+   asset as an engineer would describe it.
+2. **Per-length matrices** (`linecode` + `length`) — the series/shunt matrices
+   the geometry compiles to *at one frequency*, shared across every line of that
+   type and scaled by length.
+3. **Total matrices** (inline `R_series_`/`X_series_` on the line) — the
+   impedance of one specific section, frozen; nothing is shared, nothing scales.
+
+BMOPFTools accepts all three but **prefers them in that order**, and the
+preference is not stylistic — it is the same "data-quality leverage > encoding
+fidelity" stance, applied one level down:
+
+- **Realizability is checkable at the top, not the bottom.** Given geometry,
+  *"is this physically realisable?"* is a set of **forward** checks on the
+  construction data — GMR ≤ radius, conductors do not overlap, cable layers nest
+  (`E.DOM.WIRE_GMR_EXCEEDS_RADIUS`, `E.DOM.GEOM_CONDUCTOR_OVERLAP`,
+  `E.DOM.WIRE_CABLE_LAYERS`). Given only a matrix, the same question is the
+  **inverse Carson problem**: you must try to recover a geometry that *could*
+  have produced it — and there may be none, or many. A bare matrix that is
+  subtly non-physical is then catchable only by weaker, after-the-fact symptoms
+  (`E.PROV.NONRECIPROCAL`, `E.PROV.NONPASSIVE`, or the per-metre plausibility
+  guard `W.DOM.LINE_IMPLIED_PER_LENGTH`), never by construction.
+- **A matrix is frozen at one frequency; geometry is not.** Compiled matrices
+  hold only at the frequency they were computed for — which is why
+  `line_geometry.frequency` is required and stamped into every linecode's
+  `derivation`. The geometry is frequency-free: the same `wire_data`/
+  `line_geometry` recompiles at 50 or 60 Hz, and is the natural starting point
+  for **harmonic** impedance models (per-frequency skin effect and earth return,
+  which the `full_carson`/Bessel-internal-impedance machinery already
+  anticipates). A frozen 50 Hz matrix cannot be re-derived at harmonics without
+  the geometry it came from.
+- **Geometry is the better feature for learning problems.** Physical parameters
+  (spacings, GMRs, heights, soil resistivity) are low-dimensional, bounded, and
+  interpretable; the impedance matrix is their nonlinear, over-parameterised
+  image, whose entries must *jointly* satisfy Carson to be meaningful.
+  Estimation, sensitivity, and identifiability are naturally posed on the
+  geometry, not on the 16 correlated entries of a 4×4.
+- **Provenance stays live.** A geometry-compiled linecode keeps a
+  `line_geometry` back-reference, so the analysis layer can **re-derive and
+  cross-check** it (`W.PROV.GEOMETRY_MISMATCH`); a hand-edited or stale matrix is
+  caught. A bare matrix has no such anchor.
+
+The lower levels remain first-class for the cases that genuinely need them — a
+finite-element or measured impedance for one specific section (inline totals),
+or an imported linecode whose geometry was never recorded (`source="import"`).
+But when the construction data exists, capturing it as geometry — and letting
+the matrices be a *derived, provenance-linked* artefact — is what keeps the case
+verifiable, re-frequency-able, and learnable rather than a frozen numerical
+blob. See the [line-geometry workflow](tutorial_line_geometry.md) and the
+[impedance conventions](conventions.md#Lines,-linecodes-and-matrices).
+
 ## Catalog of representational collisions
 
 Each row is a place where one real asset is commonly encoded as another. The data
