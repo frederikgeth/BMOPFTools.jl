@@ -191,6 +191,39 @@ assumption), and every applied change is **recorded in the transformation
 manifest**. A heuristic that guesses wrong is therefore diagnosable, and the
 conversion is reproducible.
 
+## [Derived reductions are compile targets, not the model of record](@id derived-reductions)
+
+The same stance that governs *ingest* — keep the named object, don't dissolve it
+into a solver-convenient encoding — governs what happens *downstream* when you
+simplify a case for speed. Collapsing closed switches, pruning dangling stubs,
+and [merging series lines](@ref tutorial-simplify) all trade information for
+fewer variables. That trade is worth making at solve time, but the reduced
+network is a **derived artefact**, not the canonical case:
+
+- **It is one-way and lossy.** A merged corridor no longer carries its
+  intermediate bus or its per-segment impedance; a pruned stub no longer exists
+  at all. You cannot reconstruct them, and you cannot later attach anything — a
+  grounding electrode, a load, a tap — at a bus the reduction deleted. A model
+  that has to support *both* "add a ground here later" and "solve this fast"
+  cannot let the fast form overwrite the full one.
+- **The loss is not tracked in the spec.** Reductions are recorded in the
+  package-level `_simplification_log` and `_merged_from` keys — a convention, not
+  part of the versioned data-model schema (see
+  [Versioning & the data model](dev/versioning.md)). A tool that receives a
+  reduced case therefore has no schema-level signal that it was reduced, which is
+  exactly the wrong property for a benchmark-exchange format.
+
+The practical rule mirrors the ingest rule: **the exchanged, canonical case
+keeps the fuller representation; simplification is applied as a compile step
+before optimisation** (as [`fix_case`](@ref) does), never baked into the artefact
+you hand to someone else. Where a reduction *would* change physics rather than
+just variable count — a grounded pass-through bus, a stub that is really a
+shunt-to-earth — the [simplification passes](@ref tutorial-simplify) refuse or
+flag it (`GROUNDED_BUS`, `SHUNT_DROPPED`) rather than silently proceed, on the
+same "surface every inference" principle as the projections above. A future
+schema revision may carry the dense compiled form *alongside* the full model
+rather than in place of it; until then, retain the source.
+
 ## References
 
 See the [methodology references](methodology.md#refs). The central citations for

@@ -21,10 +21,14 @@
 #   TERMINAL_MISMATCH         warning merge_series_lines     terminal maps at shared bus differ — not merged
 #   SWITCH_IN_CHAIN           warning merge_series_lines     switch blocks a same-linecode chain (likely user error)
 #   NON_LINE_ON_BUS           info    merge_series_lines     load/shunt/etc. blocks merge at intermediate bus
+#   GROUNDED_BUS              warning merge_series_lines     intermediate bus has grounded terminals — merge would drop the ground
 #   LINE_REMOVED              info    remove_dangling_lines  stub line and leaf bus removed
+#   SHUNT_DROPPED             warning remove_dangling_lines  pruned stub carried shunt-to-earth — feasible set may change
 #   SWITCH_REMOVED            info    remove_open_switches   open switch element deleted
 #   ISOLATED_BUS              warning remove_open_switches   bus has no connections after switch removal
 #   SWITCH_COLLAPSED          info    collapse_closed_switches bus pair merged via closed switch
+#   SWITCH_LIMIT_DROPPED      warning collapse_closed_switches collapsed switch carried an i_max — cut vanishes, limit lost
+#   BOUND_DROPPED             warning collapse_closed_switches a merged phase had no voltage bound on either side
 #   MERGE_CONFLICT_TERMINALS  warning collapse_closed_switches terminal-map arity mismatch — not collapsed
 #   MERGE_CONFLICT_SOURCE     warning collapse_closed_switches both buses have voltage sources — not collapsed
 
@@ -141,6 +145,27 @@ function _redirect_bus!(net, old_bus, new_bus)
     end
 end
 
+# True if the line carries any non-zero π-shunt admittance to earth, either
+# inline (`G_from_*`/`B_from_*`/`G_to_*`/`B_to_*` on the line, in siemens) or via
+# its linecode (per-metre `G_*`/`B_*` that the model scales by `length`). A stub
+# with shunt is a shunt capacitor/conductance to earth: dropping it removes an
+# injection from the surviving bus's balance and can move the feasible set.
+function _line_has_shunt(net, line)::Bool
+    _shunt_prefix(k) = startswith(k, "G_from_") || startswith(k, "B_from_") ||
+                       startswith(k, "G_to_")   || startswith(k, "B_to_")
+    for (k, v) in line
+        _shunt_prefix(k) && v isa Number && !iszero(v) && return true
+    end
+    lcid = get(line, "linecode", nothing)
+    lcid isa AbstractString || return false
+    lc = get(get(net, "linecode", Dict()), lcid, nothing)
+    lc isa Dict || return false
+    for (k, v) in lc
+        _shunt_prefix(k) && v isa Number && !iszero(v) && return true
+    end
+    false
+end
+
 # ── Mutating implementation functions ─────────────────────────────────────────
 
 function _merge_series_lines!(net)
@@ -178,6 +203,24 @@ function _merge_series_lines!(net)
                         "Merge blocked: intermediate bus $bus_id has non-line elements attached.",
                         detail=Dict("lines" => lids))
                 end
+                continue
+            end
+
+            # Grounded pass-through buses are electrically meaningful: a modelled
+            # ground (e.g. a multi-grounded neutral point) fixes terminal voltages
+            # and would be silently lost if the bus were deleted. Block the merge.
+            bus_obj = get(get(net, "bus", Dict()), bus_id, nothing)
+            grounded = bus_obj isa Dict ?
+                String.(get(bus_obj, "perfectly_grounded_terminals", String[])) : String[]
+            if !isempty(grounded)
+                bus_id in warned_buses && continue
+                push!(warned_buses, bus_id)
+                _simlog!(net, "merge_series_lines", "GROUNDED_BUS", "warning",
+                    "bus", bus_id,
+                    "Merge of lines $(lids[1]) and $(lids[2]) blocked: intermediate bus " *
+                    "$bus_id has grounded terminals $(grounded) — a modelled ground is " *
+                    "electrically meaningful and would be lost by the merge.",
+                    detail=Dict("lines" => lids, "grounded_terminals" => grounded))
                 continue
             end
 
@@ -291,16 +334,31 @@ function _merge_series_lines!(net)
             l1["length"]          = len1 + len2
             l1["_merged_from"]    = vcat(get(l1, "_merged_from", String[]), [l2_id])
 
-            # The corridor's rating is the tighter of the two segments'
-            # line-level overrides; dropping the absorbed line's i_max/s_max
-            # would silently relax a thermal constraint.
+            # The corridor carries one current through both segments, so its
+            # rating is the tighter of the two segments' *effective* limits —
+            # each segment's line-level override if present, else its linecode's
+            # rating (the only source the OPF reads). Comparing raw line-level
+            # overrides alone would miss the case where one segment relies on the
+            # linecode and the other carries a looser override, silently relaxing
+            # the constraint. The merged line keeps l1's linecode, so we only pin
+            # an explicit override when at least one segment already had one;
+            # otherwise the shared linecode still carries the (identical) rating.
+            lcs   = get(net, "linecode", Dict())
+            lc1_d = lc1 isa AbstractString ? get(lcs, lc1, nothing) : nothing
+            lc2_d = lc2 isa AbstractString ? get(lcs, lc2, nothing) : nothing
             for key in ("i_max", "s_max")
-                v1 = get(l1, key, nothing); v2 = get(l2, key, nothing)
-                if v1 isa AbstractVector && v2 isa AbstractVector
-                    n = min(length(v1), length(v2))
-                    l1[key] = [min(Float64(v1[k]), Float64(v2[k])) for k in 1:n]
-                elseif v1 === nothing && v2 !== nothing
-                    l1[key] = deepcopy(v2)
+                o1 = get(l1, key, nothing); o2 = get(l2, key, nothing)
+                had_override = o1 !== nothing || o2 !== nothing
+                e1 = o1 !== nothing ? o1 : (lc1_d isa Dict ? get(lc1_d, key, nothing) : nothing)
+                e2 = o2 !== nothing ? o2 : (lc2_d isa Dict ? get(lc2_d, key, nothing) : nothing)
+                if e1 isa AbstractVector && e2 isa AbstractVector
+                    n = min(length(e1), length(e2))
+                    merged_lim = [min(Float64(e1[k]), Float64(e2[k])) for k in 1:n]
+                    had_override ? (l1[key] = merged_lim) : delete!(l1, key)
+                elseif e1 isa AbstractVector
+                    l1[key] = deepcopy(e1)
+                elseif e2 isa AbstractVector
+                    l1[key] = deepcopy(e2)
                 end
             end
 
@@ -330,7 +388,24 @@ function _remove_dangling_lines!(net)
             get(line_count, bus_id, 0) == 1 || continue
             get(nonline_count, bus_id, 0) == 0 || continue
 
-            lid = only(get(lines_at, bus_id, String[]))
+            lid  = only(get(lines_at, bus_id, String[]))
+            line = lines[lid]
+            near = get(line, "bus_from", nothing) == bus_id ?
+                   get(line, "bus_to", nothing) : get(line, "bus_from", nothing)
+
+            # A stub with shunt admittance is a shunt-to-earth, not "nothing":
+            # removing it drops an injection from the surviving bus's balance, so
+            # the feasible set can shift. Negligible on LV overhead, material for
+            # cable charging. Still pruned (this is a topology pass), but flagged.
+            if _line_has_shunt(net, line)
+                _simlog!(net, "remove_dangling_lines", "SHUNT_DROPPED", "warning",
+                    "line", lid,
+                    "Removed dangling line $lid carried non-zero shunt admittance to " *
+                    "earth; dropping it perturbs the nodal balance at surviving bus " *
+                    "$near — the feasible set may change (negligible for LV overhead, " *
+                    "material for cable charging).",
+                    detail=Dict("removed_bus" => bus_id, "surviving_bus" => near))
+            end
 
             delete!(lines, lid)
             delete!(get(net, "bus", Dict()), bus_id)
@@ -491,6 +566,24 @@ function _collapse_closed_switches!(net)
                 end
             end
 
+            # A closed switch with an enforced current limit is flow-limited in
+            # the OPF just like a line. Collapsing fuses its two buses into one
+            # node, so the cut the rating constrained no longer exists and the
+            # limit cannot be projected onto any surviving branch — it is simply
+            # lost. Flag it (the collapse still proceeds); keep `closed_switches
+            # = false` to retain a rated switch as an explicit branch.
+            i_max_sw = get(sw, "i_max", nothing)
+            if i_max_sw isa AbstractVector && any(x -> x isa Number && !iszero(x), i_max_sw)
+                _simlog!(net, "collapse_closed_switches", "SWITCH_LIMIT_DROPPED", "warning",
+                    "switch", sid,
+                    "Collapsing switch $sid drops its current limit $(i_max_sw): merging " *
+                    "buses $b_fr and $b_to fuses them into one node, so the cut the rating " *
+                    "constrained no longer exists and the limit cannot be projected onto a " *
+                    "surviving branch — the feasible set may change. Keep " *
+                    "`closed_switches = false` to retain the switch as an explicit branch.",
+                    detail=Dict("bus_from" => b_fr, "bus_to" => b_to, "i_max" => i_max_sw))
+            end
+
             _redirect_bus!(net, b_to, b_fr)
             delete!(get(net, "switch", Dict()), sid)
             delete!(buses, b_to)
@@ -520,12 +613,26 @@ A pass-through bus is blocked — and a log entry emitted — when:
   code `NON_LINE_ON_BUS` (info)
 - a switch is the blocking element: code `SWITCH_IN_CHAIN` (warning; likely
   user error — a switch placeholder left in the middle of a cable run)
+- the intermediate bus has grounded terminals (`perfectly_grounded_terminals`):
+  code `GROUNDED_BUS` (warning) — the ground fixes terminal voltages and would
+  be lost if the bus were deleted
 - adjacent linecodes differ: code `LINECODE_MISMATCH` (info)
 - terminal maps at the shared bus are incompatible: code `TERMINAL_MISMATCH`
   (warning)
 
 Successful merges record `_merged_from` on the surviving line and emit
-`LINES_MERGED` (info).
+`LINES_MERGED` (info). The merged corridor's `i_max`/`s_max` is the
+element-wise minimum of the two segments' **effective** limits (each segment's
+line-level override if present, else its linecode rating), so no thermal
+constraint is silently relaxed.
+
+This is a **one-way, lossy** transformation: the intermediate bus and the
+absorbed line's per-segment impedance are removed, and the reduction is recorded
+only in the package-level `_simplification_log`/`_merged_from`, not in the
+versioned data-model schema. Keep the original case as the exchanged artifact
+and treat the simplified network as a solve-time compile target — see the
+[simplification tutorial](@ref tutorial-simplify) and
+[object identity](@ref object-identity).
 
 All outcomes are appended to `net′["_simplification_log"]`.
 """
@@ -545,7 +652,12 @@ generators, shunts, voltage sources, transformers, switches). The far-end bus
 is removed along with the line. Iterates to convergence so dangling chains are
 fully pruned.
 
-Successful removals emit `LINE_REMOVED` (info). All outcomes appended to
+Successful removals emit `LINE_REMOVED` (info). A stub that carries non-zero
+shunt admittance to earth (inline `G_*`/`B_*`, or via its linecode) is a
+shunt-to-earth, not electrically "nothing": pruning it drops an injection from
+the surviving bus's balance and **can move the feasible set** (negligible for LV
+overhead, material for cable charging). Such removals additionally emit
+`SHUNT_DROPPED` (warning); the line is still pruned. All outcomes appended to
 `net′["_simplification_log"]`.
 """
 function remove_dangling_lines(net::Dict{String,Any})::Dict{String,Any}
@@ -586,8 +698,16 @@ Collapse is blocked — and a warning logged — when:
 - the switch's terminal-map arities differ: code `MERGE_CONFLICT_TERMINALS`
 - the switch is a self-loop: code `MERGE_CONFLICT_TERMINALS`
 
-Successful collapses emit `SWITCH_COLLAPSED` (info). All outcomes appended to
-`net′["_simplification_log"]`.
+Successful collapses emit `SWITCH_COLLAPSED` (info).
+
+A closed switch carrying an `i_max` is flow-limited in the OPF like a line, but
+collapsing fuses its two buses into a single node — the cut its rating
+constrained no longer exists, so the limit **cannot be projected onto a surviving
+branch** and is dropped. This emits `SWITCH_LIMIT_DROPPED` (warning) and **the
+feasible set may change**; the collapse still proceeds. Keep `closed_switches =
+false` to retain a rated switch as an explicit zero-impedance branch.
+
+All outcomes appended to `net′["_simplification_log"]`.
 """
 function collapse_closed_switches(net::Dict{String,Any})::Dict{String,Any}
     net′ = deepcopy(net)
