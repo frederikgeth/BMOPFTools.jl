@@ -114,6 +114,39 @@ metres; `kind` ∈ `overhead`/`cn_cable`/`ts_cable`) and `line_geometry`
 mapped to a terminal) — from which [`compile_linecode`](@ref) derives
 linecodes. See the [line-geometry tutorial](tutorial_line_geometry.md).
 
+**Absolute (total) impedances.** A line may instead carry its own matrices —
+the same pattern keys directly on the line object — as **section totals**:
+`R_series_i_j`/`X_series_i_j` in Ω, `G_*`/`B_*` in S. Units are unambiguous
+*by location*: linecode matrices are per metre and scale with `length`;
+inline line matrices are totals and are **never** scaled (a `length` on such
+a line is purely descriptive). Every line has exactly one impedance source —
+`linecode` + `length`, or inline matrices — enforced by the schema `oneOf`
+and `E.INT.LINE_IMPEDANCE_SOURCE`. This is the sanctioned home for FEM
+results, measured section impedances, and imports that previously abused
+`length = 1`.
+
+### Units of the wire/geometry libraries
+
+One unit per field, fixed by the schema — there are no unit-selector fields
+and no rescaling anywhere in the package (contrast OpenDSS's per-object
+`units` and base-frequency scaling). Convert at authoring time.
+
+| Quantity | Unit | Notes |
+|---|---|---|
+| resistances `r_dc`, `r_ac`, `r_strand` | Ω/m | at `temperature_ref` |
+| radii/diameters/thicknesses/coordinates | m | y < 0 = burial depth |
+| currents `i_max`, `i_max_emergency` | A | |
+| `earth_resistivity` | Ω·m | |
+| `frequency` | Hz | **required** on `line_geometry`; no ambient default |
+| `temperature`, `temperature_ref` | **°C** | deliberate SI exception — IEC 60228/60287 datasheet convention, matches the α₂₀ formulation |
+| `alpha_20` | 1/K | temperature coefficient at 20 °C |
+| `tape_lap` | **percent** (0–100) | deliberate exception — OpenDSS convention |
+| `eps_r` | – | relative permittivity |
+
+The one unit-mistake the schema cannot catch — an Ω/km value typed into an
+Ω/m field — is caught by the implied-resistivity plausibility check
+(`W.DOM.WIRE_IMPLIED_RESISTIVITY`; three decades outside the metallic range).
+
 ## Loads and generators
 
 `configuration` ∈ `SINGLE_PHASE` (2 terminals, between any two nodes),

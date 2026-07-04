@@ -398,6 +398,46 @@ function integrity_check(net::Dict{String,Any},
     for (id, l) in get(net, "line", Dict())
         l isa Dict || continue
         lcid = get(l, "linecode", nothing)
+        has_inline = _line_has_inline_z(l)
+
+        # exactly one impedance source: linecode XOR inline absolute matrices
+        if (lcid isa AbstractString) == has_inline
+            n_ref_issues += 1
+            push!(findings, Finding(ERROR, "E.INT.LINE_IMPEDANCE_SOURCE",
+                :integrity, :line, id,
+                has_inline ?
+                    "Line '$id' has BOTH a linecode reference and inline " *
+                    "R_series_/X_series_ matrices — ambiguous; a line carries " *
+                    "exactly one impedance source." :
+                    "Line '$id' has NO impedance source — provide either a " *
+                    "`linecode` (+ `length`) or inline absolute " *
+                    "R_series_/X_series_ matrices [Ω].",
+                Dict{String,Any}("linecode" => lcid, "inline" => has_inline)))
+            has_inline && continue
+        end
+
+        if has_inline
+            # inline ABSOLUTE matrices: dimension check + direct z_tot (no ×length)
+            R = _pattern_keys_to_matrix(l, "R_series_")
+            X = _pattern_keys_to_matrix(l, "X_series_")
+            R isa AbstractMatrix || continue
+            n = size(R, 1)
+            nf = length(get(l, "terminal_map_from", String[]))
+            nt = length(get(l, "terminal_map_to",   String[]))
+            if nf != n || nt != n
+                n_dim_issues += 1
+                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
+                    :line, id,
+                    "Line '$id' has terminal maps of length ($nf, $nt) but its " *
+                    "inline impedance matrix is $n×$n.",
+                    Dict{String,Any}("n" => n, "from" => nf, "to" => nt)))
+            end
+            z_tot[id] = maximum(hypot(R[i, i],
+                                X isa AbstractMatrix && size(X) == size(R) ?
+                                    X[i, i] : 0.0) for i in 1:n)
+            continue
+        end
+
         lcid isa AbstractString || continue
         if !haskey(linecodes, lcid)
             n_ref_issues += 1

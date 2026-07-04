@@ -194,7 +194,9 @@ function _merge_series_lines!(net)
 
             lc1 = get(l1, "linecode", nothing)
             lc2 = get(l2, "linecode", nothing)
-            if lc1 != lc2
+            inline1 = _line_has_inline_z(l1)
+            inline2 = _line_has_inline_z(l2)
+            if !inline1 && !inline2 && lc1 != lc2
                 bus_id in warned_buses && continue
                 push!(warned_buses, bus_id)
                 _simlog!(net, "merge_series_lines", "LINECODE_MISMATCH", "info",
@@ -237,6 +239,46 @@ function _merge_series_lines!(net)
                     detail=Dict("line_1" => l1_id, "tmap_1" => tmap_B_l1,
                                 "line_2" => l2_id, "tmap_2" => tmap_B_l2))
                 continue
+            end
+
+            # Inline ABSOLUTE matrices: series impedances add directly when
+            # both lines are inline, series-only (no π-shunt fields), and the
+            # conductor order at the shared bus matches exactly. Anything
+            # else (mixed inline/linecode, shunts, permuted maps) is skipped —
+            # summing would silently mis-model the corridor.
+            if inline1 || inline2
+                has_shunt(l) = any(k -> startswith(k, "G_from_") ||
+                                        startswith(k, "B_from_") ||
+                                        startswith(k, "G_to_") ||
+                                        startswith(k, "B_to_"), keys(l))
+                R1 = _pattern_keys_to_matrix(l1, "R_series_")
+                X1 = _pattern_keys_to_matrix(l1, "X_series_")
+                R2 = _pattern_keys_to_matrix(l2, "R_series_")
+                X2 = _pattern_keys_to_matrix(l2, "X_series_")
+                mergeable = inline1 && inline2 &&
+                    !has_shunt(l1) && !has_shunt(l2) &&
+                    tmap_B_l1 == tmap_B_l2 &&
+                    R1 isa AbstractMatrix && R2 isa AbstractMatrix &&
+                    size(R1) == size(R2) &&
+                    X1 isa AbstractMatrix && X2 isa AbstractMatrix &&
+                    size(X1) == size(X2)
+                if !mergeable
+                    bus_id in warned_buses && continue
+                    push!(warned_buses, bus_id)
+                    _simlog!(net, "merge_series_lines", "INLINE_IMPEDANCE", "info",
+                        "bus", bus_id,
+                        "Lines $l1_id and $l2_id at bus $bus_id carry inline " *
+                        "absolute impedances that cannot be merged safely " *
+                        "(mixed source, π-shunt present, or mismatched " *
+                        "conductor order) — not merged.",
+                        detail=Dict("line_1" => l1_id, "line_2" => l2_id))
+                    continue
+                end
+                n_m = size(R1, 1)
+                for i in 1:n_m, j in 1:n_m
+                    l1["R_series_$(i)_$(j)"] = R1[i, j] + R2[i, j]
+                    l1["X_series_$(i)_$(j)"] = X1[i, j] + X2[i, j]
+                end
             end
 
             len1 = Float64(get(l1, "length", 0.0))

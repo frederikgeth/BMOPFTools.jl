@@ -220,10 +220,13 @@ _lc_z_permile(lc) = (BMOPFTools._pattern_keys_to_matrix(lc, "R_series_") .+
             "line_geometry" => Dict{String,Any}("g" => Dict{String,Any}(
                 "conductors" => Any[Dict{String,Any}(
                     "wire_data" => "w", "x" => 0.0, "y" => 10.0, "terminal" => "a")])))
+        # frequency is REQUIRED — no ambient default, cases are self-contained
+        @test_throws ErrorException compile_linecode(net, "g")
+        net["line_geometry"]["g"]["frequency"] = 50.0
         compile_linecode(net, "g")
         lc = net["linecode"]["g"]
         @test sort(lc["derivation"]["defaults_applied"]) == ["gmr:w", "r_ac:w"]
-        @test lc["derivation"]["frequency"] == 50.0            # default
+        @test lc["derivation"]["frequency"] == 50.0
         @test lc["derivation"]["earth_resistivity"] == 100.0   # default
         # r_ac = 1.02 r_dc; gmr = e^{-1/4} radius
         de = BMOPFTools._carson_return_depth(50.0, 100.0)
@@ -237,6 +240,7 @@ _lc_z_permile(lc) = (BMOPFTools._pattern_keys_to_matrix(lc, "R_series_") .+
 
         # duplicate terminals rejected
         net["line_geometry"]["bad"] = Dict{String,Any}(
+            "frequency" => 50.0,
             "conductors" => Any[
                 Dict{String,Any}("wire_data" => "w", "x" => 0.0, "y" => 10.0, "terminal" => "a"),
                 Dict{String,Any}("wire_data" => "w", "x" => 1.0, "y" => 10.0, "terminal" => "a")])
@@ -244,6 +248,7 @@ _lc_z_permile(lc) = (BMOPFTools._pattern_keys_to_matrix(lc, "R_series_") .+
 
         # overlapping conductors rejected
         net["line_geometry"]["bad2"] = Dict{String,Any}(
+            "frequency" => 50.0,
             "conductors" => Any[
                 Dict{String,Any}("wire_data" => "w", "x" => 0.0, "y" => 10.0, "terminal" => "a"),
                 Dict{String,Any}("wire_data" => "w", "x" => 0.0, "y" => 10.0, "terminal" => "b")])
@@ -251,6 +256,7 @@ _lc_z_permile(lc) = (BMOPFTools._pattern_keys_to_matrix(lc, "R_series_") .+
 
         # unknown wire reference rejected
         net["line_geometry"]["bad3"] = Dict{String,Any}(
+            "frequency" => 50.0,
             "conductors" => Any[Dict{String,Any}(
                 "wire_data" => "nope", "x" => 0.0, "y" => 10.0, "terminal" => "a")])
         @test_throws ErrorException compile_linecode(net, "bad3")
@@ -376,5 +382,160 @@ _lc_z_permile(lc) = (BMOPFTools._pattern_keys_to_matrix(lc, "R_series_") .+
             # sanity: the loaded phase sees a plausible voltage drop
             @test 2200.0 < r_geo["bus"]["b1"]["a"]["vm"] < 2401.8
         end
+    end
+end
+
+@testset "Line constants — realizability & assumption checks" begin
+    _codes(net) = [f.code for f in analyze(net).findings]
+    _mini(extra...) = begin
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}("src" => Dict{String,Any}(
+                "terminal_names" => ["a", "n"],
+                "perfectly_grounded_terminals" => ["n"])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a"],
+                "v_magnitude" => [230.0], "v_angle" => [0.0])))
+        for (k, v) in extra
+            net[k] = v
+        end
+        net
+    end
+
+    @testset "frequency is required and consistency-checked" begin
+        wd = Dict{String,Any}("w" => Dict{String,Any}(
+            "kind" => "overhead", "r_ac" => 3e-4, "radius" => 0.005))
+        geo(f) = Dict{String,Any}("frequency" => f, "conductors" => Any[
+            Dict{String,Any}("wire_data" => "w", "x" => 0.0, "y" => 8.0,
+                             "terminal" => "a")])
+
+        # mixed frequencies without meta.frequency
+        net = _mini("wire_data" => wd,
+                    "line_geometry" => Dict{String,Any}("g50" => geo(50.0),
+                                                        "g60" => geo(60.0)))
+        @test "W.DOM.MIXED_FREQUENCY" in _codes(net)
+
+        # meta.frequency mismatch (check-only — never rescales)
+        net2 = _mini("wire_data" => wd,
+                     "line_geometry" => Dict{String,Any}("g60" => geo(60.0)))
+        net2["meta"] = Dict{String,Any}("frequency" => 50.0)
+        codes2 = _codes(net2)
+        @test "W.DOM.FREQUENCY_MISMATCH" in codes2
+        @test !("W.DOM.MIXED_FREQUENCY" in codes2)
+
+        # matching → clean
+        net3 = _mini("wire_data" => wd,
+                     "line_geometry" => Dict{String,Any}("g50" => geo(50.0)))
+        net3["meta"] = Dict{String,Any}("frequency" => 50.0)
+        @test !("W.DOM.FREQUENCY_MISMATCH" in _codes(net3))
+    end
+
+    @testset "50 Hz series regression — X scales with ω across earth models" begin
+        # the 601 geometry at 50 Hz: modified vs full Carson still agree to
+        # <1 % of the matrix scale, and X(50)/X(60) of the self term tracks
+        # ω up to the slowly-varying ln(De) term (≈ 3 % effect)
+        function z11(f, model)
+            net = Dict{String,Any}(
+                "wire_data" => Dict{String,Any}("acsr556" => _wire_556_acsr(),
+                                                "acsr40"  => _wire_4_0_acsr()),
+                "line_geometry" => Dict{String,Any}("g" => _geometry_601()))
+            net["line_geometry"]["g"]["frequency"] = f
+            net["line_geometry"]["g"]["earth_model"] = model
+            compile_linecode(net, "g")
+            lc = net["linecode"]["g"]
+            lc["R_series_1_1"] + im * lc["X_series_1_1"]
+        end
+        zm50, zf50 = z11(50.0, "modified_carson"), z11(50.0, "full_carson")
+        @test abs(zm50 - zf50) / abs(zm50) < 0.01
+        # X scales with ω, nudged slightly above 50/60 because the return
+        # depth De ∝ 1/√f enlarges the log term at 50 Hz
+        ratio = imag(z11(50.0, "modified_carson")) / imag(z11(60.0, "modified_carson"))
+        @test 50 / 60 < ratio < 0.87
+    end
+
+    @testset "impossible wire data — compile errors AND E findings" begin
+        # gmr > radius
+        bad = Dict{String,Any}("w" => Dict{String,Any}(
+            "kind" => "overhead", "r_ac" => 3e-4,
+            "gmr" => 0.006, "radius" => 0.005))
+        geo = Dict{String,Any}("frequency" => 50.0, "conductors" => Any[
+            Dict{String,Any}("wire_data" => "w", "x" => 0.0, "y" => 8.0,
+                             "terminal" => "a")])
+        net = _mini("wire_data" => bad,
+                    "line_geometry" => Dict{String,Any}("g" => geo))
+        @test_throws ErrorException compile_linecode(net, "g")
+        @test "E.DOM.WIRE_GMR_EXCEEDS_RADIUS" in _codes(net)
+
+        # overlapping conductor circles (1 cm apart, 1 cm radii)
+        wd = Dict{String,Any}("w" => Dict{String,Any}(
+            "kind" => "overhead", "r_ac" => 3e-4, "radius" => 0.01))
+        geo2 = Dict{String,Any}("frequency" => 50.0, "conductors" => Any[
+            Dict{String,Any}("wire_data" => "w", "x" => 0.0,  "y" => 8.0, "terminal" => "a"),
+            Dict{String,Any}("wire_data" => "w", "x" => 0.01, "y" => 8.0, "terminal" => "b")])
+        net2 = _mini("wire_data" => wd,
+                     "line_geometry" => Dict{String,Any}("g" => geo2))
+        @test_throws ErrorException compile_linecode(net2, "g")
+        @test "E.DOM.GEOM_CONDUCTOR_OVERLAP" in _codes(net2)
+
+        # non-nesting cable layers: strand circle inside the insulation
+        cn = Dict{String,Any}("c" => Dict{String,Any}(
+            "kind" => "cn_cable", "r_ac" => 3e-4, "radius" => 0.005,
+            "d_cable" => 0.024, "n_strands" => 6, "d_strand" => 0.002,
+            "r_strand" => 1e-3, "d_insulation" => 0.030, "t_insulation" => 0.004))
+        geo3 = Dict{String,Any}("frequency" => 50.0, "conductors" => Any[
+            Dict{String,Any}("wire_data" => "c", "x" => 0.0, "y" => -1.0,
+                             "terminal" => "a")])
+        net3 = _mini("wire_data" => cn,
+                     "line_geometry" => Dict{String,Any}("g" => geo3))
+        @test_throws ErrorException compile_linecode(net3, "g")
+        @test "E.DOM.WIRE_CABLE_LAYERS" in _codes(net3)
+    end
+
+    @testset "implausible inputs — W/I findings, compile still succeeds" begin
+        # the Ω/km-as-Ω/m unit error: 0.3 Ω/m on a 5 mm-radius conductor
+        wd = Dict{String,Any}(
+            "wkm" => Dict{String,Any}("kind" => "overhead",
+                "r_dc" => 0.3, "radius" => 0.005),
+            "wlo" => Dict{String,Any}("kind" => "overhead",
+                "r_dc" => 3e-4, "r_ac" => 2e-4, "radius" => 0.005),  # r_ac < r_dc
+            "wj"  => Dict{String,Any}("kind" => "overhead",
+                "r_dc" => 3e-4, "radius" => 0.005, "i_max" => 5000.0))
+        net = _mini("wire_data" => wd)
+        codes = _codes(net)
+        @test "W.DOM.WIRE_IMPLIED_RESISTIVITY" in codes
+        @test "W.DOM.WIRE_RAC_BELOW_RDC" in codes
+        @test "I.DOM.WIRE_CURRENT_DENSITY" in codes
+
+        # Carson-validity: huge spacing at tiny earth resistivity
+        wd2 = Dict{String,Any}("w" => Dict{String,Any}(
+            "kind" => "overhead", "r_ac" => 3e-4, "radius" => 0.005))
+        geo = Dict{String,Any}("frequency" => 60.0, "earth_resistivity" => 0.5,
+            "conductors" => Any[
+                Dict{String,Any}("wire_data" => "w", "x" => 0.0,   "y" => 10.0, "terminal" => "a"),
+                Dict{String,Any}("wire_data" => "w", "x" => 200.0, "y" => 10.0, "terminal" => "b")])
+        net2 = _mini("wire_data" => wd2,
+                     "line_geometry" => Dict{String,Any}("g" => geo))
+        codes2 = _codes(net2)
+        @test "W.DOM.GEOM_CARSON_VALIDITY" in codes2
+        @test "W.DOM.GEOM_EARTH_RESISTIVITY" in codes2
+        @test compile_linecode(net2, "g") == "g"   # warns, but compiles
+
+        # buried + full_carson; skin frequency
+        geo2 = Dict{String,Any}("frequency" => 5000.0,
+            "earth_model" => "full_carson",
+            "conductors" => Any[Dict{String,Any}(
+                "wire_data" => "w", "x" => 0.0, "y" => -1.0, "terminal" => "a")])
+        net3 = _mini("wire_data" => wd2,
+                     "line_geometry" => Dict{String,Any}("g" => geo2))
+        codes3 = _codes(net3)
+        @test "W.DOM.GEOM_BURIED_EARTH_MODEL" in codes3
+        @test "W.DOM.WIRE_SKIN_FREQUENCY" in codes3
+
+        # clearance slip (29 ft entered as 29… no — 2.9 m pole)
+        geo3 = Dict{String,Any}("frequency" => 50.0,
+            "conductors" => Any[Dict{String,Any}(
+                "wire_data" => "w", "x" => 0.0, "y" => 2.9, "terminal" => "a")])
+        net4 = _mini("wire_data" => wd2,
+                     "line_geometry" => Dict{String,Any}("g" => geo3))
+        @test "W.DOM.GEOM_CLEARANCE" in _codes(net4)
     end
 end

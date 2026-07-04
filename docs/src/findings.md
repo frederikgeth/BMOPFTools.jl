@@ -117,7 +117,7 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `I.DOM.NEGATIVE_LOAD` | I | Loads with negative `p_nom` — embedded generation hiding as negative load; skews adequacy statistics and dodges the generator model. See [object identity](semantic_modeling.md#object-identity). |
 | `I.DOM.NEGATIVE_GENERATION` | I | A generator whose entire active range is `p_max ≤ 0` (only ever absorbs) — a consumer modelled as a generator (the mirror of `I.DOM.NEGATIVE_LOAD`); model it as a `load`. |
 | `I.DOM.GEN_LIKELY_IBR` | I | A `generator` sits on an LV bus (≤ 1 kV). Distribution-connected DERs are overwhelmingly inverter-interfaced; the `ibr` object models them faithfully (capability curve, no inertia, current limit, volt-var/volt-watt) where a synchronous-`generator` object does not. |
-| `W.DOM.LINE_LOW_IMPEDANCE` | W | A line whose absolute series impedance ‖Z‖_F = ‖(R+jX)‖_F × length is below 10⁻⁴ Ω. Near-zero impedance makes the KVL constraint nearly rank-deficient; model the section as a switch instead. |
+| `W.DOM.LINE_LOW_IMPEDANCE` | W | A line whose absolute series impedance ‖Z‖_F (linecode ‖(R+jX)‖_F × length, or the inline total matrices directly) is below 10⁻⁴ Ω. Near-zero impedance makes the KVL constraint nearly rank-deficient; model the section as a switch instead. |
 | `W.DOM.LINE_IMPEDANCE_SPREAD` | W | The worst adjacent-line ‖Z‖_F ratio (two lines sharing an interior bus, excluding voltage-source, transformer, and switch buses) exceeds 10⁵. At this contrast the NLP Jacobian loses roughly 5 decimal digits of precision; consider per-unit scaling or network reformulation. |
 | `I.DOM.LINE_IMPEDANCE_SPREAD` | I | Same as above but ratio is between 10³ and 10⁵ — common at MV/LV boundaries and usually benign, but worth reviewing if solvers struggle to converge. The result dict key `max_adjacent_impedance_ratio` always carries the worst observed value. |
 | `E.DOM.INV_P_BOUNDS` | E | IBR `p_min > p_max` — the active-power box is empty; infeasible by construction. |
@@ -127,6 +127,36 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `W.DOM.INV_BOUND_EXCEEDS_SMAX` | W | An IBR P or Q box-bound magnitude exceeds `s_max` — that box bound can never bind because the apparent-power circle dominates; usually a units or sizing mistake. |
 | `W.DOM.INV_PV_ABSORBS` | W | A `prime_mover=PV` IBR has `p_min < 0`, i.e. it is allowed to absorb real power — physically implausible for PV; usually a sign error. |
 | `W.DOM.DROOP_BREAKPOINT_OUTSIDE_BAND` | W | An IBR's Volt-var/Volt-watt droop has breakpoint voltages outside the bus's `[v_min, v_max]` band — the droop may never engage within the feasible operating range, so the control is effectively inert. |
+
+### Wire / geometry realizability and model-assumption validity
+
+Physical-realizability and validity-domain checks for the `wire_data` /
+`line_geometry` libraries. E-class conditions also hard-error in
+`compile_linecode`; W-class assumption checks are additionally emitted as
+compile-time warnings. References: Carson (1926) BSTJ 5(4); Pollaczek (1926);
+Deri, Tevan, Semlyen & Castanheira (1981); Saad, Gaba & Giroux (1996);
+Kersting & Green (2011); Kersting, *Distribution System Modeling and
+Analysis*; Jensen et al. (2001); Urquhart & Thomson (2015); IEC 60228 /
+IEC 60287.
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `E.DOM.WIRE_GMR_EXCEEDS_RADIUS` | E | `gmr > radius` — physically impossible: GMR ≤ radius for any current distribution inside the conductor (= e^(−μᵣ/4)·radius = 0.7788·radius for a solid round conductor; lower for stranded/ACSR). |
+| `E.DOM.WIRE_CABLE_LAYERS` | E | Cable layer radii do not nest: core ≥ insulation outer radius, `t_insulation ≥ d_insulation/2`, concentric-neutral strand circle inside the insulation, or `d_shield` outside `d_cable` / inside `d_insulation`. The construction is unbuildable. |
+| `W.DOM.WIRE_GMR_RATIO` | W | `gmr/radius < 0.2` — real conductors span ~0.35 (ACSR 6/1, steel core carries little flux) to 0.826 (61-strand, Kersting tables); usually a units or transcription slip. |
+| `W.DOM.WIRE_RAC_BELOW_RDC` | W | `r_ac < r_dc` — skin and proximity effects can only increase resistance at any f > 0. |
+| `W.DOM.WIRE_IMPLIED_RESISTIVITY` | W | Implied resistivity ρ = r_dc·π·radius² outside [8·10⁻⁹, 3·10⁻⁷] Ω·m — the metallic range (annealed Cu 1.724·10⁻⁸ per IEC 60228 … steel ~1.4·10⁻⁷, widened for stranding/fill and temperature). **The unit-error catcher**: an Ω/km value entered in the Ω/m field lands three decades outside. |
+| `W.DOM.WIRE_EPS_R_RANGE` | W | Insulation `eps_r` outside [1.5, 10] (XLPE 2.3, EPR ~3, PVC 3–8; IEC 60287-1-1). |
+| `I.DOM.WIRE_CURRENT_DENSITY` | I | `i_max` implies a current density outside [0.5, 10] A/mm² — typical continuous ratings are 1–6 A/mm². |
+| `E.DOM.GEOM_CONDUCTOR_OVERLAP` | E | Two conductors' circles overlap (centre distance < sum of radii) — physically impossible cross-section. |
+| `W.DOM.GEOM_CLEARANCE` | W | An overhead conductor sits below 4 m (under distribution statutory clearances) or above 100 m — usually a feet-as-metres slip. |
+| `W.DOM.GEOM_EARTH_RESISTIVITY` | W | `earth_resistivity` outside [1, 10⁴] Ω·m — practical soils span ~10–1000 Ω·m. |
+| `W.DOM.GEOM_CARSON_VALIDITY` | W | The Carson series parameter k = √(ωμ₀/ρ)·S exceeds 0.25 for some conductor pair. The truncated series used by `modified_carson`/`full_carson` is accurate only for k ≪ 1 — which holds at distribution spacings and 50/60 Hz (Kersting & Green 2011 report < 1 % error) but degrades for very wide spacings, low earth resistivity, or high frequency. Consider `earth_model = "deri"`. |
+| `W.DOM.GEOM_BURIED_EARTH_MODEL` | W | Buried conductors combined with `full_carson` (evaluated at the surface — the rigorous buried theory is Pollaczek 1926 / Saad et al. 1996; negligible at power frequency since burial depth ≪ earth skin depth, but the approximation is made explicit), or with `deri` when burial depth exceeds 10 % of the complex-depth magnitude p = √(ρ/jωμ₀) (Deri et al. 1981 assume \|y\| ≪ \|p\|). |
+| `W.DOM.WIRE_SKIN_FREQUENCY` | W | The geometry's frequency exceeds a wire's critical skin frequency f_crit = ρ_c/(π r² μ₀) — above it, constant `r_ac` and GMR-based internal inductance degrade (Jensen et al. 2001; Urquhart & Thomson 2015 quantify error growth with frequency). The guard that keeps this fundamental-frequency library honest. |
+| `W.DOM.FREQUENCY_MISMATCH` | W | `meta.frequency` is set and some `line_geometry.frequency` or linecode `derivation.frequency` differs. Frequencies are **never rescaled** (no OpenDSS-style base-frequency scaling exists in BMOPF) — recompile or fix the data. |
+| `W.DOM.MIXED_FREQUENCY` | W | No `meta.frequency`, but geometry/derivation frequencies within one network disagree — impedances computed at different frequencies must not share a network. |
+| `W.DOM.LINE_IMPLIED_PER_LENGTH` | W | A line with inline ABSOLUTE matrices also carries a descriptive `length`, and Z_self/length falls outside the plausible distribution per-metre range [10⁻⁶, 10⁻²] Ω/m — likely per-metre data mislabeled as section totals (or vice versa). Inline line matrices are totals and are never scaled by length. |
 
 ## LOAD — load model validation & analysis
 
@@ -179,8 +209,8 @@ The largest family; full derivations in the
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.PROV.NONRECIPROCAL` | E | An impedance/admittance block (linecode R/X/G/B or bus-shunt G/B) is not symmetric — reciprocity is violated; passive RLC networks cannot do that. Catches, e.g., delta-bank admittances built from the incidence matrix instead of `Y·(M∆)ᵀM∆`. |
-| `E.PROV.NONPASSIVE` | E | The R block has a negative eigenvalue — the line would generate power. PSD of R is invariant under Kron reduction (Schur complements of accretive matrices stay accretive), so this is always an error. |
+| `E.PROV.NONRECIPROCAL` | E | An impedance/admittance block (linecode R/X/G/B, inline line R/X, or bus-shunt G/B) is not symmetric — reciprocity is violated; passive RLC networks cannot do that. Catches, e.g., delta-bank admittances built from the incidence matrix instead of `Y·(M∆)ᵀM∆`. Reported with `component_type = :line` for inline absolute line matrices. |
+| `E.PROV.NONPASSIVE` | E | The R block has a negative eigenvalue — the line would generate power. PSD of R is invariant under Kron reduction (Schur complements of accretive matrices stay accretive), so this is always an error. Applies to linecodes and inline line matrices alike. |
 | `W.PROV.X_NONINDUCTIVE` | W | Non-positive series self-reactance — series compensation does not exist inside linecodes; almost always a sign flip or X/B confusion. |
 | `W.PROV.X_NOT_PSD` | W | The X block has a negative eigenvalue — the implied inductance matrix is not realisable (energy argument; also Kron-invariant via sectorial Schur closure). |
 | `I.PROV.NEGATIVE_MUTUAL_R` | I | Negative off-diagonal resistance. Carson's earth-return term makes mutual R positive for geometry-derived matrices; a negative entry signals processed/fitted provenance. |
@@ -190,6 +220,8 @@ The largest family; full derivations in the
 | `I.PROV.SHUNT_LIKELY_CAPACITOR` | I | A `shunt` is purely capacitive — no conductance (G ≈ 0) and a strictly positive diagonal susceptance (`B = ωC > 0`; a reactor would be negative). It looks like a fixed capacitor bank carried as a generic admittance. Consider modeling it as a first-class `capacitor` (nameplate `q_rated`/`v_nom`); the [fix recipe](augmentation.md#fix) can convert phase-to-ground banks automatically with `FixRecipe(apply_shunt_to_capacitor = true)`. See [object identity](semantic_modeling.md#object-identity). |
 | `I.PROV.SHUNT_LIKELY_REACTOR` | I | A `shunt` is purely inductive — no conductance (G ≈ 0) and a strictly **negative** diagonal susceptance (`B = −1/ωL < 0`). It looks like a shunt reactor, a distinct asset from a capacitor or a generic shunt; keep its identity explicit and verify the sign convention. |
 | `W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS` | W | A `line`'s two endpoint buses are assigned different nominal voltage levels (ratio beyond 5 %). A line cannot change voltage level — this is a transformer elided into the per-unit line model (the textbook "the transformer vanishes in per-unit"), or a data error. Model it as a `transformer`. |
+| `W.PROV.GEOMETRY_MISMATCH` | W | A linecode carrying a `line_geometry` back-reference no longer matches a re-derivation from that geometry (beyond 10⁻⁶ relative). The stored matrices are stale or hand-edited — recompile with `compile_linecode(net, id; force=true)` or drop the back-reference. The geometry analogue of the transformer Yprim cross-check. |
+| `W.PROV.GEOMETRY_UNCOMPILABLE` | W | A linecode references a `line_geometry` that fails to compile (broken wire data, invalid earth model, missing frequency, …) — the provenance link cannot be verified. |
 
 ### Parameterisation provenance
 
@@ -289,6 +321,9 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 |---|---|---|
 | `E.INT.UNKNOWN_BUS` | E | A component references a bus id that does not exist. |
 | `E.INT.UNKNOWN_LINECODE` | E | A line references a linecode that does not exist (distinct from *unused* linecodes). |
+| `E.INT.UNKNOWN_WIRE_DATA` | E | A `line_geometry` conductor references a `wire_data` id that does not exist. |
+| `E.INT.UNKNOWN_LINE_GEOMETRY` | E | A linecode's `line_geometry` back-reference points at a geometry that does not exist. |
+| `E.INT.LINE_IMPEDANCE_SOURCE` | E | A line has both a `linecode` reference and inline absolute `R_series_`/`X_series_` matrices (ambiguous), or neither (no impedance). A line carries **exactly one** impedance source; units are unambiguous by location — linecode matrices are Ω/m and scale with `length`, inline line matrices are section totals in Ω and never scale. |
 | `E.INT.UNKNOWN_TERMINAL` | E | A terminal-map entry is not a terminal of the referenced bus — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10). |
 | `E.INT.UNKNOWN_CONTROL_PROFILE` | E | An IBR references a `control_profile` id that does not exist in the network's `control_profile` table. |
 | `E.INT.VOLTAGE_AGGREGATION_INVALID` | E | An IBR's `voltage_aggregation` is neither `PER_PHASE` nor `AVERAGE` — the engine cannot resolve which voltage the droop/limits reference. |

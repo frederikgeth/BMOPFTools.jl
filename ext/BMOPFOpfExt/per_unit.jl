@@ -305,6 +305,30 @@ function _pu_scale_linecodes!(net, bases)
             lc["i_max"] = Float64.(lc["i_max"]) ./ ib
         end
     end
+
+    # Inline ABSOLUTE matrices on lines (Ω, S — never length-scaled) use the
+    # same z_base as the line's buses; line-level i_max (rating override /
+    # inline-line rating) scales by the current base. Same scaling laws as
+    # linecodes — absolute vs per-metre makes no difference to per-unit.
+    for (_, line) in get(net, "line", Dict())
+        bus = get(line, "bus_from", "")
+        zb  = get(bases.z_base, bus, 1.0)
+        ib  = get(bases.i_base, bus, 1.0)
+        if BMOPFTools._line_has_inline_z(line)
+            for (k, v) in line
+                v isa Number || continue
+                for pref in series_fields
+                    startswith(k, pref) && (line[k] = Float64(v) / zb; break)
+                end
+                for pref in shunt_fields
+                    startswith(k, pref) && (line[k] = Float64(v) * zb; break)
+                end
+            end
+        end
+        if haskey(line, "i_max")
+            line["i_max"] = Float64.(line["i_max"]) ./ ib
+        end
+    end
 end
 
 function _pu_scale_loads!(net, bases)

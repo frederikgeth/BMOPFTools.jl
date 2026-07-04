@@ -26,6 +26,7 @@ struct _ResolvedWire
     kind::String            # "overhead" | "cn_cable" | "ts_cable"
     r_ac::Float64           # phase/core AC resistance at operating temp [Ω/m]
     gmr::Float64            # phase/core GMR [m]
+    radius::Float64         # physical outside radius of the core [m]
     cap_radius::Float64     # electrostatic radius [m]
     i_max::Union{Float64,Nothing}
     # coaxial capacitance parameters (cables; NaN when not applicable)
@@ -89,6 +90,12 @@ function _resolve_wire(id::String, w::Dict{String,Any},
     else
         radius = Float64(radius)
     end
+    # GMR ≤ radius for any internal current distribution (0.7788·radius for a
+    # solid round conductor, lower for stranded/ACSR) — larger is unbuildable.
+    gmr <= radius * (1 + 1e-9) ||
+        error("wire_data '$id': gmr ($(gmr) m) exceeds radius ($(radius) m) — " *
+              "physically impossible (GMR ≤ radius; = 0.7788·radius for solid " *
+              "round). Check for a units or transcription error.")
     cap_radius = if haskey(w, "cap_radius")
         Float64(w["cap_radius"])
     else
@@ -115,6 +122,12 @@ function _resolve_wire(id::String, w::Dict{String,Any},
             rad_in > 0 || error("wire_data '$id': t_insulation ≥ d_insulation/2.")
             c_shunt = 2pi * _EPS0 * eps_r / log(rad_out / rad_in)
         end
+        # layers must nest radially: core inside the insulation
+        if d_ins !== nothing && radius >= Float64(d_ins) / 2
+            error("wire_data '$id': core radius ($(radius) m) ≥ insulation " *
+                  "outer radius ($(Float64(d_ins)/2) m) — cable layers must " *
+                  "nest radially.")
+        end
     end
 
     if kind == "cn_cable"
@@ -133,6 +146,11 @@ function _resolve_wire(id::String, w::Dict{String,Any},
         # one equivalent conductor at that radius.
         R = (Float64(w["d_cable"]) - ds) / 2
         R > 0 || error("wire_data '$id': d_cable must exceed d_strand.")
+        d_ins2 = get(w, "d_insulation", nothing)
+        d_ins2 !== nothing && R < Float64(d_ins2) / 2 &&
+            error("wire_data '$id': concentric-neutral strand circle radius " *
+                  "($(R) m) lies inside the insulation " *
+                  "(d_insulation/2 = $(Float64(d_ins2)/2) m) — layers must nest.")
         gmr_shield = (gs * k * R^(k - 1))^(1 / k)
         r_shield   = Float64(w["r_strand"]) / k
         rad_shield = R
@@ -142,6 +160,10 @@ function _resolve_wire(id::String, w::Dict{String,Any},
         end
         d_s = Float64(w["d_shield"])
         t_t = Float64(w["t_tape"])
+        d_ins3 = get(w, "d_insulation", nothing)
+        d_ins3 !== nothing && d_s < Float64(d_ins3) &&
+            error("wire_data '$id': d_shield ($(d_s) m) < d_insulation " *
+                  "($(d_ins3) m) — the tape shield sits outside the insulation.")
         lap = Float64(get(w, "tape_lap", 20.0))
         haskey(w, "tape_lap") || push!(defaults, "tape_lap:$id")
         lap < 100 || error("wire_data '$id': tape_lap must be < 100 %.")
@@ -153,6 +175,6 @@ function _resolve_wire(id::String, w::Dict{String,Any},
         rad_shield = gmr_shield
     end
 
-    _ResolvedWire(id, kind, r_ac, gmr, cap_radius, i_max,
+    _ResolvedWire(id, kind, r_ac, gmr, radius, cap_radius, i_max,
                   c_shunt, r_shield, gmr_shield, rad_shield)
 end

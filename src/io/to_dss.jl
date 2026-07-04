@@ -56,6 +56,7 @@ function to_dss(net::Dict{String,Any};
         src = copy(net)          # shallow copy: we only replace the top-level name
         src["name"] = name
     end
+    src = _materialize_inline_lines_for_export(src)
 
     io = IOBuffer()
     write_bmopf(src, io)
@@ -94,4 +95,36 @@ function to_dss(net::Dict{String,Any}, path::AbstractString;
         write(io, dss_text)
     end
     warnings_list
+end
+
+"""
+Rewrite lines carrying inline ABSOLUTE impedance matrices (Ω, S) into an
+equivalent linecode-referencing form for exporters that only know the
+per-length convention (PowerIO's DSS writer): a synthetic per-metre linecode
+holding the section totals with `length = 1.0`. Numerically lossless — the
+1 m length carries the totals exactly; the descriptive BMOPF `length` (if
+any) is dropped from the export because it would rescale the impedance.
+Returns the input unchanged when no inline lines are present.
+"""
+function _materialize_inline_lines_for_export(net::Dict{String,Any})::Dict{String,Any}
+    any(l isa Dict && _line_has_inline_z(l)
+        for (_, l) in get(net, "line", Dict())) || return net
+
+    out = deepcopy(net)
+    linecodes = get!(out, "linecode", Dict{String,Any}())
+    matrix_key = r"^(R_series|X_series|G_from|G_to|B_from|B_to)_\d+_\d+$"
+    for (lid, l) in get(out, "line", Dict())
+        l isa Dict && _line_has_inline_z(l) || continue
+        lcid = "_inline_$(lid)"
+        lc = Dict{String,Any}(k => v for (k, v) in l
+                              if match(matrix_key, k) !== nothing)
+        haskey(l, "i_max") && (lc["i_max"] = l["i_max"])
+        linecodes[lcid] = lc
+        for k in collect(keys(l))
+            match(matrix_key, k) === nothing || delete!(l, k)
+        end
+        l["linecode"] = lcid
+        l["length"]   = 1.0
+    end
+    out
 end

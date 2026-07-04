@@ -49,9 +49,11 @@ For each line this adds:
 
 `cr_to`/`ci_to` are `AffExpr` aliases (`−cr_fr`) — no equality constraints needed.
 
-Shunt conductance (`G_from`, `G_to`) and susceptance (`B_from`, `B_to`) are
-read from the linecode and scaled by line length. Missing or all-zero shunt
-fields are a no-op.
+Impedance comes from the line's single source: the referenced linecode
+(per-metre matrices × `length`) or inline absolute matrices on the line
+(Ω/S, used as-is). Shunt conductance (`G_from`, `G_to`) and susceptance
+(`B_from`, `B_to`) follow the same rule. Missing or all-zero shunt fields
+are a no-op.
 """
 function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                                 grounded::Set{Tuple{String,String}}=Set{Tuple{String,String}}(),
@@ -65,7 +67,8 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
     for (lid, line) in get(net, "line", Dict())
         R, X, n_c = _line_z_matrix(line, linecodes)
         if n_c == 0
-            @warn "Line '$lid': missing or unknown linecode — skipping KVL."
+            @warn "Line '$lid': no impedance source (missing/unknown linecode " *
+                  "and no inline matrices) — skipping KVL."
             continue
         end
 
@@ -114,8 +117,11 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
         # constraint is needed. Both are added only when G_to or B_to is present.
         has_to_shunt = !(G_to === nothing && B_to === nothing)
         lc = get(linecodes, get(line, "linecode", ""), nothing)
-        if lc !== nothing
-            i_max = get(lc, "i_max", nothing)
+        # line-level i_max overrides the linecode's (and is the only rating
+        # source for lines carrying inline absolute matrices)
+        i_max = get(line, "i_max", nothing)
+        i_max === nothing && lc !== nothing && (i_max = get(lc, "i_max", nothing))
+        begin
             if i_max !== nothing
                 # Sound box bound on the bare series current variable. The cone
                 # limits the *total* current I_tot = c_series + I_shunt, so

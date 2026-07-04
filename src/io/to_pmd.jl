@@ -193,8 +193,23 @@ function _line_to_pmd(l::Dict{String,Any},
     pmd = _merge_pmd_extra(Dict{String,Any}(), l)
     pmd["f_bus"]  = l["bus_from"]
     pmd["t_bus"]  = l["bus_to"]
-    pmd["length"] = get(l, "length", 1.0)
-    haskey(l, "linecode") && (pmd["linecode"] = l["linecode"])
+
+    if _line_has_inline_z(l)
+        # inline ABSOLUTE matrices [Ω, S]: PMD lines are per-length × length,
+        # so export with length 1 carrying the section totals exactly. The
+        # BMOPF length (if any) is descriptive and must NOT be exported — it
+        # would rescale the impedance downstream.
+        pmd["length"] = 1.0
+        for (pmd_key, prefix) in (("rs","R_series_"), ("xs","X_series_"),
+                                   ("g_fr","G_from_"), ("g_to","G_to_"),
+                                   ("b_fr","B_from_"), ("b_to","B_to_"))
+            mat = _pattern_keys_to_matrix(l, prefix)
+            mat !== nothing && (pmd[pmd_key] = mat)
+        end
+    else
+        pmd["length"] = get(l, "length", 1.0)
+        haskey(l, "linecode") && (pmd["linecode"] = l["linecode"])
+    end
 
     pmd["f_connections"] = _terminal_map_to_connections(
         get(l, "terminal_map_from", String[]), l["bus_from"], terminal_int_map)

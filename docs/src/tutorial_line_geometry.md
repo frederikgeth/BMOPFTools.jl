@@ -36,9 +36,10 @@ construction (as below) rather than carrying unit fields around.
   recorded under `derivation.shields_reduced`.
 - **Earth model is data, not a constant.** `modified_carson` (default),
   `full_carson`, or `deri`, with `earth_resistivity` (default 100 Ω·m) and
-  `frequency` (default 50 Hz) on the geometry object. At power frequency the
-  three agree to well under 1 % — but note **OpenDSS defaults to `deri`**,
-  so set that when cross-validating against OpenDSS geometry lines.
+  `frequency` (**required** — no ambient default, so every case is
+  self-contained) on the geometry object. At power frequency the three agree
+  to well under 1 % — but note **OpenDSS defaults to `deri`**, so set that
+  when cross-validating against OpenDSS geometry lines.
 - **Cross-defaults are recorded.** As in OpenDSS: `r_ac = 1.02·r_dc`,
   `gmr = 0.7788·radius` (solid round), `cap_radius = radius`. Every applied
   default lands in `derivation.defaults_applied`, so a dataset audit can see
@@ -154,9 +155,9 @@ above and below ground; `modified_carson` ignores height entirely.
 ## Matrices from elsewhere: FEM, datasheets, imports
 
 Geometry compilation is one *producer* of linecodes, not a privileged one. A
-matrix from a finite-element tool (e.g. LineCableModels.jl), a manufacturer
-datasheet, or a format import is entered directly as a linecode — stamp its
-origin so audits can tell them apart:
+per-length matrix from a finite-element tool (e.g. LineCableModels.jl), a
+manufacturer datasheet, or a format import is entered directly as a linecode
+— stamp its origin so audits can tell them apart:
 
 ```julia
 net["linecode"]["nayy_4x150"] = Dict{String,Any}(
@@ -170,6 +171,82 @@ net["linecode"]["nayy_4x150"] = Dict{String,Any}(
 `source` is free-form (`"geometry"`, `"fem"`, `"datasheet"`, `"import"`, …);
 `derivation` is stamped automatically by `compile_linecode` and written by
 hand (or by the exporting tool) otherwise.
+
+### Absolute impedances: matrices on the line itself
+
+When the data is the total impedance of one *specific* section — a FEM run
+of an exact cable route, a measured section, a utility-GIS record — there is
+no per-length quantity to share. Put the matrices **on the line**, in Ω/S:
+
+```julia
+net["line"]["service_7"] = Dict{String,Any}(
+    "bus_from" => "b12", "bus_to" => "b13",
+    "terminal_map_from" => ["a", "n"], "terminal_map_to" => ["a", "n"],
+    "R_series_1_1" => 0.031, "X_series_1_1" => 0.0042,   # Ω, section total
+    "R_series_1_2" => 0.009, "X_series_1_2" => 0.0031,
+    "R_series_2_1" => 0.009, "X_series_2_1" => 0.0031,
+    "R_series_2_2" => 0.033, "X_series_2_2" => 0.0044,
+    "length" => 28.0)   # descriptive only — NEVER scales the impedance
+```
+
+Units are unambiguous **by location**: linecode matrices are Ω/m and scale
+with `length`; line matrices are totals and never scale. There is no units
+enum and no conversion pathway. Consistency rules:
+
+- exactly one impedance source per line (`linecode`+`length` XOR inline
+  matrices) — `E.INT.LINE_IMPEDANCE_SOURCE`;
+- inline matrices pass the same physics gates as linecodes (reciprocity,
+  passivity, inductive X), reported on the line;
+- a descriptive `length` triggers a plausibility check on the implied Ω/m
+  (`W.DOM.LINE_IMPLIED_PER_LENGTH`) — catching per-metre data mislabeled as
+  totals;
+- exports re-express inline lines as a 1 m section carrying the totals
+  (numerically exact for PMD/OpenDSS, whose lines are per-length × length).
+
+This replaces the old `length = 1` workaround — which the provenance pass
+detects and now recommends migrating.
+
+## Validity domain of the analytical models
+
+The engine is fundamental-frequency (50/60 Hz) circuit-parameter
+calculation; every closed-form step has an assumption, and each assumption
+has a guard (a `W.DOM.*` finding + compile-time warning — see the
+[finding-code reference](findings.md)):
+
+| Assumption | Holds when | Guard |
+|---|---|---|
+| Carson series truncation (`modified_carson`, `full_carson`) | k = √(ωμ₀/ρ)·S ≪ 1 — true for distribution spacings at 50/60 Hz (< 1 % vs the full series, Kersting & Green 2011) | `W.DOM.GEOM_CARSON_VALIDITY` at k > 0.25 |
+| Height-independence of `modified_carson` | equivalent return depth Dₑ = 658.87·√(ρ/f) m (≈ 850 m at 60 Hz/100 Ω·m) dwarfs conductor heights and burial depths | implicit in the above |
+| Buried conductors treated at the surface | burial depth ≪ earth skin depth (δ ≈ 356 m at 60 Hz/100 Ω·m); the rigorous theory is Pollaczek (1926)/Saad et al. (1996), needed only beyond power frequency | `W.DOM.GEOM_BURIED_EARTH_MODEL` |
+| Deri complex-depth images | \|y\| ≪ \|p\|, p = √(ρ/jωμ₀) (Deri et al. 1981) | `W.DOM.GEOM_BURIED_EARTH_MODEL` (depth > 0.1·\|p\|) |
+| Constant r_ac, GMR-based internal inductance | f below the critical skin frequency f_crit = ρ_c/(π r² μ₀) (Jensen et al. 2001) | `W.DOM.WIRE_SKIN_FREQUENCY` |
+| Perfect-earth electrostatics (capacitance) | always at power frequency (no Carson analogue exists electrostatically) | — |
+
+Both 50 and 60 Hz are computed exactly from ω — no constant in the engine is
+frequency-specific, `frequency` is a **required** field on every geometry,
+and nothing is ever rescaled between frequencies (there is no analogue of
+OpenDSS's `DefaultBaseFreq`). `meta.frequency`, when present, is check-only:
+mismatching objects raise `W.DOM.FREQUENCY_MISMATCH`.
+
+Realizability of the construction data is validated separately (impossible:
+GMR > radius, overlapping conductor circles, non-nesting cable layers →
+compile errors + `E.DOM.*`; implausible: implied resistivity outside the
+metallic range — the Ω/km-as-Ω/m catcher — r_ac < r_dc, εᵣ and soil-ρ
+ranges, clearances, current density → `W`/`I` findings).
+
+### References
+
+- J. R. Carson, "Wave propagation in overhead wires with ground return," *Bell Syst. Tech. J.* 5(4), 1926.
+- F. Pollaczek, "Über das Feld einer unendlich langen wechselstromdurchflossenen Einfachleitung," *E.N.T.* 3(9), 1926.
+- A. Deri, G. Tevan, A. Semlyen, A. Castanheira, "The complex ground return plane: a simplified model for homogeneous and multi-layer earth return," *IEEE Trans. PAS* 100(8), 1981.
+- O. Saad, G. Gaba, M. Giroux, "A closed-form approximation for ground return impedance of underground cables," *IEEE Trans. Power Delivery* 11(3), 1996.
+- W. H. Kersting, R. K. Green, "The application of Carson's equation to the steady-state analysis of distribution feeders," *IEEE PES PSCE*, 2011.
+- W. H. Kersting, *Distribution System Modeling and Analysis*, 4th ed., CRC Press.
+- M. Jensen et al., "Series impedance of the four-wire distribution cable with sector-shaped conductors," *IEEE Porto Power Tech*, 2001.
+- A. J. Urquhart, M. Thomson, "Series impedance of distribution cables with sector-shaped conductors," *IET Gener. Transm. Distrib.* 9(16), 2015.
+- S. Geis-Schroer et al., "Modeling of German low voltage cables with ground return path," *Energies* 14(5), 2021.
+- M. Numair, F. Geth, R. Heidari, M. Vanin, D. Van Hertem, "Impact of LV cable impedance model fidelity on distribution system state estimation," *PSCC*, 2026 — quantifies the analytical-vs-FEM gap for sector-shaped LV cables and motivates the `source="fem"` pathway.
+- IEC 60228 (conductor resistances), IEC 60287 (cable data conventions, insulation permittivities, temperature coefficients).
 
 ## Provenance: the compile is checkable
 

@@ -38,6 +38,10 @@ function domain_rules_check(net::Dict{String,Any},
     _check_source_voltage_margin(net, findings, thresholds, n_checks)
     _check_shunt_on_grounded_terminal(net, findings, n_checks)
     _check_dc_network(net, findings, n_checks)
+    _check_wire_data(net, findings, n_checks)
+    _check_line_geometry(net, findings, n_checks)
+    _check_frequency_consistency(net, findings, n_checks)
+    _check_inline_line_impedance(net, findings, n_checks)
 
     result["n_checks_run"] = n_checks[]
     result
@@ -1271,9 +1275,17 @@ end
 # Impedance helpers
 # ---------------------------------------------------------------------------
 
-# Compute the Frobenius norm of the absolute series impedance matrix Z = (R+jX)*length
-# for a line, resolving its linecode. Returns nothing if data is missing.
+# Compute the Frobenius norm of the absolute series impedance matrix of a
+# line: inline matrices are already section totals [Ω]; a linecode is per
+# metre and scales by length. Returns nothing if data is missing.
 function _line_z_norm(line, linecodes)
+    if _line_has_inline_z(line)
+        R = _pattern_keys_to_matrix(line, "R_series_")
+        X = _pattern_keys_to_matrix(line, "X_series_")
+        R isa AbstractMatrix || return nothing
+        X isa AbstractMatrix || return nothing
+        return sqrt(sum(R[i]^2 + X[i]^2 for i in eachindex(R)))
+    end
     lc_id  = get(line, "linecode", nothing)
     lc_id isa AbstractString || return nothing
     lc = get(linecodes, lc_id, nothing)

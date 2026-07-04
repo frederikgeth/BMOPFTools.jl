@@ -3779,6 +3779,11 @@ const IEEE13_FIXTURE = """
     include("lineconstants_tests.jl")
 
     # -----------------------------------------------------------------------
+    # Inline absolute line impedances (Ω on the line object)
+    # -----------------------------------------------------------------------
+    include("inline_impedance_tests.jl")
+
+    # -----------------------------------------------------------------------
     # Regulator subtypes: galvanic zone/island and neutral-continuity topology
     # -----------------------------------------------------------------------
     include("regulator_topology_tests.jl")

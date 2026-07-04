@@ -233,6 +233,11 @@ const _KNOWN_PATTERNS = Dict{String,Vector{Regex}}(
     "linecode" => [r"^R_series_\d+_\d+$", r"^X_series_\d+_\d+$",
                    r"^G_from_\d+_\d+$",   r"^G_to_\d+_\d+$",
                    r"^B_from_\d+_\d+$",   r"^B_to_\d+_\d+$"],
+    # inline ABSOLUTE matrices (Ω, S) — units by location: linecode = per
+    # metre, line = total for the section
+    "line"     => [r"^R_series_\d+_\d+$", r"^X_series_\d+_\d+$",
+                   r"^G_from_\d+_\d+$",   r"^G_to_\d+_\d+$",
+                   r"^B_from_\d+_\d+$",   r"^B_to_\d+_\d+$"],
     "shunt"    => [r"^G_\d+_\d+$", r"^B_\d+_\d+$"]
 )
 
@@ -367,7 +372,7 @@ end
 
 const _META_KNOWN_FIELDS = Set([
     "\$schema", "version", "title", "description",
-    "created", "modified", "license",
+    "created", "modified", "license", "frequency",
     "authors", "sources", "generator", "provenance",
 ])
 const _META_AUTHOR_FIELDS  = Set(["name", "email", "orcid"])

@@ -55,10 +55,23 @@ end
     _line_z_matrix(line, linecodes) -> (R::Matrix, X::Matrix, n::Int)
 
 Return the total series impedance matrices (Ω) for a line and the number
-of conductors. R = R_series_per_m × length, same for X.
-Returns (nothing, nothing, 0) if the linecode is missing.
+of conductors, from the line's single impedance source:
+
+- inline absolute matrices on the line (`R_series_i_j` [Ω]) — used as-is,
+  never scaled by `length`;
+- otherwise the referenced linecode (Ω/m) × `length`.
+
+Returns (nothing, nothing, 0) if neither source is present.
 """
-function _line_z_matrix(line::Dict{String,Any}, linecodes::Dict{String,Any})
+function _line_z_matrix(line::Dict{String,Any}, linecodes::AbstractDict)
+    if BMOPFTools._line_has_inline_z(line)
+        R = _pkm(line, "R_series_")   # Ω, total for the section
+        X = _pkm(line, "X_series_")
+        R === nothing && (R = zeros(size(X)...))
+        X === nothing && (X = zeros(size(R)...))
+        return (R, X, size(R, 1))
+    end
+
     lcid = get(line, "linecode", nothing)
     lcid === nothing && return (nothing, nothing, 0)
     lc = get(linecodes, lcid, nothing)
@@ -101,11 +114,20 @@ end
 """
     _line_pi_shunt(line, linecodes) -> (G_fr, B_fr, G_to, B_to)
 
-Return the total from- and to-side shunt admittance matrices (S) for a line
-from its linecode's G_from/B_from/G_to/B_to fields (S/m) scaled by line length.
+Return the total from- and to-side shunt admittance matrices (S) for a line.
+Inline lines carry absolute G/B fields [S] used as-is; linecode lines take
+the per-metre fields (S/m) scaled by `length`.
 Returns (nothing, nothing, nothing, nothing) when no shunt fields are present.
 """
-function _line_pi_shunt(line::Dict{String,Any}, linecodes::Dict{String,Any})
+function _line_pi_shunt(line::Dict{String,Any}, linecodes::AbstractDict)
+    if BMOPFTools._line_has_inline_z(line)
+        G_fr = _pkm(line, "G_from_"); B_fr = _pkm(line, "B_from_")
+        G_to = _pkm(line, "G_to_");   B_to = _pkm(line, "B_to_")
+        any(!isnothing, (G_fr, B_fr, G_to, B_to)) ||
+            return nothing, nothing, nothing, nothing
+        return G_fr, B_fr, G_to, B_to      # already section totals [S]
+    end
+
     lcid = get(line, "linecode", nothing)
     lcid === nothing && return nothing, nothing, nothing, nothing
     lc = get(linecodes, lcid, nothing)

@@ -25,9 +25,16 @@ equivalent conductors (Kersting treatment), recorded under
 `derivation.shields_reduced`.
 
 Earth model (`modified_carson` default | `full_carson` | `deri`), earth
-resistivity [Ω·m], frequency [Hz], and conductor temperature [°C] are read
-from the geometry object. Note OpenDSS's default earth model is **deri** —
-set it on the geometry when cross-validating against OpenDSS.
+resistivity [Ω·m], **frequency [Hz] (required — no ambient default, no
+rescaling; both 50 and 60 Hz are computed exactly from ω)**, and conductor
+temperature [°C] are read from the geometry object. Note OpenDSS's default
+earth model is **deri** — set it on the geometry when cross-validating
+against OpenDSS. Physically impossible inputs (GMR > radius, overlapping
+conductor circles, non-nesting cable layers) error; inputs that strain the
+analytical models' validity domain (Carson truncation parameter, buried
+conductors under `full_carson`, frequency above a wire's critical skin
+frequency, implausible earth resistivity) warn here and surface as
+`W.DOM.*` findings in [`analyze`](@ref).
 
 Shunt susceptance: overhead conductors get the Maxwell potential-coefficient
 capacitance (perfect-earth images, electrostatic radius); cables their
@@ -59,7 +66,12 @@ function compile_linecode(net::Dict{String,Any}, geometry_id::String;
         error("line_geometry '$geometry_id': unknown earth_model '$model' " *
               "(expected one of $(_EARTH_MODELS)).")
     rho  = Float64(get(geo, "earth_resistivity", 100.0))
-    f    = Float64(get(geo, "frequency", 50.0))
+    haskey(geo, "frequency") ||
+        error("line_geometry '$geometry_id': `frequency` [Hz] is required — " *
+              "there is no ambient default and no rescaling; state it " *
+              "explicitly so the case is self-contained.")
+    f = Float64(geo["frequency"])
+    f > 0 || error("line_geometry '$geometry_id': `frequency` must be > 0 Hz.")
     temperature = haskey(geo, "temperature") ? Float64(geo["temperature"]) : nothing
 
     entries = get(geo, "conductors", nothing)
@@ -102,6 +114,18 @@ function compile_linecode(net::Dict{String,Any}, geometry_id::String;
     length(unique(terminals)) == n ||
         error("line_geometry '$geometry_id': duplicate terminal labels " *
               "$(terminals) — one conductor per terminal.")
+
+    # physical realizability: conductor circles must not overlap
+    for i in 1:n, j in i+1:n
+        d = hypot(xs[i] - xs[j], ys[i] - ys[j])
+        rsum = wires[i].radius + wires[j].radius
+        d < rsum - 1e-12 &&
+            error("line_geometry '$geometry_id': conductors $i and $j " *
+                  "overlap — centre distance $(round(d, sigdigits=4)) m < " *
+                  "sum of radii $(round(rsum, sigdigits=4)) m.")
+    end
+
+    _warn_geometry_assumptions(geometry_id, wires, xs, ys, model, f, rho)
 
     # -- primitive system: circuit conductors, then cable shields -----------
     prims = [_PrimitiveConductor(w.r_ac, w.gmr, xs[i], ys[i], nothing, 0.0)
@@ -163,6 +187,51 @@ function compile_linecode(net::Dict{String,Any}, geometry_id::String;
 
     linecodes[id] = lc
     id
+end
+
+# Assumption-validity warnings at compile time — the same conditions the
+# analysis pass reports as W.DOM findings (see validation/wire_geometry.jl,
+# which also holds the thresholds and literature rationale).
+function _warn_geometry_assumptions(geometry_id::String,
+                                    wires::Vector{_ResolvedWire},
+                                    xs::Vector{Float64}, ys::Vector{Float64},
+                                    model::String, f::Float64, rho::Float64)
+    n = length(wires)
+    if !(_EARTH_RHO_RANGE[1] <= rho <= _EARTH_RHO_RANGE[2])
+        @warn "line_geometry '$geometry_id': earth_resistivity = $rho Ω·m is " *
+              "outside the practical soil range $(_EARTH_RHO_RANGE)."
+    end
+    if model in ("modified_carson", "full_carson")
+        kmax = 0.0
+        for i in 1:n
+            kmax = max(kmax, _carson_k(max(2 * max(ys[i], 0.0), 1e-3), f, rho))
+            for j in i+1:n
+                S = hypot(xs[i] - xs[j], max(ys[i], 0.0) + max(ys[j], 0.0))
+                kmax = max(kmax, _carson_k(max(S, 1e-3), f, rho))
+            end
+        end
+        kmax > _CARSON_K_MAX &&
+            @warn "line_geometry '$geometry_id': Carson series parameter k " *
+                  "reaches $(round(kmax, sigdigits=3)) (> $(_CARSON_K_MAX)) — " *
+                  "the $(model) truncation degrades (Carson 1926; Kersting & " *
+                  "Green 2011); consider earth_model = \"deri\"."
+    end
+    if any(<(0.0), ys) && model == "full_carson"
+        @warn "line_geometry '$geometry_id': buried conductor(s) with " *
+              "full_carson are evaluated at the surface (Pollaczek regime " *
+              "not implemented; negligible at power frequency)."
+    end
+    for w in wires
+        rho_impl = w.r_ac * pi * w.radius^2
+        fc = _f_critical(rho_impl, w.radius)
+        if f > fc
+            @warn "line_geometry '$geometry_id': frequency $(f) Hz exceeds " *
+                  "the critical skin frequency $(round(fc, sigdigits=3)) Hz " *
+                  "of wire '$(w.id)' — constant-r_ac/GMR assumptions degrade " *
+                  "(Jensen et al. 2001)."
+            break
+        end
+    end
 end
 
 """

@@ -402,6 +402,19 @@ function _xfmr_tap_from_coeff(subtype::AbstractString, xfmr::Dict{String,Any}, c
     return coeff
 end
 
+"""
+    _line_has_inline_z(line) -> Bool
+
+Whether a line carries its own ABSOLUTE impedance matrices (`R_series_i_j`
+[Ω], `X_series_i_j` [Ω], optional `G_*`/`B_*` [S]) instead of a `linecode`
+reference. Units are unambiguous by location: linecode matrices are per
+metre and scale with `length`; inline line matrices are section totals and
+are **never** scaled by length (`length`, if present, is descriptive only).
+A line must have exactly one impedance source (`E.INT.LINE_IMPEDANCE_SOURCE`).
+"""
+_line_has_inline_z(line::Dict{String,Any})::Bool =
+    haskey(line, "R_series_1_1") || haskey(line, "X_series_1_1")
+
 # ---------------------------------------------------------------------------
 # Submodule includes — order matters; IO first, then analysis, then report
 # ---------------------------------------------------------------------------
@@ -440,6 +453,7 @@ include("infeasibility/preflight.jl")
 include("validation/schema.jl")
 include("validation/completeness.jl")
 include("validation/domain_rules.jl")
+include("validation/wire_geometry.jl")
 include("validation/redundancy.jl")
 include("validation/integrity.jl")
 include("validation/spec_conformance.jl")

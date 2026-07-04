@@ -693,8 +693,14 @@ function _check_opendss_defaults(net::Dict{String,Any},
     end
 
     # --- default lengths (1.0): scattered = leak, universal = convention ---
+    # Lines with inline ABSOLUTE matrices are excluded: their length is
+    # descriptive and never scales the impedance, so a length of 1.0 (or no
+    # length) is meaningless there. Networks flagged length_normalized are
+    # candidates for conversion to inline matrices — the sanctioned
+    # representation of "total impedance with a fictitious 1 m length".
     lens = [Float64(get(l, "length", NaN))
-            for (_, l) in get(net, "line", Dict()) if haskey(l, "length")]
+            for (_, l) in get(net, "line", Dict())
+            if l isa Dict && haskey(l, "length") && !_line_has_inline_z(l)]
     n_one = count(==(1.0), lens)
     res["length_normalized"] = length(lens) >= 3 && n_one / length(lens) >= 0.9
     if n_one > 0 && !res["length_normalized"] && n_one / max(length(lens), 1) <= 0.5
@@ -703,7 +709,9 @@ function _check_opendss_defaults(net::Dict{String,Any},
             :line, nothing,
             "$n_one of $(length(lens)) line(s) have length exactly 1.0 among " *
             "otherwise varied lengths — the OpenDSS default; these lengths " *
-            "were likely never set.",
+            "were likely never set. If the linecode values are actually " *
+            "section totals, move them to inline absolute matrices on the " *
+            "line instead.",
             nothing))
     end
 
@@ -743,6 +751,27 @@ function _check_switch_like_lines(net::Dict{String,Any},
 
     for (lid, line) in get(net, "line", Dict())
         line isa Dict || continue
+        reasons = String[]
+
+        if _line_has_inline_z(line)
+            # inline ABSOLUTE matrices [Ω]: only the total-impedance condition
+            # applies (there is no per-metre representation to test)
+            R = _pattern_keys_to_matrix(line, "R_series_")
+            X = _pattern_keys_to_matrix(line, "X_series_")
+            (R isa AbstractMatrix) || continue
+            n = size(R, 1)
+            Xm = (X isa AbstractMatrix && size(X) == size(R)) ? X :
+                  zeros(Float64, n, n)
+            diag_r = [abs(R[k,k]) for k in 1:n]
+            diag_x = [abs(Xm[k,k]) for k in 1:n]
+            if all(<(_SWITCH_LIKE_Z_TOTAL), diag_r) &&
+               all(<(_SWITCH_LIKE_Z_TOTAL), diag_x)
+                push!(reasons, "inline total impedance < $(_SWITCH_LIKE_Z_TOTAL) Ω on all diagonals")
+            end
+            isempty(reasons) || (hits[lid] = reasons)
+            continue
+        end
+
         lcid = get(line, "linecode", nothing)
         lcid === nothing && continue
         lc = get(linecodes, lcid, nothing)
@@ -754,8 +783,6 @@ function _check_switch_like_lines(net::Dict{String,Any},
         n = size(R, 1)
         Xm = (X isa AbstractMatrix && size(X) == size(R)) ? X :
               zeros(Float64, n, n)
-
-        reasons = String[]
 
         # Condition 1: per-unit-length impedance
         diag_r = [abs(R[k,k]) for k in 1:n]

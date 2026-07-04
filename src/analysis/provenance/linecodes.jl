@@ -446,3 +446,65 @@ function _crosscheck_geometry_linecodes(net::Dict{String,Any},
                      "checked" => sort(checked),
                      "mismatched" => sort(mismatched))
 end
+
+# ---------------------------------------------------------------------------
+# Inline absolute line matrices — the same physics gates as linecodes
+# (reciprocity, passivity, inductive reactance), reported on the line.
+# ---------------------------------------------------------------------------
+
+function _check_inline_line_matrices(net::Dict{String,Any},
+                                     findings::Vector{Finding})::Dict{String,Any}
+    checked = String[]
+    for (id, l) in get(net, "line", Dict())
+        l isa Dict && _line_has_inline_z(l) || continue
+        R = _pattern_keys_to_matrix(l, "R_series_")
+        R === nothing && continue
+        push!(checked, id)
+        X = _pattern_keys_to_matrix(l, "X_series_")
+        n = size(R, 1)
+        Xm = (X isa AbstractMatrix && size(X) == size(R)) ? X : zeros(n, n)
+
+        scale = max(maximum(abs.(R)), maximum(abs.(Xm)), 1e-300)
+        asym  = max(maximum(abs.(R - transpose(R))),
+                    maximum(abs.(Xm - transpose(Xm)))) / scale
+        if asym > 1e-6
+            push!(findings, Finding(ERROR, "E.PROV.NONRECIPROCAL", :provenance,
+                :line, id,
+                "Line '$id' inline impedance matrix is not symmetric " *
+                "(relative asymmetry $(round(asym, sigdigits=3))) — violates " *
+                "reciprocity; likely data corruption.",
+                Dict{String,Any}("asymmetry" => asym)))
+        end
+
+        ev = eigvals(Symmetric((R + transpose(R)) / 2))
+        if minimum(ev) < -1e-9 * max(maximum(abs.(ev)), 1e-12)
+            push!(findings, Finding(ERROR, "E.PROV.NONPASSIVE", :provenance,
+                :line, id,
+                "Line '$id' inline resistance matrix has a negative " *
+                "eigenvalue ($(round(minimum(ev), sigdigits=3))) — non-passive.",
+                Dict{String,Any}("r_eigenvalues" => collect(ev))))
+        end
+
+        if X isa AbstractMatrix && size(X) == size(R)
+            bad = [i for i in 1:n if Xm[i, i] <= 0]
+            if !isempty(bad)
+                push!(findings, Finding(WARNING, "W.PROV.X_NONINDUCTIVE",
+                    :provenance, :line, id,
+                    "Line '$id' inline matrix has non-positive series " *
+                    "self-reactance on diagonal entr" *
+                    "$(length(bad) == 1 ? "y" : "ies") $(bad).",
+                    Dict{String,Any}("entries" => bad)))
+            end
+            evx = eigvals(Symmetric((Xm + transpose(Xm)) / 2))
+            if minimum(evx) < -1e-9 * max(maximum(abs.(evx)), 1e-12)
+                push!(findings, Finding(WARNING, "W.PROV.X_NOT_PSD",
+                    :provenance, :line, id,
+                    "Line '$id' inline reactance matrix has a negative " *
+                    "eigenvalue ($(round(minimum(evx), sigdigits=3))) — the " *
+                    "implied inductance matrix is not physically realisable.",
+                    Dict{String,Any}("x_eigenvalues" => collect(evx))))
+            end
+        end
+    end
+    Dict{String,Any}("n_checked" => length(checked), "checked" => sort(checked))
+end
