@@ -49,8 +49,8 @@ sop_case() = parse_bmopf("""
    "b":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],"v_min":[600.0],"v_max":[1100.0]}},
  "linecode":{"lc":{"R_series_1_1":1.0,"X_series_1_1":0.0}},
  "line":{
-   "La":{"bus_from":"sub","bus_to":"a","terminal_map_from":["1","n"],"terminal_map_to":["1","n"],"length":1.0,"linecode":"lc"},
-   "Lb":{"bus_from":"sub","bus_to":"b","terminal_map_from":["1","n"],"terminal_map_to":["1","n"],"length":1.0,"linecode":"lc"}},
+   "La":{"bus_from":"sub","bus_to":"a","terminal_map_from":["1"],"terminal_map_to":["1"],"length":1.0,"linecode":"lc"},
+   "Lb":{"bus_from":"sub","bus_to":"b","terminal_map_from":["1"],"terminal_map_to":["1"],"length":1.0,"linecode":"lc"}},
  "voltage_source":{
    "s":{"bus":"sub","terminal_map":["1","n"],"v_magnitude":[1000.0,0.0],"v_angle":[0.0,0.0],"cost":[1.0]}},
  "load":{
@@ -140,7 +140,7 @@ droop_case(kA, kB, P_load; smaxA = 60000.0, smaxB = 60000.0) = parse_bmopf("""
    "a":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],"v_min":[600.0],"v_max":[1100.0]}},
  "linecode":{"lc":{"R_series_1_1":1.0,"X_series_1_1":0.0}},
  "line":{
-   "La":{"bus_from":"sub","bus_to":"a","terminal_map_from":["1","n"],"terminal_map_to":["1","n"],"length":1.0,"linecode":"lc"}},
+   "La":{"bus_from":"sub","bus_to":"a","terminal_map_from":["1"],"terminal_map_to":["1"],"length":1.0,"linecode":"lc"}},
  "voltage_source":{
    "s":{"bus":"sub","terminal_map":["1","n"],"v_magnitude":[1000.0,0.0],"v_angle":[0.0,0.0],"cost":[1.0]}},
  "ibr":{
@@ -236,7 +236,7 @@ feeder_tie(; v_dc_min_far = 1200.0) = parse_bmopf("""
    "b":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],"v_min":[600.0],"v_max":[1100.0]}},
  "linecode":{"lc":{"R_series_1_1":1.0,"X_series_1_1":0.0}},
  "line":{
-   "La":{"bus_from":"sub","bus_to":"a","terminal_map_from":["1","n"],"terminal_map_to":["1","n"],"length":1.0,"linecode":"lc"}},
+   "La":{"bus_from":"sub","bus_to":"a","terminal_map_from":["1"],"terminal_map_to":["1"],"length":1.0,"linecode":"lc"}},
  "voltage_source":{
    "s":{"bus":"sub","terminal_map":["1","n"],"v_magnitude":[1000.0,0.0],"v_angle":[0.0,0.0],"cost":[1.0]}},
  "load":{
