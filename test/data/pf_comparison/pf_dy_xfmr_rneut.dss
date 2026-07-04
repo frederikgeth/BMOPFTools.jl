@@ -12,8 +12,8 @@
 ! branch anchors the isolated LV island reference; its numerical value is
 ! validated entry-wise against the OpenDSS Yprim.
 !
-! PowerIO drops rneut/xneut on conversion; the BMOPF test sets
-! r_neutral_to=2, x_neutral_to=1 on the parsed transformer by hand.
+! PowerIO v0.6.1 carries rneut/xneut through to BMOPF
+! r_neutral_to=2, x_neutral_to=1.
 
 Clear
 Set DefaultBaseFreq=50

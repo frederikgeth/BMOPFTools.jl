@@ -2696,7 +2696,7 @@ end
         ("pf_dy_xfmr.dss",  "delta_wye",    1.0),
         ("pf_dy_xfmr.dss",  "delta_wye",    0.97),
         # rneut/xneut fixture: unbalanced load + internal neutral grounding
-        # (fields set below — PowerIO drops them on parse).
+        # carried through by PowerIO v0.6.1.
         ("pf_dy_xfmr_rneut.dss", "delta_wye", 1.0),
     )
     for (fname, sub, tapm) in cases
@@ -2791,13 +2791,13 @@ end
     # engines put lv.4 at ≈0 V — the PF-level assertions are convergence of
     # the otherwise-floating island and node-for-node agreement with OpenDSS;
     # the branch's numerical sensitivity is carried by the entry-wise Yprim
-    # gate below. PowerIO drops rneut/xneut (from_dss emits a targeted
-    # warning); the BMOPF fields are set by hand.
+    # gate below. PowerIO v0.6.1 emits the BMOPF neutral grounding fields
+    # directly.
     path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_rneut.dss")
     net  = from_dss(path)
     xf   = first(values(net["transformer"]["delta_wye"]))
-    xf["r_neutral_to"] = 2.0
-    xf["x_neutral_to"] = 1.0
+    @test xf["r_neutral_to"] == 2.0
+    @test xf["x_neutral_to"] == 1.0
     V_ods = _ods_volts(path)
     res   = solve_pf(net; optimizer=Ipopt.Optimizer)
     @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
@@ -2915,8 +2915,12 @@ end
     let path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_rneut.dss")
         net = from_dss(path)
         xf  = first(values(net["transformer"]["delta_wye"]))
-        nb0, Yb0 = BMOPFTools.transformer_yprim(xf, "delta_wye")   # fields absent
-        xf["r_neutral_to"] = 2.0; xf["x_neutral_to"] = 1.0
+        @test xf["r_neutral_to"] == 2.0
+        @test xf["x_neutral_to"] == 1.0
+        xf0 = deepcopy(xf)
+        delete!(xf0, "r_neutral_to")
+        delete!(xf0, "x_neutral_to")
+        nb0, Yb0 = BMOPFTools.transformer_yprim(xf0, "delta_wye")
         nb, Yb = BMOPFTools.transformer_yprim(xf, "delta_wye")
         Yo, ido = ods_yprim(path)
         uids = [u for u in unique(ido) if u[2] != "0"]
