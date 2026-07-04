@@ -564,6 +564,46 @@ sources are re-expanded by the writer as needed.
     fidelity). Every `test/data/pf_comparison` fixture is round-tripped
     (DSS → BMOPF → DSS) and the output re-parsed to guard validity.
 
+## [Bus & branch geometry (coordinates)](@id geometry)
+
+Coordinates are **cosmetic metadata** — they place buses and lines on a map or
+single-line diagram and are never read by the OPF (electrical length comes from
+`length`, impedance from the linecode). PowerIO does not parse OpenDSS
+`Buscoords`, so geometry is attached separately and stored in a small
+[GeoJSON](https://www.rfc-editor.org/rfc/rfc7946.html)-aligned form.
+
+Each bus and line may carry an optional `geo` field holding a GeoJSON geometry
+object — a `Point` on a bus, a `LineString` (the routing polyline: `bus_from`,
+intermediate bends, `bus_to`) on a line. Coordinates are `[longitude, latitude]`
+(RFC 7946 axis order, optionally with a third elevation value) and are
+interpreted in the CRS named by `meta.crs`. Absent `meta.crs` means
+`EPSG:4326` / WGS84, under which the geometry is strictly-conformant GeoJSON; a
+projected code (metres) keeps the geometry structurally valid but semantically
+non-WGS84.
+
+- **Side-loading (`sideload_coordinates!`).** [`sideload_coordinates!`](@ref)
+  reads an OpenDSS-style `bus_id,x,y` CSV (no header, the `Buscoords` format —
+  `x`→longitude, `y`→latitude) and writes a `Point` `geo` onto each matching
+  bus. It returns `(n_matched, n_skipped)`; rows for buses absent from the net
+  (open-switch stubs, synthetic slack) are counted as skipped. Networks written
+  by an older build that stored scalar `longitude`/`latitude` fields are upgraded
+  in place by the internal `BMOPFTools.normalize_coordinates!`.
+
+- **Export (`network_to_geojson`).** [`network_to_geojson`](@ref) assembles a
+  GeoJSON `FeatureCollection` from the stored `geo` — one `Feature` per placed
+  bus and line (`properties.kind` is `"bus"` or `"line"`), in deterministic
+  sorted-id order — ready to serialise (e.g. `JSON3.write`) and drop into any GIS
+  or mapping tool. A line without an explicit `geo` gets a straight two-vertex
+  `LineString` derived from its endpoint buses, mirroring how OpenDSS draws lines
+  from bus coordinates alone (pass `include_lines=false` to emit buses only). A
+  non-WGS84 `meta.crs` is echoed as a top-level `crs` foreign member — a
+  deliberate departure from strict RFC 7946 — so keep networks in WGS84 for
+  maximal interoperability.
+
+Only geographic geometry is modelled; the separate schematic single-line-diagram
+coordinate set that CIM (IEC 61970-453) and tools like PowerFactory maintain
+alongside geographic coordinates is out of scope for now.
+
 ## Known limitations
 
 - **Transformer leakage / core shunt (from `from_dss`).** PowerIO's `bmopf`

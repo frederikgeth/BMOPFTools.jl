@@ -55,6 +55,7 @@ BMOPFTools.migrate
 is_timeseries
 get_snapshot
 sideload_coordinates!
+network_to_geojson
 ```
 
 ## Admittance export

@@ -761,7 +761,7 @@ export write_result, read_result
 export to_pmd
 export from_dss, to_dss
 export project_solution, dispatch_as_loads
-export sideload_coordinates!
+export sideload_coordinates!, network_to_geojson
 export analyze, render
 export load_config                      # tunable thresholds (config/default.toml)
 export is_timeseries, get_snapshot      # useful for interactive use

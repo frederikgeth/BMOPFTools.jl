@@ -20,6 +20,10 @@
                 "created":     { "type": "string" },
                 "modified":    { "type": "string" },
                 "license":     { "type": "string" },
+                "crs":         {
+                    "type": "string",
+                    "description": "Coordinate reference system for all bus/branch `geo` geometry, as an EPSG URN or code (e.g. \"EPSG:4326\"). Absent means EPSG:4326 / WGS84 lon-lat degrees, the RFC 7946 default under which the geometries are strictly-conformant GeoJSON. A projected code (metres) makes the geometry semantically non-WGS84 while still structurally valid GeoJSON"
+                },
                 "frequency":   {
                     "type": "number",
                     "exclusiveMinimum": 0,
@@ -150,6 +154,10 @@
                     "time_series": {
                         "type": "object",
                         "description": "Map from parameter name to time_series id for time-varying scaling"
+                    },
+                    "geo": {
+                        "$ref": "#/$defs/geojson_point",
+                        "description": "GeoJSON Point locating this bus (see meta.crs)"
                     }
                 },
                 "required": ["terminal_names"]
@@ -197,6 +205,10 @@
                     "time_series": {
                         "type": "object",
                         "description": "Map from parameter name to time_series id for time-varying scaling"
+                    },
+                    "geo": {
+                        "$ref": "#/$defs/geojson_linestring",
+                        "description": "GeoJSON LineString giving this line's routing polyline (see meta.crs); cosmetic, does not set electrical length"
                     }
                 },
                 "patternProperties": {
@@ -1237,6 +1249,42 @@
         "voltage_source"
     ],
     "$defs": {
+        "geojson_point": {
+            "type": "object",
+            "description": "GeoJSON (RFC 7946) Point geometry locating a single element. coordinates are [longitude, latitude] (optionally with a third elevation value), interpreted in the coordinate reference system declared by meta.crs (WGS84 when absent)",
+            "additionalProperties": false,
+            "required": ["type", "coordinates"],
+            "properties": {
+                "type": { "const": "Point" },
+                "coordinates": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 3,
+                    "items": { "type": "number" },
+                    "description": "[longitude, latitude] or [longitude, latitude, elevation]"
+                }
+            }
+        },
+        "geojson_linestring": {
+            "type": "object",
+            "description": "GeoJSON (RFC 7946) LineString geometry giving the routing polyline of a branch. The first vertex is the bus_from location, the last is bus_to, and intermediate vertices are the physical bends of the route. Cosmetic only — electrical length comes from `length`, never from this geometry",
+            "additionalProperties": false,
+            "required": ["type", "coordinates"],
+            "properties": {
+                "type": { "const": "LineString" },
+                "coordinates": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 3,
+                        "items": { "type": "number" }
+                    },
+                    "description": "Ordered [longitude, latitude(, elevation)] vertices; first = bus_from, last = bus_to"
+                }
+            }
+        },
         "configuration_type": {
             "type": "string",
             "description": "Element configuration, as WYE, DELTA, or SINGLE_PHASE",
