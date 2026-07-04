@@ -539,3 +539,86 @@ end
         @test "W.DOM.GEOM_CLEARANCE" in _codes(net4)
     end
 end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Live differential cross-check against OpenDSS (via OpenDSSDirect), gated on
+# _HAS_ODS so CI without OpenDSS still runs the published-literal tests above.
+#
+# Geometry-defined linecodes do NOT round-trip through PowerIO yet, so we can't
+# use `from_dss`. Instead OpenDSS computes the matrices from a hand-written
+# WireData+LineGeometry deck (test/data/line_geometry/ieee13_601.dss), and
+# BMOPFTools builds the SAME geometry independently as wire_data/line_geometry
+# (the _wire_556_acsr/_geometry_601 helpers — a separate transcription of the
+# identical physical data). The two engines' matrices are then compared.
+#
+# This is complementary to the published-literal tests: those pin us to
+# Kersting's MODIFIED-CARSON numbers; this pins us to OpenDSS's own engine for
+# BOTH earth models, including Deri (OpenDSS's default), for which no published
+# reference matrix exists.
+# ─────────────────────────────────────────────────────────────────────────────
+if @isdefined(_HAS_ODS) && _HAS_ODS
+    @testset "geometry cross-check vs OpenDSS (live)" begin
+        _dss_dir = joinpath(@__DIR__, "data", "line_geometry")
+        carson_dss = joinpath(_dss_dir, "ieee13_601.dss")
+
+        # OpenDSS returns the full 4×4 in ohm/m (units=m, reduce=no) and
+        # CMatrix in nF/m.
+        function _ods_line_matrices(dss_path)
+            OpenDSSDirect.dss("Clear")
+            OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
+            OpenDSSDirect.Lines.Name("l1")
+            (R = Matrix{Float64}(OpenDSSDirect.Lines.RMatrix()),
+             X = Matrix{Float64}(OpenDSSDirect.Lines.XMatrix()),
+             C = Matrix{Float64}(OpenDSSDirect.Lines.CMatrix()))
+        end
+
+        # BMOPFTools engine on the independently hand-built geometry.
+        function _bmopf_line_matrices(earth_model)
+            geo = _geometry_601(); geo["earth_model"] = earth_model
+            net = Dict{String,Any}(
+                "wire_data" => Dict{String,Any}("acsr556" => _wire_556_acsr(),
+                                                "acsr40"  => _wire_4_0_acsr()),
+                "line_geometry" => Dict{String,Any}("g" => geo))
+            compile_linecode(net, "g")
+            lc = net["linecode"]["g"]
+            R = BMOPFTools._pattern_keys_to_matrix(lc, "R_series_")
+            X = BMOPFTools._pattern_keys_to_matrix(lc, "X_series_")
+            Bf = BMOPFTools._pattern_keys_to_matrix(lc, "B_from_")
+            C_nF = (2 .* Bf ./ (2pi * 60.0)) .* 1e9      # F/m → nF/m
+            (R = R, X = X, C = C_nF)
+        end
+
+        @testset "Carson ≡ modified_carson — tight" begin
+            ods = _ods_line_matrices(carson_dss)
+            us  = _bmopf_line_matrices("modified_carson")
+            # OpenDSS EarthModel=Carson is the same constant-term truncation as
+            # our modified_carson; the matrices agree to numerical precision.
+            @test maximum(abs.(us.R .- ods.R)) / maximum(abs.(ods.R)) < 1e-4
+            @test maximum(abs.(us.X .- ods.X)) / maximum(abs.(ods.X)) < 1e-4
+            @test maximum(abs.(us.C .- ods.C)) / maximum(abs.(ods.C)) < 1e-3
+        end
+
+        @testset "Deri ≡ deri — X/mutual exact, self-R within convention" begin
+            deri_dss = joinpath(mktempdir(), "ieee13_601_deri.dss")
+            write(deri_dss,
+                  replace(read(carson_dss, String),
+                          "earthmodel=Carson" => "earthmodel=Deri"))
+            ods = _ods_line_matrices(deri_dss)
+            us  = _bmopf_line_matrices("deri")
+            # Reactance and mutual (off-diagonal) resistance match OpenDSS's
+            # Deri to machine precision — the complex-depth external and
+            # earth-return terms are identical. Only the self (diagonal)
+            # earth-RESISTANCE differs, by up to ~1.6 % (largest on the
+            # smaller-GMR neutral): a genuine convention difference in the
+            # complex-depth SELF term between the two Deri implementations.
+            # Note our modified_carson (the default) matches OpenDSS's Carson
+            # exactly including self-R — see the tight test above. The
+            # differential is documented rather than papered over: if it ever
+            # widens, this fails and points at the self-term formula.
+            offdiag = [(i, j) for i in 1:4 for j in 1:4 if i != j]
+            @test maximum(abs.(us.X .- ods.X)) / maximum(abs.(ods.X)) < 1e-4
+            @test maximum(abs(us.R[i, j] - ods.R[i, j]) for (i, j) in offdiag) < 1e-9
+            @test maximum(abs.(us.R .- ods.R)) / maximum(abs.(ods.R)) < 0.02
+        end
+    end
+end

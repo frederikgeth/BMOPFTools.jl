@@ -155,6 +155,20 @@ BMOPF conventions:
   emits a targeted warning. BMOPF models them as the transformer-internal
   grounding branch `r/x_neutral_from`/`to` (set the fields manually until
   PowerIO exports them).
+- **System frequency capture** — the OpenDSS base frequency (`Set
+  DefaultBaseFreq`, itself defaulting to 60 Hz; European decks set it to 50)
+  is otherwise absent from BMOPF impedance data, so `from_dss` reads
+  `PowerIO.base_frequency` and records it on `net["meta"]["frequency"]`,
+  keeping the case self-contained. It is metadata only — **never** used to
+  rescale impedances (there is no OpenDSS-style base-frequency scaling in
+  BMOPF) — and feeds the cross-object consistency check
+  `W.DOM.FREQUENCY_MISMATCH`. Override it with `from_dss(path; frequency=…)`
+  when the deck relied on a base frequency it never stated, or you know the
+  intended value; the chosen source (`"powerio"` or `"override"`, plus the
+  parsed value when overridden) is recorded on
+  `net["_meta"]["frequency_source"]`. A PowerIO regression that dropped or
+  hard-coded the base frequency would be caught by the ingest tests, which
+  assert distinct 50 Hz and 60 Hz decks map to distinct `meta.frequency`.
 - **No slack price** — the imported `voltage_source` is left without a `cost`;
   the [augmentation pass](augmentation.md) supplies one (below).
 
@@ -514,9 +528,11 @@ b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       /
 - **`center_tap` is skipped with a warning**: the split-phase unit needs PMD's
   3-winding representation, which this exporter does not implement; emitting a
   2-winding WYE-WYE with a 3-terminal secondary would be malformed.
-- **Settings**: BMOPF carries no frequency field, so
-  `to_pmd(net; frequency=60.0, sbase=...)` sets `settings.base_frequency` /
-  `settings.sbase_default` (defaults 50 Hz, 1 MVA).
+- **Settings**: `to_pmd(net; frequency=..., sbase=...)` sets
+  `settings.base_frequency` / `settings.sbase_default` (defaults 50 Hz,
+  1 MVA). The optional network-level `meta.frequency` (populated on ingest —
+  see below) is *not* read automatically; pass `frequency = net["meta"]["frequency"]`
+  when you want the export to reflect it.
 
 ## [OpenDSS export (`to_dss`)](@id to-dss-export)
 

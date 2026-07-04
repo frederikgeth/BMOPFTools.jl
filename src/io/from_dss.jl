@@ -39,6 +39,16 @@ is set to `"n"` on every affected bus.
 - `path`: path to the OpenDSS Master.dss file (or any .dss entry point)
 - `name`: optional network name string set on `net["name"]` after parsing.
   Defaults to the relative path of the Master file from the working directory.
+- `frequency`: optional system frequency [Hz] override. By default the base
+  frequency PowerIO parsed from the DSS circuit (`Set DefaultBaseFreq`, which
+  itself defaults to 60 Hz in OpenDSS) is captured into `net["meta"]["frequency"]`.
+  Pass this to override it — e.g. when the source file relied on a base
+  frequency the deck never stated, or you know the intended value. The chosen
+  value and its source (`"powerio"` or `"override"`) are recorded on
+  `net["_meta"]["frequency_source"]`. The frequency is **never** used to
+  rescale impedances (there is no OpenDSS-style base-frequency scaling in
+  BMOPF); it is metadata that makes the case self-contained and feeds the
+  cross-object consistency checks (`W.DOM.FREQUENCY_MISMATCH`).
 
 # Conversion warnings
 PowerIO reports every piece of information that cannot be represented in BMOPF
@@ -58,7 +68,8 @@ render(report, stdout)
 ```
 """
 function from_dss(path::AbstractString;
-                  name::Union{AbstractString,Nothing}=nothing)::Dict{String,Any}
+                  name::Union{AbstractString,Nothing}=nothing,
+                  frequency::Union{Real,Nothing}=nothing)::Dict{String,Any}
 
     abspath_dss = abspath(path)
     isfile(abspath_dss) || throw(ArgumentError("DSS file not found: $abspath_dss"))
@@ -86,6 +97,34 @@ function from_dss(path::AbstractString;
     net["_meta"] = get(net, "_meta", Dict{String,Any}())
     net["_meta"]["powerio_warnings"] = collect(String, warnings_list)
     net["_meta"]["powerio_source"]   = abspath_dss
+
+    # Capture the system frequency PowerIO parsed from the DSS circuit
+    # (OpenDSS `Set DefaultBaseFreq`, itself defaulting to 60 Hz), or the
+    # caller's override. OpenDSS files carry no explicit frequency very
+    # often, so preserving it here keeps the case self-contained. Never used
+    # to rescale — it is metadata that also feeds the frequency-consistency
+    # checks. If PowerIO cannot report a base frequency, fall back silently
+    # to the override or leave meta.frequency unset.
+    f_powerio = try
+        Float64(PowerIO.base_frequency(dn))
+    catch
+        nothing
+    end
+    f_chosen = frequency !== nothing ? Float64(frequency) : f_powerio
+    if f_chosen !== nothing && f_chosen > 0
+        meta = get!(net, "meta", Dict{String,Any}())
+        meta["frequency"] = f_chosen
+        net["_meta"]["frequency_source"] =
+            frequency !== nothing ? "override" : "powerio"
+        if frequency !== nothing && f_powerio !== nothing &&
+           !isapprox(f_chosen, f_powerio; rtol=1e-9)
+            net["_meta"]["frequency_powerio"] = f_powerio
+            @warn "from_dss: overriding the parsed base frequency " *
+                  "($(f_powerio) Hz) with $(f_chosen) Hz. Impedances are NOT " *
+                  "rescaled — ensure the source matrices correspond to " *
+                  "$(f_chosen) Hz."
+        end
+    end
     if !isempty(warnings_list)
         n_w = length(warnings_list)
         preview = join(first(collect(String, warnings_list), 5), "\n  ")

@@ -1,0 +1,34 @@
+! IEEE-13 configuration 601 overhead line, defined through OpenDSS WireData +
+! LineGeometry so OpenDSS computes the series/shunt matrices from first
+! principles. This is the reference for the geometry cross-check in
+! test/lineconstants_tests.jl: BMOPFTools builds the SAME geometry by hand as
+! wire_data/line_geometry and its compile_linecode output is compared against
+! the matrices OpenDSS returns here.
+!
+! Notes:
+!  - reduce=no keeps the full 4x4 (a,b,c,n) primitive matrix, matching what
+!    BMOPFTools compiles (it never Kron-reduces circuit conductors).
+!  - EarthModel=Carson is OpenDSS's constant-term truncation == BMOPFTools
+!    "modified_carson". (OpenDSS DEFAULTS to Deri; the test also drives a Deri
+!    variant by editing this line in-memory.)
+!  - Line units=m so Lines.RMatrix()/XMatrix() come back in ohm/m and
+!    Lines.CMatrix() in nF/m, directly comparable to BMOPFTools per-metre codes.
+!  - Conductor data are the published Kersting 556,500 26/7 ACSR (phases) and
+!    4/0 6/1 ACSR (neutral), on the 500-series pole-top spacing.
+
+clear
+new circuit.ieee13_601 basekv=4.16 phases=3 bus1=sourcebus
+set defaultbasefreq=60
+set earthmodel=Carson
+
+new wiredata.acsr556 rac=0.1859 gmr=0.0313 radius=0.4635 runits=mi gmrunits=ft radunits=in normamps=730
+new wiredata.acsr40  rac=0.592  gmr=0.00814 radius=0.2815 runits=mi gmrunits=ft radunits=in normamps=340
+
+new linegeometry.g601 nconds=4 nphases=3 reduce=no
+~ cond=1 wire=acsr556 x=2.5 h=29 units=ft
+~ cond=2 wire=acsr556 x=0   h=29 units=ft
+~ cond=3 wire=acsr556 x=7.0 h=29 units=ft
+~ cond=4 wire=acsr40  x=4.0 h=25 units=ft
+
+new line.l1 bus1=sourcebus bus2=b2 geometry=g601 length=1 units=m
+solve

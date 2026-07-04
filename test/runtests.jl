@@ -3337,6 +3337,54 @@ const IEEE13_FIXTURE = """
         @test gen["q_max"] ≈ [2000.0]
     end
 
+    # --------------------------------------------------------------------------
+    # from_dss captures the OpenDSS base frequency into meta.frequency so the
+    # converted case is self-contained; a keyword overrides it. The first two
+    # asserts LOCK IN PowerIO's base_frequency behaviour (per the maintainer's
+    # request) — if PowerIO changes how it reports DefaultBaseFreq, these fail
+    # here rather than silently mislabelling every ingested network.
+    # --------------------------------------------------------------------------
+    @testset "from_dss — frequency capture and override" begin
+        f50 = joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss")  # Set DefaultBaseFreq=50
+
+        # PowerIO behaviour lock + capture into meta.frequency
+        net = from_dss(f50)
+        @test net["meta"]["frequency"] == 50.0
+        @test net["_meta"]["frequency_source"] == "powerio"
+
+        # a 50 Hz deck and a 60 Hz deck must NOT produce the same frequency —
+        # guards against a PowerIO regression that hard-codes or drops it
+        f60 = joinpath(mktempdir(), "t60.dss")
+        write(f60, """
+        clear
+        new circuit.t60 basekv=11 phases=3 bus1=b1
+        set defaultbasefreq=60
+        new linecode.lc nphases=3 r1=0.1 x1=0.1 units=km
+        new line.l1 bus1=b1 bus2=b2 linecode=lc length=1 units=km
+        new load.ld bus1=b2 phases=3 kv=11 kw=100
+        solve
+        """)
+        @test from_dss(f60)["meta"]["frequency"] == 60.0
+
+        # explicit override wins and is recorded, with the parsed value kept
+        net_ov = from_dss(f50; frequency=60.0)
+        @test net_ov["meta"]["frequency"] == 60.0
+        @test net_ov["_meta"]["frequency_source"] == "override"
+        @test net_ov["_meta"]["frequency_powerio"] == 50.0
+
+        # captured frequency feeds the consistency check: a linecode whose
+        # derivation disagrees with meta.frequency is flagged, never rescaled
+        lc_id = first(keys(net["linecode"]))
+        net["linecode"][lc_id]["derivation"] = Dict{String,Any}("frequency" => 60.0)
+        codes = [f.code for f in analyze(net).findings]
+        @test "W.DOM.FREQUENCY_MISMATCH" in codes
+
+        # meta.frequency survives the JSON round trip (self-contained case)
+        path = joinpath(mktempdir(), "freq.json")
+        write_bmopf(from_dss(f50), path)
+        @test parse_bmopf(path)["meta"]["frequency"] == 50.0
+    end
+
     @testset "LV1_14bus — OpenDSS integration" begin
         dss_master = joinpath(@__DIR__, "data", "LV", "LV1_14bus", "Master.dss")
 
@@ -3774,7 +3822,8 @@ const IEEE13_FIXTURE = """
 
     # -----------------------------------------------------------------------
     # Geometry-based line constants — wire_data/line_geometry → linecode
-    # (IEEE test-feeder reference matrices; PF comparison gated on JuMP/Ipopt)
+    # (IEEE test-feeder reference matrices; live OpenDSS cross-check gated on
+    # _HAS_ODS; PF comparison gated on JuMP/Ipopt)
     # -----------------------------------------------------------------------
     include("lineconstants_tests.jl")
 
