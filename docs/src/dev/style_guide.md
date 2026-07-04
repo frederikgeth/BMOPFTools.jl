@@ -1,6 +1,6 @@
 # Style guide
 
-This page describes how BMOPFTools code is written. To keep it honest, it is
+This page describes how BMOPFTools code is written. It is
 split into **three tiers**:
 
 1. **Enforced** — CI fails if you break it.

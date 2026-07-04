@@ -38,6 +38,7 @@ makedocs(
         "Optimal power flow"      => [
             "Optimal power flow"       => "opf.md",
             "Transformer models"       => "transformer_models.md",
+            "Impedance models & OPF decisions" => "tutorial_impedance_models.md",
             "OPF result dictionary"    => "results.md",
             "Validating the OPF"       => "validation.md",
             "SWER case study"          => "tutorial_swer.md",

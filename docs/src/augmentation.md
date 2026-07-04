@@ -633,7 +633,7 @@ and NREL's SMART-DS programme exposes DER siting/sizing as configurable scenario
 knobs over a fixed base network ([ref. 3](#augrefs)). `add_generators` follows
 this practice directly: its strategies (`:load_following`, `:topology_targeted`
 leaves/near-source, `:hosting_capacity`) are the BMOPF analogues of those
-scenario choices, and tagging them `:synthetic` is the honest acknowledgement
+scenario choices, and tagging them `:synthetic` is the acknowledgement
 that they are design decisions, not measurements.
 
 ## Limitations

@@ -114,7 +114,7 @@ and the standard computational routes return exactly it when one exists
 single-phase result). A loss-minimising objective is the lever ([§5](index.md)) that pins
 the nonconvex solve to that branch. Put together: sane start + loss-min objective + full
 bounds ⇒ the local optimum Ipopt returns is, with high probability, the global one — with
-the honest caveat that the underlying uniqueness theorems are radial and single-phase, so
+the caveat that the underlying uniqueness theorems are radial and single-phase, so
 on a four-wire unbalanced feeder this is calibrated trust resting on an analogy, not a
 guarantee that carries over ([Bernstein et al., 2018](https://doi.org/10.1109/TPWRS.2018.2823277)).
 
@@ -179,7 +179,7 @@ guarantee that carries over ([Bernstein et al., 2018](https://doi.org/10.1109/TP
     The state of the art combines all four: [Gopinath et al.
     (2020)](https://doi.org/10.1016/j.epsr.2020.106688) close the optimality gap on the
     standard ACOPF benchmark libraries (PGLib) by pairing SDP-based bound tightening with
-    valid cuts. The honest reading for a validator: these methods *can* certify globality,
+    valid cuts. These methods *can* certify globality,
     but they are NP-hard in the worst case (above), do not yet scale to large feeders, and
     are **not** what this package ships. Reach for them — your own, or the ecosystem's via
     [`to_pmd`](../conversion.md) — only when a proof is the actual deliverable; for

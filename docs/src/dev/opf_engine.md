@@ -79,7 +79,7 @@ preferences in particular:
   constraint only from data that is actually present; never synthesise a missing
   bound from an unrelated one.
 
-### [Zero impedance: represent it honestly, don't approximate it](@id zero-impedance)
+### [Zero impedance: represent it as is, don't approximate it](@id zero-impedance)
 
 The impedance-over-admittance choice has a sharp practical corollary for
 near-zero branches (jumpers, bus ties, idealised regulators, placeholder
@@ -100,7 +100,7 @@ So `lim_{Z→0⁺} κ = ∞` while `κ(0) = O(1)`: approximating a true zero by 
 value moves it *away* from the well-conditioned point, not toward the physical
 range. In pure admittance form this is unavoidable — `Y = 1/Z → ∞` at `Z = 0` —
 which is the same reason series elements are kept in impedance form. **The remedy
-is semantic, not numerical:** represent the branch honestly as zero and switch
+is semantic, not numerical:** represent the branch as zero and switch
 formulation. BMOPFTools' [`fix_case`](../augmentation.md#fix) does exactly this —
 collapsing low-impedance lines to switches (pass 4) and snapping placeholder
 transformer leakage to exact zero (pass 9) — and the
