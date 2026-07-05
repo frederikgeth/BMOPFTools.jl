@@ -24,7 +24,7 @@ An IBR is an entry of the top-level `ibr` object, keyed by its string ID $r$.
 | `q_min`, `q_max` | number[] | var | | Per-phase reactive-power bounds |
 | `i_max` | number[] | A | | Per-conductor current-magnitude limit (optional neutral entry) |
 | `p_avail` | number | W | | Available active power (PV curtailment ceiling) |
-| `control_profile` | string | – | | Reference to a [control profile](#Control-profiles) |
+| `control_profile` | string | – | | Reference to a [control profile](control-profile.md) |
 | `dc_link_coupled` | bool | – | | Couple the phases through a shared DC link |
 | `p_dc_min`, `p_dc_max` | number | W | | Net DC-side active-power bounds (when `dc_link_coupled`) |
 | `dc_bus`, `dc_terminal_map`, `dc_control`, … | – | – | | Shared DC-node coupling — see [DC networks](dc.md) |

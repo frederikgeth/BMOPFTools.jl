@@ -70,6 +70,9 @@ makedocs(
         "Model specification"     => [
             "Overview"          => "spec/index.md",
             "Notation"          => "spec/notation.md",
+            "Data input formatting" => "spec/data-format.md",
+            "Grounding"         => "spec/grounding.md",
+            "Document metadata" => "spec/metadata.md",
             "Buses"             => "spec/bus.md",
             "Lines"             => "spec/line.md",
             "Switches"          => "spec/switch.md",
@@ -83,6 +86,7 @@ makedocs(
             "DC networks"       => "spec/dc.md",
             "Objective & feasibility" => "spec/objective.md",
             "Impedance derivation"    => "spec/impedance.md",
+            "Control profiles"        => "spec/control-profile.md",
             "Time series"             => "spec/timeseries.md",
         ],
     ],
