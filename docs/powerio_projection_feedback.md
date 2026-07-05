@@ -35,9 +35,9 @@ projection is exact — so any `A ≈ B ✗ C` isolates a PowerIO export issue.
 | 3 | OpenDSS `PVSystem`/`Generator` not imported | `from_dss` | High — generation is dropped on import |
 | 4 | Loads exported without `Vminpu`/`Vmaxpu` | `to_dss` | Medium — OpenDSS clamps constant-power loads, ~1–4 V drift |
 | 5 | Three-phase / 4-wire line snapshot drift | `to_dss` | Medium — ~60–135 V mismatch on multi-phase load buses |
-| 6 | `bmopf` export is lossy for **all** transformers (core shunt, taps, some leakage) | `from_dss` | High — BMOPFTools re-parses a second (`pmd`) export to recover |
-| 7 | 3+-winding / non-two-bus (e.g. `Dd`) transformers dropped entirely from `bmopf` export | `from_dss` | High — whole units missing; reconstructed from `pmd` |
-| 8 | Transformer `rneut`/`xneut` (internal winding grounding) dropped from **both** exports | both | Medium — impedance-grounded neutral left ungrounded (unrecoverable) |
+| 6 | Transformer fidelity gaps in the `bmopf` export | `from_dss` | Resolved by PowerIO v0.6.2 for the validated transformer set |
+| 7 | 3+-winding transformers dropped from `bmopf` export | `from_dss` | Resolved by PowerIO v0.6.2 for the validated `n_winding` cases |
+| 8 | Transformer `rneut`/`xneut` (internal winding grounding) dropped from **both** exports | both | Resolved by PowerIO v0.6.2 |
 
 Items 2 and 3 are worked around downstream (BMOPFTools converts pinned
 generators/IBRs to equivalent **negative constant-power loads** before export, via
@@ -121,62 +121,13 @@ the round-trip study. (Distinct from #1: these cases have no transformer.)
 
 ---
 
-# Import direction (`from_dss`) — recover-from-`pmd` workarounds that belong upstream
+# Import direction (`from_dss`) — resolved upstream in PowerIO v0.6.2
 
-The single strongest signal that logic belongs upstream: **`from_dss` fetches a
-*second* PowerIO export (`to_format(dn, "pmd")`) and reconciles it against the
-`bmopf` export purely to recover transformer data the `bmopf` writer drops or gets
-wrong** ([from_dss.jl:80](../src/io/from_dss.jl#L80),
-[`_recover_transformer_params_from_pmd!`:438](../src/io/from_dss.jl#L438),
-[`_reconstruct_nwinding_from_pmd!`:620](../src/io/from_dss.jl#L620)). The `pmd`
-export already carries the correct values (`xsc`, `noloadloss`, `cmag`, `tm_set`,
-full winding set) — so if the `bmopf` writer preserved the same fidelity, ~250
-lines of BMOPFTools recovery code would disappear. These are transcription losses
-in the `bmopf` writer, not modeling limits.
-
-## 6. `bmopf` transformer export is systematically lossy
-
-For **every** transformer, PowerIO's `bmopf` export drops or mis-refers data that
-its own `pmd` export keeps ([from_dss.jl:377-386, 533-552](../src/io/from_dss.jl#L377)):
-
-- **No-load (core) shunt** `g_no_load` / `b_no_load` — dropped for every
-  transformer; `pmd` has it as `noloadloss` / `cmag`.
-- **Fixed off-nominal taps** (`taps=`) — dropped; `pmd` has it in `tm_set`.
-- **`center_tap` leakage** — the true 3-winding split-phase leakage is collapsed to
-  a lossy 2-winding reduction (full `XHL` on one winding, zero on the other); `pmd`
-  keeps the pairwise `xsc = [XHL, XHT, XLT]`.
-- **`delta_wye` leakage** — the delta-side series reactance is referred to the wrong
-  base; recomputed from `pmd`'s `xsc` split per winding base.
-
-(`single_phase` and `wye_delta` export correct leakage — left untouched.)
-
-**Suggestion:** make the `bmopf` transformer writer carry `g_no_load`/`b_no_load`,
-the off-nominal `taps=`, and the correct per-winding leakage referral — i.e. bring
-it to parity with the `pmd` writer, which already computes all of it.
-
-## 7. 3+-winding and non-two-bus transformers dropped entirely from `bmopf` export
-
-Any 3-phase unit with **3+ windings**, or a connection pattern outside the four
-supported two-bus subtypes (e.g. **`Dd`**), is **omitted from the `bmopf` export
-altogether** — the unit simply vanishes. BMOPFTools rebuilds it as an `n_winding`
-transformer from the `pmd` record
-([`_reconstruct_nwinding_from_pmd!`:620](../src/io/from_dss.jl#L620)); when the
-`pmd` record is also incomplete the unit is reported **MISSING**.
-
-**Suggestion:** emit these transformers in the `bmopf` export (an n-winding /
-general-connection representation), as the `pmd` export already does.
-
-## 8. Transformer `rneut`/`xneut` dropped from *both* exports
-
-The OpenDSS transformer-internal winding-neutral grounding impedance
-(`rneut`/`xneut`) is dropped by **both** the `bmopf` and `pmd` exports, so an
-impedance-grounded wye neutral is silently left **ungrounded** — physically wrong,
-and (unlike #6/#7) **not recoverable** downstream. BMOPFTools can only raise a
-targeted warning and ask the user to set the fields by hand
-([from_dss.jl:96-108](../src/io/from_dss.jl#L96)).
-
-**Suggestion:** carry `rneut`/`xneut` through at least one export (BMOPF has
-`r_neutral_from/to`, `x_neutral_from/to` fields ready to receive them).
+PowerIO v0.6.2 carries the validated transformer fidelity fields through the
+BMOPF export directly: fixed taps, center-tap leakage, delta-wye leakage,
+internal neutral grounding, and the validated `n_winding` cases. BMOPFTools now
+uses the PMD export only to normalize no-load shunt sign and placement to its
+OPF convention.
 
 ## What legitimately stays in `from_dss` (not PowerIO's concern)
 
@@ -202,5 +153,5 @@ PowerIO deficiencies — please **don't** "fix" them upstream:
   OPF solution projected through PowerIO and solved in OpenDSS reproduces the
   optimizer's voltages — the end-to-end goal, working today.
 - **Transformer taps round-trip through the writer**: a freed OPF tap
-  (`tap=1.0116`) appears in the exported deck; only the `kvs=NaN` blocker (#1)
-  stops OpenDSS from solving it.
+  (`tap=1.0116`) appears in the exported deck, and the OpenDSS projection check
+  solves.

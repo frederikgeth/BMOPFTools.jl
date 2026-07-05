@@ -12,7 +12,7 @@
 ! branch anchors the isolated LV island reference; its numerical value is
 ! validated entry-wise against the OpenDSS Yprim.
 !
-! PowerIO v0.6.1 carries rneut/xneut through to BMOPF
+! PowerIO v0.6.2 carries rneut/xneut through to BMOPF
 ! r_neutral_to=2, x_neutral_to=1.
 
 Clear

@@ -51,7 +51,7 @@ optimiser dispatching a controllable device per operating point can.
     is a single phase conductor whose linecode impedance carries the loop. The
     split-phase (centre-tapped) distribution transformer is modelled as a full
     coupled-coil 3-winding unit — the primitive admittance is reconstructed from the
-    OpenDSS short-circuit set (`from_dss` recovers it via PowerIO's `pmd` export), so
+    OpenDSS short-circuit set carried by PowerIO's BMOPF export, so
     its two legs track OpenDSS even under heavy, unbalanced loading. See the
     [end-to-end tutorial](tutorial_end_to_end.md) for the general pipeline and
     [Validating the OPF](validation.md) for the OpenDSS cross-checks.

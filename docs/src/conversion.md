@@ -129,24 +129,12 @@ BMOPF conventions:
 - **Identifier case-folding** — all ids and references lower-cased (below).
 - **Terminal remap** — `1,2,3,4 → a,b,c,n`, with the OpenDSS earth node `.0`
   (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
-- **Per-phase voltage source merge** — a `Circuit` + per-phase `VSource` bank on
-  a shared bus is reassembled into one polyphase source (below).
 - **Transformer impedance normalisation** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
-- **Transformer leakage and core-shunt normalisation** — PowerIO v0.6.1 emits
-  BMOPF core shunts and neutral grounding directly. `from_dss` still consults
-  PowerIO's `pmd` export (`_recover_transformer_params_from_pmd!`) for the
-  stricter BMOPFTools conventions around center-tap leakage layout and the
-  `delta_wye` delta-side leakage reference.
-- **Fixed off-nominal tap recovery** — `from_dss` recovers the single from side
-  `tap` multiplier `t₁/t₂` from the pmd `tm_set`. OpenDSS
-  `mintap`/`maxtap` are deliberately **not** mapped to `tap_min`/`tap_max`: in
-  BMOPF their presence opts the tap into optimisation, whereas in OpenDSS they
-  are ubiquitous class defaults (0.9/1.1 on every unit).
-- **n-winding transformers** — PowerIO v0.6.1 emits native BMOPF `n_winding`
-  data for the validated OpenDSS 3-winding cases. `from_dss` still normalises
-  the delta vector group and keeps the PMD reconstruction fallback for
-  connection sets the BMOPF export cannot express.
+- **Transformer fidelity** — PowerIO v0.6.2 emits BMOPF transformer neutral
+  grounding, fixed taps, center-tap leakage, delta-wye leakage, and the validated
+  `n_winding` cases directly. BMOPFTools still normalizes the no-load shunt sign
+  and placement to its OPF convention.
 - **System frequency capture** — the OpenDSS base frequency (`Set
   DefaultBaseFreq`, itself defaulting to 60 Hz; European decks set it to 50)
   is otherwise absent from BMOPF impedance data, so `from_dss` reads
@@ -315,52 +303,25 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
   `√3`/coil-base factor lives in `v_nom`, so `r_winding`/`x_sc` are on the coil
   base `n_ph·v_nom²/s_rating` and per-unit needs no `√3` correction.
 
-Ingest and export status: PowerIO v0.6.1 emits `n_winding` from its BMOPF export
-for the validated 3-winding OpenDSS cases, and `from_dss` preserves the PMD
-reconstruction fallback for unsupported connection sets. `to_pmd` **skips**
-`n_winding` transformers with a warning, since PowerModelsDistribution has no
-general n-winding model. The OPF/PF model is validated to match OpenDSS's own
-3-winding solve.
+Ingest and export status: PowerIO v0.6.2 emits `n_winding` from its BMOPF export
+for the validated OpenDSS cases. `to_pmd` **skips** `n_winding` transformers
+with a warning, since PowerModelsDistribution has no general n-winding model.
+The OPF/PF model is validated to match OpenDSS's own 3-winding solve.
 
 ### [Per-phase voltage source merge](@id source-merge)
 
 OpenDSS commonly models a three-phase substation source as a `Circuit` element
 plus per-phase `VSource` objects (`…_phB`, `…_phC`) — each a *single-phase*
-source wired to one phase of a shared bus. PowerIO faithfully mirrors the
-OpenDSS object graph, so these arrive as **separate single-phase**
-`voltage_source` entries. BMOPF's spec expects exactly one source, and the OPF
-reference convention is a single polyphase slack, so `from_dss` reassembles the
-bank into one source at the ingest boundary
-(`_merge_phase_voltage_sources!`). The merge clears the `W.SPEC.N_SOURCES`
-finding that the un-merged bank would otherwise raise.
+source wired to one phase of a shared bus. PowerIO emits the BMOPF source data
+directly; BMOPFTools keeps the phase arrangement classifier for provenance and
+connectivity checks.
 
-Sources on a common bus are merged only when the evidence says they are one
-source: every member is single-phase (one of `a`/`b`/`c` plus an optional
-neutral), the members cover **distinct** phases, none carries
-`p_min`/`p_max`/`q_min`/`q_max`/`cost` (a priced/bounded slack is left untouched
-— combining per-phase limits is ambiguous), and the members' angles form a
-coherent **3-phase-style arrangement** — a `:positive`/`:negative` ±120° rotation
-(within 30°) or a `:zero` (all-equal) set. A bank that is instead a quadrature
-(≈90°, two-phase) or anti-phase (≈180°, split-phase) set, or simply incoherent,
-is **left unmerged** and recorded under
-`net["_meta"]["merged_voltage_sources"]["declined"]` with the recognised
-`arrangement` so the reason is specific.
-
-Phase order in the merged source is **physical-label-driven** — always
-`a`,`b`,`c` (positive-sequence rotation) followed by `n`, regardless of the order
-the `VSource` objects appeared in the file. The per-phase angles are preserved
-**verbatim** and are never used to permute conductors: the terminal label is
-authoritative for which physical conductor the source feeds (everything else in
-the network references that label), while the angle is independent phasor data.
-The angles serve only to *disambiguate* whether the bank is one coherent source
-and which arrangement it carries. A negative-sequence rotation (angles disagree
-with the a→b→c labelling) or a zero-sequence set (all phases co-phasal) is still
-merged faithfully, but flagged on the group note as a likely modeling error. The
-merge is recorded under `net["_meta"]["merged_voltage_sources"]`. Independently of
-the merge, [`provenance_analysis`](@ref) classifies **every** polyphase source's
-stored angles and raises `W.PROV.SOURCE_ZERO_SEQUENCE` /
+[`provenance_analysis`](@ref) classifies every polyphase source's stored angles
+and raises `W.PROV.SOURCE_ZERO_SEQUENCE` /
 `W.PROV.SOURCE_NEGATIVE_SEQUENCE` / `W.PROV.SOURCE_INCOHERENT_ROTATION` (see
-[Findings](findings.md)), so an already-polyphase degenerate source is caught too.
+[Findings](findings.md)). Connectivity analysis uses the same classifier to
+flag a galvanic zone whose source arrangement cannot supply the phase count
+declared by downstream buses.
 
 ### Pricing the slack source
 
@@ -559,15 +520,10 @@ sources are re-expanded by the writer as needed.
 
 ## Known limitations
 
-- **Transformer leakage / core shunt (from `from_dss`).** PowerIO's `bmopf`
-  export is lossy for transformers: it drops the no-load shunt for every subtype,
-  collapses the `center_tap` 3-winding leakage, and refers the `delta_wye`
-  delta-side leakage to the wrong base. `from_dss` re-derives the leakage and the
-  core-loss shunt from PowerIO's richer `pmd` export for `single_phase`,
-  `wye_delta`, `delta_wye` and `center_tap` (`_recover_transformer_params_from_pmd!`),
-  so the OPF/Ybus match OpenDSS. The magnetising susceptance (`b_no_load`) is not
-  recovered (small, ambiguous sign in the phase-to-ground stamp); `n_winding`
-  leakage is taken straight from `pmd` (`x_sc`) and not re-derived.
+- **Transformer fidelity (from `from_dss`).** BMOPFTools requires PowerIO
+  v0.6.2 for OpenDSS import. The BMOPF export carries fixed taps, center-tap
+  leakage, delta-wye leakage, neutral grounding, and the validated `n_winding`
+  cases directly. BMOPFTools normalizes no-load shunts to its OPF convention.
 - **Grounding reactors need `phases=1` (gotcha).** PowerIO silently drops a
   `New Reactor.grnd ... bus2=X.0` neutral-grounding reactor unless it declares
   `phases=1` (OpenDSS itself tolerates the omission). Without it the grounded

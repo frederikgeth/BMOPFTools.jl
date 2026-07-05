@@ -238,8 +238,8 @@ holds for any voltage vector.
 > ampere-turn is $N I_s + I_{\ell1} - I_{\ell2}=0$, and the center-tap KCL is
 > $I_n + I_{\ell1} + I_{\ell2}=0$. The star arms come from the symmetric short-circuit
 > split $X_{1,\text{star}}=(X_{HL}+X_{HT}-X_{LT})/2$,
-> $X_{2,\text{star}}=(X_{HL}+X_{LT}-X_{HT})/2$, which `from_dss` recovers from
-> PowerIO's `pmd` export (the `bmopf` export drops the LV-side leakage).
+> $X_{2,\text{star}}=(X_{HL}+X_{LT}-X_{HT})/2$, which PowerIO v0.6.2 carries in
+> the BMOPF export consumed by `from_dss`.
 
 ---
 

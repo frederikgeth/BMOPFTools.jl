@@ -260,12 +260,12 @@ fixtures above:
 - **`from_dss` transformer fidelity** (`single_phase`/`wye_delta`/`delta_wye`):
   the vector-group cases above are built as hand-authored BMOPF nets; this set
   runs the *parse* path (`from_dss` of the same `.dss`) through `solve_pf` and
-  compares to OpenDSS, matching voltages and total losses. It guards the recovery
-  of the no-load shunt — placed on **winding 2** (the OpenDSS convention),
-  including the magnetising susceptance (`%imag` → negative `b_no_load`) — and
-  the `delta_wye` leakage from PowerIO's `pmd` export (the `bmopf` export drops
-  both — see [conversion](conversion.md)), and the `phases=1` requirement on
-  grounding reactors without which the Dy neutral floats and the solve diverges.
+  compares to OpenDSS, matching voltages and total losses. It guards the
+  no-load shunt normalization — placed on **winding 2** (the OpenDSS
+  convention), including the magnetising susceptance (`%imag` → negative
+  `b_no_load`) — and the `delta_wye` leakage carried by PowerIO v0.6.2's BMOPF
+  export, plus the `phases=1` requirement on grounding reactors without which
+  the Dy neutral floats and the solve diverges.
 - **Transformer `Yprim` matches OpenDSS** (`single_phase`, `center_tap`,
   `wye_delta`, `delta_wye`): the correctness gate from
   `transformer_admittance_derivation.md` §7 — the per-element primitive
@@ -294,12 +294,10 @@ fixtures above:
   `Yprim` neutral-node diagonal entry-wise vs `CktElement.YPrim()` (with a
   counterfactual check that omitting the stamp misses OpenDSS by ≈``|y_n|``),
   and the OPF↔`Yprim` setpoint gate.
-- **Import recovery** (`from_dss`): fixed off-nominal `taps=` recovered from
-  the pmd `tm_set` (end-to-end tapped-Dy PF vs OpenDSS), and 3-phase 3-winding
-  transformers — dropped entirely by PowerIO's bmopf export — reconstructed as
-  `n_winding` from the pmd record (end-to-end YYY / Dyn / unbalanced-Dyn PF vs
-  OpenDSS at the default tolerance). 4+ windings currently refuse loudly:
-  PowerIO's pmd export mangles `Xscarray` (upstream gap).
+- **PowerIO import fidelity** (`from_dss`): fixed off-nominal `taps=`, neutral
+  grounding, and validated 3-phase 3-winding transformers arrive through
+  PowerIO v0.6.2's BMOPF export and are checked end to end against OpenDSS.
+  Unsupported winding sets refuse loudly.
 
 ### Reusing the feasibility setup
 
