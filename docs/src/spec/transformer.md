@@ -10,6 +10,18 @@ idealised winding pair plus three loss components. Parts 1–5 state the foundat
 model; [part 6](#6.-Implementation-in-BMOPFTools) records the realisation. Symbols are
 defined in [Notation](notation.md).
 
+!!! note "What a “winding” counts — ports, not physical coils"
+    In the literature and in tools, a **winding** (and an *n-winding* transformer)
+    usually counts the number of **buses / voltage levels the transformer connects** —
+    its *ports* — not the number of physical coils. For a *single-phase* transformer the
+    two coincide: a two-winding single-phase unit has two coils and two ports. For a
+    *three-phase* transformer they do **not**: a three-phase two-winding transformer has
+    **six** physical coils (three per side) yet is still called "two-winding". Throughout
+    this specification "winding" means a **port** — one bus connection at one voltage
+    level — and each winding comprises `n_phase` physical coils. The `n_winding` object's
+    `windings` array lists these ports (each with its own `bus`), so `n` is the number of
+    buses, and per phase there are `n` coils on the shared core.
+
 ## 1. Data model
 
 Each subtype is an entry under `transformer.<subtype>`, keyed by its string ID $x$.
@@ -118,6 +130,13 @@ The to-side terminal current is $\textcolor{blue}{I_{x,\text{to},k}}+\textcolor{
 (series + magnetising); the neutral grounding branch, if present, adds its current at
 the shared neutral.
 
+The loss elements sit in the equivalent circuit as follows — the two winding series
+impedances (whose referred series sum is the short-circuit impedance) and the no-load
+shunt on the secondary coil (see [Where the losses appear](#Where-the-losses-appear) for
+the full reading):
+
+![Single-phase transformer per-winding-pair loss equivalent circuit: series winding impedance on each coil, their series sum forming the short-circuit impedance, and a no-load shunt (core loss + magnetisation) on the secondary coil.](assets/single_phase_loss.svg)
+
 ### Center-tap (split-phase)
 
 One HV winding drives **two anti-series LV legs** sharing a centre-tap neutral: two from
@@ -154,6 +173,11 @@ The magnetising shunt $\textcolor{brown}{Y_0}$ sits across winding 2 (LV leg 1,
 $\textcolor{blue}{v_1}$). The $\mp\textcolor{red}{N}_{\text{eff}}\textcolor{brown}{Z^{\text{to}}_x}$
 sign difference between the legs is the reversed dotting of winding 3; using $+$ for both
 makes the legs identical and loses the load-imbalance physics.
+
+Being a genuine three-winding unit, its leakage is a **star** of arms — an HV arm and
+one per LV leg — not a single series pair; the no-load shunt hangs off leg 1:
+
+![Centre-tap loss equivalent circuit: an HV winding series impedance and a series impedance on each of the two anti-series LV legs, with a no-load shunt (core loss + magnetisation) on leg 1.](assets/center_tap_loss.svg)
 
 ### Wye–delta and delta–wye
 
@@ -248,6 +272,20 @@ $\sqrt{3}$ lives in $\textcolor{red}{N_k}$). Each wye coil returns its phase cur
 through its neutral; each delta coil injects between its two phase nodes. The magnetising
 shunt again sits across winding 2's coil. Tap optimisation is **not** supported for
 `n_winding` (the ratios are fixed).
+
+This is the general form of the loss model: the leakage is a **star of per-winding arms**
+(referred to winding 1) meeting at a common core node, with the no-load shunt at that
+node. It generalises the two-winding picture — where the two arms in series *are* the
+single short-circuit impedance — to $n$ windings, where each unordered pair $(i,j)$ has
+its own short-circuit reactance $\textcolor{brown}{x_{\text{sc}}}[i,j]$ (the field `x_sc`
+keyed `"i_j"`), and the star arms are recovered from that matrix
+($\textcolor{brown}{x_{\text{sc}}}[i,j]=\textcolor{red}{X_i}+\textcolor{red}{X_j}$ for a
+symmetric star):
+
+![n-winding star (leakage) equivalent, referred to winding 1: each winding contributes a leakage arm to a common core node, the no-load shunt sits at the core, and each winding pair (i,j) has its own short-circuit reactance x_sc[i,j] = X_i + X_j.](assets/nwinding_loss.svg)
+
+So for more than two windings there is **no single "short-circuit reactance"** — only a
+matrix of pairwise short-circuits, which is exactly what the `x_sc` field records.
 
 ## 5. Inequality constraints
 
