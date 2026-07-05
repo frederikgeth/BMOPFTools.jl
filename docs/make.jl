@@ -76,8 +76,11 @@ makedocs(
             "Loads"             => "spec/load.md",
             "Generators"        => "spec/generator.md",
             "Shunts"            => "spec/shunt.md",
+            "Capacitors"        => "spec/capacitor.md",
             "Voltage sources"   => "spec/source.md",
             "Transformers"      => "spec/transformer.md",
+            "IBRs"              => "spec/ibr.md",
+            "DC networks"       => "spec/dc.md",
         ],
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)

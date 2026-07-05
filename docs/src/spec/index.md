@@ -2,12 +2,13 @@
 
 !!! note "Status: prototype"
     This section is a **prototype** of a new, self-contained model + data
-    specification. It covers **[Notation](notation.md)** and the network components:
+    specification. It covers **[Notation](notation.md)** and the components:
     **[Buses](bus.md)**, **[Lines](line.md)**, **[Switches](switch.md)**,
     **[Loads](load.md)**, **[Generators](generator.md)**, **[Shunts](shunt.md)**,
-    **[Voltage sources](source.md)**, and **[Transformers](transformer.md)**. DC
-    components, time series, and the objective/feasibility formulations are not yet
-    written.
+    **[Capacitors](capacitor.md)**, **[Voltage sources](source.md)**,
+    **[Transformers](transformer.md)**, **[IBRs](ibr.md)**, and
+    **[DC networks](dc.md)**. Time series and the objective/feasibility formulations
+    are not yet written.
 
 ## Purpose
 
