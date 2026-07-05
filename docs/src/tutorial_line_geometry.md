@@ -307,9 +307,7 @@ frequency. See `test/lineconstants_tests.jl`.
 - A public Kron-reduction transform (the internal one backs cable shields
   and unit tests only).
 - Sector-shaped LV cable corrections (BS 7870 / VDE 0295 actual areas,
-  geometric-centre distances) — see Numair et al., *Impact of LV Cable
-  Impedance Model Fidelity on Distribution System State Estimation* (PSCC
-  2026) for why this matters.
+  geometric-centre distances).
 - A LineCableModels.jl import bridge for `source="fem"` linecodes.
 - Preserving OpenDSS geometry objects through `from_dss` (PowerIO currently
   flattens them to matrices upstream).

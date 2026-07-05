@@ -21,6 +21,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_line_impedance(net, findings, thresholds, n_checks)
     _check_transformer_ratings(net, findings, thresholds, n_checks)
     _check_transformer_ideal(net, findings, thresholds, n_checks)
+    _check_transformer_leakage_physical(net, findings, n_checks)
     _check_transformer_orientation(net, findings, n_checks)
     _check_nonnegative_fields(net, findings, n_checks)
     _check_zero_limits(net, findings, n_checks)
@@ -1244,6 +1245,115 @@ function _check_transformer_ideal(net, findings, thresh, n_checks)
                 "via `apply_snap_transformer_impedance`) or to a realistic %Z.",
                 Dict{String,Any}("subtype" => subtype, "z_pu" => zpu,
                                  "x_series_total" => X, "r_series_total" => R)))
+        end
+    end
+end
+
+# Physics-based reactance-sign / realisability check for transformer leakage.
+#
+# The subtlety (and the reason this is a SEPARATE rule from the magnitude-only
+# `_check_transformer_ideal`, which discards sign via `sum(abs, …)`): a negative
+# reactance is NOT automatically an error. Transformer leakage is fitted to an
+# equivalent-circuit topology (a star/T split for the two-bus subtypes, the ZB
+# short-circuit matrix for `n_winding`), and the *internal* branches of such a
+# topology are fictitious — an individual star/T leg or a ZB diagonal can be
+# negative and still perfectly physical. What physics does force is:
+#
+#   • every *measurable* pairwise short-circuit reactance is inductive (≥ 0) —
+#     it is a real short-circuit test that stores non-negative magnetic energy;
+#   • the leakage reactance MATRIX is positive semidefinite (energy argument),
+#     the multi-winding generalisation of the above.
+#
+# So we flag violations of those invariants, never a negative element per se:
+#   W.DOM.XFMR_X_NONINDUCTIVE — a measurable short-circuit reactance is negative
+#                               (sign flip / X↔B confusion). For two-bus subtypes
+#                               the measurable quantity is the *total* series
+#                               reactance X_from + X_to, not the individual legs.
+#   W.DOM.XFMR_X_NOT_PSD       — the `n_winding` reactance matrix `imag(ZB)` has a
+#                               materially negative eigenvalue: the pairwise `x_sc`
+#                               values are mutually inconsistent (no passive
+#                               coupled-coil model reproduces them).
+# Mirrors the linecode passivity checks (`W.PROV.X_NONINDUCTIVE` /
+# `W.PROV.X_NOT_PSD` in analysis/provenance/linecodes.jl), applied to transformers.
+function _check_transformer_leakage_physical(net, findings, n_checks)
+    xfmr = get(net, "transformer", Dict())
+    # Relative tolerance: an eigenvalue/reactance only counts as negative if it
+    # exceeds numerical noise scaled by the matrix magnitude (same idiom as the
+    # linecode PSD check).
+    negtol(scale) = -1e-9 * max(scale, 1e-12)
+
+    for subtype in _XFMR_LEAKAGE_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa Dict || continue
+        for (id, t) in sub
+            t isa Dict || continue
+
+            if subtype == "n_winding"
+                xsc = get(t, "x_sc", Dict())
+                xsc isa Dict && !isempty(xsc) || continue
+                n_checks[] += 1
+                scale = maximum(abs(Float64(v)) for v in values(xsc); init = 0.0)
+
+                # (a) Each measurable pairwise short-circuit reactance ≥ 0.
+                neg_pairs = sort!([k for (k, v) in xsc
+                                   if Float64(v) < negtol(scale)])
+                if !isempty(neg_pairs)
+                    vals = Dict{String,Any}(k => Float64(xsc[k]) for k in neg_pairs)
+                    push!(findings, Finding(WARNING, "W.DOM.XFMR_X_NONINDUCTIVE",
+                        :domain_rules, :transformer, id,
+                        "Transformer '$id' (n_winding) has negative pairwise " *
+                        "short-circuit reactance on winding pair(s) " *
+                        "$(join(neg_pairs, ", ")) (x_sc = $(vals) Ω). A measured " *
+                        "short-circuit reactance is inductive by construction — a " *
+                        "negative value is almost certainly a sign flip or an X↔B " *
+                        "(reactance/susceptance) confusion in the source data.",
+                        Dict{String,Any}("subtype" => subtype,
+                                         "negative_pairs" => vals)))
+                end
+
+                # (b) The reactance matrix imag(ZB) must be PSD.
+                evx = _nw_xb_eigvals(t)
+                if evx !== nothing && !isempty(evx)
+                    emin = minimum(evx)
+                    if emin < negtol(maximum(abs, evx))
+                        push!(findings, Finding(WARNING, "W.DOM.XFMR_X_NOT_PSD",
+                            :domain_rules, :transformer, id,
+                            "Transformer '$id' (n_winding) short-circuit reactance " *
+                            "matrix is not positive semidefinite (min eigenvalue " *
+                            "$(round(emin, sigdigits=3)) Ω < 0) — the pairwise x_sc " *
+                            "values are mutually inconsistent and cannot arise from " *
+                            "any passive coupled-coil model. (A negative *diagonal* " *
+                            "ZB / star-branch entry alone is physical; a negative " *
+                            "*eigenvalue* is not.)",
+                            Dict{String,Any}("subtype" => subtype,
+                                             "x_eigenvalues" => collect(evx))))
+                    end
+                end
+            else
+                # Two-bus subtypes: leakage is split into star/T legs
+                # x_series_from / x_series_to. The individual legs may be
+                # negative (a valid split artifact); only the total is measurable.
+                legs = Float64[Float64(t[k]) for k in
+                               ("x_series_from", "x_series_to", "x_series")
+                               if haskey(t, k)]
+                isempty(legs) && continue
+                n_checks[] += 1
+                total = sum(legs)
+                scale = maximum(abs, legs)
+                if total < negtol(scale)
+                    push!(findings, Finding(WARNING, "W.DOM.XFMR_X_NONINDUCTIVE",
+                        :domain_rules, :transformer, id,
+                        "Transformer '$id' ($subtype) has negative total series " *
+                        "reactance (X_from + X_to = $(round(total, sigdigits=3)) Ω < " *
+                        "0). The split of leakage across the two windings may " *
+                        "legitimately put one leg negative, but their sum is the " *
+                        "measurable short-circuit reactance and must be inductive — " *
+                        "likely a sign flip or X↔B confusion.",
+                        Dict{String,Any}("subtype" => subtype,
+                                         "x_series_total" => total,
+                                         "x_series_legs" => legs)))
+                end
+            end
         end
     end
 end

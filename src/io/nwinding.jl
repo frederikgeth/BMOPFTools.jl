@@ -145,6 +145,34 @@ function _nw_zb_matrix(xfmr::Dict{String,Any})::Matrix{ComplexF64}
 end
 
 """
+    _nw_xb_eigvals(xfmr) -> Union{Vector{Float64},Nothing}
+
+Eigenvalues of the symmetrised **reactance** part of the `n_winding` ZB
+short-circuit matrix (`imag(ZB)`, SI Ω on winding-1's base). `nothing` for `n < 2`
+(no leakage matrix).
+
+Physical realisability test: the leakage network of a passive set of coupled
+coils stores non-negative magnetic energy, so `imag(ZB)` must be **positive
+semidefinite**. A materially negative eigenvalue means no lossless coupled-coil
+model reproduces the given pairwise `x_sc` values — the short-circuit reactances
+are mutually inconsistent.
+
+This is the multi-winding generalisation of "each pairwise short-circuit
+reactance is inductive", and it is the CORRECT discriminator — deliberately *not*
+"every ZB diagonal is positive". A ZB diagonal (star/T branch) entry may be
+negative and still perfectly physical (see [`_nw_zb_matrix`](@ref)); only the
+matrix-level PSD property is invariant. For `n = 3` the PSD condition reduces
+exactly to the realisability triangle inequality
+`X₁₂·X₁₃ ≥ ¼(X₁₂ + X₁₃ − X₂₃)²`.
+"""
+function _nw_xb_eigvals(xfmr::Dict{String,Any})::Union{Vector{Float64},Nothing}
+    ZB = _nw_zb_matrix(xfmr)
+    isempty(ZB) && return nothing
+    Xb = imag(ZB)
+    eigvals(Symmetric((Xb + transpose(Xb)) / 2))
+end
+
+"""
     _nw_zb_for_opf(xfmr) -> Matrix{ComplexF64}
 
 ZB matrix in model units for the OPF: the per-unit `_zb_re`/`_zb_im` stored by
