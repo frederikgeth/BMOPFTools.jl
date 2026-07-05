@@ -47,6 +47,12 @@ makedocs(
             "Transformer tap optimisation" => "tutorial_tap.md",
             "Time series: a day on an LV feeder" => "tutorial_timeseries.md",
         ],
+        "Model specification"     => [
+            "Overview"  => "spec/index.md",
+            "Notation"  => "spec/notation.md",
+            "Buses"     => "spec/bus.md",
+            "Lines"     => "spec/line.md",
+        ],
         "Bounds & feasibility"    => [
             "bounds/index.md",
             "Infeasibility diagnosis tutorial" => "tutorial_infeasibility.md",
