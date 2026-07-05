@@ -10,6 +10,26 @@ the realisation. Symbols are defined in [Notation](notation.md).
 
 ![Single-phase step-voltage regulator (autotransformer): series and common windings sharing a node.](assets/autotransformer.svg)
 
+!!! note "Two ways to conceptualise a regulator — series branch vs shunt terminal"
+    A regulator admits two modelling views. **(1) As a series branch** — a two-port
+    element on the feeder with a *from* (source) and a *to* (regulated) bus, power flowing
+    through it exactly like a transformer. This is the natural power-systems reading for
+    anyone used to galvanic (isolated) transformers, and it is what this specification
+    adopts: the regulator is a branch in the network topology $\mathcal{T}^{X}$ with
+    `bus_from`/`bus_to`. **(2) As a shunt element exposing an extra terminal** — because an
+    autotransformer is *not* galvanically isolated, the regulated node is electrically part
+    of the source bus, so one could keep a single bus, add a tapped terminal, and have the
+    regulator inject a shunt current that sets that terminal's voltage.
+
+    We use the **series** view for consistency with the [transformer](transformer.md)
+    element and the galvanic-transformer intuition, while still capturing the
+    non-isolation exactly: the shared bushing is tied by the galvanic bond (a
+    through-branch current, [§4](#4.-Equality-constraints)), so the from and to sides
+    remain one electrical node even though they sit on two buses. The shunt view is the
+    same physics re-partitioned — it trades the extra bus for an extra terminal — and is
+    equally valid; a reader should not mistake the two-bus series form for galvanic
+    isolation.
+
 ## 1. Data model
 
 Entries under `transformer.single_phase_autotransformer` and
@@ -73,6 +93,15 @@ with the combined leakage $\textcolor{brown}{Z_x}=\textcolor{brown}{Z^{\text{fr}
 where $\textcolor{blue}{V^{\sigma}_{x,k}}$ is phase-to-neutral (single-phase L-N) or
 line-to-line (open-delta, and single-phase L-L). A lossless ideal regulator collapses to
 $\textcolor{blue}{V^{\text{to}}}=\textcolor{red}{n_{\text{eff}}}^{-1}\textcolor{blue}{V^{\text{fr}}}$.
+
+The loss elements are two of the three in the transformer
+[loss equivalent circuit](transformer.md#The-loss-equivalent-circuit): the **series
+leakage** $\textcolor{brown}{Z_x}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{n_{\text{eff}}}^2\textcolor{brown}{Z^{\text{to}}_x}$
+(from `r/x_series_from`, `r/x_series_to`) and the **no-load shunt**
+$\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$
+(from `g_no_load`, `b_no_load`). A regulator has **no** isolated secondary, so — unlike a
+transformer — the shunt sits on the **from** side; and it exposes no internal winding
+neutral, so there is no `r/x_neutral` grounding branch.
 
 ### The galvanic tie (what makes it a regulator)
 
