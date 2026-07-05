@@ -6,6 +6,8 @@ single-phase, wye (with neutral return), and delta. Parts 1–5 state the founda
 model; [part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realises it.
 Symbols are defined in [Notation](notation.md).
 
+![Single-phase (left), wye (centre), and delta (right) load connections and their current variables.](assets/load_types.svg)
+
 ## 1. Data model
 
 A load is an entry of the top-level `load` object, keyed by its string ID $d$.

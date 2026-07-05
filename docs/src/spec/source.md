@@ -6,6 +6,8 @@ It is the power-flow reference (slack) bus. This model version permits exactly o
 Parts 1–5 state the foundational model; [part 6](#6.-Implementation-in-BMOPFTools)
 records how BMOPFTools realises it. Symbols are defined in [Notation](notation.md).
 
+![Voltage source: a fixed line-to-ground voltage reference with a free slack current.](assets/vsource.svg)
+
 ## 1. Data model
 
 A voltage source is an entry of the top-level `voltage_source` object, keyed by its

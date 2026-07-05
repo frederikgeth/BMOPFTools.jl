@@ -6,6 +6,8 @@ end. Parts 1–5 state the foundational (physics) model; [part
 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realises it. Symbols are
 defined in [Notation](notation.md).
 
+![Four-wire nominal Π-model of a line: a series impedance with a shunt admittance half-section at each end, both referenced to ground.](assets/pi_model_4wire.svg)
+
 ## 1. Data model
 
 A line is an entry of the top-level `line` object, keyed by its string ID $\ell$. It

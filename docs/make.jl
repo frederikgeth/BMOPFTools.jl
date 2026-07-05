@@ -69,9 +69,11 @@ makedocs(
         ],
         "Model specification"     => [
             "Overview"          => "spec/index.md",
+            "Background & scope" => "spec/scope.md",
             "Notation"          => "spec/notation.md",
             "Data input formatting" => "spec/data-format.md",
             "Grounding"         => "spec/grounding.md",
+            "Worked example"    => "spec/example.md",
             "Document metadata" => "spec/metadata.md",
             "Buses"             => "spec/bus.md",
             "Lines"             => "spec/line.md",

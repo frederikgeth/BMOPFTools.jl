@@ -3,8 +3,9 @@
 !!! note "Status: prototype"
     This section is a **prototype** of a new, self-contained model + data
     specification spanning the full network model: foundations
-    ([Notation](notation.md), [Data input formatting](data-format.md),
-    [Grounding](grounding.md), [Document metadata](metadata.md)); every component
+    ([Background & scope](scope.md), [Notation](notation.md),
+    [Data input formatting](data-format.md), [Grounding](grounding.md),
+    [Worked example](example.md), [Document metadata](metadata.md)); every component
     ([Buses](bus.md), [Lines](line.md), [Switches](switch.md), [Loads](load.md),
     [Generators](generator.md), [Shunts](shunt.md), [Capacitors](capacitor.md),
     [Voltage sources](source.md), [Transformers](transformer.md), [IBRs](ibr.md),
@@ -102,13 +103,17 @@ not enforced); constraints are always active for the elements present.
 
 Start with the **foundations**:
 
-1. **[Notation](notation.md)** — typography (variables vs parameters, real vs complex),
+1. **[Background & scope](scope.md)** — why the specification exists, what it covers, and
+   the design choices behind it.
+2. **[Notation](notation.md)** — typography (variables vs parameters, real vs complex),
    the complex-phasor symbols and their rectangular realisation, transform matrices, the
    element-wise bound idiom, and the set/topology machinery used on every later page.
-2. **[Data input formatting](data-format.md)** — units, how complex numbers and matrices
+3. **[Data input formatting](data-format.md)** — units, how complex numbers and matrices
    are encoded in JSON, and required-vs-optional field semantics.
-3. **[Grounding](grounding.md)** — the common-reference ground model that the component
+4. **[Grounding](grounding.md)** — the common-reference ground model that the component
    pages apply locally.
+5. **[Worked example](example.md)** — every set constructed from one small network, to
+   make the abstract machinery concrete.
 
 Then the **components** (start with [Buses](bus.md) and [Lines](line.md)), the
 [Objective and feasibility](objective.md) formulation, and the data-model pages

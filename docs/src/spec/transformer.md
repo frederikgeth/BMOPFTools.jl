@@ -45,6 +45,8 @@ transformer contributes to KCL at its two buses.
 
 ### The idealised winding pair
 
+![Idealised single-phase transformer: a pair of magnetically coupled windings.](assets/idealised_tx.svg)
+
 Every transformer is built from **ideal winding pairs** obeying flux linkage, complex
 power conservation, and winding KCL. With winding EMFs $\textcolor{blue}{E_i},\textcolor{blue}{E_j}$
 and the reference voltages standing in for the turns ratio:
@@ -70,10 +72,14 @@ center-tap uses 1 on the from winding and 2 on the to legs).
 
 ### Single-phase (wye–wye)
 
+![Single-phase transformer equivalent circuit with series impedance.](assets/single_phase_tx.svg)
+
 One winding pair per phase; $\textcolor{blue}{U_i}=\textcolor{red}{N}\,\textcolor{blue}{U_j}$
 less the series drop, with current coupling $\textcolor{red}{N}\,\textcolor{blue}{I_{t,\text{fr}}}+\textcolor{blue}{I_{t,\text{to}}}=0$.
 
 ### Center-tap (split-phase)
+
+![Centre-tap transformer: one HV winding, two anti-series LV legs sharing a centre-tap neutral.](assets/split_phase_tx.svg)
 
 One HV winding drives **two** anti-series LV legs sharing a center-tap neutral (two
 from terminals, three to terminals). The LV legs carry independent currents under
@@ -91,6 +97,8 @@ where $\textcolor{red}{U^{\text{ref}}_j}$ is the **per-leg** (e.g. 120 V) refere
 The center-tap neutral terminal is typically perfectly grounded.
 
 ### Wye–delta / delta–wye
+
+![Three-phase wye–delta (or delta–wye) transformer connection and winding variables.](assets/wye_delta_tx.svg)
 
 Three winding pairs. The delta connection introduces a $\sqrt{3}$ factor, so the
 effective per-winding ratio is
