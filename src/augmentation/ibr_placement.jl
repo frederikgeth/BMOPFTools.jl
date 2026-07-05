@@ -136,7 +136,7 @@ run internally.
 
 The placed IBRs are dispatched by [`solve_opf`](@ref) once
 [`augment_case`](@ref) has filled their P/Q box. The OPF engine supports IBRs,
-and PowerIO v0.6.1 can import IBR/control data where the source carries it.
+and PowerIO v0.6.2 can import IBR/control data where the source carries it.
 BMOPFTools still treats `to_pmd` and `to_dss` IBR export as a follow up.
 
 # Example

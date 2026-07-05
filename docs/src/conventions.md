@@ -350,9 +350,9 @@ loading correctly produces different voltages on the two legs.
     leakage values, not `XHL/2` — the OpenDSS pair-wise values must be converted
     via the Steinmetz star formula. Using the 2-winding shortcut (e.g. all of
     `XHL` on the HV side, `x_series_to = 0`) drops the LV-side leakage and spreads
-    the leg voltages apart under load. [`from_dss`](@ref) recovers the correct
-    star split (and the core shunt) from PowerIO's `pmd` export automatically —
-    PowerIO's `bmopf` export performs exactly this lossy 2-winding reduction. See
+    the leg voltages apart under load. PowerIO v0.6.2's BMOPF export carries the
+    correct star split for [`from_dss`](@ref); BMOPFTools normalizes the no-load
+    shunt convention. See
     [Conversion guide § Transformer impedance bases](conversion.md#Transformer-impedance-bases)
     for the exact formulas.
 

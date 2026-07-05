@@ -143,11 +143,9 @@ const _PROJ_RTOL = 0.02
                 @test pf_ok(rep.bc)
             end
 
-            # Transformer snapshot: projection + A≈B work, but PowerIO exports
-            # `kvs=(NaN,NaN)` for transformers, so the OpenDSS leg cannot solve.
-            # A≈B is asserted; A≈C is a documented PowerIO blocker (@test_broken
-            # flips to a pass once the kv export is fixed).
-            @testset "freed-tap snapshot (A≈B ok, A≈C blocked by kvs=NaN)" begin
+            # Transformer snapshot: projection, BMOPF re-solve, and the OpenDSS
+            # export oracle agree after the tap ratio is materialised.
+            @testset "freed-tap snapshot (A≈B≈C)" begin
                 net = from_dss(joinpath(_PROJ_DIR, "pf_dy_xfmr_tap.dss"))
                 tid = first(keys(net["transformer"]["delta_wye"]))
                 net["transformer"]["delta_wye"][tid]["tap_min"] = 0.9
@@ -157,7 +155,7 @@ const _PROJ_RTOL = 0.02
                                           optimizer = opt, has_ods = true,
                                           atol = _PROJ_ATOL, rtol = _PROJ_RTOL)
                 @test pf_ok(rep.ab)
-                @test_broken pf_ok(rep.ac)
+                @test pf_ok(rep.ac)
             end
         else
             @test_skip "A≈C oracle requires OpenDSSDirect"
