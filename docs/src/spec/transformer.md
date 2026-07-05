@@ -201,7 +201,7 @@ $\textcolor{blue}{I^{\text{r}}_k}=\textcolor{red}{N_k}\textcolor{blue}{I_k}$ and
 coil voltages $\textcolor{blue}{V^{\text{r}}_k}=\textcolor{blue}{U_k}/\textcolor{red}{N_k}$,
 per phase/leg:
 
-![Multi-winding transformer connection and winding variables.](assets/tf_diagram.svg)
+![Multi-winding transformer: several windings on one shared magnetic core, each on its own bus, coupled by the common flux Φ; winding k carries current I_k at turns ratio N_k.](assets/nwinding.svg)
 
 ```math
 \sum_{k=1}^{n}\textcolor{red}{N_k}\,\textcolor{blue}{I_k} = 0,

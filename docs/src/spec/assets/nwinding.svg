@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 300" font-family="Helvetica, Arial, sans-serif" font-size="14">
+  <defs>
+    <marker id="varrow" markerWidth="9" markerHeight="9" refX="4" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="blue"/>
+    </marker>
+  </defs>
+
+  <!-- shared magnetic core -->
+  <rect x="248" y="42" width="24" height="220" rx="2" fill="#ececec" stroke="#777" stroke-width="1.5"/>
+  <!-- shared flux, inside the core -->
+  <line x1="260" y1="250" x2="260" y2="58" stroke="#444" stroke-width="1.3" stroke-dasharray="5 3"/>
+  <polygon points="260,52 256,62 264,62" fill="#444"/>
+  <text x="266" y="60" font-style="italic" fill="#444">&#934;</text>
+  <text x="236" y="285" fill="#555" font-size="12">shared core</text>
+
+  <!-- ===== Winding 1 (left of core) ===== -->
+  <path d="M248,80 A16,16 0 0 0 248,112 A16,16 0 0 0 248,144 A16,16 0 0 0 248,176 A16,16 0 0 0 248,208 A16,16 0 0 0 248,240" fill="none" stroke="#111" stroke-width="2.2"/>
+  <line x1="248" y1="80"  x2="80" y2="80"  stroke="#111" stroke-width="1.6"/>
+  <line x1="248" y1="240" x2="80" y2="240" stroke="#111" stroke-width="1.6"/>
+  <circle cx="80" cy="80"  r="3.5" fill="#111"/>
+  <circle cx="80" cy="240" r="3.5" fill="#111"/>
+  <!-- current into the winding (toward core) -->
+  <polygon points="158,80 146,75 146,85" fill="#111"/>
+  <text x="118" y="72" fill="blue" font-style="italic">I&#8321;</text>
+  <!-- port voltage -->
+  <line x1="66" y1="80" x2="66" y2="240" stroke="blue" stroke-width="1" marker-start="url(#varrow)" marker-end="url(#varrow)"/>
+  <text x="40" y="164" fill="blue" font-style="italic">U&#8321;</text>
+  <text x="205" y="152" fill="red" font-style="italic">N&#8321;</text>
+  <text x="58" y="30" fill="#333">winding 1 &#183; bus i</text>
+
+  <!-- ===== Winding 2 (right of core, upper) ===== -->
+  <path d="M272,70 A13,13 0 0 1 272,96 A13,13 0 0 1 272,122 A13,13 0 0 1 272,148" fill="none" stroke="#111" stroke-width="2.2"/>
+  <line x1="272" y1="70"  x2="452" y2="70"  stroke="#111" stroke-width="1.6"/>
+  <line x1="272" y1="148" x2="452" y2="148" stroke="#111" stroke-width="1.6"/>
+  <circle cx="452" cy="70"  r="3.5" fill="#111"/>
+  <circle cx="452" cy="148" r="3.5" fill="#111"/>
+  <polygon points="360,70 372,65 372,75" fill="#111"/>
+  <text x="336" y="62" fill="blue" font-style="italic">I&#8322;</text>
+  <line x1="466" y1="70" x2="466" y2="148" stroke="blue" stroke-width="1" marker-start="url(#varrow)" marker-end="url(#varrow)"/>
+  <text x="478" y="113" fill="blue" font-style="italic">U&#8322;</text>
+  <text x="296" y="107" fill="red" font-style="italic">N&#8322;</text>
+  <text x="352" y="30" fill="#333">winding 2 &#183; bus j</text>
+
+  <!-- ===== Winding 3 (right of core, lower) ===== -->
+  <path d="M272,175 A13,13 0 0 1 272,201 A13,13 0 0 1 272,227 A13,13 0 0 1 272,253" fill="none" stroke="#111" stroke-width="2.2"/>
+  <line x1="272" y1="175" x2="452" y2="175" stroke="#111" stroke-width="1.6"/>
+  <line x1="272" y1="253" x2="452" y2="253" stroke="#111" stroke-width="1.6"/>
+  <circle cx="452" cy="175" r="3.5" fill="#111"/>
+  <circle cx="452" cy="253" r="3.5" fill="#111"/>
+  <polygon points="360,175 372,170 372,180" fill="#111"/>
+  <text x="336" y="167" fill="blue" font-style="italic">I&#8323;</text>
+  <line x1="466" y1="175" x2="466" y2="253" stroke="blue" stroke-width="1" marker-start="url(#varrow)" marker-end="url(#varrow)"/>
+  <text x="478" y="218" fill="blue" font-style="italic">U&#8323;</text>
+  <text x="296" y="212" fill="red" font-style="italic">N&#8323;</text>
+  <text x="352" y="285" fill="#333">winding 3 &#183; bus k</text>
+</svg>
