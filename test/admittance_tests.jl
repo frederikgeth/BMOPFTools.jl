@@ -597,6 +597,27 @@
         Ds[i_nf, i_nf] = 0.0; Ds[i_nt, i_nt] = 0.0
         @test maximum(abs.(Ds)) < 1e-12
 
+        # center_tap: `r_neutral_from` grounds the HV neutral (node 2),
+        # `r_neutral_to` the LV centre tap (node 4) — diagonal adds only.
+        ct = Dict{String,Any}(
+            "bus_from" => "hv", "bus_to" => "lv",
+            "terminal_map_from" => ["ph","n"], "terminal_map_to" => ["1","n","2"],
+            "v_nom_from" => 2400.0, "v_nom_to" => 120.0,
+            "r_series_from" => 0.1, "x_series_from" => 0.4,
+            "r_series_to"   => 0.001, "x_series_to" => 0.004,
+            "g_no_load" => 1e-5, "b_no_load" => 5e-5,
+        )
+        ctn = merge(ct, Dict{String,Any}(
+            "r_neutral_from" => 2.0, "x_neutral_from" => 1.0,
+            "r_neutral_to"   => 5.0, "x_neutral_to"   => 0.0))
+        _, Y0c = transformer_yprim(ct,  "center_tap")
+        _, Y1c = transformer_yprim(ctn, "center_tap")
+        Dc = Y1c .- Y0c
+        @test isapprox(Dc[2, 2], yn;      atol=1e-12)   # node 2 = HV neutral
+        @test isapprox(Dc[4, 4], 1.0/5.0; atol=1e-12)   # node 4 = LV centre tap
+        Dc[2, 2] = 0.0; Dc[4, 4] = 0.0
+        @test maximum(abs.(Dc)) < 1e-12
+
         # Ignored (warned) placements: delta side, and a side with no neutral.
         yd_del = merge(yd, Dict{String,Any}("r_neutral_to" => 2.0))
         _, Yd_del = @test_logs (:warn, r"DELTA side") transformer_yprim(yd_del, "wye_delta")
