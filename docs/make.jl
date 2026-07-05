@@ -81,6 +81,9 @@ makedocs(
             "Transformers"      => "spec/transformer.md",
             "IBRs"              => "spec/ibr.md",
             "DC networks"       => "spec/dc.md",
+            "Objective & feasibility" => "spec/objective.md",
+            "Impedance derivation"    => "spec/impedance.md",
+            "Time series"             => "spec/timeseries.md",
         ],
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)

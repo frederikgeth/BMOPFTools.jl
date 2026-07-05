@@ -7,8 +7,10 @@
     **[Loads](load.md)**, **[Generators](generator.md)**, **[Shunts](shunt.md)**,
     **[Capacitors](capacitor.md)**, **[Voltage sources](source.md)**,
     **[Transformers](transformer.md)**, **[IBRs](ibr.md)**, and
-    **[DC networks](dc.md)**. Time series and the objective/feasibility formulations
-    are not yet written.
+    **[DC networks](dc.md)**; the **[Objective and feasibility](objective.md)**
+    formulation; and the **[Impedance derivation](impedance.md)** and
+    **[Time series](timeseries.md)** data models. This now spans the full network model;
+    remaining work is refinement and Task-Force review rather than new components.
 
 ## Purpose
 
