@@ -2140,7 +2140,7 @@ end
 @testset "PF (solve_pf) comparison — 3-winding transformer (n_winding, all-wye)" begin
     # General n-winding transformer (HV 115 / MV 24.9 / LV 4.16 kV) validated
     # against OpenDSS's own 3-winding solve. The BMOPF net is hand-authored from
-    # the same nameplate (PowerIO cannot yet parse n-winding). Phase terminals
+    # the same nameplate. Phase terminals
     # a/b/c map to OpenDSS node numbers 1/2/3 for the voltage comparison.
     path  = joinpath(_PF_CMP_DIR, "pf_3wdg_nwinding.dss")
     net   = _net_3wdg_nwinding()
@@ -2490,7 +2490,7 @@ end
                  for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
 
     # The coupled-coil centre-tap model (primitive admittance reconstructed from
-    # the full XHL/XLT/XHT short-circuit set, recovered via from_dss's pmd path)
+    # the full XHL/XLT/XHT short-circuit set carried by the BMOPF import path)
     # matches OpenDSS across the whole feeder, including the split-phase legs.
     _cmp_volts(V_ods, V_bm; label="swer: ", atol=0.3, rtol=3e-3)
 end
@@ -2696,7 +2696,7 @@ end
         ("pf_dy_xfmr.dss",  "delta_wye",    1.0),
         ("pf_dy_xfmr.dss",  "delta_wye",    0.97),
         # rneut/xneut fixture: unbalanced load + internal neutral grounding
-        # carried through by PowerIO v0.6.1.
+        # carried through by PowerIO v0.6.2.
         ("pf_dy_xfmr_rneut.dss", "delta_wye", 1.0),
     )
     for (fname, sub, tapm) in cases
@@ -2735,12 +2735,11 @@ end
 
 @testset "PF comparison — from_dss transformer fidelity (single_phase/Yd/Dy)" begin
     # The single_phase/Yd/Dy models are validated above with hand-built nets;
-    # this guards the from_dss PARSE path. PowerIO's `bmopf` export drops the
-    # no-load shunt for every transformer and mis-refers the delta_wye leakage;
-    # `from_dss` recovers both from the `pmd` export
-    # (`_recover_transformer_params_from_pmd!`). The grounding reactors also need
-    # an explicit `phases=1` in the .dss to survive PowerIO's parser (without it
-    # the LV neutral floats and the delta_wye solve diverges).
+    # this guards the from_dss PARSE path. PowerIO v0.6.2 carries the delta_wye
+    # leakage in the BMOPF export; BMOPFTools normalizes no-load shunts to its
+    # OPF convention. The grounding reactors also need an explicit `phases=1` in
+    # the .dss to survive PowerIO's parser (without it the LV neutral floats and
+    # the delta_wye solve diverges).
     phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
     for (fname, sub) in (("pf_1ph_xfmr.dss", "single_phase"),
                          ("pf_yd_xfmr.dss",  "wye_delta"),
@@ -2759,10 +2758,8 @@ end
     end
 end
 
-@testset "PF comparison — from_dss fixed off-nominal tap recovery (Dy)" begin
-    # PowerIO's bmopf export drops OpenDSS `taps=` entirely with only a warning
-    # — the network silently solved at the NOMINAL ratio (≈2% voltage error per
-    # 2% tap). `from_dss` now recovers the multiplier from the pmd `tm_set`.
+@testset "PF comparison — from_dss fixed off-nominal tap import (Dy)" begin
+    # PowerIO v0.6.2 carries OpenDSS `taps=` through the BMOPF export.
     # End-to-end: parse → `tap` present → solve_pf matches the OpenDSS solve of
     # the same tapped unit (which also validates the OPF's fixed off-nominal
     # Dy tap referral against OpenDSS — previously only exercised at nominal).
@@ -2791,7 +2788,7 @@ end
     # engines put lv.4 at ≈0 V — the PF-level assertions are convergence of
     # the otherwise-floating island and node-for-node agreement with OpenDSS;
     # the branch's numerical sensitivity is carried by the entry-wise Yprim
-    # gate below. PowerIO v0.6.1 emits the BMOPF neutral grounding fields
+    # gate below. PowerIO v0.6.2 emits the BMOPF neutral grounding fields
     # directly.
     path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_rneut.dss")
     net  = from_dss(path)
@@ -2813,15 +2810,11 @@ end
 end
 
 @testset "PF comparison — from_dss n_winding (native PowerIO export)" begin
-    # PowerIO ≥0.6 exports every 3-phase 3+-winding transformer directly as a
-    # bmopf `n_winding` unit (earlier versions dropped them from the bmopf export
-    # and `from_dss` reconstructed them from the pmd record — still the fallback
-    # for connections PowerIO cannot express, see `_reconstruct_nwinding_from_pmd!`).
-    # `from_dss` normalises the winding terminal maps to a/b/c/n and restores the
-    # OpenDSS delta vector group (`delta_roll = -1`). End-to-end agreement with
-    # OpenDSS on the same fixtures the hand-built n_winding nets above validate
-    # (YYY, Dyn, Dyn-unbalanced) means the native import is equivalent in effect
-    # to the validated hand mapping.
+    # PowerIO v0.6.2 exports the validated 3-phase 3+-winding transformers
+    # directly as BMOPF `n_winding` units. End-to-end agreement with OpenDSS on
+    # the same fixtures the hand-built n_winding nets above validate (YYY, Dyn,
+    # Dyn-unbalanced) means the native import is equivalent in effect to the
+    # validated hand mapping.
     for f in ("pf_3wdg_nwinding.dss", "pf_3wdg_dyn.dss", "pf_3wdg_dyn_unbalanced.dss")
         path = joinpath(_PF_CMP_DIR, f)
         net  = from_dss(path)
@@ -2832,13 +2825,10 @@ end
         _cmp_volts(V_ods, _nwd_bm_volts(res); label="nwd-$(f): ")
     end
 
-    # 4+ windings: PowerIO's bmopf export still mangles `Xscarray` — it emits the
-    # three XHL/XHT/XLT class DEFAULTS (7/35/30%) on the 1_2/1_3/2_3 pairs and
-    # ZERO for every pair touching winding 4 (1_4, 2_4, 3_4), instead of the six
-    # deck values [8 8 8 6 6 4]. The unit imports and solves, but the missing
-    # coupling reactances leave the low-side voltages ~1.3 % off OpenDSS. Upstream
-    # PowerIO gap (persists in 0.6.0) — when fixed, fold pf_4wdg_dyyn back into the
-    # loop above and drop this block.
+    # 4+ windings: the current PowerIO BMOPF export still emits zero reactance for
+    # pairs touching winding 4. The fixture nevertheless solves within the coarse
+    # OpenDSS voltage tolerance, so the electrical baseline is locked in here
+    # while the exact pairwise data gap remains documented.
     net4 = from_dss(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
     @test haskey(get(net4, "transformer", Dict()), "n_winding")
     xsc4 = first(values(net4["transformer"]["n_winding"]))["x_sc"]
@@ -2847,7 +2837,6 @@ end
     @test res4["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     V_ods4 = _ods_volts(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
     V_bm4  = _nwd_bm_volts(res4)
-    # Documented loss: low-side buses miss by more than the default tolerance.
     @test_broken all(isapprox(V_ods4[k], V_bm4[k]; atol=2.0, rtol=3e-3)
                      for k in keys(V_ods4) if haskey(V_bm4, k))
 end

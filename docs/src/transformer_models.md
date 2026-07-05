@@ -96,7 +96,7 @@ is hidden.
 | Area | Status |
 |---|---|
 | **`n_winding` tap** | No tap optimisation — the ratio is held at nominal. Tap fields on an `n_winding` transformer are warned and ignored. Model a regulated winding with a two-bus subtype instead. |
-| **4+ winding import** | `from_dss` reconstructs 3-phase 3-winding units as `n_winding`, but refuses 4+ windings: PowerIO's `pmd` export currently mangles `Xscarray`. Refused loudly, not built wrong. |
+| **4+ winding import** | `from_dss` imports the validated `n_winding` cases emitted by PowerIO v0.6.2. Unsupported winding sets refuse loudly, not built wrong. |
 | **Discrete taps** | Optimised taps are continuous; there is no discrete-step (`numtaps`) model. |
 | **Per-winding ratings** | One `s_rating` per transformer; OpenDSS per-winding `kVA` is not retained. |
 
