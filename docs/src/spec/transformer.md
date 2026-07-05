@@ -95,8 +95,9 @@ the terminal voltage and $\textcolor{blue}{V^{\text{fr}}_x} = \textcolor{red}{N}
 
 ### Loss components
 
-Three loss elements dress the ideal pair; each subtype places them consistently with
-the OpenDSS reference model.
+Three loss elements dress the ideal pair. Every subtype places them the **same** way,
+consistent with the OpenDSS reference model; the four subtype diagrams below are the same
+family of picture, differing only in how the windings connect.
 
 - **Series leakage.** Each winding carries a series impedance between its EMF and its
   terminals (Ohm's law). Referred to the HV (from) side and combined,
@@ -113,12 +114,49 @@ the OpenDSS reference model.
   draws $\textcolor{brown}{y_n}\,\textcolor{blue}{U_{b,n}}$ from that neutral terminal to
   earth.
 
+#### The loss equivalent circuit
+
+Read on the standard per-winding-pair equivalent circuit — shown here for the archetypal
+two-winding (single-phase) transformer, the reference picture every subtype below
+specialises:
+
+![Two-winding (single-phase) loss equivalent circuit: a series winding impedance on each coil about the ideal core, their referred series sum forming the short-circuit impedance, and a no-load shunt (core loss + magnetisation) on the secondary coil.](assets/single_phase_loss.svg)
+
+- **Winding series impedance** — each coil carries a series leakage,
+  $\textcolor{brown}{Z^{\text{fr}}_x}=\textcolor{red}{R^{\text{fr}}_x}+\textcolor{brown}{j}\textcolor{red}{X^{\text{fr}}_x}$
+  (from) and $\textcolor{brown}{Z^{\text{to}}_x}$ (to). This is the copper/leakage loss.
+- **Short-circuit impedance** — a short-circuit test shorts one side and energises the
+  other, so it measures the *series sum* of the two leakages referred to one side,
+  $\textcolor{brown}{Z_{\text{sc}}}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{N}_{\text{eff}}^{2}\textcolor{brown}{Z^{\text{to}}_x}$.
+  It is **not** a separate element, and the split between the two windings is a
+  *modelling choice*, since the test fixes only the sum (see the note below).
+- **No-load loss and magnetisation** — the shunt $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$
+  on the winding-2 coil carries the **core (no-load) loss** $\textcolor{red}{G_0}$ and the
+  **magnetising** susceptance $\textcolor{red}{B_0}$, as an open-circuit test measures.
+
+These map one-to-one onto the data fields: `r/x_series_from` → $\textcolor{brown}{Z^{\text{fr}}_x}$,
+`r/x_series_to` → $\textcolor{brown}{Z^{\text{to}}_x}$, `g_no_load` → $\textcolor{red}{G_0}$,
+`b_no_load` → $\textcolor{red}{B_0}$.
+
+!!! note "The per-winding leakage split is under-determined by a short-circuit test"
+    A standard short-circuit test yields only $\textcolor{brown}{Z_{\text{sc}}}$ — the
+    *sum* of the two winding leakages. Splitting it into $\textcolor{brown}{Z^{\text{fr}}_x}$
+    and $\textcolor{brown}{Z^{\text{to}}_x}$ requires an extra convention (OpenDSS splits
+    per its winding definitions; a common default is to put it all on one winding, i.e.
+    the Γ-model with the other winding's leakage zero). The data model exposes both
+    fields so the convention is explicit rather than assumed.
+
+The subtypes below re-arrange exactly these three elements: **single-phase** is the
+picture above; **centre-tap** replaces the single secondary arm with two LV-leg arms;
+**wye–delta / delta–wye** wrap the pair in a Δ/Y connection with a $\sqrt{3}$ referral;
+and **n-winding** generalises the two leakage arms to a star.
+
 ### Single-phase (wye–wye)
 
-One winding pair per phase. With the combined leakage
+One winding pair per phase — the archetypal two-winding transformer, whose loss
+equivalent circuit is the canonical one in [The loss equivalent circuit](#The-loss-equivalent-circuit)
+above. With the combined leakage
 $\textcolor{brown}{Z_x}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{N}_{\text{eff}}^2\textcolor{brown}{Z^{\text{to}}_x}$:
-
-![Single-phase transformer equivalent circuit with series impedance.](assets/single_phase_tx.svg)
 
 ```math
 \textcolor{blue}{V^{\text{fr}}_{x,k}} - \textcolor{red}{N}_{\text{eff}}\,\textcolor{blue}{V^{\text{to}}_{x,k}} = \textcolor{brown}{Z_x}\,\textcolor{blue}{I_{x,\text{fr},k}},
@@ -129,13 +167,6 @@ $\textcolor{brown}{Z_x}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{N}_{\
 The to-side terminal current is $\textcolor{blue}{I_{x,\text{to},k}}+\textcolor{brown}{Y_0}\textcolor{blue}{V^{\text{to}}_{x,k}}$
 (series + magnetising); the neutral grounding branch, if present, adds its current at
 the shared neutral.
-
-The loss elements sit in the equivalent circuit as follows — the two winding series
-impedances (whose referred series sum is the short-circuit impedance) and the no-load
-shunt on the secondary coil (see [Where the losses appear](#Where-the-losses-appear) for
-the full reading):
-
-![Single-phase transformer per-winding-pair loss equivalent circuit: series winding impedance on each coil, their series sum forming the short-circuit impedance, and a no-load shunt (core loss + magnetisation) on the secondary coil.](assets/single_phase_loss.svg)
 
 ### Center-tap (split-phase)
 
@@ -174,8 +205,9 @@ $\textcolor{blue}{v_1}$). The $\mp\textcolor{red}{N}_{\text{eff}}\textcolor{brow
 sign difference between the legs is the reversed dotting of winding 3; using $+$ for both
 makes the legs identical and loses the load-imbalance physics.
 
-Being a genuine three-winding unit, its leakage is a **star** of arms — an HV arm and
-one per LV leg — not a single series pair; the no-load shunt hangs off leg 1:
+The same three loss elements ([The loss equivalent circuit](#The-loss-equivalent-circuit)),
+but as a genuine three-winding unit its leakage is a **star** of arms — an HV arm and one
+per LV leg, not a single series pair — with the no-load shunt on leg 1:
 
 ![Centre-tap loss equivalent circuit: an HV winding series impedance and a series impedance on each of the two anti-series LV legs, with a no-load shunt (core loss + magnetisation) on leg 1.](assets/center_tap_loss.svg)
 
@@ -214,38 +246,11 @@ magnetising shunt sits across the winding-2 coils (a delta of branches when the 
 winding 2, phase-to-neutral when the wye is winding 2); the wye neutral may be grounded
 through $\textcolor{brown}{y_n}$.
 
-#### Where the losses appear
-
-The three loss components map onto the standard per-winding-pair equivalent circuit
-(shown here for delta–wye, one leg):
+The same three loss elements ([The loss equivalent circuit](#The-loss-equivalent-circuit))
+here wrap a delta primary and a wye secondary, with the $\sqrt{3}$ folded into the
+effective ratio $\textcolor{red}{n^{\text{eff}}}$:
 
 ![Delta–wye per-winding-pair loss equivalent circuit: a delta primary coil and wye secondary coil about the ideal core, each with its series winding impedance; the two leakages in series form the short-circuit impedance, and a no-load shunt (core loss plus magnetisation) hangs off the secondary coil.](assets/dy_loss_model.svg)
-
-- **Winding series impedance** — each coil carries a series leakage,
-  $\textcolor{brown}{Z^{\text{fr}}_x}=\textcolor{red}{R^{\text{fr}}_x}+\textcolor{brown}{j}\textcolor{red}{X^{\text{fr}}_x}$
-  on the delta (from) coil and $\textcolor{brown}{Z^{\text{to}}_x}$ on the wye (to) coil.
-  This is the copper/leakage loss.
-- **Short-circuit impedance** — a short-circuit test energises one side with the other
-  shorted, so it measures the *series sum* of the two leakages referred to one side,
-  $\textcolor{brown}{Z_{\text{sc}}}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{n^{\text{eff}}}^{2}\textcolor{brown}{Z^{\text{to}}_x}$.
-  It is **not** a separate element — and the split between the two windings is a
-  *modelling choice*, since the test fixes only the sum (see the note below).
-- **No-load loss and magnetisation** — the shunt $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$
-  across the winding-2 (wye) coil carries the **core (no-load) loss** $\textcolor{red}{G_0}$
-  and the **magnetising** susceptance $\textcolor{red}{B_0}$, as an open-circuit test
-  measures.
-
-These map one-to-one onto the data fields: `r/x_series_from` → $\textcolor{brown}{Z^{\text{fr}}_x}$,
-`r/x_series_to` → $\textcolor{brown}{Z^{\text{to}}_x}$, `g_no_load` → $\textcolor{red}{G_0}$,
-`b_no_load` → $\textcolor{red}{B_0}$.
-
-!!! note "The per-winding leakage split is under-determined by a short-circuit test"
-    A standard short-circuit test yields only $\textcolor{brown}{Z_{\text{sc}}}$ — the
-    *sum* of the two winding leakages. Splitting it into $\textcolor{brown}{Z^{\text{fr}}_x}$
-    and $\textcolor{brown}{Z^{\text{to}}_x}$ requires an extra convention (OpenDSS splits
-    per its winding definitions; a common default is to put it all on one winding, i.e.
-    the Γ-model with the other winding's leakage zero). The data model exposes both
-    fields so the convention is explicit rather than assumed.
 
 ### General n-winding
 
@@ -275,8 +280,9 @@ shunt again sits across winding 2's coil. Tap optimisation is **not** supported 
 
 This is the general form of the loss model: the leakage is a **star of per-winding arms**
 (referred to winding 1) meeting at a common core node, with the no-load shunt at that
-node. It generalises the two-winding picture — where the two arms in series *are* the
-single short-circuit impedance — to $n$ windings, where each unordered pair $(i,j)$ has
+node. It generalises the [two-winding picture](#The-loss-equivalent-circuit) — where the
+two arms in series *are* the single short-circuit impedance — to $n$ windings, where each
+unordered pair $(i,j)$ has
 its own short-circuit reactance $\textcolor{brown}{x_{\text{sc}}}[i,j]$ (the field `x_sc`
 keyed `"i_j"`), and the star arms are recovered from that matrix
 ($\textcolor{brown}{x_{\text{sc}}}[i,j]=\textcolor{red}{X_i}+\textcolor{red}{X_j}$ for a
