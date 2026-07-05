@@ -71,6 +71,8 @@ reference bus (detailed on the future *Voltage sources* page).
 
 ### Kirchhoff's current law
 
+![Kirchhoff's current law at a bus terminal: the signed currents of all incident elements sum to zero.](assets/kcl_example.svg)
+
 At each terminal, the currents of all incident elements sum to zero (sign
 convention: into the bus positive):
 

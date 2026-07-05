@@ -57,9 +57,10 @@ The specification covers the common branch and nodal elements, with these capabi
 - **Topology:** meshed networks, electrically parallel branches, radial or looped.
 - **Conductors:** 1- to 4-wire lines with full mutual coupling; explicit neutral and earth
   (no Kron reduction); perfect grounding and grounding through impedance.
-- **Branch elements:** [lines](line.md), [switches](switch.md), and [transformers](transformer.md)
-  (single-phase, centre-tap, wye–delta, delta–wye, plus autotransformer, open-delta, and
-  n-winding).
+- **Branch elements:** [lines](line.md), [switches](switch.md), galvanically-isolated
+  [transformers](transformer.md) (single-phase, centre-tap, wye–delta, delta–wye,
+  n-winding), and non-isolated [regulators](regulator.md) (single-phase autotransformer,
+  open-delta).
 - **Nodal elements:** [loads](load.md) (constant-power and voltage-dependent ZIP/exponential),
   [generators](generator.md), [shunts](shunt.md), [capacitors](capacitor.md),
   [voltage sources](source.md), and [IBRs](ibr.md) with smart-inverter
@@ -86,10 +87,10 @@ every possible device. In this version:
     Several restrictions listed in the older Task Force PDF have been lifted in this
     implementation and are documented as first-class features here: voltage-dependent
     (ZIP/exponential) **loads**; **inline per-line impedance/admittance** matrices as an
-    alternative to a linecode; additional **transformer subtypes** (autotransformer,
-    open-delta, n-winding); a magnetising **no-load shunt**; **continuous tap**
-    optimisation; and the **IBR** and **DC** subsystems. Each carries a reconciliation
-    note on its page.
+    alternative to a linecode; the general **n-winding** transformer and a separate
+    **regulator** element (autotransformer, open-delta); a magnetising **no-load shunt**
+    and internal **neutral grounding**; **continuous tap** optimisation; and the **IBR**
+    and **DC** subsystems. Each carries a reconciliation note on its page.
 
 ## Out of scope
 

@@ -8,7 +8,8 @@
     [Worked example](example.md), [Document metadata](metadata.md)); every component
     ([Buses](bus.md), [Lines](line.md), [Switches](switch.md), [Loads](load.md),
     [Generators](generator.md), [Shunts](shunt.md), [Capacitors](capacitor.md),
-    [Voltage sources](source.md), [Transformers](transformer.md), [IBRs](ibr.md),
+    [Voltage sources](source.md), [Transformers](transformer.md),
+    [Regulators](regulator.md), [IBRs](ibr.md),
     [DC networks](dc.md)); the [Objective and feasibility](objective.md) formulation;
     and the [Impedance derivation](impedance.md), [Control profiles](control-profile.md),
     and [Time series](timeseries.md) data models. Remaining work is refinement and
@@ -95,7 +96,7 @@ not enforced); constraints are always active for the elements present.
 | **Power bounds** | Generator/IBR P·Q box + apparent-power circle; transformer rating; line apparent power | [Generators](generator.md#Engineering-bounds), [IBRs](ibr.md), [Transformers](transformer.md#Engineering-bounds) |
 | **KVL / Ohm's law** | Line series drop + π-shunt; DC branch | [Lines](line.md#4.-Equality-constraints), [DC networks](dc.md#DC-branches) |
 | **KCL** | Nodal current balance (AC and DC) | [Buses](bus.md#Kirchhoff's-current-law), [DC networks](dc.md#DC-buses) |
-| **Device behaviour** | Load & generator power; IBR power + control law; transformer winding pairs; switch state; shunt/capacitor admittance current | [Loads](load.md), [Generators](generator.md), [IBRs](ibr.md), [Transformers](transformer.md), [Switches](switch.md), [Shunts](shunt.md), [Capacitors](capacitor.md) |
+| **Device behaviour** | Load & generator power; IBR power + control law; transformer & regulator winding pairs; switch state; shunt/capacitor admittance current | [Loads](load.md), [Generators](generator.md), [IBRs](ibr.md), [Transformers](transformer.md), [Regulators](regulator.md), [Switches](switch.md), [Shunts](shunt.md), [Capacitors](capacitor.md) |
 | **Reference / grounding** | Voltage-source fixing; perfect & impedance grounding | [Voltage sources](source.md), [Grounding](grounding.md) |
 | **Relaxation** | Elastic-slack feasibility formulation | [Feasibility](objective.md#Feasibility-relaxation) |
 
