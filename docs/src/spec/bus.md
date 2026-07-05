@@ -52,7 +52,7 @@ to describe the bus's electrical state.
 A perfectly grounded terminal is pinned to the ground reference:
 
 ```math
-\textcolor{blue}{U_{i,p}} = 0 \qquad \forall\, ip \in \mathcal{T}^{\text{gnd}}.
+\textcolor{blue}{U_{i,p}} = 0 \qquad \forall\, ip \in \mathcal{M}^{\emptyset}.
 ```
 
 ### Voltage source (reference bus)
@@ -77,12 +77,12 @@ At each terminal, the currents of all incident elements sum to zero (sign
 convention: into the bus positive):
 
 ```math
-\underbrace{\sum_{\ell ij\in\mathcal{T}^{\text{line}}}\!\textcolor{blue}{\mathbf{I}_{\ell ij}}}_{\text{lines}}
-+ \underbrace{\sum_{tij\in\mathcal{T}^{\text{tf}}}\!\textcolor{blue}{\mathbf{I}_{t ij}}}_{\text{transformers}}
-+ \underbrace{\sum_{wij\in\mathcal{T}^{\text{sw}}}\!\textcolor{blue}{\mathbf{I}_{w ij}}}_{\text{switches}}
-+ \underbrace{\sum_{di\in\mathcal{K}^{\text{load}}}\!\textcolor{blue}{\mathbf{I}_{d}}}_{\text{loads}}
-- \underbrace{\sum_{gi\in\mathcal{K}^{\text{gen}}}\!\textcolor{blue}{\mathbf{I}_{g}}}_{\text{generators}}
-+ \underbrace{\sum_{hi\in\mathcal{K}^{\text{shunt}}}\!\textcolor{blue}{\mathbf{I}_{h}}}_{\text{shunts}}
+\underbrace{\sum_{\ell ij\in\mathcal{T}^{L}}\!\textcolor{blue}{\mathbf{I}_{\ell ij}}}_{\text{lines}}
++ \underbrace{\sum_{xij\in\mathcal{T}^{X}}\!\textcolor{blue}{\mathbf{I}_{x ij}}}_{\text{transformers}}
++ \underbrace{\sum_{wij\in\mathcal{T}^{W}}\!\textcolor{blue}{\mathbf{I}_{w ij}}}_{\text{switches}}
++ \underbrace{\sum_{di\in\mathcal{C}^{D}}\!\textcolor{blue}{\mathbf{I}_{d}}}_{\text{loads}}
+- \underbrace{\sum_{gi\in\mathcal{C}^{G}}\!\textcolor{blue}{\mathbf{I}_{g}}}_{\text{generators}}
++ \underbrace{\sum_{hi\in\mathcal{C}^{H}}\!\textcolor{blue}{\mathbf{I}_{h}}}_{\text{shunts}}
 = \mathbf{0}.
 ```
 

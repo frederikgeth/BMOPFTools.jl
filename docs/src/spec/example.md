@@ -21,7 +21,7 @@ into branch vs nodal):
 \mathcal{B} &= \{\texttt{A},\texttt{B},\texttt{C},\texttt{D}\}, &
 \mathcal{L} &= \{2\}, &
 \mathcal{W} &= \{9\}, &
-\mathcal{T} &= \{6\}, \\
+\mathcal{X} &= \{6\}, \\
 \mathcal{D} &= \{1,5,7\}, &
 \mathcal{G} &= \{3\}, &
 \mathcal{H} &= \{4\}, &
@@ -34,25 +34,25 @@ into branch vs nodal):
 The forward topology orients each branch from its `from` bus to its `to` bus:
 
 ```math
-\mathcal{T}^{\text{line}}_{\rightarrow} = \{2\,\texttt{A}\,\texttt{B}\},\quad
-\mathcal{T}^{\text{tf}}_{\rightarrow} = \{6\,\texttt{C}\,\texttt{B}\},\quad
-\mathcal{T}^{\text{sw}}_{\rightarrow} = \{9\,\texttt{C}\,\texttt{D}\}.
+\mathcal{T}^{L\rightarrow} = \{2\,\texttt{A}\,\texttt{B}\},\quad
+\mathcal{T}^{X\rightarrow} = \{6\,\texttt{C}\,\texttt{B}\},\quad
+\mathcal{T}^{W\rightarrow} = \{9\,\texttt{C}\,\texttt{D}\}.
 ```
 
 The combined line topology adds the reverse orientation,
-$\mathcal{T}^{\text{line}} = \{2\,\texttt{A}\,\texttt{B},\ 2\,\texttt{B}\,\texttt{A}\}$,
+$\mathcal{T}^{L} = \{2\,\texttt{A}\,\texttt{B},\ 2\,\texttt{B}\,\texttt{A}\}$,
 and likewise for the transformer and switch.
 
 ## Connectivity (nodal elements → buses)
 
 ```math
-\mathcal{K}^{\text{load}} = \{1\,\texttt{A},\ 5\,\texttt{B},\ 7\,\texttt{D}\},\quad
-\mathcal{K}^{\text{gen}} = \{3\,\texttt{B}\},\quad
-\mathcal{K}^{\text{shunt}} = \{4\,\texttt{B}\},\quad
-\mathcal{K}^{\text{src}} = \{8\,\texttt{C}\}.
+\mathcal{C}^{D} = \{1\,\texttt{A},\ 5\,\texttt{B},\ 7\,\texttt{D}\},\quad
+\mathcal{C}^{G} = \{3\,\texttt{B}\},\quad
+\mathcal{C}^{H} = \{4\,\texttt{B}\},\quad
+\mathcal{C}^{S} = \{8\,\texttt{C}\}.
 ```
 
-The single voltage source fixes $|\mathcal{K}^{\text{src}}|=1$ (bus `C` is the reference).
+The single voltage source fixes $|\mathcal{I}^{\text{source}}|=1$ (bus `C` is the reference).
 
 ## Terminal maps
 
@@ -78,8 +78,8 @@ the data model (`terminal_map`, or `terminal_map_from`/`_to` for branches):
 The nodal-element connection configurations:
 
 ```math
-\mathcal{K}^{\text{load}}_{\text{cfg}} = \{1\!:\!\text{WYE},\ 5\!:\!\text{SINGLE\_PHASE},\ 7\!:\!\text{DELTA}\},\qquad
-\mathcal{K}^{\text{gen}}_{\text{cfg}} = \{3\!:\!\text{SINGLE\_PHASE}\}.
+\mathcal{R}^{D} = \{1\!:\!\text{WYE},\ 5\!:\!\text{SINGLE\_PHASE},\ 7\!:\!\text{DELTA}\},\qquad
+\mathcal{R}^{G} = \{3\!:\!\text{SINGLE\_PHASE}\}.
 ```
 
 ## Grounding

@@ -47,7 +47,7 @@ intrinsic to the element.
 ## In the mathematical model
 
 Perfect grounding contributes the equality $\textcolor{blue}{U_{i,p}}=0$ for every
-$ip\in\mathcal{T}^{\text{gnd}}$ (the ground map) and a free earth current so KCL still
+$ip\in\mathcal{M}^{\emptyset}$ (the ground map) and a free earth current so KCL still
 balances. Impedance grounding contributes a linear admittance current
 $\textcolor{brown}{Y}\,\textcolor{blue}{U}$ to KCL, exactly like any [shunt](shunt.md).
 No grounding scheme reduces the conductor matrices — neutrals and earth conductors stay
