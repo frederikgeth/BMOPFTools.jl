@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 340" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <!-- ================= headers ================= -->
+  <text x="52"  y="26" fill="#333" font-weight="bold">&#916; winding (from, HV primary)</text>
+  <text x="436" y="26" fill="#333" font-weight="bold">Y winding (to, LV secondary)</text>
+  <text x="248" y="26" fill="#555">ideal core &#160; <tspan font-style="italic">n</tspan><tspan dy="4" font-size="9">eff</tspan><tspan dy="-4"> = &#8730;3&#183;</tspan><tspan font-style="italic">N</tspan></text>
+
+  <!-- ================= primary (delta) leakage ================= -->
+  <circle cx="40" cy="120" r="4" fill="#111"/>
+  <text x="16" y="112" fill="blue" font-style="italic">p</text>
+  <line x1="40" y1="120" x2="70" y2="120" stroke="#111" stroke-width="1.6"/>
+  <rect x="70" y="110" width="44" height="20" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="78" y="103" fill="#8a5a00"><tspan font-style="italic">R</tspan><tspan dy="-4" font-size="9">fr</tspan></text>
+  <line x1="114" y1="120" x2="126" y2="120" stroke="#111" stroke-width="1.6"/>
+  <path d="M126,120 A8,8 0 0 1 142,120 A8,8 0 0 1 158,120 A8,8 0 0 1 174,120" fill="none" stroke="#111" stroke-width="1.8"/>
+  <text x="134" y="103" fill="#8a5a00"><tspan font-style="italic">X</tspan><tspan dy="-4" font-size="9">fr</tspan></text>
+  <line x1="174" y1="120" x2="230" y2="120" stroke="#111" stroke-width="1.6"/>
+
+  <!-- primary winding coil (vertical, bumps left) -->
+  <path d="M230,120 A15,15 0 0 0 230,150 A15,15 0 0 0 230,180 A15,15 0 0 0 230,210" fill="none" stroke="#111" stroke-width="2"/>
+  <line x1="230" y1="210" x2="40" y2="210" stroke="#111" stroke-width="1.6"/>
+  <circle cx="40" cy="210" r="4" fill="#111"/>
+  <text x="10" y="215" fill="blue" font-style="italic">p'</text>
+
+  <!-- shared core -->
+  <rect x="248" y="112" width="16" height="106" rx="2" fill="#ececec" stroke="#777" stroke-width="1.3"/>
+
+  <!-- secondary winding coil (vertical, bumps right) -->
+  <path d="M282,120 A15,15 0 0 1 282,150 A15,15 0 0 1 282,180 A15,15 0 0 1 282,210" fill="none" stroke="#111" stroke-width="2"/>
+  <line x1="282" y1="120" x2="330" y2="120" stroke="#111" stroke-width="1.6"/>
+  <circle cx="330" cy="120" r="3" fill="#111"/>
+  <line x1="282" y1="210" x2="330" y2="210" stroke="#111" stroke-width="1.6"/>
+  <circle cx="330" cy="210" r="3" fill="#111"/>
+
+  <!-- ===== no-load (magnetizing) shunt across the secondary coil ===== -->
+  <line x1="330" y1="120" x2="330" y2="140" stroke="#111" stroke-width="1.4"/>
+  <line x1="312" y1="140" x2="348" y2="140" stroke="#111" stroke-width="1.4"/>
+  <rect x="303" y="150" width="18" height="34" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="280" y="146" fill="#8a5a00"><tspan font-style="italic">G</tspan><tspan dy="4" font-size="9">0</tspan></text>
+  <line x1="312" y1="140" x2="312" y2="150" stroke="#111" stroke-width="1.4"/>
+  <line x1="312" y1="184" x2="312" y2="196" stroke="#111" stroke-width="1.4"/>
+  <path d="M348,150 A7,7 0 0 1 348,164 A7,7 0 0 1 348,178 A7,7 0 0 1 348,192" fill="none" stroke="#111" stroke-width="1.8"/>
+  <text x="356" y="174" fill="#8a5a00"><tspan font-style="italic">B</tspan><tspan dy="4" font-size="9">0</tspan></text>
+  <line x1="348" y1="140" x2="348" y2="150" stroke="#111" stroke-width="1.4"/>
+  <line x1="348" y1="192" x2="348" y2="196" stroke="#111" stroke-width="1.4"/>
+  <line x1="312" y1="196" x2="348" y2="196" stroke="#111" stroke-width="1.4"/>
+  <line x1="330" y1="196" x2="330" y2="210" stroke="#111" stroke-width="1.4"/>
+  <text x="284" y="230" fill="#555" font-size="11">no-load shunt <tspan font-style="italic">Y</tspan><tspan dy="3" font-size="8">0</tspan><tspan dy="-3"> = </tspan><tspan font-style="italic">G</tspan><tspan dy="3" font-size="8">0</tspan><tspan dy="-3"> + j</tspan><tspan font-style="italic">B</tspan><tspan dy="3" font-size="8">0</tspan></text>
+
+  <!-- ===== secondary (wye) leakage ===== -->
+  <line x1="330" y1="120" x2="378" y2="120" stroke="#111" stroke-width="1.6"/>
+  <rect x="378" y="110" width="44" height="20" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="386" y="103" fill="#8a5a00"><tspan font-style="italic">R</tspan><tspan dy="-4" font-size="9">to</tspan></text>
+  <line x1="422" y1="120" x2="434" y2="120" stroke="#111" stroke-width="1.6"/>
+  <path d="M434,120 A8,8 0 0 1 450,120 A8,8 0 0 1 466,120 A8,8 0 0 1 482,120" fill="none" stroke="#111" stroke-width="1.8"/>
+  <text x="442" y="103" fill="#8a5a00"><tspan font-style="italic">X</tspan><tspan dy="-4" font-size="9">to</tspan></text>
+  <line x1="482" y1="120" x2="520" y2="120" stroke="#111" stroke-width="1.6"/>
+  <circle cx="520" cy="120" r="4" fill="#111"/>
+  <text x="528" y="112" fill="blue" font-style="italic">a</text>
+  <line x1="330" y1="210" x2="520" y2="210" stroke="#111" stroke-width="1.6"/>
+  <circle cx="520" cy="210" r="4" fill="#111"/>
+  <text x="528" y="215" fill="blue" font-style="italic">n</text>
+
+  <!-- ===== short-circuit brace under both leakages ===== -->
+  <path d="M70,250 L70,258 L482,258 L482,250" fill="none" stroke="#8a5a00" stroke-width="1.3"/>
+  <line x1="276" y1="258" x2="276" y2="266" stroke="#8a5a00" stroke-width="1.3"/>
+  <text x="150" y="284" fill="#8a5a00">short-circuit impedance &#160; <tspan font-style="italic">Z</tspan><tspan dy="4" font-size="9">sc</tspan><tspan dy="-4"> = </tspan><tspan font-style="italic">Z</tspan><tspan dy="-4" font-size="9">fr</tspan><tspan dy="4"> + </tspan><tspan font-style="italic">n</tspan><tspan dy="4" font-size="9">eff</tspan><tspan dy="-4">&#178;&#183;</tspan><tspan font-style="italic">Z</tspan><tspan dy="-4" font-size="9">to</tspan></text>
+  <text x="150" y="302" fill="#555" font-size="11">(the two winding leakages in series; what a short-circuit test measures)</text>
+</svg>

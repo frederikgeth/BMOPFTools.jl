@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 360" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <text x="210" y="26" fill="#333" font-weight="bold">n-winding star (leakage) equivalent, referred to winding 1</text>
+
+  <!-- ===== star node ===== -->
+  <circle cx="330" cy="175" r="4.5" fill="#111"/>
+  <text x="300" y="150" fill="#555" font-size="11">core / star node</text>
+
+  <!-- ===== arm: winding 1 (left, reference) ===== -->
+  <line x1="330" y1="175" x2="300" y2="175" stroke="#111" stroke-width="1.6"/>
+  <rect x="254" y="165" width="46" height="20" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="266" y="159" fill="#8a5a00"><tspan font-style="italic">Z</tspan><tspan dy="4" font-size="9">1</tspan></text>
+  <line x1="254" y1="175" x2="214" y2="175" stroke="#111" stroke-width="1.6"/>
+  <circle cx="200" cy="175" r="11" fill="none" stroke="#111" stroke-width="1.5"/>
+  <circle cx="188" cy="175" r="11" fill="none" stroke="#111" stroke-width="1.5"/>
+  <text x="176" y="153" fill="#333" font-size="11"><tspan font-style="italic">N</tspan><tspan dy="3" font-size="8">1</tspan><tspan dy="-3"> = 1</tspan></text>
+  <line x1="177" y1="175" x2="90" y2="175" stroke="#111" stroke-width="1.6"/>
+  <circle cx="90" cy="175" r="4" fill="#111"/>
+  <text x="70" y="195" fill="blue">bus 1</text>
+
+  <!-- ===== arm: winding 2 (upper right) ===== -->
+  <line x1="330" y1="175" x2="366" y2="120" stroke="#111" stroke-width="1.6"/>
+  <line x1="366" y1="120" x2="400" y2="120" stroke="#111" stroke-width="1.6"/>
+  <rect x="400" y="110" width="46" height="20" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="412" y="104" fill="#8a5a00"><tspan font-style="italic">Z</tspan><tspan dy="4" font-size="9">2</tspan></text>
+  <line x1="446" y1="120" x2="486" y2="120" stroke="#111" stroke-width="1.6"/>
+  <circle cx="500" cy="120" r="11" fill="none" stroke="#111" stroke-width="1.5"/>
+  <circle cx="512" cy="120" r="11" fill="none" stroke="#111" stroke-width="1.5"/>
+  <text x="490" y="98" fill="#333" font-size="11"><tspan font-style="italic">N</tspan><tspan dy="3" font-size="8">2</tspan><tspan dy="-3"> : 1</tspan></text>
+  <line x1="523" y1="120" x2="610" y2="120" stroke="#111" stroke-width="1.6"/>
+  <circle cx="610" cy="120" r="4" fill="#111"/>
+  <text x="620" y="125" fill="blue">bus 2</text>
+
+  <!-- ===== arm: winding 3 (lower right) ===== -->
+  <line x1="330" y1="175" x2="366" y2="230" stroke="#111" stroke-width="1.6"/>
+  <line x1="366" y1="230" x2="400" y2="230" stroke="#111" stroke-width="1.6"/>
+  <rect x="400" y="220" width="46" height="20" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="412" y="214" fill="#8a5a00"><tspan font-style="italic">Z</tspan><tspan dy="4" font-size="9">3</tspan></text>
+  <line x1="446" y1="230" x2="486" y2="230" stroke="#111" stroke-width="1.6"/>
+  <circle cx="500" cy="230" r="11" fill="none" stroke="#111" stroke-width="1.5"/>
+  <circle cx="512" cy="230" r="11" fill="none" stroke="#111" stroke-width="1.5"/>
+  <text x="490" y="266" fill="#333" font-size="11"><tspan font-style="italic">N</tspan><tspan dy="3" font-size="8">3</tspan><tspan dy="-3"> : 1</tspan></text>
+  <line x1="523" y1="230" x2="610" y2="230" stroke="#111" stroke-width="1.6"/>
+  <circle cx="610" cy="230" r="4" fill="#111"/>
+  <text x="620" y="235" fill="blue">bus 3</text>
+
+  <!-- ===== no-load shunt at the star node ===== -->
+  <line x1="330" y1="175" x2="330" y2="212" stroke="#111" stroke-width="1.4"/>
+  <line x1="312" y1="212" x2="348" y2="212" stroke="#111" stroke-width="1.4"/>
+  <rect x="304" y="222" width="16" height="30" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="282" y="240" fill="#8a5a00"><tspan font-style="italic">G</tspan><tspan dy="4" font-size="9">0</tspan></text>
+  <line x1="312" y1="212" x2="312" y2="222" stroke="#111" stroke-width="1.4"/>
+  <line x1="312" y1="252" x2="312" y2="264" stroke="#111" stroke-width="1.4"/>
+  <path d="M348,222 A6,6 0 0 1 348,234 A6,6 0 0 1 348,246 A6,6 0 0 1 348,258" fill="none" stroke="#111" stroke-width="1.7"/>
+  <text x="356" y="244" fill="#8a5a00"><tspan font-style="italic">B</tspan><tspan dy="4" font-size="9">0</tspan></text>
+  <line x1="348" y1="212" x2="348" y2="222" stroke="#111" stroke-width="1.4"/>
+  <line x1="348" y1="258" x2="348" y2="264" stroke="#111" stroke-width="1.4"/>
+  <line x1="312" y1="264" x2="348" y2="264" stroke="#111" stroke-width="1.4"/>
+  <line x1="330" y1="264" x2="330" y2="282" stroke="#111" stroke-width="1.4"/>
+  <!-- ground -->
+  <line x1="318" y1="282" x2="342" y2="282" stroke="#111" stroke-width="1.5"/>
+  <line x1="322" y1="287" x2="338" y2="287" stroke="#111" stroke-width="1.5"/>
+  <line x1="326" y1="292" x2="334" y2="292" stroke="#111" stroke-width="1.5"/>
+
+  <!-- ===== annotations ===== -->
+  <text x="70" y="325" fill="#8a5a00">pairwise short-circuit &#160; <tspan font-style="italic">x</tspan><tspan dy="3" font-size="9">sc</tspan><tspan dy="-3">[i,j] = </tspan><tspan font-style="italic">X</tspan><tspan dy="3" font-size="9">i</tspan><tspan dy="-3"> + </tspan><tspan font-style="italic">X</tspan><tspan dy="3" font-size="9">j</tspan><tspan dy="-3"> &#160; (leakage arms i, j in series)</tspan></text>
+  <text x="70" y="344" fill="#555" font-size="11">each arm <tspan font-style="italic">Z</tspan><tspan dy="3" font-size="8">k</tspan><tspan dy="-3"> = </tspan><tspan font-style="italic">R</tspan><tspan dy="3" font-size="8">k</tspan><tspan dy="-3"> + j</tspan><tspan font-style="italic">X</tspan><tspan dy="3" font-size="8">k</tspan><tspan dy="-3"> &#160;&#183;&#160; no-load </tspan><tspan font-style="italic">Y</tspan><tspan dy="3" font-size="8">0</tspan><tspan dy="-3"> = </tspan><tspan font-style="italic">G</tspan><tspan dy="3" font-size="8">0</tspan><tspan dy="-3"> + j</tspan><tspan font-style="italic">B</tspan><tspan dy="3" font-size="8">0</tspan><tspan dy="-3"> at the core (winding 2 in the model)</tspan></text>
+</svg>

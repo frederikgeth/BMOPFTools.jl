@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <text x="55"  y="26" fill="#333" font-weight="bold">HV winding (from)</text>
+  <text x="430" y="26" fill="#333" font-weight="bold">two anti-series LV legs (centre-tapped)</text>
+  <text x="250" y="26" fill="#555">ideal core</text>
+
+  <!-- ===== HV winding + leakage ===== -->
+  <circle cx="40" cy="100" r="4" fill="#111"/>
+  <text x="8" y="94" fill="blue" font-style="italic">t</text><text x="17" y="99" fill="blue" font-size="9" font-style="italic">ph</text>
+  <line x1="40" y1="100" x2="66" y2="100" stroke="#111" stroke-width="1.6"/>
+  <rect x="66" y="90" width="42" height="20" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="74" y="83" fill="#8a5a00"><tspan font-style="italic">R</tspan><tspan dy="-4" font-size="9">fr</tspan></text>
+  <line x1="108" y1="100" x2="120" y2="100" stroke="#111" stroke-width="1.6"/>
+  <path d="M120,100 A8,8 0 0 1 136,100 A8,8 0 0 1 152,100 A8,8 0 0 1 168,100" fill="none" stroke="#111" stroke-width="1.8"/>
+  <text x="128" y="83" fill="#8a5a00"><tspan font-style="italic">X</tspan><tspan dy="-4" font-size="9">fr</tspan></text>
+  <line x1="168" y1="100" x2="232" y2="100" stroke="#111" stroke-width="1.6"/>
+  <path d="M232,100 A15,15 0 0 0 232,130 A15,15 0 0 0 232,160 A15,15 0 0 0 232,190 A15,15 0 0 0 232,220 A15,15 0 0 0 232,250" fill="none" stroke="#111" stroke-width="2"/>
+  <line x1="232" y1="250" x2="40" y2="250" stroke="#111" stroke-width="1.6"/>
+  <circle cx="40" cy="250" r="4" fill="#111"/>
+  <text x="6" y="245" fill="blue" font-style="italic">t</text><text x="15" y="250" fill="blue" font-size="9" font-style="italic">n</text>
+
+  <!-- shared core -->
+  <rect x="250" y="95" width="16" height="205" rx="2" fill="#ececec" stroke="#777" stroke-width="1.3"/>
+
+  <!-- ===== LV leg 1 (upper) ===== -->
+  <path d="M284,100 A14,14 0 0 1 284,128 A14,14 0 0 1 284,156 A14,14 0 0 1 284,184" fill="none" stroke="#111" stroke-width="2"/>
+  <circle cx="292" cy="100" r="2.6" fill="#111"/>
+  <line x1="284" y1="100" x2="330" y2="100" stroke="#111" stroke-width="1.6"/>
+  <rect x="330" y="90" width="42" height="20" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="338" y="83" fill="#8a5a00"><tspan font-style="italic">R</tspan><tspan dy="-4" font-size="9">to</tspan></text>
+  <line x1="372" y1="100" x2="384" y2="100" stroke="#111" stroke-width="1.6"/>
+  <path d="M384,100 A8,8 0 0 1 400,100 A8,8 0 0 1 416,100 A8,8 0 0 1 432,100" fill="none" stroke="#111" stroke-width="1.8"/>
+  <text x="392" y="83" fill="#8a5a00"><tspan font-style="italic">X</tspan><tspan dy="-4" font-size="9">to</tspan></text>
+  <line x1="432" y1="100" x2="560" y2="100" stroke="#111" stroke-width="1.6"/>
+  <circle cx="560" cy="100" r="4" fill="#111"/>
+  <text x="568" y="94" fill="blue" font-style="italic">t</text><text x="577" y="99" fill="blue" font-size="9" font-style="italic">1</text>
+  <text x="300" y="60" fill="#555" font-size="11">leg 1</text>
+
+  <!-- centre tap node -->
+  <line x1="284" y1="184" x2="284" y2="196" stroke="#111" stroke-width="1.6"/>
+  <circle cx="284" cy="196" r="3" fill="#111"/>
+  <line x1="284" y1="196" x2="560" y2="196" stroke="#111" stroke-width="1.6"/>
+  <circle cx="560" cy="196" r="4" fill="#111"/>
+  <text x="568" y="190" fill="blue" font-style="italic">t</text><text x="577" y="195" fill="blue" font-size="9" font-style="italic">n</text>
+  <text x="470" y="214" fill="#555" font-size="11">centre tap (grounded)</text>
+
+  <!-- ===== LV leg 2 (lower) ===== -->
+  <line x1="284" y1="196" x2="284" y2="208" stroke="#111" stroke-width="1.6"/>
+  <circle cx="292" cy="208" r="2.6" fill="#111"/>
+  <path d="M284,208 A14,14 0 0 1 284,236 A14,14 0 0 1 284,264 A14,14 0 0 1 284,292" fill="none" stroke="#111" stroke-width="2"/>
+  <line x1="284" y1="292" x2="330" y2="292" stroke="#111" stroke-width="1.6"/>
+  <rect x="330" y="282" width="42" height="20" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="338" y="317" fill="#8a5a00"><tspan font-style="italic">R</tspan><tspan dy="-4" font-size="9">to</tspan></text>
+  <line x1="372" y1="292" x2="384" y2="292" stroke="#111" stroke-width="1.6"/>
+  <path d="M384,292 A8,8 0 0 1 400,292 A8,8 0 0 1 416,292 A8,8 0 0 1 432,292" fill="none" stroke="#111" stroke-width="1.8"/>
+  <text x="392" y="317" fill="#8a5a00"><tspan font-style="italic">X</tspan><tspan dy="-4" font-size="9">to</tspan></text>
+  <line x1="432" y1="292" x2="560" y2="292" stroke="#111" stroke-width="1.6"/>
+  <circle cx="560" cy="292" r="4" fill="#111"/>
+  <text x="568" y="286" fill="blue" font-style="italic">t</text><text x="577" y="291" fill="blue" font-size="9" font-style="italic">2</text>
+  <text x="300" y="336" fill="#555" font-size="11">leg 2</text>
+
+  <!-- ===== no-load shunt across leg 1 ===== -->
+  <line x1="612" y1="100" x2="612" y2="118" stroke="#111" stroke-width="1.4"/>
+  <line x1="560" y1="100" x2="612" y2="100" stroke="#111" stroke-width="1.6"/>
+  <line x1="596" y1="118" x2="628" y2="118" stroke="#111" stroke-width="1.4"/>
+  <rect x="588" y="128" width="16" height="30" fill="#fff" stroke="#111" stroke-width="1.5"/>
+  <text x="566" y="146" fill="#8a5a00"><tspan font-style="italic">G</tspan><tspan dy="4" font-size="9">0</tspan></text>
+  <line x1="596" y1="118" x2="596" y2="128" stroke="#111" stroke-width="1.4"/>
+  <line x1="596" y1="158" x2="596" y2="170" stroke="#111" stroke-width="1.4"/>
+  <path d="M628,128 A6,6 0 0 1 628,140 A6,6 0 0 1 628,152 A6,6 0 0 1 628,164" fill="none" stroke="#111" stroke-width="1.7"/>
+  <text x="636" y="150" fill="#8a5a00"><tspan font-style="italic">B</tspan><tspan dy="4" font-size="9">0</tspan></text>
+  <line x1="628" y1="118" x2="628" y2="128" stroke="#111" stroke-width="1.4"/>
+  <line x1="628" y1="164" x2="628" y2="170" stroke="#111" stroke-width="1.4"/>
+  <line x1="596" y1="170" x2="628" y2="170" stroke="#111" stroke-width="1.4"/>
+  <line x1="612" y1="170" x2="612" y2="196" stroke="#111" stroke-width="1.4"/>
+  <line x1="560" y1="196" x2="612" y2="196" stroke="#111" stroke-width="1.6"/>
+
+  <text x="150" y="362" fill="#555" font-size="11">HV star arm <tspan font-style="italic">Z</tspan><tspan dy="3" font-size="8">1</tspan><tspan dy="-3"> = </tspan><tspan font-style="italic">R</tspan><tspan dy="-4" font-size="9">fr</tspan><tspan dy="4">+j</tspan><tspan font-style="italic">X</tspan><tspan dy="-4" font-size="9">fr</tspan><tspan dy="4"> ; per-leg LV arm </tspan><tspan font-style="italic">Z</tspan><tspan dy="3" font-size="8">2</tspan><tspan dy="-3"> = </tspan><tspan font-style="italic">R</tspan><tspan dy="-4" font-size="9">to</tspan><tspan dy="4">+j</tspan><tspan font-style="italic">X</tspan><tspan dy="-4" font-size="9">to</tspan><tspan dy="4"> (from OpenDSS XHL/XLT/XHT) &#183; no-load </tspan><tspan font-style="italic">Y</tspan><tspan dy="3" font-size="8">0</tspan><tspan dy="-3"> on leg 1</tspan></text>
+</svg>
