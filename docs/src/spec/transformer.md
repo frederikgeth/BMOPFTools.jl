@@ -190,6 +190,39 @@ magnetising shunt sits across the winding-2 coils (a delta of branches when the 
 winding 2, phase-to-neutral when the wye is winding 2); the wye neutral may be grounded
 through $\textcolor{brown}{y_n}$.
 
+#### Where the losses appear
+
+The three loss components map onto the standard per-winding-pair equivalent circuit
+(shown here for delta–wye, one leg):
+
+![Delta–wye per-winding-pair loss equivalent circuit: a delta primary coil and wye secondary coil about the ideal core, each with its series winding impedance; the two leakages in series form the short-circuit impedance, and a no-load shunt (core loss plus magnetisation) hangs off the secondary coil.](assets/dy_loss_model.svg)
+
+- **Winding series impedance** — each coil carries a series leakage,
+  $\textcolor{brown}{Z^{\text{fr}}_x}=\textcolor{red}{R^{\text{fr}}_x}+\textcolor{brown}{j}\textcolor{red}{X^{\text{fr}}_x}$
+  on the delta (from) coil and $\textcolor{brown}{Z^{\text{to}}_x}$ on the wye (to) coil.
+  This is the copper/leakage loss.
+- **Short-circuit impedance** — a short-circuit test energises one side with the other
+  shorted, so it measures the *series sum* of the two leakages referred to one side,
+  $\textcolor{brown}{Z_{\text{sc}}}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{n^{\text{eff}}}^{2}\textcolor{brown}{Z^{\text{to}}_x}$.
+  It is **not** a separate element — and the split between the two windings is a
+  *modelling choice*, since the test fixes only the sum (see the note below).
+- **No-load loss and magnetisation** — the shunt $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$
+  across the winding-2 (wye) coil carries the **core (no-load) loss** $\textcolor{red}{G_0}$
+  and the **magnetising** susceptance $\textcolor{red}{B_0}$, as an open-circuit test
+  measures.
+
+These map one-to-one onto the data fields: `r/x_series_from` → $\textcolor{brown}{Z^{\text{fr}}_x}$,
+`r/x_series_to` → $\textcolor{brown}{Z^{\text{to}}_x}$, `g_no_load` → $\textcolor{red}{G_0}$,
+`b_no_load` → $\textcolor{red}{B_0}$.
+
+!!! note "The per-winding leakage split is under-determined by a short-circuit test"
+    A standard short-circuit test yields only $\textcolor{brown}{Z_{\text{sc}}}$ — the
+    *sum* of the two winding leakages. Splitting it into $\textcolor{brown}{Z^{\text{fr}}_x}$
+    and $\textcolor{brown}{Z^{\text{to}}_x}$ requires an extra convention (OpenDSS splits
+    per its winding definitions; a common default is to put it all on one winding, i.e.
+    the Γ-model with the other winding's leakage zero). The data model exposes both
+    fields so the convention is explicit rather than assumed.
+
 ### General n-winding
 
 The `n_winding` object models an arbitrary number of windings (each wye or delta) on a
