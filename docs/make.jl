@@ -88,6 +88,8 @@ makedocs(
             "Impedance derivation"    => "spec/impedance.md",
             "Control profiles"        => "spec/control-profile.md",
             "Time series"             => "spec/timeseries.md",
+            "Modelling notes & FAQ"   => "spec/faq.md",
+            "References & further reading" => "spec/references.md",
         ],
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)
