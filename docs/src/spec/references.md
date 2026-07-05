@@ -33,6 +33,25 @@ Optimal power flow and its mathematics:
   Control of Network Systems*, 2014. Foundational for the relaxations that lift the
   current–voltage formulation used here to power/lifted-voltage spaces.
 
+### Accessible introductions and lecture notes
+
+Approachable complements to the textbooks above for readers getting into distribution
+networks — and especially for building intuition about **transformer loss models** —
+where Steven Low's book covers the mathematics underneath:
+
+- **Z. Wang**, distribution-systems course notes, Iowa State University:
+  [Introduction to Distribution Systems](https://wzy.ece.iastate.edu/Courses/EE455/01%20EE455%20Introduction%20to%20Distribution%20Systems.pdf)
+  (EE455),
+  [Distribution System Transformers](https://wzy.ece.iastate.edu/Courses/EE555/Distribution%20System%20Transformers.pdf)
+  (EE555 — connections and loss models), and
+  [Real Distribution System Modeling and Analysis](https://wzy.ece.iastate.edu/PPT/EE653%20Real%20Distribution%20System%20Modeling%20and%20Analysis.pdf)
+  (EE653). Clear, worked treatments of feeder components and how transformer losses map
+  onto the equivalent circuit.
+- Distribution-transformer modelling, *IET Generation, Transmission & Distribution*, 2020,
+  [doi:10.1049/iet-gtd.2020.0776](https://doi.org/10.1049/iet-gtd.2020.0776) — a useful
+  reference for conceptualising the
+  [transformer loss model](transformer.md#The-loss-equivalent-circuit).
+
 ## Foundational papers for this model
 
 The four-wire current–voltage (IVR-EN) formulation, its benchmarking, and the device

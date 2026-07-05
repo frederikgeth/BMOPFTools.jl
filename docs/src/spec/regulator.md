@@ -103,6 +103,12 @@ $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}
 transformer — the shunt sits on the **from** side; and it exposes no internal winding
 neutral, so there is no `r/x_neutral` grounding branch.
 
+![Regulator (autotransformer) loss equivalent circuit: series winding impedance on each side forming the short-circuit impedance, a no-load shunt on the from side, and a single continuous neutral rail — the galvanic bond that makes the from and to sides one electrical node (not isolated).](assets/regulator_loss.svg)
+
+The one visible difference from the [transformer circuit](transformer.md#The-loss-equivalent-circuit)
+is the **shared neutral rail**: a transformer's two neutrals are isolated, whereas the
+regulator's are bonded into a single node — the graphical signature of an autotransformer.
+
 ### The galvanic tie (what makes it a regulator)
 
 The departure from the isolated model is at the **shared node**. The series and common

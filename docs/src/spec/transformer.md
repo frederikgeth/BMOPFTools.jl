@@ -142,7 +142,7 @@ winding's neutral terminal to earth. These map one-to-one onto the data fields:
 `b_no_load` → $\textcolor{red}{B_0}$, `r/x_neutral_from`/`_to` → $\textcolor{brown}{y_n}$.
 The subtype diagrams below omit the $\textcolor{brown}{y_n}$ branch to keep the connection
 clear; it attaches to whichever winding carries a groundable neutral (`single_phase`,
-`wye_delta`/`delta_wye`).
+`center_tap`, `wye_delta`/`delta_wye`).
 
 !!! note "The per-winding leakage split is under-determined by a short-circuit test"
     A standard short-circuit test yields only $\textcolor{brown}{Z_{\text{sc}}}$ — the
@@ -371,10 +371,11 @@ stamped in rectangular form ([`transformer.jl`](https://github.com/frederikgeth/
     (`g/b_no_load`), and internal neutral grounding (`r/x_neutral_*`) extend the Task
     Force PDF's transformer section; document them in the superseding spec.
 
-!!! warning "Center-tap accepts neutral-grounding fields it does not model"
+!!! note "Center-tap neutral grounding — supported, pending data-model cleanup"
     `single_phase` and `center_tap` share the `single_phase_or_center_tap_transformer`
-    schema, which exposes `r/x_neutral_from` and `r/x_neutral_to`. The **single-phase**
-    builder honours them (an internal $\textcolor{brown}{y_n}$ grounding branch), but the
-    **center-tap** builder does **not** read them — a center-tap unit with those fields set
-    silently ignores the grounding. Either implement it for `center_tap` or drop the
-    fields from its schema.
+    schema, which exposes `r/x_neutral_from`/`_to`. **Both builders honour them**: an
+    internal $\textcolor{brown}{y_n}=1/(\textcolor{red}{R_n}+\textcolor{brown}{j}\textcolor{red}{X_n})$
+    grounding branch — `*_from` grounds the HV neutral, `*_to` grounds the centre-tap
+    neutral. This is accepted for OpenDSS compatibility; a future **data-cleanup** pass
+    should reify such grounding as an explicit external [`shunt`](shunt.md) object (exactly
+    equivalent — verified by an OPF equivalence test) so the transformer zoo stays simpler.
