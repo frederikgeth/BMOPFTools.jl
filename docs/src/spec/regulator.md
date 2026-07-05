@@ -157,6 +157,11 @@ Per-winding current-magnitude circles, per side and conductor:
 
 ### Realisation
 
+Both regulator subtypes also have an exact nodal **primitive admittance**
+$\textcolor{brown}{\mathbf{Y}_x}$ (`Yprim`) — the autotransformer $2\times2$ core and the
+two line-to-line open-delta cores — given in closed form on the
+[Transformer primitive admittance](transformer-admittance.md#6.-Regulators) page.
+
 - The shared **regulating-winding** relation is stamped by
   [`transformer.jl:_add_regulating_winding!`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/transformer.jl); it writes the to-side leakage via
   $\textcolor{blue}{I_{x,\text{to}}}$ so a free tap stays degree-2, and reduces to

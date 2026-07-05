@@ -7,10 +7,14 @@
 # Convention matches OpenDSS Yprim / DumpYprim: SI units (siemens), positive
 # current = into the element, symmetric (Y = Yᵀ — reciprocal, NOT Hermitian).
 #
-# Construction: C' * y_prim * C + Y₀ (magnetising shunt across the winding-2 /
-# to-side coil, the OpenDSS convention), where C maps node voltages to per-core
-# winding voltages and y_prim is the block-diagonal primitive admittance. This
-# guarantees Y = Yᵀ. See docs/transformer_admittance_derivation.md.
+# Construction: transpose(C) * y_prim * C + Y₀ (magnetising shunt across the
+# winding-2 / to-side coil, the OpenDSS convention), where C maps node voltages
+# to per-core winding voltages and y_prim is the block-diagonal primitive
+# admittance. This guarantees Y = Yᵀ (a plain transpose — NOT the adjoint). In
+# Julia `A'` is the CONJUGATE transpose, so the symmetry check and the C'yC
+# construction must use `transpose`, never `'`; the network is lossy so
+# Y ≠ Yᴴ. The symbolic blocks are documented in the spec page
+# docs/src/spec/transformer-admittance.md.
 #
 # All four subtypes are supported:
 #   single_phase  — per-phase YY, Γ-model referred to HV (§2 of the note)

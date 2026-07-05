@@ -323,6 +323,12 @@ centre-tap uses 1 on the from winding and 2 on the to legs).
 
 ### Realisation
 
+Each subtype's device behaviour also has an exact nodal **primitive admittance**
+$\textcolor{brown}{\mathbf{Y}_x}$ (`Yprim`); the closed-form matrices — the natural
+artifact for cross-checking against OpenDSS or another implementation — are collected on
+the [Transformer primitive admittance](transformer-admittance.md) page, and the OPF
+stamps the same relations.
+
 All transformer constraints are linear/bilinear in the voltage and current variables,
 stamped in rectangular form ([`transformer.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/transformer.jl), dispatched by
 `_add_transformer_constraints!`; `nwinding.jl` for `n_winding`):

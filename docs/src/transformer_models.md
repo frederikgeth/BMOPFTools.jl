@@ -7,9 +7,9 @@ overriding design goal is **consistency with OpenDSS**: at a given setpoint the
 OPF constraints and the exported `Yprim` describe the same device, and both are
 built to match OpenDSS's own `Yprim` term-by-term wherever OpenDSS is unambiguous.
 
-The companion note
-[`docs/transformer_admittance_derivation.md`](https://github.com/eigenergy/BMOPFTools.jl/blob/main/docs/transformer_admittance_derivation.md)
-carries the full matrix derivations; this page is the model-level contract.
+The companion [Transformer primitive admittance](spec/transformer-admittance.md)
+spec page carries the full symbolic matrix derivations; this page is the
+model-level contract.
 
 ## Supported subtypes
 

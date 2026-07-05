@@ -85,6 +85,7 @@ makedocs(
             "Voltage sources"   => "spec/source.md",
             "Transformers"      => "spec/transformer.md",
             "Regulators"        => "spec/regulator.md",
+            "Transformer primitive admittance" => "spec/transformer-admittance.md",
             "IBRs"              => "spec/ibr.md",
             "DC networks"       => "spec/dc.md",
             "Objective & feasibility" => "spec/objective.md",

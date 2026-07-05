@@ -725,8 +725,8 @@ The split-phase unit is a genuine 3-winding transformer whose two LV
 half-windings are tightly coupled on the shared core. Modelling each leg with an
 *independent* secondary impedance drop omits that mutual coupling and spreads the
 two legs apart under load. The OPF therefore imposes the OpenDSS-consistent 5×5
-primitive admittance $Y_\text{CT}$ (the same one the Ybus exporter builds, derived
-in `docs/transformer_admittance_derivation.md`) as nodal current injections —
+primitive admittance $Y_\text{CT}$ (the same one the Ybus exporter builds; see
+[Transformer primitive admittance](spec/transformer-admittance.md)) as nodal current injections —
 element current into each of the five terminals
 $\mathbf I = Y_\text{CT}\,\mathbf V$ — and pins the per-winding current variables
 (HV series, leg-1, centre, leg-2) to those injections for the `i_max` limits and
@@ -882,8 +882,8 @@ This is the physically-correct "common neutral" model of Yan et al. (2018): the
 shared phase passes through unchanged while the two regulated line-to-line
 voltages are boosted by their taps. Without it the line-to-line voltages are
 still correct but the per-phase reference floats (the unphysical
-"unspecified neutral" model). See the derivation note
-`docs/transformer_admittance_derivation.md` for the matching bus-admittance form.
+"unspecified neutral" model). See
+[Transformer primitive admittance](spec/transformer-admittance.md) for the matching bus-admittance form.
 
 ---
 
