@@ -47,12 +47,6 @@ makedocs(
             "Transformer tap optimisation" => "tutorial_tap.md",
             "Time series: a day on an LV feeder" => "tutorial_timeseries.md",
         ],
-        "Model specification"     => [
-            "Overview"  => "spec/index.md",
-            "Notation"  => "spec/notation.md",
-            "Buses"     => "spec/bus.md",
-            "Lines"     => "spec/line.md",
-        ],
         "Bounds & feasibility"    => [
             "bounds/index.md",
             "Infeasibility diagnosis tutorial" => "tutorial_infeasibility.md",
@@ -72,6 +66,18 @@ makedocs(
                 "OPF engine: scope & status"   => "dev/opf_engine.md",
                 "Profiling pipeline"           => "dev/profiling.md",
             ],
+        ],
+        "Model specification"     => [
+            "Overview"          => "spec/index.md",
+            "Notation"          => "spec/notation.md",
+            "Buses"             => "spec/bus.md",
+            "Lines"             => "spec/line.md",
+            "Switches"          => "spec/switch.md",
+            "Loads"             => "spec/load.md",
+            "Generators"        => "spec/generator.md",
+            "Shunts"            => "spec/shunt.md",
+            "Voltage sources"   => "spec/source.md",
+            "Transformers"      => "spec/transformer.md",
         ],
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)

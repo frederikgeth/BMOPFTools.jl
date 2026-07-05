@@ -1,11 +1,13 @@
 # Model specification
 
-!!! note "Status: prototype (buses and lines)"
+!!! note "Status: prototype"
     This section is a **prototype** of a new, self-contained model + data
-    specification. Only **[Notation](notation.md)**, **[Buses](bus.md)** and
-    **[Lines](line.md)** are written so far. The remaining components (switches,
-    loads, generators, shunts, voltage sources, transformers) will follow once the
-    template established here is agreed.
+    specification. It covers **[Notation](notation.md)** and the network components:
+    **[Buses](bus.md)**, **[Lines](line.md)**, **[Switches](switch.md)**,
+    **[Loads](load.md)**, **[Generators](generator.md)**, **[Shunts](shunt.md)**,
+    **[Voltage sources](source.md)**, and **[Transformers](transformer.md)**. DC
+    components, time series, and the objective/feasibility formulations are not yet
+    written.
 
 ## Purpose
 
