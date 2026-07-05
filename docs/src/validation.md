@@ -216,8 +216,8 @@ The split-phase (`center_tap`) transformer gets extra scrutiny because its two
 LV half-windings are tightly coupled on a shared core — a per-leg *decoupled*
 drop omits that coupling and silently spreads the legs apart under load. The OPF
 therefore imposes the OpenDSS-consistent 5×5 primitive admittance (see the
-[OPF reference](opf.md) and `transformer_admittance_derivation.md`), and a family
-of fixtures pins it down rather than a single light-load case:
+[OPF reference](opf.md) and [Transformer primitive admittance](spec/transformer-admittance.md)),
+and a family of fixtures pins it down rather than a single light-load case:
 
 - **Leg symmetry under a balanced heavy load** (`pf_center_tap_balanced_heavy`):
   a perfectly balanced load must keep the two legs equal; the fixture asserts
@@ -268,7 +268,7 @@ fixtures above:
   the Dy neutral floats and the solve diverges.
 - **Transformer `Yprim` matches OpenDSS** (`single_phase`, `center_tap`,
   `wye_delta`, `delta_wye`): the correctness gate from
-  `transformer_admittance_derivation.md` §7 — the per-element primitive
+  [Transformer primitive admittance](spec/transformer-admittance.md#7.-Validation-and-implementation) — the per-element primitive
   admittance is compared term-by-term against OpenDSS's own
   `CktElement.YPrim()`. This is the check that catches turns-ratio direction, √3
   scaling, shunt placement, and winding-polarity sign errors directly: it would

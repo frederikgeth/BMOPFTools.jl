@@ -384,8 +384,8 @@ with per-regulator taps `tap_ratio = [a1, a2]`.  The phase common to both
 regulators is a **galvanic straight-through** (`V_shared,from = V_shared,to`),
 the physically-correct "common neutral" model of Yan et al. (2018); the two
 regulated line-to-line voltages are boosted by their taps while the shared phase
-passes through unchanged.  See the [OPF reference](opf.md) and the derivation
-note `docs/transformer_admittance_derivation.md`.
+passes through unchanged.  See the [OPF reference](opf.md) and
+[Transformer primitive admittance](spec/transformer-admittance.md).
 
 **`n_winding`**: a general n-winding (3+) transformer for three or more
 galvanically isolated voltage levels (e.g. an HV→MV→LV substation, or a

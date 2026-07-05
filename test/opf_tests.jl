@@ -880,6 +880,57 @@
         """; from_string=true); label="open_delta_regulator")
     end
 
+    @testset "T13b2: center_tap internal neutral grounding (rneut/xneut) ≡ external shunt" begin
+        # Supporting OpenDSS rneut/xneut on center_tap: the internal grounding branch
+        # y_n = 1/(R_n+jX_n) from a winding neutral to earth must be identical to
+        # grounding that terminal with an explicit external `shunt` of admittance y_n —
+        # the "reify as an external shunt" equivalence a future data-cleanup would use.
+        Rn, Xn = 2.0, 1.0
+        yn = 1.0 / (Rn + Xn*im)
+        Gn, Bn = real(yn), imag(yn)          # y_n = G_n + jB_n  (0.4 − 0.2j)
+
+        # The centre-tap HV neutral is made to FLOAT: the source feeds `mv` through a
+        # phase-only line (no neutral return), so the HV series current can only return
+        # through the grounding branch. `r_neutral_from` then genuinely shifts the HV
+        # neutral potential (a solidly-grounded neutral would sit at 0 V), exercising
+        # the branch rather than leaving it redundant behind the transformer.
+        top = """
+        {"bus":{"src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "mv":{"terminal_names":["1","n"]},
+                "lv":{"terminal_names":["1","2","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],"v_magnitude":[2400.0],"v_angle":[0.0]}},
+         "line":{"ln":{"bus_from":"src","bus_to":"mv","terminal_map_from":["1"],"terminal_map_to":["1"],
+             "linecode":"lc","length":100.0}},
+         "linecode":{"lc":{"R_series_1_1":0.01,"X_series_1_1":0.02}},
+         "transformer":{"center_tap":{"ct":{"bus_from":"mv","bus_to":"lv",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n","2"],
+             "v_nom_from":2400.0,"v_nom_to":120.0,"s_rating":25000.0,
+             "r_series_from":0.1,"x_series_from":0.4,"r_series_to":0.001,"x_series_to":0.004__RNEUT__}}},
+         "load":{"l1":{"bus":"lv","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[3000.0],"q_nom":[200.0]},
+                 "l2":{"bus":"lv","terminal_map":["2","n"],"configuration":"SINGLE_PHASE","p_nom":[1000.0],"q_nom":[100.0]}}__SHUNT__}
+        """
+        netA = parse_bmopf(replace(top,
+            "__RNEUT__" => ",\"r_neutral_from\":$Rn,\"x_neutral_from\":$Xn",
+            "__SHUNT__" => ""); from_string=true)
+        netB = parse_bmopf(replace(top,
+            "__RNEUT__" => "",
+            "__SHUNT__" => ",\"shunt\":{\"gnd\":{\"bus\":\"mv\",\"terminal_map\":[\"n\"]," *
+                           "\"G_1_1\":$Gn,\"B_1_1\":$Bn}}"); from_string=true)
+
+        rA = solve_feasibility_opf(netA); rB = solve_feasibility_opf(netB)
+        @test rA["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test rB["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        # A (internal rneut) ≡ B (external shunt): identical bus voltages.
+        for (bid, td) in rA["bus"], (t, tv) in td
+            @test isapprox(rB["bus"][bid][t]["vm"], tv["vm"]; rtol=1e-6, atol=1e-6)
+        end
+
+        # The branch actually carries current: the floating HV neutral is displaced
+        # from earth (a solidly-grounded neutral would sit at 0 V).
+        @test rA["bus"]["mv"]["n"]["vm"] > 1.0
+    end
+
     @testset "T13c: perfectly-grounded delta-secondary phase warm-starts cleanly" begin
         # Regression for a crash in _set_yd_dy_start_values!: when a delta-secondary
         # phase is `perfectly_grounded`, that terminal becomes the warm-start anchor

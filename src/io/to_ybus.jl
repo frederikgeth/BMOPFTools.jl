@@ -7,10 +7,14 @@
 # Convention matches OpenDSS Yprim / DumpYprim: SI units (siemens), positive
 # current = into the element, symmetric (Y = Yᵀ — reciprocal, NOT Hermitian).
 #
-# Construction: C' * y_prim * C + Y₀ (magnetising shunt across the winding-2 /
-# to-side coil, the OpenDSS convention), where C maps node voltages to per-core
-# winding voltages and y_prim is the block-diagonal primitive admittance. This
-# guarantees Y = Yᵀ. See docs/transformer_admittance_derivation.md.
+# Construction: transpose(C) * y_prim * C + Y₀ (magnetising shunt across the
+# winding-2 / to-side coil, the OpenDSS convention), where C maps node voltages
+# to per-core winding voltages and y_prim is the block-diagonal primitive
+# admittance. This guarantees Y = Yᵀ (a plain transpose — NOT the adjoint). In
+# Julia `A'` is the CONJUGATE transpose, so the symmetry check and the C'yC
+# construction must use `transpose`, never `'`; the network is lossy so
+# Y ≠ Yᴴ. The symbolic blocks are documented in the spec page
+# docs/src/spec/transformer-admittance.md.
 #
 # All four subtypes are supported:
 #   single_phase  — per-phase YY, Γ-model referred to HV (§2 of the note)
@@ -260,11 +264,21 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
     G0 = Float64(get(xfmr, "g_no_load", 0.0))
     B0 = Float64(get(xfmr, "b_no_load", 0.0))
 
+    # Internal neutral-grounding branch (OpenDSS rneut/xneut): y_n from a shared
+    # neutral terminal to earth — a diagonal stamp, matching OpenDSS's Yprim and
+    # the OPF builder `_add_center_tap_transformer!`. `r/x_neutral_from` grounds
+    # the HV neutral (node 2); `r/x_neutral_to` grounds the LV centre-tap neutral
+    # (node 4). Both terminals always exist for a center_tap, so no arity guard.
+    yn_fr = _xfmr_yn(xfmr, "from")
+    yn_to = _xfmr_yn(xfmr, "to")
+
     # Nodes: [HV-phase, HV-neutral, LV-leg1, LV-center-tap, LV-leg2]
     nodes = Tuple{String,String}[
         (b_fr, tm_fr[1]), (b_fr, tm_fr[2]),
         (b_to, tm_to[1]), (b_to, tm_to[2]), (b_to, tm_to[3]),
     ]
+    # Diagonal stamp: HV neutral = node 2, LV centre tap = node 4.
+    _stamp_ct_yn!(Y) = (Y[2,2] += yn_fr; Y[4,4] += yn_to)
 
     # 3-port star admittance (all referred to LV).
     # Arms: HV (impedance Z1/N², admitted y1=N²/Z1), LV1 (Z2, y2), LV2 (Z2, y2).
@@ -278,6 +292,7 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
         Y_deg = zeros(ComplexF64, 5, 5)
         Y0 = G0 + im*B0                    # across winding 2 (LV leg 1: nodes 3-4)
         Y_deg[3,3] += Y0; Y_deg[4,4] += Y0; Y_deg[3,4] -= Y0; Y_deg[4,3] -= Y0
+        _stamp_ct_yn!(Y_deg)
         return nodes, Y_deg
     end
 
@@ -312,6 +327,8 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
     # (verified against its Yprim). `g/b_no_load` are on the per-leg LV base.
     Y0 = G0 + im*B0
     Y_core[3,3] += Y0; Y_core[4,4] += Y0; Y_core[3,4] -= Y0; Y_core[4,3] -= Y0
+
+    _stamp_ct_yn!(Y_core)
 
     nodes, Y_core
 end

@@ -2842,7 +2842,7 @@ end
 end
 
 @testset "Transformer Yprim matches OpenDSS (single_phase, center_tap, Yd, Dy)" begin
-    # Correctness gate from docs/transformer_admittance_derivation.md §7: the
+    # Correctness gate from docs/src/spec/transformer-admittance.md §7: the
     # per-element primitive admittance must equal OpenDSS's own Transformer
     # `Yprim`. This is the check that directly catches turns-ratio direction,
     # √3 scaling, shunt placement, and winding-polarity sign errors (the

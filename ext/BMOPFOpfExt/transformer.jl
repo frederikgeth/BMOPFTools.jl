@@ -349,6 +349,11 @@ Physics (coupled-coil / primitive-admittance model):
   ampere-turn / centre-tap KCL route the currents.
 
   No-load shunt (G+jB) at HV terminals (placed on winding-1 from side).
+
+  Winding neutral grounding (OpenDSS rneut/xneut): `r/x_neutral_from` grounds the HV
+  neutral through y_n = 1/(R_n+jX_n); `r/x_neutral_to` grounds the LV centre-tap
+  neutral. Accepted for OpenDSS compatibility (a future data-cleanup pass should
+  reify it as an explicit external shunt).
 """
 function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                                       tap=nothing, branch_inj=nothing)
@@ -400,6 +405,29 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     Il1r = cr_xf[(tid,"to",1)]; Il1i = ci_xf[(tid,"to",1)]
     Il2r = cr_xf[(tid,"to",3)]; Il2i = ci_xf[(tid,"to",3)]
     Inr  = cr_xf[(tid,"to",2)]; Ini  = ci_xf[(tid,"to",2)]
+
+    # ── Winding neutral grounding (OpenDSS rneut/xneut) ───────────────────────
+    # An internal grounding branch y_n = 1/(R_n + jX_n) from a shared neutral
+    # terminal to earth (verified against OpenDSS's Yprim; matches the single_phase
+    # and Yd/Dy builders). `r/x_neutral_from` grounds the HV neutral t_fr_n;
+    # `r/x_neutral_to` grounds the LV centre-tap neutral t_lv_n. Added before the
+    # winding-model branch below so it applies to BOTH the fixed Yprim and the
+    # free-tap T-model paths (the current sums additively into the same KCL node).
+    #
+    # NOTE: this is accepted for compatibility with OpenDSS-sourced data; a future
+    # data-cleanup pass should express it as an explicit external `shunt` object so
+    # the transformer zoo stays simpler (see the data-cleanup notes).
+    for (rn_key, xn_key, b_nt, t_nt) in
+            (("r_neutral_from", "x_neutral_from", b_fr, t_fr_n),
+             ("r_neutral_to",   "x_neutral_to",   b_to, t_lv_n))
+        rn = Float64(get(xfmr, rn_key, 0.0)); xn = Float64(get(xfmr, xn_key, 0.0))
+        (rn != 0.0 || xn != 0.0) || continue
+        zn2 = rn^2 + xn^2
+        Gn  = rn / zn2; Bn = -xn / zn2      # y_n = 1/(R_n + jX_n) = G_n + jB_n
+        igr = @expression(model, Gn * vr[(b_nt, t_nt)] - Bn * vi[(b_nt, t_nt)])
+        igi = @expression(model, Gn * vi[(b_nt, t_nt)] + Bn * vr[(b_nt, t_nt)])
+        kadd(b_nt, t_nt, -igr, -igi)        # grounding current leaves the node to earth
+    end
 
     # ── Coupled-coil (primitive-admittance) formulation ───────────────────────
     # The split-phase transformer is a genuine 3-winding transformer: winding 1
