@@ -540,9 +540,13 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Negative-sequence voltage (`vneg_max`) | C | `|V₂|² ≤ vneg_max²` | `bus.jl` | covered (L-C2, T10) |
 | Zero-sequence voltage (`vzero_max`) | C | `|V₀|² ≤ vzero_max²` (note `/3`) | `bus.jl` | covered (T10) |
 | Branch series current (`i_max`) | A | `cr²+ci² ≤ i_max²` (both ends) | `branch.jl` | scaffold (L-A5) |
+| Branch apparent power (`s_max`) | D | `P²+Q² ≤ s_max²`, `S=v∘conj(I_tot)` ground-referenced per conductor (both ends) | `branch.jl` | covered (L-SMAX-LINE) |
 | Branch angle difference (`va_diff_*`) | B | `tan·c ≤ s ≤ tan·c` | `branch.jl` | gap |
 | Switch current | A | `cr_sw²+ci_sw² ≤ ilim²` | `branch.jl` | gap |
-| Transformer winding/terminal currents | A | `Is²,It²,In² ≤ i_max²` | `transformer.jl` | gap |
+| Switch apparent power (`s_max`) | D | `P²+Q² ≤ s_max²` ground-referenced per conductor | `branch.jl` | covered (L-SMAX-SW) |
+| Transformer winding/terminal currents | A | `Is²,It²,In² ≤ i_max²` (native); post-solve per-winding `cm ≤ i_max_from/to` | `transformer.jl`, `solution.jl` | covered (post-solve) |
+| Transformer nameplate power (`s_rating`, required → always enforced) | D | per-winding coil `P²+Q² ≤ (s_rating/n_ph)²` (native); post-solve coil `\|S\| ≤ s_max` from result `s`/`s_max` | `transformer.jl`, `solution.jl` | covered (L-SMAX-XFMR) |
+| n-winding per-winding power (`s_max`) | D | per-winding coil `P²+Q² ≤ (s_max/n_ph)²` (native + post-solve) | `nwinding.jl`, `solution.jl` | covered (L-SMAX-NW) |
 | Generator / source P,Q limits | D | bounds on `p=vr·ir+vi·ii` | `generator.jl`, `source.jl` | covered (T3, T4) |
 | Generator / IBR apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `ibr.jl` | covered (T-INV3); strict recompute scaffold (L-A8) |
 | Generator / IBR current magnitude (`i_max`) | A | `cr²+ci² ≤ i_max²` (optional, opt-in) | `generator.jl`, `ibr.jl` | covered (T-INV5, T-INV6, T-GEN-IMAX, T-GEN-IMAX-PU) |

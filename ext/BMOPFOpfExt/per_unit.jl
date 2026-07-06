@@ -201,10 +201,17 @@ end
 # this the current variables are p.u. but i_max stays in A, leaving the thermal
 # cap ~I_base too loose.
 function _pu_scale_switches!(net, bases)
+    sb = bases.s_base
     for (_, sw) in get(net, "switch", Dict())
-        sw isa Dict && haskey(sw, "i_max") || continue
-        ib = get(bases.i_base, get(sw, "bus_from", ""), 1.0)
-        sw["i_max"] = Float64.(sw["i_max"]) ./ ib
+        sw isa Dict || continue
+        if haskey(sw, "i_max")
+            ib = get(bases.i_base, get(sw, "bus_from", ""), 1.0)
+            sw["i_max"] = Float64.(sw["i_max"]) ./ ib
+        end
+        # s_max is an apparent power → divide by the system VA base.
+        if haskey(sw, "s_max")
+            sw["s_max"] = Float64.(sw["s_max"]) ./ sb
+        end
     end
 end
 
@@ -304,6 +311,10 @@ function _pu_scale_linecodes!(net, bases)
         if haskey(lc, "i_max")
             lc["i_max"] = Float64.(lc["i_max"]) ./ ib
         end
+        # s_max is an apparent power → divide by the system VA base (not i_base).
+        if haskey(lc, "s_max")
+            lc["s_max"] = Float64.(lc["s_max"]) ./ bases.s_base
+        end
     end
 
     # Inline ABSOLUTE matrices on lines (Ω, S — never length-scaled) use the
@@ -327,6 +338,10 @@ function _pu_scale_linecodes!(net, bases)
         end
         if haskey(line, "i_max")
             line["i_max"] = Float64.(line["i_max"]) ./ ib
+        end
+        # s_max is an apparent power → divide by the system VA base (not i_base).
+        if haskey(line, "s_max")
+            line["s_max"] = Float64.(line["s_max"]) ./ bases.s_base
         end
     end
 end
@@ -479,6 +494,10 @@ function _pu_scale_nwinding!(net, bases)
             if haskey(w, "i_max")
                 ibj = get(bases.i_base, ws[j].bus, 1.0)
                 w["i_max"] = Float64(w["i_max"]) / ibj
+            end
+            # Per-winding apparent-power rating → p.u. by ÷ s_base.
+            if haskey(w, "s_max")
+                w["s_max"] = Float64(w["s_max"]) / sb
             end
         end
 
@@ -747,10 +766,12 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         for (_, cvals) in get(winding_dict, "fr", Dict())
             cvals isa Dict || continue
             for f in ("cr", "ci", "cm"); haskey(cvals, f) && (cvals[f] = cvals[f] * ib_fr); end
+            for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
         end
         for (_, cvals) in get(winding_dict, "to", Dict())
             cvals isa Dict || continue
             for f in ("cr", "ci", "cm"); haskey(cvals, f) && (cvals[f] = cvals[f] * ib_to); end
+            for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
         end
         # Device ground current (A): the no-load shunt is on the from side → I_base[bus_from]
         if haskey(winding_dict, "ground") && winding_dict["ground"] isa Dict
@@ -779,6 +800,7 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
                 for f in ("cr", "ci", "cm")
                     haskey(cvals, f) && (cvals[f] = cvals[f] * ib)
                 end
+                for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
             end
         end
     end

@@ -198,6 +198,44 @@ function _neutral_current_limit!(model, cr_terms, ci_terms, ilim::Real)
 end
 
 """
+    _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim; base_name)
+
+Cap the apparent power `S = V ∘ conj(I)` flowing through one conductor at `slim`
+[VA]. With the rectangular voltage `V = vr_k + j·vi_k` and current
+`I = cr_k + j·ci_k`,
+
+    P = vr_k·cr_k + vi_k·ci_k,   Q = vi_k·cr_k − vr_k·ci_k,   P² + Q² ≤ slim² .
+
+Auxiliary `P`/`Q` variables keep the model quadratic (the raw expression is
+bilinear voltage×current). The voltage reference is whatever `vr_k`/`vi_k` the
+caller supplies — ground-referenced (node voltage) for a line/switch conductor,
+or the coil voltage for a transformer winding. Note the well-known degeneracy:
+for a neutral conductor referenced to a grounded node `V ≈ 0`, so this cap is
+vacuous even as `I` overheats the conductor — a current limit is preferred there
+(see `W.DOM.POWER_LIMIT_NEUTRAL`). No-op for a non-finite or negative `slim`.
+
+`vr_k`/`vi_k`/`cr_k`/`ci_k` may be `VariableRef`s or `AffExpr`s.
+
+When a `ledger` dict and `key` are supplied, the auxiliaries and the limit are
+recorded as `ledger[key] = (p_v, q_v, slim)` so the result writer can report both
+the solved coil apparent power (`|S| = √(P²+Q²)`) and its cap — the exact
+quantities this cone constrains, with no post-solve coil-voltage reconstruction.
+Returns `(p_v, q_v)` (or `nothing` when the limit is skipped).
+"""
+function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Real;
+                                base_name::AbstractString="s",
+                                ledger=nothing, key=nothing)
+    (isfinite(slim) && slim >= 0) || return nothing
+    p_v = @variable(model, base_name = "p_$(base_name)")
+    q_v = @variable(model, base_name = "q_$(base_name)")
+    @constraint(model, p_v == vr_k*cr_k + vi_k*ci_k)
+    @constraint(model, q_v == vi_k*cr_k - vr_k*ci_k)
+    @constraint(model, p_v^2 + q_v^2 <= slim^2)
+    ledger !== nothing && key !== nothing && (ledger[key] = (p_v, q_v, Float64(slim)))
+    return (p_v, q_v)
+end
+
+"""
     _terminal_vmax_to_ground(bus, terminal, grounded) -> Union{Float64,Nothing}
 
 Sound upper bound on the **to-ground** voltage magnitude `|V_{bus,terminal}|`,

@@ -131,6 +131,61 @@ end
     @test any(x -> x.code == "W.SPEC.XFMR_TMAP_ARITY", f4)
 end
 
+@testset "n_winding — reactance sign / realisability (physics)" begin
+    _net(d) = Dict{String,Any}("transformer" =>
+        Dict{String,Any}("n_winding" => Dict{String,Any}("t1" => d)))
+    codes(net) = (f = Finding[]; B.domain_rules_check(net, f);
+                  Set(x.code for x in f))
+
+    # (1) Physically well-formed data → no sign/PSD finding.
+    good = _nw_xfmr([("b1",115.0,0.3),("b2",24.9,0.4),("b3",4.16,0.4)],
+                    Dict("1_2"=>8.0,"1_3"=>8.0,"2_3"=>6.0))
+    c = codes(_net(good))
+    @test !("W.DOM.XFMR_X_NONINDUCTIVE" in c)
+    @test !("W.DOM.XFMR_X_NOT_PSD" in c)
+
+    # (2) A NEGATIVE star/T branch that is still physical MUST pass. Here
+    # X23 ≫ X12,X13 drives the ZB off-diagonal ½(3+3−10) < 0 (a negative
+    # equivalent star leg), but imag(ZB)=[[3,−2],[−2,3]] has eigenvalues {1,5}
+    # → PSD, so nothing is flagged. This is the whole point of the physics-based
+    # discriminator: negative branch ≠ error.
+    legit_neg = _nw_xfmr([("b1",115.0,0.0),("b2",24.9,0.0),("b3",4.16,0.0)],
+                         Dict("1_2"=>3.0,"1_3"=>3.0,"2_3"=>10.0))
+    @test imag(B._nw_zb_matrix(legit_neg)[1,2]) < 0        # negative star branch
+    @test minimum(B._nw_xb_eigvals(legit_neg)) > 0         # yet PSD
+    c2 = codes(_net(legit_neg))
+    @test !("W.DOM.XFMR_X_NONINDUCTIVE" in c2)
+    @test !("W.DOM.XFMR_X_NOT_PSD" in c2)
+
+    # (3) All pairwise reactances positive but MUTUALLY INCONSISTENT: X23 = 10 ≫
+    # X12 = X13 = 1 violates the realisability triangle X12·X13 ≥ ¼(X12+X13−X23)².
+    # imag(ZB)=[[1,−4],[−4,1]] → eigenvalue −3 < 0 → not realisable → PSD flag.
+    not_psd = _nw_xfmr([("b1",115.0,0.0),("b2",24.9,0.0),("b3",4.16,0.0)],
+                       Dict("1_2"=>1.0,"1_3"=>1.0,"2_3"=>10.0))
+    @test all(v -> v > 0, values(not_psd["x_sc"]))         # every pairwise > 0
+    c3 = codes(_net(not_psd))
+    @test "W.DOM.XFMR_X_NOT_PSD" in c3
+    @test !("W.DOM.XFMR_X_NONINDUCTIVE" in c3)             # no negative pairwise
+
+    # (4) A negative MEASURABLE pairwise short-circuit reactance → non-inductive.
+    neg_pair = _nw_xfmr([("b1",115.0,0.0),("b2",24.9,0.0),("b3",4.16,0.0)],
+                        Dict("1_2"=>-8.0,"1_3"=>8.0,"2_3"=>6.0))
+    c4 = codes(_net(neg_pair))
+    @test "W.DOM.XFMR_X_NONINDUCTIVE" in c4
+
+    # (5) Two-bus subtype: an individual leg may be negative (valid star/T split)
+    # as long as the TOTAL series reactance stays inductive — not flagged...
+    split_ok = Dict{String,Any}("transformer" => Dict{String,Any}(
+        "single_phase" => Dict{String,Any}("s1" => Dict{String,Any}(
+            "x_series_from" => 1.0, "x_series_to" => -0.2))))
+    @test !("W.DOM.XFMR_X_NONINDUCTIVE" in codes(split_ok))
+    # ...but a negative TOTAL (the measurable short-circuit reactance) is flagged.
+    split_bad = Dict{String,Any}("transformer" => Dict{String,Any}(
+        "single_phase" => Dict{String,Any}("s1" => Dict{String,Any}(
+            "x_series_from" => 0.1, "x_series_to" => -0.5))))
+    @test "W.DOM.XFMR_X_NONINDUCTIVE" in codes(split_bad)
+end
+
 @testset "n_winding — Yprim symmetry & passivity" begin
     xf = _nw_xfmr([("b1", 115.0, 0.3), ("b2", 24.9, 0.4), ("b3", 4.16, 0.4)],
                   Dict("1_2" => 8.0, "1_3" => 8.0, "2_3" => 6.0);

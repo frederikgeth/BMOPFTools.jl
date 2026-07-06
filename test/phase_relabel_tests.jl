@@ -42,6 +42,17 @@ function _relabel_phases!(net::Dict{String,Any}, π::Dict{String,String})
             haskey(c, "terminal_map_to")   && (c["terminal_map_to"]   = sub(c["terminal_map_to"]))
         end
     end
+    # Transformers too (nested by subtype). Omitting them is exactly the bug that
+    # corrupted the lv1_14bus fixtures — a wye-side terminal map left mis-permuted
+    # relative to the rest of the network, which quietly derails the power flow.
+    for (_, subd) in get(net, "transformer", Dict())
+        subd isa Dict || continue
+        for (_, x) in subd
+            x isa Dict || continue
+            haskey(x, "terminal_map_from") && (x["terminal_map_from"] = sub(x["terminal_map_from"]))
+            haskey(x, "terminal_map_to")   && (x["terminal_map_to"]   = sub(x["terminal_map_to"]))
+        end
+    end
     net
 end
 

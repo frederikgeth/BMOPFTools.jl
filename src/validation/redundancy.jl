@@ -19,8 +19,59 @@ function redundancy_check(net::Dict{String,Any},
     result["unused_linecodes"]   = _check_unused_linecodes(net, findings)
     result["duplicate_linecodes"] = _check_duplicate_linecodes(net, findings)
     result["dc_redundancies"]    = _check_dc_redundancies(net, findings)
+    result["dual_thermal_limits"] = _check_dual_thermal_limits(net, findings)
 
     result
+end
+
+# The OPF now enforces BOTH a current limit and an apparent-power limit natively
+# on every element that carries them. Declaring both is generally redundant — the
+# tighter one binds and the other is inert — so flag it and name the preferred
+# representation for that component type. Preference (see the "current vs.
+# apparent-power limits" docs): current for lines/cables/switches and for
+# regulators (the tap-changer current is the physical limit); apparent power for
+# power transformers (the kVA nameplate is how they are specified).
+function _check_dual_thermal_limits(net, findings)
+    _has(x) = x !== nothing && !(x isa AbstractVector && isempty(x))
+    n = 0
+    prefer_current(ct, id, extra="") =
+        push!(findings, Finding(WARNING, "W.RED.DUAL_THERMAL_LIMIT", :redundancy, ct, id,
+            "$(ct) '$id' declares both a current limit (i_max) and an apparent-power " *
+            "limit (s_max)$extra. Enforcing both is generally redundant — the tighter " *
+            "binds. Prefer the current limit here (it is the physical thermal driver " *
+            "and has no voltage-reference ambiguity); drop s_max or convert it to a " *
+            "current limit in augmentation.", nothing))
+
+    for (id, l) in get(net, "line", Dict())
+        l isa Dict || continue
+        if _has(get(l, "i_max", nothing)) && _has(get(l, "s_max", nothing))
+            n += 1; prefer_current(:line, id)
+        end
+    end
+    for (id, sw) in get(net, "switch", Dict())
+        sw isa Dict || continue
+        if _has(get(sw, "i_max", nothing)) && _has(get(sw, "s_max", nothing))
+            n += 1; prefer_current(:switch, id)
+        end
+    end
+    # Generators / IBRs: both are the converter/machine current circle and power
+    # circle; the power circle (s_max) is the natural nameplate, prefer it.
+    for (comp, ct) in (("generator", :generator), ("ibr", :ibr))
+        for (id, g) in get(net, comp, Dict())
+            g isa Dict || continue
+            if _has(get(g, "i_max", nothing)) && _has(get(g, "s_max", nothing))
+                n += 1
+                push!(findings, Finding(WARNING, "W.RED.DUAL_THERMAL_LIMIT", :redundancy,
+                    ct, id,
+                    "$(ct) '$id' declares both a current limit (i_max) and an " *
+                    "apparent-power limit (s_max). Both are enforced but this is " *
+                    "generally redundant; a current cap additionally makes deliverable " *
+                    "power roll off with voltage. Keep whichever reflects the true " *
+                    "device limit.", nothing))
+            end
+        end
+    end
+    Dict{String,Any}("n" => n)
 end
 
 # DC-network redundancies: self-loop branches, duplicate parallel branches, and

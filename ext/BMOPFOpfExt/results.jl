@@ -579,6 +579,27 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         xfmr_res[tid] = wdict
     end
 
+    # ── Per-winding coil apparent power |S| (VA) ──────────────────────────────
+    # The nameplate cap registers its (P, Q) auxiliaries in `vars[:s_coil_xf]`,
+    # so the reported |S| is exactly what the cone constrained — no coil-voltage
+    # reconstruction. Keys are (tid, "fr"|"to", k) for two-bus subtypes and
+    # (tid, winding::Int, phase-leg) for n_winding.
+    for ((tid, a, b), (p_v, q_v, slim)) in get(vars, :s_coil_xf, Dict{Any,Any}())
+        rec = get(xfmr_res, tid, nothing)
+        rec isa Dict || continue
+        wd = if a isa AbstractString                       # two-bus: side key
+            sd = get(rec, a, nothing)
+            sd isa Dict ? get(sd, string(b), nothing) : nothing
+        else                                               # n_winding: (winding, leg)
+            wsub = get(rec, "w$(a)", nothing)
+            wsub isa Dict ? get(wsub, string(b), nothing) : nothing
+        end
+        wd isa Dict || continue
+        P = val(p_v); Q = val(q_v)
+        wd["s"]     = sqrt(P^2 + Q^2)
+        wd["s_max"] = slim
+    end
+
     # ── Voltage-source slack currents and imported power ──────────────────────
     # The source injects cr_src/ci_src into KCL; with fixed terminal voltages the
     # per-phase power is exact. Positive ps/qs = power imported into the network.

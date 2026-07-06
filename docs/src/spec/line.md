@@ -214,12 +214,18 @@ conductor, with $\textcolor{blue}{z}=\textcolor{blue}{U_{i,\cdot}}\,(\textcolor{
 
 ### Reconciliation notes (data model)
 
-!!! warning "Line data model is broader than the PDF"
+!!! note "Line data model is broader than the PDF"
     The PDF's line object lists only `length`, `linecode`, `bus_from/to`,
     `terminal_map_from/to`. The schema and code also support **inline absolute
     impedance matrices** (`R_series_k_j`, …, an alternative to `linecode`) and
-    **per-line `i_max`/`s_max` overrides** of the linecode's ratings. Document these
-    in the superseding spec.
+    **per-line `i_max`/`s_max` overrides** of the linecode's ratings. Both ratings
+    follow the precedence **line override → linecode → unconstrained** (applied
+    independently to `i_max` and `s_max`), and both are enforced natively by the
+    OPF — the current cone `I∘I* ≤ I_max∘I_max` and the ground-referenced
+    per-conductor apparent-power cone `S∘S* ≤ S_max∘S_max` with
+    `S = U∘conj(I)`. Enforcing both is generally redundant; current is preferred
+    for conductors and the neutral entry of `s_max` is degenerate (`U_n ≈ 0`).
+    See [current vs. apparent-power limits](../opf.md#Current-vs-apparent-power-limits).
 
 !!! warning "Asymmetric shunt half-sections"
     The PDF assumes symmetric half-shunts

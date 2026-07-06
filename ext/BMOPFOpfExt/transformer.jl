@@ -60,34 +60,41 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_in
     cr_xf = vars[:cr_xf]; ci_xf = vars[:ci_xf]
     tapd  = get(vars, :tap, Dict{Any,Any}())
     xfmr_dict = get(net, "transformer", Dict())
+    # Per-winding coil apparent-power auxiliaries (P, Q), registered by the
+    # nameplate cap so the result writer can report the solved |S| without
+    # reconstructing coil voltages. Keyed (tid, "fr"/"to", winding-index).
+    s_coil = get!(vars, :s_coil_xf, Dict{Any,Any}())
 
     for (tid, xfmr) in get(xfmr_dict, "single_phase", Dict())
         _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              tap=get(tapd, tid, nothing), branch_inj=branch_inj)
+                              tap=get(tapd, tid, nothing), branch_inj=branch_inj,
+                              scoil=s_coil)
     end
     for (tid, xfmr) in get(xfmr_dict, "center_tap", Dict())
         _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              tap=get(tapd, tid, nothing), branch_inj=branch_inj)
+                              tap=get(tapd, tid, nothing), branch_inj=branch_inj,
+                              scoil=s_coil)
     end
 
     for (tid, xfmr) in get(xfmr_dict, "wye_delta", Dict())
         _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               wye_is_from=true, tap=get(tapd, tid, nothing),
-                              branch_inj=branch_inj)
+                              branch_inj=branch_inj, scoil=s_coil)
     end
     for (tid, xfmr) in get(xfmr_dict, "delta_wye", Dict())
         _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               wye_is_from=false, tap=get(tapd, tid, nothing),
-                              branch_inj=branch_inj)
+                              branch_inj=branch_inj, scoil=s_coil)
     end
 
     for (tid, xfmr) in get(xfmr_dict, "single_phase_autotransformer", Dict())
         _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              tap=get(tapd, tid, nothing), branch_inj=branch_inj)
+                              tap=get(tapd, tid, nothing), branch_inj=branch_inj,
+                              scoil=s_coil)
     end
     for (tid, xfmr) in get(xfmr_dict, "open_delta_regulator", Dict())
         _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              tap=tapd, branch_inj=branch_inj)
+                              tap=tapd, branch_inj=branch_inj, scoil=s_coil)
     end
     # n_winding is built by a separate pass (`_add_nwinding_constraints!`). Any
     # OTHER key under `transformer` is an unmodeled subtype whose devices would
@@ -153,7 +160,7 @@ terminal to earth (verified against OpenDSS Yprim — the neutral-node diagonal
 gains exactly y_n).
 """
 function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              tap=nothing, branch_inj=nothing)
+                              tap=nothing, branch_inj=nothing, scoil=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr       = get(xfmr, "bus_from", "")
     b_to       = get(xfmr, "bus_to",   "")
@@ -173,6 +180,11 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     n_c        = min(length(pairs_fr), length(pairs_to))
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
+    # Per-phase share of the nameplate (VA, per-unitised upstream). n_c windings
+    # carry the total 3-phase rating, so each coil is rated s_rating / n_c. The
+    # nameplate is a required transformer field and is always enforced.
+    s_rating   = Float64(get(xfmr, "s_rating", 0.0))
+    s_per      = (s_rating > 0.0 && n_c > 0) ? s_rating / n_c : 0.0
 
     # Series impedance referred to the from side (Ω). Zero when absent.
     r_fr = Float64(get(xfmr, "r_series_from", 0.0))
@@ -273,6 +285,16 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             _limit_current_box!(Isr, Isi, i_max_fr[k])
         end
 
+        # Nameplate apparent-power cap on the from (winding-1) coil: the coil
+        # voltage (phase-to-neutral / line-to-line) is never ≈0, so unlike a
+        # ground-referenced conductor power this cap is well-posed. Per-phase
+        # share of the total nameplate = s_rating / n_c.
+        if s_per > 0.0
+            _apparent_power_limit!(model, vr_fr, vi_fr, Isr, Isi, s_per;
+                                   base_name = "$(tid)_w1_$(k)",
+                                   ledger = scoil, key = (tid, "fr", k))
+        end
+
         # To-side terminal current = series + magnetising shunt across the TO
         # coil (V_p_to − V_q_to). Inject −I at p and +I at q (return at q).
         if has_shunt
@@ -356,7 +378,7 @@ Physics (coupled-coil / primitive-admittance model):
   reify it as an explicit external shunt).
 """
 function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                                      tap=nothing, branch_inj=nothing)
+                                      tap=nothing, branch_inj=nothing, scoil=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr       = get(xfmr, "bus_from", "")
     b_to       = get(xfmr, "bus_to",   "")
@@ -368,6 +390,8 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     N          = tap === nothing ? N0 * BMOPFTools._xfmr_tap_mult(xfmr) : tap
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
+    # Split-phase: the single HV coil carries the whole nameplate (VA, p.u.).
+    s_per      = Float64(get(xfmr, "s_rating", 0.0))
 
     # Require exactly 2 HV and 3 LV terminals.
     length(tmfr) == 2 && length(tmto) == 3 || begin
@@ -511,6 +535,14 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         length(i_max_to_v) >= 1 && @constraint(model, Il1r^2 + Il1i^2 <= i_max_to_v[1]^2)
         length(i_max_to_v) >= 2 && @constraint(model, Inr^2  + Ini^2  <= i_max_to_v[2]^2)
         length(i_max_to_v) >= 3 && @constraint(model, Il2r^2 + Il2i^2 <= i_max_to_v[3]^2)
+        # Nameplate cap on the HV coil (V_frph − V_frn) · conj(I_s).
+        if s_per > 0.0
+            _apparent_power_limit!(model,
+                @expression(model, vr[(b_fr,t_fr_ph)] - vr[(b_fr,t_fr_n)]),
+                @expression(model, vi[(b_fr,t_fr_ph)] - vi[(b_fr,t_fr_n)]),
+                Isr, Isi, s_per; base_name = "$(tid)_hv",
+                ledger = scoil, key = (tid, "fr", 1))
+        end
         return
     end
 
@@ -598,6 +630,12 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         @constraint(model, Isr^2 + Isi^2 <= i_max_fr[1]^2)
         _limit_current_box!(Isr, Isi, i_max_fr[1])  # bare HV series-current variable
     end
+    # Nameplate cap on the HV coil (vr_hv = V_frph − V_frn, computed above).
+    if s_per > 0.0
+        _apparent_power_limit!(model, vr_hv, vi_hv, Isr, Isi, s_per;
+                               base_name = "$(tid)_hv",
+                               ledger = scoil, key = (tid, "fr", 1))
+    end
     kadd(b_fr, t_fr_n, Isr, Isi)   # HV neutral: series return
 
     # ── LV side KCL contributions ─────────────────────────────────────────────
@@ -683,11 +721,13 @@ the model collapses to the previous ideal transform.  A legacy single
 (wye side) with the to-side branch zero.
 """
 function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                               wye_is_from::Bool, tap=nothing, branch_inj=nothing)
+                               wye_is_from::Bool, tap=nothing, branch_inj=nothing,
+                               scoil=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     N = _xfmr_turns_ratio(xfmr)   # v_nom_from / v_nom_to
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
+    s_rating   = Float64(get(xfmr, "s_rating", 0.0))
 
     if wye_is_from
         b_wye    = get(xfmr, "bus_from", "")
@@ -863,6 +903,15 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
                 vr[(b_del, t_del_k)] - vr[(b_del, t_del_other)] == n_eff * vr_wye_pn)
             @constraint(model,
                 vi[(b_del, t_del_k)] - vi[(b_del, t_del_other)] == n_eff * vi_wye_pn)
+        end
+
+        # Nameplate cap on the wye (phase-to-neutral) coil: S = V_wye,pn · conj(I_wye).
+        # Per-phase share = s_rating / n_ph.
+        if s_rating > 0.0 && n_ph > 0
+            _apparent_power_limit!(model, vr_wye_pn, vi_wye_pn,
+                cr_xf[(tid, side_wye, ph_pos)], ci_xf[(tid, side_wye, ph_pos)],
+                s_rating / n_ph; base_name = "$(tid)_wye_$(k)",
+                ledger = scoil, key = (tid, side_wye, ph_pos))
         end
     end
 
@@ -1062,7 +1111,7 @@ it as two terminals (`t_fr_q`, `t_to_q`), each coil returns at its own reference
 bond the secondary return would leak to earth / dangle.
 """
 function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                               tap=nothing, branch_inj=nothing)
+                               tap=nothing, branch_inj=nothing, scoil=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
@@ -1100,6 +1149,11 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
 
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
+    # Regulators PREFER current (tap-changer limit); the nameplate is still
+    # accepted. Measuring the FROM-TERMINAL power (V_fr,p − V_fr,q)·conj(I_series)
+    # gives the through-kVA — correct for the autotransformer advantage, where the
+    # internal winding kVA is smaller than the through rating.
+    s_rating   = Float64(get(xfmr, "s_rating", 0.0))
 
     Isr = cr_xf[(tid,"fr",1)]; Isi = ci_xf[(tid,"fr",1)]
     Itr = cr_xf[(tid,"to",1)]; Iti = ci_xf[(tid,"to",1)]
@@ -1116,6 +1170,16 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
             vi_to_p = vi[(b_to, t_to_ph)], vi_to_q = vi_to_q,
             Isr = Isr, Isi = Isi, Itr = Itr, Iti = Iti)
     _add_regulating_winding!(model, refs, n_eff, r_fr, x_fr, r_to, x_to)
+
+    # Nameplate cap on the from-side through-power (V_fr,p − V_fr,q)·conj(I_series).
+    # Regulators prefer current, but the nameplate is still enforced when present.
+    if s_rating > 0.0
+        _apparent_power_limit!(model,
+            @expression(model, refs.vr_fr_p - refs.vr_fr_q),
+            @expression(model, refs.vi_fr_p - refs.vi_fr_q),
+            Isr, Isi, s_rating; base_name = "$(tid)_reg",
+            ledger = scoil, key = (tid, "fr", 1))
+    end
 
     # From-side phase terminal current = series + magnetising shunt (V_p − V_q).
     if has_shunt
@@ -1216,7 +1280,7 @@ arity (4,4): `["1","2","3","n"]` on both sides; the neutral carries no winding
 current. `tap_ratio` is `[a1, a2]` (per regulator); `regulator_type` shared.
 """
 function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                                    tap=nothing, branch_inj=nothing)
+                                    tap=nothing, branch_inj=nothing, scoil=nothing)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr = get(xfmr, "bus_from", "")
     b_to = get(xfmr, "bus_to",   "")
@@ -1253,6 +1317,10 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
 
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
+    # Each of the two windings is an identical single-phase regulator, rated at
+    # the per-regulator through nameplate `s_rating` (undivided, matching the
+    # single_phase_autotransformer convention). Regulators prefer current.
+    s_rating   = Float64(get(xfmr, "s_rating", 0.0))
 
     # Per-regulator no-load (core-loss) shunt, stamped across each from-side
     # line-to-line pair (V_p − V_q), consistent with the single-phase and Yd
@@ -1304,6 +1372,14 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
         if length(i_max_to_v) >= j
             @constraint(model, Itr^2 + Iti^2 <= i_max_to_v[j]^2)
             _limit_current_box!(Itr, Iti, i_max_to_v[j])
+        end
+        # Nameplate cap on the from-side line-to-line through-power for this regulator.
+        if s_rating > 0.0
+            _apparent_power_limit!(model,
+                @expression(model, refs.vr_fr_p - refs.vr_fr_q),
+                @expression(model, refs.vi_fr_p - refs.vi_fr_q),
+                Isr, Isi, s_rating; base_name = "$(tid)_odreg_$(j)",
+                ledger = scoil, key = (tid, "fr", j))
         end
     end
 

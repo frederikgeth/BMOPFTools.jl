@@ -43,6 +43,7 @@ function _nw_windings(xfmr::Dict{String,Any})
     for w in raw
         w isa AbstractDict || continue
         imx = get(w, "i_max", nothing)
+        smx = get(w, "s_max", nothing)
         push!(out, (
             bus          = string(get(w, "bus", "")),
             terminal_map = Vector{String}(string.(get(w, "terminal_map", String[]))),
@@ -51,6 +52,7 @@ function _nw_windings(xfmr::Dict{String,Any})
             r_winding    = Float64(get(w, "r_winding", 0.0)),
             delta_roll   = Int(get(w, "delta_roll", 1)),
             i_max        = imx isa Real ? Float64(imx) : nothing,  # optional per-winding current limit (A)
+            s_max        = smx isa Real ? Float64(smx) : nothing,  # optional per-winding apparent-power rating (VA)
         ))
     end
     out
@@ -142,6 +144,34 @@ function _nw_zb_matrix(xfmr::Dict{String,Any})::Matrix{ComplexF64}
                    0.5 * (Z(1, i + 1) + Z(1, j + 1) - Z(i + 1, j + 1))
     end
     ZB
+end
+
+"""
+    _nw_xb_eigvals(xfmr) -> Union{Vector{Float64},Nothing}
+
+Eigenvalues of the symmetrised **reactance** part of the `n_winding` ZB
+short-circuit matrix (`imag(ZB)`, SI Ω on winding-1's base). `nothing` for `n < 2`
+(no leakage matrix).
+
+Physical realisability test: the leakage network of a passive set of coupled
+coils stores non-negative magnetic energy, so `imag(ZB)` must be **positive
+semidefinite**. A materially negative eigenvalue means no lossless coupled-coil
+model reproduces the given pairwise `x_sc` values — the short-circuit reactances
+are mutually inconsistent.
+
+This is the multi-winding generalisation of "each pairwise short-circuit
+reactance is inductive", and it is the CORRECT discriminator — deliberately *not*
+"every ZB diagonal is positive". A ZB diagonal (star/T branch) entry may be
+negative and still perfectly physical (see [`_nw_zb_matrix`](@ref)); only the
+matrix-level PSD property is invariant. For `n = 3` the PSD condition reduces
+exactly to the realisability triangle inequality
+`X₁₂·X₁₃ ≥ ¼(X₁₂ + X₁₃ − X₂₃)²`.
+"""
+function _nw_xb_eigvals(xfmr::Dict{String,Any})::Union{Vector{Float64},Nothing}
+    ZB = _nw_zb_matrix(xfmr)
+    isempty(ZB) && return nothing
+    Xb = imag(ZB)
+    eigvals(Symmetric((Xb + transpose(Xb)) / 2))
 end
 
 """

@@ -266,7 +266,6 @@ ranges, clearances, current density → `W`/`I` findings).
 - M. Jensen et al., "Series impedance of the four-wire distribution cable with sector-shaped conductors," *IEEE Porto Power Tech*, 2001.
 - A. J. Urquhart, M. Thomson, "Series impedance of distribution cables with sector-shaped conductors," *IET Gener. Transm. Distrib.* 9(16), 2015.
 - S. Geis-Schroer et al., "Modeling of German low voltage cables with ground return path," *Energies* 14(5), 2021.
-- M. Numair, F. Geth, R. Heidari, M. Vanin, D. Van Hertem, "Impact of LV cable impedance model fidelity on distribution system state estimation," *PSCC*, 2026 — quantifies the analytical-vs-FEM gap for sector-shaped LV cables and motivates the `source="fem"` pathway.
 - IEC 60228 (conductor resistances), IEC 60287 (cable data conventions, insulation permittivities, temperature coefficients).
 
 ## Provenance: the compile is checkable
@@ -307,9 +306,7 @@ frequency. See `test/lineconstants_tests.jl`.
 - A public Kron-reduction transform (the internal one backs cable shields
   and unit tests only).
 - Sector-shaped LV cable corrections (BS 7870 / VDE 0295 actual areas,
-  geometric-centre distances) — see Numair et al., *Impact of LV Cable
-  Impedance Model Fidelity on Distribution System State Estimation* (PSCC
-  2026) for why this matters.
+  geometric-centre distances).
 - A LineCableModels.jl import bridge for `source="fem"` linecodes.
 - Preserving OpenDSS geometry objects through `from_dss` (PowerIO currently
   flattens them to matrices upstream).

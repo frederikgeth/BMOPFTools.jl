@@ -48,6 +48,14 @@ end
 sep("2. Stress into a realistic 96 km / 2.5 Ω·km feeder")
 for (_, l) in net["line"]; l["length"] *= 8.0; end          # 12 km → 96 km
 net["linecode"]["swer"]["R_series_1_1"] = 2.5 / 1000        # Ω/m (realistic SWER)
+# Size the two distribution transformers to the peak they serve — the OPF enforces
+# each nameplate `s_rating` as a per-winding apparent-power cap, so a token stub
+# rating would read as an overload rather than run past its limit.
+for (_, sub) in net["transformer"], (id, x) in sub
+    id == "dx1" && (x["s_rating"] = 63_000.0)
+    id == "dx2" && (x["s_rating"] = 50_000.0)
+    id == "iso" && (x["s_rating"] = 150_000.0)   # peak + compensator reactive
+end
 println("backbone length   : ", sum(l["length"] for l in values(net["line"]))/1000, " km")
 
 # AS 60038 / AS 61000.3.100 supply-voltage limits at the LV taps (230 V nominal,

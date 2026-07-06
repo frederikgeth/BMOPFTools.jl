@@ -282,6 +282,18 @@ automatically.  Set the neutral entry of `i_max` in the linecode manually, or
 pass a pre-computed `i_max` vector (which will not be overwritten) if a derated
 rating is required.
 
+**Power → current conversion (opt-in).**  With
+`AugmentationRecipe(apply_power_to_current = true)`, any line or switch that
+carries an apparent-power limit `s_max` but **no** `i_max` gets an equivalent
+per-conductor current limit `i_max = s_max / v_ref`, where `v_ref` is the
+resolved phase-to-ground reference voltage at the from-bus. Current is the
+preferred thermal representation for conductors (no voltage-reference ambiguity,
+no neutral degeneracy — see
+[current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits)); the
+conversion is exact only at `v_ref`. Transformers are never converted — their
+kVA nameplate stays canonical. Off by default; each write is recorded in the
+transformation manifest.
+
 ### Pass 3 — Generation
 
 **Slack cost.**  The voltage source is itself the network's current slack, so no

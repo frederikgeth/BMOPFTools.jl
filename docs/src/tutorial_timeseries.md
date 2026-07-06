@@ -130,7 +130,7 @@ function hour_row(res, snap)
     load = sum(sum(l["p_nom"]) for l in values(snap["load"]))
     pv   = sum(ph["pg"] for id in keys(res["ibr"]) for ph in values(res["ibr"][id]))
     grid = sum(v["ps"] for v in values(first(values(res["voltage_source"])))) +
-           sum(ph["pg"] for g in values(get(res, "generator", Dict())) for ph in values(g))
+           sum(ph["pg"] for g in values(get(res, "generator", Dict())) for ph in values(g); init = 0.0)
     vms  = [v["vm"] for (b, terms) in res["bus"] if b != mv_bus
                     for (t, v) in terms if t != "n"]
     (load = load, pv = pv, grid = grid, vmin = minimum(vms), vmax = maximum(vms))

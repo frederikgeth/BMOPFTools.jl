@@ -239,6 +239,13 @@ input network.
 | `cr` | A | Real part of winding current |
 | `ci` | A | Imaginary part of winding current |
 | `cm` | A | Current magnitude: `√(cr² + ci²)` |
+| `s` | VA | Coil apparent power `\|V_coil·I_coil*\|`, on the winding whose nameplate cap is active (from/HV side). Recorded from the cap's own auxiliaries, so it is exactly the quantity the constraint bounds. |
+| `s_max` | VA | The per-winding nameplate cap applied to `s` (the per-phase share of `s_rating`). Present on the same winding as `s`. |
+
+`s`/`s_max` appear only on the coil the nameplate cap is stamped on (see
+[current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits)); the
+opposite side carries currents only. `profile_solution` compares `s` against
+`s_max` and reports `E.SOL.THERMAL_VIOLATION` / `W.SOL.THERMAL_ACTIVE`.
 
 For ideal transformers the apparent power `S = V·I*` is conserved across
 windings (up to the ideal turns ratio). Series winding impedances

@@ -10,7 +10,8 @@
 #   E.SOL.INFEASIBLE         — solver did not find a feasible point
 #   E.SOL.NAN_IN_RESULT      — non-finite value in a claimed-feasible result
 #   E.SOL.VOLT_VIOLATION     — vm / vpn / vpp / vpos / vneg / vzero outside bounds
-#   E.SOL.THERMAL_VIOLATION  — line or switch current exceeds i_max / s_max
+#   E.SOL.THERMAL_VIOLATION  — line/switch current or |S| exceeds i_max / s_max,
+#                              or a transformer winding current exceeds i_max_from/to
 #   E.SOL.GEN_VIOLATION      — generator pg/qg outside [p_min, p_max] / [q_min, q_max],
 #                              or |S| > s_max, or |I| > i_max
 #   W.SOL.VOLT_ACTIVE        — voltage bound within the active threshold
@@ -551,11 +552,17 @@ function solution_check(net::Dict{String,Any},
         i_max_lc = get(lc,   "i_max", nothing)
         i_max_ln = get(line, "i_max", nothing)
         s_max_ln = get(line, "s_max", nothing)
-        i_max_lc === nothing && i_max_ln === nothing && s_max_ln === nothing && continue
+        s_max_lc = get(lc,   "s_max", nothing)
+        i_max_lc === nothing && i_max_ln === nothing &&
+            s_max_ln === nothing && s_max_lc === nothing && continue
 
         cond_res = get(get(result, "line", Dict()), lid, nothing)
         cond_res isa Dict || continue
         tm_fr = string.(get(line, "terminal_map_from", String[]))
+        b_fr  = get(line, "bus_from", "")
+        # NB: a distinct name — `bus_res` (all buses) is function-scoped and reused
+        # by the generator/IBR checks; do not clobber it.
+        ln_bus_res = get(get(result, "bus", Dict()), b_fr, Dict())
 
         for (k, t) in enumerate(tm_fr)
             cvals = get(cond_res, t, nothing)
@@ -591,6 +598,39 @@ function solution_check(net::Dict{String,Any},
                                          "cm_fr"=>cm_fr,"i_max"=>i_lim)))
                 end
             end
+
+            # s_max: ground-referenced per-conductor apparent power |S| = vm·cm_fr.
+            # Line field takes precedence over the linecode field.
+            s_lim = nothing
+            if s_max_ln isa AbstractVector && k <= length(s_max_ln)
+                s_lim = Float64(s_max_ln[k])
+            elseif s_max_lc isa AbstractVector && k <= length(s_max_lc)
+                s_lim = Float64(s_max_lc[k])
+            end
+            if s_lim !== nothing
+                vm = get(get(ln_bus_res, t, Dict()), "vm", NaN)
+                if isfinite(vm)
+                    smag = vm * cm_fr
+                    viol, act = _bound_status(smag, nothing, s_lim)
+                    if viol
+                        n_therm_viol += 1
+                        push!(findings, Finding(ERROR, "E.SOL.THERMAL_VIOLATION",
+                            :solution, :line, lid,
+                            "Line '$lid' conductor '$t': |S|=$(_fmt_va(smag)) exceeds " *
+                            "s_max=$(_fmt_va(s_lim)).",
+                            Dict{String,Any}("line"=>lid,"terminal"=>t,
+                                             "s"=>smag,"s_max"=>s_lim)))
+                    elseif act
+                        n_therm_active += 1
+                        push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
+                            :solution, :line, lid,
+                            "Line '$lid' conductor '$t': |S|=$(_fmt_va(smag)) is within " *
+                            "1 % of s_max=$(_fmt_va(s_lim)).",
+                            Dict{String,Any}("line"=>lid,"terminal"=>t,
+                                             "s"=>smag,"s_max"=>s_lim)))
+                    end
+                end
+            end
         end
     end
 
@@ -598,10 +638,13 @@ function solution_check(net::Dict{String,Any},
     for (sid, sw) in get(net, "switch", Dict())
         sw isa Dict || continue
         i_max_sw = get(sw, "i_max", nothing)
-        i_max_sw === nothing && continue
+        s_max_sw = get(sw, "s_max", nothing)
+        i_max_sw === nothing && s_max_sw === nothing && continue
         cond_res = get(get(result, "switch", Dict()), sid, nothing)
         cond_res isa Dict || continue
         tm_fr = string.(get(sw, "terminal_map_from", String[]))
+        b_fr  = get(sw, "bus_from", "")
+        sw_bus_res = get(get(result, "bus", Dict()), b_fr, Dict())
 
         for (k, t) in enumerate(tm_fr)
             cvals = get(cond_res, t, nothing)
@@ -610,22 +653,132 @@ function solution_check(net::Dict{String,Any},
             isfinite(cm) || continue
             i_lim = i_max_sw isa AbstractVector && k <= length(i_max_sw) ?
                         Float64(i_max_sw[k]) : nothing
-            i_lim === nothing && continue
-            viol, act = _bound_status(cm, nothing, i_lim)
-            if viol
-                n_therm_viol += 1
-                push!(findings, Finding(ERROR, "E.SOL.THERMAL_VIOLATION",
-                    :solution, :switch, sid,
-                    "Switch '$sid' conductor '$t': cm=$(_fmt_a(cm)) exceeds " *
-                    "i_max=$(_fmt_a(i_lim)).",
-                    Dict{String,Any}("switch"=>sid,"terminal"=>t,"cm"=>cm,"i_max"=>i_lim)))
-            elseif act
-                n_therm_active += 1
-                push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
-                    :solution, :switch, sid,
-                    "Switch '$sid' conductor '$t': cm=$(_fmt_a(cm)) is within 1 % of " *
-                    "i_max=$(_fmt_a(i_lim)).",
-                    Dict{String,Any}("switch"=>sid,"terminal"=>t,"cm"=>cm,"i_max"=>i_lim)))
+            if i_lim !== nothing
+                viol, act = _bound_status(cm, nothing, i_lim)
+                if viol
+                    n_therm_viol += 1
+                    push!(findings, Finding(ERROR, "E.SOL.THERMAL_VIOLATION",
+                        :solution, :switch, sid,
+                        "Switch '$sid' conductor '$t': cm=$(_fmt_a(cm)) exceeds " *
+                        "i_max=$(_fmt_a(i_lim)).",
+                        Dict{String,Any}("switch"=>sid,"terminal"=>t,"cm"=>cm,"i_max"=>i_lim)))
+                elseif act
+                    n_therm_active += 1
+                    push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
+                        :solution, :switch, sid,
+                        "Switch '$sid' conductor '$t': cm=$(_fmt_a(cm)) is within 1 % of " *
+                        "i_max=$(_fmt_a(i_lim)).",
+                        Dict{String,Any}("switch"=>sid,"terminal"=>t,"cm"=>cm,"i_max"=>i_lim)))
+                end
+            end
+            # s_max: ground-referenced |S| = vm·cm.
+            s_lim = s_max_sw isa AbstractVector && k <= length(s_max_sw) ?
+                        Float64(s_max_sw[k]) : nothing
+            if s_lim !== nothing
+                vm = get(get(sw_bus_res, t, Dict()), "vm", NaN)
+                if isfinite(vm)
+                    smag = vm * cm
+                    viol, act = _bound_status(smag, nothing, s_lim)
+                    if viol
+                        n_therm_viol += 1
+                        push!(findings, Finding(ERROR, "E.SOL.THERMAL_VIOLATION",
+                            :solution, :switch, sid,
+                            "Switch '$sid' conductor '$t': |S|=$(_fmt_va(smag)) exceeds " *
+                            "s_max=$(_fmt_va(s_lim)).",
+                            Dict{String,Any}("switch"=>sid,"terminal"=>t,"s"=>smag,"s_max"=>s_lim)))
+                    elseif act
+                        n_therm_active += 1
+                        push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
+                            :solution, :switch, sid,
+                            "Switch '$sid' conductor '$t': |S|=$(_fmt_va(smag)) is within " *
+                            "1 % of s_max=$(_fmt_va(s_lim)).",
+                            Dict{String,Any}("switch"=>sid,"terminal"=>t,"s"=>smag,"s_max"=>s_lim)))
+                    end
+                end
+            end
+        end
+    end
+
+    # ── Thermal limits — transformer per-winding currents ─────────────────────
+    # Two-bus subtypes carry per-winding i_max_from / i_max_to (A); the result
+    # exposes each winding's current magnitude `cm` positionally under "fr"/"to".
+    # (n_winding rates its windings inside the winding list; its currents are not
+    # re-checked here, but its coil apparent power is — see the nameplate loop.)
+    xfmr_res = get(result, "transformer", Dict())
+    for (subtype, subdict) in get(net, "transformer", Dict())
+        subtype == "n_winding" && continue
+        subdict isa Dict || continue
+        for (tid, xfmr) in subdict
+            xfmr isa Dict || continue
+            xr = get(xfmr_res, tid, nothing)
+            xr isa Dict || continue
+            for (side, field) in (("fr", "i_max_from"), ("to", "i_max_to"))
+                ilim_v = get(xfmr, field, nothing)
+                ilim_v isa AbstractVector || continue
+                side_res = get(xr, side, Dict())
+                for k in eachindex(ilim_v)
+                    cvals = get(side_res, string(k), nothing)
+                    cvals isa Dict || continue
+                    cm = get(cvals, "cm", NaN)
+                    isfinite(cm) || continue
+                    ilim = Float64(ilim_v[k])
+                    viol, act = _bound_status(cm, nothing, ilim)
+                    if viol
+                        n_therm_viol += 1
+                        push!(findings, Finding(ERROR, "E.SOL.THERMAL_VIOLATION",
+                            :solution, :transformer, tid,
+                            "Transformer '$tid' winding $(side)/$k: |I|=$(_fmt_a(cm)) " *
+                            "exceeds $(field)=$(_fmt_a(ilim)).",
+                            Dict{String,Any}("transformer"=>tid,"side"=>side,
+                                             "winding"=>k,"cm"=>cm,"i_max"=>ilim)))
+                    elseif act
+                        n_therm_active += 1
+                        push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
+                            :solution, :transformer, tid,
+                            "Transformer '$tid' winding $(side)/$k: |I|=$(_fmt_a(cm)) " *
+                            "is within 1 % of $(field)=$(_fmt_a(ilim)).",
+                            Dict{String,Any}("transformer"=>tid,"side"=>side,
+                                             "winding"=>k,"cm"=>cm,"i_max"=>ilim)))
+                    end
+                end
+            end
+        end
+    end
+
+    # ── Thermal limits — transformer nameplate (per-winding coil apparent power) ─
+    # The solve records each capped winding's coil |S| and its cap (`s`/`s_max`,
+    # VA) in the result — the exact quantity the native cone constrained — so no
+    # coil-voltage reconstruction is needed. Covers all two-bus subtypes ("fr"/
+    # "to") and n_winding ("w1".."wN"); only capped windings carry the fields.
+    for (tid, xr) in xfmr_res
+        xr isa Dict || continue
+        for (side_key, side_res) in xr
+            side_res isa Dict || continue
+            for (wk, wvals) in side_res
+                wvals isa Dict || continue
+                s    = get(wvals, "s", nothing)
+                slim = get(wvals, "s_max", nothing)
+                (s isa Number && slim isa Number && isfinite(s) && isfinite(slim)) || continue
+                viol, act = _bound_status(Float64(s), nothing, Float64(slim))
+                if viol
+                    n_therm_viol += 1
+                    push!(findings, Finding(ERROR, "E.SOL.THERMAL_VIOLATION",
+                        :solution, :transformer, tid,
+                        "Transformer '$tid' winding $(side_key)/$(wk): coil " *
+                        "|S|=$(_fmt_va(Float64(s))) exceeds nameplate cap " *
+                        "s_max=$(_fmt_va(Float64(slim))).",
+                        Dict{String,Any}("transformer"=>tid,"side"=>side_key,
+                                         "winding"=>wk,"s"=>s,"s_max"=>slim)))
+                elseif act
+                    n_therm_active += 1
+                    push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
+                        :solution, :transformer, tid,
+                        "Transformer '$tid' winding $(side_key)/$(wk): coil " *
+                        "|S|=$(_fmt_va(Float64(s))) is within 1 % of nameplate cap " *
+                        "s_max=$(_fmt_va(Float64(slim))).",
+                        Dict{String,Any}("transformer"=>tid,"side"=>side_key,
+                                         "winding"=>wk,"s"=>s,"s_max"=>slim)))
+                end
             end
         end
     end
@@ -1527,3 +1680,6 @@ _fmt_a(v::Float64)  = "$(round(v; digits=2)) A"
 _fmt_mw(v::Float64) = abs(v) >= 1e6 ? "$(round(v/1e6; digits=3)) MW" :
                        abs(v) >= 1e3 ? "$(round(v/1e3; digits=3)) kW" :
                                        "$(round(v; digits=2)) W"
+_fmt_va(v::Float64) = abs(v) >= 1e6 ? "$(round(v/1e6; digits=3)) MVA" :
+                       abs(v) >= 1e3 ? "$(round(v/1e3; digits=3)) kVA" :
+                                       "$(round(v; digits=2)) VA"

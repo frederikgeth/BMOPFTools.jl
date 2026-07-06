@@ -287,4 +287,80 @@
         @test hypot(v3["cri"], v3["cii"]) ≈ 8.0 atol = 1e-1   # binds the tighter of [20, 8]
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # L-SMAX-LINE: branch apparent-power limit (`s_max` on the line)
+    #
+    # Class D. Ground-referenced per conductor: |S_k| = v_k·|I_tot,k| ≤ s_max_k.
+    # A 1φ feeder with a generator incentivised to export; the phase-conductor
+    # s_max is tight (5 kVA) and the neutral loose. Recompute |S| = vm·cm_fr at
+    # the from-end and assert it hits the cap while i_max stays slack.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "L-SMAX-LINE: apparent-power bound — recompute |S| = vm·cm_fr" begin
+        net = parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "b":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                     "v_min":[215.0],"v_max":[245.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05}},
+         "line":{"l":{"bus_from":"src","bus_to":"b","terminal_map_from":["1","n"],
+             "terminal_map_to":["1","n"],"linecode":"lc","length":1.0,
+             "i_max":[1000.0,1000.0],"s_max":[5000.0,100000.0]}},
+         "generator":{"g":{"bus":"b","terminal_map":["1","n"],"configuration":"WYE",
+             "p_min":[0.0],"p_max":[50000.0],"q_min":[0.0],"q_max":[0.0],"cost":[-1.0]}}}
+        """; from_string=true)
+        res = solve_opf(net)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        vm  = res["bus"]["src"]["1"]["vm"]
+        cm  = res["line"]["l"]["1"]["cm_fr"]
+        @test vm * cm ≈ 5000.0 rtol = 5e-3          # |S| binds the phase s_max
+        @test cm < 1000.0                            # the loose i_max stays slack
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # L-SMAX-XFMR: transformer nameplate cap (`s_rating`)
+    #
+    # The nameplate is a required field and is always enforced as a per-winding
+    # coil apparent-power cap. A 1φ transformer feeding an incentivised generator
+    # export: with s_rating present the delivered power is capped near the
+    # nameplate; strip s_rating from the dict to solve without the limit.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "L-SMAX-XFMR: s_rating caps transformer throughput" begin
+        _base = """
+        {"bus":{"src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "b":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                     "v_min":[200.0],"v_max":[260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
+         "transformer":{"single_phase":{"t":{"bus_from":"src","bus_to":"b",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "v_nom_from":230.0,"v_nom_to":230.0,"s_rating":8000.0,
+             "r_series_from":0.01,"x_series_from":0.05}}},
+         "generator":{"g":{"bus":"b","terminal_map":["1","n"],"configuration":"WYE",
+             "p_min":[0.0],"p_max":[50000.0],"q_min":[0.0],"q_max":[0.0],"cost":[-1.0]}}}
+        """
+        net_cap = parse_bmopf(_base; from_string=true)
+        net_free = parse_bmopf(_base; from_string=true)
+        delete!(net_free["transformer"]["single_phase"]["t"], "s_rating")  # no power limit
+        res_on  = solve_opf(net_cap)
+        res_off = solve_opf(net_free)
+        @test res_on["termination_status"]  in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test res_off["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        pg_on  = res_on["generator"]["g"]["1"]["pg"]
+        pg_off = res_off["generator"]["g"]["1"]["pg"]
+        @test pg_on < pg_off                         # the nameplate cap bites
+        # The cap binds the HV (primary) coil apparent power at s_rating. Power
+        # flows secondary→primary here, so the secondary export pg = s_rating +
+        # transformer copper losses — near, and slightly above, the 8 kVA cap.
+        @test isapprox(pg_on, 8000.0; rtol = 0.02) && pg_on ≥ 8000.0
+
+        # The result surfaces the coil apparent power and its cap, and it binds.
+        tfr = res_on["transformer"]["t"]["fr"]["1"]
+        @test haskey(tfr, "s") && haskey(tfr, "s_max")
+        @test isapprox(tfr["s_max"], 8000.0; rtol = 1e-6)
+        @test isapprox(tfr["s"], 8000.0; rtol = 5e-3)     # coil |S| at the nameplate
+        # the post-solve profiler flags the (near-)active nameplate limit
+        f = BMOPFTools.Finding[]; BMOPFTools.solution_check(net_cap, res_on, f)
+        @test any(x -> x.code in ("W.SOL.THERMAL_ACTIVE", "E.SOL.THERMAL_VIOLATION") &&
+                       x.component_type == :transformer, f)
+    end
+
 end

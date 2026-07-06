@@ -92,12 +92,26 @@ end
 The committed fixture is a deliberately small canonical case (it is also a unit-test
 network). Real SWER lines run *tens of kilometres* on a high-resistance conductor and
 carry an aggregated peak up to the isolating-transformer rating. We stretch the
-backbone to ~96 km and use a realistic 2.5 Ω/km conductor — plain edits to the
-network dictionary, which doubles as a tour of the data model.
+backbone to ~96 km and use a realistic 2.5 Ω/km conductor, and size the two
+distribution transformers to their customers (the canonical stubs ship at a token
+rating) — plain edits to the network dictionary, which doubles as a tour of the
+data model.
 
 ```@example swer
 for (_, l) in net["line"]; l["length"] *= 8.0; end       # 12 km → 96 km
 net["linecode"]["swer"]["R_series_1_1"] = 2.5 / 1000      # Ω/m
+
+# Right-size the transformers (the OPF enforces each nameplate `s_rating` as a
+# per-winding apparent-power cap, so an undersized unit is flagged as overloaded
+# rather than silently run past its rating). The distribution transformers are
+# sized to the ~40 kW leg they each serve; the isolating transformer must carry
+# the whole 80 kW peak PLUS the reactive support the compensator (below) pushes
+# through it, so it is the larger 150 kVA unit.
+for (_, sub) in net["transformer"], (id, x) in sub
+    id == "dx1" && (x["s_rating"] = 63_000.0)      # single-ended distribution xfmr
+    id == "dx2" && (x["s_rating"] = 50_000.0)      # split-phase distribution xfmr
+    id == "iso" && (x["s_rating"] = 150_000.0)     # isolating xfmr (peak + reactive)
+end
 
 println("backbone length (km): ", sum(l["length"] for l in values(net["line"]))/1000)
 ```
@@ -125,9 +139,15 @@ nothing # hide
 Next, the measurement helper and the operating points. `vpn` reads the
 phase-to-neutral magnitude out of a solved result — the quantity the limits bind.
 An operating point is just a scaled copy of the loads: the fixture ships **5 kW**
-of canonical load, so `scale(16.0)` lifts it to an **80 kW aggregated peak**
-approaching the 100 kVA isolating-transformer rating (real SWER peaks are
-transformer-limited), and `scale(2.0)` is a **10 kW light-load trough**.
+of canonical load, so `scale(16.0)` lifts it to an **80 kW aggregated peak** — the
+whole of it crossing the 150 kVA isolating transformer (real SWER peaks are
+transformer-limited), while the two distribution transformers (63 and 50 kVA above)
+each carry their ~40 kW leg. `scale(2.0)` is a **10 kW light-load trough**. The OPF
+enforces every transformer's nameplate as a hard per-winding apparent-power cap, so
+the dispatch we compute below respects the thermal limits as well as the voltage
+window — no operating point runs a transformer past its rating. That coupling is
+the point of the isolating transformer's headroom: it has to carry the peak *and*
+the reactive support the compensator injects to hold the far-end voltage.
 
 ```@example swer
 using JuMP, Ipopt, Printf
