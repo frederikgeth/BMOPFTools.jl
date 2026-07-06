@@ -98,7 +98,34 @@ is hidden.
 | **`n_winding` tap** | No tap optimisation — the ratio is held at nominal. Tap fields on an `n_winding` transformer are warned and ignored. Model a regulated winding with a two-bus subtype instead. |
 | **4+ winding import** | `from_dss` imports the validated `n_winding` cases emitted by PowerIO v0.6.2. Unsupported winding sets refuse loudly, not built wrong. |
 | **Discrete taps** | Optimised taps are continuous; there is no discrete-step (`numtaps`) model. |
-| **Per-winding ratings** | One `s_rating` per transformer; OpenDSS per-winding `kVA` is not retained. |
+| **Per-winding ratings** | A two-bus transformer carries one `s_rating` (winding-1 base). Distinct per-winding kVA is retained only on `n_winding` (per-winding `s_max`). |
+
+## Nameplate rating (`s_rating`) as a loading cap
+
+`s_rating` plays two roles, and they must not be conflated:
+
+1. **Per-unit impedance base (always).** The short-circuit reactances are
+   expressed on **winding 1's** kVA base — the OpenDSS convention (`%XHL`/`%XHT`/
+   `%XLT` are all on the winding-1 base, *not* the highest-powered winding). The
+   OPF matches this: the leakage is per-unitised by `z_base(winding-1 bus)` and
+   `s_rating`. **This base never changes**, so OpenDSS round-trips stay exact.
+2. **Apparent-power loading cap (always enforced).** The nameplate is enforced as
+   a per-winding coil apparent-power limit `P² + Q² ≤ (s_rating / n_\text{ph})²`
+   (the coil voltage is phase-to-neutral for a wye winding, line-to-line for a
+   delta winding, so it is never ≈ 0 — no neutral degeneracy), alongside the
+   per-winding `i_max_from`/`i_max_to` current cones when present. Because
+   `s_rating` is a required field, **every transformer is power-limited**; to solve
+   without the limit (e.g. a determined power flow compared against limit-free
+   OpenDSS), remove `s_rating` from the network dict before calling the OPF. Keep
+   in mind the primary coil carries load *plus* copper losses, so at exactly-rated
+   delivery the from-side cap binds slightly below the secondary nameplate
+   throughput (by the loss margin). See
+   [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits).
+
+For `n_winding` transformers, add an optional per-winding `s_max` (the winding's
+own kVA) inside each winding entry; it is enforced when present. The per-unit
+impedance base still keys off winding 1's `s_rating`, so introducing per-winding
+ratings never re-bases the leakage.
 
 Not approximations (common misconceptions): the **Dy/Yd leakage under tap** is
 exact (it matches OpenDSS's `tap²` winding-1 self-impedance scaling — the

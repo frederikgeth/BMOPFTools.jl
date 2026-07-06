@@ -173,6 +173,16 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                     @constraint(model, cr[(tid, k, pk)]^2 + ci[(tid, k, pk)]^2 <= ilim^2)
                     _limit_current_box!(cr[(tid, k, pk)], ci[(tid, k, pk)], ilim)
                 end
+                # Per-winding apparent-power cap on the coil: S = U_k ∘ conj(I_k)
+                # with U_k the coil voltage (phase-to-neutral / line-to-line). The
+                # per-winding rating is the total 3-phase VA, so the per-phase-leg
+                # share is s_max_k / nph. Optional per winding.
+                if w.s_max !== nothing && w.s_max > 0.0 && nph > 0
+                    ukr, uki = upn(k, pk)
+                    _apparent_power_limit!(model, ukr, uki,
+                        cr[(tid, k, pk)], ci[(tid, k, pk)], w.s_max / nph;
+                        base_name = "$(tid)_w$(k)_$(pk)")
+                end
             end
         end
 

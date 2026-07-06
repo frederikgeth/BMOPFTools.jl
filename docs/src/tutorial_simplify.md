@@ -171,8 +171,12 @@ transformation, suitable for serialising alongside the case.
     One current flows through both segments of a series corridor, so the binding
     thermal limit is the **tighter** of the two. The OPF reads a line's limit
     from its own `i_max` if present, otherwise from its linecode
-    ([precedence: line override → linecode → unconstrained](opf.md)); `s_max` is
-    a post-solve check only. The merge therefore compares each segment's
+    ([precedence: line override → linecode → unconstrained](opf.md#Current-vs-apparent-power-limits)).
+    A line may also carry an `s_max` (apparent-power) limit, now enforced
+    natively with the same precedence; the merge below applies the identical
+    element-wise-minimum rule to it. Current is the preferred rating for a
+    corridor (see [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits)).
+    The merge therefore compares each segment's
     *effective* limit (override **or** linecode) and keeps the element-wise
     minimum — not merely the minimum of the line-level overrides. That
     distinction matters: if one segment relied on the linecode (say 100 A) while

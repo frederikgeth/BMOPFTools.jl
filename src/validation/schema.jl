@@ -147,7 +147,7 @@ const _KNOWN_FIELDS = Dict{String,Set{String}}(
     "line_geometry" => Set(["conductors", "earth_model", "earth_resistivity",
                             "frequency", "temperature"]),
     "switch" => Set(["bus_from", "bus_to", "terminal_map_from",
-                     "terminal_map_to", "open_switch", "i_max"]),
+                     "terminal_map_to", "open_switch", "i_max", "s_max"]),
     "ibr" => Set(["bus", "terminal_map", "topology", "prime_mover",
                        "s_max", "i_max", "p_avail", "p_min", "p_max", "q_min", "q_max",
                        "dc_link_coupled", "p_dc_min", "p_dc_max",

@@ -1983,7 +1983,7 @@ end
 # under-refers by 1:n_ph, giving the historical 3/4 effective-Z deficit.
 @testset "PF comparison — wye-delta transformer (wye_delta Yd)" begin
     path = joinpath(_PF_CMP_DIR, "pf_yd_xfmr.dss")
-    net   = _net_yd_xfmr()
+    net   = _strip_xfmr_ratings!(_net_yd_xfmr())   # limit-free PF comparison vs OpenDSS
     V_ods = _ods_volts(path)
 
     res     = solve_feasibility_opf(net; optimizer=Ipopt.Optimizer)
@@ -2706,6 +2706,7 @@ end
         if fname == "pf_dy_xfmr_rneut.dss"
             xf["r_neutral_to"] = 2.0; xf["x_neutral_to"] = 1.0
         end
+        _strip_xfmr_ratings!(net)   # determined PF: no operational loading limit
         res = solve_pf(net; optimizer=Ipopt.Optimizer)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         nodes, Yp = BMOPFTools.transformer_yprim(xf, sub)
@@ -2796,6 +2797,7 @@ end
     @test xf["r_neutral_to"] == 2.0
     @test xf["x_neutral_to"] == 1.0
     V_ods = _ods_volts(path)
+    _strip_xfmr_ratings!(net)   # determined PF: no operational loading limit
     res   = solve_pf(net; optimizer=Ipopt.Optimizer)
     @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     phmap = Dict("a"=>"1", "b"=>"2", "c"=>"3", "n"=>"4")
@@ -2942,7 +2944,8 @@ end
 # only — must be unchanged by it. `from_dss` builds the net from the same fixture
 # (self-validating: the angle-0 baseline isolates any parse/model error).
 
-_net_combined_3ph_split() = from_dss(joinpath(_PF_CMP_DIR, "pf_combined_3ph_split.dss"))
+_net_combined_3ph_split() =
+    _strip_xfmr_ratings!(from_dss(joinpath(_PF_CMP_DIR, "pf_combined_3ph_split.dss")))
 
 @testset "PF (feasibility) — combined 3φ Dy + split-phase, source angle 0 (baseline)" begin
     path  = joinpath(_PF_CMP_DIR, "pf_combined_3ph_split.dss")

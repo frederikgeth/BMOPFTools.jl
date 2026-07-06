@@ -82,6 +82,8 @@ function augment_case(net::Dict{String,Any};
 
     # ── Pass 2: thermal limits ────────────────────────────────────────────────
     _apply_thermal!(net′, entries, recipe, lc_classifications; config)
+    # Opt-in: convert per-conductor s_max on lines/switches into i_max (I = S/v_ref).
+    _apply_power_to_current!(net′, entries, recipe, bus_voltage_map)
 
     # ── Pass 3: generation ────────────────────────────────────────────────────
     _apply_generation!(net′, entries, recipe)

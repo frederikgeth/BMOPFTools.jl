@@ -480,18 +480,20 @@ function integrity_check(net::Dict{String,Any},
         end
     end
 
-    # i_max length vs conductor count
+    # i_max / s_max length vs conductor count (both are per-conductor)
     for (id, lc) in linecodes
         lc isa Dict || continue
         haskey(lc_dims, id) || continue
-        im = get(lc, "i_max", nothing)
-        if im isa AbstractVector && length(im) != lc_dims[id]
-            n_dim_issues += 1
-            push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                :linecode, id,
-                "Linecode '$id': i_max has $(length(im)) entries but the " *
-                "impedance matrix is $(lc_dims[id])×$(lc_dims[id]).",
-                nothing))
+        for field in ("i_max", "s_max")
+            v = get(lc, field, nothing)
+            if v isa AbstractVector && length(v) != lc_dims[id]
+                n_dim_issues += 1
+                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
+                    :linecode, id,
+                    "Linecode '$id': $field has $(length(v)) entries but the " *
+                    "impedance matrix is $(lc_dims[id])×$(lc_dims[id]).",
+                    Dict{String,Any}("field" => field)))
+            end
         end
     end
 

@@ -123,6 +123,70 @@ below). The same per-phase `cost` vector prices the voltage source and IBRs.
 
 ---
 
+### [Current vs. apparent-power limits](@id Current-vs-apparent-power-limits)
+
+Every element that carries a thermal/loading limit supports **both** a current
+limit and an apparent-power limit, and both are enforced natively when present:
+
+| Element | Current limit | Power limit | Preferred |
+|---|---|---|---|
+| Line / cable | `i_max` (per conductor) | `s_max` (per conductor) | **current** |
+| Switch | `i_max` (per conductor) | `s_max` (per conductor) | **current** |
+| Generator / IBR | `i_max` (per conductor circle) | `s_max` (per-phase circle) | power (nameplate) |
+| 2-winding transformer (+ regulators) | `i_max_from`/`i_max_to` (per winding) | `s_rating` (nameplate — **required**, always enforced) | **power** (nameplate); regulators prefer current |
+| n-winding transformer | per-winding `i_max` | per-winding `s_max` rating | power (per winding) |
+
+Enforcing **both** on the same element is generally redundant — the tighter one
+binds and the other is inert (flagged as
+[`W.RED.DUAL_THERMAL_LIMIT`](findings.md)). Which to keep is physics, not taste:
+
+- **Lines and cables** are limited by conductor heating, which the manufacturer
+  specifies in amperes — current is the physical driver, so `i_max` is preferred.
+- **Transformers** are specified by their **kVA nameplate**; the primary and
+  secondary currents differ, so a single apparent-power rating is the natural
+  limit. `s_rating` is a **required** transformer field (it also sets the
+  winding-1 per-unit impedance base — see
+  [transformer models](transformer_models.md)) and is **always enforced** as a
+  per-winding coil apparent-power cap, alongside the per-winding
+  `i_max_from`/`i_max_to` current cones when present. For `n ≥ 3` windings the cap
+  is a per-winding `s_max` rating. One consequence to keep in mind: the primary
+  coil carries **load + losses**, so at exactly-rated delivery the from-side cap
+  binds slightly *below* the secondary nameplate throughput (by the loss margin).
+  To solve a transformer with no loading limit, remove `s_rating` from the network
+  dict before calling the OPF (a determined power flow / physics comparison).
+- **Regulators** (autotransformer / open-delta) are a subtlety: their true limit
+  is the **tap-changer (series-winding) current**, and the kVA is only defined at
+  a reference voltage — so, unlike bulk transformers, regulators lean toward
+  current. Both are still accepted and enforced.
+
+Two problems make power limits treacherous, and are why current is preferred for
+conductors:
+
+1. **The neutral degeneracy.** An apparent-power limit needs a voltage reference.
+   For a neutral conductor referenced to a grounded node, that reference voltage
+   is ≈ 0, so `S = V∘I* ≈ 0` — the power cap is *vacuous* even while the neutral
+   current overheats the conductor. A per-conductor `s_max` with a neutral entry
+   is flagged [`W.DOM.POWER_LIMIT_NEUTRAL`](findings.md). A current limit has no
+   such failure mode: the neutral is a current-carrying conductor with its own
+   ampacity, and can carry *more* current than the phases under unbalance.
+2. **The reference ambiguity.** `S = U∘I*`, but relative to *what* `U`? For
+   lines/switches the engine uses **ground-referenced per-conductor** power
+   ($S_k = v_k\,\overline{I_k}$, $v_k$ to ground) — the direct analogue of the
+   per-conductor current limit. Phase-to-ground, phase-to-neutral, and
+   phase-to-phase references coincide only when the neutral is grounded and
+   undisplaced; they diverge otherwise. (Generator/IBR power circles use the
+   device's connection reference — phase-to-neutral for WYE, line-to-line for
+   DELTA — see [Generators](@ref generators-section).)
+
+**Precedence.** For lines the rating source is, in order, the **line's own
+override → its linecode → unconstrained**; the same precedence applies
+independently to `i_max` and `s_max`. Augmentation can convert a power limit into
+an equivalent current limit for lines/switches (`I = S/v_\text{ref}`, exact only
+at the reference voltage) via the opt-in `apply_power_to_current` recipe flag;
+transformers are never converted (their nameplate stays canonical).
+
+---
+
 ### Constraints
 
 #### Grounding
@@ -253,6 +317,25 @@ $-(\tilde{c}^r_{\ell,k} + I^{\text{sh},r}_k(b^\text{to}))$ at the to-bus.
     one remaining cone-on-an-expression case; it is left cone-only for now (the
     same construction would apply).
 
+**Apparent-power limit** (optional, from `s_max`) on the **total** current at each
+end, referenced **to ground per conductor** — the direct power analogue of the
+per-conductor current limit:
+
+```math
+\bigl(P_{\ell,k}\bigr)^2 + \bigl(Q_{\ell,k}\bigr)^2 \leq \bigl(S^\text{max}_{\ell,k}\bigr)^2,
+\qquad
+S_{\ell,k} = v_{b^\text{fr},t_k}\,\overline{I^\text{tot}_{\ell,k}}
+```
+
+with $P_{\ell,k} = v^r c^{r,\text{tot}} + v^i c^{i,\text{tot}}$ and
+$Q_{\ell,k} = v^i c^{r,\text{tot}} - v^r c^{i,\text{tot}}$ (all at from-terminal
+$t_k$; a matching cone is added at the to-end when a to-shunt is present).
+`s_max` follows the same **element → linecode → unconstrained** precedence as
+`i_max`. Both limits may be present and are both enforced, but doing so is
+generally redundant — see [current vs. apparent-power limits](@ref
+Current-vs-apparent-power-limits) for why current is preferred here and why the
+**neutral entry of `s_max` is degenerate** ($v_n \approx 0 \Rightarrow S \approx 0$).
+
 #### Switches
 
 A switch is modelled as an **ideal, zero-impedance branch**: like a line, it
@@ -291,7 +374,9 @@ current variable directly:
 
 (see the "Current-limit box bounds" note above). A closed switch with no
 `i_max` is left thermally unconstrained; the data-quality provenance checks
-flag this case.
+flag this case. A switch may also carry an `s_max`, enforced as the same
+ground-referenced per-conductor apparent-power cone used for lines (one cone
+suffices — a switch has no shunt, so the from and to magnitudes are equal).
 
 !!! note "Why a dedicated switch object"
     A closed switch could be eliminated by merging its two buses, but keeping

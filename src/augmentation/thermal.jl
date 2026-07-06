@@ -155,6 +155,50 @@ function _apply_thermal!(net′::Dict{String,Any},
     end
 end
 
+"""
+    _apply_power_to_current!(net′, entries, r, bus_voltage_map) -> nothing
+
+Opt-in conversion of per-conductor apparent-power limits into equivalent current
+limits. For every line/switch that carries `s_max` but **no** `i_max`, and whose
+from-bus has a resolvable phase-to-ground reference voltage `v_ref`, write
+`i_max[k] = s_max[k] / v_ref` (the standard `I ≈ S/V` per conductor). Current is
+the preferred thermal representation for lines/switches (no voltage-reference
+ambiguity, no neutral degeneracy); the conversion is exact only at `v_ref`.
+
+Transformers are deliberately excluded — their kVA nameplate stays canonical.
+Each write is recorded as a `TransformEntry`; nothing is overwritten.
+"""
+function _apply_power_to_current!(net′::Dict{String,Any},
+                                  entries::Vector{TransformEntry},
+                                  r::AugmentationRecipe,
+                                  bus_voltage_map::Dict)
+    r.apply_power_to_current || return
+    buses = get(net′, "bus", Dict())
+    for (ctype, csym) in (("line", :line), ("switch", :switch))
+        for (id, el) in get(net′, ctype, Dict())
+            el isa Dict || continue
+            haskey(el, "i_max") && continue            # current already present
+            s = get(el, "s_max", nothing)
+            (s isa AbstractVector && !isempty(s)) || continue
+            bus = get(el, "bus_from", nothing)
+            bus isa AbstractString || continue
+            v_nom = get(bus_voltage_map, bus, nothing)
+            v_nom isa Number || continue
+            v_ref = _v_declared(get(buses, bus, Dict{String,Any}()), Float64(v_nom), r)
+            (v_ref isa Number && v_ref > 0.0) || continue
+            i_max_vec = [Float64(sk) / Float64(v_ref) for sk in s]
+            el["i_max"] = i_max_vec
+            push!(entries, TransformEntry(
+                csym, id, "i_max", nothing, i_max_vec,
+                "power_to_current (I = S/v_ref)", :medium,
+                "converted per-conductor s_max=$(Float64.(s)) VA to i_max via " *
+                "v_ref=$(round(Float64(v_ref), digits=1)) V (exact only at v_ref); " *
+                "current is the preferred thermal representation for $(ctype)s"))
+        end
+    end
+    return
+end
+
 """Count conductors in a linecode from the R_series diagonal keys."""
 function _count_conductors(lc::Dict{String,Any})::Int
     n = 0

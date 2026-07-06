@@ -43,6 +43,7 @@ function _nw_windings(xfmr::Dict{String,Any})
     for w in raw
         w isa AbstractDict || continue
         imx = get(w, "i_max", nothing)
+        smx = get(w, "s_max", nothing)
         push!(out, (
             bus          = string(get(w, "bus", "")),
             terminal_map = Vector{String}(string.(get(w, "terminal_map", String[]))),
@@ -51,6 +52,7 @@ function _nw_windings(xfmr::Dict{String,Any})
             r_winding    = Float64(get(w, "r_winding", 0.0)),
             delta_roll   = Int(get(w, "delta_roll", 1)),
             i_max        = imx isa Real ? Float64(imx) : nothing,  # optional per-winding current limit (A)
+            s_max        = smx isa Real ? Float64(smx) : nothing,  # optional per-winding apparent-power rating (VA)
         ))
     end
     out

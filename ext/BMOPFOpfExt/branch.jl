@@ -164,6 +164,32 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                 end
             end
         end
+
+        # ── Apparent-power limit on total current at each end (optional) ───────
+        # Ground-referenced per conductor: S_k = V_k ∘ conj(I_tot,k) with V_k the
+        # node-to-ground voltage. Same element→linecode precedence as i_max. Both
+        # limits may coexist; enforcing both is generally redundant (see
+        # W.RED.DUAL_THERMAL_LIMIT) and the neutral entry is degenerate (V_n ≈ 0,
+        # see W.DOM.POWER_LIMIT_NEUTRAL).
+        s_max = get(line, "s_max", nothing)
+        s_max === nothing && lc !== nothing && (s_max = get(lc, "s_max", nothing))
+        if s_max !== nothing
+            for k in 1:min(n_map, length(s_max))
+                slim = Float64(s_max[k])
+                cfr_r = @expression(model, cr_fr[(lid,k)] + ish_fr_r[k])
+                cfr_i = @expression(model, ci_fr[(lid,k)] + ish_fr_i[k])
+                _apparent_power_limit!(model,
+                    vr[(b_fr, tmfr[k])], vi[(b_fr, tmfr[k])], cfr_r, cfr_i, slim;
+                    base_name = "$(lid)_fr_$(k)")
+                if has_to_shunt
+                    cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
+                    cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
+                    _apparent_power_limit!(model,
+                        vr[(b_to, tmto[k])], vi[(b_to, tmto[k])], cto_r, cto_i, slim;
+                        base_name = "$(lid)_to_$(k)")
+                end
+            end
+        end
     end
 end
 
@@ -235,6 +261,7 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i)
         tmto  = Vector{String}(get(sw, "terminal_map_to",   String[]))
         is_open = get(sw, "open_switch", false)
         i_max   = get(sw, "i_max", nothing)
+        s_max   = get(sw, "s_max", nothing)
         n_c = min(length(tmfr), length(tmto))
 
         for k in 1:n_c
@@ -248,6 +275,14 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i)
                 ilim = Float64(i_max[k])
                 @constraint(model, cr_sw[(sid,k)]^2 + ci_sw[(sid,k)]^2 <= ilim^2)
                 _limit_current_box!(cr_sw[(sid,k)], ci_sw[(sid,k)], ilim)
+            end
+            # Apparent-power limit (ground-referenced per conductor). A switch has
+            # no shunt, so from and to magnitudes are equal — one cone suffices.
+            if s_max !== nothing && k <= length(s_max)
+                _apparent_power_limit!(model,
+                    vr[(b_fr, tmfr[k])], vi[(b_fr, tmfr[k])],
+                    cr_sw[(sid,k)], ci_sw[(sid,k)], Float64(s_max[k]);
+                    base_name = "$(sid)_$(k)")
             end
         end
     end

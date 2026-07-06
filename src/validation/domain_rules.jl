@@ -25,6 +25,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_transformer_orientation(net, findings, n_checks)
     _check_nonnegative_fields(net, findings, n_checks)
     _check_zero_limits(net, findings, n_checks)
+    _check_power_limit_neutral(net, findings, n_checks)
     _check_zero_length(net, findings, n_checks)
     _check_angle_units(net, findings, n_checks)
     _check_negative_loads(net, findings, n_checks)
@@ -619,6 +620,34 @@ function _check_zero_limits(net, findings, n_checks)
                         "limit', drop the field instead.",
                         Dict{String,Any}("field" => field, "values" => vals)))
                 end
+            end
+        end
+    end
+end
+
+# A ground-referenced apparent-power limit is degenerate on the neutral
+# conductor: its reference voltage V_n → 0 at a grounded node, so S = V∘I* ≈ 0
+# there and the cap is vacuous even while the neutral current can overheat the
+# conductor. Flag a per-conductor s_max whose entry lines up with a neutral
+# terminal — a current limit (i_max) is the correct tool for the neutral.
+function _check_power_limit_neutral(net, findings, n_checks)
+    for (comp_type, csym) in (("line", :line), ("switch", :switch))
+        for (id, c) in get(net, comp_type, Dict())
+            c isa Dict || continue
+            s = get(c, "s_max", nothing)
+            (s isa AbstractVector && !isempty(s)) || continue
+            tm = get(c, "terminal_map_from", String[])
+            np = _neutral_pos(tm)
+            n_checks[] += 1
+            if np !== nothing && np <= length(s) && Float64(s[np]) > 0.0
+                push!(findings, Finding(WARNING, "W.DOM.POWER_LIMIT_NEUTRAL",
+                    :domain_rules, csym, id,
+                    "$comp_type '$id' sets a positive s_max on its neutral " *
+                    "conductor (entry $np). A ground-referenced power limit is " *
+                    "degenerate there — the neutral-to-ground voltage is ≈0, so the " *
+                    "cap never binds even as neutral current overheats the conductor. " *
+                    "Rate the neutral with i_max instead.",
+                    Dict{String,Any}("neutral_index" => np)))
             end
         end
     end

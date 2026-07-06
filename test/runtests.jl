@@ -13,6 +13,23 @@ if _HAS_JUMP_IPOPT
     @eval using JuMP, Ipopt
 end
 
+# Remove the transformer nameplate power limit (`s_rating`) from a network so a
+# physics / power-flow comparison against limit-free OpenDSS is not distorted by
+# the always-enforced nameplate cap. `s_rating` is not used by the solve for the
+# leakage impedance (that is in ohms, scaled by the system base) nor by
+# `transformer_yprim`, so dropping it leaves the modelled physics unchanged — it
+# only removes the operational loading cap, matching what OpenDSS's PF does. This
+# is the intended way to solve without a power limit: strip it from the dict.
+function _strip_xfmr_ratings!(net)
+    for (_, sub) in get(net, "transformer", Dict())
+        sub isa Dict || continue
+        for (_, xf) in sub
+            xf isa Dict && delete!(xf, "s_rating")
+        end
+    end
+    net
+end
+
 # ---------------------------------------------------------------------------
 # Minimal IEEE 13-bus inspired fixture — enough to exercise all analysis paths
 # ---------------------------------------------------------------------------
@@ -1285,6 +1302,24 @@ const IEEE13_FIXTURE = """
         @test any(x -> x.code == "W.DOM.ZERO_LENGTH", f7)
         @test any(x -> x.code == "W.DOM.ANGLE_UNITS", f7)
         @test any(x -> x.code == "I.DOM.NEGATIVE_LOAD", f7)
+
+        # combined thermal limits (i_max + s_max) on a line → redundancy warning
+        net_dual = deepcopy(base)
+        net_dual["line"]["l650632"]["i_max"] = [600.0, 600.0, 600.0]
+        net_dual["line"]["l650632"]["s_max"] = [200000.0, 200000.0, 200000.0]
+        f_dual = Finding[]
+        redundancy_check(net_dual, f_dual)
+        @test any(x -> x.code == "W.RED.DUAL_THERMAL_LIMIT" &&
+                       x.component_id == "l650632", f_dual)
+
+        # apparent-power limit on a line's NEUTRAL conductor → degeneracy warning
+        net_pn = deepcopy(base)
+        net_pn["line"]["l650632"]["terminal_map_from"] = ["1", "2", "3", "n"]
+        net_pn["line"]["l650632"]["s_max"] = [1.0e5, 1.0e5, 1.0e5, 5.0e4]
+        f_pn = Finding[]
+        domain_rules_check(net_pn, f_pn)
+        @test any(x -> x.code == "W.DOM.POWER_LIMIT_NEUTRAL" &&
+                       x.component_id == "l650632", f_pn)
 
         # preflight: vpn and q bound conflicts
         net8 = deepcopy(base)

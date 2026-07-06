@@ -778,6 +778,7 @@
     # ─────────────────────────────────────────────────────────────────────────
     @testset "T13b: per_unit ⇄ SI agreement across transformer subtypes" begin
         function _pu_si_agree(solver, net; label="")
+            _strip_xfmr_ratings!(net)   # validates impedance/loss pu↔SI scaling, not the loading cap
             @testset "$label" begin
                 r_si = solver(net; per_unit=false)
                 r_pu = solver(net; per_unit=true, s_base=1e6)

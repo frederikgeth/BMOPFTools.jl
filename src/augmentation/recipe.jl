@@ -121,6 +121,12 @@ Base.@kwdef struct AugmentationRecipe
     apply_vneg_bounds     :: Bool = true
     apply_va_diff_bounds  :: Bool = false   # opt-in: angle constraints are init-sensitive
     apply_thermal         :: Bool = true
+    # Convert per-conductor apparent-power limits (s_max) on lines/switches that
+    # lack a current limit into an equivalent i_max = s_max / v_ref. Opt-in: the
+    # conversion is only exact at the reference voltage, and current is the
+    # preferred thermal representation for lines/switches. Transformers are never
+    # converted — they keep the apparent-power nameplate as canonical.
+    apply_power_to_current :: Bool = false
     apply_q_bounds        :: Bool = true
     apply_slack_generator :: Bool = true
     apply_ibr        :: Bool = true

@@ -97,7 +97,10 @@ Lines carry only topology (`bus_from`/`bus_to`, terminal maps, `length`,
 flattened row-first pattern keys: `R_series_1_2 ⇒ rs[1,2]` (Ω/m), likewise
 `X_series_*`, and optional `G_from_*`/`G_to_*`/`B_from_*`/`B_to_*` (S/m)
 for the two shunt half-sections of the Π model. Optional ratings: `i_max`
-(A, per conductor) and `s_max` (VA).
+(A, per conductor) and `s_max` (VA, per conductor). Both are enforced natively
+by the OPF when present; enforcing both is generally redundant and current is
+preferred for conductors (see
+[current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits)).
 
 The spec defines full row-first storage; BMOPFTools also *reads*
 upper-triangular shorthand (mirroring the missing transpose entries) and
