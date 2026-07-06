@@ -602,7 +602,7 @@ function _check_terminal_map_conventions!(net, findings, result)
                 b = get(buses, bid, nothing)
                 b isa Dict || continue
                 tn = Vector{String}(get(b, "terminal_names", String[]))
-                isempty(tn) || isempty(tm) && continue
+                (isempty(tn) || isempty(tm)) && continue
                 if !_ordered_subsequence(tm, tn)
                     n_permuted += 1
                     push!(findings, Finding(INFO, "I.TMAP.PERMUTED_ORDER", :spec,
@@ -802,7 +802,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
         id_b, gb = disp_gens[j]
         cost_a = Float64.(get(ga, "cost", Float64[]))
         cost_b = Float64.(get(gb, "cost", Float64[]))
-        isempty(cost_a) || isempty(cost_b) && continue
+        (isempty(cost_a) || isempty(cost_b)) && continue
         # Compare first (representative) cost coefficient
         abs(cost_a[1] - cost_b[1]) > 1e-12 * max(abs(cost_a[1]), 1.0) && continue
         bus_a = get(ga, "bus", ""); bus_b = get(gb, "bus", "")
