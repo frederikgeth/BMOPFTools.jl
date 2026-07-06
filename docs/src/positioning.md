@@ -3,7 +3,7 @@
 BMOPFTools is **infrastructure for distribution-system optimization research**:
 it constructs, validates, converts, and benchmarks conductor-level network
 models. It is not positioned as another distribution OPF *solver* — although it
-ships a reference four-wire IVR-EN OPF ([`solve_opf`](opf.md)) used to validate
+ships a reference four-wire rectangular current–voltage OPF ([`solve_opf`](opf.md)) used to validate
 cases and profile solutions, the product is the model and the tooling around it,
 not the optimizer.
 

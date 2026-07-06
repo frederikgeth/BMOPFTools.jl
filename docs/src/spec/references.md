@@ -89,6 +89,6 @@ models:
 
 - **OpenDSS** (EPRI) — the distribution power-flow reference this specification's
   implementation is validated against.
-- **PowerModelsDistribution.jl** — the Julia framework whose `IVRENPowerModel` this
-  formulation follows.
+- **PowerModelsDistribution.jl** — the Julia framework whose `IVRENPowerModel` inspired
+  this formulation.
 - **BMOPFTools.jl** — the implementation this specification is sourced from.

@@ -1,8 +1,9 @@
 # OPF engine: scope & status
 
 BMOPFTools ships **one reference optimizer**: a nonconvex **four-wire rectangular
-current–voltage (IVR-EN)** optimal power flow engine, in a package extension that
-activates when JuMP and Ipopt are loaded. It is not a general OPF framework, and
+current–voltage** optimal power flow engine (see its
+[formulation principles](../opf.md#Formulation-principles)), in a package
+extension that activates when JuMP and Ipopt are loaded. It is not a general OPF framework, and
 it is deliberately the *smaller* half of the project. As the
 [positioning page](../positioning.md) puts it, the product is the model and the
 tooling around it, not the solver; the [bounds & feasibility](../bounds/index.md)
@@ -18,7 +19,7 @@ The engine exists to **validate cases and profile solutions**, so its first
 obligation is correctness, not features. The mathematical models and methods are
 established, not exploratory:
 
-- The IVR-EN formulation is fully derived in `docs/math-model.tex`.
+- The formulation is fully derived in `docs/math-model.tex`.
 - Feasibility / correctness is checked, not assumed: see
   [`solve_feasibility_opf`](../validation.md) and the relaxed power-flow
   cross-check against OpenDSSDirect in the test suite.

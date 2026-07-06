@@ -23,7 +23,7 @@ classes, not merely infrastructure for a single OPF problem definition.
 
 ---
 
-BMOPFTools ships a **four-wire rectangular current–voltage (IVR-EN)** optimal
+BMOPFTools ships a **four-wire rectangular current–voltage** optimal
 power flow engine as a Julia package extension.  It activates automatically when
 both JuMP and Ipopt are loaded:
 
@@ -35,6 +35,48 @@ result = solve_opf(net)
 ```
 
 A full mathematical derivation is available in `docs/math-model.tex`.
+
+---
+
+## Formulation principles
+
+The engine is a **four-wire, rectangular current–voltage** formulation,
+organised around a handful of deliberate, non-obvious choices worth stating
+explicitly:
+
+1. **Explicit current *and* voltage variables, as needed.** Both terminal
+   voltages and branch currents are first-class variables — which is what lets
+   the model represent parallel lines, meshed networks, and zero-impedance
+   sections **exactly** (each parallel branch carries its own current, loops
+   close through KCL, a jumper collapses to `V_fr = V_to`), with no small-ε
+   impedance to break degeneracy.
+2. **Series voltage drops obey Ohm's law in impedance form.** Every series
+   element (line, transformer winding) is `ΔV = Z·I`, never admittance form.
+   Only elements whose counter-terminal is **ground** (shunts, line π-halves)
+   are written `I = Y·V`. This preserves the lossless limit — as `R → 0` the
+   impedance form stays finite, whereas an admittance form blows up (`Y → ∞`).
+3. **Derived quantities are expressions, not variables.** Powers, voltage
+   differences, and averages are built as expressions of the real variables
+   rather than fresh variables pinned down by equalities — avoiding trivial
+   linear dependencies that only burden the solver.
+4. **Idealized components are represented as such.** An ideal switch is
+   `V_fr = V_to`, an ideal transformer is `V_fr = N·V_to`, a lossless shunt is
+   pure susceptance — represented semantically, not approximated with a small ε
+   (see [Zero impedance](dev/opf_engine.md#zero-impedance)).
+5. **A variable number of terminals per bus.** Voltage variables and a KCL
+   equation are declared at *every* terminal a bus actually has — there is no
+   fixed slot count, and buses of different widths interconnect naturally in one
+   model.
+6. **Every phasing, mixed freely.** Single-phase, split-phase, three-wire (no
+   neutral), and three-phase-plus-neutral are all first-class and coexist in a
+   single case study, because state is keyed per `(bus, terminal)` with no
+   global phase count. The engine's modeled scope is **up to three-phase +
+   neutral** (four wire).
+
+These principles were inspired by the IVR-EN formulation in
+[PowerModelsDistribution](positioning.md) and by Claeys et al.'s four-wire OPF
+paper ([ref. 6](methodology.md#refs)), but the model here has been generalized
+well beyond that starting point.
 
 ---
 
