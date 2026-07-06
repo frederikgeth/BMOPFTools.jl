@@ -766,10 +766,12 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         for (_, cvals) in get(winding_dict, "fr", Dict())
             cvals isa Dict || continue
             for f in ("cr", "ci", "cm"); haskey(cvals, f) && (cvals[f] = cvals[f] * ib_fr); end
+            for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
         end
         for (_, cvals) in get(winding_dict, "to", Dict())
             cvals isa Dict || continue
             for f in ("cr", "ci", "cm"); haskey(cvals, f) && (cvals[f] = cvals[f] * ib_to); end
+            for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
         end
         # Device ground current (A): the no-load shunt is on the from side → I_base[bus_from]
         if haskey(winding_dict, "ground") && winding_dict["ground"] isa Dict
@@ -798,6 +800,7 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
                 for f in ("cr", "ci", "cm")
                     haskey(cvals, f) && (cvals[f] = cvals[f] * ib)
                 end
+                for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
             end
         end
     end

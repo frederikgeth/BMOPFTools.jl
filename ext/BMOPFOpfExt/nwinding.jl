@@ -80,6 +80,7 @@ independent of `_add_transformer_constraints!`.
 function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     cr = vars[:cr_nw]; ci = vars[:ci_nw]
+    scoil = get!(vars, :s_coil_xf, Dict{Any,Any}())   # per-winding coil (P,Q) ledger
 
     nwd = get(get(net, "transformer", Dict()), "n_winding", Dict())
     for (tid, xfmr) in nwd
@@ -181,7 +182,8 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                     ukr, uki = upn(k, pk)
                     _apparent_power_limit!(model, ukr, uki,
                         cr[(tid, k, pk)], ci[(tid, k, pk)], w.s_max / nph;
-                        base_name = "$(tid)_w$(k)_$(pk)")
+                        base_name = "$(tid)_w$(k)_$(pk)",
+                        ledger = scoil, key = (tid, k, pk))
                 end
             end
         end

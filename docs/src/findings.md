@@ -398,8 +398,8 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `W.SOL.VOLT_ACTIVE` | W | A voltage magnitude is within 1 % of its bound — the constraint is near-active (binding at the tolerance level). |
 | `E.SOL.ANGLE_VIOLATION` | E | A phase pair's *centered* angle difference `θⱼ − θₖ − (va_nom[j] − va_nom[k])` lies outside the bus's `va_diff_min`/`va_diff_max`. Recomputed from the primal solution via `atan2` per terminal, independent of the constraint's own bilinear expression. |
 | `W.SOL.ANGLE_ACTIVE` | W | A centered phase-pair angle difference is near a `va_diff` bound (near-active). |
-| `E.SOL.THERMAL_VIOLATION` | E | A line or switch current magnitude exceeds the component's or linecode's `i_max` limit. |
-| `W.SOL.THERMAL_ACTIVE` | W | Current magnitude is within 1 % of `i_max` — the thermal limit is near-active. |
+| `E.SOL.THERMAL_VIOLATION` | E | A thermal/loading limit is exceeded in the solved result: a **line/switch** conductor current over `i_max` or its ground-referenced apparent power `\|S\|=v·cm` over `s_max` (element or linecode); a **transformer** per-winding current over `i_max_from`/`i_max_to`; or a **transformer** winding coil apparent power `\|S\|` over its nameplate cap (`s_max`, the per-winding share of `s_rating`; recorded in the result so no coil-voltage reconstruction is needed). |
+| `W.SOL.THERMAL_ACTIVE` | W | The same current or apparent-power quantity is within 1 % of its limit — the thermal limit is near-active. |
 | `E.SOL.GEN_VIOLATION` | E | A generator's solved operating point (per terminal) violates a declared limit: `pg`/`qg` outside `p_min`/`p_max`/`q_min`/`q_max`, the optional `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. |
 | `W.SOL.GEN_ACTIVE` | W | Generator dispatch is within 1 % of a bound — the bound is near-active. |
 | `E.SOL.IBR_VIOLATION` | E | An IBR's solved operating point (per phase) violates a declared limit: `pg` outside `p_min`/`p_max`, the `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. |

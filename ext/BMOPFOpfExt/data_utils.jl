@@ -215,16 +215,24 @@ vacuous even as `I` overheats the conductor — a current limit is preferred the
 (see `W.DOM.POWER_LIMIT_NEUTRAL`). No-op for a non-finite or negative `slim`.
 
 `vr_k`/`vi_k`/`cr_k`/`ci_k` may be `VariableRef`s or `AffExpr`s.
+
+When a `ledger` dict and `key` are supplied, the auxiliaries and the limit are
+recorded as `ledger[key] = (p_v, q_v, slim)` so the result writer can report both
+the solved coil apparent power (`|S| = √(P²+Q²)`) and its cap — the exact
+quantities this cone constrains, with no post-solve coil-voltage reconstruction.
+Returns `(p_v, q_v)` (or `nothing` when the limit is skipped).
 """
 function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Real;
-                                base_name::AbstractString="s")
-    (isfinite(slim) && slim >= 0) || return
+                                base_name::AbstractString="s",
+                                ledger=nothing, key=nothing)
+    (isfinite(slim) && slim >= 0) || return nothing
     p_v = @variable(model, base_name = "p_$(base_name)")
     q_v = @variable(model, base_name = "q_$(base_name)")
     @constraint(model, p_v == vr_k*cr_k + vi_k*ci_k)
     @constraint(model, q_v == vi_k*cr_k - vr_k*ci_k)
     @constraint(model, p_v^2 + q_v^2 <= slim^2)
-    return
+    ledger !== nothing && key !== nothing && (ledger[key] = (p_v, q_v, Float64(slim)))
+    return (p_v, q_v)
 end
 
 """

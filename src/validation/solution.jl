@@ -702,8 +702,8 @@ function solution_check(net::Dict{String,Any},
     # ── Thermal limits — transformer per-winding currents ─────────────────────
     # Two-bus subtypes carry per-winding i_max_from / i_max_to (A); the result
     # exposes each winding's current magnitude `cm` positionally under "fr"/"to".
-    # (n_winding rates its windings inside the winding list and is not covered
-    # here — its result layout differs; the native cone still enforces it.)
+    # (n_winding rates its windings inside the winding list; its currents are not
+    # re-checked here, but its coil apparent power is — see the nameplate loop.)
     xfmr_res = get(result, "transformer", Dict())
     for (subtype, subdict) in get(net, "transformer", Dict())
         subtype == "n_winding" && continue
@@ -740,6 +740,44 @@ function solution_check(net::Dict{String,Any},
                             Dict{String,Any}("transformer"=>tid,"side"=>side,
                                              "winding"=>k,"cm"=>cm,"i_max"=>ilim)))
                     end
+                end
+            end
+        end
+    end
+
+    # ── Thermal limits — transformer nameplate (per-winding coil apparent power) ─
+    # The solve records each capped winding's coil |S| and its cap (`s`/`s_max`,
+    # VA) in the result — the exact quantity the native cone constrained — so no
+    # coil-voltage reconstruction is needed. Covers all two-bus subtypes ("fr"/
+    # "to") and n_winding ("w1".."wN"); only capped windings carry the fields.
+    for (tid, xr) in xfmr_res
+        xr isa Dict || continue
+        for (side_key, side_res) in xr
+            side_res isa Dict || continue
+            for (wk, wvals) in side_res
+                wvals isa Dict || continue
+                s    = get(wvals, "s", nothing)
+                slim = get(wvals, "s_max", nothing)
+                (s isa Number && slim isa Number && isfinite(s) && isfinite(slim)) || continue
+                viol, act = _bound_status(Float64(s), nothing, Float64(slim))
+                if viol
+                    n_therm_viol += 1
+                    push!(findings, Finding(ERROR, "E.SOL.THERMAL_VIOLATION",
+                        :solution, :transformer, tid,
+                        "Transformer '$tid' winding $(side_key)/$(wk): coil " *
+                        "|S|=$(_fmt_va(Float64(s))) exceeds nameplate cap " *
+                        "s_max=$(_fmt_va(Float64(slim))).",
+                        Dict{String,Any}("transformer"=>tid,"side"=>side_key,
+                                         "winding"=>wk,"s"=>s,"s_max"=>slim)))
+                elseif act
+                    n_therm_active += 1
+                    push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
+                        :solution, :transformer, tid,
+                        "Transformer '$tid' winding $(side_key)/$(wk): coil " *
+                        "|S|=$(_fmt_va(Float64(s))) is within 1 % of nameplate cap " *
+                        "s_max=$(_fmt_va(Float64(slim))).",
+                        Dict{String,Any}("transformer"=>tid,"side"=>side_key,
+                                         "winding"=>wk,"s"=>s,"s_max"=>slim)))
                 end
             end
         end

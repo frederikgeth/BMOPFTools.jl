@@ -351,6 +351,16 @@
         # flows secondary→primary here, so the secondary export pg = s_rating +
         # transformer copper losses — near, and slightly above, the 8 kVA cap.
         @test isapprox(pg_on, 8000.0; rtol = 0.02) && pg_on ≥ 8000.0
+
+        # The result surfaces the coil apparent power and its cap, and it binds.
+        tfr = res_on["transformer"]["t"]["fr"]["1"]
+        @test haskey(tfr, "s") && haskey(tfr, "s_max")
+        @test isapprox(tfr["s_max"], 8000.0; rtol = 1e-6)
+        @test isapprox(tfr["s"], 8000.0; rtol = 5e-3)     # coil |S| at the nameplate
+        # the post-solve profiler flags the (near-)active nameplate limit
+        f = BMOPFTools.Finding[]; BMOPFTools.solution_check(net_cap, res_on, f)
+        @test any(x -> x.code in ("W.SOL.THERMAL_ACTIVE", "E.SOL.THERMAL_VIOLATION") &&
+                       x.component_type == :transformer, f)
     end
 
 end
