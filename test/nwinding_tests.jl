@@ -284,6 +284,27 @@ if _HAS_JUMP_IPOPT
         # returns the unconstrained (over-limit) current as a clean solve.
         @test rt["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL") ||
               rt["transformer"]["t1"]["w2"]["1"]["cm"] <= 0.5 * i2 * (1 + 1e-3)
+
+        # Regression (issue #271): the no-load (magnetising) shunt branch
+        # guarded on an undefined variable `nW` (the local is `n`), so any
+        # n_winding transformer with nonzero g_no_load/b_no_load threw
+        # UndefVarError at model build. No fixture exercised it. Build the
+        # same transformer with a core-loss branch on winding 2 and confirm
+        # it (a) solves and (b) adds real loss vs the lossless-core baseline.
+        xf_core = _nw_xfmr([("hv", 115.0, 0.3), ("mv", 24.9, 0.4), ("lv", 4.16, 0.4)],
+                           Dict("1_2" => 8.0, "1_3" => 8.0, "2_3" => 6.0);
+                           g = 2e-4, b = 1e-3)   # SI siemens across the MV coil
+        net_core = deepcopy(net)
+        net_core["transformer"]["n_winding"]["t1"] = xf_core
+        rc = solve_pf(net_core; optimizer = Ipopt.Optimizer)
+        @test rc["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test haskey(rc["transformer"]["t1"], "w1")
+        # Core conductance g>0 dissipates real power → transformer real loss
+        # strictly exceeds the g=b=0 baseline (the device-loss identity sums
+        # the magnetising-branch injection).
+        p_base = res["transformer"]["t1"]["loss"]["p_loss"]
+        p_core = rc["transformer"]["t1"]["loss"]["p_loss"]
+        @test p_core > p_base + 1.0
     end
 
 end
