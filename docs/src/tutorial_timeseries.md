@@ -106,6 +106,16 @@ using JuMP, Ipopt
 net_ready, _ = augment_case(net; recipe = AugmentationRecipe())
 optimizer = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
+# This tutorial studies time-varying dispatch, not transformer loading. The
+# nameplate `s_rating` is always enforced as a loading cap; the midday PV reverse
+# flow would trip it, so drop it here (the intended way to solve without a power
+# limit) to keep the focus on the snapshot dispatch.
+for (_, sub) in get(net_ready, "transformer", Dict{String,Any}())
+    for (_, xf) in sub
+        xf isa Dict && delete!(xf, "s_rating")
+    end
+end
+
 result_noon = solve_opf(net_ready; optimizer = optimizer, per_unit = true, t_index = 13)
 println("noon status : ", result_noon["termination_status"])
 println("noon PV     : ",

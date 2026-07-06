@@ -168,6 +168,16 @@ function base_net()
 
     net["ibr"] = Dict{String,Any}("pv_a" => pv("b3230", "1"),
                                   "pv_b" => pv("b2656", "2"))
+
+    # This tutorial studies volt-var/volt-watt voltage regulation, not transformer
+    # loading. The nameplate `s_rating` is always enforced as a loading cap; the
+    # PV export here would trip it and obscure the voltage story, so drop it (the
+    # intended way to solve without a power limit).
+    for (_, sub) in get(net, "transformer", Dict{String,Any}())
+        for (_, xf) in sub
+            xf isa Dict && delete!(xf, "s_rating")
+        end
+    end
     return net
 end
 nothing # hide

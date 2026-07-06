@@ -117,6 +117,15 @@ function set_limits!(n)
     for b in ("swer_0", "swer_1", "swer_2")
         n["bus"][b]["v_min"] = [11430.0]; n["bus"][b]["v_max"] = [13970.0]
     end
+    # This tutorial studies voltage regulation, not transformer thermal loading.
+    # The nameplate `s_rating` is always enforced as a loading cap, but here the
+    # deliberately large reactive compensator would trip it, obscuring the voltage
+    # story — so drop it (the intended way to solve without a power limit).
+    for (_, sub) in get(n, "transformer", Dict{String,Any}())
+        for (_, xf) in sub
+            xf isa Dict && delete!(xf, "s_rating")
+        end
+    end
     n
 end
 nothing # hide
