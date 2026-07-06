@@ -389,8 +389,8 @@ function _fix_adjacent_current_bounds!(net′, entries)
             s_rating = get(xfmr, "s_rating", nothing)
             s_rating isa Number || continue
             for (side, vref_key, bus_key) in (
-                    ("fr", "v_nom_from", "bus_from"),
-                    ("to", "v_nom_to",   "bus_to"))
+                    ("from", "v_nom_from", "bus_from"),
+                    ("to",   "v_nom_to",   "bus_to"))
                 vref = get(xfmr, vref_key, nothing)
                 bus  = get(xfmr, bus_key, nothing)
                 (vref isa Number && bus isa String) || continue

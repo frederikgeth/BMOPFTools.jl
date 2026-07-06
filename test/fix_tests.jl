@@ -433,6 +433,38 @@ end
         @test net′["line"]["l1"]["i_max"] ≈ 999.0
     end
 
+    @testset "T6d: Adjacent current bounds — from side uses √3 (issue #282)" begin
+        # Regression: the from-side branch built the key "terminal_map_fr"
+        # instead of "terminal_map_from", so it never saw the phase count and
+        # took the 1-phase denominator (S/V) — a √3-too-loose bound on the HV
+        # side. Add an MV line adjacent to the transformer's from bus and check
+        # the inferred bound carries the 3-phase √3 factor.
+        net = _transformer_net()
+        net["bus"]["mv_tap"] = Dict{String,Any}(
+            "terminal_names" => ["a","b","c","n"],
+            "perfectly_grounded_terminals" => ["n"])
+        net["line"]["l_mv"] = Dict{String,Any}(
+            "bus_from" => "mv_src", "bus_to" => "mv_tap",
+            "terminal_map_from" => ["a","b","c"],
+            "terminal_map_to"   => ["a","b","c"],
+            "linecode" => "lc", "length" => 100.0)
+        recipe = FixRecipe(apply_largest_component=false,
+                           apply_simplify_network=false,
+                           apply_remove_zero_loads=false,
+                           apply_low_impedance_to_switch=false,
+                           apply_source_bus_bounds=false,
+                           apply_adjacent_current_bounds=true)
+        net′, _ = fix_case(net; recipe=recipe)
+
+        # From-side transformer: s_rating=100kVA, v_nom_from=11kV, 3-phase →
+        # i_max = 100e3 / (√3 × 11000) ≈ 5.25 A. The buggy 1-phase value would
+        # be 100e3/11000 ≈ 9.09 A (√3× too loose).
+        l_mv = net′["line"]["l_mv"]
+        @test haskey(l_mv, "i_max")
+        expected = 100e3 / (sqrt(3) * 11000.0)
+        @test all(v -> isapprox(v, expected; atol=0.05), l_mv["i_max"])
+    end
+
     # ── T7: Perfect grounding (opt-in) ─────────────────────────────────────
 
     @testset "T7: Perfect grounding promoted" begin
