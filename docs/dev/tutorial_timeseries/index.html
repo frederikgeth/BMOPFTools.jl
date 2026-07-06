@@ -40,7 +40,7 @@ function hour_row(res, snap)
     load = sum(sum(l[&quot;p_nom&quot;]) for l in values(snap[&quot;load&quot;]))
     pv   = sum(ph[&quot;pg&quot;] for id in keys(res[&quot;ibr&quot;]) for ph in values(res[&quot;ibr&quot;][id]))
     grid = sum(v[&quot;ps&quot;] for v in values(first(values(res[&quot;voltage_source&quot;])))) +
-           sum(ph[&quot;pg&quot;] for g in values(get(res, &quot;generator&quot;, Dict())) for ph in values(g))
+           sum(ph[&quot;pg&quot;] for g in values(get(res, &quot;generator&quot;, Dict())) for ph in values(g); init = 0.0)
     vms  = [v[&quot;vm&quot;] for (b, terms) in res[&quot;bus&quot;] if b != mv_bus
                     for (t, v) in terms if t != &quot;n&quot;]
     (load = load, pv = pv, grid = grid, vmin = minimum(vms), vmax = maximum(vms))
@@ -58,30 +58,30 @@ for t in 1:24
             lpad(round(r.grid / 1e3; digits = 2), 10),
             lpad(round(r.vmin; digits = 1), 8), lpad(round(r.vmax; digits = 1), 8))
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">hour   load kW   PV kW   grid kW   Vmin    Vmax
-   0       7.0     0.0      7.05   249.8   250.1
-   1       6.0     0.0      6.05   249.8   250.1
-   2       5.6     0.0      5.65   249.9   250.1
-   3       5.4     0.0      5.45   249.9   250.1
-   4       5.6     0.0      5.65   249.9   250.1
-   5       6.4     1.5      4.95   249.9   250.1
-   6       9.0     4.5      4.55   249.9   250.1
-   7      12.0    10.5      1.55   249.9   250.1
-   8      11.0    16.5     -5.45   249.9   250.2
-   9      10.0    22.5    -12.42   249.9   250.3
-  10       9.0    27.0     -17.9   249.9   250.4
-  11       8.4    30.0    -21.47   249.9   250.5
-  12       8.0    30.0    -21.87   249.9   250.5
-  13       8.0    28.5    -20.38   249.9   250.5
-  14       8.4    25.5     -17.0   249.9   250.4
-  15       9.6    19.5     -9.83   249.9   250.3
-  16      12.0    12.0      0.05   249.9   250.1
-  17      16.0     4.5     11.56   249.7   250.1
-  18      20.0     0.6     19.49   249.6   250.1
-  19      19.0     0.0     19.09   249.6   250.1
-  20      17.0     0.0     17.08   249.6   250.1
-  21      14.0     0.0     14.07   249.7   250.1
-  22      11.0     0.0     11.06   249.8   250.1
-  23       8.4     0.0      8.45   249.8   250.1</code></pre><p>Read the table as three regimes:</p><ul><li><strong>Overnight (00–05 h)</strong> — no sun, 2.7–3.5 kW of load: the feeder imports a few kW and the LV voltages sit in a narrow band around the transformer&#39;s no-load value, gently drooping toward the customers.</li><li><strong>Midday (09–15 h)</strong> — the duck&#39;s belly. 30 kW of PV meets 4–5 kW of load; the grid exchange goes <strong>negative</strong> (reverse power flow up through the distribution transformer) and the voltage <em>maximum</em> now occurs at the PV buses, not the source: power flows uphill, so the far end of the feeder is the high point. This is the regime where volt-var/volt-watt control and export limits earn their keep — see the <a href="../tutorial_vvwo/">VVWO tutorial</a>.</li><li><strong>Evening (18–21 h)</strong> — the duck&#39;s head. The sun is gone, load peaks at 20 kW, imports peak, and the voltage <em>minimum</em> is at the customers again.</li></ul><pre><code class="language-julia hljs">t_imp = argmax(t -&gt; rows[t].grid, 1:24)
+   0       7.0     0.0      7.01   249.6   250.0
+   1       6.0     0.0      6.01   249.7   250.0
+   2       5.6     0.0      5.61   249.7   250.0
+   3       5.4     0.0      5.41   249.7   250.0
+   4       5.6     0.0      5.61   249.7   250.0
+   5       6.4     1.5      4.91   249.8   250.0
+   6       9.0     4.5      4.51   249.8   250.0
+   7      12.0    10.5       1.5   249.9   250.0
+   8      11.0    16.5     -5.49   250.0   250.3
+   9      10.0    22.5    -12.46   250.0   250.6
+  10       9.0    27.0    -17.91   250.0   250.9
+  11       8.4    30.0    -21.48   250.0   251.0
+  12       8.0    30.0    -21.87   250.0   251.1
+  13       8.0    28.5    -20.39   250.0   251.0
+  14       8.4    25.5    -17.02   250.0   250.8
+  15       9.6    19.5     -9.87   250.0   250.5
+  16      12.0    12.0      -0.0   250.0   250.0
+  17      16.0     4.5     11.54   249.4   250.0
+  18      20.0     0.6      19.5   249.0   250.0
+  19      19.0     0.0      19.1   249.1   250.0
+  20      17.0     0.0     17.08   249.2   250.0
+  21      14.0     0.0     14.05   249.3   250.0
+  22      11.0     0.0     11.03   249.4   250.0
+  23       8.4     0.0      8.42   249.6   250.0</code></pre><p>Read the table as three regimes:</p><ul><li><strong>Overnight (00–05 h)</strong> — no sun, 2.7–3.5 kW of load: the feeder imports a few kW and the LV voltages sit in a narrow band around the transformer&#39;s no-load value, gently drooping toward the customers.</li><li><strong>Midday (09–15 h)</strong> — the duck&#39;s belly. 30 kW of PV meets 4–5 kW of load; the grid exchange goes <strong>negative</strong> (reverse power flow up through the distribution transformer) and the voltage <em>maximum</em> now occurs at the PV buses, not the source: power flows uphill, so the far end of the feeder is the high point. This is the regime where volt-var/volt-watt control and export limits earn their keep — see the <a href="../tutorial_vvwo/">VVWO tutorial</a>.</li><li><strong>Evening (18–21 h)</strong> — the duck&#39;s head. The sun is gone, load peaks at 20 kW, imports peak, and the voltage <em>minimum</em> is at the customers again.</li></ul><pre><code class="language-julia hljs">t_imp = argmax(t -&gt; rows[t].grid, 1:24)
 t_exp = argmin(t -&gt; rows[t].grid, 1:24)
 println(&quot;peak import : &quot;, round(rows[t_imp].grid / 1e3; digits = 2),
         &quot; kW at hour &quot;, t_imp - 1)
@@ -89,6 +89,6 @@ println(&quot;peak export : &quot;, round(-rows[t_exp].grid / 1e3; digits = 2),
         &quot; kW at hour &quot;, t_exp - 1)
 println(&quot;day-wide LV voltage envelope: &quot;,
         round(minimum(r.vmin for r in rows); digits = 1), &quot; – &quot;,
-        round(maximum(r.vmax for r in rows); digits = 1), &quot; V&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">peak import : 19.49 kW at hour 18
+        round(maximum(r.vmax for r in rows); digits = 1), &quot; V&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">peak import : 19.5 kW at hour 18
 peak export : 21.87 kW at hour 12
-day-wide LV voltage envelope: 249.6 – 250.5 V</code></pre><p>The two sizing constraints of the feeder live at <em>different hours</em>: the thermal/import question at the evening peak, the overvoltage/export question at solar noon. A single-snapshot study would have shown at most one of them.</p><p>The per-hour results feed the same tooling as any single-period solve — <code>profile_solution(net_ready, result; t_index = t)</code> checks each hour&#39;s result against that hour&#39;s bounds.</p><div class="admonition is-warning" id="Scope:-independent-snapshots,-not-multi-period-optimisation-5166adcbf61142e8"><header class="admonition-header">Scope: independent snapshots, not multi-period optimisation<a class="admonition-anchor" href="#Scope:-independent-snapshots,-not-multi-period-optimisation-5166adcbf61142e8" title="Permalink"></a></header><div class="admonition-body"><p>Each hour above is a <strong>separate, self-contained OPF</strong>. The snapshots share nothing: there is no storage arbitraging energy between them, no ramp limits linking one hour&#39;s dispatch to the next, no inter-temporal constraints of any kind. <code>get_snapshot</code> + <code>t_index</code> give you a <em>sequence of single-period problems</em> — the right tool for hosting-capacity envelopes and worst-hour screening, and the wrong one for battery scheduling or unit commitment, which need a genuinely multi-period model that BMOPFTools does not currently build.</p></div></div><p>This sweep-the-parameter pattern is the same one the <a href="../tutorial_tap/">tap-optimisation tutorial</a> uses to trace an OLTC tap schedule against load level — there the sweep variable is a synthetic load multiplier; here it is the clock, with the shapes shipped inside the case itself so every consumer of the benchmark sweeps the <em>same</em> day.</p><div class="admonition is-success" id="Where-to-go-next-49a6f6283e3f2bf2"><header class="admonition-header">Where to go next<a class="admonition-anchor" href="#Where-to-go-next-49a6f6283e3f2bf2" title="Permalink"></a></header><div class="admonition-body"><p>The <a href="../tutorial_end_to_end/">end-to-end tutorial</a> covers the pipeline each snapshot passes through; <a href="../tutorial_ders/">DER placement</a> grows the PV fleet systematically; the <a href="../tutorial_vvwo/">VVWO tutorial</a> adds the inverter voltage-control that the midday regime above motivates.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial_tap/">« Transformer tap optimisation</a><a class="docs-footer-nextpage" href="../bounds/">Bounds, Branches, and Feasibility »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Sunday 5 July 2026 09:27">Sunday 5 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+day-wide LV voltage envelope: 249.0 – 251.1 V</code></pre><p>The two sizing constraints of the feeder live at <em>different hours</em>: the thermal/import question at the evening peak, the overvoltage/export question at solar noon. A single-snapshot study would have shown at most one of them.</p><p>The per-hour results feed the same tooling as any single-period solve — <code>profile_solution(net_ready, result; t_index = t)</code> checks each hour&#39;s result against that hour&#39;s bounds.</p><div class="admonition is-warning" id="Scope:-independent-snapshots,-not-multi-period-optimisation-5166adcbf61142e8"><header class="admonition-header">Scope: independent snapshots, not multi-period optimisation<a class="admonition-anchor" href="#Scope:-independent-snapshots,-not-multi-period-optimisation-5166adcbf61142e8" title="Permalink"></a></header><div class="admonition-body"><p>Each hour above is a <strong>separate, self-contained OPF</strong>. The snapshots share nothing: there is no storage arbitraging energy between them, no ramp limits linking one hour&#39;s dispatch to the next, no inter-temporal constraints of any kind. <code>get_snapshot</code> + <code>t_index</code> give you a <em>sequence of single-period problems</em> — the right tool for hosting-capacity envelopes and worst-hour screening, and the wrong one for battery scheduling or unit commitment, which need a genuinely multi-period model that BMOPFTools does not currently build.</p></div></div><p>This sweep-the-parameter pattern is the same one the <a href="../tutorial_tap/">tap-optimisation tutorial</a> uses to trace an OLTC tap schedule against load level — there the sweep variable is a synthetic load multiplier; here it is the clock, with the shapes shipped inside the case itself so every consumer of the benchmark sweeps the <em>same</em> day.</p><div class="admonition is-success" id="Where-to-go-next-49a6f6283e3f2bf2"><header class="admonition-header">Where to go next<a class="admonition-anchor" href="#Where-to-go-next-49a6f6283e3f2bf2" title="Permalink"></a></header><div class="admonition-body"><p>The <a href="../tutorial_end_to_end/">end-to-end tutorial</a> covers the pipeline each snapshot passes through; <a href="../tutorial_ders/">DER placement</a> grows the PV fleet systematically; the <a href="../tutorial_vvwo/">VVWO tutorial</a> adds the inverter voltage-control that the midday regime above motivates.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial_tap/">« Transformer tap optimisation</a><a class="docs-footer-nextpage" href="../bounds/">Bounds, Branches, and Feasibility »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 6 July 2026 07:58">Monday 6 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
