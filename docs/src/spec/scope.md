@@ -95,6 +95,7 @@ every possible device. In this version:
 ## Out of scope
 
 The format is a practical, lightweight model for OPF research — it does not aim to replace
-the Common Information Model (CIM), and it does not prescribe solver software. It builds on
-[PowerModelsDistribution](references.md)'s `IVRENPowerModel`, extending it to native JSON
-data, the full set of element configurations above, and careful grounding.
+the Common Information Model (CIM), and it does not prescribe solver software. Its OPF
+formulation was inspired by [PowerModelsDistribution](references.md)'s `IVRENPowerModel`,
+but has been generalized well beyond it — native JSON data, the full set of element
+configurations above, and careful grounding.

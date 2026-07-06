@@ -159,22 +159,22 @@ function _monitor_U(model, vr, vi, bus, ph_terms, t_n, c::DroopCurve, override_a
     for k in 1:n
         tk = ph_terms[k]
         if c.quantity == :PG
-            perphase[k] = umag_expr(vr[(bus,tk)], vi[(bus,tk)])
+            perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)])
         elseif c.quantity == :PN
             if t_n === nothing
                 @warn "IBR at bus '$bus': PN voltage_reference but no neutral terminal — using PG."
-                perphase[k] = umag_expr(vr[(bus,tk)], vi[(bus,tk)])
+                perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)])
             else
-                perphase[k] = umag_expr(@expression(model, vr[(bus,tk)] - vr[(bus,t_n)]),
+                perphase[k] = umag_var(model, @expression(model, vr[(bus,tk)] - vr[(bus,t_n)]),
                                         @expression(model, vi[(bus,tk)] - vi[(bus,t_n)]))
             end
         else # :PP
             if n < 2
                 @warn "IBR at bus '$bus': PP voltage_reference needs ≥2 phases — using PG."
-                perphase[k] = umag_expr(vr[(bus,tk)], vi[(bus,tk)])
+                perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)])
             else
                 tj = ph_terms[mod1(k+1, n)]
-                perphase[k] = umag_expr(@expression(model, vr[(bus,tk)] - vr[(bus,tj)]),
+                perphase[k] = umag_var(model, @expression(model, vr[(bus,tk)] - vr[(bus,tj)]),
                                         @expression(model, vi[(bus,tk)] - vi[(bus,tj)]))
             end
         end
@@ -383,8 +383,8 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             # PG monitors |V_φ|; PN/PP both monitor the terminal-pair difference
             # |V_φ − V_ref| (ref = tm[2], a neutral for PN-wired or the second
             # phase for PP-wired units). Aggregation is moot for one phase.
-            U_pg   = umag_expr(vr[(bus, t_ph)], vi[(bus, t_ph)])
-            U_diff = umag_expr(dvr, dvi)
+            U_pg   = umag_var(model, vr[(bus, t_ph)], vi[(bus, t_ph)])
+            U_diff = umag_var(model, dvr, dvi)
             single_U(c) = c === nothing ? nothing : (c.quantity == :PG ? U_pg : U_diff)
             _apply_ibr_phase!(model, inv_id, 1, p_expr, q_expr, single_U(vv), single_U(vw),
                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,

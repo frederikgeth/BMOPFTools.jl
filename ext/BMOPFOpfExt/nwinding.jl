@@ -90,6 +90,14 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
         n  = length(ws)
         n < 2 && continue
 
+        # Every winding needs a strictly positive nominal voltage: the turns
+        # ratios N_k = v_nom_k/v_nom_1 and the referred coil voltage U_k/N_k are
+        # undefined otherwise (a zero downstream v_nom divides by zero at the
+        # leakage constraint; a zero reference v_nom is silently masked to unity
+        # by `_nw_turns_ratios`). Reject rather than emit a poisoned model.
+        all(w -> w.v_nom > 0.0, ws) || error("n_winding transformer '$tid': " *
+            "every winding needs a strictly positive v_nom (got " *
+            "$(round.([w.v_nom for w in ws], sigdigits=4))).")
         N  = BMOPFTools._nw_turns_ratios(xfmr)
         ZB = BMOPFTools._nw_zb_for_opf(xfmr)          # (n-1)×(n-1), model units
         phases1, _ = BMOPFTools._nw_phase_terminals(ws[1].terminal_map)

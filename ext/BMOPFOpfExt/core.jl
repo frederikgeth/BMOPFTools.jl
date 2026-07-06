@@ -97,6 +97,9 @@ function _add_device_constraints!(ctx::OpfContext)
     kcl_r = ctx.kcl_r; kcl_i = ctx.kcl_i
 
     branch_inj = ctx.branch_inj
+    # Reject parallel zero-impedance branches (undetermined current split) before
+    # stamping any branch constraints.
+    _assert_no_parallel_zero_impedance(net)
     _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
     _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                            grounded=ctx.grounded, branch_inj=branch_inj)

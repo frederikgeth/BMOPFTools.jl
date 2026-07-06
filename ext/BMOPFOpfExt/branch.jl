@@ -36,6 +36,62 @@
 # generality when shunts are non-zero.
 
 """
+    _assert_no_parallel_zero_impedance(net)
+
+Throw if two *zero-impedance* branches — a closed switch, or a line whose entire
+series impedance is zero — directly bridge the SAME conductor endpoints, i.e. the
+same `(bus, terminal)` pair on both ends.
+
+A zero-impedance branch imposes `V_from == V_to` on its conductors. Two of them
+across the same node pair impose that equality twice and leave two current
+variables whose only determined quantity is their SUM (fixed by KCL) — the split
+is a free degree of freedom, a singular KKT system with infinitely many optima.
+Finite-impedance parallels are fine (each current is pinned by its own Ohm's-law
+drop); only the zero-impedance case is rejected. The check is per conductor
+(same terminals), not per bus: two branches on different conductors of the same
+bus pair are independent and allowed.
+"""
+function _assert_no_parallel_zero_impedance(net)
+    linecodes = get(net, "linecode", Dict())
+    Node = Tuple{String,String}
+    seen = Dict{Tuple{Node,Node}, String}()
+    function record!(bid, b_fr, b_to, tmfr, tmto, n)
+        for k in 1:n
+            p::Node = (b_fr, tmfr[k]); q::Node = (b_to, tmto[k])
+            key = p <= q ? (p, q) : (q, p)
+            if haskey(seen, key)
+                error("Parallel zero-impedance branches: '$(seen[key])' and " *
+                    "'$bid' both directly bridge terminals $p — $q with zero " *
+                    "series impedance, so the current split between them is " *
+                    "undetermined (singular system). Merge them into one branch, " *
+                    "or give one a finite impedance.")
+            end
+            seen[key] = bid
+        end
+    end
+    # Closed switches are always zero-impedance (V_from == V_to); open ones are
+    # electrically disconnected and impose no coupling.
+    for (sid, sw) in get(net, "switch", Dict())
+        get(sw, "open_switch", false) && continue
+        tmfr = Vector{String}(get(sw, "terminal_map_from", String[]))
+        tmto = Vector{String}(get(sw, "terminal_map_to",   String[]))
+        record!(sid, sw["bus_from"], sw["bus_to"], tmfr, tmto,
+                min(length(tmfr), length(tmto)))
+    end
+    # Lines whose entire series impedance matrix is zero (stamped as V_from==V_to).
+    for (lid, line) in get(net, "line", Dict())
+        R, X, n_c = _line_z_matrix(line, linecodes)
+        (n_c == 0 || R === nothing || X === nothing) && continue
+        (all(iszero, R) && all(iszero, X)) || continue
+        tmfr = Vector{String}(get(line, "terminal_map_from", String[]))
+        tmto = Vector{String}(get(line, "terminal_map_to",   String[]))
+        record!(lid, line["bus_from"], line["bus_to"], tmfr, tmto,
+                min(n_c, length(tmfr), length(tmto)))
+    end
+    return nothing
+end
+
+"""
     _add_line_constraints!(model, net, vars, kcl_r, kcl_i)
 
 Add nominal Π-model constraints for all lines and register their KCL

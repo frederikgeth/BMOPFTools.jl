@@ -120,5 +120,28 @@ function curve_expr(op, U, baseline::Real, triples)
     return expr
 end
 
-"Voltage-magnitude expression √(dvr² + dvi²) from rectangular voltage differences."
-umag_expr(dvr, dvi) = sqrt(dvr^2 + dvi^2)
+"""
+    umag_var(model, dvr, dvi) -> VariableRef
+
+Voltage magnitude √(dvr² + dvi²) as an auxiliary variable `u ≥ 0` pinned by the
+smooth equality `u² == dvr² + dvi²` — an *implicit* square root.
+
+We never write `sqrt(dvr² + dvi²)` directly in a constraint: its gradient
+`·/√(·)` is unbounded at the origin, and a monitored voltage *difference* is not
+bounded away from zero (the formulation does not force voltage bounds on every
+node), so the singular corner is reachable and would poison Ipopt's Jacobian.
+The `u²`-equality has a bounded Jacobian everywhere. This mirrors the load
+model's `W`/`s` implicit-magnitude variables.
+"""
+function umag_var(model, dvr, dvi)
+    u = @variable(model, lower_bound = 0.0, base_name = "umag")
+    @constraint(model, u^2 == dvr^2 + dvi^2)
+    # Seed the start from the voltage warm-start, so Ipopt does not begin at the
+    # degenerate u = 0 point (where the u²-equality has a zero gradient in u and
+    # the solver can stall on a spurious stationary point). Unset starts (e.g. a
+    # grounded terminal fixed to 0) read as 0.
+    sv(v) = something(JuMP.start_value(v), 0.0)
+    mag0 = sqrt(JuMP.value(sv, dvr)^2 + JuMP.value(sv, dvi)^2)
+    JuMP.set_start_value(u, max(mag0, 1e-6))
+    return u
+end

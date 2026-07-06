@@ -30,7 +30,16 @@ function _load_vnom_k(load, k::Int)
     v = get(load, "v_nom", nothing)
     v === nothing && error("Load model requires v_nom but none is present.")
     vv = v isa AbstractVector ? Float64.(v) : [Float64(v)]
-    length(vv) == 1 ? vv[1] : vv[k]
+    vnom = length(vv) == 1 ? vv[1] : vv[k]
+    # Every voltage-dependent model divides by v_nom (or v_nom²), so a zero or
+    # negative nominal voltage yields Inf/NaN coefficients with no well-posed
+    # substitution — reject it rather than emit a poisoned model. (Constant-power
+    # loads never reach this path.)
+    vnom > 0.0 || error("Load model requires a strictly positive v_nom " *
+        "(got $vnom); a voltage-dependent load divides by v_nom, which is " *
+        "undefined at zero. Set the sub-load's nominal voltage, or use " *
+        "model=\"constant_power\".")
+    vnom
 end
 
 # Scalar coefficient at sub-load k (length-1 broadcasts; absent → 0).

@@ -23,7 +23,8 @@ for you, and where these choices quietly break down near voltage collapse.
 ## Scope: this is a formulation-aware discussion
 
 !!! info "What BMOPFTools ships, and what this page is about"
-    BMOPFTools ships a single reference optimizer — the **nonconvex four-wire IVR-EN**
+    BMOPFTools ships a single reference optimizer — the **nonconvex four-wire
+    rectangular current–voltage**
     engine ([`solve_opf`](../opf.md), [`solve_feasibility_opf`](../validation.md)). It
     does **not** ship convex relaxations or linear approximations. This page is
     deliberately *formulation-agnostic*: it is written for anyone validating a linear,

@@ -1,6 +1,6 @@
 # Validating the OPF engine
 
-BMOPFTools ships a reference nonlinear four-wire IVR-EN OPF ([`solve_opf`](opf.md)) used to
+BMOPFTools ships a reference nonlinear four-wire rectangular current–voltage OPF ([`solve_opf`](opf.md)) used to
 validate cases and profile solutions. A reference solver is only as useful as its
 own validation, so this page documents **how that engine is tested** — both so you
 can judge the results and so you can **reuse the setup for your own tool**. 
