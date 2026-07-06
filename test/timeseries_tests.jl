@@ -163,10 +163,6 @@ _ts_mini_net() = parse_bmopf("""
         else
             net = parse_bmopf(_TS_FIXTURE_PATH)
             net_ready, _ = augment_case(net; recipe = AugmentationRecipe())
-            # This test exercises snapshot dispatch (midday PV reverse flow vs
-            # evening import), not transformer loading; strip the nameplate cap so
-            # full PV export is not clipped by the substation transformer rating.
-            _strip_xfmr_ratings!(net_ready)
             @test is_timeseries(net_ready)   # augmentation preserves ts refs
             opt = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
