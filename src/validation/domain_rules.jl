@@ -728,9 +728,12 @@ function _check_load_models(net, findings, n_checks)
                 :load, id,
                 "Load '$id' v_nom has length $(length(vnom)); expected 1 or " *
                 "$n_sub (one per sub-load).", nothing))
-        elseif vnom isa AbstractVector && any(<=(0.0), Float64.(vnom))
+        elseif any(<=(0.0), vnom isa AbstractVector ? Float64.(vnom) : [Float64(vnom)])
+            # Covers both the scalar (`v_nom: 0.0`) and vector cases: any
+            # non-positive entry makes the model's v_nom / v_nom² division
+            # undefined (the OPF builder errors on it too).
             push!(findings, Finding(ERROR, "E.LOAD.VNOM_NONPOSITIVE", :domain_rules,
-                :load, id, "Load '$id' has non-positive v_nom entries.", nothing))
+                :load, id, "Load '$id' has non-positive v_nom.", nothing))
         end
 
         # Named degenerate ZIP models: no coefficient fields required.

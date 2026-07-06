@@ -58,7 +58,13 @@ explicitly:
 3. **Derived quantities are expressions, not variables.** Powers, voltage
    differences, and averages are built as expressions of the real variables
    rather than fresh variables pinned down by equalities — avoiding trivial
-   linear dependencies that only burden the solver.
+   linear dependencies that only burden the solver. *Deliberate exception:* the
+   two-winding transformer builders (YY, Yd/Dy, center_tap) and the DC resistive
+   branch keep explicit per-winding current **variables** pinned by linear
+   equalities, so that current limits (`i_max`) and the result writer have a
+   first-class handle on each physical winding current — accepting one redundant
+   linear degree of freedom per winding rather than threading an expression
+   through the limit-and-reporting machinery.
 4. **Idealized components are represented as such.** An ideal switch is
    `V_fr = V_to`, an ideal transformer is `V_fr = N·V_to`, a lossless shunt is
    pure susceptance — represented semantically, not approximated with a small ε
@@ -72,6 +78,33 @@ explicitly:
    single case study, because state is keyed per `(bus, terminal)` with no
    global phase count. The engine's modeled scope is **up to three-phase +
    neutral** (four wire).
+7. **Bounds are optional — use them if present, never synthesise one from
+   another.** Voltage, current, and apparent-power limits are all optional in the
+   data model, and different problem formulations activate different subsets of
+   the feasible region. A constraint is stamped only from data that is actually
+   present; the engine never derives a current bound from a power bound (or vice
+   versa), because a case may carry one, both, or neither *by design*.
+8. **No known non-smooth constraints — smoothen them.** Constraints are kept
+   continuously differentiable so the interior-point solver sees a well-defined
+   Jacobian everywhere. A magnitude `√(x²+y²)` is never written directly in a
+   constraint (its gradient is unbounded at the origin, and a monitored voltage
+   difference is not bounded away from zero); instead an *implicit square root* —
+   an auxiliary `u ≥ 0` with `u² = x²+y²` — is used. Droop and saturation curves
+   are encoded with a smooth ReLU/softplus rather than a hard `max`/`min` (see
+   [Smooth droop encoding](relu_softplus_encoding.md)).
+9. **Keep constraints low-degree (quadratic).** Where a naïve statement would be
+   quartic, rational, or higher-order, an auxiliary variable and its defining
+   constraint bring it back to degree two — the regime interior-point solvers
+   handle most reliably. Apparent power is bounded through aux `p, q` with
+   `p² + q² ≤ s²` (not a quartic in voltage × current); a free tap's reciprocal
+   is an aux variable pinned by `n · n⁻¹ = 1` (not a rational term); the
+   voltage-dependent load factors through `W = |ΔV|²` and `s = |ΔV|`.
+10. **Well-posedness is enforced, not assumed.** Removable degeneracies are
+    collapsed to their exact form (principle 4); irreducible ones are rejected
+    with a clear error rather than allowed to poison the model with NaN/Inf. A
+    zero nominal voltage (undefined `1/v_nom`), a zero winding turns-ratio, or two
+    zero-impedance branches shorting the same terminals (an undetermined current
+    split) are refused up front, not solved into nonsense.
 
 These principles were inspired by the IVR-EN formulation in
 [PowerModelsDistribution](positioning.md) and by Claeys et al.'s four-wire OPF
