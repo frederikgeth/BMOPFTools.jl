@@ -146,7 +146,7 @@ function each_terminal_array(f, net::Dict{String,Any})
         end
     end
     for comp_type in ("bus", "line", "load", "generator", "voltage_source",
-                      "shunt", "switch", "ibr")
+                      "shunt", "switch", "ibr", "capacitor")
         components = get(net, comp_type, nothing)
         components isa Dict || continue
         foreach(visit, values(components))
@@ -156,7 +156,15 @@ function each_terminal_array(f, net::Dict{String,Any})
         for subtype in TRANSFORMER_SUBTYPES
             sub = get(xfmr, subtype, nothing)
             sub isa Dict || continue
-            foreach(visit, values(sub))
+            for t in values(sub)
+                visit(t)
+                # Winding-list (n_winding) transformers carry terminal maps inside
+                # windings[i], which the top-level visit does not reach.
+                if subtype in WINDING_LIST_SUBTYPES && t isa Dict
+                    ws = get(t, "windings", nothing)
+                    ws isa AbstractVector && foreach(visit, ws)
+                end
+            end
         end
     end
     nothing

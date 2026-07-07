@@ -220,11 +220,18 @@ function _canonicalize_identifiers!(net::Dict{String,Any})
         foldref!(c, "bus_from"); foldref!(c, "bus_to")
     end
     if xfmr isa Dict
-        for (_, sub) in xfmr
+        for (subtype, sub) in xfmr
             sub isa Dict || continue
             for (_, c) in sub
                 c isa Dict || continue
                 foldref!(c, "bus_from"); foldref!(c, "bus_to")
+                # Winding-list (n_winding) transformers reference their buses via
+                # windings[i].bus, which the bus_from/bus_to fold does not reach.
+                if subtype in WINDING_LIST_SUBTYPES
+                    for w in get(c, "windings", Any[])
+                        w isa AbstractDict && foldref!(w, "bus")
+                    end
+                end
             end
         end
     end
@@ -278,7 +285,12 @@ function _remap_opendss_terminals!(net::Dict{String,Any})
         let g = get(bus, "perfectly_grounded_terminals", nothing)
             g isa Vector &&
                 (bus["perfectly_grounded_terminals"] =
-                     unique(t == "4" ? "n" : string(t) for t in g))
+                     unique(t == "4" ? "n" : string(t)
+                            for t in g if string(t) != "5"))
+            # "5" is the earth terminal: it is routed to the neutral and recorded
+            # under _meta (grounded THROUGH the neutral, not solidly), so it must
+            # be dropped here rather than left as a dangling reference to a
+            # terminal that "5"→"n" removed from terminal_names.
         end
         rename_maps[bus_id] = rmap
         "5" in str_names && push!(earth_routed, bus_id)

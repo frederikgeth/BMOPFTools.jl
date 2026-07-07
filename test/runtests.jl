@@ -2042,6 +2042,42 @@ const IEEE13_FIXTURE = """
         integrity_check(net4, f4)            # no MethodError
         provenance_analysis(net4, Finding[]) # no MethodError
         @test !any(x -> x.code == "E.INT.UNKNOWN_TERMINAL", f4)
+
+        # (#280) capacitor terminal_map and n_winding windings[].terminal_map are
+        # coerced too — the ingest walker previously skipped both categories.
+        raw5 = """
+        {"bus": {"b": {"terminal_names": [1,2,3,4]}},
+         "capacitor": {"c": {"bus": "b", "terminal_map": [1,2,3,4],
+            "configuration": "WYE", "q_rated": [1000.0,1000.0,1000.0], "v_nom": 230.0}},
+         "transformer": {"n_winding": {"t": {"s_rating": 1000000.0, "x_sc": {"1_2": 0.05},
+            "windings": [{"bus": "b", "terminal_map": [1,2,3,4], "v_nom": 230.0, "configuration": "WYE"},
+                         {"bus": "b", "terminal_map": [1,2,3,4], "v_nom": 115.0, "configuration": "WYE"}]}}}}
+        """
+        net5 = parse_bmopf(raw5; from_string=true)
+        @test net5["capacitor"]["c"]["terminal_map"] == ["1","2","3","n"]
+        @test net5["transformer"]["n_winding"]["t"]["windings"][1]["terminal_map"] == ["1","2","3","n"]
+    end
+
+    @testset "from_dss ingest walkers — n_winding + earth-5 (#280)" begin
+        # n_winding winding bus references are case-folded like every other id.
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}("HV"=>Dict{String,Any}("terminal_names"=>["a"]),
+                                      "LV"=>Dict{String,Any}("terminal_names"=>["a"])),
+            "transformer" => Dict{String,Any}("n_winding"=>Dict{String,Any}("T1"=>Dict{String,Any}(
+                "windings"=>[Dict{String,Any}("bus"=>"HV"), Dict{String,Any}("bus"=>"LV")]))))
+        BMOPFTools._canonicalize_identifiers!(net)
+        wbus = [w["bus"] for w in net["transformer"]["n_winding"]["t1"]["windings"]]
+        @test wbus == ["hv", "lv"]
+
+        # The OpenDSS earth terminal "5" is routed to the neutral in terminal_names
+        # and DROPPED from perfectly_grounded_terminals (no dangling reference to a
+        # terminal "5"→"n" removed).
+        net2 = Dict{String,Any}("bus"=>Dict{String,Any}("b"=>Dict{String,Any}(
+            "terminal_names"=>["1","2","3","5"], "perfectly_grounded_terminals"=>["5"])))
+        BMOPFTools._remap_opendss_terminals!(net2)
+        b = net2["bus"]["b"]
+        @test !("5" in b["terminal_names"]) && ("n" in b["terminal_names"])
+        @test isempty(get(b, "perfectly_grounded_terminals", String[]))
     end
 
     @testset "Terminal-name conventions" begin
