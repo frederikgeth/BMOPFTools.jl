@@ -202,13 +202,13 @@ function _add_dc_network_constraints!(model, net, vars)
             # current flows from→to: leaves "from" (−i into node), enters "to" (+i)
             _dc_kcl_add!(kcl, bf, tmf[k], -i)
             _dc_kcl_add!(kcl, bt, tmt[k],  i)
-            k <= length(imax) && @constraint(model, i^2 <= imax[k]^2)
+            k <= length(imax) && _soc_norm!(model, i, imax[k])
         end
         pmax = get(br, "p_max", nothing)
         if pmax !== nothing && n >= 1 && haskey(v_dc, (bf, tmf[1]))
             # bound the pole-conductor power |v·i| ≤ p_max
             i1 = idc_br[(id, 1)]
-            @constraint(model, (v_dc[(bf, tmf[1])] * i1)^2 <= Float64(pmax)^2)
+            _soc_norm!(model, (v_dc[(bf, tmf[1])] * i1), Float64(pmax))
         end
     end
 

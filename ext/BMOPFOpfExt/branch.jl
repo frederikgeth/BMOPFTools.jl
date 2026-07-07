@@ -214,11 +214,11 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                     ilim = Float64(i_max[k])
                     cfr_r = @expression(model, cr_fr[(lid,k)] + ish_fr_r[k])
                     cfr_i = @expression(model, ci_fr[(lid,k)] + ish_fr_i[k])
-                    @constraint(model, cfr_r^2 + cfr_i^2 <= ilim^2)
+                    _soc_norm!(model, cfr_r, cfr_i, ilim)
                     if has_any_shunt
                         cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                         cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
-                        @constraint(model, cto_r^2 + cto_i^2 <= ilim^2)
+                        _soc_norm!(model, cto_r, cto_i, ilim)
                     end
 
                     # Series-current variable boxes. The one series current
@@ -350,7 +350,7 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i)
             _kcl_add!(kcl_r, kcl_i, b_to, tmto[k],  cr_sw[(sid,k)],  ci_sw[(sid,k)])
             if i_max !== nothing && k <= length(i_max)
                 ilim = Float64(i_max[k])
-                @constraint(model, cr_sw[(sid,k)]^2 + ci_sw[(sid,k)]^2 <= ilim^2)
+                _soc_norm!(model, cr_sw[(sid,k)], ci_sw[(sid,k)], ilim)
                 _limit_current_box!(cr_sw[(sid,k)], ci_sw[(sid,k)], ilim)
             end
             # Apparent-power limit (ground-referenced per conductor). A switch has

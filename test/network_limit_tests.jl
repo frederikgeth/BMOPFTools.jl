@@ -375,6 +375,37 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # L-SCALE: cone limits are enforced at a large per-unit base (#302)
+    #
+    # A magnitude/power SOC cone `a² + b² ≤ lim²` has value ~1e-6 at the default
+    # s_base = 1e6 for a small feeder (per-unit currents ~1e-3), below Ipopt's
+    # absolute constr_viol_tol (1e-4) — so a limit that should force infeasibility
+    # was silently accepted. Normalizing the cone to `(a/lim)² + (b/lim)² ≤ 1`
+    # makes it O(1) and enforceable. A fixed inductive load whose apparent power
+    # exceeds a tight line s_max must be infeasible; a loose limit stays feasible.
+    # (s_max routes through the shared `_apparent_power_limit!`, exercised by every
+    # line/transformer/generator/IBR/n-winding s_max cone.)
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "L-SCALE: s_max enforced at default per-unit base (#302)" begin
+        mknet(slim) = parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+                "b":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+                     "v_min":[200.0,200.0,200.0],"v_max":[250.0,250.0,250.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05,"R_series_3_3":0.05,"R_series_4_4":0.05}},
+         "line":{"l":{"bus_from":"src","bus_to":"b","linecode":"lc","length":10.0,
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
+             "s_max":[$(slim),$(slim),$(slim),1000000.0]}},
+         "load":{"ld":{"bus":"b","terminal_map":["1","2","3","n"],"configuration":"WYE",
+             "model":"constant_power","p_nom":[4000.0,4000.0,4000.0],"q_nom":[3000.0,3000.0,3000.0]}}}
+        """; from_string=true)
+        # |S| per phase ≈ 5 kVA. Tight 2 kVA cap → infeasible; loose 100 kVA → feasible.
+        @test solve_opf(mknet(2000.0))["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL")
+        @test solve_opf(mknet(100000.0))["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # L-SMAX-XFMR: transformer nameplate cap (`s_rating`)
     #
     # The nameplate is a required field and is always enforced as a per-winding

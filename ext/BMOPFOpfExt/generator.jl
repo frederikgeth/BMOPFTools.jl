@@ -84,8 +84,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
 
                 # Current magnitude limit (per conductor; single-phase collapsed)
                 if phase_ilim[idx] !== nothing
-                    @constraint(model,
-                        crg[(gid,idx)]^2 + cig[(gid,idx)]^2 <= phase_ilim[idx]^2)
+                    _soc_norm!(model, crg[(gid,idx)], cig[(gid,idx)], phase_ilim[idx])
                     _limit_current_box!(crg[(gid,idx)], cig[(gid,idx)], phase_ilim[idx])
                 end
 
@@ -95,7 +94,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
                     qg_v = @variable(model, base_name = "qg_$(gid)_$(idx)")
                     @constraint(model, pg_v == p_expr)
                     @constraint(model, qg_v == q_expr)
-                    @constraint(model, pg_v^2 + qg_v^2 <= s_max_g[idx]^2)
+                    _soc_norm!(model, pg_v, qg_v, s_max_g[idx])
                 end
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph,  crg[(gid,idx)],  cig[(gid,idx)])
@@ -129,8 +128,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
 
                 # Current magnitude limit
                 if length(i_max_g) >= k
-                    @constraint(model,
-                        crg[(gid,k)]^2 + cig[(gid,k)]^2 <= i_max_g[k]^2)
+                    _soc_norm!(model, crg[(gid,k)], cig[(gid,k)], i_max_g[k])
                     _limit_current_box!(crg[(gid,k)], cig[(gid,k)], i_max_g[k])
                 end
 
@@ -140,7 +138,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
                     qg_v = @variable(model, base_name = "qg_$(gid)_$(k)")
                     @constraint(model, pg_v == p_expr)
                     @constraint(model, qg_v == q_expr)
-                    @constraint(model, pg_v^2 + qg_v^2 <= s_max_g[k]^2)
+                    _soc_norm!(model, pg_v, qg_v, s_max_g[k])
                 end
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos,  crg[(gid,k)],  cig[(gid,k)])

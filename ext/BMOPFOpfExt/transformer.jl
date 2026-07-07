@@ -281,7 +281,7 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         kadd(b_fr, t_p_fr, -Isr, -Isi)
         t_q_fr !== nothing && kadd(b_fr, t_q_fr, Isr, Isi)
         if length(i_max_fr) >= k
-            @constraint(model, Isr^2 + Isi^2 <= i_max_fr[k]^2)
+            _soc_norm!(model, Isr, Isi, i_max_fr[k])
             _limit_current_box!(Isr, Isi, i_max_fr[k])
         end
 
@@ -305,12 +305,12 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             kadd(b_to, t_p_to, -icr_term, -ici_term)
             t_q_to !== nothing && kadd(b_to, t_q_to, icr_term, ici_term)
             length(i_max_to_v) >= k &&
-                @constraint(model, icr_term^2 + ici_term^2 <= i_max_to_v[k]^2)
+                _soc_norm!(model, icr_term, ici_term, i_max_to_v[k])
         else
             kadd(b_to, t_p_to, -Itr, -Iti)
             t_q_to !== nothing && kadd(b_to, t_q_to, Itr, Iti)
             if length(i_max_to_v) >= k
-                @constraint(model, Itr^2 + Iti^2 <= i_max_to_v[k]^2)
+                _soc_norm!(model, Itr, Iti, i_max_to_v[k])
                 _limit_current_box!(Itr, Iti, i_max_to_v[k])
             end
         end
@@ -532,9 +532,9 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         kadd(b_to, t_lv_2,  -Il2r, -Il2i)
         # Current-magnitude limits on the pinned winding-current variables.
         length(i_max_fr)   >= 1 && @constraint(model, Isr^2  + Isi^2  <= i_max_fr[1]^2)
-        length(i_max_to_v) >= 1 && @constraint(model, Il1r^2 + Il1i^2 <= i_max_to_v[1]^2)
+        length(i_max_to_v) >= 1 && _soc_norm!(model, Il1r, Il1i, i_max_to_v[1])
         length(i_max_to_v) >= 2 && @constraint(model, Inr^2  + Ini^2  <= i_max_to_v[2]^2)
-        length(i_max_to_v) >= 3 && @constraint(model, Il2r^2 + Il2i^2 <= i_max_to_v[3]^2)
+        length(i_max_to_v) >= 3 && _soc_norm!(model, Il2r, Il2i, i_max_to_v[3])
         # Nameplate cap on the HV coil (V_frph − V_frn) · conj(I_s).
         if s_per > 0.0
             _apparent_power_limit!(model,
@@ -627,7 +627,7 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # ── HV side KCL (pure series current; the exciting branch is on winding 2) ──
     kadd(b_fr, t_fr_ph, -Isr, -Isi)
     if length(i_max_fr) >= 1
-        @constraint(model, Isr^2 + Isi^2 <= i_max_fr[1]^2)
+        _soc_norm!(model, Isr, Isi, i_max_fr[1])
         _limit_current_box!(Isr, Isi, i_max_fr[1])  # bare HV series-current variable
     end
     # Nameplate cap on the HV coil (vr_hv = V_frph − V_frn, computed above).
@@ -660,15 +660,15 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # ── Current magnitude limits (Il1/In/Il2 are bare LV winding-current
     #    variables, so the limit also tightens each component's box bound) ───────
     if length(i_max_to_v) >= 1
-        @constraint(model, Il1r^2 + Il1i^2 <= i_max_to_v[1]^2)
+        _soc_norm!(model, Il1r, Il1i, i_max_to_v[1])
         _limit_current_box!(Il1r, Il1i, i_max_to_v[1])
     end
     if length(i_max_to_v) >= 2
-        @constraint(model, Inr^2 + Ini^2 <= i_max_to_v[2]^2)
+        _soc_norm!(model, Inr, Ini, i_max_to_v[2])
         _limit_current_box!(Inr, Ini, i_max_to_v[2])
     end
     if length(i_max_to_v) >= 3
-        @constraint(model, Il2r^2 + Il2i^2 <= i_max_to_v[3]^2)
+        _soc_norm!(model, Il2r, Il2i, i_max_to_v[3])
         _limit_current_box!(Il2r, Il2i, i_max_to_v[3])
     end
 end
@@ -1006,7 +1006,7 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
 
     # ── Current magnitude limits (bare winding-current variables, so the
     #    magnitude limit also tightens each component's box bound) ───────────────
-    _limit_xf_current!(s, t, ilim) = (@constraint(model, s^2 + t^2 <= ilim^2);
+    _limit_xf_current!(s, t, ilim) = (_soc_norm!(model, s, t, ilim);
                                       _limit_current_box!(s, t, ilim))
     for k in 1:n_wye
         length(i_max_fr)   >= k && side_wye == "fr" &&
@@ -1190,11 +1190,11 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
         icr = @expression(model, Isr + G * vr_pn - B * vi_pn)
         ici = @expression(model, Isi + G * vi_pn + B * vr_pn)
         kadd(b_fr, t_fr_ph, -icr, -ici)
-        length(i_max_fr) >= 1 && @constraint(model, icr^2 + ici^2 <= i_max_fr[1]^2)
+        length(i_max_fr) >= 1 && _soc_norm!(model, icr, ici, i_max_fr[1])
     else
         kadd(b_fr, t_fr_ph, -Isr, -Isi)
         if length(i_max_fr) >= 1
-            @constraint(model, Isr^2 + Isi^2 <= i_max_fr[1]^2)
+            _soc_norm!(model, Isr, Isi, i_max_fr[1])
             _limit_current_box!(Isr, Isi, i_max_fr[1])
         end
     end
@@ -1202,7 +1202,7 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
     # To-side phase terminal: transformer injects I_to.
     kadd(b_to, t_to_ph, -Itr, -Iti)
     if length(i_max_to_v) >= 1
-        @constraint(model, Itr^2 + Iti^2 <= i_max_to_v[1]^2)
+        _soc_norm!(model, Itr, Iti, i_max_to_v[1])
         _limit_current_box!(Itr, Iti, i_max_to_v[1])
     end
 
@@ -1366,11 +1366,11 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
         kadd(b_to, t_to_q,  Itr,  Iti)
 
         if length(i_max_fr) >= j
-            @constraint(model, Isr^2 + Isi^2 <= i_max_fr[j]^2)
+            _soc_norm!(model, Isr, Isi, i_max_fr[j])
             _limit_current_box!(Isr, Isi, i_max_fr[j])
         end
         if length(i_max_to_v) >= j
-            @constraint(model, Itr^2 + Iti^2 <= i_max_to_v[j]^2)
+            _soc_norm!(model, Itr, Iti, i_max_to_v[j])
             _limit_current_box!(Itr, Iti, i_max_to_v[j])
         end
         # Nameplate cap on the from-side line-to-line through-power for this regulator.

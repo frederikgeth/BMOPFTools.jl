@@ -376,7 +376,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             # of the (≤2) entries — never constrain the same variable twice.
             if !isempty(imax)
                 ilim_sp = minimum(imax)
-                @constraint(model, cri[(inv_id,1)]^2 + cii[(inv_id,1)]^2 <= ilim_sp^2)
+                _soc_norm!(model, cri[(inv_id,1)], cii[(inv_id,1)], ilim_sp)
             end
 
             avg_ref && @warn "IBR '$inv_id': voltage_aggregation=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
@@ -421,7 +421,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 collect_p && push!(p_exprs, p_expr)
 
                 length(imax) >= idx &&
-                    @constraint(model, cri[(inv_id,idx)]^2 + cii[(inv_id,idx)]^2 <= imax[idx]^2)
+                    _soc_norm!(model, cri[(inv_id,idx)], cii[(inv_id,idx)], imax[idx])
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph,  cri[(inv_id,idx)],  cii[(inv_id,idx)])
                 t_n !== nothing &&
@@ -469,7 +469,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 end
 
                 length(imax) >= k &&
-                    @constraint(model, cri[(inv_id,k)]^2 + cii[(inv_id,k)]^2 <= imax[k]^2)
+                    _soc_norm!(model, cri[(inv_id,k)], cii[(inv_id,k)], imax[k])
 
                 # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
                 _apply_ibr_phase!(model, inv_id, k, p_expr, q_expr, nothing, nothing,
@@ -554,6 +554,6 @@ function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         q_aux = @variable(model, base_name = "qi_$(inv_id)_$(idx)")
         @constraint(model, p_aux == p_expr)
         @constraint(model, q_aux == q_expr)
-        @constraint(model, p_aux^2 + q_aux^2 <= smax[idx]^2)
+        _soc_norm!(model, p_aux, q_aux, smax[idx])
     end
 end

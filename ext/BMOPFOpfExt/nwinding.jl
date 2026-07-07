@@ -179,7 +179,7 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                 # of each phase leg: |I_{k,pk}| ≤ i_max_k. Optional per winding.
                 ilim = w.i_max
                 if ilim !== nothing && ilim > 0.0
-                    @constraint(model, cr[(tid, k, pk)]^2 + ci[(tid, k, pk)]^2 <= ilim^2)
+                    _soc_norm!(model, cr[(tid, k, pk)], ci[(tid, k, pk)], ilim)
                     _limit_current_box!(cr[(tid, k, pk)], ci[(tid, k, pk)], ilim)
                 end
                 # Per-winding apparent-power cap on the coil: S = U_k ∘ conj(I_k)

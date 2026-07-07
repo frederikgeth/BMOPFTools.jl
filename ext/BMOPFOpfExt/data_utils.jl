@@ -176,6 +176,24 @@ function _limit_current_box!(cr::JuMP.VariableRef, ci::JuMP.VariableRef, ilim::R
 end
 
 """
+    _soc_norm!(model, a, b, lim)   /   _soc_norm!(model, a, lim)
+
+Add the magnitude cone `a² + b² ≤ lim²` (or `a² ≤ lim²`) in the NORMALIZED form
+`(a/lim)² + (b/lim)² ≤ 1`, so the constraint function is O(1) regardless of the
+per-unit base. Current and power limits become tiny at a large `s_base` (per-unit
+currents ~1e-3, cone values ~1e-6), and Ipopt's absolute `constr_viol_tol`
+(1e-4) then tolerates gross relative violations — a limit that should force
+infeasibility is silently accepted (issue #302). The normalized form is exactly
+equivalent (same feasible set) for `lim > 0`; for `lim == 0` the raw form is used
+(it forces `a = b = 0`). Callers guard that `lim` is finite and ≥ 0.
+"""
+function _soc_norm!(model, a, b, lim::Real)
+    lim > 0 || return @constraint(model, a^2 + b^2 <= lim^2)
+    @constraint(model, (a / lim)^2 + (b / lim)^2 <= 1.0)
+end
+_soc_norm!(model, a, lim::Real) = _soc_norm!(model, a, 0.0, lim)
+
+"""
     _neutral_current_limit!(model, cr_terms, ci_terms, ilim)
 
 Cap the magnitude of a WYE/FOUR_LEG device's **neutral-conductor** current at
@@ -193,7 +211,7 @@ function _neutral_current_limit!(model, cr_terms, ci_terms, ilim::Real)
     (isfinite(ilim) && ilim >= 0) || return
     cr_n = @expression(model, sum(cr_terms))
     ci_n = @expression(model, sum(ci_terms))
-    @constraint(model, cr_n^2 + ci_n^2 <= ilim^2)
+    _soc_norm!(model, cr_n, ci_n, ilim)
     return
 end
 
@@ -230,7 +248,7 @@ function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Real;
     q_v = @variable(model, base_name = "q_$(base_name)")
     @constraint(model, p_v == vr_k*cr_k + vi_k*ci_k)
     @constraint(model, q_v == vi_k*cr_k - vr_k*ci_k)
-    @constraint(model, p_v^2 + q_v^2 <= slim^2)
+    _soc_norm!(model, p_v, q_v, slim)
     ledger !== nothing && key !== nothing && (ledger[key] = (p_v, q_v, Float64(slim)))
     return (p_v, q_v)
 end
