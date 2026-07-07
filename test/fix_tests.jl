@@ -227,10 +227,12 @@ end
 
     @testset "T2: Simplify — dangling line removed" begin
         net = _fix_lv_net()
-        # Add a stub line with no load at its far end
+        # Add a stub line with no load at its far end. The stub bus is left
+        # ungrounded: remove_dangling_lines deliberately keeps a grounded leaf
+        # (removing it would drop a ground — see simplify_tests.jl #277), so a
+        # grounded stub would not be pruned.
         net["bus"]["stub"] = Dict{String,Any}(
             "terminal_names" => ["1","2","3","n"],
-            "perfectly_grounded_terminals" => ["n"],
         )
         net["line"]["lstub"] = Dict{String,Any}(
             "bus_from" => "b2", "bus_to" => "stub",
