@@ -89,3 +89,72 @@ end
     @test rep.results[:inventory]["capacitor"]["total"] == 1
     @test rep.results[:inventory]["capacitor"]["q_rated_total"] ≈ 1.8e6
 end
+
+if _HAS_JUMP_IPOPT
+    @testset "capacitor — solved result sign & per-unit round-trip (#272/#273)" begin
+        vpn = 230.0
+        q0  = 1.0e3   # var per phase
+        net = Dict{String,Any}("name" => "cap1",
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"]),
+                "b1"  => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                    "perfectly_grounded_terminals" => ["n"])),
+            "voltage_source" => Dict{String,Any}("s" => Dict{String,Any}(
+                "bus" => "src", "terminal_map" => ["a","b","c","n"],
+                "v_magnitude" => [vpn, vpn, vpn, 0.0],
+                "v_angle" => [0.0, -2.0943951, 2.0943951, 0.0])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                "R_series_1_1" => 0.01, "R_series_2_2" => 0.01, "R_series_3_3" => 0.01,
+                "R_series_4_4" => 0.01)),
+            "line" => Dict{String,Any}("l1" => Dict{String,Any}(
+                "bus_from" => "src", "bus_to" => "b1",
+                "terminal_map_from" => ["a","b","c","n"],
+                "terminal_map_to"   => ["a","b","c","n"],
+                "linecode" => "lc", "length" => 100.0)),
+            "load" => Dict{String,Any}("ld" => Dict{String,Any}(
+                "bus" => "b1", "terminal_map" => ["a","b","c","n"],
+                "configuration" => "WYE", "model" => "constant_power",
+                "p_nom" => [500.0,500.0,500.0], "q_nom" => [0.0,0.0,0.0])),
+            "capacitor" => Dict{String,Any}("c1" => Dict{String,Any}(
+                "bus" => "b1", "terminal_map" => ["a","b","c","n"],
+                "configuration" => "WYE",
+                "q_rated" => [q0, q0, q0], "v_nom" => vpn)))
+
+        res = solve_pf(net; optimizer = Ipopt.Optimizer, per_unit = true)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        # (#272) A capacitor DELIVERS reactive power: reported q > 0, and equals
+        # +B·Σ|V|² recomputed from the solved SI voltages (the physical sign).
+        Bph = q0 / vpn^2
+        vsq = 0.0
+        for ph in ("a","b","c")
+            vr = res["bus"]["b1"][ph]["vr"]; vi = res["bus"]["b1"][ph]["vi"]
+            vsq += vr^2 + vi^2
+        end
+        q_expected = Bph * vsq
+        @test res["capacitor"]["c1"]["q"] > 0
+        @test isapprox(res["capacitor"]["c1"]["q"], q_expected; rtol = 1e-3)
+
+        # (#273) Currents are reported in SI amps (≈ B·|V| ≈ 4.3 A), not p.u.
+        va  = abs(res["bus"]["b1"]["a"]["vr"] + im * res["bus"]["b1"]["a"]["vi"])
+        cma = res["capacitor"]["c1"]["terminals"]["a"]["cm"]
+        @test cma > 1.0
+        @test isapprox(cma, Bph * va; rtol = 1e-3)
+
+        # (#273) The per-unit path (default) must round-trip to the same SI q and
+        # current as a native-SI solve — the capacitor block was missing from
+        # _from_per_unit, so q was off by s_base and the current by i_base.
+        res_si = solve_pf(net; optimizer = Ipopt.Optimizer, per_unit = false)
+        @test isapprox(res["capacitor"]["c1"]["q"],
+                       res_si["capacitor"]["c1"]["q"]; rtol = 1e-4)
+        @test isapprox(cma, res_si["capacitor"]["c1"]["terminals"]["a"]["cm"]; rtol = 1e-4)
+
+        # (#273) The line-loss `s_through` (VA) must also round-trip through the
+        # per-unit path — it was omitted from the loss rescale, leaving it off
+        # by s_base while p_loss/q_loss were correct.
+        st_pu = res["line"]["l1"]["loss"]["s_through"]
+        @test st_pu > 1.0   # SI VA, not p.u.
+        @test isapprox(st_pu, res_si["line"]["l1"]["loss"]["s_through"]; rtol = 1e-4)
+    end
+end

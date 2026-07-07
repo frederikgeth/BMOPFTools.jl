@@ -719,8 +719,11 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                 "cr" => cr[k], "ci" => ci[k], "cm" => sqrt(cr[k]^2 + ci[k]^2))
             if feasible && haskey(vr_v, (bus, tm[k]))
                 vrk = val(vr_v[(bus, tm[k])]); vik = val(vi_v[(bus, tm[k])])
-                # Current INTO the bus is −(cr,ci); Q injected = vr·ci_in − vi·cr_in.
-                q_tot += vrk * (-ci[k]) - vik * (-cr[k])
+                # `cr,ci` is the current leaving the bus into the bank. The
+                # reactive power the bank *delivers* to the bus is
+                # Q = vr·ci − vi·cr (= +B|V|² for a capacitor, i.e. injected),
+                # the same sign convention as every other element's reported q.
+                q_tot += vrk * ci[k] - vik * cr[k]
             end
         end
         cap_res[cid] = Dict{String,Any}("terminals" => term_d, "q" => q_tot)
