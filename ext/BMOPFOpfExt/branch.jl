@@ -181,10 +181,14 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
         end
 
         # ── Thermal current limits on total current at each end ───────────────
-        # When the to-side π-shunt is zero, cr_to = −cr_fr and ish_to = 0, so
-        # the to-side magnitude equals the from-side magnitude and only one
-        # constraint is needed. Both are added only when G_to or B_to is present.
-        has_to_shunt = !(G_to === nothing && B_to === nothing)
+        # The to-side total current is cr_to + ish_to = −cr_fr + ish_to. It has
+        # the same magnitude as the from-side total (cr_fr + ish_fr) only when
+        # BOTH π-shunts vanish (then both ends are ±cr_fr). If either side has a
+        # shunt the two magnitudes differ, so the to-side needs its own cone;
+        # otherwise the from-side cone alone would leave |cr_fr| unbounded up to
+        # i_max + |ish_fr|. Add the to-side cone whenever any shunt is present.
+        has_any_shunt = !(G_fr === nothing && B_fr === nothing &&
+                          G_to === nothing && B_to === nothing)
         lc = get(linecodes, get(line, "linecode", ""), nothing)
         # line-level i_max overrides the linecode's (and is the only rating
         # source for lines carrying inline absolute matrices)
@@ -202,21 +206,38 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                 vmax_fr = Union{Float64,Nothing}[
                     _terminal_vmax_to_ground(bus_fr, tmfr[j], grounded, b_fr)
                     for j in 1:n_map]
+                bus_to = get(buses, b_to, Dict{String,Any}())
+                vmax_to = Union{Float64,Nothing}[
+                    _terminal_vmax_to_ground(bus_to, tmto[j], grounded, b_to)
+                    for j in 1:n_map]
                 for k in 1:min(n_map, length(i_max))
                     ilim = Float64(i_max[k])
                     cfr_r = @expression(model, cr_fr[(lid,k)] + ish_fr_r[k])
                     cfr_i = @expression(model, ci_fr[(lid,k)] + ish_fr_i[k])
                     @constraint(model, cfr_r^2 + cfr_i^2 <= ilim^2)
-                    if has_to_shunt
+                    if has_any_shunt
                         cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                         cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
                         @constraint(model, cto_r^2 + cto_i^2 <= ilim^2)
                     end
 
-                    # Series-current variable box (from-side shunt determines it).
-                    ish_bound = _line_shunt_row_bound(G_fr, B_fr, vmax_fr, k, n_map)
-                    ish_bound === nothing && continue
-                    _limit_current_box!(cr_fr[(lid,k)], ci_fr[(lid,k)], ilim + ish_bound)
+                    # Series-current variable boxes. The one series current
+                    # appears at both ends: the from-total is cr_fr + ish_fr and
+                    # the to-total is −cr_fr + ish_to, so a valid outer box on the
+                    # bare series variable is |cr_fr| ≤ ilim + |ish_end| at each
+                    # end. Applying both keeps the tighter (min). These hard
+                    # variable bounds backstop the (soft) SOC cones: at a large
+                    # per-unit base the cone values fall below Ipopt's constraint
+                    # tolerance, so without a to-side box a from-side-only shunt
+                    # would leave the to-end current effectively unconstrained
+                    # (issue #299). With no to-side shunt the to-side box is a
+                    # tight |cr_fr| ≤ ilim.
+                    ish_fr_bound = _line_shunt_row_bound(G_fr, B_fr, vmax_fr, k, n_map)
+                    ish_fr_bound !== nothing &&
+                        _limit_current_box!(cr_fr[(lid,k)], ci_fr[(lid,k)], ilim + ish_fr_bound)
+                    ish_to_bound = _line_shunt_row_bound(G_to, B_to, vmax_to, k, n_map)
+                    ish_to_bound !== nothing &&
+                        _limit_current_box!(cr_fr[(lid,k)], ci_fr[(lid,k)], ilim + ish_to_bound)
                 end
             end
         end
@@ -237,7 +258,7 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                 _apparent_power_limit!(model,
                     vr[(b_fr, tmfr[k])], vi[(b_fr, tmfr[k])], cfr_r, cfr_i, slim;
                     base_name = "$(lid)_fr_$(k)")
-                if has_to_shunt
+                if has_any_shunt
                     cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                     cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
                     _apparent_power_limit!(model,

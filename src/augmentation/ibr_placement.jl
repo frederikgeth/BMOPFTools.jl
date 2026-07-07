@@ -232,10 +232,11 @@ function add_statcom!(net::Dict{String,Any}, bus::AbstractString;
     length(tm) >= 2 ||
         throw(ArgumentError("add_statcom!: bus '$bus' needs ≥2 terminals " *
                             "(got $(length(tm))); pass terminal_map explicitly"))
-    n_phase = length(tm) - 1
-
     topo = topology !== nothing ? uppercase(String(topology)) :
-           (length(tm) <= 2 ? "SINGLE_PHASE" : "FOUR_LEG")
+           _infer_ibr_topology(tm)
+    # Phase-current count follows the topology, not `length(tm) - 1` (which
+    # assumes a neutral): a 3-wire delta STATCOM is THREE_LEG with 3 phases.
+    n_phase, _ = _ibr_phase_count(topo, tm)
 
     smax_vec = s_max isa AbstractVector ? Float64.(collect(s_max)) :
                                           fill(Float64(s_max), n_phase)
@@ -431,8 +432,7 @@ function _resolve_topology(recipe::IBRRecipe, terminal_map::Vector{String})::Str
     if recipe.inverter_topology !== :infer
         return uppercase(string(recipe.inverter_topology))
     end
-    n = length(terminal_map)
-    n <= 2 ? "SINGLE_PHASE" : "FOUR_LEG"
+    _infer_ibr_topology(terminal_map)
 end
 
 # ── Findings ──────────────────────────────────────────────────────────────────

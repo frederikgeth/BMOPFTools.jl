@@ -53,6 +53,21 @@ _inv_1ph_net() = parse_bmopf("""
      "p_nom":[1000.0],"q_nom":[0.0]}}}
 """, from_string=true)
 
+# Delta (3-wire, no neutral) load — topology must infer THREE_LEG, not FOUR_LEG.
+_inv_delta_net() = parse_bmopf("""
+{"bus":{
+    "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+    "b1": {"terminal_names":["1","2","3"]}},
+ "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+     "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944]}},
+ "linecode":{"lc":{"R_series_1_1":0.000396,"R_series_2_2":0.000396,"R_series_3_3":0.000396}},
+ "line":{"l1":{"bus_from":"src","bus_to":"b1",
+     "terminal_map_from":["1","2","3"],"terminal_map_to":["1","2","3"],
+     "linecode":"lc","length":100.0}},
+ "load":{"ld":{"bus":"b1","terminal_map":["1","2","3"],"configuration":"DELTA",
+     "p_nom":[1000.0,1000.0,1000.0],"q_nom":[0.0,0.0,0.0]}}}
+""", from_string=true)
+
 # ── I1: load-following placement writes the nameplate ────────────────────────
 
 @testset "I1: load-following — nameplate" begin
@@ -104,6 +119,38 @@ end
     inv = net′["ibr"]["pv_b1"]
     @test inv["topology"] == "SINGLE_PHASE"        # 2-terminal load
     @test inv["s_max"] ≈ [800.0]                atol=1e-6
+end
+
+# ── I4b: topology inference — delta (3-wire) load → THREE_LEG (#283) ──────────
+@testset "I4b: topology inference (delta, no neutral)" begin
+    net = _inv_delta_net()
+    net′, _ = add_ibrs(net)
+    inv = net′["ibr"]["pv_b1"]
+    @test inv["topology"] == "THREE_LEG"           # 3 terminals, no neutral
+    @test inv["terminal_map"] == ["1","2","3"]
+    @test length(inv["s_max"]) == 3
+
+    # augment_case fills a full 3-entry P/Q box — not truncated to 2 by a
+    # length(tm) - 1 phase count that assumed a neutral.
+    net3, _ = augment_case(net′)
+    inv3 = net3["ibr"]["pv_b1"]
+    @test length(inv3["p_max"]) == 3
+    @test length(inv3["q_max"]) == 3
+
+    # integrity must not flag the (correct) 3-entry vectors as a dimension
+    # mismatch against a bogus 2-phase count.
+    f = Finding[]
+    integrity_check(net3, f)
+    @test !any(x -> x.code == "W.INT.DIM_MISMATCH" && x.component_id == "pv_b1", f)
+end
+
+# ── I4c: add_statcom! on a 3-wire (delta) bus → THREE_LEG (#283) ──────────────
+@testset "I4c: add_statcom! delta bus" begin
+    net = _inv_delta_net()
+    add_statcom!(net, "b1"; s_max = 15_000.0)
+    inv = net["ibr"]["statcom_b1"]
+    @test inv["topology"] == "THREE_LEG"
+    @test length(inv["s_max"]) == 3                # one per phase, no neutral
 end
 
 # ── I5: forced topology overrides inference ──────────────────────────────────

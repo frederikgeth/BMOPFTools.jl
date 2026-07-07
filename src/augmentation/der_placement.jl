@@ -410,9 +410,10 @@ function _xfmr_downstream(net, loads)
         for (id, t) in sub
             t isa Dict || continue
             s_rating = Float64(get(t, "s_rating", 0.0))
-            t_bus = get(t, "bus_to", nothing)
-            (s_rating > 0 && t_bus isa AbstractString) || continue
-            down = _downstream_buses(net, string(id), string(t_bus))
+            s_rating > 0 || continue
+            _, to_buses = _xfmr_from_to_buses(subtype, t)   # covers n_winding
+            isempty(to_buses) && continue
+            down = _downstream_buses(net, string(id), to_buses)
             down_total = sum(Float64[sum(loads[b].p_nom) for b in down if haskey(loads, b)]; init = 0.0)
             for b in down
                 haskey(loads, b) || continue
@@ -425,7 +426,7 @@ function _xfmr_downstream(net, loads)
 end
 
 # Buses electrically downstream of a transformer (mirrors _downstream_load's BFS).
-function _downstream_buses(net, xfmr_id::String, t_bus::String)::Set{String}
+function _downstream_buses(net, xfmr_id::String, to_buses::Vector{String})::Set{String}
     adj = Dict{String,Vector{String}}()
     add!(a, b) = (push!(get!(adj, a, String[]), b); push!(get!(adj, b, String[]), a))
     for (_, l) in get(net, "line", Dict())
@@ -443,11 +444,14 @@ function _downstream_buses(net, xfmr_id::String, t_bus::String)::Set{String}
         sub isa Dict || continue
         for (oid, ot) in sub
             string(oid) == xfmr_id && continue
-            f = get(ot, "bus_from", nothing); t = get(ot, "bus_to", nothing)
-            (f isa AbstractString && t isa AbstractString) && add!(string(f), string(t))
+            # Include n_winding windings so BFS can traverse OTHER transformers.
+            fb, tb = _xfmr_from_to_buses(subtype, ot)
+            for f in fb, t in tb
+                add!(f, t)
+            end
         end
     end
-    seen = Set{String}([t_bus]); q = String[t_bus]
+    seen = Set{String}(to_buses); q = copy(to_buses)
     while !isempty(q)
         b = popfirst!(q)
         for nb in get(adj, b, String[])

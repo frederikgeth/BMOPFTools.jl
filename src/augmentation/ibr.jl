@@ -40,7 +40,10 @@ function _apply_ibr_augmentation!(net′::Dict{String,Any},
     for (inv_id, inv) in ibrs
         inv isa Dict || continue
         tm      = Vector{String}(get(inv, "terminal_map", String[]))
-        n_phase = length(tm) - 1
+        # Phase-current count follows the topology: length(tm) - 1 assumes a
+        # neutral and undercounts a THREE_LEG (delta) IBR by one, truncating the
+        # per-phase p_max/q_max boxes it writes below.
+        n_phase, _ = _ibr_phase_count(get(inv, "topology", "FOUR_LEG"), tm)
         n_phase >= 1 || continue
 
         smax_arr = let s = get(inv, "s_max", nothing)

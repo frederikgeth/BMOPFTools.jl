@@ -126,6 +126,18 @@ function integrity_check(net::Dict{String,Any},
         sub isa Dict || continue
         for (id, c) in sub
             c isa Dict || continue
+            if subtype in WINDING_LIST_SUBTYPES
+                # Winding-list buses/terminal_maps live in windings[]; a fixed
+                # bus_from/bus_to check skips them, so dangling references were
+                # never caught for n_winding.
+                for w in get(c, "windings", Any[])
+                    w isa AbstractDict || continue
+                    b = get(w, "bus", nothing)
+                    b isa AbstractString && check_bus_ref("transformer", id, b) &&
+                        check_tmap("transformer", id, b, get(w, "terminal_map", String[]))
+                end
+                continue
+            end
             f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
             f isa AbstractString && check_bus_ref("transformer", id, f) &&
                 check_tmap("transformer", id, f, get(c, "terminal_map_from", String[]))
@@ -343,7 +355,11 @@ function integrity_check(net::Dict{String,Any},
     # ibr per-phase filter/cost vectors must match phase count = |terminal_map| - 1
     for (id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
-        n_phase = length(get(inv, "terminal_map", String[])) - 1
+        tm_i = Vector{String}(get(inv, "terminal_map", String[]))
+        # Phase count is set by the topology, not length(tm) - 1 (which assumes a
+        # neutral): a THREE_LEG (delta) IBR carries |tm| phase currents, so
+        # correct 3-entry per-phase vectors must NOT be flagged as mismatched.
+        n_phase, has_n = _ibr_phase_count(get(inv, "topology", "FOUR_LEG"), tm_i)
         n_phase < 1 && continue
         for field in ("r_filter", "x_filter", "cost", "s_max")
             v = get(inv, field, nothing)
@@ -352,19 +368,13 @@ function integrity_check(net::Dict{String,Any},
                 push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
                     :ibr, id,
                     "IBR '$id': $field has $(length(v)) entries but the " *
-                    "terminal map implies $n_phase phase(s).",
+                    "topology implies $n_phase phase(s).",
                     Dict{String,Any}("field" => field, "n_phase" => n_phase)))
             end
         end
         # i_max is per CONDUCTOR; topology sets phase count and neutral presence.
-        let tm_i = Vector{String}(get(inv, "terminal_map", String[])),
-            topo = get(inv, "topology", "FOUR_LEG")
-            n_ph_i, has_n = topo == "THREE_LEG" ? (length(tm_i), false) :
-                            topo == "SINGLE_PHASE" ? (1, length(tm_i) >= 2) :
-                            (length(tm_i) - 1, true)        # FOUR_LEG
-            n_dim_issues += _check_conductor_imax!(findings, :ibr, "IBR", id,
-                get(inv, "i_max", nothing), n_ph_i, has_n)
-        end
+        n_dim_issues += _check_conductor_imax!(findings, :ibr, "IBR", id,
+            get(inv, "i_max", nothing), n_phase, has_n)
     end
 
     # generator per-phase vectors must match the phase-conductor count, which is
@@ -689,6 +699,19 @@ function integrity_check(net::Dict{String,Any},
         sub isa Dict || continue
         for (_, c) in sub
             c isa Dict || continue
+            if subtype in WINDING_LIST_SUBTYPES
+                # Winding terminals wire their buses too; omitting them made
+                # n-winding-fed buses look like they had floating/unused terminals.
+                for w in get(c, "windings", Any[])
+                    w isa AbstractDict || continue
+                    b  = get(w, "bus", nothing)
+                    tm = get(w, "terminal_map", nothing)
+                    b isa AbstractString && tm isa AbstractVector || continue
+                    s = get!(branch_terminals, b, Set{String}())
+                    for t in tm; push!(s, string(t)); end
+                end
+                continue
+            end
             for (bus_field, tm_field) in (("bus_from","terminal_map_from"),
                                            ("bus_to",  "terminal_map_to"))
                 b  = get(c, bus_field, nothing)

@@ -945,6 +945,39 @@ const IEEE13_FIXTURE = """
             f2 = Finding[]
             domain_rules_check(net2, f2)
             @test any(f_ -> f_.code == "W.DOM.INV_PV_ABSORBS", f2)
+
+            # Per-phase VECTOR bounds (the spec-conformant shape). The checks
+            # were dead on arrays before — they guarded on `isa Number` while the
+            # schema mandates arrays. Empty range / over-s_max on one phase fires.
+            netv = parse_bmopf(INV_FIXTURE; from_string=true)
+            netv["ibr"]["pv1"]["p_min"] = [0.0, 0.0, 0.0]
+            netv["ibr"]["pv1"]["p_max"] = [-100.0, 0.0, 0.0]        # empty on phase 1
+            netv["ibr"]["pv1"]["q_max"] = [20000.0, 3000.0, 3000.0] # phase 1 > s_max
+            fv = Finding[]
+            domain_rules_check(netv, fv)
+            @test any(f_ -> f_.code == "E.DOM.INV_P_BOUNDS", fv)
+            @test any(f_ -> f_.code == "W.DOM.INV_BOUND_EXCEEDS_SMAX", fv)
+
+            netv2 = parse_bmopf(INV_FIXTURE; from_string=true)
+            netv2["ibr"]["pv1"]["q_min"] = [3000.0, 0.0, 0.0]
+            netv2["ibr"]["pv1"]["q_max"] = [-3000.0, 0.0, 0.0]      # empty on phase 1
+            netv2["ibr"]["pv1"]["p_min"] = [-1000.0, 0.0, 0.0]      # PV absorbs on phase 1
+            fv2 = Finding[]
+            domain_rules_check(netv2, fv2)
+            @test any(f_ -> f_.code == "E.DOM.INV_Q_BOUNDS", fv2)
+            @test any(f_ -> f_.code == "W.DOM.INV_PV_ABSORBS", fv2)
+
+            # Clean per-phase bounds fire none of the capability findings.
+            netc = parse_bmopf(INV_FIXTURE; from_string=true)
+            netc["ibr"]["pv1"]["p_min"] = [0.0, 0.0, 0.0]
+            netc["ibr"]["pv1"]["p_max"] = [4000.0, 4000.0, 4000.0]
+            netc["ibr"]["pv1"]["q_min"] = [-3000.0, -3000.0, -3000.0]
+            netc["ibr"]["pv1"]["q_max"] = [3000.0, 3000.0, 3000.0]
+            fc = Finding[]
+            domain_rules_check(netc, fc)
+            @test !any(f_ -> f_.code in ("E.DOM.INV_P_BOUNDS", "E.DOM.INV_Q_BOUNDS",
+                                         "W.DOM.INV_BOUND_EXCEEDS_SMAX",
+                                         "W.DOM.INV_PV_ABSORBS"), fc)
         end
 
         @testset "i_max field: schema, arity, sign" begin
@@ -1148,6 +1181,21 @@ const IEEE13_FIXTURE = """
             @test !any(f -> f.code == "I.TMAP.PERMUTED_ORDER" &&
                             f.component_id == "sub", findings)
         end
+
+        # ── endpoint bus without terminal_names: no spurious permutation ──────
+        @testset "branch endpoint bus w/o terminal_names not flagged (issue #289)" begin
+            # Regression: the ordering guard `isempty(tn) || isempty(tm) &&
+            # continue` parsed as `a || (b && continue)`, so an endpoint bus
+            # with no terminal_names did NOT skip and `_ordered_subsequence`
+            # against an empty list returned false → a spurious
+            # I.TMAP.PERMUTED_ORDER per such line end.
+            net = _tmap_net()
+            net["bus"]["b1"]["terminal_names"] = String[]   # unknown terminals
+            findings = Finding[]
+            spec_conformance_check(net, findings)
+            @test !any(f -> f.code == "I.TMAP.PERMUTED_ORDER" &&
+                            f.component_id == "l1", findings)
+        end
     end
 
     @testset "Benchmark readiness" begin
@@ -1207,6 +1255,28 @@ const IEEE13_FIXTURE = """
         res5 = benchmark_readiness_check(net5, findings5)
         @test res5["only_slack_generation"] == true
         @test any(occursin("slack", s) for s in res5["suggestions"])
+
+        # Regression (issue #289): a dispatchable generator with no `cost`
+        # array used to crash the degenerate-cost pair scan. The guard
+        # `isempty(cost_a) || isempty(cost_b) && continue` parsed as
+        # `a || (b && continue)`, so a missing cost_a did NOT skip and
+        # `cost_a[1]` threw a BoundsError. Two costless dispatchable
+        # generators at one bus must be handled without error.
+        net6 = deepcopy(net)
+        net6["generator"] = Dict{String,Any}(
+            "g_a" => Dict{String,Any}(
+                "bus" => "634", "terminal_map" => ["1","2","3","n"],
+                "configuration" => "WYE",
+                "p_min" => [0.0,0.0,0.0], "p_max" => [1e4,1e4,1e4]),
+            "g_b" => Dict{String,Any}(
+                "bus" => "634", "terminal_map" => ["1","2","3","n"],
+                "configuration" => "WYE",
+                "p_min" => [0.0,0.0,0.0], "p_max" => [1e4,1e4,1e4]))
+        findings6 = Finding[]
+        res6 = @test_nowarn benchmark_readiness_check(net6, findings6)
+        @test res6 isa Dict
+        # Neither generator carries a cost, so no degenerate-cost pair fires.
+        @test res6["n_same_cost_gen_pairs"] == 0
     end
 
     @testset "Sign & definiteness checks" begin

@@ -644,8 +644,8 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
                     haskey(cvals, f) && (cvals[f] = cvals[f] * ib)
                 end
                 continue
-            elseif tk == "loss"        # complex loss (W/var): × s_base
-                for f in ("p_loss", "q_loss")
+            elseif tk == "loss"        # complex loss + throughput (W/var/VA): × s_base
+                for f in ("p_loss", "q_loss", "s_through")
                     haskey(cvals, f) && (cvals[f] = cvals[f] * sb)
                 end
                 continue
@@ -750,6 +750,24 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         end
     end
 
+    # Capacitor banks: per-terminal currents ← × I_base[bus]; delivered q ← × s_base
+    caps = get(net, "capacitor", Dict())
+    for (cid, cvals) in get(result, "capacitor", Dict())
+        cvals isa Dict || continue
+        bus = get(get(caps, cid, Dict()), "bus", "")
+        ib  = get(bases.i_base, bus, 1.0)
+        term_d = get(cvals, "terminals", Dict())
+        if term_d isa Dict
+            for (_, tvals) in term_d
+                tvals isa Dict || continue
+                for f in ("cr", "ci", "cm")
+                    haskey(tvals, f) && (tvals[f] = tvals[f] * ib)
+                end
+            end
+        end
+        haskey(cvals, "q") && (cvals["q"] = cvals["q"] * sb)
+    end
+
     # Transformer currents: from-side ← I_base[bus_from], to-side ← I_base[bus_to]
     xfmr_dict = get(net, "transformer", Dict())
     for (tid, winding_dict) in get(result, "transformer", Dict())
@@ -778,10 +796,10 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
             g = winding_dict["ground"]
             for f in ("cg_r", "cg_i", "cgm"); haskey(g, f) && (g[f] = g[f] * ib_fr); end
         end
-        # Complex loss (W/var): × s_base
+        # Complex loss + throughput (W/var/VA): × s_base
         if haskey(winding_dict, "loss") && winding_dict["loss"] isa Dict
             l = winding_dict["loss"]
-            for f in ("p_loss", "q_loss"); haskey(l, f) && (l[f] = l[f] * sb); end
+            for f in ("p_loss", "q_loss", "s_through"); haskey(l, f) && (l[f] = l[f] * sb); end
         end
     end
 

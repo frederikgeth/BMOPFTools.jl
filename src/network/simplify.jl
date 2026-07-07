@@ -21,15 +21,17 @@
 #   TERMINAL_MISMATCH         warning merge_series_lines     terminal maps at shared bus differ — not merged
 #   SWITCH_IN_CHAIN           warning merge_series_lines     switch blocks a same-linecode chain (likely user error)
 #   NON_LINE_ON_BUS           info    merge_series_lines     load/shunt/etc. blocks merge at intermediate bus
-#   GROUNDED_BUS              warning merge_series_lines     intermediate bus has grounded terminals — merge would drop the ground
+#   GROUNDED_BUS              warning merge_series_lines /    bus has grounded terminals — merge/prune would drop the ground
+#                                     remove_dangling_lines
+#   PARALLEL_LINES            info    merge_series_lines     two lines form a parallel pair (A—B—A), not a series chain
 #   LINE_REMOVED              info    remove_dangling_lines  stub line and leaf bus removed
 #   SHUNT_DROPPED             warning remove_dangling_lines  pruned stub carried shunt-to-earth — feasible set may change
 #   SWITCH_REMOVED            info    remove_open_switches   open switch element deleted
 #   ISOLATED_BUS              warning remove_open_switches   bus has no connections after switch removal
 #   SWITCH_COLLAPSED          info    collapse_closed_switches bus pair merged via closed switch
-#   SWITCH_LIMIT_DROPPED      warning collapse_closed_switches collapsed switch carried an i_max — cut vanishes, limit lost
-#   BOUND_DROPPED             warning collapse_closed_switches a merged phase had no voltage bound on either side
-#   MERGE_CONFLICT_TERMINALS  warning collapse_closed_switches terminal-map arity mismatch — not collapsed
+#   SWITCH_LIMIT_DROPPED      warning collapse_closed_switches collapsed switch carried an i_max/s_max — cut vanishes, limit lost
+#   BOUND_DROPPED             warning collapse_closed_switches a merged bound could not be carried across the collapse
+#   MERGE_CONFLICT_TERMINALS  warning collapse_closed_switches terminal-map cross-phase/partial mismatch — not collapsed
 #   MERGE_CONFLICT_SOURCE     warning collapse_closed_switches both buses have voltage sources — not collapsed
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
@@ -48,10 +50,31 @@ function _simlog!(net, operation, code, severity, element_type, element_id, mess
     push!(get!(net, "_simplification_log", Any[]), entry)
 end
 
+# Non-line, non-switch, non-transformer element categories that attach to a
+# single bus via a `"bus"` field. `ibr` and `capacitor` are first-class
+# categories and must be included alongside loads/generators/shunts/sources.
+const _BUS_ATTACHED_COMPONENTS =
+    ("load", "generator", "shunt", "voltage_source", "ibr", "capacitor")
+
+# Every bus a transformer references, across both the two-bus subtypes
+# (`bus_from`/`bus_to`) and the winding-list subtypes (`windings[].bus`). Read
+# only — see `_redirect_bus!` for the mutating winding path.
+function _xfmr_bus_refs(subtype, t)
+    if subtype in WINDING_LIST_SUBTYPES
+        return String[w.bus for w in _nw_windings(t) if !isempty(w.bus)]
+    end
+    bs = String[]
+    for b in (get(t, "bus_from", nothing), get(t, "bus_to", nothing))
+        b isa AbstractString && push!(bs, b)
+    end
+    bs
+end
+
 # Returns (line_count, nonline_count, lines_at) for all buses.
 # line_count[b]    = number of lines referencing bus b
 # nonline_count[b] = number of non-line elements at bus b
-#                    (loads, generators, shunts, voltage_sources, switches, transformers)
+#                    (loads, generators, shunts, voltage_sources, ibrs,
+#                     capacitors, switches, transformers)
 # lines_at[b]      = vector of line ids referencing bus b
 function _bus_connectivity(net)
     buses        = get(net, "bus",  Dict())
@@ -67,7 +90,7 @@ function _bus_connectivity(net)
         end
     end
 
-    for comp in ("load", "generator", "shunt", "voltage_source")
+    for comp in _BUS_ATTACHED_COMPONENTS
         for (_, c) in get(net, comp, Dict())
             b = get(c, "bus", nothing)
             b isa AbstractString && haskey(nonline_count, b) && (nonline_count[b] += 1)
@@ -83,8 +106,8 @@ function _bus_connectivity(net)
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (_, t) in sub
-            for b in (get(t, "bus_from", nothing), get(t, "bus_to", nothing))
-                b isa AbstractString && haskey(nonline_count, b) && (nonline_count[b] += 1)
+            for b in _xfmr_bus_refs(subtype, t)
+                haskey(nonline_count, b) && (nonline_count[b] += 1)
             end
         end
     end
@@ -98,7 +121,7 @@ function _bus_has_connections(net, bus_id)
         (get(l, "bus_from", nothing) == bus_id ||
          get(l, "bus_to",   nothing) == bus_id) && return true
     end
-    for comp in ("load", "generator", "shunt", "voltage_source")
+    for comp in _BUS_ATTACHED_COMPONENTS
         for (_, c) in get(net, comp, Dict())
             get(c, "bus", nothing) == bus_id && return true
         end
@@ -112,8 +135,7 @@ function _bus_has_connections(net, bus_id)
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (_, t) in sub
-            (get(t, "bus_from", nothing) == bus_id ||
-             get(t, "bus_to",   nothing) == bus_id) && return true
+            bus_id in _xfmr_bus_refs(subtype, t) && return true
         end
     end
     false
@@ -125,7 +147,7 @@ function _redirect_bus!(net, old_bus, new_bus)
         get(l, "bus_from", nothing) == old_bus && (l["bus_from"] = new_bus)
         get(l, "bus_to",   nothing) == old_bus && (l["bus_to"]   = new_bus)
     end
-    for comp in ("load", "generator", "shunt", "voltage_source")
+    for comp in _BUS_ATTACHED_COMPONENTS
         for (_, c) in get(net, comp, Dict())
             get(c, "bus", nothing) == old_bus && (c["bus"] = new_bus)
         end
@@ -139,8 +161,17 @@ function _redirect_bus!(net, old_bus, new_bus)
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (_, t) in sub
-            get(t, "bus_from", nothing) == old_bus && (t["bus_from"] = new_bus)
-            get(t, "bus_to",   nothing) == old_bus && (t["bus_to"]   = new_bus)
+            if subtype in WINDING_LIST_SUBTYPES
+                # Winding-list subtypes carry buses inside `windings[].bus`;
+                # mutate the raw dicts (the `_nw_windings` view is a copy).
+                for w in get(t, "windings", Any[])
+                    w isa AbstractDict && get(w, "bus", nothing) == old_bus &&
+                        (w["bus"] = new_bus)
+                end
+            else
+                get(t, "bus_from", nothing) == old_bus && (t["bus_from"] = new_bus)
+                get(t, "bus_to",   nothing) == old_bus && (t["bus_to"]   = new_bus)
+            end
         end
     end
 end
@@ -272,7 +303,28 @@ function _merge_series_lines!(net)
                 tmap_B_l2  = get(l2, "terminal_map_to",   String[])
             end
 
-            if Set(tmap_B_l1) != Set(tmap_B_l2)
+            # Two lines forming a 2-cycle A—B—A (both connect the same pair of
+            # buses) share BOTH endpoints, so the non-shared ends resolve to the
+            # same bus. Merging them would fabricate a self-loop line
+            # (bus_from == bus_to) — exactly the E.CONN.SELF_LOOP data error.
+            # Skip; parallel lines are not a series pair.
+            if A == C
+                bus_id in warned_buses && continue
+                push!(warned_buses, bus_id)
+                _simlog!(net, "merge_series_lines", "PARALLEL_LINES", "info",
+                    "bus", bus_id,
+                    "Lines $l1_id and $l2_id both connect buses $A and $bus_id " *
+                    "(a parallel pair, not a series chain) — not merged.",
+                    detail=Dict("line_1" => l1_id, "line_2" => l2_id, "bus" => A))
+                continue
+            end
+
+            # The two segments are in series per conductor only when their maps
+            # at the shared bus agree in ORDER, not merely as sets: terminal maps
+            # are positional (conductor k ↔ entry k), so ["1","n"] vs ["n","1"] is
+            # a phase transposition the merged single line cannot represent. Require
+            # exact equality (the inline-impedance path below does the same).
+            if tmap_B_l1 != tmap_B_l2
                 bus_id in warned_buses && continue
                 push!(warned_buses, bus_id)
                 _simlog!(net, "merge_series_lines", "TERMINAL_MISMATCH", "warning",
@@ -352,8 +404,17 @@ function _merge_series_lines!(net)
                 e1 = o1 !== nothing ? o1 : (lc1_d isa Dict ? get(lc1_d, key, nothing) : nothing)
                 e2 = o2 !== nothing ? o2 : (lc2_d isa Dict ? get(lc2_d, key, nothing) : nothing)
                 if e1 isa AbstractVector && e2 isa AbstractVector
-                    n = min(length(e1), length(e2))
-                    merged_lim = [min(Float64(e1[k]), Float64(e2[k])) for k in 1:n]
+                    # Per conductor: the tighter limit where both segments rate
+                    # it, else the one that does. Truncating to the shorter vector
+                    # would silently drop a trailing conductor's rating (e.g. one
+                    # segment rates phases+neutral, the other phases only — the
+                    # neutral limit must survive).
+                    n = max(length(e1), length(e2))
+                    merged_lim = [begin
+                        v1 = k <= length(e1) ? Float64(e1[k]) : nothing
+                        v2 = k <= length(e2) ? Float64(e2[k]) : nothing
+                        v1 === nothing ? v2 : (v2 === nothing ? v1 : min(v1, v2))
+                    end for k in 1:n]
                     had_override ? (l1[key] = merged_lim) : delete!(l1, key)
                 elseif e1 isa AbstractVector
                     l1[key] = deepcopy(e1)
@@ -378,6 +439,7 @@ function _merge_series_lines!(net)
 end
 
 function _remove_dangling_lines!(net)
+    warned_grounded = Set{String}()
     changed = true
     while changed
         changed = false
@@ -387,6 +449,22 @@ function _remove_dangling_lines!(net)
         for bus_id in keys(get(net, "bus", Dict()))
             get(line_count, bus_id, 0) == 1 || continue
             get(nonline_count, bus_id, 0) == 0 || continue
+
+            # A grounded leaf bus is tied to earth; pruning it silently drops a
+            # ground (a return path / neutral reference), changing the electrics.
+            # Keep it, matching merge_series_lines' treatment of grounded buses.
+            bus_obj = get(get(net, "bus", Dict()), bus_id, Dict())
+            if !isempty(get(bus_obj, "perfectly_grounded_terminals", String[]))
+                if bus_id ∉ warned_grounded
+                    push!(warned_grounded, bus_id)
+                    _simlog!(net, "remove_dangling_lines", "GROUNDED_BUS", "warning",
+                        "bus", bus_id,
+                        "Dangling leaf bus $bus_id has grounded terminals — not pruned; " *
+                        "removing it would drop a ground (return path / neutral reference).",
+                        detail=Dict("bus" => bus_id))
+                end
+                continue
+            end
 
             lid  = only(get(lines_at, bus_id, String[]))
             line = lines[lid]
@@ -487,16 +565,31 @@ function _collapse_closed_switches!(net)
                 continue
             end
 
-            # Block on terminal-map arity mismatch.
-            tmap_fr = get(sw, "terminal_map_from", String[])
-            tmap_to = get(sw, "terminal_map_to",   String[])
-            if length(tmap_fr) != length(tmap_to)
+            # The collapse fuses b_to into b_fr by terminal-NAME union, so a name
+            # present on BOTH buses becomes one node. That is only correct when the
+            # switch actually connects those terminals straight-through. Two failure
+            # modes pass an arity check but corrupt the topology:
+            #   • cross-phase map (tmap_from ≠ tmap_to element-wise): the switch
+            #     joins e.g. b_fr's "1" to b_to's "2", yet the name-union would
+            #     silently make it an identity ("1"↔"1") connection;
+            #   • partial map: a terminal name shared by both buses but absent from
+            #     the switch map would be fused by name though the switch never
+            #     connected it.
+            # Require an identity map (tmap_from == tmap_to) that covers every
+            # terminal name the two buses share; skip otherwise. (A terminal on
+            # only one bus is harmless — it is carried across, not fused.)
+            tmap_fr = String.(get(sw, "terminal_map_from", String[]))
+            tmap_to = String.(get(sw, "terminal_map_to",   String[]))
+            shared  = intersect(Set(String.(get(bus_f, "terminal_names", String[]))),
+                                Set(String.(get(bus_t, "terminal_names", String[]))))
+            if tmap_fr != tmap_to || !issubset(shared, Set(tmap_fr))
                 _simlog!(net, "collapse_closed_switches", "MERGE_CONFLICT_TERMINALS", "warning",
                     "switch", sid,
-                    "Switch $sid has mismatched terminal-map arities " *
-                    "(from=$(length(tmap_fr)), to=$(length(tmap_to))) — skipped.",
+                    "Switch $sid is not a straight-through identity connection over the " *
+                    "terminals its buses share (cross-phase or partial map) — skipped.",
                     detail=Dict("bus_from" => b_fr, "bus_to" => b_to,
-                                "tmap_from" => tmap_fr, "tmap_to" => tmap_to))
+                                "tmap_from" => tmap_fr, "tmap_to" => tmap_to,
+                                "shared_terminals" => sort(collect(shared))))
                 continue
             end
 
@@ -527,11 +620,14 @@ function _collapse_closed_switches!(net)
             # Tighter voltage bounds, aligned by phase-terminal NAME (max of
             # the lower bounds, min of the upper bounds where both buses bound
             # the same phase). A blind element-wise combine would pair
-            # different phases whenever the orderings differ.
+            # different phases whenever the orderings differ. Covers the
+            # per-phase and phase-to-neutral arrays; scalar and phase-pair
+            # bounds are combined below.
             merged_phases = _phases(bus_f)
             _by_name(phs, vals) = Dict(phs[i] => Float64(vals[i])
                                        for i in 1:min(length(phs), length(vals)))
-            for (field, op) in (("v_min", max), ("v_max", min))
+            for (field, op) in (("v_min", max), ("v_max", min),
+                                ("vpn_min", max), ("vpn_max", min))
                 vf = get(bus_f, field, nothing)
                 vt = get(bus_t, field, nothing)
                 (vf === nothing && vt === nothing) && continue
@@ -566,22 +662,64 @@ function _collapse_closed_switches!(net)
                 end
             end
 
-            # A closed switch with an enforced current limit is flow-limited in
-            # the OPF just like a line. Collapsing fuses its two buses into one
-            # node, so the cut the rating constrained no longer exists and the
-            # limit cannot be projected onto any surviving branch — it is simply
-            # lost. Flag it (the collapse still proceeds); keep `closed_switches
-            # = false` to retain a rated switch as an explicit branch.
-            i_max_sw = get(sw, "i_max", nothing)
-            if i_max_sw isa AbstractVector && any(x -> x isa Number && !iszero(x), i_max_sw)
+            # Scalar feasible-set bounds (sequence magnitudes, neutral voltage,
+            # angle-difference limits): the merged node keeps the tighter of the
+            # two — max for lower bounds, min for upper. Previously only v_min/
+            # v_max survived, so an absorbed bus's tighter scalar bound was lost.
+            for (field, op) in (("vpos_min", max), ("vpos_max", min),
+                                ("vneg_max", min), ("vzero_max", min),
+                                ("vn_max",   min),
+                                ("va_diff_min", max), ("va_diff_max", min))
+                vf = get(bus_f, field, nothing); vt = get(bus_t, field, nothing)
+                if vf isa Number && vt isa Number
+                    bus_f[field] = op(Float64(vf), Float64(vt))
+                elseif vt isa Number
+                    bus_f[field] = Float64(vt)
+                end
+                # vf-only: already on bus_f, nothing to do.
+            end
+
+            # Phase-pair bounds (vpp_*) are indexed by phase PAIR, not phase
+            # name, so they can only be combined element-wise when both buses
+            # enumerate the same phases in the same order. Otherwise the pairing
+            # is ambiguous; keep the survivor's and record the absorbed bus's
+            # loss rather than mis-pair.
+            same_phase_order = ph_f == ph_t
+            for (field, op) in (("vpp_min", max), ("vpp_max", min))
+                vf = get(bus_f, field, nothing); vt = get(bus_t, field, nothing)
+                (vt isa AbstractVector) || continue          # nothing to fold in
+                if vf isa AbstractVector && same_phase_order &&
+                   length(vf) == length(vt)
+                    bus_f[field] = [op(Float64(vf[k]), Float64(vt[k])) for k in eachindex(vf)]
+                elseif vf === nothing && same_phase_order
+                    bus_f[field] = deepcopy(vt)
+                else
+                    _simlog!(net, "collapse_closed_switches", "BOUND_DROPPED",
+                        "warning", "bus", b_fr,
+                        "Merged bus $b_fr: absorbed bus $b_to's `$field` could not " *
+                        "be combined (differing phase order or length) and was dropped.",
+                        detail=Dict("field" => field, "bus_absorbed" => b_to))
+                end
+            end
+
+            # A closed switch with an enforced current OR apparent-power limit is
+            # flow-limited in the OPF just like a line. Collapsing fuses its two
+            # buses into one node, so the cut the rating constrained no longer
+            # exists and the limit cannot be projected onto any surviving branch —
+            # it is simply lost. Flag it (the collapse still proceeds); keep
+            # `closed_switches = false` to retain a rated switch as an explicit
+            # branch.
+            for lim_key in ("i_max", "s_max")
+                lim = get(sw, lim_key, nothing)
+                (lim isa AbstractVector && any(x -> x isa Number && !iszero(x), lim)) || continue
                 _simlog!(net, "collapse_closed_switches", "SWITCH_LIMIT_DROPPED", "warning",
                     "switch", sid,
-                    "Collapsing switch $sid drops its current limit $(i_max_sw): merging " *
+                    "Collapsing switch $sid drops its $lim_key $(lim): merging " *
                     "buses $b_fr and $b_to fuses them into one node, so the cut the rating " *
                     "constrained no longer exists and the limit cannot be projected onto a " *
                     "surviving branch — the feasible set may change. Keep " *
                     "`closed_switches = false` to retain the switch as an explicit branch.",
-                    detail=Dict("bus_from" => b_fr, "bus_to" => b_to, "i_max" => i_max_sw))
+                    detail=Dict("bus_from" => b_fr, "bus_to" => b_to, lim_key => lim))
             end
 
             _redirect_bus!(net, b_to, b_fr)

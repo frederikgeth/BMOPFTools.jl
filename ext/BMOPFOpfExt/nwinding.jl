@@ -210,7 +210,7 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
         # referred to winding 2's coil voltage.
         g = Float64(get(xfmr, "_g_no_load_pu", get(xfmr, "g_no_load", 0.0)))
         b = Float64(get(xfmr, "_b_no_load_pu", get(xfmr, "b_no_load", 0.0)))
-        if (g != 0.0 || b != 0.0) && nW >= 2
+        if (g != 0.0 || b != 0.0) && n >= 2
             w2 = ws[2]; phs2, neu2 = BMOPFTools._nw_phase_terminals(w2.terminal_map)
             for pk in 1:nph
                 ur, ui = upn(2, pk)

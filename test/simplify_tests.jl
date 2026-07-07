@@ -55,6 +55,38 @@ function _switch(from, to; open=false, tmap=["1","n"])
     )
 end
 
+function _ibr(bus)
+    Dict{String,Any}(
+        "bus"          => bus,
+        "terminal_map" => ["1","n"],
+        "topology"     => "SINGLE_PHASE",
+        "prime_mover"  => "PV",
+        "s_max"        => [5000.0],
+    )
+end
+
+function _capacitor(bus)
+    Dict{String,Any}(
+        "bus"           => bus,
+        "terminal_map"  => ["1","n"],
+        "configuration" => "SINGLE_PHASE",
+        "q_rated"       => [1000.0],
+        "v_nom"         => 230.0,
+    )
+end
+
+# Minimal winding-list (n_winding) transformer spanning the given buses.
+function _nwinding(buses)
+    Dict{String,Any}(
+        "windings" => [Dict{String,Any}(
+            "bus"           => b,
+            "terminal_map"  => ["1","n"],
+            "v_nom"         => 230.0,
+            "configuration" => "WYE") for b in buses],
+        "x_sc" => Dict{String,Any}("1_2" => 0.05),
+    )
+end
+
 _log_codes(net) = [e["code"] for e in get(net, "_simplification_log", [])]
 _log_sevs(net)  = [e["severity"] for e in get(net, "_simplification_log", [])]
 
@@ -735,4 +767,238 @@ end
     @test length(net["line"]) == 2
     @test haskey(net["bus"], "B")
     @test !haskey(net, "_simplification_log")
+end
+
+# ── Component-blindness regressions (#275) ──────────────────────────────────────
+# The connectivity helpers (_bus_connectivity / _bus_has_connections /
+# _redirect_bus!) used to enumerate only load/generator/shunt/voltage_source
+# and two-bus transformers, silently ignoring `ibr`, `capacitor`, and
+# winding-list (`n_winding`) transformers. That let a series merge or dangling
+# prune delete a bus hosting one of those elements (orphaning it), and let a
+# switch collapse absorb a bus without redirecting the element's `bus`.
+
+@testset "merge_series_lines — ibr/capacitor on intermediate bus blocks merge (#275)" begin
+    for (cat, elt) in (("ibr", _ibr("B")), ("capacitor", _capacitor("B")))
+        net = Dict{String,Any}(
+            "bus"      => Dict("A" => _bus(), "B" => _bus(), "C" => _bus()),
+            "linecode" => _lc("lc1"),
+            "line"     => Dict("l1" => _line("A", "B"), "l2" => _line("B", "C")),
+            "load"     => Dict("ld" => _load("C")),
+            cat        => Dict("e1" => elt),
+        )
+        net′ = merge_series_lines(net)
+        @test length(net′["line"]) == 2                 # not merged
+        @test haskey(net′["bus"], "B")                  # intermediate bus kept
+        @test net′[cat]["e1"]["bus"] == "B"             # element still attached
+        @test "NON_LINE_ON_BUS" in _log_codes(net′)
+    end
+end
+
+@testset "remove_dangling_lines — ibr/capacitor at leaf prevents removal (#275)" begin
+    for (cat, elt) in (("ibr", _ibr("B")), ("capacitor", _capacitor("B")))
+        net = Dict{String,Any}(
+            "bus"            => Dict("A" => _bus(), "B" => _bus()),
+            "linecode"       => _lc("lc1"),
+            "line"           => Dict("l1" => _line("A", "B")),
+            "voltage_source" => Dict("vs" => _vsource("A")),
+            cat              => Dict("e1" => elt),
+        )
+        net′ = remove_dangling_lines(net)
+        @test length(net′["line"]) == 1                 # stub not pruned
+        @test haskey(net′["bus"], "B")
+    end
+end
+
+@testset "collapse_closed_switches — ibr/capacitor bus redirected (#275)" begin
+    for (cat, elt) in (("ibr", _ibr("B")), ("capacitor", _capacitor("B")))
+        net = Dict{String,Any}(
+            "bus"            => Dict("A" => _bus(), "B" => _bus()),
+            "switch"         => Dict("sw" => _switch("A", "B"; open=false)),
+            "voltage_source" => Dict("vs" => _vsource("A")),
+            cat              => Dict("e1" => elt),
+        )
+        net′ = collapse_closed_switches(net)
+        @test !haskey(net′["bus"], "B")                 # B absorbed into A
+        @test net′[cat]["e1"]["bus"] == "A"             # element redirected, not orphaned
+    end
+end
+
+@testset "n_winding transformer visible to simplify helpers (#275)" begin
+    # A winding on the intermediate bus B blocks the series merge.
+    net = Dict{String,Any}(
+        "bus"         => Dict("A" => _bus(), "B" => _bus(), "C" => _bus(), "D" => _bus()),
+        "linecode"    => _lc("lc1"),
+        "line"        => Dict("l1" => _line("A", "B"), "l2" => _line("B", "C")),
+        "load"        => Dict("ld" => _load("C")),
+        "transformer" => Dict("n_winding" => Dict("t1" => _nwinding(["B", "D"]))),
+    )
+    net′ = merge_series_lines(net)
+    @test length(net′["line"]) == 2
+    @test haskey(net′["bus"], "B")
+    @test "NON_LINE_ON_BUS" in _log_codes(net′)
+
+    # A switch collapse redirects the winding's bus from B to A.
+    net2 = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(), "B" => _bus(), "D" => _bus()),
+        "switch"         => Dict("sw" => _switch("A", "B"; open=false)),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+        "transformer"    => Dict("n_winding" => Dict("t1" => _nwinding(["B", "D"]))),
+    )
+    net2′ = collapse_closed_switches(net2)
+    @test !haskey(net2′["bus"], "B")
+    @test net2′["transformer"]["n_winding"]["t1"]["windings"][1]["bus"] == "A"
+end
+
+# ── Terminal-map correctness on merge / collapse (#276) ─────────────────────────
+# Terminal maps are positional. A series merge or switch collapse that ignores
+# their ORDER/CONTENT (only their arity/set) silently turns a phase transposition
+# or a partial connection into a straight-through identity, corrupting topology.
+
+@testset "merge_series_lines — permuted terminal map at shared bus blocked (#276)" begin
+    # l1 and l2 meet at B with a phase transposition (["1","2","n"] vs
+    # ["2","1","n"]) — same set, different order. The linecode path used to
+    # compare only Set(...) and would merge; a single line cannot carry the swap.
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(terminals=["1","2","n"]),
+                           "B" => _bus(terminals=["1","2","n"]),
+                           "C" => _bus(terminals=["1","2","n"])),
+        "linecode" => _lc("lc1"),
+        "line"     => Dict(
+            "l1" => _line("A", "B"; tmap=["1","2","n"]),
+            "l2" => Dict("bus_from" => "B", "bus_to" => "C",
+                         "terminal_map_from" => ["2","1","n"],   # permuted at B
+                         "terminal_map_to"   => ["1","2","n"],
+                         "linecode" => "lc1", "length" => 100.0)),
+        "load"     => Dict("ld" => _load("C")),
+    )
+    net′ = merge_series_lines(net)
+    @test length(net′["line"]) == 2                 # not merged
+    @test haskey(net′["bus"], "B")
+    @test "TERMINAL_MISMATCH" in _log_codes(net′)
+end
+
+@testset "collapse_closed_switches — cross-phase switch not collapsed (#276)" begin
+    # The switch joins A.1↔B.2 and A.2↔B.1 (a transposition). Fusing by terminal
+    # name would wrongly identify A.1 with B.1. Same arity, so the old arity-only
+    # gate let it through.
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(terminals=["1","2","n"]),
+                                 "B" => _bus(terminals=["1","2","n"])),
+        "switch"         => Dict("sw" => Dict("bus_from" => "A", "bus_to" => "B",
+                             "open_switch" => false,
+                             "terminal_map_from" => ["1","2","n"],
+                             "terminal_map_to"   => ["2","1","n"])),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net′ = collapse_closed_switches(net)
+    @test haskey(net′["bus"], "B")                  # not collapsed
+    @test haskey(net′["switch"], "sw")
+    @test "MERGE_CONFLICT_TERMINALS" in _log_codes(net′)
+end
+
+@testset "collapse_closed_switches — partial switch over a shared terminal blocked (#276)" begin
+    # Both buses carry phase "2", but the switch connects only "1" and "n".
+    # A name-union collapse would fuse A.2 with B.2 though the switch never
+    # joined them.
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(terminals=["1","2","n"]),
+                                 "B" => _bus(terminals=["1","2","n"])),
+        "switch"         => Dict("sw" => Dict("bus_from" => "A", "bus_to" => "B",
+                             "open_switch" => false,
+                             "terminal_map_from" => ["1","n"],
+                             "terminal_map_to"   => ["1","n"])),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net′ = collapse_closed_switches(net)
+    @test haskey(net′["bus"], "B")                  # not collapsed
+    @test "MERGE_CONFLICT_TERMINALS" in _log_codes(net′)
+
+    # Positive control: an extra terminal on ONE side only (B has "2", A does
+    # not) is harmless — the switch still collapses and "2" is carried across.
+    net2 = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(terminals=["1","n"]),
+                                 "B" => _bus(terminals=["1","2","n"])),
+        "switch"         => Dict("sw" => _switch("A", "B"; open=false, tmap=["1","n"])),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net2′ = collapse_closed_switches(net2)
+    @test !haskey(net2′["bus"], "B")                # collapsed
+    @test "2" in net2′["bus"]["A"]["terminal_names"]
+end
+
+# ── Rating / bound preservation on merge & collapse (#277) ──────────────────────
+
+@testset "merge_series_lines — trailing (neutral) rating preserved (#277)" begin
+    # One segment rates phases+neutral (4 entries), the other phases only (3).
+    # Truncating to the shorter vector dropped the neutral limit; the merge must
+    # keep every conductor's rating (tighter where both rate it).
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(terminals=["1","2","3","n"]),
+                           "B" => _bus(terminals=["1","2","3","n"]),
+                           "C" => _bus(terminals=["1","2","3","n"])),
+        "linecode" => _lc("lc1"),
+        "line"     => Dict(
+            "l1" => _line("A", "B"; tmap=["1","2","3","n"]),
+            "l2" => _line("B", "C"; tmap=["1","2","3","n"])),
+        "load"     => Dict("ld" => _load("C")),
+    )
+    net["line"]["l1"]["i_max"] = [100.0, 100.0, 100.0, 50.0]   # incl. neutral
+    net["line"]["l2"]["i_max"] = [120.0, 120.0, 120.0]         # phases only
+    l = only(values(merge_series_lines(net)["line"]))
+    @test l["i_max"] == [100.0, 100.0, 100.0, 50.0]            # neutral survives
+end
+
+@testset "collapse_closed_switches — s_max drop flagged (#277)" begin
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(), "B" => _bus()),
+        "switch"         => Dict("sw" => _switch("A", "B"; open=false)),
+        "load"           => Dict("ld" => _load("B")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net["switch"]["sw"]["s_max"] = [5000.0, 5000.0]
+    net′ = collapse_closed_switches(net)
+    @test !haskey(net′["bus"], "B")                            # still collapsed
+    entry = only(e for e in net′["_simplification_log"] if e["code"] == "SWITCH_LIMIT_DROPPED")
+    @test entry["detail"]["s_max"] == [5000.0, 5000.0]
+end
+
+@testset "collapse_closed_switches — scalar & vpn bounds combined, not dropped (#277)" begin
+    net = Dict{String,Any}(
+        "bus" => Dict(
+            "A" => Dict("terminal_names" => ["1","n"], "vpn_max" => [250.0], "vneg_max" => 10.0),
+            "B" => Dict("terminal_names" => ["1","n"], "vpn_max" => [245.0], "vneg_max" => 8.0)),
+        "switch" => Dict("sw" => _switch("A", "B"; open=false)),
+    )
+    A = collapse_closed_switches(net)["bus"]["A"]
+    @test A["vpn_max"]  ≈ [245.0]   # min of 250, 245 (per-phase, name-aligned)
+    @test A["vneg_max"] ≈ 8.0       # min of 10, 8 (absorbed bus's tighter scalar kept)
+end
+
+@testset "merge_series_lines — parallel pair not merged into self-loop (#277)" begin
+    # l1 (A→B) and l2 (B→A) both connect A and B: their non-shared ends both
+    # resolve to A, so a naive merge would fabricate a self-loop A→A.
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(), "B" => _bus()),
+        "linecode"       => _lc("lc1"),
+        "line"           => Dict("l1" => _line("A", "B"), "l2" => _line("B", "A")),
+        "load"           => Dict("ld" => _load("A")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net′ = merge_series_lines(net)
+    @test length(net′["line"]) == 2                            # not merged
+    @test !any(l -> l["bus_from"] == l["bus_to"], values(net′["line"]))  # no self-loop
+    @test "PARALLEL_LINES" in _log_codes(net′)
+end
+
+@testset "remove_dangling_lines — grounded leaf not pruned (#277)" begin
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(), "B" => _bus(grounded=["n"])),
+        "linecode"       => _lc("lc1"),
+        "line"           => Dict("l1" => _line("A", "B")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net′ = remove_dangling_lines(net)
+    @test haskey(net′["line"], "l1")                          # ground kept
+    @test haskey(net′["bus"], "B")
+    @test "GROUNDED_BUS" in _log_codes(net′)
 end
