@@ -925,3 +925,80 @@ end
     @test !haskey(net2′["bus"], "B")                # collapsed
     @test "2" in net2′["bus"]["A"]["terminal_names"]
 end
+
+# ── Rating / bound preservation on merge & collapse (#277) ──────────────────────
+
+@testset "merge_series_lines — trailing (neutral) rating preserved (#277)" begin
+    # One segment rates phases+neutral (4 entries), the other phases only (3).
+    # Truncating to the shorter vector dropped the neutral limit; the merge must
+    # keep every conductor's rating (tighter where both rate it).
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(terminals=["1","2","3","n"]),
+                           "B" => _bus(terminals=["1","2","3","n"]),
+                           "C" => _bus(terminals=["1","2","3","n"])),
+        "linecode" => _lc("lc1"),
+        "line"     => Dict(
+            "l1" => _line("A", "B"; tmap=["1","2","3","n"]),
+            "l2" => _line("B", "C"; tmap=["1","2","3","n"])),
+        "load"     => Dict("ld" => _load("C")),
+    )
+    net["line"]["l1"]["i_max"] = [100.0, 100.0, 100.0, 50.0]   # incl. neutral
+    net["line"]["l2"]["i_max"] = [120.0, 120.0, 120.0]         # phases only
+    l = only(values(merge_series_lines(net)["line"]))
+    @test l["i_max"] == [100.0, 100.0, 100.0, 50.0]            # neutral survives
+end
+
+@testset "collapse_closed_switches — s_max drop flagged (#277)" begin
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(), "B" => _bus()),
+        "switch"         => Dict("sw" => _switch("A", "B"; open=false)),
+        "load"           => Dict("ld" => _load("B")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net["switch"]["sw"]["s_max"] = [5000.0, 5000.0]
+    net′ = collapse_closed_switches(net)
+    @test !haskey(net′["bus"], "B")                            # still collapsed
+    entry = only(e for e in net′["_simplification_log"] if e["code"] == "SWITCH_LIMIT_DROPPED")
+    @test entry["detail"]["s_max"] == [5000.0, 5000.0]
+end
+
+@testset "collapse_closed_switches — scalar & vpn bounds combined, not dropped (#277)" begin
+    net = Dict{String,Any}(
+        "bus" => Dict(
+            "A" => Dict("terminal_names" => ["1","n"], "vpn_max" => [250.0], "vneg_max" => 10.0),
+            "B" => Dict("terminal_names" => ["1","n"], "vpn_max" => [245.0], "vneg_max" => 8.0)),
+        "switch" => Dict("sw" => _switch("A", "B"; open=false)),
+    )
+    A = collapse_closed_switches(net)["bus"]["A"]
+    @test A["vpn_max"]  ≈ [245.0]   # min of 250, 245 (per-phase, name-aligned)
+    @test A["vneg_max"] ≈ 8.0       # min of 10, 8 (absorbed bus's tighter scalar kept)
+end
+
+@testset "merge_series_lines — parallel pair not merged into self-loop (#277)" begin
+    # l1 (A→B) and l2 (B→A) both connect A and B: their non-shared ends both
+    # resolve to A, so a naive merge would fabricate a self-loop A→A.
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(), "B" => _bus()),
+        "linecode"       => _lc("lc1"),
+        "line"           => Dict("l1" => _line("A", "B"), "l2" => _line("B", "A")),
+        "load"           => Dict("ld" => _load("A")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net′ = merge_series_lines(net)
+    @test length(net′["line"]) == 2                            # not merged
+    @test !any(l -> l["bus_from"] == l["bus_to"], values(net′["line"]))  # no self-loop
+    @test "PARALLEL_LINES" in _log_codes(net′)
+end
+
+@testset "remove_dangling_lines — grounded leaf not pruned (#277)" begin
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(), "B" => _bus(grounded=["n"])),
+        "linecode"       => _lc("lc1"),
+        "line"           => Dict("l1" => _line("A", "B")),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net′ = remove_dangling_lines(net)
+    @test haskey(net′["line"], "l1")                          # ground kept
+    @test haskey(net′["bus"], "B")
+    @test "GROUNDED_BUS" in _log_codes(net′)
+end
