@@ -31,6 +31,66 @@
 #   W.SOL.INIT_LARGE_ERROR   — init voltage error > 20 % of solved value on a phase terminal
 #   I.SOL.INIT_NEUTRAL_NONZERO — neutral terminal initialised non-zero
 
+# Resolve a per-conductor rating at conductor `k` from a field that may be a
+# per-conductor vector OR a scalar (applied to every conductor). Returns nothing
+# when the field is absent or the vector is too short.
+function _rating_at(v, k::Int)::Union{Float64,Nothing}
+    v isa AbstractVector && return k <= length(v) ? Float64(v[k]) : nothing
+    v isa Number && return Float64(v)
+    nothing
+end
+
+# Recursively collect the dotted paths of every non-finite Number anywhere in a
+# result tree, regardless of nesting depth (bus/line terminals, transformer
+# per-winding dicts, capacitor "terminals" + scalar "q", loss sub-dicts, …).
+function _collect_nonfinite!(locs::Vector{String}, node, path::String)
+    if node isa Number
+        (node isa Bool || isfinite(node)) || push!(locs, path)
+    elseif node isa AbstractDict
+        for (k, v) in node
+            _collect_nonfinite!(locs, v, isempty(path) ? string(k) : "$path.$k")
+        end
+    elseif node isa AbstractVector
+        for (i, v) in enumerate(node)
+            _collect_nonfinite!(locs, v, "$path[$i]")
+        end
+    end
+    return locs
+end
+
+# Complex power (P [W], Q [var]) flowing FROM the network INTO a shunt-admittance
+# element, evaluated at the solved SI bus voltages. Used to account standalone
+# shunts in the network power balance (the branch-loss ledger covers only lines
+# and transformers). S = Σ_i V_i · conj(I_i), I = Y·V, Y = G + jB.
+function _shunt_power_into(shunt, bus_res)::Tuple{Float64,Float64}
+    tm = string.(get(shunt, "terminal_map", String[]))
+    (isempty(tm) && bus_res isa Dict) && return (0.0, 0.0)
+    bus_res isa Dict || return (0.0, 0.0)
+    G = _pattern_keys_to_matrix(shunt, "G_")
+    B = _pattern_keys_to_matrix(shunt, "B_")
+    (G isa AbstractMatrix || B isa AbstractMatrix) || return (0.0, 0.0)
+    n = length(tm)
+    vr = zeros(n); vi = zeros(n)
+    for (k, t) in enumerate(tm)
+        tv = get(bus_res, t, nothing)
+        tv isa Dict || return (0.0, 0.0)     # missing terminal voltage → skip element
+        vr[k] = Float64(get(tv, "vr", 0.0)); vi[k] = Float64(get(tv, "vi", 0.0))
+    end
+    _at(M, i, j) = (M isa AbstractMatrix && i <= size(M,1) && j <= size(M,2)) ? M[i,j] : 0.0
+    P = 0.0; Q = 0.0
+    for i in 1:n
+        ir = 0.0; ii = 0.0
+        for j in 1:n
+            g = _at(G,i,j); b = _at(B,i,j)
+            ir += g*vr[j] - b*vi[j]
+            ii += g*vi[j] + b*vr[j]
+        end
+        P += vr[i]*ir + vi[i]*ii            # Re(V_i · conj(I_i))
+        Q += vi[i]*ir - vr[i]*ii            # Im(V_i · conj(I_i))
+    end
+    (P, Q)
+end
+
 # Predict model power for sub-load `idx` given solved squared-voltage W and Vnom.
 # component is "p" (active) or "q" (reactive). Returns nothing if model unknown.
 function _load_model_power(load, component::String, idx::Int,
@@ -193,20 +253,12 @@ function solution_check(net::Dict{String,Any},
     end
 
     # ── NaN / Inf detection ──────────────────────────────────────────────────
+    # Walk the whole result tree recursively: a fixed bus[id][terminal].field
+    # descent misses deeper values — transformer[tid][side][winding].field,
+    # capacitor[id].terminals[t].field and its scalar capacitor[id].q, loss
+    # sub-dicts — so a numerically-failed transformer/capacitor solve could pass.
     nan_locs = String[]
-    for (sec, sec_dict) in result
-        sec_dict isa Dict || continue
-        for (id, id_dict) in sec_dict
-            id_dict isa Dict || continue
-            for (t, t_dict) in id_dict
-                t_dict isa Dict || continue
-                for (f, v) in t_dict
-                    v isa Number && !isfinite(v) &&
-                        push!(nan_locs, "$sec[$id][$t].$f")
-                end
-            end
-        end
-    end
+    _collect_nonfinite!(nan_locs, result, "")
     if !isempty(nan_locs)
         push!(findings, Finding(ERROR, "E.SOL.NAN_IN_RESULT", :solution, :network, nothing,
             "$(length(nan_locs)) non-finite value(s) in a claimed-feasible result " *
@@ -570,13 +622,10 @@ function solution_check(net::Dict{String,Any},
             cm_fr = get(cvals, "cm_fr", NaN)
             isfinite(cm_fr) || continue
 
-            # i_max: line field takes precedence over linecode field
-            i_lim = nothing
-            if i_max_ln isa AbstractVector && k <= length(i_max_ln)
-                i_lim = Float64(i_max_ln[k])
-            elseif i_max_lc isa AbstractVector && k <= length(i_max_lc)
-                i_lim = Float64(i_max_lc[k])
-            end
+            # i_max: line field takes precedence over linecode field. A scalar
+            # rating applies to every conductor (a vector, per conductor).
+            i_lim = _rating_at(i_max_ln, k)
+            i_lim === nothing && (i_lim = _rating_at(i_max_lc, k))
 
             if i_lim !== nothing
                 viol, act = _bound_status(cm_fr, nothing, i_lim)
@@ -601,12 +650,8 @@ function solution_check(net::Dict{String,Any},
 
             # s_max: ground-referenced per-conductor apparent power |S| = vm·cm_fr.
             # Line field takes precedence over the linecode field.
-            s_lim = nothing
-            if s_max_ln isa AbstractVector && k <= length(s_max_ln)
-                s_lim = Float64(s_max_ln[k])
-            elseif s_max_lc isa AbstractVector && k <= length(s_max_lc)
-                s_lim = Float64(s_max_lc[k])
-            end
+            s_lim = _rating_at(s_max_ln, k)
+            s_lim === nothing && (s_lim = _rating_at(s_max_lc, k))
             if s_lim !== nothing
                 vm = get(get(ln_bus_res, t, Dict()), "vm", NaN)
                 if isfinite(vm)
@@ -651,8 +696,7 @@ function solution_check(net::Dict{String,Any},
             cvals isa Dict || continue
             cm = get(cvals, "cm", NaN)
             isfinite(cm) || continue
-            i_lim = i_max_sw isa AbstractVector && k <= length(i_max_sw) ?
-                        Float64(i_max_sw[k]) : nothing
+            i_lim = _rating_at(i_max_sw, k)
             if i_lim !== nothing
                 viol, act = _bound_status(cm, nothing, i_lim)
                 if viol
@@ -672,8 +716,7 @@ function solution_check(net::Dict{String,Any},
                 end
             end
             # s_max: ground-referenced |S| = vm·cm.
-            s_lim = s_max_sw isa AbstractVector && k <= length(s_max_sw) ?
-                        Float64(s_max_sw[k]) : nothing
+            s_lim = _rating_at(s_max_sw, k)
             if s_lim !== nothing
                 vm = get(get(sw_bus_res, t, Dict()), "vm", NaN)
                 if isfinite(vm)
@@ -1173,8 +1216,27 @@ function solution_check(net::Dict{String,Any},
     p_loss = losses isa Dict ? Float64(get(losses, "p_loss", 0.0)) : 0.0
     q_loss = losses isa Dict ? Float64(get(losses, "q_loss", 0.0)) : 0.0
 
-    balance_err   = abs(p_gen - p_load - p_loss)
-    q_balance_err = abs(q_gen - q_load - q_loss)
+    # Standalone shunt and capacitor elements are neither injections nor branch
+    # losses, so they must be counted explicitly: a shunt absorbs (P,Q) from its
+    # bus (computed from its admittance and the solved voltages), and a capacitor
+    # delivers reactive power (result "q", SI var). Omitting them makes the
+    # balance spuriously fail on any network with material shunt/capacitor power.
+    bus_res_all = get(result, "bus", Dict())
+    p_shunt = 0.0; q_shunt = 0.0
+    for (_, sh) in get(net, "shunt", Dict())
+        sh isa Dict || continue
+        P, Q = _shunt_power_into(sh, get(bus_res_all, string(get(sh, "bus", "")), Dict()))
+        p_shunt += P; q_shunt += Q
+    end
+    q_cap = sum(Float64(get(cvals, "q", 0.0))
+                for (_, cvals) in get(result, "capacitor", Dict())
+                if cvals isa Dict; init=0.0)
+    out["p_shunt"] = p_shunt
+    out["q_shunt"] = q_shunt
+    out["q_capacitor"] = q_cap
+
+    balance_err   = abs(p_gen - p_load - p_shunt - p_loss)
+    q_balance_err = abs(q_gen + q_cap - q_load - q_shunt - q_loss)
     balance_tol   = max(0.01 * abs(p_load), 1.0)   # 1 % of load or 1 W
     # Reactive flows can be near zero while loads are unity-PF; floor on |q_load|
     # plus a small share of |q_gen| keeps the relative test meaningful.
@@ -1190,21 +1252,22 @@ function solution_check(net::Dict{String,Any},
 
     if balance_err > balance_tol
         push!(findings, Finding(WARNING, "W.SOL.POWER_BALANCE", :solution, :network, nothing,
-            "Network active-power balance error: |pg_total − pd_total − p_loss| = " *
+            "Network active-power balance error: |pg − pd − p_shunt − p_loss| = " *
             "$(_fmt_mw(balance_err)) (>1 % of load). " *
             "pg=$(round(p_gen/1e3;digits=2)) kW, pd=$(round(p_load/1e3;digits=2)) kW, " *
-            "p_loss=$(round(p_loss/1e3;digits=2)) kW.",
-            Dict{String,Any}("p_gen"=>p_gen,"p_load"=>p_load,"p_loss"=>p_loss,
-                             "balance_err"=>balance_err)))
+            "p_shunt=$(round(p_shunt/1e3;digits=2)) kW, p_loss=$(round(p_loss/1e3;digits=2)) kW.",
+            Dict{String,Any}("p_gen"=>p_gen,"p_load"=>p_load,"p_shunt"=>p_shunt,
+                             "p_loss"=>p_loss,"balance_err"=>balance_err)))
     end
     if q_balance_err > q_balance_tol
         push!(findings, Finding(WARNING, "W.SOL.POWER_BALANCE", :solution, :network, nothing,
-            "Network reactive-power balance error: |qg_total − qd_total − q_loss| = " *
+            "Network reactive-power balance error: |qg + q_cap − qd − q_shunt − q_loss| = " *
             "$(_fmt_mw(q_balance_err)) var (>1 % of reactive load/gen). " *
-            "qg=$(round(q_gen/1e3;digits=2)) kvar, qd=$(round(q_load/1e3;digits=2)) kvar, " *
+            "qg=$(round(q_gen/1e3;digits=2)) kvar, q_cap=$(round(q_cap/1e3;digits=2)) kvar, " *
+            "qd=$(round(q_load/1e3;digits=2)) kvar, q_shunt=$(round(q_shunt/1e3;digits=2)) kvar, " *
             "q_loss=$(round(q_loss/1e3;digits=2)) kvar.",
-            Dict{String,Any}("q_gen"=>q_gen,"q_load"=>q_load,"q_loss"=>q_loss,
-                             "balance_err"=>q_balance_err,"flavour"=>"reactive")))
+            Dict{String,Any}("q_gen"=>q_gen,"q_cap"=>q_cap,"q_load"=>q_load,"q_shunt"=>q_shunt,
+                             "q_loss"=>q_loss,"balance_err"=>q_balance_err,"flavour"=>"reactive")))
     end
 
     # ── Initialisation quality ────────────────────────────────────────────────
@@ -1290,16 +1353,20 @@ function solution_check(net::Dict{String,Any},
     end
 
     # ── Informational: binding summary ────────────────────────────────────────
-    n_violations = n_volt_viol + n_therm_viol + n_gen_viol
-    n_active     = n_volt_active + n_therm_active + n_gen_active
+    # IBR capability violations/active bounds were counted (n_inv_*) but left out
+    # of the headline totals, under-reporting the true count.
+    n_violations = n_volt_viol + n_therm_viol + n_gen_viol + n_inv_viol
+    n_active     = n_volt_active + n_therm_active + n_gen_active + n_inv_active
     push!(findings, Finding(INFO, "I.SOL.BINDING_SUMMARY", :solution, :network, nothing,
         "Solution bound summary: $n_violations violation(s), $n_active active constraint(s). " *
         "Voltage: $(n_volt_viol)V / $(n_volt_active)A. " *
         "Thermal: $(n_therm_viol)V / $(n_therm_active)A. " *
-        "Generator: $(n_gen_viol)V / $(n_gen_active)A.",
+        "Generator: $(n_gen_viol)V / $(n_gen_active)A. " *
+        "IBR: $(n_inv_viol)V / $(n_inv_active)A.",
         Dict{String,Any}("n_volt_violations"=>n_volt_viol,"n_volt_active"=>n_volt_active,
                          "n_thermal_violations"=>n_therm_viol,"n_thermal_active"=>n_therm_active,
-                         "n_gen_violations"=>n_gen_viol,"n_gen_active"=>n_gen_active)))
+                         "n_gen_violations"=>n_gen_viol,"n_gen_active"=>n_gen_active,
+                         "n_inv_violations"=>n_inv_viol,"n_inv_active"=>n_inv_active)))
 
     # ── Informational: loss fraction ──────────────────────────────────────────
     if p_load > 0

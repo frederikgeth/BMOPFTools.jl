@@ -3161,4 +3161,78 @@
         @test rep.results[:optimization]["is_opf"] == false
     end
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # solution_check coverage gaps (#290): power balance must account shunts and
+    # capacitors; scalar (non-vector) thermal limits must be honoured; the NaN
+    # scan must reach nested (transformer-winding) results; IBR violations must
+    # count in the binding summary.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "solution_check coverage — balance/scalar/NaN/IBR (#290)" begin
+        net = parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+                "b1":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3","n"],
+             "v_magnitude":[230.0,230.0,230.0,0.0],"v_angle":[0.0,-2.0943951,2.0943951,0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05,"R_series_3_3":0.05,
+             "R_series_4_4":0.05,"i_max":100.0}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1","linecode":"lc","length":100.0,
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"]}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],"configuration":"WYE",
+             "model":"constant_power","p_nom":[2000.0,2000.0,2000.0],"q_nom":[800.0,800.0,800.0]}},
+         "capacitor":{"c1":{"bus":"b1","terminal_map":["1","2","3","n"],"configuration":"WYE",
+             "q_rated":[1000.0,1000.0,1000.0],"v_nom":230.0}},
+         "shunt":{"sh":{"bus":"b1","terminal_map":["1"],"G_1_1":0.02,"B_1_1":0.0}}}
+        """; from_string=true)
+        res = solve_opf(net)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        # (a) Balance accounts the capacitor's reactive injection and the phase
+        # shunt's real draw — no spurious W.SOL.POWER_BALANCE.
+        f = Finding[]
+        out = solution_check(net, res, f)
+        @test !any(x -> x.code == "W.SOL.POWER_BALANCE", f)
+        @test out["q_capacitor"] > 0.0        # ≈ 3 × B·|V|²
+        @test out["p_shunt"] > 100.0          # G·|V|² on the phase shunt (SI W)
+
+        # (b) A SCALAR linecode i_max (not a vector) is honoured — a very tight
+        # value fires a thermal finding that the vector-only check would miss.
+        net_s = deepcopy(net); net_s["linecode"]["lc"]["i_max"] = 0.5
+        fs = Finding[]
+        solution_check(net_s, res, fs)
+        @test any(x -> x.code in ("E.SOL.THERMAL_VIOLATION", "W.SOL.THERMAL_ACTIVE"), fs)
+
+        # (c) A NaN buried in a transformer per-winding result is caught by the
+        # recursive scan (a fixed bus[id][terminal].field descent missed it).
+        res_nan = deepcopy(res)
+        res_nan["transformer"] = Dict{String,Any}("t" => Dict{String,Any}(
+            "fr" => Dict{String,Any}("1" => Dict{String,Any}("cm" => NaN))))
+        fn = Finding[]
+        on = solution_check(net, res_nan, fn)
+        @test on["n_nan_fields"] >= 1
+        @test any(x -> x.code == "E.SOL.NAN_IN_RESULT", fn)
+
+        # (d) IBR capability violations count toward the binding-summary total.
+        netv = parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "b1":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                      "v_min":[215.0],"v_max":[245.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.05,"R_series_2_2":0.05}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1","linecode":"lc","length":100.0,
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"]}},
+         "ibr":{"pv":{"bus":"b1","terminal_map":["1","n"],"topology":"SINGLE_PHASE","prime_mover":"PV",
+             "s_max":[20000.0],"p_max":[20000.0],"p_min":[0.0],"q_min":[0.0],"q_max":[0.0],
+             "cost":[-1.0]}}}
+        """; from_string=true)
+        rv = solve_opf(netv)
+        @test rv["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        cm = hypot(rv["ibr"]["pv"]["1"]["cri"], rv["ibr"]["pv"]["1"]["cii"])
+        netv2 = deepcopy(netv); netv2["ibr"]["pv"]["i_max"] = [0.5 * cm]  # tightened below solve
+        fv = Finding[]
+        solution_check(netv2, rv, fv)
+        bs = only(x for x in fv if x.code == "I.SOL.BINDING_SUMMARY")
+        @test bs.detail["n_inv_violations"] >= 1
+        @test occursin("IBR:", bs.message)
+    end
+
 end  # @testset "OPF — solve_opf extension"
