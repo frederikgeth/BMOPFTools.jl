@@ -343,7 +343,11 @@ function integrity_check(net::Dict{String,Any},
     # ibr per-phase filter/cost vectors must match phase count = |terminal_map| - 1
     for (id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
-        n_phase = length(get(inv, "terminal_map", String[])) - 1
+        tm_i = Vector{String}(get(inv, "terminal_map", String[]))
+        # Phase count is set by the topology, not length(tm) - 1 (which assumes a
+        # neutral): a THREE_LEG (delta) IBR carries |tm| phase currents, so
+        # correct 3-entry per-phase vectors must NOT be flagged as mismatched.
+        n_phase, has_n = _ibr_phase_count(get(inv, "topology", "FOUR_LEG"), tm_i)
         n_phase < 1 && continue
         for field in ("r_filter", "x_filter", "cost", "s_max")
             v = get(inv, field, nothing)
@@ -352,19 +356,13 @@ function integrity_check(net::Dict{String,Any},
                 push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
                     :ibr, id,
                     "IBR '$id': $field has $(length(v)) entries but the " *
-                    "terminal map implies $n_phase phase(s).",
+                    "topology implies $n_phase phase(s).",
                     Dict{String,Any}("field" => field, "n_phase" => n_phase)))
             end
         end
         # i_max is per CONDUCTOR; topology sets phase count and neutral presence.
-        let tm_i = Vector{String}(get(inv, "terminal_map", String[])),
-            topo = get(inv, "topology", "FOUR_LEG")
-            n_ph_i, has_n = topo == "THREE_LEG" ? (length(tm_i), false) :
-                            topo == "SINGLE_PHASE" ? (1, length(tm_i) >= 2) :
-                            (length(tm_i) - 1, true)        # FOUR_LEG
-            n_dim_issues += _check_conductor_imax!(findings, :ibr, "IBR", id,
-                get(inv, "i_max", nothing), n_ph_i, has_n)
-        end
+        n_dim_issues += _check_conductor_imax!(findings, :ibr, "IBR", id,
+            get(inv, "i_max", nothing), n_phase, has_n)
     end
 
     # generator per-phase vectors must match the phase-conductor count, which is

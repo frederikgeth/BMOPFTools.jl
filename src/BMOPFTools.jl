@@ -239,6 +239,43 @@ function _phase_positions(terminal_map::AbstractVector)::Vector{Int}
 end
 
 """
+    _infer_ibr_topology(terminal_map) -> String
+
+Infer an IBR/STATCOM topology from its terminal map by NEUTRAL PRESENCE and
+phase count (not terminal count alone), matching the `_IBR_ARITY` contract:
+
+  * a neutral terminal present → `SINGLE_PHASE` (2 terminals) or `FOUR_LEG` (≥3);
+  * no neutral                 → `THREE_LEG` (≥3 terminals, a delta / 3-wire
+    connection) or `SINGLE_PHASE` (a phase-to-phase pair).
+
+Counting terminals alone mislabels a 3-wire delta `[a,b,c]` as `FOUR_LEG`.
+"""
+function _infer_ibr_topology(terminal_map::AbstractVector)::String
+    n = length(terminal_map)
+    if _neutral_terminal(terminal_map) !== nothing
+        return n <= 2 ? "SINGLE_PHASE" : "FOUR_LEG"
+    end
+    n >= 3 ? "THREE_LEG" : "SINGLE_PHASE"
+end
+
+"""
+    _ibr_phase_count(topology, terminal_map) -> (n_phase::Int, has_neutral::Bool)
+
+Number of phase currents and whether a neutral conductor is present for an IBR,
+given its `topology` and terminal map. Single source of truth mirrored by the
+OPF stamp (`ext/BMOPFOpfExt/ibr.jl`) and integrity's per-conductor `i_max`
+check: `THREE_LEG` carries one current per terminal with no neutral;
+`SINGLE_PHASE` one phase current (with a return when ≥2 terminals); `FOUR_LEG`
+one per non-neutral phase plus a neutral.
+"""
+function _ibr_phase_count(topology, terminal_map::AbstractVector)::Tuple{Int,Bool}
+    n = length(terminal_map)
+    topology == "THREE_LEG"    && return (n, false)
+    topology == "SINGLE_PHASE" && return (1, n >= 2)
+    return (max(n - 1, 0), true)   # FOUR_LEG (and unknown → default)
+end
+
+"""
     _xfmr_winding_pairs(terminal_map) -> Vector{Tuple{Int,Union{Int,Nothing}}}
 
 Winding terminal pairs `(p, q)` for one side of a single-phase transformer /
