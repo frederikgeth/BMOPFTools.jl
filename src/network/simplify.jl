@@ -48,10 +48,31 @@ function _simlog!(net, operation, code, severity, element_type, element_id, mess
     push!(get!(net, "_simplification_log", Any[]), entry)
 end
 
+# Non-line, non-switch, non-transformer element categories that attach to a
+# single bus via a `"bus"` field. `ibr` and `capacitor` are first-class
+# categories and must be included alongside loads/generators/shunts/sources.
+const _BUS_ATTACHED_COMPONENTS =
+    ("load", "generator", "shunt", "voltage_source", "ibr", "capacitor")
+
+# Every bus a transformer references, across both the two-bus subtypes
+# (`bus_from`/`bus_to`) and the winding-list subtypes (`windings[].bus`). Read
+# only — see `_redirect_bus!` for the mutating winding path.
+function _xfmr_bus_refs(subtype, t)
+    if subtype in WINDING_LIST_SUBTYPES
+        return String[w.bus for w in _nw_windings(t) if !isempty(w.bus)]
+    end
+    bs = String[]
+    for b in (get(t, "bus_from", nothing), get(t, "bus_to", nothing))
+        b isa AbstractString && push!(bs, b)
+    end
+    bs
+end
+
 # Returns (line_count, nonline_count, lines_at) for all buses.
 # line_count[b]    = number of lines referencing bus b
 # nonline_count[b] = number of non-line elements at bus b
-#                    (loads, generators, shunts, voltage_sources, switches, transformers)
+#                    (loads, generators, shunts, voltage_sources, ibrs,
+#                     capacitors, switches, transformers)
 # lines_at[b]      = vector of line ids referencing bus b
 function _bus_connectivity(net)
     buses        = get(net, "bus",  Dict())
@@ -67,7 +88,7 @@ function _bus_connectivity(net)
         end
     end
 
-    for comp in ("load", "generator", "shunt", "voltage_source")
+    for comp in _BUS_ATTACHED_COMPONENTS
         for (_, c) in get(net, comp, Dict())
             b = get(c, "bus", nothing)
             b isa AbstractString && haskey(nonline_count, b) && (nonline_count[b] += 1)
@@ -83,8 +104,8 @@ function _bus_connectivity(net)
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (_, t) in sub
-            for b in (get(t, "bus_from", nothing), get(t, "bus_to", nothing))
-                b isa AbstractString && haskey(nonline_count, b) && (nonline_count[b] += 1)
+            for b in _xfmr_bus_refs(subtype, t)
+                haskey(nonline_count, b) && (nonline_count[b] += 1)
             end
         end
     end
@@ -98,7 +119,7 @@ function _bus_has_connections(net, bus_id)
         (get(l, "bus_from", nothing) == bus_id ||
          get(l, "bus_to",   nothing) == bus_id) && return true
     end
-    for comp in ("load", "generator", "shunt", "voltage_source")
+    for comp in _BUS_ATTACHED_COMPONENTS
         for (_, c) in get(net, comp, Dict())
             get(c, "bus", nothing) == bus_id && return true
         end
@@ -112,8 +133,7 @@ function _bus_has_connections(net, bus_id)
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (_, t) in sub
-            (get(t, "bus_from", nothing) == bus_id ||
-             get(t, "bus_to",   nothing) == bus_id) && return true
+            bus_id in _xfmr_bus_refs(subtype, t) && return true
         end
     end
     false
@@ -125,7 +145,7 @@ function _redirect_bus!(net, old_bus, new_bus)
         get(l, "bus_from", nothing) == old_bus && (l["bus_from"] = new_bus)
         get(l, "bus_to",   nothing) == old_bus && (l["bus_to"]   = new_bus)
     end
-    for comp in ("load", "generator", "shunt", "voltage_source")
+    for comp in _BUS_ATTACHED_COMPONENTS
         for (_, c) in get(net, comp, Dict())
             get(c, "bus", nothing) == old_bus && (c["bus"] = new_bus)
         end
@@ -139,8 +159,17 @@ function _redirect_bus!(net, old_bus, new_bus)
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (_, t) in sub
-            get(t, "bus_from", nothing) == old_bus && (t["bus_from"] = new_bus)
-            get(t, "bus_to",   nothing) == old_bus && (t["bus_to"]   = new_bus)
+            if subtype in WINDING_LIST_SUBTYPES
+                # Winding-list subtypes carry buses inside `windings[].bus`;
+                # mutate the raw dicts (the `_nw_windings` view is a copy).
+                for w in get(t, "windings", Any[])
+                    w isa AbstractDict && get(w, "bus", nothing) == old_bus &&
+                        (w["bus"] = new_bus)
+                end
+            else
+                get(t, "bus_from", nothing) == old_bus && (t["bus_from"] = new_bus)
+                get(t, "bus_to",   nothing) == old_bus && (t["bus_to"]   = new_bus)
+            end
         end
     end
 end

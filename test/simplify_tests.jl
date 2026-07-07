@@ -55,6 +55,38 @@ function _switch(from, to; open=false, tmap=["1","n"])
     )
 end
 
+function _ibr(bus)
+    Dict{String,Any}(
+        "bus"          => bus,
+        "terminal_map" => ["1","n"],
+        "topology"     => "SINGLE_PHASE",
+        "prime_mover"  => "PV",
+        "s_max"        => [5000.0],
+    )
+end
+
+function _capacitor(bus)
+    Dict{String,Any}(
+        "bus"           => bus,
+        "terminal_map"  => ["1","n"],
+        "configuration" => "SINGLE_PHASE",
+        "q_rated"       => [1000.0],
+        "v_nom"         => 230.0,
+    )
+end
+
+# Minimal winding-list (n_winding) transformer spanning the given buses.
+function _nwinding(buses)
+    Dict{String,Any}(
+        "windings" => [Dict{String,Any}(
+            "bus"           => b,
+            "terminal_map"  => ["1","n"],
+            "v_nom"         => 230.0,
+            "configuration" => "WYE") for b in buses],
+        "x_sc" => Dict{String,Any}("1_2" => 0.05),
+    )
+end
+
 _log_codes(net) = [e["code"] for e in get(net, "_simplification_log", [])]
 _log_sevs(net)  = [e["severity"] for e in get(net, "_simplification_log", [])]
 
@@ -735,4 +767,84 @@ end
     @test length(net["line"]) == 2
     @test haskey(net["bus"], "B")
     @test !haskey(net, "_simplification_log")
+end
+
+# ── Component-blindness regressions (#275) ──────────────────────────────────────
+# The connectivity helpers (_bus_connectivity / _bus_has_connections /
+# _redirect_bus!) used to enumerate only load/generator/shunt/voltage_source
+# and two-bus transformers, silently ignoring `ibr`, `capacitor`, and
+# winding-list (`n_winding`) transformers. That let a series merge or dangling
+# prune delete a bus hosting one of those elements (orphaning it), and let a
+# switch collapse absorb a bus without redirecting the element's `bus`.
+
+@testset "merge_series_lines — ibr/capacitor on intermediate bus blocks merge (#275)" begin
+    for (cat, elt) in (("ibr", _ibr("B")), ("capacitor", _capacitor("B")))
+        net = Dict{String,Any}(
+            "bus"      => Dict("A" => _bus(), "B" => _bus(), "C" => _bus()),
+            "linecode" => _lc("lc1"),
+            "line"     => Dict("l1" => _line("A", "B"), "l2" => _line("B", "C")),
+            "load"     => Dict("ld" => _load("C")),
+            cat        => Dict("e1" => elt),
+        )
+        net′ = merge_series_lines(net)
+        @test length(net′["line"]) == 2                 # not merged
+        @test haskey(net′["bus"], "B")                  # intermediate bus kept
+        @test net′[cat]["e1"]["bus"] == "B"             # element still attached
+        @test "NON_LINE_ON_BUS" in _log_codes(net′)
+    end
+end
+
+@testset "remove_dangling_lines — ibr/capacitor at leaf prevents removal (#275)" begin
+    for (cat, elt) in (("ibr", _ibr("B")), ("capacitor", _capacitor("B")))
+        net = Dict{String,Any}(
+            "bus"            => Dict("A" => _bus(), "B" => _bus()),
+            "linecode"       => _lc("lc1"),
+            "line"           => Dict("l1" => _line("A", "B")),
+            "voltage_source" => Dict("vs" => _vsource("A")),
+            cat              => Dict("e1" => elt),
+        )
+        net′ = remove_dangling_lines(net)
+        @test length(net′["line"]) == 1                 # stub not pruned
+        @test haskey(net′["bus"], "B")
+    end
+end
+
+@testset "collapse_closed_switches — ibr/capacitor bus redirected (#275)" begin
+    for (cat, elt) in (("ibr", _ibr("B")), ("capacitor", _capacitor("B")))
+        net = Dict{String,Any}(
+            "bus"            => Dict("A" => _bus(), "B" => _bus()),
+            "switch"         => Dict("sw" => _switch("A", "B"; open=false)),
+            "voltage_source" => Dict("vs" => _vsource("A")),
+            cat              => Dict("e1" => elt),
+        )
+        net′ = collapse_closed_switches(net)
+        @test !haskey(net′["bus"], "B")                 # B absorbed into A
+        @test net′[cat]["e1"]["bus"] == "A"             # element redirected, not orphaned
+    end
+end
+
+@testset "n_winding transformer visible to simplify helpers (#275)" begin
+    # A winding on the intermediate bus B blocks the series merge.
+    net = Dict{String,Any}(
+        "bus"         => Dict("A" => _bus(), "B" => _bus(), "C" => _bus(), "D" => _bus()),
+        "linecode"    => _lc("lc1"),
+        "line"        => Dict("l1" => _line("A", "B"), "l2" => _line("B", "C")),
+        "load"        => Dict("ld" => _load("C")),
+        "transformer" => Dict("n_winding" => Dict("t1" => _nwinding(["B", "D"]))),
+    )
+    net′ = merge_series_lines(net)
+    @test length(net′["line"]) == 2
+    @test haskey(net′["bus"], "B")
+    @test "NON_LINE_ON_BUS" in _log_codes(net′)
+
+    # A switch collapse redirects the winding's bus from B to A.
+    net2 = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(), "B" => _bus(), "D" => _bus()),
+        "switch"         => Dict("sw" => _switch("A", "B"; open=false)),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+        "transformer"    => Dict("n_winding" => Dict("t1" => _nwinding(["B", "D"]))),
+    )
+    net2′ = collapse_closed_switches(net2)
+    @test !haskey(net2′["bus"], "B")
+    @test net2′["transformer"]["n_winding"]["t1"]["windings"][1]["bus"] == "A"
 end
