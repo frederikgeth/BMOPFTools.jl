@@ -126,7 +126,7 @@ function fix_case(net::Dict{String,Any};
 
     manifest = TransformationManifest(
         string(Dates.now()),
-        AugmentationRecipe(),   # placeholder — FixRecipe is recorded via entries
+        recipe,                 # the actual FixRecipe (manifest.recipe is ::Any)
         entries,
         fb,
         fa,
@@ -138,6 +138,15 @@ end
 # ── Pass helpers ─────────────────────────────────────────────────────────────
 
 # Pass 1: drop everything not reachable from a voltage source
+# Return `base` if free in `existing`, else `base_2`, `base_3`, … — so a
+# generated element id never silently overwrites a pre-existing one.
+function _unique_id(existing, base::AbstractString)::String
+    haskey(existing, base) || return String(base)
+    k = 2
+    while haskey(existing, "$(base)_$k"); k += 1; end
+    "$(base)_$k"
+end
+
 function _fix_largest_component!(net′, entries)
     conn = connectivity_analysis(net′, Finding[])
     conn["is_connected"] && return   # nothing to do
@@ -145,6 +154,18 @@ function _fix_largest_component!(net′, entries)
     source_buses = Set{String}(get(conn, "source_buses", String[]))
     comps = get(conn, "components", Vector{Vector{String}}[])
     isempty(comps) && return
+
+    # With no voltage source, EVERY component is unsourced and the pass below
+    # would delete the entire network — never the intent. Bail with a finding so
+    # a later source/generator augmentation can still act on the intact net.
+    if isempty(source_buses)
+        push!(entries, TransformEntry(
+            :network, "(topology)", "no_source", nothing, nothing,
+            "connectivity_analysis", :standard,
+            "No voltage source in the network — largest-component pruning skipped " *
+            "(dropping every unsourced component would delete the whole network)."))
+        return
+    end
 
     # Which components contain at least one source bus?
     keep_buses = Set{String}()
@@ -286,7 +307,7 @@ function _fix_low_impedance!(net′, entries, threshold_ohm)
         i_max = get(line, "i_max", nothing)
         i_max === nothing && lc isa Dict && (i_max = get(lc, "i_max", nothing))
         i_max !== nothing && (sw["i_max"] = deepcopy(i_max))
-        sw_id = "_sw_$(id)"
+        sw_id = _unique_id(switches, "_sw_$(id)")
         switches[sw_id] = sw
         delete!(lines, id)
 
@@ -448,13 +469,9 @@ function _infer_and_write_i_max!(el, etype, eid, adj, entries)
         push!(sources, "$(ntype)/$(nid)")
     end
 
-    if isempty(bounds)
-        push!(entries, TransformEntry(
-            etype, eid, "i_max", nothing, nothing,
-            "adjacent_current_bound", :low,
-            "no adjacent element with a current bound found"))
-        return
-    end
+    # Nothing was written when no neighbour carries a bound — do not record a
+    # change entry for a no-op (it would over-count changes in the manifest).
+    isempty(bounds) && return
 
     derived = minimum(bounds)
     # i_max is per-conductor in the data model (and the solution checker only
@@ -635,7 +652,7 @@ function _fix_shunt_to_capacitor!(net′, entries)
         any(isnothing, idx) && continue
         maximum(abs.(B2[idx, idx] .- B)) <= 1e-7 * bscale || continue
 
-        new_id = "cap_$(id)"
+        new_id = _unique_id(caps, "cap_$(id)")
         caps[new_id] = cand
         delete!(shunts, id)
         push!(entries, TransformEntry(
