@@ -118,8 +118,18 @@ function _apply_ibr_augmentation!(net′::Dict{String,Any},
         # ── P bounds ─────────────────────────────────────────────────────────
         if !haskey(inv, "p_max")
             p_avail = get(inv, "p_avail", nothing)
+            has_smax = length(smax_arr) >= n_phase && sum(@view smax_arr[1:n_phase]) > 0
             p_max_vec = if p_avail isa Number
-                fill(Float64(p_avail) / n_phase, n_phase)
+                if has_smax
+                    # Split p_avail PROPORTIONALLY to each phase's s_max so no
+                    # phase's p_max exceeds its own apparent-power rating. An equal
+                    # ÷n_phase split puts p_max[k] > s_max[k] on a lightly loaded
+                    # phase when s_max mirrors an unbalanced load shape.
+                    sm = smax_arr[1:n_phase]
+                    Float64(p_avail) .* (sm ./ sum(sm))
+                else
+                    fill(Float64(p_avail) / n_phase, n_phase)
+                end
             elseif length(smax_arr) >= n_phase
                 smax_arr[1:n_phase]
             else
@@ -127,8 +137,9 @@ function _apply_ibr_augmentation!(net′::Dict{String,Any},
             end
             if p_max_vec !== nothing
                 inv["p_max"] = p_max_vec
-                src = p_avail !== nothing ? "p_avail ÷ $(n_phase) phase(s)" :
-                                            "s_max per phase"
+                src = p_avail !== nothing ?
+                    (has_smax ? "p_avail split ∝ per-phase s_max" : "p_avail ÷ $(n_phase) phase(s)") :
+                    "s_max per phase"
                 push!(entries, TransformEntry(
                     :ibr, inv_id, "p_max", nothing, p_max_vec,
                     "ibr_p_bound", :standard,

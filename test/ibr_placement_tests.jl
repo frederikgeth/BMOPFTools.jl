@@ -302,3 +302,89 @@ end
     @test !haskey(b, "p_dc_min")
     @test !haskey(b, "p_dc_max")
 end
+
+# ── I16: DER/IBR sizing determinism & math (#284, #285) ──────────────────────
+# A feeder src → tx(30 kVA) → mv → line → lv, with load on mv (3 kVA) and lv (6 kVA).
+_inv_xfmr_net() = Dict{String,Any}(
+  "bus"=>Dict{String,Any}(
+    "src"=>Dict{String,Any}("terminal_names"=>["1","2","3","n"],"perfectly_grounded_terminals"=>["n"]),
+    "mv"=>Dict{String,Any}("terminal_names"=>["1","2","3","n"],"perfectly_grounded_terminals"=>["n"]),
+    "lv"=>Dict{String,Any}("terminal_names"=>["1","2","3","n"],"perfectly_grounded_terminals"=>["n"])),
+  "voltage_source"=>Dict{String,Any}("vs"=>Dict{String,Any}("bus"=>"src","terminal_map"=>["1","2","3"],
+     "v_magnitude"=>[6350.0,6350.0,6350.0],"v_angle"=>[0.0,-2.0944,2.0944])),
+  "transformer"=>Dict{String,Any}("single_phase"=>Dict{String,Any}("tx"=>Dict{String,Any}(
+     "bus_from"=>"src","bus_to"=>"mv","terminal_map_from"=>["1","2","3"],"terminal_map_to"=>["1","2","3"],
+     "s_rating"=>30000.0,"v_nom_from"=>11000.0,"v_nom_to"=>400.0,
+     "r_series_from"=>1.0,"r_series_to"=>0.01,"x_series_from"=>5.0,"x_series_to"=>0.05))),
+  "linecode"=>Dict{String,Any}("lc"=>Dict{String,Any}("R_series_1_1"=>0.1,"R_series_2_2"=>0.1,"R_series_3_3"=>0.1)),
+  "line"=>Dict{String,Any}("l"=>Dict{String,Any}("bus_from"=>"mv","bus_to"=>"lv","linecode"=>"lc","length"=>50.0,
+     "terminal_map_from"=>["1","2","3"],"terminal_map_to"=>["1","2","3"])),
+  "load"=>Dict{String,Any}(
+    "lmv"=>Dict{String,Any}("bus"=>"mv","terminal_map"=>["1","2","3","n"],"configuration"=>"WYE","p_nom"=>[1000.0,1000.0,1000.0],"q_nom"=>[0.0,0.0,0.0]),
+    "llv"=>Dict{String,Any}("bus"=>"lv","terminal_map"=>["1","2","3","n"],"configuration"=>"WYE","p_nom"=>[2000.0,2000.0,2000.0],"q_nom"=>[0.0,0.0,0.0])))
+
+@testset "I16a: :fraction_of_downstream_load sizes from downstream, not local (#285)" begin
+    net = _inv_xfmr_net()
+    nd, _ = add_ibrs(net; recipe = IBRRecipe(size_basis = :fraction_of_downstream_load,
+                                             s_fraction = 1.0, strategy = :load_following))
+    nl, _ = add_ibrs(net; recipe = IBRRecipe(size_basis = :fraction_of_local_load,
+                                             s_fraction = 1.0, strategy = :load_following))
+    # mv sees the whole downstream load (mv + lv = 9 kVA), not just its local 3 kVA.
+    @test sum(nd["ibr"]["pv_mv"]["s_max"]) > sum(nl["ibr"]["pv_mv"]["s_max"]) + 1.0
+    @test sum(nd["ibr"]["pv_mv"]["s_max"]) ≈ 9000.0 rtol = 1e-6
+end
+
+@testset "I16b: negative local load never yields a negative rating (#285)" begin
+    net = _inv_xfmr_net()
+    net["load"]["llv"]["p_nom"] = [-2000.0, -2000.0, -2000.0]   # embedded generation
+    nn, _ = add_ibrs(net; recipe = IBRRecipe(size_basis = :fraction_of_local_load,
+                                             s_fraction = 1.0, strategy = :load_following))
+    @test all(nn["ibr"]["pv_lv"]["s_max"] .>= 0.0)
+    @test sum(nn["ibr"]["pv_lv"]["s_max"]) ≈ 6000.0 rtol = 1e-6   # sized by magnitude
+end
+
+@testset "I16c: min_local_load_va is an apparent-power threshold (#285)" begin
+    net = _inv_xfmr_net()
+    # Small active, large reactive: |S| ≈ 6 kVA ≫ 1 kVA, but ΣP = 300 W < 1 kVA.
+    net["load"]["llv"]["p_nom"] = [100.0, 100.0, 100.0]
+    net["load"]["llv"]["q_nom"] = [2000.0, 2000.0, 2000.0]
+    nq, _ = add_ibrs(net; recipe = IBRRecipe(size_basis = :fraction_of_local_load,
+                       s_fraction = 1.0, strategy = :load_following, min_local_load_va = 1000.0))
+    @test haskey(nq["ibr"], "pv_lv")   # not skipped: |S| clears the VA threshold
+end
+
+@testset "I16d: p_avail split ∝ s_max keeps p_max ≤ s_max per phase (#285)" begin
+    net = _inv_xfmr_net()
+    net["load"]["llv"]["p_nom"] = [3000.0, 1000.0, 500.0]   # unbalanced
+    np, _  = add_ibrs(net; recipe = IBRRecipe(size_basis = :fraction_of_local_load,
+                                              s_fraction = 1.0, strategy = :load_following))
+    npa, _ = augment_case(np)
+    inv = npa["ibr"]["pv_lv"]
+    @test all(inv["p_max"] .<= inv["s_max"] .+ 1e-6)   # equal split would violate this
+end
+
+@testset "I16e: nearest transformer wins deterministically (#284)" begin
+    # src → t1(HV/MV) → mv → t2(MV/LV) → lv. Bus lv is downstream of BOTH; the
+    # NEARER (smaller downstream set) transformer t2 must own it, every run.
+    net = _inv_xfmr_net()
+    net["bus"]["lv2"] = Dict{String,Any}("terminal_names"=>["1","2","3","n"],"perfectly_grounded_terminals"=>["n"])
+    net["transformer"]["single_phase"]["t2"] = Dict{String,Any}(
+        "bus_from"=>"lv","bus_to"=>"lv2","terminal_map_from"=>["1","2","3"],"terminal_map_to"=>["1","2","3"],
+        "s_rating"=>10000.0,"v_nom_from"=>400.0,"v_nom_to"=>230.0,
+        "r_series_from"=>0.1,"r_series_to"=>0.01,"x_series_from"=>0.5,"x_series_to"=>0.05)
+    net["load"]["llv2"] = Dict{String,Any}("bus"=>"lv2","terminal_map"=>["1","2","3","n"],
+        "configuration"=>"WYE","p_nom"=>[500.0,500.0,500.0],"q_nom"=>[0.0,0.0,0.0])
+    ids = String[]
+    sized = Float64[]
+    for _ in 1:5
+        nd, _ = add_ibrs(net; recipe = IBRRecipe(size_basis = :fraction_of_transformer_rating,
+                                                 s_fraction = 0.5, strategy = :load_following))
+        push!(sized, sum(nd["ibr"]["pv_lv2"]["s_max"]))
+    end
+    # lv2's basis must be the NEAREST transformer t2 (10 kVA, load-share 1) →
+    # s_max = 0.5 × 10 kVA = 5 kVA, deterministically. The far transformer t1
+    # (30 kVA, small share) would give ~2.1 kVA; which one won used to depend on
+    # Dict iteration order.
+    @test length(unique(round.(sized; digits = 3))) == 1
+    @test sized[1] ≈ 5000.0 rtol = 1e-3
+end

@@ -179,7 +179,9 @@ function _apply_der_placement!(net′::Dict{String,Any},
             (lvl === nothing || !(lvl in recipe.voltage_levels)) && continue
         end
         agg = loads[bus]
-        sum(agg.p_nom) < recipe.min_local_load_va && continue
+        # min_local_load_va is a VA threshold — compare against apparent power
+        # |S| = √(ΣP² + ΣQ²), not active power alone.
+        hypot(sum(agg.p_nom), sum(agg.q_nom)) < recipe.min_local_load_va && continue
         # overwrite guard
         if !recipe.overwrite_existing && _bus_has_generator(net′, bus)
             continue
@@ -269,7 +271,10 @@ function _basis_total(recipe::GeneratorRecipe, bus::String, agg, xfmr)
     elseif recipe.size_basis == :fraction_of_downstream_load
         info = get(xfmr.bus_info, bus, nothing)
         info === nothing && return local_total, "p_max = $(recipe.der_p_fraction) × local load (no downstream context)"
-        return local_total, "p_max = $(recipe.der_p_fraction) × downstream-load share at bus"
+        # Size from the load DOWNSTREAM of the feeding transformer, not the local
+        # bus load (which was returned before, making this identical to
+        # :fraction_of_local_load).
+        return info.down_total, "p_max = $(recipe.der_p_fraction) × downstream load $(round(info.down_total)) VA"
     else
         error("unknown GeneratorRecipe.size_basis = $(recipe.size_basis)")
     end
@@ -283,9 +288,13 @@ function _size_der(recipe::GeneratorRecipe, p_nom::Vector{Float64},
     total = recipe.size_basis == :fixed_tiers ?
         get(recipe.fixed_tier_w, level, 0.0) :
         recipe.der_p_fraction * basis_total
-    s = sum(p_nom)
-    weights = s > 0 ? p_nom ./ s : fill(1.0 / n, n)
-    total .* weights
+    # Distribute by per-phase load MAGNITUDE and keep the result non-negative:
+    # a phase with negative p_nom (embedded generation) or a negative basis must
+    # not produce a negative p_max (an inverted/unphysical bound).
+    w  = abs.(p_nom)
+    sw = sum(w)
+    weights = sw > 0 ? w ./ sw : fill(1.0 / n, n)
+    abs(total) .* weights
 end
 
 # ── Cost ─────────────────────────────────────────────────────────────────────
@@ -377,7 +386,12 @@ end
 # p_nom summed elementwise over loads with matching phase count.
 function _collect_load_aggregates(net)::Dict{String,NamedTuple}
     out = Dict{String,NamedTuple}()
-    for (_, l) in get(net, "load", Dict())
+    # Iterate loads in a deterministic (sorted-id) order so the phasing and
+    # configuration a multi-load bus inherits from its "first" load is stable
+    # rather than dependent on Dict iteration order.
+    loaddict = get(net, "load", Dict())
+    for lid in sort!(collect(keys(loaddict)))
+        l = loaddict[lid]
         l isa Dict || continue
         bus = string(get(l, "bus", ""))
         isempty(bus) && continue
@@ -385,15 +399,18 @@ function _collect_load_aggregates(net)::Dict{String,NamedTuple}
         cfg = string(get(l, "configuration", "WYE"))
         pn  = Float64.(get(l, "p_nom", Float64[]))
         isempty(pn) && continue
+        qn  = Float64.(get(l, "q_nom", Float64[]))
+        length(qn) == length(pn) || (qn = zeros(length(pn)))
         if haskey(out, bus)
             prev = out[bus]
             if length(prev.p_nom) == length(pn)
                 out[bus] = (terminal_map = prev.terminal_map,
                             configuration = prev.configuration,
-                            p_nom = prev.p_nom .+ pn)
+                            p_nom = prev.p_nom .+ pn,
+                            q_nom = prev.q_nom .+ qn)
             end
         else
-            out[bus] = (terminal_map = tm, configuration = cfg, p_nom = pn)
+            out[bus] = (terminal_map = tm, configuration = cfg, p_nom = pn, q_nom = qn)
         end
     end
     out
@@ -402,8 +419,9 @@ end
 # Map each downstream load bus to its feeding transformer's rating and the
 # transformer's total downstream load, for transformer-rating-based sizing.
 function _xfmr_downstream(net, loads)
-    bus_info = Dict{String,NamedTuple}()
+    # Collect each rated transformer's downstream set once.
     xfmr = get(net, "transformer", Dict())
+    entries = Tuple{String,Float64,Set{String},Float64}[]
     for subtype in TRANSFORMER_SUBTYPES
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
@@ -415,11 +433,20 @@ function _xfmr_downstream(net, loads)
             isempty(to_buses) && continue
             down = _downstream_buses(net, string(id), to_buses)
             down_total = sum(Float64[sum(loads[b].p_nom) for b in down if haskey(loads, b)]; init = 0.0)
-            for b in down
-                haskey(loads, b) || continue
-                haskey(bus_info, b) && continue   # nearest transformer wins
-                bus_info[b] = (xfmr_id = string(id), s_rating = s_rating, down_total = down_total)
-            end
+            push!(entries, (string(id), s_rating, down, down_total))
+        end
+    end
+    # "Nearest transformer wins": the one whose downstream set is SMALLEST among
+    # those containing the bus (a more-downstream unit's set is a subset). Sort by
+    # (set size, id) so the assignment is deterministic — the previous first-claim
+    # over Dict iteration order was not.
+    sort!(entries, by = e -> (length(e[3]), e[1]))
+    bus_info = Dict{String,NamedTuple}()
+    for (id, s_rating, down, down_total) in entries
+        for b in down
+            haskey(loads, b) || continue
+            haskey(bus_info, b) && continue
+            bus_info[b] = (xfmr_id = id, s_rating = s_rating, down_total = down_total)
         end
     end
     (bus_info = bus_info,)
