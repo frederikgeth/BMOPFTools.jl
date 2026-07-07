@@ -945,6 +945,39 @@ const IEEE13_FIXTURE = """
             f2 = Finding[]
             domain_rules_check(net2, f2)
             @test any(f_ -> f_.code == "W.DOM.INV_PV_ABSORBS", f2)
+
+            # Per-phase VECTOR bounds (the spec-conformant shape). The checks
+            # were dead on arrays before — they guarded on `isa Number` while the
+            # schema mandates arrays. Empty range / over-s_max on one phase fires.
+            netv = parse_bmopf(INV_FIXTURE; from_string=true)
+            netv["ibr"]["pv1"]["p_min"] = [0.0, 0.0, 0.0]
+            netv["ibr"]["pv1"]["p_max"] = [-100.0, 0.0, 0.0]        # empty on phase 1
+            netv["ibr"]["pv1"]["q_max"] = [20000.0, 3000.0, 3000.0] # phase 1 > s_max
+            fv = Finding[]
+            domain_rules_check(netv, fv)
+            @test any(f_ -> f_.code == "E.DOM.INV_P_BOUNDS", fv)
+            @test any(f_ -> f_.code == "W.DOM.INV_BOUND_EXCEEDS_SMAX", fv)
+
+            netv2 = parse_bmopf(INV_FIXTURE; from_string=true)
+            netv2["ibr"]["pv1"]["q_min"] = [3000.0, 0.0, 0.0]
+            netv2["ibr"]["pv1"]["q_max"] = [-3000.0, 0.0, 0.0]      # empty on phase 1
+            netv2["ibr"]["pv1"]["p_min"] = [-1000.0, 0.0, 0.0]      # PV absorbs on phase 1
+            fv2 = Finding[]
+            domain_rules_check(netv2, fv2)
+            @test any(f_ -> f_.code == "E.DOM.INV_Q_BOUNDS", fv2)
+            @test any(f_ -> f_.code == "W.DOM.INV_PV_ABSORBS", fv2)
+
+            # Clean per-phase bounds fire none of the capability findings.
+            netc = parse_bmopf(INV_FIXTURE; from_string=true)
+            netc["ibr"]["pv1"]["p_min"] = [0.0, 0.0, 0.0]
+            netc["ibr"]["pv1"]["p_max"] = [4000.0, 4000.0, 4000.0]
+            netc["ibr"]["pv1"]["q_min"] = [-3000.0, -3000.0, -3000.0]
+            netc["ibr"]["pv1"]["q_max"] = [3000.0, 3000.0, 3000.0]
+            fc = Finding[]
+            domain_rules_check(netc, fc)
+            @test !any(f_ -> f_.code in ("E.DOM.INV_P_BOUNDS", "E.DOM.INV_Q_BOUNDS",
+                                         "W.DOM.INV_BOUND_EXCEEDS_SMAX",
+                                         "W.DOM.INV_PV_ABSORBS"), fc)
         end
 
         @testset "i_max field: schema, arity, sign" begin

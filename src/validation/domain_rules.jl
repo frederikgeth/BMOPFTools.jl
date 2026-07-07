@@ -954,17 +954,12 @@ function _check_ibr_capability(net, findings, n_checks)
 
         smax = get(inv, "s_max", nothing)
         smax_arr = smax isa AbstractVector ? [Float64(x) for x in smax if x isa Number] : nothing
-        smax_total = nothing
-        if smax_arr !== nothing
-            if any(<=(0), smax_arr)
-                push!(findings, Finding(ERROR, "E.DOM.INV_SMAX_NONPOSITIVE", :domain_rules,
-                    :ibr, id,
-                    "IBR '$id' has a non-positive entry in s_max $(smax_arr) VA; " *
-                    "all per-phase apparent-power ratings must be strictly positive.",
-                    Dict{String,Any}("s_max" => smax_arr)))
-            else
-                smax_total = sum(smax_arr)
-            end
+        if smax_arr !== nothing && any(<=(0), smax_arr)
+            push!(findings, Finding(ERROR, "E.DOM.INV_SMAX_NONPOSITIVE", :domain_rules,
+                :ibr, id,
+                "IBR '$id' has a non-positive entry in s_max $(smax_arr) VA; " *
+                "all per-phase apparent-power ratings must be strictly positive.",
+                Dict{String,Any}("s_max" => smax_arr)))
         end
 
         imax = get(inv, "i_max", nothing)
@@ -977,54 +972,68 @@ function _check_ibr_capability(net, findings, n_checks)
                 Dict{String,Any}("i_max" => imax_arr)))
         end
 
-        pmin = get(inv, "p_min", nothing)
-        pmax = get(inv, "p_max", nothing)
-        if pmin isa Number && pmax isa Number && Float64(pmin) > Float64(pmax)
-            push!(findings, Finding(ERROR, "E.DOM.INV_P_BOUNDS", :domain_rules,
-                :ibr, id,
-                "IBR '$id' has p_min = $(pmin) W > p_max = $(pmax) W; " *
-                "the active-power range is empty.",
-                Dict{String,Any}("p_min" => pmin, "p_max" => pmax)))
+        # p_min/p_max/q_min/q_max are per-phase arrays per the spec (a scalar is
+        # tolerated as a 1-vector). The capability checks operate elementwise;
+        # comparing scalars only (the previous behaviour) made all four dead on
+        # spec-conformant vector data.
+        pmin_v = _ibr_boundvec(get(inv, "p_min", nothing))
+        pmax_v = _ibr_boundvec(get(inv, "p_max", nothing))
+        qmin_v = _ibr_boundvec(get(inv, "q_min", nothing))
+        qmax_v = _ibr_boundvec(get(inv, "q_max", nothing))
+
+        # Empty active/reactive range on any phase (min > max).
+        for (lo, hi, code, name, unit) in
+                ((pmin_v, pmax_v, "E.DOM.INV_P_BOUNDS", "active",   "W"),
+                 (qmin_v, qmax_v, "E.DOM.INV_Q_BOUNDS", "reactive", "var"))
+            n = min(length(lo), length(hi))
+            bad = [k for k in 1:n if lo[k] > hi[k]]
+            if !isempty(bad)
+                lo_f = name == "active" ? "p_min" : "q_min"
+                hi_f = name == "active" ? "p_max" : "q_max"
+                push!(findings, Finding(ERROR, code, :domain_rules, :ibr, id,
+                    "IBR '$id' has $lo_f > $hi_f on phase(s) $(bad) " *
+                    "($lo_f=$(lo) $unit, $hi_f=$(hi) $unit); the $name-power range is empty.",
+                    Dict{String,Any}(lo_f => lo, hi_f => hi, "phases" => bad)))
+            end
         end
 
-        qmin = get(inv, "q_min", nothing)
-        qmax = get(inv, "q_max", nothing)
-        if qmin isa Number && qmax isa Number && Float64(qmin) > Float64(qmax)
-            push!(findings, Finding(ERROR, "E.DOM.INV_Q_BOUNDS", :domain_rules,
-                :ibr, id,
-                "IBR '$id' has q_min = $(qmin) var > q_max = $(qmax) var; " *
-                "the reactive-power range is empty.",
-                Dict{String,Any}("q_min" => qmin, "q_max" => qmax)))
-        end
-
-        # Bounds that exceed the total apparent-power nameplate are unreachable.
-        if smax_total !== nothing
-            for (field, v) in (("p_min", pmin), ("p_max", pmax),
-                               ("q_min", qmin), ("q_max", qmax))
-                v isa Number || continue
-                if abs(Float64(v)) > smax_total
+        # Per-phase bounds larger than that phase's apparent-power rating are
+        # unreachable inside the capability circle p² + q² ≤ s_max².
+        if smax_arr !== nothing && all(>(0), smax_arr)
+            for (field, vv) in (("p_min", pmin_v), ("p_max", pmax_v),
+                                ("q_min", qmin_v), ("q_max", qmax_v))
+                n = min(length(vv), length(smax_arr))
+                bad = [k for k in 1:n if abs(vv[k]) > smax_arr[k]]
+                if !isempty(bad)
                     push!(findings, Finding(WARNING, "W.DOM.INV_BOUND_EXCEEDS_SMAX",
                         :domain_rules, :ibr, id,
-                        "IBR '$id': |$field| = $(abs(Float64(v))) exceeds the " *
-                        "total apparent-power nameplate sum(s_max) = $(smax_total) VA; " *
-                        "this bound is unreachable inside the capability circle (unit error?).",
-                        Dict{String,Any}("field" => field, "value" => v,
-                                         "s_max_total" => smax_total)))
+                        "IBR '$id': |$field| exceeds the per-phase apparent-power rating " *
+                        "s_max on phase(s) $(bad) ($field=$(vv), s_max=$(smax_arr) VA); " *
+                        "unreachable inside the capability circle (unit error?).",
+                        Dict{String,Any}("field" => field, "value" => vv,
+                                         "s_max" => smax_arr, "phases" => bad)))
                 end
             end
         end
 
         # PV prime movers inject only; a negative active-power floor is unphysical.
-        if get(inv, "prime_mover", nothing) == "PV" &&
-           pmin isa Number && Float64(pmin) < 0
+        if get(inv, "prime_mover", nothing) == "PV" && any(<(0.0), pmin_v)
             push!(findings, Finding(WARNING, "W.DOM.INV_PV_ABSORBS", :domain_rules,
                 :ibr, id,
-                "IBR '$id' is prime_mover=PV but has p_min = $(pmin) W < 0 — " *
-                "PV cannot absorb active power; use prime_mover=BATTERY for " *
-                "bidirectional devices.",
-                Dict{String,Any}("p_min" => pmin)))
+                "IBR '$id' is prime_mover=PV but has p_min < 0 on some phase " *
+                "(p_min=$(pmin_v) W) — PV cannot absorb active power; use " *
+                "prime_mover=BATTERY for bidirectional devices.",
+                Dict{String,Any}("p_min" => pmin_v)))
         end
     end
+end
+
+# Coerce an IBR power-bound field to a Float64 vector: a per-phase array as-is,
+# a scalar as a 1-element vector, anything else (absent/malformed) to empty.
+function _ibr_boundvec(v)
+    v isa AbstractVector && return Float64[Float64(x) for x in v if x isa Number]
+    v isa Number && return Float64[Float64(v)]
+    return Float64[]
 end
 
 function _check_transformer_ratings(net, findings, thresh, n_checks)
