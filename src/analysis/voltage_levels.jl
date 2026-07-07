@@ -327,6 +327,15 @@ function _check_transformer_ratio_consistency(net::Dict{String,Any},
             (vf_bus === nothing || vt_bus === nothing) && continue
             (vf_ref === nothing || vt_ref === nothing) && continue
             expected_ratio = Float64(vt_ref) / Float64(vf_ref)
+            # Apply the same phase-to-phase √3 correction the nominal-voltage
+            # propagation uses, so a SWER (phase-to-phase-tapped 1-phase)
+            # transformer's raw line-to-line v_nom is not compared against the
+            # phase-to-ground bus ratio — that mismatch was a false XFMR_RATIO.
+            if subtype in ("single_phase", "center_tap")
+                bf = _winding_phase_to_phase(t, "terminal_map_from") ? sqrt(3.0) : 1.0
+                bt = _winding_phase_to_phase(t, "terminal_map_to")   ? sqrt(3.0) : 1.0
+                expected_ratio *= bf / bt
+            end
             actual_ratio   = vt_bus / vf_bus
             if abs(expected_ratio - actual_ratio) / max(expected_ratio, 1e-6) > 0.1
                 push!(findings, Finding(WARNING, "W.VOLT.XFMR_RATIO",

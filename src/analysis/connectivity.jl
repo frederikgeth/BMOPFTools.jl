@@ -173,28 +173,45 @@ function connectivity_analysis(net::Dict{String,Any},
         result["longest_path_buses"] = max_path
     end
 
-    # Open switch isolated sections: buses only reachable through open switches
+    # Open switch isolated sections: an open switch's endpoint is only genuinely
+    # isolated if it has NO closed path to a voltage source. The previous version
+    # listed every open switch's bus_to unconditionally, so a bus still fed by a
+    # closed line elsewhere was falsely reported as isolated. Filter by the true
+    # source-connectivity from the closed-edge components.
+    powered = Set{String}()
+    let vsrc_set0 = Set(vsrc_buses)
+        for comp in comps
+            names = [bus_names[i] for i in comp]
+            any(n -> n in vsrc_set0, names) && union!(powered, names)
+        end
+    end
     open_sw_buses = String[]
     for (_, sw) in get(net, "switch", Dict())
         !get(sw, "open_switch", false) && continue
-        b_to = get(sw, "bus_to", nothing)
-        b_to isa AbstractString && push!(open_sw_buses, b_to)
+        for b in (get(sw, "bus_from", nothing), get(sw, "bus_to", nothing))
+            b isa AbstractString && !(b in powered) && push!(open_sw_buses, b)
+        end
     end
     result["open_switch_isolated_buses"] = unique(open_sw_buses)
 
-    # Dangling buses: degree 1 with no load, generator, or shunt attached
+    # Dangling buses: degree 1 with no bus-attached element. `ibr` is a
+    # first-class category (a PV/STATCOM on a lateral) — omitting it made such a
+    # bus a false dangling report, which the placement passes then skipped.
     load_buses = Set(string(get(l, "bus", "")) for (_, l) in get(net, "load",      Dict()))
     gen_buses  = Set(string(get(g, "bus", "")) for (_, g) in get(net, "generator", Dict()))
     shunt_buses = Set(string(get(s, "bus", "")) for (_, s) in get(net, "shunt",    Dict()))
     cap_buses  = Set(string(get(c, "bus", "")) for (_, c) in get(net, "capacitor", Dict()))
+    ibr_buses  = Set(string(get(v, "bus", "")) for (_, v) in get(net, "ibr",       Dict()))
     vsrc_set   = Set(vsrc_buses)
     dangling   = [b for b in degree_1_buses
                   if !(b in load_buses) && !(b in gen_buses) &&
-                     !(b in shunt_buses) && !(b in cap_buses) && !(b in vsrc_set)]
+                     !(b in shunt_buses) && !(b in cap_buses) &&
+                     !(b in ibr_buses)  && !(b in vsrc_set)]
     result["dangling_buses"] = dangling
     if !isempty(dangling)
         push!(findings, Finding(WARNING, "W.CONN.DANGLING", :connectivity, :bus, nothing,
-            "$(length(dangling)) bus(es) are degree-1 with no attached load, generator, or shunt.",
+            "$(length(dangling)) bus(es) are degree-1 with no attached load, generator, " *
+            "shunt, capacitor, ibr, or source.",
             Dict{String,Any}("buses" => dangling)))
     end
 

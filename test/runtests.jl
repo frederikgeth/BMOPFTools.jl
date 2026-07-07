@@ -390,6 +390,73 @@ const IEEE13_FIXTURE = """
         @test ld["analysed"] == true
     end
 
+    @testset "Analysis — false-positive regressions (#292)" begin
+        # (a) A degree-1 bus hosting only an IBR is NOT dangling.
+        net_ibr = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "src" => Dict{String,Any}("terminal_names"=>["1","n"],"perfectly_grounded_terminals"=>["n"]),
+                "b1"  => Dict{String,Any}("terminal_names"=>["1","n"],"perfectly_grounded_terminals"=>["n"])),
+            "voltage_source" => Dict{String,Any}("vs"=>Dict{String,Any}("bus"=>"src",
+                "terminal_map"=>["1"],"v_magnitude"=>[230.0],"v_angle"=>[0.0])),
+            "linecode" => Dict{String,Any}("lc"=>Dict{String,Any}("R_series_1_1"=>0.1)),
+            "line" => Dict{String,Any}("l"=>Dict{String,Any}("bus_from"=>"src","bus_to"=>"b1",
+                "linecode"=>"lc","length"=>10.0,"terminal_map_from"=>["1","n"],"terminal_map_to"=>["1","n"])),
+            "ibr" => Dict{String,Any}("pv"=>Dict{String,Any}("bus"=>"b1","terminal_map"=>["1","n"],
+                "topology"=>"SINGLE_PHASE","prime_mover"=>"PV","s_max"=>[5000.0])))
+        c = connectivity_analysis(net_ibr, Finding[])
+        @test !("b1" in c["dangling_buses"])
+
+        # (b) An open switch whose bus is still fed by a closed line is NOT isolated.
+        net_sw = deepcopy(net_ibr); delete!(net_sw, "ibr")
+        net_sw["load"] = Dict{String,Any}("ld"=>Dict{String,Any}("bus"=>"b1",
+            "terminal_map"=>["1","n"],"configuration"=>"SINGLE_PHASE","p_nom"=>[1e3],"q_nom"=>[0.0]))
+        net_sw["switch"] = Dict{String,Any}("sw"=>Dict{String,Any}("bus_from"=>"src","bus_to"=>"b1",
+            "open_switch"=>true,"terminal_map_from"=>["1","n"],"terminal_map_to"=>["1","n"]))
+        @test isempty(connectivity_analysis(net_sw, Finding[])["open_switch_isolated_buses"])
+
+        # (c) CV of negative-mean varying data reflects real variation (not 0), so
+        # diversity does not falsely report "all loads identical".
+        @test BMOPFTools._scalar_stats([-500.0,-1000.0,-1500.0])["cv"] > 0.4
+        mkl(p) = Dict{String,Any}("bus"=>"b","terminal_map"=>["1","n"],
+            "configuration"=>"SINGLE_PHASE","p_nom"=>[p],"q_nom"=>[0.0])
+        fdiv = Finding[]
+        diversity_analysis(Dict{String,Any}("load"=>Dict{String,Any}(
+            "a"=>mkl(-500.0),"b"=>mkl(-1000.0),"c"=>mkl(-1500.0))), fdiv)
+        @test !any(x -> x.code == "I.DIV.LOAD_CV_LOW", fdiv)
+
+        # (d) A SWER (phase-to-phase-tapped 1-phase) transformer is not flagged
+        # with an inconsistent turns ratio.
+        net_swer = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "mv"=>Dict{String,Any}("terminal_names"=>["a","b","c","n"],"perfectly_grounded_terminals"=>["n"]),
+                "lv"=>Dict{String,Any}("terminal_names"=>["1","n"],"perfectly_grounded_terminals"=>["n"])),
+            "voltage_source" => Dict{String,Any}("vs"=>Dict{String,Any}("bus"=>"mv",
+                "terminal_map"=>["a","b","c"],"v_magnitude"=>[6350.0,6350.0,6350.0],
+                "v_angle"=>[0.0,-2.0944,2.0944])),
+            "transformer" => Dict{String,Any}("single_phase"=>Dict{String,Any}("tx"=>Dict{String,Any}(
+                "bus_from"=>"mv","bus_to"=>"lv","terminal_map_from"=>["a","b"],"terminal_map_to"=>["1","n"],
+                "v_nom_from"=>11000.0,"v_nom_to"=>230.0,"s_rating"=>50000.0,
+                "r_series_from"=>1.0,"r_series_to"=>0.01,"x_series_from"=>5.0,"x_series_to"=>0.05))))
+        fv = Finding[]; voltage_level_analysis(net_swer, fv)
+        @test !any(x -> x.code == "W.VOLT.XFMR_RATIO", fv)
+
+        # (e) A dc_bus fed through a dc_branch from a converter is NOT islanded;
+        # a truly source-less DC island still is.
+        net_dc = Dict{String,Any}(
+            "dc_bus" => Dict{String,Any}("c"=>Dict{String,Any}("terminal_names"=>["p","n"]),
+                                          "j"=>Dict{String,Any}("terminal_names"=>["p","n"])),
+            "dc_branch" => Dict{String,Any}("br"=>Dict{String,Any}("dc_bus_from"=>"c","dc_bus_to"=>"j",
+                "terminal_map_from"=>["p","n"],"terminal_map_to"=>["p","n"])),
+            "ibr" => Dict{String,Any}("conv"=>Dict{String,Any}("bus"=>"ac","dc_bus"=>"c",
+                "terminal_map"=>["1","n"],"topology"=>"SINGLE_PHASE","prime_mover"=>"PV","s_max"=>[5000.0])))
+        fdc = Finding[]; domain_rules_check(net_dc, fdc)
+        @test !any(x -> x.code == "W.DOM.DC_BUS_NO_CONVERTER", fdc)
+        fdc2 = Finding[]
+        domain_rules_check(Dict{String,Any}("dc_bus"=>Dict{String,Any}(
+            "x"=>Dict{String,Any}("terminal_names"=>["p","n"]))), fdc2)
+        @test any(x -> x.code == "W.DOM.DC_BUS_NO_CONVERTER", fdc2)
+    end
+
     @testset "Analysis — zone topology (split-phase & SWER)" begin
         codes(fs) = Set(f.code for f in fs)
 

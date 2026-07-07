@@ -275,15 +275,33 @@ function _check_dc_network(net, findings, n_checks)
         end
     end
 
-    # --- islanded DC bus (no converter attached) ---
-    ibr_dc_buses = Set(string(get(inv, "dc_bus", "")) for (_, inv) in
-                       get(net, "ibr", Dict()) if inv isa Dict && haskey(inv, "dc_bus"))
-    for (id, _) in dc_buses
-        id in ibr_dc_buses && continue
-        push!(findings, Finding(WARNING, "W.DOM.DC_BUS_NO_CONVERTER",
-            :domain_rules, :dc_bus, id,
-            "dc_bus '$id' has no converter (IBR) attached — islanded DC node.",
-            nothing))
+    # --- islanded DC bus (no energizing element reachable in the DC island) ---
+    # A dc_bus is islanded only when NO converter (IBR) or dc_source sits anywhere
+    # in its DC island (dc_buses joined by dc_branches). A junction bus, or a
+    # dc_load bus fed through a dc_branch from a converter/source elsewhere, is not
+    # islanded — the previous check required a DIRECTLY-attached IBR and mislabeled
+    # both.
+    if !isempty(dc_buses)
+        dc_set   = Set(string(k) for k in keys(dc_buses))
+        par      = Dict(b => b for b in dc_set)
+        fnd(x)   = (par[x] == x ? x : (par[x] = fnd(par[x])))
+        for (_, br) in get(net, "dc_branch", Dict())
+            br isa Dict || continue
+            a = string(get(br, "dc_bus_from", "")); c = string(get(br, "dc_bus_to", ""))
+            (a in dc_set && c in dc_set) && (par[fnd(a)] = fnd(c))
+        end
+        _src_buses(comp) = Set(string(get(e, "dc_bus", "")) for (_, e) in
+                               get(net, comp, Dict()) if e isa Dict && haskey(e, "dc_bus"))
+        energizing = union(_src_buses("ibr"), _src_buses("dc_source"))
+        energized_islands = Set(fnd(b) for b in energizing if b in dc_set)
+        for (id, _) in dc_buses
+            fnd(string(id)) in energized_islands && continue
+            push!(findings, Finding(WARNING, "W.DOM.DC_BUS_NO_CONVERTER",
+                :domain_rules, :dc_bus, id,
+                "dc_bus '$id' is in a DC island with no converter (IBR) or dc_source — " *
+                "islanded DC node (no element can energize it).",
+                nothing))
+        end
     end
 
     # --- droop control consistent with the converter's P/Q/S capability ---
