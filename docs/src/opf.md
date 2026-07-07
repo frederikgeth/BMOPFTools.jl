@@ -105,6 +105,41 @@ explicitly:
     zero nominal voltage (undefined `1/v_nom`), a zero winding turns-ratio, or two
     zero-impedance branches shorting the same terminals (an undetermined current
     split) are refused up front, not solved into nonsense.
+11. **Prefer a hard variable bound; scale the constraint that is left.**
+    Interior-point solvers enforce *variable bounds* far more tightly than general
+    nonlinear constraints — Ipopt holds a bound to its `bound_relax_factor`
+    (effectively exactly), but a constraint only to the absolute `constr_viol_tol`.
+    So wherever a valid — if looser — box bound on a variable exists, it is stamped
+    *in addition to* the exact constraint: it backstops the soft constraint and
+    bounds the search region from the start. A current-magnitude limit `|I| ≤ i_max`
+    is written both as a second-order cone and as a box on each rectangular current
+    component. The magnitude and power cones that have no such backstop — apparent
+    power, sequence voltage, neutral current — are instead written in **normalized**
+    form `(a/lim)² + (b/lim)² ≤ 1` rather than `a² + b² ≤ lim²`, so the constraint
+    value is order ≈ 1 regardless of the per-unit base and the solver's absolute
+    tolerance stays meaningful. (Un-normalized, a current cone at a large `s_base`
+    can sit near `1e-6` — below `constr_viol_tol` — so a limit that ought to force
+    infeasibility is silently accepted.) This is the constraint-scaling companion to
+    the variable scaling in [Units and scaling](#Units-and-scaling).
+12. **The formulation is non-convex — determinism comes from the warm start.**
+    Rectangular AC power flow is non-convex: the feasible set has multiple local
+    optima (a voltage-collapsed root, phase-rotated roots), and the interior-point
+    solver returns whichever is nearest its starting point. Every variable is
+    therefore initialised from a physically-motivated, deterministic guess —
+    canonical 120° phase angles, anti-phase split-phase legs, delta-loop voltage
+    propagation, and `I = conj(S)/conj(V)` current seeding — to steer the solve to
+    the *operational* root rather than a spurious one. The warm start is not a
+    performance nicety; it is what makes the returned solution reproducible and
+    physically meaningful (see [Warm-start initialisation](#Warm-start-initialisation)).
+13. **One sign convention, and results are recomputed with it.** A single
+    convention is fixed and applied to *every* element type — current into a bus is
+    positive in KCL, apparent power is `S = V · conj(I)`. The result writer derives
+    every reported quantity (per-element power, losses, terminal currents) from the
+    *same* expressions the constraints are built from, never from an independent
+    re-derivation that could drift out of sync with the model. This consistency is a
+    correctness invariant, not a convenience: a quantity reported with the opposite
+    sign to its own constraint is a silent error that a feasible solve will never
+    catch.
 
 These principles were inspired by the IVR-EN formulation in
 [PowerModelsDistribution](positioning.md) and by Claeys et al.'s four-wire OPF
