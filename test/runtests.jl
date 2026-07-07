@@ -1373,6 +1373,37 @@ const IEEE13_FIXTURE = """
         @test any(x -> x.code == "W.DOM.ANGLE_UNITS", f7)
         @test any(x -> x.code == "I.DOM.NEGATIVE_LOAD", f7)
 
+        # i_max completeness (#288): an element-level i_max OR any s_max (line or
+        # linecode) counts as a thermal limit — a branch is only "absent" when
+        # NONE of them is present. Previously only the linecode's i_max was read,
+        # so a line-level override or an s_max-only branch was a false positive.
+        _absent(n) = (fa = Finding[]; provenance_analysis(n, fa);
+                      Set(x.code for x in fa
+                          if x.code in ("W.PROV.I_MAX_ABSENT", "W.PROV.I_MAX_ABSENT_SWITCH")))
+        _mkln(le, sce) = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "a" => Dict{String,Any}("terminal_names" => ["1","2","3","n"]),
+                "b" => Dict{String,Any}("terminal_names" => ["1","2","3","n"])),
+            "linecode" => Dict{String,Any}("lc" => merge(Dict{String,Any}("R_series_1_1"=>0.1), sce)),
+            "line" => Dict{String,Any}("l" => merge(Dict{String,Any}(
+                "bus_from"=>"a", "bus_to"=>"b", "linecode"=>"lc",
+                "terminal_map_from"=>["1","2","3","n"], "terminal_map_to"=>["1","2","3","n"]), le)))
+        # line-level i_max only (no linecode i_max) → NOT absent
+        @test isempty(_absent(_mkln(Dict{String,Any}("i_max"=>[100.0,100.0,100.0,100.0]),
+                                    Dict{String,Any}())))
+        # s_max only → NOT absent
+        @test isempty(_absent(_mkln(Dict{String,Any}("s_max"=>[5e4,5e4,5e4,5e4]),
+                                    Dict{String,Any}())))
+        # no limit anywhere → absent
+        @test "W.PROV.I_MAX_ABSENT" in _absent(_mkln(Dict{String,Any}(), Dict{String,Any}()))
+        # closed switch with only s_max → NOT absent
+        swnet = _mkln(Dict{String,Any}(), Dict{String,Any}("i_max"=>[100.0,100.0,100.0,100.0]))
+        swnet["switch"] = Dict{String,Any}("sw" => Dict{String,Any}(
+            "bus_from"=>"a", "bus_to"=>"b", "open_switch"=>false,
+            "terminal_map_from"=>["1","2","3","n"], "terminal_map_to"=>["1","2","3","n"],
+            "s_max"=>[5e4,5e4,5e4,5e4]))
+        @test "W.PROV.I_MAX_ABSENT_SWITCH" ∉ _absent(swnet)
+
         # combined thermal limits (i_max + s_max) on a line → redundancy warning
         net_dual = deepcopy(base)
         net_dual["line"]["l650632"]["i_max"] = [600.0, 600.0, 600.0]
