@@ -238,10 +238,10 @@
         # added it only when a *to*-side shunt was present, leaving the to-end
         # unbounded here.
         #
-        # NOTE: run in SI (per_unit=false). In the default per-unit path a line's
-        # i_max cone is currently dropped entirely when its linecode carries a
-        # π-shunt (a separate bug, filed alongside this); once that is fixed this
-        # test should also hold under per_unit=true.
+        # Checked in both per-unit and SI mode. (Issue #299: the default per-unit
+        # path used to silently drop a shunt-bearing line's i_max backstop, so
+        # this could only be observed in SI; #299 added a to-side variable box so
+        # the limit now holds in both modes.)
         mknet(ilim) = parse_bmopf("""
         {"bus":{"src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
                 "b":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
@@ -258,20 +258,22 @@
              "model":"constant_power","p_nom":[3000.0,3000.0,3000.0],"q_nom":[4000.0,4000.0,4000.0]}}}
         """; from_string=true)
 
-        # Positive control: a slack limit (25 A > both ends) solves, and the
-        # from-side shunt genuinely makes the to-end the larger of the two.
-        ok = solve_opf(mknet(25.0); per_unit = false)
-        @test ok["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        cm_fr = ok["line"]["l"]["1"]["cm_fr"]
-        cm_to = ok["line"]["l"]["1"]["cm_to"]
-        @test cm_to > cm_fr + 1.0                     # ends differ; to-end is larger
-        @test cm_to <= 25.0 * (1 + 5e-3)
+        for pu in (false, true)
+            # Positive control: a slack limit (25 A > both ends) solves, and the
+            # from-side shunt genuinely makes the to-end the larger of the two.
+            ok = solve_opf(mknet(25.0); per_unit = pu)
+            @test ok["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+            cm_fr = ok["line"]["l"]["1"]["cm_fr"]
+            cm_to = ok["line"]["l"]["1"]["cm_to"]
+            @test cm_to > cm_fr + 1.0                 # ends differ; to-end is larger
+            @test cm_to <= 25.0 * (1 + 5e-3)
 
-        # Binding case: i_max = 19 A sits between |I_fr| (≈17) and |I_to| (≈22).
-        # With the to-side cone the fixed load cannot be met (infeasible); without
-        # it (the bug) the solve succeeds with the to-end ≈22 A over the 19 A cap.
-        lim = solve_opf(mknet(19.0); per_unit = false)
-        @test lim["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL")
+            # Binding case: i_max = 19 A sits between |I_fr| (≈17) and |I_to| (≈22).
+            # With the to-side backstop the fixed load cannot be met (infeasible);
+            # without it (the bug) the solve succeeds with the to-end ≈22 A over cap.
+            lim = solve_opf(mknet(19.0); per_unit = pu)
+            @test lim["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL")
+        end
     end
 
     # ─────────────────────────────────────────────────────────────────────────

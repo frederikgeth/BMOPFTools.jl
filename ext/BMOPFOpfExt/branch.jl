@@ -206,6 +206,10 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                 vmax_fr = Union{Float64,Nothing}[
                     _terminal_vmax_to_ground(bus_fr, tmfr[j], grounded, b_fr)
                     for j in 1:n_map]
+                bus_to = get(buses, b_to, Dict{String,Any}())
+                vmax_to = Union{Float64,Nothing}[
+                    _terminal_vmax_to_ground(bus_to, tmto[j], grounded, b_to)
+                    for j in 1:n_map]
                 for k in 1:min(n_map, length(i_max))
                     ilim = Float64(i_max[k])
                     cfr_r = @expression(model, cr_fr[(lid,k)] + ish_fr_r[k])
@@ -217,10 +221,23 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                         @constraint(model, cto_r^2 + cto_i^2 <= ilim^2)
                     end
 
-                    # Series-current variable box (from-side shunt determines it).
-                    ish_bound = _line_shunt_row_bound(G_fr, B_fr, vmax_fr, k, n_map)
-                    ish_bound === nothing && continue
-                    _limit_current_box!(cr_fr[(lid,k)], ci_fr[(lid,k)], ilim + ish_bound)
+                    # Series-current variable boxes. The one series current
+                    # appears at both ends: the from-total is cr_fr + ish_fr and
+                    # the to-total is −cr_fr + ish_to, so a valid outer box on the
+                    # bare series variable is |cr_fr| ≤ ilim + |ish_end| at each
+                    # end. Applying both keeps the tighter (min). These hard
+                    # variable bounds backstop the (soft) SOC cones: at a large
+                    # per-unit base the cone values fall below Ipopt's constraint
+                    # tolerance, so without a to-side box a from-side-only shunt
+                    # would leave the to-end current effectively unconstrained
+                    # (issue #299). With no to-side shunt the to-side box is a
+                    # tight |cr_fr| ≤ ilim.
+                    ish_fr_bound = _line_shunt_row_bound(G_fr, B_fr, vmax_fr, k, n_map)
+                    ish_fr_bound !== nothing &&
+                        _limit_current_box!(cr_fr[(lid,k)], ci_fr[(lid,k)], ilim + ish_fr_bound)
+                    ish_to_bound = _line_shunt_row_bound(G_to, B_to, vmax_to, k, n_map)
+                    ish_to_bound !== nothing &&
+                        _limit_current_box!(cr_fr[(lid,k)], ci_fr[(lid,k)], ilim + ish_to_bound)
                 end
             end
         end
