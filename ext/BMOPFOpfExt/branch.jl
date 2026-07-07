@@ -181,10 +181,14 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
         end
 
         # ── Thermal current limits on total current at each end ───────────────
-        # When the to-side π-shunt is zero, cr_to = −cr_fr and ish_to = 0, so
-        # the to-side magnitude equals the from-side magnitude and only one
-        # constraint is needed. Both are added only when G_to or B_to is present.
-        has_to_shunt = !(G_to === nothing && B_to === nothing)
+        # The to-side total current is cr_to + ish_to = −cr_fr + ish_to. It has
+        # the same magnitude as the from-side total (cr_fr + ish_fr) only when
+        # BOTH π-shunts vanish (then both ends are ±cr_fr). If either side has a
+        # shunt the two magnitudes differ, so the to-side needs its own cone;
+        # otherwise the from-side cone alone would leave |cr_fr| unbounded up to
+        # i_max + |ish_fr|. Add the to-side cone whenever any shunt is present.
+        has_any_shunt = !(G_fr === nothing && B_fr === nothing &&
+                          G_to === nothing && B_to === nothing)
         lc = get(linecodes, get(line, "linecode", ""), nothing)
         # line-level i_max overrides the linecode's (and is the only rating
         # source for lines carrying inline absolute matrices)
@@ -207,7 +211,7 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                     cfr_r = @expression(model, cr_fr[(lid,k)] + ish_fr_r[k])
                     cfr_i = @expression(model, ci_fr[(lid,k)] + ish_fr_i[k])
                     @constraint(model, cfr_r^2 + cfr_i^2 <= ilim^2)
-                    if has_to_shunt
+                    if has_any_shunt
                         cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                         cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
                         @constraint(model, cto_r^2 + cto_i^2 <= ilim^2)
@@ -237,7 +241,7 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                 _apparent_power_limit!(model,
                     vr[(b_fr, tmfr[k])], vi[(b_fr, tmfr[k])], cfr_r, cfr_i, slim;
                     base_name = "$(lid)_fr_$(k)")
-                if has_to_shunt
+                if has_any_shunt
                     cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                     cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
                     _apparent_power_limit!(model,

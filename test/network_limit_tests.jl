@@ -219,6 +219,62 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # L-A5b: to-side thermal bound with a FROM-side-only π-shunt (#274)
+    #
+    # The to-side total current is −c_series (no to-shunt), whose magnitude
+    # differs from the from-side total c_series + I_shunt_fr whenever a from-side
+    # shunt exists. Here a capacitive from-side shunt shrinks the from-side
+    # magnitude below the (inductive) load-driven series current, so the from-side
+    # cone alone would let the to-end exceed i_max. A local generator can relieve
+    # the line, so the correct model clamps the to-end at i_max; the buggy model
+    # (from-cone only) reports cm_to > i_max.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "L-A5b: to-side i_max with from-side-only shunt (#274)" begin
+        # A line whose linecode carries a from-side-only capacitive π-shunt feeds
+        # an inductive constant-power load. The capacitive shunt shrinks the
+        # from-end total current below the (inductive) series current, so the two
+        # ends differ: |I_to| = |series| ≈ 22 A, |I_fr| = |series + I_shunt| ≈ 17 A.
+        # Only the to-side cone can catch an over-limit to-end; the pre-#274 model
+        # added it only when a *to*-side shunt was present, leaving the to-end
+        # unbounded here.
+        #
+        # NOTE: run in SI (per_unit=false). In the default per-unit path a line's
+        # i_max cone is currently dropped entirely when its linecode carries a
+        # π-shunt (a separate bug, filed alongside this); once that is fixed this
+        # test should also hold under per_unit=true.
+        mknet(ilim) = parse_bmopf("""
+        {"bus":{"src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
+                "b":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+                     "v_min":[150.0,150.0,150.0],"v_max":[260.0,260.0,260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+             "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0943951,2.0943951]}},
+         "linecode":{"lc":{"R_series_1_1":0.1,"R_series_2_2":0.1,"R_series_3_3":0.1,"R_series_4_4":0.1,
+             "X_series_1_1":0.05,"X_series_2_2":0.05,"X_series_3_3":0.05,"X_series_4_4":0.05,
+             "B_from_1_1":0.03,"B_from_2_2":0.03,"B_from_3_3":0.03}},
+         "line":{"l":{"bus_from":"src","bus_to":"b","linecode":"lc","length":1.0,
+             "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
+             "i_max":[$(ilim),$(ilim),$(ilim),1000.0]}},
+         "load":{"ld":{"bus":"b","terminal_map":["1","2","3","n"],"configuration":"WYE",
+             "model":"constant_power","p_nom":[3000.0,3000.0,3000.0],"q_nom":[4000.0,4000.0,4000.0]}}}
+        """; from_string=true)
+
+        # Positive control: a slack limit (25 A > both ends) solves, and the
+        # from-side shunt genuinely makes the to-end the larger of the two.
+        ok = solve_opf(mknet(25.0); per_unit = false)
+        @test ok["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        cm_fr = ok["line"]["l"]["1"]["cm_fr"]
+        cm_to = ok["line"]["l"]["1"]["cm_to"]
+        @test cm_to > cm_fr + 1.0                     # ends differ; to-end is larger
+        @test cm_to <= 25.0 * (1 + 5e-3)
+
+        # Binding case: i_max = 19 A sits between |I_fr| (≈17) and |I_to| (≈22).
+        # With the to-side cone the fixed load cannot be met (infeasible); without
+        # it (the bug) the solve succeeds with the to-end ≈22 A over the 19 A cap.
+        lim = solve_opf(mknet(19.0); per_unit = false)
+        @test lim["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL")
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # L-A9: neutral-conductor current limit (trailing per-conductor `i_max` entry)
     #
     # Class A on the IMPLICIT neutral current. A star device's neutral return
