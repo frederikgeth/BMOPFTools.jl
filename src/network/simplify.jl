@@ -301,7 +301,12 @@ function _merge_series_lines!(net)
                 tmap_B_l2  = get(l2, "terminal_map_to",   String[])
             end
 
-            if Set(tmap_B_l1) != Set(tmap_B_l2)
+            # The two segments are in series per conductor only when their maps
+            # at the shared bus agree in ORDER, not merely as sets: terminal maps
+            # are positional (conductor k ↔ entry k), so ["1","n"] vs ["n","1"] is
+            # a phase transposition the merged single line cannot represent. Require
+            # exact equality (the inline-impedance path below does the same).
+            if tmap_B_l1 != tmap_B_l2
                 bus_id in warned_buses && continue
                 push!(warned_buses, bus_id)
                 _simlog!(net, "merge_series_lines", "TERMINAL_MISMATCH", "warning",
@@ -516,16 +521,31 @@ function _collapse_closed_switches!(net)
                 continue
             end
 
-            # Block on terminal-map arity mismatch.
-            tmap_fr = get(sw, "terminal_map_from", String[])
-            tmap_to = get(sw, "terminal_map_to",   String[])
-            if length(tmap_fr) != length(tmap_to)
+            # The collapse fuses b_to into b_fr by terminal-NAME union, so a name
+            # present on BOTH buses becomes one node. That is only correct when the
+            # switch actually connects those terminals straight-through. Two failure
+            # modes pass an arity check but corrupt the topology:
+            #   • cross-phase map (tmap_from ≠ tmap_to element-wise): the switch
+            #     joins e.g. b_fr's "1" to b_to's "2", yet the name-union would
+            #     silently make it an identity ("1"↔"1") connection;
+            #   • partial map: a terminal name shared by both buses but absent from
+            #     the switch map would be fused by name though the switch never
+            #     connected it.
+            # Require an identity map (tmap_from == tmap_to) that covers every
+            # terminal name the two buses share; skip otherwise. (A terminal on
+            # only one bus is harmless — it is carried across, not fused.)
+            tmap_fr = String.(get(sw, "terminal_map_from", String[]))
+            tmap_to = String.(get(sw, "terminal_map_to",   String[]))
+            shared  = intersect(Set(String.(get(bus_f, "terminal_names", String[]))),
+                                Set(String.(get(bus_t, "terminal_names", String[]))))
+            if tmap_fr != tmap_to || !issubset(shared, Set(tmap_fr))
                 _simlog!(net, "collapse_closed_switches", "MERGE_CONFLICT_TERMINALS", "warning",
                     "switch", sid,
-                    "Switch $sid has mismatched terminal-map arities " *
-                    "(from=$(length(tmap_fr)), to=$(length(tmap_to))) — skipped.",
+                    "Switch $sid is not a straight-through identity connection over the " *
+                    "terminals its buses share (cross-phase or partial map) — skipped.",
                     detail=Dict("bus_from" => b_fr, "bus_to" => b_to,
-                                "tmap_from" => tmap_fr, "tmap_to" => tmap_to))
+                                "tmap_from" => tmap_fr, "tmap_to" => tmap_to,
+                                "shared_terminals" => sort(collect(shared))))
                 continue
             end
 

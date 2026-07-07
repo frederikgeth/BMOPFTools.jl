@@ -848,3 +848,80 @@ end
     @test !haskey(net2′["bus"], "B")
     @test net2′["transformer"]["n_winding"]["t1"]["windings"][1]["bus"] == "A"
 end
+
+# ── Terminal-map correctness on merge / collapse (#276) ─────────────────────────
+# Terminal maps are positional. A series merge or switch collapse that ignores
+# their ORDER/CONTENT (only their arity/set) silently turns a phase transposition
+# or a partial connection into a straight-through identity, corrupting topology.
+
+@testset "merge_series_lines — permuted terminal map at shared bus blocked (#276)" begin
+    # l1 and l2 meet at B with a phase transposition (["1","2","n"] vs
+    # ["2","1","n"]) — same set, different order. The linecode path used to
+    # compare only Set(...) and would merge; a single line cannot carry the swap.
+    net = Dict{String,Any}(
+        "bus"      => Dict("A" => _bus(terminals=["1","2","n"]),
+                           "B" => _bus(terminals=["1","2","n"]),
+                           "C" => _bus(terminals=["1","2","n"])),
+        "linecode" => _lc("lc1"),
+        "line"     => Dict(
+            "l1" => _line("A", "B"; tmap=["1","2","n"]),
+            "l2" => Dict("bus_from" => "B", "bus_to" => "C",
+                         "terminal_map_from" => ["2","1","n"],   # permuted at B
+                         "terminal_map_to"   => ["1","2","n"],
+                         "linecode" => "lc1", "length" => 100.0)),
+        "load"     => Dict("ld" => _load("C")),
+    )
+    net′ = merge_series_lines(net)
+    @test length(net′["line"]) == 2                 # not merged
+    @test haskey(net′["bus"], "B")
+    @test "TERMINAL_MISMATCH" in _log_codes(net′)
+end
+
+@testset "collapse_closed_switches — cross-phase switch not collapsed (#276)" begin
+    # The switch joins A.1↔B.2 and A.2↔B.1 (a transposition). Fusing by terminal
+    # name would wrongly identify A.1 with B.1. Same arity, so the old arity-only
+    # gate let it through.
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(terminals=["1","2","n"]),
+                                 "B" => _bus(terminals=["1","2","n"])),
+        "switch"         => Dict("sw" => Dict("bus_from" => "A", "bus_to" => "B",
+                             "open_switch" => false,
+                             "terminal_map_from" => ["1","2","n"],
+                             "terminal_map_to"   => ["2","1","n"])),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net′ = collapse_closed_switches(net)
+    @test haskey(net′["bus"], "B")                  # not collapsed
+    @test haskey(net′["switch"], "sw")
+    @test "MERGE_CONFLICT_TERMINALS" in _log_codes(net′)
+end
+
+@testset "collapse_closed_switches — partial switch over a shared terminal blocked (#276)" begin
+    # Both buses carry phase "2", but the switch connects only "1" and "n".
+    # A name-union collapse would fuse A.2 with B.2 though the switch never
+    # joined them.
+    net = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(terminals=["1","2","n"]),
+                                 "B" => _bus(terminals=["1","2","n"])),
+        "switch"         => Dict("sw" => Dict("bus_from" => "A", "bus_to" => "B",
+                             "open_switch" => false,
+                             "terminal_map_from" => ["1","n"],
+                             "terminal_map_to"   => ["1","n"])),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net′ = collapse_closed_switches(net)
+    @test haskey(net′["bus"], "B")                  # not collapsed
+    @test "MERGE_CONFLICT_TERMINALS" in _log_codes(net′)
+
+    # Positive control: an extra terminal on ONE side only (B has "2", A does
+    # not) is harmless — the switch still collapses and "2" is carried across.
+    net2 = Dict{String,Any}(
+        "bus"            => Dict("A" => _bus(terminals=["1","n"]),
+                                 "B" => _bus(terminals=["1","2","n"])),
+        "switch"         => Dict("sw" => _switch("A", "B"; open=false, tmap=["1","n"])),
+        "voltage_source" => Dict("vs" => _vsource("A")),
+    )
+    net2′ = collapse_closed_switches(net2)
+    @test !haskey(net2′["bus"], "B")                # collapsed
+    @test "2" in net2′["bus"]["A"]["terminal_names"]
+end
