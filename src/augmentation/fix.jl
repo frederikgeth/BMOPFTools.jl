@@ -185,11 +185,15 @@ function _fix_largest_component!(net′, entries)
             get(el, "bus", nothing) in drop_buses && delete!(d, id)
         end
     end
-    for (_, xfmr_sub) in get(net′, "transformer", Dict())
+    for (subtype, xfmr_sub) in get(net′, "transformer", Dict())
         xfmr_sub isa Dict || continue
         for (id, el) in collect(xfmr_sub)
-            (get(el, "bus_from", nothing) in drop_buses ||
-             get(el, "bus_to",   nothing) in drop_buses) && delete!(xfmr_sub, id)
+            el isa Dict || continue
+            # Use the subtype-aware bus accessor so a winding-list (n_winding)
+            # transformer whose winding bus was dropped is pruned too, rather than
+            # left dangling by a bus_from/bus_to-only check.
+            fb, tb = _xfmr_from_to_buses(subtype, el)
+            (any(in(drop_buses), fb) || any(in(drop_buses), tb)) && delete!(xfmr_sub, id)
         end
     end
 

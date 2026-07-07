@@ -131,6 +131,54 @@ end
     @test any(x -> x.code == "W.SPEC.XFMR_TMAP_ARITY", f4)
 end
 
+@testset "n_winding — visible to analysis/validation (#291)" begin
+    _b() = Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                            "perfectly_grounded_terminals" => ["n"])
+    xf = _nw_xfmr([("hv",115.0,0.3),("mv",24.9,0.4),("lv",4.16,0.4)],
+                  Dict("1_2"=>8.0,"1_3"=>8.0,"2_3"=>6.0); s_rating=30e6)
+    net = Dict{String,Any}(
+        "bus" => Dict{String,Any}("hv"=>_b(),"mv"=>_b(),"lv"=>_b()),
+        "voltage_source" => Dict{String,Any}("s"=>Dict{String,Any}("bus"=>"hv",
+            "terminal_map"=>["a","b","c"],"v_magnitude"=>[66395.0,66395.0,66395.0],
+            "v_angle"=>[0.0,-2.0944,2.0944])),
+        "load" => Dict{String,Any}(
+            "lmv"=>Dict{String,Any}("bus"=>"mv","terminal_map"=>["a","b","c","n"],
+                "configuration"=>"WYE","p_nom"=>[5e6,5e6,5e6],"q_nom"=>[1e6,1e6,1e6]),
+            "llv"=>Dict{String,Any}("bus"=>"lv","terminal_map"=>["a","b","c","n"],
+                "configuration"=>"WYE","p_nom"=>[2e6,2e6,2e6],"q_nom"=>[5e5,5e5,5e5])),
+        "transformer" => Dict{String,Any}("n_winding"=>Dict{String,Any}("t1"=>xf)))
+
+    # operational: the n_winding gets a utilisation entry that counts the load
+    # on its downstream (winding 2 & 3) buses — previously skipped entirely.
+    rep = analyze(net)
+    util = rep.results[:operational]["transformer_utilisation"]
+    e = findfirst(x -> x["id"] == "t1", util)
+    @test e !== nothing
+    @test util[e]["s_load_va"] > 20e6            # ≈ 21.5 MVA downstream
+
+    # integrity: a clean n_winding produces no false floating/unused terminals,
+    # and a dangling winding-bus reference IS caught.
+    f = Finding[]; integrity_check(net, f)
+    @test !any(x -> x.code in ("W.INT.FLOATING_LOAD_TERMINAL",
+                               "W.INT.UNUSED_BUS_TERMINAL"), f)
+    bad = deepcopy(net); bad["transformer"]["n_winding"]["t1"]["windings"][2]["bus"] = "ghost"
+    fb = Finding[]; integrity_check(bad, fb)
+    @test any(x -> x.code == "E.INT.UNKNOWN_BUS", fb)
+
+    # fix: an islanded n_winding (no path to a source) is pruned by the
+    # largest-component pass instead of being left dangling.
+    isl = deepcopy(net)
+    isl["bus"]["i1"] = _b(); isl["bus"]["i2"] = _b()
+    isl["transformer"]["n_winding"]["t2"] =
+        _nw_xfmr([("i1",4.16,0.3),("i2",0.4,0.4)], Dict("1_2"=>5.0); s_rating=1e6)
+    isl2, _ = fix_case(isl; recipe=FixRecipe(apply_simplify_network=false,
+        apply_remove_zero_loads=false, apply_low_impedance_to_switch=false,
+        apply_source_bus_bounds=false))
+    @test !haskey(isl2["bus"], "i1")                             # islanded bus dropped
+    @test !haskey(isl2["transformer"]["n_winding"], "t2")        # dangling xfmr pruned
+    @test haskey(isl2["transformer"]["n_winding"], "t1")         # sourced one kept
+end
+
 @testset "n_winding — reactance sign / realisability (physics)" begin
     _net(d) = Dict{String,Any}("transformer" =>
         Dict{String,Any}("n_winding" => Dict{String,Any}("t1" => d)))

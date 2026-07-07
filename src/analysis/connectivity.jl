@@ -267,9 +267,18 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
         b = get(buses, bid, nothing)
         b isa Dict ? _nphase(get(b, "terminal_names", String[])) : 0
     end
-    function _xfmr_to_nphase(subtype, id)
+    function _xfmr_to_nphase(subtype, id, zone_buses)
         sub = get(xfmr, subtype, nothing); sub isa Dict || return 0
         t = get(sub, id, nothing); t isa Dict || return 0
+        if subtype in WINDING_LIST_SUBTYPES
+            # n_winding has no terminal_map_to; the winding that supplies THIS
+            # zone is the one whose bus falls inside it.
+            np = 0
+            for w in _nw_windings(t)
+                w.bus in zone_buses && (np = max(np, _nphase(w.terminal_map)))
+            end
+            return np
+        end
         _nphase(get(t, "terminal_map_to", String[]))
     end
 
@@ -298,7 +307,7 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
             end
         end
         for (subtype, id) in z.feed
-            supplied = max(supplied, _xfmr_to_nphase(subtype, id))
+            supplied = max(supplied, _xfmr_to_nphase(subtype, id, z.buses))
         end
         supplied == 0 && continue   # no identifiable supply — cannot judge
 

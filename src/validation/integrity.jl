@@ -126,6 +126,18 @@ function integrity_check(net::Dict{String,Any},
         sub isa Dict || continue
         for (id, c) in sub
             c isa Dict || continue
+            if subtype in WINDING_LIST_SUBTYPES
+                # Winding-list buses/terminal_maps live in windings[]; a fixed
+                # bus_from/bus_to check skips them, so dangling references were
+                # never caught for n_winding.
+                for w in get(c, "windings", Any[])
+                    w isa AbstractDict || continue
+                    b = get(w, "bus", nothing)
+                    b isa AbstractString && check_bus_ref("transformer", id, b) &&
+                        check_tmap("transformer", id, b, get(w, "terminal_map", String[]))
+                end
+                continue
+            end
             f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
             f isa AbstractString && check_bus_ref("transformer", id, f) &&
                 check_tmap("transformer", id, f, get(c, "terminal_map_from", String[]))
@@ -687,6 +699,19 @@ function integrity_check(net::Dict{String,Any},
         sub isa Dict || continue
         for (_, c) in sub
             c isa Dict || continue
+            if subtype in WINDING_LIST_SUBTYPES
+                # Winding terminals wire their buses too; omitting them made
+                # n-winding-fed buses look like they had floating/unused terminals.
+                for w in get(c, "windings", Any[])
+                    w isa AbstractDict || continue
+                    b  = get(w, "bus", nothing)
+                    tm = get(w, "terminal_map", nothing)
+                    b isa AbstractString && tm isa AbstractVector || continue
+                    s = get!(branch_terminals, b, Set{String}())
+                    for t in tm; push!(s, string(t)); end
+                end
+                continue
+            end
             for (bus_field, tm_field) in (("bus_from","terminal_map_from"),
                                            ("bus_to",  "terminal_map_to"))
                 b  = get(c, bus_field, nothing)

@@ -66,6 +66,28 @@ const WINDING_LIST_SUBTYPES = ("n_winding",)
 const GALVANIC_CONTINUOUS_SUBTYPES =
     ("single_phase_autotransformer", "open_delta_regulator")
 
+"""
+    _xfmr_from_to_buses(subtype, t) -> (from::Vector{String}, to::Vector{String})
+
+The "from" and "to" bus references of a transformer, unifying the two-bus and
+winding-list (`n_winding`) shapes so generic downstream / connectivity loops can
+handle both. Two-bus subtypes → `([bus_from], [bus_to])`; `n_winding` →
+winding 1's bus as the from side and every other winding's bus as the to side.
+Absent references drop out (empty vectors).
+"""
+function _xfmr_from_to_buses(subtype, t)::Tuple{Vector{String},Vector{String}}
+    if subtype in WINDING_LIST_SUBTYPES
+        ws = _nw_windings(t)
+        isempty(ws) && return (String[], String[])
+        return (isempty(ws[1].bus) ? String[] : String[ws[1].bus],
+                String[w.bus for w in ws[2:end] if !isempty(w.bus)])
+    end
+    f  = get(t, "bus_from", nothing)
+    tt = get(t, "bus_to",   nothing)
+    (f  isa AbstractString ? String[f]  : String[],
+     tt isa AbstractString ? String[tt] : String[])
+end
+
 # ---------------------------------------------------------------------------
 # Finding — the one struct in the library.
 # Everything network-related stays as Dict{String,Any}; findings are outputs

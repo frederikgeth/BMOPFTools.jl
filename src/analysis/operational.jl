@@ -80,11 +80,12 @@ function operational_analysis(net::Dict{String,Any},
             s_rating = Float64(get(t, "s_rating", 0.0))
             s_rating <= 0 && continue
 
-            # Estimate loading: sum all loads downstream of this transformer
-            t_bus = get(t, "bus_to", nothing)
-            f_bus = get(t, "bus_from", nothing)
-            (t_bus === nothing || f_bus === nothing) && continue
-            s_load = _downstream_load(net, id, f_bus, t_bus)
+            # Estimate loading: sum all loads downstream of this transformer.
+            # Uses from/to buses that also cover the winding-list (n_winding)
+            # shape, which has no bus_from/bus_to and was previously skipped.
+            from_buses, to_buses = _xfmr_from_to_buses(subtype, t)
+            (isempty(from_buses) || isempty(to_buses)) && continue
+            s_load = _downstream_load(net, id, from_buses, to_buses)
             util_pct = round(100.0 * s_load / s_rating, digits=1)
 
             entry = Dict{String,Any}(
@@ -352,14 +353,16 @@ end
 Sum apparent power of all loads electrically downstream of a transformer.
 
 Method: build the bus adjacency from lines, closed switches, and all
-transformers *except* the one under analysis, then BFS from `t_bus`.
+transformers *except* the one under analysis, then BFS from the `to_buses`.
 Every bus reached without crossing the excluded transformer is downstream
 (valid for radial networks; for meshed networks where a parallel path
-exists back to `f_bus`, the result over-counts and the utilisation figure
-should be treated as an upper bound).
+exists back to a `from` bus, the result over-counts and the utilisation figure
+should be treated as an upper bound). `from_buses`/`to_buses` are vectors so the
+winding-list (`n_winding`) shape — winding 1 upstream, all other windings
+downstream — is handled alongside the two-bus shape.
 """
 function _downstream_load(net::Dict{String,Any}, xfmr_id::String,
-                           f_bus::String, t_bus::String)::Float64
+                           from_buses::Vector{String}, to_buses::Vector{String})::Float64
     # Build adjacency excluding the transformer under analysis
     adj = Dict{String,Vector{String}}()
     add!(a, b) = (push!(get!(adj, a, String[]), b);
@@ -380,14 +383,16 @@ function _downstream_load(net::Dict{String,Any}, xfmr_id::String,
         sub isa Dict || continue
         for (oid, ot) in sub
             oid == xfmr_id && continue   # exclude the transformer under analysis
-            f = get(ot, "bus_from", nothing); t = get(ot, "bus_to", nothing)
-            (f isa AbstractString && t isa AbstractString) && add!(f, t)
+            fb, tb = _xfmr_from_to_buses(subtype, ot)
+            for f in fb, t in tb
+                add!(f, t)               # connect every winding pair for traversal
+            end
         end
     end
 
-    # BFS from t_bus
-    downstream = Set{String}([t_bus])
-    queue = String[t_bus]
+    # BFS from all to-side buses
+    downstream = Set{String}(to_buses)
+    queue = copy(to_buses)
     while !isempty(queue)
         b = popfirst!(queue)
         for nb in get(adj, b, String[])
@@ -396,6 +401,8 @@ function _downstream_load(net::Dict{String,Any}, xfmr_id::String,
             push!(queue, nb)
         end
     end
+    # A from (upstream) bus reached via a meshed parallel path is not downstream.
+    setdiff!(downstream, Set(from_buses))
 
     # Sum apparent power of loads at downstream buses
     s = 0.0
