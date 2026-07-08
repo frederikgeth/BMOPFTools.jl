@@ -52,10 +52,42 @@ convention `"1", "2", "3", "n"` and understands these conventions on read:
 | Letter | `"a" "b" "c"` (any case) | `"n"`/`"N"` |
 | IEC 60445 | `"L1" "L2" "L3"` | `"N"` |
 
-**Neutral identification** is heuristic (the spec carries no explicit
-marker): a terminal named `n`/`N` is the neutral; failing that, terminal
-`"4"` of a bus whose terminal set is exactly `{"1","2","3","4"}`. Anything
-else is treated as all-phase.
+### Terminal-role conventions
+
+Because the label strings alone do not say which conductor is a phase and
+which is the neutral, a case may declare the classification **once, for the
+whole network**, in a top-level `terminal_conventions` block:
+
+```json
+"terminal_conventions": {
+  "phase":   ["a", "b", "c"],
+  "neutral": ["n"],
+  "earth":   []
+}
+```
+
+- All three lists are optional arrays of the label strings used across the
+  case's AC buses. When the block is present it is **authoritative**: labels
+  are matched exactly (including case), and ingestion, validation and the OPF
+  resolve roles from it rather than guessing.
+- `earth` names dedicated earth-/PE-**wire** terminals only. The ground
+  *reference* stays implicit — grounding is still modelled via
+  `perfectly_grounded_terminals` and grounding shunts — so `earth` is empty
+  for standard cases (the OpenDSS earth node is routed to the neutral, not
+  kept as a terminal).
+- `dc_bus` is out of scope; it carries its own pole roles.
+- The block is **always written** on export ([`write_bmopf`](@ref)): a case
+  that never declared one gets the inferred classification promoted to an
+  explicit block, so saved files are self-documenting. [`from_dss`](@ref)
+  writes `{phase:[a,b,c], neutral:[n], earth:[]}` directly.
+
+**When the block is absent**, roles are **inferred** from the naming
+convention (a terminal `n`/`N` is neutral; terminal `"4"` of a bus whose
+terminal set is exactly `{"1","2","3","4"}`; everything else phase), and
+validation raises `W.CONV.TERMINAL_ROLES_INFERRED` to nudge you to make the
+classification explicit. Inconsistent declarations raise `E.CONV.ROLE_OVERLAP`
+(a label in two role lists), `W.CONV.TERMINAL_UNCLASSIFIED` (a bus terminal in
+none — treated as a phase), or `W.CONV.MULTIPLE_NEUTRALS`.
 
 **Ingest normalisation**: JSON files with non-string terminal entries (e.g.
 `[1,2,3,4]`) are coerced by [`parse_bmopf`](@ref). If every numeric token is
@@ -63,7 +95,43 @@ covered by the alias table (default `1→"1", 2→"2", 3→"3", 4→"n"`,
 overridable via `terminal_aliases`), the aliases apply; otherwise — the
 profiling guard, e.g. a 5th conductor present — everything becomes its
 verbatim decimal string. Coercion is recorded in
-`_meta["terminal_coercions"]` and flagged as `W.SPEC.TERMINAL_TYPES`.
+`_meta["terminal_coercions"]` and flagged as `W.SPEC.TERMINAL_TYPES`. When the
+case declares `terminal_conventions`, the default `4→"n"` rename is suppressed
+so a *declared* neutral label like `"4"` survives verbatim.
+
+### Device terminals: lining up phases and the neutral
+
+Every connected device — `load`, `generator`, `ibr`, `voltage_source`,
+`capacitor`, `shunt` — references named bus terminals through its
+`terminal_map` (lines, switches and transformers use `terminal_map_from` /
+`terminal_map_to`). A device map is a mix of **phase terminals** and, for
+wye/four-leg wiring, **one neutral terminal** — classified by the same
+`terminal_conventions`. This has a concrete consequence for the data:
+
+> A device's **per-phase parameter arrays line up with the phase terminals of
+> its `terminal_map`, in map order, with the neutral excluded.**
+
+So a WYE load on `terminal_map = ["a","b","c","n"]` has **three** phase
+conductors, and `p_nom`/`q_nom` are length-3 vectors whose entries correspond
+to `a`, `b`, `c` respectively; the `n` terminal is the return, not a fourth
+element. Concretely:
+
+| Element | Per-phase arrays | Length (WYE / FOUR_LEG) | Neutral entry |
+|---|---|---|---|
+| `load` | `p_nom`, `q_nom` | # phase terminals | — (return only) |
+| `generator` | `p_min/p_max`, `q_min/q_max`, `s_max`, `cost` | # phase terminals | `i_max` may carry a trailing neutral entry (phases+1) |
+| `ibr` | `p_min/p_max`, `q_min/q_max`, `s_max`, `cost` | # phase terminals (`THREE_LEG`: all terminals; `SINGLE_PHASE`: 1) | `i_max` may carry a trailing neutral entry |
+| `voltage_source` | `v_magnitude`, `v_angle` | # phase terminals in the map | — |
+
+The neutral is singled out because currents on the phase conductors return
+through it: the OPF writes each phase quantity across the phase-to-neutral
+terminal pair, and (where rated) the neutral return current is bounded by the
+extra trailing `i_max` entry. A `DELTA` map has no neutral — its arrays are
+per phase-pair. Mismatches between an array's length and the phase-terminal
+count are reported as `W.SPEC.CONFIG_ARITY` (see
+[Validation findings](findings.md)); making the phase/neutral split explicit
+via `terminal_conventions` is what lets these checks be exact rather than
+heuristic.
 
 ## Buses, bounds and grounding
 

@@ -371,6 +371,19 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 | `W.INT.LOW_IMPEDANCE_LINE` | W | Lines whose total series impedance is below 10⁻³× the network median — they degrade conditioning; the spec's lossless switch object is the intended model ([ref. 2](methodology.md#refs)). |
 | `I.INT.UNIFORM_GEN_COST` | I | Groups of generators with identical cost vectors — any dispatch split among them is optimal (degeneracy); diversify costs for benchmark use. |
 
+## CONV — terminal-role conventions
+
+Checks on the case-wide `terminal_conventions` block that classifies terminal
+labels into phase/neutral/earth roles (see
+[Terminal-role conventions](conventions.md#Terminal-role-conventions)).
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `W.CONV.TERMINAL_ROLES_INFERRED` | W | The case declares no `terminal_conventions` block, so phase/neutral/earth roles were inferred from the naming convention (a terminal `n`/`N` is neutral, all others phase). Declare the block to make the classification explicit and self-documenting; it is written for you on the next [`write_bmopf`](@ref). |
+| `E.CONV.ROLE_OVERLAP` | E | A terminal label appears in more than one of the `phase`/`neutral`/`earth` role lists. Each label must have a single role. |
+| `W.CONV.TERMINAL_UNCLASSIFIED` | W | A bus terminal is in none of the declared role lists. It is treated as a phase conductor downstream; add it to the appropriate list (a common cause is a split-phase secondary leg not listed under `phase`). |
+| `W.CONV.MULTIPLE_NEUTRALS` | W | A single bus carries more than one terminal classified as neutral — a bus is expected to have at most one neutral conductor. |
+
 ## TMAP — terminal-map conventions
 
 Checks on how component `terminal_map`s reference bus terminals.
