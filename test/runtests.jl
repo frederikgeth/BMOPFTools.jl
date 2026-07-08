@@ -1549,6 +1549,100 @@ const IEEE13_FIXTURE = """
         @test adequacy["import_dependent"] == false
     end
 
+    @testset "Line model topology" begin
+        # Unit-test the π-model classifier directly on minimal networks so the
+        # topology of each element is isolated from the rest of the fixture.
+        lm(net) = (f = Finding[]; r = BMOPFTools._classify_line_models(net, f);
+                   (Set(x.code for x in f), r))
+        _lc(d) = Dict{String,Any}("linecode" => Dict{String,Any}("lc" => merge(
+            Dict{String,Any}("R_series_1_1"=>0.1, "R_series_2_2"=>0.1,
+                             "X_series_1_1"=>0.3, "X_series_2_2"=>0.3), d)))
+
+        # pure series → uniform series, no per-element callouts
+        codes, r = lm(_lc(Dict{String,Any}()))
+        @test r["counts"]["series"] == 1
+        @test r["by_element"]["linecode:lc"]["model"] == "series"
+        @test "I.PROV.LINE_MODEL_UNIFORM" in codes
+        @test !("W.PROV.ASYMMETRIC_PI" in codes)
+        @test !("I.PROV.GAMMA_SECTION" in codes)
+
+        # symmetric π (from == to) → symmetric_pi, uniform, no warnings
+        codes, r = lm(_lc(Dict{String,Any}(
+            "B_from_1_1"=>1e-6, "B_from_2_2"=>1e-6,
+            "B_to_1_1"=>1e-6,   "B_to_2_2"=>1e-6)))
+        @test r["by_element"]["linecode:lc"]["model"] == "symmetric_pi"
+        @test "I.PROV.LINE_MODEL_UNIFORM" in codes
+        @test !("W.PROV.ASYMMETRIC_PI" in codes)
+        @test !("I.PROV.SHUNT_CONDUCTANCE" in codes)
+
+        # asymmetric π (from ≠ to) → suspicious, warning
+        codes, r = lm(_lc(Dict{String,Any}(
+            "B_from_1_1"=>1e-6, "B_from_2_2"=>1e-6,
+            "B_to_1_1"=>2e-6,   "B_to_2_2"=>2e-6)))
+        @test r["by_element"]["linecode:lc"]["model"] == "asymmetric_pi"
+        @test r["by_element"]["linecode:lc"]["fromto_asymmetry"] > 1e-6
+        @test "W.PROV.ASYMMETRIC_PI" in codes
+
+        # Γ-section (shunt on one end only) → info, records the end
+        codes, r = lm(_lc(Dict{String,Any}("B_from_1_1"=>1e-6, "B_from_2_2"=>1e-6)))
+        @test r["by_element"]["linecode:lc"]["model"] == "gamma"
+        @test r["by_element"]["linecode:lc"]["shunt_end"] == "from"
+        @test "I.PROV.GAMMA_SECTION" in codes
+
+        # shunt conductance (dielectric loss) atop a symmetric π → info
+        codes, r = lm(_lc(Dict{String,Any}(
+            "G_from_1_1"=>1e-8, "G_to_1_1"=>1e-8,
+            "B_from_1_1"=>1e-6, "B_to_1_1"=>1e-6)))
+        @test r["by_element"]["linecode:lc"]["has_shunt_conductance"] == true
+        @test "I.PROV.SHUNT_CONDUCTANCE" in codes
+
+        # mixed models across definitions → MIXED, never UNIFORM
+        codes, r = lm(Dict{String,Any}("linecode" => Dict{String,Any}(
+            "s"  => Dict{String,Any}("R_series_1_1"=>0.1, "X_series_1_1"=>0.3),
+            "pi" => Dict{String,Any}("R_series_1_1"=>0.1, "X_series_1_1"=>0.3,
+                                     "B_from_1_1"=>1e-6, "B_to_1_1"=>1e-6))))
+        @test "I.PROV.LINE_MODEL_MIXED" in codes
+        @test !("I.PROV.LINE_MODEL_UNIFORM" in codes)
+        @test r["counts"]["series"] == 1 && r["counts"]["symmetric_pi"] == 1
+
+        # inline lines are classified too, keyed as "line:<id>"
+        codes, r = lm(Dict{String,Any}("line" => Dict{String,Any}("l" =>
+            Dict{String,Any}("bus_from"=>"a", "bus_to"=>"b",
+                "terminal_map_from"=>["1"], "terminal_map_to"=>["1"],
+                "R_series_1_1"=>0.1, "X_series_1_1"=>0.3,
+                "B_from_1_1"=>1e-6, "B_to_1_1"=>2e-6))))
+        @test r["by_element"]["line:l"]["model"] == "asymmetric_pi"
+        @test "W.PROV.ASYMMETRIC_PI" in codes
+
+        # integration: wired into provenance_analysis end-to-end
+        base = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        netg = deepcopy(base)
+        netg["linecode"]["lc_asym"] = Dict{String,Any}(
+            "R_series_1_1"=>0.3, "X_series_1_1"=>0.9,
+            "B_from_1_1"=>1e-6, "B_to_1_1"=>5e-6)
+        fg = Finding[]
+        rg = provenance_analysis(netg, fg)
+        @test haskey(rg, "line_models")
+        @test any(x -> x.code == "W.PROV.ASYMMETRIC_PI" &&
+                       x.component_id == "lc_asym", fg)
+
+        # inline line shunt-block physics: a non-PSD B block is now audited and
+        # reported against the line (previously only linecode shunts were gated)
+        neti = deepcopy(base)
+        lid  = first(keys(neti["line"]))
+        li   = neti["line"][lid]
+        delete!(li, "linecode"); delete!(li, "length")
+        merge!(li, Dict{String,Any}(
+            "R_series_1_1"=>0.1, "R_series_2_2"=>0.1,
+            "X_series_1_1"=>0.3, "X_series_2_2"=>0.3,
+            "B_from_1_1"=>1e-7, "B_from_2_2"=>1e-7,
+            "B_from_1_2"=>-1e-6, "B_from_2_1"=>-1e-6))   # eig < 0
+        fi = Finding[]
+        provenance_analysis(neti, fi)
+        @test any(x -> x.code == "W.PROV.B_SIGN" &&
+                       x.component_type == :line && x.component_id == lid, fi)
+    end
+
     @testset "Integrity checks" begin
         base = parse_bmopf(IEEE13_FIXTURE; from_string=true)
 

@@ -213,7 +213,7 @@ The largest family; full derivations in the
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.PROV.NONRECIPROCAL` | E | An impedance/admittance block (linecode R/X/G/B, inline line R/X, or bus-shunt G/B) is not symmetric — reciprocity is violated; passive RLC networks cannot do that. Catches, e.g., delta-bank admittances built from the incidence matrix instead of `Y·(M∆)ᵀM∆`. Reported with `component_type = :line` for inline absolute line matrices. |
+| `E.PROV.NONRECIPROCAL` | E | An impedance/admittance block (linecode R/X/G/B, inline line R/X/G/B, or bus-shunt G/B) is not symmetric — reciprocity is violated; passive RLC networks cannot do that. Catches, e.g., delta-bank admittances built from the incidence matrix instead of `Y·(M∆)ᵀM∆`. Reported with `component_type = :line` for inline absolute line matrices. |
 | `E.PROV.NONPASSIVE` | E | The R block has a negative eigenvalue — the line would generate power. PSD of R is invariant under Kron reduction (Schur complements of accretive matrices stay accretive), so this is always an error. Applies to linecodes and inline line matrices alike. |
 | `W.PROV.X_NONINDUCTIVE` | W | Non-positive series self-reactance — series compensation does not exist inside linecodes; almost always a sign flip or X/B confusion. |
 | `W.PROV.X_NOT_PSD` | W | The X block has a negative eigenvalue — the implied inductance matrix is not realisable (energy argument; also Kron-invariant via sectorial Schur closure). |
@@ -226,6 +226,30 @@ The largest family; full derivations in the
 | `W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS` | W | A `line`'s two endpoint buses are assigned different nominal voltage levels (ratio beyond 5 %). A line cannot change voltage level — this is a transformer elided into the per-unit line model (the textbook "the transformer vanishes in per-unit"), or a data error. Model it as a `transformer`. |
 | `W.PROV.GEOMETRY_MISMATCH` | W | A linecode carrying a `line_geometry` back-reference no longer matches a re-derivation from that geometry (beyond 10⁻⁶ relative). The stored matrices are stale or hand-edited — recompile with `compile_linecode(net, id; force=true)` or drop the back-reference. The geometry analogue of the transformer Yprim cross-check. |
 | `W.PROV.GEOMETRY_UNCOMPILABLE` | W | A linecode references a `line_geometry` that fails to compile (broken wire data, invalid earth model, missing frequency, …) — the provenance link cannot be verified. |
+
+### Line model topology
+
+Every line and linecode stores a two-sided nominal-π: a series impedance with a
+shunt admittance half-block at the from-end (`G_from`/`B_from`) and the to-end
+(`G_to`/`B_to`). Which blocks are populated, and whether the two ends are equal,
+determines the **model topology**. The taxonomy makes the modelling assumption
+auditable and flags the parameterisations that are suspicious in distribution
+networks.
+
+| Topology | Meaning | Expected in distribution? |
+|---|---|---|
+| **series** | No shunt on either end — pure series `Z`. | Yes — the default for LV / short-cable feeders, where line charging is negligible. |
+| **symmetric π** | Shunt on both ends with `Y_from ≈ Y_to`. | Yes — the canonical nominal-π; a uniform reciprocal line splits its charging equally. Expected once charging matters (longer MV/HV overhead, underground cable). |
+| **asymmetric π** | Shunt on both ends but `Y_from ≠ Y_to`. | **Suspicious** — a uniform line is symmetric; unequal halves usually mean a reduction artefact or data error. |
+| **Γ (gamma)** | Shunt on exactly one end. | **Review** — a valid deliberate lumping of charging at one terminal, but it breaks the physical from/to symmetry. |
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `I.PROV.LINE_MODEL_UNIFORM` | I | Every line-model definition (linecode or inline line) uses a single topology — series-only, symmetric-π, etc. The network is internally consistent; the message states which model and whether it is the expected one. |
+| `I.PROV.LINE_MODEL_MIXED` | I | The case study mixes topologies (e.g. some branches series-only, others π). Legitimate when short spurs are modelled as series and long trunks as π, but flagged so the mix can be reviewed for consistency — especially any asymmetric-π or Γ members. Replaces the former `I.PROV.NO_PI_SHUNT` / `I.PROV.PARTIAL_PI_SHUNT`. |
+| `W.PROV.ASYMMETRIC_PI` | W | A line/linecode has shunts on both ends but the from-side and to-side admittances differ. A uniform reciprocal line splits its charging equally; unequal halves indicate a network-reduction artefact or a data error. |
+| `I.PROV.GAMMA_SECTION` | I | A line/linecode carries shunt admittance on exactly one end (a Γ-section). Valid as a deliberate lumping of charging at one terminal, but it breaks the from/to symmetry of a physical line — confirm it is intended. |
+| `I.PROV.SHUNT_CONDUCTANCE` | I | A line/linecode π-shunt carries non-zero conductance (`G_from`/`G_to`) — dielectric loss / leakage is modelled. Unusual in distribution, where the line shunt is normally purely capacitive; confirm it is not an X/B or units confusion. |
 
 ### Parameterisation provenance
 
@@ -313,8 +337,6 @@ the table).
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.NO_PI_SHUNT` | I | All linecodes have π-shunt admittance keys present but every entry is zero — the shunt capacitance/conductance of every cable was not populated. Line charging is absent from the model; this is common for short LV cables but is worth confirming for longer MV feeders. |
-| `I.PROV.PARTIAL_PI_SHUNT` | I | Some linecodes have non-zero π-shunt admittance and others do not — mixed shunt population. May be intentional (e.g. short spurs vs long trunk cables) but is worth reviewing for consistency. |
 | `W.PROV.REGULATOR_PATTERN` | W | A transformer that looks like a voltage-regulator/autotransformer encoding: either both windings on one bus (the explicit EPRI autotransformer form) or a near-1:1 wye unit with same-level endpoints / very low impedance / non-unity tap. The data model has no regulator object — a control device has been frozen into a fixed branch. |
 
 ## INT — structural integrity

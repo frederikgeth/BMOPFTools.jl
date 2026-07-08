@@ -297,6 +297,16 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
         end
     end
 
+    lm = get(get(d, "line_models", Dict()), "counts", Dict())
+    if !isempty(lm) && sum(values(lm)) > 0
+        println(io, "\n  Line model topology:")
+        for (m, lab) in (("series", "pure series"), ("symmetric_pi", "symmetric π"),
+                         ("asymmetric_pi", "asymmetric π"), ("gamma", "Γ (one-sided)"))
+            c = get(lm, m, 0); c > 0 || continue
+            println(io, "    $(rpad(lab, 18)) $c")
+        end
+    end
+
     dd = get(d, "opendss_defaults", Dict())
     if !isempty(dd)
         nh = get(dd, "n_default_hits", 0)

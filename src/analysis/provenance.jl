@@ -17,6 +17,12 @@ modeling assumptions explicit:
    - `distinct`         — consistent with first-principles geometry (Carson).
    Also checks reciprocity (Z symmetric) and passivity (R block PSD).
 
+   The **π-model topology** of every line/linecode is classified separately
+   (`series` / `symmetric_pi` / `asymmetric_pi` / `gamma`) and the case study
+   is audited for model consistency: a network-wide model is reported as
+   uniform, a mix of topologies is flagged for review, and asymmetric-π,
+   Γ-sections and modelled shunt conductance are called out individually.
+
 2. **Wires per voltage level** — 3-wire vs 4-wire classification. A 3-wire
    LV level is flagged as likely Kron-reduced (LV is physically 4-wire);
    3-wire MV is normal. A 4-wire network whose neutrals are all perfectly
@@ -36,6 +42,7 @@ function provenance_analysis(net::Dict{String,Any},
     vl = voltage_level_analysis(net, Finding[])   # duplicate findings discarded
     result["linecodes"]           = _classify_linecodes(net, findings)
     result["inline_line_matrices"] = _check_inline_line_matrices(net, findings)
+    result["line_models"]         = _classify_line_models(net, findings)
     result["geometry_crosscheck"] = _crosscheck_geometry_linecodes(net, findings)
     result["wires_by_level"]      = _wires_by_level(net, findings, vl)
     result["grounding"]           = _grounding_analysis(net, findings)
@@ -90,6 +97,20 @@ function _convention_statement(result::Dict{String,Any})::String
 
     get(get(result, "opendss_defaults", Dict()), "length_normalized", false) &&
         push!(parts, "length-normalized lines")
+
+    lm = get(get(result, "line_models", Dict()), "counts", Dict())
+    if !isempty(lm) && sum(values(lm)) > 0
+        present = [(m, lm[m]) for m in
+                   ("series", "symmetric_pi", "asymmetric_pi", "gamma")
+                   if get(lm, m, 0) > 0]
+        _short = Dict("series" => "series", "symmetric_pi" => "symmetric π",
+                      "asymmetric_pi" => "asymmetric π", "gamma" => "Γ")
+        desc = length(present) == 1 ?
+            "$(_short[present[1][1]])-only line model" :
+            "mixed line models (" *
+            join(["$c $(_short[m])" for (m, c) in present], " + ") * ")"
+        push!(parts, desc)
+    end
 
     isempty(parts) ? "undetermined" : join(parts, "; ")
 end

@@ -12,8 +12,6 @@ function _classify_linecodes(net::Dict{String,Any},
     verdict_counts = Dict{String,Int}()
     seq_ids   = String[]
     dec_ids   = String[]
-    no_shunt_ids  = String[]   # linecodes with all-zero/absent π-shunt admittance
-    has_shunt_ids = String[]   # linecodes with at least one non-zero shunt entry
 
     for (id, lc) in linecodes
         lc isa Dict || continue
@@ -100,58 +98,10 @@ function _classify_linecodes(net::Dict{String,Any},
 
         # Shunt admittance blocks: G must be passive (PSD, nonneg diag);
         # B comes from the Maxwell capacitance matrix — nonneg diagonals,
-        # non-positive off-diagonals, PSD
-        for (prefix, isG) in (("G_from_", true), ("G_to_", true),
-                               ("B_from_", false), ("B_to_", false))
-            M = _pattern_keys_to_matrix(lc, prefix)
-            M isa AbstractMatrix || continue
-            scaleM = max(maximum(abs.(M)), 1e-300)
-            if maximum(abs.(M - transpose(M))) / scaleM > 1e-6
-                push!(findings, Finding(ERROR, "E.PROV.NONRECIPROCAL",
-                    :provenance, :linecode, id,
-                    "Linecode '$id' $(prefix)block is not symmetric — " *
-                    "violates reciprocity.", nothing))
-            end
-            nm = size(M, 1)
-            if isG
-                evg = eigvals(Symmetric((M + transpose(M)) / 2))
-                if any(M[i, i] < -1e-12 for i in 1:nm) ||
-                   minimum(evg) < -1e-9 * max(maximum(abs.(evg)), 1e-12)
-                    push!(findings, Finding(ERROR, "E.PROV.NEGATIVE_G",
-                        :provenance, :linecode, id,
-                        "Linecode '$id' $(prefix)conductance block is not " *
-                        "positive semidefinite — an active (power-generating) " *
-                        "shunt.", nothing))
-                end
-            else
-                evb = eigvals(Symmetric((M + transpose(M)) / 2))
-                scaleB = max(maximum(abs.(M)), 1e-300)
-                bad_diag = any(M[i, i] < -1e-9 * scaleB for i in 1:nm)
-                bad_eig  = minimum(evb) < -1e-9 * max(maximum(abs.(evb)), 1e-12)
-                pos_off  = any(M[i, j] > 1e-9 * scaleB
-                               for i in 1:nm for j in 1:nm if i != j)
-                if bad_diag || bad_eig
-                    # PSD and nonnegative diagonals are invariant (capacitance
-                    # matrix energy argument, preserved by Schur complements)
-                    push!(findings, Finding(WARNING, "W.PROV.B_SIGN",
-                        :provenance, :linecode, id,
-                        "Linecode '$id' $(prefix)susceptance block is not " *
-                        "positive semidefinite / has negative diagonals — " *
-                        "not a physical capacitance matrix.",
-                        nothing))
-                elseif pos_off
-                    # the Maxwell sign pattern (off-diag ≤ 0) is typical but
-                    # NOT invariant: screen elimination / bundling can flip
-                    # small mutuals positive while preserving PSD
-                    push!(findings, Finding(INFO, "I.PROV.B_OFFDIAG",
-                        :provenance, :linecode, id,
-                        "Linecode '$id' $(prefix)block has positive mutual " *
-                        "susceptance — deviates from the Maxwell sign pattern; " *
-                        "typical of screen-eliminated/bundled cable reductions, " *
-                        "otherwise a sign-convention suspect.",
-                        nothing))
-                end
-            end
+        # non-positive off-diagonals, PSD. Same gates apply to inline lines.
+        for prefix in _PI_SHUNT_PREFIXES
+            _check_shunt_block_physics!(findings, id, :linecode, prefix,
+                                        _pattern_keys_to_matrix(lc, prefix))
         end
 
         # Balance classification on the phase block (conductors 1–3)
@@ -166,21 +116,13 @@ function _classify_linecodes(net::Dict{String,Any},
             entry["verdict"] = "not_applicable"
         end
 
+        # π-model topology (series / Γ / symmetric-π / asymmetric-π). The
+        # case-study-level classification and callouts live in
+        # `_classify_line_models`; here we just record the per-linecode verdict.
+        entry["pi_model"] = first(_pi_topology(lc))
+
         verdict_counts[entry["verdict"]] = get(verdict_counts, entry["verdict"], 0) + 1
         by_lc[id] = entry
-
-        # π-shunt presence tracking: keys present but all-zero counts as no shunt
-        shunt_present = any(
-            begin
-                M = _pattern_keys_to_matrix(lc, p)
-                M isa AbstractMatrix && any(!=(0.0), M)
-            end
-            for p in ("G_from_", "B_from_", "G_to_", "B_to_"))
-        if shunt_present
-            push!(has_shunt_ids, id)
-        else
-            push!(no_shunt_ids, id)
-        end
     end
 
     if !isempty(seq_ids)
@@ -201,26 +143,263 @@ function _classify_linecodes(net::Dict{String,Any},
             "$(join(sort(dec_ids), ", ")).",
             Dict{String,Any}("linecodes" => sort(dec_ids))))
     end
-    if !isempty(no_shunt_ids) && isempty(has_shunt_ids)
-        push!(findings, Finding(INFO, "I.PROV.NO_PI_SHUNT", :provenance,
-            :linecode, nothing,
-            "All $(length(no_shunt_ids)) linecode(s) have no π-shunt admittance " *
-            "(G_from/B_from/G_to/B_to absent or zero) — the line model reduces " *
-            "to a series impedance only. Shunt capacitance is typically negligible " *
-            "for short LV cables but may be significant for long MV/HV lines.",
-            Dict{String,Any}("linecodes" => sort(no_shunt_ids))))
-    elseif !isempty(no_shunt_ids)
-        push!(findings, Finding(INFO, "I.PROV.PARTIAL_PI_SHUNT", :provenance,
-            :linecode, nothing,
-            "$(length(no_shunt_ids)) of $(length(no_shunt_ids) + length(has_shunt_ids)) " *
-            "linecode(s) have no π-shunt admittance — mixed model: some lines are " *
-            "series-only, others include shunt capacitance/conductance: " *
-            "$(join(sort(no_shunt_ids), ", ")).",
-            Dict{String,Any}("linecodes_without_shunt" => sort(no_shunt_ids),
-                             "linecodes_with_shunt"    => sort(has_shunt_ids))))
+    Dict{String,Any}("by_linecode" => by_lc, "verdict_counts" => verdict_counts)
+end
+
+# ---------------------------------------------------------------------------
+# π-model topology classification
+# ---------------------------------------------------------------------------
+# A line (or its linecode template) is stored as a two-sided nominal-π: a
+# series impedance Z with a shunt admittance half-block Y_from at the from-end
+# and Y_to at the to-end (Y = G + jB). Which of those blocks are populated, and
+# whether the two ends are equal, determines the *model topology*:
+#
+#   series         — no shunt on either end. Pure series impedance. The default
+#                    and expected model for LV / short-cable distribution, where
+#                    line charging is negligible.
+#   symmetric_pi   — shunt on both ends and Y_from ≈ Y_to. The canonical
+#                    nominal-π: a uniform reciprocal line splits its total
+#                    charging equally between the two terminals. Expected once
+#                    charging matters (longer MV/HV overhead, underground cable).
+#   asymmetric_pi  — shunt on both ends but Y_from ≠ Y_to. Suspicious: a uniform
+#                    line has a symmetric split, so unequal halves usually mean
+#                    a network-reduction artefact or a data error.
+#   gamma          — shunt on exactly one end (a Γ-section). A legitimate
+#                    deliberate lumping of the charging at one terminal, but it
+#                    breaks the physical from/to symmetry — worth confirming.
+#
+# The four blocks are the schema keys G_from/G_to/B_from/B_to; presence is
+# tested as "any stored entry is non-zero" (all-zero keys count as absent,
+# matching how the model consumes them).
+
+const _PI_SHUNT_PREFIXES = ("G_from_", "G_to_", "B_from_", "B_to_")
+
+_block_nonzero(M) = M isa AbstractMatrix && any(!=(0.0), M)
+
+# Fetch a shunt block as an n×n matrix, zero-padded/truncated to n conductors
+# (zeros when the block is absent). Used to compare from/to blocks of possibly
+# differing declared dimension on the same footing.
+function _block_as(elem::Dict, prefix::AbstractString, n::Int)
+    M = _pattern_keys_to_matrix(elem, prefix)
+    M isa AbstractMatrix || return zeros(n, n)
+    size(M, 1) == n && return M
+    Z = zeros(n, n)
+    k = min(n, size(M, 1))
+    Z[1:k, 1:k] .= M[1:k, 1:k]
+    Z
+end
+
+"""
+    _pi_topology(elem) -> (model::String, detail::Dict)
+
+Classify the π-model topology of one impedance-bearing element — a linecode
+template or an inline line — into `"series"`, `"gamma"`, `"symmetric_pi"`, or
+`"asymmetric_pi"`. `detail` reports the from/to admittance mismatch, whether a
+shunt conductance (dielectric loss) is present, and, for a Γ-section, which
+end carries the shunt.
+"""
+function _pi_topology(elem::Dict)
+    Gf = _pattern_keys_to_matrix(elem, "G_from_")
+    Gt = _pattern_keys_to_matrix(elem, "G_to_")
+    Bf = _pattern_keys_to_matrix(elem, "B_from_")
+    Bt = _pattern_keys_to_matrix(elem, "B_to_")
+
+    fr_present = _block_nonzero(Gf) || _block_nonzero(Bf)
+    to_present = _block_nonzero(Gt) || _block_nonzero(Bt)
+    has_conductance = _block_nonzero(Gf) || _block_nonzero(Gt)
+
+    detail = Dict{String,Any}("has_shunt_conductance" => has_conductance)
+
+    if !fr_present && !to_present
+        return ("series", detail)
+    elseif fr_present ⊻ to_present
+        detail["shunt_end"] = fr_present ? "from" : "to"
+        return ("gamma", detail)
     end
 
-    Dict{String,Any}("by_linecode" => by_lc, "verdict_counts" => verdict_counts)
+    # Both ends carry a shunt — compare Y_from against Y_to on a common size.
+    n = maximum(size(M, 1) for M in (Gf, Gt, Bf, Bt) if M isa AbstractMatrix)
+    Yf = complex.(_block_as(elem, "G_from_", n), _block_as(elem, "B_from_", n))
+    Yt = complex.(_block_as(elem, "G_to_", n),   _block_as(elem, "B_to_", n))
+    scale = max(maximum(abs.(Yf)), maximum(abs.(Yt)), 1e-300)
+    asym  = maximum(abs.(Yf - Yt)) / scale
+    detail["fromto_asymmetry"] = asym
+    (asym < 1e-6 ? "symmetric_pi" : "asymmetric_pi", detail)
+end
+
+# Shared physics gates for one shunt admittance block, reported against either a
+# linecode template or an inline line (`ctype`). G blocks must be passive (PSD,
+# non-negative diagonals); B blocks come from the Maxwell capacitance matrix
+# (PSD, non-negative diagonals, non-positive off-diagonals). Reciprocity (block
+# symmetry) is required of both.
+function _check_shunt_block_physics!(findings::Vector{Finding}, id,
+                                     ctype::Symbol, prefix::AbstractString, M)
+    M isa AbstractMatrix || return
+    label = uppercasefirst(String(ctype))
+    nm = size(M, 1)
+    scaleM = max(maximum(abs.(M)), 1e-300)
+    if maximum(abs.(M - transpose(M))) / scaleM > 1e-6
+        push!(findings, Finding(ERROR, "E.PROV.NONRECIPROCAL", :provenance,
+            ctype, id,
+            "$label '$id' $(prefix)block is not symmetric — violates reciprocity.",
+            nothing))
+    end
+    if startswith(prefix, "G_")
+        evg = eigvals(Symmetric((M + transpose(M)) / 2))
+        if any(M[i, i] < -1e-12 for i in 1:nm) ||
+           minimum(evg) < -1e-9 * max(maximum(abs.(evg)), 1e-12)
+            push!(findings, Finding(ERROR, "E.PROV.NEGATIVE_G", :provenance,
+                ctype, id,
+                "$label '$id' $(prefix)conductance block is not positive " *
+                "semidefinite — an active (power-generating) shunt.", nothing))
+        end
+    else
+        evb = eigvals(Symmetric((M + transpose(M)) / 2))
+        bad_diag = any(M[i, i] < -1e-9 * scaleM for i in 1:nm)
+        bad_eig  = minimum(evb) < -1e-9 * max(maximum(abs.(evb)), 1e-12)
+        pos_off  = any(M[i, j] > 1e-9 * scaleM
+                       for i in 1:nm for j in 1:nm if i != j)
+        if bad_diag || bad_eig
+            # PSD and nonnegative diagonals are invariant (capacitance matrix
+            # energy argument, preserved by Schur complements)
+            push!(findings, Finding(WARNING, "W.PROV.B_SIGN", :provenance,
+                ctype, id,
+                "$label '$id' $(prefix)susceptance block is not positive " *
+                "semidefinite / has negative diagonals — not a physical " *
+                "capacitance matrix.", nothing))
+        elseif pos_off
+            # the Maxwell sign pattern (off-diag ≤ 0) is typical but NOT
+            # invariant: screen elimination / bundling can flip small mutuals
+            # positive while preserving PSD
+            push!(findings, Finding(INFO, "I.PROV.B_OFFDIAG", :provenance,
+                ctype, id,
+                "$label '$id' $(prefix)block has positive mutual susceptance " *
+                "— deviates from the Maxwell sign pattern; typical of " *
+                "screen-eliminated/bundled cable reductions, otherwise a " *
+                "sign-convention suspect.", nothing))
+        end
+    end
+end
+
+"""
+    _classify_line_models(net, findings) -> Dict
+
+Classify every impedance-bearing element (linecode templates and inline lines)
+by π-model topology, and audit the case study for model consistency.
+
+Per element it emits a `W.PROV.ASYMMETRIC_PI` warning for unequal shunt halves,
+an `I.PROV.GAMMA_SECTION` note for one-sided shunts, and an
+`I.PROV.SHUNT_CONDUCTANCE` note for a modelled dielectric loss (unusual in
+distribution). At the case-study level it emits `I.PROV.LINE_MODEL_UNIFORM`
+when a single model is used throughout, or `I.PROV.LINE_MODEL_MIXED` when the
+network mixes topologies (legitimate for series-short / π-long feeders, but
+worth a consistency review).
+"""
+function _classify_line_models(net::Dict{String,Any},
+                               findings::Vector{Finding})::Dict{String,Any}
+    # Collect the impedance *definitions*: every linecode, plus every line that
+    # carries inline absolute matrices (a line with a `linecode` ref inherits
+    # that template's topology and is not double-counted).
+    elems = Tuple{Symbol,String,Dict{String,Any}}[]
+    for (id, lc) in get(net, "linecode", Dict())
+        lc isa Dict || continue
+        _pattern_keys_to_matrix(lc, "R_series_") === nothing && continue
+        push!(elems, (:linecode, id, lc))
+    end
+    for (id, l) in get(net, "line", Dict())
+        (l isa Dict && _line_has_inline_z(l)) || continue
+        push!(elems, (:line, id, l))
+    end
+    isempty(elems) && return Dict{String,Any}()
+
+    _label = Dict("series" => "pure series impedance",
+                  "symmetric_pi" => "symmetric π",
+                  "asymmetric_pi" => "asymmetric π",
+                  "gamma" => "Γ (one-sided shunt)")
+
+    by_element = Dict{String,Any}()
+    counts = Dict{String,Int}("series" => 0, "gamma" => 0,
+                              "symmetric_pi" => 0, "asymmetric_pi" => 0)
+    asym_ids = String[]; gamma_ids = String[]; cond_ids = String[]
+
+    for (ctype, id, elem) in elems
+        model, detail = _pi_topology(elem)
+        counts[model] += 1
+        key = "$(ctype):$(id)"
+        by_element[key] = merge(
+            Dict{String,Any}("model" => model, "component_type" => String(ctype)),
+            detail)
+        label = uppercasefirst(String(ctype))
+
+        if model == "asymmetric_pi"
+            push!(asym_ids, key)
+            push!(findings, Finding(WARNING, "W.PROV.ASYMMETRIC_PI", :provenance,
+                ctype, id,
+                "$label '$id' is an asymmetric π-section: its from-side and " *
+                "to-side shunt admittances differ (relative mismatch " *
+                "$(round(get(detail, "fromto_asymmetry", 0.0), sigdigits=3))). A " *
+                "uniform reciprocal line splits its shunt charging equally " *
+                "between both ends; unequal halves usually indicate a " *
+                "network-reduction artefact or a data error.", detail))
+        elseif model == "gamma"
+            push!(gamma_ids, key)
+            push!(findings, Finding(INFO, "I.PROV.GAMMA_SECTION", :provenance,
+                ctype, id,
+                "$label '$id' is a Γ-section: shunt admittance is present only " *
+                "on the $(get(detail, "shunt_end", "?"))-side, the other end is " *
+                "a pure series connection. Valid as a deliberate lumping of " *
+                "charging at one terminal, but it breaks the from/to symmetry " *
+                "of a physical line — confirm it is intended.", detail))
+        end
+
+        if get(detail, "has_shunt_conductance", false) && model != "series"
+            push!(cond_ids, key)
+            push!(findings, Finding(INFO, "I.PROV.SHUNT_CONDUCTANCE", :provenance,
+                ctype, id,
+                "$label '$id' carries a non-zero shunt conductance " *
+                "(G_from/G_to) — dielectric-loss / leakage current is modelled. " *
+                "This is unusual in distribution networks, where the line shunt " *
+                "is normally purely capacitive; confirm it is not an X/B or " *
+                "units confusion.", detail))
+        end
+    end
+
+    present = [m for m in ("series", "symmetric_pi", "asymmetric_pi", "gamma")
+               if counts[m] > 0]
+    total = sum(values(counts))
+    breakdown = join(["$(counts[m]) × $(_label[m])" for m in present], ", ")
+
+    if length(present) == 1
+        m = present[1]
+        note = m == "series" ?
+            "Shunt charging is neglected network-wide — expected for LV / " *
+            "short-cable networks, but worth confirming for feeders with long " *
+            "MV/HV overhead or underground-cable sections." :
+               m == "symmetric_pi" ?
+            "Every branch carries a symmetric π shunt — line charging is " *
+            "represented consistently across the network." :
+            "Note this is an unusual choice as a network-wide model (see the " *
+            "per-element findings)."
+        push!(findings, Finding(INFO, "I.PROV.LINE_MODEL_UNIFORM", :provenance,
+            :linecode, nothing,
+            "All $total line-model definition(s) use a single, consistent " *
+            "model: $(_label[m]). $note",
+            Dict{String,Any}("counts" => counts)))
+    else
+        push!(findings, Finding(INFO, "I.PROV.LINE_MODEL_MIXED", :provenance,
+            :linecode, nothing,
+            "The case study mixes $(length(present)) line models across " *
+            "$total definition(s): $breakdown. A series/π mix is legitimate " *
+            "when short spurs are modelled as series impedance and long trunks " *
+            "as π-sections, but a mix should be reviewed for consistency — " *
+            "especially any asymmetric-π or Γ members.",
+            Dict{String,Any}("counts" => counts)))
+    end
+
+    Dict{String,Any}("by_element" => by_element, "counts" => counts,
+                     "asymmetric_pi" => sort(asym_ids),
+                     "gamma" => sort(gamma_ids),
+                     "shunt_conductance" => sort(cond_ids))
 end
 
 """
@@ -504,6 +683,13 @@ function _check_inline_line_matrices(net::Dict{String,Any},
                     "implied inductance matrix is not physically realisable.",
                     Dict{String,Any}("x_eigenvalues" => collect(evx))))
             end
+        end
+
+        # Inline lines can carry their own π-shunt blocks — same physics gates
+        # as a linecode template (reciprocity, G passivity, B Maxwell sign).
+        for prefix in _PI_SHUNT_PREFIXES
+            _check_shunt_block_physics!(findings, id, :line, prefix,
+                                        _pattern_keys_to_matrix(l, prefix))
         end
     end
     Dict{String,Any}("n_checked" => length(checked), "checked" => sort(checked))
