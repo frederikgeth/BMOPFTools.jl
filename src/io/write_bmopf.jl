@@ -55,6 +55,10 @@ function write_bmopf(net::Dict{String,Any}, io::IO;
                            if k != "meta" && k != "_meta")
     buses = get(net, "bus", nothing)
     buses isa Dict && (out["bus"] = _strip_derived_bus_fields(buses))
+    # Always export the terminal-role convention. If the case never declared one,
+    # promote the inferred classification to an explicit block so the written
+    # file is self-documenting and reloads without W.CONV.TERMINAL_ROLES_INFERRED.
+    out["terminal_conventions"] = _terminal_conventions_dict(net)
     out["meta"] = out_meta
     if isnothing(indent)
         JSON3.write(io, out)

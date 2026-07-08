@@ -5,6 +5,12 @@
 const _DEFAULT_TERMINAL_ALIASES =
     Dict{Any,String}(1 => "1", 2 => "2", 3 => "3", 4 => "n")
 
+# Identity numeric aliases: every numeric terminal becomes its own decimal
+# string with no renaming. Used when the case declares `terminal_conventions`
+# explicitly, so a declared neutral label like "4" is not force-renamed to "n".
+const _IDENTITY_TERMINAL_ALIASES =
+    Dict{Any,String}(1 => "1", 2 => "2", 3 => "3", 4 => "4")
+
 """
     parse_bmopf(path::AbstractString; terminal_aliases) -> Dict{String,Any}
     parse_bmopf(io::IO; terminal_aliases) -> Dict{String,Any}
@@ -77,6 +83,13 @@ function _postprocess(raw::Dict{String,Any},
                       terminal_aliases::Dict=_DEFAULT_TERMINAL_ALIASES)::Dict{String,Any}
     d = _deep_convert(raw)
     d = migrate(d)
+    # When the case declares its terminal roles explicitly, honour the labels it
+    # uses verbatim: suppress the default numeric `4→"n"` rename so a declared
+    # neutral label like "4" survives (the whole point of the explicit block).
+    # A caller-supplied alias map is always respected.
+    if haskey(d, "terminal_conventions") && terminal_aliases === _DEFAULT_TERMINAL_ALIASES
+        terminal_aliases = _IDENTITY_TERMINAL_ALIASES
+    end
     n_coerced, mode = _normalize_terminals!(d, terminal_aliases)
     # Stamp parse time if no metadata present
     if !haskey(d, "_meta")
@@ -97,6 +110,10 @@ function _postprocess(raw::Dict{String,Any},
             get!(d["_meta"], k, v)
         end
     end
+    # Stamp per-bus neutral terminals from an explicit terminal_conventions block
+    # so downstream per-bus resolution honours non-"n" neutral labels (no-op when
+    # the roles are only inferred — see _materialize_terminal_roles!).
+    _materialize_terminal_roles!(d)
     d
 end
 

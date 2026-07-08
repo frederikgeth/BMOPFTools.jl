@@ -33,6 +33,7 @@ per-phase power constraints are added.
 function _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
     vr = vars[:vr]; vi = vars[:vi]
     cr_src = vars[:cr_src]; ci_src = vars[:ci_src]
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (sid, vs) in get(net, "voltage_source", Dict())
         bus   = get(vs, "bus", "")
@@ -63,15 +64,15 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
         src_bus_nt = BMOPFTools._neutral_terminal(
             get(get(net, "bus", Dict()), bus, Dict{String,Any}()))
         for (b, t) in keys(vr)
-            b == bus && (t == src_bus_nt || lowercase(t) == "n") || continue
+            b == bus && (t == src_bus_nt || t in nlabels) || continue
             JuMP.is_fixed(vr[(bus, t)]) || fix(vr[(bus, t)], 0.0; force=true)
             JuMP.is_fixed(vi[(bus, t)]) || fix(vi[(bus, t)], 0.0; force=true)
         end
 
         # ── Slack current injection + optional P/Q bounds ───────────────────────
         if cfg in ("WYE", "SINGLE_PHASE")
-            ph_pos    = _phase_positions(tm)
-            n_pos_idx = _neutral_pos(tm)
+            ph_pos    = _phase_positions(tm, nlabels)
+            n_pos_idx = _neutral_pos(tm, nlabels)
             # Prefer an explicit neutral in the terminal_map; otherwise fall back
             # to the bus neutral terminal (fixed to 0 above) for the return path.
             t_n = if n_pos_idx !== nothing

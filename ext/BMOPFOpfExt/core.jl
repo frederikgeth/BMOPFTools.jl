@@ -180,6 +180,10 @@ function _build_and_solve(net::Dict{String,Any};
 
     working = BMOPFTools.is_timeseries(net) ?
               BMOPFTools.get_snapshot(net, t_index) : deepcopy(net)
+    # Stamp per-bus neutral terminals from an explicit terminal_conventions block
+    # so bus-level neutral resolution honours non-"n" labels even for nets built
+    # programmatically (parse_bmopf already does this on load). Mutates the copy.
+    BMOPFTools._materialize_terminal_roles!(working)
 
     bases = nothing
     if per_unit

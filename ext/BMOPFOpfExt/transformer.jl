@@ -60,6 +60,7 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_in
     cr_xf = vars[:cr_xf]; ci_xf = vars[:ci_xf]
     tapd  = get(vars, :tap, Dict{Any,Any}())
     xfmr_dict = get(net, "transformer", Dict())
+    nlabels = BMOPFTools._neutral_labels(net)
     # Per-winding coil apparent-power auxiliaries (P, Q), registered by the
     # nameplate cap so the result writer can report the solved |S| without
     # reconstructing coil voltages. Keyed (tid, "fr"/"to", winding-index).
@@ -68,7 +69,7 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_in
     for (tid, xfmr) in get(xfmr_dict, "single_phase", Dict())
         _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               tap=get(tapd, tid, nothing), branch_inj=branch_inj,
-                              scoil=s_coil)
+                              scoil=s_coil, nlabels=nlabels)
     end
     for (tid, xfmr) in get(xfmr_dict, "center_tap", Dict())
         _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
@@ -79,22 +80,22 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_in
     for (tid, xfmr) in get(xfmr_dict, "wye_delta", Dict())
         _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               wye_is_from=true, tap=get(tapd, tid, nothing),
-                              branch_inj=branch_inj, scoil=s_coil)
+                              branch_inj=branch_inj, scoil=s_coil, nlabels=nlabels)
     end
     for (tid, xfmr) in get(xfmr_dict, "delta_wye", Dict())
         _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               wye_is_from=false, tap=get(tapd, tid, nothing),
-                              branch_inj=branch_inj, scoil=s_coil)
+                              branch_inj=branch_inj, scoil=s_coil, nlabels=nlabels)
     end
 
     for (tid, xfmr) in get(xfmr_dict, "single_phase_autotransformer", Dict())
         _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               tap=get(tapd, tid, nothing), branch_inj=branch_inj,
-                              scoil=s_coil)
+                              scoil=s_coil, nlabels=nlabels)
     end
     for (tid, xfmr) in get(xfmr_dict, "open_delta_regulator", Dict())
         _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              tap=tapd, branch_inj=branch_inj, scoil=s_coil)
+                              tap=tapd, branch_inj=branch_inj, scoil=s_coil, nlabels=nlabels)
     end
     # n_winding is built by a separate pass (`_add_nwinding_constraints!`). Any
     # OTHER key under `transformer` is an unmodeled subtype whose devices would
@@ -160,7 +161,8 @@ terminal to earth (verified against OpenDSS Yprim — the neutral-node diagonal
 gains exactly y_n).
 """
 function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              tap=nothing, branch_inj=nothing, scoil=nothing)
+                              tap=nothing, branch_inj=nothing, scoil=nothing,
+                              nlabels)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr       = get(xfmr, "bus_from", "")
     b_to       = get(xfmr, "bus_to",   "")
@@ -175,8 +177,8 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     # two-terminal map with no neutral (q = the other phase), or phase-to-ground
     # otherwise. The winding voltage and the no-load shunt are both taken across
     # (V_p − V_q), and the series/shunt return current closes at q.
-    pairs_fr   = BMOPFTools._xfmr_winding_pairs(tmfr)
-    pairs_to   = BMOPFTools._xfmr_winding_pairs(tmto)
+    pairs_fr   = BMOPFTools._xfmr_winding_pairs(tmfr, nlabels)
+    pairs_to   = BMOPFTools._xfmr_winding_pairs(tmto, nlabels)
     n_c        = min(length(pairs_fr), length(pairs_to))
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
@@ -223,8 +225,8 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     xn_fr = Float64(get(xfmr, "x_neutral_from", 0.0))
     rn_to = Float64(get(xfmr, "r_neutral_to",   0.0))
     xn_to = Float64(get(xfmr, "x_neutral_to",   0.0))
-    n_pos_fr = BMOPFTools._neutral_pos(tmfr)
-    n_pos_to = BMOPFTools._neutral_pos(tmto)
+    n_pos_fr = BMOPFTools._neutral_pos(tmfr, nlabels)
+    n_pos_to = BMOPFTools._neutral_pos(tmto, nlabels)
     for (side, rn, xn, n_pos) in (("from", rn_fr, xn_fr, n_pos_fr),
                                   ("to",   rn_to, xn_to, n_pos_to))
         b, tm = side == "from" ? (b_fr, tmfr) : (b_to, tmto)
@@ -722,7 +724,7 @@ the model collapses to the previous ideal transform.  A legacy single
 """
 function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                                wye_is_from::Bool, tap=nothing, branch_inj=nothing,
-                               scoil=nothing)
+                               scoil=nothing, nlabels)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     N = _xfmr_turns_ratio(xfmr)   # v_nom_from / v_nom_to
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
@@ -765,8 +767,8 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     n_ph  = length(tm_del)             # number of delta (phase) conductors
     n_wye = length(tm_wye)
 
-    n_pos  = _neutral_pos(tm_wye)       # position of neutral in tm_wye (or nothing)
-    ph_idx = _phase_positions(tm_wye)   # positions of phase conductors in tm_wye
+    n_pos  = _neutral_pos(tm_wye, nlabels)       # position of neutral in tm_wye (or nothing)
+    ph_idx = _phase_positions(tm_wye, nlabels)   # positions of phase conductors in tm_wye
 
     length(ph_idx) < n_ph && @warn "Transformer '$tid': wye-side phase count < delta conductors."
 
@@ -1111,7 +1113,7 @@ it as two terminals (`t_fr_q`, `t_to_q`), each coil returns at its own reference
 bond the secondary return would leak to earth / dangle.
 """
 function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                               tap=nothing, branch_inj=nothing, scoil=nothing)
+                               tap=nothing, branch_inj=nothing, scoil=nothing, nlabels)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
@@ -1124,8 +1126,8 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
     # Winding terminal pairs (p, q): q = neutral for a line-to-neutral SVR, or the
     # second phase for a line-to-line SVR. The regulating winding spans (V_p − V_q)
     # on each side, and the return closes at q.
-    pairs_fr = BMOPFTools._xfmr_winding_pairs(tmfr)
-    pairs_to = BMOPFTools._xfmr_winding_pairs(tmto)
+    pairs_fr = BMOPFTools._xfmr_winding_pairs(tmfr, nlabels)
+    pairs_to = BMOPFTools._xfmr_winding_pairs(tmto, nlabels)
     if isempty(pairs_fr) || isempty(pairs_to)
         @warn "single_phase_autotransformer '$tid': needs a phase conductor on " *
               "each side; got from=$(tmfr) to=$(tmto). Skipping."
@@ -1280,7 +1282,7 @@ arity (4,4): `["1","2","3","n"]` on both sides; the neutral carries no winding
 current. `tap_ratio` is `[a1, a2]` (per regulator); `regulator_type` shared.
 """
 function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                                    tap=nothing, branch_inj=nothing, scoil=nothing)
+                                    tap=nothing, branch_inj=nothing, scoil=nothing, nlabels)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr = get(xfmr, "bus_from", "")
     b_to = get(xfmr, "bus_to",   "")
@@ -1294,8 +1296,8 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
               "(expected ABBC/BCAC/CABA). Skipping."
         return
     end
-    ph_fr = BMOPFTools._phase_positions(tmfr)
-    ph_to = BMOPFTools._phase_positions(tmto)
+    ph_fr = BMOPFTools._phase_positions(tmfr, nlabels)
+    ph_to = BMOPFTools._phase_positions(tmto, nlabels)
     if length(ph_fr) < 3 || length(ph_to) < 3
         @warn "open_delta_regulator '$tid': needs 3 phase conductors on each " *
               "side; got from=$(tmfr) to=$(tmto). Skipping."

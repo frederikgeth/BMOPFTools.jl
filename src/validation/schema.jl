@@ -287,7 +287,7 @@ function _catalogue_unknown_fields(net::Dict{String,Any},
                      "load", "generator", "shunt", "capacitor", "switch",
                      "transformer", "ibr", "control_profile",
                      "wire_data", "line_geometry",
-                     "time_series", "_meta"])
+                     "time_series", "terminal_conventions", "_meta"])
     unknown_top = [k for k in keys(net) if !(k in known_top) && !startswith(k, "_")]
     isempty(unknown_top) ||
         (unknown_by_type["(top-level)"] = Dict(k => 1 for k in unknown_top))
@@ -329,6 +329,16 @@ a fallback.
 function schema_check(net::Dict{String,Any},
                       findings::Vector{Finding})::Dict{String,Any}
     result = Dict{String,Any}()
+
+    # Drop tool-derived, non-spec bus fields (e.g. the materialised
+    # `neutral_terminal`, re-derivable from `terminal_conventions`) before both
+    # validation layers — they are stripped on write and must not read as
+    # schema violations here. `_meta`/`_pmd` etc. are handled by `_strip_internal`.
+    buses = get(net, "bus", nothing)
+    if buses isa Dict && any(b isa Dict && any(haskey(b, k) for k in _DERIVED_BUS_FIELDS)
+                             for b in values(buses))
+        net = merge(net, Dict{String,Any}("bus" => _strip_derived_bus_fields(buses)))
+    end
 
     # ── Layer 1: JSONSchema structural validation ─────────────────────────────
     version = _detect_spec_version(net)

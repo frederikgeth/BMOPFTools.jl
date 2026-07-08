@@ -3802,6 +3802,12 @@ const IEEE13_FIXTURE = """
     include("write_bmopf_tests.jl")
 
     # -----------------------------------------------------------------------
+    # Terminal-role conventions (phase/neutral/earth) — resolver, ingestion,
+    # validation findings, export; OPF solve gated on JuMP/Ipopt internally.
+    # -----------------------------------------------------------------------
+    include("terminal_conventions_tests.jl")
+
+    # -----------------------------------------------------------------------
     # Time-series support — snapshot semantics plus a gated OPF sweep
     # -----------------------------------------------------------------------
     include("timeseries_tests.jl")

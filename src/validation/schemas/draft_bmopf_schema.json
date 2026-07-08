@@ -1230,6 +1230,28 @@
                 },
                 "required": ["values"]
             }
+        },
+        "terminal_conventions": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Case-wide classification of the terminal-name labels used across all AC buses into phase, neutral and earth roles. Optional: when present it is the authoritative source of truth for which labels are neutral/phase/earth (ingestion and the OPF resolve roles from it rather than guessing); when absent, roles are inferred from the naming convention (a label 'n'/'N' is neutral, all others phase) and W.CONV.TERMINAL_ROLES_INFERRED is raised. Does not apply to dc_bus, which carries its own pole roles. Exported on every write.",
+            "properties": {
+                "phase": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Terminal-name labels that denote a phase conductor (e.g. [\"a\",\"b\",\"c\"], or split-phase legs). A bus terminal in none of the three lists is treated as a phase and W.CONV.TERMINAL_UNCLASSIFIED is raised."
+                },
+                "neutral": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Terminal-name labels that denote a neutral conductor (typically [\"n\"]). A bus is expected to carry at most one neutral terminal."
+                },
+                "earth": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Terminal-name labels that denote a dedicated earth/PE *wire* conductor. The ground reference itself stays implicit (grounding is modelled via grounding impedances / perfectly_grounded_terminals); this list captures only genuine earth-wire terminals and is empty for standard OpenDSS-derived cases."
+                }
+            }
         }
     },
     "required": [

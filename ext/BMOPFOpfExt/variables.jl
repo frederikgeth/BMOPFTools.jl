@@ -99,13 +99,14 @@ end
 function _add_load_variables!(model, net)
     crd = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     cid = Dict{Tuple{String,Int}, JuMP.VariableRef}()
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (lid, load) in get(net, "load", Dict())
         tm  = Vector{String}(get(load, "terminal_map", String[]))
         cfg = get(load, "configuration", "WYE")
         # For WYE/SINGLE_PHASE: one current per phase conductor (not neutral).
         # For DELTA: one current per conductor.
-        n_ph = cfg == "DELTA" ? length(tm) : length(_phase_positions(tm))
+        n_ph = cfg == "DELTA" ? length(tm) : length(_phase_positions(tm, nlabels))
         for k in 1:n_ph
             crd[(lid,k)] = @variable(model, base_name = "crd_$(lid)_$(k)")
             cid[(lid,k)] = @variable(model, base_name = "cid_$(lid)_$(k)")
@@ -118,11 +119,12 @@ end
 function _add_generator_variables!(model, net)
     crg = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     cig = Dict{Tuple{String,Int}, JuMP.VariableRef}()
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (gid, gen) in get(net, "generator", Dict())
         tm  = Vector{String}(get(gen, "terminal_map", String[]))
         cfg = get(gen, "configuration", "WYE")
-        n_ph = cfg == "DELTA" ? length(tm) : length(_phase_positions(tm))
+        n_ph = cfg == "DELTA" ? length(tm) : length(_phase_positions(tm, nlabels))
         for k in 1:n_ph
             crg[(gid,k)] = @variable(model, base_name = "crg_$(gid)_$(k)")
             cig[(gid,k)] = @variable(model, base_name = "cig_$(gid)_$(k)")
@@ -136,11 +138,12 @@ conductor; neutral excluded — the neutral carries the summed return current)."
 function _add_source_variables!(model, net)
     cr_src = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     ci_src = Dict{Tuple{String,Int}, JuMP.VariableRef}()
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (sid, vs) in get(net, "voltage_source", Dict())
         tm   = Vector{String}(get(vs, "terminal_map", String[]))
         cfg  = get(vs, "configuration", "WYE")
-        n_ph = cfg == "DELTA" ? length(tm) : length(_phase_positions(tm))
+        n_ph = cfg == "DELTA" ? length(tm) : length(_phase_positions(tm, nlabels))
         for k in 1:n_ph
             cr_src[(sid,k)] = @variable(model, base_name = "cr_src_$(sid)_$(k)")
             ci_src[(sid,k)] = @variable(model, base_name = "ci_src_$(sid)_$(k)")
@@ -153,6 +156,7 @@ end
 function _add_transformer_variables!(model, net)
     cr_xf = Dict{Tuple{String,String,Int}, JuMP.VariableRef}()
     ci_xf = Dict{Tuple{String,String,Int}, JuMP.VariableRef}()
+    nlabels = BMOPFTools._neutral_labels(net)
 
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
@@ -167,8 +171,8 @@ function _add_transformer_variables!(model, net)
                 # L-L); its bond current is the extra "fr" index (analogous to the
                 # open-delta straight-through wire). Allocated only when both sides
                 # have a winding reference q (a neutral or a second phase).
-                pf = BMOPFTools._xfmr_winding_pairs(tmfr)
-                pt = BMOPFTools._xfmr_winding_pairs(tmto)
+                pf = BMOPFTools._xfmr_winding_pairs(tmfr, nlabels)
+                pt = BMOPFTools._xfmr_winding_pairs(tmto, nlabels)
                 has_both_q = !isempty(pf) && !isempty(pt) &&
                              pf[1][2] !== nothing && pt[1][2] !== nothing
                 n_fr = length(pf) + (has_both_q ? 1 : 0)
@@ -176,8 +180,8 @@ function _add_transformer_variables!(model, net)
             elseif subtype == "single_phase"
                 # YY single-phase: one current variable per winding pair. A
                 # line-to-neutral and a line-to-line map are both ONE winding.
-                n_fr = length(BMOPFTools._xfmr_winding_pairs(tmfr))
-                n_to = length(BMOPFTools._xfmr_winding_pairs(tmto))
+                n_fr = length(BMOPFTools._xfmr_winding_pairs(tmfr, nlabels))
+                n_to = length(BMOPFTools._xfmr_winding_pairs(tmto, nlabels))
             elseif subtype == "open_delta_regulator"
                 # Two line-to-line regulating windings → one series current per
                 # regulator on each side (indices 1,2). A 3rd "fr" current models
@@ -328,6 +332,7 @@ problems.
 """
 function _set_voltage_start_values!(vars, net, bus_terminals, grounded)
     vr = vars[:vr]; vi = vars[:vi]
+    nlabels = BMOPFTools._neutral_labels(net)
 
     # Source-declared angles keyed by terminal name; any terminal the source
     # does not declare falls back to the canonical 120°-spaced start for its
@@ -352,7 +357,7 @@ function _set_voltage_start_values!(vars, net, bus_terminals, grounded)
     sp = _split_phase_init_angles(net, t_angle)   # anti-phase legs for split-phase zones
 
     for (bid, terminals) in bus_terminals
-        nt = BMOPFTools._neutral_terminal(terminals)
+        nt = BMOPFTools._neutral_terminal(terminals, nlabels)
         for t in terminals
             (bid, t) in grounded && continue   # fixed at 0 — skip
             key = (bid, t)
@@ -380,6 +385,7 @@ that arises in the unconstrained feasibility OPF.
 """
 function _set_level_aware_start_values!(vars, net, bus_terminals, grounded)
     vr = vars[:vr]; vi = vars[:vi]
+    nlabels = BMOPFTools._neutral_labels(net)
 
     # Source-declared angles; other terminals get the canonical 120° start
     # for their naming convention via `_start_angle` (see above).
@@ -399,7 +405,7 @@ function _set_level_aware_start_values!(vars, net, bus_terminals, grounded)
     sp = _split_phase_init_angles(net, t_angle)   # anti-phase legs for split-phase zones
 
     for (bid, terminals) in bus_terminals
-        nt    = BMOPFTools._neutral_terminal(terminals)
+        nt    = BMOPFTools._neutral_terminal(terminals, nlabels)
         v_nom = get(v_nom_by_bus, bid, 1000.0)
         for t in terminals
             (bid, t) in grounded && continue
@@ -432,6 +438,7 @@ function _set_yd_dy_start_values!(vars, net, grounded)
     vr = vars[:vr]; vi = vars[:vi]
     cr_xf = vars[:cr_xf]; ci_xf = vars[:ci_xf]
     xfmr_dict = get(net, "transformer", Dict())
+    nlabels = BMOPFTools._neutral_labels(net)
     for subtype in ("wye_delta", "delta_wye")
         for (tid, xfmr) in get(xfmr_dict, subtype, Dict())
             wye_is_from = (subtype == "wye_delta")
@@ -445,8 +452,8 @@ function _set_yd_dy_start_values!(vars, net, grounded)
                 get(xfmr, "terminal_map_from", String[]))
             N     = Float64(get(xfmr, "v_nom_from", 1.0)) / Float64(get(xfmr, "v_nom_to", 1.0))
             n_eff = wye_is_from ? sqrt(3) / N : N * sqrt(3)
-            ph_idx = BMOPFTools._phase_positions(tm_wye)
-            n_pos  = BMOPFTools._neutral_pos(tm_wye)
+            ph_idx = BMOPFTools._phase_positions(tm_wye, nlabels)
+            n_pos  = BMOPFTools._neutral_pos(tm_wye, nlabels)
             side_wye = wye_is_from ? "fr" : "to"
             side_del = wye_is_from ? "to" : "fr"
             n_ph   = length(tm_del)

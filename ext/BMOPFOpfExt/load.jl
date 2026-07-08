@@ -132,6 +132,7 @@ automatically and is not an independent variable.
 function _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
     vr = vars[:vr]; vi = vars[:vi]
     crd = vars[:crd]; cid = vars[:cid]
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (lid, load) in get(net, "load", Dict())
         bus = get(load, "bus", "")
@@ -163,8 +164,8 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
             end
 
         elseif cfg in ("WYE", "SINGLE_PHASE")
-            ph_pos = _phase_positions(tm)
-            n_pos_idx = _neutral_pos(tm)
+            ph_pos = _phase_positions(tm, nlabels)
+            n_pos_idx = _neutral_pos(tm, nlabels)
             t_n = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
             for (idx, ph) in enumerate(ph_pos)

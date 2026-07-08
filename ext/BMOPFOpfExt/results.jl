@@ -128,6 +128,7 @@ end
 # Returns (cg_r, cg_i) in A; zero when neither path reaches earth.
 function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
     cg_r = 0.0; cg_i = 0.0
+    nlabels = BMOPFTools._neutral_labels(net)
 
     # Internal neutral-grounding branches (rneut/xneut).
     for (side, bkey, tmkey) in (("from", "bus_from", "terminal_map_from"),
@@ -136,7 +137,7 @@ function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
         xn = Float64(get(xfmr, "x_neutral_$(side)", 0.0))
         (rn == 0.0 && xn == 0.0) && continue
         tm   = Vector{String}(get(xfmr, tmkey, String[]))
-        npos = BMOPFTools._neutral_pos(tm)
+        npos = BMOPFTools._neutral_pos(tm, nlabels)
         npos === nothing && continue
         b   = string(get(xfmr, bkey, ""))
         haskey(vr_v, (b, tm[npos])) || continue
@@ -159,15 +160,15 @@ function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
 
     if subtype == "delta_wye"
         # Phase-to-neutral wye shunt: earth only when the wye has no neutral.
-        BMOPFTools._neutral_pos(tmto) === nothing || return cg_r, cg_i
-        ph_to = [tmto[p] for p in BMOPFTools._phase_positions(tmto)]
+        BMOPFTools._neutral_pos(tmto, nlabels) === nothing || return cg_r, cg_i
+        ph_to = [tmto[p] for p in BMOPFTools._phase_positions(tmto, nlabels)]
         isempty(ph_to) && return cg_r, cg_i
         n = length(ph_to)
         sr, si = _shunt_ground_current(vr_v, vi_v, val, G/n, B/n, b_to, ph_to)
         return cg_r + sr, cg_i + si
     elseif subtype in ("single_phase", "single_phase_autotransformer")
         # One coil per to-side pair; earth only for phase-to-ground coils (no q).
-        pairs_to = BMOPFTools._xfmr_winding_pairs(tmto)
+        pairs_to = BMOPFTools._xfmr_winding_pairs(tmto, nlabels)
         n_c = length(pairs_to)
         n_c == 0 && return cg_r, cg_i
         ground_ph = [tmto[p] for (p, q) in pairs_to if q === nothing]
@@ -248,6 +249,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                           branch_inj=nothing)
     status = string(JuMP.termination_status(model))
     tsolve = JuMP.solve_time(model)
+    nlabels = BMOPFTools._neutral_labels(net)
 
     vr_v    = vars[:vr];    vi_v    = vars[:vi]
     crg_v   = vars[:crg];   cig_v   = vars[:cig]
@@ -366,8 +368,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         cfg = get(load, "configuration", "WYE")
         is_delta  = cfg == "DELTA"
         n_c       = length(tm)
-        ph_pos    = is_delta ? collect(eachindex(tm)) : _phase_positions(tm)
-        n_pos_idx = is_delta ? nothing : _neutral_pos(tm)
+        ph_pos    = is_delta ? collect(eachindex(tm)) : _phase_positions(tm, nlabels)
+        n_pos_idx = is_delta ? nothing : _neutral_pos(tm, nlabels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
         ph_results = Dict{String,Any}()
@@ -402,8 +404,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         cfg  = get(gen, "configuration", "WYE")
         is_delta  = cfg == "DELTA"
         n_c       = length(tm)
-        ph_pos    = is_delta ? collect(eachindex(tm)) : _phase_positions(tm)
-        n_pos_idx = is_delta ? nothing : _neutral_pos(tm)
+        ph_pos    = is_delta ? collect(eachindex(tm)) : _phase_positions(tm, nlabels)
+        n_pos_idx = is_delta ? nothing : _neutral_pos(tm, nlabels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
         ph_results = Dict{String,Any}()
@@ -471,8 +473,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                 "cri" => cr, "cii" => ci, "pg" => pg, "qg" => qg)
 
         elseif topo == "FOUR_LEG"
-            ph_pos    = _phase_positions(tm)
-            n_pos_idx = _neutral_pos(tm)
+            ph_pos    = _phase_positions(tm, nlabels)
+            n_pos_idx = _neutral_pos(tm, nlabels)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
             for (idx, ph) in enumerate(ph_pos)
@@ -526,8 +528,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                 # pairs ⇒ a line-to-line map is one winding, not two). The
                 # autotransformer's neutral-bond current (extra "fr" index) is
                 # internal and intentionally not reported here.
-                n_fr = length(BMOPFTools._xfmr_winding_pairs(tmfr_r))
-                n_to = length(BMOPFTools._xfmr_winding_pairs(tmto_r))
+                n_fr = length(BMOPFTools._xfmr_winding_pairs(tmfr_r, nlabels))
+                n_to = length(BMOPFTools._xfmr_winding_pairs(tmto_r, nlabels))
             elseif subtype == "open_delta_regulator"
                 n_fr = 2
                 n_to = 2
@@ -611,8 +613,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         tm   = Vector{String}(get(vs, "terminal_map", String[]))
         cfg  = get(vs, "configuration", "WYE")
         cfg in ("WYE", "SINGLE_PHASE") || continue
-        ph_pos    = _phase_positions(tm)
-        n_pos_idx = _neutral_pos(tm)
+        ph_pos    = _phase_positions(tm, nlabels)
+        n_pos_idx = _neutral_pos(tm, nlabels)
         t_n = if n_pos_idx !== nothing
             tm[n_pos_idx]
         else

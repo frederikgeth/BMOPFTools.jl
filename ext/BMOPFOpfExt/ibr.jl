@@ -26,6 +26,7 @@
 function _add_ibr_variables!(model, net)
     cri = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     cii = Dict{Tuple{String,Int}, JuMP.VariableRef}()
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
@@ -33,7 +34,7 @@ function _add_ibr_variables!(model, net)
         topo = get(inv, "topology", "FOUR_LEG")
         n_ph = topo == "THREE_LEG" ? length(tm) :
                topo == "SINGLE_PHASE" ? 1 :
-               length(_phase_positions(tm))   # FOUR_LEG
+               length(_phase_positions(tm, nlabels))   # FOUR_LEG
         for k in 1:n_ph
             cri[(inv_id, k)] = @variable(model, base_name = "cri_$(inv_id)_$(k)")
             cii[(inv_id, k)] = @variable(model, base_name = "cii_$(inv_id)_$(k)")
@@ -275,6 +276,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
     vr  = vars[:vr];  vi  = vars[:vi]
     cri = vars[:cri]; cii = vars[:cii]
     profiles = get(net, "control_profile", Dict())
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
@@ -327,7 +329,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
         # Per-phase available active power (model units) for p_ref=P_AVAILABLE.
         p_avail_per = let pa = get(inv, "p_avail", nothing)
-            n = max(length(_phase_positions(tm)), 1)
+            n = max(length(_phase_positions(tm, nlabels)), 1)
             pa isa Number ?
                 Float64(pa) / n / (bases === nothing ? 1.0 : Float64(bases.s_base)) : 0.0
         end
@@ -394,8 +396,8 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             _kcl_add!(kcl_r, kcl_i, bus, t_ref,  -cri[(inv_id,1)], -cii[(inv_id,1)])
 
         elseif topo == "FOUR_LEG"
-            ph_pos    = _phase_positions(tm)
-            n_pos_idx = _neutral_pos(tm)
+            ph_pos    = _phase_positions(tm, nlabels)
+            n_pos_idx = _neutral_pos(tm, nlabels)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
             ph_terms  = [tm[ph] for ph in ph_pos]
 

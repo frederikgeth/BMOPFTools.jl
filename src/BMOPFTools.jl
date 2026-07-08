@@ -215,15 +215,135 @@ infos(r::SummaryReport)    = infos(r.findings)
 # ---------------------------------------------------------------------------
 
 """
-    _neutral_terminal(bus) -> Union{String,Nothing}
+    TerminalRoles
 
-Identify the neutral terminal of a bus. Checks the explicit `neutral_terminal`
-field first (spec-authoritative), then falls back to the documented naming
-convention: a terminal named `"n"` or `"N"` (any case) is treated as neutral.
+Resolved case-wide classification of terminal-name labels into `phase`,
+`neutral` and `earth` roles (see [`_terminal_roles`](@ref)). `inferred` is
+`true` when the roles were derived from the naming convention because the case
+carried no explicit `terminal_conventions` block, and `false` when they were
+read from that block.
+"""
+struct TerminalRoles
+    phase::Set{String}
+    neutral::Set{String}
+    earth::Set{String}
+    inferred::Bool
+end
+
+# Terminal-name label treated as neutral by the fallback naming convention
+# (case-insensitive `"n"`/`"N"`). This is the single definition of the guess we
+# make when a case declares no `terminal_conventions`.
+_is_convention_neutral(name) = lowercase(string(name)) == "n"
+
+"""
+    _terminal_roles(net) -> TerminalRoles
+
+Resolve the case-wide terminal-role classification for an AC network.
+
+If `net["terminal_conventions"]` is present it is authoritative: the `phase`,
+`neutral` and `earth` label lists are taken verbatim (matched exactly, including
+case). Otherwise the roles are **inferred** from every bus's `terminal_names`
+using the naming convention (`"n"`/`"N"` → neutral, everything else → phase, no
+earth) and the returned value is flagged `inferred=true` — which
+`W.CONV.TERMINAL_ROLES_INFERRED` reports during validation.
+
+`dc_bus` terminals are out of scope (DC carries its own pole roles) and are not
+scanned.
+"""
+function _terminal_roles(net::Dict{String,Any})::TerminalRoles
+    tc = get(net, "terminal_conventions", nothing)
+    if tc isa Dict
+        strs(k) = Set{String}(string(x) for x in get(tc, k, String[]))
+        return TerminalRoles(strs("phase"), strs("neutral"), strs("earth"), false)
+    end
+    phase = Set{String}()
+    neutral = Set{String}()
+    for (_, bus) in get(net, "bus", Dict())
+        bus isa Dict || continue
+        for t in get(bus, "terminal_names", String[])
+            s = string(t)
+            push!(_is_convention_neutral(s) ? neutral : phase, s)
+        end
+    end
+    TerminalRoles(phase, neutral, Set{String}(), true)
+end
+
+"""
+    _neutral_labels(net) -> Set{String}
+
+The set of terminal-name labels that denote a neutral conductor for this case,
+from the resolved [`TerminalRoles`](@ref). Pass this to the terminal-map helpers
+(`_neutral_terminal`, `_neutral_pos`, `_phase_positions`, …) so they resolve the
+neutral by the case's declared label(s) rather than the hard-wired `"n"` guess.
+"""
+_neutral_labels(net::Dict{String,Any})::Set{String} = _terminal_roles(net).neutral
+
+"""
+    _terminal_conventions_dict(net) -> Dict{String,Any}
+
+Build an exportable `terminal_conventions` block for `net`. If the case already
+declares one it is returned verbatim (sorted for a stable serialisation);
+otherwise the roles are inferred from the naming convention and promoted to an
+explicit block (`phase`/`neutral` populated from the bus terminal names, `earth`
+empty). Used by `from_dss` to record the convention it knows at ingest and by
+`write_bmopf` to guarantee the field is always exported.
+"""
+function _terminal_conventions_dict(net::Dict{String,Any})::Dict{String,Any}
+    roles = _terminal_roles(net)
+    Dict{String,Any}(
+        "phase"   => sort!(collect(roles.phase)),
+        "neutral" => sort!(collect(roles.neutral)),
+        "earth"   => sort!(collect(roles.earth)),
+    )
+end
+
+"""
+    _materialize_terminal_roles!(net) -> net
+
+Stamp each AC bus with a derived `neutral_terminal` field resolved from the
+case's [`TerminalRoles`](@ref), so the per-bus `_neutral_terminal(bus)` accessor
+returns the right terminal even when the case declares a non-`"n"` neutral label
+via `terminal_conventions`. This is an in-memory convenience only — the field is
+stripped on write (see `write_bmopf`) since it is re-derivable from the exported
+`terminal_conventions`.
+
+A bus that resolves to no neutral is left untouched; a bus that resolves to more
+than one neutral terminal keeps only the first (the redundancy is reported as
+`W.CONV.MULTIPLE_NEUTRALS` during validation). Buses that already carry an
+explicit `neutral_terminal` are left as-is.
+"""
+function _materialize_terminal_roles!(net::Dict{String,Any})
+    roles = _terminal_roles(net)
+    # Only stamp when the case declares its convention: with no declaration the
+    # neutral label is the `"n"` naming convention, which `_neutral_terminal`
+    # already resolves per-bus, so stamping would only pollute bus dicts.
+    roles.inferred && return net
+    isempty(roles.neutral) && return net
+    for (_, bus) in get(net, "bus", Dict())
+        bus isa Dict || continue
+        haskey(bus, "neutral_terminal") && continue
+        names = get(bus, "terminal_names", nothing)
+        names isa AbstractVector || continue
+        nt = _neutral_terminal(names, roles.neutral)
+        nt === nothing || (bus["neutral_terminal"] = nt)
+    end
+    net
+end
+
+"""
+    _neutral_terminal(bus) -> Union{String,Nothing}
+    _neutral_terminal(names[, neutral_labels]) -> Union{String,Nothing}
+
+Identify the neutral terminal of a bus (or of a terminal-name/`terminal_map`
+vector). For a bus, the explicit `neutral_terminal` field is checked first
+(materialised from `terminal_conventions` at ingest). Otherwise, when a
+`neutral_labels` set is supplied (typically `_neutral_labels(net)`), a terminal
+whose label is in that set is the neutral; when it is omitted, the fallback
+naming convention applies — a terminal named `"n"`/`"N"` (any case) is neutral.
 Returns `nothing` if no neutral can be identified.
 
-The OpenDSS numeric convention ["1","2","3","4"] is resolved at import time by
-`from_dss` (remapped to ["a","b","c","n"]) rather than here.
+The OpenDSS numeric convention `["1","2","3","4"]` is resolved at import time by
+`from_dss` (remapped to `["a","b","c","n"]`) rather than here.
 """
 function _neutral_terminal(bus::Dict{String,Any})::Union{String,Nothing}
     nt = get(bus, "neutral_terminal", nothing)
@@ -233,16 +353,24 @@ end
 
 function _neutral_terminal(names::AbstractVector)::Union{String,Nothing}
     for nm in names
-        lowercase(string(nm)) == "n" && return string(nm)
+        _is_convention_neutral(nm) && return string(nm)
+    end
+    nothing
+end
+
+function _neutral_terminal(names::AbstractVector, neutral_labels)::Union{String,Nothing}
+    for nm in names
+        string(nm) in neutral_labels && return string(nm)
     end
     nothing
 end
 
 """
-    _neutral_pos(terminal_map) -> Union{Int,Nothing}
+    _neutral_pos(terminal_map[, neutral_labels]) -> Union{Int,Nothing}
 
 Return the 1-based position of the neutral terminal in `terminal_map`,
-or `nothing` if none is identified.
+or `nothing` if none is identified. See [`_neutral_terminal`](@ref) for how
+`neutral_labels` selects the resolution strategy.
 """
 function _neutral_pos(terminal_map::AbstractVector)::Union{Int,Nothing}
     nt = _neutral_terminal(terminal_map)
@@ -250,13 +378,24 @@ function _neutral_pos(terminal_map::AbstractVector)::Union{Int,Nothing}
     findfirst(==(nt), string.(terminal_map))
 end
 
+function _neutral_pos(terminal_map::AbstractVector, neutral_labels)::Union{Int,Nothing}
+    nt = _neutral_terminal(terminal_map, neutral_labels)
+    nt === nothing && return nothing
+    findfirst(==(nt), string.(terminal_map))
+end
+
 """
-    _phase_positions(terminal_map) -> Vector{Int}
+    _phase_positions(terminal_map[, neutral_labels]) -> Vector{Int}
 
 Return the 1-based positions of the non-neutral conductors in `terminal_map`.
 """
 function _phase_positions(terminal_map::AbstractVector)::Vector{Int}
     np = _neutral_pos(terminal_map)
+    [k for k in eachindex(terminal_map) if k != np]
+end
+
+function _phase_positions(terminal_map::AbstractVector, neutral_labels)::Vector{Int}
+    np = _neutral_pos(terminal_map, neutral_labels)
     [k for k in eachindex(terminal_map) if k != np]
 end
 
@@ -273,8 +412,17 @@ phase count (not terminal count alone), matching the `_IBR_ARITY` contract:
 Counting terminals alone mislabels a 3-wire delta `[a,b,c]` as `FOUR_LEG`.
 """
 function _infer_ibr_topology(terminal_map::AbstractVector)::String
+    _infer_ibr_topology(terminal_map, _neutral_terminal(terminal_map))
+end
+
+function _infer_ibr_topology(terminal_map::AbstractVector, neutral_labels)::String
+    _infer_ibr_topology(terminal_map, _neutral_terminal(terminal_map, neutral_labels))
+end
+
+function _infer_ibr_topology(terminal_map::AbstractVector,
+                             neutral::Union{String,Nothing})::String
     n = length(terminal_map)
-    if _neutral_terminal(terminal_map) !== nothing
+    if neutral !== nothing
         return n <= 2 ? "SINGLE_PHASE" : "FOUR_LEG"
     end
     n >= 3 ? "THREE_LEG" : "SINGLE_PHASE"
@@ -314,13 +462,23 @@ This lets the builders treat both `["1","n"]` (L-N) and `["1","2"]` (L-L) maps
 uniformly — the return current always closes at `q`.
 """
 function _xfmr_winding_pairs(terminal_map::AbstractVector)::Vector{Tuple{Int,Union{Int,Nothing}}}
-    np = _neutral_pos(terminal_map)
+    _xfmr_winding_pairs(terminal_map, _neutral_pos(terminal_map))
+end
+
+function _xfmr_winding_pairs(terminal_map::AbstractVector,
+                             neutral_labels)::Vector{Tuple{Int,Union{Int,Nothing}}}
+    _xfmr_winding_pairs(terminal_map, _neutral_pos(terminal_map, neutral_labels))
+end
+
+function _xfmr_winding_pairs(terminal_map::AbstractVector,
+                             np::Union{Int,Nothing})::Vector{Tuple{Int,Union{Int,Nothing}}}
+    phases = [k for k in eachindex(terminal_map) if k != np]
     if np !== nothing
-        return [(p, np) for p in _phase_positions(terminal_map)]
+        return [(p, np) for p in phases]
     elseif length(terminal_map) == 2
         return [(1, 2)]
     else
-        return [(p, nothing) for p in _phase_positions(terminal_map)]
+        return [(p, nothing) for p in phases]
     end
 end
 

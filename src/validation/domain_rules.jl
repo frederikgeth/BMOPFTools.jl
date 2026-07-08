@@ -44,6 +44,7 @@ function domain_rules_check(net::Dict{String,Any},
     _check_line_geometry(net, findings, n_checks)
     _check_frequency_consistency(net, findings, n_checks)
     _check_inline_line_impedance(net, findings, n_checks)
+    _check_terminal_conventions(net, findings, n_checks)
 
     result["n_checks_run"] = n_checks[]
     result
@@ -1579,4 +1580,88 @@ function _check_adjacent_line_impedance_spread(net, findings, thresh, n_checks, 
                          "ratio"  => worst_ratio,
                          "threshold_info" => z_info,
                          "threshold_warn" => z_warn)))
+end
+
+# ---------------------------------------------------------------------------
+# Terminal-role conventions (phase / neutral / earth)
+# ---------------------------------------------------------------------------
+
+"""
+    _check_terminal_conventions(net, findings, n_checks)
+
+Validate the case-wide terminal-role classification (see
+[`BMOPFTools._terminal_roles`](@ref)). Raises:
+
+- `W.CONV.TERMINAL_ROLES_INFERRED` — no `terminal_conventions` block, so the
+  phase/neutral/earth roles were guessed from the naming convention;
+- `E.CONV.ROLE_OVERLAP` — a label declared in more than one role list;
+- `W.CONV.TERMINAL_UNCLASSIFIED` — a bus terminal that no role list covers
+  (it is treated as a phase conductor downstream);
+- `W.CONV.MULTIPLE_NEUTRALS` — a bus carrying more than one neutral terminal.
+
+DC buses carry their own pole roles and are out of scope here.
+"""
+function _check_terminal_conventions(net, findings, n_checks)
+    haskey(net, "bus") || return
+    n_checks[] += 1
+    tc = get(net, "terminal_conventions", nothing)
+
+    if !(tc isa Dict)
+        push!(findings, Finding(WARNING, "W.CONV.TERMINAL_ROLES_INFERRED",
+            :domain_rules, :network, nothing,
+            "No `terminal_conventions` block: phase/neutral/earth terminal roles " *
+            "were inferred from the naming convention (a terminal named \"n\"/\"N\" " *
+            "is neutral, all others phase). Declare `terminal_conventions` to make " *
+            "the classification explicit and self-documenting.",
+            Dict{String,Any}()))
+        return
+    end
+
+    labels_of(k) = Set(string(x) for x in get(tc, k, String[]))
+    phase, neutral, earth = labels_of("phase"), labels_of("neutral"), labels_of("earth")
+
+    # A label must have a single role.
+    for (ra, rb, sa, sb) in (("phase", "neutral", phase, neutral),
+                             ("phase", "earth",   phase, earth),
+                             ("neutral", "earth", neutral, earth))
+        both = sort!(collect(intersect(sa, sb)))
+        isempty(both) && continue
+        push!(findings, Finding(ERROR, "E.CONV.ROLE_OVERLAP",
+            :domain_rules, :network, nothing,
+            "Terminal label(s) $(join(both, ", ")) are declared in both the " *
+            "`$ra` and `$rb` role lists of `terminal_conventions`; each label " *
+            "must have a single role.",
+            Dict{String,Any}("labels" => both, "roles" => [ra, rb])))
+    end
+
+    classified = union(phase, neutral, earth)
+    unclassified = Dict{String,Vector{String}}()
+    for (bus_id, bus) in get(net, "bus", Dict())
+        bus isa Dict || continue
+        names = get(bus, "terminal_names", nothing)
+        names isa AbstractVector || continue
+        strs = string.(names)
+        miss = [t for t in strs if !(t in classified)]
+        isempty(miss) || (unclassified[bus_id] = sort!(unique(miss)))
+        neuts = [t for t in strs if t in neutral]
+        if length(neuts) > 1
+            push!(findings, Finding(WARNING, "W.CONV.MULTIPLE_NEUTRALS",
+                :domain_rules, :bus, bus_id,
+                "Bus '$bus_id' has $(length(neuts)) terminals classified as " *
+                "neutral ($(join(neuts, ", "))); a bus is expected to carry at " *
+                "most one neutral conductor.",
+                Dict{String,Any}("terminals" => neuts)))
+        end
+    end
+    if !isempty(unclassified)
+        labels = sort!(unique(reduce(vcat, values(unclassified))))
+        buses  = sort!(collect(keys(unclassified)))
+        push!(findings, Finding(WARNING, "W.CONV.TERMINAL_UNCLASSIFIED",
+            :domain_rules, :bus, length(buses) == 1 ? buses[1] : nothing,
+            "Terminal label(s) $(join(labels, ", ")) appear on $(length(buses)) " *
+            "bus(es) but are in none of the phase/neutral/earth role lists of " *
+            "`terminal_conventions`; they are treated as phase conductors. Add " *
+            "them to the appropriate role list.",
+            Dict{String,Any}("labels" => labels, "buses" => buses)))
+    end
 end

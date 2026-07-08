@@ -29,6 +29,7 @@ DELTA generators use the same bilinear form with line-to-line voltage.
 function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
     vr = vars[:vr]; vi = vars[:vi]
     crg = vars[:crg]; cig = vars[:cig]
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (gid, gen) in get(net, "generator", Dict())
         bus       = get(gen, "bus", "")
@@ -42,8 +43,8 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
         s_max_g   = Float64.(get(gen, "s_max", Float64[]))
 
         if cfg in ("WYE", "SINGLE_PHASE")
-            ph_pos    = _phase_positions(tm)
-            n_pos_idx = _neutral_pos(tm)
+            ph_pos    = _phase_positions(tm, nlabels)
+            n_pos_idx = _neutral_pos(tm, nlabels)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
             n_ph      = length(ph_pos)
 

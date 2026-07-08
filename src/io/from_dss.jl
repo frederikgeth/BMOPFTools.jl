@@ -88,6 +88,12 @@ function from_dss(path::AbstractString;
     _remap_opendss_terminals!(net)
     _normalize_transformer_no_load_shunts!(net, dn)
 
+    # Record the terminal-role convention explicitly (phases a/b/c…, neutral n;
+    # no earth wire — the OpenDSS earth node is routed to neutral, ground stays
+    # implicit). from_dss knows the mapping it just applied, so this is declared
+    # rather than left to be inferred downstream (W.CONV.TERMINAL_ROLES_INFERRED).
+    get!(net, "terminal_conventions", _terminal_conventions_dict(net))
+
     # Store conversion warnings so callers can inspect fidelity losses, and
     # surface an aggregate @warn so the losses are visible even when the
     # caller never looks at _meta.

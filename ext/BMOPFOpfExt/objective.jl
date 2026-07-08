@@ -40,6 +40,7 @@ function _add_objective!(model, net, vars)
     vr = vars[:vr]; vi = vars[:vi]
     crg = vars[:crg]; cig = vars[:cig]
     cri = vars[:cri]; cii = vars[:cii]
+    nlabels = BMOPFTools._neutral_labels(net)
 
     obj = JuMP.QuadExpr()
 
@@ -50,8 +51,8 @@ function _add_objective!(model, net, vars)
         cost = get(gen, "cost", nothing)
         cost === nothing && continue
 
-        ph_pos    = cfg == "DELTA" ? collect(eachindex(tm)) : _phase_positions(tm)
-        n_pos_idx = cfg == "DELTA" ? nothing : _neutral_pos(tm)
+        ph_pos    = cfg == "DELTA" ? collect(eachindex(tm)) : _phase_positions(tm, nlabels)
+        n_pos_idx = cfg == "DELTA" ? nothing : _neutral_pos(tm, nlabels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
         for (idx, ph) in enumerate(ph_pos)
@@ -86,8 +87,8 @@ function _add_objective!(model, net, vars)
         cost === nothing && continue
 
         cfg in ("WYE", "SINGLE_PHASE") || continue
-        ph_pos    = _phase_positions(tm)
-        n_pos_idx = _neutral_pos(tm)
+        ph_pos    = _phase_positions(tm, nlabels)
+        n_pos_idx = _neutral_pos(tm, nlabels)
         t_n = if n_pos_idx !== nothing
             tm[n_pos_idx]
         else
@@ -125,8 +126,8 @@ function _add_objective!(model, net, vars)
                 @expression(model, dvr*cri[(inv_id,1)] + dvi*cii[(inv_id,1)]))
 
         elseif topo == "FOUR_LEG"
-            ph_pos    = _phase_positions(tm)
-            n_pos_idx = _neutral_pos(tm)
+            ph_pos    = _phase_positions(tm, nlabels)
+            n_pos_idx = _neutral_pos(tm, nlabels)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
             for (idx, ph) in enumerate(ph_pos)
                 c1   = _phase_cost(cost, idx, "IBR", inv_id)

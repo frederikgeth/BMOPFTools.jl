@@ -46,6 +46,7 @@ neutral terminals (their voltage is determined by physics, not operational limit
 function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars)
     vr = vars[:vr]; vi = vars[:vi]
     fixed = _source_fixed_terminals(net)
+    nlabels = BMOPFTools._neutral_labels(net)
 
     for (bid, bus) in get(net, "bus", Dict())
         v_min = get(bus, "v_min", nothing)
@@ -53,7 +54,7 @@ function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars)
         (v_min === nothing && v_max === nothing) && continue
 
         terminals = get(bus_terminals, bid, String[])
-        neutral   = BMOPFTools._neutral_terminal(terminals)
+        neutral   = BMOPFTools._neutral_terminal(terminals, nlabels)
         # Phase terminals in declaration order (neutral excluded). v_min/v_max are
         # per-phase arrays indexed by this order, so the phase index k is kept
         # aligned to the array even when a phase is grounded/source-fixed (those
