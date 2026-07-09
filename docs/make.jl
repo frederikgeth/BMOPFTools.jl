@@ -14,6 +14,7 @@ makedocs(
         "Home"                    => "index.md",
         "Getting started"         => [
             "End-to-end tutorial"      => "tutorial_end_to_end.md",
+            "Choose your tutorial"     => "choose_tutorial.md",
             "Positioning & ecosystem"  => "positioning.md",
         ],
         "Data model"              => [
@@ -26,10 +27,12 @@ makedocs(
         "Analysis & diagnostics"  => [
             "Analysis & reports"       => "analysis.md",
             "Finding-code reference"   => "findings.md",
+            "Trust but verify: validating a solve" => "tutorial_trust_but_verify.md",
             "Methodology notes"        => "methodology.md",
         ],
         "Case preparation"        => [
             "Case augmentation"        => "augmentation.md",
+            "From nameplate data to a model" => "tutorial_nameplate.md",
             "Simplification tutorial"  => "tutorial_simplify.md",
             "DER placement tutorial"   => "tutorial_ders.md",
             "VVWO tutorial"            => "tutorial_vvwo.md",
