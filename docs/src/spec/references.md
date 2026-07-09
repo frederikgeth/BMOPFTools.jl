@@ -24,8 +24,8 @@ analysis):
 
 Optimal power flow and its mathematics:
 
-- **S. H. Low**, *Power System Analysis: A Mathematical Approach* (forthcoming
-  graduate textbook). A rigorous, notation-first treatment of network models and OPF;
+- **S. H. Low**, *Power System Analysis: Analytical Tools and Structural Properties*
+  (forthcoming graduate textbook). A rigorous, notation-first treatment of network models and OPF;
   freely available on registration at
   [netlab.caltech.edu/book_reg](https://netlab.caltech.edu/book_reg/). Its complex
   stacked-vector style is close to the [notation](notation.md) used here.
@@ -47,7 +47,9 @@ where Steven Low's book covers the mathematics underneath:
   [Real Distribution System Modeling and Analysis](https://wzy.ece.iastate.edu/PPT/EE653%20Real%20Distribution%20System%20Modeling%20and%20Analysis.pdf)
   (EE653). Clear, worked treatments of feeder components and how transformer losses map
   onto the equivalent circuit.
-- Distribution-transformer modelling, *IET Generation, Transmission & Distribution*, 2020,
+- **S. Claeys, G. Deconinck, F. Geth**, "Decomposition of n-winding transformers for
+  unbalanced optimal power flow," *IET Generation, Transmission & Distribution*
+  **14**(24):5961–5969, 2020,
   [doi:10.1049/iet-gtd.2020.0776](https://doi.org/10.1049/iet-gtd.2020.0776) — a useful
   reference for conceptualising the
   [transformer loss model](transformer.md#The-loss-equivalent-circuit).
@@ -75,6 +77,13 @@ models:
 - **R. C. Dugan**, "A perspective on transformer modeling for distribution system
   analysis," *IEEE PES General Meeting*, 2003. Background for the
   [transformer](transformer.md) winding models and grounding conventions.
+- **R. Yan, Y. Li, T. K. Saha, L. Wang, M. I. Hossain**, "Modeling and Analysis of
+  Open-Delta Step Voltage Regulators for Unbalanced Distribution Network With
+  Photovoltaic Power Generation," *IEEE Transactions on Smart Grid*
+  **9**(3):2224–2234, 2018,
+  [doi:10.1109/TSG.2016.2609440](https://doi.org/10.1109/TSG.2016.2609440). The
+  common-neutral open-delta step-voltage-regulator model behind the
+  [regulator](regulator.md) page (`open_delta_regulator`).
 
 ## Benchmark libraries and test systems
 

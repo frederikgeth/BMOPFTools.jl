@@ -236,7 +236,7 @@ end
     e = only(filter(x -> x.component_id == "lc_dist" && x.field == "i_max" &&
                          x.new_value !== nothing, mf.entries))
     @test e.new_value == [170.0, 170.0, 170.0]
-    @test contains(e.rule, "IEC60228")
+    @test contains(e.rule, "heuristic_ampacity")
     @test e.confidence == :high   # distinct verdict → :high
 end
 

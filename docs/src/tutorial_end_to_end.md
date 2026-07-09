@@ -145,8 +145,9 @@ render_manifest(der_mf)
 [`augment_case`](@ref) fills the bounds and costs an OPF needs, **without
 overwriting any value already present**. Each fill is tagged in the manifest as
 `:standard` (derived from a cited standard) or `:synthetic` (a design choice).
-The passes draw on EN 50160 (voltage bounds), IEC 60228 (thermal limits from
-conductor cross-sections), and EN 50549-1 / IEEE 1547 (reactive capability). See
+The passes draw on EN 50160 (voltage bounds), a heuristic conductor-size →
+ampacity estimate (thermal limits, loosely IEC-60228/60364-calibrated), and
+EN 50549-1 / IEEE 1547 (reactive capability). See
 [Case augmentation](augmentation.md) for the full pass-by-pass rationale.
 
 ```@example e2e

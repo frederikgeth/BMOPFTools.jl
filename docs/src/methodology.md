@@ -12,8 +12,9 @@ legitimate transformation of the data can break — as hard checks, and treat
 For the series impedance Z = R + jX of a multiconductor line in wire
 coordinates [1, 5]:
 
-- **Reciprocity** (Z symmetric) holds for any passive network — hard
-  (`E.PROV.NONRECIPROCAL`).
+- **Reciprocity** (Z symmetric) holds for ordinary passive lines in
+  reciprocal media (isotropic conductors and earth — no gyrotropic or
+  otherwise non-reciprocal materials) — hard (`E.PROV.NONRECIPROCAL`).
 - **Passivity** (R ⪰ 0) holds by the dissipation argument, and survives
   Kron reduction: elimination of grounded conductors is a Schur complement,
   and Schur complements of accretive matrices remain accretive [10, 11] —
@@ -24,7 +25,7 @@ coordinates [1, 5]:
   complementation — so X-PSD is also Kron-invariant
   (`W.PROV.X_NOT_PSD`, `W.PROV.X_NONINDUCTIVE`).
 - **Mutual resistance sign**: Carson's earth-return correction [4] makes
-  off-diagonal resistance positive (≈ π²·f·μ₀/4 ≈ 0.049 Ω/km at 50 Hz),
+  off-diagonal resistance positive (≈ ω·μ₀/8 = π·f·μ₀/4 ≈ 0.049 Ω/km at 50 Hz),
   and nearly equal across conductor pairs — a useful fingerprint of
   geometry-derived data, but only *typical*: reductions and fitting can
   perturb it (`I.PROV.NEGATIVE_MUTUAL_R`, soft).
@@ -32,14 +33,17 @@ coordinates [1, 5]:
 ## Sequence-derived matrices and Z₁/Z₀ recovery
 
 A line parameterised from sequence values and transformed back to phase
-coordinates (TF spec Appendix A.2; [2] Eq. 148) is **perfectly balanced**:
+coordinates (TF spec [1], Appendix A.2 / Eq. 148) is **perfectly balanced**:
 
 ```
 Z = Zₛ·I + Zₘ·(J − I),   Zₛ = (Z₀ + 2Z₁)/3,   Zₘ = (Z₀ − Z₁)/3
 ```
 
-Geometric (Carson) parameterisations of untransposed lines cannot produce
-this, because phase-pair spacings differ. The classifier inverts the
+Geometric (Carson) parameterisations of *generic asymmetric* untransposed
+geometries do not produce this, because their phase-pair spacings differ.
+(Symmetric untransposed arrangements — equilateral spacing, symmetric bundled
+construction — *can* be balanced; that is exactly the `near_balanced` case
+below.) The classifier inverts the
 construction — `Z₁ = Zₛ − Zₘ`, `Z₀ = Zₛ + 2Zₘ` — and reports the implied
 sequence parameters (`I.PROV.SEQ_DERIVED`). The verdict tiers:
 

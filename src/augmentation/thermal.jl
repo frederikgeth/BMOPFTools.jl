@@ -1,8 +1,15 @@
 # Thermal limit inference pass.
 #
-# Infers i_max for linecodes that lack it by matching the diagonal series
-# resistance R₁₁ against an IEC 60228:2004 / IEC 60364-5-52:2009 lookup
-# table of cross-section → ampacity.
+# Infers a heuristic i_max for linecodes that lack it by matching the diagonal
+# series resistance R₁₁ against a lookup table of representative conductor
+# cross-sections → ampacity. This is a SYNTHETIC ESTIMATE, not a standards
+# lookup: R₁₁ is the series resistance (conductor AC resistance PLUS the Carson
+# earth-return coupling), so it does not by itself identify a conductor's
+# material, construction class, cross-section, or installation method. The R₁₁
+# column is keyed on maximum DC resistance at 20 °C (the quantity IEC 60228:2004
+# specifies, measured by a DC procedure) purely as a size fingerprint; a
+# high-confidence rating needs material/class and installation method known
+# independently.
 #
 # The neutral conductor carries the same rating as the phase conductors in
 # this implementation (no derating applied).  IEC 60364-5-52:2009 Table B.52
@@ -14,9 +21,12 @@
 # recipe.thermal_min_confidence are processed.  This prevents assigning
 # ratings derived from a fictitious sequence-impedance matrix.
 
-# ── IEC 60228:2004 + IEC 60364-5-52:2009 lookup table ───────────────────────
-# Columns: (R₁₁ mΩ/m at 20 °C, cross_section mm², underground XLPE A, overhead AAC A)
-# Overhead AAC values marked nothing for cross-sections not commonly overhead.
+# ── Heuristic conductor size → ampacity lookup table ────────────────────────
+# Columns: (R₁₁ mΩ/m — max DC resistance at 20 °C, cross_section mm²,
+#           underground ampacity A, overhead illustrative ampacity A)
+# The underground column is loosely calibrated to IEC 60364-5-52:2009 Table B.52
+# (LV installation ampacity); the overhead column is illustrative, NOT an
+# IEC 60364/AAC catalogue value. `nothing` marks sizes not commonly overhead.
 const _IEC_CONDUCTOR_TABLE = [
     (4.950, 4,    34,  nothing),
     (3.300, 6,    41,  nothing),
@@ -31,11 +41,18 @@ const _IEC_CONDUCTOR_TABLE = [
     (0.132, 150, 386, 430),
     (0.107, 185, 451, 490),
     (0.082, 240, 541, 600),
-]  # Source: IEC 60228:2004 (resistance), IEC 60364-5-52:2009 Table B.52 (ampacity)
+]  # Heuristic table: R₁₁ ~ IEC 60228:2004 max DC resistance (size fingerprint);
+   # underground ampacity ~ IEC 60364-5-52:2009 Table B.52; overhead illustrative.
 
 # 15 % relative tolerance (default) for R₁₁ matching against the IEC table.
 # Sourced from config/default.toml [thermal].tolerance.
 const _THERMAL_TOLERANCE = Float64(_thermal_cfg()["tolerance"])
+
+# Provenance rule tag for thermal fills. Deliberately labelled a heuristic
+# estimate rather than "IEC60228+IEC60364": R₁₁ alone does not identify the
+# conductor material/class or installation, so the result is not a
+# standards-conformant ampacity (see the header comment).
+const _THERMAL_RULE = "heuristic_ampacity_estimate"
 
 # Confidence ordering for threshold comparison
 const _CONFIDENCE_ORDER = Dict(:low => 1, :medium => 2, :high => 3)
@@ -59,7 +76,7 @@ end
 """
     _lookup_ampacity(r11_ohm_per_m, conductor_type) -> (mm2, ampacity, note)
 
-Find the nearest IEC 60228 table entry for the given R₁₁ (Ω/m).
+Find the nearest heuristic table entry for the given R₁₁ (Ω/m).
 Returns (cross_section_mm2, ampacity_A, note_string) or nothing if no match
 within tolerance.
 """
@@ -116,7 +133,7 @@ function _apply_thermal!(net′::Dict{String,Any},
         _confidence_ok(confidence, r.thermal_min_confidence) || begin
             push!(entries, TransformEntry(
                 :linecode, lcid, "i_max", nothing, nothing,
-                "IEC60228:2004+IEC60364-5-52:2009", confidence,
+                _THERMAL_RULE, confidence,
                 "skipped: confidence $(confidence) below threshold " *
                 "$(r.thermal_min_confidence) (classification: $(cls))"))
             continue
@@ -127,7 +144,7 @@ function _apply_thermal!(net′::Dict{String,Any},
         (r11 isa Number && r11 > 0) || begin
             push!(entries, TransformEntry(
                 :linecode, lcid, "i_max", nothing, nothing,
-                "IEC60228:2004+IEC60364-5-52:2009", confidence,
+                _THERMAL_RULE, confidence,
                 "skipped: R_series_1_1 absent or non-positive"))
             continue
         end
@@ -136,7 +153,7 @@ function _apply_thermal!(net′::Dict{String,Any},
         if result === nothing
             push!(entries, TransformEntry(
                 :linecode, lcid, "i_max", nothing, nothing,
-                "IEC60228:2004+IEC60364-5-52:2009", confidence,
+                _THERMAL_RULE, confidence,
                 "skipped: R₁₁=$(round(Float64(r11)*1000, digits=3)) mΩ/m " *
                 "outside lookup range (no match within $(round(tolerance*100))%)"))
             continue
@@ -151,7 +168,7 @@ function _apply_thermal!(net′::Dict{String,Any},
         lc["i_max"] = i_max_vec
         push!(entries, TransformEntry(
             :linecode, lcid, "i_max", nothing, i_max_vec,
-            "IEC60228:2004+IEC60364-5-52:2009", confidence, note))
+            _THERMAL_RULE, confidence, note))
     end
 end
 

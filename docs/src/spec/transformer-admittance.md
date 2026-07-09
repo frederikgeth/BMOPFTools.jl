@@ -292,7 +292,7 @@ across the from/to pair $(p,q)$, summed with the from-side shunt:
 ```
 
 This is the device's natural line-to-line admittance — the "unspecified neutral" matrix
-of Yan et al. (2018), IEEE Trans. Smart Grid **9**(3):2224, Eq. (11): the shared phase
+of Yan et al. (2018), IEEE Trans. Smart Grid **9**(3):2224–2234, [doi:10.1109/TSG.2016.2609440](https://doi.org/10.1109/TSG.2016.2609440), Eq. (11): the shared phase
 carries $2\textcolor{brown}{y_t}$ on its diagonal (both regulators) and the from↔to
 coupling scales as $\textcolor{red}{n^{\text{eff}}}$ and $(\textcolor{red}{n^{\text{eff}}})^2$ — the autotransformer factor, not an isolated-transformer ratio. The galvanic
 straight-through of the shared phase (the paper's *common-neutral* model, its Eq. 14) is

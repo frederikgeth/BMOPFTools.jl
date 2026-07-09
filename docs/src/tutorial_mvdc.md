@@ -345,10 +345,11 @@ end
 2. X. Jiang, Y. Zhou, W. Ming, P. Yang, J. Wu, *An Overview of Soft Open Points in
    Electricity Distribution Networks*, IEEE Transactions on Smart Grid
    **13**(3):1899–1910, 2022.
-3. *Hosting-capacity maximisation of distribution networks with optimised soft
-   open points*, Energies **16**(3):1035, 2023.
-4. *Comparison between voltage droop and voltage margin controllers for MTDC
-   systems*, 2019.
+3. R. de Oliveira, L. W. de Oliveira, E. J. de Oliveira, *Optimization Approach for
+   Planning Soft Open Points in a MV-Distribution System to Maximize the Hosting
+   Capacity*, Energies **16**(3):1035, 2023, doi:10.3390/en16031035.
+4. F. Torres, S. Martinez, C. Roa, E. Lopez, *Comparison Between Voltage Droop and
+   Voltage Margin Controllers for MTDC Systems*, IEEE ICA-ACCA, Concepción, Chile, 2018.
 5. K. Rouzbehi, A. Miranian, A. Luna, P. Rodriguez, *A Generalized Voltage Droop
    Strategy for Control of Multiterminal DC Grids*, IEEE Transactions on Industry
    Applications **51**(1):607–618, 2015.

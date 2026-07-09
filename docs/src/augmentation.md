@@ -230,12 +230,19 @@ are skipped — the offset is never guessed. Enable with
 
 ### Pass 2 — Thermal limits
 
-Infers `i_max` for linecodes that lack it by matching the diagonal series
-resistance R₁₁ against an IEC 60228:2004 / IEC 60364-5-52:2009 lookup table.
+Infers a heuristic `i_max` for linecodes that lack it by matching the diagonal
+series resistance R₁₁ against a lookup table of representative conductor
+cross-sections and their ampacities. This is a **synthetic estimate**, not a
+standards lookup: R₁₁ is the *series* resistance (the conductor's AC resistance
+**plus** the Carson earth-return coupling), so on its own it does not uniquely
+identify a conductor's material, construction class, cross-section, or
+installation method. Treat the result as a plausible default; a high-confidence
+rating requires the conductor material/class and installation method to be known
+independently.
 
-The table covers cross-sections from 4 mm² to 240 mm²:
+The table spans representative cross-sections from 4 mm² to 240 mm²:
 
-| Cross-section (mm²) | R₁₁ (mΩ/m at 20 °C) | Underground XLPE (A) | Overhead AAC (A) |
+| Cross-section (mm²) | R₁₁ (mΩ/m at 20 °C) | Underground XLPE (A) | Overhead (illustrative, A) |
 |---|---|---|---|
 | 4   | 4.950 | 34  | —   |
 | 6   | 3.300 | 41  | —   |
@@ -251,9 +258,16 @@ The table covers cross-sections from 4 mm² to 240 mm²:
 | 185 | 0.107 | 451 | 490 |
 | 240 | 0.082 | 541 | 600 |
 
-Sources: IEC 60228:2004 (AC resistance at 20 °C), IEC 60364-5-52:2009
-Table B.52 (ampacity at 70 °C conductor temperature, single-circuit
-in-ground or in-air installation).
+On the columns: the R₁₁ values are representative **maximum DC resistances at
+20 °C** for standard conductor sizes — the quantity IEC 60228:2004 actually
+specifies (its procedure measures DC resistance), used here only as a size
+fingerprint, not an AC or earth-return-inclusive value. The underground column
+is loosely calibrated to IEC 60364-5-52:2009 Table B.52 installation ampacity
+(70 °C conductor, single circuit, in-ground or in-air); the overhead column is
+an illustrative overhead rating, **not** an IEC 60364-5-52 value (that standard
+covers LV installation ampacity, not an overhead-AAC catalogue). The table as a
+whole is a heuristic default, not a standards-derived rating, and is
+deliberately *not* tagged as an IEC-conformant result.
 
 The match uses a 15 % relative tolerance on R₁₁.  If no table row falls
 within tolerance the linecode is skipped and the manifest records
@@ -627,13 +641,15 @@ explicit to be reproducible ([ref. 4](#augrefs)).
 
 **Standards as the source of defaults.** Where a value *can* be grounded in a
 published standard, it should be — so the default is auditable rather than
-arbitrary. Voltage windows follow EN 50160:2010, conductor ampacities follow
-IEC 60364-5-52:2009 over IEC 60228:2004 resistances, and DER reactive capability
+arbitrary. Voltage windows follow EN 50160:2010 and DER reactive capability
 follows EN 50549-1:2019 (with IEEE 1547-2018 as the ANSI alternative, whose
 minimum 44 % injecting / 44 % absorbing reactive capability motivates the
 `q_capability_pf = 0.95` preset) ([ref. 5](#augrefs)). This is why
 `augment_case` separates standards-derived fills from synthetic ones in the
-manifest.
+manifest. Conductor ampacities are the deliberate exception: the thermal pass is
+a **heuristic estimate** loosely calibrated to IEC 60364-5-52:2009 / IEC 60228:2004
+tables, not a conformant derivation (a bare R₁₁ does not identify the conductor
+material, class, or installation), and is tagged as such.
 
 **DER scenarios as designed inputs.** Where a value *cannot* be standardised —
 chiefly where to place generation and how large to make it — the literature

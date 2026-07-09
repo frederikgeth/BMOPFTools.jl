@@ -322,7 +322,9 @@ nothing # hide
 
 The OPF **co-optimises the droop and the network limits**: the voltage is held at
 *exactly* 1.10 pu by curtailing a little more PV. This binding constraint —
-impossible in a simulation-only tool — is the whole point of an OPF.
+enforced directly as a hard limit here, rather than approached by trial-and-error
+setpoints or outer iteration in a fixed-setpoint simulation — is the whole point
+of an OPF.
 
 ### Summary
 

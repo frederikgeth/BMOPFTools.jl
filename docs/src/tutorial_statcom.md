@@ -133,8 +133,9 @@ together — it cannot preferentially raise the sagging phase, because on a resi
 feeder reactive power is the wrong lever ([1](@ref refs-statcom)). Worse, the guess
 is actively counterproductive: the extra reactive current *raises* the feeder losses
 from 3723 W to 4009 W. A different constant setpoint would land somewhere else
-equally arbitrary; a simulation can only *evaluate* a guess, never *find* the right
-per-phase split.
+equally arbitrary; a single fixed-setpoint power flow can only *evaluate* a guess —
+finding the right per-phase split needs a search over setpoints, i.e. the
+optimisation.
 
 ## 3. Reactive-only, optimally dispatched — still not enough
 

@@ -238,7 +238,7 @@ has a guard (a `W.DOM.*` finding + compile-time warning — see the
 |---|---|---|
 | Carson series truncation (`modified_carson`, `full_carson`) | k = √(ωμ₀/ρ)·S ≪ 1 — true for distribution spacings at 50/60 Hz (< 1 % vs the full series, Kersting & Green 2011) | `W.DOM.GEOM_CARSON_VALIDITY` at k > 0.25 |
 | Height-independence of `modified_carson` | equivalent return depth Dₑ = 658.87·√(ρ/f) m (≈ 850 m at 60 Hz/100 Ω·m) dwarfs conductor heights and burial depths | implicit in the above |
-| Buried conductors treated at the surface | burial depth ≪ earth skin depth (δ ≈ 356 m at 60 Hz/100 Ω·m); the rigorous theory is Pollaczek (1926)/Saad et al. (1996), needed only beyond power frequency | `W.DOM.GEOM_BURIED_EARTH_MODEL` |
+| Buried conductors treated at the surface | burial depth ≪ earth skin depth (δ = √(2ρ/(ωμ₀)) ≈ 650 m at 60 Hz/100 Ω·m; the Deri complex-depth magnitude \|p\| = √(ρ/(ωμ₀)) ≈ 459 m is the same scale); the rigorous theory is Pollaczek (1926)/Saad et al. (1996), needed only beyond power frequency | `W.DOM.GEOM_BURIED_EARTH_MODEL` |
 | Deri complex-depth images | \|y\| ≪ \|p\|, p = √(ρ/jωμ₀) (Deri et al. 1981) | `W.DOM.GEOM_BURIED_EARTH_MODEL` (depth > 0.1·\|p\|) |
 | Constant r_ac, GMR-based internal inductance | f below the critical skin frequency f_crit = ρ_c/(π r² μ₀) (Jensen et al. 2001) | `W.DOM.WIRE_SKIN_FREQUENCY` |
 | Perfect-earth electrostatics (capacitance) | always at power frequency (no Carson analogue exists electrostatically) | — |

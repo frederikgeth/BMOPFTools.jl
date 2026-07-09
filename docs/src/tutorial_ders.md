@@ -129,8 +129,8 @@ nothing # hide
 ```
 
 `augment_case` then fills the standards-grounded gaps: the IBR `P²+Q²≤s_max²`
-circle and its EN 50549-1 reactive box, the generator reactive limits, the
-IEC 60228 thermal limit, and a per-phase slack price. Two
+circle and its EN 50549-1 reactive box, the generator reactive limits, a
+heuristic conductor-ampacity thermal limit, and a per-phase slack price. Two
 [`AugmentationRecipe`](@ref) presets implement "no network limit" (scenario A)
 versus "network limits on" (B and C) — A skips the voltage *and* thermal
 passes, while B/C keep the thermal pass and get their voltage ceiling from
