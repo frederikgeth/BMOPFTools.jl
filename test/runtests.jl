@@ -287,7 +287,7 @@ const IEEE13_FIXTURE = """
                 "authors" => [Dict("name" => "Test Author",
                                    "email" => "test@example.com",
                                    "orcid" => "0000-0001-2345-6789")],
-                "sources" => [Dict("name" => "IEEE 13-bus", "format" => "OpenDSS",
+                "data_sources" => [Dict("name" => "IEEE 13-bus", "format" => "OpenDSS",
                                    "doi"  => "10.1109/TPWRS.2012.2209630")],
             ))
             String(take!(buf))
@@ -295,9 +295,9 @@ const IEEE13_FIXTURE = """
         m2 = parse_bmopf(json_caller; from_string=true)["meta"]
         @test m2["title"] == "IEEE 13-bus mini"
         @test m2["authors"][1]["orcid"] == "0000-0001-2345-6789"
-        @test m2["sources"][1]["doi"] == "10.1109/TPWRS.2012.2209630"
+        @test m2["data_sources"][1]["doi"] == "10.1109/TPWRS.2012.2209630"
         @test haskey(m2, "\$schema")      # auto-filled
-        @test haskey(m2, "generator")     # auto-filled
+        @test haskey(m2, "case_study_generator")     # auto-filled
 
         # existing created is preserved across write → parse → write
         net4 = parse_bmopf(json_auto; from_string=true)
@@ -312,7 +312,7 @@ const IEEE13_FIXTURE = """
                 "title"   => "t",
                 "license" => "https://example.com/license",
                 "authors" => [Dict("name" => "A", "orcid" => "0000-0001-2345-6789")],
-                "sources" => [Dict("name" => "S", "url" => "https://example.com/data")],
+                "data_sources" => [Dict("name" => "S", "url" => "https://example.com/data")],
             ))
             parse_bmopf(String(take!(buf)); from_string=true)
         end

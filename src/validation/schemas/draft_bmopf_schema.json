@@ -1,7 +1,8 @@
 {
     "$schema":"https://json-schema.org/draft/2020-12/schema",
     "$id":"https://github.com/frederikgeth/OpenDSSToPMDJSON",
-    "title":"**Draft** BMOPF OPF test case schema",
+    "title":"BMOPF OPF test case schema",
+    "version": "0.1.0",
     "type": "object",
     "additionalProperties": false,
     "properties": {
@@ -23,7 +24,7 @@
                 "frequency":   {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "description": "Nominal system frequency [Hz]. Check-only: line_geometry.frequency and linecode derivation.frequency are validated against it (W.DOM.FREQUENCY_MISMATCH); it never defaults or rescales anything"
+                    "description": "Nominal system frequency [Hz]. line_geometry.frequency and linecode derivation.frequency are checked for consistency against it; it never defaults or rescales anything"
                 },
                 "authors": {
                     "type": "array",
@@ -37,8 +38,9 @@
                         "additionalProperties": false
                     }
                 },
-                "sources": {
+                "data_sources": {
                     "type": "array",
+                    "description": "Upstream data sources this case was derived from (renamed from 'sources' to avoid ambiguity with voltage/current sources)",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -51,8 +53,9 @@
                         "additionalProperties": false
                     }
                 },
-                "generator": {
+                "case_study_generator": {
                     "type": "object",
+                    "description": "The tool that generated this case file (renamed from 'generator' to avoid ambiguity with the network generator component)",
                     "properties": {
                         "tool":    { "type": "string" },
                         "version": { "type": "string" }
@@ -61,10 +64,14 @@
                 },
                 "provenance": {
                     "type": "object",
-                    "description": "Free-form conversion/audit provenance written by tooling (e.g. BMOPFTools' fidelity-loss inventory, migration notes, earth-terminal routing). Round-trips to the in-memory _meta block."
+                    "description": "Free-form conversion/audit provenance written by tooling (e.g. a fidelity-loss inventory, migration notes, or earth-terminal routing)."
                 }
             },
             "additionalProperties": false
+        },
+        "extras": {
+            "type": "object",
+            "description": "Free-form escape hatch for case-level fields not (yet) covered by the schema. The rest of the document stays strict (additionalProperties:false); consumers that need to attach custom fields (e.g. mapping to an external struct) put them here rather than at the top level."
         },
         "bus": {
             "type": "object",
@@ -92,14 +99,14 @@
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         },
-                        "description": "Minimum per-phase voltage magnitude(s) at bus, phase-to-ground, one entry per phase terminal [V]"
+                        "description": "Minimum per-terminal voltage magnitude(s) at bus, phase-to-ground, one entry per bus terminal [V]"
                     },
                     "v_max": {
                         "type": "array",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         },
-                        "description": "Maximum per-phase voltage magnitude(s) at bus, phase-to-ground, one entry per phase terminal [V]"
+                        "description": "Maximum per-terminal voltage magnitude(s) at bus, phase-to-ground, one entry per bus terminal [V]"
                     },
                     "vn_max": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -202,7 +209,7 @@
                 "patternProperties": {
                     "^R_series_\\d+_\\d+$": {
                         "type": "number",
-                        "description": "Element of the TOTAL series resistance matrix of this line section [Ohm]. Units by location: linecode matrices are per metre, line matrices are absolute — never scaled by length"
+                        "description": "Element of the TOTAL series resistance matrix of this line section [Ohm]. Units by location: linecode matrices are per metre, line matrices are absolute - never scaled by length"
                     },
                     "^X_series_\\d+_\\d+$": {
                         "type": "number",
@@ -324,8 +331,7 @@
                     "bus": { "$ref": "#/$defs/bus_type" },
                     "terminal_map": { "$ref": "#/$defs/terminal_map_type" },
                     "configuration": {
-                        "$ref": "#/$defs/configuration_type",
-                        "description": "WYE (phase-to-neutral), SINGLE_PHASE (two terminals), or DELTA (phase-to-phase)"
+                        "$ref": "#/$defs/configuration_type"
                     },
                     "q_rated": {
                         "type": "array",
@@ -371,7 +377,9 @@
                         "$ref": "#/$defs/terminal_map_type"
                     },
                     "model": {
-                        "$ref": "#/$defs/load_model_type"
+                        "type": "string",
+                        "description": "Voltage dependence of the load: constant_power (default), constant_current (P proportional to |V|), constant_impedance (P proportional to |V|^2), zip (polynomial in |V|), or exponential (power law in |V|)",
+                        "enum": ["constant_power", "constant_current", "constant_impedance", "zip", "exponential"]
                     },
                     "v_nom": {
                         "type": "array",
@@ -463,14 +471,14 @@
                     },
                     "s_max": {
                         "type": "array",
-                        "description": "Optional per-phase apparent-power rating [VA]; one entry per phase conductor (length = terminal_map - 1). Stamps the apparent-power circle pg²+qg² ≤ s_max²",
+                        "description": "Optional per-phase apparent-power rating [VA]; one entry per phase conductor (length = terminal_map - 1). Stamps the apparent-power circle pg^2 + qg^2 <= s_max^2",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
                     },
                     "i_max": {
                         "type": "array",
-                        "description": "Optional per-conductor current-magnitude limit [A]. WYE: one entry per phase plus a recommended final entry for the neutral return conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, since the neutral may carry more than the phases under unbalance). SINGLE_PHASE: length 1 or 2 (phase and return are the same current — a length-1 vector is standardised to 2). DELTA: exactly one entry per conductor. Stamps crg²+cig² ≤ i_max² on each phase current and (Σ crg)²+(Σ cig)² ≤ i_max_neutral² on the neutral return when the extra entry is present",
+                        "description": "Optional per-conductor current-magnitude limit [A]. WYE: one entry per phase, plus a recommended final entry for the neutral return conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, since the neutral may carry more than the phases under unbalance). SINGLE_PHASE: length 1 or 2 (phase and return share a current; a length-1 vector is standardised to 2). Stamps crg^2 + cig^2 <= i_max^2 on each phase current, and (sum crg)^2 + (sum cig)^2 <= i_max_neutral^2 on the neutral return when the extra entry is present. DELTA generators are future work (see the math spec for the array rules).",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
@@ -506,7 +514,7 @@
         },
         "ibr": {
             "type": "object",
-            "description": "Inverter-based resources (IBR): PV arrays, battery storage, or generic sources interfaced to the AC network through an inverter/converter",
+            "description": "Inverter-based resources (IBR): PV arrays, battery storage, or generic sources interfaced to the AC network through an inverter/converter. Optional extension: scope for the July release is under Task Force review.",
             "additionalProperties": {
                 "type": "object",
                 "additionalProperties": false,
@@ -532,7 +540,7 @@
                     },
                     "i_max": {
                         "type": "array",
-                        "description": "Optional per-conductor converter current-magnitude limit [A]. FOUR_LEG: one entry per phase plus a recommended final entry for the neutral conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, as it may carry more than the phases under unbalance compensation). SINGLE_PHASE: length 1 or 2 (phase and return are the same current — length-1 is standardised to 2). THREE_LEG: one entry per conductor (no neutral). When present, reactive capability rolls off ~linearly with voltage instead of staying flat at s_max; the neutral entry bounds Σ phase currents",
+                        "description": "Optional per-conductor converter current-magnitude limit [A]. FOUR_LEG: one entry per phase plus a recommended final entry for the neutral conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, as it may carry more than the phases under unbalance compensation). SINGLE_PHASE: length 1 or 2 (phase and return are the same current - length-1 is standardised to 2). THREE_LEG: one entry per conductor (no neutral). When present, reactive capability rolls off ~linearly with voltage instead of staying flat at s_max; the neutral entry bounds the sum of phase currents",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
@@ -565,7 +573,7 @@
                     },
                     "dc_bus": {
                         "type": "string",
-                        "description": "Optional reference to a dc_bus id. When present, the converter's DC port injects into that shared DC node (participating in its DC KCL) instead of an isolated private DC link — this is how converter stations / back-to-back SOPs / MVDC ties are formed (several IBRs sharing one dc_bus). When absent, dc_link_coupled retains its isolated-link meaning (p_dc_min/p_dc_max bound)."
+                        "description": "Optional reference to a dc_bus id. When present, the converter's DC port injects into that shared DC node (participating in its DC KCL) instead of an isolated private DC link - this is how converter stations / back-to-back SOPs / MVDC ties are formed (several IBRs sharing one dc_bus). When absent, dc_link_coupled retains its isolated-link meaning (p_dc_min/p_dc_max bound)."
                     },
                     "dc_terminal_map": {
                         "$ref": "#/$defs/terminal_map_type",
@@ -836,7 +844,7 @@
         },
         "wire_data": {
             "type": "object",
-            "description": "Reusable conductor/cable type library (geometry-free construction data). Referenced by line_geometry conductors. All quantities SI: Ohm/m, m, A, degC",
+            "description": "Reusable conductor/cable type library (geometry-free construction data). Referenced by line_geometry conductors. All quantities SI: Ohm/m, m, A, degC. Community extension (with line_geometry): geometry-to-impedance derivation is outside the core Task Force scope for the July release.",
             "additionalProperties": {
                 "type": "object",
                 "additionalProperties": false,
@@ -936,7 +944,7 @@
         },
         "line_geometry": {
             "type": "object",
-            "description": "Reusable line/cable cross-section assemblies: wire_data types placed at coordinates, each mapped to a circuit terminal. Compiled into linecodes by compile_linecode. Every conductor maps to a terminal - the compiled matrix is the full primitive matrix (no Kron elimination pathway; grounding lives on bus perfectly_grounded_terminals)",
+            "description": "Reusable line/cable cross-section assemblies: wire_data types placed at coordinates, each mapped to a circuit terminal. Compiled into linecodes by compile_linecode. Every conductor maps to a terminal - the compiled matrix is the full primitive matrix (no Kron elimination pathway; grounding lives on bus perfectly_grounded_terminals). Community extension (with wire_data): geometry-to-impedance derivation is outside the core Task Force scope for the July release.",
             "additionalProperties": {
                 "type": "object",
                 "additionalProperties": false,
@@ -1068,7 +1076,7 @@
         },
         "dc_bus": {
             "type": "object",
-            "description": "Collection of DC buses (nodes of an MVDC/LVDC network). DC voltage is a signed magnitude relative to earth — no angle. A 1- or 2-terminal dc_bus is a monopole, a 3-terminal dc_bus is a bipole (positive pole, negative pole, metallic return).",
+            "description": "Collection of DC buses (nodes of an MVDC/LVDC network). DC voltage is a signed magnitude relative to earth - no angle. A 1- or 2-terminal dc_bus is a monopole, a 3-terminal dc_bus is a bipole (positive pole, negative pole, metallic return). DC extension (all dc_* objects): under Task Force review for the July release.",
             "additionalProperties": {
                 "type": "object",
                 "additionalProperties": false,
@@ -1213,7 +1221,7 @@
         },
         "time_series": {
             "type": "object",
-            "description": "Named time-series profiles. Components reference a profile via their own time_series map (parameter name -> profile id); get_snapshot multiplies the static parameter by values[t_index].",
+            "description": "Named time-series profiles. Components reference a profile via their own time_series map (parameter name -> profile id); get_snapshot multiplies the static parameter by values[t_index]. Optional extension: time-series support is under review for the July release.",
             "additionalProperties": {
                 "type": "object",
                 "properties": {
@@ -1264,11 +1272,6 @@
             "description": "Element configuration, as WYE, DELTA, or SINGLE_PHASE",
             "enum": ["WYE", "DELTA", "SINGLE_PHASE"]
         },
-        "load_model_type": {
-            "type": "string",
-            "description": "Voltage dependence of the load: constant_power (default), constant_current (P∝|V|), constant_impedance (P∝|V|²), zip (polynomial in |V|), or exponential (power law in |V|)",
-            "enum": ["constant_power", "constant_current", "constant_impedance", "zip", "exponential"]
-        },
         "inverter_topology_type": {
             "type": "string",
             "description": "Inverter topology: SINGLE_PHASE (2 terminals), THREE_LEG (3 terminals, no neutral current), FOUR_LEG (4 terminals, neutral current available)",
@@ -1276,7 +1279,7 @@
         },
         "prime_mover_type": {
             "type": "string",
-            "description": "Energy source behind the inverter: PV (non-negative, resource-limited active power), BATTERY (bidirectional), GENERIC, or STATCOM (no active source — pure reactive shunt compensator; DSTATCOM is the distribution-system alias)",
+            "description": "Energy source behind the inverter: PV (non-negative, resource-limited active power), BATTERY (bidirectional), GENERIC, or STATCOM (no active source - pure reactive shunt compensator; DSTATCOM is the distribution-system alias)",
             "enum": ["PV", "BATTERY", "GENERIC", "STATCOM", "DSTATCOM"]
         },
         "dc_pole_type": {
@@ -1481,7 +1484,7 @@
                     },
                     "tap_min": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Lower bound on the continuous tap multiplier. With tap_min < tap_max the tap is a free OPF variable; otherwise it is fixed at 'tap'."
+                        "description": "Lower bound on the continuous tap multiplier. With tap_min < tap_max the tap is a free OPF variable; otherwise it is fixed at 'tap'. Note: this is a continuous relaxation; discrete tap step sizes are future work."
                     },
                     "tap_max": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -1609,7 +1612,7 @@
                     },
                     "tap_min": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Lower bound on the continuous tap multiplier. With tap_min < tap_max the tap is a free OPF variable; otherwise it is fixed at 'tap'."
+                        "description": "Lower bound on the continuous tap multiplier. With tap_min < tap_max the tap is a free OPF variable; otherwise it is fixed at 'tap'. Note: this is a continuous relaxation; discrete tap step sizes are future work."
                     },
                     "tap_max": {
                         "$ref": "#/$defs/nonnegative_number",

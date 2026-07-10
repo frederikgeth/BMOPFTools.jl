@@ -8,13 +8,13 @@ Serialise a BMOPF network dict to JSON.
 
 A `meta` block is always written. Fields are assembled in this priority order
 (highest wins): the `meta` keyword argument → `net["meta"]` → auto-generated
-defaults (`\$schema`, `generator`, `created`). Caller-supplied values are never
-overwritten by auto-generation.
+defaults (`\$schema`, `case_study_generator`, `created`). Caller-supplied values
+are never overwritten by auto-generation.
 
 # Keyword argument
 - `meta`: a `Dict` of fields to include or override in the written `meta` block.
   All fields are optional; common ones are `title`, `description`, `license`,
-  `authors`, `sources`, and `version`. See `docs/src/conventions.md` for the
+  `authors`, `data_sources`, and `version`. See `docs/src/conventions.md` for the
   full field reference.
 
 # Example
@@ -24,7 +24,7 @@ write_bmopf(net, "output.json";
         "title"   => "LV network 1, Feeder 1",
         "license" => "https://creativecommons.org/licenses/by/4.0/",
         "authors" => [Dict("name" => "Frederik Geth", "orcid" => "0000-0001-9534-2265")],
-        "sources" => [Dict("name" => "ENWL dataset", "format" => "OpenDSS",
+        "data_sources" => [Dict("name" => "ENWL dataset", "format" => "OpenDSS",
                            "url"  => "https://www.enwl.co.uk/…")]
     ))
 ```
@@ -113,7 +113,7 @@ end
     _build_meta(base, override) -> Dict{String,Any}
 
 Merge `base` (from `net["meta"]`) and `override` (from the `meta` kwarg),
-then fill in auto-generated defaults for `\$schema`, `generator`, and `created`
+then fill in auto-generated defaults for `\$schema`, `case_study_generator`, and `created`
 if those keys are not already present. Never overwrites a value the caller set.
 """
 function _build_meta(base::Dict,
@@ -125,7 +125,7 @@ function _build_meta(base::Dict,
     end
 
     get!(m, "\$schema", _BMOPF_SCHEMA_URI)
-    get!(m, "generator", Dict{String,Any}(
+    get!(m, "case_study_generator", Dict{String,Any}(
         "tool"    => "BMOPFTools.jl",
         "version" => _BMOPFTOOLS_VERSION,
     ))

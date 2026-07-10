@@ -383,7 +383,7 @@ end
 const _META_KNOWN_FIELDS = Set([
     "\$schema", "version", "title", "description",
     "created", "modified", "license", "frequency",
-    "authors", "sources", "generator", "provenance",
+    "authors", "data_sources", "case_study_generator", "provenance",
 ])
 const _META_AUTHOR_FIELDS  = Set(["name", "email", "orcid"])
 const _META_SOURCE_FIELDS  = Set(["name", "url", "format", "doi", "version"])
@@ -442,28 +442,28 @@ function _check_meta(meta::Dict, findings::Vector{Finding})
         end
     end
 
-    sources = get(meta, "sources", nothing)
+    sources = get(meta, "data_sources", nothing)
     if sources isa Vector
         for (i, src) in enumerate(sources)
             src isa Dict || continue
             bad = [k for k in keys(src) if !(k in _META_SOURCE_FIELDS)]
             isempty(bad) || push!(findings, Finding(INFO, "I.SCHEMA.UNKNOWN_FIELDS",
                 :schema, :network, nothing,
-                "meta.sources[$i] has unknown field(s): $(join(sort(bad), ", "))."))
+                "meta.data_sources[$i] has unknown field(s): $(join(sort(bad), ", "))."))
             url = get(src, "url", nothing)
             if url isa String && !occursin(_URI_RE, url)
                 push!(findings, Finding(WARNING, "W.SCHEMA.META_SOURCE_URL", :schema,
                     :network, nothing,
-                    "meta.sources[$i].url does not look like a URI: \"$url\"."))
+                    "meta.data_sources[$i].url does not look like a URI: \"$url\"."))
             end
         end
     end
 
-    gen = get(meta, "generator", nothing)
+    gen = get(meta, "case_study_generator", nothing)
     if gen isa Dict
         bad = [k for k in keys(gen) if !(k in _META_GEN_FIELDS)]
         isempty(bad) || push!(findings, Finding(INFO, "I.SCHEMA.UNKNOWN_FIELDS",
             :schema, :network, nothing,
-            "meta.generator has unknown field(s): $(join(sort(bad), ", "))."))
+            "meta.case_study_generator has unknown field(s): $(join(sort(bad), ", "))."))
     end
 end

@@ -595,13 +595,13 @@ error) so callers can add project-specific keys freely.
 | `modified` | String | ISO 8601 datetime of most recent edit. Not auto-filled; set explicitly when updating a file. |
 | `license` | String | SPDX identifier (e.g. `"CC-BY-4.0"`) or full URI. |
 | `authors` | Array of objects | List of contributors; each object may have `name`, `email`, `orcid`. |
-| `sources` | Array of objects | Origin datasets; each object may have `name`, `url`, `format`, `doi`, `version`. |
-| `generator` | Object | Tool provenance: `{"tool": "BMOPFTools.jl", "version": "x.y.z"}`. Auto-filled by `write_bmopf`. |
+| `data_sources` | Array of objects | Origin datasets; each object may have `name`, `url`, `format`, `doi`, `version`. |
+| `case_study_generator` | Object | Tool provenance: `{"tool": "BMOPFTools.jl", "version": "x.y.z"}`. Auto-filled by `write_bmopf`. |
 
 **Auto-generation on write.** [`write_bmopf`](@ref) always emits a `meta`
 block.  It merges fields in priority order: the `meta` keyword argument
 → `net["meta"]` → auto-generated defaults.  Auto-generation fills three
-fields if they are absent: `$schema`, `generator`, and `created`.
+fields if they are absent: `$schema`, `case_study_generator`, and `created`.
 Caller-supplied values are never overwritten.
 
 **On parse.** [`parse_bmopf`](@ref) and [`from_dss`](@ref)
@@ -620,7 +620,7 @@ write_bmopf(net, "lv_feeder1.json";
         "license"     => "https://creativecommons.org/licenses/by/4.0/",
         "authors"     => [Dict("name" => "Frederik Geth",
                                "orcid" => "0000-0001-9534-2265")],
-        "sources"     => [Dict("name" => "ENWL dataset",
+        "data_sources" => [Dict("name" => "ENWL dataset",
                                "format" => "OpenDSS",
                                "url"    => "https://www.enwl.co.uk/")],
     ))

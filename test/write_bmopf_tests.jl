@@ -125,9 +125,9 @@ end
         parsed = JSON3.read(raw)
         meta   = parsed["meta"]
         @test haskey(meta, "\$schema")
-        @test haskey(meta, "generator")
+        @test haskey(meta, "case_study_generator")
         @test haskey(meta, "created")
-        @test meta["generator"]["tool"] == "BMOPFTools.jl"
+        @test meta["case_study_generator"]["tool"] == "BMOPFTools.jl"
     end
 
     # ── write_result / read_result round-trip ─────────────────────────────────

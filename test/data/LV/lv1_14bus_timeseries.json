@@ -588,7 +588,7 @@
   "meta": {
     "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json",
     "created": "2026-07-06T06:10:21Z",
-    "generator": {
+    "case_study_generator": {
       "version": "0.6.2",
       "tool": "powerio"
     },
