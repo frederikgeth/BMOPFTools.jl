@@ -71,3 +71,8 @@ BMOPFTools is intended to help create the conditions for it — reusable benchma
 feeders, common network representations, transparent model transformations, and
 cross-framework interoperability — so the broader distribution-optimization
 ecosystem can mature, without replacing the optimization frameworks at its core.
+
+For the full argument — why the missing benchmarks mislead algorithmic
+research, why utilities are right to reject methods that work for "80% of the
+networks, 80% of the time", and the literature supporting that view — see
+[Why benchmarks matter: the 80% problem](benchmarking_gap.md).

@@ -16,6 +16,7 @@ makedocs(
             "End-to-end tutorial"      => "tutorial_end_to_end.md",
             "Choose your tutorial"     => "choose_tutorial.md",
             "Positioning & ecosystem"  => "positioning.md",
+            "Why benchmarks matter"    => "benchmarking_gap.md",
         ],
         "Data model"              => [
             "Buses & terminals primer" => "terminals_primer.md",
