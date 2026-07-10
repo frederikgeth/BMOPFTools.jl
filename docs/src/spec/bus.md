@@ -17,7 +17,9 @@ A bus is an entry of the top-level `bus` object, keyed by its string ID $i$.
 | `vn_max` | number | V | | Neutral-to-ground magnitude cap |
 | `vpn_min`, `vpn_max` | number[] | V | | Phase-to-neutral magnitude bounds, one per phase |
 | `vpp_min`, `vpp_max` | number[] | V | | Phase-to-phase magnitude bounds, one per phase pair |
-| `vsym_min`, `vsym_max` | number[] | V | | Symmetrical-component magnitude bounds |
+| `vpos_min`, `vpos_max` | number | V | | Positive-sequence magnitude bounds (three-phase buses) |
+| `vneg_max` | number | V | | Negative-sequence magnitude cap (lower bound is always 0) |
+| `vzero_max` | number | V | | Zero-sequence magnitude cap (lower bound is always 0) |
 
 All bound fields are optional: an absent bound means the corresponding limit is not
 enforced.
@@ -31,7 +33,8 @@ enforced.
 | `vn_max` | $\textcolor{red}{U^{\max}_{i,n}}$ | scalar, neutral to ground |
 | `vpn_min`, `vpn_max` | $\textcolor{red}{\mathbf{U}^{Y,\min}_i},\ \textcolor{red}{\mathbf{U}^{Y,\max}_i}$ | per phase, to neutral |
 | `vpp_min`, `vpp_max` | $\textcolor{red}{\mathbf{U}^{\Delta,\min}_i},\ \textcolor{red}{\mathbf{U}^{\Delta,\max}_i}$ | per phase pair |
-| `vsym_min`, `vsym_max` | $\textcolor{red}{\mathbf{U}^{\text{sym},\min}_i},\ \textcolor{red}{\mathbf{U}^{\text{sym},\max}_i}$ | sequence magnitudes |
+| `vpos_min`, `vpos_max` | $\textcolor{red}{U^{1,\min}_i},\ \textcolor{red}{U^{1,\max}_i}$ | positive-sequence magnitude |
+| `vneg_max`, `vzero_max` | $\textcolor{red}{U^{2,\max}_i},\ \textcolor{red}{U^{0,\max}_i}$ | negative-/zero-sequence caps (lower bound 0) |
 
 ## 3. Variables
 
@@ -207,13 +210,11 @@ centred deviation stays within $\pm\pi/2$).
 
 ### Reconciliation notes (data model)
 
-!!! warning "Symmetrical-component fields disagree"
-    The schema exposes one array pair `vsym_min`/`vsym_max`
-    ($\textcolor{red}{\mathbf{U}^{\text{sym}}_i}$, ordered 0/+/−), matching the Task
-    Force PDF. The OPF code instead reads **four separate scalar fields**
-    `vpos_min`, `vpos_max`, `vneg_max`, `vzero_max`. These three representations
-    disagree and must be reconciled before this bound round-trips from schema to
-    solver.
+!!! note "Symmetrical-component fields (reconciled)"
+    The schema and the OPF solver now agree: sequence bounds are the **four scalar
+    fields** `vpos_min`, `vpos_max`, `vneg_max`, `vzero_max`. Only the positive
+    sequence carries a lower bound; the negative- and zero-sequence lower bounds are
+    always 0. This replaces the earlier single array pair `vsym_min`/`vsym_max`.
 
 !!! warning "Angle-difference fields absent from the schema"
     The intra-bus angle bound uses fields `va_diff_min`, `va_diff_max` and the

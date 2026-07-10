@@ -140,19 +140,21 @@
                         },
                         "description": "Maximum phase-phase voltage magnitude [V]"
                     },
-                    "vsym_min": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/$defs/nonnegative_number"
-                        },
-                        "description": "Minimum symmetric component voltage values [V]"
+                    "vpos_min": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Minimum positive-sequence voltage magnitude [V] (three-phase buses)"
                     },
-                    "vsym_max": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/$defs/nonnegative_number"
-                        },
-                        "description": "Maximum symmetric component voltage values [V]"
+                    "vpos_max": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Maximum positive-sequence voltage magnitude [V] (three-phase buses)"
+                    },
+                    "vneg_max": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Maximum negative-sequence voltage magnitude [V] (three-phase buses); the lower bound is always 0"
+                    },
+                    "vzero_max": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Maximum zero-sequence voltage magnitude [V] (three-phase buses); the lower bound is always 0"
                     },
                     "time_series": {
                         "type": "object",
