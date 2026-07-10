@@ -138,6 +138,40 @@ cross-checks the reference OPF against OpenDSS, closed-form solutions, and
 PowerModelsDistribution; and [provenance](methodology.md) records every
 transformation applied during ingestion.
 
+## An assumption ledger: context a benchmark must declare
+
+Everything above concerns the *network representation* — wires, connections,
+impedances. A second, quieter family of unrealistic assumptions concerns how
+the problem **around** the network is set up: how the input data was
+acquired, where the electrical boundary is drawn, and how devices are assumed
+to behave. These rarely appear in a paper's assumptions section because they
+enter through the dataset and the study design, not through the equations.
+
+Most of them do not yet have quantified error studies behind them — which is
+itself a symptom of the benchmarking gap. So this section deliberately makes
+a weaker, sturdier claim: whether or not an assumption is *acceptable* is
+study-dependent, but it must always be **declared**. A case whose context is
+stated is replicable even where its data is crude; a case whose context is
+implicit is not a benchmark yet.
+
+| Category | Commonly implicit assumption | What a benchmark must declare | Status in BMOPF |
+|---|---|---|---|
+| Measurement & time | Load snapshots are instantaneous and time-synchronized (smart-meter data is typically 15- or 30-minute *averages*, not synchronized instants) | Acquisition source, averaging window, and synchronization of the demand data | Time-series steps carry optional [time stamps](spec/timeseries.md); averaging/synchronization semantics are a candidate spec extension |
+| Measurement & time | Unbalance is static (IEEE123-style frozen phase allocations, vs. real stochastic per-phase load dynamics) | Whether phase allocation and unbalance are measured, assumed, or synthesized — and over what horizon | Per-phase time-series profiles are expressible; realistic unbalanced time-series *data* remains the scarce ingredient |
+| Boundary conditions | The upstream grid is an infinite bus — short-circuit ratio and X/R neglected; slack placed at the LV busbar or at the MV side of the transformer at whim | The Thévenin equivalent (or fault level) at the boundary, and *where* the boundary is drawn | The spec [source](spec/source.md) is an ideal voltage source; `from_dss` retains the Thévenin impedance as provenance, and [`analyze`](findings.md) warns when a case's fault level matches the fictitious OpenDSS default (`W.PROV.DSS_DEFAULT_SOURCE_Z`). A first-class source impedance is a candidate spec extension |
+| Device behavior | Loads and DERs operate at unity or fixed power factor | The reactive-power model and capability limits of every load and DER | Declarable: loads carry Q setpoints, [IBRs](spec/ibr.md) carry apparent-power and per-conductor current capability |
+| Device behavior | Demand has no voltage sensitivity (constant-power everywhere; active-power voltage sensitivity ignored even in MV studies) | The load model — constant-power, constant-impedance, ZIP, or exponential — per load | Declarable: the [load spec](spec/load.md) carries ZIP fractions and voltage exponents |
+| Problem class | Distributed control coordinates over a perfect, lossless, latency-free communication network | Which problem class the case targets — snapshot OPF, time-series OPF, state estimation, distributed control — and, for the latter, the communication model | Out of scope for a snapshot OPF model, deliberately: this is a different problem class needing its own specification |
+
+Two things about this table generalize. First, none of the rows require new
+mathematics — they require *fields*: the fix is specification work, not
+algorithm work, which is exactly why a data-model effort is the right vehicle
+for it. Second, the last row is the honest boundary of that claim: some
+assumptions cannot be repaired by adding fields to a snapshot network model,
+because they define a different benchmark family altogether. Saying so
+explicitly — *this case is fit for these problem classes and silent on those*
+— is itself the context declaration that makes results comparable.
+
 ## A showcase: where the 80% assumptions break
 
 The tutorials in this documentation double as a concrete exhibit. Each one
