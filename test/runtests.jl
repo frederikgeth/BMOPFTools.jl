@@ -273,8 +273,8 @@ const IEEE13_FIXTURE = """
         m = parse_bmopf(json_auto; from_string=true)["meta"]
         @test m["\$schema"] == BMOPFTools._BMOPF_SCHEMA_URI
         @test haskey(m, "created")
-        @test m["generator"]["tool"] == "BMOPFTools.jl"
-        @test !isempty(m["generator"]["version"])
+        @test m["case_study_generator"]["tool"] == "BMOPFTools.jl"
+        @test !isempty(m["case_study_generator"]["version"])
 
         # _meta (tool-private) is not serialised
         @test !occursin("\"_meta\"", json_auto)
