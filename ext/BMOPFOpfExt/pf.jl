@@ -45,12 +45,13 @@ function BMOPFTools.solve_pf(net::Dict{String,Any};
                               s_base::Float64=1e6,
                               verbose::Bool=false,
                               solver_options=(),
-                              model_hook!::Union{Function,Nothing}=nothing)
+                              model_hook!::Union{Function,Nothing}=nothing,
+                              solution_hook!::Union{Function,Nothing}=nothing)
     _build_and_solve(net; optimizer=optimizer, t_index=t_index,
                      per_unit=per_unit, s_base=s_base,
                      build! = build_pf!,
                      extract! = (ctx, result) -> (result["is_power_flow"] = true; nothing),
-                     verbose, solver_options, model_hook!)
+                     verbose, solver_options, model_hook!, solution_hook!)
 end
 
 """

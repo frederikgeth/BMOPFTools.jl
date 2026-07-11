@@ -43,7 +43,8 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                                            volt_var_watt_eps::Float64=2e-3,
                                            verbose::Bool=false,
                                            solver_options=(),
-                                           model_hook!::Union{Function,Nothing}=nothing)
+                                           model_hook!::Union{Function,Nothing}=nothing,
+                                           solution_hook!::Union{Function,Nothing}=nothing)
     # cs_r/cs_i are created inside build! and read again in extract!; share them
     # across the two hooks via this closed-over scratch dict.
     slack = Dict{Symbol,Any}()
@@ -52,7 +53,7 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                      configure! = _configure_feasibility!,
                      build! = ctx -> build_feasibility!(ctx, slack),
                      extract! = (ctx, result) -> extract_feasibility!(ctx, result, slack),
-                     verbose, solver_options, model_hook!)
+                     verbose, solver_options, model_hook!, solution_hook!)
 end
 
 # Disable "acceptable level" early stopping so Ipopt always converges to the

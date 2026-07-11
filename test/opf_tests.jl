@@ -688,6 +688,104 @@
         @test res4["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
     end
 
+    @testset "T-SOLHOOK: solution_hook! extraction + custom_injection balance" begin
+        # A custom device (battery) added ONLY via hooks — never in the JSON
+        # spec. model_hook! stamps a single-phase P/Q injection into KCL with a
+        # revenue price so it dispatches to its p_max bound; solution_hook! reads
+        # its solved power (model still live) and registers it for power balance.
+        net = parse_bmopf("""
+        {"bus":{
+            "sourcebus":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "bus1":     {"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                         "v_min":[900.0],"v_max":[1100.0]}},
+         "voltage_source":{"vs":{"bus":"sourcebus","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.5}},
+         "line":{"l1":{"bus_from":"sourcebus","bus_to":"bus1",
+             "terminal_map_from":["1"],"terminal_map_to":["1"],"linecode":"lc","length":1.0}},
+         "load":{"ld1":{"bus":"bus1","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[100000.0],"q_nom":[0.0]}},
+         "generator":{"g1":{"bus":"bus1","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_min":[0.0],"p_max":[30000.0],
+             "q_min":[0.0],"q_max":[0.0],"cost":[0.10]}},
+         "battery":{"bat1":{"bus":"bus1","terminal_map":["1","n"],
+             "p_min":0.0,"p_max":80000.0,"q_min":-40000.0,"q_max":40000.0,
+             "discharge_price":-0.05}}}
+        """; from_string=true)
+        p_max_bat = 80000.0
+
+        shared = Dict{Symbol,Any}()   # bridges the two hooks
+        function bat_model_hook!(ctx)
+            model = ctx.model
+            vr = ctx.vars[:vr]; vi = ctx.vars[:vi]
+            sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base
+            base_obj = JuMP.objective_function(model)
+            price = zero(JuMP.QuadExpr)
+            for (bid, b) in get(ctx.net, "battery", Dict())
+                bus = b["bus"]; tm = Vector{String}(b["terminal_map"])
+                t_ph = tm[1]; t_n = length(tm) >= 2 ? tm[2] : nothing
+                crb = JuMP.@variable(model, base_name = "crb_$bid")
+                cib = JuMP.@variable(model, base_name = "cib_$bid")
+                dvr = t_n === nothing ? vr[(bus,t_ph)] : JuMP.@expression(model, vr[(bus,t_ph)] - vr[(bus,t_n)])
+                dvi = t_n === nothing ? vi[(bus,t_ph)] : JuMP.@expression(model, vi[(bus,t_ph)] - vi[(bus,t_n)])
+                P = JuMP.@expression(model, dvr*crb + dvi*cib)
+                Q = JuMP.@expression(model, dvi*crb - dvr*cib)
+                JuMP.@constraint(model, P >= Float64(b["p_min"]) / sb)
+                JuMP.@constraint(model, P <= Float64(b["p_max"]) / sb)
+                JuMP.@constraint(model, Q >= Float64(b["q_min"]) / sb)
+                JuMP.@constraint(model, Q <= Float64(b["q_max"]) / sb)
+                JuMP.add_to_expression!(ctx.kcl_r[(bus,t_ph)], crb)
+                JuMP.add_to_expression!(ctx.kcl_i[(bus,t_ph)], cib)
+                t_n === nothing || JuMP.add_to_expression!(ctx.kcl_r[(bus,t_n)], -crb)
+                t_n === nothing || JuMP.add_to_expression!(ctx.kcl_i[(bus,t_n)], -cib)
+                price += Float64(b["discharge_price"]) * P
+                shared[Symbol("P_", bid)] = P
+                shared[Symbol("Q_", bid)] = Q
+            end
+            JuMP.@objective(model, Min, base_obj + price)
+        end
+        # solution_hook! that DOES register custom_injection.
+        function bat_sol_hook!(ctx, result)
+            sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base
+            p_tot = 0.0; q_tot = 0.0; bat_res = Dict{String,Any}()
+            for (bid, _) in get(ctx.net, "battery", Dict())
+                P_W  = JuMP.value(shared[Symbol("P_", bid)]) * sb
+                Q_var = JuMP.value(shared[Symbol("Q_", bid)]) * sb
+                bat_res[bid] = Dict{String,Any}("p"=>P_W, "q"=>Q_var)
+                p_tot += P_W; q_tot += Q_var
+            end
+            result["battery"] = bat_res
+            result["custom_injection"] = Dict{String,Any}("p"=>p_tot, "q"=>q_tot)
+        end
+
+        res = solve_opf(net; model_hook! = bat_model_hook!, solution_hook! = bat_sol_hook!)
+        @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+
+        # solution_hook! wrote the custom result block, in SI.
+        @test haskey(res, "battery")
+        @test haskey(res["battery"], "bat1")
+        p_bat = res["battery"]["bat1"]["p"]
+        @test p_bat ≈ p_max_bat   rtol=1e-3        # dispatched to bound (revenue)
+        @test haskey(res, "custom_injection")
+        @test res["custom_injection"]["p"] ≈ p_bat  rtol=1e-9
+
+        # With custom_injection registered, profile_solution's balance closes:
+        # no spurious W.SOL.POWER_BALANCE for the hook device.
+        rep = profile_solution(net, res)
+        @test !any(f.code == "W.SOL.POWER_BALANCE" for f in rep.findings)
+        sol = rep.results[:solution]
+        @test sol["p_custom_injection"] ≈ p_bat   rtol=1e-3
+
+        # Negative control: a hook device NOT registered via custom_injection is
+        # invisible to the balance and MUST trip W.SOL.POWER_BALANCE — proving the
+        # registration is exactly what closes the balance.
+        res2 = solve_opf(net; model_hook! = bat_model_hook!,
+                              solution_hook! = (ctx, result) -> nothing)
+        @test !haskey(res2, "custom_injection")
+        rep2 = profile_solution(net, res2)
+        @test any(f.code == "W.SOL.POWER_BALANCE" for f in rep2.findings)
+    end
+
     @testset "T-WSTART: warm start honours a/b/c terminal naming" begin
         # Regression: canonical 120° start angles were keyed by the literal
         # names "1"/"2"/"3"; a bus using another convention (not covered by

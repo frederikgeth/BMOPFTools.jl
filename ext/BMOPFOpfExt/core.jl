@@ -150,7 +150,8 @@ end
 
 """
     _build_and_solve(net; optimizer, t_index, per_unit, s_base, build!, extract!,
-                     configure!, verbose, solver_options, model_hook!) -> Dict
+                     configure!, verbose, solver_options, model_hook!,
+                     solution_hook!) -> Dict
 
 Generic build/solve engine. `build!(ctx)` is the per-problem recipe run after
 variables exist and before KCL is enforced. `extract!(ctx, result)` is an
@@ -164,6 +165,12 @@ User-facing knobs threaded through from the public solve entry points:
 - `model_hook!`    — optional `hook!(ctx)` called after the standard `build!`
   recipe and **before** KCL is enforced, so a hook can add constraints,
   replace the objective, or stamp extra injections into `ctx.kcl_r`/`ctx.kcl_i`.
+- `solution_hook!` — optional `hook!(ctx, result)` called after the solve and
+  the problem's own `extract!`, but **before** per-unit unwrapping, so a hook
+  can read `JuMP.value` of custom variables (the model is still live) and append
+  its own result keys. Runs in the model's units (per-unit when `per_unit=true`);
+  the hook must scale its outputs to SI via `ctx.bases` so they survive alongside
+  the engine's SI result. See the public `solve_opf` docstring for the contract.
 """
 function _build_and_solve(net::Dict{String,Any};
                           optimizer,
@@ -176,7 +183,8 @@ function _build_and_solve(net::Dict{String,Any};
                           relu_eps::Float64=2e-3,
                           verbose::Bool=false,
                           solver_options=(),
-                          model_hook!::Union{Function,Nothing}=nothing)
+                          model_hook!::Union{Function,Nothing}=nothing,
+                          solution_hook!::Union{Function,Nothing}=nothing)
 
     working = BMOPFTools.is_timeseries(net) ?
               BMOPFTools.get_snapshot(net, t_index) : deepcopy(net)
@@ -219,6 +227,11 @@ function _build_and_solve(net::Dict{String,Any};
 
     result = _extract_results(model, working, bus_terminals, grounded, vars, branch_inj)
     extract! === nothing || extract!(ctx, result)
+
+    # User post-solve extraction: read custom-variable values (model still live)
+    # and append result keys. Runs in model units, before per-unit unwrapping —
+    # the hook scales its own outputs to SI via `ctx.bases`.
+    solution_hook! === nothing || solution_hook!(ctx, result)
 
     # Optimization fingerprint of the best-known solution — must be captured here,
     # while `model` is live (it is discarded when this function returns).

@@ -834,7 +834,7 @@ end
               per_unit::Bool=true, s_base::Float64=1e6,
               volt_var_watt_eps::Float64=2e-3,
               verbose::Bool=false, solver_options=(),
-              model_hook!=nothing) -> Dict{String,Any}
+              model_hook!=nothing, solution_hook!=nothing) -> Dict{String,Any}
 
 Solve the four-wire rectangular current-voltage (IVR-EN) optimal power flow
 on a BMOPF network dict. Requires JuMP and Ipopt to be loaded in the calling
@@ -887,6 +887,42 @@ and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
       JuMP.@constraint(ctx.model,
           vr[(b,"a")]*crg[("g1",1)] + vi[(b,"a")]*cig[("g1",1)] <= 5_000.0 / sb)
   end)
+  ```
+
+- `solution_hook!` is the companion post-solve extraction point: a function
+  `hook!(ctx, result)` called after the solve and the engine's own result
+  extraction, but **before** per-unit unwrapping. The model is still live, so a
+  hook can read `JuMP.value` of the custom variables it declared in a
+  `model_hook!` (capture them in a shared closure) and append its own keys to
+  the `result` dict. Because it runs in the model's units (per-unit by default),
+  the hook must scale its outputs to SI via `ctx.bases` so they sit alongside the
+  engine's SI results; the standard per-unit keys are unwrapped automatically but
+  custom keys are not.
+
+  A hook device that wants to be counted in `profile_solution`'s network
+  power-balance check writes its **net terminal power** (SI, generator sign:
+  positive = into the network) to `result["custom_injection"] =
+  Dict("p"=>…, "q"=>…)`. Without this, a correct solve with a custom device
+  trips a spurious `W.SOL.POWER_BALANCE` because the balance can't see the
+  device's injection.
+
+  Example — extract a battery's dispatch (declared in `model_hook!` and captured
+  in `bat`) and register it for power balance:
+
+  ```julia
+  bat = Dict{Symbol,Any}()   # shared between the two hooks
+  result = solve_opf(net;
+      model_hook! = ctx -> begin
+          # … declare crb/cib, add P/Q constraints, stamp KCL … then:
+          bat[:P] = P_expr; bat[:Q] = Q_expr        # JuMP expressions
+      end,
+      solution_hook! = (ctx, result) -> begin
+          sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base
+          p_W  = JuMP.value(bat[:P]) * sb           # per-unit → SI watts
+          q_var = JuMP.value(bat[:Q]) * sb
+          result["battery"] = Dict("bat1" => Dict("p"=>p_W, "q"=>q_var))
+          result["custom_injection"] = Dict("p"=>p_W, "q"=>q_var)
+      end)
   ```
 
 ## Smart-IBR Volt-var / Volt-watt

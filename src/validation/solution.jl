@@ -1197,12 +1197,25 @@ function solution_check(net::Dict{String,Any},
                  for (_, ph_dict) in get(result, block, Dict())
                  for (_, vals)    in ph_dict
                  if vals isa Dict; init=0.0)
+
+    # Custom injections from a `solution_hook!` device (e.g. a battery/EV added
+    # via `model_hook!`). The hook, which alone knows its device's net terminal
+    # power, opts into the balance by writing SI totals to `result["custom_injection"]`
+    # = Dict("p"=>…, "q"=>…) (generator sign: positive = into the network). Absent
+    # this key the balance is unchanged; present, the hook device is counted so a
+    # correct solve no longer trips a spurious W.SOL.POWER_BALANCE.
+    custom_inj = get(result, "custom_injection", nothing)
+    p_custom = custom_inj isa Dict ? Float64(get(custom_inj, "p", 0.0)) : 0.0
+    q_custom = custom_inj isa Dict ? Float64(get(custom_inj, "q", 0.0)) : 0.0
+
     p_gen = _sum_injection("generator", "pg") +
             _sum_injection("ibr",  "pg") +
-            _sum_injection("voltage_source", "ps")
+            _sum_injection("voltage_source", "ps") +
+            p_custom
     q_gen = _sum_injection("generator", "qg") +
             _sum_injection("ibr",  "qg") +
-            _sum_injection("voltage_source", "qs")
+            _sum_injection("voltage_source", "qs") +
+            q_custom
     p_load = sum(get(lvals, "pd", 0.0)
                  for (_, ph_dict) in get(result, "load", Dict())
                  for (_, lvals)   in ph_dict
@@ -1243,6 +1256,8 @@ function solution_check(net::Dict{String,Any},
     q_balance_tol = max(0.01 * abs(q_load), 0.01 * abs(q_gen), 1.0)
     out["p_gen"]             = p_gen
     out["q_gen"]             = q_gen
+    out["p_custom_injection"] = p_custom
+    out["q_custom_injection"] = q_custom
     out["p_load"]            = p_load
     out["q_load"]            = q_load
     out["p_loss"]            = p_loss
