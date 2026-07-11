@@ -291,20 +291,26 @@ end
 
 # Line: nominal Π model over [from terminals; to terminals].
 function _line_yprim(line::Dict{String,Any}, linecodes::AbstractDict)
-    Z, n = _line_z_complex(line, linecodes)
-    (Z === nothing || n == 0) && return (_Node[], zeros(ComplexF64, 0, 0))
-    ys = inv(Z)                                   # series admittance (S)
+    Z, nz = _line_z_complex(line, linecodes)
+    (Z === nothing || nz == 0) && return (_Node[], zeros(ComplexF64, 0, 0))
+    bfr = get(line, "bus_from", ""); bto = get(line, "bus_to", "")
+    tmf = string.(get(line, "terminal_map_from", String[]))
+    tmt = string.(get(line, "terminal_map_to", String[]))
+    # Conductor count = min(matrix dim, terminal-map lengths), matching the OPF
+    # branch stamping (ext/BMOPFOpfExt/branch.jl): when a wider linecode meets a
+    # shorter terminal map (a from_dss quirk for some 4-wire decks), only the
+    # top-left n×n block is used.
+    n = min(nz, length(tmf), length(tmt))
+    n == 0 && return (_Node[], zeros(ComplexF64, 0, 0))
+    ys = inv(Z[1:n, 1:n])                          # series admittance (S)
     Yfr, Yto = _line_shunt_complex(line, linecodes)
-    y_fr = Yfr === nothing ? zeros(ComplexF64, n, n) : ComplexF64.(Yfr)
-    y_to = Yto === nothing ? zeros(ComplexF64, n, n) : ComplexF64.(Yto)
+    trunc(M) = M === nothing ? zeros(ComplexF64, n, n) : ComplexF64.(M[1:n, 1:n])
+    y_fr = trunc(Yfr); y_to = trunc(Yto)
     Y = zeros(ComplexF64, 2n, 2n)
     Y[1:n, 1:n]         .= ys .+ y_fr
     Y[n+1:2n, n+1:2n]   .= ys .+ y_to
     Y[1:n, n+1:2n]      .= .-ys
     Y[n+1:2n, 1:n]      .= .-ys
-    bfr = get(line, "bus_from", ""); bto = get(line, "bus_to", "")
-    tmf = string.(get(line, "terminal_map_from", String[]))
-    tmt = string.(get(line, "terminal_map_to", String[]))
     nodes = vcat([(bfr, tmf[k]) for k in 1:n], [(bto, tmt[k]) for k in 1:n])
     (nodes, Y)
 end
@@ -392,10 +398,18 @@ floor is a documented follow-up.
 """
 function ybus_passive(net::Dict{String,Any}; config=_DEFAULT_CONFIG)::YbusResult
     idx = _ybus_nodes(net; config)
+    I = Int[]; J = Int[]; V = ComplexF64[]
+    _stamp_passive!(I, J, V, net, idx, config)
+    n = length(idx.nodes)
+    YbusResult(sparse(I, J, V, n, n), idx.nodes, idx.of)
+end
+
+# Stamp every passive element (lines, shunts, capacitors, transformers) into the
+# COO accumulators for node index `idx`. Shared by ybus_passive and
+# ybus_linearized (which appends the load-admittance stamps on top).
+function _stamp_passive!(I, J, V, net::Dict{String,Any}, idx::_YbusIndex, config)
     linecodes = get(net, "linecode", Dict())
     thresh = _domain_thresholds(config)
-
-    I = Int[]; J = Int[]; V = ComplexF64[]
 
     # lines (skip the negligible ones — they are aliased in the index)
     for (_, ln) in get(net, "line", Dict())
@@ -419,10 +433,7 @@ function ybus_passive(net::Dict{String,Any}; config=_DEFAULT_CONFIG)::YbusResult
 
     # transformers (reuse the per-element Yprim; 1:1 ideal ones already aliased)
     _scatter_transformers!(I, J, V, net, idx, config)
-
-    n = length(idx.nodes)
-    Y = sparse(I, J, V, n, n)
-    YbusResult(Y, idx.nodes, idx.of)
+    return
 end
 
 # Stamp every transformer's Yprim, except the 1:1 zero-leakage ones handled by

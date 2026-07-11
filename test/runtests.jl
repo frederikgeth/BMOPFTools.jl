@@ -3991,6 +3991,12 @@ const IEEE13_FIXTURE = """
     include("ybus_tests.jl")
 
     # -----------------------------------------------------------------------
+    # Linearized nodal admittance (ybus_linearized): load-folding analytic
+    # checks always run; the OpenDSS power-flow-residual cross-check self-gates.
+    # -----------------------------------------------------------------------
+    include("ybus_linearized_tests.jl")
+
+    # -----------------------------------------------------------------------
     # General n-winding (3+) transformers — accessors, validation, Yprim, and
     # (gated) OPF/PF + OpenDSS parity.
     # -----------------------------------------------------------------------

@@ -652,6 +652,7 @@ include("io/nwinding.jl")
 include("io/capacitor.jl")
 include("io/to_ybus.jl")
 include("io/ybus.jl")
+include("io/ybus_linearized.jl")
 
 include("lineconstants/wire.jl")
 include("lineconstants/earth.jl")
@@ -1132,6 +1133,7 @@ export remove_open_switches, collapse_closed_switches
 export simplify_network
 export transformer_yprim, export_yprim, write_yprim
 export ybus_passive, YbusResult
+export ybus_linearized, LinearizedYbus
 export compile_linecode, compile_linecodes!
 
 # ---------------------------------------------------------------------------
