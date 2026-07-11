@@ -146,6 +146,64 @@ graduates from a downstream experiment to accepted practice — the same "fold i
 back in via the spec" path the model-zoo warning describes. Until then, the
 public hooks and staged API let you build it in your own package.
 
+### Authoring a `model_hook!`
+
+A `model_hook!(ctx)` runs **after** the standard build (`_add_device_constraints!`
+has already stamped every element in the net and populated the KCL accumulators)
+and **before** [`enforce_kcl!`](@ref) turns those accumulators into constraints. Two
+conventions trip up first-time hook authors.
+
+**Hooks are additive.** A hook may *add* current into `ctx.kcl_r`/`ctx.kcl_i`, add
+variables and constraints, and set the objective. It **cannot replace** a
+constraint already stamped for a network element — by the time the hook runs, that
+element's Ohm's-law/KCL contribution is already in the model. There are therefore
+two ways to make an element's parameter a decision variable:
+
+- **Native free variable — preferred where it exists.** Some element parameters are
+  already exposed as optional free variables when the case declares bounds. A
+  transformer **tap** is the worked example: set `tap_min`/`tap_max` on the
+  transformer and the engine declares a `:tap` variable (`ctx.vars[:tap][tid]`, the
+  effective from→to ratio) and threads it through the per-unit-correct,
+  base-referred winding constraints. The hook just *reads* (and, across a staged
+  multi-snapshot build, *couples*) the handle — the engine keeps ownership of
+  per-unit, limits, and `branch_inj` loss/flow bookkeeping.
+
+- **Omit-and-re-stamp — when no native variable exists.** If the parameter you want
+  free has no native variable (e.g. a **line's** series impedance / length),
+  **omit that element from the net** and re-stamp its constraint in the hook with
+  your own variable, injecting its current into the KCL accumulators. The caveats
+  are the flip side of the above: for that element *you* now own the per-unit
+  scaling (`ctx.bases`), any current/power limit, and the `branch_inj` bookkeeping —
+  none of it is applied for an element the engine never saw.
+
+**KCL accumulators hold currents injected _into_ the terminal.** `ctx.kcl_r[(bus,
+terminal)]` / `ctx.kcl_i[...]` accumulate the sum of currents flowing **into** that
+`(bus, terminal)`; `enforce_kcl!` sets each sum to zero. So a series element from
+bus `f` to bus `g` carrying current `I = cr + j·ci` in the `f → g` direction
+**subtracts** at its from-terminal (current leaves `f`) and **adds** at its
+to-terminal (current enters `g`):
+
+```julia
+# series element f → g on conductor c, current I = cr + j·ci  (a JuMP variable)
+JuMP.add_to_expression!(ctx.kcl_r[(f, c)], -cr); JuMP.add_to_expression!(ctx.kcl_i[(f, c)], -ci)
+JuMP.add_to_expression!(ctx.kcl_r[(g, c)],  cr); JuMP.add_to_expression!(ctx.kcl_i[(g, c)],  ci)
+```
+
+A shunt or user injection `I` into `(bus, phase)`, referenced to the bus neutral,
+adds at the phase terminal and subtracts the return at the neutral:
+
+```julia
+JuMP.add_to_expression!(ctx.kcl_r[(bus, phase)],    cr); JuMP.add_to_expression!(ctx.kcl_i[(bus, phase)],    ci)
+JuMP.add_to_expression!(ctx.kcl_r[(bus, neutral)], -cr); JuMP.add_to_expression!(ctx.kcl_i[(bus, neutral)], -ci)
+```
+
+The `branch_inj` field on `OpfContext` (defined in `ext/BMOPFOpfExt/core.jl`)
+documents the same "into bus" sign: each recorded entry is the current an element
+injects into a terminal, so an element's complex loss is
+`S_loss = −Σ V·conj(I_into_bus)`. In per-unit mode (`per_unit=true`, the default)
+the accumulator currents are per-unit; a SI current/voltage literal in a hook must
+be scaled by the matching `ctx.bases` base (see the `OpfContext` docstring).
+
 ## Keep it behind the extension boundary
 
 !!! warning "The OPF engine may be carved out into its own package"
