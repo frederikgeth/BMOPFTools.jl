@@ -23,6 +23,7 @@ module BMOPFTools
 
 using Dates
 using LinearAlgebra
+using SparseArrays
 using Logging
 using Statistics
 using Graphs
@@ -650,6 +651,7 @@ include("io/sideload_coordinates.jl")
 include("io/nwinding.jl")
 include("io/capacitor.jl")
 include("io/to_ybus.jl")
+include("io/ybus.jl")
 
 include("lineconstants/wire.jl")
 include("lineconstants/earth.jl")
@@ -1129,6 +1131,7 @@ export merge_series_lines, remove_dangling_lines
 export remove_open_switches, collapse_closed_switches
 export simplify_network
 export transformer_yprim, export_yprim, write_yprim
+export ybus_passive, YbusResult
 export compile_linecode, compile_linecodes!
 
 # ---------------------------------------------------------------------------

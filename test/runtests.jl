@@ -3984,6 +3984,13 @@ const IEEE13_FIXTURE = """
     include("admittance_tests.jl")
 
     # -----------------------------------------------------------------------
+    # System nodal admittance matrix (ybus_passive): per-primitive analytic
+    # checks + structural (symmetry/conservation/aliasing) always run; the
+    # OpenDSS getYsparse cross-check self-gates on _HAS_ODS.
+    # -----------------------------------------------------------------------
+    include("ybus_tests.jl")
+
+    # -----------------------------------------------------------------------
     # General n-winding (3+) transformers — accessors, validation, Yprim, and
     # (gated) OPF/PF + OpenDSS parity.
     # -----------------------------------------------------------------------

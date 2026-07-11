@@ -1,0 +1,29 @@
+! Passive 3-phase line + shunt capacitor, NO loads.
+!
+! Purpose: cross-check BMOPFTools `ybus_passive` against OpenDSS `getYsparse`.
+! With no load or generator, OpenDSS's system Y is purely the passive element
+! Yprims (line Π + capacitor) plus the Vsource Yprim on the source bus. Compared
+! over the non-source bus `lb`, the two matrices must agree to numerical zero.
+!
+! Topology: src ──[3-ph line, mutual R/X + shunt C]── lb ──[cap 50 kvar]
+
+Clear
+Set DefaultBaseFreq=50
+
+New Circuit.passive_line3ph basekv=0.416 pu=1.0 angle=0 phases=3 bus1=src.1.2.3 model=ideal
+
+! Full 3x3 series impedance with mutuals, and a shunt capacitance matrix so the
+! line Π model exercises both series admittance and from/to shunt blocks.
+New Line.l1 bus1=src.1.2.3 bus2=lb.1.2.3 phases=3 length=1 units=km
+~ rmatrix=(0.5 | 0.1 0.5 | 0.1 0.1 0.5)
+~ xmatrix=(0.3 | 0.1 0.3 | 0.1 0.1 0.3)
+~ cmatrix=(3.4 | -0.6 3.4 | -0.6 -0.6 3.4)
+
+! Fixed shunt capacitor bank at the receiving bus.
+New Capacitor.c1 bus1=lb.1.2.3 phases=3 kv=0.416 kvar=50
+
+Set VoltageBases=[0.416]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve

@@ -1,0 +1,30 @@
+! Passive wye-delta (Yd) transformer, NO loads — Ybus cross-check case.
+! Load-free variant of pf_comparison/pf_yd_xfmr.dss: with no PC elements,
+! OpenDSS `getYsparse` is the transformer Yprim + grounding shunts + Vsource
+! Yprim. Compared over the non-source bus `lv`, it must equal `ybus_passive`.
+!
+! Topology: hv ──[Yd xfmr, 11 kV wye / 0.415 kV delta]── lv
+
+Clear
+Set DefaultBaseFreq=50
+
+New Circuit.passive_yd_xfmr basekv=11.0 pu=1.0 angle=0 phases=3 bus1=hv.1.2.3 model=ideal
+
+! HV wye neutral earthed via near-zero reactor (imported as a shunt in BMOPF).
+New Reactor.grnd_hv bus1=hv.4 bus2=hv.0 R=0.001 X=0 phases=1
+
+New Transformer.t1 phases=3 windings=2
+~ wdg=1 bus=hv.1.2.3.4 conn=wye   kv=11.0  %r=1.0 kva=500
+~ wdg=2 bus=lv.1.2.3   conn=delta kv=0.415 %r=1.0 kva=500
+~ xhl=4.0
+~ %noloadloss=0.3
+~ %imag=1.5
+
+! Near-solid grounding on lv.1 to anchor the delta common mode.
+New Reactor.grnd_lv bus1=lv.1 bus2=lv.0 R=0.001 X=0 phases=1
+
+Set VoltageBases=[11.0, 0.415]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve
