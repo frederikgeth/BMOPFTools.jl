@@ -44,4 +44,5 @@ independent verification → fidelity consequences.**
 !!! tip "Prerequisites"
     The solve/verify tutorials run a real OPF, so they need a Julia environment
     with `BMOPFTools`, `JuMP` and `Ipopt`. The data-model and conversion pages
-    need only `BMOPFTools`.
+    need only `BMOPFTools`. [Installation & first steps](installation.md)
+    covers setting all of this up, starting from installing Julia itself.

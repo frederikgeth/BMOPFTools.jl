@@ -160,6 +160,34 @@ regulator/auto-transformer families — is catalogued under
 [Known limitations](#Known-limitations); most are tracked as upstream PowerIO.jl
 issues.
 
+### [Ingest warnings: the full report](@id ingest-warnings)
+
+`from_dss` is loud about fidelity loss: every piece of OpenDSS information
+that could not be represented in BMOPF is collected during the parse. The
+console `Warning` you see after a call is a **preview only** — it shows the
+first five items plus an `… and N more` count. Nothing is lost, and nothing
+is written to disk: the **complete list travels with the returned network
+dict**, so you can inspect it whenever you like:
+
+```julia
+net = from_dss("Master.dss")
+
+net["_meta"]["powerio_warnings"]      # Vector{String} — every warning, untruncated
+println.(net["_meta"]["powerio_warnings"]);   # print them all, one per line
+net["_meta"]["powerio_source"]        # absolute path of the parsed .dss file
+```
+
+Because the list is ordinary data on the dict, it survives into any
+downstream processing and can be filtered like any vector, e.g.
+`filter(contains("transformer"), net["_meta"]["powerio_warnings"])`.
+
+Note the distinction from the [analysis framework](analysis.md):
+[`analyze`](@ref) validates the *content* of the resulting network (schema,
+completeness, domain rules, …) and does **not** re-surface these ingest
+warnings — `powerio_warnings` is about what the conversion could not carry
+over, `analyze` is about the quality of what arrived. Run both after an
+import.
+
 ### Identifier case-folding
 
 OpenDSS identifiers are case-*insensitive* but case-*preserving*: `SourceBus`,

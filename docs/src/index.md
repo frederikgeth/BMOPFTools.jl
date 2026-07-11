@@ -53,8 +53,12 @@ codes, never on message text.
 
 ## Installation
 
-BMOPFTools requires **Julia ≥ 1.10**. It is not yet in the General registry,
-so install it from its Git URL:
+BMOPFTools requires **Julia ≥ 1.10**. New to Julia? The
+[Installation & first steps](installation.md) page covers installing Julia
+itself (via [juliaup](https://github.com/JuliaLang/juliaup)), what the
+`julia>` prompt is and where these commands go, and how to set up for the
+tutorials — start there. The package is not yet in the General registry,
+so install it from its Git URL at the `julia>` prompt:
 
 ```julia
 using Pkg

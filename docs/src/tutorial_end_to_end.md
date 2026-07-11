@@ -24,7 +24,9 @@ neutral reactors.
     A Julia session with BMOPFTools plus **JuMP** and **Ipopt** for the solve
     step: `using Pkg; Pkg.add(["JuMP", "Ipopt"])` in your own environment. If
     you are working from a clone of the repository, the docs environment
-    already has everything: `julia --project=docs`.
+    already has everything: `julia --project=docs`. First time with Julia, or
+    unsure what any of that means? Start with
+    [Installation & first steps](installation.md).
 
 !!! note "Two deep-dive tutorials branch off this one"
     Once the pipeline makes sense, [DER placement](tutorial_ders.md) explores the
@@ -55,8 +57,10 @@ println(rpad("transformer", 16), ": ", sum(length(v) for v in values(xfmr) if v 
 
 `from_dss` is loud about fidelity: the `Warning` it prints above lists every
 piece of OpenDSS information that has no BMOPF representation and was dropped
-(here mostly cosmetic fields such as linecode `units`); the full list stays
-inspectable at `net["_meta"]["powerio_warnings"]`.
+(here mostly cosmetic fields such as linecode `units`). The console preview is
+capped at five items — the full, untruncated list stays inspectable at
+`net["_meta"]["powerio_warnings"]` (see
+[Ingest warnings](@ref ingest-warnings)).
 
 ## 2. Analyze & diagnose
 
