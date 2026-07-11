@@ -108,6 +108,44 @@ transformer leakage to exact zero (pass 9) — and the
 [zero-voltage / ill-conditioning traps](../bounds/known_traps.md) page catalogues
 what happens when this is gotten wrong.
 
+## Extending the engine without forking it
+
+The "not a model zoo" stance above is only tenable because the engine is
+extensible from *outside*: a downstream package can add devices, swap the
+objective, couple time steps, or pose an entirely different problem — reusing all
+the device physics, per-unit handling, and result extraction — without a new
+constraint landing in `ext/BMOPFOpfExt/`. Three seams, in increasing order of
+reach (full detail under
+[extending the formulation](../opf.md#extending-the-formulation)):
+
+- **`model_hook!(ctx)` / `solution_hook!(ctx, result)`** — add custom variables,
+  constraints, or objective terms to a single solve, then read their solved
+  values. A hook device stamps its current into `ctx.kcl_r`/`ctx.kcl_i` and may
+  register its net injection as `result["custom_injection"]` so the power-balance
+  check in [`profile_solution`](../validation.md) stays honest. This is how a
+  battery, EV charger, or bespoke limit is added **without touching the JSON
+  spec**.
+- **The staged API** ([`build_opf_model`](@ref) → [`enforce_kcl!`](@ref) →
+  [`extract_result`](@ref), with [`generation_cost`](@ref) for the objective) —
+  unfuses build/solve/extract so several snapshots share one JuMP model. This is
+  what makes **inter-temporal** coupling (battery state of charge across a
+  horizon) expressible, which the single-shot [`solve_opf`](@ref) cannot do; see
+  [the staged API](../opf.md#staged-api).
+- **A different problem specification entirely.** Because `build_opf_model` adds
+  operational limits only where the net *declares* them, a bounds-free net yields
+  a pure physics model with free voltages; with `add_objective=false` and a
+  `model_hook!` objective this hosts **state estimation**, parameter estimation,
+  and other model-fitting problems that are not dispatch optimisation. See
+  [Beyond OPF](../opf.md#beyond-opf).
+
+Internally the same seam is the `build!` *recipe* (`build_opf!`, `build_pf!`,
+`build_feasibility!`): a fourth problem type is a fourth recipe over the
+invariant `_build_and_solve` pipeline. Promoting that recipe entry point to a
+public `build_custom_model` is the natural step **if** such a formulation
+graduates from a downstream experiment to accepted practice — the same "fold it
+back in via the spec" path the model-zoo warning describes. Until then, the
+public hooks and staged API let you build it in your own package.
+
 ## Keep it behind the extension boundary
 
 !!! warning "The OPF engine may be carved out into its own package"

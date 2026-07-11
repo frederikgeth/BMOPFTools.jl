@@ -1033,17 +1033,45 @@ JuMP.optimize!(model)
 results = [extract_result(c) for c in ctxs]
 ```
 
-See each function's own docstring (in the extension) for the full contract.
+The full per-argument contract for each function is documented on its own entry
+below.
 """
 function build_opf_model end
 export build_opf_model
 
+"""
+    enforce_kcl!(ctx) -> ctx
+
+Enforce Kirchhoff's current law for one snapshot's accumulators (AC nodal balance
++ DC network), after every device constraint and `model_hook!` injection for that
+snapshot has contributed. Second step of the staged API (see
+[`build_opf_model`](@ref)); call once per snapshot `ctx` before `JuMP.optimize!`.
+Implemented in the `BMOPFOpfExt` extension.
+"""
 function enforce_kcl! end
 export enforce_kcl!
 
+"""
+    generation_cost(ctx) -> JuMP.QuadExpr
+
+The snapshot's total active-power generation-cost expression — the quantity
+[`solve_opf`](@ref) minimises — returned WITHOUT setting it on the model. Sum
+these across snapshots (adding any custom terms) and call `JuMP.@objective` once
+for a multi-period solve. Pairs with `build_opf_model(...; add_objective=false)`.
+Implemented in the `BMOPFOpfExt` extension.
+"""
 function generation_cost end
 export generation_cost
 
+"""
+    extract_result(ctx; solution_hook!=nothing) -> Dict{String,Any}
+
+Extract one snapshot's SI result dict from the solved model (call
+`JuMP.optimize!(ctx.model)` first). Mirrors [`solve_opf`](@ref)'s output for that
+snapshot: runs the optional `solution_hook!(ctx, result)`, attaches `opt_profile`,
+and unwraps per-unit back to SI. Final step of the staged API (see
+[`build_opf_model`](@ref)). Implemented in the `BMOPFOpfExt` extension.
+"""
 function extract_result end
 export extract_result
 

@@ -1241,7 +1241,7 @@ println(diag["is_feasible"])            # false if network is overloaded
 println(diag["total_infeasibility_A"])  # L2 norm of all slacks (A)
 ```
 
-## Solver control and extending the formulation
+## [Solver control and extending the formulation](@id extending-the-formulation)
 
 All three entry points (`solve_opf`, `solve_pf`, `solve_feasibility_opf`)
 accept:
@@ -1294,7 +1294,7 @@ unwrapping, with the model still live: read `JuMP.value` of the variables a
 counted by `profile_solution`'s power-balance check, so a correct solve no
 longer trips a spurious `W.SOL.POWER_BALANCE`.
 
-### Multi-period and storage: the staged API
+### [Multi-period and storage: the staged API](@id staged-api)
 
 `solve_opf` builds, solves, and extracts one snapshot in a single fused call —
 it cannot express constraints that couple one time step to the next, such as a
@@ -1337,7 +1337,7 @@ Everything a snapshot exposes for coupling — `ctx.model`, `ctx.vars`,
 `ctx.bases`, `ctx.kcl_r`/`ctx.kcl_i` — is the same context object a `model_hook!`
 receives, so custom devices are declared exactly as in the single-snapshot case.
 
-### Beyond OPF: other problem specifications
+### [Beyond OPF: other problem specifications](@id beyond-opf)
 
 The staged API is problem-agnostic — it exposes the network physics, not just
 the dispatch problem. Because `build_opf_model` adds operational limits only
