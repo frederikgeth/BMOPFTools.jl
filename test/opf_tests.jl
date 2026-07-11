@@ -786,6 +786,119 @@
         @test any(f.code == "W.SOL.POWER_BALANCE" for f in rep2.findings)
     end
 
+    @testset "T-STAGED: build_opf_model matches solve_opf (single snapshot)" begin
+        # The staged API run as one snapshot must reproduce solve_opf exactly:
+        # same construction/KCL/extract path, just unfused.
+        net = _pu_net()
+        fused = solve_opf(net)
+
+        ctx = build_opf_model(net)
+        enforce_kcl!(ctx)
+        JuMP.optimize!(ctx.model)
+        staged = extract_result(ctx)
+
+        @test staged["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test staged["objective"] ≈ fused["objective"]  rtol=1e-8
+        @test staged["bus"]["bus1"]["1"]["vm"] ≈ fused["bus"]["bus1"]["1"]["vm"]  rtol=1e-8
+        @test staged["generator"]["g1"]["1"]["pg"] ≈ fused["generator"]["g1"]["1"]["pg"]  rtol=1e-8
+
+        # add_objective=false leaves the model with no objective; generation_cost
+        # returns the same expression solve_opf would have minimised.
+        ctx2 = build_opf_model(net; add_objective=false)
+        @test JuMP.objective_function(ctx2.model) == JuMP.AffExpr(0.0)  # unset ⇒ 0
+        JuMP.@objective(ctx2.model, Min, generation_cost(ctx2))
+        enforce_kcl!(ctx2)
+        JuMP.optimize!(ctx2.model)
+        staged2 = extract_result(ctx2)
+        @test staged2["objective"] ≈ fused["objective"]  rtol=1e-8
+    end
+
+    @testset "T-MULTIPERIOD: SOC-coupled battery across two snapshots, one model" begin
+        # Two snapshots co-optimised in ONE JuMP model with an inter-temporal
+        # state-of-charge link — the formulation solve_opf cannot express. The
+        # slack import price is high in period 1, low in period 2; a cyclic
+        # battery must discharge into the expensive period and recharge in the
+        # cheap one. Proves the staged public API supports storage/EV models.
+        netj(src_cost) = """
+        {"bus":{
+            "sourcebus":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "bus1":     {"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                         "v_min":[900.0],"v_max":[1100.0]}},
+         "voltage_source":{"vs":{"bus":"sourcebus","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0],"cost":[$src_cost]}},
+         "linecode":{"lc":{"R_series_1_1":0.1}},
+         "line":{"l1":{"bus_from":"sourcebus","bus_to":"bus1",
+             "terminal_map_from":["1"],"terminal_map_to":["1"],"linecode":"lc","length":1.0}},
+         "load":{"ld1":{"bus":"bus1","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[100000.0],"q_nom":[0.0]}}}
+        """
+        prices  = [0.20, 0.05]
+        nets    = [parse_bmopf(netj(p); from_string=true) for p in prices]
+        T       = length(nets)
+        pmax_W  = 40_000.0
+        emax_Wh = 100_000.0
+        soc0_Wh = 40_000.0
+        dt_h    = 1.0
+
+        Pex = Dict{Int,Any}()
+        port!(t) = ctx -> begin
+            m = ctx.model
+            vr = ctx.vars[:vr]; vi = ctx.vars[:vi]
+            sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base
+            crb = JuMP.@variable(m, base_name = "crb_t$t")
+            cib = JuMP.@variable(m, base_name = "cib_t$t")
+            P = JuMP.@expression(m, vr[("bus1","1")]*crb + vi[("bus1","1")]*cib)
+            Q = JuMP.@expression(m, vi[("bus1","1")]*crb - vr[("bus1","1")]*cib)
+            JuMP.@constraint(m, P <=  pmax_W / sb)
+            JuMP.@constraint(m, P >= -pmax_W / sb)
+            JuMP.@constraint(m, Q == 0.0)
+            JuMP.add_to_expression!(ctx.kcl_r[("bus1","1")], crb)
+            JuMP.add_to_expression!(ctx.kcl_i[("bus1","1")], cib)
+            JuMP.add_to_expression!(ctx.kcl_r[("bus1","n")], -crb)
+            JuMP.add_to_expression!(ctx.kcl_i[("bus1","n")], -cib)
+            Pex[t] = P
+        end
+
+        model = JuMP.Model(Ipopt.Optimizer); JuMP.set_silent(model)
+        ctxs = [build_opf_model(nets[t]; model=model, add_objective=false,
+                                model_hook! = port!(t)) for t in 1:T]
+        sb = ctxs[1].bases.s_base
+        Δpu(x) = x / sb
+
+        JuMP.@variable(model, soc[1:T+1])
+        JuMP.@constraint(model, soc[1] == Δpu(soc0_Wh))
+        for t in 1:T
+            JuMP.@constraint(model, soc[t+1] == soc[t] - Pex[t] * dt_h)
+            JuMP.@constraint(model, 0.0 <= soc[t+1])
+            JuMP.@constraint(model, soc[t+1] <= Δpu(emax_Wh))
+        end
+        JuMP.@constraint(model, soc[T+1] == Δpu(soc0_Wh))     # cyclic
+        JuMP.@objective(model, Min, sum(generation_cost(ctxs[t]) for t in 1:T))
+        foreach(enforce_kcl!, ctxs)
+        JuMP.optimize!(model)
+
+        @test JuMP.termination_status(model) in (JuMP.MOI.LOCALLY_SOLVED, JuMP.MOI.OPTIMAL)
+
+        P1 = JuMP.value(Pex[1]) * sb
+        P2 = JuMP.value(Pex[2]) * sb
+        @test P1 ≈  pmax_W  rtol=1e-2      # discharge into the expensive period
+        @test P2 ≈ -pmax_W  rtol=1e-2      # recharge in the cheap period
+
+        soc_Wh = [JuMP.value(soc[k]) * sb for k in 1:T+1]
+        @test soc_Wh[1] ≈ soc0_Wh  rtol=1e-6
+        @test soc_Wh[T+1] ≈ soc0_Wh  rtol=1e-6         # cyclic closure
+        for t in 1:T                                    # SOC dynamics conserved
+            @test soc_Wh[t+1] ≈ soc_Wh[t] - (JuMP.value(Pex[t])*sb)*dt_h  rtol=1e-6
+            @test -1.0 <= soc_Wh[t+1] <= emax_Wh + 1.0
+        end
+
+        # Per-snapshot extraction yields independent, in-band SI voltages.
+        results = [extract_result(ctxs[t]) for t in 1:T]
+        for t in 1:T
+            @test 900.0 <= results[t]["bus"]["bus1"]["1"]["vm"] <= 1100.0
+        end
+    end
+
     @testset "T-WSTART: warm start honours a/b/c terminal naming" begin
         # Regression: canonical 120° start angles were keyed by the literal
         # names "1"/"2"/"3"; a bus using another convention (not covered by

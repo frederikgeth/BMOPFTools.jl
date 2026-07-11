@@ -1001,6 +1001,52 @@ Requires JuMP and Ipopt (same as `solve_opf`). The result dict matches
 function solve_pf end
 export solve_pf
 
+"""
+    build_opf_model(net; kwargs...) -> ctx
+    enforce_kcl!(ctx) -> ctx
+    generation_cost(ctx) -> JuMP.QuadExpr
+    extract_result(ctx; solution_hook!=nothing) -> Dict{String,Any}
+
+Staged build/solve/extract API — the composable form of [`solve_opf`](@ref).
+Implemented in the `BMOPFOpfExt` extension (requires JuMP and Ipopt loaded).
+
+`solve_opf` fuses model construction, KCL, the solve, and result extraction into
+one call. These four functions expose the same pipeline as discrete steps so a
+caller can build **several OPF snapshots into one JuMP model**, couple them with
+its own cross-snapshot constraints (e.g. battery state-of-charge dynamics linking
+period `t` to `t+1`), set a single combined objective, `JuMP.optimize!` once, and
+extract each snapshot's result. This is the supported path for multi-period /
+storage formulations that the single-snapshot `solve_opf` cannot express.
+
+Typical multi-period skeleton:
+
+```julia
+using JuMP, Ipopt
+model = JuMP.Model(Ipopt.Optimizer)
+ctxs  = [build_opf_model(net; t_index=t, model=model, add_objective=false,
+                         model_hook! = storage_ports!) for t in 1:T]
+# couple snapshots: SOC[t+1] = SOC[t] + Δt·(charge − discharge) …
+link_soc!(model, ctxs)
+JuMP.@objective(model, Min, sum(generation_cost(c) for c in ctxs) + storage_cost)
+foreach(enforce_kcl!, ctxs)
+JuMP.optimize!(model)
+results = [extract_result(c) for c in ctxs]
+```
+
+See each function's own docstring (in the extension) for the full contract.
+"""
+function build_opf_model end
+export build_opf_model
+
+function enforce_kcl! end
+export enforce_kcl!
+
+function generation_cost end
+export generation_cost
+
+function extract_result end
+export extract_result
+
 # ---------------------------------------------------------------------------
 # Exports
 # ---------------------------------------------------------------------------

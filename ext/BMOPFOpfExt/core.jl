@@ -186,17 +186,7 @@ function _build_and_solve(net::Dict{String,Any};
                           model_hook!::Union{Function,Nothing}=nothing,
                           solution_hook!::Union{Function,Nothing}=nothing)
 
-    working = BMOPFTools.is_timeseries(net) ?
-              BMOPFTools.get_snapshot(net, t_index) : deepcopy(net)
-    # Stamp per-bus neutral terminals from an explicit terminal_conventions block
-    # so bus-level neutral resolution honours non-"n" labels even for nets built
-    # programmatically (parse_bmopf already does this on load). Mutates the copy.
-    BMOPFTools._materialize_terminal_roles!(working)
-
-    bases = nothing
-    if per_unit
-        working, bases = _to_per_unit(working, s_base)
-    end
+    working, bases = _prepare_working_net(net, t_index, per_unit, s_base)
 
     model = JuMP.Model(optimizer)
     verbose || JuMP.set_silent(model)
@@ -205,27 +195,17 @@ function _build_and_solve(net::Dict{String,Any};
         JuMP.set_attribute(model, string(name), value)
     end
 
-    bus_terminals = _bus_terminals(working)
-    grounded      = _grounded_terminals(working)
-
-    vars = _build_vars(model, working, bus_terminals, grounded)
-    _set_dc_start_values!(vars, working)
-
-    kcl_r, kcl_i = _init_kcl(bus_terminals, grounded)
-    branch_inj = _new_branch_ledger()
-
-    ctx = OpfContext(model, working, bus_terminals, grounded, vars,
-                     kcl_r, kcl_i, branch_inj, bases, relu_eps, Dict{Float64,Any}())
+    ctx = _new_context(model, working, bases, relu_eps)
 
     build!(ctx)
     model_hook! === nothing || model_hook!(ctx)
 
-    _add_kcl_constraints!(model, kcl_r, kcl_i)
-    _add_dc_kcl_constraints!(model, vars)
+    _enforce_kcl!(ctx)
 
     JuMP.optimize!(model)
 
-    result = _extract_results(model, working, bus_terminals, grounded, vars, branch_inj)
+    result = _extract_results(model, working, ctx.bus_terminals, ctx.grounded,
+                              ctx.vars, ctx.branch_inj)
     extract! === nothing || extract!(ctx, result)
 
     # User post-solve extraction: read custom-variable values (model still live)
@@ -238,4 +218,157 @@ function _build_and_solve(net::Dict{String,Any};
     result["opt_profile"] = _optimization_profile(model; per_unit=per_unit)
 
     bases !== nothing ? _from_per_unit(result, bases, net) : result
+end
+
+# ── Shared build sub-steps ─────────────────────────────────────────────────
+# Factored out of `_build_and_solve` so the public staged API (`build_opf_model`,
+# `enforce_kcl!`, `optimize!`, `extract_result`) and the fused engine run the
+# EXACT same preparation, model, and KCL code — no second implementation to drift.
+
+"""
+    _prepare_working_net(net, t_index, per_unit, s_base) -> (working, bases)
+
+Snapshot a time-series net at `t_index` (or deep-copy a static net), materialise
+terminal roles, and per-unit-scale it when `per_unit=true`. `bases` is the
+per-unit base NamedTuple, or `nothing` in SI mode.
+"""
+function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
+                              per_unit::Bool, s_base::Float64)
+    working = BMOPFTools.is_timeseries(net) ?
+              BMOPFTools.get_snapshot(net, t_index) : deepcopy(net)
+    # Stamp per-bus neutral terminals from an explicit terminal_conventions block
+    # so bus-level neutral resolution honours non-"n" labels even for nets built
+    # programmatically (parse_bmopf already does this on load). Mutates the copy.
+    BMOPFTools._materialize_terminal_roles!(working)
+
+    bases = nothing
+    per_unit && ((working, bases) = _to_per_unit(working, s_base))
+    return working, bases
+end
+
+"""
+    _new_context(model, working, bases, relu_eps) -> OpfContext
+
+Index the working net, declare all JuMP variables into `model`, initialise the
+KCL accumulators and branch-injection ledger, and bundle them into an
+`OpfContext`. Adds no constraints and sets no objective.
+"""
+function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64)
+    bus_terminals = _bus_terminals(working)
+    grounded      = _grounded_terminals(working)
+
+    vars = _build_vars(model, working, bus_terminals, grounded)
+    _set_dc_start_values!(vars, working)
+
+    kcl_r, kcl_i = _init_kcl(bus_terminals, grounded)
+    branch_inj = _new_branch_ledger()
+
+    OpfContext(model, working, bus_terminals, grounded, vars,
+               kcl_r, kcl_i, branch_inj, bases, relu_eps, Dict{Float64,Any}())
+end
+
+"""
+    _enforce_kcl!(ctx)
+
+Enforce Kirchhoff's current law: pin every AC KCL accumulator to zero and add
+the DC-network nodal balance. Call once, after all device constraints and any
+`model_hook!` injections have contributed to `ctx.kcl_r`/`ctx.kcl_i`.
+"""
+function _enforce_kcl!(ctx::OpfContext)
+    _add_kcl_constraints!(ctx.model, ctx.kcl_r, ctx.kcl_i)
+    _add_dc_kcl_constraints!(ctx.model, ctx.vars)
+    return ctx
+end
+
+# ── Public staged build/solve/extract API ──────────────────────────────────
+# The fused `solve_opf` is the convenience path. These four functions expose the
+# same pipeline as discrete, composable steps so a caller (typically an external
+# package) can build SEVERAL OPF snapshots into ONE JuMP model, couple them with
+# its own cross-snapshot constraints (e.g. battery state-of-charge dynamics
+# linking period t to t+1), set a single combined objective, solve once, and
+# extract each snapshot's result. Each `ctx` keeps its own variable, KCL, and
+# ledger dicts, so multiple contexts coexist in one model without collision.
+
+"""
+    BMOPFTools.build_opf_model(net; optimizer=Ipopt.Optimizer, t_index=1,
+        per_unit=true, s_base=1e6, model=nothing, add_objective=true,
+        model_hook!=nothing, volt_var_watt_eps=2e-3, verbose=false) -> ctx
+
+Build the IVR-EN OPF device model, bounds, and (optionally) the generation-cost
+objective for one snapshot, **without enforcing KCL or optimising**. The first
+step of the staged API; see the module notes above.
+
+- `model` — build into this existing JuMP model instead of a fresh one. Pass the
+  same model for every snapshot of a multi-period problem so they share one
+  optimisation. When `nothing`, a new `JuMP.Model(optimizer)` is created (and
+  silenced unless `verbose`).
+- `add_objective` — when `false`, the per-snapshot generation cost is NOT set on
+  the model; recover it with [`generation_cost`](@ref) and set one combined
+  objective yourself. Setting `@objective` once per snapshot would overwrite, so
+  multi-period callers pass `add_objective=false`.
+- `model_hook!` — called as `hook!(ctx)` after the standard build, exactly as in
+  `solve_opf`, to add custom devices/constraints for this snapshot.
+
+Returns the snapshot's `ctx` (an `OpfContext`); read `ctx.model`, `ctx.vars`,
+`ctx.bases`, `ctx.kcl_r`/`ctx.kcl_i` to couple snapshots. Pass it to
+[`enforce_kcl!`](@ref) and [`extract_result`](@ref).
+"""
+function BMOPFTools.build_opf_model(net::Dict{String,Any};
+                                    optimizer=Ipopt.Optimizer,
+                                    t_index::Int=1,
+                                    per_unit::Bool=true,
+                                    s_base::Float64=1e6,
+                                    model=nothing,
+                                    add_objective::Bool=true,
+                                    model_hook!::Union{Function,Nothing}=nothing,
+                                    volt_var_watt_eps::Float64=2e-3,
+                                    verbose::Bool=false)
+    working, bases = _prepare_working_net(net, t_index, per_unit, s_base)
+    if model === nothing
+        model = JuMP.Model(optimizer)
+        verbose || JuMP.set_silent(model)
+    end
+    ctx = _new_context(model, working, bases, volt_var_watt_eps)
+    build_opf!(ctx; add_objective=add_objective)
+    model_hook! === nothing || model_hook!(ctx)
+    return ctx
+end
+
+"""
+    BMOPFTools.enforce_kcl!(ctx) -> ctx
+
+Enforce Kirchhoff's current law for one snapshot's accumulators (AC nodal balance
++ DC network). Call after every device constraint and `model_hook!` injection for
+that snapshot has been added, and before optimising. In a multi-period build call
+it once per snapshot `ctx`.
+"""
+BMOPFTools.enforce_kcl!(ctx::OpfContext) = _enforce_kcl!(ctx)
+
+"""
+    BMOPFTools.generation_cost(ctx) -> JuMP.QuadExpr
+
+The snapshot's total active-power generation-cost expression (the quantity
+`solve_opf` minimises), returned WITHOUT setting it on the model. Sum these
+across snapshots — adding any custom terms (e.g. storage throughput cost) — and
+call `JuMP.@objective(ctx.model, Min, total)` once for a multi-period solve.
+"""
+BMOPFTools.generation_cost(ctx::OpfContext) =
+    _generation_cost_expr(ctx.model, ctx.net, ctx.vars)
+
+"""
+    BMOPFTools.extract_result(ctx; solution_hook!=nothing) -> Dict{String,Any}
+
+Extract one snapshot's result dict from the solved model (call `JuMP.optimize!`
+on `ctx.model` first). Mirrors `solve_opf`'s output for that snapshot: runs the
+optional `solution_hook!(ctx, result)`, attaches `opt_profile`, and unwraps
+per-unit back to SI. Safe to call once per snapshot `ctx` after a single solve.
+"""
+function BMOPFTools.extract_result(ctx::OpfContext;
+                                   solution_hook!::Union{Function,Nothing}=nothing)
+    result = _extract_results(ctx.model, ctx.net, ctx.bus_terminals,
+                              ctx.grounded, ctx.vars, ctx.branch_inj)
+    solution_hook! === nothing || solution_hook!(ctx, result)
+    per_unit = ctx.bases !== nothing
+    result["opt_profile"] = _optimization_profile(ctx.model; per_unit=per_unit)
+    per_unit ? _from_per_unit(result, ctx.bases, ctx.net) : result
 end

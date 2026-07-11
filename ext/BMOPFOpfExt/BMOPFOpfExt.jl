@@ -119,11 +119,15 @@ function BMOPFTools.solve_opf(net::Dict{String,Any};
 end
 
 """
-    build_opf!(ctx)
+    build_opf!(ctx; add_objective=true)
 
-Build recipe for the standard generation-cost OPF.
+Build recipe for the standard generation-cost OPF. With `add_objective=false`
+the device model and bounds are built but the generation-cost objective is *not*
+set on the model — used by the public `build_opf_model` when a caller (e.g. a
+multi-period wrapper) will assemble and set a combined objective itself. The
+per-recipe cost is still recoverable via `generation_cost(ctx)`.
 """
-function build_opf!(ctx::OpfContext)
+function build_opf!(ctx::OpfContext; add_objective::Bool=true)
     # Warm-start: set phase-angle-correct initial values so Ipopt can find
     # the physical (high-voltage) solution without a load-flow pre-solve.
     _set_voltage_start_values!(ctx.vars, ctx.net, ctx.bus_terminals, ctx.grounded)
@@ -135,7 +139,7 @@ function build_opf!(ctx::OpfContext)
     _add_device_constraints!(ctx)
 
     # Objective: minimise total generation cost.
-    _add_objective!(ctx.model, ctx.net, ctx.vars)
+    add_objective && _add_objective!(ctx.model, ctx.net, ctx.vars)
 end
 
 end # module BMOPFOpfExt

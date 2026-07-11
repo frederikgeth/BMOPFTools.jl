@@ -1286,6 +1286,57 @@ end)
 The model is solved in the model's working units: SI by default, per-unit
 when `per_unit=true` — scale hand-written constants accordingly.
 
+A `solution_hook!(ctx, result)` runs after the solve and before per-unit
+unwrapping, with the model still live: read `JuMP.value` of the variables a
+`model_hook!` created and append your own keys to `result` (scale to SI via
+`ctx.bases`). A hook device that writes its net terminal power to
+`result["custom_injection"] = Dict("p"=>…, "q"=>…)` (SI, generator sign) is
+counted by `profile_solution`'s power-balance check, so a correct solve no
+longer trips a spurious `W.SOL.POWER_BALANCE`.
+
+### Multi-period and storage: the staged API
+
+`solve_opf` builds, solves, and extracts one snapshot in a single fused call —
+it cannot express constraints that couple one time step to the next, such as a
+battery's state of charge. For that, the same pipeline is exposed as four
+composable steps that let you build **several snapshots into one JuMP model**,
+add your own inter-temporal constraints, solve once, and extract each snapshot:
+
+| function | role |
+|---|---|
+| `build_opf_model(net; model, add_objective, model_hook!, …)` | build one snapshot's devices/bounds into a (shared) model; no KCL, no solve |
+| `generation_cost(ctx)` | that snapshot's cost expression, unset — sum across snapshots for one combined objective |
+| `enforce_kcl!(ctx)` | pin KCL for one snapshot (call once per snapshot before solving) |
+| `extract_result(ctx; solution_hook!)` | extract one snapshot's SI result after the shared solve |
+
+Pass the same `model` to every `build_opf_model` call and `add_objective=false`
+so the snapshots share one optimisation and one objective. Each `ctx` keeps its
+own variable/KCL dicts, so snapshots coexist without collision; couple them
+through the variables a `model_hook!` publishes.
+
+```julia
+using JuMP, Ipopt
+model = JuMP.Model(Ipopt.Optimizer)
+ctxs  = [build_opf_model(nets[t]; model=model, add_objective=false,
+                         model_hook! = battery_port!(t)) for t in 1:T]
+
+# inter-temporal state of charge: SOC[t+1] = SOC[t] − P[t]·Δt, cyclic
+@variable(model, soc[1:T+1]); @constraint(model, soc[1] == soc[T+1])
+for t in 1:T
+    @constraint(model, soc[t+1] == soc[t] - Pexpr[t]*Δt)
+    @constraint(model, 0 <= soc[t+1] <= E_max)
+end
+
+@objective(model, Min, sum(generation_cost(c) for c in ctxs))
+foreach(enforce_kcl!, ctxs)
+JuMP.optimize!(model)
+results = [extract_result(c) for c in ctxs]
+```
+
+Everything a snapshot exposes for coupling — `ctx.model`, `ctx.vars`,
+`ctx.bases`, `ctx.kcl_r`/`ctx.kcl_i` — is the same context object a `model_hook!`
+receives, so custom devices are declared exactly as in the single-snapshot case.
+
 ---
 
 ## API reference
@@ -1295,4 +1346,8 @@ solve_opf
 solve_pf
 solve_feasibility_opf
 diagnose_infeasibility
+build_opf_model
+enforce_kcl!
+generation_cost
+extract_result
 ```

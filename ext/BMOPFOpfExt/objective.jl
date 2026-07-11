@@ -37,6 +37,19 @@ objective contribution of phase `k` is `cost[k]·P_k`.  Costs are linear in the
 IVR-EN power expression and added exactly — there is no polynomial/quadratic term.
 """
 function _add_objective!(model, net, vars)
+    @objective(model, Min, _generation_cost_expr(model, net, vars))
+end
+
+"""
+    _generation_cost_expr(model, net, vars) -> JuMP.QuadExpr
+
+Build (but do NOT set) the total active-power generation-cost expression that
+`_add_objective!` minimises. Pure: it declares no constraints and does not touch
+the model objective, so it can be summed across periods by a multi-period
+wrapper before a single `@objective` call. See `_add_objective!` for the cost
+convention.
+"""
+function _generation_cost_expr(model, net, vars)
     vr = vars[:vr]; vi = vars[:vi]
     crg = vars[:crg]; cig = vars[:cig]
     cri = vars[:cri]; cii = vars[:cii]
@@ -153,5 +166,5 @@ function _add_objective!(model, net, vars)
         end
     end
 
-    @objective(model, Min, obj)
+    return obj
 end
