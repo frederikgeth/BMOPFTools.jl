@@ -63,6 +63,10 @@ sideload_coordinates!
 transformer_yprim
 export_yprim
 write_yprim
+ybus_passive
+YbusResult
+ybus_linearized
+LinearizedYbus
 ```
 
 ## Line constants

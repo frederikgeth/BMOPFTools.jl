@@ -299,6 +299,42 @@ fixtures above:
   PowerIO v0.6.2's BMOPF export and are checked end to end against OpenDSS.
   Unsupported winding sets refuse loudly.
 
+### System nodal admittance gates
+
+The gates above validate *per-element* primitives. Two further testsets validate
+the *assembled* [system nodal admittance matrix](spec/nodal-admittance.md) — the
+whole-network ``\mathbf{Y}`` built by [`ybus_passive`](@ref) /
+[`ybus_linearized`](@ref) — against OpenDSS's own system matrix and power flow.
+
+- **Passive `Ybus` matches OpenDSS `getYsparse`** (`test/ybus_tests.jl`): on
+  purpose-built **load-free** decks (`test/data/ybus/`), OpenDSS's system Y is
+  exactly the passive-element `Yprim`s plus the `Vsource` primitive. Compared
+  over the non-source buses, `ybus_passive` reproduces OpenDSS's
+  `YMatrix.getYsparse()` term-by-term — to machine precision for the line-Π and
+  capacitor case, and ``\sim 10^{-6}`` for the imported Yd transformer (the
+  residual is `%r`/`%noloadloss` import rounding, not a model difference).
+  Load-free is deliberate: OpenDSS folds a load's linearized admittance
+  (``\approx \overline{S}/|V|^2``) into its `getYsparse` diagonal, so a case with
+  loads would not isolate the passive network.
+- **Linearized `Ybus` power-flow residual** (`test/ybus_linearized_tests.jl`):
+  at OpenDSS's converged voltage ``\mathbf{v}_0``, the fixed-point relation
+  ``\mathbf{Y}\,\mathbf{v}_0 = \mathbf{i}_{\text{comp}}(\mathbf{v}_0)`` must hold
+  — i.e. the net current is ``\approx 0`` at every non-source node. This is
+  asserted for **both** fold modes (`:constant_z` and `:all`) across the
+  `pf_comparison` WYE / DELTA / SINGLE\_PHASE ZIP and constant-power decks, and
+  is the strongest single check: it exercises the passive assembly *and* the
+  load folding together against an independent OpenDSS power flow, with the load
+  model's constant-Z / constant-I / constant-P split reconstructed exactly. Two
+  decks are excluded because `from_dss` imports them lossily rather than for any
+  Ybus reason — a 4-wire line whose neutral is dropped from the terminal map
+  ([#332](https://github.com/frederikgeth/BMOPFTools.jl/issues/332)) and an
+  exponential/CVR load silently imported as constant-power
+  ([#333](https://github.com/frederikgeth/BMOPFTools.jl/issues/333)).
+
+Both gates run without JuMP — they need only OpenDSSDirect.jl — so they execute
+on any CI job that has the OpenDSS reference available, independently of the
+solver stack.
+
 ### Reusing the feasibility setup
 
 The `.dss` files are portable and engine-agnostic: point your own solver at a

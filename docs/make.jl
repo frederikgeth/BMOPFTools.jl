@@ -90,6 +90,7 @@ makedocs(
             "Transformers"      => "spec/transformer.md",
             "Regulators"        => "spec/regulator.md",
             "Transformer primitive admittance" => "spec/transformer-admittance.md",
+            "System nodal admittance" => "spec/nodal-admittance.md",
             "IBRs"              => "spec/ibr.md",
             "DC networks"       => "spec/dc.md",
             "Objective & feasibility" => "spec/objective.md",
