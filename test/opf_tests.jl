@@ -899,6 +899,109 @@
         end
     end
 
+    @testset "T-STATE-EST: WLS state estimation via the staged API (different problem spec)" begin
+        # The staged API is problem-agnostic: the same device physics underlies a
+        # DIFFERENT problem specification — weighted-least-squares state estimation.
+        # No operational bounds, no fixed loads, a measurement-residual objective.
+        # This guards that build_opf_model(add_objective=false) + model_hook! can
+        # host an estimator (bounds are added only where the net declares them,
+        # so a bounds-free net yields a pure physics model with free voltages).
+
+        # Ground truth from a determined power flow on a 3-bus resistive feeder.
+        truejson = """
+        {"bus":{
+            "src": {"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "bus1":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "bus2":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.5}},
+         "line":{
+            "l1":{"bus_from":"src","bus_to":"bus1","terminal_map_from":["1"],"terminal_map_to":["1"],"linecode":"lc","length":1.0},
+            "l2":{"bus_from":"bus1","bus_to":"bus2","terminal_map_from":["1"],"terminal_map_to":["1"],"linecode":"lc","length":1.0}},
+         "load":{
+            "d1":{"bus":"bus1","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[20000.0],"q_nom":[0.0]},
+            "d2":{"bus":"bus2","terminal_map":["1","n"],"configuration":"SINGLE_PHASE","p_nom":[20000.0],"q_nom":[0.0]}}}
+        """
+        pf = solve_pf(parse_bmopf(truejson; from_string=true); per_unit=false)
+        true_vm = Dict(b => hypot(pf["bus"][b]["1"]["vr"], pf["bus"][b]["1"]["vi"])
+                       for b in ("bus1","bus2"))
+        # Constant-power loads draw exactly nominal ⇒ injection = −20 kW, 0 var.
+        true_pinj = Dict("bus1" => -20000.0, "bus2" => -20000.0)
+
+        # Estimator net: physics only — source + lines, NO loads, NO limits.
+        estjson = """
+        {"bus":{
+            "src": {"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "bus1":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "bus2":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.5}},
+         "line":{
+            "l1":{"bus_from":"src","bus_to":"bus1","terminal_map_from":["1"],"terminal_map_to":["1"],"linecode":"lc","length":1.0},
+            "l2":{"bus_from":"bus1","bus_to":"bus2","terminal_map_from":["1"],"terminal_map_to":["1"],"linecode":"lc","length":1.0}}}
+        """
+        # meas :: Vector of (kind, bus, value, sigma), kind ∈ (:vm,:pinj,:qinj).
+        function estimate(meas)
+            est_net = parse_bmopf(estjson; from_string=true)
+            buses = unique(b for (_, b, _, _) in meas)
+            function wls!(ctx)
+                m = ctx.model
+                vr = ctx.vars[:vr]; vi = ctx.vars[:vi]
+                cr = Dict{String,Any}(); ci = Dict{String,Any}()
+                for b in buses         # free injection so KCL closes; voltages stay free
+                    cr[b] = JuMP.@variable(m, base_name="cinj_r_$b")
+                    ci[b] = JuMP.@variable(m, base_name="cinj_i_$b")
+                    JuMP.add_to_expression!(ctx.kcl_r[(b,"1")],  cr[b])
+                    JuMP.add_to_expression!(ctx.kcl_i[(b,"1")],  ci[b])
+                    JuMP.add_to_expression!(ctx.kcl_r[(b,"n")], -cr[b])
+                    JuMP.add_to_expression!(ctx.kcl_i[(b,"n")], -ci[b])
+                end
+                obj = zero(JuMP.QuadExpr)
+                for (kind, b, z, σ) in meas
+                    w = 1.0 / σ^2; vrb = vr[(b,"1")]; vib = vi[(b,"1")]
+                    if kind == :vm
+                        r = JuMP.@expression(m, vrb^2 + vib^2 - z^2)
+                        obj += (w / (2z)^2) * r^2
+                    elseif kind == :pinj
+                        obj += w * JuMP.@expression(m, vrb*cr[b] + vib*ci[b] - z)^2
+                    elseif kind == :qinj
+                        obj += w * JuMP.@expression(m, vib*cr[b] - vrb*ci[b] - z)^2
+                    end
+                end
+                JuMP.@objective(m, Min, obj)
+            end
+            ctx = build_opf_model(est_net; per_unit=false, add_objective=false, model_hook! = wls!)
+            enforce_kcl!(ctx)
+            JuMP.optimize!(ctx.model)
+            extract_result(ctx)
+        end
+
+        σv = 2.0; σp = 400.0
+        mk(nz) = vcat([[(:vm, b, true_vm[b] + nz[b][1], σv),
+                        (:pinj, b, true_pinj[b] + nz[b][2], σp),
+                        (:qinj, b, 0.0 + nz[b][3], σp)] for b in ("bus1","bus2")]...)
+
+        # (1) Noiseless measurements ⇒ estimate recovers the true state exactly.
+        zero_nz = Dict(b => (0.0,0.0,0.0) for b in ("bus1","bus2"))
+        res0 = estimate(mk(zero_nz))
+        @test res0["termination_status"] in ("LOCALLY_SOLVED","OPTIMAL")
+        for b in ("bus1","bus2")
+            @test res0["bus"][b]["1"]["vm"] ≈ true_vm[b]  atol=1e-2
+        end
+
+        # (2) Fixed, deterministic perturbation ⇒ estimate stays within a few σ of
+        # truth (graceful degradation; no reliance on an RNG in the suite).
+        pert = Dict("bus1" => ( 1.5, -300.0, 0.0),
+                    "bus2" => (-2.5,  350.0, 0.0))
+        resN = estimate(mk(pert))
+        @test resN["termination_status"] in ("LOCALLY_SOLVED","OPTIMAL")
+        for b in ("bus1","bus2")
+            @test abs(resN["bus"][b]["1"]["vm"] - true_vm[b]) <= 3σv
+        end
+    end
+
     @testset "T-WSTART: warm start honours a/b/c terminal naming" begin
         # Regression: canonical 120° start angles were keyed by the literal
         # names "1"/"2"/"3"; a bus using another convention (not covered by

@@ -1337,6 +1337,26 @@ Everything a snapshot exposes for coupling — `ctx.model`, `ctx.vars`,
 `ctx.bases`, `ctx.kcl_r`/`ctx.kcl_i` — is the same context object a `model_hook!`
 receives, so custom devices are declared exactly as in the single-snapshot case.
 
+### Beyond OPF: other problem specifications
+
+The staged API is problem-agnostic — it exposes the network physics, not just
+the dispatch problem. Because `build_opf_model` adds operational limits only
+where the net *declares* them (`v_min`/`v_max`/`i_max`), a net that omits them
+yields a pure physics model with the bus voltages left free. Combined with
+`add_objective=false` and a `model_hook!` that supplies its own objective, this
+hosts estimation and fitting problems that are not dispatch optimisation at all.
+
+For example, **weighted-least-squares state estimation** is: build the physics
+of a bounds-free, load-free net (`source` + `line`s), add a free injection
+current at each measured bus via a `model_hook!` (so KCL closes with the
+voltages free to fit the data), and set the objective to the weighted sum of
+squared measurement residuals `∑ wᵢ (zᵢ − hᵢ(state))²` for voltage-magnitude and
+power-injection measurements. The solve returns the state that best explains the
+measurements; with measurement redundancy it filters noise the raw readings
+cannot. The same seam supports parameter estimation and other model-fitting
+formulations — the device physics, per-unit handling, and multi-instance
+coupling are reused unchanged.
+
 ---
 
 ## API reference
