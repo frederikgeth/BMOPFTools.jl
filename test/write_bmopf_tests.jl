@@ -64,8 +64,19 @@ end
         buf = IOBuffer()
         write_bmopf(net, buf; indent=nothing)
         raw = String(take!(buf))
-        # JSON3 compact mode writes no internal newlines.
-        @test count('\n', raw) == 0
+        # JSON3 compact mode writes no internal newlines; only the trailing
+        # terminator newline added after the compact write.
+        @test count('\n', raw) == 1
+        @test endswith(raw, '\n')
+    end
+
+    @testset "compact output ends with newline" begin
+        buf = IOBuffer()
+        write_bmopf(net, buf; indent=nothing)
+        raw = String(take!(buf))
+        @test !occursin('\n', raw[1:end-1])   # single line body
+        @test endswith(raw, '\n')              # terminated by newline
+        @test !isnothing(JSON3.read(raw))      # still valid JSON
     end
 
     @testset "the literal _meta key is never serialised" begin
