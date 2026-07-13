@@ -11,6 +11,11 @@ A `meta` block is always written. Fields are assembled in this priority order
 defaults (`\$schema`, `case_study_generator`, `created`). Caller-supplied values
 are never overwritten by auto-generation.
 
+The input `net` is never mutated. Tool-private state is not serialised verbatim:
+the `"_meta"` key is persisted under `meta.provenance`, and non-spec bus fields
+(see [`_DERIVED_BUS_FIELDS`](@ref)) are stripped so the output satisfies the
+schema's `additionalProperties: false` on bus objects.
+
 # Keyword argument
 - `meta`: a `Dict` of fields to include or override in the written `meta` block.
   All fields are optional; common ones are `title`, `description`, `license`,
@@ -79,18 +84,41 @@ end
 # Internal: drop tool-derived bus fields that are not part of the spec
 # ---------------------------------------------------------------------------
 
-# Fields the tool attaches to buses for internal convenience but which are not
-# in the BMOPF schema (bus objects declare additionalProperties:false). They are
-# derivable from `terminal_names` on read (see `_neutral_terminal`), so dropping
-# them on write keeps the JSON spec-compliant without losing information.
-const _DERIVED_BUS_FIELDS = ("neutral_terminal",)
+"""
+    _DERIVED_BUS_FIELDS
+
+Bus fields the tool attaches in memory that must not be serialised: bus objects
+declare `additionalProperties: false` in the BMOPF schema, so any of these that
+survives a write makes the file schema-invalid and provokes spurious
+`I.SCHEMA.UNKNOWN_FIELDS` findings when it is read back.
+
+They are stripped for the same reason but recovered differently:
+
+- `neutral_terminal` — *derived*. Recomputed from `terminal_names` on read (see
+  `_neutral_terminal`), so dropping it loses nothing.
+- `longitude`, `latitude` — *sideloaded*. Attached by [`sideload_coordinates!`](@ref)
+  from an external Buscoords CSV, and **not** recoverable from anything else in
+  the file. Dropping them is lossy by design: the BMOPF schema has nowhere to put
+  bus coordinates, so they live in memory only and are re-attached from the CSV
+  on each load.
+
+See [`_strip_derived_bus_fields`](@ref), which is the only consumer.
+"""
+const _DERIVED_BUS_FIELDS = ("neutral_terminal", "longitude", "latitude")
 
 """
     _strip_derived_bus_fields(buses) -> Dict{String,Any}
 
-Return a shallow copy of the bus collection with tool-derived, non-spec fields
-(see `_DERIVED_BUS_FIELDS`) removed from each bus object. Does not mutate the
-input; buses that carry none of these fields are passed through unchanged.
+Return a shallow copy of the bus collection with every field in
+[`_DERIVED_BUS_FIELDS`](@ref) removed from each bus object, so the written JSON
+satisfies the schema's `additionalProperties: false` on buses.
+
+Does not mutate the input: the caller's in-memory network keeps its coordinates
+and neutral terminals. Buses carrying none of these fields are passed through by
+reference rather than copied.
+
+Note this is lossy for sideloaded coordinates — see [`_DERIVED_BUS_FIELDS`](@ref)
+for which fields are recoverable on read and which are not.
 """
 function _strip_derived_bus_fields(buses::Dict)::Dict{String,Any}
     out = Dict{String,Any}()
