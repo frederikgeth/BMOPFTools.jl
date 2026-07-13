@@ -153,7 +153,26 @@ function _normalize_terminals!(net::Dict{String,Any}, aliases::Dict)
     (n, mode)
 end
 
-# apply f to every terminal-bearing array in the network dict
+"""
+    each_terminal_array(f, net::Dict{String,Any})
+
+Apply `f` to every terminal-bearing array in the network, in place. An array
+qualifies if its key is one of `_TERMINAL_ARRAY_KEYS` (`terminal_names`,
+`perfectly_grounded_terminals`, `terminal_map`, `terminal_map_from`,
+`terminal_map_to`) on any component instance.
+
+Coverage is driven by `COMPONENT_COLLECTIONS`, plus a dedicated pass over the
+transformer subtypes in `TRANSFORMER_SUBTYPES` (whose instances live one level
+deeper, under `net["transformer"][subtype][id]`). Components that carry none of
+those keys are visited and skipped, so registering a new component type costs
+nothing here.
+
+This is the canonical iteration helper for terminal normalisation at ingest —
+the spec requires terminal identifiers to be strings, and callers use this to
+coerce integer terminals that arrive from looser sources.
+
+`f` receives the array itself and may mutate it element-wise.
+"""
 function each_terminal_array(f, net::Dict{String,Any})
     visit(comp) = begin
         comp isa Dict || return
@@ -162,8 +181,7 @@ function each_terminal_array(f, net::Dict{String,Any})
             v isa AbstractVector && f(v)
         end
     end
-    for comp_type in ("bus", "line", "load", "generator", "voltage_source",
-                      "shunt", "switch", "ibr", "capacitor")
+    for comp_type in COMPONENT_COLLECTIONS
         components = get(net, comp_type, nothing)
         components isa Dict || continue
         foreach(visit, values(components))
@@ -221,9 +239,22 @@ function is_timeseries(net::Dict{String,Any})::Bool
     ts isa Dict && !isempty(ts) && _any_component_has_ts_ref(net)
 end
 
+"""
+    _any_component_has_ts_ref(net::Dict{String,Any}) -> Bool
+
+`true` if any component instance carries a non-empty `"time_series"` sub-dict,
+i.e. references a root-level series. Used by `is_timeseries` to decide whether a
+network is a time-series network at all; a root `"time_series"` collection that
+nothing references is treated as a snapshot network (PMD convention).
+
+Scans `TS_COMPONENT_COLLECTIONS`, then the transformer subtypes separately —
+`net["transformer"]` is keyed by subtype rather than by instance, so a flat scan
+of it would inspect the subtype dicts and never see an instance's references.
+
+Returns on the first reference found; it answers "any?", not "how many?".
+"""
 function _any_component_has_ts_ref(net::Dict{String,Any})::Bool
-    for key in ("bus", "line", "load", "generator", "voltage_source",
-                "shunt", "switch", "ibr", "transformer")
+    for key in TS_COMPONENT_COLLECTIONS
         components = get(net, key, nothing)
         components isa Dict || continue
         for (_, comp) in components
@@ -265,6 +296,13 @@ also removed from the result.
 
 For a network without time series, returns a deep copy unchanged.
 
+References are resolved on every collection in `TS_COMPONENT_COLLECTIONS`, and
+on transformers via their subtype keys. `control_profile` is the one component
+type deliberately *not* resolved — its scalable values are nested inside
+control-law sub-objects, which the resolver cannot reach; see
+`TS_COMPONENT_COLLECTIONS`. A time-series reference on a control profile is
+therefore left untouched rather than materialised.
+
 PMD convention: time series values are **scaling factors** applied
 multiplicatively to the static parameter value:
 
@@ -279,8 +317,7 @@ function get_snapshot(net::Dict{String,Any}, t_index::Int)::Dict{String,Any}
 
     ts_root = snap["time_series"]
 
-    for key in ("bus", "line", "load", "generator", "voltage_source",
-                "shunt", "switch", "ibr")
+    for key in TS_COMPONENT_COLLECTIONS
         components = get(snap, key, nothing)
         components isa Dict || continue
         for (cid, comp) in components

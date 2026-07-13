@@ -38,6 +38,72 @@ const _BMOPF_SCHEMA_URI =
 # Package version, read once at load time from the Project.toml.
 const _BMOPFTOOLS_VERSION = string(pkgversion(BMOPFTools))
 
+"""
+    COMPONENT_COLLECTIONS
+
+Canonical tuple of top-level component collections — the keys of `net` that hold
+a string-keyed dict of named component instances placed in the network
+(`net["load"]["ld1"]`, `net["dc_bus"]["d1"]`, …).
+
+This is the single source of truth for any function that must iterate every
+component type. Generic loops should use it (as
+`BMOPFTools.COMPONENT_COLLECTIONS`; it is module-internal, like
+`TRANSFORMER_SUBTYPES`) rather than repeating the tuple inline, so a new
+component type flows through IO, validation and analysis for free. Current
+consumers: `each_terminal_array`, `_any_component_has_ts_ref` and `get_snapshot`
+— which each used to keep their own inline list, and had already drifted apart.
+
+**Adding a component type:** add its schema key here. Nothing else needs to
+change. `test/registry_tests.jl` fails CI if a schema key is neither registered
+here nor listed as a known non-component, and also if this tuple names a type the
+schema no longer defines.
+
+Deliberately *not* component collections:
+
+| key | why |
+|:--|:--|
+| `transformer` | subtype-dispatched via `TRANSFORMER_SUBTYPES`; `net["transformer"]` is keyed by subtype, not by instance |
+| `linecode`, `wire_data`, `line_geometry` | shared catalogs referenced *by* components; they define no terminals of their own |
+| `time_series` | data store keyed by series id |
+| `name`, `meta`, `extras`, `terminal_conventions` | scalars and document metadata |
+
+See also `TS_COMPONENT_COLLECTIONS` for the time-series-capable subset.
+"""
+const COMPONENT_COLLECTIONS = (
+    "bus", "line", "load", "generator", "voltage_source",
+    "shunt", "switch", "ibr", "capacitor", "control_profile",
+    "dc_bus", "dc_branch", "dc_grounding", "dc_load", "dc_source",
+)
+
+"""
+    TS_COMPONENT_COLLECTIONS
+
+Subset of `COMPONENT_COLLECTIONS` whose instances may carry a
+`"time_series"` sub-dict that `get_snapshot` can actually materialise. Consumed
+by `_any_component_has_ts_ref` (which decides whether a network counts as a
+time-series network) and by `get_snapshot` (which resolves the references).
+
+Currently this is every component collection except `control_profile`.
+
+!!! note "Why control_profile is excluded"
+    A control profile's scalable quantities (`volt_var.breakpoints`, `q_limits`,
+    …) are nested *inside* control-law sub-objects, but `_resolve_component_ts!`
+    only scales top-level numeric or vector params on a component. A
+    `time_series` reference on a control profile therefore has no top-level value
+    to scale, and resolving it would throw rather than materialise a snapshot.
+
+    Including `control_profile` here is the natural fix once the resolver grows
+    nested-path support (e.g. a `"volt_var.breakpoints"` key); until then it is
+    held out deliberately, and a control-profile time-series reference is ignored
+    exactly as it was before the registry existed.
+
+`transformer` is absent for a different reason: it is not in
+`COMPONENT_COLLECTIONS` at all. Its time-series references *are* resolved,
+by a dedicated subtype-aware pass in `get_snapshot` and `_any_component_has_ts_ref`.
+"""
+const TS_COMPONENT_COLLECTIONS =
+    Tuple(c for c in COMPONENT_COLLECTIONS if c != "control_profile")
+
 # Canonical list of transformer subtype keys under `net["transformer"][subtype]`.
 # Generic loops that iterate every subtype should use this constant (visible to
 # the OPF extension as `BMOPFTools.TRANSFORMER_SUBTYPES`) rather than repeating

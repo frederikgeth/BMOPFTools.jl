@@ -3813,6 +3813,11 @@ const IEEE13_FIXTURE = """
     include("timeseries_tests.jl")
 
     # -----------------------------------------------------------------------
+    # COMPONENT_COLLECTIONS registry — completeness against the schema
+    # -----------------------------------------------------------------------
+    include("registry_tests.jl")
+
+    # -----------------------------------------------------------------------
     # Network simplification
     # -----------------------------------------------------------------------
     include("simplify_tests.jl")
