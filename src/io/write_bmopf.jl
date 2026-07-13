@@ -115,6 +115,17 @@ end
 Merge `base` (from `net["meta"]`) and `override` (from the `meta` kwarg),
 then fill in auto-generated defaults for `\$schema`, `case_study_generator`, and `created`
 if those keys are not already present. Never overwrites a value the caller set.
+
+The auto-generated fields are:
+
+- `\$schema` — URI of the BMOPF schema this file claims to conform to.
+- `case_study_generator` — tool name and version stamp.
+- `created` — wall-clock time of the write as an ISO-8601 UTC timestamp
+  (`yyyy-mm-ddTHH:MM:SSZ`). Always UTC, never local time, so stamps from
+  different machines are directly comparable. Note this makes `write_bmopf`
+  non-deterministic: writing the same network twice yields files differing in
+  this field. Pass `meta = Dict("created" => …)` to pin it, e.g. for byte-exact
+  round-trip tests.
 """
 function _build_meta(base::Dict,
                      override::Union{Dict,Nothing})::Dict{String,Any}
@@ -129,6 +140,6 @@ function _build_meta(base::Dict,
         "tool"    => "BMOPFTools.jl",
         "version" => _BMOPFTOOLS_VERSION,
     ))
-    get!(m, "created", Dates.format(now(Dates.UTC), dateformat"yyyy-mm-ddTHH:MM:SSZ"))
+    get!(m, "created", Dates.format(now(UTC), dateformat"yyyy-mm-ddTHH:MM:SSZ"))
     m
 end

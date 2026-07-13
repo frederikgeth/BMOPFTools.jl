@@ -130,6 +130,19 @@ end
         @test meta["case_study_generator"]["tool"] == "BMOPFTools.jl"
     end
 
+    @testset "created field is a valid UTC timestamp" begin
+        buf = IOBuffer()
+        write_bmopf(net, buf)
+        raw    = String(take!(buf))
+        parsed = JSON3.read(raw)
+        created = get(parsed["meta"], "created", nothing)
+        @test !isnothing(created)
+        @test created isa AbstractString
+        # Must parse as a valid DateTime and end with Z (UTC marker)
+        @test endswith(created, "Z")
+        @test !isnothing(tryparse(DateTime, rstrip(created, 'Z')))
+    end
+
     # ── write_result / read_result round-trip ─────────────────────────────────
     @testset "write_result / read_result round-trip" begin
         # A solver-shaped result dict mirroring the network structure.
