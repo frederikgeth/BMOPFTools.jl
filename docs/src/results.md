@@ -379,24 +379,6 @@ for (bid, t_dict) in init
 end
 ```
 
-## HELM power-flow results (`coupling`, `helm`)
-
-[`solve_pf_helm`](@ref) returns the same `"bus"` structure (and NaN convention)
-with `termination_status` values `"HELM_CONVERGED"`, `"HELM_NO_SOLUTION"`
-(**certified** voltage collapse — no power-flow solution exists), or
-`"HELM_MAX_ORDER"`, plus two additive sections:
-
-- `"coupling"` — `id => conductor => {kind, ir, ii, im [A]}`: the physical
-  current through each ideal coupling (closed-switch conductor with
-  `switches = :constrain`, zero-leakage-transformer winding core). Transformer
-  couplings are keyed `"subtype/id"`.
-- `"helm"` — diagnostics: `order` (series order used), `residual` (max current
-  mismatch, A), `load_margin` (the collapse loading multiplier estimated from
-  the series — `2.0` means the network is at half its collapse loading; `NaN`
-  when inestimable), and `series_tail_norm`.
-
-See [HELM power flow](spec/helm.md) for the method and its guarantees.
-
 ## Coordinate spaces and sign conventions
 
 | Quantity | Space | Sign |

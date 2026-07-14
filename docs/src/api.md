@@ -72,14 +72,6 @@ AugYbusResult
 IdealCoupling
 ```
 
-## HELM power flow
-
-```@docs
-solve_pf_helm
-helm_series
-HelmResult
-```
-
 ## Line constants
 
 ```@docs

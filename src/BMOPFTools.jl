@@ -721,9 +721,6 @@ include("io/ybus.jl")
 include("io/ybus_linearized.jl")
 include("io/ybus_augmented.jl")
 
-include("powerflow/pade.jl")
-include("powerflow/helm.jl")
-
 include("lineconstants/wire.jl")
 include("lineconstants/earth.jl")
 include("lineconstants/series.jl")
@@ -1205,7 +1202,6 @@ export transformer_yprim, export_yprim, write_yprim
 export ybus_passive, YbusResult
 export ybus_linearized, LinearizedYbus
 export ybus_augmented, AugYbusResult, IdealCoupling
-export helm_series, HelmResult, solve_pf_helm
 export compile_linecode, compile_linecodes!
 
 # ---------------------------------------------------------------------------
