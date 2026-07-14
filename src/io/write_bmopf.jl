@@ -13,8 +13,10 @@ are never overwritten by auto-generation.
 
 The input `net` is never mutated. Tool-private state is not serialised verbatim:
 the `"_meta"` key is persisted under `meta.provenance`, and non-spec bus fields
-(see [`_DERIVED_BUS_FIELDS`](@ref)) are stripped so the output satisfies the
-schema's `additionalProperties: false` on bus objects.
+(`neutral_terminal`, plus the `longitude`/`latitude` attached by
+`sideload_coordinates!`) are stripped so the output satisfies the schema's
+`additionalProperties: false` on bus objects. Dropping the coordinates is lossy
+by design: they are not recoverable on read.
 
 # Keyword argument
 - `meta`: a `Dict` of fields to include or override in the written `meta` block.
