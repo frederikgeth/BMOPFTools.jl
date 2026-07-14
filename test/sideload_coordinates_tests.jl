@@ -3,6 +3,8 @@
 # Coverage for sideload_coordinates! — merges an OpenDSS-style Buscoords CSV
 # (bus_id,x,y, no header) into a parsed network. No solver required.
 
+using JSON3
+
 @testset "sideload_coordinates!" begin
 
     # write_csv(rows) → path to a temp CSV holding the given text lines.
@@ -58,5 +60,40 @@
         net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
         @test_throws ArgumentError sideload_coordinates!(
             net, joinpath(tempdir(), "definitely_no_such_coords.csv"))
+    end
+
+    @testset "sideloaded coordinates are stripped on write_bmopf" begin
+        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        # Attach synthetic coordinates to all buses
+        for (id, bus) in net["bus"]
+            bus["longitude"] = 153.0 + rand()
+            bus["latitude"]  = -27.0 - rand()
+        end
+        buf = IOBuffer()
+        write_bmopf(net, buf)
+        raw    = String(take!(buf))
+        parsed = JSON3.read(raw, Dict{String,Any})
+        for (_, bus) in parsed["bus"]
+            @test !haskey(bus, "longitude")
+            @test !haskey(bus, "latitude")
+        end
+    end
+
+    @testset "schema_check passes after sideload + write + reload" begin
+        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        for (id, bus) in net["bus"]
+            bus["longitude"] = 153.0
+            bus["latitude"]  = -27.5
+        end
+        buf = IOBuffer()
+        write_bmopf(net, buf)
+        raw      = String(take!(buf))
+        reloaded = parse_bmopf(raw; from_string=true)
+        findings = Finding[]
+        schema_check(reloaded, findings)
+        @test isempty(filter(f -> f.severity == ERROR, findings))
+        # Unstripped coordinates surface as INFO-level I.SCHEMA.UNKNOWN_FIELDS,
+        # never as ERROR, so the assertion has to name that code to have teeth.
+        @test isempty(filter(f -> f.code == "I.SCHEMA.UNKNOWN_FIELDS", findings))
     end
 end
