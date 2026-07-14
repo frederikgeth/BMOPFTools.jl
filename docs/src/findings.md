@@ -149,7 +149,7 @@ IEC 60287.
 | `W.DOM.WIRE_GMR_RATIO` | W | `gmr/radius < 0.2` — real conductors span ~0.35 (ACSR 6/1, steel core carries little flux) to 0.826 (61-strand, Kersting tables); usually a units or transcription slip. |
 | `W.DOM.WIRE_RAC_BELOW_RDC` | W | `r_ac < r_dc` — skin and proximity effects can only increase resistance at any f > 0. |
 | `W.DOM.WIRE_IMPLIED_RESISTIVITY` | W | Implied resistivity ρ = r_dc·π·radius² outside [8·10⁻⁹, 3·10⁻⁷] Ω·m — the metallic range (annealed Cu 1.724·10⁻⁸ per IEC 60228 … steel ~1.4·10⁻⁷, widened for stranding/fill and temperature). **The unit-error catcher**: an Ω/km value entered in the Ω/m field lands three decades outside. |
-| `W.DOM.WIRE_EPS_R_RANGE` | W | Insulation `eps_r` outside [1.5, 10] (XLPE 2.3, EPR ~3, PVC 3–8; IEC 60287-1-1). |
+| `W.DOM.WIRE_EPS_R_RANGE` | W | Insulation `eps_r` outside [1.5, 10] — XLPE 2.3, EPR ~3, PVC 3–8; IEC 60287-1-1. |
 | `I.DOM.WIRE_CURRENT_DENSITY` | I | `i_max` implies a current density outside [0.5, 10] A/mm² — typical continuous ratings are 1–6 A/mm². |
 | `E.DOM.GEOM_CONDUCTOR_OVERLAP` | E | Two conductors' circles overlap (centre distance < sum of radii) — physically impossible cross-section. |
 | `W.DOM.GEOM_CLEARANCE` | W | An overhead conductor sits below 4 m (under distribution statutory clearances) or above 100 m — usually a feet-as-metres slip. |

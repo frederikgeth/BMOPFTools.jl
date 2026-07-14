@@ -25,8 +25,8 @@ equivalent conductors (Kersting treatment), recorded under
 `derivation.shields_reduced`.
 
 Earth model (`modified_carson` default | `full_carson` | `deri`), earth
-resistivity [Ω·m], **frequency [Hz] (required — no ambient default, no
-rescaling; both 50 and 60 Hz are computed exactly from ω)**, and conductor
+resistivity [Ω·m], **frequency [Hz]** (required — no ambient default, no
+rescaling; both 50 and 60 Hz are computed exactly from ω), and conductor
 temperature [°C] are read from the geometry object. Note OpenDSS's default
 earth model is **deri** — set it on the geometry when cross-validating
 against OpenDSS. Physically impossible inputs (GMR > radius, overlapping
