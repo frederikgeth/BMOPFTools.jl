@@ -3813,6 +3813,11 @@ const IEEE13_FIXTURE = """
     include("timeseries_tests.jl")
 
     # -----------------------------------------------------------------------
+    # COMPONENT_COLLECTIONS registry — completeness against the schema
+    # -----------------------------------------------------------------------
+    include("registry_tests.jl")
+
+    # -----------------------------------------------------------------------
     # Network simplification
     # -----------------------------------------------------------------------
     include("simplify_tests.jl")
@@ -4002,12 +4007,6 @@ const IEEE13_FIXTURE = """
     # always runs.
     # -----------------------------------------------------------------------
     include("ybus_augmented_tests.jl")
-
-    # -----------------------------------------------------------------------
-    # HELM power flow: Padé/Wynn-epsilon continuation + solver layers.
-    # Analytic layers always run; OpenDSS parity self-gates on _HAS_ODS.
-    # -----------------------------------------------------------------------
-    include("helm_tests.jl")
 
     # -----------------------------------------------------------------------
     # General n-winding (3+) transformers — accessors, validation, Yprim, and

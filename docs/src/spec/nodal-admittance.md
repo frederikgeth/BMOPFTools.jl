@@ -14,7 +14,7 @@ the network at each node. Two matrices are exposed:
 - [`ybus_augmented`](@ref) — the passive matrix **bordered with ideal-coupling
   constraint rows** (closed switches, zero-leakage transformers of any ratio),
   `K = [Y Aᵀ; A 0]`. The exact model for elements with no finite admittance
-  form, and the substrate of the [HELM power flow](helm.md).
+  form.
 
 Both build on the per-element [transformer primitive admittance](transformer-admittance.md)
 and reuse the same convention.
@@ -63,7 +63,7 @@ represents and avoids a conditioning artifact.
     sides are not identical) and has no finite ``Y_{\text{prim}}``. In
     `ybus_passive` it stamps the singular, shunt-only block with a warning;
     [`ybus_augmented`](@ref) models it **exactly** instead, as an ideal-coupling
-    constraint row — see [HELM power flow](helm.md).
+    constraint row.
 
 ## Folding nonlinear loads
 

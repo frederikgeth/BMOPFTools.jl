@@ -331,20 +331,9 @@ whole-network ``\mathbf{Y}`` built by [`ybus_passive`](@ref) /
   exponential/CVR load silently imported as constant-power
   ([#333](https://github.com/frederikgeth/BMOPFTools.jl/issues/333)).
 
-- **HELM power flow vs OpenDSS** (`test/helm_tests.jl`): the
-  [HELM solver](spec/helm.md) — an *independent* solution method (series
-  expansion + Padé continuation, no iteration) — reproduces OpenDSS's
-  node-to-earth voltages on the constant-power `pf_comparison` decks to sub-mV
-  (a few mV through Yd/Dy transformers), and agrees with the Ipopt `solve_pf`
-  per terminal on a shared fixture (a 3-way oracle whose members have
-  structurally uncorrelated failure modes). The same 4-wire-line import gap
-  ([#332](https://github.com/frederikgeth/BMOPFTools.jl/issues/332)) excludes
-  the decks whose neutral conductor `from_dss` drops — HELM's floating-node
-  diagnosis refuses them loudly rather than mis-solving.
-
-Both `Ybus` gates and the HELM parity run without JuMP — they need only
-OpenDSSDirect.jl — so they execute on any CI job that has the OpenDSS reference
-available, independently of the solver stack.
+The `Ybus` gates run without JuMP — they need only OpenDSSDirect.jl — so they
+execute on any CI job that has the OpenDSS reference available, independently of
+the solver stack.
 
 ### Reusing the feasibility setup
 

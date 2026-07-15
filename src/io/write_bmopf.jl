@@ -1,5 +1,5 @@
 """
-    write_bmopf(net::Dict{String,Any}, dest; meta=nothing)
+    write_bmopf(net::Dict{String,Any}, dest; meta=nothing, indent=2)
 
 Serialise a BMOPF network dict to JSON.
 
@@ -11,11 +11,24 @@ A `meta` block is always written. Fields are assembled in this priority order
 defaults (`\$schema`, `case_study_generator`, `created`). Caller-supplied values
 are never overwritten by auto-generation.
 
-# Keyword argument
+The input `net` is never mutated. Tool-private state is not serialised verbatim:
+the `"_meta"` key is persisted under `meta.provenance`, and non-spec bus fields
+(`neutral_terminal`, plus the `longitude`/`latitude` attached by
+`sideload_coordinates!`) are stripped so the output satisfies the schema's
+`additionalProperties: false` on bus objects. Dropping the coordinates is lossy
+by design: they are not recoverable on read.
+
+Output is newline-terminated in both modes, so files round-trip through `diff`
+and shell pipelines without a "\\ No newline at end of file" marker.
+
+# Keyword arguments
 - `meta`: a `Dict` of fields to include or override in the written `meta` block.
   All fields are optional; common ones are `title`, `description`, `license`,
   `authors`, `data_sources`, and `version`. See `docs/src/conventions.md` for the
   full field reference.
+- `indent`: number of spaces for pretty-printing (default `2`). Pass
+  `indent=nothing` for compact single-line output — one line of JSON plus the
+  trailing newline.
 
 # Example
 ```julia
@@ -62,6 +75,7 @@ function write_bmopf(net::Dict{String,Any}, io::IO;
     out["meta"] = out_meta
     if isnothing(indent)
         JSON3.write(io, out)
+        write(io, '\n')
     else
         JSON3.pretty(io, out, JSON3.AlignmentContext(; indent=UInt16(indent)))
     end
@@ -79,18 +93,41 @@ end
 # Internal: drop tool-derived bus fields that are not part of the spec
 # ---------------------------------------------------------------------------
 
-# Fields the tool attaches to buses for internal convenience but which are not
-# in the BMOPF schema (bus objects declare additionalProperties:false). They are
-# derivable from `terminal_names` on read (see `_neutral_terminal`), so dropping
-# them on write keeps the JSON spec-compliant without losing information.
-const _DERIVED_BUS_FIELDS = ("neutral_terminal",)
+"""
+    _DERIVED_BUS_FIELDS
+
+Bus fields the tool attaches in memory that must not be serialised: bus objects
+declare `additionalProperties: false` in the BMOPF schema, so any of these that
+survives a write makes the file schema-invalid and provokes spurious
+`I.SCHEMA.UNKNOWN_FIELDS` findings when it is read back.
+
+They are stripped for the same reason but recovered differently:
+
+- `neutral_terminal` — *derived*. Recomputed from `terminal_names` on read (see
+  `_neutral_terminal`), so dropping it loses nothing.
+- `longitude`, `latitude` — *sideloaded*. Attached by [`sideload_coordinates!`](@ref)
+  from an external Buscoords CSV, and **not** recoverable from anything else in
+  the file. Dropping them is lossy by design: the BMOPF schema has nowhere to put
+  bus coordinates, so they live in memory only and are re-attached from the CSV
+  on each load.
+
+See [`_strip_derived_bus_fields`](@ref), which is the only consumer.
+"""
+const _DERIVED_BUS_FIELDS = ("neutral_terminal", "longitude", "latitude")
 
 """
     _strip_derived_bus_fields(buses) -> Dict{String,Any}
 
-Return a shallow copy of the bus collection with tool-derived, non-spec fields
-(see `_DERIVED_BUS_FIELDS`) removed from each bus object. Does not mutate the
-input; buses that carry none of these fields are passed through unchanged.
+Return a shallow copy of the bus collection with every field in
+[`_DERIVED_BUS_FIELDS`](@ref) removed from each bus object, so the written JSON
+satisfies the schema's `additionalProperties: false` on buses.
+
+Does not mutate the input: the caller's in-memory network keeps its coordinates
+and neutral terminals. Buses carrying none of these fields are passed through by
+reference rather than copied.
+
+Note this is lossy for sideloaded coordinates — see [`_DERIVED_BUS_FIELDS`](@ref)
+for which fields are recoverable on read and which are not.
 """
 function _strip_derived_bus_fields(buses::Dict)::Dict{String,Any}
     out = Dict{String,Any}()
@@ -115,6 +152,17 @@ end
 Merge `base` (from `net["meta"]`) and `override` (from the `meta` kwarg),
 then fill in auto-generated defaults for `\$schema`, `case_study_generator`, and `created`
 if those keys are not already present. Never overwrites a value the caller set.
+
+The auto-generated fields are:
+
+- `\$schema` — URI of the BMOPF schema this file claims to conform to.
+- `case_study_generator` — tool name and version stamp.
+- `created` — wall-clock time of the write as an ISO-8601 UTC timestamp
+  (`yyyy-mm-ddTHH:MM:SSZ`). Always UTC, never local time, so stamps from
+  different machines are directly comparable. Note this makes `write_bmopf`
+  non-deterministic: writing the same network twice yields files differing in
+  this field. Pass `meta = Dict("created" => …)` to pin it, e.g. for byte-exact
+  round-trip tests.
 """
 function _build_meta(base::Dict,
                      override::Union{Dict,Nothing})::Dict{String,Any}
@@ -129,6 +177,6 @@ function _build_meta(base::Dict,
         "tool"    => "BMOPFTools.jl",
         "version" => _BMOPFTOOLS_VERSION,
     ))
-    get!(m, "created", Dates.format(now(Dates.UTC), dateformat"yyyy-mm-ddTHH:MM:SSZ"))
+    get!(m, "created", Dates.format(now(UTC), dateformat"yyyy-mm-ddTHH:MM:SSZ"))
     m
 end
