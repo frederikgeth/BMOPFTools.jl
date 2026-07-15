@@ -726,6 +726,7 @@ include("lineconstants/earth.jl")
 include("lineconstants/series.jl")
 include("lineconstants/shunt.jl")
 include("lineconstants/kron.jl")
+include("lineconstants/overhead.jl")
 include("lineconstants/compile.jl")
 
 include("analysis/inventory.jl")
@@ -1202,7 +1203,7 @@ export transformer_yprim, export_yprim, write_yprim
 export ybus_passive, YbusResult
 export ybus_linearized, LinearizedYbus
 export ybus_augmented, AugYbusResult, IdealCoupling
-export compile_linecode, compile_linecodes!
+export overhead_line_constants, compile_linecode, compile_linecodes!
 
 # ---------------------------------------------------------------------------
 # Error hints

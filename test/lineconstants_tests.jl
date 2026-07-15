@@ -36,6 +36,55 @@ _lc_z_permile(lc) = (BMOPFTools._pattern_keys_to_matrix(lc, "R_series_") .+
 
 @testset "Line constants — geometry-based impedance engine" begin
 
+    @testset "pure overhead numerical API matches compiler and preserves scalar type" begin
+        phase = _wire_556_acsr()
+        neutral = _wire_4_0_acsr()
+        geo = _geometry_601()
+        entries = geo["conductors"]
+        wires = [phase, phase, phase, neutral]
+        r_ac = [w["r_ac"] for w in wires]
+        gmr = [w["gmr"] for w in wires]
+        radius = [w["radius"] for w in wires]
+        x = [e["x"] for e in entries]
+        y = [e["y"] for e in entries]
+
+        constants = overhead_line_constants(r_ac, gmr, radius, x, y;
+            frequency=geo["frequency"], earth_model=geo["earth_model"],
+            earth_resistivity=geo["earth_resistivity"])
+
+        net = Dict{String,Any}(
+            "wire_data" => Dict("phase" => phase, "neutral" => neutral),
+            "line_geometry" => Dict("g" => Dict{String,Any}(
+                geo...,
+                "conductors" => Any[
+                    Dict{String,Any}(e..., "wire_data" => i <= 3 ? "phase" : "neutral")
+                    for (i, e) in enumerate(entries)
+                ])))
+        compile_linecode(net, "g")
+        lc = net["linecode"]["g"]
+        Zcompiled = BMOPFTools._pattern_keys_to_matrix(lc, "R_series_") .+
+                    im .* BMOPFTools._pattern_keys_to_matrix(lc, "X_series_")
+        Ccompiled = (BMOPFTools._pattern_keys_to_matrix(lc, "B_from_") .+
+                     BMOPFTools._pattern_keys_to_matrix(lc, "B_to_")) ./
+                    (2pi * geo["frequency"])
+        @test constants.Z ≈ Zcompiled rtol=1e-13
+        @test constants.C ≈ Ccompiled rtol=1e-13
+        @test constants.Z == transpose(constants.Z)
+        @test constants.C == transpose(constants.C)
+
+        big = overhead_line_constants(BigFloat.(r_ac), BigFloat.(gmr),
+            BigFloat.(radius), BigFloat.(x), BigFloat.(y);
+            frequency=big"60", earth_resistivity=big"100")
+        @test eltype(big.Z) == Complex{BigFloat}
+        @test eltype(big.C) == BigFloat
+        @test Float64.(real.(big.Z)) ≈ real.(constants.Z) rtol=1e-13
+
+        @test_throws DimensionMismatch overhead_line_constants(
+            r_ac[1:3], gmr, radius, x, y; frequency=60.0)
+        @test_throws ArgumentError overhead_line_constants(
+            r_ac, gmr, radius, x, zeros(4); frequency=60.0)
+    end
+
     # ─────────────────────────────────────────────────────────────────────────
     # IEEE 13 config 601: overhead 4-wire, modified Carson, 60 Hz, ρ=100.
     # Published phase matrix (Ω/mile) is the Kron reduction of our 4×4.

@@ -34,18 +34,38 @@ function _shunt_c(wires::Vector{_ResolvedWire},
     # overhead subsystem: potential coefficients with ground images
     oh = [i for i in 1:n if wires[i].kind == "overhead" && ys[i] > 0]
     isempty(oh) && return C
-    m = length(oh)
-    P = zeros(m, m)
-    for (a, i) in enumerate(oh)
-        P[a, a] = log(2 * ys[i] / wires[i].cap_radius) / (2pi * _EPS0)
-        for (b, j) in enumerate(oh)
-            b <= a && continue
-            d    = hypot(xs[i] - xs[j], ys[i] - ys[j])
+    C[oh, oh] = _overhead_shunt_c([wires[i].cap_radius for i in oh],
+                                  xs[oh], ys[oh])
+    C
+end
+
+"Maxwell potential-coefficient capacitance for above-ground conductors."
+function _overhead_shunt_c(cap_radius::AbstractVector{<:Real},
+                           xs::AbstractVector{<:Real},
+                           ys::AbstractVector{<:Real})
+    n = length(xs)
+    n > 0 || throw(ArgumentError("at least one conductor is required"))
+    length(cap_radius) == n == length(ys) ||
+        throw(DimensionMismatch("cap_radius, x, and y must have equal length"))
+
+    p11 = log(2 * ys[1] / cap_radius[1]) / (2pi * _EPS0)
+    P = Matrix{typeof(p11)}(undef, n, n)
+    P[1, 1] = p11
+    for i in 1:n
+        i == 1 || (P[i, i] = log(2 * ys[i] / cap_radius[i]) / (2pi * _EPS0))
+        for j in i+1:n
+            d = hypot(xs[i] - xs[j], ys[i] - ys[j])
             dimg = hypot(xs[i] - xs[j], ys[i] + ys[j])
-            P[a, b] = log(dimg / d) / (2pi * _EPS0)
-            P[b, a] = P[a, b]
+            P[i, j] = log(dimg / d) / (2pi * _EPS0)
+            P[j, i] = P[i, j]
         end
     end
-    C[oh, oh] = inv(P)
+    # Roundoff in a dense inverse can differ by a few ulps across the diagonal.
+    # The Maxwell matrix is reciprocal by construction, so materialise that
+    # invariant exactly rather than leaking numerical asymmetry downstream.
+    C = inv(P)
+    for i in 1:n, j in i+1:n
+        C[j, i] = C[i, j]
+    end
     C
 end

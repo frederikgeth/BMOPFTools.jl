@@ -27,7 +27,7 @@ const _MIN_HEIGHT = 0.01   # [m] height clamp for the image-based formulations
 const _EARTH_MODELS = ("modified_carson", "full_carson", "deri")
 
 "Carson equivalent return depth De = 2·e^(1/2)/(mₑ·e^γ) [m], mₑ = √(ωμ₀/ρ)."
-function _carson_return_depth(f::Float64, rho::Float64)::Float64
+function _carson_return_depth(f::Real, rho::Real)
     me = sqrt(2pi * f * _MU0 / rho)
     2 * exp(0.5) / (me * exp(MathConstants.eulergamma))
 end
@@ -37,7 +37,7 @@ Carson correction ΔZ = (ωμ₀/π)·(P + jQ) [Ω/m] to second order in
 k = a·S (a = √(ωμ₀/ρ), S = distance to the image conductor), with θ the
 angle at the image between the conductors.
 """
-function _carson_correction(k::Float64, theta::Float64, omega::Float64)::ComplexF64
+function _carson_correction(k::Real, theta::Real, omega::Real)
     c = cos(theta)
     c2, s2 = cos(2theta), sin(2theta)
     P = pi / 8 - k * c / (3 * sqrt(2)) +
@@ -54,8 +54,8 @@ vertical coordinate `y`. Uses the GMR in the external term, so the internal
 inductance is included implicitly — no separate internal-reactance term
 (adding one would double-count it).
 """
-function _z_self(model::String, r_ac::Float64, gmr::Float64, y::Float64,
-                 f::Float64, rho::Float64)::ComplexF64
+function _z_self(model::AbstractString, r_ac::Real, gmr::Real, y::Real,
+                 f::Real, rho::Real)
     omega = 2pi * f
     jk = im * omega * _MU0 / 2pi
     if model == "modified_carson"
@@ -79,9 +79,9 @@ Mutual impedance between conductors i and j separated by distance `d`
 (passed explicitly so cable-internal core↔shield pairs can override the
 centre-to-centre distance).
 """
-function _z_mutual(model::String, d::Float64,
-                   xi::Float64, yi::Float64, xj::Float64, yj::Float64,
-                   f::Float64, rho::Float64)::ComplexF64
+function _z_mutual(model::AbstractString, d::Real,
+                   xi::Real, yi::Real, xj::Real, yj::Real,
+                   f::Real, rho::Real)
     omega = 2pi * f
     jk = im * omega * _MU0 / 2pi
     if model == "modified_carson"

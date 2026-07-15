@@ -75,6 +75,7 @@ IdealCoupling
 ## Line constants
 
 ```@docs
+overhead_line_constants
 compile_linecode
 compile_linecodes!
 ```
