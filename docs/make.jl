@@ -36,6 +36,7 @@ makedocs(
         "Case preparation"        => [
             "Case augmentation"        => "augmentation.md",
             "From nameplate data to a model" => "tutorial_nameplate.md",
+            "From test report to transformer model" => "tutorial_transformer_tests.md",
             "Simplification tutorial"  => "tutorial_simplify.md",
             "DER placement tutorial"   => "tutorial_ders.md",
             "VVWO tutorial"            => "tutorial_vvwo.md",
