@@ -60,6 +60,7 @@ sideload_coordinates!
 ## Admittance export
 
 ```@docs
+line_yprim
 transformer_yprim
 export_yprim
 write_yprim
