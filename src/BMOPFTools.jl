@@ -1200,7 +1200,7 @@ export merge_series_lines, remove_dangling_lines
 export remove_open_switches, collapse_closed_switches
 export simplify_network
 export transformer_yprim, export_yprim, write_yprim
-export ybus_passive, YbusResult
+export ybus_passive, YbusResult, line_yprim
 export ybus_linearized, LinearizedYbus
 export ybus_augmented, AugYbusResult, IdealCoupling
 export overhead_line_constants, compile_linecode, compile_linecodes!

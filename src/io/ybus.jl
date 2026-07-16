@@ -327,6 +327,22 @@ function _line_yprim(line::Dict{String,Any}, linecodes::AbstractDict)
     (nodes, Y)
 end
 
+"""
+    line_yprim(line, linecodes) -> (nodes, Y)
+
+Return one line's nominal-Π primitive admittance block in the same convention as
+[`ybus_passive`](@ref): `I_into = Y * V_to_ground`, with positive terminal
+currents flowing from the bus into the line. `nodes` lists the from-side
+terminals followed by the to-side terminals; `Y` is SI siemens and symmetric
+under `transpose` (not conjugate transpose).
+
+This public element-level seam is useful for branch-current and branch-power
+measurements without reconstructing a branch model from a network Ybus.  It
+uses exactly the linecode, terminal-map truncation, and shunt-stamping rules
+used by `ybus_passive` and the OPF branch formulation.
+"""
+line_yprim(line::Dict{String,Any}, linecodes::AbstractDict) = _line_yprim(line, linecodes)
+
 # Shunt: admittance matrix Y = G + jB over the single bus's terminals.
 function _shunt_yprim(shunt::Dict{String,Any})
     G = _pattern_keys_to_matrix(shunt, "G_")

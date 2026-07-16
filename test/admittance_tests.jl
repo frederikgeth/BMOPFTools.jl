@@ -1,3 +1,16 @@
+@testset "line_yprim public primitive" begin
+    line = Dict{String,Any}(
+        "bus_from" => "a", "bus_to" => "b",
+        "terminal_map_from" => ["1"], "terminal_map_to" => ["1"],
+        "linecode" => "lc", "length" => 2.0,
+    )
+    linecodes = Dict{String,Any}("lc" => Dict{String,Any}("R_series_1_1" => 0.5))
+    nodes, Y = line_yprim(line, linecodes)
+    @test nodes == [("a", "1"), ("b", "1")]
+    @test Y ≈ ComplexF64[1 -1; -1 1]
+    @test Y ≈ transpose(Y)
+end
+
 @testset "Transformer Yprim export" begin
 
     # ─── helpers ──────────────────────────────────────────────────────────────
