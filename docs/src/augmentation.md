@@ -536,10 +536,61 @@ with these IBR-specific additions:
 - **`inverter_topology`** — `:infer` (FOUR_LEG when the host load has a neutral
   terminal, else SINGLE_PHASE), or a forced `:FOUR_LEG` / `:THREE_LEG` /
   `:SINGLE_PHASE`.
-- **sizing targets `s_max`**, not `p_max`: `size_basis` (same four bases as
-  generators) with `s_fraction` sets the apparent-power nameplate, and
-  `s_to_p_ratio` sets `p_avail = s_to_p_ratio × s_max` (1.0 = unity-rated PV;
-  below 1.0 leaves reactive headroom at full irradiance).
+- **sizing targets `s_max`**, not `p_max`: `size_basis` selects *how* the
+  nameplate is derived. The `:fraction_of_*` bases (`:fraction_of_local_load`,
+  `:fraction_of_transformer_rating`, `:fraction_of_downstream_load`) multiply a
+  network quantity by `s_fraction`; `:fixed_tiers` instead reads an **absolute
+  nameplate in VA** from the `fixed_tier_va` dict (per voltage-level family,
+  default `Dict(:LV => 30_000.0, :MV => 1_000_000.0)`). `s_to_p_ratio` then sets
+  `p_avail = s_to_p_ratio × s_max` (1.0 = unity-rated PV; below 1.0 leaves
+  reactive headroom at full irradiance).
+
+!!! tip "Sizing in absolute kVA, and placing at zero-load buses"
+    The default `:fraction_of_local_load` basis is convenient for scaling the
+    fleet to a feeder, but it has two awkward edges the reviewer-style questions
+    keep hitting:
+
+    - **You want to think in kVA, not "× local load."** Use
+      `size_basis = :fixed_tiers` and set the absolute nameplate directly:
+      `IBRRecipe(strategy = :load_following, size_basis = :fixed_tiers,
+      fixed_tier_va = Dict(:LV => 50_000.0))` places a 50 kVA unit on every LV
+      load bus regardless of that bus's load. (The generator analogue is
+      `GeneratorRecipe(size_basis = :fixed_tiers, fixed_tier_w = Dict(:LV => …))`,
+      in **W**.)
+    - **The bus has no local load but you still want a DER there.** A
+      `:fraction_of_local_load` size is *zero* at a zero-load bus, and
+      `min_local_load_va` will skip a low-load bus entirely. Two fixes: size with
+      `:fixed_tiers` (absolute, so load-independent), and/or choose candidates by
+      *topology* rather than by load —
+      `strategy = :topology_targeted, topology_mode = :leaves` (feeder ends) or
+      `:near_source`, which place at buses selected from the graph, not from where
+      demand happens to sit.
+
+!!! note "Modelling PV, batteries, EVs, and other DER technologies"
+    Two knobs are orthogonal and easy to conflate:
+
+    - **`strategy`** decides *where and how many* DERs are placed
+      (`:load_following` = one per load bus, `:topology_targeted`,
+      `:hosting_capacity`). The comment "one PV IBR per load bus" describes the
+      `:load_following` *strategy* — it is not a statement that IBRs are only PV.
+    - **`prime_mover`** decides *what technology* the converter is (`:PV`,
+      `:BATTERY`, `:GENERIC`, `:STATCOM`). `:PV` is the current placement default
+      (and the reason `p_min = 0` is injected — PV cannot absorb active power).
+
+    Mapping technologies onto objects: **PV, battery, or any converter-interfaced
+    DER → an `ibr`** with the matching `prime_mover`; a **synchronous / simple
+    dispatchable unit → a `generator`**. An **EV charger is demand, so it is a
+    `load`** (optionally time-varying via a charging profile — see the
+    [time-series tutorial](tutorial_timeseries.md)); model it as an `ibr` with
+    `prime_mover = "BATTERY"` only for a vehicle-to-grid (V2G) study where it
+    *injects*. `EV` is therefore not a `prime_mover` value — it is either a load
+    or a bidirectional battery, depending on the physics you mean.
+
+    One caveat on *automatic* placement: `add_ibrs` currently emits `:PV`
+    nameplates (the augment pass's `p_min = 0` is PV-specific; battery and
+    grid-forming placement is planned). To study other technologies today, author
+    the `ibr` with the intended `prime_mover` directly — the OPF engine models it
+    once the P/Q box is set — rather than relying on the placement recipe.
 
 Every field written is recorded as a `:synthetic` `TransformEntry` with rule
 `IBR_PLACEMENT/<strategy>`, and the run emits

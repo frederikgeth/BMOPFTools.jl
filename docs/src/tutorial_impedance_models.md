@@ -33,6 +33,12 @@ repository, which does not always flatter the strong version of the claim.
    per-segment error compounds on real feeders to the 1–4 % that the literature
    measures.
 
+The demonstrations below are presented in the order **step 2 → step 4 → step 3**,
+not 1 → 4. We first establish the structural symmetry break as an exact fact
+(step 2), then read off its decision consequence and honest magnitude (step 4),
+and only then return to the most heavily hedged claim — the solver-degeneracy
+argument (step 3) — so the careful caveats land after the evidence they qualify.
+
 Every code block runs at build time; the numbers are real. **Prerequisites:**
 `BMOPFTools`, `JuMP`, `Ipopt`, and the
 [line-geometry workflow](tutorial_line_geometry.md). This is the "why it matters"

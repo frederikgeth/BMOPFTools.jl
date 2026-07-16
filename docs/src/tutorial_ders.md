@@ -72,6 +72,19 @@ GEN_RECIPE = GeneratorRecipe(
 nothing # hide
 ```
 
+!!! note "`add_ibrs` vs `add_generators`, and why both here"
+    The two calls place *different objects*, not different siting rules.
+    [`add_ibrs`](@ref) places converter-interfaced `ibr` units — an
+    apparent-power nameplate `s_max`, a `topology`, and the `P²+Q²≤s_max²` circle;
+    [`add_generators`](@ref) places thin `generator` units carrying only an
+    active-power box and a cost. This tutorial places *both* so the merit order
+    below has two priced tiers (cheap PV IBRs, mid-priced generators) to sort
+    against the network limits. The `:load_following` **strategy** is what puts
+    "one per load bus"; the IBRs are PV because `:PV` is the placement default
+    `prime_mover`, not because IBRs must be PV. See
+    [Adding IBRs](augmentation.md#adding-IBRs-der-placement) for the object
+    choice, absolute (kVA) sizing, zero-load buses, and other DER technologies.
+
 The scenarios need a little network surgery before placement, so we wrap the
 whole preparation in one function: load the JSON, strip the pre-existing DERs
 (we place every DER from the recipes), tap the 11 kV source so the LV head sits

@@ -348,6 +348,22 @@ controllers cannot reach on its own, because the balanced-network equivalence
 that would license it no longer holds on a four-wire feeder under active
 curtailment.
 
+!!! note "What VV/VW control costs in this model"
+    There is **no explicit price on reactive support or on curtailment** here.
+    The only term in the objective is priced grid import; PV active power is
+    priced at zero, and reactive power is not priced at all. So the economic cost
+    of the droop is entirely *implicit* — it shows up as **foregone export
+    revenue** (Volt-watt curtailment lowers the exported active power, and the
+    reactive absorption of Volt-var consumes VA headroom that would otherwise
+    carry active export), which is exactly the objective increase from A→B→C in
+    the table. Note the native `cost` field prices **active power only**
+    (`cost[k]·P_k`); there is no built-in reactive-power price or curtailment
+    penalty. To model an *explicit* ancillary-service payment for reactive
+    support — or a compensation for curtailed active power — extend the objective
+    with a [`model_hook!`](opf.md) that adds the corresponding term (a cost on
+    `|Q|`, or a penalty on `p_avail − P`); the objective then prices those
+    services directly rather than only through lost export.
+
 ## Appendix: the monitored voltage — quantity and aggregation
 
 The voltage a droop law reacts to has two independent degrees of freedom, both

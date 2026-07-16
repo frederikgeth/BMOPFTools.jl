@@ -201,6 +201,48 @@ schedule against load level — there the sweep variable is a synthetic load
 multiplier; here it is the clock, with the shapes shipped inside the case
 itself so every consumer of the benchmark sweeps the *same* day.
 
+## Modelling notes & FAQ
+
+A time series is deliberately a *thin* mechanism — a named vector of
+multiplicative scale factors and a per-parameter binding (see the
+[spec page](spec/timeseries.md)). Most modelling questions reduce to *which
+parameter you bind to which profile*.
+
+**How do I change the irradiance / PV shape?** The PV ceiling is `p_max`/`p_avail`
+scaled by a solar profile. To study a cloudier day, a different latitude, or a
+seasonal shape, edit that profile's `values` (or bind `p_max` to a different
+profile id) — nothing else changes, because the profile is just the ceiling the
+OPF curtails under. The scale factors are unitless multipliers on the static
+nameplate, so a `values` entry of `0.8` means "80 % of `p_max` available this
+step."
+
+**How do I model different load or EV-charging patterns?** Author a new profile
+and bind the relevant `load`'s `p_nom` to it. An EV charger is demand, so it is a
+`load` whose `p_nom` follows a charging shape (e.g. an evening ramp); several
+charging behaviours are just several profiles over the same feeder. A load that
+should change power factor over the day binds `p_nom` and `q_nom` to *different*
+profiles; binding both to the **same** profile (as the feeder here does) holds
+the power factor constant while the magnitude varies.
+
+**Can I do a BESS / storage study, or ramp limits?** Not with this mechanism.
+Each `t_index` is an **independent snapshot** with no coupling between steps — no
+stored energy, no ramp constraints, no inter-temporal terms (see the scope
+warning above). Time series answer *hosting-capacity envelopes* and *worst-hour
+screening*; battery arbitrage and unit commitment need a genuinely multi-period
+model, which BMOPFTools does not currently build. A battery still appears as an
+`ibr` with `prime_mover = "BATTERY"` in each snapshot, but its state of charge is
+not carried across hours.
+
+**Why scale `p_max` rather than inject a fixed `p`?** Scaling the *bound* keeps
+the OPF free to curtail below the ceiling when the network requires it (the whole
+point of §4's midday regime). Binding a fixed injection instead would force the
+dispatch and defeat the optimisation.
+
+**Does augmentation need to run per step?** No. Bounds and costs are
+time-invariant, so `augment_case` runs **once** on the time-series network and
+the profiles pass through untouched (§3). Only `solve_opf`/`solve_pf`/
+`profile_solution` take the `t_index`.
+
 !!! tip "Where to go next"
     The [end-to-end tutorial](tutorial_end_to_end.md) covers the pipeline each
     snapshot passes through; [DER placement](tutorial_ders.md) grows the PV

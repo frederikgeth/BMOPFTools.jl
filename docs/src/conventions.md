@@ -268,6 +268,28 @@ currents under unbalance compensation; a phases-only vector warns). A
 to a single limit; a length-1 vector is standardised to 2). Generators take the
 same per-conductor `i_max` convention.
 
+!!! note "Why both a `generator` and an `ibr` object?"
+    Most distributed generation in an unbalanced LV study *is* inverter-based, so
+    the reasonable question is why keep a separate `generator` at all. The two
+    objects sit at different modelling altitudes:
+
+    - **`generator`** is the *minimal* active-power dispatch object — `p_min/p_max`,
+      reactive box `q_min/q_max`, and a per-phase linear `cost`. It is the right
+      model for a synchronous/diesel unit, or wherever you want a dispatchable
+      active-power injection *without* committing to converter physics (no
+      apparent-power circle, no topology, no droop control).
+    - **`ibr`** adds exactly that converter physics: an apparent-power nameplate
+      `s_max` with the `P²+Q²≤s_max²` circle, a `topology`
+      (`SINGLE_PHASE`/`THREE_LEG`/`FOUR_LEG`) that fixes the voltage reference, a
+      `prime_mover`, and reference-able `control_profile` droop laws.
+
+    Both are kept because benchmark cases span both, and because a thin
+    `generator` avoids forcing the full converter model (and its extra variables)
+    onto a resource that does not need it. For a PV, battery, STATCOM, or any
+    converter-interfaced DER, prefer `ibr`; reach for `generator` for
+    non-converter or deliberately abstract dispatch. The placement passes mirror
+    this split: [`add_generators`](@ref) versus [`add_ibrs`](@ref).
+
 IBR control laws are attached by reference: `control_profile` names a
 shared [`control_profile`](#Control-profiles) entry carrying `volt_var`,
 `volt_watt`, or `power_factor`. Each droop law's `voltage_reference` selects the

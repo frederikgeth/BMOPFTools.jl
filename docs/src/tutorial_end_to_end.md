@@ -160,6 +160,27 @@ net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
 render_manifest(aug_mf)
 ```
 
+**Where the thermal limits landed.** The thermal pass writes a heuristic
+per-conductor ampacity `i_max` (in A) onto each linecode that lacked one — this
+is the line/cable thermal limit the OPF enforces, and it is tagged `:synthetic`
+in the manifest above. Read it straight off the prepared linecodes:
+
+```@example e2e
+for (lc_id, lc) in sort(collect(net_ready["linecode"]); by = first)
+    imax = get(lc, "i_max", nothing)
+    println(rpad(lc_id, 16),
+            imax === nothing ? "no i_max (skipped — see manifest)" :
+                               string("i_max = ", imax, " A"))
+end
+```
+
+A **transformer's** thermal limit is a different mechanism: its nameplate
+`s_rating` (kVA) already plays that role and the OPF enforces it directly, so
+`augment_case` never adds a separate transformer thermal limit. The full
+pass-by-pass rationale — the R₁₁ → ampacity lookup table, its confidence gating,
+and the neutral-conductor rating — is in
+[Case augmentation](augmentation.md).
+
 ## 6. Re-validate
 
 Re-running [`analyze`](@ref) on the prepared case shows what the pipeline
