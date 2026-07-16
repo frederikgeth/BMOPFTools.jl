@@ -238,8 +238,8 @@ FAQ: a "wye" in the BMOPF sense always has the neutral return — a
 
 Generators additionally carry `cost` and optional `p_min/p_max/q_min/q_max`.
 `cost` is a **per-phase vector of energy prices** (\$/kWh), one element per
-phase term. For a snapshot, the objective contribution of phase `k` is the cost
-rate `cost[k]·P_k/1000` (\$/h), because `P_k` is stored in watts. A multi-period
+phase term. For a snapshot, the objective contribution of phase $k$ is the cost
+rate $c_k \, P_k / 1000$ (\$/h), because $P_k$ is stored in watts. A multi-period
 monetary objective must additionally multiply each rate by the period duration
 in hours. (There is no polynomial/quadratic cost form.) A generator without
 bounds is an unbounded
@@ -284,7 +284,7 @@ same per-conductor `i_max` convention.
       active-power injection *without* committing to converter physics (no
       apparent-power circle, no topology, no droop control).
     - **`ibr`** adds exactly that converter physics: an apparent-power nameplate
-      `s_max` with the `P²+Q²≤s_max²` circle, a `topology`
+      `s_max` with the $P^2 + Q^2 \le (S^{\max})^2$ circle, a `topology`
       (`SINGLE_PHASE`/`THREE_LEG`/`FOUR_LEG`) that fixes the voltage reference, a
       `prime_mover`, and reference-able `control_profile` droop laws.
 
@@ -314,12 +314,13 @@ they set a converter's active/reactive power from its *AC* terminal voltage (the
 DC-port counterpart is configured separately; see below). Each profile holds one or
 more optional sub-objects, and the *presence* of a sub-object activates that law:
 
-- **`volt_var`** — reactive-power droop `Q = f(U)`. Fields: `breakpoints`
-  `[U1,U2,U3,U4]` (V, non-decreasing); `q_limits` `[q_absorb ≤ 0, q_inject ≥ 0]`;
+- **`volt_var`** — reactive-power droop $Q = f(U)$. Fields: `breakpoints`
+  `[U1,U2,U3,U4]` (V, non-decreasing); `q_limits` `[q_absorb, q_inject]`
+  ($q_\text{absorb} \le 0 \le q_\text{inject}$);
   `q_unit` (`VA_FRACTION` of `s_max`, or `VAR`); `q_ref` (`VAR_MAX`, or
-  `VAR_AVAILABLE` scaling with `√(s_max² − P²)`); and `voltage_reference`.
+  `VAR_AVAILABLE` scaling with $\sqrt{(S^{\max})^2 - P^2}$); and `voltage_reference`.
   Optional `p_min_for_q` / `p_min_for_q_max` mirror OpenDSS's low-power cut-ins.
-- **`volt_watt`** — active-power curtailment cap `P ≤ f(U)`. Fields: `breakpoints`
+- **`volt_watt`** — active-power curtailment cap $P \le f(U)$. Fields: `breakpoints`
   `[U5,U6]`; `p_limits` `[p_low, p_high]`; `p_unit` (`VA_FRACTION` or `W`); `p_ref`
   (`S_MAX` / `P_MAX` / `P_AVAILABLE`); and `voltage_reference`.
 - **`power_factor`** — constant power factor: a signed `pf` (positive = lagging,
@@ -343,7 +344,8 @@ smooth constraint, and the [VVWO tutorial](tutorial_vvwo.md) for a worked exampl
 acts on the **signed DC-port voltage** rather than an AC magnitude, so it lives on
 the `ibr` directly via `dc_control` — not in a `control_profile`. Its `"droop"`
 mode is a **power–voltage (V–P) droop** stamped as an equality
-`P = dc_p_ref + (v_dc − dc_v_set)/dc_droop` (saturated at the converter limits)
+$P = P^\text{ref} + (v_\text{dc} - v_\text{dc}^\text{set})/k_\text{droop}$
+(fields `dc_p_ref`, `dc_v_set`, `dc_droop`; saturated at the converter limits)
 using the same smooth-ReLU machinery as `volt_var`/`volt_watt`. See the
 [DC network](@ref dc-network) section's `dc_control`.
 
@@ -351,9 +353,9 @@ using the same smooth-ReLU machinery as `volt_var`/`volt_watt`. See the
 
 A `capacitor` is a fixed shunt capacitor bank with fields `bus`, `terminal_map`,
 `configuration` (`WYE` / `SINGLE_PHASE` / `DELTA`), `q_rated` (var) and `v_nom`
-(V). It is a **constant susceptance** `B = q_rated / v_nom²` delivering the
-voltage-dependent reactive power `Q = B·V²` (= the nameplate `q_rated` only at
-`v_nom`). `q_rated` is a per-phase array for WYE, per-pair for DELTA, length 1
+(V). It is a **constant susceptance** $B = Q^\text{rated}/(V^\text{nom})^2$
+delivering the voltage-dependent reactive power $Q = B\,V^2$ (equal to the
+nameplate `q_rated` only at `v_nom`). `q_rated` is a per-phase array for WYE, per-pair for DELTA, length 1
 for SINGLE_PHASE; `v_nom` is phase-to-neutral (WYE/SINGLE_PHASE) or
 line-to-line (DELTA). It is electrically a connection-aware `shunt` and adds **no
 OPF variables** (fixed). A `shunt` remains the general constant-admittance
@@ -386,23 +388,24 @@ bounds are measured against.
 `perfectly_grounded_terminals` entry on the `dc_bus`) sets the signed-voltage
 reference and provides the earth-return path. `r = 0`/omitted is **perfect**
 grounding (the terminal's `v_dc` is fixed to 0, with a free earth-return current);
-`r > 0` is grounding **through impedance** (earth current `= v_dc / r`, with the
-electrode floating to the ground-potential rise `I·r`). Every connected DC island
+`r > 0` is grounding **through impedance** (earth current $i = v_\text{dc}/r$,
+with the electrode floating to the ground-potential rise $i\,r$). Every connected DC island
 needs at least one grounding, else `E.INT.NO_DC_VOLTAGE_REFERENCE` fires.
 
 **Converters are lossless** at this fidelity: a converter's DC-port power equals
 its AC active power, so a back-to-back SOP conserves power exactly and an MVDC tie
-loses only the `I²R` of its DC line.
+loses only the $I^2 R$ of its DC line.
 
 **DC-voltage control (`dc_control`).** Like an AC network needs a slack/reference,
 an MVDC zone needs a converter that sets the DC voltage — otherwise `v_dc` is
 underdetermined. Mirroring HVDC/MVDC practice (master–slave and droop):
 - `"P"` (default) — constant power; the OPF dispatches the converter's power.
-- `"V"` — DC-voltage **master**: holds `v_dc(pole−return) = dc_v_set` (a fixed
-  setpoint, like an AC source's `v_magnitude`); its AC power floats to balance the
-  zone.
+- `"V"` — DC-voltage **master**: holds the pole-to-return $v_\text{dc}$ at
+  `dc_v_set` (a fixed setpoint, like an AC source's `v_magnitude`); its AC power
+  floats to balance the zone.
 - `"droop"` — **saturated** V–P droop: the AC power follows
-  `P = dc_p_ref + (v_dc − dc_v_set)/dc_droop` inside an optional `±dc_deadband`,
+  $P = P^\text{ref} + (v_\text{dc} - v_\text{dc}^\text{set})/k_\text{droop}$
+  inside an optional `±dc_deadband`,
   and **clamps to the converter's power limits** outside the droop band (a
   piecewise-linear P–V curve, implemented with the smooth-ReLU machinery so it is
   Ipopt-friendly). Higher `dc_droop` = softer droop; `dc_droop → 0` is the stiff
@@ -479,7 +482,8 @@ base across the galvanic tie (no voltage-level change).
 single-phase autotransformer windings connected line-to-line across the phase
 pairs implied by `connection` (`ABBC`/`BCAC`/`CABA`, GridLAB-D convention),
 with per-regulator taps `tap_ratio = [a1, a2]`.  The phase common to both
-regulators is a **galvanic straight-through** (`V_shared,from = V_shared,to`),
+regulators is a **galvanic straight-through**
+($V^\text{shared}_\text{from} = V^\text{shared}_\text{to}$),
 the physically-correct "common neutral" model of Yan et al. (2018); the two
 regulated line-to-line voltages are boosted by their taps while the shared phase
 passes through unchanged.  See the [OPF reference](opf.md) and

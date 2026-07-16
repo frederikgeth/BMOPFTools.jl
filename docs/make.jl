@@ -31,6 +31,7 @@ makedocs(
         "Analysis & diagnostics"  => [
             "Analysis & reports"       => "analysis.md",
             "Finding-code reference"   => "findings.md",
+            "Findings triage tutorial" => "tutorial_triage.md",
             "Trust but verify: validating a solve" => "tutorial_trust_but_verify.md",
             "Methodology notes"        => "methodology.md",
         ],
@@ -55,6 +56,7 @@ makedocs(
             "MVDC/LVDC converter stations" => "tutorial_mvdc.md",
             "Transformer tap optimisation" => "tutorial_tap.md",
             "Time series: a day on an LV feeder" => "tutorial_timeseries.md",
+            "Custom formulations: CVR, envelopes & hooks" => "tutorial_custom_formulations.md",
         ],
         "Bounds & feasibility"    => [
             "bounds/index.md",
