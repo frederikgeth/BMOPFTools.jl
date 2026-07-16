@@ -219,6 +219,10 @@ modes are provided precisely so this can be **benchmarked** rather than assumed 
 the SI data model (a representation choice, [ref. 16](methodology.md#refs)) does
 not commit the solver to computing in SI.
 
+The [units, bases & economics tutorial](tutorial_units.md) works both modes on
+one feeder — deriving the bases by hand and demonstrating the SI ≡ per-unit
+equality live.
+
 ---
 
 ### Objective
@@ -237,7 +241,9 @@ generator $g$'s $k$-th phase terminal (see [Generators](@ref generators-section)
 below). Division by 1000 converts the active-power expression from W to kW, so
 the snapshot objective has units currency/h. The same per-phase `cost` vector
 prices the voltage source and IBRs. To obtain currency over a time interval,
-multiply this rate by the interval duration in hours.
+multiply this rate by the interval duration in hours — the
+[units, bases & economics tutorial](tutorial_units.md) reconstructs this
+objective by hand from a solved result and prices a full day.
 
 ---
 

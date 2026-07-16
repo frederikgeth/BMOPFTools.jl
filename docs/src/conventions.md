@@ -38,7 +38,9 @@ further scaling is applied on ingest.
     reference OPF can solve directly in SI or in an internally-scaled per-unit
     copy and return SI results either way (see
     [Units & scaling](opf.md#Units-and-scaling)). The representation choice and
-    the numerical-scaling choice are independent.
+    the numerical-scaling choice are independent. The
+    [units, bases & economics tutorial](tutorial_units.md) works both layers —
+    and the cost units — on one feeder.
 
 ## Terminal names
 

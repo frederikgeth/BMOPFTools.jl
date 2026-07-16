@@ -22,6 +22,7 @@ makedocs(
         "Data model"              => [
             "Buses & terminals primer" => "terminals_primer.md",
             "Data model conventions"   => "conventions.md",
+            "Units, bases & economics" => "tutorial_units.md",
             "Object identity"          => "semantic_modeling.md",
             "Line geometry & impedances" => "tutorial_line_geometry.md",
             "Conversion guide"         => "conversion.md",
