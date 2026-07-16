@@ -21,6 +21,7 @@ makedocs(
         ],
         "Data model"              => [
             "Buses & terminals primer" => "terminals_primer.md",
+            "Ground, neutral & earth return" => "tutorial_grounding.md",
             "Data model conventions"   => "conventions.md",
             "Units, bases & economics" => "tutorial_units.md",
             "Object identity"          => "semantic_modeling.md",

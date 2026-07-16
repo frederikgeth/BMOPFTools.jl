@@ -52,7 +52,9 @@ model leaves neutral and ground voltages and currents unknown and
 neutral voltage rise, neutral/ground currents, and touch-safety are precisely
 what distribution studies care about, this model keeps the neutral as an explicit
 conductor and declines the reduction. (Where a reduction *is* sound, it is
-applied deliberately and provenance-tracked — not assumed.)
+applied deliberately and provenance-tracked — not assumed.) The
+[grounding tutorial](tutorial_grounding.md) demonstrates all of this live —
+including the exact-when-pinned Kron claim, verified to the last digit.
 
 ## Where you've seen this before
 
