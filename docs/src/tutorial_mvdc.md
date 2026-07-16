@@ -287,8 +287,8 @@ carries a **real, quantified line loss** that the optimiser now trades against t
 AC-side losses when it chooses the transfer.
 
 **Remember to widen the far bus.** The pole drop pushes `dcB` down to `1352 V`,
-*below* the master's `1400 V` floor — so if `dcB` inherited `dcA`'s `[1400, 1800]`
-window the problem is genuinely infeasible, not just harder:
+*below* the master's `1400 V` floor — so if `dcB` inherits `dcA`'s `[1400, 1800]`
+window, this operating point is excluded and the local solve reports infeasibility:
 
 ```@example mvdc
 r_narrow = solve_opf(feeder_tie(; v_dc_min_far = 1400.0); optimizer = OPT)

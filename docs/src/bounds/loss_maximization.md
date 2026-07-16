@@ -44,7 +44,8 @@ objective not on the safe list:
     The negative-coefficient row is exercised directly in the OPF suite: test **T4**
     ([Validating the OPF](../validation.md)) gives a generator a *negative* cost
     coefficient and confirms the optimum drives each phase to `p_max` with
-    `objective = −3·P_max` — i.e. min-cost has silently become max-generation. If your
+    `objective = −3·P_max/1000` (\$/h, with `P_max` in W) — i.e. min-cost has
+    silently become max-generation. If your
     own formulation reproduces that number, it is reproducing the trap, not a bug.
 
 ## Two that look risky but are mostly fine

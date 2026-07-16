@@ -16,12 +16,12 @@ relaxed solution against the AC equations is the exactness test of
     The JuMP recipes below apply to *your* model. Two of these diagnostics already exist
     inside this package, and you should reach for them first:
 
-    - **AC-feasibility of a candidate point** (Symptom 3) is exactly what
-      [`solve_feasibility_opf`](../validation.md) measures: it adds an elastic slack
-      current at every non-source terminal and minimises its norm, so a returned
-      `total_slack_magnitude_A` ≈ 0 certifies the point satisfies every KCL/KVL and
-      component-model equation. This is the native, four-wire analogue of
-      `primal_feasibility_report` against the AC model.
+    - **AC-feasibility of a candidate point** (Symptom 3) can be tested by first
+      pinning its decisions with [`project_solution`](../validation.md), then
+      running [`solve_feasibility_opf`](../validation.md) on that determined
+      snapshot. A converged near-zero slack plus independently checked residuals
+      supplies a numerical feasible point. This is the native, four-wire analogue
+      of `primal_feasibility_report` against the AC model.
     - **Ill-posedness *before* you solve** — flat objectives, free injections, and
       cost degeneracy — is caught structurally by the benchmark-readiness flags
       (`W.BENCH.GEN_ZERO_COST`, `W.BENCH.GEN_DEGENERATE_COST`, `W.BENCH.GEN_NO_DOF`;
@@ -118,15 +118,16 @@ isempty(report) ? @info("AC-feasible: relaxation exact") :
 
 In BMOPFTools the same check is available natively for a four-wire network: pin the
 candidate dispatch into the case and call [`solve_feasibility_opf`](../validation.md),
-which minimises an injected slack current. A near-zero slack certifies the point is a
-valid AC power flow; a non-zero slack is the violation, localised to the terminals
-where it concentrates:
+which minimises an injected slack current. A converged near-zero slack, together
+with independently recomputed residuals, demonstrates a valid numerical power
+flow. A non-zero slack localises the residual used by that relaxed solve:
 
 ```julia
-res     = solve_feasibility_opf(net; optimizer = Ipopt.Optimizer)
+snap    = project_solution(net, result)
+res     = solve_feasibility_opf(snap; optimizer = Ipopt.Optimizer)
 slack_A = res["total_slack_magnitude_A"]
-slack_A < 1e-3 ? @info("AC-feasible: candidate is a valid power flow") :
-                 @info("AC-infeasible: relaxation/candidate INEXACT", slack_A)
+slack_A < 1e-3 ? @info("candidate has near-zero KCL slack; verify residuals") :
+                 @info("candidate/relaxation has residual current", slack_A)
 ```
 
 For the branch-flow relaxation on a **radial** network you can also read the gap directly
@@ -222,8 +223,9 @@ J = jacobian_of_active_constraints(model)   # your assembly of ∇g for active g
 ```
 
 For the AC-feasibility leg of this triage, reach for
-[`solve_feasibility_opf`](../validation.md): a near-zero `total_slack_magnitude_A`
-distinguishes "slow but feasible" from "genuinely infeasible."
+[`solve_feasibility_opf`](../validation.md): a verified near-zero
+`total_slack_magnitude_A` supplies a feasible point, while non-zero slack is a
+local diagnostic that should be checked across starts and formulations.
 
 ## Validation checklist against the benchmarks
 

@@ -412,7 +412,7 @@ function _check_generator_cost(net, findings, thresh, n_checks)
     for (id, g) in get(net, "generator", Dict())
         haskey(g, "cost") || continue
         n_checks[] += 1
-        # cost is a per-phase linear-coefficient vector ($/W); a scalar is
+        # cost is a per-phase energy-price vector ($/kWh); a scalar is
         # tolerated here for validation only (the OPF requires the vector form)
         c = g["cost"]
         costs = c isa AbstractVector ? Float64.(c) : [Float64(c)]
@@ -434,7 +434,7 @@ end
     _check_cost_phase_uniformity(net, findings, n_checks)
 
 Warn when a dispatchable element's per-phase `cost` vector is non-uniform across
-phases. Costs usually represent a single \$/W price applied symmetrically; a
+phases. Costs usually represent a single \$/kWh price applied symmetrically; a
 vector with differing entries is more often a data-entry slip than an intended
 per-phase price signal. Covers `generator` and `voltage_source` today; extend the
 `elements` list as further dispatchable element types gain a `cost` field.

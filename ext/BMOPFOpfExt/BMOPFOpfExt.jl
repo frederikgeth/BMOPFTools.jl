@@ -51,9 +51,9 @@ function adds its contribution to the KCL accumulator dicts `(kcl_r, kcl_i)`;
 | `load.jl`           | Constant-power load constraints (WYE / DELTA)     |
 | `generator.jl`      | Generator P/Q bounds                              |
 | `source.jl`         | Voltage-source voltage fixing + slack current/bounds |
-| `objective.jl`      | Generation-cost objective (linear + quadratic)    |
+| `objective.jl`      | Linear-in-power generation-cost-rate objective    |
 | `results.jl`        | Solution extraction to `Dict{String,Any}`         |
-| `feasibility_opf.jl`| Elastic KCL-slack formulation (always feasible)   |
+| `feasibility_opf.jl`| Elastic KCL-slack diagnostic formulation          |
 """
 module BMOPFOpfExt
 

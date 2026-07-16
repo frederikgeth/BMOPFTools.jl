@@ -3,10 +3,10 @@
 # Post-processing of solve_feasibility_opf results.
 #
 # The feasibility OPF adds elastic slack current injections (cs_r, cs_i) at
-# every non-source bus terminal so KCL can always balance. Non-zero slacks
-# reveal where the network cannot satisfy its physical constraints without
-# external intervention. This module turns that raw slack pattern into a
-# ranked, classified diagnosis.
+# every non-source bus terminal so those KCL equations can absorb residual.
+# At a converged local solution, non-zero slacks reveal where that relaxed point
+# needs external current intervention; they do not prove global infeasibility.
+# This module turns that raw slack pattern into a ranked, classified diagnosis.
 
 """
     _phase_vbounds(bus, v_nom) -> (ordered_phase_terminals, lb_of, ub_of)

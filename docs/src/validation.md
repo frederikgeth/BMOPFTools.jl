@@ -5,55 +5,88 @@ validate cases and profile solutions. A reference solver is only as useful as it
 own validation, so this page documents **how that engine is tested** — both so you
 can judge the results and so you can **reuse the setup for your own tool**. 
 
-The goal of our implementation is to be consistent with generally accepted circuit modeling practice
-in the presence of nonlinear elements, including but not limited to constant power loads. We generally
-trust OpenDSS's implementation correctness, however, modelers may disagree on
-what appropriate models are. In this context, we recommend to study the paper "A perspective on transformer 
-modeling for distribution system analysis", with full bibliographic details below. 
+The goal of our implementation is to be consistent with generally accepted
+circuit-modelling practice in the presence of nonlinear elements, including
+constant-power loads. OpenDSS is used as an external reference implementation,
+not assumed to be ground truth; agreement can reveal implementation consistency
+but cannot decide which modelling assumptions are appropriate. For the latter,
+see "A perspective on transformer modeling for distribution system analysis",
+with full bibliographic details below.
 
-Three questions every distribution-OPF engine must answer, and the suite tests
-each separately:
+Three questions every distribution-OPF engine must answer. The suite treats
+them as separate evidence axes and records explicit gaps where coverage is not
+yet complete:
 
-1. **Is the solution a valid power flow?** — *feasibility*: do the solved
+1. **Is the solution a valid power flow for the implemented equations?** — *feasibility*: do the solved
    voltages and currents actually satisfy Kirchhoff's laws and the component
    models? We check this against **OpenDSS**. The same check is available for
    **your own** solved cases by [projecting the OPF onto a determined power
    flow](@ref opf-projection).
-2. **Is it the optimum?** — *optimality*: given the objective and the operating
-   bounds, does the optimizer reach the right dispatch? We check this against
-   **closed-form solutions** and against **PowerModelsDistribution (PMD)**. 
-   Note that we don't claim global optimality, just local. 
-3. **Are the network limits encoded correctly?** — *limit correctness*: does
-   each modeled limit (voltage magnitude, angle, current, power, sequence) hold
+2. **Does it reproduce a known or external dispatch target?** — *optimality
+   evidence*: given the objective and operating bounds, does the optimizer reach
+   the analytic target on cases with a derivable optimum, and does it reproduce
+   selected **PowerModelsDistribution (PMD)** regressions? PMD agreement is a
+   cross-implementation regression, not a global-optimality certificate.
+3. **Are tested network limits encoded correctly?** — *limit correctness*: does
+   each covered limit (voltage magnitude, angle, current, power, sequence) hold
    the engineering meaning it claims, given that the variables are *rectangular*
    and most limits are therefore **not** box bounds on a variable? OpenDSS has no
    OPF limits to compare against, so we check each limit by **driving the network
    onto it and recomputing the limited quantity from the primal solution**.
 
 The philosophy is the one stated in [the OPF formulation](opf.md): the accuracy of
-the network physics matters more than any single objective, so feasibility is
-validated exhaustively and component-by-component, while optimality is pinned to
-independently-derived optima.
+the network physics matters more than any single objective. The suite therefore
+samples component models across isolated fixtures, checks a smaller set of
+analytic optima, and exposes the remaining limit-test backlog below. It does not
+claim exhaustive coverage of every parameter combination.
+
+!!! warning "What this validation does and does not establish"
+    Agreement with OpenDSS establishes **cross-implementation consistency for
+    deliberately aligned equations**. Analytic fixtures establish correctness on
+    those restricted cases. Neither is empirical validation against field
+    measurements, nor proof that a chosen load/source/grounding model is adequate
+    for a particular real feeder. Likewise, a successful local NLP solve is not a
+    global-optimality certificate. Read the results as implementation evidence
+    within the documented model scope.
 
 If you are building your own engine there are **two ways to reuse this**: adopt
 the *harness* (the `.dss` cases and the comparison method), or adopt the
 *locked-in numbers* (the objective and voltage baselines tabulated below) as
-regression targets. The test files are the source of truth; the tables here
-reproduce their headers.
+regression targets. The test files are the source of truth. Inventory counts are
+computed during the documentation build rather than copied by hand; numerical
+tables below state assertion targets and tolerances but should still be reviewed
+when the underlying fixtures change.
 
 ## Feasibility — agreement with OpenDSS
 
 Source: [`test/powerflow_comparison_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/powerflow_comparison_tests.jl)
-(24 testsets) over the 18 OpenDSS cases in
+and the OpenDSS fixtures in
 [`test/data/pf_comparison/`](https://github.com/frederikgeth/BMOPFTools.jl/tree/main/test/data/pf_comparison).
+
+The current inventory is generated from the checked-out sources:
+
+```@example validation_inventory
+using BMOPFTools
+root = pkgdir(BMOPFTools)
+test_source = read(joinpath(root, "test", "powerflow_comparison_tests.jl"), String)
+n_testsets = length(collect(eachmatch(r"@testset\b", test_source)))
+case_dir = joinpath(root, "test", "data", "pf_comparison")
+n_dss_cases = count(f -> endswith(lowercase(f), ".dss"), readdir(case_dir))
+(testsets_in_file = n_testsets, dss_fixtures = n_dss_cases)
+```
+
+This is an implementation inventory, not a count of statistically independent
+experiments: nested testsets and multiple operating points can exercise the same
+fixture.
 
 ### The method: a power flow expressed as a feasibility OPF
 
 There is no separate power-flow solver to validate — instead each case is solved
 with [`solve_feasibility_opf`](opf.md#Feasibility-relaxation), which adds an
 **elastic slack current** at every non-source terminal and minimises its squared
-norm. When the optimal slack is ≈ 0, every KCL/KVL and component-model constraint
-is satisfied exactly, so the solution *is* a valid power flow:
+norm. When a converged solution has slack ≈ 0 and the independently recomputed
+residuals are within tolerance, it is an explicit feasible point of the
+implemented power-flow equations:
 
 ```julia
 res     = solve_feasibility_opf(net; optimizer = Ipopt.Optimizer)
@@ -63,8 +96,8 @@ slack_A = res["total_slack_magnitude_A"]
 
 The same network is then solved in OpenDSS through OpenDSSDirect.jl, and the
 complex node voltages are compared one-to-one. OpenDSS is solved *live* at test
-time — there are no stored golden voltages; the `.dss` files themselves are the
-immutable baseline (see [Voltage source as current slack](opf.md#source-slack)
+time — there are no stored golden voltages; the version-controlled `.dss` files
+define the baseline for a given repository revision (see [Voltage source as current slack](opf.md#source-slack)
 for how the source/slack convention is matched).
 
 On the BMOPF side the optimizer is **Ipopt at its defaults** — `tol = 1e-8`,
@@ -72,10 +105,12 @@ On the BMOPF side the optimizer is **Ipopt at its defaults** — `tol = 1e-8`,
 deliberate change is in the feasibility variant, which sets
 `acceptable_tol = 1e-8` to disable Ipopt's "acceptable level" early stop, so the
 bilinear constant-power and thermal constraints converge to the full tolerance
-rather than to an acceptable-but-loose point. Both sides of the comparison
-therefore solve to near machine precision (OpenDSS at `1e-8`, Ipopt at `1e-8`),
-which is what lets the residual be read as a *model* difference rather than the
-slop of either solver.
+rather than to an acceptable-but-loose point. Both sides use tight stopping
+tolerances (`1e-8`). A tolerance setting is not by itself proof of
+machine-precision solution accuracy; the voltage, KCL-slack, and loss assertions
+below are the observed checks. A residual difference can reflect an
+implementation/model mismatch or incomplete convergence, so convergence status
+is inspected separately.
 
 The node-name mapping bridges the two conventions:
 
@@ -88,16 +123,16 @@ The node-name mapping bridges the two conventions:
 ### Aligning the OpenDSS reference with the BMOPF model
 
 The `.dss` cases deliberately depart from a default OpenDSS run. The point of
-every deviation is the same: make OpenDSS evaluate the *same mathematical model*
-that BMOPF solves, so a voltage mismatch can only mean a genuine modelling
-disagreement — never a convergence convenience, a silent fallback, or an
-ambient default. None of these settings tune the answer; they remove confounds.
+every deviation is the same: make OpenDSS evaluate the *same intended
+mathematical model* that BMOPF solves. This removes known defaults and fallbacks
+as confounds; a remaining mismatch must still be triaged among implementation
+differences, conversion differences, and incomplete convergence.
 
 | Setting (in every case `.dss`) | OpenDSS default | Why we override it |
 |---|---|---|
 | `New Circuit … model=ideal` | source has an internal (Thévenin) impedance from `MVAsc1`/`MVAsc3` | BMOPF fixes the source-bus voltage directly (the [current-slack convention](opf.md)). A non-ideal source would sag under load, so the source bus itself would disagree on every case. `model=ideal` collapses the internal impedance to zero — a true fixed-voltage slack. |
 | `Load`/`PVSystem … Vminpu=0 Vmaxpu=2` (and `Vcutoff=0` for ZIP/exponential) | ≈ `Vminpu=0.95`, `Vmaxpu=1.05` | Outside that band OpenDSS silently switches a constant-power load to constant-impedance — a convergence aid BMOPF has no equivalent for. Widening the band keeps `model=1` strictly constant-P/Q (and the ZIP/exponential models on their true curve) across the whole voltage sweep. |
-| `Set Tolerance=1e-8` | `1e-4` (per-unit voltage-change convergence) | At the default, OpenDSS's own iteration error is ≈ `1e-4` pu — about `1.1 V` on an 11 kV base, comparable to the voltage-comparison `atol` and far larger than the ≈ 0.1–0.3 V agreement the cases actually achieve. Tightening to `1e-8` drives OpenDSS's solution to near machine precision so its convergence slop cannot masquerade as a model error. |
+| `Set Tolerance=1e-8` | `1e-4` (per-unit voltage-change convergence) | At the default, OpenDSS permits a voltage-change stopping threshold of ≈ `1e-4` pu — about `1.1 V` on an 11 kV base and comparable to the voltage-comparison `atol`. Tightening to `1e-8` reduces this convergence confound; the resulting voltage/residual assertions, not the setting alone, measure agreement. |
 | `Set MaxIterations=100` | `15` | Headroom so the tighter tolerance is actually reached rather than silently capping out. |
 | `Set DefaultBaseFreq=50` | `60` (or whatever a Windows GUI session persisted to the registry/environment) | Line and transformer reactances are interpreted *at the base frequency*, so an ambient default silently rescales every `X`. BMOPF models at 50 Hz ([`to_pmd`](api.md)), so the cases pin 50 Hz explicitly. The absolute value matters less than locking it unambiguously: with the solve frequency tracking the base frequency, the ohmic reactances are used as written either way — but the lock removes the dependency on the host's configuration so the cases are portable and reproducible. |
 
@@ -110,13 +145,13 @@ math, don't tune the answer" claim stays honest:
   `VoltageBases`/`CalcVoltageBases` (reporting only) and the solution `Algorithm`
   (left at the default `Normal`) are likewise untouched — neither changes the
   physics.
-- **The open-delta regulator case (`pf_open_delta_reg`) does not converge in
-  OpenDSS** at *any* tolerance or iteration cap — it is a known limitation of
-  OpenDSS's fixed-point and Newton solvers on that topology, not a regression from
-  the tighter tolerance (it did not converge at the `1e-4` default either). Its
-  last iterate still matches BMOPF's exact solution within the comparison
-  tolerance, which is itself evidence the comparison is robust to OpenDSS's
-  solver behaviour. The remaining 17 cases converge to `1e-8` in ≤ 16 iterations.
+- **The open-delta regulator fixture (`pf_open_delta_reg`) does not produce a
+  converged OpenDSS reference** under the attempted algorithms/tolerances. Its
+  last iterate is retained as a diagnostic comparison, but a non-converged last
+  iterate is **not validation evidence** and is excluded from claims about
+  converged cross-engine agreement. The fixture should become a validated oracle
+  case only when a converged independent reference and residual report are
+  available.
 
 ### Tolerances and their rationale
 
@@ -381,14 +416,15 @@ oracle mismatch can be attributed.
 
 ### The three-way triangulation
 
-With a determined snapshot in hand there are three independent estimates of the
-same voltages, and comparing them *localises* any disagreement:
+With a determined snapshot in hand there are three computational routes to the
+same voltages. Only route C uses an external engine; comparing all three still
+helps localise disagreements:
 
 | | Source | What it is |
 |---|---|---|
 | **A** | `result["bus"]` | the OPF's own predicted voltages |
-| **B** | `solve_pf(project_solution(net, result))` | BMOPF re-solving the pinned snapshot as a power flow (self-oracle) |
-| **C** | OpenDSS solving `to_dss(...)` of the snapshot | an *independent* engine (external oracle) |
+| **B** | `solve_pf(project_solution(net, result))` | BMOPF re-solving the pinned snapshot as a power flow (self-consistency check, not an independent oracle) |
+| **C** | OpenDSS solving `to_dss(...)` of the snapshot | an external engine (independent implementation comparator, not ground truth) |
 
 Reading the pattern:
 
@@ -425,7 +461,7 @@ net    = from_dss("my_feeder.dss")
 result = solve_opf(net)                    # your OPF solution
 
 snap   = project_solution(net, result)     # pin every setpoint → determined snapshot
-res_B  = solve_pf(snap)                     # B: BMOPF self-oracle  (expect A ≈ B)
+res_B  = solve_pf(snap)                     # B: BMOPF self-check  (expect A ≈ B)
 
 deck   = dispatch_as_loads(snap)            # generators/IBRs → negative loads
 to_dss(deck, "snap.dss")                    # C: hand to OpenDSS   (expect A ≈ B ≈ C)
@@ -439,10 +475,11 @@ comparison method verbatim — the only new machinery is the pinning.
 runs this on DER-augmented feeders and free-tap fixtures (the raw `pf_comparison`
 cases have no decision variables, so projection is a no-op there).
 
-## Optimality — agreement with known optima
+## Dispatch evidence — analytic targets and cross-tool regressions
 
-Feasibility proves the physics; optimality proves the optimizer reaches the right
-point. Three complementary tiers, each with a different source of truth.
+Feasibility checks agreement with the implemented physics; the tests below add
+dispatch evidence. Three complementary tiers use different reference targets,
+with different evidential strength.
 
 ### Tier 1 — closed-form analytic targets
 
@@ -460,23 +497,25 @@ and dispatch/cost tests pin the objective directly:
 | Test | Analytic target | Tolerance |
 |---|---|---|
 | T1 — single-phase resistive | `V = (V_s + √(V_s² − 4RP))/2 ≈ 947.214 V` | 0.01 V |
-| T3 — forced generator dispatch | `V ≈ 974.342 V`, `objective = cost·P_gen` | 0.01 V / 0.1 |
-| T4 — negative cost ⇒ `p_max` binding | each phase at `p_max = 50 kW`, `objective = −3·P_max` | 1.0 W / 10 |
+| T3 — forced generator dispatch | `V ≈ 974.342 V`, `objective = cost·P_gen/1000` (\$/h) | 0.01 V / 1e-4 \$/h |
+| T4 — negative cost ⇒ `p_max` binding | each phase at `p_max = 50 kW`, `objective = −3·P_max/1000` (\$/h) | 1.0 W / 0.01 \$/h |
 | T5 — power-balance identity | `P_source = P_load + P_line_loss` | 0.1 W |
 | T10 — sequence voltage bounds | tight `vneg_max`/`vzero_max` ⇒ balanced `V_phase = vpos_max` | 5.0 V |
 
 The suite also pins per-unit ⇄ SI agreement, immutability of the input network,
 and the result-dictionary contract (see [the result schema](results.md)).
 
-### Tier 2 — golden objectives ported from PowerModelsDistribution
+### Tier 2 — regression targets ported from PowerModelsDistribution
 
 Source: [`test/pmd_opf_port_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/pmd_opf_port_tests.jl).
 These fixtures rebuild PMD's small OPF test networks directly in BMOPF's native
-schema (no PMD dependency) and assert the **published PMD objective** — the slack
+schema (no PMD dependency) and assert the **published PMD dispatch totals** — the slack
 injection summed over phases, reported as `voltage_source[...]["ps"|"qs"]`. The
 2/3-bus cases target PMD's `IVRUPowerModel` (the formulation closest to BMOPF's
-current-voltage engine); the 4/5-bus and delta cases target PMD's AC formulations,
-whose objectives are formulation-independent.
+current-voltage engine); the 4/5-bus and delta cases target PMD's AC formulations.
+Because the values are ported rather than recomputed live by an independent
+global method, they are regression targets rather than proofs of the true/global
+optimum.
 
 **Locked-in baseline** (reuse these as regression targets; `atol = 1e-2 kW/kvar`
 unless noted):
@@ -516,7 +555,7 @@ droop curve in every regime:
   (`PG_PER_PHASE`) and phase-to-neutral (`PN_PER_PHASE`) dispatch differently once
   the neutral is displaced from ground.
 
-## Limit correctness — each network limit encodes what it claims
+## Limit-encoding evidence and coverage
 
 Feasibility checks the physics and optimality checks the dispatch — but both take
 the **constraint set as given**. Neither asks the prior question: does each
@@ -590,17 +629,17 @@ row is one unit test to develop, and the *status* column tracks coverage.
 
 ## Reusing this for your own tool
 
-| You want to … | Use | What it proves |
+| You want to … | Use | Evidence obtained |
 |---|---|---|
-| validate your power-flow / component models | the `.dss` cases + a live OpenDSS solve, compared as above | the network physics is correct |
-| validate your optimizer | the Tier-1 analytic targets and the Tier-2 PMD objective table as regression checks | the optimizer reaches the true optimum |
+| test power-flow / component implementations | the `.dss` cases + a live OpenDSS solve, compared as above | agreement with OpenDSS for the aligned fixture models |
+| test optimization behaviour | Tier-1 analytic targets, plus Tier-2 PMD values as cross-tool regressions | analytic correctness on Tier 1; regression agreement on Tier 2, not general globality |
 | validate smart-IBR control | the Tier-3 droop setpoints | control laws are enforced as modelled |
-| validate your network-limit encodings | the bind-and-recompute method + the limit inventory | each limit means what it claims, in rectangular variables |
+| validate your network-limit encodings | the bind-and-recompute method + the limit inventory | agreement with the intended quantity on the tested binding fixtures |
 
 The two reuse paths are complementary: the analytic and PMD numbers are
 *self-contained* baselines (copy the table, no dependency), while the `.dss`
 feasibility cases need an OpenDSS solve to regenerate the reference — which is the
-point, since OpenDSS is the de-facto distribution power-flow oracle.
+point, since OpenDSS is the external reference implementation used by this suite.
 
 ## Running the suite
 

@@ -25,8 +25,10 @@ directly — the distribution analogue of transmission-side benchmark libraries.
 Although "OPF" names this document, the goal is broader than minimising generation cost.
 The unifying requirement of the target problems is **an accurate conductor-level
 representation of an unbalanced network subject to a selectable set of bounds** — not any
-one objective. Cost minimisation is a convenient, well-posed starting point (unique
-solution, solver-comparable, loss-equivalent under mild conditions), but the same physics
+one objective. Bounded cost minimisation is a convenient, solver-comparable
+starting point. With fixed demand and one uniform non-negative price on every
+real-power injection, minimizing total injection is equivalent to minimizing
+real losses. It does not make the nonconvex feasible set or optimum unique. The same physics
 underpins maximum load delivery, conservation voltage reduction, dynamic operating
 envelopes, and state estimation.
 

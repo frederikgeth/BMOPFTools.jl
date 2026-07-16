@@ -1,7 +1,8 @@
 # Objective: minimise total generation cost.
 #
-# `cost` is a per-phase vector of linear coefficients, one element per phase term
-# of the element ($/W): the cost of phase k is cost[k] * P_k, where
+# `cost` is a per-phase vector of energy-price coefficients, one element per
+# phase term of the element ($/kWh). For a snapshot, the cost rate of phase k is
+# cost[k] * P_k / 1000 ($/h), where
 #   P_k = dvr * cr[k] + dvi * ci[k]
 # is the per-phase active power (bilinear in voltage and current).
 #
@@ -16,14 +17,16 @@
 # with free DERs. Do not flip the sign for the source; the convention is enforced
 # by the "uniform cost convention (source ≡ generator)" OPF test.
 
-# Linear cost coefficient for loop position `idx` (1-based). `cost` must be a
-# per-phase vector; a scalar (legacy/polynomial form) is rejected.
+# Cost-rate coefficient for loop position `idx` (1-based). `cost` must be a
+# per-phase vector; a scalar (legacy/polynomial form) is rejected. Dividing by
+# 1000 converts the active-power expression from W to kW, so multiplying this
+# coefficient by P_W produces $/h.
 function _phase_cost(cost, idx::Int, kind::AbstractString, id::AbstractString)::Float64
     cost isa AbstractVector ||
         error("$kind '$id': cost must be a per-phase vector of linear coefficients, got a scalar")
     idx <= length(cost) ||
         error("$kind '$id': cost vector has length $(length(cost)) but phase index $idx requested")
-    Float64(cost[idx])
+    Float64(cost[idx]) / 1000.0
 end
 
 """
@@ -32,9 +35,11 @@ end
 Set the JuMP objective to minimise total active-power generation cost.
 
 The `"cost"` field on generators, the voltage source, and IBRs is a
-**per-phase vector of linear coefficients** `[c_1, …, c_nphase]` (\$/W); the
-objective contribution of phase `k` is `cost[k]·P_k`.  Costs are linear in the
-IVR-EN power expression and added exactly — there is no polynomial/quadratic term.
+**per-phase vector of energy prices** `[c_1, …, c_nphase]` (currency/kWh). For a
+snapshot, the objective contribution of phase `k` is `cost[k]·P_k/1000` in
+currency/hour, with `P_k` in W. Costs are linear in the IVR-EN power expression and added
+exactly — there is no polynomial/quadratic term. A multi-period caller must
+multiply each snapshot's cost rate by its duration in hours to obtain currency.
 """
 function _add_objective!(model, net, vars)
     @objective(model, Min, _generation_cost_expr(model, net, vars))

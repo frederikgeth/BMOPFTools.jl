@@ -380,8 +380,8 @@ end
 Like `_set_voltage_start_values!` but uses per-bus nominal voltages derived
 from the BFS voltage propagation (`_assign_nominal_voltages`). This correctly
 initialises LV buses at ~250 V rather than at the source voltage (~6350 V),
-preventing Ipopt from converging to the degenerate high-voltage local minimum
-that arises in the unconstrained feasibility OPF.
+reducing attraction to a degenerate high-voltage local minimum when the case
+supplies no useful voltage bounds.
 """
 function _set_level_aware_start_values!(vars, net, bus_terminals, grounded)
     vr = vars[:vr]; vi = vars[:vi]

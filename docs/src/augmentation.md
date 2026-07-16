@@ -313,9 +313,10 @@ transformation manifest.
 **Slack cost.**  The voltage source is itself the network's current slack, so no
 slack *generator* is created. If a source has no `cost`, a per-phase cost is
 written onto the `voltage_source` (default 1.0 \$/kWh) so imported power is
-priced in the objective. No
-flow bounds are added, so the slack stays unconstrained and the OPF can always
-find a feasible point. Controlled by the recipe's `apply_slack_generator` /
+priced in the objective. No flow bounds are added, so the source can absorb the
+network's net active/reactive imbalance. This removes one common cause of
+infeasibility, but does not override voltage, thermal, device, or other hard
+constraints. Controlled by the recipe's `apply_slack_generator` /
 `slack_cost` fields (names kept for backwards compatibility).
 
 **Reactive bounds.**  For each generator that has `p_max` defined but lacks

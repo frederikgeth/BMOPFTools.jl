@@ -357,7 +357,7 @@ curtailment.
     reactive absorption of Volt-var consumes VA headroom that would otherwise
     carry active export), which is exactly the objective increase from A→B→C in
     the table. Note the native `cost` field prices **active power only**
-    (`cost[k]·P_k`); there is no built-in reactive-power price or curtailment
+    (`cost[k]·P_k/1000`, a \$/h rate with `P_k` in W); there is no built-in reactive-power price or curtailment
     penalty. To model an *explicit* ancillary-service payment for reactive
     support — or a compensation for curtailed active power — extend the objective
     with a [`model_hook!`](opf.md) that adds the corresponding term (a cost on

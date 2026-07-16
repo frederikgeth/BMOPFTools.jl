@@ -274,8 +274,7 @@ end
     _add_line_angle_constraints!(model, net, vars)
 
 Enforce per-line angle-difference bounds (`va_diff_min`, `va_diff_max`, radians) between
-the from- and to-end voltages on each conductor. Only called from `solve_opf` (operational
-limits, not the feasibility formulation).
+the from- and to-end voltages on each conductor. Shared by OPF and feasibility OPF.
 
 For each conductor k:
   s = vr_fr·vi_to − vi_fr·vr_to   (imaginary part of V_fr · conj(V_to))

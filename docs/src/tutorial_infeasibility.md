@@ -10,9 +10,9 @@ infeasibility verdict is **a claim, not a certificate**
 the runnable companion to the [Bounds, Branches, and Feasibility](bounds/index.md)
 chapter: the three-tool diagnosis workflow on one small feeder, end to end.
 
-The punchline up front: instead of interrogating a failed solve, you run a
-**relaxed problem that always solves** — [`solve_feasibility_opf`](@ref) — and read
-*where* and *by how much* the network misses feasibility off its elastic slack
+The punchline up front: instead of interrogating only the failed solve, you run
+an **elastic KCL relaxation** — [`solve_feasibility_opf`](@ref) — and, when it
+converges, read *where* and *by how much* that local relaxed point uses its slack
 variables. [`infeasibility_preflight`](@ref) catches the statically detectable
 mistakes before any solver runs, and [`diagnose_infeasibility`](@ref) turns the raw
 slack pattern into a ranked, classified diagnosis. Every code block below executes
@@ -121,8 +121,9 @@ Zero conflicts, zero errors: `222.0 < 253.0` is a perfectly consistent bound pai
 on paper. (The adequacy ratio of 0.0 just says there is no local generation — this
 feeder imports everything through the source, which is normal.) Whether 222 V is
 *reachable* through 0.8 Ω of cable under 4 kW of load is a power-flow question that
-static analysis cannot answer. For that we need the solver back — but on a problem
-that cannot fail.
+static analysis cannot answer. For that we need the feasibility-relaxed solver,
+which is designed to expose KCL imbalance while retaining the other hard
+constraints.
 
 ## 4. The elastic problem: `solve_feasibility_opf`
 
@@ -130,9 +131,11 @@ that cannot fail.
 hard voltage bounds, angle limits, and device current limits — with one surgical
 relaxation: an elastic slack current ``(c^s_r, c^s_i)`` is injected into KCL at
 every non-source bus terminal, and the objective minimises ``\sum_k |c^s_k|^2``
-instead of generation cost. KCL can now always balance, so the problem solves even
-when the original could not; any terminal that *needed* its slack to balance is a
-terminal where the physics and the bounds disagree. It is the four-wire analogue
+instead of generation cost. At every terminal carrying a slack variable, KCL can
+balance by paying a residual-current penalty. If the remaining hard constraints
+are consistent and the relaxed solve converges, a terminal using slack identifies
+where that local relaxed solution could not close KCL without intervention. It is
+the four-wire analogue
 of an irreducible-infeasible-subsystem search, run as a single least-squares NLP
 (see [Diagnostics & validation](bounds/diagnostics.md)).
 
@@ -231,9 +234,9 @@ println("is_feasible : ", d_fix["is_feasible"],
         "   residual : ", d_fix["total_infeasibility_A"], " A")
 ```
 
-`LOCALLY_SOLVED`, and the feasibility OPF's residual collapses to numerical zero —
-a near-zero `total_slack_magnitude_A` is precisely the certificate that a point
-satisfying every KCL, KVL and device equation exists
+`LOCALLY_SOLVED`, and the feasibility OPF's residual collapses to numerical zero.
+Together with an independent residual check, this supplies an explicit
+numerically feasible point satisfying the represented KCL, KVL, and device equations
 ([Diagnostics & validation](bounds/diagnostics.md)). The loop is closed: claim,
 localisation, quantified fix, confirmation.
 
@@ -241,9 +244,9 @@ localisation, quantified fix, confirmation.
 
 - **The verdict is calibrated trust, not proof.** With sane bounds, a
   loss/cost-minimising objective, and the numerical traps excluded,
-  `LOCALLY_INFEASIBLE` almost always *is* physical infeasibility — work through the
-  [trust checklist](bounds/solver_trust.md) before concluding, and remember that
-  restoration is start-dependent ([2](@ref refs-infeas)).
+  repeated `LOCALLY_INFEASIBLE` outcomes are evidence of physical infeasibility —
+  work through the [trust checklist](bounds/solver_trust.md) before concluding,
+  and remember that restoration is start-dependent ([2](@ref refs-infeas)).
 - **Slacks are fictitious nodal currents.** A non-zero `cs_mag` at a terminal is
   the current a hypothetical device would have to inject *at that node* to make the
   bounds hold — its location says *where*, its magnitude (times the upstream
@@ -251,11 +254,13 @@ localisation, quantified fix, confirmation.
 - **Preflight first, always.** It is free, and crossed bounds or out-of-window
   source setpoints produce infeasibilities no amount of solver forensics explains
   faster. What it cannot see is impedance: reachability questions need §4.
-- **A converged feasibility OPF with near-zero slack is a feasibility
-  certificate**; a converged one with structured slack is a diagnosis. The rare
+- **A converged feasibility OPF with independently verified near-zero slack gives
+  an explicit feasible point**; a converged one with structured slack is a local
+  diagnosis, not an infeasibility certificate. The rare
   case where even the *elastic* problem fails to converge (flagged by
-  `solver_infeasible` in the diagnosis) means a hard bound conflicts with a fixed
-  source voltage — data to inspect directly, not physics.
+  `solver_infeasible` in the diagnosis) can indicate a remaining hard-constraint
+  conflict, poor conditioning, or a failed local trajectory; inspect status,
+  residuals, and source/bound consistency before classifying it.
 - The failure modes behind stubborn cases — collapse proximity, branch
   multiplicity, degenerate duals — are catalogued in the
   [Known traps](bounds/known_traps.md) gallery.

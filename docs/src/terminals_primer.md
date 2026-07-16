@@ -82,12 +82,16 @@ unfamiliar to a MATPOWER/PowerModels user:
   OPF can solve directly in SI or in an internally-scaled per-unit copy
   (`per_unit`), and which one better conditions the nonlinear program is an open,
   instance-dependent question — see [Units & scaling](opf.md#Units-and-scaling).
-- **There are no symmetrical components.** The symmetrical-component transform is
-  only valid for a balanced, transposed network [ref. 17](methodology.md#refs) —
-  exactly what a feeder is not — so the model stays in phase/conductor
-  coordinates. A useful tell that a method has *quietly* assumed a balanced
-  three-phase system is stray $\sqrt{3}$ factors or complex phase-shift
-  multipliers in its equations; none appear here [ref. 16](methodology.md#refs).
+- **Sequence coordinates are derived, not the network state.** The
+  symmetrical-component transform is an invertible change of coordinates for
+  any three-phase phasor vector. What requires a cyclically symmetric network
+  (commonly obtained from balanced/transposed parameters) is the stronger step
+  of treating the positive-, negative-, and zero-sequence networks as
+  **decoupled** [ref. 17](methodology.md#refs). This formulation therefore solves
+  in phase/conductor coordinates and uses Fortescue components only as derived
+  quantities for sequence-voltage limits. A stray $\sqrt{3}$ or phase-shift
+  multiplier is not by itself evidence of a balanced model; the tell is whether
+  mutual coupling and unequal conductor states have been discarded.
 - **The formulation is rectangular current–voltage (IVR), not power-balance
   polar.** The decision variables are *currents* ($c^r, c^i$) and *rectangular*
   voltages ($v^r, v^i$); KCL is written in currents, and power is a bilinear

@@ -80,7 +80,8 @@ per-branch cone gap ([Diagnostics §3](diagnostics.md)). This is the headline re
 feasible relaxation is only a one-sided certificate.
 
 *In BMOPFTools:* check the AC side with [`solve_feasibility_opf`](../validation.md) — a
-non-zero `total_slack_magnitude_A` confirms the loading is past collapse.
+repeatable non-zero `total_slack_magnitude_A` is evidence consistent with the
+analytically predicted collapse, not by itself a global infeasibility certificate.
 
 ## Trap 4 — Loss-maximizing objective breaks exactness
 

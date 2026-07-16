@@ -225,7 +225,7 @@ optimizer = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 result = solve_opf(net_ready; optimizer = optimizer, per_unit = true)
 
 println("Termination : ", result["termination_status"])
-println("Objective   : ", round(result["objective"]; sigdigits = 6))
+println("Cost rate   : ", round(result["objective"]; sigdigits = 6), " \$/h")
 ```
 
 The **negative objective is correct**: the PV fleet placed in step 4 is priced

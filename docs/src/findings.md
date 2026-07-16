@@ -98,10 +98,10 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `E.DOM.NEGATIVE_VALUE` | E | Negative value in an inherently nonnegative field (length, diagonal resistance). |
 | `W.DOM.LOAD_PF_LOW` | W | Load power factor below 0.70 — plausible but unusual for aggregated demand; often a P/Q unit mix-up. |
 | `W.DOM.GEN_COST_NEGATIVE` | W | Negative generation cost — the optimizer will dispatch it to its bound; verify it is intended (e.g. must-run subsidy). |
-| `W.DOM.GEN_COST_HIGH` | W | Cost above 10 \$/kWh — beyond any realistic tariff; suspect units. |
+| `W.DOM.GEN_COST_HIGH` | W | Cost above 10 \$/kWh — outside the package's default plausibility threshold; check units and whether an extreme scarcity/subsidy scenario is intentional. |
 | `E.DOM.GEN_SMAX_NONPOSITIVE` | E | Generator `s_max` (optional per-phase apparent-power rating) has a non-positive entry — the apparent-power circle is empty, so no operating point exists. |
 | `E.DOM.GEN_IMAX_NONPOSITIVE` | E | Generator `i_max` (optional per-phase current limit) has a non-positive entry — the current circle is empty, so no operating point exists. |
-| `W.DOM.COST_PHASE_NONUNIFORM` | W | A dispatchable element (`generator` or `voltage_source`) has a per-phase `cost` vector whose entries differ across phases. Costs are normally a single \$/W price applied symmetrically; a non-uniform vector is more often a data-entry slip than an intended per-phase price signal. Scalar costs are uniform by definition and never flag. |
+| `W.DOM.COST_PHASE_NONUNIFORM` | W | A dispatchable element (`generator` or `voltage_source`) has a per-phase `cost` vector whose entries differ across phases. Costs are normally a single \$/kWh price applied symmetrically; a non-uniform vector is more often a data-entry slip than an intended per-phase price signal. Scalar costs are uniform by definition and never flag. |
 | `W.DOM.LC_ZERO_R` | W | Near-zero or negative self-resistance on **any** linecode diagonal — a superconducting conductor, usually a placeholder. |
 | `E.DOM.XFMR_VREF_INVALID` | E | A transformer has `v_nom_from ≤ 0` or `v_nom_to ≤ 0`. The turns ratio N = v\_ref\_from / v\_ref\_to is undefined or infinite; the OPF cannot be built. Usually caused by a missing field defaulting to zero or a unit error (kV entered as 0.0). |
 | `W.DOM.XFMR_RATIO_OOB` | W | Direction-agnostic transformer step ratio `max(r, 1/r)` above 1000:1. Calibrated so standard distribution step-downs (e.g. 11 kV/433 V ≈ 25:1) do **not** flag. |

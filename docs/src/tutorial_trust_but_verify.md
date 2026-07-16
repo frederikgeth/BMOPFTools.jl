@@ -4,11 +4,11 @@
 
 A nonlinear OPF solver ends with a verdict like `LOCALLY_SOLVED`. It is tempting
 to read that as "the answer is correct." It is not what the status means. A
-`LOCALLY_SOLVED` status certifies that the solver found a point satisfying the
-first-order optimality (KKT) conditions of **the problem as posed**, to its
-internal tolerances. It says nothing about whether that problem is the one you
-meant, whether the optimum is global, or whether the numbers are physically
-sensible.
+`LOCALLY_SOLVED` status reports that the solver's termination tests for
+approximate first-order optimality (KKT) conditions of **the problem as posed**
+passed at its internal tolerances. It is not an independently checked
+certificate. It says nothing about whether that problem is the one you meant,
+whether the optimum is global, or whether the numbers are physically sensible.
 
 The antidote is cheap and worth building once by hand: take a solved case and
 **independently recompute** the physics — Kirchhoff's current law, Ohm's law,
@@ -178,9 +178,10 @@ sbad = solution_check(badfeeder(), rbad, fbad)
 ```
 
 The status is identical to the healthy case; only the independent loss check
-tells them apart. This is the general lesson. A `LOCALLY_SOLVED` verdict
-guarantees, to tolerance, a KKT point of the model you handed the solver. It
-does **not** guarantee that:
+tells them apart. This is the general lesson. A `LOCALLY_SOLVED` verdict reports
+an approximate KKT point of the model you handed the solver; independent
+residual checks determine whether the returned point actually meets your
+acceptance tolerance. The verdict does **not** guarantee that:
 
 - the optimum is **global** — nonconvex OPF can have several local optima, and
   which one you land on depends on the start point (see

@@ -1013,7 +1013,8 @@ via the `[augment.smart_ibr]` config section.
 
 Returns a results dict with keys:
 - `"termination_status"` — JuMP termination status string
-- `"objective"` — optimal objective value (total generation cost, W·\\\$/W)
+- `"objective"` — optimal default-objective cost rate (currency/hour); custom
+  `model_hook!` objectives retain whatever units the caller defines
 - `"solve_time"` — wall-clock solve time (s)
 - `"bus"` — per-bus voltage results: `"vr"`, `"vi"`, `"vm"`, `"va"` per terminal
 - `"line"` — per-line from/to current results per conductor
@@ -1034,13 +1035,19 @@ Feasibility-relaxed variant of [`solve_opf`](@ref). Adds elastic slack current
 injections at every non-source bus terminal so that KCL can always be satisfied,
 then minimises the L2² norm of those slacks.
 
-Because the problem is always feasible, the solver always converges. Non-zero
-slacks in the result indicate where the network cannot satisfy its physical
-constraints. Use [`diagnose_infeasibility`](@ref) to interpret the result.
+The added variables can absorb KCL residuals at the terminals where they are
+present, but they do not relax contradictory hard bounds or guarantee convergence
+of the nonconvex NLP. For a converged solve, non-zero slacks identify where that
+relaxed solution paid to violate KCL; they are diagnostic evidence rather than a
+global infeasibility certificate. Use [`diagnose_infeasibility`](@ref) to
+interpret the result.
 
 Requires JuMP and Ipopt (same as `solve_opf`).
 
 Additional result keys beyond `solve_opf`:
+- `"objective"`                  — squared-slack metric in solver working
+  coordinates (plus the transformer tie-break); use the SI slack fields below
+  for physical interpretation
 - `"slack_injections"`        — per-bus, per-terminal `cs_r`, `cs_i`, `cs_mag` (A)
 - `"total_slack_magnitude_A"` — L2 norm of all slack injections (A)
 - `"is_feasibility_opf"`      — always `true`, used by `diagnose_infeasibility`
@@ -1094,11 +1101,13 @@ Typical multi-period skeleton:
 ```julia
 using JuMP, Ipopt
 model = JuMP.Model(Ipopt.Optimizer)
+duration_hours = fill(1.0, T)  # replace with each period's actual duration
 ctxs  = [build_opf_model(net; t_index=t, model=model, add_objective=false,
                          model_hook! = storage_ports!) for t in 1:T]
 # couple snapshots: SOC[t+1] = SOC[t] + Δt·(charge − discharge) …
 link_soc!(model, ctxs)
-JuMP.@objective(model, Min, sum(generation_cost(c) for c in ctxs) + storage_cost)
+JuMP.@objective(model, Min,
+    sum(duration_hours[t] * generation_cost(ctxs[t]) for t in 1:T) + storage_cost)
 foreach(enforce_kcl!, ctxs)
 JuMP.optimize!(model)
 results = [extract_result(c) for c in ctxs]
@@ -1125,10 +1134,13 @@ export enforce_kcl!
 """
     generation_cost(ctx) -> JuMP.QuadExpr
 
-The snapshot's total active-power generation-cost expression — the quantity
-[`solve_opf`](@ref) minimises — returned WITHOUT setting it on the model. Sum
-these across snapshots (adding any custom terms) and call `JuMP.@objective` once
-for a multi-period solve. Pairs with `build_opf_model(...; add_objective=false)`.
+The snapshot's total active-power generation-cost-rate expression (currency/hour) — the
+quantity [`solve_opf`](@ref) minimises — returned WITHOUT setting it on the
+model. For a multi-period monetary objective, multiply each expression by that
+period's duration in hours before summing it with any custom cost terms; a bare
+sum is only valid when all periods have the same duration and only the optimizer,
+not the reported currency total, matters. Pairs with
+`build_opf_model(...; add_objective=false)`.
 Implemented in the `BMOPFOpfExt` extension.
 """
 function generation_cost end

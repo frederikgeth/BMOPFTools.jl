@@ -300,7 +300,7 @@ end
 # ── Cost ─────────────────────────────────────────────────────────────────────
 
 # The OPF objective reads `cost` as a per-phase vector of linear coefficients
-# ($/W per phase). We emit one identical coefficient per phase so dispatch is
+# ($/kWh per phase). We emit one identical coefficient per phase so dispatch is
 # priced linearly across all phases.
 function _cost_der(recipe::GeneratorRecipe, n_phases::Int, level::Symbol)::Vector{Float64}
     c = if recipe.cost_basis == :cheaper_than_slack

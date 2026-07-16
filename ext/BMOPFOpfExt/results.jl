@@ -14,7 +14,9 @@ Returned top-level keys
 -----------------------
 - `"termination_status"` — string form of `JuMP.termination_status`
 - `"feasible"`           — `true` iff the solver reached a (locally) optimal/solved status
-- `"objective"`          — objective value (cost units)
+- `"objective"`          — objective value (currency/hour for default `solve_opf`;
+                           working-coordinate slack metric for feasibility OPF;
+                           caller-defined units for a custom objective)
 - `"solve_time"`         — solver wall-clock time (s)
 - `"bus"`        — `bus_id => terminal => {vr, vi, vm [V], va [rad]}`
 - `"ground"`     — `bus_id => terminal => {cg_r, cg_i [A], cgm [A]}` for every

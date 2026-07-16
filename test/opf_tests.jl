@@ -134,13 +134,13 @@
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         @test res["bus"]["bus1"]["1"]["vm"]          ≈ V_exp         atol=0.01
         @test res["generator"]["gen1"]["1"]["pg"]   ≈ P_gen         atol=1.0
-        @test res["objective"]                      ≈ cost * P_gen  atol=0.1
+        @test res["objective"]                      ≈ cost * P_gen / 1000  atol=1e-4
     end
 
     # ─────────────────────────────────────────────────────────────────────────
     # T4: Cost-optimal dispatch — negative unit cost drives output to p_max
     #
-    # cost = −1 $/W → minimising the objective maximises Pg → each phase
+    # cost = −1 $/kWh → minimising the objective maximises Pg → each phase
     # should hit its p_max bound.  A near-zero-impedance line ensures the
     # voltage constraint does not interfere.
     # ─────────────────────────────────────────────────────────────────────────
@@ -177,13 +177,13 @@
         for ph in ("1","2","3")
             @test res["generator"]["gen1"][ph]["pg"] ≈ P_max_ph   atol=1.0
         end
-        @test res["objective"] ≈ -3.0 * P_max_ph   atol=10.0
+        @test res["objective"] ≈ -3.0 * P_max_ph / 1000   atol=0.01
     end
 
     # ─────────────────────────────────────────────────────────────────────────
     # T4b: Uniform cost convention — voltage source ≡ generator
     #
-    # The `cost` field is `$/W of active power INJECTED into the network`, with the
+    # The `cost` field is `$/kWh of active energy INJECTED into the network`, with the
     # SAME sign convention for generators and the voltage source (both stamp +I
     # into KCL; both report power as +injection). So a POSITIVE cost minimises that
     # element's injection in both cases:
@@ -556,7 +556,7 @@
     # g1 injects 200 kW; load is 100 kW → net 100 kW exported to sourcebus.
     # V_bus1 rises above V_s (reverse current direction).
     # Analytical: V² − V_s·V − R·P_net = 0 → V = (V_s + √(V_s²+4·R·P_net))/2 ≈ 1047.7 V
-    # cost = -0.05 $/W → objective = -0.05 × 200 000 = -10 000 $/s
+    # cost = -0.05 $/kWh → objective rate = -0.05 × 200 kW = -10 $/h
     _pu_net() = parse_bmopf("""
     {"bus":{
         "sourcebus":{"terminal_names":["1","n"],
@@ -595,9 +595,9 @@
         V_exp = (V_s + sqrt(V_s^2 + 4*R*P_net)) / 2   # ≈ 1047.7 V
         @test res["bus"]["bus1"]["1"]["vm"] ≈ V_exp   atol=0.5
 
-        # Profit-seeking generator (cost=-0.05 $/W) binds at p_max=200 000 W.
-        # objective = -0.05 × 200 000 = -10 000; pg in W, not PU.
-        @test res["objective"] ≈ -10_000.0   rtol=1e-3
+        # Profit-seeking generator (cost=-0.05 $/kWh) binds at p_max=200 000 W.
+        # objective rate = -0.05 × 200 kW = -10 $/h; pg remains in W.
+        @test res["objective"] ≈ -10.0   rtol=1e-3
         @test res["generator"]["g1"]["1"]["pg"] ≈ 200_000.0   rtol=1e-3
     end
 
@@ -655,7 +655,7 @@
         net = _pu_net()
 
         # model_hook! can replace the objective — the standard cost objective
-        # (−10 000, see T11) is overridden with a feasibility objective.
+        # (−10 $/h, see T11) is overridden with a feasibility objective.
         res = solve_opf(net; model_hook! = ctx -> JuMP.@objective(ctx.model, Min, 0.0))
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         @test abs(res["objective"]) < 1e-6
@@ -676,7 +676,7 @@
                 vi[("bus1","1")]*cig[("g1",1)] <= 150_000.0 / sb)
         end)
         @test res2["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        @test res2["objective"] ≈ -0.05 * 150_000.0   rtol=1e-3
+        @test res2["objective"] ≈ -0.05 * 150_000.0 / 1000   rtol=1e-3
         @test res2["generator"]["g1"]["1"]["pg"] ≈ 150_000.0   rtol=1e-3
 
         # solver_options are applied as raw solver attributes.
@@ -873,7 +873,8 @@
             JuMP.@constraint(model, soc[t+1] <= Δpu(emax_Wh))
         end
         JuMP.@constraint(model, soc[T+1] == Δpu(soc0_Wh))     # cyclic
-        JuMP.@objective(model, Min, sum(generation_cost(ctxs[t]) for t in 1:T))
+        JuMP.@objective(model, Min,
+            sum(dt_h * generation_cost(ctxs[t]) for t in 1:T))
         foreach(enforce_kcl!, ctxs)
         JuMP.optimize!(model)
 
@@ -1047,7 +1048,7 @@
             @test isapprox(va_si, va_pu; atol=1e-6)
         end
 
-        # Objective (in W·$/W = SI) must match; both should be ≈ -10 000.
+        # Objective cost rate ($/h) must match; both should be ≈ -10.
         @test isapprox(r_si["objective"], r_pu["objective"]; rtol=1e-3)
 
         # Line current magnitude at from-end must match.
@@ -1930,6 +1931,10 @@
             # Sanity: PU-mode dispatch is in SI watts, near p_max (cheaper than slack)
             @test pu["pg"] ≈ 2700.0   atol=5.0
         end
+        # Cost coefficients on both the source and IBR must scale with s_base;
+        # otherwise the PU solve has a different economic objective even if this
+        # simple merit order happens to return the same dispatch.
+        @test res_pu["objective"] ≈ res_si["objective"] rtol=1e-4
     end
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -2324,10 +2329,10 @@
     # ─────────────────────────────────────────────────────────────────────────
     # T-PCOST: non-uniform per-phase cost. A generator is forced (p_min=p_max)
     # to distinct per-phase outputs that exactly serve the per-phase load, so
-    # the objective is the deterministic Σ cost_k · P_k:
-    #   0.1·10000 + 0.2·20000 + 0.3·30000 = 14 000.
+    # the objective is the deterministic cost rate Σ cost_k · P_k/1000:
+    #   0.1·10 + 0.2·20 + 0.3·30 = 14 $/h.
     # The old polynomial reading ([c2,c1,c0]) would have applied a single c1 to
-    # every phase (0.2·60000 = 12 000), so this value distinguishes the two.
+    # every phase (0.2·60 = 12 $/h), so this value distinguishes the two.
     # ─────────────────────────────────────────────────────────────────────────
     @testset "T-PCOST: per-phase linear cost → objective" begin
         net = parse_bmopf("""
@@ -2348,7 +2353,7 @@
         """; from_string=true)
         res = solve_opf(net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        @test res["objective"] ≈ 14_000.0   atol=1.0
+        @test res["objective"] ≈ 14.0   atol=1e-3
     end
 
     # ─────────────────────────────────────────────────────────────────────────

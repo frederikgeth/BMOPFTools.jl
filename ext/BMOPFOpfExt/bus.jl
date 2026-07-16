@@ -79,7 +79,7 @@ end
 """
     _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars)
 
-Enforce operational bus-level voltage limits (not called from feasibility OPF):
+Enforce operational bus-level voltage limits (shared by OPF and feasibility OPF):
 
 - Neutral voltage upper bound (`vn_max`, V): |v_n|² ≤ vn_max² when neutral is ungrounded.
 - Phase-to-neutral voltage magnitude bounds (`vpn_min`, `vpn_max`): applied to each

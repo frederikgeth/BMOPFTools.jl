@@ -140,8 +140,8 @@ end
     _add_voltage_and_bus_bounds!(ctx)
 
 Add the hard operational voltage bounds and bus-limit constraints. Shared by
-`solve_opf` and `solve_feasibility_opf` (both carry the identical hard feasible
-set); a future power-flow recipe would simply not call this.
+`solve_opf` and `solve_feasibility_opf` (both carry the same non-KCL hard
+constraints); the power-flow recipe does not call this.
 """
 function _add_voltage_and_bus_bounds!(ctx::OpfContext)
     _add_voltage_bounds!(ctx.model, ctx.net, ctx.bus_terminals, ctx.grounded, ctx.vars)

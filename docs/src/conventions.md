@@ -235,9 +235,12 @@ FAQ: a "wye" in the BMOPF sense always has the neutral return — a
 2-terminal load is `SINGLE_PHASE`, not a degenerate wye.
 
 Generators additionally carry `cost` and optional `p_min/p_max/q_min/q_max`.
-`cost` is a **per-phase vector of linear coefficients** (\$/W), one element per
-phase term; the objective contribution of phase `k` is `cost[k]·P_k`. (There is
-no polynomial/quadratic cost form.) A generator without bounds is an unbounded
+`cost` is a **per-phase vector of energy prices** (\$/kWh), one element per
+phase term. For a snapshot, the objective contribution of phase `k` is the cost
+rate `cost[k]·P_k/1000` (\$/h), because `P_k` is stored in watts. A multi-period
+monetary objective must additionally multiply each rate by the period duration
+in hours. (There is no polynomial/quadratic cost form.) A generator without
+bounds is an unbounded
 (slack-style) unit.
 
 **Voltage source as slack.** The `voltage_source` fixes its terminal voltages

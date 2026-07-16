@@ -80,9 +80,12 @@ end
 
 Reading those tiers back as engineering judgment:
 
-- **Standards-derived** (`:standard`) — the number *is* in a published standard.
-  The voltage envelopes come straight from EN 50160 (`EN50160:2010§3.5`), and the
-  slack generation from the Task Force spec. Trust these.
+- **Standards-derived** (`:standard`) — the rule is traceable to a published
+  standard. The voltage envelopes use EN 50160 (`EN50160:2010§3.5`), and the
+  slack convention follows the Task Force spec. This is strong provenance, not
+  universal applicability: confirm the jurisdiction, voltage class, revision,
+  planning/operational purpose, and any local connection agreement before using
+  the value in a published study.
 - **Inferred, heuristic** (`:high` / `:medium` / `:low`) — the thermal ratings
   (`heuristic_ampacity_estimate`). The pass reads each conductor's diagonal
   resistance R₁₁ as a *size fingerprint* and looks up a representative ampacity.

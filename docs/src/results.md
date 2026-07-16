@@ -9,7 +9,7 @@ id, then by terminal name (or winding label for transformers).
 result = solve_opf(net)
 
 result["termination_status"]   # "LOCALLY_SOLVED", "INFEASIBLE", …
-result["objective"]            # total generation cost
+result["objective"]            # objective value; units depend on solve mode
 result["solve_time"]           # wall-clock time in seconds
 
 result["bus"]["b1"]["1"]["vm"] # phase-1 voltage magnitude at bus b1 (V)
@@ -42,7 +42,7 @@ The `termination_status` and `solve_time` fields are always valid.
 | Key | Type | Description |
 |---|---|---|
 | `termination_status` | String | JuMP termination status (e.g. `"LOCALLY_SOLVED"`, `"INFEASIBLE"`, `"TIME_LIMIT"`) |
-| `objective` | Float64 | Objective value in cost units (matches the generator cost model) |
+| `objective` | Float64 | For default `solve_opf`, cost rate (\$/h). For `solve_feasibility_opf`, the squared-slack objective in solver working coordinates (plus its transformer tie-break). Custom objectives retain caller-defined units. |
 | `solve_time` | Float64 | Solver wall-clock time (s) |
 | `bus` | Dict | Per-bus, per-terminal voltage results |
 | `line` | Dict | Per-line, per-conductor current results |

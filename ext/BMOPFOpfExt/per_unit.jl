@@ -251,7 +251,8 @@ function _pu_scale_sources!(net, bases)
         for f in ("p_min", "p_max", "q_min", "q_max")
             haskey(vs, f) && (vs[f] = Float64.(vs[f]) ./ sb)
         end
-        # Cost: per-phase linear coefficient $/W in SI → $/PU-W in PU (× s_base)
+        # Cost: $/kWh price is multiplied by s_base because the objective uses
+        # P_pu; _phase_cost then applies the W→kW factor (1/1000).
         if haskey(vs, "cost")
             c = vs["cost"]
             vs["cost"] = c isa AbstractVector ? Float64.(c) .* sb : Float64(c) * sb
@@ -375,8 +376,8 @@ function _pu_scale_generators!(net, bases)
         if haskey(gen, "i_max")
             gen["i_max"] = Float64.(gen["i_max"]) ./ ib
         end
-        # Cost: per-phase linear coefficient $/W in SI → $/PU-W in PU (× s_base)
-        # (cost per PU power = cost_si * s_base, since P_pu = P_si/s_base)
+        # Cost: $/kWh price is multiplied by s_base because P_pu = P_si/s_base;
+        # _phase_cost applies the remaining W→kW factor (1/1000).
         if haskey(gen, "cost")
             c = gen["cost"]
             gen["cost"] = c isa AbstractVector ? Float64.(c) .* sb : Float64(c) * sb
@@ -403,6 +404,12 @@ function _pu_scale_ibrs!(net, bases)
         # The power_factor control_profile "pf" field is dimensionless and the
         # PF equality constraint is scale-invariant — nothing to scale here.
         # topology / terminal_map are structural — untouched.
+        # Cost follows the same scaling as generator/source cost. Omitting this
+        # would change both the objective value and the merit order in PU mode.
+        if haskey(inv, "cost")
+            c = inv["cost"]
+            inv["cost"] = c isa AbstractVector ? Float64.(c) .* sb : Float64(c) * sb
+        end
     end
 end
 
@@ -852,8 +859,11 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         end
     end
 
-    # Objective: cost_pu * P_pu = (cost_si * s_base) * (P_si / s_base) = cost_si * P_si
-    # The s_base factors cancel, so the PU objective is already in SI — no rescaling needed.
+    # Default OPF objective cost rate: (cost_kWh * s_base / 1000) * P_pu
+    # = cost_kWh * P_si / 1000 ($/h). The s_base factors cancel, so this
+    # objective is already in the same $/h units as the SI solve. A feasibility
+    # OPF's raw objective instead remains a working-coordinate slack metric; its
+    # physically interpretable slack fields are converted below.
 
     # Feasibility OPF slack injections
     if haskey(result, "slack_injections")

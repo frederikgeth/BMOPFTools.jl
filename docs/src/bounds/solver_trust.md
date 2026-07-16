@@ -11,35 +11,38 @@ what Ipopt just told me?**
     - **Building or curating a dataset?** Read the *Takeaway* boxes and the
       [trust checklist](@ref "7. A trust checklist") at the end. The short version: once your
       bounds are sane, your objective is off the
-      [loss-maximization list](loss_maximization.md), and the benchmark flags are clear, a
-      reported `INFEASIBLE` almost certainly *is* infeasible and a reported
-      `LOCALLY_SOLVED` is almost certainly the operating point you wanted.
-    - **Validating a formulation?** Read everything. The two headline claims —
-      *infeasible likely means infeasible*, *locally optimal is probably global* — are
-      **calibrated trust, not proof**. The *Derivation* blocks say exactly what is and is
-      not certified, and Sections 4–6 catalogue the numerical reasons a *correct* model
-      can still misbehave.
+      [loss-maximization list](loss_maximization.md), and the benchmark flags are
+      clear, solver statuses become useful **hypotheses** to verify: multi-start
+      and a feasibility relaxation strengthen an infeasibility diagnosis, while
+      primal residual checks establish whether a locally solved point is a valid
+      operating point.
+    - **Validating a formulation?** Read everything. The two headline rules are:
+      *a local infeasibility status is not an infeasibility certificate*, and *a
+      local optimum is not a global optimum*. Sections 2–6 explain what additional
+      evidence can justify greater confidence without changing those facts.
 
 !!! tip "The two claims, up front"
     After the physics traps are excluded:
 
-    - **`INFEASIBLE` (a locally infeasible point) most likely means physically
-      infeasible.** Ipopt entered restoration, minimised the constraint violation, and
-      could not drive it to zero. With a compact, well-bounded feasible set this is a
-      strong signal — but on a nonconvex problem it is *evidence, not a certificate*.
-    - **`LOCALLY_SOLVED` is very likely the global, high-voltage optimum** — for a
-      loss/cost-minimising objective from a sane start. Again strong, again **not a
-      certificate**: only an exact relaxation or a global solver proves globality.
+    - **`INFEASIBLE` means this solver trajectory did not reach feasibility.**
+      Ipopt entered restoration, minimised constraint violation locally, and
+      could not drive it to zero. Repeated starts and a consistent slack-current
+      pattern strengthen the diagnosis but do not prove the feasible set is empty.
+    - **`LOCALLY_SOLVED` means a KKT point was found.** A high-voltage start and a
+      non-decreasing generation-cost objective often favour the operational
+      branch, but this does not establish global optimality. Only a valid global
+      bound — for example from an exact relaxation or global solver — can do that.
 
 ## 1. What Ipopt's verdicts actually certify
 
 !!! tip "Takeaway"
-    Ipopt is a **local** interior-point solver. `LOCALLY_SOLVED` certifies a point
-    satisfying the first-order (KKT) conditions to tolerance — a stationary point of a
-    *nonconvex* program, not a global optimum. `LOCALLY_INFEASIBLE` ("Converged to a
-    locally infeasible point") certifies that Ipopt's **restoration phase** found a local
-    minimiser of constraint violation with violation still above tolerance. Neither word
-    means what its convex-optimization namesake means.
+    Ipopt is a **local** interior-point solver. `LOCALLY_SOLVED` reports that its
+    termination tests for approximate first-order (KKT) conditions passed — a
+    stationary-point claim for a *nonconvex* program, not a global optimum.
+    `LOCALLY_INFEASIBLE` ("Converged to a locally infeasible point") reports that
+    Ipopt's **restoration phase** reached a local minimiser of constraint violation
+    with violation still above tolerance. Independently inspect primal residuals
+    before treating either status as evidence about the represented system.
 
 Ipopt solves a sequence of barrier subproblems with a filter line search
 ([Wächter & Biegler, 2006](https://doi.org/10.1007/s10107-004-0559-y)). When a step
@@ -65,18 +68,18 @@ violation. The two terminal messages map onto this machinery directly:
     first-order **certificate** of local infeasibility exist, but they are specially
     constructed; stock Ipopt does not hand you one.
 
-    The practical upshot is the whole reason this page exists: you cannot lift `INFEASIBLE`
-    to a proof for free, but you *can* raise your confidence in it to near-certainty by
-    excluding the alternative explanations — which is Sections 2 through 6.
+    The practical upshot is the whole reason this page exists: you cannot lift
+    `INFEASIBLE` to a proof for free, but you can accumulate reproducible evidence
+    by excluding alternative explanations — which is Sections 2 through 6.
 
-## 2. Why infeasible likely means infeasible — here
+## 2. Building evidence for physical infeasibility
 
 !!! tip "Takeaway"
-    With full operational bounds and the collapse region excluded
-    ([§3](index.md) and [§4](index.md) of the main note), the feasible set is **compact**
-    and the only reasons a solve fails are (a) the instance really is infeasible, or
-    (b) a numerical pathology from Sections 4–6. Rule out (b) and `INFEASIBLE` is as good
-    as a verdict gets without a global solver.
+    Full operational bounds and a positive voltage floor can make the search
+    region bounded and remove common collapse/zero-voltage pathologies
+    ([§3](index.md) and [§4](index.md)). They do not make the problem convex or
+    make restoration exhaustive. Treat agreement across starts, formulations,
+    and residual diagnostics as evidence, not as a binary proof.
 
 The main note's [§4](index.md) makes the physical case sharp: with constant-power loads,
 the edge of the AC feasible region *is* the loadability boundary, and beyond the nose the
@@ -86,40 +89,39 @@ equations have **no real solution** — genuine infeasibility, not a modelling s
 The hedge is nonconvexity: restoration is start-dependent. Two cheap cross-checks promote
 the signal toward certainty:
 
-- **Multi-start.** Re-solve from several starts (flat, high-voltage, a linear-model warm
-  start). If *every* start lands in restoration with a comparable residual, the case is
-  almost surely infeasible; if one start succeeds, it was never infeasible — see
-  [Symptom 5](diagnostics.md).
+- **Multi-start.** Re-solve from several materially different starts (flat,
+  high-voltage, a linear-model warm start). If every start lands in restoration
+  with a comparable residual, confidence in the diagnosis increases; one
+  independently verified feasible point disproves infeasibility — see [Symptom
+  5](diagnostics.md).
 - **The slack-current measure.** [`solve_feasibility_opf`](../validation.md) adds an
-  elastic slack current at every non-source terminal and minimises its norm, so it
-  *always* returns a point and reports how far that point is from feasible. A non-zero
-  `total_slack_magnitude_A` localises *where* the infeasibility concentrates — the
-  four-wire analogue of an IIS for this question.
+  elastic slack current at every non-source terminal and minimises its norm. For
+  a converged relaxed solve, a non-zero `total_slack_magnitude_A` localises where
+  that local solution uses residual current. Unlike an IIS for a convex/linear
+  problem, it does not certify that no zero-slack solution exists elsewhere.
 
-## 3. Why locally optimal is probably global
+## 3. Why a local solve often reaches the high-voltage branch
 
 !!! tip "Takeaway"
-    Under a loss- or cost-minimising objective (non-decreasing in generation) with full
-    bounds, the operationally meaningful **high-voltage solution is the unique attractor**
-    that fixed-point, relaxation, and energy-function methods all converge to *on radial
-    networks*. So a `LOCALLY_SOLVED` from a sane start is very likely *the* physical
-    optimum. The only *proof* of globality is an exact relaxation or a global solver — and
-    on the meshed or multiphase/unbalanced networks this engine also targets, even the
-    attractor argument is extrapolation, not theorem.
+    Some radial single-phase results establish useful uniqueness or attraction
+    properties for the high-voltage power-flow solution under stated conditions.
+    Those results motivate a high-voltage start and a loss/cost-minimising
+    objective here. They do not establish uniqueness or global optimality for the
+    meshed, multiphase, unbalanced OPFs this engine also targets.
 
 This is the optimistic mirror of [§2](index.md) and [§5](index.md). On a radial network
 the high-voltage solution is the last one to vanish as the system loads toward its limit,
 and the standard computational routes return exactly it when one exists
 ([Dvijotham, Mallada & Simpson-Porco, 2017](https://arxiv.org/abs/1706.05290), a radial,
-single-phase result). A loss-minimising objective is the lever ([§5](index.md)) that pins
-the nonconvex solve to that branch. Put together: sane start + loss-min objective + full
-bounds ⇒ the local optimum Ipopt returns is, with high probability, the global one — with
-the caveat that the underlying uniqueness theorems are radial and single-phase, so
-on a four-wire unbalanced feeder this is calibrated trust resting on an analogy, not a
-guarantee that carries over ([Bernstein et al., 2018](https://doi.org/10.1109/TPWRS.2018.2823277)).
+single-phase result). A loss-minimising objective can favour that branch
+([§5](index.md)). For a four-wire unbalanced feeder this is a useful
+initialisation heuristic and modelling analogy, not a probability statement or
+a theorem that carries over ([Bernstein et al.,
+2018](https://doi.org/10.1109/TPWRS.2018.2823277)). Globality remains an open
+claim until a valid lower bound closes the optimality gap.
 
 !!! details "Derivation: what an actual globality certificate would require"
-    "Probably global" is a statement about attractors, not a theorem about your specific
+    Attraction to a familiar branch is not a theorem about your specific
     instance. A genuine certificate comes from one of two places:
 
     - **An exact convex relaxation.** Solve the SOC/SDP relaxation, then confirm exactness
@@ -346,11 +348,13 @@ Work top to bottom; each step removes one alternative explanation for the solver
        across several starts ([Symptom 4–5](diagnostics.md)).
 
 !!! note "Then read the verdict this way"
-    - **`INFEASIBLE`** after steps 1–6 ⇒ trust it as **physical** infeasibility; confirm
-      *where* with `solve_feasibility_opf`'s slack current.
-    - **`LOCALLY_SOLVED`** after steps 1–6 ⇒ trust it as **the operating point**; it is
-      very likely the global optimum. For a *certificate* of globality, solve the
-      relaxation and confirm exactness ([Symptom 3](diagnostics.md)).
+    - **`INFEASIBLE`** after steps 1–6 ⇒ report a strengthened but still local
+      infeasibility diagnosis; show the multi-start outcomes and localise the
+      residual with `solve_feasibility_opf`.
+    - **`LOCALLY_SOLVED`** after steps 1–6 ⇒ treat it as a candidate operating
+      point after independently checking primal feasibility. Do not label it
+      globally optimal unless a relaxation/global solve supplies a matching valid
+      bound ([Symptom 3](diagnostics.md)).
     - **Slow / churning / suspicious duals** ⇒ you are in Section 4, 5, or a collapse
       regime; localise with [Symptom 5](diagnostics.md) before trusting *any* number.
 

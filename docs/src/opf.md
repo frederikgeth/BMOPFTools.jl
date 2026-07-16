@@ -4,10 +4,13 @@ Despite the name, the ambition of this Task Force extends well beyond the
 classical OPF problem of minimising generation cost subject to network
 constraints.  The unifying theme of the benchmark problems targeted here is
 the need to **accurately represent distribution network physics** rather than
-any particular objective function.  Generation cost minimisation is a
-convenient and well-posed starting point — it admits a unique solution, is
-straightforward to compare across solvers, and is equivalent to loss
-minimisation under mild conditions — but the same network physics underpins a
+any particular objective function. Generation cost minimisation with explicit
+operational bounds is a convenient starting point: its objective and feasibility
+conditions are straightforward to compare across solvers. With fixed demand and
+one uniform non-negative price on every real-power injection, minimizing total
+injection is equivalent to minimizing real losses. That special case does
+**not** imply uniqueness or global optimality in this
+nonconvex formulation. The same network physics underpins a
 much broader class of distribution-network-constrained optimisation problems
 of practical relevance: maximum load delivery, conservation voltage reduction
 (CVR), Dynamic Operating Envelopes (DOEs) for distributed energy resources,
@@ -220,16 +223,21 @@ not commit the solver to computing in SI.
 
 ### Objective
 
-Minimise total active-power generation cost (linear in current variables):
+Minimise total active-power generation cost **rate** (linear in active power;
+bilinear in generator/IBR voltage-current variables):
 
 $$\min \sum_{g \in \mathcal{G}} \sum_{k=1}^{|\mathcal{T}_g^\phi|}
-  c^g_k \cdot \bigl(\Delta v^r_k \, c^{r,g}_{g,k} + \Delta v^i_k \, c^{i,g}_{g,k}\bigr)$$
+  \frac{c^g_k}{1000} \cdot
+  \bigl(\Delta v^r_k \, c^{r,g}_{g,k} + \Delta v^i_k \, c^{i,g}_{g,k}\bigr)$$
 
-where $c^g_k$ (currency/W) is the **per-phase** linear cost coefficient — the
-`cost` field is a vector with one entry per phase term, indexed by $k$ — and
+where $c^g_k$ (currency/kWh) is the **per-phase** energy price — the `cost`
+field is a vector with one entry per phase term, indexed by $k$ — and
 $\Delta v_k$ is the phase-to-neutral (WYE) or line-to-line (DELTA) voltage at
 generator $g$'s $k$-th phase terminal (see [Generators](@ref generators-section)
-below). The same per-phase `cost` vector prices the voltage source and IBRs.
+below). Division by 1000 converts the active-power expression from W to kW, so
+the snapshot objective has units currency/h. The same per-phase `cost` vector
+prices the voltage source and IBRs. To obtain currency over a time interval,
+multiply this rate by the interval duration in hours.
 
 ---
 
@@ -1113,7 +1121,7 @@ windings — only the coil↔terminal incidence differs. The coil voltage $U_{j,
 is **phase-to-neutral** for a `WYE` winding and **line-to-line** (phase $k$ minus
 its delta partner $k^{\pm}$, selected by the winding's `delta_roll`) for a
 `DELTA` winding, whose $V^\text{ref}$ is its line-to-line coil voltage — so the
-$\sqrt3$/coil-base factor lives entirely in $N_j$ and $V^r_j$ stays consistent
+$\sqrt{3}$ coil-base factor lives entirely in $N_j$, and $V^r_j$ stays consistent
 (per-unit needs no $\sqrt3$ correction, since the bus base is line-to-neutral).
 A `WYE` coil injects $-c^{w}_{x,j,k}$ at its phase and $+\sum_k c^{w}_{x,j,k}$ at
 its neutral; a `DELTA` coil injects $-c^{w}_{x,j,k}$ at phase $k$ and
@@ -1208,36 +1216,44 @@ centre-tap secondary starts with a 60° leg error.
 
 `solve_feasibility_opf` adds an **elastic slack current**
 $(c^{r,\varepsilon}_{b,t},\, c^{i,\varepsilon}_{b,t})$ at every ungrounded,
-non-source terminal, making KCL always satisfiable:
+non-source terminal. These variables can absorb any KCL residual at those
+terminals, but they do not relax contradictory source fixes, inconsistent hard
+bounds, or other hard equalities:
 
 ```math
 \kappa^r_{b,t} + c^{r,\varepsilon}_{b,t} = 0, \qquad
 \kappa^i_{b,t} + c^{i,\varepsilon}_{b,t} = 0
 ```
 
-The cost objective is replaced by the $\ell_2^2$ norm of all slack injections:
+The primary cost objective is replaced by the $\ell_2^2$ norm of all slack
+injections:
 
 ```math
 \min \sum_{(b,t)} \Bigl[\bigl(c^{r,\varepsilon}_{b,t}\bigr)^2
                        + \bigl(c^{i,\varepsilon}_{b,t}\bigr)^2\Bigr]
 ```
 
-All device models — load, generator, **IBR**, shunt, transformer, switch,
-and the voltage-source slack — are built identically to `solve_opf`. The only
-differences are the deliberate ones: operational **network** bounds (voltage
-magnitude/sequence, line thermal-angle, bus limits) are **not** hard constraints
-here, and the objective is the slack norm rather than cost. Voltage bounds are
-evaluated post-solve by `diagnose_infeasibility`.
+The implementation adds a tiny linear transformer-current tie-break to select a
+numerical representative when Yd/Dy delta circulation is unobservable. Therefore
+the raw solver `objective` is an implementation metric; interpret the SI-valued
+slack fields instead.
 
-A zero-slack solution certifies physical feasibility.  Non-zero slacks at
-$(b, t)$ reveal where the network cannot balance KCL without external
-intervention.
+All device models and non-KCL hard constraints — including voltage, sequence,
+thermal, and angle limits — are built identically to `solve_opf`. The deliberate
+changes are the elastic KCL currents and the slack-norm objective. Thus the
+relaxed feasible set contains the original feasible set; it is not identical to
+it, and contradictory remaining hard constraints can still make it empty.
+
+A converged, independently residual-checked zero-slack point demonstrates
+numerical feasibility. Non-zero slacks at $(b,t)$ show where that local relaxed
+solution uses external current; they do not prove that no zero-slack solution
+exists elsewhere.
 
 ```julia
 fopf   = solve_feasibility_opf(net)
 diag   = diagnose_infeasibility(fopf, net)
 
-println(diag["is_feasible"])            # false if network is overloaded
+println(diag["is_feasible"])            # local classification from status/slack
 println(diag["total_infeasibility_A"])  # L2 norm of all slacks (A)
 ```
 
@@ -1305,7 +1321,7 @@ add your own inter-temporal constraints, solve once, and extract each snapshot:
 | function | role |
 |---|---|
 | `build_opf_model(net; model, add_objective, model_hook!, …)` | build one snapshot's devices/bounds into a (shared) model; no KCL, no solve |
-| `generation_cost(ctx)` | that snapshot's cost expression, unset — sum across snapshots for one combined objective |
+| `generation_cost(ctx)` | that snapshot's cost-rate expression (\$/h), unset — duration-weight and sum across snapshots for one monetary objective |
 | `enforce_kcl!(ctx)` | pin KCL for one snapshot (call once per snapshot before solving) |
 | `extract_result(ctx; solution_hook!)` | extract one snapshot's SI result after the shared solve |
 
@@ -1321,17 +1337,24 @@ ctxs  = [build_opf_model(nets[t]; model=model, add_objective=false,
                          model_hook! = battery_port!(t)) for t in 1:T]
 
 # inter-temporal state of charge: SOC[t+1] = SOC[t] − P[t]·Δt, cyclic
+duration_hours = fill(1.0, T)  # use the actual duration of every period
 @variable(model, soc[1:T+1]); @constraint(model, soc[1] == soc[T+1])
 for t in 1:T
-    @constraint(model, soc[t+1] == soc[t] - Pexpr[t]*Δt)
+    @constraint(model, soc[t+1] == soc[t] - Pexpr[t]*duration_hours[t])
     @constraint(model, 0 <= soc[t+1] <= E_max)
 end
 
-@objective(model, Min, sum(generation_cost(c) for c in ctxs))
+@objective(model, Min,
+    sum(duration_hours[t] * generation_cost(ctxs[t]) for t in 1:T))
 foreach(enforce_kcl!, ctxs)
 JuMP.optimize!(model)
 results = [extract_result(c) for c in ctxs]
 ```
+
+`generation_cost(ctx)` is a **rate**, not an interval total. A bare sum of rates
+preserves the same optimizer only when all periods have equal duration; it does
+not report a monetary total. Duration weighting is required when periods differ
+or when the objective value will be interpreted as currency.
 
 Everything a snapshot exposes for coupling — `ctx.model`, `ctx.vars`,
 `ctx.bases`, `ctx.kcl_r`/`ctx.kcl_i` — is the same context object a `model_hook!`
