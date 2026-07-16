@@ -40,7 +40,7 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
   BMOPF NETWORK SUMMARY REPORT
 ──────────────────────────────────────────────────────────────────────
 </span>  Case name                     lv1_14bus
-  Generated                     2026-07-15 11:39:09
+  Generated                     2026-07-16 00:38:25
   Findings                      0 errors, 2 warnings, 22 info
   Convention                    MV_6.4kV: 4-wire; LV_250V: 4-wire; 4 grounding point(s); symmetric π-only line model
 <span class="sgr1">
@@ -300,7 +300,7 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
     <span class="sgr36">[INFO] I.BENCH.AUGMENTATION</span>
       Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.</code></pre><h2 id="3.-Fix-—-structural-repair"><a class="docs-heading-anchor" href="#3.-Fix-—-structural-repair">3. Fix — structural repair</a><a id="3.-Fix-—-structural-repair-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Fix-—-structural-repair" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.fix_case"><code>fix_case</code></a> applies idempotent structural repairs and returns the repaired network plus a <a href="../augmentation/#TransformationManifest"><code>TransformationManifest</code></a> recording every change. The default <a href="../augmentation/#BMOPFTools.FixRecipe"><code>FixRecipe</code></a> keeps the largest connected component, merges trivial series lines, drops electrically-inert zero loads, turns near-zero-impedance lines into switches, and strips redundant voltage bounds off source buses. Four passes are opt-in because they change topology inference, representation, or OPF physics: <code>apply_adjacent_current_bounds</code>, <code>apply_perfect_grounding</code>, <code>apply_shunt_to_capacitor</code>, and <code>apply_snap_transformer_impedance</code>.</p><pre><code class="language-julia hljs">net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
 
-render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-07-15T11:39:14.293
+render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-07-16T00:38:30.491
   6 change(s)  |  findings before: 1  after: 1
 
 ── BUS (2 change(s)) ──
@@ -330,7 +330,7 @@ render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code
 
 net_der, der_mf = add_ibrs(net_fixed; recipe = ibr_recipe)
 
-render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-07-15T11:39:14.831
+render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-07-16T00:38:30.991
   14 change(s)  |  findings before: 1  after: 3
 
 ── IBR (14 change(s)) ──
@@ -365,7 +365,7 @@ render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code
     topology         —                    → SINGLE_PHASE
                      [IBR_PLACEMENT/load_following, synthetic] inferred from load terminal_map (2 terminals)</code></pre><h2 id="5.-Augment-—-standards-grounded-gap-filling"><a class="docs-heading-anchor" href="#5.-Augment-—-standards-grounded-gap-filling">5. Augment — standards-grounded gap-filling</a><a id="5.-Augment-—-standards-grounded-gap-filling-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Augment-—-standards-grounded-gap-filling" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.augment_case"><code>augment_case</code></a> fills the bounds and costs an OPF needs, <strong>without overwriting any value already present</strong>. Each fill is tagged in the manifest as <code>:standard</code> (derived from a cited standard) or <code>:synthetic</code> (a design choice). The passes draw on EN 50160 (voltage bounds), a heuristic conductor-size → ampacity estimate (thermal limits, loosely IEC-60228/60364-calibrated), and EN 50549-1 / IEEE 1547 (reactive capability). See <a href="../augmentation/">Case augmentation</a> for the full pass-by-pass rationale.</p><pre><code class="language-julia hljs">net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
 
-render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-07-15T11:39:14.953
+render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-07-16T00:38:31.109
   95 change(s)  |  findings before: 1  after: 0
 
 ── BUS (86 change(s)) ──
@@ -578,7 +578,33 @@ render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code
 ── VOLTAGE_SOURCE (1 change(s)) ──
   source
     cost             —                    → [1.0, 1.0, 1.0, 1.0]
-                     [TFspec_Eq135_slack_generation, standard] priced slack at source bus &#39;b2577&#39;; cost=1.0 $/kWh on 4 phase(s)</code></pre><h2 id="6.-Re-validate"><a class="docs-heading-anchor" href="#6.-Re-validate">6. Re-validate</a><a id="6.-Re-validate-1"></a><a class="docs-heading-anchor-permalink" href="#6.-Re-validate" title="Permalink"></a></h2><p>Re-running <a href="../api/#BMOPFTools.analyze"><code>analyze</code></a> on the prepared case shows what the pipeline actually changed. Raw counts are a blunt instrument — the interesting signal is <em>which</em> finding codes appeared and disappeared, so we diff them:</p><pre><code class="language-julia hljs">report2 = analyze(net_ready)
+                     [TFspec_Eq135_slack_generation, standard] priced slack at source bus &#39;b2577&#39;; cost=1.0 $/kWh on 4 phase(s)</code></pre><p><strong>Where the thermal limits landed.</strong> The thermal pass writes a heuristic per-conductor ampacity <code>i_max</code> (in A) onto each linecode that lacked one — this is the line/cable thermal limit the OPF enforces, and it is tagged <code>:synthetic</code> in the manifest above. Read it straight off the prepared linecodes:</p><pre><code class="language-julia hljs">for (lc_id, lc) in sort(collect(net_ready[&quot;linecode&quot;]); by = first)
+    imax = get(lc, &quot;i_max&quot;, nothing)
+    println(rpad(lc_id, 16),
+            imax === nothing ? &quot;no i_max (skipped — see manifest)&quot; :
+                               string(&quot;i_max = &quot;, imax, &quot; A&quot;))
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">abc4x16_lv_oh_4w_bundledi_max = Any[600, 600, 600, 600] A
+abc4x95_lv_oh_4w_bundledi_max = Any[600, 600, 600, 600] A
+generic/lv      i_max = Any[600, 600, 600, 600] A
+moon_hv_oh_3wirei_max = Any[600, 600, 600] A
+moon_lv_oh_4wirei_max = Any[600, 600, 600, 600] A
+pluto_lv_oh_3wirei_max = Any[600, 600, 600] A
+ughv_240al_triplex_ug_3w_bundledi_max = Any[600, 600, 600] A
+ughv_240cu_hdpe/nyl/pvc_ug_3w_bundledi_max = Any[600, 600, 600] A
+ughv_240cu_xlpe/nyl/pvc_ug_3w_bundledi_max = Any[600, 600, 600] A
+ughv_240cu_xlpe/nyl/pvc_ug_4w_bundledi_max = Any[600, 600, 600, 600] A
+ughv_400al_triplex_ug_3w_bundledi_max = Any[600, 600, 600] A
+ughv_400al_triplex_ug_4w_bundledi_max = Any[600, 600, 600, 600] A
+ughv_400al_xlpe/nyl/pvc_ug_3w_bundledi_max = Any[600, 600, 600] A
+ughv_95al_xlpe/nyl/pvc_ug_3w_bundledi_max = Any[600, 600, 600] A
+uglv_120cu_xlpe/nyl/pvc_ug_4w_bundledi_max = Any[600, 600, 600, 600] A
+uglv_185cu_xlpe/nyl/pvc_ug_4w_bundledi_max = Any[600, 600, 600, 600] A
+uglv_185cu_xlpe/sw/pvc_ug_4w_bundledi_max = Any[600, 600, 600, 600] A
+uglv_240al_xlpe/nyl/pvc_ug_3w_bundledi_max = Any[600, 600, 600] A
+uglv_240al_xlpe/nyl/pvc_ug_4w_bundledi_max = Any[600, 600, 600, 600] A
+uglv_4cu_xlpe/pvc_ug_2w_bundledi_max = Any[600, 600] A
+uglv_4cu_xlpe/pvc_ug_4w_bundledi_max = Any[600, 600, 600, 600] A
+ugsc_16cu_xlpe/nyl/pvc_ug_4w_bundledi_max = Any[600, 600, 600, 600] A</code></pre><p>A <strong>transformer&#39;s</strong> thermal limit is a different mechanism: its nameplate <code>s_rating</code> (kVA) already plays that role and the OPF enforces it directly, so <code>augment_case</code> never adds a separate transformer thermal limit. The full pass-by-pass rationale — the R₁₁ → ampacity lookup table, its confidence gating, and the neutral-conductor rating — is in <a href="../augmentation/">Case augmentation</a>.</p><h2 id="6.-Re-validate"><a class="docs-heading-anchor" href="#6.-Re-validate">6. Re-validate</a><a id="6.-Re-validate-1"></a><a class="docs-heading-anchor-permalink" href="#6.-Re-validate" title="Permalink"></a></h2><p>Re-running <a href="../api/#BMOPFTools.analyze"><code>analyze</code></a> on the prepared case shows what the pipeline actually changed. Raw counts are a blunt instrument — the interesting signal is <em>which</em> finding codes appeared and disappeared, so we diff them:</p><pre><code class="language-julia hljs">report2 = analyze(net_ready)
 
 all_codes(r) = Set(f.code for f in [errors(r); warnings(r); infos(r)])
 before, after = all_codes(report), all_codes(report2)
@@ -622,10 +648,10 @@ render_solution(sol_report, stdout)</code></pre><pre class="documenter-example-o
 Solution WARNINGs : 2
 # BMOPF Solution Profile: lv1_14bus
 
-**Generated:** 2026-07-15 11:39:20
+**Generated:** 2026-07-16 00:38:35
 **Status:** `LOCALLY_SOLVED`
 **Objective:** -66141.6801
-**Solve time:** 0.026 s
+**Solve time:** 0.025 s
 **Findings:** 0 errors · 2 warnings · 2 info
 
 ---
@@ -706,7 +732,7 @@ Per-unit magnitudes are relative to each zone&#39;s own voltage base; volts are 
 | Strictly complementary | true |
 | Weakly-active (degenerate) | 0 |
 | Barrier iterations | 12 |
-| Solve time (s) | 0.025681018829345703 |
+| Solve time (s) | 0.025236129760742188 |
 | Max shadow price (per_unit) | 16410.0 |
 
 ## 6. All Findings
@@ -742,5 +768,5 @@ println(&quot;Result JSON round-trips : &quot;,
 println(&quot;Wrote case, result, report, and manifests to &quot;, out_dir)
 println(&quot;Captured &quot;, sum(length(m[&quot;entries&quot;]) for m in values(manifests)),
         &quot; transformation entries across the three manifests&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Result JSON round-trips : true
-Wrote case, result, report, and manifests to /tmp/jl_Hfz81Z
-Captured 115 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF, an exported result and report, and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../installation/">« Installation &amp; first steps</a><a class="docs-footer-nextpage" href="../choose_tutorial/">Choose your tutorial »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 15 July 2026 11:40">Wednesday 15 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Wrote case, result, report, and manifests to /tmp/jl_qtJtmg
+Captured 115 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF, an exported result and report, and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../installation/">« Installation &amp; first steps</a><a class="docs-footer-nextpage" href="../choose_tutorial/">Choose your tutorial »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 16 July 2026 00:39">Thursday 16 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
