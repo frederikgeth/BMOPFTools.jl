@@ -9,7 +9,9 @@ built to match OpenDSS's own `Yprim` term-by-term wherever OpenDSS is unambiguou
 
 The companion [Transformer primitive admittance](spec/transformer-admittance.md)
 spec page carries the full symbolic matrix derivations; this page is the
-model-level contract.
+model-level contract. For the workflow that *produces* these fields — turning
+short-circuit/open-circuit test data into a validated model — see the
+[transformer test-data tutorial](tutorial_transformer_tests.md).
 
 ## Supported subtypes
 

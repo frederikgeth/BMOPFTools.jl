@@ -470,9 +470,20 @@ Z_base,from = v_nom_from² / s_rating
 Z_base,to   = v_nom_to²   / s_rating
 r_series_from = rw₁ · Z_base,from
 r_series_to   = rw₂ · Z_base,to
-x_series_from = xsc₁ · Z_base,from     # PMD lumps all leakage on winding 1
-x_series_to   = 0                      # 2-winding star: LV branch is zero
+x_series_from = (xhl / 2) · Z_base,from   # one leakage-split convention…
+x_series_to   = (xhl / 2) · Z_base,to
 ```
+
+The short-circuit test fixes only the **series sum** `Z_from + N²·Z_to`; how
+it splits between the windings is a convention, not a measurement. PowerIO's
+current BMOPF export (and therefore [`from_dss`](@ref)) splits `xhl` **evenly**
+in percent as above; PMD's `_sc2br_impedance` star conversion instead lumps
+the entire `xhl` on the winding-1 branch (`x_series_to = 0`). Both describe
+the same device at nominal tap — when comparing hand conversions against an
+import, check the HV-referred series **sum**, not the split (see the
+[transformer test-data tutorial](tutorial_transformer_tests.md)). The split
+becomes observable only under off-nominal taps, where the tapped winding's
+share scales as tap² ([transformer models](transformer_models.md)).
 
 The no-load branch is on **winding 2** (the to side): a delta of branches
 across the LV delta coils for `wye_delta`, phase-to-neutral on the LV wye for
@@ -486,11 +497,14 @@ b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       /
 ```
 
 !!! note "Leakage placement"
-    For a 2-winding unit PMD's star conversion (`_sc2br_impedance`) puts the
-    *entire* `xhl` leakage on the winding-1 (HV) branch, with **zero** on the
-    LV branch — not an even split. BMOPFTools follows that convention for
-    `wye_delta`/`delta_wye`. The lumped single-impedance form `from_dss` emits
-    is migrated onto these fields at parse time — see
+    The winding split of the leakage is convention-dependent (see above): PMD's
+    star conversion (`_sc2br_impedance`) puts the *entire* `xhl` on the
+    winding-1 (HV) branch with zero on the LV branch, while PowerIO's BMOPF
+    export — what [`from_dss`](@ref) delivers — splits it evenly in percent.
+    BMOPFTools accepts either; the physics (the series sum, and the exact
+    tap² referral of the tapped winding's share) is convention-independent.
+    Any lumped single-impedance form is migrated onto the per-winding fields
+    at parse time — see
     [Transformer impedance on ingest](#Transformer-impedance-on-ingest).
     `to_pmd` writes the per-winding fields back to PMD `rw`/`xsc`.
 
