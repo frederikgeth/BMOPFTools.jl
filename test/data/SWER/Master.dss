@@ -65,7 +65,13 @@ Redirect Transformers.dss
 Redirect Groundings.dss
 Redirect Loads.dss
 
-Set VoltageBases=[22.0, 12.7, 0.24]
+! OpenDSS VoltageBases are LINE-TO-LINE, so each entry is divided by sqrt(3) to
+! get a bus's phase-to-earth kVBase.  22.0 therefore covers both the 3-phase MV
+! bus and the 12.7 kV SWER buses (12.7 = 22/sqrt(3)) -- a listed 12.7 would be
+! redundant.  The LV entry must likewise be the sqrt(3)-scaled 0.24 kV:  entering
+! 0.24 directly bases the LV buses at 0.1386 kV and reports nominal 240 V as
+! 1.723 pu.
+Set VoltageBases=[22.0, 0.41569]
 CalcVoltageBases
 ! Tolerance 1e-8 (<< the voltage-comparison tolerance) removes OpenDSS-side
 ! convergence slop; MaxIterations raised so the tighter target is reached.
