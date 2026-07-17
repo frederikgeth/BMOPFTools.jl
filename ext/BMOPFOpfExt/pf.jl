@@ -86,9 +86,13 @@ const _PF_LIMIT_FIELDS = ("i_max", "i_max_from", "i_max_to", "s_max")
     _strip_operational_limits!(net)
 
 Delete current/thermal/apparent-power limit fields from every component and
-linecode in the (private working) network, so the power flow imposes no
-operational limits. Voltage bounds are never added by `build_pf!`, so they need
-no stripping.
+linecode in the (private working) network — including inline `line` limits
+(which override the linecode's) and `dc_branch` `i_max`/`p_max` — so the power
+flow imposes no operational limits. Voltage bounds are never added by
+`build_pf!`, so they need no stripping. Transformer `s_rating` is deliberately
+NOT stripped: it is a required field with a documented always-enforced
+contract (see transformer_models.md); remove it from the input net to compare
+against a limit-free reference.
 """
 function _strip_operational_limits!(net::Dict{String,Any})
     # linecodes carry line thermal limits (i_max)
@@ -99,13 +103,23 @@ function _strip_operational_limits!(net::Dict{String,Any})
         end
     end
 
-    # flat component collections: switch, generator, ibr
-    for coll in ("switch", "generator", "ibr")
+    # flat component collections: line (inline limits override the linecode's),
+    # switch, generator, ibr
+    for coll in ("line", "switch", "generator", "ibr")
         for (_, comp) in get(net, coll, Dict())
             comp isa Dict || continue
             for f in _PF_LIMIT_FIELDS
                 delete!(comp, f)
             end
+        end
+    end
+
+    # DC branches carry their own limit fields (i_max, p_max). p_max is removed
+    # only here — on generators/sources it is a dispatch setpoint, not a limit.
+    for (_, br) in get(net, "dc_branch", Dict())
+        br isa Dict || continue
+        for f in ("i_max", "p_max")
+            delete!(br, f)
         end
     end
 
