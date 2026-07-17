@@ -8,6 +8,11 @@
 #      limits). The power flow solves the network as-is and reports whatever
 #      currents and voltages result; rating violations are a separate validation
 #      concern. This mirrors PowerModels `build_pf_iv` (variable_*(bounded=false)).
+#      ONE deliberate exception: the transformer nameplate `s_rating` (a required
+#      field with an always-enforced per-coil cap, see transformer_models.md) is
+#      NOT stripped — a PF loading a coil beyond s_rating/n_ph returns
+#      LOCALLY_INFEASIBLE (see issue #355). Remove `s_rating` from the input dict
+#      for a limit-free reference solve.
 #   2. NO objective (Min 0). The voltage source fixes the slack-bus voltages and
 #      supplies the free swing current; constant-power loads/generators/IBRs
 #      and exact KCL then fully determine the nodal state.
@@ -30,6 +35,14 @@ objective** — the network's physics (fixed source voltages + constant-power
 injections + exact KCL) fully determine the solution. Device current/thermal
 limits and voltage bounds are intentionally ignored; use `solve_opf` (or a
 post-solve validation pass) when limits must be enforced.
+
+**One exception**: a transformer's nameplate `s_rating` is a required field
+whose per-coil apparent-power cap is **always enforced**, in the power flow
+too — loading any coil beyond `s_rating / n_phase` makes the PF
+`LOCALLY_INFEASIBLE` rather than reporting an overloaded state. This is easy
+to misread as a numerical failure (healthy voltages, no other limits). To
+solve without the nameplate — e.g. to compare against a limit-free OpenDSS
+solve — delete `s_rating` from the transformer dicts in the input net first.
 
 Generators must be specified as **fixed setpoints** (`p_min == p_max` and
 `q_min == q_max`); a non-degenerate P/Q range is rejected, since a power flow has

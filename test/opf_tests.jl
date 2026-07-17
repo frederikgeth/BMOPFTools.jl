@@ -2922,6 +2922,42 @@
     end
 
     # ─────────────────────────────────────────────────────────────────────────
+    # PF5d: the s_rating exception, pinned both ways (issue #355). The nameplate
+    # coil cap IS enforced in a power flow — a load beyond s_rating is
+    # LOCALLY_INFEASIBLE, not an overload report — and deleting s_rating from
+    # the input net is the documented escape hatch.
+    # ─────────────────────────────────────────────────────────────────────────
+    @testset "PF5d: transformer s_rating stays enforced in solve_pf (#355)" begin
+        mknet() = parse_bmopf("""
+        {"bus":{
+            "src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "lv": {"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0]}},
+         "transformer":{"single_phase":{"t1":{
+             "bus_from":"src","bus_to":"lv",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "v_nom_from":1000.0,"v_nom_to":1000.0,"s_rating":5000.0,
+             "r_series_from":0.05,"x_series_from":0.1}}},
+         "load":{"ld1":{"bus":"lv","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE",
+             "p_nom":[10000.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+
+        # 10 kW load through a 5 kVA nameplate: the coil cap binds → infeasible.
+        res = solve_pf(mknet())
+        @test res["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL")
+
+        # The documented escape hatch: delete s_rating → the same PF solves and
+        # reports the overloaded state.
+        net = mknet()
+        delete!(net["transformer"]["single_phase"]["t1"], "s_rating")
+        res2 = solve_pf(net)
+        @test res2["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test sum(ph["pd"] for ph in values(res2["load"]["ld1"])) ≈ 10000.0  rtol=1e-3
+    end
+
+    # ─────────────────────────────────────────────────────────────────────────
     # Single-phase autotransformer / step voltage regulator
     #
     # Lossless ideal regulator collapses to V_to = n_eff·V_fr_pn.
