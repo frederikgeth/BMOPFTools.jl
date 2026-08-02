@@ -306,6 +306,9 @@ function _droop_base(c::DroopCurve, idx::Int, smax, p_max, p_avail_per)
     return 0.0
 end
 
+_same_working_voltage_base(a::Float64, b::Float64) =
+    isapprox(a, b; rtol=1e-12, atol=0.0)
+
 """
     _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i; bases, relu_eps, relu_ops)
 
@@ -334,9 +337,6 @@ Volt-var/Volt-watt droop is applied for SINGLE_PHASE and FOUR_LEG IBRs only;
 for THREE_LEG (delta) there are too few degrees of freedom for a per-phase droop,
 so a profile is ignored (box bounds retained) with a warning.
 """
-_same_working_voltage_base(a::Float64, b::Float64) =
-    isapprox(a, b; rtol=1e-12, atol=0.0)
-
 function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                                     bases=nothing, relu_eps::Float64=2e-3,
                                     relu_ops::Dict{Float64,Any}=Dict{Float64,Any}(),

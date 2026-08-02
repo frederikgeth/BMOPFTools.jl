@@ -1068,13 +1068,28 @@ using .MockOpfExtension
             build_spec=OpfBuildSpec(component_builders=Dict(
                 (:line, "l1") => builder)))
         set_opf_start_values!(line_component_ctx)
-        @test_throws ArgumentError add_opf_device_constraints!(line_component_ctx)
+        line_error = try
+            add_opf_device_constraints!(line_component_ctx)
+            nothing
+        catch caught
+            caught
+        end
+        @test line_error isa ArgumentError
+        @test occursin("omit the line from the network", sprint(showerror, line_error))
         @test !opf_stage_completed(line_component_ctx, :device_physics)
 
         bad_family = initialize_opf_model(net;
             build_spec=OpfBuildSpec(family_builders=Dict(:unknown => builder)))
         set_opf_start_values!(bad_family)
-        @test_throws ArgumentError add_opf_device_constraints!(bad_family)
+        family_error = try
+            add_opf_device_constraints!(bad_family)
+            nothing
+        catch caught
+            caught
+        end
+        @test family_error isa ArgumentError
+        @test occursin("[:capacitor, :generator, :grounding, :ibr, :load, :shunt, :switch, :voltage_source]",
+                       sprint(showerror, family_error))
         @test !opf_stage_completed(bad_family, :device_physics)
 
         bad_id = initialize_opf_model(net;

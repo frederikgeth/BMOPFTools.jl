@@ -1324,6 +1324,9 @@ const _UNSUPPORTED_FAMILY_REPLACEMENTS = Set((
     :line, :transformer, :dc_network,
 ))
 
+const _SUPPORTED_FAMILY_REPLACEMENTS =
+    setdiff(Set(_DEVICE_FAMILY_ORDER), _UNSUPPORTED_FAMILY_REPLACEMENTS)
+
 function _family_ids(ctx::OpfContext, family::Symbol)
     if haskey(_FLAT_DEVICE_COLLECTION, family)
         collection = get(ctx.net, _FLAT_DEVICE_COLLECTION[family], Dict())
@@ -1349,18 +1352,21 @@ end
 
 function _validate_build_spec(ctx::OpfContext)
     spec = ctx.build_spec
-    supported = Set(_DEVICE_FAMILY_ORDER)
     for family in keys(spec.family_builders)
-        family in supported || throw(ArgumentError(
-            "unsupported OPF device-builder family '$family'; supported " *
-            "families are $(collect(_DEVICE_FAMILY_ORDER))"))
         family in _UNSUPPORTED_FAMILY_REPLACEMENTS && throw(ArgumentError(
             "custom whole-family :$family ownership is not supported until " *
             "its native coupling and result-ledger seams are public; " *
             "replacement would otherwise produce incomplete physics or " *
             "silently incomplete flow/loss results"))
+        family in _SUPPORTED_FAMILY_REPLACEMENTS || throw(ArgumentError(
+            "unsupported OPF device-builder family '$family'; supported " *
+            "families are $(sort!(collect(_SUPPORTED_FAMILY_REPLACEMENTS)))"))
     end
     for ((family, id), _) in spec.component_builders
+        family == :line && throw(ArgumentError(
+            "custom per-component :line ownership is not supported until its " *
+            "native branch result-ledger seam is public; omit the line from " *
+            "the network and re-stamp its physics through model_hook! instead"))
         family in _MIXED_DEVICE_FAMILIES || throw(ArgumentError(
             "per-component OPF builders are not supported for family '$family'"))
         ids = _family_ids(ctx, family)

@@ -218,6 +218,8 @@ silently omit element flows and losses from `extract_result`. `:dc_network`
 replacement is likewise rejected until downstream builders can contribute to
 the DC-KCL accumulator through a public API. These are fail-closed capability
 boundaries, not promises that a custom callback can fill private ledgers.
+For a bespoke line model today, follow the [model-hook omit-and-re-stamp
+guidance](dev/opf_engine.md#Authoring-a-model_hook!) instead.
 
 ```julia
 function build_priority_controlled_ibrs!(ctx, ids)
