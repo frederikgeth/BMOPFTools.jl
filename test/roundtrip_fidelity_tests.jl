@@ -32,10 +32,10 @@ const _RT_PF_DIR = joinpath(@__DIR__, "data", "pf_comparison")
 # The unit now survives import, but `to_dss` lowers `n_winding` to a
 # single-phase bank with synthetic per-winding buses, so the reparse differs
 # structurally (documented loss; the PF cross-check still agrees).
-# pf_4wdg_dyyn moved OUT when PowerIO v0.6.2 exported the 4-winding unit
+# pf_4wdg_dyyn moved OUT when PowerIO v0.7 exported the 4-winding unit
 # directly (earlier it was dropped, and the reconstruction refused): it now
 # imports as `n_winding` and `to_dss` lowers it lossily, so the reparse differs.
-# PowerIO v0.6.2 preserves source neutral grounding on import. The current
+# PowerIO v0.7 preserves source neutral grounding on import. The current
 # `to_dss` writer does not emit that source side grounding, so those fixtures are
 # no longer structurally clean even though their regenerated decks solve.
 const RT_SEMANTIC_CLEAN = Set([

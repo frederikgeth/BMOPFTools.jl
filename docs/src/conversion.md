@@ -131,7 +131,7 @@ BMOPF conventions:
   (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
 - **Transformer impedance normalisation** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
-- **Transformer fidelity** — PowerIO v0.6.2 emits BMOPF transformer neutral
+- **Transformer fidelity** — PowerIO v0.7 emits BMOPF transformer neutral
   grounding, fixed taps, center-tap leakage, delta-wye leakage, and the validated
   `n_winding` cases directly. BMOPFTools still normalizes the no-load shunt sign
   and placement to its OPF convention.
@@ -331,7 +331,7 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
   `√3`/coil-base factor lives in `v_nom`, so `r_winding`/`x_sc` are on the coil
   base `n_ph·v_nom²/s_rating` and per-unit needs no `√3` correction.
 
-Ingest and export status: PowerIO v0.6.2 emits `n_winding` from its BMOPF export
+Ingest and export status: PowerIO v0.7 emits `n_winding` from its BMOPF export
 for the validated OpenDSS cases. `to_pmd` **skips** `n_winding` transformers
 with a warning, since PowerModelsDistribution has no general n-winding model.
 The OPF/PF model is validated to match OpenDSS's own 3-winding solve.
@@ -563,7 +563,7 @@ sources are re-expanded by the writer as needed.
 ## Known limitations
 
 - **Transformer fidelity (from `from_dss`).** BMOPFTools requires PowerIO
-  v0.6.2 for OpenDSS import. The BMOPF export carries fixed taps, center-tap
+  v0.7 for OpenDSS import. The BMOPF export carries fixed taps, center-tap
   leakage, delta-wye leakage, neutral grounding, and the validated `n_winding`
   cases directly. BMOPFTools normalizes no-load shunts to its OPF convention.
 - **Grounding reactors need `phases=1` (gotcha).** PowerIO silently drops a

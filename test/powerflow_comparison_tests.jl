@@ -2696,7 +2696,7 @@ end
         ("pf_dy_xfmr.dss",  "delta_wye",    1.0),
         ("pf_dy_xfmr.dss",  "delta_wye",    0.97),
         # rneut/xneut fixture: unbalanced load + internal neutral grounding
-        # carried through by PowerIO v0.6.2.
+        # carried through by PowerIO v0.7.
         ("pf_dy_xfmr_rneut.dss", "delta_wye", 1.0),
     )
     for (fname, sub, tapm) in cases
@@ -2736,7 +2736,7 @@ end
 
 @testset "PF comparison — from_dss transformer fidelity (single_phase/Yd/Dy)" begin
     # The single_phase/Yd/Dy models are validated above with hand-built nets;
-    # this guards the from_dss PARSE path. PowerIO v0.6.2 carries the delta_wye
+    # this guards the from_dss PARSE path. PowerIO v0.7 carries the delta_wye
     # leakage in the BMOPF export; BMOPFTools normalizes no-load shunts to its
     # OPF convention. The grounding reactors also need an explicit `phases=1` in
     # the .dss to survive PowerIO's parser (without it the LV neutral floats and
@@ -2760,7 +2760,7 @@ end
 end
 
 @testset "PF comparison — from_dss fixed off-nominal tap import (Dy)" begin
-    # PowerIO v0.6.2 carries OpenDSS `taps=` through the BMOPF export.
+    # PowerIO v0.7 carries OpenDSS `taps=` through the BMOPF export.
     # End-to-end: parse → `tap` present → solve_pf matches the OpenDSS solve of
     # the same tapped unit (which also validates the OPF's fixed off-nominal
     # Dy tap referral against OpenDSS — previously only exercised at nominal).
@@ -2789,7 +2789,7 @@ end
     # engines put lv.4 at ≈0 V — the PF-level assertions are convergence of
     # the otherwise-floating island and node-for-node agreement with OpenDSS;
     # the branch's numerical sensitivity is carried by the entry-wise Yprim
-    # gate below. PowerIO v0.6.2 emits the BMOPF neutral grounding fields
+    # gate below. PowerIO v0.7 emits the BMOPF neutral grounding fields
     # directly.
     path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr_rneut.dss")
     net  = from_dss(path)
@@ -2812,7 +2812,7 @@ end
 end
 
 @testset "PF comparison — from_dss n_winding (native PowerIO export)" begin
-    # PowerIO v0.6.2 exports the validated 3-phase 3+-winding transformers
+    # PowerIO v0.7 exports the validated 3-phase 3+-winding transformers
     # directly as BMOPF `n_winding` units. End-to-end agreement with OpenDSS on
     # the same fixtures the hand-built n_winding nets above validate (YYY, Dyn,
     # Dyn-unbalanced) means the native import is equivalent in effect to the

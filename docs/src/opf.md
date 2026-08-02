@@ -972,7 +972,7 @@ $V_\text{hv}/N$ and the relations above route the currents.
     ```
     Using the 2-winding shortcut (full `XHL` on the HV side, `x_series_to = 0`)
     drops the LV-side leakage and spreads the legs apart under load.
-    PowerIO v0.6.2's BMOPF export carries the correct star split for
+    PowerIO v0.7's BMOPF export carries the correct star split for
     [`from_dss`](@ref); BMOPFTools normalizes the no-load shunt convention.
 
 ---

@@ -149,7 +149,7 @@ end
     powerio_version() -> String
 
 Return the version of the PowerIO.jl package backing [`from_dss`](@ref),
-e.g. `"PowerIO.jl 0.2.0"`. Useful for pinning test expectations and bug reports.
+e.g. `"PowerIO.jl 0.7.2"`. Useful for pinning test expectations and bug reports.
 """
 function powerio_version()::String
     string("PowerIO.jl ", pkgversion(PowerIO))

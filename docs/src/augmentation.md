@@ -601,7 +601,7 @@ manifest's `findings_after`.
 !!! note "I/O converter support"
     `solve_opf` dispatches placed IBRs once `augment_case` has filled their
     P/Q box — the OPF engine fully models IBRs (apparent-power circle,
-    topology-dependent voltage reference, constant-PF coupling). PowerIO v0.6.2
+    topology-dependent voltage reference, constant-PF coupling). PowerIO v0.7
     can import IBR/control data where the source carries it. BMOPFTools still
     treats `to_pmd` and `to_dss` IBR export as an explicit follow up.
 
