@@ -36,7 +36,7 @@ println(length(get(net, "bus", Dict())), " buses, ",
         length(get(net, "line", Dict())), " lines, ",
         length(get(net, "switch", Dict())), " switches, ",
         length(get(net, "load", Dict())), " loads, ",
-        sum(length(d) for d in values(get(net, "transformer", Dict()))),
+        sum((length(d) for d in values(get(net, "transformer", Dict()))); init=0),
         " transformers")
 ```
 
@@ -51,9 +51,9 @@ or reinterpret in `net["_meta"]["powerio_warnings"]` — the import's fidelity
 ledger:
 
 ```@example triage
-pw = net["_meta"]["powerio_warnings"]
+pw = get(get(net, "_meta", Dict()), "powerio_warnings", String[])
 println(length(pw), " import warnings; a sample:")
-for w in pw[1:3]
+for w in first(pw, 3)
     println("  • ", w)
 end
 ```

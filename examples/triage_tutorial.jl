@@ -29,9 +29,9 @@ println(length(get(net, "bus", Dict())), " buses, ",
 
 # ── 2. Layer one: the import ledger ──────────────────────────────────────────
 sep("2. powerio_warnings — what the import could not carry")
-pw = net["_meta"]["powerio_warnings"]
+pw = get(get(net, "_meta", Dict()), "powerio_warnings", String[])
 println(length(pw), " import warnings; first three:")
-for w in pw[1:3]; println("  • ", w); end
+for w in first(pw, 3); println("  • ", w); end
 
 # ── 3. Layer two: analyze severities ─────────────────────────────────────────
 sep("3. analyze: errors / warnings / infos")
