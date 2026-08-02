@@ -32,9 +32,12 @@ using BMOPFTools
 
 path = joinpath(pkgdir(BMOPFTools), "test", "data", "MVLVmeshed", "Master.dss")
 net  = from_dss(path)
-println(length(net["bus"]), " buses, ", length(net["line"]), " lines, ",
-        length(net["switch"]), " switches, ", length(net["load"]), " loads, ",
-        sum(length(d) for d in values(net["transformer"])), " transformers")
+println(length(get(net, "bus", Dict())), " buses, ",
+        length(get(net, "line", Dict())), " lines, ",
+        length(get(net, "switch", Dict())), " switches, ",
+        length(get(net, "load", Dict())), " loads, ",
+        sum(length(d) for d in values(get(net, "transformer", Dict()))),
+        " transformers")
 ```
 
 Two independent layers of messages describe what you just loaded, and they

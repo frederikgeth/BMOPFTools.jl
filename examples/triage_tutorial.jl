@@ -22,8 +22,10 @@ sep(t) = println("\n" * "="^72 * "\n  " * t * "\n" * "="^72)
 sep("1. MVLVmeshed: a combined MV+LV network with deliberate mesh ties")
 path = joinpath(pkgdir(BMOPFTools), "test", "data", "MVLVmeshed", "Master.dss")
 net  = from_dss(path)
-println(length(net["bus"]), " buses, ", length(net["line"]), " lines, ",
-        length(net["switch"]), " switches, ", length(net["load"]), " loads")
+println(length(get(net, "bus", Dict())), " buses, ",
+        length(get(net, "line", Dict())), " lines, ",
+        length(get(net, "switch", Dict())), " switches, ",
+        length(get(net, "load", Dict())), " loads")
 
 # ── 2. Layer one: the import ledger ──────────────────────────────────────────
 sep("2. powerio_warnings — what the import could not carry")
