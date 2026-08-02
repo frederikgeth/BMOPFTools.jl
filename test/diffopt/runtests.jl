@@ -553,11 +553,12 @@ end
     default_error = try
         build_opf_model(net; model=default_model, per_unit=false)
         nothing
-    catch error
-        error
+    catch caught
+        caught
     end
-    @test default_error isa
-          JuMP.MOI.SetAttributeNotAllowed{JuMP.MOI.UserDefinedFunction}
+    @test default_error isa ArgumentError
+    @test occursin("softplus=:builtin", sprint(showerror, default_error))
+    @test occursin("DiffOpt", sprint(showerror, default_error))
 
     model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
     JuMP.set_silent(model)

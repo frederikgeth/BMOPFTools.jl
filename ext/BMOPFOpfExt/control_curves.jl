@@ -112,9 +112,24 @@ function relu_operator_for!(cache::Dict{Float64,Any}, model, ε::Float64;
     haskey(cache, ε) && return cache[ε]
     mode in (:user_defined, :builtin) || throw(ArgumentError(
         "softplus must be :user_defined or :builtin, got :$mode"))
-    op = mode == :builtin ? BuiltinSoftplus(ε) :
-         relu_operator(model, ε;
-             name=Symbol("op_reluε_$(length(cache) + 1)"))
+    op = if mode == :builtin
+        BuiltinSoftplus(ε)
+    else
+        try
+            relu_operator(model, ε;
+                name=Symbol("op_reluε_$(length(cache) + 1)"))
+        catch err
+            if err isa JuMP.MOI.SetAttributeNotAllowed{
+                    JuMP.MOI.UserDefinedFunction}
+                throw(ArgumentError(
+                    "the model backend rejects user-defined nonlinear " *
+                    "operators required by softplus=:user_defined; pass " *
+                    "softplus=:builtin explicitly (required by current " *
+                    "DiffOpt nonlinear wrappers)"))
+            end
+            rethrow()
+        end
+    end
     cache[ε] = op
     return op
 end

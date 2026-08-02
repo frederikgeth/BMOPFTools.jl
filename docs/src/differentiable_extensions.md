@@ -70,26 +70,48 @@ transformations [2].
 
 The staged API retains the live JuMP model:
 
+```@example differentiable_extensions
+using JuMP, Ipopt
+
+net = parse_bmopf("""
+{"bus":{"b":{"terminal_names":["1","n"],
+                   "perfectly_grounded_terminals":["n"]}},
+ "voltage_source":{"grid":{"bus":"b","terminal_map":["1"],
+     "v_magnitude":[230.0],"v_angle":[0.0]}},
+ "load":{"demand":{"bus":"b","terminal_map":["1","n"],
+     "configuration":"SINGLE_PHASE","p_nom":[1000.0],"q_nom":[0.0]}}}
+"""; from_string=true)
+
+load_key = OpfCoefficientKey(:load, :load, "demand", :p_nom, 1)
+provider = OpfCoefficientProvider(:DocsExample,
+    (ctx, key, default) -> 1.1 * default)
+spec = OpfBuildSpec(coefficient_providers=Dict(load_key => provider))
+
+model = JuMP.Model(Ipopt.Optimizer)
+ctx = initialize_opf_model(net; model, per_unit=false, build_spec=spec)
+set_opf_start_values!(ctx)
+add_opf_operational_limits!(ctx)
+add_opf_device_constraints!(ctx)
+set_opf_objective!(ctx)
+enforce_kcl!(ctx)
+
+report = opf_differentiability_report(ctx)
+@assert opf_coefficient_usage(ctx)[load_key] == 1
+@assert opf_lifecycle(ctx) == :kcl_finalized
+@assert !report.ready  # the example deliberately has not been optimized
+nothing
+```
+
+For extensions that need to intervene between native construction stages, use
+the same composable sequence and insert their objects and injections before
+`enforce_kcl!`. The convenience form remains:
+
 ```julia
 ctx = build_opf_model(net; model=my_model, add_objective=false)
 # add a downstream objective, constraints, devices, or parameter links
 enforce_kcl!(ctx)
 JuMP.optimize!(opf_model(ctx))
 result = extract_result(ctx)
-```
-
-For extensions that need to intervene between native construction stages, use
-the composable form:
-
-```julia
-ctx = initialize_opf_model(net; model=my_model)
-set_opf_start_values!(ctx)
-add_opf_operational_limits!(ctx)   # omit deliberately for an unbounded study
-add_opf_device_constraints!(ctx)
-set_opf_objective!(ctx)            # omit when the outer package owns it
-
-# Register downstream objects and add terminal injections here.
-enforce_kcl!(ctx)
 ```
 
 Stages are one-shot and order checked. In particular, operational limits cannot
@@ -184,12 +206,18 @@ Because the DC-coupling accumulator is not yet a public extension seam,
 BMOPFTools rejects custom ownership of an IBR with `dc_bus` or
 `dc_link_coupled=true` instead of constructing a partially disconnected model.
 
-Whole-family replacement is available for `:voltage_source`, `:line`, `:switch`,
-`:transformer`, `:shunt`, `:capacitor`, `:load`, `:generator`, `:dc_network`,
-`:ibr`, and `:grounding`. Per-component native/custom partitioning is currently
-supported for the flat collections `:voltage_source`, `:line`, `:switch`,
-`:shunt`, `:capacitor`, `:load`, `:generator`, and `:ibr`. A family-level and a
-component-level assignment for the same family is rejected.
+Whole-family replacement is available for `:voltage_source`, `:switch`,
+`:shunt`, `:capacitor`, `:load`, `:generator`, `:ibr`, and `:grounding`.
+Per-component native/custom partitioning is currently supported for those flat
+collections except `:grounding`. A family-level and a component-level
+assignment for the same family is rejected.
+
+`:line` and `:transformer` replacement is rejected until the native branch
+injection/result ledger has a public extension seam; accepting it now could
+silently omit element flows and losses from `extract_result`. `:dc_network`
+replacement is likewise rejected until downstream builders can contribute to
+the DC-KCL accumulator through a public API. These are fail-closed capability
+boundaries, not promises that a custom callback can fill private ledgers.
 
 ```julia
 function build_priority_controlled_ibrs!(ctx, ids)

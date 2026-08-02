@@ -1045,6 +1045,32 @@ using .MockOpfExtension
         @test_throws ArgumentError add_opf_device_constraints!(coupled_ctx)
         @test !opf_stage_completed(coupled_ctx, :device_physics)
 
+        # These ownership transfers require private DC-KCL or branch-result
+        # ledgers today. Reject them before device physics rather than building
+        # a model with missing coupling or silently incomplete flow/loss output.
+        for family in (:line, :transformer, :dc_network)
+            unsupported_ctx = initialize_opf_model(net;
+                build_spec=OpfBuildSpec(
+                    family_builders=Dict(family => builder)))
+            set_opf_start_values!(unsupported_ctx)
+            err = try
+                add_opf_device_constraints!(unsupported_ctx)
+                nothing
+            catch caught
+                caught
+            end
+            @test err isa ArgumentError
+            @test occursin("result-ledger seams", sprint(showerror, err))
+            @test !opf_stage_completed(unsupported_ctx, :device_physics)
+        end
+
+        line_component_ctx = initialize_opf_model(net;
+            build_spec=OpfBuildSpec(component_builders=Dict(
+                (:line, "l1") => builder)))
+        set_opf_start_values!(line_component_ctx)
+        @test_throws ArgumentError add_opf_device_constraints!(line_component_ctx)
+        @test !opf_stage_completed(line_component_ctx, :device_physics)
+
         bad_family = initialize_opf_model(net;
             build_spec=OpfBuildSpec(family_builders=Dict(:unknown => builder)))
         set_opf_start_values!(bad_family)
@@ -1197,6 +1223,55 @@ using .MockOpfExtension
         @test_throws ArgumentError build_opf_model(
             malformed; model=malformed_model, per_unit=false,
             build_spec=malformed_spec, add_objective=false)
+    end
+
+    @testset "T-PROFILE-BASES: parameterized profiles guard voltage bases" begin
+        net = parse_bmopf("""
+        {"bus":{
+            "mv":{"terminal_names":["1","n"],
+                  "perfectly_grounded_terminals":["n"]},
+            "lv":{"terminal_names":["1","n"],
+                  "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"grid":{"bus":"mv","terminal_map":["1"],
+             "v_magnitude":[11000.0],"v_angle":[0.0]}},
+         "transformer":{"single_phase":{"tx":{
+             "bus_from":"mv","bus_to":"lv",
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
+             "s_rating":100000.0,"v_nom_from":11000.0,"v_nom_to":230.0,
+             "r_series_from":1.0,"x_series_from":5.0}}},
+         "control_profile":{"shared":{"volt_watt":{
+             "voltage_reference":"PN_PER_PHASE",
+             "breakpoints":[230.0,250.0],"p_limits":[0.2,1.0],
+             "p_unit":"VA_FRACTION","p_ref":"S_MAX"}}},
+         "ibr":{
+             "mv_pv":{"bus":"mv","terminal_map":["1","n"],
+                 "topology":"SINGLE_PHASE","prime_mover":"PV",
+                 "s_max":[1000.0],"p_min":[0.0],"p_max":[1000.0],
+                 "q_min":[0.0],"q_max":[0.0],"control_profile":"shared"},
+             "lv_pv":{"bus":"lv","terminal_map":["1","n"],
+                 "topology":"SINGLE_PHASE","prime_mover":"PV",
+                 "s_max":[1000.0],"p_min":[0.0],"p_max":[1000.0],
+                 "q_min":[0.0],"q_max":[0.0],"control_profile":"shared"}}}
+        """; from_string=true)
+        key = OpfCoefficientKey(:controller, :control_profile, "shared",
+                                :volt_watt_breakpoints, 1)
+        spec = OpfBuildSpec(coefficient_providers=Dict(
+            key => OpfCoefficientProvider(
+                :ProfileTest, (ctx, seen, default) -> default)))
+        err = try
+            build_opf_model(net; build_spec=spec, add_objective=false)
+            nothing
+        catch caught
+            caught
+        end
+        @test err isa ArgumentError
+        @test occursin("across different voltage bases", sprint(showerror, err))
+
+        # Arithmetic-equivalent nominal bases are accepted and canonicalized;
+        # materially different levels remain distinct.
+        ext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
+        @test ext._same_working_voltage_base(230.0, nextfloat(230.0))
+        @test !ext._same_working_voltage_base(230.0, 230.01)
     end
 
     @testset "T-EXT-API: semantic registry, lifecycle, state, and KCL injection" begin

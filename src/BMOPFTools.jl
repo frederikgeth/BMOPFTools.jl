@@ -1031,6 +1031,7 @@ export solve_opf
 
 """
     solve_feasibility_opf(net::Dict{String,Any}; optimizer=nothing, t_index::Int=1,
+                          softplus::Symbol=:user_defined,
                           build_spec=OpfBuildSpec())
         -> Dict{String,Any}
 
@@ -1046,6 +1047,9 @@ global infeasibility certificate. Use [`diagnose_infeasibility`](@ref) to
 interpret the result.
 
 Requires JuMP and Ipopt (same as `solve_opf`).
+For cases with Volt-var/Volt-watt profiles, pass `softplus=:builtin` explicitly
+when using a DiffOpt nonlinear wrapper; its current backend rejects the stable
+default's user-defined nonlinear operator.
 
 Additional result keys beyond `solve_opf`:
 - `"objective"`                  — squared-slack metric in solver working
@@ -1061,6 +1065,7 @@ export solve_feasibility_opf
 """
     solve_pf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,
              per_unit::Bool=true, s_base::Float64=1e6,
+             softplus::Symbol=:user_defined,
              build_spec=OpfBuildSpec()) -> Dict{String,Any}
 
 Determined four-wire rectangular current-voltage (IVR-EN) power flow on a BMOPF
@@ -1079,6 +1084,9 @@ dependent and remain determined.
 
 Requires JuMP and Ipopt (same as `solve_opf`). The result dict matches
 `solve_opf`'s structure plus `"is_power_flow" => true`.
+For cases with Volt-var/Volt-watt profiles, pass `softplus=:builtin` explicitly
+when using a DiffOpt nonlinear wrapper; its current backend rejects the stable
+default's user-defined nonlinear operator.
 """
 function solve_pf end
 export solve_pf
@@ -1483,7 +1491,10 @@ Typed ownership specification for staged device construction. A
 A `component_builders[(family, id)]` entry replaces one component while leaving
 unassigned components native. Mixed per-component ownership is currently
 supported for flat device collections such as `:ibr`; unsupported combinations
-are rejected before model mutation.
+are rejected before the device-physics stage mutates the model. In particular,
+`:line`, `:transformer`, and `:dc_network` family replacement is rejected until
+their branch-result or DC-KCL ledgers have public extension seams;
+per-component `:line` replacement is rejected for the same reason.
 """
 struct OpfBuildSpec
     family_builders::Dict{Symbol,OpfDeviceBuilder}

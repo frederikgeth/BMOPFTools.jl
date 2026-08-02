@@ -26,6 +26,7 @@
 """
     BMOPFTools.solve_pf(net; optimizer=Ipopt.Optimizer, t_index=1,
                         per_unit=true, s_base=1e6,
+                        softplus=:user_defined,
                         build_spec=OpfBuildSpec()) -> Dict
 
 Determined four-wire rectangular current-voltage (IVR-EN) power flow on a BMOPF
@@ -53,6 +54,10 @@ The result dict has the same structure as `solve_opf` (`bus`, `line`, `load`,
 `generator`, `transformer`, `voltage_source`, …) plus `is_power_flow == true`.
 Custom ownership follows the same `build_spec` contract, after the private
 power-flow working copy has had operational limit fields removed.
+For cases with Volt-var/Volt-watt profiles, `softplus=:user_defined` uses the
+stable registered nonlinear operator. Pass `softplus=:builtin` explicitly for
+current DiffOpt nonlinear wrappers; the built-in expression has a narrower
+overflow-safe range.
 """
 function BMOPFTools.solve_pf(net::Dict{String,Any};
                               optimizer=Ipopt.Optimizer,

@@ -272,10 +272,10 @@ function BMOPFTools.register_opf_regularization!(
         string(key) => deepcopy(value) for (key, value) in metadata)
     try
         _canonical_sha256(metadata_copy)
-    catch error
+    catch err
         throw(ArgumentError(
             "regularization metadata is not deterministically hashable: " *
-            sprint(showerror, error)))
+            sprint(showerror, err)))
     end
     record = BMOPFTools.OpfRegularization(
         name, method, weight_value, units, term_key, target_keys,
@@ -326,10 +326,10 @@ function BMOPFTools.register_opf_differentiability_annotation!(
         for (metadata_key, value) in metadata)
     try
         _canonical_sha256(metadata_copy)
-    catch error
+    catch err
         throw(ArgumentError(
             "differentiability annotation metadata is not deterministically " *
-            "hashable: " * sprint(showerror, error)))
+            "hashable: " * sprint(showerror, err)))
     end
     record = BMOPFTools.OpfDifferentiabilityAnnotation(
         name, kind, String(description), owner, key, blocking, metadata_copy)
@@ -798,8 +798,8 @@ function _constraint_activity(model; active_tolerance, transition_tolerance,
     unsupported = 0
     has_duals = try
         JuMP.has_duals(model)
-    catch error
-        _rethrow_fatal(error)
+    catch err
+        _rethrow_fatal(err)
         false
     end
     for (F, S) in JuMP.list_of_constraint_types(model)
@@ -808,8 +808,8 @@ function _constraint_activity(model; active_tolerance, transition_tolerance,
         for (ordinal, constraint) in enumerate(JuMP.all_constraints(model, F, S))
             value = try
                 JuMP.value(constraint)
-            catch error
-                _rethrow_fatal(error)
+            catch err
+                _rethrow_fatal(err)
                 unsupported += 1
                 continue
             end
@@ -828,8 +828,8 @@ function _constraint_activity(model; active_tolerance, transition_tolerance,
                 if has_duals
                     multiplier = try
                         abs(JuMP.dual(constraint))
-                    catch error
-                        _rethrow_fatal(error)
+                    catch err
+                        _rethrow_fatal(err)
                         NaN
                     end
                     (!isfinite(multiplier) || multiplier <= dual_tolerance) &&
@@ -947,18 +947,18 @@ function BMOPFTools.opf_differentiability_report(
         minimum_inactive_slack, kkt_diagnostic, qualifications)
 end
 
-function _rethrow_fatal(error)
-    error isa InterruptException && throw(error)
-    error isa StackOverflowError && throw(error)
-    error isa OutOfMemoryError && throw(error)
+function _rethrow_fatal(err)
+    err isa InterruptException && throw(err)
+    err isa StackOverflowError && throw(err)
+    err isa OutOfMemoryError && throw(err)
     return nothing
 end
 
 function _safe_provenance(f::Function)
     try
         return f()
-    catch error
-        _rethrow_fatal(error)
+    catch err
+        _rethrow_fatal(err)
         return nothing
     end
 end
@@ -978,24 +978,24 @@ function _constraint_residual_summary(model)
     complementarity = Float64[]
     has_duals = try
         JuMP.has_duals(model)
-    catch error
-        _rethrow_fatal(error)
+    catch err
+        _rethrow_fatal(err)
         false
     end
     for (F, S) in JuMP.list_of_constraint_types(model)
         for constraint in JuMP.all_constraints(model, F, S)
             value = try
                 JuMP.value(constraint)
-            catch error
-                _rethrow_fatal(error)
+            catch err
+                _rethrow_fatal(err)
                 unsupported += 1
                 continue
             end
             set = JuMP.constraint_object(constraint).set
             violation = try
                 Float64(JuMP.MOI.Utilities.distance_to_set(value, set))
-            catch error
-                _rethrow_fatal(error)
+            catch err
+                _rethrow_fatal(err)
                 unsupported += 1
                 continue
             end
@@ -1003,8 +1003,8 @@ function _constraint_residual_summary(model)
             max_violation = max(max_violation, violation)
             value_scale = try
                 LinearAlgebra.norm(value)
-            catch error
-                _rethrow_fatal(error)
+            catch err
+                _rethrow_fatal(err)
                 abs(value)
             end
             max_normalized = max(max_normalized, violation / (1.0 + value_scale))
@@ -1014,8 +1014,8 @@ function _constraint_residual_summary(model)
                 slack = _slack(value, set)
                 multiplier = try
                     abs(JuMP.dual(constraint))
-                catch error
-                    _rethrow_fatal(error)
+                catch err
+                    _rethrow_fatal(err)
                     nothing
                 end
                 if slack !== nothing && multiplier !== nothing &&
@@ -1317,7 +1317,12 @@ const _FLAT_DEVICE_COLLECTION = Dict{Symbol,String}(
     :ibr => "ibr",
 )
 
-const _MIXED_DEVICE_FAMILIES = Set(keys(_FLAT_DEVICE_COLLECTION))
+const _MIXED_DEVICE_FAMILIES =
+    setdiff(Set(keys(_FLAT_DEVICE_COLLECTION)), Set((:line,)))
+
+const _UNSUPPORTED_FAMILY_REPLACEMENTS = Set((
+    :line, :transformer, :dc_network,
+))
 
 function _family_ids(ctx::OpfContext, family::Symbol)
     if haskey(_FLAT_DEVICE_COLLECTION, family)
@@ -1349,6 +1354,11 @@ function _validate_build_spec(ctx::OpfContext)
         family in supported || throw(ArgumentError(
             "unsupported OPF device-builder family '$family'; supported " *
             "families are $(collect(_DEVICE_FAMILY_ORDER))"))
+        family in _UNSUPPORTED_FAMILY_REPLACEMENTS && throw(ArgumentError(
+            "custom whole-family :$family ownership is not supported until " *
+            "its native coupling and result-ledger seams are public; " *
+            "replacement would otherwise produce incomplete physics or " *
+            "silently incomplete flow/loss results"))
     end
     for ((family, id), _) in spec.component_builders
         family in _MIXED_DEVICE_FAMILIES || throw(ArgumentError(
@@ -1739,6 +1749,13 @@ step of the staged API; see the module notes above.
   the model; recover it with [`generation_cost`](@ref) and set one combined
   objective yourself. Setting `@objective` once per snapshot would overwrite, so
   multi-period callers pass `add_objective=false`.
+- `build_spec` — assigns typed whole-family or per-component builders and
+  coefficient providers. Unsupported ownership transfers are rejected before
+  device physics is stamped; see [`OpfBuildSpec`](@ref).
+- `softplus` — selects the smooth-ReLU encoding used by Volt-var/Volt-watt
+  droop. The stable default is `:user_defined`. Pass `:builtin` explicitly for
+  current DiffOpt nonlinear wrappers, which reject `MOI.UserDefinedFunction`;
+  the built-in expression has a narrower overflow-safe range.
 - `model_hook!` — called as `hook!(ctx)` after the standard build, exactly as in
   `solve_opf`, to add custom devices/constraints for this snapshot.
 

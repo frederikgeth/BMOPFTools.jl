@@ -334,6 +334,9 @@ Volt-var/Volt-watt droop is applied for SINGLE_PHASE and FOUR_LEG IBRs only;
 for THREE_LEG (delta) there are too few degrees of freedom for a per-phase droop,
 so a profile is ignored (box bounds retained) with a warning.
 """
+_same_working_voltage_base(a::Float64, b::Float64) =
+    isapprox(a, b; rtol=1e-12, atol=0.0)
+
 function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                                     bases=nothing, relu_eps::Float64=2e-3,
                                     relu_ops::Dict{Float64,Any}=Dict{Float64,Any}(),
@@ -405,12 +408,16 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             else
                 profile_id = string(cp_id)
                 if profile_id in parameterized_profiles &&
-                   haskey(parameterized_profile_scale, profile_id) &&
-                   parameterized_profile_scale[profile_id] != Uscale
-                    throw(ArgumentError(
+                   haskey(parameterized_profile_scale, profile_id)
+                    established_scale = parameterized_profile_scale[profile_id]
+                    _same_working_voltage_base(established_scale, Uscale) ||
+                        throw(ArgumentError(
                         "parameterized control profile '$profile_id' is shared " *
                         "across different voltage bases; one profile-scoped " *
                         "working-unit coefficient cannot represent both bases"))
+                    # Canonicalize arithmetic-equivalent bases so the shared
+                    # provider is resolved once under one cache key.
+                    Uscale = established_scale
                 end
                 profile_id in parameterized_profiles &&
                     (parameterized_profile_scale[profile_id] = Uscale)

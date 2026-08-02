@@ -15,7 +15,7 @@
 
 """
     BMOPFTools.solve_feasibility_opf(net; optimizer, t_index,
-        build_spec=OpfBuildSpec()) -> Dict
+        softplus=:user_defined, build_spec=OpfBuildSpec()) -> Dict
 
 Feasibility-relaxed four-wire IVR-EN OPF. Adds an elastic slack current
 injection (the nodal current residual) at every non-source bus terminal and
@@ -37,6 +37,10 @@ tie-break); use the SI-valued `"slack_injections"` and
 to [`BMOPFTools.diagnose_infeasibility`](@ref) for a ranked breakdown.
 `build_spec` follows the same ownership contract as `solve_opf`; custom terminal
 injections participate in the KCL equation relaxed by the elastic current.
+For cases with Volt-var/Volt-watt profiles, `softplus=:user_defined` uses the
+stable registered nonlinear operator. Pass `softplus=:builtin` explicitly for
+current DiffOpt nonlinear wrappers; the built-in expression has a narrower
+overflow-safe range.
 """
 function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                                            optimizer=Ipopt.Optimizer,
