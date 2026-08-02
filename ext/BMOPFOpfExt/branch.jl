@@ -109,11 +109,14 @@ Impedance comes from the line's single source: the referenced linecode
 (per-metre matrices × `length`) or inline absolute matrices on the line
 (Ω/S, used as-is). Shunt conductance (`G_from`, `G_to`) and susceptance
 (`B_from`, `B_to`) follow the same rule. Missing or all-zero shunt fields
-are a no-op.
+are a no-op. `coefficient`, when supplied, resolves each existing `R_series`
+and `X_series` matrix entry in model working coordinates; it cannot alter the
+matrix dimension or terminal mapping.
 """
 function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                                 grounded::Set{Tuple{String,String}}=Set{Tuple{String,String}}(),
-                                branch_inj=nothing)
+                                branch_inj=nothing,
+                                coefficient=nothing)
     linecodes = get(net, "linecode", Dict())
     buses = get(net, "bus", Dict())
     vr = vars[:vr]; vi = vars[:vi]
@@ -147,15 +150,28 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
         end
         n_map = n_c
 
+        # Each existing matrix entry is a scalar coefficient location. Providers
+        # may replace its value or return a JuMP parameter/expression, but may
+        # not change the matrix dimensions or conductor mapping. The defaults
+        # are already in model working coordinates (ohms in SI, pu otherwise).
+        R_model = coefficient === nothing ? R : Any[
+            coefficient(:physics, :line, lid, :R_series, (k, j), R[k, j])
+            for k in 1:n_map, j in 1:n_map]
+        X_model = coefficient === nothing ? X : Any[
+            coefficient(:physics, :line, lid, :X_series, (k, j), X[k, j])
+            for k in 1:n_map, j in 1:n_map]
+
         # ── KVL ───────────────────────────────────────────────────────────────
         for k in 1:n_map
             t_fr = tmfr[k]; t_to = tmto[k]
             @constraint(model,
                 vr[(b_fr, t_fr)] - vr[(b_to, t_to)] ==
-                sum(R[k,j]*cr_fr[(lid,j)] - X[k,j]*ci_fr[(lid,j)] for j in 1:n_map))
+                sum(R_model[k,j]*cr_fr[(lid,j)] -
+                    X_model[k,j]*ci_fr[(lid,j)] for j in 1:n_map))
             @constraint(model,
                 vi[(b_fr, t_fr)] - vi[(b_to, t_to)] ==
-                sum(R[k,j]*ci_fr[(lid,j)] + X[k,j]*cr_fr[(lid,j)] for j in 1:n_map))
+                sum(R_model[k,j]*ci_fr[(lid,j)] +
+                    X_model[k,j]*cr_fr[(lid,j)] for j in 1:n_map))
         end
 
         # ── π-shunt currents (linear in voltage variables) ────────────────────

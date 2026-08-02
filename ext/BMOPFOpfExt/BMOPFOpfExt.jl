@@ -60,6 +60,8 @@ module BMOPFOpfExt
 using BMOPFTools
 using JuMP
 using Ipopt
+using LinearAlgebra
+using SHA
 using StatsFuns: log1pexp, logistic
 
 include("data_utils.jl")
@@ -108,12 +110,15 @@ function BMOPFTools.solve_opf(net::Dict{String,Any};
                                per_unit::Bool=true,
                                s_base::Float64=1e6,
                                volt_var_watt_eps::Float64=2e-3,
+                               build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                verbose::Bool=false,
                                solver_options=(),
                                model_hook!::Union{Function,Nothing}=nothing,
                                solution_hook!::Union{Function,Nothing}=nothing)
     _build_and_solve(net; optimizer=optimizer, t_index=t_index,
-                     per_unit=per_unit, s_base=s_base, build! = build_opf!,
+                     per_unit=per_unit, s_base=s_base, problem=:opf,
+                     build_spec=build_spec,
+                     build! = build_opf!,
                      relu_eps=volt_var_watt_eps,
                      verbose, solver_options, model_hook!, solution_hook!)
 end
@@ -130,16 +135,16 @@ per-recipe cost is still recoverable via `generation_cost(ctx)`.
 function build_opf!(ctx::OpfContext; add_objective::Bool=true)
     # Warm-start: set phase-angle-correct initial values so Ipopt can find
     # the physical (high-voltage) solution without a load-flow pre-solve.
-    _set_voltage_start_values!(ctx.vars, ctx.net, ctx.bus_terminals, ctx.grounded)
+    BMOPFTools.set_opf_start_values!(ctx)
 
     # Hard operational voltage and bus-limit bounds.
-    _add_voltage_and_bus_bounds!(ctx)
+    BMOPFTools.add_opf_operational_limits!(ctx)
 
     # Source + all device constraints and their KCL contributions.
-    _add_device_constraints!(ctx)
+    BMOPFTools.add_opf_device_constraints!(ctx)
 
     # Objective: minimise total generation cost.
-    add_objective && _add_objective!(ctx.model, ctx.net, ctx.vars)
+    add_objective && BMOPFTools.set_opf_objective!(ctx)
 end
 
 end # module BMOPFOpfExt

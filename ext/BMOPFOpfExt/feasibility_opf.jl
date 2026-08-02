@@ -50,6 +50,7 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
     slack = Dict{Symbol,Any}()
     _build_and_solve(net; optimizer=optimizer, t_index=t_index,
                      per_unit=per_unit, s_base=s_base, relu_eps=volt_var_watt_eps,
+                     problem=:feasibility_opf,
                      configure! = _configure_feasibility!,
                      build! = ctx -> build_feasibility!(ctx, slack),
                      extract! = (ctx, result) -> extract_feasibility!(ctx, result, slack),
@@ -87,17 +88,19 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
     # rather than at the source voltage (~6350 V). When a case lacks useful
     # voltage bounds, this reduces attraction to a degenerate high-voltage local
     # minimum; it is an initialisation heuristic, not a convergence guarantee.
-    _set_level_aware_start_values!(vars, working, bus_terminals, grounded)
-    _set_yd_dy_start_values!(vars, working, grounded)
+    _run_opf_stage!(ctx, :start_values, () -> begin
+        _set_level_aware_start_values!(vars, working, bus_terminals, grounded)
+        _set_yd_dy_start_values!(vars, working, grounded)
+    end; required=(:variables,))
 
     # Bound parity with solve_opf: the feasibility model carries the same
     # non-KCL hard constraints (voltage bounds, bus limits, line/bus angle limits,
     # and device limits). Its feasible set is larger only because the free nodal
     # residual (cs_r, cs_i) relaxes KCL below. Voltages still respect their hard
     # bounds; contradictory remaining hard constraints can still be infeasible.
-    _add_voltage_and_bus_bounds!(ctx)
+    BMOPFTools.add_opf_operational_limits!(ctx)
 
-    _add_device_constraints!(ctx)
+    BMOPFTools.add_opf_device_constraints!(ctx)
 
     # ── Slack current injections ──────────────────────────────────────────────
     # One (cs_r, cs_i) pair per KCL node. Grounded terminals are excluded
@@ -153,7 +156,9 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
             end
         end
     end
-    @objective(model, Min, slack_obj)
+    _run_opf_stage!(ctx, :objective,
+        () -> @objective(model, Min, slack_obj);
+        required=(:device_physics,))
 end
 
 """

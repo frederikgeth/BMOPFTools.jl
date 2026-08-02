@@ -1362,9 +1362,20 @@ preserves the same optimizer only when all periods have equal duration; it does
 not report a monetary total. Duration weighting is required when periods differ
 or when the objective value will be interpreted as currency.
 
-Everything a snapshot exposes for coupling — `ctx.model`, `ctx.vars`,
-`ctx.bases`, `ctx.kcl_r`/`ctx.kcl_i` — is the same context object a `model_hook!`
-receives, so custom devices are declared exactly as in the single-snapshot case.
+Everything a snapshot exposes for coupling is the same context object a
+`model_hook!` receives, so custom devices are declared exactly as in the
+single-snapshot case. Downstream packages should prefer the stable accessors
+[`opf_model`](@ref), [`opf_network`](@ref), [`opf_bases`](@ref),
+[`opf_object`](@ref), and [`add_terminal_injection!`](@ref) over depending on the
+raw context dictionaries. See [Parameterized and differentiable
+extensions](differentiable_extensions.md) for the compatibility contract and
+scientific limitations.
+
+When an extension must intervene before native device physics is stamped, start
+with [`initialize_opf_model`](@ref) and compose the public start-value, limit,
+device, and objective stages explicitly. [`opf_build_manifest`](@ref) records
+the exact stage order and native component ownership; the differentiable-
+extensions guide documents this lower-level path.
 
 ### [Beyond OPF: other problem specifications](@id beyond-opf)
 

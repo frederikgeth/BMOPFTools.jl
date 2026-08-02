@@ -1080,6 +1080,748 @@ function solve_pf end
 export solve_pf
 
 """
+    OpfModelKey(kind, family, index=nothing)
+
+Stable semantic identifier for an object in a staged OPF model. `kind` is
+typically `:variable`, `:expression`, or `:constraint`; `family` identifies the
+physical/model quantity (for example `:vr`, `:tap`, or a downstream package's
+own symbol); and `index` identifies the component/terminal/phase.
+
+Keys are intentionally independent of JuMP and extensible by downstream
+packages. Use [`register_opf_object!`](@ref) and [`opf_object`](@ref) rather than
+depending on the internal layout of `ctx.vars`.
+"""
+struct OpfModelKey
+    kind::Symbol
+    family::Symbol
+    index
+end
+
+OpfModelKey(kind::Symbol, family::Symbol) = OpfModelKey(kind, family, nothing)
+
+Base.:(==)(a::OpfModelKey, b::OpfModelKey) =
+    a.kind == b.kind && a.family == b.family && a.index == b.index
+Base.isequal(a::OpfModelKey, b::OpfModelKey) =
+    isequal(a.kind, b.kind) && isequal(a.family, b.family) &&
+    isequal(a.index, b.index)
+Base.hash(key::OpfModelKey, h::UInt) =
+    hash(key.index, hash(key.family, hash(key.kind, h)))
+
+function _opf_rectangular_family(component::Symbol, real_family::Symbol,
+                                 imaginary_family::Symbol)
+    component == :real && return real_family
+    component == :imag && return imaginary_family
+    throw(ArgumentError("component must be :real or :imag"))
+end
+
+function _opf_positive_position(position::Integer, label::AbstractString)
+    position isa Bool && throw(ArgumentError(
+        "$label must be a positive integer, not Bool"))
+    position >= 1 || throw(ArgumentError("$label must be a positive integer"))
+    return Int(position)
+end
+
+"""Return the native real/imaginary bus-terminal voltage key."""
+function opf_bus_voltage_key(bus::AbstractString, terminal::AbstractString;
+                             component::Symbol=:real)
+    family = _opf_rectangular_family(component, :vr, :vi)
+    return OpfModelKey(:variable, family, (String(bus), String(terminal)))
+end
+
+"""Return the native real/imaginary perfect-ground current key."""
+function opf_ground_current_key(bus::AbstractString, terminal::AbstractString;
+                                component::Symbol=:real)
+    family = _opf_rectangular_family(component, :cr_gnd, :ci_gnd)
+    return OpfModelKey(:variable, family, (String(bus), String(terminal)))
+end
+
+"""Return the native line-current key for a conductor and branch side."""
+function opf_line_current_key(line::AbstractString, conductor::Integer;
+                              side::Symbol=:from, component::Symbol=:real)
+    side in (:from, :to) || throw(ArgumentError("side must be :from or :to"))
+    families = side == :from ? (:cr_fr, :ci_fr) : (:cr_to, :ci_to)
+    family = _opf_rectangular_family(component, families...)
+    index = (String(line), _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, family, index)
+end
+
+"""Return the native switch-current key for a conductor."""
+function opf_switch_current_key(switch_id::AbstractString, conductor::Integer;
+                                component::Symbol=:real)
+    family = _opf_rectangular_family(component, :cr_sw, :ci_sw)
+    index = (String(switch_id), _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, family, index)
+end
+
+"""Return the native load-current key for a phase/conductor position."""
+function opf_load_current_key(load::AbstractString, conductor::Integer;
+                              component::Symbol=:real)
+    family = _opf_rectangular_family(component, :crd, :cid)
+    index = (String(load), _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, family, index)
+end
+
+"""Return the native generator-current key for a phase/conductor position."""
+function opf_generator_current_key(generator::AbstractString,
+                                   conductor::Integer;
+                                   component::Symbol=:real)
+    family = _opf_rectangular_family(component, :crg, :cig)
+    index = (String(generator), _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, family, index)
+end
+
+"""Return the native voltage-source current key for a conductor position."""
+function opf_voltage_source_current_key(source::AbstractString,
+                                        conductor::Integer;
+                                        component::Symbol=:real)
+    family = _opf_rectangular_family(component, :cr_src, :ci_src)
+    index = (String(source), _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, family, index)
+end
+
+"""Return the native two-winding transformer-current key."""
+function opf_transformer_current_key(transformer::AbstractString, side::Symbol,
+                                     conductor::Integer;
+                                     component::Symbol=:real)
+    side in (:from, :to) || throw(ArgumentError("side must be :from or :to"))
+    family = _opf_rectangular_family(component, :cr_xf, :ci_xf)
+    side_index = side == :from ? "fr" : "to"
+    index = (String(transformer), side_index,
+             _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, family, index)
+end
+
+"""Return the native scalar transformer-tap key."""
+opf_transformer_tap_key(transformer::AbstractString) =
+    OpfModelKey(:variable, :tap, String(transformer))
+
+"""Return the native per-regulator transformer-tap key."""
+function opf_transformer_tap_key(transformer::AbstractString,
+                                 regulator::Integer)
+    index = (String(transformer),
+             _opf_positive_position(regulator, "regulator"))
+    return OpfModelKey(:variable, :tap, index)
+end
+
+"""Return the native n-winding transformer-current key."""
+function opf_nwinding_current_key(transformer::AbstractString,
+                                  winding::Integer, conductor::Integer;
+                                  component::Symbol=:real)
+    family = _opf_rectangular_family(component, :cr_nw, :ci_nw)
+    index = (String(transformer),
+             _opf_positive_position(winding, "winding"),
+             _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, family, index)
+end
+
+"""Return the native inverter/IBR current key for a phase position."""
+function opf_ibr_current_key(ibr::AbstractString, conductor::Integer;
+                             component::Symbol=:real)
+    family = _opf_rectangular_family(component, :cri, :cii)
+    index = (String(ibr), _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, family, index)
+end
+
+"""Return the native signed DC bus-terminal voltage key."""
+opf_dc_voltage_key(bus::AbstractString, terminal::AbstractString) =
+    OpfModelKey(:variable, :v_dc, (String(bus), String(terminal)))
+
+"""Return the native perfect-ground DC-current key."""
+opf_dc_ground_current_key(bus::AbstractString, terminal::AbstractString) =
+    OpfModelKey(:variable, :idc_gnd, (String(bus), String(terminal)))
+
+"""Return the native DC branch-current key for a conductor."""
+function opf_dc_branch_current_key(branch::AbstractString, conductor::Integer)
+    index = (String(branch), _opf_positive_position(conductor, "conductor"))
+    return OpfModelKey(:variable, :idc_br, index)
+end
+
+"""Return the native AC/DC converter DC-port current key."""
+opf_converter_dc_current_key(ibr::AbstractString) =
+    OpfModelKey(:variable, :idc_conv, String(ibr))
+
+"""Return the native constant-power DC-load current key."""
+opf_dc_load_current_key(load::AbstractString) =
+    OpfModelKey(:variable, :idc_load, String(load))
+
+"""Return the native DC-source current key."""
+opf_dc_source_current_key(source::AbstractString) =
+    OpfModelKey(:variable, :idc_src, String(source))
+
+"""Return the native dispatched DC-source power key."""
+opf_dc_source_power_key(source::AbstractString) =
+    OpfModelKey(:variable, :pdc_src, String(source))
+
+"""
+    OpfParameterScope(kind, id=nothing)
+
+Research-facing scope attached to an [`OpfParameterBinding`](@ref). `kind` is
+one of `:global`, `:snapshot`, or `:scenario`. `id` is deliberately untyped so
+an extension can use its own stable time/scenario identifier without BMOPFTools
+prescribing a multi-period data model.
+"""
+struct OpfParameterScope
+    kind::Symbol
+    id
+    function OpfParameterScope(kind::Symbol, id=nothing)
+        kind in (:global, :snapshot, :scenario) || throw(ArgumentError(
+            "OPF parameter scope must be :global, :snapshot, or :scenario"))
+        kind == :global && id !== nothing && throw(ArgumentError(
+            "a global OPF parameter scope cannot have an id"))
+        return new(kind, id)
+    end
+end
+
+"""
+    OpfParameterBinding
+
+Immutable metadata for a caller-owned JuMP parameter linked to one or more
+semantic OPF decision variables. The link convention is
+`target = to_working_scale * parameter`; consequently a reverse derivative
+with respect to the input parameter includes this scale by the ordinary chain
+rule. `input_unit` and `working_unit` are descriptive symbols, not an implicit
+unit-conversion system.
+
+The vectors contain live JuMP constraint references and are defensively copied
+by [`opf_parameter_binding`](@ref) and [`opf_parameter_bindings`](@ref).
+"""
+struct OpfParameterBinding
+    key::OpfModelKey
+    parameter
+    targets::Vector{OpfModelKey}
+    links::Vector{Any}
+    scope::OpfParameterScope
+    aliases::Vector{Symbol}
+    input_unit::Symbol
+    working_unit::Symbol
+    to_working_scale::Float64
+    owner::Symbol
+end
+
+"""
+    OpfRegularization
+
+Explicit downstream declaration that a registered semantic objective term is a
+regularization. `weight` and `units` describe its reported coefficient;
+`term_key` identifies the objective contribution, `targets` identify the
+regularized model quantities, and `purpose` records why the mathematical
+problem was changed. BMOPFTools records this declaration but does not infer it
+from arbitrary JuMP expressions or verify that the term is included in the
+current model objective.
+"""
+struct OpfRegularization
+    name::Symbol
+    method::Symbol
+    weight::Float64
+    units::Symbol
+    term_key::OpfModelKey
+    targets::Vector{OpfModelKey}
+    purpose::String
+    owner::Symbol
+    metadata::Dict{String,Any}
+end
+
+"""
+    OpfBuildManifest
+
+Provenance for a staged OPF construction. `problem` identifies the recipe,
+`formulation` the network formulation, `per_unit` and `s_base` record the
+working-unit choice, `stages` records completed construction stages in order,
+and `component_owners` records which package owns each stamped device family.
+
+[`opf_build_manifest`](@ref) returns a defensive snapshot: mutating the returned
+vector or dictionary does not alter the context's internal construction record.
+"""
+struct OpfBuildManifest
+    problem::Symbol
+    formulation::Symbol
+    per_unit::Bool
+    s_base::Float64
+    stages::Vector{Symbol}
+    component_owners::Dict{Any,Symbol}
+end
+
+"""
+    OpfDeviceBuilder(owner, build!)
+
+A downstream device-formulation callback and its provenance owner. `owner` is a
+stable package/research-code symbol. BMOPFTools calls `build!(ctx, ids)`, where
+`ids` is the deterministically ordered vector of component identifiers assigned
+to this builder. The callback must use public context, registry, and KCL helpers.
+"""
+struct OpfDeviceBuilder
+    owner::Symbol
+    build!::Function
+end
+
+"""
+    OpfCoefficientKey(category, family, component, field, index=nothing)
+
+Stable identifier for a non-structural coefficient consumed while a device
+builder stamps equations. `category` is normally `:load`, `:availability`,
+`:setpoint`, `:cost`, `:limit`, `:controller`, or `:physics`; downstream
+packages may introduce additional semantic categories. Values returned for a
+key are in the model's working units.
+"""
+struct OpfCoefficientKey
+    category::Symbol
+    family::Symbol
+    component::String
+    field::Symbol
+    index
+    function OpfCoefficientKey(category::Symbol, family::Symbol,
+                               component::AbstractString, field::Symbol,
+                               index=nothing)
+        category == :structural && throw(ArgumentError(
+            "structural data cannot be an OPF coefficient; rebuild the model"))
+        return new(category, family, String(component), field, index)
+    end
+end
+
+"""
+    OpfCoefficientProvider(owner, provide)
+
+Typed coefficient callback with package provenance. A custom device builder
+calls [`opf_coefficient`](@ref) with a semantic key and native/default value;
+when registered, `provide(ctx, key, default)` returns the number, JuMP
+parameter, or scalar expression to stamp instead. Providers must return values
+in model working units.
+"""
+struct OpfCoefficientProvider
+    owner::Symbol
+    provide::Function
+end
+
+"""
+    OpfDifferentiabilityAnnotation
+
+Explicit audit declaration for a differentiability hazard that cannot be
+reliably inferred from a completed JuMP graph. `kind` is one of
+`:nonsmooth_operator`, `:dynamic_branch`, or
+`:unsupported_parameter_location`; `key` optionally identifies the affected
+semantic object or coefficient. A blocking annotation makes
+[`opf_differentiability_report`](@ref) return `ready=false`. Nonblocking
+annotations remain visible as qualifications and in research provenance.
+"""
+struct OpfDifferentiabilityAnnotation
+    name::Symbol
+    kind::Symbol
+    description::String
+    owner::Symbol
+    key::Union{Nothing,OpfModelKey,OpfCoefficientKey}
+    blocking::Bool
+    metadata::Dict{String,Any}
+end
+
+"""
+    OpfKKTDiagnostic
+
+Result recorded by [`opf_checked_kkt_factorization`](@ref). `pivot_ratio` is a
+global-scale-invariant LU pivot proxy, not a condition-number certificate. A
+`:rejected` status means differentiation was stopped before a regularized or
+zero sensitivity could be mistaken for a valid implicit derivative.
+"""
+struct OpfKKTDiagnostic
+    status::Symbol
+    dimension::Int
+    pivot_ratio::Union{Nothing,Float64}
+    tolerance::Float64
+    message::String
+end
+
+"""Error thrown when the checked KKT factorization rejects a derivative."""
+struct OpfDifferentiationError <: Exception
+    message::String
+end
+
+Base.showerror(io::IO, error::OpfDifferentiationError) =
+    print(io, error.message)
+
+"""
+    OpfDifferentiabilityReport
+
+Conservative diagnostic snapshot for a staged OPF model. `ready` requires
+finalized construction, a successful solve, no discrete variables or unused
+providers, and no detected near-active, weakly-active, violated, or rejected-KKT
+conditions or blocking differentiability annotations. The three annotation
+vectors disclose extension-declared nonsmooth operators, parameter-dependent
+construction branches, and unsupported parameter locations. Active-set fields
+use caller-configurable numerical tolerances. This remains a diagnostic rather
+than a proof of LICQ, second-order sufficiency, or global solution-branch
+stability.
+"""
+struct OpfDifferentiabilityReport
+    ready::Bool
+    lifecycle::Symbol
+    termination_status::String
+    parameter_keys::Vector{OpfModelKey}
+    coefficient_keys::Vector{OpfCoefficientKey}
+    unused_coefficient_keys::Vector{OpfCoefficientKey}
+    discrete_variables::Vector{String}
+    inequality_constraints::Int
+    active_constraints::Vector{String}
+    near_active_constraints::Vector{String}
+    weakly_active_constraints::Vector{String}
+    violated_constraints::Vector{String}
+    nonsmooth_operators::Vector{OpfDifferentiabilityAnnotation}
+    dynamic_branches::Vector{OpfDifferentiabilityAnnotation}
+    unsupported_parameter_locations::Vector{OpfDifferentiabilityAnnotation}
+    minimum_inactive_slack::Union{Nothing,Float64}
+    kkt_diagnostic::Union{Nothing,OpfKKTDiagnostic}
+    qualifications::Vector{String}
+end
+
+"""
+    OpfBuildSpec(; family_builders, component_builders, coefficient_providers)
+
+Typed ownership specification for staged device construction. A
+`family_builders` entry replaces the native formulation for the complete family.
+A `component_builders[(family, id)]` entry replaces one component while leaving
+unassigned components native. Mixed per-component ownership is currently
+supported for flat device collections such as `:ibr`; unsupported combinations
+are rejected before model mutation.
+"""
+struct OpfBuildSpec
+    family_builders::Dict{Symbol,OpfDeviceBuilder}
+    component_builders::Dict{Tuple{Symbol,String},OpfDeviceBuilder}
+    coefficient_providers::Dict{OpfCoefficientKey,OpfCoefficientProvider}
+end
+
+# Compatibility for callers that constructed the M3 type positionally before
+# coefficient providers were added in M4. The keyword constructor remains the
+# documented interface.
+OpfBuildSpec(family_builders::Dict{Symbol,OpfDeviceBuilder},
+             component_builders::Dict{Tuple{Symbol,String},OpfDeviceBuilder}) =
+    OpfBuildSpec(family_builders, component_builders,
+                 Dict{OpfCoefficientKey,OpfCoefficientProvider}())
+
+function OpfBuildSpec(; family_builders=Dict(), component_builders=Dict(),
+                      coefficient_providers=Dict())
+    families = Dict{Symbol,OpfDeviceBuilder}(family_builders)
+    components = Dict{Tuple{Symbol,String},OpfDeviceBuilder}(
+        (Symbol(family), String(id)) => builder
+        for ((family, id), builder) in component_builders)
+    overlap = intersect(Set(keys(families)),
+                        Set(family for (family, _) in keys(components)))
+    isempty(overlap) || throw(ArgumentError(
+        "a device family cannot have both a family builder and component " *
+        "builders: $(sort!(collect(overlap)))"))
+    providers = Dict{OpfCoefficientKey,OpfCoefficientProvider}(
+        coefficient_providers)
+    return OpfBuildSpec(families, components, providers)
+end
+
+"""
+    opf_model(ctx)
+    opf_network(ctx)
+    opf_bases(ctx)
+    opf_lifecycle(ctx)
+
+Stable accessors for a context returned by [`build_opf_model`](@ref). They
+return, respectively, the live JuMP model, the prepared working network, the
+per-unit base metadata (`nothing` in SI mode), and the current construction
+lifecycle state.
+"""
+function opf_model end
+
+"""Return the prepared working network owned by a staged OPF context."""
+function opf_network end
+
+"""Return per-unit base metadata, or `nothing` for an SI staged model."""
+function opf_bases end
+
+"""Return the staged OPF construction lifecycle (`:building` or `:kcl_finalized`)."""
+function opf_lifecycle end
+
+"""Return the construction provenance for a staged OPF context."""
+function opf_build_manifest end
+
+"""Return a defensive copy of the typed build specification owned by a context."""
+function opf_build_spec end
+
+"""Return whether construction stage `stage` has completed for this context."""
+function opf_stage_completed end
+
+"""
+    initialize_opf_model(net; kwargs...) -> ctx
+
+Prepare one OPF snapshot, create its native variables, and return a context
+without adding start values, operational limits, device equations, an objective,
+or KCL. This is the low-level entry point for composing the public construction
+stages. [`build_opf_model`](@ref) remains the standard all-stage recipe.
+"""
+function initialize_opf_model end
+
+"""Apply the standard IVR-EN voltage start-value stage."""
+function set_opf_start_values! end
+
+"""Add the standard OPF voltage and bus operational-limit stage."""
+function add_opf_operational_limits! end
+
+"""Add build-spec-selected native/custom device physics and terminal currents."""
+function add_opf_device_constraints! end
+
+"""Set the standard generation-cost objective on a staged OPF model."""
+function set_opf_objective! end
+
+"""
+    register_opf_result_extractor!(ctx, owner, extract!; replace=false)
+
+Register a deterministic post-solve callback `extract!(ctx, result)`. It runs
+before a caller-supplied `solution_hook!` and before native per-unit results are
+unwrapped. The callback must place physical-unit downstream outputs in `result`.
+Duplicate owners are rejected unless `replace=true`.
+"""
+function register_opf_result_extractor! end
+
+"""
+    register_opf_object!(ctx, key::OpfModelKey, object; replace=false)
+    opf_object(ctx, key::OpfModelKey)
+    opf_object_keys(ctx; kind=nothing)
+
+Register and retrieve stable semantic references to JuMP variables,
+expressions, constraints, or downstream objects. Duplicate keys are rejected
+unless `replace=true`. Native JuMP variables are registered automatically using
+their existing variable-family symbol and raw index.
+"""
+function register_opf_object! end
+
+"""Retrieve a JuMP/downstream object registered under an [`OpfModelKey`](@ref)."""
+function opf_object end
+
+"""List registered [`OpfModelKey`](@ref)s, optionally filtered by `kind`."""
+function opf_object_keys end
+
+"""
+    register_opf_objective_term!(ctx, key::OpfModelKey, term; replace=false)
+
+Register a scalar objective contribution under a stable semantic key. `key`
+must have `kind == :objective`; `term` may be a real constant or a scalar JuMP
+variable/expression belonging to the context model. Registration identifies a
+contribution but does not change the model's objective.
+"""
+function register_opf_objective_term! end
+
+"""
+    opf_primal(ctx, key::OpfModelKey; result=1)
+
+Return the solved value of a registered variable, parameter, expression, or
+objective term. Constraint keys are deliberately rejected; use
+[`opf_constraint_value`](@ref) for the function value of a constraint.
+"""
+function opf_primal end
+
+"""
+    opf_constraint_value(ctx, key::OpfModelKey; result=1)
+
+Return the solved function value on the left-hand side of a registered
+constraint. This is not a residual: interpret it together with the constraint's
+JuMP set, or use [`opf_constraint_slack`](@ref) for scalar inequalities.
+"""
+function opf_constraint_value end
+
+"""
+    opf_constraint_slack(ctx, key::OpfModelKey; result=1)
+
+Return signed slack for a registered scalar `LessThan`, `GreaterThan`, or
+`Interval` constraint. Positive values are feasible, zero is active, and
+negative values indicate violation. Returns `nothing` for equality and
+non-scalar/conic sets.
+"""
+function opf_constraint_slack end
+
+"""
+    opf_dual(ctx, key::OpfModelKey; result=1)
+
+Return the solver dual of a registered constraint, preserving JuMP/MOI's sign
+convention and scalar or vector shape. No economic sign reinterpretation or
+unit conversion is applied.
+"""
+function opf_dual end
+
+"""Return the solved value of the model's current objective."""
+function opf_objective_value end
+
+"""
+    register_opf_regularization!(ctx, name; method, weight, term_key,
+        targets=[], purpose, units=:dimensionless, owner=:downstream,
+        metadata=Dict(), replace=false)
+
+Declare a downstream regularization without modifying the JuMP model. The
+objective `term_key` and every target must already be registered semantic
+objects. Duplicate names are rejected unless `replace=true`.
+"""
+function register_opf_regularization! end
+
+"""Return defensive copies of all explicit regularization declarations."""
+function opf_regularizations end
+
+"""
+    register_opf_differentiability_annotation!(ctx, name; kind, description,
+        owner=:downstream, key=nothing, blocking=true, metadata=Dict(),
+        replace=false)
+
+Declare a differentiability hazard without changing the JuMP model. Use this
+for extension-defined nonsmooth operators, Julia control flow that depends on a
+parameter value, or formulation-specific locations that cannot safely accept a
+parameter. Duplicate names are rejected unless `replace=true`.
+"""
+function register_opf_differentiability_annotation! end
+
+"""Return defensive copies of all explicit differentiability annotations."""
+function opf_differentiability_annotations end
+
+"""
+    opf_research_hashes(ctx) -> Dict{String,Any}
+
+Return versioned SHA-256 fingerprints for the prepared working network, JuMP
+model structure, current parameter state, regularization declarations, and
+differentiability annotations.
+These are construction/reproduction fingerprints, not certificates of
+algebraic equivalence between independently formulated models.
+"""
+function opf_research_hashes end
+
+"""
+    bind_opf_parameter!(ctx, key, parameter, targets; kwargs...)
+
+Bind a caller-created JuMP `Parameter` to one or more registered native or
+downstream decision variables. `key` must have `kind == :parameter`; every
+target must be a registered `OpfModelKey(:variable, ...)` in the same model.
+The generated equality is `target = to_working_scale * parameter`.
+
+Bindings may only be added before KCL finalization. `role=:structural` is
+rejected because topology, terminal maps, and dimensions require rebuilding
+the model. Supported roles are `:decision` and `:coefficient`.
+"""
+function bind_opf_parameter! end
+
+"""Return the live JuMP parameter identified by its canonical key or alias."""
+function opf_parameter end
+
+"""Return a defensive metadata copy for one canonical parameter key or alias."""
+function opf_parameter_binding end
+
+"""Return defensive metadata copies for all registered parameter bindings."""
+function opf_parameter_bindings end
+
+"""
+    opf_coefficient(ctx, key::OpfCoefficientKey, default)
+
+Resolve a coefficient for a custom device builder. Returns `default` when no
+provider is registered; otherwise calls the typed provider with
+`(ctx, key, default)`. The returned scalar is in model working units.
+"""
+function opf_coefficient end
+
+"""Return the registered coefficient provider, or `nothing` when absent."""
+function opf_coefficient_provider end
+
+"""Return a defensive copy of the coefficient-provider registry."""
+function opf_coefficient_providers end
+
+"""Return provider-consumption counts keyed by [`OpfCoefficientKey`](@ref)."""
+function opf_coefficient_usage end
+
+"""
+    opf_differentiability_report(ctx; active_tolerance=1e-7,
+        transition_tolerance=1e-5, dual_tolerance=1e-7)
+        -> OpfDifferentiabilityReport
+
+Return a conservative readiness and qualification report for downstream
+implicit differentiation. Scalar inequalities are classified as active,
+near-active, weakly active, or violated using normalized primal slack and dual
+magnitude. Explicit extension annotations classify graph-invisible nonsmooth
+operators, dynamic branches, and unsupported parameter locations. This function
+computes diagnostics only; JVP/VJP operations remain the responsibility of
+DiffOpt or another downstream package.
+"""
+function opf_differentiability_report end
+
+"""
+    opf_checked_kkt_factorization(ctx; pivot_tolerance=1e-10)
+
+Return a factorization callback suitable for DiffOpt's nonlinear KKT
+factorization attribute. It records an [`OpfKKTDiagnostic`](@ref) on `ctx` and
+throws [`OpfDifferentiationError`](@ref) when LU fails or its pivot-ratio proxy
+is at or below `pivot_tolerance`. This API has no DiffOpt dependency; the
+downstream package remains responsible for installing and invoking the callback.
+"""
+function opf_checked_kkt_factorization end
+
+"""Return the most recent checked KKT diagnostic, or `nothing`."""
+function opf_kkt_diagnostic end
+
+"""
+    opf_research_provenance(ctx; kwargs...) -> Dict{String,Any}
+
+Return a defensive, JSON-compatible experiment snapshot for a staged OPF
+context. The record includes software and solver versions, formulation and
+construction choices, statuses, objective and residual summaries, parameter
+and coefficient maps, initialization/smoothing metadata, active-set diagnostics,
+regularizations, differentiability annotations, reproducibility hashes, and the
+latest checked-KKT result. Active-set tolerance keywords are forwarded to
+[`opf_differentiability_report`](@ref).
+"""
+function opf_research_provenance end
+
+"""
+    extension_state!(ctx, owner[, init])
+
+Return the state namespace owned by `owner`, creating it from the zero-argument
+function `init` when absent (`Dict{Symbol,Any}` by default). `owner` should
+normally be the downstream package module or a package-specific singleton type;
+namespaces prevent independent extensions from colliding in one OPF context.
+"""
+function extension_state! end
+
+"""
+    add_terminal_injection!(ctx, bus, terminal, cr, ci) -> ctx
+
+Add a real/imaginary current expression injected **into** a bus terminal to the
+staged model's KCL accumulator. This is the supported low-level seam for custom
+devices. It must be called before [`enforce_kcl!`](@ref); unknown buses or
+terminals and post-finalization mutation are rejected.
+
+Currents use the model's working units (per-unit by default). A WYE device must
+also add the negative return current at its neutral terminal.
+"""
+function add_terminal_injection! end
+
+export OpfModelKey, OpfParameterScope, OpfParameterBinding, OpfRegularization
+export OpfDifferentiabilityAnnotation
+export opf_bus_voltage_key, opf_ground_current_key, opf_line_current_key
+export opf_switch_current_key, opf_load_current_key
+export opf_generator_current_key, opf_voltage_source_current_key
+export opf_transformer_current_key, opf_transformer_tap_key
+export opf_nwinding_current_key, opf_ibr_current_key
+export opf_dc_voltage_key, opf_dc_ground_current_key
+export opf_dc_branch_current_key, opf_converter_dc_current_key
+export opf_dc_load_current_key, opf_dc_source_current_key
+export opf_dc_source_power_key
+export OpfDifferentiabilityReport, OpfKKTDiagnostic, OpfDifferentiationError
+export OpfBuildManifest, OpfDeviceBuilder, OpfBuildSpec
+export OpfCoefficientKey, OpfCoefficientProvider
+export opf_model, opf_network, opf_bases, opf_lifecycle
+export opf_build_manifest, opf_build_spec, opf_stage_completed
+export initialize_opf_model, set_opf_start_values!
+export add_opf_operational_limits!, add_opf_device_constraints!
+export set_opf_objective!
+export register_opf_object!, opf_object, opf_object_keys
+export register_opf_objective_term!, opf_primal, opf_constraint_value
+export opf_constraint_slack, opf_dual, opf_objective_value
+export register_opf_regularization!, opf_regularizations, opf_research_hashes
+export register_opf_differentiability_annotation!
+export opf_differentiability_annotations
+export bind_opf_parameter!, opf_parameter, opf_parameter_binding
+export opf_parameter_bindings
+export opf_coefficient, opf_coefficient_provider, opf_coefficient_providers
+export opf_coefficient_usage, opf_differentiability_report
+export opf_checked_kkt_factorization, opf_kkt_diagnostic
+export opf_research_provenance
+export extension_state!, add_terminal_injection!, register_opf_result_extractor!
+
+"""
     build_opf_model(net; kwargs...) -> ctx
     enforce_kcl!(ctx) -> ctx
     generation_cost(ctx) -> JuMP.QuadExpr

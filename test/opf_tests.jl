@@ -12,6 +12,10 @@
 #   - diagonal or resistive-only linecodes to enable closed-form derivations
 #   - grounded neutral where not under test
 
+include(joinpath(@__DIR__, "fixtures", "MockOpfExtension", "src",
+                 "MockOpfExtension.jl"))
+using .MockOpfExtension
+
 @testset "OPF — solve_opf extension" begin
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -811,6 +815,803 @@
         JuMP.optimize!(ctx2.model)
         staged2 = extract_result(ctx2)
         @test staged2["objective"] ≈ fused["objective"]  rtol=1e-8
+    end
+
+    @testset "T-STAGES: composable construction and manifest invariants" begin
+        net = _pu_net()
+        ctx = initialize_opf_model(net; s_base=2e6)
+        manifest = opf_build_manifest(ctx)
+
+        @test manifest isa OpfBuildManifest
+        @test manifest.problem == :opf
+        @test manifest.formulation == :ivr_en
+        @test manifest.per_unit
+        @test manifest.s_base == 2e6
+        @test manifest.stages == [:variables]
+        @test opf_stage_completed(ctx, :variables)
+        @test !opf_stage_completed(ctx, :device_physics)
+        push!(manifest.stages, :forged)
+        manifest.component_owners[:line] = :Forged
+        @test !opf_stage_completed(ctx, :forged)
+        @test isempty(opf_build_manifest(ctx).component_owners)
+
+        # Dependencies are checked before mutating the JuMP model.
+        nvar0 = JuMP.num_variables(opf_model(ctx))
+        @test_throws ArgumentError add_opf_operational_limits!(ctx)
+        @test_throws ArgumentError add_opf_device_constraints!(ctx)
+        @test_throws ArgumentError set_opf_objective!(ctx)
+        @test_throws ArgumentError enforce_kcl!(ctx)
+        @test opf_build_manifest(ctx).stages == [:variables]
+        @test JuMP.num_variables(opf_model(ctx)) == nvar0
+
+        set_opf_start_values!(ctx)
+        @test_throws ArgumentError set_opf_start_values!(ctx)
+        add_opf_operational_limits!(ctx)
+        add_opf_device_constraints!(ctx)
+        set_opf_objective!(ctx)
+        @test opf_build_manifest(ctx).stages ==
+            [:variables, :start_values, :operational_limits,
+             :device_physics, :objective]
+        owners = opf_build_manifest(ctx).component_owners
+        @test owners[:voltage_source] == :BMOPFTools
+        @test owners[:line] == :BMOPFTools
+        @test owners[:load] == :BMOPFTools
+        @test owners[:generator] == :BMOPFTools
+        @test owners[:grounding] == :BMOPFTools
+
+        enforce_kcl!(ctx)
+        @test opf_build_manifest(ctx).stages[end] == :kcl
+        @test opf_lifecycle(ctx) == :kcl_finalized
+        @test_throws ArgumentError add_opf_operational_limits!(ctx)
+        @test_throws ArgumentError add_opf_device_constraints!(ctx)
+        @test_throws ArgumentError set_opf_objective!(ctx)
+
+        JuMP.optimize!(opf_model(ctx))
+        manual = extract_result(ctx)
+        wrapped_ctx = build_opf_model(net; s_base=2e6)
+        @test opf_build_manifest(wrapped_ctx).stages ==
+            [:variables, :start_values, :operational_limits,
+             :device_physics, :objective]
+        enforce_kcl!(wrapped_ctx)
+        JuMP.optimize!(opf_model(wrapped_ctx))
+        wrapped = extract_result(wrapped_ctx)
+        @test manual["objective"] ≈ wrapped["objective"] rtol=1e-9
+        @test manual["bus"]["bus1"]["1"]["vm"] ≈
+              wrapped["bus"]["bus1"]["1"]["vm"] rtol=1e-9
+
+        # Operational limits may be deliberately omitted, but cannot be added
+        # after device physics because stage order would no longer be reproducible.
+        unbounded = initialize_opf_model(net)
+        set_opf_start_values!(unbounded)
+        add_opf_device_constraints!(unbounded)
+        @test_throws ArgumentError add_opf_operational_limits!(unbounded)
+        @test opf_build_manifest(unbounded).stages ==
+            [:variables, :start_values, :device_physics]
+
+        seen_stages = Ref{Vector{Symbol}}()
+        hooked = build_opf_model(net; add_objective=false,
+            model_hook! = c -> (seen_stages[] = copy(opf_build_manifest(c).stages)))
+        @test seen_stages[] ==
+            [:variables, :start_values, :operational_limits, :device_physics]
+        @test !opf_stage_completed(hooked, :objective)
+    end
+
+    @testset "T-BUILD-SPEC: downstream device ownership without double stamping" begin
+        net = parse_bmopf("""
+        {"bus":{
+            "src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "b1":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                  "v_min":[200.0],"v_max":[260.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],
+             "v_magnitude":[230.0],"v_angle":[0.0],"cost":[1.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.01}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
+             "linecode":"lc","length":1.0}},
+         "ibr":{
+             "pv_native":{"bus":"b1","terminal_map":["1","n"],
+                 "topology":"SINGLE_PHASE","prime_mover":"PV",
+                 "s_max":[1000.0],"p_min":[500.0],"p_max":[500.0],
+                 "q_min":[0.0],"q_max":[0.0],"cost":[0.0]},
+             "pv_custom":{"bus":"b1","terminal_map":["1","n"],
+                 "topology":"SINGLE_PHASE","prime_mover":"PV",
+                 "s_max":[100.0],"p_min":[1500.0],"p_max":[1500.0],
+                 "q_min":[0.0],"q_max":[0.0],"cost":[0.0]}}}
+        """; from_string=true)
+
+        builder = MockOpfExtension.builder()
+        mixed_spec = OpfBuildSpec(component_builders=Dict(
+            (:ibr, "pv_custom") => builder))
+        ctx = build_opf_model(net; per_unit=false, build_spec=mixed_spec)
+        @test opf_build_spec(ctx).component_builders[(:ibr, "pv_custom")].owner ==
+              :MockOpfExtension
+        @test opf_object(ctx,
+            OpfModelKey(:expression, :mock_ibr_active_power, "pv_custom")) !== nothing
+        @test_throws KeyError opf_object(ctx,
+            OpfModelKey(:expression, :mock_ibr_active_power, "pv_native"))
+
+        owners = opf_build_manifest(ctx).component_owners
+        @test owners[(:ibr, "pv_native")] == :BMOPFTools
+        @test owners[(:ibr, "pv_custom")] == :MockOpfExtension
+        @test !haskey(owners, :ibr)
+
+        enforce_kcl!(ctx)
+        JuMP.optimize!(opf_model(ctx))
+        result = extract_result(ctx)
+        @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test result["ibr"]["pv_native"]["1"]["pg"] ≈ 500.0 atol=1e-4
+        @test result["ibr"]["pv_custom"]["1"]["pg"] ≈ 1500.0 atol=1e-4
+        @test result["mock_ibr"]["pv_custom"]["p"] ≈ 1500.0 atol=1e-4
+        # pv_custom deliberately exceeds its declared s_max. Feasibility proves
+        # the native IBR capability constraint was not stamped a second time.
+        @test result["mock_ibr"]["pv_custom"]["p"] >
+              net["ibr"]["pv_custom"]["s_max"][1]
+        report = profile_solution(net, result)
+        @test !any(f.code == "W.SOL.POWER_BALANCE" for f in report.findings)
+
+        # A typed provider changes a custom builder coefficient without changing
+        # the network dict or relying on the context's private representation.
+        coefficient_key = OpfCoefficientKey(
+            :setpoint, :ibr, "pv_custom", :active_power, 1)
+        provider_calls = Ref(0)
+        provider = OpfCoefficientProvider(:ForecastExtension,
+            (c, key, default) -> begin
+                provider_calls[] += 1
+                @test key == coefficient_key
+                @test default == 1500.0
+                return 1750.0
+            end)
+        unused_key = OpfCoefficientKey(
+            :controller, :ibr, "pv_custom", :deadband, 1)
+        provider_spec = OpfBuildSpec(
+            component_builders=Dict((:ibr, "pv_custom") => builder),
+            coefficient_providers=Dict(
+                coefficient_key => provider,
+                unused_key => OpfCoefficientProvider(
+                    :UnusedExtension, (c, key, default) -> default)))
+        provider_ctx = build_opf_model(net; per_unit=false,
+            build_spec=provider_spec, add_objective=false)
+        @test provider_calls[] == 1
+        @test opf_coefficient_usage(provider_ctx)[coefficient_key] == 1
+        @test opf_coefficient_provider(provider_ctx, coefficient_key) === provider
+        @test opf_coefficient(provider_ctx,
+            OpfCoefficientKey(:cost, :ibr, "pv_custom", :linear, 1), 42.0) == 42.0
+        returned_providers = opf_coefficient_providers(provider_ctx)
+        empty!(returned_providers)
+        @test length(opf_coefficient_providers(provider_ctx)) == 2
+        enforce_kcl!(provider_ctx)
+        JuMP.optimize!(opf_model(provider_ctx))
+        provider_result = extract_result(provider_ctx)
+        @test provider_result["mock_ibr"]["pv_custom"]["p"] ≈ 1750.0 atol=1e-4
+        provider_report = opf_differentiability_report(provider_ctx)
+        @test !provider_report.ready
+        @test provider_report.unused_coefficient_keys == [unused_key]
+        @test any(q -> occursin("not consumed", q),
+                  provider_report.qualifications)
+        @test_throws ArgumentError OpfCoefficientKey(
+            :structural, :ibr, "pv_custom", :terminal_map)
+
+        pu_result = solve_opf(net; build_spec=mixed_spec)
+        @test pu_result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test pu_result["mock_ibr"]["pv_custom"]["p"] ≈ 1500.0 atol=1e-3
+
+        # Whole-family replacement calls the downstream builder once with all
+        # deterministically sorted identifiers and records one family owner.
+        called_ids = Ref{Vector{String}}()
+        family_builder = OpfDeviceBuilder(:FamilyOwner, (c, ids) -> begin
+            called_ids[] = copy(ids)
+            MockOpfExtension.build_fixed_power_ibrs!(c, ids)
+        end)
+        family_ctx = build_opf_model(net; per_unit=false,
+            build_spec=OpfBuildSpec(family_builders=Dict(:ibr => family_builder)),
+            add_objective=false)
+        @test called_ids[] == ["pv_custom", "pv_native"]
+        @test opf_build_manifest(family_ctx).component_owners[:ibr] == :FamilyOwner
+
+        # Specs and returned copies cannot be mutated behind a live context.
+        returned = opf_build_spec(ctx)
+        empty!(returned.component_builders)
+        @test haskey(opf_build_spec(ctx).component_builders,
+                     (:ibr, "pv_custom"))
+
+        @test_throws ArgumentError OpfBuildSpec(
+            family_builders=Dict(:ibr => builder),
+            component_builders=Dict((:ibr, "pv_custom") => builder))
+
+        bad_family = initialize_opf_model(net;
+            build_spec=OpfBuildSpec(family_builders=Dict(:unknown => builder)))
+        set_opf_start_values!(bad_family)
+        @test_throws ArgumentError add_opf_device_constraints!(bad_family)
+        @test !opf_stage_completed(bad_family, :device_physics)
+
+        bad_id = initialize_opf_model(net;
+            build_spec=OpfBuildSpec(component_builders=Dict(
+                (:ibr, "missing") => builder)))
+        set_opf_start_values!(bad_id)
+        @test_throws ArgumentError add_opf_device_constraints!(bad_id)
+        @test !opf_stage_completed(bad_id, :device_physics)
+
+        unsupported_mixed = initialize_opf_model(net;
+            build_spec=OpfBuildSpec(component_builders=Dict(
+                (:transformer, "x") => builder)))
+        set_opf_start_values!(unsupported_mixed)
+        @test_throws ArgumentError add_opf_device_constraints!(unsupported_mixed)
+
+        extractor_ctx = initialize_opf_model(net)
+        f = (c, r) -> nothing
+        @test register_opf_result_extractor!(extractor_ctx, :owner, f) === f
+        @test_throws ArgumentError register_opf_result_extractor!(
+            extractor_ctx, :owner, f)
+        @test register_opf_result_extractor!(extractor_ctx, :owner, f;
+                                             replace=true) === f
+
+        nothing_provider = OpfCoefficientProvider(:BrokenProvider,
+            (c, key, default) -> nothing)
+        nothing_key = OpfCoefficientKey(:setpoint, :ibr, "pv_custom",
+                                        :active_power, 1)
+        nothing_ctx = initialize_opf_model(net;
+            build_spec=OpfBuildSpec(
+                component_builders=Dict((:ibr, "pv_custom") => builder),
+                coefficient_providers=Dict(nothing_key => nothing_provider)))
+        set_opf_start_values!(nothing_ctx)
+        @test_throws ArgumentError add_opf_device_constraints!(nothing_ctx)
+        @test !opf_stage_completed(nothing_ctx, :device_physics)
+    end
+
+    @testset "T-PHYSICS-PROVIDER: line matrix entries retain structure" begin
+        net = parse_bmopf("""
+        {"bus":{
+            "src":{"terminal_names":["1","n"],
+                   "perfectly_grounded_terminals":["n"]},
+            "b1":{"terminal_names":["1","n"],
+                  "perfectly_grounded_terminals":["n"],
+                  "v_min":[900.0],"v_max":[999.0]}},
+         "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0]}},
+         "linecode":{"lc":{"R_series_1_1":0.5,"X_series_1_1":0.0}},
+         "line":{"l1":{"bus_from":"src","bus_to":"b1",
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
+             "linecode":"lc","length":1.0}},
+         "load":{"ld":{"bus":"b1","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[100000.0],
+             "q_nom":[0.0]}}}
+        """; from_string=true)
+        rkey = OpfCoefficientKey(:physics, :line, "l1", :R_series, (1, 1))
+        xkey = OpfCoefficientKey(:physics, :line, "l1", :X_series, (1, 1))
+        calls = Dict(rkey => 0, xkey => 0)
+        providers = Dict(
+            rkey => OpfCoefficientProvider(:PhysicsTest,
+                (ctx, key, default) -> begin
+                    @test default == 0.5
+                    calls[key] += 1
+                    0.75
+                end),
+            xkey => OpfCoefficientProvider(:PhysicsTest,
+                (ctx, key, default) -> begin
+                    @test default == 0.0
+                    calls[key] += 1
+                    0.1
+                end),
+        )
+        ctx = build_opf_model(net; per_unit=false, add_objective=false,
+            build_spec=OpfBuildSpec(coefficient_providers=providers))
+        nvar = JuMP.num_variables(opf_model(ctx))
+        enforce_kcl!(ctx)
+        JuMP.optimize!(opf_model(ctx))
+        @test JuMP.termination_status(opf_model(ctx)) in
+              (JuMP.MOI.LOCALLY_SOLVED, JuMP.MOI.OPTIMAL)
+        @test calls == Dict(rkey => 1, xkey => 1)
+        @test opf_coefficient_usage(ctx) == Dict(rkey => 1, xkey => 1)
+        @test JuMP.num_variables(opf_model(ctx)) == nvar
+        report = opf_differentiability_report(ctx)
+        @test report.ready
+        @test any(q -> occursin("passivity", q), report.qualifications)
+    end
+
+    @testset "T-EXT-API: semantic registry, lifecycle, state, and KCL injection" begin
+        net = _pu_net()
+        ctx = build_opf_model(net; add_objective=false)
+        reordered_net = Dict{String,Any}(reverse(collect(net)))
+        reordered_ctx = build_opf_model(reordered_net; add_objective=false)
+        initial_hashes = opf_research_hashes(ctx)
+        reordered_hashes = opf_research_hashes(reordered_ctx)
+        @test reordered_hashes["prepared_working_network_sha256"] ==
+              initial_hashes["prepared_working_network_sha256"]
+        @test reordered_hashes["model_structure_sha256"] ==
+              initial_hashes["model_structure_sha256"]
+
+        # Stable accessors do not expose the extension module or require callers
+        # to know how OpfContext stores these objects.
+        @test opf_model(ctx) === ctx.model
+        @test opf_network(ctx) === ctx.net
+        @test opf_bases(ctx) === ctx.bases
+        @test opf_lifecycle(ctx) == :building
+
+        # Public constructors cover every native ctx.vars family without
+        # exposing its dictionary layout or abbreviated tuple conventions.
+        native_key_cases = [
+            opf_bus_voltage_key("b", "1") =>
+                OpfModelKey(:variable, :vr, ("b", "1")),
+            opf_bus_voltage_key("b", "1"; component=:imag) =>
+                OpfModelKey(:variable, :vi, ("b", "1")),
+            opf_ground_current_key("b", "n") =>
+                OpfModelKey(:variable, :cr_gnd, ("b", "n")),
+            opf_ground_current_key("b", "n"; component=:imag) =>
+                OpfModelKey(:variable, :ci_gnd, ("b", "n")),
+            opf_line_current_key("l", 1) =>
+                OpfModelKey(:variable, :cr_fr, ("l", 1)),
+            opf_line_current_key("l", 1; side=:from, component=:imag) =>
+                OpfModelKey(:variable, :ci_fr, ("l", 1)),
+            opf_line_current_key("l", 1; side=:to) =>
+                OpfModelKey(:variable, :cr_to, ("l", 1)),
+            opf_line_current_key("l", 1; side=:to, component=:imag) =>
+                OpfModelKey(:variable, :ci_to, ("l", 1)),
+            opf_switch_current_key("s", 2) =>
+                OpfModelKey(:variable, :cr_sw, ("s", 2)),
+            opf_switch_current_key("s", 2; component=:imag) =>
+                OpfModelKey(:variable, :ci_sw, ("s", 2)),
+            opf_load_current_key("d", 1) =>
+                OpfModelKey(:variable, :crd, ("d", 1)),
+            opf_load_current_key("d", 1; component=:imag) =>
+                OpfModelKey(:variable, :cid, ("d", 1)),
+            opf_generator_current_key("g", 1) =>
+                OpfModelKey(:variable, :crg, ("g", 1)),
+            opf_generator_current_key("g", 1; component=:imag) =>
+                OpfModelKey(:variable, :cig, ("g", 1)),
+            opf_voltage_source_current_key("src", 1) =>
+                OpfModelKey(:variable, :cr_src, ("src", 1)),
+            opf_voltage_source_current_key("src", 1; component=:imag) =>
+                OpfModelKey(:variable, :ci_src, ("src", 1)),
+            opf_transformer_current_key("t", :from, 1) =>
+                OpfModelKey(:variable, :cr_xf, ("t", "fr", 1)),
+            opf_transformer_current_key(
+                "t", :to, 1; component=:imag) =>
+                OpfModelKey(:variable, :ci_xf, ("t", "to", 1)),
+            opf_transformer_tap_key("t") =>
+                OpfModelKey(:variable, :tap, "t"),
+            opf_transformer_tap_key("odr", 2) =>
+                OpfModelKey(:variable, :tap, ("odr", 2)),
+            opf_nwinding_current_key("nt", 2, 3) =>
+                OpfModelKey(:variable, :cr_nw, ("nt", 2, 3)),
+            opf_nwinding_current_key("nt", 2, 3; component=:imag) =>
+                OpfModelKey(:variable, :ci_nw, ("nt", 2, 3)),
+            opf_ibr_current_key("pv", 1) =>
+                OpfModelKey(:variable, :cri, ("pv", 1)),
+            opf_ibr_current_key("pv", 1; component=:imag) =>
+                OpfModelKey(:variable, :cii, ("pv", 1)),
+            opf_dc_voltage_key("db", "+") =>
+                OpfModelKey(:variable, :v_dc, ("db", "+")),
+            opf_dc_ground_current_key("db", "m") =>
+                OpfModelKey(:variable, :idc_gnd, ("db", "m")),
+            opf_dc_branch_current_key("dl", 1) =>
+                OpfModelKey(:variable, :idc_br, ("dl", 1)),
+            opf_converter_dc_current_key("conv") =>
+                OpfModelKey(:variable, :idc_conv, "conv"),
+            opf_dc_load_current_key("load") =>
+                OpfModelKey(:variable, :idc_load, "load"),
+            opf_dc_source_current_key("source") =>
+                OpfModelKey(:variable, :idc_src, "source"),
+            opf_dc_source_power_key("source") =>
+                OpfModelKey(:variable, :pdc_src, "source"),
+        ]
+        @test all(first(case) == last(case) for case in native_key_cases)
+        constructor_families = Set(last(case).family for case in native_key_cases)
+        @test Set(keys(ctx.vars)) ⊆ constructor_families
+        @test all(last(case).kind == :variable for case in native_key_cases)
+        @test opf_object(ctx, opf_bus_voltage_key("bus1", "1")) ===
+              ctx.vars[:vr][("bus1", "1")]
+        @test_throws ArgumentError opf_bus_voltage_key(
+            "bus1", "1"; component=:magnitude)
+        @test_throws ArgumentError opf_line_current_key("l", 1; side=:sending)
+        @test_throws ArgumentError opf_transformer_current_key("t", :bad, 1)
+        @test_throws ArgumentError opf_ibr_current_key("pv", 0)
+        @test_throws ArgumentError opf_dc_branch_current_key("dl", true)
+
+        # Native variables are registered automatically. A newly constructed
+        # equal key must retrieve the object (guards hash/equality semantics).
+        vrkey = OpfModelKey(:variable, :vr, ("bus1", "1"))
+        @test opf_object(ctx, vrkey) === ctx.vars[:vr][("bus1", "1")]
+        @test vrkey in opf_object_keys(ctx; kind=:variable)
+        @test_throws KeyError opf_object(ctx,
+            OpfModelKey(:variable, :vr, ("missing", "1")))
+        @test_throws ArgumentError opf_object_keys(ctx; kind="variable")
+
+        # Downstream expressions use the same collision-checked registry.
+        exprkey = OpfModelKey(:expression, :mock_power, ("battery", "bat1"))
+        expr = JuMP.@expression(ctx.model, 2 * ctx.vars[:vr][("bus1", "1")])
+        @test register_opf_object!(ctx, exprkey, expr) === expr
+        @test opf_object(ctx, exprkey) === expr
+        @test_throws ArgumentError register_opf_object!(ctx, exprkey, expr)
+        replacement = JuMP.@expression(ctx.model,
+            3 * ctx.vars[:vr][("bus1", "1")])
+        register_opf_object!(ctx, exprkey, replacement; replace=true)
+        @test opf_object(ctx, exprkey) === replacement
+
+        # Objective contributions share the semantic registry but use a checked
+        # wrapper. Registering a term does not overwrite the model objective.
+        objective_key = OpfModelKey(:objective, :mock_battery_cost, "bat1")
+        objective_before = JuMP.objective_function(ctx.model)
+        @test register_opf_objective_term!(
+            ctx, objective_key, replacement) === replacement
+        @test opf_object(ctx, objective_key) === replacement
+        @test JuMP.objective_function(ctx.model) == objective_before
+        @test_throws ArgumentError register_opf_objective_term!(
+            ctx, exprkey, replacement)
+        @test_throws ArgumentError register_opf_objective_term!(
+            ctx, OpfModelKey(:objective, :vector), [replacement])
+        foreign_model = JuMP.Model()
+        foreign_variable = JuMP.@variable(foreign_model)
+        @test_throws ArgumentError register_opf_objective_term!(
+            ctx, OpfModelKey(:objective, :foreign), foreign_variable)
+
+        regularization = register_opf_regularization!(ctx, :battery_tie_break;
+            method=:tikhonov, weight=1e-6, units=:currency_per_ampere2,
+            term_key=objective_key, targets=[exprkey],
+            purpose="Select one local battery dispatch branch",
+            owner=:MockExtensionA,
+            metadata=Dict("study_protocol" => "v1", "reported" => true))
+        @test regularization.name == :battery_tie_break
+        @test regularization.term_key == objective_key
+        @test regularization.targets == [exprkey]
+        @test regularization.metadata["reported"] == true
+        first_hashes = opf_research_hashes(ctx)
+        @test first_hashes["algorithm"] == "SHA-256"
+        @test all(length(first_hashes[key]) == 64 for key in (
+            "prepared_working_network_sha256", "model_structure_sha256",
+            "parameter_state_sha256",
+            "regularization_declarations_sha256",
+            "differentiability_annotations_sha256"))
+        @test opf_research_hashes(ctx) == first_hashes
+        returned_regularizations = opf_regularizations(ctx)
+        empty!(returned_regularizations[:battery_tie_break].targets)
+        returned_regularizations[:battery_tie_break].metadata["reported"] = false
+        @test opf_regularizations(ctx)[:battery_tie_break].targets == [exprkey]
+        @test opf_regularizations(ctx)[:battery_tie_break].metadata[
+            "reported"] == true
+        @test_throws ArgumentError register_opf_regularization!(
+            ctx, :battery_tie_break; method=:tikhonov, weight=1e-6,
+            term_key=objective_key, purpose="duplicate")
+        @test_throws ArgumentError register_opf_regularization!(
+            ctx, :bad_weight; method=:tikhonov, weight=-1.0,
+            term_key=objective_key, purpose="invalid")
+        @test_throws ArgumentError register_opf_regularization!(
+            ctx, :bad_term; method=:tikhonov, weight=1e-6,
+            term_key=exprkey, purpose="invalid")
+        @test_throws ArgumentError register_opf_regularization!(
+            ctx, :bad_target; method=:tikhonov, weight=1e-6,
+            term_key=objective_key,
+            targets=[OpfModelKey(:variable, :missing)], purpose="invalid")
+        @test_throws ArgumentError register_opf_regularization!(
+            ctx, :bad_metadata; method=:tikhonov, weight=1e-6,
+            term_key=objective_key, purpose="invalid",
+            metadata=Dict("callback" => identity))
+        cyclic_metadata = Dict{String,Any}()
+        cyclic_metadata["self"] = cyclic_metadata
+        @test_throws ArgumentError register_opf_regularization!(
+            ctx, :cyclic_metadata; method=:tikhonov, weight=1e-6,
+            term_key=objective_key, purpose="invalid",
+            metadata=cyclic_metadata)
+        replacement_regularization = register_opf_regularization!(
+            ctx, :battery_tie_break; method=:tikhonov, weight=2e-6,
+            term_key=objective_key, targets=[exprkey],
+            purpose="Updated declared tie-break weight", replace=true)
+        @test replacement_regularization.weight == 2e-6
+        @test opf_research_hashes(ctx)[
+            "regularization_declarations_sha256"] !=
+            first_hashes["regularization_declarations_sha256"]
+        regularized_provenance = opf_research_provenance(ctx)
+        @test regularized_provenance["regularizations"][1]["name"] ==
+              "battery_tie_break"
+        @test regularized_provenance["regularizations"][1]["weight"] == 2e-6
+        @test JSON3.write(regularized_provenance) isa String
+
+        # Finished JuMP graphs cannot reveal arbitrary extension-side Julia
+        # branches or bespoke hard operators. Their owners declare those
+        # hazards explicitly, with typed semantic locations where available.
+        branch_annotation = register_opf_differentiability_annotation!(
+            ctx, :forecast_regime_selection; kind=:dynamic_branch,
+            description="Forecast regime selected before model stamping",
+            owner=:MockExtensionA, key=exprkey, blocking=false,
+            metadata=Dict("protocol" => "fixed-regime-v1"))
+        unsupported_key = OpfCoefficientKey(
+            :controller, :ibr, "pv", :priority_mode)
+        register_opf_differentiability_annotation!(
+            ctx, :priority_mode_location;
+            kind=:unsupported_parameter_location,
+            description="Priority mode changes equation structure",
+            owner=:MockExtensionA, key=unsupported_key)
+        register_opf_differentiability_annotation!(
+            ctx, :hard_battery_projection; kind=:nonsmooth_operator,
+            description="Downstream projection contains a hard maximum",
+            owner=:MockExtensionB)
+        @test branch_annotation.blocking == false
+        annotation_hashes = opf_research_hashes(ctx)
+        @test length(annotation_hashes[
+            "differentiability_annotations_sha256"]) == 64
+        @test annotation_hashes["model_structure_sha256"] ==
+              first_hashes["model_structure_sha256"]
+        annotations = opf_differentiability_annotations(ctx)
+        annotations[:forecast_regime_selection].metadata["protocol"] = "bad"
+        @test opf_differentiability_annotations(ctx)[
+            :forecast_regime_selection].metadata["protocol"] ==
+              "fixed-regime-v1"
+        annotation_report = opf_differentiability_report(ctx)
+        @test only(annotation_report.dynamic_branches).name ==
+              :forecast_regime_selection
+        @test only(annotation_report.unsupported_parameter_locations).key ==
+              unsupported_key
+        @test only(annotation_report.nonsmooth_operators).name ==
+              :hard_battery_projection
+        @test_throws ArgumentError register_opf_differentiability_annotation!(
+            ctx, :forecast_regime_selection; kind=:dynamic_branch,
+            description="duplicate")
+        @test_throws ArgumentError register_opf_differentiability_annotation!(
+            ctx, :bad_kind; kind=:unknown, description="invalid")
+        @test_throws ArgumentError register_opf_differentiability_annotation!(
+            ctx, :bad_description; kind=:dynamic_branch, description="  ")
+        @test_throws ArgumentError register_opf_differentiability_annotation!(
+            ctx, :bad_key; kind=:dynamic_branch, description="invalid",
+            key=identity)
+        @test_throws ArgumentError register_opf_differentiability_annotation!(
+            ctx, :bad_metadata; kind=:dynamic_branch, description="invalid",
+            metadata=Dict("callback" => identity))
+        cyclic_annotation_metadata = Dict{String,Any}()
+        cyclic_annotation_metadata["self"] = cyclic_annotation_metadata
+        @test_throws ArgumentError register_opf_differentiability_annotation!(
+            ctx, :cyclic_annotation; kind=:dynamic_branch,
+            description="invalid", metadata=cyclic_annotation_metadata)
+        replaced_annotation = register_opf_differentiability_annotation!(
+            ctx, :forecast_regime_selection; kind=:dynamic_branch,
+            description="Regime fixed by a preregistered study protocol",
+            owner=:MockExtensionA, blocking=false, replace=true)
+        @test replaced_annotation.key === nothing
+        @test opf_research_hashes(ctx)[
+            "differentiability_annotations_sha256"] !=
+            annotation_hashes["differentiability_annotations_sha256"]
+        annotated_provenance = opf_research_provenance(ctx)
+        @test length(annotated_provenance[
+            "differentiability_annotations"]) == 3
+        @test annotated_provenance["differentiability"][
+            "nonsmooth_operators"] == ["hard_battery_projection"]
+        @test JSON3.write(annotated_provenance) isa String
+
+        # State belonging to independent extension owners cannot collide and is
+        # stable across repeated retrieval.
+        state_a = extension_state!(ctx, :MockExtensionA)
+        state_a[:token] = 1
+        state_b = extension_state!(ctx, :MockExtensionB) do
+            Dict{Symbol,Any}(:token => 2)
+        end
+        @test extension_state!(ctx, :MockExtensionA) === state_a
+        @test state_a[:token] == 1
+        @test state_b[:token] == 2
+        @test state_a !== state_b
+
+        # A custom WYE current is injected at the phase and returned at neutral.
+        # Verify signs on the symbolic KCL accumulator before solving.
+        cr = JuMP.@variable(ctx.model, base_name="mock_cr")
+        ci = JuMP.@variable(ctx.model, base_name="mock_ci")
+        add_terminal_injection!(ctx, "bus1", "1", cr, ci)
+        add_terminal_injection!(ctx, "bus1", "n", -cr, -ci)
+        @test JuMP.coefficient(ctx.kcl_r[("bus1", "1")], cr) == 1.0
+        @test JuMP.coefficient(ctx.kcl_i[("bus1", "1")], ci) == 1.0
+        @test JuMP.coefficient(ctx.kcl_r[("bus1", "n")], cr) == -1.0
+        @test JuMP.coefficient(ctx.kcl_i[("bus1", "n")], ci) == -1.0
+        @test_throws ArgumentError add_terminal_injection!(ctx, "missing", "1", cr, ci)
+        @test_throws ArgumentError add_terminal_injection!(ctx, "bus1", "missing", cr, ci)
+
+        enforce_kcl!(ctx)
+        @test opf_lifecycle(ctx) == :kcl_finalized
+        @test opf_object(ctx,
+            OpfModelKey(:constraint, :kcl_r, ("bus1", "1"))) isa JuMP.ConstraintRef
+        @test opf_object(ctx,
+            OpfModelKey(:constraint, :kcl_i, ("bus1", "1"))) isa JuMP.ConstraintRef
+        @test_throws ArgumentError enforce_kcl!(ctx)
+        @test_throws ArgumentError add_terminal_injection!(ctx, "bus1", "1", cr, ci)
+    end
+
+    @testset "T-PARAMETERS: scoped, unit-aware native decision bindings" begin
+        # The native single-phase tap variable stores the effective turns ratio
+        # N = N0*tap. The caller-facing parameter stores the dimensionless tap,
+        # making this a real SI/working-coordinate chain rather than x == theta.
+        net = parse_bmopf("""
+        {"bus":{
+            "hv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "lv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"src":{"bus":"hv","terminal_map":["1"],
+             "v_magnitude":[11000.0],"v_angle":[0.0],"cost":[1.0]}},
+         "load":{"ld":{"bus":"lv","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[5000.0],"q_nom":[0.0]}},
+         "transformer":{"single_phase":{"t1":{
+             "bus_from":"hv","bus_to":"lv",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "v_nom_from":11000.0,"v_nom_to":240.0,"s_rating":50000.0,
+             "tap":1.0,"tap_min":0.9,"tap_max":1.1}}}}
+        """; from_string=true)
+
+        ctx = build_opf_model(net; per_unit=false)
+        model = opf_model(ctx)
+        tap_input = JuMP.@variable(model, tap_input in JuMP.Parameter(0.96))
+        pkey = OpfModelKey(:parameter, :transformer_tap, "t1")
+        tkey = OpfModelKey(:variable, :tap, "t1")
+        n0 = 11000.0 / 240.0
+        binding = bind_opf_parameter!(ctx, pkey, tap_input, tkey;
+            scope=OpfParameterScope(:scenario, "low_voltage"),
+            aliases=[:tap_t1, "regulated_tap"],
+            input_unit=:tap_multiplier, working_unit=:effective_turns_ratio,
+            to_working_scale=n0, owner=:ParameterTests)
+        cap_key = OpfModelKey(:constraint, :research_tap_cap, "t1")
+        cap = JuMP.@constraint(model, opf_object(ctx, tkey) <= 2n0)
+        register_opf_object!(ctx, cap_key, cap)
+
+        @test binding.key == pkey
+        @test binding.targets == [tkey]
+        @test binding.scope.kind == :scenario
+        @test binding.scope.id == "low_voltage"
+        @test binding.to_working_scale == n0
+        @test binding.owner == :ParameterTests
+        @test opf_parameter(ctx, pkey) === tap_input
+        @test opf_parameter(ctx, :tap_t1) === tap_input
+        @test opf_parameter(ctx, "regulated_tap") === tap_input
+        @test opf_object(ctx, pkey) === tap_input
+        @test length(binding.links) == 1
+        @test opf_object(ctx, OpfModelKey(
+            :constraint, :parameter_link, (pkey, tkey))) === binding.links[1]
+
+        # Returned metadata is defensive even though the JuMP objects remain live.
+        empty!(binding.targets)
+        empty!(binding.aliases)
+        all_bindings = opf_parameter_bindings(ctx)
+        empty!(all_bindings[pkey].links)
+        @test opf_parameter_binding(ctx, pkey).targets == [tkey]
+        @test opf_parameter_binding(ctx, pkey).aliases ==
+              [:tap_t1, :regulated_tap]
+        @test length(opf_parameter_binding(ctx, pkey).links) == 1
+
+        enforce_kcl!(ctx)
+        JuMP.optimize!(model)
+        @test JuMP.termination_status(model) in
+              (JuMP.MOI.LOCALLY_SOLVED, JuMP.MOI.OPTIMAL)
+        first_result = extract_result(ctx)
+        @test first_result["transformer"]["t1"]["tap"] ≈ 0.96 atol=1e-8
+        first_hashes = opf_research_hashes(ctx)
+
+        # Updating a parameter changes the solve without adding variables or
+        # constraints, which is essential for scenario sweeps and DiffOpt use.
+        nvar = JuMP.num_variables(model)
+        ncon = sum(JuMP.num_constraints(model, F, S)
+                   for (F, S) in JuMP.list_of_constraint_types(model))
+        JuMP.set_parameter_value(tap_input, 1.04)
+        JuMP.optimize!(model)
+        second_result = extract_result(ctx)
+        @test second_result["transformer"]["t1"]["tap"] ≈ 1.04 atol=1e-8
+        @test JuMP.num_variables(model) == nvar
+        @test sum(JuMP.num_constraints(model, F, S)
+                  for (F, S) in JuMP.list_of_constraint_types(model)) == ncon
+        second_hashes = opf_research_hashes(ctx)
+        @test second_hashes["prepared_working_network_sha256"] ==
+              first_hashes["prepared_working_network_sha256"]
+        @test second_hashes["model_structure_sha256"] ==
+              first_hashes["model_structure_sha256"]
+        @test second_hashes["parameter_state_sha256"] !=
+              first_hashes["parameter_state_sha256"]
+
+        # Stable solution queries preserve JuMP's values, shapes, units, and
+        # dual sign convention; they add semantic-key and result validation.
+        link_key = OpfModelKey(:constraint, :parameter_link, (pkey, tkey))
+        generation_cost_key = OpfModelKey(:objective, :generation_cost)
+        @test opf_primal(ctx, pkey) == 1.04
+        @test opf_primal(ctx, tkey) ≈ n0 * 1.04 atol=1e-8
+        @test abs(opf_constraint_value(ctx, link_key)) < 1e-7
+        @test opf_constraint_slack(ctx, link_key) === nothing
+        @test opf_constraint_slack(ctx, cap_key) > n0 / 2
+        @test isfinite(opf_dual(ctx, link_key))
+        @test opf_primal(ctx, generation_cost_key) ≈
+              opf_objective_value(ctx) atol=1e-8
+        @test opf_objective_value(ctx) == JuMP.objective_value(model)
+        @test_throws ArgumentError opf_primal(ctx, link_key)
+        @test_throws ArgumentError opf_dual(ctx, tkey)
+        @test_throws ArgumentError opf_primal(ctx, tkey; result=0)
+        @test_throws KeyError opf_primal(ctx,
+            OpfModelKey(:expression, :missing))
+
+        provenance = opf_research_provenance(ctx)
+        @test provenance["schema"] ==
+              "BMOPFTools.opf_research_provenance/v1"
+        @test provenance["software"]["BMOPFTools"] ==
+              string(Base.pkgversion(BMOPFTools))
+        @test provenance["formulation"]["formulation"] == "ivr_en"
+        @test provenance["formulation"]["per_unit"] == false
+        @test occursin("Ipopt", provenance["solver"]["name"])
+        @test provenance["solver"]["result_count"] == 1
+        @test provenance["model"]["variables"] == nvar
+        @test provenance["model"]["constraints"] == ncon
+        @test provenance["model"]["residuals"][
+            "max_normalized_primal_violation"] < 1e-6
+        @test length(provenance["parameters"]) == 1
+        @test provenance["parameters"][1]["value"] == 1.04
+        @test provenance["parameters"][1]["input_unit"] == "tap_multiplier"
+        @test provenance["parameters"][1]["to_working_scale"] == n0
+        @test provenance["semantic_references"]["counts_by_kind"][
+            "objective"] == 1
+        @test provenance["semantic_references"]["counts_by_kind"][
+            "constraint"] >= 2
+        @test provenance["semantic_references"]["objective_terms"][1][
+            "key"]["family"] == "generation_cost"
+        @test provenance["semantic_references"]["objective_terms"][1][
+            "value"] ≈ opf_objective_value(ctx) atol=1e-8
+        @test isempty(provenance["regularizations"])
+        @test provenance["hashes"] == second_hashes
+        @test JSON3.write(provenance) isa String
+        provenance["parameters"][1]["value"] = -99.0
+        @test opf_research_provenance(ctx)["parameters"][1]["value"] == 1.04
+
+        # One-to-many mappings are useful for shared scenario parameters.
+        many = initialize_opf_model(net; per_unit=false)
+        many_model = opf_model(many)
+        shared = JuMP.@variable(many_model, shared in JuMP.Parameter(2.0))
+        x1 = JuMP.@variable(many_model, base_name="shared_target_1")
+        x2 = JuMP.@variable(many_model, base_name="shared_target_2")
+        x1key = OpfModelKey(:variable, :custom_setpoint, "a")
+        x2key = OpfModelKey(:variable, :custom_setpoint, "b")
+        register_opf_object!(many, x1key, x1)
+        register_opf_object!(many, x2key, x2)
+        shared_binding = bind_opf_parameter!(many,
+            OpfModelKey(:parameter, :shared_setpoint), shared, [x1key, x2key];
+            scope=:global, to_working_scale=0.5)
+        @test length(shared_binding.links) == 2
+
+        unfinished_report = opf_differentiability_report(many)
+        @test !unfinished_report.ready
+        @test unfinished_report.lifecycle == :building
+        @test unfinished_report.termination_status == "OPTIMIZE_NOT_CALLED"
+        @test any(q -> occursin("KCL construction", q),
+                  unfinished_report.qualifications)
+        @test opf_kkt_diagnostic(many) === nothing
+        @test_throws ArgumentError opf_differentiability_report(many;
+            active_tolerance=1e-4, transition_tolerance=1e-5)
+        @test_throws ArgumentError opf_differentiability_report(many;
+            dual_tolerance=-1.0)
+        @test_throws ArgumentError opf_checked_kkt_factorization(many;
+            pivot_tolerance=-1.0)
+        @test opf_checked_kkt_factorization(many) isa Function
+        unfinished_provenance = opf_research_provenance(many)
+        @test unfinished_provenance["solver"]["result_count"] == 0
+        @test unfinished_provenance["solver"]["objective_value"] === nothing
+        @test unfinished_provenance["model"]["residuals"][
+            "max_primal_violation"] === nothing
+
+        # Validation is atomic: every error below leaves model structure and
+        # registries unchanged. Structural quantities require a rebuild.
+        before_constraints = sum(JuMP.num_constraints(many_model, F, S)
+            for (F, S) in JuMP.list_of_constraint_types(many_model))
+        badkey = OpfModelKey(:parameter, :bad)
+        @test_throws ArgumentError bind_opf_parameter!(many, badkey, shared,
+            OpfModelKey(:variable, :missing))
+        @test_throws ArgumentError bind_opf_parameter!(many,
+            OpfModelKey(:variable, :wrong_kind), shared, x1key)
+        @test_throws ArgumentError bind_opf_parameter!(many, badkey, shared,
+            [x1key, x1key])
+        @test_throws ArgumentError bind_opf_parameter!(many, badkey, shared,
+            x1key; to_working_scale=0.0)
+        @test_throws ArgumentError bind_opf_parameter!(many, badkey, shared,
+            x1key; role=:structural)
+        @test_throws ArgumentError bind_opf_parameter!(many, badkey, shared,
+            x1key; aliases=[:tap_t1, :tap_t1])
+        @test sum(JuMP.num_constraints(many_model, F, S)
+                  for (F, S) in JuMP.list_of_constraint_types(many_model)) ==
+              before_constraints
+        @test_throws KeyError opf_parameter(many, badkey)
+
+        other_model = JuMP.Model()
+        foreign = JuMP.@variable(other_model, foreign in JuMP.Parameter(1.0))
+        @test_throws ArgumentError bind_opf_parameter!(many, badkey, foreign, x1key)
+
+        # Lifecycle mutation is forbidden after KCL finalization.
+        @test_throws ArgumentError bind_opf_parameter!(ctx,
+            OpfModelKey(:parameter, :late), tap_input, tkey)
+        @test_throws ArgumentError OpfParameterScope(:invalid)
+        @test_throws ArgumentError OpfParameterScope(:global, 1)
     end
 
     @testset "T-MULTIPERIOD: SOC-coupled battery across two snapshots, one model" begin

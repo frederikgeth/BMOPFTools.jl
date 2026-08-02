@@ -1,0 +1,12 @@
+name = "MockOpfExtension"
+uuid = "a13a5140-31f7-4c31-9af1-82a659ef3391"
+version = "0.1.0"
+
+[deps]
+BMOPFTools = "5f9a3b62-8f63-4a39-b67b-af9b51e6a7c3"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+
+[compat]
+BMOPFTools = "0.1"
+JuMP = "1"
+julia = "1.10"

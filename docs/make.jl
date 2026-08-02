@@ -46,6 +46,7 @@ makedocs(
         ],
         "Optimal power flow"      => [
             "Optimal power flow"       => "opf.md",
+            "Parameterized & differentiable extensions" => "differentiable_extensions.md",
             "Transformer models"       => "transformer_models.md",
             "Impedance models & OPF decisions" => "tutorial_impedance_models.md",
             "Choosing & identifying a load model" => "tutorial_load_models.md",
@@ -75,6 +76,7 @@ makedocs(
                 "Style guide"                  => "dev/style_guide.md",
                 "Versioning & the data model"  => "dev/versioning.md",
                 "OPF engine: scope & status"   => "dev/opf_engine.md",
+                "Differentiable-extension roadmap" => "dev/differentiable_roadmap.md",
                 "Profiling pipeline"           => "dev/profiling.md",
             ],
         ],

@@ -168,8 +168,10 @@ two ways to make an element's parameter a decision variable:
   multi-snapshot build, *couples*) the handle — the engine keeps ownership of
   per-unit, limits, and `branch_inj` loss/flow bookkeeping.
 
-- **Omit-and-re-stamp — when no native variable exists.** If the parameter you want
-  free has no native variable (e.g. a **line's** series impedance / length),
+- **Use a coefficient provider, or omit-and-re-stamp when no native location
+  exists.** Native scalar line `R_series`/`X_series` matrix entries can now be
+  supplied by typed coefficient providers without replacing the branch. If the
+  quantity has no provider-aware native location (for example a line's length),
   **omit that element from the net** and re-stamp its constraint in the hook with
   your own variable, injecting its current into the KCL accumulators. The caveats
   are the flip side of the above: for that element *you* now own the per-unit
@@ -184,17 +186,17 @@ bus `f` to bus `g` carrying current `I = cr + j·ci` in the `f → g` direction
 to-terminal (current enters `g`):
 
 ```julia
-# series element f → g on conductor c, current I = cr + j·ci  (a JuMP variable)
-JuMP.add_to_expression!(ctx.kcl_r[(f, c)], -cr); JuMP.add_to_expression!(ctx.kcl_i[(f, c)], -ci)
-JuMP.add_to_expression!(ctx.kcl_r[(g, c)],  cr); JuMP.add_to_expression!(ctx.kcl_i[(g, c)],  ci)
+# series element f → g on conductor c, current I = cr + j·ci
+add_terminal_injection!(ctx, f, c, -cr, -ci)
+add_terminal_injection!(ctx, g, c,  cr,  ci)
 ```
 
 A shunt or user injection `I` into `(bus, phase)`, referenced to the bus neutral,
 adds at the phase terminal and subtracts the return at the neutral:
 
 ```julia
-JuMP.add_to_expression!(ctx.kcl_r[(bus, phase)],    cr); JuMP.add_to_expression!(ctx.kcl_i[(bus, phase)],    ci)
-JuMP.add_to_expression!(ctx.kcl_r[(bus, neutral)], -cr); JuMP.add_to_expression!(ctx.kcl_i[(bus, neutral)], -ci)
+add_terminal_injection!(ctx, bus, phase,    cr,  ci)
+add_terminal_injection!(ctx, bus, neutral, -cr, -ci)
 ```
 
 The `branch_inj` field on `OpfContext` (defined in `ext/BMOPFOpfExt/core.jl`)
@@ -222,6 +224,9 @@ be scaled by the matching `ctx.bases` base (see the `OpfContext` docstring).
 ## See also
 
 - [Optimal power flow](../opf.md) — running the engine and the formulation.
+- [Parameterized and differentiable extensions](../differentiable_extensions.md)
+  and its [implementation roadmap](differentiable_roadmap.md) — the stable
+  downstream-extension contract, scientific scope, and milestones.
 - [OPF result dictionary](../results.md) — the result-dict shape (part of the
   public API; see [Versioning](versioning.md)).
 - [Validating the OPF](../validation.md) and

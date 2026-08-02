@@ -62,6 +62,7 @@ function BMOPFTools.solve_pf(net::Dict{String,Any};
                               solution_hook!::Union{Function,Nothing}=nothing)
     _build_and_solve(net; optimizer=optimizer, t_index=t_index,
                      per_unit=per_unit, s_base=s_base,
+                     problem=:power_flow,
                      build! = build_pf!,
                      extract! = (ctx, result) -> (result["is_power_flow"] = true; nothing),
                      verbose, solver_options, model_hook!, solution_hook!)
@@ -79,15 +80,17 @@ function build_pf!(ctx::OpfContext)
     # applied), so removing limit fields here cannot affect the caller's dict.
     _strip_operational_limits!(ctx.net)
 
-    _set_voltage_start_values!(ctx.vars, ctx.net, ctx.bus_terminals, ctx.grounded)
+    BMOPFTools.set_opf_start_values!(ctx)
 
     _validate_pf_generators(ctx.net)
 
     # Device constraints only — no _add_voltage_and_bus_bounds!.
-    _add_device_constraints!(ctx)
+    BMOPFTools.add_opf_device_constraints!(ctx)
 
     # Feasibility objective: the equations fully determine the state.
-    @objective(ctx.model, Min, 0.0)
+    _run_opf_stage!(ctx, :objective,
+        () -> @objective(ctx.model, Min, 0.0);
+        required=(:device_physics,))
 end
 
 # Limit fields removed for a pure power flow. Each device helper guards on the

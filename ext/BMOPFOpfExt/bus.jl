@@ -269,10 +269,13 @@ end
 Enforce KCL: for every (bus, terminal) accumulator, add == 0 constraints.
 """
 function _add_kcl_constraints!(model, kcl_r, kcl_i)
+    refs_r = Dict{Any,Any}()
+    refs_i = Dict{Any,Any}()
     for key in keys(kcl_r)
-        @constraint(model, kcl_r[key] == 0)
-        @constraint(model, kcl_i[key] == 0)
+        refs_r[key] = @constraint(model, kcl_r[key] == 0)
+        refs_i[key] = @constraint(model, kcl_i[key] == 0)
     end
+    return refs_r, refs_i
 end
 
 # ---------------------------------------------------------------------------

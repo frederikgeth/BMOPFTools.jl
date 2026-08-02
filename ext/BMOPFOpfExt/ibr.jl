@@ -106,22 +106,54 @@ end
 # `triples`/`eps` are in model voltage units (SI volts, or per-unit when the
 # model is solved per-unit); `ref` selects the per-phase normalisation base.
 struct DroopCurve
-    baseline::Float64
-    triples::Vector{Tuple{Float64,Float64}}
+    baseline
+    triples::Vector{Tuple{Any,Any}}
     eps::Float64
     ref::Symbol           # :S_MAX | :P_MAX | :P_AVAILABLE | :VAR_MAX
     quantity::Symbol      # :PN | :PG | :PP   (monitored voltage quantity)
     averaged::Bool        # true ⇒ every phase sees the mean phase magnitude
+    knots::Vector{Any}    # live working-unit breakpoints (possibly parameters)
+    min_gap::Float64      # fixed feasibility guard derived from nominal knots
 end
 
-# Map SI breakpoints into model units and pick a smoothing ε proportional to the
-# voltage scale (so the corner rounding tracks SI/per-unit automatically).
-function _curve_from_points(xs_si, ys, Uscale::Float64, relu_eps::Float64, ref::Symbol,
+# Build a fixed-structure ReLU representation from working-unit points. When
+# every point is numeric, retain the historical sparse representation exactly.
+# Parameterized curves retain all segment pairs because a zero nominal slope may
+# become nonzero after an update. The smoothing width and ordering tolerance stay
+# tied to the nominal points, so parameter updates do not alter model structure.
+function _curve_from_points(xs, ys, nominal_xs::Vector{Float64},
+                            relu_eps::Float64, ref::Symbol,
                             quantity::Symbol, averaged::Bool)
-    xs = Float64.(xs_si) ./ Uscale
-    base, triples = breakpoints_to_triples(xs, ys)
-    ε = relu_eps * (sum(xs) / length(xs))
-    return DroopCurve(base, triples, ε, ref, quantity, averaged)
+    if all(x -> x isa Real, xs) && all(y -> y isa Real, ys)
+        base, numeric_triples = breakpoints_to_triples(
+            Float64.(xs), Float64.(ys))
+        triples = Tuple{Any,Any}[(a, x) for (a, x) in numeric_triples]
+    else
+        base = ys[1]
+        triples = Tuple{Any,Any}[]
+        for i in 1:(length(xs) - 1)
+            slope = (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i])
+            push!(triples, (slope, xs[i]))
+            push!(triples, (-slope, xs[i + 1]))
+        end
+    end
+    ε = relu_eps * (sum(nominal_xs) / length(nominal_xs))
+    nominal_gap = minimum(diff(nominal_xs))
+    min_gap = max(1e-9, 1e-6 * nominal_gap)
+    return DroopCurve(base, triples, ε, ref, quantity, averaged,
+                      Any[xs...], min_gap)
+end
+
+function _enforce_curve_order!(model, curve::Union{DroopCurve,Nothing},
+                               profile_id, law::Symbol)
+    curve === nothing && return
+    all(x -> x isa Real, curve.knots) && return
+    for i in 1:(length(curve.knots) - 1)
+        @constraint(model,
+            curve.knots[i + 1] - curve.knots[i] >= curve.min_gap,
+            base_name="$(law)_order_$(profile_id)_$(i)")
+    end
+    return
 end
 
 # The six `voltage_reference_type` enum values split into a monitored quantity
@@ -197,18 +229,29 @@ of the six `voltage_reference_type` values; see [`_split_voltage_reference`]).
 `q_unit` must be VA_FRACTION and `q_ref` VAR_MAX; other variants warn and skip so
 the IBR falls back to its box bounds.
 """
-function _resolve_volt_var(vv, Uscale::Float64, relu_eps::Float64)
+function _resolve_volt_var(vv, Uscale::Float64, relu_eps::Float64;
+                           coefficient=nothing, profile_id="")
     vv isa Dict || return nothing
-    bps = Float64.(get(vv, "breakpoints", Float64[]))
-    ql  = Float64.(get(vv, "q_limits",    Float64[]))
-    length(bps) == 4 && length(ql) == 2 || (@warn "volt_var needs 4 breakpoints and 2 q_limits — skipping"; return nothing)
+    bps_si = Float64.(get(vv, "breakpoints", Float64[]))
+    ql_default = Float64.(get(vv, "q_limits", Float64[]))
+    length(bps_si) == 4 && length(ql_default) == 2 || (@warn "volt_var needs 4 breakpoints and 2 q_limits — skipping"; return nothing)
+    bps_default = bps_si ./ Uscale
+    bps = coefficient === nothing ? bps_default : Any[
+        coefficient(:controller, :control_profile, profile_id,
+                    :volt_var_breakpoints, i, value)
+        for (i, value) in enumerate(bps_default)]
+    ql = coefficient === nothing ? ql_default : Any[
+        coefficient(:controller, :control_profile, profile_id,
+                    :volt_var_q_limits, i, value)
+        for (i, value) in enumerate(ql_default)]
     get(vv, "q_unit", "VA_FRACTION") == "VA_FRACTION" || (@warn "volt_var q_unit ≠ VA_FRACTION not yet supported — skipping"; return nothing)
     get(vv, "q_ref",  "VAR_MAX")     == "VAR_MAX"     || (@warn "volt_var q_ref ≠ VAR_MAX not yet supported — skipping"; return nothing)
     # ys: [inject (≥0) at U1, 0 at U2, 0 at U3, absorb (≤0) at U4]
     q_absorb, q_inject = ql[1], ql[2]
     ys = [q_inject, 0.0, 0.0, q_absorb]
     quantity, averaged = _split_voltage_reference(get(vv, "voltage_reference", "PN_PER_PHASE"))
-    return _curve_from_points(bps, ys, Uscale, relu_eps, :VAR_MAX, quantity, averaged)
+    return _curve_from_points(bps, ys, bps_default, relu_eps,
+                              :VAR_MAX, quantity, averaged)
 end
 
 """
@@ -218,11 +261,21 @@ Build the active-power cap curve P/P_base = f(U) from a `volt_watt` sub-object.
 Supports VA_FRACTION p_unit with p_ref ∈ {S_MAX, P_MAX, P_AVAILABLE}; other
 variants warn and skip.
 """
-function _resolve_volt_watt(vw, Uscale::Float64, relu_eps::Float64)
+function _resolve_volt_watt(vw, Uscale::Float64, relu_eps::Float64;
+                            coefficient=nothing, profile_id="")
     vw isa Dict || return nothing
-    bps = Float64.(get(vw, "breakpoints", Float64[]))
-    pl  = Float64.(get(vw, "p_limits",    Float64[]))
-    length(bps) == 2 && length(pl) == 2 || (@warn "volt_watt needs 2 breakpoints and 2 p_limits — skipping"; return nothing)
+    bps_si = Float64.(get(vw, "breakpoints", Float64[]))
+    pl_default = Float64.(get(vw, "p_limits", Float64[]))
+    length(bps_si) == 2 && length(pl_default) == 2 || (@warn "volt_watt needs 2 breakpoints and 2 p_limits — skipping"; return nothing)
+    bps_default = bps_si ./ Uscale
+    bps = coefficient === nothing ? bps_default : Any[
+        coefficient(:controller, :control_profile, profile_id,
+                    :volt_watt_breakpoints, i, value)
+        for (i, value) in enumerate(bps_default)]
+    pl = coefficient === nothing ? pl_default : Any[
+        coefficient(:controller, :control_profile, profile_id,
+                    :volt_watt_p_limits, i, value)
+        for (i, value) in enumerate(pl_default)]
     get(vw, "p_unit", "VA_FRACTION") == "VA_FRACTION" || (@warn "volt_watt p_unit ≠ VA_FRACTION not yet supported — skipping"; return nothing)
     ref = get(vw, "p_ref", "S_MAX")
     ref in ("S_MAX", "P_MAX", "P_AVAILABLE") || (@warn "volt_watt p_ref '$ref' not supported — skipping"; return nothing)
@@ -230,7 +283,8 @@ function _resolve_volt_watt(vw, Uscale::Float64, relu_eps::Float64)
     p_low, p_high = pl[1], pl[2]
     ys = [p_high, p_low]
     quantity, averaged = _split_voltage_reference(get(vw, "voltage_reference", "PN_PER_PHASE"))
-    return _curve_from_points(bps, ys, Uscale, relu_eps, Symbol(ref), quantity, averaged)
+    return _curve_from_points(bps, ys, bps_default, relu_eps,
+                              Symbol(ref), quantity, averaged)
 end
 
 # Per-phase normalisation base for a resolved curve, in model units.
@@ -272,7 +326,8 @@ so a profile is ignored (box bounds retained) with a warning.
 """
 function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                                     bases=nothing, relu_eps::Float64=2e-3,
-                                    relu_ops::Dict{Float64,Any}=Dict{Float64,Any}())
+                                    relu_ops::Dict{Float64,Any}=Dict{Float64,Any}(),
+                                    coefficient=nothing)
     vr  = vars[:vr];  vi  = vars[:vi]
     cri = vars[:cri]; cii = vars[:cii]
     profiles = get(net, "control_profile", Dict())
@@ -289,6 +344,18 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
         p_max = Float64.(get(inv, "p_max",  Float64[]))
         q_min = Float64.(get(inv, "q_min",  Float64[]))
         q_max = Float64.(get(inv, "q_max",  Float64[]))
+        p_min_model = coefficient === nothing ? p_min : Any[
+            coefficient(:limit, :ibr, inv_id, :p_min, i, value)
+            for (i, value) in enumerate(p_min)]
+        p_max_model = coefficient === nothing ? p_max : Any[
+            coefficient(:availability, :ibr, inv_id, :p_max, i, value)
+            for (i, value) in enumerate(p_max)]
+        q_min_model = coefficient === nothing ? q_min : Any[
+            coefficient(:limit, :ibr, inv_id, :q_min, i, value)
+            for (i, value) in enumerate(q_min)]
+        q_max_model = coefficient === nothing ? q_max : Any[
+            coefficient(:limit, :ibr, inv_id, :q_max, i, value)
+            for (i, value) in enumerate(q_max)]
 
         # Resolve control_profile sub-objects (constant-PF and droop laws).
         pf_val = nothing
@@ -322,8 +389,12 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             elseif pf_val !== nothing
                 @warn "IBR '$inv_id': control_profile has both power_factor and Volt-var/Volt-watt — using power_factor."
             else
-                vv = _resolve_volt_var(vv_obj, Uscale, relu_eps)
-                vw = _resolve_volt_watt(vw_obj, Uscale, relu_eps)
+                vv = _resolve_volt_var(vv_obj, Uscale, relu_eps;
+                    coefficient, profile_id=string(cp_id))
+                vw = _resolve_volt_watt(vw_obj, Uscale, relu_eps;
+                    coefficient, profile_id=string(cp_id))
+                _enforce_curve_order!(model, vv, cp_id, :volt_var)
+                _enforce_curve_order!(model, vw, cp_id, :volt_watt)
             end
         end
 
@@ -389,7 +460,8 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             U_diff = umag_var(model, dvr, dvi)
             single_U(c) = c === nothing ? nothing : (c.quantity == :PG ? U_pg : U_diff)
             _apply_ibr_phase!(model, inv_id, 1, p_expr, q_expr, single_U(vv), single_U(vw),
-                p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
+                p_min_model, p_max_model, q_min_model, q_max_model,
+                smax, tan_phi, pf_sign,
                 vv, vw, p_avail_per, relu_ops)
 
             _kcl_add!(kcl_r, kcl_i, bus, t_ph,   cri[(inv_id,1)],  cii[(inv_id,1)])
@@ -450,7 +522,8 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 _apply_ibr_phase!(model, inv_id, p.idx, p.p_expr, p.q_expr,
                     U_vv === nothing ? nothing : U_vv[p.idx],
                     U_vw === nothing ? nothing : U_vw[p.idx],
-                    p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
+                    p_min_model, p_max_model, q_min_model, q_max_model,
+                    smax, tan_phi, pf_sign,
                     vv, vw, p_avail_per, relu_ops)
             end
 
@@ -475,7 +548,8 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
                 _apply_ibr_phase!(model, inv_id, k, p_expr, q_expr, nothing, nothing,
-                    p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
+                    p_min_model, p_max_model, q_min_model, q_max_model,
+                    smax, tan_phi, pf_sign,
                     nothing, nothing, p_avail_per, relu_ops)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos,  cri[(inv_id,k)],  cii[(inv_id,k)])

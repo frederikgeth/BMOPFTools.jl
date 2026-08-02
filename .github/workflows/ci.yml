@@ -37,3 +37,40 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  diffopt-integration:
+    if: "!contains(github.event.head_commit.message, 'skip ci')"
+    name: DiffOpt integration - Julia latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v3
+      - name: Instantiate isolated DiffOpt test environment
+        run: >-
+          julia --project=test/diffopt -e
+          'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      - name: Run DiffOpt integration tests
+        run: julia --color=yes --project=test/diffopt test/diffopt/runtests.jl
+
+  downstream-extension:
+    if: "!contains(github.event.head_commit.message, 'skip ci')"
+    name: Downstream extension package - Julia latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v3
+      - name: Instantiate downstream-package test environment
+        run: >-
+          julia --project=test/downstream -e
+          'using Pkg; Pkg.develop([
+          PackageSpec(path=pwd()),
+          PackageSpec(path=joinpath(pwd(), "test", "fixtures", "MockOpfExtension"))]);
+          Pkg.instantiate()'
+      - name: Run downstream-package integration tests
+        run: julia --color=yes --project=test/downstream test/downstream/runtests.jl

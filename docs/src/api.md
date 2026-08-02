@@ -15,6 +15,7 @@ the whole sequence on one feeder.
 | Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
 | Audit every change | [`render_manifest`](@ref), [`manifest_to_dict`](@ref) | [Case augmentation](augmentation.md) |
 | Solve the OPF | [`solve_opf`](@ref), [`solve_pf`](@ref), [`solve_feasibility_opf`](@ref) | [Optimal power flow](opf.md) |
+| Extend a staged OPF model | [`build_opf_model`](@ref), [`OpfModelKey`](@ref), [`add_terminal_injection!`](@ref) | [Parameterized and differentiable extensions](differentiable_extensions.md) |
 | Inspect / profile a result | [`profile_solution`](@ref), [`render_solution`](@ref), [`diagnose_infeasibility`](@ref) | [OPF result dictionary](results.md) |
 | Export | [`write_bmopf`](@ref), [`write_result`](@ref), [`to_pmd`](@ref), [`to_dss`](@ref) | [Conversion guide](conversion.md) |
 
@@ -34,6 +35,17 @@ Severity
 ERROR
 WARNING
 INFO
+OpfModelKey
+OpfParameterScope
+OpfParameterBinding
+OpfDifferentiabilityReport
+OpfKKTDiagnostic
+OpfDifferentiationError
+OpfBuildManifest
+OpfDeviceBuilder
+OpfBuildSpec
+OpfCoefficientKey
+OpfCoefficientProvider
 ```
 
 ## Finding accessors
@@ -109,6 +121,72 @@ profile_solution
 render_solution
 solution_check
 BMOPFTools.voltage_zone_summary
+```
+
+## Staged OPF extension interface
+
+```@docs
+OpfRegularization
+OpfDifferentiabilityAnnotation
+opf_bus_voltage_key
+opf_ground_current_key
+opf_line_current_key
+opf_switch_current_key
+opf_load_current_key
+opf_generator_current_key
+opf_voltage_source_current_key
+opf_transformer_current_key
+opf_transformer_tap_key
+opf_nwinding_current_key
+opf_ibr_current_key
+opf_dc_voltage_key
+opf_dc_ground_current_key
+opf_dc_branch_current_key
+opf_converter_dc_current_key
+opf_dc_load_current_key
+opf_dc_source_current_key
+opf_dc_source_power_key
+opf_model
+opf_network
+opf_bases
+opf_lifecycle
+opf_build_manifest
+opf_build_spec
+opf_stage_completed
+initialize_opf_model
+set_opf_start_values!
+add_opf_operational_limits!
+add_opf_device_constraints!
+set_opf_objective!
+register_opf_result_extractor!
+register_opf_object!
+opf_object
+opf_object_keys
+register_opf_objective_term!
+opf_primal
+opf_constraint_value
+opf_constraint_slack
+opf_dual
+opf_objective_value
+register_opf_regularization!
+opf_regularizations
+register_opf_differentiability_annotation!
+opf_differentiability_annotations
+opf_research_hashes
+bind_opf_parameter!
+opf_parameter
+opf_parameter_binding
+opf_parameter_bindings
+opf_coefficient
+opf_coefficient_provider
+opf_coefficient_providers
+opf_coefficient_usage
+opf_differentiability_report
+opf_checked_kkt_factorization
+opf_kkt_diagnostic
+opf_research_provenance
+extension_state!
+add_terminal_injection!
 ```
 
 ## Configuration

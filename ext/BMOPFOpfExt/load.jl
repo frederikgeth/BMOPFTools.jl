@@ -64,7 +64,7 @@ end
 # Component right-hand-side as (const, W-coef, s-coef, nonlinear) terms.
 # `nl` is `nothing` for the quadratic-representable cases, or `(base, γ)` for a
 # genuinely non-integer exponential exponent.
-function _component_terms(load, zkeys, gkey, base::Float64, Vnom::Float64, k::Int)
+function _component_terms(load, zkeys, gkey, base, Vnom::Float64, k::Int)
     model = get(load, "model", "constant_power")
     if model == "constant_impedance"
         return (cc = 0.0, cW = base / Vnom^2, cs = 0.0, nl = nothing)
@@ -129,7 +129,8 @@ loads and register load currents in the KCL accumulators. Both WYE/SINGLE_PHASE
 and DELTA topologies are supported; the neutral return current flows through KCL
 automatically and is not an independent variable.
 """
-function _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
+function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
+                                coefficient=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     crd = vars[:crd]; cid = vars[:cid]
     nlabels = BMOPFTools._neutral_labels(net)
@@ -156,8 +157,12 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
 
                 P_tot = @expression(model, dvr * crd[(lid,1)] + dvi * cid[(lid,1)])
                 Q_tot = @expression(model, dvi * crd[(lid,1)] - dvr * cid[(lid,1)])
+                p0 = coefficient === nothing ? p_nom[1] : coefficient(
+                    :load, :load, lid, :p_nom, 1, p_nom[1])
+                q0 = coefficient === nothing ? q_nom[1] : coefficient(
+                    :load, :load, lid, :q_nom, 1, q_nom[1])
                 _add_subload_power!(model, load, lid, 1, P_tot, Q_tot,
-                                    p_nom[1], q_nom[1], dvr, dvi)
+                                    p0, q0, dvr, dvi)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos, -crd[(lid,1)], -cid[(lid,1)])
                 _kcl_add!(kcl_r, kcl_i, bus, t_neg,  crd[(lid,1)],  cid[(lid,1)])
@@ -181,8 +186,12 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
 
                 P_tot = @expression(model, dvr * crd[(lid,idx)] + dvi * cid[(lid,idx)])
                 Q_tot = @expression(model, dvi * crd[(lid,idx)] - dvr * cid[(lid,idx)])
+                p0 = coefficient === nothing ? p_nom[idx] : coefficient(
+                    :load, :load, lid, :p_nom, idx, p_nom[idx])
+                q0 = coefficient === nothing ? q_nom[idx] : coefficient(
+                    :load, :load, lid, :q_nom, idx, q_nom[idx])
                 _add_subload_power!(model, load, lid, idx, P_tot, Q_tot,
-                                    p_nom[idx], q_nom[idx], dvr, dvi)
+                                    p0, q0, dvr, dvi)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph, -crd[(lid,idx)], -cid[(lid,idx)])
                 t_n !== nothing &&
@@ -200,8 +209,12 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i)
 
                 P_tot = @expression(model, dvr * crd[(lid,k)] + dvi * cid[(lid,k)])
                 Q_tot = @expression(model, dvi * crd[(lid,k)] - dvr * cid[(lid,k)])
+                p0 = coefficient === nothing ? p_nom[k] : coefficient(
+                    :load, :load, lid, :p_nom, k, p_nom[k])
+                q0 = coefficient === nothing ? q_nom[k] : coefficient(
+                    :load, :load, lid, :q_nom, k, q_nom[k])
                 _add_subload_power!(model, load, lid, k, P_tot, Q_tot,
-                                    p_nom[k], q_nom[k], dvr, dvi)
+                                    p0, q0, dvr, dvi)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos, -crd[(lid,k)], -cid[(lid,k)])
                 _kcl_add!(kcl_r, kcl_i, bus, t_neg,  crd[(lid,k)],  cid[(lid,k)])
