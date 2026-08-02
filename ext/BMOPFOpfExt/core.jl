@@ -62,6 +62,7 @@ struct OpfContext
     # literal is used as-is (divide by 1.0).
     bases
     relu_eps::Float64
+    softplus::Symbol
     relu_ops::Dict{Float64,Any}
     # Stable downstream-extension substrate. `objects` maps public
     # `BMOPFTools.OpfModelKey`s to live JuMP objects; `extension_state` is
@@ -134,6 +135,9 @@ end
 function BMOPFTools.register_opf_object!(ctx::OpfContext,
                                          key::BMOPFTools.OpfModelKey,
                                          object; replace::Bool=false)
+    haskey(ctx.parameter_bindings, key) && throw(ArgumentError(
+        "cannot replace or re-register parameter-bound OPF model object $key; " *
+        "update it through its OpfParameterBinding"))
     if haskey(ctx.objects, key) && !replace
         throw(ArgumentError("OPF model object key already registered: $key"))
     end
@@ -791,12 +795,24 @@ function _constraint_activity(model; active_tolerance, transition_tolerance,
     weak = String[]
     violated = String[]
     inactive_slacks = Float64[]
-    has_duals = try JuMP.has_duals(model) catch; false end
+    unsupported = 0
+    has_duals = try
+        JuMP.has_duals(model)
+    catch error
+        _rethrow_fatal(error)
+        false
+    end
     for (F, S) in JuMP.list_of_constraint_types(model)
         (S <: JuMP.MOI.LessThan || S <: JuMP.MOI.GreaterThan ||
          S <: JuMP.MOI.Interval) || continue
         for (ordinal, constraint) in enumerate(JuMP.all_constraints(model, F, S))
-            value = try JuMP.value(constraint) catch; continue end
+            value = try
+                JuMP.value(constraint)
+            catch error
+                _rethrow_fatal(error)
+                unsupported += 1
+                continue
+            end
             set = JuMP.constraint_object(constraint).set
             slack = _slack(value, set)
             slack === nothing && continue
@@ -810,7 +826,12 @@ function _constraint_activity(model; active_tolerance, transition_tolerance,
             elseif abs(normalized_slack) <= active_tolerance
                 push!(active, label)
                 if has_duals
-                    multiplier = try abs(JuMP.dual(constraint)) catch; NaN end
+                    multiplier = try
+                        abs(JuMP.dual(constraint))
+                    catch error
+                        _rethrow_fatal(error)
+                        NaN
+                    end
                     (!isfinite(multiplier) || multiplier <= dual_tolerance) &&
                         push!(weak, label)
                 end
@@ -821,7 +842,7 @@ function _constraint_activity(model; active_tolerance, transition_tolerance,
         end
     end
     return sort!(active), sort!(near), sort!(weak), sort!(violated),
-           isempty(inactive_slacks) ? nothing : minimum(inactive_slacks)
+           isempty(inactive_slacks) ? nothing : minimum(inactive_slacks), unsupported
 end
 
 function BMOPFTools.opf_differentiability_report(
@@ -856,10 +877,10 @@ function BMOPFTools.opf_differentiability_report(
               if get(ctx.coefficient_usage, key, 0) == 0]
     parameter_keys = sort!(collect(keys(ctx.parameter_bindings));
         by=key -> (string(key.family), repr(key.index)))
-    active, near, weak, violated, minimum_inactive_slack = successful ?
+    active, near, weak, violated, minimum_inactive_slack, activity_failures = successful ?
         _constraint_activity(ctx.model; active_tolerance=active_tol,
             transition_tolerance=transition_tol, dual_tolerance=dual_tol) :
-        (String[], String[], String[], String[], nothing)
+        (String[], String[], String[], String[], nothing, 0)
     kkt_diagnostic = BMOPFTools.opf_kkt_diagnostic(ctx)
     annotations = [_copy_differentiability_annotation(
             ctx.differentiability_annotations[name])
@@ -878,7 +899,9 @@ function BMOPFTools.opf_differentiability_report(
         "The model has $inequality_count scalar inequality constraints; derivatives are local to the solved active set and should be checked near transitions.")
     any(op -> op isa BuiltinSoftplus, values(ctx.relu_ops)) &&
         push!(qualifications,
-            "Smooth droop uses the native log1p/exp softplus fallback because the optimizer wrapper rejected user-defined nonlinear operators.")
+            "Smooth droop explicitly uses the native log1p/exp softplus encoding; verify its numerical range for the chosen scaling.")
+    activity_failures > 0 && push!(qualifications,
+        "$activity_failures inequality constraint(s) could not be evaluated by the active-set scan.")
     any(key -> key.category == :physics &&
                get(ctx.coefficient_usage, key, 0) > 0, coefficient_keys) &&
         push!(qualifications,
@@ -913,7 +936,7 @@ function BMOPFTools.opf_differentiability_report(
         "The model does not have a successful termination status; do not report an unqualified gradient.")
     ready = ctx.lifecycle[] == :kcl_finalized && successful &&
             isempty(discrete) && isempty(unused) && isempty(near) &&
-            isempty(weak) && isempty(violated) &&
+            isempty(weak) && isempty(violated) && activity_failures == 0 &&
             !any(record -> record.blocking, annotations) &&
             (kkt_diagnostic === nothing || kkt_diagnostic.status == :accepted)
     return BMOPFTools.OpfDifferentiabilityReport(
@@ -924,7 +947,21 @@ function BMOPFTools.opf_differentiability_report(
         minimum_inactive_slack, kkt_diagnostic, qualifications)
 end
 
-_safe_provenance(f::Function) = try f() catch; nothing end
+function _rethrow_fatal(error)
+    error isa InterruptException && throw(error)
+    error isa StackOverflowError && throw(error)
+    error isa OutOfMemoryError && throw(error)
+    return nothing
+end
+
+function _safe_provenance(f::Function)
+    try
+        return f()
+    catch error
+        _rethrow_fatal(error)
+        return nothing
+    end
+end
 
 function _constraint_residual_summary(model)
     JuMP.result_count(model) > 0 || return Dict{String,Any}(
@@ -939,26 +976,48 @@ function _constraint_residual_summary(model)
     max_violation = 0.0
     max_normalized = 0.0
     complementarity = Float64[]
-    has_duals = try JuMP.has_duals(model) catch; false end
+    has_duals = try
+        JuMP.has_duals(model)
+    catch error
+        _rethrow_fatal(error)
+        false
+    end
     for (F, S) in JuMP.list_of_constraint_types(model)
         for constraint in JuMP.all_constraints(model, F, S)
-            value = try JuMP.value(constraint) catch; unsupported += 1; continue end
+            value = try
+                JuMP.value(constraint)
+            catch error
+                _rethrow_fatal(error)
+                unsupported += 1
+                continue
+            end
             set = JuMP.constraint_object(constraint).set
             violation = try
                 Float64(JuMP.MOI.Utilities.distance_to_set(value, set))
-            catch
+            catch error
+                _rethrow_fatal(error)
                 unsupported += 1
                 continue
             end
             evaluated += 1
             max_violation = max(max_violation, violation)
-            value_scale = try LinearAlgebra.norm(value) catch; abs(value) end
+            value_scale = try
+                LinearAlgebra.norm(value)
+            catch error
+                _rethrow_fatal(error)
+                abs(value)
+            end
             max_normalized = max(max_normalized, violation / (1.0 + value_scale))
             if has_duals && (set isa JuMP.MOI.LessThan ||
                              set isa JuMP.MOI.GreaterThan ||
                              set isa JuMP.MOI.Interval)
                 slack = _slack(value, set)
-                multiplier = try abs(JuMP.dual(constraint)) catch; nothing end
+                multiplier = try
+                    abs(JuMP.dual(constraint))
+                catch error
+                    _rethrow_fatal(error)
+                    nothing
+                end
                 if slack !== nothing && multiplier !== nothing &&
                    isfinite(slack) && isfinite(multiplier)
                     push!(complementarity, abs(slack * multiplier))
@@ -1109,8 +1168,9 @@ function BMOPFTools.opf_research_provenance(
         ),
         "smoothing" => Dict{String,Any}(
             "volt_var_watt_relative_epsilon" => ctx.relu_eps,
+            "softplus_mode" => string(ctx.softplus),
             "registered_softplus_operators" => length(ctx.relu_ops),
-            "uses_builtin_softplus_fallback" =>
+            "uses_builtin_softplus" =>
                 any(op -> op isa BuiltinSoftplus, values(ctx.relu_ops)),
         ),
         "parameters" => parameter_records,
@@ -1297,6 +1357,27 @@ function _validate_build_spec(ctx::OpfContext)
         id in ids || throw(ArgumentError(
             "unknown component '$id' for OPF device family '$family'"))
     end
+    if haskey(spec.family_builders, :ibr)
+        coupled = sort!([id for (id, inv) in get(ctx.net, "ibr", Dict())
+                         if inv isa Dict &&
+                            (haskey(inv, "dc_bus") ||
+                             get(inv, "dc_link_coupled", false) == true)])
+        isempty(coupled) || throw(ArgumentError(
+            "custom whole-family :ibr ownership is not supported when IBRs " *
+            "have native DC coupling ($(join(coupled, ", "))); replacing the " *
+            "IBR builder would otherwise remove converter/DC balance physics"))
+    end
+    for ((family, id), _) in spec.component_builders
+        family == :ibr || continue
+        inv = get(get(ctx.net, "ibr", Dict()), id, nothing)
+        inv isa Dict || continue
+        if haskey(inv, "dc_bus") || get(inv, "dc_link_coupled", false) == true
+            throw(ArgumentError(
+                "custom :ibr ownership for '$id' is not supported because the " *
+                "IBR has native DC coupling; replacing it would otherwise " *
+                "remove converter/DC balance physics"))
+        end
+    end
     return ctx
 end
 
@@ -1350,6 +1431,11 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
     model = ctx.model; net = ctx.net; vars = ctx.vars
     kcl_r = ctx.kcl_r; kcl_i = ctx.kcl_i
     isempty(ids) && family != :grounding && return ctx
+    coefficient = isempty(ctx.build_spec.coefficient_providers) ? nothing :
+        ((args...) -> _native_coefficient(ctx, args...))
+    parameterized_profiles = Set{String}(
+        key.component for key in keys(ctx.build_spec.coefficient_providers)
+        if key.category == :controller && key.family == :control_profile)
     action = if family == :voltage_source
         () -> _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
     elseif family == :line
@@ -1357,8 +1443,7 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
             _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                                    grounded=ctx.grounded,
                                    branch_inj=ctx.branch_inj,
-                                   coefficient=(args...) ->
-                                       _native_coefficient(ctx, args...))
+                                   coefficient=coefficient)
             _add_line_angle_constraints!(model, net, vars)
         end
     elseif family == :switch
@@ -1376,19 +1461,19 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
         () -> _add_capacitor_constraints!(net, vars, kcl_r, kcl_i)
     elseif family == :load
         () -> _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
-                                     coefficient=(args...) ->
-                                         _native_coefficient(ctx, args...))
+                                     coefficient=coefficient)
     elseif family == :generator
         () -> _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
-            coefficient=(args...) -> _native_coefficient(ctx, args...))
+            coefficient=coefficient)
     elseif family == :dc_network
         () -> _add_dc_network_constraints!(model, net, vars)
     elseif family == :ibr
         () -> _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                                     bases=ctx.bases, relu_eps=ctx.relu_eps,
+                                    softplus=ctx.softplus,
                                     relu_ops=ctx.relu_ops,
-                                    coefficient=(args...) ->
-                                        _native_coefficient(ctx, args...))
+                                    parameterized_profiles=parameterized_profiles,
+                                    coefficient=coefficient)
     elseif family == :grounding
         () -> _add_ground_injections!(vars, kcl_r, kcl_i, ctx.grounded)
     else
@@ -1465,6 +1550,7 @@ function _build_and_solve(net::Dict{String,Any};
                           extract!::Union{Function,Nothing}=nothing,
                           configure!::Union{Function,Nothing}=nothing,
                           relu_eps::Float64=2e-3,
+                          softplus::Symbol=:user_defined,
                           verbose::Bool=false,
                           solver_options=(),
                           model_hook!::Union{Function,Nothing}=nothing,
@@ -1480,7 +1566,8 @@ function _build_and_solve(net::Dict{String,Any};
     end
 
     ctx = _new_context(model, working, bases, relu_eps;
-                       problem=problem, s_base=s_base, build_spec=build_spec)
+                       problem=problem, s_base=s_base, build_spec=build_spec,
+                       softplus=softplus)
 
     build!(ctx)
     model_hook! === nothing || model_hook!(ctx)
@@ -1541,7 +1628,10 @@ KCL accumulators and branch-injection ledger, and bundle them into an
 """
 function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64;
                       problem::Symbol, s_base::Float64,
+                      softplus::Symbol=:user_defined,
                       build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec())
+    softplus in (:user_defined, :builtin) || throw(ArgumentError(
+        "softplus must be :user_defined or :builtin, got :$softplus"))
     bus_terminals = _bus_terminals(working)
     grounded      = _grounded_terminals(working)
 
@@ -1559,7 +1649,7 @@ function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64
         component_builders=copy(build_spec.component_builders),
         coefficient_providers=copy(build_spec.coefficient_providers))
     ctx = OpfContext(model, working, bus_terminals, grounded, vars,
-                     kcl_r, kcl_i, branch_inj, bases, relu_eps,
+                     kcl_r, kcl_i, branch_inj, bases, relu_eps, softplus,
                      Dict{Float64,Any}(),
                      Dict{BMOPFTools.OpfModelKey,Any}(), Dict{Any,Any}(),
                      Dict{BMOPFTools.OpfModelKey,BMOPFTools.OpfParameterBinding}(),
@@ -1634,7 +1724,8 @@ end
 """
     BMOPFTools.build_opf_model(net; optimizer=Ipopt.Optimizer, t_index=1,
         per_unit=true, s_base=1e6, model=nothing, add_objective=true,
-        model_hook!=nothing, volt_var_watt_eps=2e-3, verbose=false) -> ctx
+        build_spec=OpfBuildSpec(), model_hook!=nothing,
+        volt_var_watt_eps=2e-3, softplus=:user_defined, verbose=false) -> ctx
 
 Build the IVR-EN OPF device model, bounds, and (optionally) the generation-cost
 objective for one snapshot, **without enforcing KCL or optimising**. The first
@@ -1651,8 +1742,8 @@ step of the staged API; see the module notes above.
 - `model_hook!` — called as `hook!(ctx)` after the standard build, exactly as in
   `solve_opf`, to add custom devices/constraints for this snapshot.
 
-Returns the snapshot's `ctx` (an `OpfContext`); read `ctx.model`, `ctx.vars`,
-`ctx.bases`, `ctx.kcl_r`/`ctx.kcl_i` to couple snapshots. Pass it to
+Returns the snapshot's context; use `opf_model`, `opf_object`, `opf_bases`, and
+`add_terminal_injection!` to couple snapshots without relying on its layout. Pass it to
 [`enforce_kcl!`](@ref) and [`extract_result`](@ref).
 """
 function BMOPFTools.build_opf_model(net::Dict{String,Any};
@@ -1665,10 +1756,12 @@ function BMOPFTools.build_opf_model(net::Dict{String,Any};
                                     build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                     model_hook!::Union{Function,Nothing}=nothing,
                                     volt_var_watt_eps::Float64=2e-3,
+                                    softplus::Symbol=:user_defined,
                                     verbose::Bool=false)
     ctx = BMOPFTools.initialize_opf_model(net; optimizer, t_index, per_unit,
                                           s_base, model,
-                                          build_spec, volt_var_watt_eps, verbose)
+                                          build_spec, volt_var_watt_eps,
+                                          softplus, verbose)
     build_opf!(ctx; add_objective=add_objective)
     model_hook! === nothing || model_hook!(ctx)
     return ctx
@@ -1682,6 +1775,7 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
                                          model=nothing,
                                          build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                          volt_var_watt_eps::Float64=2e-3,
+                                         softplus::Symbol=:user_defined,
                                          verbose::Bool=false)
     working, bases = _prepare_working_net(net, t_index, per_unit, s_base)
     if model === nothing
@@ -1689,7 +1783,8 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
         verbose || JuMP.set_silent(model)
     end
     return _new_context(model, working, bases, volt_var_watt_eps;
-                        problem=:opf, s_base=s_base, build_spec=build_spec)
+                        problem=:opf, s_base=s_base, build_spec=build_spec,
+                        softplus=softplus)
 end
 
 """

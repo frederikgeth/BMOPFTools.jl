@@ -135,8 +135,8 @@ println("hand-derived bases match the engine on all ",
 
 Every LV bus inherits the transformer's low-side base through the line
 adjacency — the base changes at transformers and *only* at transformers. This
-is the same NamedTuple a [`solve_opf`](@ref) `model_hook!` receives as
-`ctx.bases` when it needs to express a physical-unit constraint inside a
+is the same NamedTuple a [`solve_opf`](@ref) `model_hook!` receives from
+`opf_bases(ctx)` when it needs to express a physical-unit constraint inside a
 per-unit model.
 
 ## 4. SI ≡ per-unit, demonstrated
@@ -335,7 +335,7 @@ Unit errors are silent, so check them off explicitly:
 - **Voltage bases change at transformers and only at transformers** — seeded
   phase-to-neutral at the source, propagated by `v_nom` ratios; ``Z_B, I_B,
   Y_B`` follow per bus. In a `model_hook!`, scale physical literals with
-  `ctx.bases`.
+  `opf_bases(ctx)`.
 - **`s_rating` on a transformer is also its impedance base** — the nameplate
   powers both the loading cap and the per-unit referral
   ([transformer models](transformer_models.md)).

@@ -904,6 +904,7 @@ end
     solve_opf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,
               per_unit::Bool=true, s_base::Float64=1e6,
               volt_var_watt_eps::Float64=2e-3,
+              softplus::Symbol=:user_defined, build_spec=OpfBuildSpec(),
               verbose::Bool=false, solver_options=(),
               model_hook!=nothing, solution_hook!=nothing) -> Dict{String,Any}
 
@@ -924,39 +925,39 @@ and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
 - `solver_options` is an iterable of `name => value` pairs applied as raw
   solver attributes, e.g. `solver_options = ["max_iter" => 3000, "tol" => 1e-9]`
   for Ipopt. Applied after the problem's own defaults, so user options win.
+- `build_spec` assigns typed native/custom device ownership and coefficient
+  providers. See [`OpfBuildSpec`](@ref) and the differentiable-extensions guide.
+- `softplus=:user_defined` uses the stable registered nonlinear operator.
+  Pass `softplus=:builtin` explicitly for wrappers such as DiffOpt that reject
+  `MOI.UserDefinedFunction`; the native expression has a narrower safe range.
 - `model_hook!` is the formulation extension point: a function `hook!(ctx)`
   called after the standard model is built and **before** KCL is enforced and
-  the model is solved. `ctx` carries the JuMP model and every index structure
-  a build recipe uses — the stable fields are:
-  `ctx.model` (JuMP model), `ctx.net` (the engine's working copy of the
-  network), `ctx.vars` (variable dict keyed by `:vr`, `:vi`, `:crg`, `:cig`,
-  `:cr_fr`, …, each mapping `(id, terminal)`-style keys to JuMP variables),
-  `ctx.bus_terminals` (bus → ordered terminal names), `ctx.grounded`
-  (set of perfectly-grounded `(bus, terminal)` pairs), and `ctx.kcl_r`/`ctx.kcl_i`
-  (per-`(bus, terminal)` KCL accumulator expressions — add to these to inject
-  current from a custom device). A hook can add constraints
-  (`JuMP.@constraint(ctx.model, …)`), replace the objective
-  (`JuMP.@objective(ctx.model, …)`), or stamp new devices into the KCL
-  accumulators.
+  the model is solved. Use [`opf_model`](@ref), [`opf_network`](@ref),
+  [`opf_bases`](@ref), semantic key constructors plus [`opf_object`](@ref), and
+  [`add_terminal_injection!`](@ref). The concrete context fields are internal.
 
   **Units.** With `per_unit=true` (the default) the model — and therefore every
-  `ctx.vars` variable — is in per-unit, so any physical-unit literal in a hook
-  must be scaled by the matching base. `ctx.bases` carries these: it is a
+  native model variable is in per-unit, so any physical-unit literal in a hook
+  must be scaled by the matching base. `opf_bases(ctx)` returns these as a
   NamedTuple with `s_base` (VA), per-bus `v_base`/`i_base`/`z_base`/`y_base`
   Dicts and the DC `v_dc_base`/`i_dc_base`/`z_dc_base`, or `nothing` in SI mode
   (`per_unit=false`), where no scaling is needed. A watt cap, for instance,
-  becomes `expr <= P_watts / (ctx.bases === nothing ? 1.0 : ctx.bases.s_base)`.
+  becomes `expr <= P_watts / (bases === nothing ? 1.0 : bases.s_base)`.
 
   Example — cap one generator's phase-a active power at 5 kW:
 
   ```julia
   result = solve_opf(net; model_hook! = ctx -> begin
-      vr = ctx.vars[:vr]; vi = ctx.vars[:vi]
-      crg = ctx.vars[:crg]; cig = ctx.vars[:cig]
-      b  = net["generator"]["g1"]["bus"]
-      sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base   # W → per-unit power
-      JuMP.@constraint(ctx.model,
-          vr[(b,"a")]*crg[("g1",1)] + vi[(b,"a")]*cig[("g1",1)] <= 5_000.0 / sb)
+      model = opf_model(ctx)
+      vr = opf_object(ctx, opf_bus_voltage_key("bus1", "a"))
+      vi = opf_object(ctx,
+          opf_bus_voltage_key("bus1", "a"; component=:imag))
+      crg = opf_object(ctx, opf_generator_current_key("g1", 1))
+      cig = opf_object(ctx,
+          opf_generator_current_key("g1", 1; component=:imag))
+      bases = opf_bases(ctx)
+      sb = bases === nothing ? 1.0 : bases.s_base
+      JuMP.@constraint(model, vr*crg + vi*cig <= 5_000.0 / sb)
   end)
   ```
 
@@ -966,7 +967,7 @@ and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
   hook can read `JuMP.value` of the custom variables it declared in a
   `model_hook!` (capture them in a shared closure) and append its own keys to
   the `result` dict. Because it runs in the model's units (per-unit by default),
-  the hook must scale its outputs to SI via `ctx.bases` so they sit alongside the
+  the hook must scale its outputs to SI via `opf_bases(ctx)` so they sit alongside the
   engine's SI results; the standard per-unit keys are unwrapped automatically but
   custom keys are not.
 
@@ -988,7 +989,8 @@ and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
           bat[:P] = P_expr; bat[:Q] = Q_expr        # JuMP expressions
       end,
       solution_hook! = (ctx, result) -> begin
-          sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base
+          bases = opf_bases(ctx)
+          sb = bases === nothing ? 1.0 : bases.s_base
           p_W  = JuMP.value(bat[:P]) * sb           # per-unit → SI watts
           q_var = JuMP.value(bat[:Q]) * sb
           result["battery"] = Dict("bat1" => Dict("p"=>p_W, "q"=>q_var))
@@ -1028,7 +1030,8 @@ function solve_opf end
 export solve_opf
 
 """
-    solve_feasibility_opf(net::Dict{String,Any}; optimizer=nothing, t_index::Int=1)
+    solve_feasibility_opf(net::Dict{String,Any}; optimizer=nothing, t_index::Int=1,
+                          build_spec=OpfBuildSpec())
         -> Dict{String,Any}
 
 Feasibility-relaxed variant of [`solve_opf`](@ref). Adds elastic slack current
@@ -1057,7 +1060,8 @@ export solve_feasibility_opf
 
 """
     solve_pf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,
-             per_unit::Bool=true, s_base::Float64=1e6) -> Dict{String,Any}
+             per_unit::Bool=true, s_base::Float64=1e6,
+             build_spec=OpfBuildSpec()) -> Dict{String,Any}
 
 Determined four-wire rectangular current-voltage (IVR-EN) power flow on a BMOPF
 network dict. Same device models as [`solve_opf`](@ref) but with **no operational
@@ -1485,15 +1489,18 @@ struct OpfBuildSpec
     family_builders::Dict{Symbol,OpfDeviceBuilder}
     component_builders::Dict{Tuple{Symbol,String},OpfDeviceBuilder}
     coefficient_providers::Dict{OpfCoefficientKey,OpfCoefficientProvider}
+    function OpfBuildSpec(
+            family_builders::Dict{Symbol,OpfDeviceBuilder},
+            component_builders::Dict{Tuple{Symbol,String},OpfDeviceBuilder},
+            coefficient_providers::Dict{OpfCoefficientKey,OpfCoefficientProvider})
+        overlap = intersect(Set(keys(family_builders)),
+                            Set(family for (family, _) in keys(component_builders)))
+        isempty(overlap) || throw(ArgumentError(
+            "a device family cannot have both a family builder and component " *
+            "builders: $(sort!(collect(overlap)))"))
+        return new(family_builders, component_builders, coefficient_providers)
+    end
 end
-
-# Compatibility for callers that constructed the M3 type positionally before
-# coefficient providers were added in M4. The keyword constructor remains the
-# documented interface.
-OpfBuildSpec(family_builders::Dict{Symbol,OpfDeviceBuilder},
-             component_builders::Dict{Tuple{Symbol,String},OpfDeviceBuilder}) =
-    OpfBuildSpec(family_builders, component_builders,
-                 Dict{OpfCoefficientKey,OpfCoefficientProvider}())
 
 function OpfBuildSpec(; family_builders=Dict(), component_builders=Dict(),
                       coefficient_providers=Dict())
@@ -1501,11 +1508,6 @@ function OpfBuildSpec(; family_builders=Dict(), component_builders=Dict(),
     components = Dict{Tuple{Symbol,String},OpfDeviceBuilder}(
         (Symbol(family), String(id)) => builder
         for ((family, id), builder) in component_builders)
-    overlap = intersect(Set(keys(families)),
-                        Set(family for (family, _) in keys(components)))
-    isempty(overlap) || throw(ArgumentError(
-        "a device family cannot have both a family builder and component " *
-        "builders: $(sort!(collect(overlap)))"))
     providers = Dict{OpfCoefficientKey,OpfCoefficientProvider}(
         coefficient_providers)
     return OpfBuildSpec(families, components, providers)
@@ -1892,7 +1894,7 @@ export generation_cost
     extract_result(ctx; solution_hook!=nothing) -> Dict{String,Any}
 
 Extract one snapshot's SI result dict from the solved model (call
-`JuMP.optimize!(ctx.model)` first). Mirrors [`solve_opf`](@ref)'s output for that
+`JuMP.optimize!(opf_model(ctx))` first). Mirrors [`solve_opf`](@ref)'s output for that
 snapshot: runs the optional `solution_hook!(ctx, result)`, attaches `opt_profile`,
 and unwraps per-unit back to SI. Final step of the staged API (see
 [`build_opf_model`](@ref)). Implemented in the `BMOPFOpfExt` extension.

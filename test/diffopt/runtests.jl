@@ -547,6 +547,18 @@ end
          "cost":[-1.0]}}}
     """; from_string=true)
 
+    # Swapping to a wrapper that rejects MOI.UserDefinedFunction must not
+    # silently change the smooth surrogate. The native encoding is opt-in.
+    default_model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    default_error = try
+        build_opf_model(net; model=default_model, per_unit=false)
+        nothing
+    catch error
+        error
+    end
+    @test default_error isa
+          JuMP.MOI.SetAttributeNotAllowed{JuMP.MOI.UserDefinedFunction}
+
     model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
     JuMP.set_silent(model)
     p_low = JuMP.@variable(model, p_low_fraction in JuMP.Parameter(0.2))
@@ -563,6 +575,7 @@ end
             (ctx, key, default) -> first_knot),
     )
     ctx = build_opf_model(net; model, per_unit=false,
+        softplus=:builtin,
         build_spec=OpfBuildSpec(coefficient_providers=providers))
     enforce_kcl!(ctx)
     JuMP.optimize!(model)

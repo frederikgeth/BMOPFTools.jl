@@ -1281,27 +1281,29 @@ Researchers who need to modify the formulation — add a constraint, swap the
 objective, or stamp a new device — can pass a **`model_hook!`** without
 forking the package. The hook is called as `hook!(ctx)` after the standard
 model is built and *before* Kirchhoff's current law is enforced and the model
-is solved. `ctx` exposes:
+is solved. Use the public extension interface:
 
-| field | contents |
+| API | contents |
 |---|---|
-| `ctx.model` | the JuMP model — `@constraint`/`@objective` work directly |
-| `ctx.net` | the engine's working copy of the network (snapshot + per-unit applied) |
-| `ctx.vars` | variable dict: `:vr`/`:vi` keyed `(bus, terminal)`, `:crg`/`:cig` keyed `(gen_id, conductor)`, `:cr_fr`/`:ci_fr`/… (see the module docstring of `BMOPFOpfExt` for the full list) |
-| `ctx.bus_terminals` | bus id → ordered terminal names |
-| `ctx.grounded` | set of perfectly-grounded `(bus, terminal)` pairs |
-| `ctx.kcl_r` / `ctx.kcl_i` | per-`(bus, terminal)` KCL accumulator expressions — `JuMP.add_to_expression!` into these to inject current from a custom device |
+| `opf_model(ctx)` | the JuMP model — `@constraint`/`@objective` work directly |
+| `opf_network(ctx)` | the engine's working copy (snapshot + per-unit applied) |
+| `opf_bases(ctx)` | SI↔working-coordinate bases, or `nothing` in SI mode |
+| `opf_object(ctx, key)` | a native or extension-owned object under a semantic key |
+| `add_terminal_injection!(ctx, …)` | supported KCL contribution seam |
 
 Example — cap one generator's phase active power below its box bound:
 
 ```julia
 using JuMP
 result = solve_opf(net; model_hook! = ctx -> begin
-    vr, vi   = ctx.vars[:vr],  ctx.vars[:vi]
-    crg, cig = ctx.vars[:crg], ctx.vars[:cig]
-    # P = (v_ph − v_n)·crg + … ; with a grounded neutral this reduces to:
-    @constraint(ctx.model,
-        vr[("bus1","1")]*crg[("g1",1)] + vi[("bus1","1")]*cig[("g1",1)] <= 150e3)
+    vr = opf_object(ctx, opf_bus_voltage_key("bus1", "1"))
+    vi = opf_object(ctx, opf_bus_voltage_key("bus1", "1"; component=:imag))
+    crg = opf_object(ctx, opf_generator_current_key("g1", 1))
+    cig = opf_object(ctx,
+        opf_generator_current_key("g1", 1; component=:imag))
+    bases = opf_bases(ctx)
+    scale = bases === nothing ? 1.0 : bases.s_base
+    @constraint(opf_model(ctx), vr*crg + vi*cig <= 150e3 / scale)
 end)
 ```
 
@@ -1311,7 +1313,7 @@ when `per_unit=true` — scale hand-written constants accordingly.
 A `solution_hook!(ctx, result)` runs after the solve and before per-unit
 unwrapping, with the model still live: read `JuMP.value` of the variables a
 `model_hook!` created and append your own keys to `result` (scale to SI via
-`ctx.bases`). A hook device that writes its net terminal power to
+`opf_bases(ctx)`). A hook device that writes its net terminal power to
 `result["custom_injection"] = Dict("p"=>…, "q"=>…)` (SI, generator sign) is
 counted by `profile_solution`'s power-balance check, so a correct solve no
 longer trips a spurious `W.SOL.POWER_BALANCE`.

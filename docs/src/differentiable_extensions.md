@@ -20,9 +20,17 @@ BMOPFTools does not present itself as a differentiable OPF solver. It provides
 the parameterized construction substrate, selected native coefficient paths,
 replaceable device builders, and conservative readiness diagnostics; the
 downstream differentiation package remains responsible for computing and
-validating sensitivities. Remaining native coverage and research provenance are
-tracked in the
-[implementation roadmap](dev/differentiable_roadmap.md).
+validating sensitivities. Current native coverage, known limitations, and the
+research provenance contract are documented below.
+
+```@example differentiable_extensions
+using BMOPFTools
+
+voltage_key = opf_bus_voltage_key("bus_1", "a")
+@assert voltage_key == OpfModelKey(:variable, :vr, ("bus_1", "a"))
+spec = OpfBuildSpec()
+@assert isempty(spec.component_builders)
+```
 
 ## Mathematical scope
 
@@ -168,6 +176,14 @@ schema, register custom expressions and constraints with `OpfModelKey`, add
 terminal currents with `add_terminal_injection!`, and register any extra
 post-solve output through `register_opf_result_extractor!`.
 
+Replacement transfers responsibility for every native equation associated with
+the selected component: terminal injections, limits, control laws, auxiliary
+variables, result semantics, and coupled physics. In particular, native IBR
+ownership includes apparent-power/current limits and converter/DC balance.
+Because the DC-coupling accumulator is not yet a public extension seam,
+BMOPFTools rejects custom ownership of an IBR with `dc_bus` or
+`dc_link_coupled=true` instead of constructing a partially disconnected model.
+
 Whole-family replacement is available for `:voltage_source`, `:line`, `:switch`,
 `:transformer`, `:shunt`, `:capacitor`, `:load`, `:generator`, `:dc_network`,
 `:ibr`, and `:grounding`. Per-component native/custom partitioning is currently
@@ -293,7 +309,7 @@ unknown semantic targets, negative/non-finite weights, and metadata that cannot
 be deterministically encoded are rejected. `opf_regularizations(ctx)` returns
 defensive metadata copies.
 
-`opf_research_hashes(ctx)` returns SHA-256 fingerprints for four independently
+`opf_research_hashes(ctx)` returns SHA-256 fingerprints for five independently
 changing layers:
 
 - `prepared_working_network_sha256`: the snapshot actually presented to the
@@ -302,7 +318,9 @@ changing layers:
   manifest, and semantic keys, excluding solver results and parameter values;
 - `parameter_state_sha256`: all current JuMP parameter values, including raw
   downstream parameters that were not bound through BMOPFTools; and
-- `regularization_declarations_sha256`: the explicit declarations above.
+- `regularization_declarations_sha256`: the explicit declarations above; and
+- `differentiability_annotations_sha256`: extension-declared nonsmooth,
+  dynamically branched, and unsupported parameter locations.
 
 Dictionary ordering does not affect the canonical value encoding. The model
 fingerprint is a deterministic *construction fingerprint*, not a canonical
@@ -410,6 +428,16 @@ The following native scalar paths currently consume providers:
 | `:controller` | `:control_profile` | `:volt_watt_breakpoints`, `:volt_watt_p_limits` | curve-point index |
 | `:physics` | `:line` | `:R_series`, `:X_series` | matrix index `(row, column)` |
 
+Known native gaps are deliberate capability boundaries, not implied support:
+
+| Not yet provider-aware | Consequence |
+|:--|:--|
+| IBR `s_max`, `i_max`, and `p_avail` | Capability circles, current limits, and some Volt-var/Volt-watt normalization bases remain fixed at build time |
+| Native IBR and generator costs | Parameterize an extension-owned objective term instead |
+| DC droop coefficients | Rebuild or own the downstream control formulation |
+| Transformer impedance/tap-model coefficients | Native transformer physics remains fixed except for exposed tap decision bindings |
+| Shared linecode entries | Line providers address each post-length line matrix, not the common source linecode |
+
 For example, native PV availability is identified by
 `OpfCoefficientKey(:availability, :ibr, "pv1", :p_max, 1)`. When a Volt-watt
 curve uses `P_MAX` as its reference, this same live coefficient also scales its
@@ -424,9 +452,17 @@ count, nominal smoothing width, and hinge structure are fixed when the model is
 built. Symbolic ordering constraints preserve the nominal strict order; moving
 knots through one another makes the model infeasible instead of silently
 changing its meaning. Ordinates use the profile's declared fractional or
-absolute working coordinate. With DiffOpt, JuMP may reject registered nonlinear
-operators; the engine then emits the same softplus using native `log1p`/`exp`
-operators and records that fallback in the differentiability report.
+absolute working coordinate. A control profile shared by several IBRs is
+resolved once per working voltage base, so one profile-scoped key denotes one
+live coefficient and one set of ordering guards. A parameterized profile shared
+across different per-unit voltage bases is rejected because one working-unit key
+cannot represent both conversions unambiguously.
+
+The default `softplus=:user_defined` uses the registered, numerically stable
+operator. DiffOpt wrappers that reject user-defined nonlinear operators require
+the explicit `softplus=:builtin` build keyword. That native `log1p(exp(⋅))`
+expression is less overflow-resistant; explicit opt-in makes the numerical
+encoding part of the study configuration and provenance.
 
 Line matrix keys address the **total line impedance after length application**,
 not a shared linecode entry. Thus two lines that reference one linecode may be
@@ -456,6 +492,13 @@ active constraints make `ready=false`; tolerances are explicit keywords so a
 study can align them with its solver tolerances and report them. This catches
 common active-set and strict-complementarity hazards, but is not a proof of LICQ,
 second-order sufficiency, or solution-branch uniqueness.
+
+Reports and research hashes inspect the complete JuMP model. When several
+snapshot contexts share one model, model/constraint counts, residuals, active
+sets, and readiness are therefore model-wide; semantic inventories and build
+manifests remain context-owned. A report from one snapshot can consequently
+reflect a constraint added by another snapshot. Treat this as a joint-model
+qualification, not a per-snapshot certificate.
 
 ### Explicit differentiability annotations
 
@@ -544,8 +587,8 @@ The versioned `BMOPFTools.opf_research_provenance/v1` record includes:
 - deterministic working-data, model-structure, parameter-state,
   regularization-declaration, and differentiability-annotation SHA-256
   fingerprints;
-- smoothing configuration and whether the DiffOpt-compatible built-in
-  softplus fallback was used;
+- smoothing configuration and whether the explicitly selected
+  DiffOpt-compatible built-in softplus encoding was used;
 - parameter scopes, units, scales, current values, semantic targets and owners;
 - coefficient-provider semantic keys, owners, and consumption counts;
 - explicit downstream regularization and differentiability declarations; and
@@ -559,6 +602,11 @@ retain the per-unit/basis metadata. Downstream packages should still append the
 DiffOpt version, outer objective and loss, random seeds, original-file hashes,
 and hashes for data not represented in the prepared BMOPF network. BMOPFTools
 cannot infer those choices.
+
+Structure hashing and provenance serialize the full model and can be expensive
+on large feeders. Capture them at auditable study checkpoints (normally once
+after construction and once for a reported solution), not inside a parameter-
+sweep hot loop.
 
 ## Scientific limitations
 

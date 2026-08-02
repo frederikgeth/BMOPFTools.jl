@@ -23,6 +23,7 @@ first — it is the one-sitting overview every path below assumes.
 | **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Trusting the solver](bounds/solver_trust.md), [Validating the OPF](validation.md) |
 | **Model a specific device** (STATCOM, MVDC, regulator, PV droop) | [D-STATCOM study](tutorial_statcom.md) | [MVDC](tutorial_mvdc.md), [Tap optimisation](tutorial_tap.md), [VVWO](tutorial_vvwo.md) |
 | **Change the formulation** (custom objectives, constraints, multi-period) | [Custom formulations](tutorial_custom_formulations.md) | [OPF model](opf.md), [Units, bases & economics](tutorial_units.md) |
+| **Build a differentiable or bilevel research extension** | [Parameterized and differentiable extensions](differentiable_extensions.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
 | **Extend or debug the solver** | [OPF engine: scope & status](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
 
 ## The judgment spine

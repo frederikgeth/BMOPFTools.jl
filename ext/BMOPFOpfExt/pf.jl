@@ -25,7 +25,8 @@
 
 """
     BMOPFTools.solve_pf(net; optimizer=Ipopt.Optimizer, t_index=1,
-                        per_unit=true, s_base=1e6) -> Dict
+                        per_unit=true, s_base=1e6,
+                        build_spec=OpfBuildSpec()) -> Dict
 
 Determined four-wire rectangular current-voltage (IVR-EN) power flow on a BMOPF
 network dict.
@@ -50,12 +51,16 @@ no objective to select a dispatch within the range.
 
 The result dict has the same structure as `solve_opf` (`bus`, `line`, `load`,
 `generator`, `transformer`, `voltage_source`, …) plus `is_power_flow == true`.
+Custom ownership follows the same `build_spec` contract, after the private
+power-flow working copy has had operational limit fields removed.
 """
 function BMOPFTools.solve_pf(net::Dict{String,Any};
                               optimizer=Ipopt.Optimizer,
                               t_index::Int=1,
                               per_unit::Bool=true,
                               s_base::Float64=1e6,
+                              softplus::Symbol=:user_defined,
+                              build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                               verbose::Bool=false,
                               solver_options=(),
                               model_hook!::Union{Function,Nothing}=nothing,
@@ -63,6 +68,7 @@ function BMOPFTools.solve_pf(net::Dict{String,Any};
     _build_and_solve(net; optimizer=optimizer, t_index=t_index,
                      per_unit=per_unit, s_base=s_base,
                      problem=:power_flow,
+                     softplus=softplus, build_spec=build_spec,
                      build! = build_pf!,
                      extract! = (ctx, result) -> (result["is_power_flow"] = true; nothing),
                      verbose, solver_options, model_hook!, solution_hook!)

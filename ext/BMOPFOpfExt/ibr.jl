@@ -105,14 +105,14 @@ end
 # Resolved Volt-var / Volt-watt droop curve, ready to stamp into the model.
 # `triples`/`eps` are in model voltage units (SI volts, or per-unit when the
 # model is solved per-unit); `ref` selects the per-phase normalisation base.
-struct DroopCurve
-    baseline
-    triples::Vector{Tuple{Any,Any}}
+struct DroopCurve{B,T,K}
+    baseline::B
+    triples::T
     eps::Float64
     ref::Symbol           # :S_MAX | :P_MAX | :P_AVAILABLE | :VAR_MAX
     quantity::Symbol      # :PN | :PG | :PP   (monitored voltage quantity)
     averaged::Bool        # true ⇒ every phase sees the mean phase magnitude
-    knots::Vector{Any}    # live working-unit breakpoints (possibly parameters)
+    knots::K              # live working-unit breakpoints (possibly parameters)
     min_gap::Float64      # fixed feasibility guard derived from nominal knots
 end
 
@@ -124,24 +124,34 @@ end
 function _curve_from_points(xs, ys, nominal_xs::Vector{Float64},
                             relu_eps::Float64, ref::Symbol,
                             quantity::Symbol, averaged::Bool)
+    length(nominal_xs) == length(xs) || throw(ArgumentError(
+        "nominal and live curve breakpoints must have equal length"))
+    # Validate the source data even when a provider supplies live coefficients.
+    # Provider registration must not turn malformed, non-increasing profile data
+    # into a superficially feasible parameter-ordering constraint.
+    breakpoints_to_triples(nominal_xs, zeros(length(nominal_xs)))
     if all(x -> x isa Real, xs) && all(y -> y isa Real, ys)
         base, numeric_triples = breakpoints_to_triples(
             Float64.(xs), Float64.(ys))
-        triples = Tuple{Any,Any}[(a, x) for (a, x) in numeric_triples]
+        triples = numeric_triples
+        knots = Float64.(xs)
     else
         base = ys[1]
         triples = Tuple{Any,Any}[]
         for i in 1:(length(xs) - 1)
+            # A structurally flat segment whose endpoints are fixed contributes
+            # nothing, and should not retain a live 0/(x[i+1]-x[i]) expression.
+            ys[i] isa Real && ys[i + 1] isa Real && ys[i] == ys[i + 1] && continue
             slope = (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i])
             push!(triples, (slope, xs[i]))
             push!(triples, (-slope, xs[i + 1]))
         end
+        knots = Any[xs...]
     end
     ε = relu_eps * (sum(nominal_xs) / length(nominal_xs))
     nominal_gap = minimum(diff(nominal_xs))
     min_gap = max(1e-9, 1e-6 * nominal_gap)
-    return DroopCurve(base, triples, ε, ref, quantity, averaged,
-                      Any[xs...], min_gap)
+    return DroopCurve(base, triples, ε, ref, quantity, averaged, knots, min_gap)
 end
 
 function _enforce_curve_order!(model, curve::Union{DroopCurve,Nothing},
@@ -327,11 +337,15 @@ so a profile is ignored (box bounds retained) with a warning.
 function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                                     bases=nothing, relu_eps::Float64=2e-3,
                                     relu_ops::Dict{Float64,Any}=Dict{Float64,Any}(),
+                                    softplus::Symbol=:user_defined,
+                                    parameterized_profiles::Set{String}=Set{String}(),
                                     coefficient=nothing)
     vr  = vars[:vr];  vi  = vars[:vi]
     cri = vars[:cri]; cii = vars[:cii]
     profiles = get(net, "control_profile", Dict())
     nlabels = BMOPFTools._neutral_labels(net)
+    curve_cache = Dict{Tuple{String,Float64},Tuple{Any,Any}}()
+    parameterized_profile_scale = Dict{String,Float64}()
 
     for (inv_id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
@@ -389,12 +403,28 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             elseif pf_val !== nothing
                 @warn "IBR '$inv_id': control_profile has both power_factor and Volt-var/Volt-watt — using power_factor."
             else
-                vv = _resolve_volt_var(vv_obj, Uscale, relu_eps;
-                    coefficient, profile_id=string(cp_id))
-                vw = _resolve_volt_watt(vw_obj, Uscale, relu_eps;
-                    coefficient, profile_id=string(cp_id))
-                _enforce_curve_order!(model, vv, cp_id, :volt_var)
-                _enforce_curve_order!(model, vw, cp_id, :volt_watt)
+                profile_id = string(cp_id)
+                if profile_id in parameterized_profiles &&
+                   haskey(parameterized_profile_scale, profile_id) &&
+                   parameterized_profile_scale[profile_id] != Uscale
+                    throw(ArgumentError(
+                        "parameterized control profile '$profile_id' is shared " *
+                        "across different voltage bases; one profile-scoped " *
+                        "working-unit coefficient cannot represent both bases"))
+                end
+                profile_id in parameterized_profiles &&
+                    (parameterized_profile_scale[profile_id] = Uscale)
+                cache_key = (profile_id, Uscale)
+                if !haskey(curve_cache, cache_key)
+                    resolved_vv = _resolve_volt_var(vv_obj, Uscale, relu_eps;
+                        coefficient, profile_id=profile_id)
+                    resolved_vw = _resolve_volt_watt(vw_obj, Uscale, relu_eps;
+                        coefficient, profile_id=profile_id)
+                    _enforce_curve_order!(model, resolved_vv, cp_id, :volt_var)
+                    _enforce_curve_order!(model, resolved_vw, cp_id, :volt_watt)
+                    curve_cache[cache_key] = (resolved_vv, resolved_vw)
+                end
+                vv, vw = curve_cache[cache_key]
             end
         end
 
@@ -462,7 +492,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             _apply_ibr_phase!(model, inv_id, 1, p_expr, q_expr, single_U(vv), single_U(vw),
                 p_min_model, p_max_model, q_min_model, q_max_model,
                 smax, tan_phi, pf_sign,
-                vv, vw, p_avail_per, relu_ops)
+                vv, vw, p_avail_per, relu_ops, softplus)
 
             _kcl_add!(kcl_r, kcl_i, bus, t_ph,   cri[(inv_id,1)],  cii[(inv_id,1)])
             _kcl_add!(kcl_r, kcl_i, bus, t_ref,  -cri[(inv_id,1)], -cii[(inv_id,1)])
@@ -524,7 +554,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                     U_vw === nothing ? nothing : U_vw[p.idx],
                     p_min_model, p_max_model, q_min_model, q_max_model,
                     smax, tan_phi, pf_sign,
-                    vv, vw, p_avail_per, relu_ops)
+                    vv, vw, p_avail_per, relu_ops, softplus)
             end
 
         elseif topo == "THREE_LEG"
@@ -550,7 +580,7 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
                 _apply_ibr_phase!(model, inv_id, k, p_expr, q_expr, nothing, nothing,
                     p_min_model, p_max_model, q_min_model, q_max_model,
                     smax, tan_phi, pf_sign,
-                    nothing, nothing, p_avail_per, relu_ops)
+                    nothing, nothing, p_avail_per, relu_ops, softplus)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos,  cri[(inv_id,k)],  cii[(inv_id,k)])
                 _kcl_add!(kcl_r, kcl_i, bus, t_neg, -cri[(inv_id,k)], -cii[(inv_id,k)])
@@ -569,7 +599,8 @@ function _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
             p_ac = @expression(model, sum(p_exprs))
             _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac, smax,
                                      p_min, p_max;
-                                     relu_eps=relu_eps, relu_ops=relu_ops, net=net)
+                                     relu_eps=relu_eps, relu_ops=relu_ops,
+                                     softplus=softplus, net=net)
         elseif dc_coupled && !isempty(p_exprs)
             # Isolated DC link: bound the net (sum of per-phase) active power,
             # letting the converter circulate active power between phases.
@@ -593,7 +624,7 @@ end
 # √(dvr²+dvi²) for PER_PHASE, or the mean of the phase magnitudes for AVERAGE.
 function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
                                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
-                                vv, vw, p_avail_per, relu_ops)
+                                vv, vw, p_avail_per, relu_ops, softplus)
     # P lower bound (always a box bound).
     length(p_min) >= idx && @constraint(model, p_expr >= p_min[idx])
 
@@ -605,7 +636,7 @@ function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     # the cap is a fraction of rated and p_max is what enforces availability.)
     length(p_max) >= idx && @constraint(model, p_expr <= p_max[idx])
     if vw !== nothing
-        op   = relu_operator_for!(relu_ops, model, vw.eps)
+        op   = relu_operator_for!(relu_ops, model, vw.eps; mode=softplus)
         base = _droop_base(vw, idx, smax, p_max, p_avail_per)
         @constraint(model, p_expr <= curve_expr(op, U_vw, base * vw.baseline,
                                                  [(base*a, x̄) for (a, x̄) in vw.triples]))
@@ -615,7 +646,7 @@ function _apply_ibr_phase!(model, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     if tan_phi !== nothing
         @constraint(model, pf_sign * q_expr + tan_phi * p_expr == 0)
     elseif vv !== nothing
-        op   = relu_operator_for!(relu_ops, model, vv.eps)
+        op   = relu_operator_for!(relu_ops, model, vv.eps; mode=softplus)
         base = _droop_base(vv, idx, smax, p_max, p_avail_per)
         @constraint(model, q_expr == curve_expr(op, U_vv, base * vv.baseline,
                                                 [(base*a, x̄) for (a, x̄) in vv.triples]))

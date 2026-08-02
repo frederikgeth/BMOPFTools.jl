@@ -87,7 +87,8 @@ include("feasibility_opf.jl")
 include("pf.jl")
 
 """
-    BMOPFTools.solve_opf(net; optimizer=Ipopt.Optimizer, t_index=1) -> Dict
+    BMOPFTools.solve_opf(net; optimizer=Ipopt.Optimizer, t_index=1,
+        build_spec=OpfBuildSpec(), softplus=:user_defined) -> Dict
 
 Four-wire rectangular current-voltage (IVR-EN) OPF on a BMOPF network dict.
 
@@ -110,6 +111,7 @@ function BMOPFTools.solve_opf(net::Dict{String,Any};
                                per_unit::Bool=true,
                                s_base::Float64=1e6,
                                volt_var_watt_eps::Float64=2e-3,
+                               softplus::Symbol=:user_defined,
                                build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                verbose::Bool=false,
                                solver_options=(),
@@ -120,6 +122,7 @@ function BMOPFTools.solve_opf(net::Dict{String,Any};
                      build_spec=build_spec,
                      build! = build_opf!,
                      relu_eps=volt_var_watt_eps,
+                     softplus=softplus,
                      verbose, solver_options, model_hook!, solution_hook!)
 end
 

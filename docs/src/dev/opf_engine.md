@@ -120,7 +120,7 @@ reach (full detail under
 
 - **`model_hook!(ctx)` / `solution_hook!(ctx, result)`** — add custom variables,
   constraints, or objective terms to a single solve, then read their solved
-  values. A hook device stamps its current into `ctx.kcl_r`/`ctx.kcl_i` and may
+  values. A hook device stamps its current with `add_terminal_injection!` and may
   register its net injection as `result["custom_injection"]` so the power-balance
   check in [`profile_solution`](../validation.md) stays honest. This is how a
   battery, EV charger, or bespoke limit is added **without touching the JSON
@@ -153,7 +153,7 @@ has already stamped every element in the net and populated the KCL accumulators)
 and **before** [`enforce_kcl!`](@ref) turns those accumulators into constraints. Two
 conventions trip up first-time hook authors.
 
-**Hooks are additive.** A hook may *add* current into `ctx.kcl_r`/`ctx.kcl_i`, add
+**Hooks are additive.** A hook may add current with `add_terminal_injection!`, add
 variables and constraints, and set the objective. It **cannot replace** a
 constraint already stamped for a network element — by the time the hook runs, that
 element's Ohm's-law/KCL contribution is already in the model. There are therefore
@@ -162,11 +162,12 @@ two ways to make an element's parameter a decision variable:
 - **Native free variable — preferred where it exists.** Some element parameters are
   already exposed as optional free variables when the case declares bounds. A
   transformer **tap** is the worked example: set `tap_min`/`tap_max` on the
-  transformer and the engine declares a `:tap` variable (`ctx.vars[:tap][tid]`, the
-  effective from→to ratio) and threads it through the per-unit-correct,
+  transformer, retrieve the effective from→to ratio with
+  `opf_object(ctx, opf_transformer_tap_key(tid))`, and let the engine thread it
+  through the per-unit-correct,
   base-referred winding constraints. The hook just *reads* (and, across a staged
   multi-snapshot build, *couples*) the handle — the engine keeps ownership of
-  per-unit, limits, and `branch_inj` loss/flow bookkeeping.
+  per-unit, limits, and native loss/flow bookkeeping.
 
 - **Use a coefficient provider, or omit-and-re-stamp when no native location
   exists.** Native scalar line `R_series`/`X_series` matrix entries can now be
@@ -175,12 +176,11 @@ two ways to make an element's parameter a decision variable:
   **omit that element from the net** and re-stamp its constraint in the hook with
   your own variable, injecting its current into the KCL accumulators. The caveats
   are the flip side of the above: for that element *you* now own the per-unit
-  scaling (`ctx.bases`), any current/power limit, and the `branch_inj` bookkeeping —
+  scaling (`opf_bases(ctx)`), any current/power limit, and native loss/flow bookkeeping —
   none of it is applied for an element the engine never saw.
 
-**KCL accumulators hold currents injected _into_ the terminal.** `ctx.kcl_r[(bus,
-terminal)]` / `ctx.kcl_i[...]` accumulate the sum of currents flowing **into** that
-`(bus, terminal)`; `enforce_kcl!` sets each sum to zero. So a series element from
+**Terminal injections are positive _into_ the terminal.** `enforce_kcl!` sets
+the sum at each `(bus, terminal)` to zero. So a series element from
 bus `f` to bus `g` carrying current `I = cr + j·ci` in the `f → g` direction
 **subtracts** at its from-terminal (current leaves `f`) and **adds** at its
 to-terminal (current enters `g`):
@@ -199,12 +199,10 @@ add_terminal_injection!(ctx, bus, phase,    cr,  ci)
 add_terminal_injection!(ctx, bus, neutral, -cr, -ci)
 ```
 
-The `branch_inj` field on `OpfContext` (defined in `ext/BMOPFOpfExt/core.jl`)
-documents the same "into bus" sign: each recorded entry is the current an element
-injects into a terminal, so an element's complex loss is
+The native flow/loss ledger uses the same "into bus" sign, so an element's complex loss is
 `S_loss = −Σ V·conj(I_into_bus)`. In per-unit mode (`per_unit=true`, the default)
 the accumulator currents are per-unit; a SI current/voltage literal in a hook must
-be scaled by the matching `ctx.bases` base (see the `OpfContext` docstring).
+be scaled by the matching `opf_bases(ctx)` base.
 
 ## Keep it behind the extension boundary
 
@@ -224,9 +222,9 @@ be scaled by the matching `ctx.bases` base (see the `OpfContext` docstring).
 ## See also
 
 - [Optimal power flow](../opf.md) — running the engine and the formulation.
-- [Parameterized and differentiable extensions](../differentiable_extensions.md)
-  and its [implementation roadmap](differentiable_roadmap.md) — the stable
-  downstream-extension contract, scientific scope, and milestones.
+- [Parameterized and differentiable extensions](../differentiable_extensions.md) —
+  the stable downstream-extension contract, scientific scope, native coverage,
+  and known limitations.
 - [OPF result dictionary](../results.md) — the result-dict shape (part of the
   public API; see [Versioning](versioning.md)).
 - [Validating the OPF](../validation.md) and

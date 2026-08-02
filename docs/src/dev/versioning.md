@@ -48,6 +48,11 @@ breaking bump.
 - **Result-dict shape** — the structure of the dict returned by
   [`solve_opf`](../opf.md) / consumed by [`profile_solution`](../results.md).
 - **Report shape** — the fields of `Finding`, `SummaryReport`, `SolutionReport`.
+- **Documented OPF extension records and provenance schemas** — semantic key,
+  build-manifest, parameter-binding, differentiability-report and KKT-diagnostic
+  fields are research-facing API. While the package remains pre-1.0 they may
+  evolve on a minor release; provenance records carry an explicit `/vN` schema
+  identifier and consumers must reject or migrate unknown versions.
 
 ## Data-model (spec) version
 

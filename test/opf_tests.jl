@@ -994,6 +994,15 @@ using .MockOpfExtension
         pu_result = solve_opf(net; build_spec=mixed_spec)
         @test pu_result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         @test pu_result["mock_ibr"]["pv_custom"]["p"] ≈ 1500.0 atol=1e-3
+        pf_result = solve_pf(net; per_unit=false, build_spec=mixed_spec)
+        @test pf_result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test pf_result["mock_ibr"]["pv_custom"]["p"] ≈ 1500.0 atol=1e-3
+        feasibility_result = solve_feasibility_opf(
+            net; per_unit=false, build_spec=mixed_spec)
+        @test feasibility_result["termination_status"] in
+              ("LOCALLY_SOLVED", "OPTIMAL")
+        @test feasibility_result["mock_ibr"]["pv_custom"]["p"] ≈
+              1500.0 atol=1e-3
 
         # Whole-family replacement calls the downstream builder once with all
         # deterministically sorted identifiers and records one family owner.
@@ -1017,6 +1026,24 @@ using .MockOpfExtension
         @test_throws ArgumentError OpfBuildSpec(
             family_builders=Dict(:ibr => builder),
             component_builders=Dict((:ibr, "pv_custom") => builder))
+        typed_families = Dict{Symbol,OpfDeviceBuilder}(:ibr => builder)
+        typed_components = Dict{Tuple{Symbol,String},OpfDeviceBuilder}(
+            (:ibr, "pv_custom") => builder)
+        typed_providers = Dict{OpfCoefficientKey,OpfCoefficientProvider}()
+        @test_throws ArgumentError OpfBuildSpec(
+            typed_families, typed_components, typed_providers)
+
+        # Native IBR ownership includes converter/DC coupling and isolated-link
+        # power balance. Until that coupled seam is public, replacement fails
+        # closed instead of leaving pre-created DC variables unconstrained.
+        coupled_net = deepcopy(net)
+        coupled_net["ibr"]["pv_custom"]["dc_link_coupled"] = true
+        coupled_ctx = initialize_opf_model(coupled_net;
+            build_spec=OpfBuildSpec(component_builders=Dict(
+                (:ibr, "pv_custom") => builder)))
+        set_opf_start_values!(coupled_ctx)
+        @test_throws ArgumentError add_opf_device_constraints!(coupled_ctx)
+        @test !opf_stage_completed(coupled_ctx, :device_physics)
 
         bad_family = initialize_opf_model(net;
             build_spec=OpfBuildSpec(family_builders=Dict(:unknown => builder)))
@@ -1106,6 +1133,70 @@ using .MockOpfExtension
         report = opf_differentiability_report(ctx)
         @test report.ready
         @test any(q -> occursin("passivity", q), report.qualifications)
+    end
+
+    @testset "T-PROFILE-PROVIDER: shared profile coefficients are shared" begin
+        net = parse_bmopf("""
+        {"bus":{"b":{"terminal_names":["1","n"],
+                           "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"grid":{"bus":"b","terminal_map":["1"],
+             "v_magnitude":[240.0],"v_angle":[0.0]}},
+         "control_profile":{"shared":{"volt_var":{
+             "voltage_reference":"PN_PER_PHASE",
+             "breakpoints":[230.0,235.0,245.0,250.0],
+             "q_limits":[-1.0,1.0],"q_unit":"VA_FRACTION",
+             "q_ref":"VAR_MAX"}}},
+         "ibr":{
+             "pv1":{"bus":"b","terminal_map":["1","n"],
+                 "topology":"SINGLE_PHASE","prime_mover":"PV",
+                 "s_max":[1000.0],"p_min":[0.0],"p_max":[0.0],
+                 "q_min":[-1000.0],"q_max":[1000.0],
+                 "control_profile":"shared"},
+             "pv2":{"bus":"b","terminal_map":["1","n"],
+                 "topology":"SINGLE_PHASE","prime_mover":"PV",
+                 "s_max":[1000.0],"p_min":[0.0],"p_max":[0.0],
+                 "q_min":[-1000.0],"q_max":[1000.0],
+                 "control_profile":"shared"}}}
+        """; from_string=true)
+        model = JuMP.Model(Ipopt.Optimizer)
+        keys = [OpfCoefficientKey(:controller, :control_profile, "shared",
+                                  :volt_var_breakpoints, i)
+                for i in 1:4]
+        defaults = [230.0, 235.0, 245.0, 250.0]
+        parameters = Dict(key => JuMP.@variable(
+            model, set=JuMP.Parameter(default), base_name="shared_knot_$i")
+            for (i, (key, default)) in enumerate(zip(keys, defaults)))
+        calls = Dict(key => 0 for key in keys)
+        providers = Dict(key => OpfCoefficientProvider(:ProfileTest,
+            (ctx, seen, default) -> begin
+                calls[seen] += 1
+                parameters[seen]
+            end) for key in keys)
+        ctx = build_opf_model(net; model, per_unit=false,
+            build_spec=OpfBuildSpec(coefficient_providers=providers),
+            add_objective=false)
+        @test calls == Dict(key => 1 for key in keys)
+        @test opf_coefficient_usage(ctx) == Dict(key => 1 for key in keys)
+        order_names = [JuMP.name(c)
+            for (F, S) in JuMP.list_of_constraint_types(model)
+            for c in JuMP.all_constraints(model, F, S)
+            if startswith(JuMP.name(c), "volt_var_order_shared_")]
+        @test sort(order_names) == ["volt_var_order_shared_$i" for i in 1:3]
+
+        malformed = deepcopy(net)
+        malformed["control_profile"]["shared"]["volt_var"]["breakpoints"] =
+            [230.0, 245.0, 240.0, 250.0]
+        malformed_model = JuMP.Model(Ipopt.Optimizer)
+        malformed_parameter = JuMP.@variable(
+            malformed_model, set=JuMP.Parameter(230.0),
+            base_name="malformed_profile_knot")
+        first_key = first(keys)
+        malformed_spec = OpfBuildSpec(coefficient_providers=Dict(
+            first_key => OpfCoefficientProvider(
+                :ProfileTest, (ctx, key, default) -> malformed_parameter)))
+        @test_throws ArgumentError build_opf_model(
+            malformed; model=malformed_model, per_unit=false,
+            build_spec=malformed_spec, add_objective=false)
     end
 
     @testset "T-EXT-API: semantic registry, lifecycle, state, and KCL injection" begin
@@ -1454,6 +1545,8 @@ using .MockOpfExtension
         @test opf_parameter(ctx, :tap_t1) === tap_input
         @test opf_parameter(ctx, "regulated_tap") === tap_input
         @test opf_object(ctx, pkey) === tap_input
+        @test_throws ArgumentError register_opf_object!(
+            ctx, pkey, tap_input; replace=true)
         @test length(binding.links) == 1
         @test opf_object(ctx, OpfModelKey(
             :constraint, :parameter_link, (pkey, tkey))) === binding.links[1]

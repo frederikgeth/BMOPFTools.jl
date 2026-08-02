@@ -96,6 +96,7 @@ end
 struct BuiltinSoftplus
     eps::Float64
 end
+(op::BuiltinSoftplus)(x::Real) = op.eps * log1pexp(x / op.eps)
 (op::BuiltinSoftplus)(x) = op.eps * log1p(exp(x / op.eps))
 
 """
@@ -106,18 +107,14 @@ first time a given `ε` is requested and caching it in `cache`
 (`Dict{Float64,Any}`). Lets IBRs at different voltage bases share operators
 while keeping each registration unique.
 """
-function relu_operator_for!(cache::Dict{Float64,Any}, model, ε::Float64)
+function relu_operator_for!(cache::Dict{Float64,Any}, model, ε::Float64;
+                            mode::Symbol=:user_defined)
     haskey(cache, ε) && return cache[ε]
-    name = Symbol("op_reluε_$(length(cache) + 1)")
-    op = try
-        relu_operator(model, ε; name = name)
-    catch err
-        if err isa JuMP.MOI.SetAttributeNotAllowed{JuMP.MOI.UserDefinedFunction}
-            BuiltinSoftplus(ε)
-        else
-            rethrow()
-        end
-    end
+    mode in (:user_defined, :builtin) || throw(ArgumentError(
+        "softplus must be :user_defined or :builtin, got :$mode"))
+    op = mode == :builtin ? BuiltinSoftplus(ε) :
+         relu_operator(model, ε;
+             name=Symbol("op_reluε_$(length(cache) + 1)"))
     cache[ε] = op
     return op
 end

@@ -376,6 +376,7 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
                                   p_min, p_max;
                                   relu_eps::Float64=2e-3,
                                   relu_ops::Dict{Float64,Any}=Dict{Float64,Any}(),
+                                  softplus::Symbol=:user_defined,
                                   net=nothing)
     haskey(vars, :kcl_dc) || return
     kcl = vars[:kcl_dc]
@@ -418,7 +419,7 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         xs, ys = bp
         base, triples = breakpoints_to_triples(xs, ys)
         ε  = max(relu_eps * (xs[end] - xs[1]), 1e-6)
-        op = relu_operator_for!(relu_ops, model, ε)
+        op = relu_operator_for!(relu_ops, model, ε; mode=softplus)
         @constraint(model, p_ac_expr == curve_expr(op, Uport, base, triples))
     end
 end

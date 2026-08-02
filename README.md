@@ -46,6 +46,13 @@ they can be versioned and licensed independently of this tooling. This
 repository keeps only the small fixtures the test suite needs (under
 `test/data/`).
 
+The embedded IVR-EN engine is also extensible from downstream Julia packages:
+it supports staged JuMP construction, typed device-formulation replacement,
+semantic parameter/coefficient registries, and explicit integration with
+DiffOpt-compatible models. BMOPFTools supplies the physics substrate and
+diagnostics; downstream research packages retain ownership of bilevel semantics
+and sensitivity algorithms.
+
 ## Licensing
 
 **Code** — BSD-3-Clause License.

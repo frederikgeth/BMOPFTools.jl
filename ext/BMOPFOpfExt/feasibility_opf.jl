@@ -14,7 +14,8 @@
 # diagnose_infeasibility() for a ranked, classified breakdown.
 
 """
-    BMOPFTools.solve_feasibility_opf(net; optimizer, t_index) -> Dict
+    BMOPFTools.solve_feasibility_opf(net; optimizer, t_index,
+        build_spec=OpfBuildSpec()) -> Dict
 
 Feasibility-relaxed four-wire IVR-EN OPF. Adds an elastic slack current
 injection (the nodal current residual) at every non-source bus terminal and
@@ -34,6 +35,8 @@ slack norm in the model's working coordinates (plus the documented transformer
 tie-break); use the SI-valued `"slack_injections"` and
 `"total_slack_magnitude_A"` fields for physical interpretation. Pass the result
 to [`BMOPFTools.diagnose_infeasibility`](@ref) for a ranked breakdown.
+`build_spec` follows the same ownership contract as `solve_opf`; custom terminal
+injections participate in the KCL equation relaxed by the elastic current.
 """
 function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                                            optimizer=Ipopt.Optimizer,
@@ -41,6 +44,8 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                                            per_unit::Bool=true,
                                            s_base::Float64=1e6,
                                            volt_var_watt_eps::Float64=2e-3,
+                                           softplus::Symbol=:user_defined,
+                                           build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                            verbose::Bool=false,
                                            solver_options=(),
                                            model_hook!::Union{Function,Nothing}=nothing,
@@ -50,6 +55,7 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
     slack = Dict{Symbol,Any}()
     _build_and_solve(net; optimizer=optimizer, t_index=t_index,
                      per_unit=per_unit, s_base=s_base, relu_eps=volt_var_watt_eps,
+                     softplus=softplus, build_spec=build_spec,
                      problem=:feasibility_opf,
                      configure! = _configure_feasibility!,
                      build! = ctx -> build_feasibility!(ctx, slack),

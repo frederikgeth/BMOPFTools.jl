@@ -27,6 +27,11 @@ The library serves three use cases:
   constraint residuals, and solution-quality issues without access to solver
   internals.
 
+For research packages, the embedded IVR-EN engine also exposes staged model
+construction, typed replaceable device ownership, semantic JuMP object and
+parameter registries, and an explicit DiffOpt-compatible nonlinear encoding.
+See [Parameterized and differentiable extensions](differentiable_extensions.md).
+
 ## Design
 
 The network data model is a plain `Dict{String,Any}` mirroring the BMOPF

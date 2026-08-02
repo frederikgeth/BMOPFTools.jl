@@ -15,10 +15,14 @@ studies, one rung at a time, and starts with the rung people skip: checking
 whether the study you want is *already expressible* without touching the
 formulation at all. Every block runs at build time.
 
+For replaceable device ownership, semantic object/parameter registries, and
+DiffOpt-compatible research models, continue with
+[Parameterized and differentiable extensions](differentiable_extensions.md).
+
 !!! note "Prerequisites"
     A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`, and three
     earlier tutorials this one leans on hard:
-    [units & economics](tutorial_units.md) (`ctx.bases`, the \$/h objective),
+    [units & economics](tutorial_units.md) (`opf_bases(ctx)`, the \$/h objective),
     [load models](tutorial_load_models.md) (why voltage-dependence matters),
     and [tap optimisation](tutorial_tap.md) (the free-tap mechanics).
 
@@ -27,7 +31,7 @@ formulation at all. Every block runs at build time.
 | Rung | Mechanism | Reach |
 |---|---|---|
 | 0 | data configuration only | anything the schema already says: costs, bounds, free taps, control profiles |
-| 1 | `model_hook!` adds constraints | couplings the schema cannot express (aggregate caps, fairness, custom devices via `ctx.kcl_r/i`) |
+| 1 | `model_hook!` adds constraints | couplings the schema cannot express (aggregate caps, fairness, custom devices via `add_terminal_injection!`) |
 | 2 | `model_hook!` replaces the objective (+ variables), `solution_hook!` reads back | different *questions*: minimax, unbalance, estimation |
 | 3 | staged API (`build_opf_model` → `generation_cost` → `enforce_kcl!` → `extract_result`) | several snapshots in one model: storage, ramps, energy budgets |
 
@@ -111,7 +115,7 @@ each generator's total active power the same way the engine's own objective
 does — the bilinear ``\sum_k \Delta v_k \cdot c^g_k`` over phase terms — and
 constrains the sum. One unit rule to burn in: **the hook sees the model in
 per-unit** (the default), so a physical literal must be divided by
-`ctx.bases.s_base` ([units tutorial](tutorial_units.md)).
+`opf_bases(ctx).s_base` ([units tutorial](tutorial_units.md)).
 
 ```@example hooks
 function with_ders(net; cost = 0.10)
@@ -130,13 +134,17 @@ end
 
 # a generator's total P as a JuMP expression, from the hook context
 function gen_p(ctx, gid)
-    vr, vi   = ctx.vars[:vr],  ctx.vars[:vi]
-    crg, cig = ctx.vars[:crg], ctx.vars[:cig]
-    g = ctx.net["generator"][gid]
+    model = opf_model(ctx)
+    g = opf_network(ctx)["generator"][gid]
     b, tm = g["bus"], g["terminal_map"]
-    sum(@expression(ctx.model,
-            (vr[(b, tm[k])] - vr[(b, "n")]) * crg[(gid, k)] +
-            (vi[(b, tm[k])] - vi[(b, "n")]) * cig[(gid, k)]) for k in 1:3)
+    vr(t) = opf_object(ctx, opf_bus_voltage_key(b, t))
+    vi(t) = opf_object(ctx, opf_bus_voltage_key(b, t; component=:imag))
+    crg(k) = opf_object(ctx, opf_generator_current_key(gid, k))
+    cig(k) = opf_object(ctx,
+        opf_generator_current_key(gid, k; component=:imag))
+    sum(@expression(model,
+            (vr(tm[k]) - vr("n")) * crg(k) +
+            (vi(tm[k]) - vi("n")) * cig(k)) for k in 1:3)
 end
 
 net = with_ders(base; cost = -0.05)            # export credited: both want full output
@@ -145,8 +153,10 @@ pg0 = sum(ph["pg"] for g in values(r0["generator"]) for ph in values(g))
 
 cap_W = 9_000.0
 r1 = solve_opf(net; optimizer = OPT, model_hook! = ctx -> begin
-    sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base   # W → per-unit
-    @constraint(ctx.model, gen_p(ctx, "pv1") + gen_p(ctx, "pv2") <= cap_W / sb)
+    bases = opf_bases(ctx)
+    sb = bases === nothing ? 1.0 : bases.s_base   # W → per-unit
+    @constraint(opf_model(ctx),
+        gen_p(ctx, "pv1") + gen_p(ctx, "pv2") <= cap_W / sb)
 end)
 pg1 = sum(ph["pg"] for g in values(r1["generator"]) for ph in values(g))
 
@@ -172,13 +182,17 @@ SI:
 
 ```@example hooks
 src_p(ctx) = begin
-    vr, vi   = ctx.vars[:vr],     ctx.vars[:vi]
-    crs, cis = ctx.vars[:cr_src], ctx.vars[:ci_src]
-    vs = ctx.net["voltage_source"][src_id]
+    model = opf_model(ctx)
+    vs = opf_network(ctx)["voltage_source"][src_id]
     b, tm = vs["bus"], vs["terminal_map"]
-    [@expression(ctx.model,
-        (vr[(b, tm[k])] - vr[(b, "n")]) * crs[(src_id, k)] +
-        (vi[(b, tm[k])] - vi[(b, "n")]) * cis[(src_id, k)]) for k in 1:3]
+    vr(t) = opf_object(ctx, opf_bus_voltage_key(b, t))
+    vi(t) = opf_object(ctx, opf_bus_voltage_key(b, t; component=:imag))
+    crs(k) = opf_object(ctx, opf_voltage_source_current_key(src_id, k))
+    cis(k) = opf_object(ctx,
+        opf_voltage_source_current_key(src_id, k; component=:imag))
+    [@expression(model,
+        (vr(tm[k]) - vr("n")) * crs(k) +
+        (vi(tm[k]) - vi("n")) * cis(k)) for k in 1:3]
 end
 
 net = with_ders(base; cost = 0.10)
@@ -187,21 +201,24 @@ p0  = sort([ph["ps"] for ph in values(r0["voltage_source"][src_id])])
 println("least-cost per-phase import : ", round.(p0; digits = 1),
         "   spread ", round(p0[end] - p0[1]; digits = 1), " W")
 
+spread = Ref{Any}()
 r2 = solve_opf(net; optimizer = OPT,
     model_hook! = ctx -> begin
+        model = opf_model(ctx)
         es   = src_p(ctx)
-        t_hi = @variable(ctx.model)
-        t_lo = @variable(ctx.model)
+        t_hi = @variable(model)
+        t_lo = @variable(model)
         for e in es
-            @constraint(ctx.model, e <= t_hi)
-            @constraint(ctx.model, e >= t_lo)
+            @constraint(model, e <= t_hi)
+            @constraint(model, e >= t_lo)
         end
-        @objective(ctx.model, Min, t_hi - t_lo)
-        ctx.model[:spread] = t_hi - t_lo
+        spread[] = @expression(model, t_hi - t_lo)
+        @objective(model, Min, spread[])
     end,
     solution_hook! = (ctx, result) -> begin
-        sb = ctx.bases === nothing ? 1.0 : ctx.bases.s_base
-        result["head_spread_W"] = abs(JuMP.value(ctx.model[:spread])) * sb
+        bases = opf_bases(ctx)
+        sb = bases === nothing ? 1.0 : bases.s_base
+        result["head_spread_W"] = abs(JuMP.value(spread[])) * sb
     end)
 p2 = sort([ph["ps"] for ph in values(r2["voltage_source"][src_id])])
 println("balanced   per-phase import : ", round.(p2; digits = 1),
@@ -219,16 +236,18 @@ back in:
 
 ```@example hooks
 r3 = solve_opf(net; optimizer = OPT, model_hook! = ctx -> begin
+    model = opf_model(ctx)
     es   = src_p(ctx)
-    t_hi = @variable(ctx.model); t_lo = @variable(ctx.model)
+    t_hi = @variable(model); t_lo = @variable(model)
     for e in es
-        @constraint(ctx.model, e <= t_hi)
-        @constraint(ctx.model, e >= t_lo)
+        @constraint(model, e <= t_hi)
+        @constraint(model, e >= t_lo)
     end
-    sb = ctx.bases.s_base
+    sb = opf_bases(ctx).s_base
     # spread is per-unit power → ×s_base/1000 puts it in kW, penalised at 1 $/kWh-equivalent,
     # commensurate with generation_cost's $/h.
-    @objective(ctx.model, Min, generation_cost(ctx) + 1.0 * (t_hi - t_lo) * sb / 1000)
+    @objective(model, Min,
+        generation_cost(ctx) + 1.0 * (t_hi - t_lo) * sb / 1000)
 end)
 p3 = sort([ph["ps"] for ph in values(r3["voltage_source"][src_id])])
 pg3 = sum(ph["pg"] for g in values(r3["generator"]) for ph in values(g))
@@ -296,9 +315,9 @@ constraint with a state-of-charge recursion — the
 Hard-won rules, in checklist form:
 
 - **Scale every physical literal.** The model is per-unit by default;
-  `ctx.bases` (`s_base`, per-bus `v_base`/`i_base`/`z_base`) is the
+  `opf_bases(ctx)` (`s_base`, per-bus `v_base`/`i_base`/`z_base`) is the
   dictionary, and it is `nothing` in SI mode — the
-  `x / (ctx.bases === nothing ? 1.0 : ctx.bases.s_base)` guard keeps a hook
+  `x / (bases === nothing ? 1.0 : bases.s_base)` guard keeps a hook
   correct under both.
 - **Prefer rung 0.** If the schema can say it (§2), say it in data — it
   round-trips, validates, and appears in `analyze` reports; hook code does
@@ -310,8 +329,8 @@ Hard-won rules, in checklist form:
   bilinears of §3) rather than inventing new power variables — they are
   exactly what the objective and results use, so your constraint means what
   the report says.
-- **Read custom values back with `solution_hook!`**, scaling by `ctx.bases`
-  (§4). If your hook injects current via `ctx.kcl_r`/`ctx.kcl_i`, also write
+- **Read custom values back with `solution_hook!`**, scaling by `opf_bases(ctx)`
+  (§4). If your hook injects current via `add_terminal_injection!`, also write
   its terminal power to `result["custom_injection"]` so
   [`profile_solution`](@ref)'s power-balance check accounts for it
   ([OPF reference](opf.md)).
