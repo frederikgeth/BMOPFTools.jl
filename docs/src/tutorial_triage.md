@@ -100,10 +100,16 @@ accept and document), or **disclose** (true of this network by design — keep
 the finding as part of the case's record).
 
 ```@example triage
+warns = warnings(report)
 for code in ("W.CONN.MESHED", "W.CONN.DANGLING", "W.DOM.XFMR_STEP_UP",
              "W.OPS.XFMR_OVERLOADED")
-    f = first(f for f in warnings(report) if String(f.code) == code)
-    println(f.code, "\n   ", f.message, "\n")
+    i = findfirst(f -> String(f.code) == code, warns)
+    if isnothing(i)
+        println(code, "\n   (not emitted for this network)\n")
+    else
+        f = warns[i]
+        println(f.code, "\n   ", f.message, "\n")
+    end
 end
 ```
 

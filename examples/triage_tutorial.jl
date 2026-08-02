@@ -44,10 +44,16 @@ for (c, n) in sort(collect(wcount)); println("  ", rpad(c, 26), n); end
 
 # ── 4. Verdicts ───────────────────────────────────────────────────────────────
 sep("4. Reading warnings like a reviewer")
+warns = warnings(report)
 for code in ("W.CONN.MESHED", "W.CONN.DANGLING", "W.DOM.XFMR_STEP_UP",
              "W.OPS.XFMR_OVERLOADED")
-    f = first(f for f in warnings(report) if String(f.code) == code)
-    println(f.code, ": ", f.message, "\n")
+    i = findfirst(f -> String(f.code) == code, warns)
+    if isnothing(i)
+        println(code, ": (not emitted for this network)\n")
+    else
+        f = warns[i]
+        println(f.code, ": ", f.message, "\n")
+    end
 end
 
 # ── 5. fix_case + manifest ────────────────────────────────────────────────────
