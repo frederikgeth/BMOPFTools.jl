@@ -1244,16 +1244,25 @@ function opf_ibr_power_key(ibr::AbstractString, phase::Integer;
                        (String(ibr), _opf_positive_position(phase, "phase")))
 end
 
-"""Return the native monitored-voltage-magnitude auxiliary key for one IBR phase."""
+"""Return the native monitored-voltage-magnitude auxiliary key for one IBR phase.
+
+`reference` may be `:pg`, `:pn`, or `:pp` for the per-phase monitored
+magnitude, or the corresponding `:_averaged` form for the actual shared
+controller input when phase magnitudes are averaged. The averaged key refers
+to a registered expression rather than a per-phase voltage variable.
+"""
 function opf_ibr_voltage_magnitude_key(
     ibr::AbstractString,
     phase::Integer;
     reference::Symbol,
     controller::Symbol,
 )
-    reference in (:pg, :pn, :pp, :single_pg, :single_diff) ||
+    reference in (:pg, :pn, :pp, :pg_averaged, :pn_averaged, :pp_averaged,
+                  :single_pg, :single_diff) ||
         throw(ArgumentError("unsupported voltage-magnitude reference '$reference'"))
-    return OpfModelKey(:variable, :u_ibr,
+    kind = reference in (:pg_averaged, :pn_averaged, :pp_averaged) ?
+           :expression : :variable
+    return OpfModelKey(kind, :u_ibr,
                        (String(ibr), _opf_positive_position(phase, "phase"),
                         String(reference), String(controller)))
 end

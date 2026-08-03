@@ -196,54 +196,70 @@ per controlled phase in `ph_terms`:
 When the effective aggregation is averaged (`override_avg`, else the curve's own
 `averaged` flag) every phase is fed the mean of the per-phase magnitudes.
 `override_avg` lets the IBR-level legacy `voltage_aggregation` field win when present.
+The per-phase magnitudes are registered under `:pg`, `:pn`, or `:pp`; the actual
+shared controller input is registered under the corresponding `:_averaged` key.
 """
 function _monitor_U(ctx, vr, vi, bus, ph_terms, t_n, c::DroopCurve, override_avg,
                     inv_id, controller::Symbol)
     model = ctx.model
     n = length(ph_terms)
-    perphase = Vector{Any}(undef, n)
-    for k in 1:n
-        tk = ph_terms[k]
-        if c.quantity == :PG
-            key = BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, k;
-                reference=:pg, controller)
-            perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)];
-                on_variable = u -> BMOPFTools.register_opf_object!(ctx, key, u))
-        elseif c.quantity == :PN
-            if t_n === nothing
-                @warn "IBR at bus '$bus': PN voltage_reference but no neutral terminal — using PG."
-                key = BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, k;
-                    reference=:pg, controller)
-                perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)];
-                    on_variable = u -> BMOPFTools.register_opf_object!(ctx, key, u))
-            else
-                key = BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, k;
-                    reference=:pn, controller)
-                perphase[k] = umag_var(model, @expression(model, vr[(bus,tk)] - vr[(bus,t_n)]),
-                                        @expression(model, vi[(bus,tk)] - vi[(bus,t_n)]);
-                                        on_variable = u -> BMOPFTools.register_opf_object!(ctx, key, u))
-            end
-        else # :PP
-            if n < 2
-                @warn "IBR at bus '$bus': PP voltage_reference needs ≥2 phases — using PG."
-                key = BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, k;
-                    reference=:pg, controller)
-                perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)];
-                    on_variable = u -> BMOPFTools.register_opf_object!(ctx, key, u))
-            else
+    averaged = override_avg === nothing ? c.averaged : override_avg
+    quantity = c.quantity
+    if quantity == :PN && t_n === nothing
+        @warn "IBR at bus '$bus': PN voltage_reference but no neutral terminal — using PG."
+        quantity = :PG
+    elseif quantity == :PP && n < 2
+        @warn "IBR at bus '$bus': PP voltage_reference needs ≥2 phases — using PG."
+        quantity = :PG
+    end
+    quantity_ref = lowercase(String(quantity)) |> Symbol
+    monitor_ref = averaged ? Symbol("$(String(quantity_ref))_averaged") : quantity_ref
+
+    # Volt-var and Volt-watt can share the same monitored quantity. Reuse the
+    # magnitude variables and quadratic constraints in that case, while still
+    # registering the same live object under each controller-specific semantic
+    # key. The cache is scoped to this build context and includes aggregation.
+    cache = get!(ctx.extension_state, :BMOPFOpfExt_ibr_voltage_monitor_cache,
+                 Dict{Any,Any}())
+    cache_key = (String(inv_id), String(bus), Tuple(String.(ph_terms)),
+                 t_n === nothing ? nothing : String(t_n), quantity, averaged)
+    cached = get(cache, cache_key, nothing)
+    if cached === nothing
+        perphase = Vector{Any}(undef, n)
+        for k in 1:n
+            tk = ph_terms[k]
+            if quantity == :PG
+                perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)])
+            elseif quantity == :PN
+                perphase[k] = umag_var(model,
+                    @expression(model, vr[(bus,tk)] - vr[(bus,t_n)]),
+                    @expression(model, vi[(bus,tk)] - vi[(bus,t_n)]))
+            else # :PP
                 tj = ph_terms[mod1(k+1, n)]
-                key = BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, k;
-                    reference=:pp, controller)
-                perphase[k] = umag_var(model, @expression(model, vr[(bus,tk)] - vr[(bus,tj)]),
-                                        @expression(model, vi[(bus,tk)] - vi[(bus,tj)]);
-                                        on_variable = u -> BMOPFTools.register_opf_object!(ctx, key, u))
+                perphase[k] = umag_var(model,
+                    @expression(model, vr[(bus,tk)] - vr[(bus,tj)]),
+                    @expression(model, vi[(bus,tk)] - vi[(bus,tj)]))
             end
         end
+        ubar = averaged && n >= 1 ? @expression(model, sum(perphase) / n) : nothing
+        cached = (perphase=perphase, averaged=ubar, quantity_ref=quantity_ref,
+                  monitor_ref=monitor_ref)
+        cache[cache_key] = cached
     end
-    averaged = override_avg === nothing ? c.averaged : override_avg
+
+    perphase = cached.perphase
+    quantity_ref = cached.quantity_ref
+    monitor_ref = cached.monitor_ref
+    for k in 1:n
+        BMOPFTools.register_opf_object!(ctx,
+            BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, k;
+                reference=quantity_ref, controller), perphase[k])
+        averaged && BMOPFTools.register_opf_object!(ctx,
+            BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, k;
+                reference=monitor_ref, controller), cached.averaged)
+    end
     if averaged && n >= 1
-        ubar = @expression(model, sum(perphase) / n)
-        return Any[ubar for _ in 1:n]
+        return Any[cached.averaged for _ in 1:n]
     end
     perphase
 end
@@ -328,7 +344,7 @@ _same_working_voltage_base(a::Float64, b::Float64) =
     isapprox(a, b; rtol=1e-12, atol=0.0)
 
 """
-    _add_ibr_constraints!(ctx, kcl_r, kcl_i; bases, relu_eps, relu_ops)
+    _add_ibr_constraints!(ctx, kcl_r, kcl_i; parameterized_profiles, coefficient)
 
 Add P/Q power constraints and KCL contributions for all IBR objects.
 
@@ -356,14 +372,15 @@ for THREE_LEG (delta) there are too few degrees of freedom for a per-phase droop
 so a profile is ignored (box bounds retained) with a warning.
 """
 function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
-                                    bases=nothing, relu_eps::Float64=2e-3,
-                                    relu_ops::Dict{Float64,Any}=Dict{Float64,Any}(),
-                                    softplus::Symbol=:user_defined,
-                                    parameterized_profiles::Set{String}=Set{String}(),
-                                    coefficient=nothing)
+                               parameterized_profiles::Set{String}=Set{String}(),
+                               coefficient=nothing)
     model = ctx.model
     net = ctx.net
     vars = ctx.vars
+    bases = ctx.bases
+    relu_eps = ctx.relu_eps
+    relu_ops = ctx.relu_ops
+    softplus = ctx.softplus
     vr  = vars[:vr];  vi  = vars[:vi]
     cri = vars[:cri]; cii = vars[:cii]
     profiles = get(net, "control_profile", Dict())
@@ -518,10 +535,10 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 reference=:single_pg, controller=:single)
             key_diff = BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, 1;
                 reference=:single_diff, controller=:single)
-            U_pg   = umag_var(model, vr[(bus, t_ph)], vi[(bus, t_ph)];
-                on_variable = u -> BMOPFTools.register_opf_object!(ctx, key_pg, u))
-            U_diff = umag_var(model, dvr, dvi;
-                on_variable = u -> BMOPFTools.register_opf_object!(ctx, key_diff, u))
+            U_pg   = umag_var(model, vr[(bus, t_ph)], vi[(bus, t_ph)])
+            U_diff = umag_var(model, dvr, dvi)
+            BMOPFTools.register_opf_object!(ctx, key_pg, U_pg)
+            BMOPFTools.register_opf_object!(ctx, key_diff, U_diff)
             single_U(c) = c === nothing ? nothing : (c.quantity == :PG ? U_pg : U_diff)
             _apply_ibr_phase!(ctx, inv_id, 1, p_expr, q_expr, single_U(vv), single_U(vw),
                 p_min_model, p_max_model, q_min_model, q_max_model,
@@ -690,16 +707,19 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         length(q_max) >= idx && @constraint(model, q_expr <= q_max[idx])
     end
 
+    # Register the native active/reactive power auxiliaries uniformly, even
+    # when no apparent-power rating is declared. Consumers should not need a
+    # separate s_max precondition just to access the IBR operating point.
+    p_aux = @variable(model, base_name = "pi_$(inv_id)_$(idx)")
+    q_aux = @variable(model, base_name = "qi_$(inv_id)_$(idx)")
+    BMOPFTools.register_opf_object!(ctx,
+        BMOPFTools.opf_ibr_power_key(string(inv_id), idx), p_aux)
+    BMOPFTools.register_opf_object!(ctx,
+        BMOPFTools.opf_ibr_power_key(string(inv_id), idx; component = :reactive), q_aux)
+    @constraint(model, p_aux == p_expr)
+    @constraint(model, q_aux == q_expr)
     # Apparent-power circle.
     if length(smax) >= idx
-        p_aux = @variable(model, base_name = "pi_$(inv_id)_$(idx)")
-        q_aux = @variable(model, base_name = "qi_$(inv_id)_$(idx)")
-        BMOPFTools.register_opf_object!(ctx,
-            BMOPFTools.opf_ibr_power_key(string(inv_id), idx), p_aux)
-        BMOPFTools.register_opf_object!(ctx,
-            BMOPFTools.opf_ibr_power_key(string(inv_id), idx; component = :reactive), q_aux)
-        @constraint(model, p_aux == p_expr)
-        @constraint(model, q_aux == q_expr)
         _soc_norm!(model, p_aux, q_aux, smax[idx])
     end
 end

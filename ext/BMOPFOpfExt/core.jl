@@ -1486,9 +1486,6 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
         () -> _add_dc_network_constraints!(model, net, vars)
     elseif family == :ibr
         () -> _add_ibr_constraints!(ctx, kcl_r, kcl_i;
-                                    bases=ctx.bases, relu_eps=ctx.relu_eps,
-                                    softplus=ctx.softplus,
-                                    relu_ops=ctx.relu_ops,
                                     parameterized_profiles=parameterized_profiles,
                                     coefficient=coefficient)
     elseif family == :grounding

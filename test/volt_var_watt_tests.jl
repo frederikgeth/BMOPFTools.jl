@@ -139,7 +139,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         # NLPDiagnostics must not need to inspect ctx.vars or expression names.
         ctx = build_opf_model(_volt_var_net(258.0);
                               per_unit=true, add_objective=false)
-        keys = Set(opf_object_keys(ctx; kind=:variable))
+        registered = Set(opf_object_keys(ctx; kind=:variable))
         p_key = opf_ibr_power_key("pv1", 1)
         q_key = opf_ibr_power_key("pv1", 1; component=:reactive)
         pg_key = opf_ibr_voltage_magnitude_key(
@@ -147,10 +147,41 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         diff_key = opf_ibr_voltage_magnitude_key(
             "pv1", 1; reference=:single_diff, controller=:single)
 
-        @test (p_key, q_key, pg_key, diff_key) ⊆ keys
+        @test p_key in registered
+        @test q_key in registered
+        @test pg_key in registered
+        @test diff_key in registered
         @test all(opf_object(ctx, key) isa JuMP.VariableRef
                   for key in (p_key, q_key, pg_key, diff_key))
         @test opf_neutral_labels(ctx) == Set(["n"])
+
+        # Power auxiliaries are part of the semantic registry even when an
+        # inverter omits its optional apparent-power rating.
+        no_rating = _volt_var_net(258.0)
+        delete!(no_rating["ibr"]["pv1"], "s_max")
+        no_rating_ctx = build_opf_model(no_rating;
+                                        per_unit=true, add_objective=false)
+        @test opf_object(no_rating_ctx, p_key) isa JuMP.VariableRef
+        @test opf_object(no_rating_ctx, q_key) isa JuMP.VariableRef
+
+        # Declared terminal conventions must be visible through the public
+        # context adapter, not only through the fallback "n" convention.
+        declared = _volt_var_net(258.0)
+        for bus in values(declared["bus"])
+            bus["terminal_names"] = [t == "n" ? "ret" : t
+                                      for t in bus["terminal_names"]]
+            bus["perfectly_grounded_terminals"] = [t == "n" ? "ret" : t
+                                                    for t in get(bus,
+                                                        "perfectly_grounded_terminals",
+                                                        String[])]
+        end
+        declared["load"]["ld"]["terminal_map"] = ["1", "ret"]
+        declared["ibr"]["pv1"]["terminal_map"] = ["1", "ret"]
+        declared["terminal_conventions"] = Dict{String,Any}(
+            "phase" => ["1"], "neutral" => ["ret"], "earth" => String[])
+        declared_ctx = build_opf_model(declared;
+                                       per_unit=true, add_objective=false)
+        @test opf_neutral_labels(declared_ctx) == Set(["ret"])
     end
 
     @testset "volt_var — Q follows the droop curve (absorb at high V)" begin
@@ -229,6 +260,14 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         # Unbalanced voltages ⇒ the per-phase Q values genuinely differ.
         qs = [invr[ph]["qg"] for ph in ("1", "2", "3")]
         @test maximum(qs) - minimum(qs) > 100.0
+
+        ctx = build_opf_model(_volt_var_4leg_net("PER_PHASE");
+                              per_unit=true, add_objective=false)
+        for phase in 1:3
+            key = opf_ibr_voltage_magnitude_key(
+                "pv1", phase; reference=:pn, controller=:volt_var)
+            @test opf_object(ctx, key) isa JuMP.VariableRef
+        end
     end
 
     @testset "voltage_aggregation=AVERAGE — all phases see the mean magnitude" begin
@@ -244,6 +283,17 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         # Equal droop base + shared reference ⇒ equal Q across phases.
         qs = [invr[ph]["qg"] for ph in ("1", "2", "3")]
         @test maximum(qs) - minimum(qs) < 10.0
+
+        ctx = build_opf_model(_volt_var_4leg_net("AVERAGE");
+                              per_unit=true, add_objective=false)
+        for phase in 1:3
+            phase_key = opf_ibr_voltage_magnitude_key(
+                "pv1", phase; reference=:pn, controller=:volt_var)
+            average_key = opf_ibr_voltage_magnitude_key(
+                "pv1", phase; reference=:pn_averaged, controller=:volt_var)
+            @test opf_object(ctx, phase_key) isa JuMP.VariableRef
+            @test opf_object(ctx, average_key) isa JuMP.AbstractJuMPScalar
+        end
     end
 
     @testset "voltage_aggregation=AVERAGE on SINGLE_PHASE — warns, no effect" begin
