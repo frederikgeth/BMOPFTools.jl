@@ -139,6 +139,8 @@ opf_transformer_current_key
 opf_transformer_tap_key
 opf_nwinding_current_key
 opf_ibr_current_key
+opf_ibr_power_key
+opf_ibr_voltage_magnitude_key
 opf_dc_voltage_key
 opf_dc_ground_current_key
 opf_dc_branch_current_key
@@ -149,6 +151,7 @@ opf_dc_source_power_key
 opf_model
 opf_network
 opf_bases
+opf_neutral_labels
 opf_lifecycle
 opf_build_manifest
 opf_build_spec
