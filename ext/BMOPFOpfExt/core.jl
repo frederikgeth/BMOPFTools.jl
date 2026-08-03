@@ -85,6 +85,7 @@ end
 BMOPFTools.opf_model(ctx::OpfContext) = ctx.model
 BMOPFTools.opf_network(ctx::OpfContext) = ctx.net
 BMOPFTools.opf_bases(ctx::OpfContext) = ctx.bases
+BMOPFTools.opf_neutral_labels(ctx::OpfContext) = copy(BMOPFTools._neutral_labels(ctx.net))
 BMOPFTools.opf_lifecycle(ctx::OpfContext) = ctx.lifecycle[]
 function BMOPFTools.opf_build_manifest(ctx::OpfContext)
     manifest = ctx.manifest
@@ -1484,7 +1485,7 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
     elseif family == :dc_network
         () -> _add_dc_network_constraints!(model, net, vars)
     elseif family == :ibr
-        () -> _add_ibr_constraints!(model, net, vars, kcl_r, kcl_i;
+        () -> _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                                     bases=ctx.bases, relu_eps=ctx.relu_eps,
                                     softplus=ctx.softplus,
                                     relu_ops=ctx.relu_ops,

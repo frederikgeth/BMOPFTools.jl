@@ -1234,6 +1234,30 @@ function opf_ibr_current_key(ibr::AbstractString, conductor::Integer;
     return OpfModelKey(:variable, family, index)
 end
 
+"""Return the native active/reactive power auxiliary key for one IBR phase."""
+function opf_ibr_power_key(ibr::AbstractString, phase::Integer;
+                           component::Symbol=:active)
+    family = component == :active ? :p_ibr :
+             component == :reactive ? :q_ibr :
+             throw(ArgumentError("component must be :active or :reactive"))
+    return OpfModelKey(:variable, family,
+                       (String(ibr), _opf_positive_position(phase, "phase")))
+end
+
+"""Return the native monitored-voltage-magnitude auxiliary key for one IBR phase."""
+function opf_ibr_voltage_magnitude_key(
+    ibr::AbstractString,
+    phase::Integer;
+    reference::Symbol,
+    controller::Symbol,
+)
+    reference in (:pg, :pn, :pp, :single_pg, :single_diff) ||
+        throw(ArgumentError("unsupported voltage-magnitude reference '$reference'"))
+    return OpfModelKey(:variable, :u_ibr,
+                       (String(ibr), _opf_positive_position(phase, "phase"),
+                        String(reference), String(controller)))
+end
+
 """Return the native signed DC bus-terminal voltage key."""
 opf_dc_voltage_key(bus::AbstractString, terminal::AbstractString) =
     OpfModelKey(:variable, :v_dc, (String(bus), String(terminal)))
@@ -1543,6 +1567,9 @@ function opf_network end
 """Return per-unit base metadata, or `nothing` for an SI staged model."""
 function opf_bases end
 
+"""Return the declared neutral terminal labels for one staged OPF context."""
+function opf_neutral_labels end
+
 """Return the staged OPF construction lifecycle (`:building` or `:kcl_finalized`)."""
 function opf_lifecycle end
 
@@ -1808,6 +1835,8 @@ export opf_switch_current_key, opf_load_current_key
 export opf_generator_current_key, opf_voltage_source_current_key
 export opf_transformer_current_key, opf_transformer_tap_key
 export opf_nwinding_current_key, opf_ibr_current_key
+export opf_ibr_power_key
+export opf_ibr_voltage_magnitude_key
 export opf_dc_voltage_key, opf_dc_ground_current_key
 export opf_dc_branch_current_key, opf_converter_dc_current_key
 export opf_dc_load_current_key, opf_dc_source_current_key
@@ -1816,6 +1845,7 @@ export OpfDifferentiabilityReport, OpfKKTDiagnostic, OpfDifferentiationError
 export OpfBuildManifest, OpfDeviceBuilder, OpfBuildSpec
 export OpfCoefficientKey, OpfCoefficientProvider
 export opf_model, opf_network, opf_bases, opf_lifecycle
+export opf_neutral_labels
 export opf_build_manifest, opf_build_spec, opf_stage_completed
 export initialize_opf_model, set_opf_start_values!
 export add_opf_operational_limits!, add_opf_device_constraints!

@@ -133,6 +133,26 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
              "control_profile":"vv","cost":[0.1]}}}
         """; from_string=true)
 
+    @testset "volt-var — semantic IBR auxiliaries are registered" begin
+        # These are a public, stable description of the auxiliary quantities
+        # used by the native nonlinear formulation.  Consumers such as
+        # NLPDiagnostics must not need to inspect ctx.vars or expression names.
+        ctx = build_opf_model(_volt_var_net(258.0);
+                              per_unit=true, add_objective=false)
+        keys = Set(opf_object_keys(ctx; kind=:variable))
+        p_key = opf_ibr_power_key("pv1", 1)
+        q_key = opf_ibr_power_key("pv1", 1; component=:reactive)
+        pg_key = opf_ibr_voltage_magnitude_key(
+            "pv1", 1; reference=:single_pg, controller=:single)
+        diff_key = opf_ibr_voltage_magnitude_key(
+            "pv1", 1; reference=:single_diff, controller=:single)
+
+        @test (p_key, q_key, pg_key, diff_key) ⊆ keys
+        @test all(opf_object(ctx, key) isa JuMP.VariableRef
+                  for key in (p_key, q_key, pg_key, diff_key))
+        @test opf_neutral_labels(ctx) == Set(["n"])
+    end
+
     @testset "volt_var — Q follows the droop curve (absorb at high V)" begin
         # per_unit improves conditioning when active power is pinned to zero.
         net = _volt_var_net(258.0)

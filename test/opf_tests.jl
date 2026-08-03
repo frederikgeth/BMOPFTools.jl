@@ -1360,6 +1360,13 @@ using .MockOpfExtension
                 OpfModelKey(:variable, :cri, ("pv", 1)),
             opf_ibr_current_key("pv", 1; component=:imag) =>
                 OpfModelKey(:variable, :cii, ("pv", 1)),
+            opf_ibr_power_key("pv", 1) =>
+                OpfModelKey(:variable, :p_ibr, ("pv", 1)),
+            opf_ibr_power_key("pv", 1; component=:reactive) =>
+                OpfModelKey(:variable, :q_ibr, ("pv", 1)),
+            opf_ibr_voltage_magnitude_key(
+                "pv", 1; reference=:pn, controller=:volt_var) =>
+                OpfModelKey(:variable, :u_ibr, ("pv", 1, "pn", "volt_var")),
             opf_dc_voltage_key("db", "+") =>
                 OpfModelKey(:variable, :v_dc, ("db", "+")),
             opf_dc_ground_current_key("db", "m") =>
@@ -1386,6 +1393,11 @@ using .MockOpfExtension
         @test_throws ArgumentError opf_line_current_key("l", 1; side=:sending)
         @test_throws ArgumentError opf_transformer_current_key("t", :bad, 1)
         @test_throws ArgumentError opf_ibr_current_key("pv", 0)
+        @test_throws ArgumentError opf_ibr_power_key("pv", 1; component=:apparent)
+        @test_throws ArgumentError opf_ibr_voltage_magnitude_key(
+            "pv", 1; reference=:line_to_line, controller=:volt_var)
+        @test_throws ArgumentError opf_ibr_voltage_magnitude_key(
+            "pv", 0; reference=:pn, controller=:volt_var)
         @test_throws ArgumentError opf_dc_branch_current_key("dl", true)
 
         # Native variables are registered automatically. A newly constructed

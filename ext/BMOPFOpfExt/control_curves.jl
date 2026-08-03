@@ -161,7 +161,7 @@ node), so the singular corner is reachable and would poison Ipopt's Jacobian.
 The `u²`-equality has a bounded Jacobian everywhere. This mirrors the load
 model's `W`/`s` implicit-magnitude variables.
 """
-function umag_var(model, dvr, dvi)
+function umag_var(model, dvr, dvi; on_variable::Union{Nothing,Function}=nothing)
     u = @variable(model, lower_bound = 0.0, base_name = "umag")
     @constraint(model, u^2 == dvr^2 + dvi^2)
     # Seed the start from the voltage warm-start, so Ipopt does not begin at the
@@ -171,5 +171,6 @@ function umag_var(model, dvr, dvi)
     sv(v) = something(JuMP.start_value(v), 0.0)
     mag0 = sqrt(JuMP.value(sv, dvr)^2 + JuMP.value(sv, dvi)^2)
     JuMP.set_start_value(u, max(mag0, 1e-6))
+    !isnothing(on_variable) && on_variable(u)
     return u
 end
