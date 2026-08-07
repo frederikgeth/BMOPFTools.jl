@@ -20,6 +20,11 @@ const _SPEC_VERSIONS = Dict{String,Symbol}(
     # Legacy URI written by earlier exports (e.g. output/LV, output/MV cases);
     # same draft data model, kept as an accepted alias.
     "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks" => :draft,
+    # The upstream schema's own current $id, stamped by powerio v0.8.0 and
+    # later. Same draft data model; the shapes that moved with it (uppercase
+    # load models, transformer fields relocated under extras) are handled by
+    # the unconditional migrations below, so every source maps to one tag.
+    "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json" => :draft,
 )
 
 # The tag for the spec version this build of BMOPFTools targets.
@@ -56,8 +61,10 @@ an already-parsed dict.
 """
 function migrate(net::Dict{String,Any})::Dict{String,Any}
     # Field-level migrations run unconditionally (independent of spec version).
+    _fold_transformer_extras!(net)
     _migrate_transformer_series_fields!(net)
     _migrate_field_renames!(net)
+    _normalize_load_models!(net)
     _reject_scalar_v_bounds!(net)
 
     v = _detect_spec_version(net)
@@ -243,4 +250,124 @@ function _reject_scalar_v_bounds!(net::Dict{String,Any})
                 "The neutral bound is the separate optional `vn_max` (max only)."))
         end
     end
+end
+
+"""
+    _fold_transformer_extras!(net::Dict{String,Any}) -> nothing
+
+In-place, unconditional fold of transformer fields that BMOPF schema 0.1.0
+writers park under `extras.transformer.<subtype>.<name>` back onto the
+transformer objects downstream code reads.
+
+Schema 0.1.0 sets `additionalProperties: false` on every transformer subtype
+and defines no slot for taps, neutral impedance, or no-load admittance, so a
+conforming writer (powerio v0.8.0+) moves exactly these fields out of the
+subtype objects:
+
+  `tap`, `tap_min`, `tap_max`, `r_neutral_from`, `x_neutral_from`,
+  `r_neutral_to`, `x_neutral_to`, `g_no_load`, `b_no_load`
+
+for the subtypes `single_phase`, `center_tap`, `wye_delta`, and `delta_wye`
+(`n_winding` is left alone by the writer and so also here). Without this fold
+the fields silently cease to exist for the Ybus/OPF builders and `to_pmd`: a
+tapped transformer becomes nominal-tap, an impedance-grounded neutral becomes
+solidly grounded, and the magnetising branch vanishes — with no error.
+
+A field already present on the transformer wins (never overwrite); emptied
+containers are pruned so a fully-folded document carries no residue. Folds are
+recorded under `net["_meta"]["migration_notes"]`.
+"""
+function _fold_transformer_extras!(net::Dict{String,Any})
+    extras = get(net, "extras", nothing)
+    extras isa Dict || return
+    parked = get(extras, "transformer", nothing)
+    parked isa Dict || return
+    xfmrs = get(net, "transformer", nothing)
+    xfmrs isa Dict || return
+
+    folded_fields = (
+        "tap", "tap_min", "tap_max",
+        "r_neutral_from", "x_neutral_from", "r_neutral_to", "x_neutral_to",
+        "g_no_load", "b_no_load",
+    )
+    for (subtype, bytransformer) in parked
+        bytransformer isa Dict || continue
+        subdict = get(xfmrs, subtype, nothing)
+        subdict isa Dict || continue
+        for (id, overflow) in bytransformer
+            overflow isa Dict || continue
+            xfmr = get(subdict, id, nothing)
+            xfmr isa Dict || continue
+            moved = String[]
+            for field in folded_fields
+                haskey(overflow, field) && !haskey(xfmr, field) || continue
+                xfmr[field] = overflow[field]
+                delete!(overflow, field)
+                push!(moved, field)
+            end
+            isempty(moved) && continue
+            meta  = get!(net, "_meta", Dict{String,Any}())
+            notes = get!(meta, "migration_notes", Any[])
+            push!(notes, Dict(
+                "code"    => "W.MIGRATE.XFMR_EXTRAS_FOLD",
+                "id"      => id,
+                "subtype" => subtype,
+                "fields"  => moved,
+                "message" => "Folded $(join(moved, ", ")) back from " *
+                             "extras.transformer.$subtype (BMOPF schema 0.1.0 " *
+                             "relocation) onto the transformer.",
+            ))
+        end
+        # Prune what the fold emptied so a round-trip carries no residue.
+        for (id, overflow) in collect(bytransformer)
+            overflow isa Dict && isempty(overflow) && delete!(bytransformer, id)
+        end
+    end
+    for (subtype, bytransformer) in collect(parked)
+        bytransformer isa Dict && isempty(bytransformer) && delete!(parked, subtype)
+    end
+    isempty(parked) && delete!(extras, "transformer")
+    return nothing
+end
+
+"""
+    _normalize_load_models!(net::Dict{String,Any}) -> nothing
+
+In-place, unconditional lowercasing of load `model` values. The upstream BMOPF
+schema moved the enum to uppercase (`CONSTANT_POWER`, `ZIP`, ...) and powerio
+v0.8.0 writes it that way, while every comparison in this package — and the
+bundled schema's enum — is lowercase. Without normalization an uppercase value
+matches no branch, so a ZIP or constant-impedance load is silently modelled as
+constant power AND `schema_check` flags the value: wrong physics with a
+misleading finding.
+
+Lowercasing at ingest keeps the rest of the package byte-stable, and the round
+trip is safe: powerio's reader uppercases `model` on read, so documents this
+package writes with lowercase models are read identically. Normalizations are
+recorded once under `net["_meta"]["migration_notes"]`.
+"""
+function _normalize_load_models!(net::Dict{String,Any})
+    loads = get(net, "load", nothing)
+    loads isa Dict || return
+    changed = String[]
+    for (id, load) in loads
+        load isa Dict || continue
+        model = get(load, "model", nothing)
+        model isa AbstractString || continue
+        lowered = lowercase(model)
+        lowered == model && continue
+        load["model"] = lowered
+        push!(changed, String(id))
+    end
+    isempty(changed) && return nothing
+    meta  = get!(net, "_meta", Dict{String,Any}())
+    notes = get!(meta, "migration_notes", Any[])
+    push!(notes, Dict(
+        "code"    => "W.MIGRATE.LOAD_MODEL_CASE",
+        "ids"     => sort!(changed),
+        "message" => "Lowercased load `model` values (the upstream schema " *
+                     "moved the enum to uppercase; this package and its " *
+                     "bundled schema use lowercase).",
+    ))
+    return nothing
 end

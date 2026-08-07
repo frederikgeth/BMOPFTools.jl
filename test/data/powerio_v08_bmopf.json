@@ -1,0 +1,244 @@
+{
+  "bus": {
+    "loadbus": {
+      "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    "secbus": {
+      "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "1",
+        "4"
+      ]
+    },
+    "sourcebus": {
+      "perfectly_grounded_terminals": [
+        "4"
+      ],
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    }
+  },
+  "extras": {
+    "transformer": {
+      "single_phase": {
+        "t1": {
+          "tap": 1.025
+        }
+      }
+    }
+  },
+  "line": {
+    "l1": {
+      "bus_from": "sourcebus",
+      "bus_to": "loadbus",
+      "length": 500.0,
+      "linecode": "lc1",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3"
+      ]
+    }
+  },
+  "linecode": {
+    "lc1": {
+      "B_from_1_1": 5.277875658030853e-10,
+      "B_from_1_2": -1.1309733552923253e-10,
+      "B_from_1_3": -1.1309733552923253e-10,
+      "B_from_2_1": -1.1309733552923253e-10,
+      "B_from_2_2": 5.277875658030853e-10,
+      "B_from_2_3": -1.1309733552923253e-10,
+      "B_from_3_1": -1.1309733552923253e-10,
+      "B_from_3_2": -1.1309733552923253e-10,
+      "B_from_3_3": 5.277875658030853e-10,
+      "B_to_1_1": 5.277875658030853e-10,
+      "B_to_1_2": -1.1309733552923253e-10,
+      "B_to_1_3": -1.1309733552923253e-10,
+      "B_to_2_1": -1.1309733552923253e-10,
+      "B_to_2_2": 5.277875658030853e-10,
+      "B_to_2_3": -1.1309733552923253e-10,
+      "B_to_3_1": -1.1309733552923253e-10,
+      "B_to_3_2": -1.1309733552923253e-10,
+      "B_to_3_3": 5.277875658030853e-10,
+      "G_from_1_1": 0.0,
+      "G_from_1_2": 0.0,
+      "G_from_1_3": 0.0,
+      "G_from_2_1": 0.0,
+      "G_from_2_2": 0.0,
+      "G_from_2_3": 0.0,
+      "G_from_3_1": 0.0,
+      "G_from_3_2": 0.0,
+      "G_from_3_3": 0.0,
+      "G_to_1_1": 0.0,
+      "G_to_1_2": 0.0,
+      "G_to_1_3": 0.0,
+      "G_to_2_1": 0.0,
+      "G_to_2_2": 0.0,
+      "G_to_2_3": 0.0,
+      "G_to_3_1": 0.0,
+      "G_to_3_2": 0.0,
+      "G_to_3_3": 0.0,
+      "R_series_1_1": 0.00012613333333333335,
+      "R_series_1_2": 2.6133333333333333e-05,
+      "R_series_1_3": 2.6133333333333333e-05,
+      "R_series_2_1": 2.6133333333333333e-05,
+      "R_series_2_2": 0.00012613333333333335,
+      "R_series_2_3": 2.6133333333333333e-05,
+      "R_series_3_1": 2.6133333333333333e-05,
+      "R_series_3_2": 2.6133333333333333e-05,
+      "R_series_3_3": 0.00012613333333333335,
+      "X_series_1_1": 0.0003349,
+      "X_series_1_2": 3.490000000000001e-05,
+      "X_series_1_3": 3.490000000000001e-05,
+      "X_series_2_1": 3.490000000000001e-05,
+      "X_series_2_2": 0.0003349,
+      "X_series_2_3": 3.490000000000001e-05,
+      "X_series_3_1": 3.490000000000001e-05,
+      "X_series_3_2": 3.490000000000001e-05,
+      "X_series_3_3": 0.0003349,
+      "i_max": [
+        600.0,
+        600.0,
+        600.0
+      ]
+    }
+  },
+  "load": {
+    "pqload": {
+      "bus": "loadbus",
+      "configuration": "WYE",
+      "model": "CONSTANT_POWER",
+      "p_nom": [
+        33333.333333333336,
+        33333.333333333336,
+        33333.333333333336
+      ],
+      "q_nom": [
+        6666.666666666667,
+        6666.666666666667,
+        6666.666666666667
+      ],
+      "terminal_map": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "v_nom": [
+        7199.557856794634,
+        7199.557856794634,
+        7199.557856794634
+      ]
+    },
+    "zipload": {
+      "alpha_i": [
+        0.3
+      ],
+      "alpha_p": [
+        0.3
+      ],
+      "alpha_z": [
+        0.4
+      ],
+      "beta_i": [
+        0.3
+      ],
+      "beta_p": [
+        0.3
+      ],
+      "beta_z": [
+        0.4
+      ],
+      "bus": "secbus",
+      "configuration": "SINGLE_PHASE",
+      "model": "ZIP",
+      "p_nom": [
+        5000.0
+      ],
+      "q_nom": [
+        1000.0
+      ],
+      "terminal_map": [
+        "1",
+        "4"
+      ],
+      "v_nom": [
+        240.0
+      ]
+    }
+  },
+  "meta": {
+    "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json",
+    "case_study_generator": {
+      "tool": "powerio",
+      "version": "0.8.0"
+    },
+    "frequency": 60.0
+  },
+  "name": "migratecase",
+  "transformer": {
+    "single_phase": {
+      "t1": {
+        "bus_from": "loadbus",
+        "bus_to": "secbus",
+        "r_series_from": 14.515199999999998,
+        "r_series_to": 0.016127999999999997,
+        "s_rating": 25000.0,
+        "terminal_map_from": [
+          "1",
+          "4"
+        ],
+        "terminal_map_to": [
+          "1",
+          "4"
+        ],
+        "v_nom_from": 7200.0,
+        "v_nom_to": 240.0,
+        "x_series_from": 51.84,
+        "x_series_to": 0.0
+      }
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "sourcebus",
+      "terminal_map": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "v_angle": [
+        0.0,
+        -2.0943951023931953,
+        2.0943951023931957,
+        0.0
+      ],
+      "v_magnitude": [
+        7199.557856794634,
+        7199.557856794634,
+        7199.557856794634,
+        0.0
+      ]
+    }
+  }
+}

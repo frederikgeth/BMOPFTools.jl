@@ -3798,6 +3798,12 @@ const IEEE13_FIXTURE = """
     end
 
     # -----------------------------------------------------------------------
+    # powerio v0.8.0 BMOPF ingest — new $schema URI, uppercase load models,
+    # transformer fields relocated under extras (BMOPF schema 0.1.0).
+    # -----------------------------------------------------------------------
+    include("powerio_v08_tests.jl")
+
+    # -----------------------------------------------------------------------
     # write_bmopf JSON validity
     # -----------------------------------------------------------------------
     include("write_bmopf_tests.jl")
