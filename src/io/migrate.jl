@@ -62,6 +62,7 @@ an already-parsed dict.
 function migrate(net::Dict{String,Any})::Dict{String,Any}
     # Field-level migrations run unconditionally (independent of spec version).
     _fold_transformer_extras!(net)
+    _fold_dropped_top_level_extras!(net)
     _migrate_transformer_series_fields!(net)
     _migrate_field_renames!(net)
     _normalize_load_models!(net)
@@ -129,14 +130,25 @@ function _migrate_one_transformer_series_fields!(net::Dict{String,Any},
     # Only migrate if a lumped field is present and per-winding fields are absent.
     (has_legacy_r || has_legacy_x) && !has_new_r && !has_new_x || return
 
+    # `r_series`/`x_series` is already referred to the wye winding's base
+    # (powerio-dist's `referred_resistance`/`referred_ohms` in `three_phase`
+    # both take `v_wye2`/`zb` from the wye winding regardless of which side
+    # it sits on). `_yprim_yd`/the OPF builder re-refer whichever side is the
+    # DELTA winding down to the wye base via (n_ph/n_eff0²); routing the
+    # already-wye-referred lump through that path applies the referral twice.
+    # `wye_delta` (Yd) has wye = from, so the lump belongs on r/x_series_from
+    # (the delta side then reads zero and picks up no extra referral).
+    # `delta_wye` (Dy) has wye = to, so the lump belongs on r/x_series_to.
+    wye_side = subtype == "wye_delta" ? "from" : "to"
+    delta_side = wye_side == "from" ? "to" : "from"
     if has_legacy_r
-        xfmr["r_series_from"] = Float64(xfmr["r_series"])
-        xfmr["r_series_to"]   = 0.0
+        xfmr["r_series_$(wye_side)"]   = Float64(xfmr["r_series"])
+        xfmr["r_series_$(delta_side)"] = 0.0
         delete!(xfmr, "r_series")
     end
     if has_legacy_x
-        xfmr["x_series_from"] = Float64(xfmr["x_series"])
-        xfmr["x_series_to"]   = 0.0
+        xfmr["x_series_$(wye_side)"]   = Float64(xfmr["x_series"])
+        xfmr["x_series_$(delta_side)"] = 0.0
         delete!(xfmr, "x_series")
     end
     meta = get!(net, "_meta", Dict{String,Any}())
@@ -145,7 +157,8 @@ function _migrate_one_transformer_series_fields!(net::Dict{String,Any},
         "code"      => "W.MIGRATE.XFMR_SERIES_FIELDS",
         "id"        => id,
         "subtype"   => subtype,
-        "message"   => "Migrated lumped r_series/x_series to per-winding r/x_series_from/to (r/x_series_to=0).",
+        "message"   => "Migrated lumped r_series/x_series (wye-referred) onto the wye " *
+                        "winding's r/x_series_$(wye_side) (r/x_series_$(delta_side)=0).",
     ))
 end
 
@@ -327,6 +340,64 @@ function _fold_transformer_extras!(net::Dict{String,Any})
         bytransformer isa Dict && isempty(bytransformer) && delete!(parked, subtype)
     end
     isempty(parked) && delete!(extras, "transformer")
+    return nothing
+end
+
+"""
+    _fold_dropped_top_level_extras!(net::Dict{String,Any}) -> nothing
+
+In-place, unconditional fold of the whole-table BMOPF classes that schema
+0.1.0 dropped from the top level (`additionalProperties: false` on the
+document root, no slot for `ibr`, `control_profile`, `dc_bus`, `dc_load`,
+`dc_source`, or `time_series`). powerio's writer re-emits every one of these
+under `extras.<name>` (`RAW_BMOPF_EXTRAS_TABLES` in `powerio-dist`); this
+raises them back onto `net[name]`, matching the tables every reader in this
+package (`COMPONENT_COLLECTIONS`, `get_snapshot`, `analyze`) still expects at
+the top level. Without the fold a network with IBRs or DC-side components
+parses to zero of them — no error, just an invisible device.
+
+`dc_line` is powerio's name for what this package calls `dc_branch`; the
+fold renames it on the way back. powerio has no `dc_grounding` counterpart at
+all (a capability gap, not a relocation), so that table is never populated by
+`from_dss` regardless of this fold. A table already present at the top level
+wins (never overwrite); an emptied `extras` entry is pruned. Folds are
+recorded under `net["_meta"]["migration_notes"]`.
+"""
+function _fold_dropped_top_level_extras!(net::Dict{String,Any})
+    extras = get(net, "extras", nothing)
+    extras isa Dict || return
+
+    # extras key => top-level key (identity unless noted).
+    dropped_tables = (
+        "ibr" => "ibr",
+        "control_profile" => "control_profile",
+        "dc_bus" => "dc_bus",
+        "dc_line" => "dc_branch",   # powerio's name; BMOPFTools calls it dc_branch
+        "dc_load" => "dc_load",
+        "dc_source" => "dc_source",
+        "time_series" => "time_series",
+    )
+    moved = String[]
+    for (extras_key, top_key) in dropped_tables
+        table = get(extras, extras_key, nothing)
+        (table isa Dict && !isempty(table)) || continue
+        if haskey(net, top_key) && net[top_key] isa Dict
+            merge!(net[top_key], table)
+        else
+            net[top_key] = table
+        end
+        delete!(extras, extras_key)
+        push!(moved, top_key)
+    end
+    isempty(moved) && return
+    meta  = get!(net, "_meta", Dict{String,Any}())
+    notes = get!(meta, "migration_notes", Any[])
+    push!(notes, Dict(
+        "code"    => "W.MIGRATE.TOP_LEVEL_EXTRAS_FOLD",
+        "tables"  => moved,
+        "message" => "Folded $(join(moved, ", ")) back from extras (BMOPF " *
+                     "schema 0.1.0 relocation) onto the top-level network dict.",
+    ))
     return nothing
 end
 

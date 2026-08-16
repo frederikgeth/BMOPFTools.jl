@@ -92,7 +92,14 @@ function from_dss(path::AbstractString;
     # no earth wire — the OpenDSS earth node is routed to neutral, ground stays
     # implicit). from_dss knows the mapping it just applied, so this is declared
     # rather than left to be inferred downstream (W.CONV.TERMINAL_ROLES_INFERRED).
-    get!(net, "terminal_conventions", _terminal_conventions_dict(net))
+    # PowerIO's own BMOPF export already carries a `terminal_conventions` block
+    # keyed to ITS pre-remap numeric terminal names (e.g. phase=["1","2","4"],
+    # neutral=[]) — stale the instant `_remap_opendss_terminals!` renames every
+    # terminal to a/b/c/n. Discard it before recomputing, or `_terminal_roles`
+    # treats the stale numeric block as authoritative (`get!` never overwrites an
+    # existing key) and every a/b/c/n bus resolves to an empty neutral set.
+    delete!(net, "terminal_conventions")
+    net["terminal_conventions"] = _terminal_conventions_dict(net)
 
     # Store conversion warnings so callers can inspect fidelity losses, and
     # surface an aggregate @warn so the losses are visible even when the
