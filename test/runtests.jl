@@ -2507,6 +2507,14 @@ const IEEE13_FIXTURE = """
         # form (as emitted by from_dss/PowerIO) must be normalised on parse to
         # the per-winding fields the OPF/Ybus builders read — otherwise they
         # default to zero and the leakage impedance silently vanishes.
+        #
+        # r_series/x_series is referred to the WYE winding's base regardless of
+        # which side (from/to) it sits on (powerio-dist's `referred_resistance`/
+        # `referred_ohms`); the migration routes it onto the wye winding's own
+        # field. delta_wye has wye = to, so the lump lands on r/x_series_to —
+        # putting it on r/x_series_from instead double-refers it through
+        # `_yprim_yd`'s delta-side (n_ph/n_eff0²) scaling and understates the
+        # leakage by roughly that factor.
         json = """
         {"bus":{"hv":{"terminal_names":["a","b","c"]},
                 "lv":{"terminal_names":["a","b","c","n"]}},
@@ -2519,20 +2527,20 @@ const IEEE13_FIXTURE = """
         net = parse_bmopf(json; from_string=true)
         tx  = net["transformer"]["delta_wye"]["t1"]
         @test !haskey(tx, "r_series") && !haskey(tx, "x_series")
-        @test tx["r_series_from"] ≈ 0.015
-        @test tx["x_series_from"] ≈ 0.0007
-        @test tx["r_series_to"] == 0.0 && tx["x_series_to"] == 0.0
+        @test tx["r_series_to"] ≈ 0.015
+        @test tx["x_series_to"] ≈ 0.0007
+        @test tx["r_series_from"] == 0.0 && tx["x_series_from"] == 0.0
         @test any(n -> n["code"] == "W.MIGRATE.XFMR_SERIES_FIELDS",
                   net["_meta"]["migration_notes"])
 
         # Per-winding input is left untouched (no spurious migration note).
         json2 = replace(json,
             "\"r_series\":0.015,\"x_series\":0.0007" =>
-            "\"r_series_from\":0.015,\"r_series_to\":0.0,\"x_series_from\":0.0007,\"x_series_to\":0.0")
+            "\"r_series_from\":0.0,\"r_series_to\":0.015,\"x_series_from\":0.0,\"x_series_to\":0.0007")
         net2  = parse_bmopf(json2; from_string=true)
         notes = get(get(net2, "_meta", Dict()), "migration_notes", [])
         @test !any(n -> n["code"] == "W.MIGRATE.XFMR_SERIES_FIELDS", notes)
-        @test net2["transformer"]["delta_wye"]["t1"]["r_series_from"] ≈ 0.015
+        @test net2["transformer"]["delta_wye"]["t1"]["r_series_to"] ≈ 0.015
     end
 
     @testset "Schema — own output validates (layer drift)" begin
@@ -3489,7 +3497,7 @@ const IEEE13_FIXTURE = """
     # (PowerIO.jl). PowerIO is a hard dependency, so this always runs.
     # --------------------------------------------------------------------------
     @testset "OpenDSS generator conversion via PowerIO" begin
-        @test startswith(BMOPFTools.powerio_version(), "PowerIO.jl 0.7.")
+        @test startswith(BMOPFTools.powerio_version(), "PowerIO.jl 0.9.")
         net = from_dss(joinpath(@__DIR__, "data", "issue190_generator.dss"))
 
         @test haskey(net, "generator")
@@ -3572,11 +3580,12 @@ const IEEE13_FIXTURE = """
             tx = first(values(xfmr["delta_wye"]))
             @test tx["v_nom_from"] > tx["v_nom_to"]               # step-down
             @test tx["v_nom_from"] / tx["v_nom_to"] ≈ 11.0/0.433  rtol=0.02
-            # PowerIO emits a lumped Γ-model; the parse-time migration normalises
-            # it to the per-winding fields the OPF/Ybus builders consume, so a
-            # nonzero leakage impedance reaches them (not silently zero).
-            @test haskey(tx, "r_series_from") && tx["r_series_from"] > 0
-            @test haskey(tx, "x_series_from") && tx["x_series_from"] > 0
+            # PowerIO emits a lumped Γ-model, wye-base-referred; the parse-time
+            # migration normalises it onto the wye winding's own field (delta_wye
+            # has wye = to) so a nonzero leakage impedance reaches the OPF/Ybus
+            # builders (not silently zero, and not double-referred).
+            @test haskey(tx, "r_series_to") && tx["r_series_to"] > 0
+            @test haskey(tx, "x_series_to") && tx["x_series_to"] > 0
             @test !haskey(tx, "r_series") && !haskey(tx, "x_series")
             # spec arity: delta side 3 terminals, wye side 4 (incl. neutral)
             @test length(tx["terminal_map_from"]) == 3
