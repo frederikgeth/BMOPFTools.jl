@@ -99,6 +99,7 @@ compile_linecodes!
 to_pmd
 from_dss
 to_dss
+powerio_findings
 project_solution
 dispatch_as_loads
 ```

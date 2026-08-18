@@ -30,6 +30,9 @@ in OpenDSS — inspect `warnings` for anything the writer could not represent.
 - `net`: a BMOPF network dict (as returned by `from_dss` or `parse_bmopf`).
 - `name`: optional network name to write instead of `net["name"]`. The input
   dict is not mutated.
+- `findings`: optional `Vector{Finding}` to append the writer's findings to,
+  carrying powerio's own diagnostic code and severity. The returned warnings
+  are the same list as the `CODE: message` lines it renders as.
 
 # Conversion warnings
 PowerIO reports every piece of information that its BMOPF→DSS writer cannot
@@ -47,7 +50,9 @@ isempty(warnings) || @warn "DSS writer fidelity losses" warnings
 ```
 """
 function to_dss(net::Dict{String,Any};
-                name::Union{AbstractString,Nothing}=nothing)::Tuple{String,Vector{String}}
+                name::Union{AbstractString,Nothing}=nothing,
+                findings::Union{Vector{Finding},Nothing}=nothing
+                )::Tuple{String,Vector{String}}
 
     # Serialise to BMOPF JSON without mutating the caller's dict. write_bmopf
     # drops the tool-private `_meta` block and emits schema-valid JSON.
@@ -71,6 +76,11 @@ function to_dss(net::Dict{String,Any};
         throw(ErrorException("PowerIO produced no DSS output"))
     end
 
+    # The export direction reads component ids straight out of the caller's
+    # dict, so unlike `from_dss` there is no case folding to mirror here.
+    findings === nothing ||
+        append!(findings, powerio_findings(_powerio_diagnostic_records(warnings_list)))
+
     dss_text, collect(String, warnings_list)
 end
 
@@ -88,8 +98,9 @@ warnings = to_dss(net, "roundtrip/Master.dss")
 ```
 """
 function to_dss(net::Dict{String,Any}, path::AbstractString;
-                name::Union{AbstractString,Nothing}=nothing)::Vector{String}
-    dss_text, warnings_list = to_dss(net; name=name)
+                name::Union{AbstractString,Nothing}=nothing,
+                findings::Union{Vector{Finding},Nothing}=nothing)::Vector{String}
+    dss_text, warnings_list = to_dss(net; name=name, findings=findings)
     mkpath(dirname(abspath(path)))
     open(path, "w") do io
         write(io, dss_text)

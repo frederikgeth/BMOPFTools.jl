@@ -3813,6 +3813,11 @@ const IEEE13_FIXTURE = """
     include("powerio_v08_tests.jl")
 
     # -----------------------------------------------------------------------
+    # PowerIO conversion diagnostics lifted into Findings
+    # -----------------------------------------------------------------------
+    include("powerio_findings_tests.jl")
+
+    # -----------------------------------------------------------------------
     # write_bmopf JSON validity
     # -----------------------------------------------------------------------
     include("write_bmopf_tests.jl")

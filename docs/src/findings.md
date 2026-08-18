@@ -5,6 +5,14 @@ The complete catalogue of finding codes, grouped by family. Codes are
 prefix: `E.` error, `W.` warning, `I.` info (see
 [Analysis & reports](analysis.md) for the severity semantics).
 
+A case imported through [`from_dss`](@ref) also carries findings this package
+did not author: PowerIO's conversion diagnostics, kept under their own codes
+(`EMIT.`, `READ.`, `PARSE.`, `LOWER.`, …, one namespace per pipeline stage) and
+catalogued by [powerio](https://powerio.dev) rather than here. They report what
+the OpenDSS import could not carry into BMOPF, not the quality of what arrived,
+and the leading namespace is what tells them apart from the codes below. See
+[Ingest warnings](conversion.md#ingest-warnings).
+
 ## COMP — completeness
 
 | Code | Sev | Trigger & rationale |

@@ -275,6 +275,12 @@ function _md_provenance(r::SummaryReport, io::IO)
         println(io)
     end
 
+    pc = get(d, "powerio_conversion", Dict())
+    if get(pc, "n_classes", 0) > 0
+        println(io, "**PowerIO conversion:** $(pc["n_diagnostics"]) fidelity " *
+                    "loss(es) in $(pc["n_classes"]) class(es) — see findings\n")
+    end
+
     _md_section_findings(r, io, :provenance)
 end
 

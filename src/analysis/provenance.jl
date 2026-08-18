@@ -66,8 +66,34 @@ function provenance_analysis(net::Dict{String,Any},
     result["voltage_source_sequence"]     = _check_voltage_source_sequence(net, findings)
     result["i_max_incomplete"]            = _check_i_max_completeness(net, findings)
     result["switch_like_lines"]           = _check_switch_like_lines(net, findings)
+    result["powerio_conversion"]          = _report_powerio_conversion(net, findings)
     result["convention"]          = _convention_statement(result)
     result
+end
+
+# ---------------------------------------------------------------------------
+# PowerIO conversion fidelity
+# ---------------------------------------------------------------------------
+
+"""
+Report what the PowerIO conversion that produced this network could not carry.
+The diagnostics were recorded at ingest by [`from_dss`](@ref) and survive a
+`write_bmopf` round trip, so a case loaded from a saved BMOPF file still reports
+the losses of the OpenDSS import behind it. A network that never crossed the
+PowerIO boundary reports nothing.
+"""
+function _report_powerio_conversion(net::Dict{String,Any},
+                                    findings::Vector{Finding})::Dict{String,Any}
+    fs = powerio_findings(net)
+    append!(findings, fs)
+    count_of(f) = get(something(f.detail, Dict{String,Any}()), "count", 1)
+    Dict{String,Any}(
+        "n_classes"     => length(fs),
+        "n_diagnostics" => sum(count_of, fs; init=0),
+        "source"        => get(get(net, "_meta", Dict{String,Any}()),
+                               "powerio_source", nothing),
+        "by_code"       => Dict{String,Any}(f.code => count_of(f) for f in fs),
+    )
 end
 
 # ---------------------------------------------------------------------------

@@ -40,9 +40,10 @@ println(length(get(net, "bus", Dict())), " buses, ",
         " transformers")
 ```
 
-Two independent layers of messages describe what you just loaded, and they
-must not be conflated: what the **importer** could not carry across, and what
-the **analyzer** thinks of the network that arrived.
+Two layers of messages describe what you just loaded, and they answer
+different questions: what the **importer** could not carry across, and what
+the **analyzer** thinks of the network that arrived. Both reach the same
+findings report; their code namespaces tell them apart.
 
 ## 2. Layer one: what the import could not represent
 
@@ -63,6 +64,19 @@ arrived. Most entries here are cosmetic (`units` fields the schema carries
 differently), but this ledger is where a dropped regulator control or an
 unsupported element would appear — losses that no amount of downstream
 analysis can detect. Read it once, note anything electrical, and move on.
+
+The same losses are also [`Finding`](@ref)s, one per diagnostic class, so they
+sit in the report layer two produces rather than only on the dict:
+
+```@example triage
+for f in powerio_findings(net)
+    println("  ", f.severity, "  ", f.code, "  ×", f.detail["count"])
+end
+```
+
+They keep powerio's own code — `EMIT.` for what the writer could not emit,
+`READ.` for what the reader could not take — so an import loss never reads as
+a validation finding in this package's `W.`/`E.`/`I.` grammar.
 
 ## 3. Layer two: the findings report and its severity contract
 

@@ -164,16 +164,17 @@ issues.
 
 `from_dss` is loud about fidelity loss: every piece of OpenDSS information
 that could not be represented in BMOPF is collected during the parse. The
-console `Warning` you see after a call is a **preview only** — it shows the
-first five items plus an `… and N more` count. Nothing is lost, and nothing
-is written to disk: the **complete list travels with the returned network
-dict**, so you can inspect it whenever you like:
+console `Warning` you see after a call is a **preview only** — one line per
+diagnostic class. Nothing is lost, and nothing is written to disk: the
+**complete list travels with the returned network dict**, so you can inspect
+it whenever you like:
 
 ```julia
 net = from_dss("Master.dss")
 
 net["_meta"]["powerio_warnings"]      # Vector{String} — every warning, untruncated
 println.(net["_meta"]["powerio_warnings"]);   # print them all, one per line
+net["_meta"]["powerio_diagnostics"]   # the same list, one record per class
 net["_meta"]["powerio_source"]        # absolute path of the parsed .dss file
 ```
 
@@ -181,12 +182,25 @@ Because the list is ordinary data on the dict, it survives into any
 downstream processing and can be filtered like any vector, e.g.
 `filter(contains("transformer"), net["_meta"]["powerio_warnings"])`.
 
-Note the distinction from the [analysis framework](analysis.md):
-[`analyze`](@ref) validates the *content* of the resulting network (schema,
-completeness, domain rules, …) and does **not** re-surface these ingest
-warnings — `powerio_warnings` is about what the conversion could not carry
-over, `analyze` is about the quality of what arrived. Run both after an
-import.
+The same diagnostics reach the [analysis framework](analysis.md) as
+[`Finding`](@ref)s — [`powerio_findings`](@ref) reads them off the dict and
+[`analyze`](@ref) reports them in the provenance section. They keep powerio's
+own code (`EMIT.BMOPF.FIELD_DROPPED`), so an import loss stays distinguishable
+from a validation finding in this package's `W.`/`E.`/`I.` grammar. The two
+still answer different questions — what the conversion could not carry over,
+against the quality of what arrived — and one report now carries both. A
+`from_dss` call fills a caller's vector directly:
+
+```julia
+findings = Finding[]
+net = from_dss("Master.dss"; findings=findings)
+```
+
+One `Finding` stands for one diagnostic class rather than one diagnostic: the
+bigger ENWL feeders emit five figures of `EMIT.BMOPF.FIELD_DROPPED`, one per
+dropped field per element. Each carries its `count`, the element paths it
+covers, and a few example messages under `detail`; `powerio_warnings` remains
+the ungrouped list.
 
 ### Identifier case-folding
 

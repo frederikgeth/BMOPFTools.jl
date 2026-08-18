@@ -328,6 +328,12 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
         end
     end
 
+    pc = get(d, "powerio_conversion", Dict())
+    if get(pc, "n_classes", 0) > 0
+        println(io, "\n  PowerIO conversion: $(pc["n_diagnostics"]) fidelity " *
+                    "loss(es) in $(pc["n_classes"]) class(es) — see findings")
+    end
+
     _render_section_findings(r, io, :provenance; color)
 end
 

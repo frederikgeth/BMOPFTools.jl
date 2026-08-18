@@ -57,9 +57,10 @@ println(rpad("transformer", 16), ": ", sum(length(v) for v in values(xfmr) if v 
 
 `from_dss` is loud about fidelity: the `Warning` it prints above lists every
 piece of OpenDSS information that has no BMOPF representation and was dropped
-(here mostly cosmetic fields such as linecode `units`). The console preview is
-capped at five items — the full, untruncated list stays inspectable at
-`net["_meta"]["powerio_warnings"]` (see
+(here mostly cosmetic fields such as linecode `units`). The console preview
+shows one line per diagnostic class — the full, untruncated list stays
+inspectable at `net["_meta"]["powerio_warnings"]`, and the same diagnostics
+reach [`analyze`](@ref) as findings (see
 [Ingest warnings](@ref ingest-warnings)).
 
 ## 2. Analyze & diagnose
