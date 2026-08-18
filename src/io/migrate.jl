@@ -16,15 +16,17 @@
 # Map canonical $schema URIs (as written into meta.$schema by write_bmopf) to
 # internal version tag symbols. Entries should be added in chronological order.
 const _SPEC_VERSIONS = Dict{String,Symbol}(
-    "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json" => :draft,
-    # Legacy URI written by earlier exports (e.g. output/LV, output/MV cases);
-    # same draft data model, kept as an accepted alias.
-    "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks" => :draft,
-    # The upstream schema's own current $id, stamped by powerio v0.8.0 and
-    # later. Same draft data model; the shapes that moved with it (uppercase
-    # load models, transformer fields relocated under extras) are handled by
-    # the unconditional migrations below, so every source maps to one tag.
+    # The published schema's own $id, stamped by `write_bmopf` and by powerio
+    # v0.8.0 and later. Same draft data model as the two spellings below; the
+    # shapes that moved with it (uppercase load models, transformer fields
+    # relocated under extras) are handled by the unconditional migrations
+    # below, so every source maps to one tag.
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json" => :draft,
+    # A path this package stamped until it was found to resolve to nothing
+    # upstream; accepted on read so files carrying it still parse.
+    "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json" => :draft,
+    # Legacy URI written by earlier exports (e.g. output/LV, output/MV cases).
+    "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks" => :draft,
 )
 
 # The tag for the spec version this build of BMOPFTools targets.

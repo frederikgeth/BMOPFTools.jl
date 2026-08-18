@@ -30,10 +30,12 @@ using Graphs
 using JSON3
 import PowerIO
 
-# Stable URI for the BMOPF JSON schema. Will become a versioned path once the
-# spec is frozen (e.g. /schema/v1/bmopf.json).
+# The published schema's own `$id`, stamped into `meta.$schema` on write. The
+# path this used to stamp (`/schema/bmopf.json`) no longer exists upstream, so
+# the URI resolved to nothing. `_SPEC_VERSIONS` still accepts it on read.
 const _BMOPF_SCHEMA_URI =
-    "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json"
+    "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/" *
+    "draft_schema_and_networks/draft_bmopf_schema.json"
 
 # Package version, read once at load time from the Project.toml.
 const _BMOPFTOOLS_VERSION = string(pkgversion(BMOPFTools))
@@ -710,6 +712,7 @@ include("io/parse_bmopf.jl")
 include("io/write_bmopf.jl")
 include("io/result_io.jl")
 include("io/to_pmd.jl")
+include("io/powerio_findings.jl")
 include("io/from_dss.jl")
 include("io/to_dss.jl")
 include("io/project_solution.jl")
@@ -1964,6 +1967,7 @@ export parse_bmopf, write_bmopf
 export write_result, read_result
 export to_pmd
 export from_dss, to_dss
+export powerio_findings
 export project_solution, dispatch_as_loads
 export sideload_coordinates!
 export analyze, render
