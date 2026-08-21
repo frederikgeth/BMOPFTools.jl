@@ -133,7 +133,49 @@ non-positive. The second derivative reuses $\sigma$, so it inherits the same
 stability. This is what lets the encoding use aggressively small $\varepsilon$
 without the floating-point failures the naive formulas would suffer [1, §III-C].
 
-## 5. Choosing the smoothing $\varepsilon$
+## 5. Public API for custom control laws
+
+The same encoding is available to staged-OPF extensions, so a downstream
+package can implement local control laws without copying BMOPFTools' nonlinear
+operator machinery. The numeric oracle evaluates either the exact controller or
+the same smooth approximation used in the optimisation model:
+
+```julia
+xs = [0.90, 0.98, 1.02, 1.10]
+ys = [0.44, 0.0, 0.0, -0.60]
+
+q_exact  = piecewise_linear_value(1.05, xs, ys)
+q_smooth = piecewise_linear_value(1.05, xs, ys; epsilon=2e-3)
+```
+
+Inside a `model_hook!`, pass a JuMP scalar expression and an **absolute**
+smoothing width in the model's working input units:
+
+```julia
+model_hook! = ctx -> begin
+    model = opf_model(ctx)
+    # `u` is a caller-constructed local voltage-magnitude expression in p.u.
+    q_fraction = opf_piecewise_linear_expression(
+        ctx, u, xs, ys; epsilon=2e-3)
+    JuMP.@constraint(model, q == q_rating_pu * q_fraction)
+end
+```
+
+All arguments to one curve are interpreted in working coordinates:
+`input`, `breakpoints`, and `epsilon` share input units, while `values` set the
+output units. Convert SI quantities with [`opf_bases`](@ref) when the staged
+model uses per-unit coordinates. Curve data are fixed finite numbers with
+strictly increasing breakpoints; changing their length or order requires
+rebuilding the JuMP graph.
+
+Calls on the same context and `epsilon` share one cached softplus operator. This
+keeps large populations of independently controlled devices compact and avoids
+re-registering identical nonlinear functions. The context's `softplus` mode is
+honoured automatically, including `softplus=:builtin` for DiffOpt workflows.
+The function only returns an expression: callers retain control over equality,
+inequality, current-limit, and topology-realizability constraints.
+
+## 6. Choosing the smoothing $\varepsilon$
 
 The smoothing is **relative to the voltage scale**. `breakpoints_to_triples`
 works in model units (per-unit when the OPF is solved per-unit), and the operator
@@ -187,7 +229,7 @@ expression does not have the same regime-split overflow protection; studies
 using extreme voltage-to-smoothing ratios should treat the report qualification
 as a numerical warning and test the relevant range.
 
-## 6. Provenance and related work
+## 7. Provenance and related work
 
 The encoding above is the composition of two well-established ideas; naming them
 clarifies what is standard and what is specific to this implementation.

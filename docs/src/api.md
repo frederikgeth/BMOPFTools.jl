@@ -152,6 +152,8 @@ opf_dc_source_power_key
 opf_model
 opf_network
 opf_bases
+piecewise_linear_value
+opf_piecewise_linear_expression
 opf_neutral_labels
 opf_lifecycle
 opf_build_manifest

@@ -36,24 +36,8 @@ reproduces the characteristic and clamps flat outside `[xs[1], xs[end]]`.
 contribute no triples.
 """
 function breakpoints_to_triples(xs::AbstractVector{<:Real}, ys::AbstractVector{<:Real})
-    n = length(xs)
-    n == length(ys) ||
-        throw(ArgumentError("breakpoints xs and values ys must have equal length"))
-    n >= 2 || throw(ArgumentError("need at least 2 breakpoints, got $n"))
-    for i in 1:(n - 1)
-        xs[i + 1] > xs[i] ||
-            throw(ArgumentError("breakpoints xs must be strictly increasing"))
-    end
-
-    baseline = Float64(ys[1])
-    triples = Tuple{Float64,Float64}[]   # (slope a, shift x̄)
-    for i in 1:(n - 1)
-        s = (Float64(ys[i + 1]) - Float64(ys[i])) / (Float64(xs[i + 1]) - Float64(xs[i]))
-        s == 0.0 && continue
-        push!(triples, (s,  Float64(xs[i])))
-        push!(triples, (-s, Float64(xs[i + 1])))
-    end
-    return (baseline = baseline, triples = triples)
+    curve = BMOPFTools._piecewise_linear_hinges(xs, ys)
+    return (baseline=curve.baseline, triples=curve.hinges)
 end
 
 "Exact (kinked) evaluation of a ReLU-sum curve — used for testing the encoding."

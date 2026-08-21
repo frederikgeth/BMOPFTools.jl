@@ -28,6 +28,7 @@ using Logging
 using Statistics
 using Graphs
 using JSON3
+using StatsFuns: log1pexp
 import PowerIO
 
 # The published schema's own `$id`, stamped into `meta.$schema` on write. The
@@ -902,6 +903,97 @@ end
 # OPF entry point — implementation lives in ext/BMOPFOpfExt (loaded when
 # JuMP and Ipopt are both available in the calling environment).
 # ---------------------------------------------------------------------------
+
+function _piecewise_linear_hinges(breakpoints::AbstractVector{<:Real},
+                                   values::AbstractVector{<:Real})
+    n = length(breakpoints)
+    n == length(values) || throw(ArgumentError(
+        "breakpoints and values must have equal length"))
+    n >= 2 || throw(ArgumentError("need at least 2 breakpoints, got $n"))
+
+    xs = Float64.(breakpoints)
+    ys = Float64.(values)
+    all(isfinite, xs) || throw(ArgumentError("breakpoints must be finite"))
+    all(isfinite, ys) || throw(ArgumentError("values must be finite"))
+    all(i -> xs[i + 1] > xs[i], 1:(n - 1)) || throw(ArgumentError(
+        "breakpoints must be strictly increasing"))
+
+    hinges = Tuple{Float64,Float64}[]
+    for i in 1:(n - 1)
+        slope = (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i])
+        iszero(slope) && continue
+        push!(hinges, (slope, xs[i]))
+        push!(hinges, (-slope, xs[i + 1]))
+    end
+    return (baseline=ys[1], hinges=hinges)
+end
+
+"""
+    piecewise_linear_value(input, breakpoints, values; epsilon=nothing)
+
+Evaluate the continuous piecewise-linear function through corresponding
+`breakpoints` and `values`, clamped flat outside the breakpoint interval.
+Breakpoints must be finite and strictly increasing and both vectors must have
+the same length of at least two.
+
+With the default `epsilon=nothing`, evaluation is exact and retains the PWL
+kinks. Passing a finite `epsilon > 0` replaces every hinge with the smooth
+softplus `epsilon * log1pexp(z / epsilon)`, matching
+[`opf_piecewise_linear_expression`](@ref). `input`, `breakpoints`, and `epsilon`
+must use the same units; `values` determine the output units.
+
+This numeric method is suitable as an exact control-law oracle outside an
+optimisation model and as a reference for quantifying smoothing error.
+"""
+function piecewise_linear_value(input::Real,
+                                breakpoints::AbstractVector{<:Real},
+                                values::AbstractVector{<:Real};
+                                epsilon::Union{Nothing,Real}=nothing)
+    u = Float64(input)
+    isfinite(u) || throw(ArgumentError("input must be finite"))
+    curve = _piecewise_linear_hinges(breakpoints, values)
+    if isnothing(epsilon)
+        return curve.baseline + sum(
+            slope * max(0.0, u - knot) for (slope, knot) in curve.hinges;
+            init=0.0)
+    end
+
+    eps = Float64(epsilon)
+    isfinite(eps) && eps > 0 || throw(ArgumentError(
+        "epsilon must be finite and positive, got $epsilon"))
+    return curve.baseline + sum(
+        slope * eps * log1pexp((u - knot) / eps)
+        for (slope, knot) in curve.hinges; init=0.0)
+end
+export piecewise_linear_value
+
+"""
+    opf_piecewise_linear_expression(ctx, input, breakpoints, values;
+                                    epsilon) -> expression
+
+Build a smooth JuMP expression for the continuous PWL function through
+`breakpoints` and `values`, clamped flat outside the breakpoint interval. The
+method is implemented by the OPF extension and requires JuMP and Ipopt to be
+loaded.
+
+`input` may be a JuMP variable or scalar expression. All curve data are fixed,
+finite real numbers; `breakpoints` must be strictly increasing. The finite,
+positive `epsilon` is the absolute softplus width in the same working units as
+`input` and `breakpoints`. `values` determine the expression's output units.
+
+Operator registration is cached by `epsilon` in `ctx`, so any number of curves
+in one staged OPF context can share the same analytic softplus operator. The
+expression follows the context's `softplus` build mode: the numerically stable
+registered operator by default, or the native JuMP expression selected with
+`softplus=:builtin` for DiffOpt compatibility. Curve construction does not add
+constraints or modify the staged OPF lifecycle.
+
+Use [`opf_bases`](@ref) to convert physical breakpoints and values to model
+working units before calling this function. Use [`piecewise_linear_value`](@ref)
+for exact numeric evaluation or for the corresponding smooth numeric oracle.
+"""
+function opf_piecewise_linear_expression end
+export opf_piecewise_linear_expression
 
 """
     solve_opf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,

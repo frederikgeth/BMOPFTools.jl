@@ -82,6 +82,21 @@ struct OpfContext
     lifecycle::Base.RefValue{Symbol}
 end
 
+function BMOPFTools.opf_piecewise_linear_expression(
+        ctx::OpfContext,
+        input,
+        breakpoints::AbstractVector{<:Real},
+        values::AbstractVector{<:Real};
+        epsilon)
+    eps = Float64(epsilon)
+    isfinite(eps) && eps > 0 || throw(ArgumentError(
+        "epsilon must be finite and positive, got $epsilon"))
+    curve = BMOPFTools._piecewise_linear_hinges(breakpoints, values)
+    isempty(curve.hinges) && return curve.baseline
+    op = relu_operator_for!(ctx.relu_ops, ctx.model, eps; mode=ctx.softplus)
+    return curve_expr(op, input, curve.baseline, curve.hinges)
+end
+
 BMOPFTools.opf_model(ctx::OpfContext) = ctx.model
 BMOPFTools.opf_network(ctx::OpfContext) = ctx.net
 BMOPFTools.opf_bases(ctx::OpfContext) = ctx.bases

@@ -30,6 +30,8 @@ function _strip_xfmr_ratings!(net)
     net
 end
 
+include("piecewise_linear_tests.jl")
+
 # ---------------------------------------------------------------------------
 # Minimal IEEE 13-bus inspired fixture — enough to exercise all analysis paths
 # ---------------------------------------------------------------------------
