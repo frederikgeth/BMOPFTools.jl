@@ -99,7 +99,438 @@ end
 
 BMOPFTools.opf_model(ctx::OpfContext) = ctx.model
 BMOPFTools.opf_network(ctx::OpfContext) = ctx.net
-BMOPFTools.opf_bases(ctx::OpfContext) = ctx.bases
+function BMOPFTools.opf_bases(ctx::OpfContext)
+    bases = ctx.bases
+    if bases !== nothing && hasproperty(bases, :s_base_bus)
+        local_bases = collect(values(bases.s_base_bus))
+        if !isempty(local_bases) &&
+           any(!isapprox(value, first(local_bases); rtol=1.0e-12, atol=0.0)
+               for value in local_bases)
+            warned = get(ctx.extension_state,
+                :BMOPFToolsNonuniformSBaseWarning, false)
+            if !warned
+                @warn "opf_bases(ctx).s_base is a reference power base under nonuniform scaling; use opf_coordinate_bases(ctx, bus).power for local coordinates"
+                ctx.extension_state[:BMOPFToolsNonuniformSBaseWarning] = true
+            end
+        end
+    end
+    return bases
+end
+BMOPFTools.opf_scaling_policy(ctx::OpfContext) = ctx.bases === nothing ?
+    BMOPFTools.SIUnitsScaling() : ctx.bases.scaling_policy
+
+function BMOPFTools.opf_ac_coordinate_bases(ctx::OpfContext, bus::AbstractString)
+    id = String(bus)
+    haskey(get(ctx.net, "bus", Dict()), id) ||
+        throw(ArgumentError("unknown AC bus $(repr(id))"))
+    ctx.bases === nothing && return (
+        voltage=1.0, current=1.0, power=1.0,
+        impedance=1.0, admittance=1.0,
+    )
+    return (
+        voltage=Float64(ctx.bases.v_base[id]),
+        current=Float64(ctx.bases.i_base[id]),
+        power=_ac_power_base(ctx.bases, id),
+        impedance=Float64(ctx.bases.z_base[id]),
+        admittance=Float64(ctx.bases.y_base[id]),
+    )
+end
+
+function BMOPFTools.opf_dc_coordinate_bases(ctx::OpfContext, bus::AbstractString)
+    id = String(bus)
+    haskey(get(ctx.net, "dc_bus", Dict()), id) ||
+        throw(ArgumentError("unknown DC bus $(repr(id))"))
+    ctx.bases === nothing && return (
+        voltage=1.0, current=1.0, power=1.0, impedance=1.0,
+    )
+    return (
+        voltage=Float64(ctx.bases.v_dc_base[id]),
+        current=Float64(ctx.bases.i_dc_base[id]),
+        power=_dc_power_base(ctx.bases),
+        impedance=Float64(ctx.bases.z_dc_base[id]),
+    )
+end
+
+function BMOPFTools.opf_coordinate_bases(
+    ctx::OpfContext,
+    location::AbstractString;
+    domain::Symbol = :ac,
+)
+    domain == :ac && return BMOPFTools.opf_ac_coordinate_bases(ctx, location)
+    domain == :dc && return BMOPFTools.opf_dc_coordinate_bases(ctx, location)
+    throw(ArgumentError("coordinate-base domain must be :ac or :dc, got :$domain"))
+end
+
+function BMOPFTools.opf_initialization_data(ctx::OpfContext)
+    state = get(ctx.extension_state, :BMOPFToolsInitialization, nothing)
+    transport = state isa AbstractDict ?
+        get(state, :phasor_transport, nothing) : nothing
+    transport === nothing && return Dict{String,Any}(
+        "schema_version" => "bmopf-opf-initialization-v1",
+        "available" => false,
+        "method" => "network_wide_ideal_phasor_transport",
+    )
+    return Dict{String,Any}(
+        "schema_version" => "bmopf-opf-initialization-v1",
+        "available" => true,
+        "method" => "network_wide_ideal_phasor_transport",
+        "coordinate_system" => "per_bus_nominal_voltage_normalized",
+        "applied" => transport.applied,
+        "coordinate_count" => transport.coordinate_count,
+        "physics_equation_count" => transport.equation_count,
+        "equation_count_by_kind" => copy(transport.equation_count_by_kind),
+        "maximum_normalized_physics_residual" =>
+            transport.maximum_normalized_physics_residual,
+        "maximum_normalized_residual_by_kind" =>
+            copy(transport.maximum_normalized_residual_by_kind),
+        "transformer_component_count_by_subtype" =>
+            copy(transport.transformer_component_count_by_subtype),
+        "unsupported_transformer_subtypes" =>
+            copy(transport.unsupported_transformer_subtypes),
+        "qualification" => Dict{String,Any}(
+            "claim" => "deterministic zero-current phasor transport through represented network connection equations",
+            "does_not_establish" => [
+                "initial feasibility under load",
+                "solver convergence",
+                "support for transformer connections absent from the BMOPF schema",
+            ],
+        ),
+    )
+end
+
+function BMOPFTools.opf_transformer_scaling_contract_data(
+        ctx::OpfContext; voltage_bases=nothing, power_bases=nothing)
+    buses = sort!(String.(collect(keys(get(ctx.net, "bus", Dict())))))
+    current_voltage_bases = if ctx.bases === nothing
+        Dict(bus => 1.0 for bus in buses)
+    else
+        Dict(bus => Float64(ctx.bases.v_base[bus]) for bus in buses)
+    end
+    current_power_bases = if ctx.bases === nothing
+        Dict(bus => 1.0 for bus in buses)
+    else
+        Dict(bus => _ac_power_base(ctx.bases, bus) for bus in buses)
+    end
+
+    function normalize_map(input, defaults)
+        input === nothing && return copy(defaults), String[], String[]
+        normalized = Dict{String,Float64}()
+        invalid = String[]
+        for (raw_bus, raw_value) in input
+            bus = String(raw_bus)
+            value = try
+                Float64(raw_value)
+            catch
+                push!(invalid, bus)
+                continue
+            end
+            if isfinite(value) && value > 0
+                normalized[bus] = value
+            else
+                push!(invalid, bus)
+            end
+        end
+        missing = sort!(collect(setdiff(Set(buses), Set(keys(normalized)))))
+        extra = sort!(collect(setdiff(Set(keys(normalized)), Set(buses))))
+        append!(invalid, extra)
+        return normalized, missing, sort!(unique!(invalid))
+    end
+
+    vbase, missing_voltage, invalid_voltage = normalize_map(
+        voltage_bases, current_voltage_bases,
+    )
+    pbase, missing_power, invalid_power = normalize_map(
+        power_bases, current_power_bases,
+    )
+    complete = isempty(missing_voltage) && isempty(invalid_voltage) &&
+        isempty(missing_power) && isempty(invalid_power)
+
+    zones = BMOPFTools._galvanic_zones(ctx.net)
+    sort!(zones; by=zone -> join(sort!(collect(zone)), "\0"))
+    zone_records = Dict{String,Any}[]
+    bus_zone = Dict{String,String}()
+    inconsistent_zones = String[]
+    for (position, zone) in enumerate(zones)
+        members = sort!(String.(collect(zone)))
+        zone_id = "zone-$(position)"
+        foreach(bus -> bus_zone[bus] = zone_id, members)
+        values = sort!(unique!(Float64[pbase[bus] for bus in members
+            if haskey(pbase, bus)]))
+        zone_complete = all(bus -> haskey(pbase, bus), members)
+        consistent = zone_complete && length(values) == 1
+        consistent || push!(inconsistent_zones, zone_id)
+        push!(zone_records, Dict{String,Any}(
+            "zone" => zone_id,
+            "buses" => members,
+            "power_base_complete" => zone_complete,
+            "power_base_constant" => consistent,
+            "power_bases" => values,
+        ))
+    end
+
+    interfaces = Dict{String,Any}[]
+    function add_interface!(id, subtype, from_bus, to_bus,
+                            nominal_from, nominal_to; winding_to=nothing)
+        from_bus = String(from_bus); to_bus = String(to_bus)
+        haskey(vbase, from_bus) && haskey(vbase, to_bus) &&
+            haskey(pbase, from_bus) && haskey(pbase, to_bus) || return
+        vf = vbase[from_bus]; vt = vbase[to_bus]
+        sf = pbase[from_bus]; st = pbase[to_bus]
+        ifrom = sf / vf; ito = st / vt
+        voltage_ratio = vt / vf
+        power_ratio = st / sf
+        current_ratio = ito / ifrom
+        same_galvanic_zone =
+            get(bus_zone, from_bus, nothing) == get(bus_zone, to_bus, nothing)
+        galvanically_continuous =
+            String(subtype) in BMOPFTools.GALVANIC_CONTINUOUS_SUBTYPES
+        galvanic_voltage_compatible = !galvanically_continuous ||
+            isapprox(vf, vt; rtol=1.0e-12, atol=0.0)
+        identity_error = abs(voltage_ratio * current_ratio - power_ratio) /
+            max(abs(power_ratio), eps(Float64))
+        nominal_ratio = try
+            Float64(nominal_to) / Float64(nominal_from)
+        catch
+            nothing
+        end
+        record = Dict{String,Any}(
+            "transformer" => String(id),
+            "subtype" => String(subtype),
+            "bus_from" => from_bus,
+            "bus_to" => to_bus,
+            "zone_from" => get(bus_zone, from_bus, nothing),
+            "zone_to" => get(bus_zone, to_bus, nothing),
+            "voltage_base_from" => vf,
+            "voltage_base_to" => vt,
+            "power_base_from" => sf,
+            "power_base_to" => st,
+            "current_base_from" => ifrom,
+            "current_base_to" => ito,
+            "voltage_coordinate_ratio_to_from" => voltage_ratio,
+            "current_coordinate_ratio_to_from" => current_ratio,
+            "power_coordinate_ratio_to_from" => power_ratio,
+            "power_product_identity_relative_error" => identity_error,
+            "nameplate_voltage_ratio_to_from" => nominal_ratio,
+            "requires_explicit_current_conversion" =>
+                !isapprox(current_ratio, 1.0; rtol=1.0e-12, atol=0.0),
+            "requires_explicit_power_conversion" =>
+                !isapprox(power_ratio, 1.0; rtol=1.0e-12, atol=0.0),
+            "same_galvanic_zone" => same_galvanic_zone,
+            "galvanically_continuous" => galvanically_continuous,
+            "galvanic_voltage_base_compatible" =>
+                galvanic_voltage_compatible,
+            "requires_shared_conductor_voltage_conversion" =>
+                galvanically_continuous && !galvanic_voltage_compatible,
+        )
+        winding_to === nothing || (record["winding_to"] = winding_to)
+        push!(interfaces, record)
+    end
+
+    transformers = get(ctx.net, "transformer", Dict())
+    for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
+        subtype == "n_winding" && continue
+        for (id, transformer) in get(transformers, subtype, Dict())
+            add_interface!(
+                id, subtype,
+                get(transformer, "bus_from", ""),
+                get(transformer, "bus_to", ""),
+                get(transformer, "v_nom_from", 1.0),
+                get(transformer, "v_nom_to", 1.0),
+            )
+        end
+    end
+    for (id, transformer) in get(transformers, "n_winding", Dict())
+        windings = BMOPFTools._nw_windings(transformer)
+        isempty(windings) && continue
+        for winding in 2:length(windings)
+            add_interface!(
+                id, "n_winding", windings[1].bus, windings[winding].bus,
+                windings[1].v_nom, windings[winding].v_nom;
+                winding_to=winding,
+            )
+        end
+    end
+    sort!(interfaces; by=record -> (
+        record["transformer"], record["subtype"],
+        get(record, "winding_to", 0),
+    ))
+
+    identity_passed = all(record ->
+        record["power_product_identity_relative_error"] <= 1.0e-12,
+        interfaces,
+    )
+    inconsistent_galvanic_voltage_interfaces = [
+        "$(record["subtype"])/$(record["transformer"]):" *
+        "$(record["bus_from"])->$(record["bus_to"])"
+        for record in interfaces
+        if record["galvanically_continuous"] &&
+           !record["galvanic_voltage_base_compatible"]
+    ]
+    sort!(inconsistent_galvanic_voltage_interfaces)
+    galvanic_voltage_compatibility_passed =
+        isempty(inconsistent_galvanic_voltage_interfaces)
+    proposal_admissible = complete && isempty(inconsistent_zones) &&
+        identity_passed && galvanic_voltage_compatibility_passed
+    local_power_change = any(record ->
+        record["requires_explicit_power_conversion"], interfaces)
+    coordinate_change_from_current = complete && any(bus ->
+        !isapprox(vbase[bus], current_voltage_bases[bus]; rtol=1.0e-12, atol=0.0) ||
+        !isapprox(pbase[bus], current_power_bases[bus]; rtol=1.0e-12, atol=0.0),
+        buses,
+    )
+    applied_to_model = proposal_admissible && !coordinate_change_from_current &&
+        ctx.bases !== nothing &&
+        ctx.bases.scaling_policy isa BMOPFTools.ZonePerUnitScaling
+    return Dict{String,Any}(
+        "schema_version" => "bmopf-transformer-scaling-contract-v1",
+        "available" => complete,
+        "proposal_admissible" => proposal_admissible,
+        "applied_to_model" => applied_to_model,
+        "coordinate_contract" =>
+            "I_base(bus)=S_base(bus)/V_base(bus); transformer coupling must retain explicit side-base coefficients",
+        "bus_voltage_bases" => vbase,
+        "bus_power_bases" => pbase,
+        "zones" => zone_records,
+        "interfaces" => interfaces,
+        "interface_count" => length(interfaces),
+        "local_power_base_change_present" => local_power_change,
+        "coordinate_change_from_current_model" => coordinate_change_from_current,
+        "requires_new_transformer_stamping" =>
+            coordinate_change_from_current && (local_power_change ||
+                !galvanic_voltage_compatibility_passed),
+        "power_product_identity_passed" => identity_passed,
+        "galvanic_voltage_compatibility_passed" =>
+            galvanic_voltage_compatibility_passed,
+        "inconsistent_galvanic_voltage_interfaces" =>
+            inconsistent_galvanic_voltage_interfaces,
+        "inconsistent_galvanic_zones" => inconsistent_zones,
+        "missing_voltage_base_buses" => missing_voltage,
+        "invalid_voltage_base_buses" => invalid_voltage,
+        "missing_power_base_buses" => missing_power,
+        "invalid_power_base_buses" => invalid_power,
+        "qualification" => Dict{String,Any}(
+            "claim" => "algebraic base-conversion contract for a proposed coordinate system",
+            "does_not_establish" => [
+                "that the proposed bases improve numerical behavior",
+                applied_to_model ?
+                    "support for transformer families outside the qualified policy slice" :
+                    "that proposed local power bases have been applied to OPF equations",
+                "solver convergence or endpoint quality",
+            ],
+        ),
+    )
+end
+function BMOPFTools.opf_acdc_scaling_contract_data(ctx::OpfContext)
+    converters = Dict{String,Any}[]
+    supported_modes = Set(("P", "V", "droop"))
+    for (id, inverter) in sort!(collect(get(ctx.net, "ibr", Dict())); by=first)
+        inverter isa AbstractDict && haskey(inverter, "dc_bus") || continue
+        ac_bus = String(get(inverter, "bus", ""))
+        dc_bus = String(get(inverter, "dc_bus", ""))
+        ac = BMOPFTools.opf_ac_coordinate_bases(ctx, ac_bus)
+        dc = BMOPFTools.opf_dc_coordinate_bases(ctx, dc_bus)
+        expected = ac.power / dc.power
+        stored = Float64(get(inverter, "_ac_to_dc_power_factor", 1.0))
+        mode = String(get(inverter, "dc_control", "P"))
+        coefficient_passed = isapprox(
+            stored, expected; rtol=1.0e-12, atol=0.0,
+        )
+        push!(converters, Dict{String,Any}(
+            "converter" => String(id),
+            "ac_bus" => ac_bus,
+            "dc_bus" => dc_bus,
+            "control_mode" => mode,
+            "control_mode_qualified" => mode in supported_modes,
+            "ac_voltage_base" => ac.voltage,
+            "ac_current_base" => ac.current,
+            "ac_power_base" => ac.power,
+            "dc_voltage_base" => dc.voltage,
+            "dc_current_base" => dc.current,
+            "dc_power_base" => dc.power,
+            "expected_ac_to_dc_power_factor" => expected,
+            "stamped_ac_to_dc_power_factor" => stored,
+            "coefficient_contract_passed" => coefficient_passed,
+            "distinct_power_coordinates" =>
+                !isapprox(ac.power, dc.power; rtol=1.0e-12, atol=0.0),
+            "power_balance_coordinate_equation" =>
+                "Udc_pu*Idc_pu=(S_ac/S_dc)*Pac_pu",
+        ))
+    end
+    coefficient_contract_passed = all(record ->
+        record["coefficient_contract_passed"] === true, converters)
+    control_modes_qualified = all(record ->
+        record["control_mode_qualified"] === true, converters)
+    return Dict{String,Any}(
+        "schema_version" => "bmopf-acdc-scaling-contract-v1",
+        "available" => !isempty(converters),
+        "applied_to_model" => coefficient_contract_passed &&
+            control_modes_qualified,
+        "converter_count" => length(converters),
+        "converters" => converters,
+        "distinct_power_coordinates_present" => any(record ->
+            record["distinct_power_coordinates"] === true, converters),
+        "coefficient_contract_passed" => coefficient_contract_passed,
+        "control_modes_qualified" => control_modes_qualified,
+        "qualification" => Dict{String,Any}(
+            "claim" => "native lossless AC/DC power-balance and controller coordinate conversion",
+            "does_not_establish" => [
+                "that the chosen bases improve solver behavior",
+                "converter-loss model covariance because the native converter is lossless",
+                "support for custom converter builders that bypass the native balance",
+            ],
+        ),
+    )
+end
+
+function BMOPFTools.opf_diagnostic_schema(
+    ctx::OpfContext;
+    voltage_bases = nothing,
+    power_bases = nothing,
+)
+    ac = Dict{String,Any}(
+        String(bus) => BMOPFTools.opf_coordinate_bases(
+            ctx, String(bus); domain=:ac,
+        )
+        for bus in sort!(collect(keys(get(ctx.net, "bus", Dict()))); by=string)
+    )
+    dc = Dict{String,Any}(
+        String(bus) => BMOPFTools.opf_coordinate_bases(
+            ctx, String(bus); domain=:dc,
+        )
+        for bus in sort!(collect(keys(get(ctx.net, "dc_bus", Dict()))); by=string)
+    )
+    semantic_blocks = BMOPFTools.opf_semantic_blocks(ctx)
+    semantic_blocks_available = ctx.lifecycle[] == :kcl_finalized
+    semantic_state = get(ctx.extension_state,
+        :BMOPFToolsSemanticBlockSummary, Dict{Symbol,Any}())
+    semantic_blocks_registered = semantic_state isa AbstractDict &&
+        get(semantic_state, :native_registered, false)
+    return BMOPFTools.OpfDiagnosticSchema(
+        v"1.0.0",
+        BMOPFTools.opf_scaling_policy_data(
+            BMOPFTools.opf_scaling_policy(ctx),
+        ),
+        Dict{String,Any}("ac" => ac, "dc" => dc),
+        semantic_blocks,
+        BMOPFTools.opf_initialization_data(ctx),
+        BMOPFTools.opf_transformer_scaling_contract_data(
+            ctx; voltage_bases, power_bases,
+        ),
+        BMOPFTools.opf_acdc_scaling_contract_data(ctx),
+        Dict{String,Any}(
+            "semantic_blocks" => semantic_blocks_available,
+            "semantic_blocks_available" => semantic_blocks_available,
+            "semantic_blocks_registered" => semantic_blocks_registered,
+            "lifecycle" => string(ctx.lifecycle[]),
+            "initialization_provenance" => true,
+            "transformer_scaling_interfaces" => true,
+            "acdc_scaling_interfaces" => true,
+            "custom_builder_semantics" =>
+                "advanced qualified registration through BMOPFTools.register_opf_semantic_block!",
+        ),
+    )
+end
+
 BMOPFTools.opf_neutral_labels(ctx::OpfContext) = copy(BMOPFTools._neutral_labels(ctx.net))
 BMOPFTools.opf_lifecycle(ctx::OpfContext) = ctx.lifecycle[]
 function BMOPFTools.opf_build_manifest(ctx::OpfContext)
@@ -161,6 +592,19 @@ function BMOPFTools.register_opf_object!(ctx::OpfContext,
     return object
 end
 
+function BMOPFTools.register_opf_constraint!(ctx::OpfContext,
+                                             family::Symbol, index, constraint;
+                                             replace::Bool=false)
+    return BMOPFTools.register_opf_object!(ctx,
+        BMOPFTools.OpfModelKey(:constraint, family, index), constraint;
+        replace=replace)
+end
+
+function _register_semantic_constraint!(ctx, family::Symbol, index, constraint)
+    ctx === nothing && return constraint
+    return BMOPFTools.register_opf_constraint!(ctx, family, index, constraint)
+end
+
 function BMOPFTools.opf_object(ctx::OpfContext, key::BMOPFTools.OpfModelKey)
     haskey(ctx.objects, key) ||
         throw(KeyError("no OPF model object registered for $key"))
@@ -172,6 +616,353 @@ function BMOPFTools.opf_object_keys(ctx::OpfContext; kind=nothing)
     kind === nothing && return keys_all
     kind isa Symbol || throw(ArgumentError("kind must be a Symbol or nothing"))
     return filter(key -> key.kind == kind, keys_all)
+end
+
+const _OPF_SEMANTIC_BLOCK_STATE_KEY = :BMOPFToolsSemanticBlocks
+
+function _copy_semantic_block(block::BMOPFTools.OpfSemanticBlock)
+    return BMOPFTools.OpfSemanticBlock(
+        block.id,
+        block.kind,
+        copy(block.members),
+        copy(block.components),
+        block.quantity,
+        block.physical_unit;
+        set_contract=block.set_contract,
+        model_to_canonical=copy(block.model_to_canonical),
+        reference_physical_scale=block.reference_physical_scale,
+        reference_scale_source=block.reference_scale_source,
+        owner=block.owner,
+        metadata=copy(block.metadata),
+    )
+end
+
+function _opf_semantic_block_registry(ctx::OpfContext)
+    return BMOPFTools.extension_state!(ctx, _OPF_SEMANTIC_BLOCK_STATE_KEY) do
+        Dict{String,BMOPFTools.OpfSemanticBlock}()
+    end
+end
+
+function _opf_semantic_block_member_index(ctx::OpfContext)
+    return BMOPFTools.extension_state!(ctx, :BMOPFToolsSemanticBlockMemberIndex) do
+        Dict{BMOPFTools.OpfModelKey,Set{String}}()
+    end
+end
+
+function BMOPFTools.register_opf_semantic_block!(
+    ctx::OpfContext,
+    block::BMOPFTools.OpfSemanticBlock;
+    replace::Bool = false,
+)
+    # Native semantic blocks are lazy so ordinary solves do not pay for their
+    # metadata. Once KCL has been finalized, a custom registration must see
+    # the native registry immediately; otherwise an overlap can appear to
+    # register successfully and fail only at the later schema call. The
+    # in-progress guard keeps native table entries from recursing here.
+    if ctx.lifecycle[] == :kcl_finalized
+        state = BMOPFTools.extension_state!(
+            ctx, :BMOPFToolsSemanticBlockSummary,
+        )
+        if !get(state, :native_registration_in_progress, false)
+            _register_native_semantic_blocks!(ctx)
+        end
+    end
+    registry = _opf_semantic_block_registry(ctx)
+    haskey(registry, block.id) && !replace && throw(ArgumentError(
+        "OPF semantic-block id already registered: $(repr(block.id))",
+    ))
+    for member in block.members
+        haskey(ctx.objects, member) || throw(ArgumentError(
+            "semantic-block member is not present in the OPF object registry: $member",
+        ))
+    end
+    member_index = _opf_semantic_block_member_index(ctx)
+    candidate_ids = Set{String}()
+    for member in block.members
+        union!(candidate_ids, get(member_index, member, Set{String}()))
+    end
+    if replace
+        delete!(candidate_ids, block.id)
+    end
+    isempty(candidate_ids) || begin
+        conflicting_id = first(sort!(collect(candidate_ids)))
+        overlap = intersect(
+            Set(registry[conflicting_id].members), Set(block.members),
+        )
+        throw(ArgumentError(
+            "semantic block $(repr(block.id)) overlaps registered block " *
+            "$(repr(conflicting_id)) at $(collect(overlap))",
+        ))
+    end
+    if replace && haskey(registry, block.id)
+        for member in registry[block.id].members
+            ids = get(member_index, member, Set{String}())
+            delete!(ids, block.id)
+            isempty(ids) && delete!(member_index, member)
+        end
+    end
+    copied = _copy_semantic_block(block)
+    registry[block.id] = copied
+    for member in copied.members
+        push!(get!(member_index, member, Set{String}()), copied.id)
+    end
+    return block
+end
+
+function BMOPFTools.opf_semantic_blocks(ctx::OpfContext; kind=nothing)
+    kind in (nothing, :variable, :constraint) || throw(ArgumentError(
+        "kind must be :variable, :constraint, or nothing",
+    ))
+    # Native blocks are intentionally lazy: ordinary solves do not pay for
+    # semantic metadata they never inspect.  A schema/provenance request after
+    # KCL finalisation is the first point at which all native rows exist.
+    ctx.lifecycle[] == :kcl_finalized &&
+        _register_native_semantic_blocks!(ctx)
+    registry = _opf_semantic_block_registry(ctx)
+    blocks = [block for block in values(registry) if
+        isnothing(kind) || block.kind == kind]
+    sort!(blocks; by=block -> block.id)
+    return _copy_semantic_block.(blocks)
+end
+
+const _NATIVE_VARIABLE_SEMANTIC_PAIRS = (
+    (:vr, :vi, (:real, :imag), :voltage, :V),
+    (:cr_gnd, :ci_gnd, (:real, :imag), :current, :A),
+    (:cr_fr, :ci_fr, (:real, :imag), :current, :A),
+    (:cr_to, :ci_to, (:real, :imag), :current, :A),
+    (:cr_sw, :ci_sw, (:real, :imag), :current, :A),
+    (:crd, :cid, (:real, :imag), :current, :A),
+    (:crg, :cig, (:real, :imag), :current, :A),
+    (:cr_src, :ci_src, (:real, :imag), :current, :A),
+    (:cr_xf, :ci_xf, (:real, :imag), :current, :A),
+    (:cr_nw, :ci_nw, (:real, :imag), :current, :A),
+    (:cri, :cii, (:real, :imag), :current, :A),
+    (:p_ibr, :q_ibr, (:active, :reactive), :power, :VA),
+    (:transformer_coil_p, :transformer_coil_q,
+        (:active, :reactive), :power, :VA),
+    (:nwind_coil_p, :nwind_coil_q,
+        (:active, :reactive), :power, :VA),
+)
+
+const _NATIVE_CONSTRAINT_SEMANTIC_PAIRS = (
+    (:kcl_r, :kcl_i, (:real, :imag), :current, :A),
+    (:source_voltage_real, :source_voltage_imag,
+        (:real, :imag), :voltage, :V),
+    (:source_neutral_voltage_real, :source_neutral_voltage_imag,
+        (:real, :imag), :voltage, :V),
+    (:line_voltage_drop_real, :line_voltage_drop_imag,
+        (:real, :imag), :voltage, :V),
+    (:switch_voltage_coupling_real, :switch_voltage_coupling_imag,
+        (:real, :imag), :voltage, :V),
+    (:load_power_real, :load_power_imag,
+        (:active, :reactive), :power, :VA),
+    (:transformer_voltage_real, :transformer_voltage_imag,
+        (:real, :imag), :voltage, :V),
+    (:transformer_current_coupling_real, :transformer_current_coupling_imag,
+        (:real, :imag), :current, :A),
+    (:transformer_current_pin_real, :transformer_current_pin_imag,
+        (:real, :imag), :current, :A),
+    (:transformer_neutral_balance_real, :transformer_neutral_balance_imag,
+        (:real, :imag), :current, :A),
+    (:transformer_current_return_real, :transformer_current_return_imag,
+        (:real, :imag), :current, :A),
+    (:transformer_galvanic_bond_real, :transformer_galvanic_bond_imag,
+        (:real, :imag), :voltage, :V),
+    (:nwind_ampere_turn_real, :nwind_ampere_turn_imag,
+        (:real, :imag), :current, :A),
+    (:nwind_voltage_drop_real, :nwind_voltage_drop_imag,
+        (:real, :imag), :voltage, :V),
+    (:transformer_power_link_p, :transformer_power_link_q,
+        (:active, :reactive), :power, :VA),
+    (:nwind_power_link_p, :nwind_power_link_q,
+        (:active, :reactive), :power, :VA),
+    (:power_link_p, :power_link_q,
+        (:active, :reactive), :power, :VA),
+    (:ibr_power_link_p, :ibr_power_link_q,
+        (:active, :reactive), :power, :VA),
+)
+
+function _semantic_numeric_at(value, position::Integer)
+    value isa Real && return Float64(value)
+    value isa AbstractVector && 1 <= position <= length(value) &&
+        value[position] isa Real && return Float64(value[position])
+    return nothing
+end
+
+function _working_power_to_physical(ctx::OpfContext, value::Real, bus=nothing)
+    scale = if ctx.bases === nothing
+        1.0
+    elseif bus === nothing
+        ctx.bases.s_base
+    else
+        _ac_power_base(ctx.bases, bus)
+    end
+    return Float64(value) * scale
+end
+
+function _native_semantic_reference_scale(
+    ctx::OpfContext,
+    kind::Symbol,
+    real_family::Symbol,
+    index,
+)
+    if kind == :variable && real_family == :p_ibr &&
+       index isa Tuple && length(index) >= 2
+        id = string(index[1])
+        phase = Int(index[2])
+        device = get(get(ctx.net, "ibr", Dict{String,Any}()), id, nothing)
+        device isa AbstractDict || return nothing, nothing
+        value = _semantic_numeric_at(get(device, "s_max", nothing), phase)
+        (isnothing(value) || value <= 0) && return nothing, nothing
+        return _working_power_to_physical(ctx, value, get(device, "bus", "")),
+            "IBR per-phase s_max nameplate"
+    elseif kind == :constraint && real_family == :load_power_real &&
+           index isa Tuple && length(index) >= 2
+        id = string(index[1])
+        phase = Int(index[2])
+        device = get(get(ctx.net, "load", Dict{String,Any}()), id, nothing)
+        device isa AbstractDict || return nothing, nothing
+        active = _semantic_numeric_at(get(device, "p_nom", nothing), phase)
+        reactive = _semantic_numeric_at(get(device, "q_nom", nothing), phase)
+        isnothing(active) && isnothing(reactive) && return nothing, nothing
+        magnitude = hypot(something(active, 0.0), something(reactive, 0.0))
+        magnitude > 0 || return nothing, nothing
+        return _working_power_to_physical(ctx, magnitude, get(device, "bus", "")),
+            "load per-phase nominal apparent power"
+    end
+    return nothing, nothing
+end
+
+function _native_semantic_pair_set_contract(ctx, real_key, imaginary_key)
+    sets = map((real_key, imaginary_key)) do key
+        object = ctx.objects[key]
+        object isa JuMP.ConstraintRef || return nothing
+        return JuMP.constraint_object(object).set
+    end
+    if all(set -> set isa JuMP.MOI.EqualTo && iszero(set.value), sets)
+        return :zero_equality
+    end
+    # A paired nonzero equality is still coordinatewise in the declared model
+    # basis. Keeping its actual scalar sets prevents a false origin-residual
+    # claim while allowing downstream tools to transform the bounds exactly
+    # for diagonal/conformal representations.
+    return :scalar_bounds
+end
+
+function _register_native_semantic_pair_table!(
+    ctx::OpfContext,
+    kind::Symbol,
+    table,
+)
+    keys_by_family = Dict{Symbol,Dict{Any,BMOPFTools.OpfModelKey}}()
+    for key in BMOPFTools.opf_object_keys(ctx; kind)
+        keys_by_family_for_kind = get!(
+            keys_by_family, key.family, Dict{Any,BMOPFTools.OpfModelKey}(),
+        )
+        keys_by_family_for_kind[key.index] = key
+    end
+    registered = 0
+    for (real_family, imaginary_family, components, quantity, unit) in table
+        real_keys = get(keys_by_family, real_family,
+            Dict{Any,BMOPFTools.OpfModelKey}())
+        imaginary_keys = get(keys_by_family, imaginary_family,
+            Dict{Any,BMOPFTools.OpfModelKey}())
+        for index in sort!(collect(intersect(
+            Set(keys(real_keys)), Set(keys(imaginary_keys)),
+        )); by=repr)
+            if kind == :variable && !(
+                ctx.objects[real_keys[index]] isa JuMP.VariableRef &&
+                ctx.objects[imaginary_keys[index]] isa JuMP.VariableRef
+            )
+                # Some public `kind=:variable` registry families are derived
+                # JuMP expressions retained for backwards compatibility (for
+                # example receiving-end line currents). They are semantic
+                # observables, but not independent coordinate blocks.
+                continue
+            elseif kind == :constraint && !(
+                ctx.objects[real_keys[index]] isa JuMP.ConstraintRef &&
+                ctx.objects[imaginary_keys[index]] isa JuMP.ConstraintRef
+            )
+                continue
+            end
+            id = string(
+                kind, "/", real_family, "+", imaginary_family, "/", repr(index),
+            )
+            reference_scale, reference_source =
+                _native_semantic_reference_scale(
+                    ctx, kind, real_family, index,
+                )
+            block = BMOPFTools.OpfSemanticBlock(
+                id,
+                kind,
+                [real_keys[index], imaginary_keys[index]],
+                components,
+                quantity,
+                unit;
+                set_contract=kind == :constraint ?
+                    _native_semantic_pair_set_contract(
+                        ctx, real_keys[index], imaginary_keys[index],
+                    ) : :none,
+                reference_physical_scale=reference_scale,
+                reference_scale_source=reference_source,
+                owner=:BMOPFTools,
+                metadata=Dict{String,Any}(
+                    "real_family" => string(real_family),
+                    "imaginary_family" => string(imaginary_family),
+                    "index" => repr(index),
+                    "registration" => "native explicit family-pair table",
+                ),
+            )
+            BMOPFTools.register_opf_semantic_block!(ctx, block)
+            registered += 1
+        end
+    end
+    return registered
+end
+
+function _register_native_semantic_blocks!(ctx::OpfContext)
+    state = BMOPFTools.extension_state!(ctx, :BMOPFToolsSemanticBlockSummary)
+    get(state, :native_registered, false) && return ctx
+    get(state, :native_registration_in_progress, false) && return ctx
+
+    # Native registration spans two tables. A user block registered before
+    # KCL can conflict part-way through either table; keep materialization
+    # atomic so a failure never leaves a half-populated registry or a false
+    # native_registered flag.
+    registry = _opf_semantic_block_registry(ctx)
+    member_index = _opf_semantic_block_member_index(ctx)
+    registry_snapshot = Dict(
+        id => _copy_semantic_block(block) for (id, block) in registry
+    )
+    member_index_snapshot = Dict(
+        member => copy(ids) for (member, ids) in member_index
+    )
+    state_snapshot = copy(state)
+    state[:native_registration_in_progress] = true
+    try
+        variable_count = _register_native_semantic_pair_table!(
+            ctx, :variable, _NATIVE_VARIABLE_SEMANTIC_PAIRS,
+        )
+        constraint_count = _register_native_semantic_pair_table!(
+            ctx, :constraint, _NATIVE_CONSTRAINT_SEMANTIC_PAIRS,
+        )
+        state[:native_variable_blocks] = variable_count
+        state[:native_constraint_blocks] = constraint_count
+        state[:native_registered] = true
+        delete!(state, :native_registration_in_progress)
+        return ctx
+    catch
+        empty!(registry)
+        merge!(registry, registry_snapshot)
+        empty!(member_index)
+        for (member, ids) in member_index_snapshot
+            member_index[member] = ids
+        end
+        empty!(state)
+        merge!(state, state_snapshot)
+        delete!(state, :native_registration_in_progress)
+        rethrow()
+    end
 end
 
 function BMOPFTools.register_opf_objective_term!(
@@ -514,6 +1305,8 @@ function _model_structure_record(ctx::OpfContext)
         "formulation" => string(ctx.manifest.formulation),
         "per_unit" => ctx.manifest.per_unit,
         "s_base" => ctx.manifest.s_base,
+        "scaling_policy" => BMOPFTools.opf_scaling_policy_data(
+            BMOPFTools.opf_scaling_policy(ctx)),
         "completed_stages" => string.(ctx.manifest.stages),
         "variables" => variables,
         "constraints" => constraints,
@@ -1137,6 +1930,29 @@ function BMOPFTools.opf_research_provenance(
                 "key" => _model_key_record(key), "value" => value))
         end
     end
+    semantic_blocks = BMOPFTools.opf_semantic_blocks(ctx)
+    semantic_block_records = Dict{String,Any}[
+        Dict{String,Any}(
+            "id" => block.id,
+            "kind" => string(block.kind),
+            "members" => [_model_key_record(member) for member in block.members],
+            "components" => string.(block.components),
+            "quantity" => string(block.quantity),
+            "physical_unit" => string(block.physical_unit),
+            "set_contract" => string(block.set_contract),
+            "model_to_canonical" => [collect(row) for row in eachrow(
+                block.model_to_canonical)],
+            "reference_physical_scale" => block.reference_physical_scale,
+            "reference_scale_source" => block.reference_scale_source,
+            "owner" => string(block.owner),
+            "metadata" => copy(block.metadata),
+        ) for block in semantic_blocks
+    ]
+    semantic_block_counts = Dict{String,Int}()
+    for block in semantic_blocks
+        kind = string(block.kind)
+        semantic_block_counts[kind] = get(semantic_block_counts, kind, 0) + 1
+    end
 
     return Dict{String,Any}(
         "schema" => "BMOPFTools.opf_research_provenance/v1",
@@ -1152,6 +1968,8 @@ function BMOPFTools.opf_research_provenance(
             "formulation" => string(manifest.formulation),
             "per_unit" => manifest.per_unit,
             "s_base" => manifest.s_base,
+            "scaling_policy" => BMOPFTools.opf_scaling_policy_data(
+                BMOPFTools.opf_scaling_policy(ctx)),
             "lifecycle" => string(ctx.lifecycle[]),
             "completed_stages" => string.(manifest.stages),
             "component_owners" => owner_records,
@@ -1181,6 +1999,8 @@ function BMOPFTools.opf_research_provenance(
             "counts_by_kind" => reference_counts,
             "objects" => reference_records,
             "objective_terms" => objective_records,
+            "semantic_block_counts_by_kind" => semantic_block_counts,
+            "semantic_blocks" => semantic_block_records,
         ),
         "smoothing" => Dict{String,Any}(
             "volt_var_watt_relative_epsilon" => ctx.relu_eps,
@@ -1276,6 +2096,80 @@ function _register_native_variables!(ctx::OpfContext)
         else
             key = BMOPFTools.OpfModelKey(:variable, Symbol(family))
             BMOPFTools.register_opf_object!(ctx, key, collection)
+        end
+    end
+    return ctx
+end
+
+function _register_native_variable_bounds!(ctx::OpfContext)
+    # Bound/fix references may be represented by scalar, quadratic, or other
+    # MOI constraint-function types depending on the variable's native bounds.
+    # Keep a typed identity key rather than forcing every index into the
+    # VariableIndex specialization.
+    constraint_identity(cref) = begin
+        index = JuMP.index(cref)
+        (typeof(index), Int(index.value))
+    end
+    registered = Set{Tuple{DataType,Int}}()
+    for object in values(ctx.objects)
+        object isa JuMP.ConstraintRef || continue
+        push!(registered, constraint_identity(object))
+    end
+    for (family, collection) in ctx.vars
+        collection isa AbstractDict || continue
+        for (index, object) in collection
+            object isa JuMP.VariableRef || continue
+            if JuMP.is_fixed(object)
+                fixed_family = if family == :vr && index in ctx.grounded
+                    :ground_voltage_real
+                elseif family == :vi && index in ctx.grounded
+                    :ground_voltage_imag
+                else
+                    Symbol("$(family)_fixed")
+                end
+                cref = JuMP.FixRef(object)
+                if !(constraint_identity(cref) in registered)
+                    BMOPFTools.register_opf_constraint!(ctx, fixed_family, index, cref)
+                    push!(registered, constraint_identity(cref))
+                end
+                continue
+            end
+            if JuMP.has_lower_bound(object)
+                cref = JuMP.LowerBoundRef(object)
+                if !(constraint_identity(cref) in registered)
+                    BMOPFTools.register_opf_constraint!(ctx,
+                        Symbol("$(family)_lower_bound"), index, cref)
+                    push!(registered, constraint_identity(cref))
+                end
+            end
+            if JuMP.has_upper_bound(object)
+                cref = JuMP.UpperBoundRef(object)
+                if !(constraint_identity(cref) in registered)
+                    BMOPFTools.register_opf_constraint!(ctx,
+                        Symbol("$(family)_upper_bound"), index, cref)
+                    push!(registered, constraint_identity(cref))
+                end
+            end
+        end
+    end
+    return ctx
+end
+
+"""Register power auxiliaries created while transformer constraints are built."""
+function _register_dynamic_auxiliary_variables!(ctx::OpfContext)
+    ledger = get(ctx.vars, :s_coil_xf, nothing)
+    ledger isa AbstractDict || return ctx
+    for (index, entry) in ledger
+        entry isa Tuple && length(entry) >= 2 || continue
+        p_variable, q_variable = entry[1], entry[2]
+        p_variable isa JuMP.VariableRef || continue
+        q_variable isa JuMP.VariableRef || continue
+        is_nwinding = index isa Tuple && length(index) >= 2 && index[2] isa Integer
+        p_family = is_nwinding ? :nwind_coil_p : :transformer_coil_p
+        q_family = is_nwinding ? :nwind_coil_q : :transformer_coil_q
+        for (family, variable) in ((p_family, p_variable), (q_family, q_variable))
+            key = BMOPFTools.OpfModelKey(:variable, family, index)
+            haskey(ctx.objects, key) || BMOPFTools.register_opf_object!(ctx, key, variable)
         end
     end
     return ctx
@@ -1469,23 +2363,29 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
         key.component for key in keys(ctx.build_spec.coefficient_providers)
         if key.category == :controller && key.family == :control_profile)
     action = if family == :voltage_source
-        () -> _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
+        () -> _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
+                                       constraint_context=ctx)
     elseif family == :line
         () -> begin
             _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                                    grounded=ctx.grounded,
                                    branch_inj=ctx.branch_inj,
-                                   coefficient=coefficient)
-            _add_line_angle_constraints!(model, net, vars)
+                                   coefficient=coefficient,
+                                   constraint_context=ctx)
+            _add_line_angle_constraints!(model, net, vars;
+                                         constraint_context=ctx)
         end
     elseif family == :switch
-        () -> _add_switch_constraints!(model, net, vars, kcl_r, kcl_i)
+        () -> _add_switch_constraints!(model, net, vars, kcl_r, kcl_i;
+                                       constraint_context=ctx)
     elseif family == :transformer
         () -> begin
             _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i;
-                                          branch_inj=ctx.branch_inj)
+                                          branch_inj=ctx.branch_inj,
+                                          constraint_context=ctx)
             _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i;
-                                       branch_inj=ctx.branch_inj)
+                                       branch_inj=ctx.branch_inj,
+                                       constraint_context=ctx)
         end
     elseif family == :shunt
         () -> _add_shunt_constraints!(net, vars, kcl_r, kcl_i)
@@ -1493,12 +2393,14 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
         () -> _add_capacitor_constraints!(net, vars, kcl_r, kcl_i)
     elseif family == :load
         () -> _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
-                                     coefficient=coefficient)
+                                     coefficient=coefficient,
+                                     constraint_context=ctx)
     elseif family == :generator
         () -> _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
-            coefficient=coefficient)
+            coefficient=coefficient, constraint_context=ctx)
     elseif family == :dc_network
-        () -> _add_dc_network_constraints!(model, net, vars)
+        () -> _add_dc_network_constraints!(model, net, vars;
+                                            constraint_context=ctx)
     elseif family == :ibr
         () -> _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                                     parameterized_profiles=parameterized_profiles,
@@ -1540,8 +2442,10 @@ Add the hard operational voltage bounds and bus-limit constraints. Shared by
 constraints); the power-flow recipe does not call this.
 """
 function _add_voltage_and_bus_bounds!(ctx::OpfContext)
-    _add_voltage_bounds!(ctx.model, ctx.net, ctx.bus_terminals, ctx.grounded, ctx.vars)
-    _add_bus_limit_constraints!(ctx.model, ctx.net, ctx.bus_terminals, ctx.grounded, ctx.vars)
+    _add_voltage_bounds!(ctx.model, ctx.net, ctx.bus_terminals, ctx.grounded, ctx.vars;
+                         constraint_context=ctx)
+    _add_bus_limit_constraints!(ctx.model, ctx.net, ctx.bus_terminals, ctx.grounded, ctx.vars;
+                                constraint_context=ctx)
 end
 
 """
@@ -1573,6 +2477,8 @@ function _build_and_solve(net::Dict{String,Any};
                           t_index::Int,
                           per_unit::Bool,
                           s_base::Float64,
+                          scaling_policy::Union{
+                              BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing,
                           problem::Symbol,
                           build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                           build!::Function,
@@ -1585,7 +2491,8 @@ function _build_and_solve(net::Dict{String,Any};
                           model_hook!::Union{Function,Nothing}=nothing,
                           solution_hook!::Union{Function,Nothing}=nothing)
 
-    working, bases = _prepare_working_net(net, t_index, per_unit, s_base)
+    working, bases = _prepare_working_net(
+        net, t_index, per_unit, s_base, scaling_policy)
 
     model = JuMP.Model(optimizer)
     verbose || JuMP.set_silent(model)
@@ -1594,8 +2501,9 @@ function _build_and_solve(net::Dict{String,Any};
         JuMP.set_attribute(model, string(name), value)
     end
 
+    effective_s_base = bases === nothing ? s_base : bases.s_base
     ctx = _new_context(model, working, bases, relu_eps;
-                       problem=problem, s_base=s_base, build_spec=build_spec,
+                       problem=problem, s_base=effective_s_base, build_spec=build_spec,
                        softplus=softplus)
 
     build!(ctx)
@@ -1606,7 +2514,7 @@ function _build_and_solve(net::Dict{String,Any};
     JuMP.optimize!(model)
 
     result = _extract_results(model, working, ctx.bus_terminals, ctx.grounded,
-                              ctx.vars, ctx.branch_inj)
+                              ctx.vars, ctx.branch_inj; bases=ctx.bases)
     extract! === nothing || extract!(ctx, result)
     _run_result_extractors!(ctx, result)
 
@@ -1617,7 +2525,8 @@ function _build_and_solve(net::Dict{String,Any};
 
     # Optimization fingerprint of the best-known solution — must be captured here,
     # while `model` is live (it is discarded when this function returns).
-    result["opt_profile"] = _optimization_profile(model; per_unit=per_unit)
+    result["opt_profile"] = _optimization_profile(
+        model; per_unit=bases !== nothing)
 
     bases !== nothing ? _from_per_unit(result, bases, net) : result
 end
@@ -1634,8 +2543,33 @@ Snapshot a time-series net at `t_index` (or deep-copy a static net), materialise
 terminal roles, and per-unit-scale it when `per_unit=true`. `bases` is the
 per-unit base NamedTuple, or `nothing` in SI mode.
 """
+function _resolve_scaling_policy(per_unit::Bool, s_base::Float64,
+        scaling_policy::Union{BMOPFTools.AbstractOpfScalingPolicy,Nothing})
+    scaling_policy === nothing && return per_unit ?
+        BMOPFTools.ClassicPerUnitScaling(s_base) : BMOPFTools.SIUnitsScaling()
+    if !per_unit && !(scaling_policy isa BMOPFTools.SIUnitsScaling)
+        throw(ArgumentError(
+            "per_unit=false conflicts with the supplied non-SI scaling_policy; " *
+            "omit per_unit or use BMOPFTools.SIUnitsScaling()"))
+    end
+    if scaling_policy isa BMOPFTools.SIUnitsScaling
+        s_base == 1.0e6 || throw(ArgumentError(
+            "s_base is ignored by SIUnitsScaling; omit the conflicting s_base " *
+            "keyword or supply a non-SI scaling_policy"))
+    elseif scaling_policy isa BMOPFTools.ClassicPerUnitScaling
+        s_base == 1.0e6 || s_base == scaling_policy.s_base || throw(ArgumentError(
+            "s_base=$s_base conflicts with the supplied classic scaling " *
+            "policy base $(scaling_policy.s_base)"))
+    elseif s_base != 1.0e6
+        @warn "s_base is ignored by the supplied custom scaling_policy; use its explicit power-base fields"
+    end
+    return scaling_policy
+end
+
 function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
-                              per_unit::Bool, s_base::Float64)
+                              per_unit::Bool, s_base::Float64,
+                              scaling_policy::Union{
+                                  BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing)
     working = BMOPFTools.is_timeseries(net) ?
               BMOPFTools.get_snapshot(net, t_index) : deepcopy(net)
     # Stamp per-bus neutral terminals from an explicit terminal_conventions block
@@ -1643,8 +2577,10 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
     # programmatically (parse_bmopf already does this on load). Mutates the copy.
     BMOPFTools._materialize_terminal_roles!(working)
 
+    policy = _resolve_scaling_policy(per_unit, s_base, scaling_policy)
     bases = nothing
-    per_unit && ((working, bases) = _to_per_unit(working, s_base))
+    !(policy isa BMOPFTools.SIUnitsScaling) &&
+        ((working, bases) = _to_per_unit(working, policy))
     return working, bases
 end
 
@@ -1688,14 +2624,37 @@ function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64
                      Dict{Symbol,BMOPFTools.OpfDifferentiabilityAnnotation}(),
                      manifest, owned_spec, Dict{Symbol,Function}(), Ref(:building))
     _register_native_variables!(ctx)
+    # Register native fixed/bound references once the complete variable ledger
+    # exists.  The same idempotent pass is repeated after device physics so
+    # late-created auxiliary variables receive identical treatment.
+    _register_native_variable_bounds!(ctx)
     return ctx
 end
 
 function BMOPFTools.set_opf_start_values!(ctx::OpfContext)
-    return _run_opf_stage!(ctx, :start_values,
-        () -> _set_voltage_start_values!(
-            ctx.vars, ctx.net, ctx.bus_terminals, ctx.grounded);
-        required=(:variables,))
+    return _run_opf_stage!(ctx, :start_values, () -> begin
+        # Define the warm start in the working network's physical semantics.
+        # In SI this gives each voltage level its propagated nominal magnitude;
+        # under a scaling policy the same quantities have already been divided
+        # by the matching per-bus voltage bases. Thus equal phase magnitudes,
+        # angular relationships, and zero neutrals are invariant while their
+        # rectangular coordinate magnitudes transform with V_base.
+        _set_level_aware_start_values!(
+            ctx.vars, ctx.net, ctx.bus_terminals, ctx.grounded)
+        # Apply a network-wide ideal-winding transport solve. This makes
+        # phase initialization compositional through transformer chains and
+        # terminal maps, including off-three-phase laterals, split phase,
+        # regulators, and WYE/DELTA n-winding vector groups.
+        transport = _set_topology_aware_voltage_start_values!(
+            ctx.vars, ctx.net, ctx.bus_terminals, ctx.grounded)
+        # Seed Yd/Dy currents from the final transported voltage phasors. The
+        # voltage write is disabled here so this current pass cannot undo the
+        # compositional network solution with a last-local-transformer update.
+        _set_yd_dy_start_values!(
+            ctx.vars, ctx.net, ctx.grounded; set_voltage_starts=false)
+        state = BMOPFTools.extension_state!(ctx, :BMOPFToolsInitialization)
+        state[:phasor_transport] = transport
+    end; required=(:variables,))
 end
 
 function BMOPFTools.add_opf_operational_limits!(ctx::OpfContext)
@@ -1706,7 +2665,14 @@ end
 
 function BMOPFTools.add_opf_device_constraints!(ctx::OpfContext)
     return _run_opf_stage!(ctx, :device_physics,
-        () -> _add_device_constraints!(ctx);
+        () -> begin
+            _add_device_constraints!(ctx)
+            # Transformer nameplate constraints create coil-power auxiliaries
+            # dynamically. Publish them as soon as device physics exists so
+            # staged-model diagnostics do not have to mutate the model by
+            # enforcing KCL merely to obtain complete variable semantics.
+            _register_dynamic_auxiliary_variables!(ctx)
+        end;
         required=(:start_values,))
 end
 
@@ -1725,6 +2691,13 @@ the DC-network nodal balance. Call once, after all device constraints and any
 """
 function _enforce_kcl!(ctx::OpfContext)
     _run_opf_stage!(ctx, :kcl, () -> begin
+        # Device builders may tighten native auxiliary variables after their
+        # initial declaration (for example, redundant current boxes implied by
+        # transformer and switch thermal limits). Synchronise those late bound
+        # constraints before finalising the registry so every native MOI row has
+        # inspectable semantic ownership.
+        _register_dynamic_auxiliary_variables!(ctx)
+        _register_native_variable_bounds!(ctx)
         kcl_r_refs, kcl_i_refs =
             _add_kcl_constraints!(ctx.model, ctx.kcl_r, ctx.kcl_i)
         for (index, cref) in kcl_r_refs
@@ -1735,7 +2708,8 @@ function _enforce_kcl!(ctx::OpfContext)
             BMOPFTools.register_opf_object!(ctx,
                 BMOPFTools.OpfModelKey(:constraint, :kcl_i, index), cref)
         end
-        _add_dc_kcl_constraints!(ctx.model, ctx.vars)
+        _add_dc_kcl_constraints!(ctx.model, ctx.vars;
+                                 constraint_context=ctx)
     end; required=(:device_physics,))
     ctx.lifecycle[] = :kcl_finalized
     return ctx
@@ -1787,6 +2761,8 @@ function BMOPFTools.build_opf_model(net::Dict{String,Any};
                                     t_index::Int=1,
                                     per_unit::Bool=true,
                                     s_base::Float64=1e6,
+                                    scaling_policy::Union{
+                                        BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing,
                                     model=nothing,
                                     add_objective::Bool=true,
                                     build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
@@ -1795,7 +2771,7 @@ function BMOPFTools.build_opf_model(net::Dict{String,Any};
                                     softplus::Symbol=:user_defined,
                                     verbose::Bool=false)
     ctx = BMOPFTools.initialize_opf_model(net; optimizer, t_index, per_unit,
-                                          s_base, model,
+                                          s_base, scaling_policy, model,
                                           build_spec, volt_var_watt_eps,
                                           softplus, verbose)
     build_opf!(ctx; add_objective=add_objective)
@@ -1808,18 +2784,22 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
                                          t_index::Int=1,
                                          per_unit::Bool=true,
                                          s_base::Float64=1e6,
+                                         scaling_policy::Union{
+                                             BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing,
                                          model=nothing,
                                          build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                          volt_var_watt_eps::Float64=2e-3,
                                          softplus::Symbol=:user_defined,
                                          verbose::Bool=false)
-    working, bases = _prepare_working_net(net, t_index, per_unit, s_base)
+    working, bases = _prepare_working_net(
+        net, t_index, per_unit, s_base, scaling_policy)
     if model === nothing
         model = JuMP.Model(optimizer)
         verbose || JuMP.set_silent(model)
     end
+    effective_s_base = bases === nothing ? s_base : bases.s_base
     return _new_context(model, working, bases, volt_var_watt_eps;
-                        problem=:opf, s_base=s_base, build_spec=build_spec,
+                        problem=:opf, s_base=effective_s_base, build_spec=build_spec,
                         softplus=softplus)
 end
 
@@ -1864,7 +2844,8 @@ per-unit back to SI. Safe to call once per snapshot `ctx` after a single solve.
 function BMOPFTools.extract_result(ctx::OpfContext;
                                    solution_hook!::Union{Function,Nothing}=nothing)
     result = _extract_results(ctx.model, ctx.net, ctx.bus_terminals,
-                              ctx.grounded, ctx.vars, ctx.branch_inj)
+                              ctx.grounded, ctx.vars, ctx.branch_inj;
+                              bases=ctx.bases)
     _run_result_extractors!(ctx, result)
     solution_hook! === nothing || solution_hook!(ctx, result)
     per_unit = ctx.bases !== nothing

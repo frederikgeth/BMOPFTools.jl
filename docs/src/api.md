@@ -127,6 +127,8 @@ BMOPFTools.voltage_zone_summary
 ## Staged OPF extension interface
 
 ```@docs
+OpfScaling
+OpfDiagnosticSchema
 OpfRegularization
 OpfDifferentiabilityAnnotation
 opf_bus_voltage_key
@@ -154,6 +156,8 @@ opf_network
 opf_bases
 piecewise_linear_value
 opf_piecewise_linear_expression
+opf_coordinate_bases
+opf_diagnostic_schema
 opf_neutral_labels
 opf_lifecycle
 opf_build_manifest
@@ -200,6 +204,27 @@ add_terminal_injection!
 ```@docs
 load_config
 ```
+
+## Advanced OPF semantic extension seam
+
+The semantic-block registry is intentionally an advanced, qualified API rather
+than an exported convenience layer. Downstream builders that need to publish
+custom coordinate or residual semantics may call these names explicitly:
+
+```@docs
+BMOPFTools.OpfSemanticBlock
+BMOPFTools.register_opf_semantic_block!
+BMOPFTools.opf_semantic_blocks
+```
+
+Native semantic blocks are registered lazily on the first schema/provenance
+request after KCL finalisation, or when `register_opf_semantic_block!` is
+called after KCL finalisation. Ordinary solves therefore do not pay for
+diagnostic metadata they never inspect, while post-KCL custom registration
+incurs the same materialisation cost and surfaces overlaps at that call.
+Before KCL finalisation the schema reports `semantic_blocks_available=false`; a
+complete native registry is only claimed once the KCL rows and late auxiliary
+bounds exist.
 
 ## Network simplification
 

@@ -997,7 +997,7 @@ export opf_piecewise_linear_expression
 
 """
     solve_opf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,
-              per_unit::Bool=true, s_base::Float64=1e6,
+              per_unit::Bool=true, s_base::Float64=1e6, scaling_policy=nothing,
               volt_var_watt_eps::Float64=2e-3,
               softplus::Symbol=:user_defined, build_spec=OpfBuildSpec(),
               verbose::Bool=false, solver_options=(),
@@ -1013,6 +1013,15 @@ VA, default 1 MVA; a DC network is scaled against its fixed-voltage anchor).
 All results are returned in SI units regardless. Per-unit conditioning is
 particularly important for DC networks, whose converter ports couple voltage
 and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
+
+For controlled nondimensionalisation experiments, pass [`OpfScaling`](@ref).
+An explicit `scaling_policy` is authoritative over the legacy `per_unit` and
+`s_base` keywords. `OpfScaling(:classic)` selects the legacy convention,
+`OpfScaling(:si)` selects raw SI coordinates, and the custom form accepts
+explicit per-bus voltage bases plus system-wide or zone-local power bases while
+enforcing the dimensional identities assumed by the IVR equations. The
+effective coordinate system is recorded by [`opf_diagnostic_schema`](@ref) and
+`opf_research_provenance(ctx)`.
 
 ## Solver control and formulation extension
 
@@ -1033,11 +1042,15 @@ and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
 
   **Units.** With `per_unit=true` (the default) the model — and therefore every
   native model variable is in per-unit, so any physical-unit literal in a hook
-  must be scaled by the matching base. `opf_bases(ctx)` returns these as a
-  NamedTuple with `s_base` (VA), per-bus `v_base`/`i_base`/`z_base`/`y_base`
-  Dicts and the DC `v_dc_base`/`i_dc_base`/`z_dc_base`, or `nothing` in SI mode
-  (`per_unit=false`), where no scaling is needed. A watt cap, for instance,
-  becomes `expr <= P_watts / (bases === nothing ? 1.0 : bases.s_base)`.
+  must be scaled by the matching base. `opf_bases(ctx)` returns the raw
+  per-unit metadata as a NamedTuple with `s_base` (a compatibility/reference
+  value), per-bus `v_base`/`i_base`/`z_base`/`y_base` Dicts and the DC
+  `v_dc_base`/`i_dc_base`/`z_dc_base`, or `nothing` in SI mode
+  (`per_unit=false`). Under a zone-local or otherwise nonuniform policy,
+  use `opf_coordinate_bases(ctx, bus).power` for a hook literal at a
+  particular bus; this returns `1.0` in SI mode. A watt cap at `bus1`, for
+  instance, becomes
+  `expr <= P_watts / opf_coordinate_bases(ctx, "bus1").power`.
 
   Example — cap one generator's phase-a active power at 5 kW:
 
@@ -1050,8 +1063,7 @@ and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
       crg = opf_object(ctx, opf_generator_current_key("g1", 1))
       cig = opf_object(ctx,
           opf_generator_current_key("g1", 1; component=:imag))
-      bases = opf_bases(ctx)
-      sb = bases === nothing ? 1.0 : bases.s_base
+      sb = opf_coordinate_bases(ctx, "bus1").power
       JuMP.@constraint(model, vr*crg + vi*cig <= 5_000.0 / sb)
   end)
   ```
@@ -1062,9 +1074,10 @@ and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
   hook can read `JuMP.value` of the custom variables it declared in a
   `model_hook!` (capture them in a shared closure) and append its own keys to
   the `result` dict. Because it runs in the model's units (per-unit by default),
-  the hook must scale its outputs to SI via `opf_bases(ctx)` so they sit alongside the
-  engine's SI results; the standard per-unit keys are unwrapped automatically but
-  custom keys are not.
+  the hook must scale its outputs to SI via the matching
+  `opf_coordinate_bases(ctx, bus).power` (or another local coordinate base) so
+  they sit alongside the engine's SI results; the standard per-unit keys are
+  unwrapped automatically but custom keys are not.
 
   A hook device that wants to be counted in `profile_solution`'s network
   power-balance check writes its **net terminal power** (SI, generator sign:
@@ -1084,8 +1097,7 @@ and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
           bat[:P] = P_expr; bat[:Q] = Q_expr        # JuMP expressions
       end,
       solution_hook! = (ctx, result) -> begin
-          bases = opf_bases(ctx)
-          sb = bases === nothing ? 1.0 : bases.s_base
+          sb = opf_coordinate_bases(ctx, "bus1").power
           p_W  = JuMP.value(bat[:P]) * sb           # per-unit → SI watts
           q_var = JuMP.value(bat[:Q]) * sb
           result["battery"] = Dict("bat1" => Dict("p"=>p_W, "q"=>q_var))
@@ -1159,7 +1171,7 @@ export solve_feasibility_opf
 
 """
     solve_pf(net::Dict{String,Any}; optimizer=Ipopt.Optimizer, t_index::Int=1,
-             per_unit::Bool=true, s_base::Float64=1e6,
+             per_unit::Bool=true, s_base::Float64=1e6, scaling_policy=nothing,
              softplus::Symbol=:user_defined,
              build_spec=OpfBuildSpec()) -> Dict{String,Any}
 
@@ -1213,6 +1225,129 @@ Base.isequal(a::OpfModelKey, b::OpfModelKey) =
     isequal(a.index, b.index)
 Base.hash(key::OpfModelKey, h::UInt) =
     hash(key.index, hash(key.family, hash(key.kind, h)))
+
+"""
+    OpfSemanticBlock(id, kind, members, components, quantity, physical_unit;
+                     set_contract=:none, model_to_canonical=I,
+                     reference_physical_scale=nothing,
+                     reference_scale_source=nothing, owner=:BMOPFTools,
+                     metadata=Dict())
+
+Authoritative declaration that registered OPF objects form one semantic
+coordinate or residual block. `members` are ordered model coordinates;
+`components` name the corresponding canonical outputs (for example
+`[:real, :imag]` or `[:active, :reactive]`). `model_to_canonical` maps the
+ordered model components into that canonical component basis before physical
+unit scaling is applied.
+
+`reference_physical_scale` is an optional positive device or operating scale
+for nondimensionalisation experiments. It is not the model-to-SI coordinate
+conversion and its provenance must be stated in `reference_scale_source`.
+The declaration is metadata only: registering a block never changes the model.
+"""
+struct OpfSemanticBlock
+    id::String
+    kind::Symbol
+    members::Vector{OpfModelKey}
+    components::Vector{Symbol}
+    quantity::Symbol
+    physical_unit::Symbol
+    set_contract::Symbol
+    model_to_canonical::Matrix{Float64}
+    reference_physical_scale::Union{Nothing,Float64}
+    reference_scale_source::Union{Nothing,String}
+    owner::Symbol
+    metadata::Dict{String,Any}
+end
+
+function OpfSemanticBlock(
+    id::AbstractString,
+    kind::Symbol,
+    members,
+    components,
+    quantity::Symbol,
+    physical_unit::Symbol;
+    set_contract::Symbol = :none,
+    model_to_canonical = nothing,
+    reference_physical_scale::Union{Nothing,Real} = nothing,
+    reference_scale_source::Union{Nothing,AbstractString} = nothing,
+    owner::Symbol = :BMOPFTools,
+    metadata = Dict{String,Any}(),
+)
+    normalized_id = String(id)
+    isempty(strip(normalized_id)) &&
+        throw(ArgumentError("semantic-block id must not be empty"))
+    kind in (:variable, :constraint) || throw(ArgumentError(
+        "semantic-block kind must be :variable or :constraint",
+    ))
+    normalized_members = OpfModelKey[member for member in members]
+    normalized_components = Symbol.(collect(components))
+    dimension = length(normalized_members)
+    dimension > 0 ||
+        throw(ArgumentError("semantic block must contain at least one member"))
+    length(normalized_components) == dimension || throw(DimensionMismatch(
+        "semantic-block member and component lengths differ",
+    ))
+    length(unique(normalized_members)) == dimension ||
+        throw(ArgumentError("semantic-block members must be unique"))
+    length(unique(normalized_components)) == dimension ||
+        throw(ArgumentError("semantic-block components must be unique"))
+    all(member -> member.kind == kind, normalized_members) ||
+        throw(ArgumentError("every semantic-block member must match block kind"))
+    set_contract in (:none, :zero_equality, :scalar_bounds, :euclidean_ball) ||
+        throw(ArgumentError(
+            "unsupported semantic-block set contract; use :none, " *
+            ":zero_equality, :scalar_bounds, or :euclidean_ball"))
+    kind == :variable && set_contract != :none && throw(ArgumentError(
+        "variable semantic blocks must use set_contract=:none",
+    ))
+    transform = isnothing(model_to_canonical) ?
+        Matrix{Float64}(I, dimension, dimension) :
+        Matrix{Float64}(model_to_canonical)
+    size(transform) == (dimension, dimension) || throw(DimensionMismatch(
+        "semantic-block canonical transform must be $dimension-by-$dimension",
+    ))
+    all(isfinite, transform) || throw(ArgumentError(
+        "semantic-block canonical transform must be finite",
+    ))
+    inverse = try
+        inv(transform)
+    catch exception
+        throw(ArgumentError(
+            "semantic-block canonical transform must be nonsingular: " *
+            sprint(showerror, exception),
+        ))
+    end
+    all(isfinite, inverse) || throw(ArgumentError(
+        "semantic-block canonical transform has a non-finite inverse",
+    ))
+    scale = isnothing(reference_physical_scale) ? nothing :
+        Float64(reference_physical_scale)
+    !isnothing(scale) && (!isfinite(scale) || scale <= 0) &&
+        throw(ArgumentError(
+            "reference_physical_scale must be finite and positive",
+        ))
+    source = isnothing(reference_scale_source) ? nothing :
+        String(reference_scale_source)
+    !isnothing(scale) && (isnothing(source) || isempty(strip(source))) &&
+        throw(ArgumentError(
+            "a reference physical scale requires nonempty provenance",
+        ))
+    return OpfSemanticBlock(
+        normalized_id,
+        kind,
+        normalized_members,
+        normalized_components,
+        quantity,
+        physical_unit,
+        set_contract,
+        transform,
+        scale,
+        source,
+        owner,
+        Dict{String,Any}(string(key) => value for (key, value) in metadata),
+    )
+end
 
 function _opf_rectangular_family(component::Symbol, real_family::Symbol,
                                  imaginary_family::Symbol)
@@ -1462,6 +1597,295 @@ struct OpfRegularization
 end
 
 """
+    AbstractOpfScalingPolicy
+
+Typed description of the coordinate system used to build an OPF model. Scaling
+policies change coordinates only; they must not change the physical problem.
+"""
+abstract type AbstractOpfScalingPolicy end
+
+"""
+    SIUnitsScaling()
+
+Build the model in its input SI units. This is the typed equivalent of the
+legacy keyword `per_unit=false`.
+"""
+struct SIUnitsScaling <: AbstractOpfScalingPolicy end
+
+"""
+    ClassicPerUnitScaling(s_base=1e6)
+
+The historical BMOPFTools per-unit convention: one system power base, voltage
+bases propagated from the source through the network, and dimensionally
+consistent current, impedance, and admittance bases derived from them.
+"""
+struct ClassicPerUnitScaling <: AbstractOpfScalingPolicy
+    s_base::Float64
+    function ClassicPerUnitScaling(s_base::Real=1e6)
+        value = Float64(s_base)
+        isfinite(value) && value > 0 || throw(ArgumentError(
+            "s_base must be finite and positive, got $s_base"))
+        return new(value)
+    end
+end
+
+"""
+    ConsistentPerUnitScaling(; s_base, voltage_bases,
+                               dc_voltage_base=nothing, name=:custom)
+
+An explicit, physically consistent nondimensionalisation policy. A positive
+voltage base must be supplied for every AC bus. Connected lines and switches
+must share a voltage base and transformer-side bases must respect the declared
+turns ratio; BMOPFTools validates these invariants before building a model.
+
+Current, impedance, and admittance bases remain derived as `S/V`, `V^2/S`, and
+`S/V^2`. This policy deliberately does not accept an independently chosen
+current base: the present IVR equations assume those identities. A future
+coordinate-transformation layer may relax that restriction by stamping the
+required coefficients explicitly.
+"""
+struct ConsistentPerUnitScaling <: AbstractOpfScalingPolicy
+    name::Symbol
+    s_base::Float64
+    voltage_bases::Dict{String,Float64}
+    dc_voltage_base::Union{Nothing,Float64}
+    function ConsistentPerUnitScaling(;
+            s_base::Real,
+            voltage_bases,
+            dc_voltage_base::Union{Nothing,Real}=nothing,
+            name::Symbol=:custom)
+        sb = Float64(s_base)
+        isfinite(sb) && sb > 0 || throw(ArgumentError(
+            "s_base must be finite and positive, got $s_base"))
+        isempty(String(name)) && throw(ArgumentError("scaling policy name cannot be empty"))
+        vb = Dict{String,Float64}()
+        for (bus, value) in voltage_bases
+            base = Float64(value)
+            isfinite(base) && base > 0 || throw(ArgumentError(
+                "voltage base for bus $(repr(bus)) must be finite and positive, got $value"))
+            vb[String(bus)] = base
+        end
+        dcb = dc_voltage_base === nothing ? nothing : Float64(dc_voltage_base)
+        dcb === nothing || (isfinite(dcb) && dcb > 0) || throw(ArgumentError(
+            "dc_voltage_base must be finite and positive, got $dc_voltage_base"))
+        return new(name, sb, vb, dcb)
+    end
+end
+
+"""
+    ZonePerUnitScaling(; voltage_bases, power_bases,
+                         dc_voltage_base=nothing, dc_power_base=nothing,
+                         name=:zone_local)
+
+Experimental coordinate policy with a voltage and power base for every AC bus.
+Power bases must be constant inside each galvanically continuous zone; they may
+change only across an isolating transformer. The corresponding current,
+impedance, and admittance bases are derived locally as `S/V`, `V^2/S`, and
+`S/V^2`.
+
+Voltage bases must likewise be identical across directly shared conductors,
+including `single_phase_autotransformer` common bushings and
+`open_delta_regulator` straight-through phases. A dimensionless tap changes a
+winding relation; it is not a coordinate boundary. Both regulator families are
+qualified under this one-voltage-base, one-power-base invariant.
+
+This policy changes coordinates, never the physical model. BMOPFTools validates
+the complete network before constructing the working copy and rejects device
+families whose cross-zone stamping has not yet been qualified. In particular,
+the qualified implementation supports isolated `single_phase`, `center_tap`,
+`wye_delta`, `delta_wye`, and `n_winding` transformers. Native lossless AC/DC
+converters using `P`, `V`, or `droop` control are qualified with independent
+AC-bus and DC power bases. Other isolating transformer subtypes and custom or
+lossy converter builders remain unavailable until their covariance tests are
+in place.
+"""
+struct ZonePerUnitScaling <: AbstractOpfScalingPolicy
+    name::Symbol
+    voltage_bases::Dict{String,Float64}
+    power_bases::Dict{String,Float64}
+    dc_voltage_base::Union{Nothing,Float64}
+    dc_power_base::Union{Nothing,Float64}
+    function ZonePerUnitScaling(;
+            voltage_bases,
+            power_bases,
+            dc_voltage_base::Union{Nothing,Real}=nothing,
+            dc_power_base::Union{Nothing,Real}=nothing,
+            name::Symbol=:zone_local)
+        isempty(String(name)) && throw(ArgumentError(
+            "scaling policy name cannot be empty"))
+        normalize_bases(values, label) = begin
+            result = Dict{String,Float64}()
+            for (bus, raw) in values
+                value = Float64(raw)
+                isfinite(value) && value > 0 || throw(ArgumentError(
+                    "$label for bus $(repr(bus)) must be finite and positive, got $raw"))
+                result[String(bus)] = value
+            end
+            result
+        end
+        vb = normalize_bases(voltage_bases, "voltage base")
+        sb = normalize_bases(power_bases, "power base")
+        dcv = dc_voltage_base === nothing ? nothing : Float64(dc_voltage_base)
+        dcs = dc_power_base === nothing ? nothing : Float64(dc_power_base)
+        dcv === nothing || (isfinite(dcv) && dcv > 0) || throw(ArgumentError(
+            "dc_voltage_base must be finite and positive, got $dc_voltage_base"))
+        dcs === nothing || (isfinite(dcs) && dcs > 0) || throw(ArgumentError(
+            "dc_power_base must be finite and positive, got $dc_power_base"))
+        return new(name, vb, sb, dcv, dcs)
+    end
+end
+
+"""
+    OpfScaling(mode=:custom; kwargs...)
+
+Construct the coordinate-scaling specification accepted by the staged OPF
+builders. This is the public scaling entry point; concrete implementation
+policy types are deliberately private so their representation can evolve.
+
+Supported forms are:
+
+  * `OpfScaling(:si)` for raw SI coordinates;
+  * `OpfScaling(:classic; power_base=1e6)` for the historical system-base
+    per-unit convention; and
+  * `OpfScaling(; voltage_bases, power_base=...)` or
+    `OpfScaling(; voltage_bases, power_bases=...)` for explicit voltage bases
+    with respectively a system-wide or galvanic-zone power base.
+
+Current, impedance, and admittance bases are always derived from voltage and
+power bases. Supplying both `power_base` and `power_bases` is rejected.
+"""
+function OpfScaling(
+    mode::Symbol = :custom;
+    name::Union{Nothing,Symbol} = nothing,
+    power_base::Union{Nothing,Real} = nothing,
+    voltage_bases = nothing,
+    power_bases = nothing,
+    dc_voltage_base::Union{Nothing,Real} = nothing,
+    dc_power_base::Union{Nothing,Real} = nothing,
+)
+    mode in (:si, :classic, :custom) || throw(ArgumentError(
+        "OPF scaling mode must be :si, :classic, or :custom, got :$mode",
+    ))
+    if mode == :si
+        name === nothing || throw(ArgumentError(
+            "OpfScaling(:si) does not accept a policy name",
+        ))
+        any(value -> !isnothing(value), (
+            power_base, voltage_bases, power_bases,
+            dc_voltage_base, dc_power_base,
+        )) && throw(ArgumentError("OpfScaling(:si) does not accept base data"))
+        return SIUnitsScaling()
+    elseif mode == :classic
+        name === nothing || throw(ArgumentError(
+            "OpfScaling(:classic) does not accept a policy name",
+        ))
+        voltage_bases === nothing || throw(ArgumentError(
+            "OpfScaling(:classic) propagates voltage bases from the network",
+        ))
+        power_bases === nothing || throw(ArgumentError(
+            "OpfScaling(:classic) accepts one power_base, not power_bases",
+        ))
+        dc_voltage_base === nothing && dc_power_base === nothing ||
+            throw(ArgumentError(
+                "OpfScaling(:classic) derives AC and DC bases from power_base",
+            ))
+        return ClassicPerUnitScaling(something(power_base, 1.0e6))
+    end
+
+    voltage_bases === nothing && throw(ArgumentError(
+        "custom OPF scaling requires voltage_bases",
+    ))
+    power_base === nothing || power_bases === nothing || throw(ArgumentError(
+        "supply either power_base or power_bases, not both",
+    ))
+    if power_bases === nothing
+        power_base === nothing && throw(ArgumentError(
+            "custom OPF scaling requires power_base or power_bases",
+        ))
+        dc_power_base === nothing || throw(ArgumentError(
+            "dc_power_base is only meaningful with per-zone power_bases",
+        ))
+        return ConsistentPerUnitScaling(
+            name=something(name, :custom),
+            s_base=power_base,
+            voltage_bases=voltage_bases,
+            dc_voltage_base=dc_voltage_base,
+        )
+    end
+    return ZonePerUnitScaling(
+        name=something(name, :zone_local),
+        voltage_bases=voltage_bases,
+        power_bases=power_bases,
+        dc_voltage_base=dc_voltage_base,
+        dc_power_base=dc_power_base,
+    )
+end
+
+"""Return a serialisable, defensive description of an OPF scaling policy."""
+function opf_scaling_policy_data(policy::AbstractOpfScalingPolicy)
+    if policy isa SIUnitsScaling
+        return Dict{String,Any}(
+            "kind" => "si_units",
+            "dimensionless" => false,
+        )
+    elseif policy isa ClassicPerUnitScaling
+        return Dict{String,Any}(
+            "kind" => "classic_per_unit",
+            "dimensionless" => true,
+            "s_base" => policy.s_base,
+            "voltage_base_source" => "network_propagation",
+            "derived_base_identities" => ["I=S/V", "Z=V^2/S", "Y=S/V^2"],
+        )
+    end
+    if policy isa ConsistentPerUnitScaling
+        custom = policy
+        return Dict{String,Any}(
+            "kind" => "consistent_per_unit",
+            "name" => string(custom.name),
+            "dimensionless" => true,
+            "s_base" => custom.s_base,
+            "voltage_bases" => Dict(custom.voltage_bases),
+            "dc_voltage_base" => custom.dc_voltage_base,
+            "derived_base_identities" => ["I=S/V", "Z=V^2/S", "Y=S/V^2"],
+        )
+    end
+    zone = policy::ZonePerUnitScaling
+    return Dict{String,Any}(
+        "kind" => "zone_per_unit",
+        "name" => string(zone.name),
+        "dimensionless" => true,
+        "voltage_bases" => Dict(zone.voltage_bases),
+        "power_bases" => Dict(zone.power_bases),
+        "dc_voltage_base" => zone.dc_voltage_base,
+        "dc_power_base" => zone.dc_power_base,
+        "derived_base_identities" => ["I(bus)=S(bus)/V(bus)",
+                                      "Z(bus)=V(bus)^2/S(bus)",
+                                      "Y(bus)=S(bus)/V(bus)^2"],
+        "qualification" =>
+            "experimental_single_phase_center_tap_yd_dy_and_n_winding_transformer_slice",
+    )
+end
+
+"""
+    OpfDiagnosticSchema
+
+Immutable, versioned description of the numerical coordinate system and
+semantic structure of one staged OPF model. The contained dictionaries and
+semantic-block records are defensive copies. BMOPFTools reports what it built;
+diagnostic interpretation remains the responsibility of downstream tools.
+"""
+struct OpfDiagnosticSchema
+    schema_version::VersionNumber
+    scaling::Dict{String,Any}
+    coordinate_bases::Dict{String,Any}
+    semantic_blocks::Vector{OpfSemanticBlock}
+    initialization::Dict{String,Any}
+    transformer_scaling::Dict{String,Any}
+    acdc_scaling::Dict{String,Any}
+    capabilities::Dict{String,Any}
+end
+
+"""
     OpfBuildManifest
 
 Provenance for a staged OPF construction. `problem` identifies the recipe,
@@ -1656,20 +2080,86 @@ end
     opf_model(ctx)
     opf_network(ctx)
     opf_bases(ctx)
+    opf_coordinate_bases(ctx, location; domain=:ac)
+    opf_diagnostic_schema(ctx; voltage_bases, power_bases)
     opf_lifecycle(ctx)
 
 Stable accessors for a context returned by [`build_opf_model`](@ref). They
-return, respectively, the live JuMP model, the prepared working network, the
-per-unit base metadata (`nothing` in SI mode), and the current construction
-lifecycle state.
+provide the live JuMP model, prepared working network, raw per-unit metadata,
+public coordinate bases, versioned diagnostic evidence, and construction
+lifecycle state. Prefer the latter two interfaces for cross-package tooling.
 """
 function opf_model end
 
 """Return the prepared working network owned by a staged OPF context."""
 function opf_network end
 
-"""Return per-unit base metadata, or `nothing` for an SI staged model."""
+"""Return per-unit base metadata, or `nothing` for an SI staged model.
+
+For zone-local policies, `s_base` is a compatibility/reference value rather
+than a universal local power base. Use [`opf_coordinate_bases`](@ref) for
+bus-local hook literals and residual interpretation.
+"""
 function opf_bases end
+
+"""
+    opf_coordinate_bases(ctx, location; domain=:ac)
+
+Return the physical coordinate bases at one AC or DC bus. AC records contain
+`voltage`, `current`, `power`, `impedance`, and `admittance`; DC records contain
+`voltage`, `current`, `power`, and `impedance`. SI-coordinate models return
+unity bases.
+"""
+function opf_coordinate_bases end
+
+"""
+Return the working-coordinate bases for one AC bus as a named tuple with
+`voltage`, `current`, `power`, `impedance`, and `admittance` fields. SI contexts
+return unity bases. This is the stable scaling seam for model hooks.
+"""
+function opf_ac_coordinate_bases end
+
+"""
+Return the working-coordinate bases for one DC bus as a named tuple with
+`voltage`, `current`, `power`, and `impedance` fields. SI contexts return unity
+bases. The DC network currently uses one common voltage and power coordinate.
+"""
+function opf_dc_coordinate_bases end
+
+"""Return the typed coordinate-scaling policy owned by a staged OPF context."""
+function opf_scaling_policy end
+
+"""Return defensive, serializable evidence about the generated OPF start."""
+function opf_initialization_data end
+
+"""
+Return a serializable, non-mutating transformer scaling contract.
+
+Optional physical `voltage_bases` and `power_bases` are keyed by bus and
+describe a proposed coordinate system. The report validates that power bases
+are constant inside galvanically continuous zones, that directly shared
+regulator conductors retain one voltage base, and exposes the exact
+voltage/current/power conversion ratios required at every transformer winding
+interface. It does not apply the proposed scaling to the model.
+"""
+function opf_transformer_scaling_contract_data end
+
+"""Return non-mutating evidence for every native AC/DC converter base crossing."""
+function opf_acdc_scaling_contract_data end
+
+"""
+    opf_diagnostic_schema(ctx; voltage_bases=nothing, power_bases=nothing)
+
+Return a defensive, versioned description of a staged model's scaling,
+semantic blocks, initialization provenance, and qualified coordinate
+interfaces. Optional proposed AC bases affect only the transformer-interface
+audit; this function never modifies the model. Native semantic blocks are
+materialised lazily after KCL finalisation; inspect `capabilities` for
+`semantic_blocks_available` and `semantic_blocks_registered` before relying on
+their completeness. Bind the returned schema once when several fields are
+needed; each call rebuilds its defensive evidence dictionaries.
+"""
+function opf_diagnostic_schema end
 
 """Return the declared neutral terminal labels for one staged OPF context."""
 function opf_neutral_labels end
@@ -1729,6 +2219,38 @@ unless `replace=true`. Native JuMP variables are registered automatically using
 their existing variable-family symbol and raw index.
 """
 function register_opf_object! end
+
+"""
+    register_opf_constraint!(ctx, family, index, constraint; replace=false)
+
+Convenience wrapper for model hooks and device extensions. Registers a JuMP
+constraint under `OpfModelKey(:constraint, family, index)` while preserving the
+same collision and model-ownership checks as `register_opf_object!`.
+"""
+function register_opf_constraint! end
+
+"""
+    register_opf_semantic_block!(ctx, block; replace=false)
+
+Register a non-mutating semantic coordinate/residual block whose members are
+already present in the public OPF object registry. A model object may belong to
+at most one registered block of its kind. Duplicate ids and overlapping members
+are rejected unless replacing the same block id explicitly. Register custom
+blocks after `enforce_kcl!` when possible: post-KCL registration materializes
+native blocks and reports conflicts at the registration call. If an overlapping
+custom block is registered before KCL, native materialization can fail later
+when a schema or provenance report is requested; the context must then be
+rebuilt because there is no unregister operation.
+"""
+function register_opf_semantic_block! end
+
+"""
+    opf_semantic_blocks(ctx; kind=nothing)
+
+Return defensive copies of registered semantic blocks in deterministic id
+order. `kind` may be `:variable`, `:constraint`, or `nothing`.
+"""
+function opf_semantic_blocks end
 
 """Retrieve a JuMP/downstream object registered under an [`OpfModelKey`](@ref)."""
 function opf_object end
@@ -1946,9 +2468,12 @@ export opf_dc_branch_current_key, opf_converter_dc_current_key
 export opf_dc_load_current_key, opf_dc_source_current_key
 export opf_dc_source_power_key
 export OpfDifferentiabilityReport, OpfKKTDiagnostic, OpfDifferentiationError
+export OpfScaling, OpfDiagnosticSchema
 export OpfBuildManifest, OpfDeviceBuilder, OpfBuildSpec
 export OpfCoefficientKey, OpfCoefficientProvider
-export opf_model, opf_network, opf_bases, opf_lifecycle
+export opf_model, opf_network, opf_bases, opf_coordinate_bases
+export opf_diagnostic_schema
+export opf_lifecycle
 export opf_neutral_labels
 export opf_build_manifest, opf_build_spec, opf_stage_completed
 export initialize_opf_model, set_opf_start_values!

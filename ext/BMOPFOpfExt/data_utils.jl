@@ -211,8 +211,7 @@ function _neutral_current_limit!(model, cr_terms, ci_terms, ilim::Real)
     (isfinite(ilim) && ilim >= 0) || return
     cr_n = @expression(model, sum(cr_terms))
     ci_n = @expression(model, sum(ci_terms))
-    _soc_norm!(model, cr_n, ci_n, ilim)
-    return
+    return _soc_norm!(model, cr_n, ci_n, ilim)
 end
 
 """
@@ -242,13 +241,19 @@ Returns `(p_v, q_v)` (or `nothing` when the limit is skipped).
 """
 function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Real;
                                 base_name::AbstractString="s",
-                                ledger=nothing, key=nothing)
+                                ledger=nothing, key=nothing,
+                                register_constraint=nothing)
     (isfinite(slim) && slim >= 0) || return nothing
     p_v = @variable(model, base_name = "p_$(base_name)")
     q_v = @variable(model, base_name = "q_$(base_name)")
-    @constraint(model, p_v == vr_k*cr_k + vi_k*ci_k)
-    @constraint(model, q_v == vi_k*cr_k - vr_k*ci_k)
-    _soc_norm!(model, p_v, q_v, slim)
+    p_link = @constraint(model, p_v == vr_k*cr_k + vi_k*ci_k)
+    q_link = @constraint(model, q_v == vi_k*cr_k - vr_k*ci_k)
+    circle = _soc_norm!(model, p_v, q_v, slim)
+    if register_constraint !== nothing
+        register_constraint(:power_link_p, p_link)
+        register_constraint(:power_link_q, q_link)
+        register_constraint(:apparent_power_circle, circle)
+    end
     ledger !== nothing && key !== nothing && (ledger[key] = (p_v, q_v, Float64(slim)))
     return (p_v, q_v)
 end

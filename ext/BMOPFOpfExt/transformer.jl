@@ -20,8 +20,8 @@
 #     (V_fr[1]−V_fr[n]) − N·(V_lv[1]−V_lv[n]) = R1·I_s − X1·jI_s + N·(R2·I_leg1 − X2·jI_leg1)
 #     (V_fr[1]−V_fr[n]) − N·(V_lv[n]−V_lv[2]) = R1·I_s − X1·jI_s + N·(R2·I_leg2 − X2·jI_leg2)
 #
-#   Current (power conservation):
-#     N·I_s + I_leg1 + I_leg2 = 0
+#   Current (power conservation, normalized coordinates):
+#     N·(S_from/S_to)·I_s + I_leg1 − I_leg2 = 0
 #
 #   Center-tap KCL (n terminal, not a floating node):
 #     I_n + I_leg1 + I_leg2 = 0
@@ -38,7 +38,8 @@
 #     vr_del[k] - vr_del[k_next] = n_eff * (vr_wye_ph[k] - vr_wye_neutral)
 #
 #   Current (T^T of voltage transform, power-conservative):
-#     n_eff * cr_xf[del,k] = cr_xf[wye,ph_k] - cr_xf[wye,ph_{k_prev}]
+#     n_eff * (S_delta/S_wye) * cr_xf[del,k]
+#       = cr_xf[wye,ph_k] - cr_xf[wye,ph_{k_prev}]
 #
 #   Neutral KCL at transformer star point:
 #     cr_xf[wye,neutral] + Σ_k cr_xf[wye,ph_k] = 0
@@ -55,7 +56,9 @@ Dispatch transformer constraints for all subtypes in the network:
 - `wye_delta`    → `_add_yd_transformer!` with `wye_is_from=true`
 - `delta_wye`    → `_add_yd_transformer!` with `wye_is_from=false`
 """
-function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
+function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i;
+                                       branch_inj=nothing,
+                                       constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     cr_xf = vars[:cr_xf]; ci_xf = vars[:ci_xf]
     tapd  = get(vars, :tap, Dict{Any,Any}())
@@ -69,33 +72,39 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i; branch_in
     for (tid, xfmr) in get(xfmr_dict, "single_phase", Dict())
         _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               tap=get(tapd, tid, nothing), branch_inj=branch_inj,
-                              scoil=s_coil, nlabels=nlabels)
+                              scoil=s_coil, nlabels=nlabels,
+                              constraint_context=constraint_context)
     end
     for (tid, xfmr) in get(xfmr_dict, "center_tap", Dict())
         _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               tap=get(tapd, tid, nothing), branch_inj=branch_inj,
-                              scoil=s_coil)
+                              scoil=s_coil, constraint_context=constraint_context)
     end
 
     for (tid, xfmr) in get(xfmr_dict, "wye_delta", Dict())
         _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               wye_is_from=true, tap=get(tapd, tid, nothing),
-                              branch_inj=branch_inj, scoil=s_coil, nlabels=nlabels)
+                              branch_inj=branch_inj, scoil=s_coil, nlabels=nlabels,
+                              constraint_context=constraint_context)
     end
     for (tid, xfmr) in get(xfmr_dict, "delta_wye", Dict())
         _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               wye_is_from=false, tap=get(tapd, tid, nothing),
-                              branch_inj=branch_inj, scoil=s_coil, nlabels=nlabels)
+                              branch_inj=branch_inj, scoil=s_coil, nlabels=nlabels,
+                              constraint_context=constraint_context)
     end
 
     for (tid, xfmr) in get(xfmr_dict, "single_phase_autotransformer", Dict())
         _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               tap=get(tapd, tid, nothing), branch_inj=branch_inj,
-                              scoil=s_coil, nlabels=nlabels)
+                              scoil=s_coil, nlabels=nlabels,
+                              constraint_context=constraint_context)
     end
     for (tid, xfmr) in get(xfmr_dict, "open_delta_regulator", Dict())
         _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                              tap=tapd, branch_inj=branch_inj, scoil=s_coil, nlabels=nlabels)
+                              tap=tapd, branch_inj=branch_inj, scoil=s_coil,
+                              nlabels=nlabels,
+                              constraint_context=constraint_context)
     end
     # n_winding is built by a separate pass (`_add_nwinding_constraints!`). Any
     # OTHER key under `transformer` is an unmodeled subtype whose devices would
@@ -162,7 +171,9 @@ gains exactly y_n).
 """
 function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                               tap=nothing, branch_inj=nothing, scoil=nothing,
-                              nlabels)
+                              nlabels, constraint_context=nothing)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr       = get(xfmr, "bus_from", "")
     b_to       = get(xfmr, "bus_to",   "")
@@ -171,6 +182,8 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     # Effective from→to ratio N. Fixed: N0·tap multiplier (default 1.0, so legacy
     # data is unchanged). Free: the tap variable (= N), warm-started at N0·tap.
     N0         = _xfmr_turns_ratio(xfmr)
+    current_from_factor = Float64(get(
+        xfmr, "_current_coupling_from_factor", 1.0))
     N          = tap === nothing ? N0 * BMOPFTools._xfmr_tap_mult(xfmr) : tap
     # Each winding spans a terminal pair (p, q): line-to-neutral when a neutral
     # terminal is present (q = neutral, shared by all phases), line-to-line for a
@@ -200,8 +213,12 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     # the voltage drop degree-2 in N (see the constraint below). At N = N0 it is
     # identical to the legacy R = r_fr + N0²·r_to form.
     invN0sq = N0 == 0.0 ? 0.0 : 1.0 / N0^2
-    Rp = r_to + r_fr * invN0sq
-    Xp = x_to + x_fr * invN0sq
+    # When the two sides use different power bases, referring the from-side
+    # impedance into to-side coordinates contributes the reciprocal power-base
+    # ratio in addition to the turns-ratio square.
+    to_from_power_factor = inv(current_from_factor)
+    Rp = r_to + to_from_power_factor * r_fr * invN0sq
+    Xp = x_to + to_from_power_factor * x_fr * invN0sq
 
     # No-load (magnetising) admittance (S), split equally per winding. OpenDSS
     # places the exciting branch across winding 2 (the TO coil), referred to
@@ -267,23 +284,33 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         # cubic/tap² terms eliminated. At N = N0 this equals the legacy
         # R = r_fr + N0²·r_to stamping exactly.
         if has_series
-            @constraint(model, vr_fr - N * vr_to == -N * (Rp * Itr - Xp * Iti))
-            @constraint(model, vi_fr - N * vi_to == -N * (Rp * Iti + Xp * Itr))
+            register(:transformer_voltage_real, (tid, "fr", k),
+                @constraint(model, vr_fr - N * vr_to == -N * (Rp * Itr - Xp * Iti)))
+            register(:transformer_voltage_imag, (tid, "fr", k),
+                @constraint(model, vi_fr - N * vi_to == -N * (Rp * Iti + Xp * Itr)))
         else
-            @constraint(model, vr_fr == N * vr_to)
-            @constraint(model, vi_fr == N * vi_to)
+            register(:transformer_voltage_real, (tid, "fr", k),
+                @constraint(model, vr_fr == N * vr_to))
+            register(:transformer_voltage_imag, (tid, "fr", k),
+                @constraint(model, vi_fr == N * vi_to))
         end
 
-        # Ideal-core current coupling: N·I_series_fr + I_to = 0
-        @constraint(model, N * Isr + Itr == 0)
-        @constraint(model, N * Isi + Iti == 0)
+        # Ideal-core current coupling in side-local current coordinates.
+        # With I_base=S_base/V_base, the physical N·I_fr + I_to = 0 becomes
+        # N_model·(S_base,fr/S_base,to)·i_fr + i_to = 0. The factor is one for
+        # classic per-unit and SI coordinates.
+        register(:transformer_current_coupling_real, (tid, k),
+            @constraint(model, current_from_factor * N * Isr + Itr == 0))
+        register(:transformer_current_coupling_imag, (tid, k),
+            @constraint(model, current_from_factor * N * Isi + Iti == 0))
 
         # From-side terminal current = series only (the magnetising branch is on
         # the to side now). Inject −I at p and +I at q so the return closes at q.
         kadd(b_fr, t_p_fr, -Isr, -Isi)
         t_q_fr !== nothing && kadd(b_fr, t_q_fr, Isr, Isi)
         if length(i_max_fr) >= k
-            _soc_norm!(model, Isr, Isi, i_max_fr[k])
+            register(:transformer_current_thermal, (tid, "from", k),
+                _soc_norm!(model, Isr, Isi, i_max_fr[k]))
             _limit_current_box!(Isr, Isi, i_max_fr[k])
         end
 
@@ -294,7 +321,10 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         if s_per > 0.0
             _apparent_power_limit!(model, vr_fr, vi_fr, Isr, Isi, s_per;
                                    base_name = "$(tid)_w1_$(k)",
-                                   ledger = scoil, key = (tid, "fr", k))
+                                   ledger = scoil, key = (tid, "fr", k),
+                                   register_constraint=(family, cref) -> register(
+                                       Symbol("transformer_", family),
+                                       (tid, "from", k), cref))
         end
 
         # To-side terminal current = series + magnetising shunt across the TO
@@ -307,12 +337,14 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             kadd(b_to, t_p_to, -icr_term, -ici_term)
             t_q_to !== nothing && kadd(b_to, t_q_to, icr_term, ici_term)
             length(i_max_to_v) >= k &&
-                _soc_norm!(model, icr_term, ici_term, i_max_to_v[k])
+                register(:transformer_current_thermal, (tid, "to", k),
+                    _soc_norm!(model, icr_term, ici_term, i_max_to_v[k]))
         else
             kadd(b_to, t_p_to, -Itr, -Iti)
             t_q_to !== nothing && kadd(b_to, t_q_to, Itr, Iti)
             if length(i_max_to_v) >= k
-                _soc_norm!(model, Itr, Iti, i_max_to_v[k])
+                register(:transformer_current_thermal, (tid, "to", k),
+                    _soc_norm!(model, Itr, Iti, i_max_to_v[k]))
                 _limit_current_box!(Itr, Iti, i_max_to_v[k])
             end
         end
@@ -368,6 +400,11 @@ Physics (coupled-coil / primitive-admittance model):
   ampere-turn N·I_s + I_leg1 − I_leg2 = 0 and the centre-tap KCL
   I_n + I_leg1 + I_leg2 = 0.
 
+  With distinct zone power bases, the primitive is assembled in a common
+  primary-power coordinate and its secondary current rows are transformed to
+  the secondary current base. The normalized Yp is then generally nonsymmetric
+  even though the dimensional primitive remains reciprocal.
+
   For an ideal core (zero series impedance) Yp is singular, so both legs are
   pinned directly to V_hv/N (winding 3 dotted at the centre tap) and the
   ampere-turn / centre-tap KCL route the currents.
@@ -380,7 +417,10 @@ Physics (coupled-coil / primitive-admittance model):
   reify it as an explicit external shunt).
 """
 function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                                      tap=nothing, branch_inj=nothing, scoil=nothing)
+                                      tap=nothing, branch_inj=nothing, scoil=nothing,
+                                      constraint_context=nothing)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr       = get(xfmr, "bus_from", "")
     b_to       = get(xfmr, "bus_to",   "")
@@ -390,6 +430,8 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # data is unchanged). Free: the tap variable IS N (= N0·tap), warm-started at N0.
     N0         = _xfmr_turns_ratio(xfmr)
     N          = tap === nothing ? N0 * BMOPFTools._xfmr_tap_mult(xfmr) : tap
+    current_from_factor = Float64(get(
+        xfmr, "_current_coupling_from_factor", 1.0))
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
     # Split-phase: the single HV coil carries the whole nameplate (VA, p.u.).
@@ -476,8 +518,11 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # quadratic for Ipopt. It also requires both star arms nonzero (see arm1/arm2
     # above); a zero arm previously produced y = Inf and NaN-poisoned the stamp.
     if arm1 && arm2 && tap === nothing
-        Z1 = R1 + im * X1            # HV star arm  (HV side, Ω/pu)
-        Z2 = R2 + im * X2            # each LV star arm (LV side, Ω/pu)
+        Z1 = R1 + im * X1            # HV star arm on the HV power base
+        # Construct the reciprocal primitive on the HV power base. The stored
+        # LV impedance uses the LV power base, so referral to the HV-power
+        # coordinate multiplies it by S_HV/S_LV.
+        Z2 = current_from_factor * (R2 + im * X2)
         y1 = N^2 / Z1
         y2 = 1.0 / Z2
         Ys = y1 + 2 * y2
@@ -499,8 +544,15 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         # No-load shunt across winding 2 = LV leg 1 (nodes 3-4, the t1-tn coil).
         # OpenDSS places the ENTIRE exciting branch on winding 2 at the per-leg
         # voltage — not on the HV node (verified against its Yprim).
-        Y0 = G + im * B
+        # The stored shunt uses the LV power base. In the intermediate
+        # common-HV-power coordinate its admittance is divided by S_HV/S_LV.
+        Y0 = (G + im * B) / current_from_factor
         Yp[3, 3] += Y0; Yp[4, 4] += Y0; Yp[3, 4] -= Y0; Yp[4, 3] -= Y0
+        # Convert the three LV terminal-current rows from the common-HV-power
+        # coordinate into their native LV current coordinate. With distinct
+        # power bases the normalized operator is intentionally nonsymmetric;
+        # physical reciprocity belongs to the dimensional primitive.
+        Yp[3:5, :] .*= current_from_factor
 
         node_bt = ((b_fr, t_fr_ph), (b_fr, t_fr_n),
                    (b_to, t_lv_1),  (b_to, t_lv_n), (b_to, t_lv_2))
@@ -521,11 +573,16 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         # result writer and i_max limits see physical winding currents.
         I2r = cr_xf[(tid,"fr",2)]; I2i = ci_xf[(tid,"fr",2)]
         e1r,e1i = inj(1); e2r,e2i = inj(2); e3r,e3i = inj(3); e4r,e4i = inj(4); e5r,e5i = inj(5)
-        @constraint(model, Isr  == e1r); @constraint(model, Isi  == e1i)
-        @constraint(model, I2r  == e2r); @constraint(model, I2i  == e2i)
-        @constraint(model, Il1r == e3r); @constraint(model, Il1i == e3i)
-        @constraint(model, Inr  == e4r); @constraint(model, Ini  == e4i)
-        @constraint(model, Il2r == e5r); @constraint(model, Il2i == e5i)
+        register(:transformer_current_pin_real, (tid, "from", 1), @constraint(model, Isr == e1r))
+        register(:transformer_current_pin_imag, (tid, "from", 1), @constraint(model, Isi == e1i))
+        register(:transformer_current_pin_real, (tid, "from", 2), @constraint(model, I2r == e2r))
+        register(:transformer_current_pin_imag, (tid, "from", 2), @constraint(model, I2i == e2i))
+        register(:transformer_current_pin_real, (tid, "to", 1), @constraint(model, Il1r == e3r))
+        register(:transformer_current_pin_imag, (tid, "to", 1), @constraint(model, Il1i == e3i))
+        register(:transformer_current_pin_real, (tid, "to", 2), @constraint(model, Inr == e4r))
+        register(:transformer_current_pin_imag, (tid, "to", 2), @constraint(model, Ini == e4i))
+        register(:transformer_current_pin_real, (tid, "to", 3), @constraint(model, Il2r == e5r))
+        register(:transformer_current_pin_imag, (tid, "to", 3), @constraint(model, Il2i == e5i))
         # KCL: inject −I_m into each bus terminal.
         kadd(b_fr, t_fr_ph, -Isr, -Isi)
         kadd(b_fr, t_fr_n,  -I2r, -I2i)
@@ -533,17 +590,25 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         kadd(b_to, t_lv_n,  -Inr,  -Ini)
         kadd(b_to, t_lv_2,  -Il2r, -Il2i)
         # Current-magnitude limits on the pinned winding-current variables.
-        length(i_max_fr)   >= 1 && @constraint(model, Isr^2  + Isi^2  <= i_max_fr[1]^2)
-        length(i_max_to_v) >= 1 && _soc_norm!(model, Il1r, Il1i, i_max_to_v[1])
-        length(i_max_to_v) >= 2 && @constraint(model, Inr^2  + Ini^2  <= i_max_to_v[2]^2)
-        length(i_max_to_v) >= 3 && _soc_norm!(model, Il2r, Il2i, i_max_to_v[3])
+        length(i_max_fr) >= 1 && register(:transformer_current_thermal,
+            (tid, "from", 1),
+            @constraint(model, Isr^2 + Isi^2 <= i_max_fr[1]^2))
+        length(i_max_to_v) >= 1 && register(:transformer_current_thermal,
+            (tid, "to", 1), _soc_norm!(model, Il1r, Il1i, i_max_to_v[1]))
+        length(i_max_to_v) >= 2 && register(:transformer_current_thermal,
+            (tid, "to", 2),
+            @constraint(model, Inr^2 + Ini^2 <= i_max_to_v[2]^2))
+        length(i_max_to_v) >= 3 && register(:transformer_current_thermal,
+            (tid, "to", 3), _soc_norm!(model, Il2r, Il2i, i_max_to_v[3]))
         # Nameplate cap on the HV coil (V_frph − V_frn) · conj(I_s).
         if s_per > 0.0
             _apparent_power_limit!(model,
                 @expression(model, vr[(b_fr,t_fr_ph)] - vr[(b_fr,t_fr_n)]),
                 @expression(model, vi[(b_fr,t_fr_ph)] - vi[(b_fr,t_fr_n)]),
                 Isr, Isi, s_per; base_name = "$(tid)_hv",
-                ledger = scoil, key = (tid, "fr", 1))
+                ledger = scoil, key = (tid, "fr", 1),
+                register_constraint=(family, cref) -> register(
+                    Symbol("transformer_", family), (tid, "from", 1), cref))
         end
         return
     end
@@ -567,10 +632,14 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     vi_l2 = @expression(model, vi[(b_to, t_lv_n)] - vi[(b_to, t_lv_2)])
     z1r_Is = @expression(model, R1 * Isr - X1 * Isi)   # Re(Z1·Is)
     z1i_Is = @expression(model, R1 * Isi + X1 * Isr)   # Im(Z1·Is)
-    @constraint(model, vr_hv - N * vr_l1 == z1r_Is - N * (R2 * Il1r - X2 * Il1i))
-    @constraint(model, vi_hv - N * vi_l1 == z1i_Is - N * (R2 * Il1i + X2 * Il1r))
-    @constraint(model, vr_hv - N * vr_l2 == z1r_Is + N * (R2 * Il2r - X2 * Il2i))
-    @constraint(model, vi_hv - N * vi_l2 == z1i_Is + N * (R2 * Il2i + X2 * Il2r))
+    register(:transformer_voltage_real, (tid, "to", 1),
+        @constraint(model, vr_hv - N * vr_l1 == z1r_Is - N * (R2 * Il1r - X2 * Il1i)))
+    register(:transformer_voltage_imag, (tid, "to", 1),
+        @constraint(model, vi_hv - N * vi_l1 == z1i_Is - N * (R2 * Il1i + X2 * Il1r)))
+    register(:transformer_voltage_real, (tid, "to", 2),
+        @constraint(model, vr_hv - N * vr_l2 == z1r_Is + N * (R2 * Il2r - X2 * Il2i)))
+    register(:transformer_voltage_imag, (tid, "to", 2),
+        @constraint(model, vi_hv - N * vi_l2 == z1i_Is + N * (R2 * Il2i + X2 * Il2r)))
 
     # ── Current coupling (power conservation) ────────────────────────────────
     # Power balance at ideal core: V_hv·conj(I_s) + (V_leg1·conj(−Il1) + V_leg2·conj(−Il2)) = 0
@@ -585,13 +654,17 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # V_hv·I_s* + V_leg1·Il1* + V_leg2·Il2* = 0  (three ports, all into element)
     # With V_hv/N = V_leg1 (ideal, no losses) and winding-3 wound in REVERSE
     # (its leg-2 voltage equation uses V_to[tn] − V_to[t2]), power conservation
-    # requires the leg-2 current to enter the coupling with a MINUS sign:
-    #   N·I_s + Il1 − Il2 = 0
+    # requires the leg-2 current to enter the coupling with a MINUS sign. In
+    # normalized coordinates the primary current is first converted to the
+    # secondary power coordinate:
+    #   N·(S_from/S_to)·I_s + Il1 − Il2 = 0
     # Using +Il2 instead violates the ideal-core power balance by 2·Re[(V_hv/N)·conj(Il2)]
     # — a spurious source/sink proportional to the leg-2 current (latent on stiff
     # short test feeders, first-order on long high-impedance SWER lines).
-    @constraint(model, N * Isr + Il1r - Il2r == 0)
-    @constraint(model, N * Isi + Il1i - Il2i == 0)
+    register(:transformer_current_coupling_real, (tid, 1),
+        @constraint(model, N * current_from_factor * Isr + Il1r - Il2r == 0))
+    register(:transformer_current_coupling_imag, (tid, 1),
+        @constraint(model, N * current_from_factor * Isi + Il1i - Il2i == 0))
 
     # ── Center-tap KCL: I_n balances the two leg currents at the center-tap ──
     # At lv.n: current entering = I_n (from wdg neutral tap) − Il1 (leaving to leg-1 bus)
@@ -613,8 +686,10 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # The neutral carries the leg UNBALANCE (Il1 + Il2), which is small for a
     # balanced split-phase load — so this KCL keeps the "+Il2" sum (unlike the
     # current-coupling above, which needs −Il2 for the reversed winding's MMF).
-    @constraint(model, Inr + Il1r + Il2r == 0)
-    @constraint(model, Ini + Il1i + Il2i == 0)
+    register(:transformer_neutral_balance_real, (tid, 1),
+        @constraint(model, Inr + Il1r + Il2r == 0))
+    register(:transformer_neutral_balance_imag, (tid, 1),
+        @constraint(model, Ini + Il1i + Il2i == 0))
 
     # ── Pin the HV neutral winding-current variable (fr,2) ────────────────────
     # The HV coil is phase-to-neutral, so the series current returns entirely
@@ -623,20 +698,26 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # writer and loss accounting (which read the fr,2 variable) see the physical
     # neutral current.
     I2r = cr_xf[(tid,"fr",2)]; I2i = ci_xf[(tid,"fr",2)]
-    @constraint(model, I2r == -Isr)
-    @constraint(model, I2i == -Isi)
+    register(:transformer_current_return_real, (tid, 1),
+        @constraint(model, I2r == -Isr))
+    register(:transformer_current_return_imag, (tid, 1),
+        @constraint(model, I2i == -Isi))
 
     # ── HV side KCL (pure series current; the exciting branch is on winding 2) ──
     kadd(b_fr, t_fr_ph, -Isr, -Isi)
     if length(i_max_fr) >= 1
-        _soc_norm!(model, Isr, Isi, i_max_fr[1])
+        register(:transformer_current_thermal, (tid, "from", 1),
+            _soc_norm!(model, Isr, Isi, i_max_fr[1]))
         _limit_current_box!(Isr, Isi, i_max_fr[1])  # bare HV series-current variable
     end
     # Nameplate cap on the HV coil (vr_hv = V_frph − V_frn, computed above).
     if s_per > 0.0
         _apparent_power_limit!(model, vr_hv, vi_hv, Isr, Isi, s_per;
                                base_name = "$(tid)_hv",
-                               ledger = scoil, key = (tid, "fr", 1))
+                               ledger = scoil, key = (tid, "fr", 1),
+                               register_constraint=(family, cref) -> register(
+                                   Symbol("transformer_", family),
+                                   (tid, "from", 1), cref))
     end
     kadd(b_fr, t_fr_n, Isr, Isi)   # HV neutral: series return
 
@@ -662,15 +743,18 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # ── Current magnitude limits (Il1/In/Il2 are bare LV winding-current
     #    variables, so the limit also tightens each component's box bound) ───────
     if length(i_max_to_v) >= 1
-        _soc_norm!(model, Il1r, Il1i, i_max_to_v[1])
+        register(:transformer_current_thermal, (tid, "to", 1),
+            _soc_norm!(model, Il1r, Il1i, i_max_to_v[1]))
         _limit_current_box!(Il1r, Il1i, i_max_to_v[1])
     end
     if length(i_max_to_v) >= 2
-        _soc_norm!(model, Inr, Ini, i_max_to_v[2])
+        register(:transformer_current_thermal, (tid, "to", 2),
+            _soc_norm!(model, Inr, Ini, i_max_to_v[2]))
         _limit_current_box!(Inr, Ini, i_max_to_v[2])
     end
     if length(i_max_to_v) >= 3
-        _soc_norm!(model, Il2r, Il2i, i_max_to_v[3])
+        register(:transformer_current_thermal, (tid, "to", 3),
+            _soc_norm!(model, Il2r, Il2i, i_max_to_v[3]))
         _limit_current_box!(Il2r, Il2i, i_max_to_v[3])
     end
 end
@@ -697,9 +781,11 @@ Voltage constraints (k = 1..n_ph, k_next = (k % n_ph) + 1):
   vr_del[k] − vr_del[k_next] = n_eff · (vr_wye_ph[k] − vr_wye_neutral)
 ```
 
-Current constraints (T^T of voltage transform, power-conservative):
+Current constraints (T^T of voltage transform, power-conservative; the
+`S_delta/S_wye` factor is one in SI and global-base per-unit coordinates):
 ```
-  n_eff · cr_xf[del,k] = cr_xf[wye, ph_k] − cr_xf[wye, ph_{k_prev}]
+  n_eff · (S_delta/S_wye) · cr_xf[del,k]
+      = cr_xf[wye, ph_k] − cr_xf[wye, ph_{k_prev}]
 ```
 
 Neutral KCL at the transformer star point:
@@ -724,13 +810,13 @@ the model collapses to the previous ideal transform.  A legacy single
 """
 function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                                wye_is_from::Bool, tap=nothing, branch_inj=nothing,
-                               scoil=nothing, nlabels)
+                               scoil=nothing, nlabels, constraint_context=nothing)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     N = _xfmr_turns_ratio(xfmr)   # v_nom_from / v_nom_to
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
-    s_rating   = Float64(get(xfmr, "s_rating", 0.0))
-
     if wye_is_from
         b_wye    = get(xfmr, "bus_from", "")
         b_del    = get(xfmr, "bus_to",   "")
@@ -744,6 +830,23 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         tm_wye   = Vector{String}(get(xfmr, "terminal_map_to",   String[]))
         side_del = "fr"; side_wye = "to"
     end
+    # `s_rating` is enforced on the wye coils. In zone-local coordinates the
+    # same physical nameplate therefore uses the wye-side power base (the
+    # legacy `s_rating` field is stored in from-side coordinates).
+    s_rating = if wye_is_from
+        Float64(get(xfmr, "_s_rating_from_pu", get(xfmr, "s_rating", 0.0)))
+    else
+        Float64(get(xfmr, "_s_rating_to_pu", get(xfmr, "s_rating", 0.0)))
+    end
+    # Terminal-current coordinates differ when the two isolated zones use
+    # different power bases. The delta current term is converted into wye
+    # current coordinates by S_delta/S_wye. Conversely, a delta-side impedance
+    # acting on a wye-coordinate current needs S_wye/S_delta. Keeping both
+    # reciprocal factors explicit makes the V*I=S power identity inspectable.
+    delta_current_factor = Float64(get(
+        xfmr, "_delta_to_wye_power_factor", 1.0))
+    delta_impedance_factor = Float64(get(
+        xfmr, "_wye_to_delta_power_factor", inv(delta_current_factor)))
 
     # Effective from→to ratio n_eff. Fixed: from N0·tap multiplier (default 1.0, so
     # legacy data is unchanged). Free: the tap variable IS n_eff (= N·√3 for Dy,
@@ -761,7 +864,8 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
                              lower_bound = 1.0 / hi, upper_bound = 1.0 / lo)
         s0 = JuMP.start_value(tap)
         s0 === nothing || JuMP.set_start_value(inv_neff, 1.0 / s0)
-        @constraint(model, n_eff * inv_neff == 1)
+        register(:transformer_tap_reciprocal, (tid, 1),
+            @constraint(model, n_eff * inv_neff == 1))
     end
 
     n_ph  = length(tm_del)             # number of delta (phase) conductors
@@ -860,10 +964,10 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     n_eff0 = wye_is_from ? sqrt(3) / N0 : N0 * sqrt(3)
     if wye_is_from      # Yd: the wye (from) winding is tapped
         Rw_coef = n_eff0^2 * inv_neff
-        Rd_coef = n_ph * inv_neff
+        Rd_coef = delta_impedance_factor * n_ph * inv_neff
     else                # Dy: the delta (from) winding is tapped
         Rw_coef = n_eff
-        Rd_coef = (n_ph / n_eff0^2) * n_eff
+        Rd_coef = delta_impedance_factor * (n_ph / n_eff0^2) * n_eff
     end
     for k in 1:n_ph
         t_del_k   = tm_del[k]
@@ -892,19 +996,19 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             # tap² referral (Rw_coef/Rd_coef derived above).
             Reff = Rw_coef * Rw + Rd_coef * Rd
             Xeff = Rw_coef * Xw + Rd_coef * Xd
-            @constraint(model,
+            register(:transformer_voltage_real, (tid, side_wye, k), @constraint(model,
                 vr[(b_del, t_del_k)] - vr[(b_del, t_del_other)] ==
                 n_eff * vr_wye_pn
-                - (Reff * Iwr - Xeff * Iwi))
-            @constraint(model,
+                - (Reff * Iwr - Xeff * Iwi)))
+            register(:transformer_voltage_imag, (tid, side_wye, k), @constraint(model,
                 vi[(b_del, t_del_k)] - vi[(b_del, t_del_other)] ==
                 n_eff * vi_wye_pn
-                - (Reff * Iwi + Xeff * Iwr))
+                - (Reff * Iwi + Xeff * Iwr)))
         else
-            @constraint(model,
-                vr[(b_del, t_del_k)] - vr[(b_del, t_del_other)] == n_eff * vr_wye_pn)
-            @constraint(model,
-                vi[(b_del, t_del_k)] - vi[(b_del, t_del_other)] == n_eff * vi_wye_pn)
+            register(:transformer_voltage_real, (tid, side_wye, k), @constraint(model,
+                vr[(b_del, t_del_k)] - vr[(b_del, t_del_other)] == n_eff * vr_wye_pn))
+            register(:transformer_voltage_imag, (tid, side_wye, k), @constraint(model,
+                vi[(b_del, t_del_k)] - vi[(b_del, t_del_other)] == n_eff * vi_wye_pn))
         end
 
         # Nameplate cap on the wye (phase-to-neutral) coil: S = V_wye,pn · conj(I_wye).
@@ -913,13 +1017,17 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             _apparent_power_limit!(model, vr_wye_pn, vi_wye_pn,
                 cr_xf[(tid, side_wye, ph_pos)], ci_xf[(tid, side_wye, ph_pos)],
                 s_rating / n_ph; base_name = "$(tid)_wye_$(k)",
-                ledger = scoil, key = (tid, side_wye, ph_pos))
+                ledger = scoil, key = (tid, side_wye, ph_pos),
+                register_constraint=(family, cref) -> register(
+                    Symbol("transformer_", family),
+                    (tid, side_wye, ph_pos), cref))
         end
     end
 
-    # Current constraints (transpose of voltage transformation):
-    # For Yd (wye_is_from=true):  n_eff*I_del[k] = I_wye[k] - I_wye[k_prev]
-    # For Dy (wye_is_from=false): n_eff*I_del[k] = I_wye[k] - I_wye[k_next]
+    # Current constraints (transpose of voltage transformation). `f_dy` converts
+    # delta terminal-current coordinates into wye current coordinates:
+    # For Yd: n_eff*f_dy*I_del[k] = I_wye[k] - I_wye[k_prev]
+    # For Dy: n_eff*f_dy*I_del[k] = I_wye[k] - I_wye[k_next]
     for k in 1:n_ph
         ph_pos = ph_idx[k]
         if wye_is_from
@@ -928,23 +1036,23 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             k_other = (k % n_ph) + 1                # k_next for Dy
         end
         ph_other = ph_idx[k_other]
-        @constraint(model,
-            n_eff * cr_xf[(tid, side_del, k)] ==
-            -(cr_xf[(tid, side_wye, ph_pos)] - cr_xf[(tid, side_wye, ph_other)]))
-        @constraint(model,
-            n_eff * ci_xf[(tid, side_del, k)] ==
-            -(ci_xf[(tid, side_wye, ph_pos)] - ci_xf[(tid, side_wye, ph_other)]))
+        register(:transformer_current_coupling_real, (tid, side_del, k), @constraint(model,
+            n_eff * delta_current_factor * cr_xf[(tid, side_del, k)] ==
+            -(cr_xf[(tid, side_wye, ph_pos)] - cr_xf[(tid, side_wye, ph_other)])))
+        register(:transformer_current_coupling_imag, (tid, side_del, k), @constraint(model,
+            n_eff * delta_current_factor * ci_xf[(tid, side_del, k)] ==
+            -(ci_xf[(tid, side_wye, ph_pos)] - ci_xf[(tid, side_wye, ph_other)])))
     end
 
     # Neutral KCL at the transformer star point:
     #   I_neutral + Σ I_phase = 0
     if n_pos !== nothing
-        @constraint(model,
+        register(:transformer_neutral_balance_real, (tid, side_wye, n_pos), @constraint(model,
             cr_xf[(tid, side_wye, n_pos)] +
-            sum(cr_xf[(tid, side_wye, ph)] for ph in ph_idx) == 0)
-        @constraint(model,
+            sum(cr_xf[(tid, side_wye, ph)] for ph in ph_idx) == 0))
+        register(:transformer_neutral_balance_imag, (tid, side_wye, n_pos), @constraint(model,
             ci_xf[(tid, side_wye, n_pos)] +
-            sum(ci_xf[(tid, side_wye, ph)] for ph in ph_idx) == 0)
+            sum(ci_xf[(tid, side_wye, ph)] for ph in ph_idx) == 0))
     end
 
     # ── No-load (magnetising) shunt across the WINDING-2 (to-side) coils ───────
@@ -1008,19 +1116,26 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
 
     # ── Current magnitude limits (bare winding-current variables, so the
     #    magnitude limit also tightens each component's box bound) ───────────────
-    _limit_xf_current!(s, t, ilim) = (_soc_norm!(model, s, t, ilim);
-                                      _limit_current_box!(s, t, ilim))
+    _limit_xf_current!(s, t, ilim, index) = begin
+        register(:transformer_current_thermal, index,
+            _soc_norm!(model, s, t, ilim))
+        _limit_current_box!(s, t, ilim)
+    end
     for k in 1:n_wye
         length(i_max_fr)   >= k && side_wye == "fr" &&
-            _limit_xf_current!(cr_xf[(tid,"fr",k)], ci_xf[(tid,"fr",k)], i_max_fr[k])
+            _limit_xf_current!(cr_xf[(tid,"fr",k)], ci_xf[(tid,"fr",k)], i_max_fr[k],
+                (tid, "from", k))
         length(i_max_to_v) >= k && side_wye == "to" &&
-            _limit_xf_current!(cr_xf[(tid,"to",k)], ci_xf[(tid,"to",k)], i_max_to_v[k])
+            _limit_xf_current!(cr_xf[(tid,"to",k)], ci_xf[(tid,"to",k)], i_max_to_v[k],
+                (tid, "to", k))
     end
     for k in 1:n_ph
         length(i_max_fr)   >= k && side_del == "fr" &&
-            _limit_xf_current!(cr_xf[(tid,"fr",k)], ci_xf[(tid,"fr",k)], i_max_fr[k])
+            _limit_xf_current!(cr_xf[(tid,"fr",k)], ci_xf[(tid,"fr",k)], i_max_fr[k],
+                (tid, "from", k))
         length(i_max_to_v) >= k && side_del == "to" &&
-            _limit_xf_current!(cr_xf[(tid,"to",k)], ci_xf[(tid,"to",k)], i_max_to_v[k])
+            _limit_xf_current!(cr_xf[(tid,"to",k)], ci_xf[(tid,"to",k)], i_max_to_v[k],
+                (tid, "to", k))
     end
 end
 
@@ -1071,7 +1186,10 @@ Current : n_eff·Isr + Itr = 0  (+ imag)
 """
 function _add_regulating_winding!(model, refs, n_eff,
                                   r_fr::Float64, x_fr::Float64,
-                                  r_to::Float64, x_to::Float64)
+                                  r_to::Float64, x_to::Float64;
+                                  register_constraint=nothing)
+    register(family, cref) = register_constraint === nothing ? cref :
+        register_constraint(family, cref)
     dvr_fr = @expression(model, refs.vr_fr_p - refs.vr_fr_q)
     dvi_fr = @expression(model, refs.vi_fr_p - refs.vi_fr_q)
     dvr_to = @expression(model, refs.vr_to_p - refs.vr_to_q)
@@ -1082,20 +1200,24 @@ function _add_regulating_winding!(model, refs, n_eff,
         # Series drop with the to-side-referred impedance written via I_to (using the
         # coupling n_eff·Isr = −Itr below): degree-2 when n_eff is a tap VARIABLE and
         # exactly equivalent to R = r_fr + n_eff²·r_to when n_eff is fixed.
-        @constraint(model, dvr_fr - n_eff * dvr_to ==
+        register(:transformer_voltage_real, @constraint(model, dvr_fr - n_eff * dvr_to ==
             r_fr * refs.Isr - n_eff * r_to * refs.Itr
-            - x_fr * refs.Isi + n_eff * x_to * refs.Iti)
-        @constraint(model, dvi_fr - n_eff * dvi_to ==
+            - x_fr * refs.Isi + n_eff * x_to * refs.Iti))
+        register(:transformer_voltage_imag, @constraint(model, dvi_fr - n_eff * dvi_to ==
             r_fr * refs.Isi - n_eff * r_to * refs.Iti
-            + x_fr * refs.Isr - n_eff * x_to * refs.Itr)
+            + x_fr * refs.Isr - n_eff * x_to * refs.Itr))
     else
-        @constraint(model, dvr_fr == n_eff * dvr_to)
-        @constraint(model, dvi_fr == n_eff * dvi_to)
+        register(:transformer_voltage_real,
+            @constraint(model, dvr_fr == n_eff * dvr_to))
+        register(:transformer_voltage_imag,
+            @constraint(model, dvi_fr == n_eff * dvi_to))
     end
 
     # Ideal-core current coupling (power-conservative): n_eff·I_series_fr + I_to = 0
-    @constraint(model, n_eff * refs.Isr + refs.Itr == 0)
-    @constraint(model, n_eff * refs.Isi + refs.Iti == 0)
+    register(:transformer_current_coupling_real,
+        @constraint(model, n_eff * refs.Isr + refs.Itr == 0))
+    register(:transformer_current_coupling_imag,
+        @constraint(model, n_eff * refs.Isi + refs.Iti == 0))
     return nothing
 end
 
@@ -1113,7 +1235,10 @@ it as two terminals (`t_fr_q`, `t_to_q`), each coil returns at its own reference
 bond the secondary return would leak to earth / dangle.
 """
 function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                               tap=nothing, branch_inj=nothing, scoil=nothing, nlabels)
+                               tap=nothing, branch_inj=nothing, scoil=nothing,
+                               nlabels, constraint_context=nothing)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
@@ -1171,7 +1296,9 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
             vr_to_p = vr[(b_to, t_to_ph)], vr_to_q = vr_to_q,
             vi_to_p = vi[(b_to, t_to_ph)], vi_to_q = vi_to_q,
             Isr = Isr, Isi = Isi, Itr = Itr, Iti = Iti)
-    _add_regulating_winding!(model, refs, n_eff, r_fr, x_fr, r_to, x_to)
+    _add_regulating_winding!(model, refs, n_eff, r_fr, x_fr, r_to, x_to;
+        register_constraint=(family, cref) -> register(
+            family, (tid, "from", 1), cref))
 
     # Nameplate cap on the from-side through-power (V_fr,p − V_fr,q)·conj(I_series).
     # Regulators prefer current, but the nameplate is still enforced when present.
@@ -1180,7 +1307,9 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
             @expression(model, refs.vr_fr_p - refs.vr_fr_q),
             @expression(model, refs.vi_fr_p - refs.vi_fr_q),
             Isr, Isi, s_rating; base_name = "$(tid)_reg",
-            ledger = scoil, key = (tid, "fr", 1))
+            ledger = scoil, key = (tid, "fr", 1),
+            register_constraint=(family, cref) -> register(
+                Symbol("transformer_", family), (tid, "from", 1), cref))
     end
 
     # From-side phase terminal current = series + magnetising shunt (V_p − V_q).
@@ -1192,11 +1321,13 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
         icr = @expression(model, Isr + G * vr_pn - B * vi_pn)
         ici = @expression(model, Isi + G * vi_pn + B * vr_pn)
         kadd(b_fr, t_fr_ph, -icr, -ici)
-        length(i_max_fr) >= 1 && _soc_norm!(model, icr, ici, i_max_fr[1])
+        length(i_max_fr) >= 1 && register(:transformer_current_thermal,
+            (tid, "from", 1), _soc_norm!(model, icr, ici, i_max_fr[1]))
     else
         kadd(b_fr, t_fr_ph, -Isr, -Isi)
         if length(i_max_fr) >= 1
-            _soc_norm!(model, Isr, Isi, i_max_fr[1])
+            register(:transformer_current_thermal, (tid, "from", 1),
+                _soc_norm!(model, Isr, Isi, i_max_fr[1]))
             _limit_current_box!(Isr, Isi, i_max_fr[1])
         end
     end
@@ -1204,7 +1335,8 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
     # To-side phase terminal: transformer injects I_to.
     kadd(b_to, t_to_ph, -Itr, -Iti)
     if length(i_max_to_v) >= 1
-        _soc_norm!(model, Itr, Iti, i_max_to_v[1])
+        register(:transformer_current_thermal, (tid, "to", 1),
+            _soc_norm!(model, Itr, Iti, i_max_to_v[1]))
         _limit_current_box!(Itr, Iti, i_max_to_v[1])
     end
 
@@ -1229,8 +1361,10 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
         # Bond current (extra "fr" index): flows from the from-reference to the
         # to-reference through the shared bushing.
         Ibnr = cr_xf[(tid,"fr",2)]; Ibni = ci_xf[(tid,"fr",2)]
-        @constraint(model, vr[(b_fr, t_fr_q)] == vr[(b_to, t_to_q)])
-        @constraint(model, vi[(b_fr, t_fr_q)] == vi[(b_to, t_to_q)])
+        register(:transformer_galvanic_bond_real, (tid, 1),
+            @constraint(model, vr[(b_fr, t_fr_q)] == vr[(b_to, t_to_q)]))
+        register(:transformer_galvanic_bond_imag, (tid, 1),
+            @constraint(model, vi[(b_fr, t_fr_q)] == vi[(b_to, t_to_q)]))
         kadd(b_fr, t_fr_q, @expression(model, icr_fr - Ibnr),
                            @expression(model, ici_fr - Ibni))
         kadd(b_to, t_to_q, @expression(model, Itr + Ibnr),
@@ -1282,7 +1416,10 @@ arity (4,4): `["1","2","3","n"]` on both sides; the neutral carries no winding
 current. `tap_ratio` is `[a1, a2]` (per regulator); `regulator_type` shared.
 """
 function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
-                                    tap=nothing, branch_inj=nothing, scoil=nothing, nlabels)
+                                    tap=nothing, branch_inj=nothing, scoil=nothing,
+                                    nlabels, constraint_context=nothing)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
     kadd = _xf_kadd(kcl_r, kcl_i, branch_inj, tid)
     b_fr = get(xfmr, "bus_from", "")
     b_to = get(xfmr, "bus_to",   "")
@@ -1348,7 +1485,9 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
                 vr_to_p = vr[(b_to, t_to_p)], vr_to_q = vr[(b_to, t_to_q)],
                 vi_to_p = vi[(b_to, t_to_p)], vi_to_q = vi[(b_to, t_to_q)],
                 Isr = Isr, Isi = Isi, Itr = Itr, Iti = Iti)
-        _add_regulating_winding!(model, refs, ne, r_fr, x_fr, r_to, x_to)
+        _add_regulating_winding!(model, refs, ne, r_fr, x_fr, r_to, x_to;
+            register_constraint=(family, cref) -> register(
+                family, (tid, "from", j), cref))
 
         # KCL: the from-side series current enters at phase p and returns at q;
         # the to-side current is injected at p and returned at q (line-to-line).
@@ -1368,11 +1507,13 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
         kadd(b_to, t_to_q,  Itr,  Iti)
 
         if length(i_max_fr) >= j
-            _soc_norm!(model, Isr, Isi, i_max_fr[j])
+            register(:transformer_current_thermal, (tid, "from", j),
+                _soc_norm!(model, Isr, Isi, i_max_fr[j]))
             _limit_current_box!(Isr, Isi, i_max_fr[j])
         end
         if length(i_max_to_v) >= j
-            _soc_norm!(model, Itr, Iti, i_max_to_v[j])
+            register(:transformer_current_thermal, (tid, "to", j),
+                _soc_norm!(model, Itr, Iti, i_max_to_v[j]))
             _limit_current_box!(Itr, Iti, i_max_to_v[j])
         end
         # Nameplate cap on the from-side line-to-line through-power for this regulator.
@@ -1381,7 +1522,9 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
                 @expression(model, refs.vr_fr_p - refs.vr_fr_q),
                 @expression(model, refs.vi_fr_p - refs.vi_fr_q),
                 Isr, Isi, s_rating; base_name = "$(tid)_odreg_$(j)",
-                ledger = scoil, key = (tid, "fr", j))
+                ledger = scoil, key = (tid, "fr", j),
+                register_constraint=(family, cref) -> register(
+                    Symbol("transformer_", family), (tid, "from", j), cref))
         end
     end
 
@@ -1403,8 +1546,10 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
         t_fr_s = tmfr[ph_fr[sp]]
         t_to_s = tmto[ph_to[sp]]
         # Straight-through: equal voltage on both sides of the shared phase.
-        @constraint(model, vr[(b_fr, t_fr_s)] == vr[(b_to, t_to_s)])
-        @constraint(model, vi[(b_fr, t_fr_s)] == vi[(b_to, t_to_s)])
+        register(:transformer_galvanic_bond_real, (tid, :shared),
+            @constraint(model, vr[(b_fr, t_fr_s)] == vr[(b_to, t_to_s)]))
+        register(:transformer_galvanic_bond_imag, (tid, :shared),
+            @constraint(model, vi[(b_fr, t_fr_s)] == vi[(b_to, t_to_s)]))
         # Wire current: leaves src.shared, enters reg.shared (through-branch).
         Iwr = cr_xf[(tid,"fr",3)]; Iwi = ci_xf[(tid,"fr",3)]
         kadd(b_fr, t_fr_s, -Iwr, -Iwi)

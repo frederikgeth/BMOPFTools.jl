@@ -195,12 +195,11 @@ analogous current variable per phase — see [IBRs](#ibrs) below.
 
 ### Units and scaling
 
-By default the OPF is built and solved directly in **SI** units (volts,
-amperes, ohms) — the same units as the [data model](conventions.md#Units), so no
-conversion is needed. Passing `per_unit=true` to `solve_opf` instead solves a
-**normalized per-unit copy** of the network — a system base `s_base` (VA, default
-`1e6`) with per-bus voltage bases propagated through transformer ratios — and
-converts the results back to SI, so the choice is invisible to the caller.
+The data model is always in **SI** units, but by default the OPF is built and
+solved in a **normalized per-unit copy** (`per_unit=true`). It uses a system
+base `s_base` (VA, default `1e6`) with per-bus voltage bases propagated through
+transformer ratios, then converts results back to SI. Pass `per_unit=false` to
+build the numerical model directly in volts, amperes, ohms, and watts.
 
 Both modes exist because **variable scaling affects the conditioning of a
 nonlinear interior-point solve**. Ipopt's initialization, barrier updates and
@@ -222,6 +221,49 @@ not commit the solver to computing in SI.
 The [units, bases & economics tutorial](tutorial_units.md) works both modes on
 one feeder — deriving the bases by hand and demonstrating the SI ≡ per-unit
 equality live.
+
+For reproducible scaling experiments, prefer a typed policy over the legacy
+keywords:
+
+```julia
+classic = OpfScaling(:classic; power_base = 1e6)
+si = OpfScaling(:si)
+custom = OpfScaling(
+    name = :voltage_half_power_200kva,
+    power_base = 2e5,
+    voltage_bases = Dict(bus => 0.5 * base for (bus, base) in reference_bases),
+)
+
+ctx = build_opf_model(net; scaling_policy = custom)
+schema = opf_diagnostic_schema(ctx)
+schema.scaling["kind"]  # => "consistent_per_unit"
+```
+
+For an experimental power base that changes across an isolated transformer,
+use `OpfScaling(voltage_bases=..., power_bases=...)`. Every bus must be
+declared and the power base must be constant within each galvanically continuous
+zone. Cross-zone `single_phase`, `center_tap`, `wye_delta`, `delta_wye`, and
+`n_winding` units are qualified. Native lossless AC/DC converters using `P`,
+`V`, or `droop` control are also qualified with an independent DC power base.
+The engine still rejects the remaining transformer families until their
+connection-specific stamping has passed physical-state, derivative, set,
+objective, and loss covariance; custom or lossy converter builders require
+their own covariance contracts.
+Galvanically continuous `single_phase_autotransformer` and
+`open_delta_regulator` devices are also qualified, but only with one voltage
+base and one power base across both sides. Their tap is dimensionless and does
+not turn a shared copper bushing or straight-through phase into a scaling
+boundary.
+
+An explicit `scaling_policy` is authoritative over `per_unit` and `s_base`.
+The custom `OpfScaling` form requires every AC bus to be declared and validates
+that lines/switches preserve the voltage base and transformer bases preserve
+the turns ratio. It derives `I_base=S_base/V_base`,
+`Z_base=V_base^2/S_base`, and `Y_base=S_base/V_base^2`. Independently choosing
+all four bases is not currently supported because the IVR equations assume
+these identities; the constructor rejects incompatible declarations instead
+of silently changing the physical model. The effective policy is serialized
+by `opf_research_provenance`.
 
 ---
 
@@ -958,10 +1000,17 @@ c^{r,x}_{x,n} + c^{r,x}_{x,\ell_1} + c^{r,x}_{x,\ell_2} = 0
 \quad\text{(and imaginary)}
 ```
 
-The no-load shunt $G_0 + jB_0$ is folded into $Y_\text{CT}$ at the HV phase
-terminal $t^\text{ph}$ (phase-to-ground). For an ideal core (zero series
-impedance) $Y_\text{CT}$ is singular, so both legs are instead pinned directly to
-$V_\text{hv}/N$ and the relations above route the currents.
+Under zone-local `OpfScaling(...; power_bases=...)`, the ampere-turn equation in model coordinates is
+`N (S_primary/S_secondary) c_s + c_l1 - c_l2 = 0`. For the fixed primitive,
+BMOPFTools assembles a reciprocal intermediate primitive on the primary power
+base, then transforms the three secondary current rows to the secondary base.
+The normalized matrix is therefore generally nonsymmetric; transforming it
+back to dimensional coordinates recovers the reciprocal physical primitive.
+
+The no-load shunt $G_0 + jB_0$ is folded into $Y_\text{CT}$ across winding 2,
+the LV leg-1 span $(t_1,t_n)$, following the OpenDSS convention. For an ideal
+core (zero series impedance) $Y_\text{CT}$ is singular, so both legs are instead
+pinned directly to $V_\text{hv}/N$ and the relations above route the currents.
 
 !!! note "Leakage from OpenDSS XHL/XLT/XHT"
     For a 3-winding OpenDSS unit, the per-pair leakage values must be
@@ -1012,6 +1061,13 @@ Current (transpose of voltage transform, power-conservative):
 n_\text{eff} \, c^{r,x}_{x,\text{del},k}
 = c^{r,x}_{x,\text{wye},k} - c^{r,x}_{x,\text{wye},k^-}
 ```
+
+With zone-local `OpfScaling(...; power_bases=...)`, this displayed physical/global-base equation becomes
+`n_eff (S_delta/S_wye) c_del = c_wye,k - c_wye,k⁻` in model coordinates.
+Delta-arm leakage referral carries the reciprocal `S_wye/S_delta`. This
+reciprocal pair preserves both the connection incidence and
+`V_base*I_base=S_base`; omitting either changes the physical transformer rather
+than merely scaling it.
 
 Star-point KCL at the wye neutral:
 
@@ -1109,12 +1165,15 @@ ratio $V^r_1 = V^r_{i+1}$) with no division by an impedance.
 
 The leakage is the OpenDSS-style $ZB$ matrix referred to winding 1 (an
 $(n{-}1)\times(n{-}1)$ impedance, exact for any $n$; see
-[Conversion § n-winding](@ref n-winding)). With referred currents
-$I^r_{j} = N_j\,c^{w}_{x,j,k}$ ($N_j = V^\text{ref}_j / V^\text{ref}_1$) and
-referred coil voltages $V^r_j = U_{j,k}/N_j$, per phase/leg $k$:
+[Conversion § n-winding](@ref n-winding)). With winding-local power bases, let
+$f_j=S_j/S_1$. The referred currents in winding-1 current coordinates are
+$I^r_{j} = N_j f_j\,c^{w}_{x,j,k}$
+($N_j = V^\text{ref}_j / V^\text{ref}_1$); every $f_j=1$ in SI and ordinary
+system-base per-unit. With referred coil voltages $V^r_j = U_{j,k}/N_j$, per
+phase/leg $k$:
 
 ```math
-\sum_{j=1}^{n} N_j\,c^{r,w}_{x,j,k} = 0 \quad\text{(ideal core / ampere-turn; and imaginary)}
+\sum_{j=1}^{n} N_j f_j\,c^{r,w}_{x,j,k} = 0 \quad\text{(ideal core / ampere-turn; and imaginary)}
 ```
 
 ```math
@@ -1133,7 +1192,8 @@ A `WYE` coil injects $-c^{w}_{x,j,k}$ at its phase and $+\sum_k c^{w}_{x,j,k}$ a
 its neutral; a `DELTA` coil injects $-c^{w}_{x,j,k}$ at phase $k$ and
 $+c^{w}_{x,j,k}$ at its delta partner. Referencing winding 1 folds out the core
 node, so **no internal star-node variable is introduced**; the optional no-load
-shunt sits across winding 1. The constraints are all linear. This path is
+shunt sits across winding 2, matching the engine's OpenDSS convention. The
+constraints are all linear. This path is
 independent of the two-bus transformer code and is validated against OpenDSS's
 own 3- and 4-winding solves, including delta (`Dyn`/`Dyyn`) configurations.
 
@@ -1209,14 +1269,59 @@ source by default (see [Augmentation](augmentation.md)).
 
 ## Warm-start initialisation
 
-Both solvers seed Ipopt with phase-correct voltage start values (rectangular
-`v_nom·∠angle`) so the NLP converges to the physical solution without a load-flow
-pre-solve. Phase terminals use the canonical three-phase angles (0°, −120°, +120°)
-taken from the voltage source. **Split-phase zones are special-cased**: a zone fed
-by a `center_tap` transformer (see [`I.PROV.SPLIT_PHASE_ZONE`](findings.md)) has its
-two legs initialised **anti-phase** — θ and θ+180° about the centre-tap neutral,
-where θ is the feeding MV phase angle — rather than 120° apart. Without this, every
-centre-tap secondary starts with a 60° leg error.
+Both solvers seed the NLP with a voltage-level- and topology-aware phasor start
+without requiring a load-flow pre-solve. The engine assembles one sparse complex
+least-squares system from source phasors, grounds, galvanic conductor maps, and
+the same ideal zero-current winding equations used by the OPF. It solves that
+system in coordinates normalized by each bus's nominal voltage. Consequently a
+change among SI, classic per-unit, and a consistent custom policy changes the
+numeric `vr`/`vi` coordinates but preserves the complete physical phasor start.
+
+This is deliberately network-wide rather than a bus-by-bus angle rule. A
+single-phase lateral inherits the phasor of the *actual mapped parent phase*,
+even if the secondary labels it `1`. A centre-tap transformer produces equal
+magnitude, anti-series legs (θ and θ+180°). Yd/Dy and general WYE/DELTA
+`n_winding` units propagate their connection phase shift, including
+`delta_roll`, through arbitrary transformer chains. Single-phase and open-delta
+regulators contribute their winding and shared-bushing relations. A weak
+canonical three-phase prior only chooses coordinates left free by source and
+topology equations, such as a floating delta common mode; it does not impose a
+balanced-bus claim.
+
+Use `opf_diagnostic_schema(ctx).initialization` to inspect the equation counts and maximum
+normalized transport residual by relation family. That evidence describes the
+generated zero-current phasor transport only. It is not an initial-feasibility,
+loaded-voltage, or convergence certificate. In particular, **zigzag is not yet
+a BMOPF transformer connection**: representing it correctly requires an
+explicit winding/terminal connection matrix, not inference from names. Such a
+component must be added to the schema and OPF equations before its phase shift
+can be claimed by initialization.
+
+Transformer-local power bases are a separate equation-scaling problem. Use
+`opf_diagnostic_schema(ctx; voltage_bases, power_bases).transformer_scaling` to
+audit a proposed scheme. The report requires a common power base inside each
+galvanically continuous zone and a common voltage base across each directly
+shared regulator conductor. It exposes the exact side-current and side-power
+conversion ratios at isolating transformer interfaces and explicitly reports
+an inadmissible shared-conductor voltage conversion. A proposal never mutates
+the model. When the context was built with qualified zone-local scaling,
+the report records `applied_to_model=true`; otherwise it explicitly reports
+when new transformer stamping is required.
+
+AC/DC coordinate crossings have a separate public audit,
+`opf_diagnostic_schema(ctx).acdc_scaling`. If converter `c` is attached to AC bus
+`b`, with local AC power base `S_ac(b)` and DC power base `S_dc`, the native
+lossless balance is stamped as
+
+```math
+U_{dc,pu} I_{dc,pu} = \frac{S_{ac}(b)}{S_{dc}} P_{ac,pu}.
+```
+
+`dc_p_ref` and the output of a droop curve remain in the converter's AC-power
+coordinate, while its voltage argument, setpoint, and deadband use the DC
+voltage coordinate. The audit exposes both bases and the stamped conversion
+factor for every converter; it does not claim that either base choice improves
+solver behavior.
 
 ## Feasibility relaxation
 
@@ -1289,6 +1394,7 @@ is solved. Use the public extension interface:
 | `opf_network(ctx)` | the engine's working copy (snapshot + per-unit applied) |
 | `opf_bases(ctx)` | SI↔working-coordinate bases, or `nothing` in SI mode |
 | `opf_object(ctx, key)` | a native or extension-owned object under a semantic key |
+| `opf_diagnostic_schema(ctx)` | versioned scaling, initialization, interface, and semantic-block evidence |
 | `add_terminal_injection!(ctx, …)` | supported KCL contribution seam |
 
 Example — cap one generator's phase active power below its box bound:
@@ -1301,8 +1407,7 @@ result = solve_opf(net; model_hook! = ctx -> begin
     crg = opf_object(ctx, opf_generator_current_key("g1", 1))
     cig = opf_object(ctx,
         opf_generator_current_key("g1", 1; component=:imag))
-    bases = opf_bases(ctx)
-    scale = bases === nothing ? 1.0 : bases.s_base
+    scale = opf_coordinate_bases(ctx, "bus1").power
     @constraint(opf_model(ctx), vr*crg + vi*cig <= 150e3 / scale)
 end)
 ```

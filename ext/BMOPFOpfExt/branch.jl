@@ -116,12 +116,15 @@ matrix dimension or terminal mapping.
 function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                                 grounded::Set{Tuple{String,String}}=Set{Tuple{String,String}}(),
                                 branch_inj=nothing,
-                                coefficient=nothing)
+                                coefficient=nothing,
+                                constraint_context=nothing)
     linecodes = get(net, "linecode", Dict())
     buses = get(net, "bus", Dict())
     vr = vars[:vr]; vi = vars[:vi]
     cr_fr = vars[:cr_fr]; ci_fr = vars[:ci_fr]
     cr_to = vars[:cr_to]; ci_to = vars[:ci_to]
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
 
     for (lid, line) in get(net, "line", Dict())
         R, X, n_c = _line_z_matrix(line, linecodes)
@@ -164,14 +167,16 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
         # ── KVL ───────────────────────────────────────────────────────────────
         for k in 1:n_map
             t_fr = tmfr[k]; t_to = tmto[k]
-            @constraint(model,
-                vr[(b_fr, t_fr)] - vr[(b_to, t_to)] ==
-                sum(R_model[k,j]*cr_fr[(lid,j)] -
-                    X_model[k,j]*ci_fr[(lid,j)] for j in 1:n_map))
-            @constraint(model,
-                vi[(b_fr, t_fr)] - vi[(b_to, t_to)] ==
-                sum(R_model[k,j]*ci_fr[(lid,j)] +
-                    X_model[k,j]*cr_fr[(lid,j)] for j in 1:n_map))
+            register(:line_voltage_drop_real, (string(lid), k),
+                @constraint(model,
+                    vr[(b_fr, t_fr)] - vr[(b_to, t_to)] ==
+                    sum(R_model[k,j]*cr_fr[(lid,j)] -
+                        X_model[k,j]*ci_fr[(lid,j)] for j in 1:n_map)))
+            register(:line_voltage_drop_imag, (string(lid), k),
+                @constraint(model,
+                    vi[(b_fr, t_fr)] - vi[(b_to, t_to)] ==
+                    sum(R_model[k,j]*ci_fr[(lid,j)] +
+                        X_model[k,j]*cr_fr[(lid,j)] for j in 1:n_map)))
         end
 
         # ── π-shunt currents (linear in voltage variables) ────────────────────
@@ -230,11 +235,13 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                     ilim = Float64(i_max[k])
                     cfr_r = @expression(model, cr_fr[(lid,k)] + ish_fr_r[k])
                     cfr_i = @expression(model, ci_fr[(lid,k)] + ish_fr_i[k])
-                    _soc_norm!(model, cfr_r, cfr_i, ilim)
+                    register(:line_current_thermal, (lid, :from, k),
+                        _soc_norm!(model, cfr_r, cfr_i, ilim))
                     if has_any_shunt
                         cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                         cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
-                        _soc_norm!(model, cto_r, cto_i, ilim)
+                        register(:line_current_thermal, (lid, :to, k),
+                            _soc_norm!(model, cto_r, cto_i, ilim))
                     end
 
                     # Series-current variable boxes. The one series current
@@ -273,13 +280,17 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                 cfr_i = @expression(model, ci_fr[(lid,k)] + ish_fr_i[k])
                 _apparent_power_limit!(model,
                     vr[(b_fr, tmfr[k])], vi[(b_fr, tmfr[k])], cfr_r, cfr_i, slim;
-                    base_name = "$(lid)_fr_$(k)")
+                    base_name = "$(lid)_fr_$(k)",
+                    register_constraint=(family, cref) -> register(
+                        Symbol("line_", family), (lid, :from, k), cref))
                 if has_any_shunt
                     cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                     cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
                     _apparent_power_limit!(model,
                         vr[(b_to, tmto[k])], vi[(b_to, tmto[k])], cto_r, cto_i, slim;
-                        base_name = "$(lid)_to_$(k)")
+                        base_name = "$(lid)_to_$(k)",
+                        register_constraint=(family, cref) -> register(
+                            Symbol("line_", family), (lid, :to, k), cref))
                 end
             end
         end
@@ -297,8 +308,10 @@ For each conductor k:
   c = vr_fr·vr_to + vi_fr·vi_to   (real part)
   tan(va_diff_min)·c ≤ s ≤ tan(va_diff_max)·c
 """
-function _add_line_angle_constraints!(model, net, vars)
+function _add_line_angle_constraints!(model, net, vars; constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
 
     for (lid, line) in get(net, "line", Dict())
         va_diff_min = get(line, "va_diff_min", nothing)
@@ -320,8 +333,14 @@ function _add_line_angle_constraints!(model, net, vars)
             haskey(vr, (b_to, t_to)) || continue
             s = @expression(model, vr[(b_fr,t_fr)]*vi[(b_to,t_to)] - vi[(b_fr,t_fr)]*vr[(b_to,t_to)])
             c = @expression(model, vr[(b_fr,t_fr)]*vr[(b_to,t_to)] + vi[(b_fr,t_fr)]*vi[(b_to,t_to)])
-            tan_min !== nothing && @constraint(model, tan_min * c <= s)
-            tan_max !== nothing && @constraint(model, s <= tan_max * c)
+            if tan_min !== nothing
+                register(:line_angle_lower, (lid, k),
+                    @constraint(model, tan_min * c <= s))
+            end
+            if tan_max !== nothing
+                register(:line_angle_upper, (lid, k),
+                    @constraint(model, s <= tan_max * c))
+            end
         end
     end
 end
@@ -342,9 +361,12 @@ If the switch carries an `i_max` vector (A, one entry per conductor), a thermal
 current limit is enforced on the from-side current. No to-side constraint is
 needed because switches have no shunt (from and to magnitudes are equal).
 """
-function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i)
+function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i;
+                                  constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     cr_sw = vars[:cr_sw]; ci_sw = vars[:ci_sw]
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
 
     for (sid, sw) in get(net, "switch", Dict())
         b_fr  = sw["bus_from"]
@@ -358,14 +380,17 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i)
 
         for k in 1:n_c
             if !is_open
-                @constraint(model, vr[(b_fr, tmfr[k])] == vr[(b_to, tmto[k])])
-                @constraint(model, vi[(b_fr, tmfr[k])] == vi[(b_to, tmto[k])])
+                register(:switch_voltage_coupling_real, (sid, k),
+                    @constraint(model, vr[(b_fr, tmfr[k])] == vr[(b_to, tmto[k])]))
+                register(:switch_voltage_coupling_imag, (sid, k),
+                    @constraint(model, vi[(b_fr, tmfr[k])] == vi[(b_to, tmto[k])]))
             end
             _kcl_add!(kcl_r, kcl_i, b_fr, tmfr[k], -cr_sw[(sid,k)], -ci_sw[(sid,k)])
             _kcl_add!(kcl_r, kcl_i, b_to, tmto[k],  cr_sw[(sid,k)],  ci_sw[(sid,k)])
             if i_max !== nothing && k <= length(i_max)
                 ilim = Float64(i_max[k])
-                _soc_norm!(model, cr_sw[(sid,k)], ci_sw[(sid,k)], ilim)
+                register(:switch_current_thermal, (sid, k),
+                    _soc_norm!(model, cr_sw[(sid,k)], ci_sw[(sid,k)], ilim))
                 _limit_current_box!(cr_sw[(sid,k)], ci_sw[(sid,k)], ilim)
             end
             # Apparent-power limit (ground-referenced per conductor). A switch has
@@ -374,7 +399,9 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i)
                 _apparent_power_limit!(model,
                     vr[(b_fr, tmfr[k])], vi[(b_fr, tmfr[k])],
                     cr_sw[(sid,k)], ci_sw[(sid,k)], Float64(s_max[k]);
-                    base_name = "$(sid)_$(k)")
+                    base_name = "$(sid)_$(k)",
+                    register_constraint=(family, cref) -> register(
+                        Symbol("switch_", family), (sid, k), cref))
             end
         end
     end

@@ -46,6 +46,17 @@
          "dc_grounding":{"g":{"dc_bus":"dcA","terminal":"m","r":0.0}}}
         """; from_string=true)
 
+        registry_ctx = build_opf_model(net; add_objective=false)
+        enforce_kcl!(registry_ctx)
+        @test isempty(_unregistered_opf_constraint_indices(registry_ctx))
+        registry_keys = Set(opf_object_keys(registry_ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :dc_converter_power_balance, "vsc1") in
+              registry_keys
+        @test OpfModelKey(:constraint, :dc_converter_voltage_control, "vsc1") in
+              registry_keys
+        @test OpfModelKey(:constraint, :kcl_dc, ("dcA", "p")) in registry_keys
+        @test OpfModelKey(:constraint, :kcl_dc, ("dcA", "m")) in registry_keys
+
         res = solve_opf(net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
 
@@ -103,6 +114,17 @@
                     "r":[0.5,0.0]}},
          "dc_grounding":{"gA":{"dc_bus":"dcA","terminal":"m","r":0.0}}}
         """; from_string=true)
+
+        registry_ctx = build_opf_model(net; add_objective=false)
+        enforce_kcl!(registry_ctx)
+        @test isempty(_unregistered_opf_constraint_indices(registry_ctx))
+        registry_keys = Set(opf_object_keys(registry_ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :dc_branch_voltage_drop, ("line", 1)) in
+              registry_keys
+        # Both metallic-return endpoints are fixed to zero, so the redundant
+        # ideal-conductor equality for conductor 2 is intentionally omitted.
+        @test OpfModelKey(:constraint, :dc_branch_voltage_drop, ("line", 2)) ∉
+              registry_keys
 
         res = solve_opf(net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
@@ -203,6 +225,39 @@
 
 end
 
+@testset "DC network — source/load and oriented-band registry" begin
+    net = parse_bmopf("""
+    {"bus":{"ac":{"terminal_names":["a","n"],
+        "perfectly_grounded_terminals":["n"]}},
+     "voltage_source":{"ac_ref":{"bus":"ac","terminal_map":["a","n"],
+        "v_magnitude":[230.0,0.0],"v_angle":[0.0,0.0]}},
+     "dc_bus":{"db":{"terminal_names":["p","m","q"],
+        "pole":{"p":"POSITIVE","m":"METALLIC_RETURN","q":"NEGATIVE"},
+        "v_dc_min":[700.0,0.0,-900.0],"v_dc_max":[900.0,0.0,-700.0],
+        "vdc_ln_min":700.0,"vdc_ln_max":900.0,
+        "vdc_ll_min":1400.0,"vdc_ll_max":1800.0}},
+     "dc_grounding":{"g":{"dc_bus":"db","terminal":"m","r":0.0}},
+     "dc_source":{"src":{"dc_bus":"db","terminal_map":["p","m"],
+        "p_min":0.0,"p_max":2000.0}},
+     "dc_load":{"load":{"dc_bus":"db","terminal_map":["p","m"],
+        "p":1000.0}}}
+    """; from_string=true)
+    ctx = build_opf_model(net; add_objective=false)
+    enforce_kcl!(ctx)
+    @test isempty(_unregistered_opf_constraint_indices(ctx))
+    keys = Set(opf_object_keys(ctx; kind=:constraint))
+    @test OpfModelKey(:constraint, :dc_source_power, "src") in keys
+    @test OpfModelKey(:constraint, :dc_load_power, "load") in keys
+    @test OpfModelKey(:constraint, :dc_bus_voltage_ln_lower,
+                      ("db", "p", "m")) in keys
+    @test OpfModelKey(:constraint, :dc_bus_voltage_ln_upper,
+                      ("db", "q", "m")) in keys
+    @test OpfModelKey(:constraint, :dc_bus_voltage_ll_lower,
+                      ("db", "p", "q")) in keys
+    @test OpfModelKey(:constraint, :dc_bus_voltage_ll_upper,
+                      ("db", "p", "q")) in keys
+end
+
 # ── Validation findings (no solver needed) ──────────────────────────────────
 @testset "DC network — validation findings" begin
     # Dangling dc_bus reference, missing grounding, negative resistance.
@@ -288,6 +343,11 @@ end
     @testset "droop at reference → p_ref" begin
         # master pins v_dc = 800 = vD's dc_v_set ⇒ droop sits at its reference power.
         net = mk(800.0, "\"dc_v_set\":800.0,\"dc_droop\":0.001,\"dc_p_ref\":3000.0")
+        registry_ctx = build_opf_model(net; add_objective=false)
+        enforce_kcl!(registry_ctx)
+        @test isempty(_unregistered_opf_constraint_indices(registry_ctx))
+        @test OpfModelKey(:constraint, :dc_converter_droop, "vD") in
+              Set(opf_object_keys(registry_ctx; kind=:constraint))
         res = solve_opf(net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         @test res["dc_bus"]["dcA"]["p"]["v_dc"] ≈ 800.0 atol=1e-2

@@ -93,10 +93,14 @@ function _rhs_expr(model, t, W, s, Vnom::Float64)
 end
 
 # Pin one sub-load's realized power (P_tot, Q_tot) to its model.
-function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi)
+function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi;
+                             register_constraint=nothing,
+                             register_variable=nothing)
+    register(family, cref) = register_constraint === nothing ? cref :
+        register_constraint(family, (string(lid), k), cref)
     if get(load, "model", "constant_power") == "constant_power"
-        @constraint(model, P_tot == p0)
-        @constraint(model, Q_tot == q0)
+        register(:load_power_real, @constraint(model, P_tot == p0))
+        register(:load_power_imag, @constraint(model, Q_tot == q0))
         return
     end
 
@@ -107,18 +111,29 @@ function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi
     W = @variable(model, base_name = "W_$(lid)_$(k)",
                   lower_bound = (_W_FLOOR_FRAC * Vnom)^2,
                   upper_bound = (_W_CEIL_FRAC  * Vnom)^2)
-    @constraint(model, W == dvr^2 + dvi^2)
+    register_variable !== nothing &&
+        register_variable(:load_voltage_squared, (string(lid), k), W)
+    register(:load_voltage_squared_definition,
+        @constraint(model, W == dvr^2 + dvi^2))
+    register(:load_voltage_squared_lower_bound, JuMP.LowerBoundRef(W))
+    register(:load_voltage_squared_upper_bound, JuMP.UpperBoundRef(W))
 
     s = nothing
     if pt.cs != 0.0 || qt.cs != 0.0
         s = @variable(model, base_name = "s_$(lid)_$(k)",
                       lower_bound = _W_FLOOR_FRAC * Vnom,
                       upper_bound = _W_CEIL_FRAC  * Vnom)
-        @constraint(model, s^2 == W)
+        register_variable !== nothing &&
+            register_variable(:load_voltage_magnitude, (string(lid), k), s)
+        register(:load_voltage_magnitude_definition, @constraint(model, s^2 == W))
+        register(:load_voltage_magnitude_lower_bound, JuMP.LowerBoundRef(s))
+        register(:load_voltage_magnitude_upper_bound, JuMP.UpperBoundRef(s))
     end
 
-    @constraint(model, P_tot == _rhs_expr(model, pt, W, s, Vnom))
-    @constraint(model, Q_tot == _rhs_expr(model, qt, W, s, Vnom))
+    register(:load_power_real,
+        @constraint(model, P_tot == _rhs_expr(model, pt, W, s, Vnom)))
+    register(:load_power_imag,
+        @constraint(model, Q_tot == _rhs_expr(model, qt, W, s, Vnom)))
 end
 
 """
@@ -130,10 +145,17 @@ and DELTA topologies are supported; the neutral return current flows through KCL
 automatically and is not an independent variable.
 """
 function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
-                                coefficient=nothing)
+                                coefficient=nothing,
+                                constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     crd = vars[:crd]; cid = vars[:cid]
     nlabels = BMOPFTools._neutral_labels(net)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
+    register_load_variable(family, index, variable) =
+        constraint_context === nothing ? variable :
+        BMOPFTools.register_opf_object!(constraint_context,
+            BMOPFTools.OpfModelKey(:variable, family, index), variable)
 
     for (lid, load) in get(net, "load", Dict())
         bus = get(load, "bus", "")
@@ -162,7 +184,10 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                 q0 = coefficient === nothing ? q_nom[1] : coefficient(
                     :load, :load, lid, :q_nom, 1, q_nom[1])
                 _add_subload_power!(model, load, lid, 1, P_tot, Q_tot,
-                                    p0, q0, dvr, dvi)
+                                    p0, q0, dvr, dvi;
+                                    register_constraint=(family, index, cref) ->
+                                        register(family, index, cref),
+                                    register_variable=register_load_variable)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos, -crd[(lid,1)], -cid[(lid,1)])
                 _kcl_add!(kcl_r, kcl_i, bus, t_neg,  crd[(lid,1)],  cid[(lid,1)])
@@ -191,7 +216,10 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                 q0 = coefficient === nothing ? q_nom[idx] : coefficient(
                     :load, :load, lid, :q_nom, idx, q_nom[idx])
                 _add_subload_power!(model, load, lid, idx, P_tot, Q_tot,
-                                    p0, q0, dvr, dvi)
+                                    p0, q0, dvr, dvi;
+                                    register_constraint=(family, index, cref) ->
+                                        register(family, index, cref),
+                                    register_variable=register_load_variable)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph, -crd[(lid,idx)], -cid[(lid,idx)])
                 t_n !== nothing &&
@@ -214,7 +242,10 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                 q0 = coefficient === nothing ? q_nom[k] : coefficient(
                     :load, :load, lid, :q_nom, k, q_nom[k])
                 _add_subload_power!(model, load, lid, k, P_tot, Q_tot,
-                                    p0, q0, dvr, dvi)
+                                    p0, q0, dvr, dvi;
+                                    register_constraint=(family, index, cref) ->
+                                        register(family, index, cref),
+                                    register_variable=register_load_variable)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos, -crd[(lid,k)], -cid[(lid,k)])
                 _kcl_add!(kcl_r, kcl_i, bus, t_neg,  crd[(lid,k)],  cid[(lid,k)])

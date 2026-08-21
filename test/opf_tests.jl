@@ -16,6 +16,26 @@ include(joinpath(@__DIR__, "fixtures", "MockOpfExtension", "src",
                  "MockOpfExtension.jl"))
 using .MockOpfExtension
 
+function _unregistered_opf_constraint_indices(ctx)
+    registered = Set{Any}()
+    for key in opf_object_keys(ctx; kind=:constraint)
+        object = try
+            opf_object(ctx, key)
+        catch
+            nothing
+        end
+        object isa JuMP.ConstraintRef && push!(registered, JuMP.index(object))
+    end
+    model_indices = Set{Any}()
+    for (F, S) in JuMP.list_of_constraint_types(opf_model(ctx))
+        S <: JuMP.MOI.Parameter && continue
+        for constraint in JuMP.all_constraints(opf_model(ctx), F, S)
+            push!(model_indices, JuMP.index(constraint))
+        end
+    end
+    return setdiff(model_indices, registered)
+end
+
 @testset "OPF — solve_opf extension" begin
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -51,6 +71,36 @@ using .MockOpfExtension
         @test res["bus"]["bus1"]["1"]["vm"] ≈ V_exp   atol=0.01
         @test abs(res["bus"]["bus1"]["1"]["vi"]) < 0.01  # imaginary ≈ 0
         @test res["objective"] ≈ 0.0   atol=1e-6         # no generator
+    end
+
+    @testset "two-terminal single-phase load has one branch current" begin
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "b" => Dict{String,Any}("terminal_names" => ["1", "2"]),
+            ),
+            "load" => Dict{String,Any}(
+                "d" => Dict{String,Any}(
+                    "bus" => "b",
+                    "terminal_map" => ["1", "2"],
+                    "configuration" => "SINGLE_PHASE",
+                    "p_nom" => [1.0],
+                    "q_nom" => [0.0],
+                ),
+            ),
+        )
+        ctx = build_opf_model(net; per_unit=false, add_objective=false)
+        @test opf_object(ctx, opf_load_current_key("d", 1)) ===
+              ctx.vars[:crd][("d", 1)]
+        @test opf_object(ctx, opf_load_current_key(
+            "d", 1; component=:imag,
+        )) === ctx.vars[:cid][("d", 1)]
+        @test_throws KeyError opf_object(ctx, opf_load_current_key("d", 2))
+        @test_throws KeyError opf_object(ctx, opf_load_current_key(
+            "d", 2; component=:imag,
+        ))
+        names = JuMP.name.(JuMP.all_variables(opf_model(ctx)))
+        @test count(name -> startswith(name, "crd_d_"), names) == 1
+        @test count(name -> startswith(name, "cid_d_"), names) == 1
     end
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1292,6 +1342,44 @@ using .MockOpfExtension
     @testset "T-EXT-API: semantic registry, lifecycle, state, and KCL injection" begin
         net = _pu_net()
         ctx = build_opf_model(net; add_objective=false)
+        registered_constraints = Set(opf_object_keys(ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :ground_voltage_real,
+                          ("sourcebus", "n")) in registered_constraints
+        @test OpfModelKey(:constraint, :ground_voltage_imag,
+                          ("sourcebus", "n")) in registered_constraints
+        @test OpfModelKey(:constraint, :source_voltage_real,
+                          ("vs", "1")) in registered_constraints
+        @test OpfModelKey(:constraint, :source_voltage_imag,
+                          ("vs", "1")) in registered_constraints
+        @test OpfModelKey(:constraint, :line_voltage_drop_real,
+                          ("l1", 1)) in registered_constraints
+        @test OpfModelKey(:constraint, :line_voltage_drop_imag,
+                          ("l1", 1)) in registered_constraints
+        @test OpfModelKey(:constraint, :load_power_real, ("ld1", 1)) in
+              registered_constraints
+        @test OpfModelKey(:constraint, :load_power_imag, ("ld1", 1)) in
+              registered_constraints
+        @test OpfModelKey(:constraint, :generator_p_lower, ("g1", 1)) in
+              registered_constraints
+        @test OpfModelKey(:constraint, :generator_p_upper, ("g1", 1)) in
+              registered_constraints
+        @test OpfModelKey(:constraint, :generator_q_lower, ("g1", 1)) in
+              registered_constraints
+        @test OpfModelKey(:constraint, :generator_q_upper, ("g1", 1)) in
+              registered_constraints
+        thermal_net = deepcopy(net)
+        thermal_net["line"]["l1"]["i_max"] = [1.0]
+        thermal_net["line"]["l1"]["s_max"] = [1000.0]
+        thermal_ctx = build_opf_model(thermal_net; add_objective=false)
+        thermal_constraints = Set(opf_object_keys(thermal_ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :line_current_thermal,
+                          ("l1", :from, 1)) in thermal_constraints
+        @test OpfModelKey(:constraint, :line_power_link_p,
+                          ("l1", :from, 1)) in thermal_constraints
+        @test OpfModelKey(:constraint, :line_power_link_q,
+                          ("l1", :from, 1)) in thermal_constraints
+        @test OpfModelKey(:constraint, :line_apparent_power_circle,
+                          ("l1", :from, 1)) in thermal_constraints
         reordered_net = Dict{String,Any}(reverse(collect(net)))
         reordered_ctx = build_opf_model(reordered_net; add_objective=false)
         initial_hashes = opf_research_hashes(ctx)
@@ -1300,6 +1388,13 @@ using .MockOpfExtension
               initial_hashes["prepared_working_network_sha256"]
         @test reordered_hashes["model_structure_sha256"] ==
               initial_hashes["model_structure_sha256"]
+        hook_constraint = JuMP.@constraint(ctx.model,
+            ctx.vars[:vr][("bus1", "1")] == ctx.vars[:vr][("bus1", "1")])
+        hook_key = OpfModelKey(:constraint, :custom_hook_equation,
+                               ("hook_device", 1))
+        @test register_opf_object!(ctx, hook_key, hook_constraint) === hook_constraint
+        @test hook_key in
+              Set(opf_object_keys(ctx; kind=:constraint))
 
         # Stable accessors do not expose the extension module or require callers
         # to know how OpfContext stores these objects.
@@ -1601,6 +1696,58 @@ using .MockOpfExtension
             OpfModelKey(:constraint, :kcl_i, ("bus1", "1"))) isa JuMP.ConstraintRef
         @test_throws ArgumentError enforce_kcl!(ctx)
         @test_throws ArgumentError add_terminal_injection!(ctx, "bus1", "1", cr, ci)
+    end
+
+    @testset "T-SEMANTIC-TRANSFORMERS: native transformer constraint registry" begin
+        net = parse_bmopf("""
+        {"bus":{
+            "hv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "lv":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"src":{"bus":"hv","terminal_map":["1"],
+             "v_magnitude":[11000.0],"v_angle":[0.0]}},
+         "transformer":{"single_phase":{"tx":{
+             "bus_from":"hv","bus_to":"lv",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "s_rating":100000.0,"v_nom_from":11000.0,"v_nom_to":230.0,
+             "r_series_from":1.0,"x_series_from":5.0,
+             "i_max_from":[20.0,20.0],"i_max_to":[100.0,100.0]}}},
+         "load":{"ld":{"bus":"lv","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[5000.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+        ctx = build_opf_model(net; add_objective=false)
+        enforce_kcl!(ctx)
+        @test isempty(_unregistered_opf_constraint_indices(ctx))
+        keys = Set(opf_object_keys(ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :transformer_voltage_real, ("tx", "fr", 1)) in keys
+        @test OpfModelKey(:constraint, :transformer_voltage_imag, ("tx", "fr", 1)) in keys
+        @test OpfModelKey(:constraint, :transformer_current_coupling_real, ("tx", 1)) in keys
+        @test OpfModelKey(:constraint, :transformer_current_thermal, ("tx", "from", 1)) in keys
+        @test OpfModelKey(:constraint, :transformer_power_link_p, ("tx", "from", 1)) in keys
+        @test OpfModelKey(:constraint, :transformer_power_link_q, ("tx", "from", 1)) in keys
+        @test OpfModelKey(:constraint, :transformer_apparent_power_circle, ("tx", "from", 1)) in keys
+    end
+
+    @testset "T-SEMANTIC-SWITCH: native switch constraint registry" begin
+        net = parse_bmopf("""
+        {"bus":{
+            "sourcebus":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+            "switchbus":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"src":{"bus":"sourcebus","terminal_map":["1"],
+             "v_magnitude":[1000.0],"v_angle":[0.0]}},
+         "switch":{"sw":{"bus_from":"sourcebus","bus_to":"switchbus",
+             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "open_switch":false,"i_max":[10.0,10.0],"s_max":[1000.0,1000.0]}},
+         "load":{"ld":{"bus":"switchbus","terminal_map":["1","n"],
+             "configuration":"SINGLE_PHASE","p_nom":[500.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+        ctx = build_opf_model(net; add_objective=false)
+        enforce_kcl!(ctx)
+        @test isempty(_unregistered_opf_constraint_indices(ctx))
+        keys = Set(opf_object_keys(ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :switch_voltage_coupling_real, ("sw", 1)) in keys
+        @test OpfModelKey(:constraint, :switch_current_thermal, ("sw", 1)) in keys
+        @test OpfModelKey(:constraint, :switch_power_link_p, ("sw", 1)) in keys
+        @test OpfModelKey(:constraint, :switch_apparent_power_circle, ("sw", 1)) in keys
     end
 
     @testset "T-PARAMETERS: scoped, unit-aware native decision bindings" begin
@@ -2091,6 +2238,10 @@ using .MockOpfExtension
         function _pu_si_agree(solver, net; label="")
             _strip_xfmr_ratings!(net)   # validates impedance/loss pu↔SI scaling, not the loading cap
             @testset "$label" begin
+                registry_ctx = build_opf_model(net; per_unit=false,
+                    add_objective=false)
+                enforce_kcl!(registry_ctx)
+                @test isempty(_unregistered_opf_constraint_indices(registry_ctx))
                 r_si = solver(net; per_unit=false)
                 r_pu = solver(net; per_unit=true, s_base=1e6)
                 @test r_si["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
@@ -2555,17 +2706,12 @@ using .MockOpfExtension
               res["initialisation"]["src"]["1"]["vm_init"]   rtol=1e-4
     end
 
-    @testset "Initialisation profiling — level mismatch flagged" begin
+    @testset "Initialisation profiling — voltage levels respected" begin
         # Build a two-voltage-level network (MV source → LV load via transformer).
-        # _set_voltage_start_values! uses source vm (6350 V) for all buses, so
-        # LV buses (~230 V solved) will have vm_init ≈ 6350 V → ratio >> 10×.
-        #
-        # This test is specifically about the SI-scale flat-start level mismatch:
-        # solved per_unit=false so the flat start really does seed the LV bus at
-        # the 6350 V source level (in per-unit mode, the default, the start is
-        # ~1 p.u. everywhere and no mismatch arises — the profiler's detection is
-        # then correctly silent, so there would be nothing to flag). We pin the SI
-        # path here to keep the INIT_LEVEL_MISMATCH detection genuinely exercised.
+        # The physical flat start follows the transformer voltage ratio. This
+        # must hold in SI as well as under nondimensionalisation; otherwise an
+        # apparently innocent scaling-policy comparison changes the physical
+        # initial point presented to the solver.
         net = parse_bmopf("""
         {"bus":{
             "hv":{"terminal_names":["a","b","c","n"],
@@ -2594,13 +2740,15 @@ using .MockOpfExtension
         report = profile_solution(net, res)
 
         @test haskey(res, "initialisation")
-        # LV bus solved voltage should be ~230 V, init was ~6350 V → level mismatch
+        # The LV initialization is at its own nominal voltage level and therefore
+        # close to the solved voltage, rather than inheriting the 6.35 kV source
+        # phase magnitude.
         vm_lv_sol  = res["bus"]["lv"]["a"]["vm"]
         vm_lv_init = res["initialisation"]["lv"]["a"]["vm_init"]
-        @test vm_lv_init / vm_lv_sol > 10.0
+        @test 0.9 < vm_lv_init / vm_lv_sol < 1.1
 
-        @test any(f -> f.code == "W.SOL.INIT_LEVEL_MISMATCH", report.findings)
-        # HV bus (same level as source) should NOT trigger the mismatch
+        @test !any(f -> f.code == "W.SOL.INIT_LEVEL_MISMATCH", report.findings)
+        # The source-voltage level remains consistent as well.
         vm_hv_sol  = res["bus"]["hv"]["a"]["vm"]
         vm_hv_init = res["initialisation"]["hv"]["a"]["vm_init"]
         @test 0.1 < vm_hv_init / vm_hv_sol < 10.0
@@ -2638,18 +2786,40 @@ using .MockOpfExtension
 
         # ── pure constant-impedance via ZIP (αZ=βZ=1) ────────────────────────
         V_z = V_s / (1 + k)            # 952.381 V
-        res = solve_opf(mkload(""","model":"zip","v_nom":[1000.0],
+        zip_net = mkload(""","model":"zip","v_nom":[1000.0],
             "alpha_z":[1.0],"alpha_i":[0.0],"alpha_p":[0.0],
-            "beta_z":[1.0],"beta_i":[0.0],"beta_p":[0.0]"""))
+            "beta_z":[1.0],"beta_i":[0.0],"beta_p":[0.0]""")
+        zip_ctx = build_opf_model(zip_net; add_objective=false)
+        enforce_kcl!(zip_ctx)
+        @test isempty(_unregistered_opf_constraint_indices(zip_ctx))
+        zip_keys = Set(opf_object_keys(zip_ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :load_voltage_squared_definition,
+                          ("ld1", 1)) in zip_keys
+        @test OpfModelKey(:constraint, :load_voltage_squared_lower_bound,
+                          ("ld1", 1)) in zip_keys
+        @test OpfModelKey(:constraint, :load_voltage_squared_upper_bound,
+                          ("ld1", 1)) in zip_keys
+        res = solve_opf(zip_net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         @test res["bus"]["bus1"]["1"]["vm"] ≈ V_z   atol=0.01
         @test res["load"]["ld1"]["1"]["pd"] ≈ Pnom*(V_z/Vnom)^2   rtol=1e-4
 
         # ── pure constant-current via ZIP (αI=βI=1) ──────────────────────────
         V_i = V_s - R*Pnom/Vnom        # 950.0 V
-        res = solve_opf(mkload(""","model":"zip","v_nom":[1000.0],
+        current_net = mkload(""","model":"zip","v_nom":[1000.0],
             "alpha_z":[0.0],"alpha_i":[1.0],"alpha_p":[0.0],
-            "beta_z":[0.0],"beta_i":[1.0],"beta_p":[0.0]"""))
+            "beta_z":[0.0],"beta_i":[1.0],"beta_p":[0.0]""")
+        current_ctx = build_opf_model(current_net; add_objective=false)
+        enforce_kcl!(current_ctx)
+        @test isempty(_unregistered_opf_constraint_indices(current_ctx))
+        current_keys = Set(opf_object_keys(current_ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :load_voltage_magnitude_definition,
+                          ("ld1", 1)) in current_keys
+        @test OpfModelKey(:constraint, :load_voltage_magnitude_lower_bound,
+                          ("ld1", 1)) in current_keys
+        @test OpfModelKey(:constraint, :load_voltage_magnitude_upper_bound,
+                          ("ld1", 1)) in current_keys
+        res = solve_opf(current_net)
         @test res["bus"]["bus1"]["1"]["vm"] ≈ V_i   atol=0.01
         @test res["load"]["ld1"]["1"]["pd"] ≈ Pnom*(V_i/Vnom)   rtol=1e-4
 
@@ -4122,6 +4292,24 @@ using .MockOpfExtension
                    (res["bus"]["hv"]["1"]["vi"] - res["bus"]["hv"]["2"]["vi"])^2)
         @test res["bus"]["lv"]["1"]["vm"] ≈ vll * 240/4160  rtol=2e-3
         @test res["transformer"]["t1"]["loss"]["p_loss"] > 0.0   # R·|I|² dissipation
+    end
+
+    @testset "LL: SINGLE_PHASE load stamps the declared phase pair" begin
+        # Regression for the two-terminal load path: a phase-to-phase load is
+        # one branch across terminals 1 and 2, not a phase-to-neutral load on 1.
+        net = parse_bmopf("""
+        {"bus":{"b":{"terminal_names":["1","2","n"],
+                         "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"b","terminal_map":["1","2","n"],
+             "v_magnitude":[240.0,240.0,0.0],
+             "v_angle":[0.0,3.141592653589793,0.0]}},
+         "load":{"ll":{"bus":"b","terminal_map":["1","2"],
+             "configuration":"SINGLE_PHASE","p_nom":[1000.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+        result = solve_pf(net)
+        @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test result["load"]["ll"]["1"]["pd"] ≈ 1000.0 rtol=1e-6
+        @test length(result["load"]["ll"]) == 1
     end
 
     @testset "LL: single_phase autotransformer across two phases" begin

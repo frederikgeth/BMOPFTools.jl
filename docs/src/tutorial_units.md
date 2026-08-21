@@ -139,6 +139,187 @@ is the same NamedTuple a [`solve_opf`](@ref) `model_hook!` receives from
 `opf_bases(ctx)` when it needs to express a physical-unit constraint inside a
 per-unit model.
 
+### Typed alternatives to the classic bases
+
+The public scaling boundary makes a base experiment explicit and reproducible.
+The historical keywords remain supported, while the equivalent staged call is:
+
+```julia
+ctx = build_opf_model(net;
+    scaling_policy = OpfScaling(:classic; power_base = 1e6))
+```
+
+To change the voltage and power coordinates, provide a complete compatible
+voltage-base map. For example, multiplying every propagated voltage base by
+`0.5` while choosing a `200 kVA` power base gives:
+
+```julia
+custom_bases = Dict(bus => 0.5 * base for (bus, base) in bases.v_base)
+policy = OpfScaling(
+    name = :half_voltage_200kva,
+    power_base = 200e3,
+    voltage_bases = custom_bases,
+)
+ctx = build_opf_model(net; scaling_policy = policy)
+
+@assert opf_coordinate_bases(ctx, src["bus"]).current ==
+        200e3 / custom_bases[src["bus"]]
+```
+
+This is intentionally a *consistent* family of coordinates. BMOPFTools checks
+line, switch, and transformer voltage-base relationships and derives the
+current, impedance, and admittance bases. Arbitrary independent bases would
+require coefficients in every voltage-current-power equation and are not yet
+represented by this policy. A comparison should therefore first establish
+physical solution and derivative covariance, then compare solver trajectories;
+iteration counts alone are not evidence that the mathematical problems match.
+
+With a zone-local policy, `opf_bases(ctx).s_base` is retained as a reference
+value for compatibility and reporting; it is not a universal local power base.
+Use `opf_coordinate_bases(ctx, bus).power` (or the `s_base_bus` table) whenever
+constructing a bus-local hook or interpreting a local residual.
+
+### Auditing transformer-local power bases
+
+A genuinely local power base cannot be introduced by independently dividing
+each device rating. Lines, closed switches, and galvanically continuous
+regulators share physical terminal currents, so their buses must retain one
+power base when `I_base=S_base/V_base`. The regulator's common bushing or
+straight-through phase also forces one voltage base: its tap is a winding
+coefficient, not a coordinate discontinuity. An isolating transformer is the natural
+boundary where the base may change, but its current-coupling, winding-power,
+KCL-injection, and rating equations then need explicit side-base coefficients.
+
+The versioned diagnostic schema audits such a proposal without changing the
+model:
+
+```julia
+proposal = opf_diagnostic_schema(
+    ctx;
+    voltage_bases = Dict("hv" => 6350.0, "delta" => 415 / sqrt(3)),
+    power_bases = Dict("hv" => 10e6, "delta" => 1e6),
+).transformer_scaling
+proposal["proposal_admissible"]
+proposal["power_product_identity_passed"]
+proposal["requires_new_transformer_stamping"]
+```
+
+The report partitions buses into galvanically continuous zones and gives every
+transformer interface's voltage-, current-, and power-coordinate ratios. It
+checks the identity `V_base * I_base = S_base` and records whether explicit
+current and power conversion is required. For directly galvanic regulator
+interfaces it additionally reports `galvanic_voltage_base_compatible`; a
+different voltage base makes the proposal inadmissible even if the power base
+is unchanged. For a proposal that differs from the context,
+`applied_to_model` remains false: this API audits a design; it does not mutate
+an existing model.
+
+The first executable local-base slice uses bus-local power bases:
+
+```julia
+zone_policy = OpfScaling(
+    name = :transformer_local_power,
+    voltage_bases = Dict("hv" => 2400.0, "lv" => 240.0),
+    power_bases = Dict("hv" => 1e6, "lv" => 25e3),
+)
+ctx = build_opf_model(net; scaling_policy = zone_policy)
+schema = opf_diagnostic_schema(ctx)
+evidence = schema.transformer_scaling
+evidence["applied_to_model"]
+```
+
+The implementation derives local `I`, `Z`, and `Y` bases, stamps the side-base
+ratios into isolated transformer current balance and leakage referral, scales
+device limits and costs on their owning zones, and restores physical powers and
+losses with side-local bases. It currently permits a power-base change across
+`single_phase`, `center_tap`, `wye_delta`, `delta_wye`, and `n_winding`
+isolated transformers.
+
+For Yd/Dy, the connection matrix needs a reciprocal pair of coefficients:
+delta terminal currents are converted into wye-current coordinates by
+`S_delta/S_wye`, while delta-arm impedance acting on the wye current uses
+`S_wye/S_delta`. The wye-coil nameplate and initialization likewise use the
+wye-side base. Both orientations pass SI/local solved-state, loss, derivative,
+constraint-set, and initialization covariance tests. The remaining transformer
+families stay rejected until their connection-specific coverage is complete.
+
+The sixth executable slice crosses an AC/DC converter boundary. AC bus `b`
+uses its local `S_ac(b)` while the DC grid uses `S_dc`, so the native lossless
+converter equation carries the explicit coefficient `S_ac(b)/S_dc`. The
+stable `opf_coordinate_bases(ctx, bus)` and
+`opf_coordinate_bases(ctx, bus; domain=:dc)` helpers expose the
+voltage/current/power coordinates to engine hooks without relying on internal
+base-table fields. `opf_diagnostic_schema(ctx).acdc_scaling` records every
+stamped coefficient and qualified controller mode. Two converters attached to
+different AC zones, with conversion factors 50 and 5, pass SI/local endpoint
+and derivative covariance. In droop mode, `dc_p_ref` and droop output retain
+the converter's AC power base, whereas voltage setpoint and deadband retain the
+DC voltage base. This qualification covers the native lossless `P`, `V`, and
+`droop` formulations, not custom or lossy converter builders.
+
+For a center-tap unit, the fixed 5×5 primitive is first assembled on the
+primary power base. Secondary star impedances therefore acquire
+`S_primary/S_secondary`, the secondary shunt acquires the reciprocal, and the
+three secondary current rows are transformed back to their local current base.
+The resulting normalized primitive is generally nonsymmetric even though the
+physical primitive is reciprocal. This is expected for a linear operator whose
+input and output coordinates use different power bases. The explicit T-model
+path carries the same ratio directly in its ampere-turn equation.
+
+For an `n_winding` unit, winding 1 defines the referred-current and ZB
+coordinates. Winding `k` therefore enters ampere-turn balance and every ZB
+column as `N_k (S_k/S_1) I_k`. The ZB matrix itself is divided once by the
+winding-1 impedance base; winding-local shunts, current limits, apparent-power
+limits, and recovered results retain their owning winding's bases. A loaded
+three-port fixture with nonzero full ZB coupling, nonzero magnetising shunt,
+asymmetric phase loading, and a 50:1 power-base spread passes exact SI/local PF
+and OPF endpoint, current, voltage, loss, objective, initialization, set, and
+physical-Jacobian covariance.
+
+Galvanically continuous regulator families form the complementary case.
+Loaded single-phase autotransformer and monolithic open-delta fixtures retain
+the same voltage, power, and current bases on both sides while changing from SI
+to normalized coordinates. Fixed-tap PF endpoints—including the common-bushing
+or straight-through current—agree in physical units. Free-tap starts, tap
+bounds, constraint sets, and physical Jacobians also covary. Negative controls
+with either a voltage-base or power-base jump are rejected before model
+construction; the non-result is part of the qualification evidence.
+
+### Semantic blocks and local ratings
+
+After `enforce_kcl!(ctx)`, `opf_diagnostic_schema(ctx).semantic_blocks` exposes
+the engine's authoritative paired coordinates and residuals. Native declarations currently
+cover rectangular real/imaginary voltage and current pairs, active/reactive
+power pairs, and their paired KCL, voltage-drop, device-power, transformer,
+switch, and source equations when present. Each `OpfSemanticBlock` records its
+ordered members, canonical component labels, physical quantity and unit,
+model-to-canonical transform, and residual-set contract.
+
+The set contract is derived from the actual JuMP constraints. An equality to
+the origin is `:zero_equality`; paired source-voltage or load-power equations
+with nonzero right-hand sides are `:scalar_bounds`. This distinction matters:
+treating every equality pair as a zero residual would make a physically false
+covariance claim.
+
+Selected declarations also carry a local physical reference scale and its
+provenance. For example, a load active/reactive residual pair uses the
+per-phase nominal apparent-power magnitude when it is available. This is a
+candidate nondimensionalisation reference, not an instruction to mutate the
+model and not the SI conversion factor. Downstream experiments can therefore
+compare system-wide per-unit bases with device-local references without
+parsing JuMP names or silently conflating units with numerical equilibration.
+
+```julia
+enforce_kcl!(ctx)
+blocks = opf_diagnostic_schema(ctx).semantic_blocks
+load_blocks = filter(b -> b.quantity == :power &&
+                          b.reference_physical_scale !== nothing, blocks)
+```
+
+`opf_research_provenance(ctx)["semantic_references"]` serializes these
+declarations, including reference-scale sources. Registration is metadata
+only: it never changes variables, constraints, bounds, or coefficients.
+
 ## 4. SI ≡ per-unit, demonstrated
 
 Per-unit is a *reversible change of variables* — it must not change the
@@ -187,6 +368,32 @@ If the answer is identical, why does the default bother normalizing?
 Because the *path* to the answer is not scale-invariant: interior-point
 initialization, barrier updates, and stopping tests all react to the numeric
 magnitude of variables and constraints. Compare what the two solves reported:
+
+The initialization policy itself is physical-coordinate invariant: voltage
+levels, phase-angle relationships, and zero neutrals are constructed first in
+the working network semantics and then represented in the chosen model
+coordinates. Thus a different voltage base changes `vr_init`/`vi_init` in model
+units but must not silently change the physical initial state. This separation
+is essential when comparing solver behavior across scaling policies.
+
+For multi-voltage networks this invariance is enforced by a network-wide sparse
+phasor transport solve in per-bus nominal-voltage coordinates. Its rows use
+actual conductor maps and ideal winding equations, so a phase-B single-phase
+lateral remains phase B after a label change, centre-tap legs remain anti-phase,
+and Yd/Dy or WYE/DELTA n-winding phase shifts compose through transformer
+chains. Inspect the evidence rather than assuming this worked:
+
+```julia
+initialization = opf_diagnostic_schema(ctx).initialization
+initialization["applied"]
+initialization["maximum_normalized_physics_residual"]
+println(initialization["maximum_normalized_residual_by_kind"])
+```
+
+The current transformer schema supports WYE, DELTA, centre-tap, single-phase,
+autotransformer, and open-delta relations. Zigzag needs an explicit connection
+matrix in both the model and initialization layers and is intentionally not
+claimed as supported.
 
 ```@example units
 for (name, r) in (("per-unit", res_pu), ("SI", res_si))

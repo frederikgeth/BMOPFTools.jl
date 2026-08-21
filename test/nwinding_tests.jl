@@ -306,6 +306,19 @@ if _HAS_JUMP_IPOPT
             "transformer" => Dict{String,Any}("n_winding" =>
                 Dict{String,Any}("t1" => xf)))
 
+        registry_ctx = build_opf_model(net; add_objective=false)
+        enforce_kcl!(registry_ctx)
+        @test isempty(_unregistered_opf_constraint_indices(registry_ctx))
+        registry_keys = Set(opf_object_keys(registry_ctx; kind=:constraint))
+        @test OpfModelKey(:constraint, :nwind_ampere_turn_real,
+                          ("t1", 1)) in registry_keys
+        @test OpfModelKey(:constraint, :nwind_ampere_turn_imag,
+                          ("t1", 1)) in registry_keys
+        @test OpfModelKey(:constraint, :nwind_voltage_drop_real,
+                          ("t1", 1, 1)) in registry_keys
+        @test OpfModelKey(:constraint, :nwind_voltage_drop_imag,
+                          ("t1", 1, 1)) in registry_keys
+
         res = solve_pf(net; optimizer = Ipopt.Optimizer)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         @test haskey(res["transformer"], "t1")

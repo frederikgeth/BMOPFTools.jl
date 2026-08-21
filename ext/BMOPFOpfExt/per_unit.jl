@@ -34,7 +34,7 @@ through transformers by turns ratio. Returns a NamedTuple with:
   - `i_base`     :: Dict{String,Float64}  per-bus current base (A)
   - `y_base`     :: Dict{String,Float64}  per-bus admittance base (S)
 """
-function _compute_bases(net::Dict{String,Any}, s_base::Float64)
+function _compute_classic_bases(net::Dict{String,Any}, s_base::Float64)
     buses = keys(get(net, "bus", Dict()))
 
     # Find source bus and its V_base from the first voltage source.
@@ -103,8 +103,8 @@ function _compute_bases(net::Dict{String,Any}, s_base::Float64)
         push!(get!(line_adj, bt, String[]), bf)
     end
 
-    queue = [src_bus]
-    visited = Set{String}([src_bus])
+    queue = isempty(src_bus) ? String[] : [src_bus]
+    visited = isempty(src_bus) ? Set{String}() : Set{String}([src_bus])
     while !isempty(queue)
         bus = popfirst!(queue)
         vb  = v_base[bus]
@@ -169,6 +169,214 @@ function _compute_bases(net::Dict{String,Any}, s_base::Float64)
      v_dc_base=v_dc_base, z_dc_base=z_dc_base, i_dc_base=i_dc_base)
 end
 
+function _scaling_policy_error(component, detail)
+    throw(ArgumentError(
+        "inconsistent ConsistentPerUnitScaling at $component: $detail. " *
+        "The current IVR formulation requires voltage bases to be compatible " *
+        "with network connections and derives I=S/V, Z=V^2/S, and Y=S/V^2."))
+end
+
+function _check_same_voltage_base(v_base, from_bus, to_bus, component)
+    vf = v_base[from_bus]
+    vt = v_base[to_bus]
+    isapprox(vf, vt; rtol=1e-10, atol=0.0) || _scaling_policy_error(
+        component, "connected buses $(repr(from_bus)) and $(repr(to_bus)) " *
+                   "have voltage bases $vf V and $vt V")
+end
+
+function _check_transformer_voltage_bases(
+        v_base, from_bus, to_bus, v_nom_from, v_nom_to, component)
+    vf = v_base[from_bus]
+    vt = v_base[to_bus]
+    nominal_ratio = Float64(v_nom_to) / Float64(v_nom_from)
+    actual_ratio = vt / vf
+    isfinite(nominal_ratio) && nominal_ratio > 0 || _scaling_policy_error(
+        component, "transformer nominal voltages must be positive")
+    isapprox(actual_ratio, nominal_ratio; rtol=1e-10, atol=0.0) ||
+        _scaling_policy_error(component,
+            "voltage-base ratio $actual_ratio does not match nominal turns " *
+            "ratio $nominal_ratio between $(repr(from_bus)) and $(repr(to_bus))")
+end
+
+function _validate_custom_voltage_bases!(net, v_base)
+    expected = Set(String.(keys(get(net, "bus", Dict()))))
+    supplied = Set(keys(v_base))
+    missing_buses = sort!(collect(setdiff(expected, supplied)))
+    extra_buses = sort!(collect(setdiff(supplied, expected)))
+    isempty(missing_buses) || throw(ArgumentError(
+        "ConsistentPerUnitScaling requires a voltage base for every AC bus; " *
+        "missing $(join(repr.(missing_buses), ", "))"))
+    isempty(extra_buses) || throw(ArgumentError(
+        "ConsistentPerUnitScaling contains unknown AC buses: " *
+        join(repr.(extra_buses), ", ")))
+
+    for family in ("line", "switch")
+        for (id, component) in get(net, family, Dict())
+            from_bus = String(get(component, "bus_from", ""))
+            to_bus = String(get(component, "bus_to", ""))
+            (isempty(from_bus) || isempty(to_bus)) && continue
+            _check_same_voltage_base(
+                v_base, from_bus, to_bus, "$family $(repr(id))")
+        end
+    end
+
+    transformers = get(net, "transformer", Dict())
+    for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
+        subtype in BMOPFTools.WINDING_LIST_SUBTYPES && continue
+        for (id, transformer) in get(transformers, subtype, Dict())
+            from_bus = String(get(transformer, "bus_from", ""))
+            to_bus = String(get(transformer, "bus_to", ""))
+            (isempty(from_bus) || isempty(to_bus)) && continue
+            if subtype in BMOPFTools.GALVANIC_CONTINUOUS_SUBTYPES
+                # A regulator/autotransformer contains a literal copper bond
+                # between its two bus records.  Its tap changes a winding
+                # voltage, not the coordinate scale of that shared conductor.
+                # Distinct bus voltage bases would therefore require explicit
+                # coefficients in the bond-voltage row and all bond-current KCL
+                # injections.  Keep one voltage coordinate throughout the
+                # galvanic zone, just as we keep one power/current coordinate.
+                _check_same_voltage_base(
+                    v_base, from_bus, to_bus,
+                    "galvanically continuous transformer/$subtype $(repr(id))")
+            else
+                _check_transformer_voltage_bases(
+                    v_base, from_bus, to_bus,
+                    get(transformer, "v_nom_from", 1.0),
+                    get(transformer, "v_nom_to", 1.0),
+                    "transformer/$subtype $(repr(id))")
+            end
+        end
+    end
+    for (id, transformer) in get(transformers, "n_winding", Dict())
+        windings = BMOPFTools._nw_windings(transformer)
+        length(windings) < 2 && continue
+        reference = first(windings)
+        for winding in Iterators.drop(windings, 1)
+            _check_transformer_voltage_bases(
+                v_base, reference.bus, winding.bus,
+                reference.v_nom, winding.v_nom,
+                "transformer/n_winding $(repr(id))")
+        end
+    end
+    return v_base
+end
+
+function _compute_bases(
+        net::Dict{String,Any}, policy::BMOPFTools.ClassicPerUnitScaling)
+    bases = _compute_classic_bases(net, policy.s_base)
+    s_base_bus = Dict(bus => policy.s_base for bus in keys(bases.v_base))
+    return (; bases..., s_base_bus=s_base_bus, s_dc_base=policy.s_base,
+            scaling_policy=policy)
+end
+
+function _compute_bases(
+        net::Dict{String,Any}, policy::BMOPFTools.ConsistentPerUnitScaling)
+    v_base = copy(policy.voltage_bases)
+    _validate_custom_voltage_bases!(net, v_base)
+    sb = policy.s_base
+    z_base = Dict(bus => base^2 / sb for (bus, base) in v_base)
+    i_base = Dict(bus => sb / base for (bus, base) in v_base)
+    y_base = Dict(bus => sb / base^2 for (bus, base) in v_base)
+
+    classic = _compute_classic_bases(net, sb)
+    dc_base = policy.dc_voltage_base
+    dc_base === nothing && !isempty(classic.v_dc_base) &&
+        (dc_base = first(values(classic.v_dc_base)))
+    dc_ids = String.(collect(keys(get(net, "dc_bus", Dict()))))
+    v_dc_base = Dict(bus => dc_base::Float64 for bus in dc_ids)
+    z_dc_base = Dict(bus => dc_base^2 / sb for bus in dc_ids)
+    i_dc_base = Dict(bus => sb / dc_base for bus in dc_ids)
+
+    s_base_bus = Dict(bus => sb for bus in keys(v_base))
+    return (s_base=sb, s_base_bus=s_base_bus, v_base=v_base,
+            z_base=z_base, i_base=i_base,
+            y_base=y_base, v_dc_base=v_dc_base, z_dc_base=z_dc_base,
+            i_dc_base=i_dc_base, s_dc_base=sb, scaling_policy=policy)
+end
+
+_ac_power_base(bases, bus) = Float64(get(bases.s_base_bus, String(bus), bases.s_base))
+_dc_power_base(bases) = Float64(bases.s_dc_base)
+
+function _validate_zone_power_bases!(net, power_bases)
+    expected = Set(String.(keys(get(net, "bus", Dict()))))
+    supplied = Set(keys(power_bases))
+    missing_buses = sort!(collect(setdiff(expected, supplied)))
+    extra_buses = sort!(collect(setdiff(supplied, expected)))
+    isempty(missing_buses) || throw(ArgumentError(
+        "ZonePerUnitScaling requires a power base for every AC bus; missing " *
+        join(repr.(missing_buses), ", ")))
+    isempty(extra_buses) || throw(ArgumentError(
+        "ZonePerUnitScaling contains unknown AC buses: " * join(repr.(extra_buses), ", ")))
+
+    for zone in BMOPFTools._galvanic_zones(net)
+        buses = sort!(String.(collect(zone)))
+        zone_values = unique(power_bases[bus] for bus in buses)
+        length(zone_values) == 1 || throw(ArgumentError(
+            "ZonePerUnitScaling power bases must be constant inside a " *
+            "galvanically continuous zone; buses $(join(repr.(buses), ", ")) " *
+            "use bases $(sort!(collect(zone_values))) VA"))
+    end
+
+    # Cross-zone current/power coefficients are qualified for ordinary isolated
+    # single-phase, center-tap, three-phase Y/Delta, and general n-winding
+    # transformers. Other isolated
+    # connections need their own connection-matrix covariance tests before local
+    # bases are safe.
+    transformers = get(net, "transformer", Dict())
+    qualified = Set((
+        "single_phase", "center_tap", "wye_delta", "delta_wye", "n_winding",
+    ))
+    for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
+        subtype in qualified && continue
+        for (id, transformer) in get(transformers, subtype, Dict())
+            from, to = BMOPFTools._xfmr_from_to_buses(subtype, transformer)
+            isempty(from) && continue
+            sf = power_bases[first(from)]
+            any(bus -> !isapprox(power_bases[bus], sf; rtol=1e-12, atol=0.0), to) ||
+                continue
+            throw(ArgumentError(
+                "ZonePerUnitScaling does not yet qualify a local power-base " *
+                "change across transformer/$subtype $(repr(id)); currently " *
+                "supported across isolated single_phase, center_tap, " *
+                "wye_delta, delta_wye, and n_winding transformers only"))
+        end
+    end
+
+    return power_bases
+end
+
+function _compute_bases(
+        net::Dict{String,Any}, policy::BMOPFTools.ZonePerUnitScaling)
+    v_base = copy(policy.voltage_bases)
+    s_base_bus = copy(policy.power_bases)
+    _validate_custom_voltage_bases!(net, v_base)
+    _validate_zone_power_bases!(net, s_base_bus)
+    z_base = Dict(bus => v_base[bus]^2 / s_base_bus[bus] for bus in keys(v_base))
+    i_base = Dict(bus => s_base_bus[bus] / v_base[bus] for bus in keys(v_base))
+    y_base = Dict(bus => s_base_bus[bus] / v_base[bus]^2 for bus in keys(v_base))
+
+    reference = maximum(values(s_base_bus); init=1.0)
+    classic = _compute_classic_bases(net, reference)
+    dc_voltage = policy.dc_voltage_base
+    dc_voltage === nothing && !isempty(classic.v_dc_base) &&
+        (dc_voltage = first(values(classic.v_dc_base)))
+    dc_voltage === nothing && (dc_voltage = 1.0)
+    dc_power = something(policy.dc_power_base, reference)
+    dc_ids = String.(collect(keys(get(net, "dc_bus", Dict()))))
+    v_dc_base = Dict(bus => dc_voltage for bus in dc_ids)
+    z_dc_base = Dict(bus => dc_voltage^2 / dc_power for bus in dc_ids)
+    i_dc_base = Dict(bus => dc_power / dc_voltage for bus in dc_ids)
+
+    return (s_base=reference, s_base_bus=s_base_bus, v_base=v_base,
+            z_base=z_base, i_base=i_base, y_base=y_base,
+            v_dc_base=v_dc_base, z_dc_base=z_dc_base,
+            i_dc_base=i_dc_base, s_dc_base=dc_power,
+            scaling_policy=policy)
+end
+
+_compute_bases(net::Dict{String,Any}, s_base::Float64) =
+    _compute_bases(net, BMOPFTools.ClassicPerUnitScaling(s_base))
+
 # ── Conversion to per unit ────────────────────────────────────────────────────
 
 """
@@ -178,8 +386,11 @@ Return a deep copy of `net` with all numerical fields scaled to per unit,
 plus the `bases` NamedTuple produced by `_compute_bases`. The original `net`
 is never mutated.
 """
-function _to_per_unit(net::Dict{String,Any}, s_base::Float64)
-    bases  = _compute_bases(net, s_base)
+function _to_per_unit(
+        net::Dict{String,Any}, policy::BMOPFTools.AbstractOpfScalingPolicy)
+    policy isa BMOPFTools.SIUnitsScaling && throw(ArgumentError(
+        "SIUnitsScaling does not define a per-unit transformation"))
+    bases  = _compute_bases(net, policy)
     net_pu = deepcopy(net)
     _pu_scale_buses!(net_pu, bases)
     _pu_scale_sources!(net_pu, bases)
@@ -196,14 +407,17 @@ function _to_per_unit(net::Dict{String,Any}, s_base::Float64)
     net_pu, bases
 end
 
+_to_per_unit(net::Dict{String,Any}, s_base::Float64) =
+    _to_per_unit(net, BMOPFTools.ClassicPerUnitScaling(s_base))
+
 # Switches are ideal (no impedance), so only the per-conductor current limit
 # needs scaling — by the from-bus current base, like a line's i_max. Without
 # this the current variables are p.u. but i_max stays in A, leaving the thermal
 # cap ~I_base too loose.
 function _pu_scale_switches!(net, bases)
-    sb = bases.s_base
     for (_, sw) in get(net, "switch", Dict())
         sw isa Dict || continue
+        sb = _ac_power_base(bases, get(sw, "bus_from", ""))
         if haskey(sw, "i_max")
             ib = get(bases.i_base, get(sw, "bus_from", ""), 1.0)
             sw["i_max"] = Float64.(sw["i_max"]) ./ ib
@@ -238,10 +452,10 @@ end
 
 function _pu_scale_sources!(net, bases)
     v_base = bases.v_base
-    sb     = bases.s_base
     for (_, vs) in get(net, "voltage_source", Dict())
         bus = get(vs, "bus", "")
         vb  = get(v_base, bus, 1.0)
+        sb  = _ac_power_base(bases, bus)
         if haskey(vs, "v_magnitude")
             vs["v_magnitude"] = Float64.(vs["v_magnitude"]) ./ vb
         end
@@ -272,8 +486,9 @@ function _pu_scale_linecodes!(net, bases)
     # on the OPF's working copy, so the user's dict is untouched).
     lc_zbase = Dict{String,Float64}()
     lc_ibase = Dict{String,Float64}()
+    lc_sbase = Dict{String,Float64}()
     linecodes = get(net, "linecode", Dict())
-    clone_of = Dict{Tuple{String,Float64},String}()
+    clone_of = Dict{Tuple{String,Float64,Float64,Float64},String}()
     for (_, line) in get(net, "line", Dict())
         lcid = get(line, "linecode", nothing)
         lcid === nothing && continue
@@ -283,12 +498,17 @@ function _pu_scale_linecodes!(net, bases)
         if !haskey(lc_zbase, lcid)
             lc_zbase[lcid] = zb
             lc_ibase[lcid] = ib
-        elseif !isapprox(lc_zbase[lcid], zb; rtol=1e-9)
-            new_id = get!(clone_of, (String(lcid), zb)) do
+            lc_sbase[lcid] = _ac_power_base(bases, bus)
+        elseif !isapprox(lc_zbase[lcid], zb; rtol=1e-9) ||
+               !isapprox(lc_ibase[lcid], ib; rtol=1e-9) ||
+               !isapprox(lc_sbase[lcid], _ac_power_base(bases, bus); rtol=1e-9)
+            sb = _ac_power_base(bases, bus)
+            new_id = get!(clone_of, (String(lcid), zb, ib, sb)) do
                 nid = string(lcid, "__zbase", length(clone_of) + 1)
                 haskey(linecodes, lcid) && (linecodes[nid] = deepcopy(linecodes[lcid]))
                 lc_zbase[nid] = zb
                 lc_ibase[nid] = ib
+                lc_sbase[nid] = _ac_power_base(bases, bus)
                 nid
             end
             line["linecode"] = new_id
@@ -314,7 +534,10 @@ function _pu_scale_linecodes!(net, bases)
         end
         # s_max is an apparent power → divide by the system VA base (not i_base).
         if haskey(lc, "s_max")
-            lc["s_max"] = Float64.(lc["s_max"]) ./ bases.s_base
+            # A line remains inside one galvanic zone, so either terminal's
+            # local power base is the same.
+            lc["s_max"] = Float64.(lc["s_max"]) ./
+                get(lc_sbase, lcid, bases.s_base)
         end
     end
 
@@ -342,14 +565,15 @@ function _pu_scale_linecodes!(net, bases)
         end
         # s_max is an apparent power → divide by the system VA base (not i_base).
         if haskey(line, "s_max")
-            line["s_max"] = Float64.(line["s_max"]) ./ bases.s_base
+            line["s_max"] = Float64.(line["s_max"]) ./
+                _ac_power_base(bases, bus)
         end
     end
 end
 
 function _pu_scale_loads!(net, bases)
-    sb = bases.s_base
     for (_, load) in get(net, "load", Dict())
+        sb = _ac_power_base(bases, get(load, "bus", ""))
         haskey(load, "p_nom") && (load["p_nom"] = Float64.(load["p_nom"]) ./ sb)
         haskey(load, "q_nom") && (load["q_nom"] = Float64.(load["q_nom"]) ./ sb)
         # v_nom is the load's line-to-neutral reference voltage; the ZIP and
@@ -366,9 +590,9 @@ function _pu_scale_loads!(net, bases)
 end
 
 function _pu_scale_generators!(net, bases)
-    sb = bases.s_base
     for (_, gen) in get(net, "generator", Dict())
         bus = get(gen, "bus", "")
+        sb  = _ac_power_base(bases, bus)
         ib  = get(bases.i_base, bus, 1.0)
         for f in ("p_min", "p_max", "q_min", "q_max", "s_max")
             haskey(gen, f) && (gen[f] = Float64.(gen[f]) ./ sb)
@@ -386,13 +610,22 @@ function _pu_scale_generators!(net, bases)
 end
 
 function _pu_scale_ibrs!(net, bases)
-    sb = bases.s_base
     for (_, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         bus = get(inv, "bus", "")
+        sb  = _ac_power_base(bases, bus)
         ib  = get(bases.i_base, bus, 1.0)
         for f in ("p_min", "p_max", "q_min", "q_max", "s_max")
             haskey(inv, f) && (inv[f] = Float64.(inv[f]) ./ sb)
+        end
+        if haskey(inv, "dc_bus")
+            # The AC and DC ports may use distinct power coordinates.  The
+            # physical lossless balance Sdc*Udc*Idc = Sac*Pac therefore becomes
+            # Udc*Idc = (Sac/Sdc)*Pac in working coordinates.
+            sdc = _dc_power_base(bases)
+            inv["_ac_power_base"] = sb
+            inv["_dc_power_base"] = sdc
+            inv["_ac_to_dc_power_factor"] = sb / sdc
         end
         # DC-link net active-power bounds are scalars (Σ over phases); scale by sb.
         for f in ("p_dc_min", "p_dc_max")
@@ -414,7 +647,6 @@ function _pu_scale_ibrs!(net, bases)
 end
 
 function _pu_scale_transformers!(net, bases)
-    sb = bases.s_base
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
         subtype in BMOPFTools.WINDING_LIST_SUBTYPES && continue  # see _pu_scale_nwinding!
@@ -427,10 +659,32 @@ function _pu_scale_transformers!(net, bases)
             zb_to = get(bases.z_base, bt, 1.0)
             ib_fr = get(bases.i_base, bf, 1.0)
             ib_to = get(bases.i_base, bt, 1.0)
+            sb_fr = _ac_power_base(bases, bf)
+            sb_to = _ac_power_base(bases, bt)
+
+            # Preserve the side-base contract on the working transformer. The
+            # ordinary two-winding current equation is expressed in to-side
+            # current coordinates, so its from-side coefficient is S_fr/S_to.
+            xfmr["_s_base_from"] = sb_fr
+            xfmr["_s_base_to"] = sb_to
+            xfmr["_current_coupling_from_factor"] = sb_fr / sb_to
+            if subtype == "wye_delta"
+                xfmr["_delta_to_wye_power_factor"] = sb_to / sb_fr
+                xfmr["_wye_to_delta_power_factor"] = sb_fr / sb_to
+            elseif subtype == "delta_wye"
+                xfmr["_delta_to_wye_power_factor"] = sb_fr / sb_to
+                xfmr["_wye_to_delta_power_factor"] = sb_to / sb_fr
+            end
 
             haskey(xfmr, "v_nom_from") && (xfmr["v_nom_from"] = Float64(xfmr["v_nom_from"]) / vb_fr)
             haskey(xfmr, "v_nom_to")   && (xfmr["v_nom_to"]   = Float64(xfmr["v_nom_to"])   / vb_to)
-            haskey(xfmr, "s_rating")   && (xfmr["s_rating"]   = Float64(xfmr["s_rating"])   / sb)
+            if haskey(xfmr, "s_rating")
+                rating = Float64(xfmr["s_rating"])
+                xfmr["_s_rating_from_pu"] = rating / sb_fr
+                xfmr["_s_rating_to_pu"] = rating / sb_to
+                # Existing builders enforce the from-side coil nameplate.
+                xfmr["s_rating"] = xfmr["_s_rating_from_pu"]
+            end
 
             haskey(xfmr, "r_series_from") && (xfmr["r_series_from"] = Float64(xfmr["r_series_from"]) / zb_fr)
             haskey(xfmr, "x_series_from") && (xfmr["x_series_from"] = Float64(xfmr["x_series_from"]) / zb_fr)
@@ -471,17 +725,22 @@ end
 # n-winding transformers: an independent per-unit pass. The OPF leakage is the
 # ZB matrix referred to winding 1, so it converts to p.u. with a single divide by
 # z_base(bus_1); the result is stashed as `_zb_re`/`_zb_im` (read by
-# `_nw_zb_for_opf`). v_nom is scaled per winding bus so N_j stays the off-nominal
-# ratio; the no-load shunt (across winding 2's coil) scales by ×z_base(bus_2);
-# per-winding i_max by ÷i_base(winding bus); s_rating by ÷s_base.
+# `_nw_zb_for_opf`). Each referred current carries S_base(winding)/S_base(1),
+# recorded in `_ampere_turn_power_factors`. v_nom is scaled per winding bus so
+# N_j stays the off-nominal ratio; the no-load shunt (across winding 2's coil)
+# scales by ×z_base(bus_2); per-winding i_max by ÷i_base(winding bus); s_rating
+# by ÷s_base(winding 1).
 function _pu_scale_nwinding!(net, bases)
-    sb = bases.s_base
     for (_, xfmr) in get(get(net, "transformer", Dict()), "n_winding", Dict())
         xfmr isa Dict || continue
         raw = get(xfmr, "windings", nothing)
         raw isa AbstractVector && !isempty(raw) || continue
 
         ws  = BMOPFTools._nw_windings(xfmr)
+        sb1 = _ac_power_base(bases, ws[1].bus)
+        xfmr["_ampere_turn_power_factors"] = [
+            _ac_power_base(bases, w.bus) / sb1 for w in ws
+        ]
         ZB  = BMOPFTools._nw_zb_matrix(xfmr)                     # SI, ref-1 base
         zb1 = get(bases.z_base, ws[1].bus, 1.0)
         ZBpu = ZB ./ zb1
@@ -504,11 +763,13 @@ function _pu_scale_nwinding!(net, bases)
             end
             # Per-winding apparent-power rating → p.u. by ÷ s_base.
             if haskey(w, "s_max")
-                w["s_max"] = Float64(w["s_max"]) / sb
+                w["s_max"] = Float64(w["s_max"]) /
+                    _ac_power_base(bases, ws[j].bus)
             end
         end
 
-        haskey(xfmr, "s_rating") && (xfmr["s_rating"] = Float64(xfmr["s_rating"]) / sb)
+        haskey(xfmr, "s_rating") &&
+            (xfmr["s_rating"] = Float64(xfmr["s_rating"]) / sb1)
         # The no-load shunt is stamped across WINDING 2's coil, so it converts to
         # p.u. by ×z_base of winding 2's bus (an admittance scales by ×z_base).
         zb2 = length(ws) >= 2 ? get(bases.z_base, ws[2].bus, 1.0) : zb1
@@ -534,7 +795,7 @@ end
 # out in per-unit automatically:  (q/s_base)/(v_nom/v_base)² = B_SI · z_base.
 function _pu_scale_dc!(net, bases)
     haskey(net, "dc_bus") || return
-    sb  = bases.s_base
+    sb  = _dc_power_base(bases)
     vdb = bases.v_dc_base; zdb = bases.z_dc_base; idb = bases.i_dc_base
 
     # dc_bus voltage fields (per-terminal vectors v_dc_*, scalar pair bounds).
@@ -579,24 +840,29 @@ function _pu_scale_dc!(net, bases)
 
     # Converter DC-control fields on each IBR referencing a dc_bus.
     #   dc_v_set, dc_deadband : volts → /v_dc_base
-    #   dc_p_ref              : watts → /s_base
-    #   dc_droop k (V/W)      : P = p_ref + (v − v_set)/k  ⇒  k_pu = k·s_base/v_dc_base
+    #   dc_p_ref              : watts → /the converter AC power base
+    #   dc_droop k (V/W)      : P = p_ref + (v − v_set)/k
+    #                            ⇒ k_pu = k·S_ac/V_dc_base
+    # Droop is an AC active-power control law even though its independent
+    # variable is a DC voltage.  Scaling these fields by S_dc would silently
+    # change the controller whenever S_ac != S_dc.
     for (_, inv) in get(net, "ibr", Dict())
         inv isa Dict && haskey(inv, "dc_bus") || continue
         vb = get(vdb, String(inv["dc_bus"]), 1.0)
+        sac = _ac_power_base(bases, String(get(inv, "bus", "")))
         haskey(inv, "dc_v_set")    && (inv["dc_v_set"]    = Float64(inv["dc_v_set"]) / vb)
         haskey(inv, "dc_deadband") && (inv["dc_deadband"] = Float64(inv["dc_deadband"]) / vb)
-        haskey(inv, "dc_p_ref")    && (inv["dc_p_ref"]    = Float64(inv["dc_p_ref"]) / sb)
-        haskey(inv, "dc_droop")    && (inv["dc_droop"]    = Float64(inv["dc_droop"]) * sb / vb)
+        haskey(inv, "dc_p_ref")    && (inv["dc_p_ref"]    = Float64(inv["dc_p_ref"]) / sac)
+        haskey(inv, "dc_droop")    && (inv["dc_droop"]    = Float64(inv["dc_droop"]) * sac / vb)
     end
 end
 
 function _pu_scale_capacitors!(net, bases)
-    sb = bases.s_base
     for (_, cap) in get(net, "capacitor", Dict())
         cap isa Dict || continue
         bus = get(cap, "bus", "")
         vb  = get(bases.v_base, bus, 1.0)
+        sb  = _ac_power_base(bases, bus)
         haskey(cap, "q_rated") && (cap["q_rated"] = Float64.(cap["q_rated"]) ./ sb)
         haskey(cap, "v_nom") && (cap["v_nom"] = Float64(cap["v_nom"]) / vb)
     end
@@ -695,13 +961,14 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         load = get(loads, lid, Dict())
         bus  = get(load, "bus", "")
         ib   = get(bases.i_base, bus, 1.0)
+        sb_local = _ac_power_base(bases, bus)
         for (_, lvals) in ph_dict
             lvals isa Dict || continue
             for f in ("crd", "cid")
                 haskey(lvals, f) && (lvals[f] = lvals[f] * ib)
             end
             for f in ("pd", "qd")
-                haskey(lvals, f) && (lvals[f] = lvals[f] * sb)
+                haskey(lvals, f) && (lvals[f] = lvals[f] * sb_local)
             end
         end
     end
@@ -712,13 +979,14 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         gen = get(gens, gid, Dict())
         bus = get(gen, "bus", "")
         ib  = get(bases.i_base, bus, 1.0)
+        sb_local = _ac_power_base(bases, bus)
         for (_, gvals) in ph_dict
             gvals isa Dict || continue
             for f in ("crg", "cig")
                 haskey(gvals, f) && (gvals[f] = gvals[f] * ib)
             end
             for f in ("pg", "qg")
-                haskey(gvals, f) && (gvals[f] = gvals[f] * sb)
+                haskey(gvals, f) && (gvals[f] = gvals[f] * sb_local)
             end
         end
     end
@@ -729,14 +997,26 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         inv = get(invs, iid, Dict())
         bus = get(inv, "bus", "")
         ib  = get(bases.i_base, bus, 1.0)
+        sb_local = _ac_power_base(bases, bus)
         for (_, ivals) in ph_dict
             ivals isa Dict || continue
             for f in ("cri", "cii")
                 haskey(ivals, f) && (ivals[f] = ivals[f] * ib)
             end
             for f in ("pg", "qg")
-                haskey(ivals, f) && (ivals[f] = ivals[f] * sb)
+                haskey(ivals, f) && (ivals[f] = ivals[f] * sb_local)
             end
+        end
+        if haskey(inv, "dc_bus") && haskey(ph_dict, "dc_port") &&
+                ph_dict["dc_port"] isa Dict
+            dc_bus = String(inv["dc_bus"])
+            dc = ph_dict["dc_port"]
+            vdb = get(bases.v_dc_base, dc_bus, 1.0)
+            idb = get(bases.i_dc_base, dc_bus, 1.0)
+            haskey(dc, "v_dc") && (dc["v_dc"] = dc["v_dc"] * vdb)
+            haskey(dc, "i_dc") && (dc["i_dc"] = dc["i_dc"] * idb)
+            haskey(dc, "p_dc") &&
+                (dc["p_dc"] = dc["p_dc"] * _dc_power_base(bases))
         end
     end
 
@@ -746,13 +1026,14 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         vs  = get(sources, sid, Dict())
         bus = get(vs, "bus", "")
         ib  = get(bases.i_base, bus, 1.0)
+        sb_local = _ac_power_base(bases, bus)
         for (_, svals) in ph_dict
             svals isa Dict || continue
             for f in ("cr", "ci", "cm")
                 haskey(svals, f) && (svals[f] = svals[f] * ib)
             end
             for f in ("ps", "qs")
-                haskey(svals, f) && (svals[f] = svals[f] * sb)
+                haskey(svals, f) && (svals[f] = svals[f] * sb_local)
             end
         end
     end
@@ -763,6 +1044,7 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         cvals isa Dict || continue
         bus = get(get(caps, cid, Dict()), "bus", "")
         ib  = get(bases.i_base, bus, 1.0)
+        sb_local = _ac_power_base(bases, bus)
         term_d = get(cvals, "terminals", Dict())
         if term_d isa Dict
             for (_, tvals) in term_d
@@ -772,7 +1054,7 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
                 end
             end
         end
-        haskey(cvals, "q") && (cvals["q"] = cvals["q"] * sb)
+        haskey(cvals, "q") && (cvals["q"] = cvals["q"] * sb_local)
     end
 
     # Transformer currents: from-side ← I_base[bus_from], to-side ← I_base[bus_to]
@@ -788,17 +1070,19 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         bf = get(xfmr, "bus_from", ""); bt = get(xfmr, "bus_to", "")
         ib_fr = get(bases.i_base, bf, 1.0)
         ib_to = get(bases.i_base, bt, 1.0)
+        sb_fr = _ac_power_base(bases, bf)
+        sb_to = _ac_power_base(bases, bt)
         for (_, cvals) in get(winding_dict, "fr", Dict())
             cvals isa Dict || continue
             for f in ("cr", "ci", "cm"); haskey(cvals, f) && (cvals[f] = cvals[f] * ib_fr); end
-            for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
+            for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb_fr); end
         end
         for (_, cvals) in get(winding_dict, "to", Dict())
             cvals isa Dict || continue
             for f in ("cr", "ci", "cm"); haskey(cvals, f) && (cvals[f] = cvals[f] * ib_to); end
-            for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
+            for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb_to); end
         end
-        # Device ground current (A): the no-load shunt is on the from side → I_base[bus_from]
+        # Device ground current was assembled in from-side current coordinates.
         if haskey(winding_dict, "ground") && winding_dict["ground"] isa Dict
             g = winding_dict["ground"]
             for f in ("cg_r", "cg_i", "cgm"); haskey(g, f) && (g[f] = g[f] * ib_fr); end
@@ -820,12 +1104,13 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
             wd = get(winding_dict, "w$j", nothing)
             wd isa Dict || continue
             ib = get(bases.i_base, w.bus, 1.0)
+            sb_local = _ac_power_base(bases, w.bus)
             for (_, cvals) in wd
                 cvals isa Dict || continue
                 for f in ("cr", "ci", "cm")
                     haskey(cvals, f) && (cvals[f] = cvals[f] * ib)
                 end
-                for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb); end  # coil VA
+                for f in ("s", "s_max"); haskey(cvals, f) && (cvals[f] = cvals[f] * sb_local); end
             end
         end
     end

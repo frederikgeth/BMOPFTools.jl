@@ -64,6 +64,8 @@ function BMOPFTools.solve_pf(net::Dict{String,Any};
                               t_index::Int=1,
                               per_unit::Bool=true,
                               s_base::Float64=1e6,
+                              scaling_policy::Union{
+                                  BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing,
                               softplus::Symbol=:user_defined,
                               build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                               verbose::Bool=false,
@@ -71,7 +73,7 @@ function BMOPFTools.solve_pf(net::Dict{String,Any};
                               model_hook!::Union{Function,Nothing}=nothing,
                               solution_hook!::Union{Function,Nothing}=nothing)
     _build_and_solve(net; optimizer=optimizer, t_index=t_index,
-                     per_unit=per_unit, s_base=s_base,
+                     per_unit=per_unit, s_base=s_base, scaling_policy,
                      problem=:power_flow,
                      softplus=softplus, build_spec=build_spec,
                      build! = build_pf!,
