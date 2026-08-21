@@ -2232,7 +2232,12 @@ function register_opf_constraint! end
 Register a non-mutating semantic coordinate/residual block whose members are
 already present in the public OPF object registry. A model object may belong to
 at most one registered block of its kind. Duplicate ids and overlapping members
-are rejected unless replacing the same block id explicitly.
+are rejected unless replacing the same block id explicitly. Register custom
+blocks after `enforce_kcl!` when possible: post-KCL registration materializes
+native blocks and reports conflicts at the registration call. If an overlapping
+custom block is registered before KCL, native materialization can fail later
+when a schema or provenance report is requested; the context must then be
+rebuilt because there is no unregister operation.
 """
 function register_opf_semantic_block! end
 

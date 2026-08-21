@@ -217,10 +217,13 @@ BMOPFTools.opf_semantic_blocks
 ```
 
 Native semantic blocks are registered lazily on the first schema/provenance
-request after KCL finalisation. Ordinary solves therefore do not pay for
-diagnostic metadata they never inspect. Before KCL finalisation the schema
-reports `semantic_blocks_available=false`; a complete native registry is only
-claimed once the KCL rows and late auxiliary bounds exist.
+request after KCL finalisation, or when `register_opf_semantic_block!` is
+called after KCL finalisation. Ordinary solves therefore do not pay for
+diagnostic metadata they never inspect, while post-KCL custom registration
+incurs the same materialisation cost and surfaces overlaps at that call.
+Before KCL finalisation the schema reports `semantic_blocks_available=false`; a
+complete native registry is only claimed once the KCL rows and late auxiliary
+bounds exist.
 
 ## Network simplification
 
