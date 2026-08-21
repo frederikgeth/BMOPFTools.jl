@@ -158,11 +158,14 @@ and apply line-to-neutral / line-to-line voltage bounds. The converter DC-port
 coupling is added separately by the IBR builder (it needs each converter's AC
 active power). Stores the accumulator in `vars[:kcl_dc]` for later enforcement.
 """
-function _add_dc_network_constraints!(model, net, vars)
+function _add_dc_network_constraints!(model, net, vars;
+                                      constraint_context=nothing)
     haskey(net, "dc_bus") || return
     v_dc = vars[:v_dc]
     kcl  = _init_dc_kcl(net)
     vars[:kcl_dc] = kcl
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
 
     # ── Perfect-ground free earth currents ──────────────────────────────────
     for (key, ig) in vars[:idc_gnd]
@@ -194,21 +197,25 @@ function _add_dc_network_constraints!(model, net, vars)
             kf = (bf, tmf[k]); kt = (bt, tmt[k])
             (haskey(v_dc, kf) && haskey(v_dc, kt)) || continue
             if k <= length(rv) && rv[k] > 0
-                @constraint(model, i == (v_dc[kf] - v_dc[kt]) / rv[k])
+                register(:dc_branch_voltage_drop, (id, k),
+                    @constraint(model, i == (v_dc[kf] - v_dc[kt]) / rv[k]))
             elseif !(JuMP.is_fixed(v_dc[kf]) && JuMP.is_fixed(v_dc[kt]))
-                @constraint(model, v_dc[kf] == v_dc[kt])   # ideal conductor
+                register(:dc_branch_voltage_drop, (id, k),
+                    @constraint(model, v_dc[kf] == v_dc[kt]))   # ideal conductor
             end
             # (both ends already fixed → equality is redundant; current stays free)
             # current flows from→to: leaves "from" (−i into node), enters "to" (+i)
             _dc_kcl_add!(kcl, bf, tmf[k], -i)
             _dc_kcl_add!(kcl, bt, tmt[k],  i)
-            k <= length(imax) && _soc_norm!(model, i, imax[k])
+            k <= length(imax) && register(:dc_branch_current_thermal, (id, k),
+                _soc_norm!(model, i, imax[k]))
         end
         pmax = get(br, "p_max", nothing)
         if pmax !== nothing && n >= 1 && haskey(v_dc, (bf, tmf[1]))
             # bound the pole-conductor power |v·i| ≤ p_max
             i1 = idc_br[(id, 1)]
-            _soc_norm!(model, (v_dc[(bf, tmf[1])] * i1), Float64(pmax))
+            register(:dc_branch_power_thermal, (id, 1),
+                _soc_norm!(model, (v_dc[(bf, tmf[1])] * i1), Float64(pmax)))
         end
     end
 
@@ -218,7 +225,8 @@ function _add_dc_network_constraints!(model, net, vars)
         b = String(get(l, "dc_bus", "")); tm = string.(get(l, "terminal_map", String[]))
         p = get(l, "p", nothing); p isa Number || continue
         I = vars[:idc_load][id]
-        _dc_port_power!(model, kcl, v_dc, b, tm, I, Float64(p); inject=false)
+        _dc_port_power!(model, kcl, v_dc, b, tm, I, Float64(p); inject=false,
+            register_constraint=cref -> register(:dc_load_power, id, cref))
     end
 
     # ── DC sources: dispatched-power injection across the port ──────────────
@@ -226,27 +234,32 @@ function _add_dc_network_constraints!(model, net, vars)
         s isa Dict || continue
         b = String(get(s, "dc_bus", "")); tm = string.(get(s, "terminal_map", String[]))
         I = vars[:idc_src][id]; p = vars[:pdc_src][id]
-        _dc_port_power!(model, kcl, v_dc, b, tm, I, p; inject=true)
+        _dc_port_power!(model, kcl, v_dc, b, tm, I, p; inject=true,
+            register_constraint=cref -> register(:dc_source_power, id, cref))
     end
 
     # ── Line-to-neutral / line-to-line magnitude bounds ─────────────────────
-    _add_dc_voltage_pair_bounds!(model, net, v_dc)
+    _add_dc_voltage_pair_bounds!(model, net, v_dc;
+                                 constraint_context=constraint_context)
 end
 
 # Couple a 1- or 2-terminal DC port carrying current `I` to power `p` (a constant
 # or a variable) and stamp it into DC KCL. `inject=true` pushes power INTO the
 # dc_bus (source/converter export); `false` draws it (load).
-function _dc_port_power!(model, kcl, v_dc, b, tm, I, p; inject::Bool)
+function _dc_port_power!(model, kcl, v_dc, b, tm, I, p; inject::Bool,
+                         register_constraint=nothing)
     if length(tm) >= 2
         ka = (b, tm[1]); kb = (b, tm[2])
         (haskey(v_dc, ka) && haskey(v_dc, kb)) || return
-        @constraint(model, (v_dc[ka] - v_dc[kb]) * I == p)
+        cref = @constraint(model, (v_dc[ka] - v_dc[kb]) * I == p)
+        register_constraint === nothing || register_constraint(cref)
         s = inject ? 1.0 : -1.0
         _dc_kcl_add!(kcl, b, tm[1],  s * I)
         _dc_kcl_add!(kcl, b, tm[2], -s * I)
     elseif length(tm) == 1
         ka = (b, tm[1]); haskey(v_dc, ka) || return
-        @constraint(model, v_dc[ka] * I == p)          # earth return
+        cref = @constraint(model, v_dc[ka] * I == p)          # earth return
+        register_constraint === nothing || register_constraint(cref)
         s = inject ? 1.0 : -1.0
         _dc_kcl_add!(kcl, b, tm[1], s * I)
     end
@@ -257,10 +270,17 @@ end
 # lo ≤ Δ ≤ hi directly. `orient` is +1 if the difference is already non-negative
 # (e.g. positive-pole − return), −1 if it is non-positive (negative-pole − return),
 # in which case we bound −Δ.
-function _bound_oriented_diff!(model, Δ, lo, hi, orient::Int)
+function _bound_oriented_diff!(model, Δ, lo, hi, orient::Int;
+                               on_upper=nothing, on_lower=nothing)
     s = orient > 0 ? Δ : @expression(model, -Δ)
-    hi !== nothing && @constraint(model, s <= Float64(hi))
-    lo !== nothing && @constraint(model, s >= Float64(lo))
+    if hi !== nothing
+        cref = @constraint(model, s <= Float64(hi))
+        on_upper === nothing || on_upper(cref)
+    end
+    if lo !== nothing
+        cref = @constraint(model, s >= Float64(lo))
+        on_lower === nothing || on_lower(cref)
+    end
 end
 
 # Stamp line-to-neutral (pole−return) and line-to-line (positive−negative pole)
@@ -268,7 +288,10 @@ end
 # above the return, NEGATIVE pole below), so the bounds are LINEAR. A missing role
 # is a hard error (validation flags it first as E.DOM.DC_POLE_ROLE_REQUIRED) — we
 # never silently fall back to a nonconvex squared form.
-function _add_dc_voltage_pair_bounds!(model, net, v_dc)
+function _add_dc_voltage_pair_bounds!(model, net, v_dc;
+                                      constraint_context=nothing)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
     for (b, dcbus) in get(net, "dc_bus", Dict())
         dcbus isa Dict || continue
         ret  = _dc_return_terminal(dcbus)
@@ -283,7 +306,11 @@ function _add_dc_voltage_pair_bounds!(model, net, v_dc)
                 orient == 0 && error("dc_bus '$b': terminal '$t' needs a POSITIVE/" *
                     "NEGATIVE pole role to orient its line-to-neutral bound.")
                 Δ = @expression(model, v_dc[(b, t)] - v_dc[(b, ret)])
-                _bound_oriented_diff!(model, Δ, lnlo, lnhi, orient)
+                _bound_oriented_diff!(model, Δ, lnlo, lnhi, orient;
+                    on_upper=cref -> register(:dc_bus_voltage_ln_upper,
+                        (b, t, ret), cref),
+                    on_lower=cref -> register(:dc_bus_voltage_ln_lower,
+                        (b, t, ret), cref))
             end
         end
 
@@ -296,7 +323,11 @@ function _add_dc_voltage_pair_bounds!(model, net, v_dc)
                       "NEGATIVE pole role.")
             (haskey(v_dc, (b, pos[1])) && haskey(v_dc, (b, neg[1]))) || continue
             Δ = @expression(model, v_dc[(b, pos[1])] - v_dc[(b, neg[1])])
-            _bound_oriented_diff!(model, Δ, lllo, llhi, 1)   # pos − neg ≥ 0
+            _bound_oriented_diff!(model, Δ, lllo, llhi, 1;
+                on_upper=cref -> register(:dc_bus_voltage_ll_upper,
+                    (b, pos[1], neg[1]), cref),
+                on_lower=cref -> register(:dc_bus_voltage_ll_lower,
+                    (b, pos[1], neg[1]), cref))   # pos − neg ≥ 0
         end
     end
 end
@@ -377,15 +408,23 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
                                   relu_eps::Float64=2e-3,
                                   relu_ops::Dict{Float64,Any}=Dict{Float64,Any}(),
                                   softplus::Symbol=:user_defined,
-                                  net=nothing)
+                                  net=nothing,
+                                  constraint_context=nothing)
     haskey(vars, :kcl_dc) || return
     kcl = vars[:kcl_dc]
     Uport, b, tm = _dc_port_voltage(model, vars, inv)
     Uport === nothing && return
     I = vars[:idc_conv][inv_id]
+    register(family, cref) = _register_semantic_constraint!(
+        constraint_context, family, String(inv_id), cref)
 
-    # Lossless power balance + KCL injection (all modes).
-    @constraint(model, Uport * I == p_ac_expr)
+    # Lossless power balance + KCL injection (all modes).  Uport*I is in the
+    # DC-network power coordinate, while p_ac_expr is in this converter's AC-bus
+    # power coordinate.  SI/classic policies store no factor (unity); zone-local
+    # scaling stores S_ac/S_dc on the prepared IBR record.
+    ac_to_dc = Float64(get(inv, "_ac_to_dc_power_factor", 1.0))
+    register(:dc_converter_power_balance,
+        @constraint(model, Uport * I == ac_to_dc * p_ac_expr))
     _dc_kcl_add!(kcl, b, tm[1], -I)                 # current drawn from pole
     length(tm) >= 2 && _dc_kcl_add!(kcl, b, tm[2], I)   # returned at the return
 
@@ -397,7 +436,8 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
     if mode == "V"
         v_set === nothing &&
             error("IBR '$inv_id': dc_control=\"V\" needs dc_v_set (or dc_bus v_dc_nom).")
-        @constraint(model, Uport == v_set)
+        register(:dc_converter_voltage_control,
+            @constraint(model, Uport == v_set))
 
     elseif mode == "droop"
         v_set === nothing &&
@@ -420,7 +460,8 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         base, triples = breakpoints_to_triples(xs, ys)
         ε  = max(relu_eps * (xs[end] - xs[1]), 1e-6)
         op = relu_operator_for!(relu_ops, model, ε; mode=softplus)
-        @constraint(model, p_ac_expr == curve_expr(op, Uport, base, triples))
+        register(:dc_converter_droop,
+            @constraint(model, p_ac_expr == curve_expr(op, Uport, base, triples)))
     end
 end
 
@@ -453,9 +494,10 @@ function _set_dc_start_values!(vars, net)
 end
 
 "Enforce DC KCL == 0 at every dc_bus terminal."
-function _add_dc_kcl_constraints!(model, vars)
+function _add_dc_kcl_constraints!(model, vars; constraint_context=nothing)
     haskey(vars, :kcl_dc) || return
-    for (_, expr) in vars[:kcl_dc]
-        @constraint(model, expr == 0)
+    for (index, expr) in vars[:kcl_dc]
+        _register_semantic_constraint!(constraint_context, :kcl_dc, index,
+            @constraint(model, expr == 0))
     end
 end

@@ -27,10 +27,13 @@ with `p_min[k] ≤ P_k ≤ p_max[k]` and `q_min[k] ≤ Q_k ≤ q_max[k]`.
 DELTA generators use the same bilinear form with line-to-line voltage.
 """
 function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
-                                     coefficient=nothing)
+                                     coefficient=nothing,
+                                     constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     crg = vars[:crg]; cig = vars[:cig]
     nlabels = BMOPFTools._neutral_labels(net)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
 
     for (gid, gen) in get(net, "generator", Dict())
         bus       = get(gen, "bus", "")
@@ -79,18 +82,30 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
                 p_expr = @expression(model, dvr*crg[(gid,idx)] + dvi*cig[(gid,idx)])
                 q_expr = @expression(model, dvi*crg[(gid,idx)] - dvr*cig[(gid,idx)])
 
-                length(p_min) >= idx && @constraint(model, p_expr >=
-                    (coefficient === nothing ? p_min[idx] : coefficient(
-                        :limit, :generator, gid, :p_min, idx, p_min[idx])))
-                length(p_max) >= idx && @constraint(model, p_expr <=
-                    (coefficient === nothing ? p_max[idx] : coefficient(
-                        :availability, :generator, gid, :p_max, idx, p_max[idx])))
-                length(q_min) >= idx && @constraint(model, q_expr >=
-                    (coefficient === nothing ? q_min[idx] : coefficient(
-                        :limit, :generator, gid, :q_min, idx, q_min[idx])))
-                length(q_max) >= idx && @constraint(model, q_expr <=
-                    (coefficient === nothing ? q_max[idx] : coefficient(
-                        :limit, :generator, gid, :q_max, idx, q_max[idx])))
+                if length(p_min) >= idx
+                    register(:generator_p_lower, (string(gid), idx),
+                        @constraint(model, p_expr >=
+                            (coefficient === nothing ? p_min[idx] : coefficient(
+                                :limit, :generator, gid, :p_min, idx, p_min[idx]))))
+                end
+                if length(p_max) >= idx
+                    register(:generator_p_upper, (string(gid), idx),
+                        @constraint(model, p_expr <=
+                            (coefficient === nothing ? p_max[idx] : coefficient(
+                                :availability, :generator, gid, :p_max, idx, p_max[idx]))))
+                end
+                if length(q_min) >= idx
+                    register(:generator_q_lower, (string(gid), idx),
+                        @constraint(model, q_expr >=
+                            (coefficient === nothing ? q_min[idx] : coefficient(
+                                :limit, :generator, gid, :q_min, idx, q_min[idx]))))
+                end
+                if length(q_max) >= idx
+                    register(:generator_q_upper, (string(gid), idx),
+                        @constraint(model, q_expr <=
+                            (coefficient === nothing ? q_max[idx] : coefficient(
+                                :limit, :generator, gid, :q_max, idx, q_max[idx]))))
+                end
 
                 # Current magnitude limit (per conductor; single-phase collapsed)
                 if phase_ilim[idx] !== nothing
@@ -131,18 +146,30 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
                 p_expr = @expression(model, dvr*crg[(gid,k)] + dvi*cig[(gid,k)])
                 q_expr = @expression(model, dvi*crg[(gid,k)] - dvr*cig[(gid,k)])
 
-                length(p_min) >= k && @constraint(model, p_expr >=
-                    (coefficient === nothing ? p_min[k] : coefficient(
-                        :limit, :generator, gid, :p_min, k, p_min[k])))
-                length(p_max) >= k && @constraint(model, p_expr <=
-                    (coefficient === nothing ? p_max[k] : coefficient(
-                        :availability, :generator, gid, :p_max, k, p_max[k])))
-                length(q_min) >= k && @constraint(model, q_expr >=
-                    (coefficient === nothing ? q_min[k] : coefficient(
-                        :limit, :generator, gid, :q_min, k, q_min[k])))
-                length(q_max) >= k && @constraint(model, q_expr <=
-                    (coefficient === nothing ? q_max[k] : coefficient(
-                        :limit, :generator, gid, :q_max, k, q_max[k])))
+                if length(p_min) >= k
+                    register(:generator_p_lower, (string(gid), k),
+                        @constraint(model, p_expr >=
+                            (coefficient === nothing ? p_min[k] : coefficient(
+                                :limit, :generator, gid, :p_min, k, p_min[k]))))
+                end
+                if length(p_max) >= k
+                    register(:generator_p_upper, (string(gid), k),
+                        @constraint(model, p_expr <=
+                            (coefficient === nothing ? p_max[k] : coefficient(
+                                :availability, :generator, gid, :p_max, k, p_max[k]))))
+                end
+                if length(q_min) >= k
+                    register(:generator_q_lower, (string(gid), k),
+                        @constraint(model, q_expr >=
+                            (coefficient === nothing ? q_min[k] : coefficient(
+                                :limit, :generator, gid, :q_min, k, q_min[k]))))
+                end
+                if length(q_max) >= k
+                    register(:generator_q_upper, (string(gid), k),
+                        @constraint(model, q_expr <=
+                            (coefficient === nothing ? q_max[k] : coefficient(
+                                :limit, :generator, gid, :q_max, k, q_max[k]))))
+                end
 
                 # Current magnitude limit
                 if length(i_max_g) >= k

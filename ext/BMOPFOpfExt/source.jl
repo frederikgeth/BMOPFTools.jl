@@ -30,10 +30,13 @@ are injected into KCL at the phase terminals, with the summed return current at 
 neutral. When `p_min/p_max/q_min/q_max` are present, the corresponding (linear)
 per-phase power constraints are added.
 """
-function _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
+function _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
+                                  constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     cr_src = vars[:cr_src]; ci_src = vars[:ci_src]
     nlabels = BMOPFTools._neutral_labels(net)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
 
     for (sid, vs) in get(net, "voltage_source", Dict())
         bus   = get(vs, "bus", "")
@@ -49,8 +52,14 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
         # ── Fix terminal voltages to the magnitude/angle reference ──────────────
         for (k, t) in enumerate(tm)
             if length(v_mag) >= k && length(v_ang) >= k
+                real_was_fixed = JuMP.is_fixed(vr[(bus, t)])
+                imag_was_fixed = JuMP.is_fixed(vi[(bus, t)])
                 fix(vr[(bus, t)], v_mag[k] * cos(v_ang[k]); force=true)
                 fix(vi[(bus, t)], v_mag[k] * sin(v_ang[k]); force=true)
+                real_was_fixed || register(:source_voltage_real,
+                    (string(sid), string(t)), JuMP.FixRef(vr[(bus, t)]))
+                imag_was_fixed || register(:source_voltage_imag,
+                    (string(sid), string(t)), JuMP.FixRef(vi[(bus, t)]))
             end
         end
 
@@ -65,8 +74,16 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
             get(get(net, "bus", Dict()), bus, Dict{String,Any}()))
         for (b, t) in keys(vr)
             b == bus && (t == src_bus_nt || t in nlabels) || continue
-            JuMP.is_fixed(vr[(bus, t)]) || fix(vr[(bus, t)], 0.0; force=true)
-            JuMP.is_fixed(vi[(bus, t)]) || fix(vi[(bus, t)], 0.0; force=true)
+            if !JuMP.is_fixed(vr[(bus, t)])
+                fix(vr[(bus, t)], 0.0; force=true)
+                register(:source_neutral_voltage_real,
+                    (string(sid), string(t)), JuMP.FixRef(vr[(bus, t)]))
+            end
+            if !JuMP.is_fixed(vi[(bus, t)])
+                fix(vi[(bus, t)], 0.0; force=true)
+                register(:source_neutral_voltage_imag,
+                    (string(sid), string(t)), JuMP.FixRef(vi[(bus, t)]))
+            end
         end
 
         # ── Slack current injection + optional P/Q bounds ───────────────────────
@@ -95,10 +112,22 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
                 if !isempty(p_min) || !isempty(p_max) || !isempty(q_min) || !isempty(q_max)
                     p_expr = @expression(model, dvr*cr_src[(sid,idx)] + dvi*ci_src[(sid,idx)])
                     q_expr = @expression(model, dvi*cr_src[(sid,idx)] - dvr*ci_src[(sid,idx)])
-                    length(p_min) >= idx && @constraint(model, p_expr >= p_min[idx])
-                    length(p_max) >= idx && @constraint(model, p_expr <= p_max[idx])
-                    length(q_min) >= idx && @constraint(model, q_expr >= q_min[idx])
-                    length(q_max) >= idx && @constraint(model, q_expr <= q_max[idx])
+                    if length(p_min) >= idx
+                        register(:source_p_lower, (string(sid), idx),
+                            @constraint(model, p_expr >= p_min[idx]))
+                    end
+                    if length(p_max) >= idx
+                        register(:source_p_upper, (string(sid), idx),
+                            @constraint(model, p_expr <= p_max[idx]))
+                    end
+                    if length(q_min) >= idx
+                        register(:source_q_lower, (string(sid), idx),
+                            @constraint(model, q_expr >= q_min[idx]))
+                    end
+                    if length(q_max) >= idx
+                        register(:source_q_upper, (string(sid), idx),
+                            @constraint(model, q_expr <= q_max[idx]))
+                    end
                 end
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph,  cr_src[(sid,idx)],  ci_src[(sid,idx)])

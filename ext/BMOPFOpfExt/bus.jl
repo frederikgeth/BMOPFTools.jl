@@ -43,8 +43,11 @@ Add |v|² ∈ [v_min², v_max²] at every ungrounded phase terminal that has bou
 Grounded terminals (fixed at 0) and source-fixed terminals are skipped, as are
 neutral terminals (their voltage is determined by physics, not operational limits).
 """
-function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars)
+function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars;
+                              constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
     fixed = _source_fixed_terminals(net)
     nlabels = BMOPFTools._neutral_labels(net)
 
@@ -70,8 +73,10 @@ function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars)
             v2 = @expression(model, vr_t^2 + vi_t^2)
             lb = v_min isa AbstractVector ? get(v_min, k, nothing) : v_min
             ub = v_max isa AbstractVector ? get(v_max, k, nothing) : v_max
-            lb !== nothing && @constraint(model, v2 >= Float64(lb)^2)
-            ub !== nothing && @constraint(model, v2 <= Float64(ub)^2)
+            lb !== nothing && register(:bus_voltage_lower, (bid, k),
+                @constraint(model, v2 >= Float64(lb)^2))
+            ub !== nothing && register(:bus_voltage_upper, (bid, k),
+                @constraint(model, v2 <= Float64(ub)^2))
         end
     end
 end
@@ -89,9 +94,12 @@ Enforce operational bus-level voltage limits (shared by OPF and feasibility OPF)
 - Intra-bus angle-difference bounds (`va_diff_min`, `va_diff_max`, radians): bilinear
   constraints enforcing the angle between every pair of phase terminals.
 """
-function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars)
+function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
+                                     constraint_context=nothing)
     vr    = vars[:vr]; vi = vars[:vi]
     fixed = _source_fixed_terminals(net)
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
 
     for (bid, bus) in get(net, "bus", Dict())
         terminals = get(bus_terminals, bid, String[])
@@ -111,7 +119,8 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars)
         vn_max = get(bus, "vn_max", nothing)
         if vn_max !== nothing && neutral !== nothing && !((bid, neutral) in grounded)
             vr_n = vr[(bid, neutral)]; vi_n = vi[(bid, neutral)]
-            _soc_norm!(model, vr_n, vi_n, Float64(vn_max))
+            register(:bus_neutral_voltage_upper, (bid, neutral),
+                _soc_norm!(model, vr_n, vi_n, Float64(vn_max)))
         end
 
         # ── b. Phase-to-neutral voltage magnitude bounds ─────────────────────
@@ -133,8 +142,10 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars)
                     dvi = @expression(model, vi_t - vi[(bid, neutral)])
                     v2  = @expression(model, dvr^2 + dvi^2)
                 end
-                vpn_min !== nothing && @constraint(model, v2 >= Float64(vpn_min[k])^2)
-                vpn_max !== nothing && @constraint(model, v2 <= Float64(vpn_max[k])^2)
+                vpn_min !== nothing && register(:bus_vpn_lower, (bid, k),
+                    @constraint(model, v2 >= Float64(vpn_min[k])^2))
+                vpn_max !== nothing && register(:bus_vpn_upper, (bid, k),
+                    @constraint(model, v2 <= Float64(vpn_max[k])^2))
             end
         end
 
@@ -157,8 +168,10 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars)
                     dvr = @expression(model, vr[(bid,tk)] - vr[(bid,tj)])
                     dvi = @expression(model, vi[(bid,tk)] - vi[(bid,tj)])
                     v2  = @expression(model, dvr^2 + dvi^2)
-                    vpp_min !== nothing && @constraint(model, v2 >= Float64(vpp_min[pair_idx])^2)
-                    vpp_max !== nothing && @constraint(model, v2 <= Float64(vpp_max[pair_idx])^2)
+                    vpp_min !== nothing && register(:bus_vpp_lower, (bid, pair_idx),
+                        @constraint(model, v2 >= Float64(vpp_min[pair_idx])^2))
+                    vpp_max !== nothing && register(:bus_vpp_upper, (bid, pair_idx),
+                        @constraint(model, v2 <= Float64(vpp_max[pair_idx])^2))
                 end
             end
         end
@@ -193,8 +206,10 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars)
                     c0 = @expression(model, vr[(bid,tk)]*vr[(bid,tj)] + vi[(bid,tk)]*vi[(bid,tj)])
                     s = @expression(model, s0*cosΔ - c0*sinΔ)
                     c = @expression(model, c0*cosΔ + s0*sinΔ)
-                    tan_min !== nothing && @constraint(model, tan_min * c <= s)
-                    tan_max !== nothing && @constraint(model, s <= tan_max * c)
+                    tan_min !== nothing && register(:bus_angle_lower, (bid, ki, kj),
+                        @constraint(model, tan_min * c <= s))
+                    tan_max !== nothing && register(:bus_angle_upper, (bid, ki, kj),
+                        @constraint(model, s <= tan_max * c))
                 end
             end
         end
@@ -242,8 +257,10 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars)
                 V1_i = @expression(model,
                     (dvi1 + s3*dvr2 - 0.5*dvi2 - s3*dvr3 - 0.5*dvi3) / 3)
                 v1_sq = @expression(model, V1_r^2 + V1_i^2)
-                vpos_min !== nothing && @constraint(model, v1_sq >= Float64(vpos_min)^2)
-                vpos_max !== nothing && @constraint(model, v1_sq <= Float64(vpos_max)^2)
+                vpos_min !== nothing && register(:bus_positive_sequence_lower, bid,
+                    @constraint(model, v1_sq >= Float64(vpos_min)^2))
+                vpos_max !== nothing && register(:bus_positive_sequence_upper, bid,
+                    @constraint(model, v1_sq <= Float64(vpos_max)^2))
             end
 
             if vneg_max !== nothing

@@ -3554,6 +3554,94 @@ const IEEE13_FIXTURE = """
         @test parse_bmopf(path)["meta"]["frequency"] == 50.0
     end
 
+    @testset "from_dss — source provenance and BMOPF field mapping" begin
+        source_path = joinpath(@__DIR__, "data", "pf_comparison", "pf_delta_load.dss")
+        net = from_dss(source_path)
+        source_meta = net["_meta"]["powerio_source_metadata"]
+        @test source_meta["source_format"] == "dss"
+        @test source_meta["field_count"] == 9
+        @test Set(source_meta["fields"]) == Set([
+            "angle", "basekv", "conn", "kv", "model", "phases", "units", "vmaxpu", "vminpu",
+        ])
+        @test haskey(source_meta["by_scope"], "load:d12")
+        @test "vminpu" in source_meta["by_scope"]["load:d12"]
+
+        mapping = net["_meta"]["powerio_source_mapping"]
+        @test net["_meta"]["powerio_source_mapped_fields"] ==
+              ["angle", "basekv", "kv", "model", "phases", "vmaxpu", "vminpu"]
+        @test mapping["fields"] ==
+              ["angle", "basekv", "kv", "model", "phases", "vmaxpu", "vminpu"]
+        @test mapping["by_field"]["kv"]["target"] == "load.v_nom"
+        @test mapping["by_field"]["kv"]["transform"] == "kV_to_volts"
+        @test mapping["by_field"]["phases"]["target"] == "load.terminal_map/configuration"
+        @test mapping["by_field"]["basekv"]["status"] == "mapped_with_transform"
+        @test mapping["by_field"]["angle"]["target"] == "voltage_source.v_angle"
+        @test mapping["unmapped_fields"] == ["units"]
+        @test isempty(mapping["blocking_unmapped_fields"])
+        @test mapping["by_field"]["model"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["model"]["target"] == "voltage_source.v_magnitude/v_angle"
+        @test mapping["by_field"]["model"]["scopes"] == ["source:source"]
+        @test mapping["by_field"]["vminpu"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["vmaxpu"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["vminpu"]["impact"] == "physical_or_operating_point"
+        @test mapping["by_field"]["vminpu"]["reason"] ==
+              "preserved_as_load_behavior_contract_not_bus_voltage_bound"
+        @test mapping["by_field"]["vminpu"]["active_in_original_model"] == false
+        @test mapping["by_field"]["vminpu"]["target"] ==
+              "_meta.powerio_source_semantics.load_voltage_thresholds"
+        @test mapping["by_field"]["units"]["physical_readiness_blocking"] == false
+        semantics = net["_meta"]["powerio_source_semantics"]
+        @test semantics["load_voltage_thresholds"][1]["status"] == "observed_ordered"
+        @test semantics["load_voltage_thresholds"][1]["vminpu"] == 0.0
+        @test semantics["load_voltage_thresholds"][1]["vmaxpu"] == 2.0
+        @test semantics["voltage_source_models"][1]["status"] ==
+              "represented_as_fixed_voltage_boundary"
+
+        behavior = powerio_source_behavior_contract(net)
+        @test behavior["contract_version"] == "powerio_source_behavior/v1"
+        @test behavior["mutation_policy"] == "non_mutating"
+        @test behavior["constraint_policy"] == "observation_only"
+        @test behavior["source_semantics_available"] == true
+        @test behavior["active_constraints_added"] == false
+        @test behavior["threshold_observation_count"] == 3
+        @test behavior["eligible_candidate_count"] == 3
+        @test behavior["auxiliary_constraint_candidates"] == Dict{String,Any}[]
+        @test behavior["load_voltage_behavior"][1]["bus"] == "lb"
+        @test behavior["load_voltage_behavior"][1]["constraint_candidate_status"] ==
+              "eligible_terminal_voltage_ratio_candidate"
+
+        planned = powerio_source_behavior_contract(net;
+            plan_auxiliary_constraints = true)
+        @test planned["constraint_policy"] == "candidate_plan"
+        @test length(planned["auxiliary_constraint_candidates"]) == 3
+        @test all(!candidate["active_in_original_model"] for candidate in
+                  planned["auxiliary_constraint_candidates"])
+        @test all(candidate["materialization"] == "not_materialized" for candidate in
+                  planned["auxiliary_constraint_candidates"])
+
+        roundtrip_path = joinpath(mktempdir(), "source_mapping.json")
+        write_bmopf(net, roundtrip_path)
+        roundtrip = parse_bmopf(roundtrip_path)
+        @test roundtrip["_meta"]["powerio_source_mapping"]["fields"] == mapping["fields"]
+        @test roundtrip["_meta"]["powerio_source_metadata"]["field_count"] == 9
+    end
+
+    @testset "from_dss — ZIP load semantics are mapped by scope" begin
+        source_path = joinpath(@__DIR__, "data", "pf_comparison", "pf_zip_3ph.dss")
+        net = from_dss(source_path)
+        mapping = net["_meta"]["powerio_source_mapping"]
+        @test "zipv" in mapping["fields"]
+        @test mapping["by_field"]["zipv"]["target"] ==
+              "load.model/alpha_z/alpha_i/alpha_p/beta_z/beta_i/beta_p"
+        @test mapping["by_field"]["zipv"]["status"] == "mapped"
+        @test mapping["by_field"]["model"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["model"]["mapped_scopes"] ==
+              ["load:ld1", "load:ld2", "load:ld3", "source:source"]
+        @test mapping["by_field"]["model"]["unmapped_scopes"] == String[]
+        @test "zipv" ∉ mapping["blocking_unmapped_fields"]
+        @test "model" ∉ mapping["blocking_unmapped_fields"]
+    end
+
     @testset "LV1_14bus — OpenDSS integration" begin
         dss_master = joinpath(@__DIR__, "data", "LV", "LV1_14bus", "Master.dss")
 
@@ -3852,6 +3940,8 @@ const IEEE13_FIXTURE = """
         if !_HAS_JUMP_IPOPT
             @test_skip "JuMP/Ipopt not in load path — skipping OPF tests"
         else
+            include("scaling_policy_tests.jl")
+            include("semantic_block_tests.jl")
             include("opf_tests.jl")
             include("pmd_opf_port_tests.jl")
             include("volt_var_watt_tests.jl")

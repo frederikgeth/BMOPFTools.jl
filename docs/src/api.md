@@ -126,6 +126,13 @@ BMOPFTools.voltage_zone_summary
 ## Staged OPF extension interface
 
 ```@docs
+AbstractOpfScalingPolicy
+SIUnitsScaling
+ClassicPerUnitScaling
+ConsistentPerUnitScaling
+ZonePerUnitScaling
+opf_scaling_policy
+opf_scaling_policy_data
 OpfRegularization
 OpfDifferentiabilityAnnotation
 opf_bus_voltage_key
@@ -151,6 +158,11 @@ opf_dc_source_power_key
 opf_model
 opf_network
 opf_bases
+opf_ac_coordinate_bases
+opf_dc_coordinate_bases
+opf_initialization_data
+opf_transformer_scaling_contract_data
+opf_acdc_scaling_contract_data
 opf_neutral_labels
 opf_lifecycle
 opf_build_manifest
