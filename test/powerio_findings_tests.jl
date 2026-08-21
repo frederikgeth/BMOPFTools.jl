@@ -8,7 +8,7 @@
 #
 # The lift keeps powerio's own code verbatim and maps its severity ladder
 # (debug/info/warning/error/fatal) onto this package's three levels. Records
-# are folded per (code, severity) class: a large ENWL feeder emits one
+# are folded per (code, severity, component type) class: a large ENWL feeder emits one
 # EMIT.BMOPF.FIELD_DROPPED per dropped field per element, five figures on the
 # bigger networks, which ungrouped would be the whole report.
 
@@ -35,8 +35,14 @@
         # spelling, both resolve to the network.
         @test BMOPFTools._powerio_element("gizmo g1", false) == (:network, nothing)
         @test BMOPFTools._powerio_element("/transformer/delta_wye/t1/r_series", false) ==
-              (:network, nothing)
+              (:transformer, "t1")
+        @test BMOPFTools._powerio_element("/load/LD1/model", true) == (:load, "ld1")
         @test BMOPFTools._powerio_element(nothing, false) == (:network, nothing)
+
+        @test BMOPFTools._powerio_message_element(
+            "voltage source Src: `angle` dropped", true) == (:voltage_source, "src")
+        @test BMOPFTools._powerio_message_element(
+            "meta `created` dropped", false) == (:network, nothing)
     end
 
     @testset "severity maps off the diagnostic record" begin
@@ -66,6 +72,8 @@
         @test recs[1]["severity"] == "WARNING"
         @test recs[1]["code"] == "EMIT.BMOPF.FIELD_DROPPED"
         @test recs[1]["message"] == "load ld1: `kv` dropped"
+        @test recs[1]["component_type"] == "load"
+        @test recs[1]["component_id"] == "ld1"
     end
 
     @testset "a class folds to one record, a singleton keeps its element" begin
@@ -79,8 +87,10 @@
 
         dropped = recs[findfirst(r -> r["code"] == "EMIT.BMOPF.FIELD_DROPPED", recs)]
         @test dropped["count"] == 40
+        @test dropped["component_type"] == "load"
         @test startswith(dropped["message"], "40 occurrences, e.g. ")
         @test length(dropped["messages"]) == 5      # examples, not the whole list
+        @test length(dropped["elements"]) == 40
         @test !haskey(dropped, "component_id")
 
         # One element in the class, so the record still names it (case folded
@@ -106,6 +116,20 @@
         @test recs[1]["elements"] == ["transformer reg1", "transformer reg2"]
     end
 
+    @testset "one code on different component types stays separate" begin
+        recs = BMOPFTools._powerio_diagnostic_records([
+            (code="EMIT.BMOPF.FIELD_DROPPED", severity="warning",
+             message="load l1: field dropped", stage="emit"),
+            (code="EMIT.BMOPF.FIELD_DROPPED", severity="warning",
+             message="transformer t1: field dropped", stage="emit"),
+        ])
+        @test length(recs) == 2
+        @test Set(r["component_type"] for r in recs) == Set(["load", "transformer"])
+        @test all(r -> r["count"] == 1, recs)
+        @test only(filter(r -> r["component_type"] == "load", recs))["component_id"] == "l1"
+        @test only(filter(r -> r["component_type"] == "transformer", recs))["component_id"] == "t1"
+    end
+
     @testset "records become Findings carrying the powerio code verbatim" begin
         recs = BMOPFTools._powerio_diagnostic_records([
             (code="EMIT.BMOPF.TRANSFORMER_UNSUPPORTED", severity="warning",
@@ -128,9 +152,10 @@
     end
 
     @testset "from_dss records both views and fills a caller's vector" begin
-        # pf_open_delta_reg.dss: two line-to-line legs powerio's BMOPF writer
-        # cannot represent, so it drops both — the case in this fixture set
-        # where a fidelity loss removes a device rather than a field.
+        # The two line-to-line regulator legs are preserved as separate
+        # single_phase transformers. Their connection-loss diagnostics form a
+        # real two-element class, so this also exercises grouping from an
+        # actual PowerIO conversion rather than constructed records alone.
         path = joinpath(@__DIR__, "data", "pf_comparison", "pf_open_delta_reg.dss")
         fs   = Finding[]
         net  = from_dss(path; findings=fs)
@@ -144,12 +169,20 @@
         @test length(recs) < length(lines)
         @test length(fs) == length(recs)
 
-        dropped = filter(f -> f.code == "EMIT.BMOPF.TRANSFORMER_UNSUPPORTED", fs)
-        @test length(dropped) == 1
-        @test dropped[1].component_type == :transformer
-        @test dropped[1].detail["elements"] == ["transformer reg1", "transformer reg2"]
-        # …and the transformers really are gone from the dict.
-        @test isempty(get(net, "transformer", Dict()))
+        lossy = filter(f -> f.code == "EMIT.BMOPF.TRANSFORMER_CONNECTION_LOSSY", fs)
+        @test length(lossy) == 1
+        @test lossy[1].component_type == :transformer
+        @test lossy[1].detail["count"] == 2
+        @test lossy[1].detail["elements"] == ["transformer reg1", "transformer reg2"]
+
+        legs = net["transformer"]["single_phase"]
+        @test Set(keys(legs)) == Set(["reg1", "reg2"])
+        @test legs["reg1"]["terminal_map_from"] == ["a", "b"]
+        @test legs["reg1"]["terminal_map_to"] == ["a", "b"]
+        @test legs["reg2"]["terminal_map_from"] == ["b", "c"]
+        @test legs["reg2"]["terminal_map_to"] == ["b", "c"]
+        @test legs["reg1"]["tap"] ≈ inv(1.05)
+        @test legs["reg2"]["tap"] ≈ inv(1.025)
     end
 
     @testset "analyze reports them, before and after a round trip" begin

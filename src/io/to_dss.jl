@@ -70,7 +70,7 @@ function to_dss(net::Dict{String,Any};
     # PowerIO reads the BMOPF JSON and writes OpenDSS text, reporting every
     # fidelity loss its writer had to make.
     dss_text, warnings_list =
-        PowerIO.convert_str(PowerIO.MulticonductorNetwork, json, "dss", "bmopf")
+        PowerIO.convert_str(PowerIO.MulticonductorNetwork, json, "dss"; from="bmopf")
 
     if isempty(dss_text)
         throw(ErrorException("PowerIO produced no DSS output"))

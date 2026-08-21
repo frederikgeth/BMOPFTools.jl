@@ -384,7 +384,12 @@ function _fold_dropped_top_level_extras!(net::Dict{String,Any})
         table = get(extras, extras_key, nothing)
         (table isa Dict && !isempty(table)) || continue
         if haskey(net, top_key) && net[top_key] isa Dict
-            merge!(net[top_key], table)
+            # The top level is the document's authoritative representation.
+            # Fold only ids that are missing there; a duplicate parked under
+            # `extras` must not replace an explicit top level value.
+            for (id, value) in table
+                get!(net[top_key], id, value)
+            end
         else
             net[top_key] = table
         end

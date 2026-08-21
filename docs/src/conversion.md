@@ -196,11 +196,11 @@ findings = Finding[]
 net = from_dss("Master.dss"; findings=findings)
 ```
 
-One `Finding` stands for one diagnostic class rather than one diagnostic: the
-bigger ENWL feeders emit five figures of `EMIT.BMOPF.FIELD_DROPPED`, one per
-dropped field per element. Each carries its `count`, the element paths it
-covers, and a few example messages under `detail`; `powerio_warnings` remains
-the ungrouped list.
+One `Finding` stands for one `(code, severity, component type)` class rather
+than one diagnostic: the bigger ENWL feeders emit five figures of
+`EMIT.BMOPF.FIELD_DROPPED`, one per dropped field per element. Each carries its
+`count`, the element paths it covers, and a few example messages under
+`detail`; `powerio_warnings` remains the ungrouped list.
 
 ### Identifier case-folding
 

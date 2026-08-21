@@ -62,8 +62,9 @@ Two views of the same list are recorded on the returned dict:
 - `_meta["powerio_warnings"]` — every diagnostic verbatim, as its
   `CODE: message` line, untruncated and ungrouped.
 - `_meta["powerio_diagnostics"]` — the same diagnostics folded into one record
-  per class, which [`powerio_findings`](@ref) reads back as [`Finding`](@ref)s
-  and [`analyze`](@ref) reports alongside every other finding.
+  per `(code, severity, component type)` class, which
+  [`powerio_findings`](@ref) reads back as [`Finding`](@ref)s and
+  [`analyze`](@ref) reports alongside every other finding.
 
 # Errors
 - `ArgumentError` if the DSS file does not exist.

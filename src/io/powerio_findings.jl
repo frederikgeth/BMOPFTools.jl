@@ -43,6 +43,14 @@ const _POWERIO_UNCODED = "W.PROV.POWERIO_UNCODED"
 const _POWERIO_ELEMENT_CLASSES = Set{String}((COMPONENT_COLLECTIONS...,
     "transformer", "linecode", "wire_data", "line_geometry", "time_series"))
 
+# Unstructured diagnostics still start their message with the component class
+# and id (`load ld1: ...`, `voltage source src: ...`). Longest labels come
+# first so a multiword class is not mistaken for its first word.
+const _POWERIO_MESSAGE_CLASSES = sort!(
+    [replace(class, "_" => " ") => class for class in _POWERIO_ELEMENT_CLASSES];
+    by=pair -> -length(first(pair)))
+push!(_POWERIO_MESSAGE_CLASSES, "dc line" => "dc_branch")
+
 """
     _split_powerio_line(line) -> (code, message)
 
@@ -64,17 +72,45 @@ end
 
 Resolve a powerio `element_path` to a component this package can address. The
 writer spells its paths `"<class> <name>"` (`"transformer reg1"`); the reader
-spells its own as JSON pointers, which name a field rather than a component and
-so resolve to the network. `fold_ids` lower-cases the name for the `from_dss`
-direction, where every identifier was case folded on ingest.
+uses JSON pointers (`"/transformer/delta_wye/t1/r_series"`). `fold_ids`
+lower-cases the name for the `from_dss` direction, where every identifier was
+case folded on ingest.
 """
 function _powerio_element(path, fold_ids::Bool)::Tuple{Symbol,Union{String,Nothing}}
     path isa AbstractString || return (:network, nothing)
-    parts = split(String(path), ' '; limit=2)
+    text = String(path)
+    if startswith(text, "/")
+        parts = split(text, '/'; keepempty=false)
+        isempty(parts) && return (:network, nothing)
+        class = replace(String(parts[1]), "~1" => "/", "~0" => "~")
+        class == "dc_line" && (class = "dc_branch")
+        class in _POWERIO_ELEMENT_CLASSES || return (:network, nothing)
+        id_index = class == "transformer" ? 3 : 2
+        length(parts) >= id_index || return (:network, nothing)
+        name = replace(String(parts[id_index]), "~1" => "/", "~0" => "~")
+        isempty(name) && return (:network, nothing)
+        return (Symbol(class), fold_ids ? lowercase(name) : name)
+    end
+
+    parts = split(text, ' '; limit=2)
     length(parts) == 2 || return (:network, nothing)
     class, name = String(parts[1]), String(parts[2])
-    (class in _POWERIO_ELEMENT_CLASSES && !isempty(name)) || return (:network, nothing)
+    (class in _POWERIO_ELEMENT_CLASSES && !isempty(name)) ||
+        return (:network, nothing)
     return (Symbol(class), fold_ids ? lowercase(name) : name)
+end
+
+function _powerio_message_element(message::AbstractString,
+                                  fold_ids::Bool)::Tuple{Symbol,Union{String,Nothing}}
+    head = first(split(String(message), ": "; limit=2))
+    for (label, class) in _POWERIO_MESSAGE_CLASSES
+        prefix = label * " "
+        startswith(head, prefix) || continue
+        name = strip(chopprefix(head, prefix))
+        isempty(name) && return (:network, nothing)
+        return (Symbol(class), fold_ids ? lowercase(name) : name)
+    end
+    return (:network, nothing)
 end
 
 # One diagnostic, normalised to the fields this package reads. Handles both
@@ -93,7 +129,8 @@ end
     _powerio_diagnostic_records(diagnostics; fold_ids=false) -> Vector{Dict{String,Any}}
 
 Fold a conversion's diagnostics into one JSON-serialisable record per
-`(code, severity)` class, ordered by code. The powerio code is kept verbatim.
+`(code, severity, component type)` class, ordered by that key. The powerio code
+is kept verbatim.
 
 Grouping is not cosmetic: a large feeder produces one `EMIT.BMOPF.FIELD_DROPPED`
 per dropped field per element, which reaches five figures on the bigger ENWL
@@ -105,35 +142,45 @@ function _powerio_diagnostic_records(diagnostics;
                                      fold_ids::Bool=false)::Vector{Dict{String,Any}}
     isempty(diagnostics) && return Dict{String,Any}[]
 
-    order    = Tuple{String,String}[]
-    grouped  = Dict{Tuple{String,String},Dict{String,Any}}()
+    order    = Tuple{String,String,String}[]
+    grouped  = Dict{Tuple{String,String,String},Dict{String,Any}}()
     for d in diagnostics
         code, msg, sev, path, stage = _powerio_fields(d)
         isempty(code) && (code = _POWERIO_UNCODED)
-        sev_str = sev === nothing ? "" : sev
-        key = (code, sev_str)
+        sev_str = sev === nothing ? "" : lowercase(sev)
+        mapped_severity = string(get(_POWERIO_SEVERITY, sev_str,
+                                     _POWERIO_SEVERITY_DEFAULT))
+        component_type, component_id = _powerio_element(path, fold_ids)
+        element = path
+        if component_id === nothing
+            component_type, component_id = _powerio_message_element(msg, fold_ids)
+            component_id === nothing ||
+                (element = "$(string(component_type)) $component_id")
+        end
+        component_type_str = string(component_type)
+        key = (code, mapped_severity, component_type_str)
         if !haskey(grouped, key)
             push!(order, key)
             grouped[key] = Dict{String,Any}(
-                "code"     => code,
-                "severity" => string(get(_POWERIO_SEVERITY, sev_str,
-                                         _POWERIO_SEVERITY_DEFAULT)),
-                "count"    => 0,
-                "messages" => String[],
-                "elements" => String[],
+                "code"           => code,
+                "severity"       => mapped_severity,
+                "component_type" => component_type_str,
+                "count"          => 0,
+                "messages"       => String[],
+                "elements"       => String[],
             )
         end
         g = grouped[key]
         g["count"] += 1
         length(g["messages"]) < 5 && msg ∉ g["messages"] && push!(g["messages"], msg)
-        if path !== nothing
-            path ∉ g["elements"] && push!(g["elements"], path)
-            ct, cid = _powerio_element(path, fold_ids)
-            if cid !== nothing
-                g["component_type"] = string(ct)
+        if element !== nothing
+            element ∉ g["elements"] && push!(g["elements"], element)
+            if component_id !== nothing
                 # An id only identifies the finding while the class holds one
                 # element; past that the elements list is the identification.
-                g["component_id"] = get(g, "component_id", cid) == cid ? cid : nothing
+                g["component_id"] =
+                    get(g, "component_id", component_id) == component_id ?
+                    component_id : nothing
             end
         end
         stage === nothing || (g["stage"] = stage)

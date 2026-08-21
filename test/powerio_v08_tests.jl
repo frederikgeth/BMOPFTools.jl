@@ -86,6 +86,31 @@ using JSON3
         @test doc["extras"]["transformer"]["single_phase"]["tx"]["tap"] == 0.95
     end
 
+    @testset "top level tables win while missing ids fold from extras" begin
+        doc = Dict{String,Any}(
+            "ibr" => Dict{String,Any}(
+                "shared" => Dict{String,Any}("bus" => "top", "p_nom" => [1.0])),
+            "extras" => Dict{String,Any}(
+                "ibr" => Dict{String,Any}(
+                    "shared" => Dict{String,Any}("bus" => "parked", "p_nom" => [2.0]),
+                    "parked_only" => Dict{String,Any}("bus" => "folded", "p_nom" => [3.0])),
+                "dc_line" => Dict{String,Any}(
+                    "dc1" => Dict{String,Any}("bus_from" => "a", "bus_to" => "b"))),
+        )
+
+        BMOPFTools._fold_dropped_top_level_extras!(doc)
+
+        @test doc["ibr"]["shared"]["bus"] == "top"
+        @test doc["ibr"]["shared"]["p_nom"] == [1.0]
+        @test doc["ibr"]["parked_only"]["bus"] == "folded"
+        @test doc["dc_branch"]["dc1"]["bus_from"] == "a"
+        @test !haskey(doc["extras"], "ibr")
+        @test !haskey(doc["extras"], "dc_line")
+        notes = doc["_meta"]["migration_notes"]
+        note = only(filter(n -> n["code"] == "W.MIGRATE.TOP_LEVEL_EXTRAS_FOLD", notes))
+        @test sort(note["tables"]) == ["dc_branch", "ibr"]
+    end
+
     @testset "schema_check passes on the migrated document" begin
         # End to end: the fixture validates against the bundled schema once the
         # unconditional migrations have run — uppercase models would otherwise
