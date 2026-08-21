@@ -126,6 +126,8 @@ BMOPFTools.voltage_zone_summary
 ## Staged OPF extension interface
 
 ```@docs
+OpfScaling
+OpfDiagnosticSchema
 OpfRegularization
 OpfDifferentiabilityAnnotation
 opf_bus_voltage_key
@@ -153,6 +155,8 @@ opf_network
 opf_bases
 piecewise_linear_value
 opf_piecewise_linear_expression
+opf_coordinate_bases
+opf_diagnostic_schema
 opf_neutral_labels
 opf_lifecycle
 opf_build_manifest

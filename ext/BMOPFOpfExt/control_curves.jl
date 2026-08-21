@@ -133,7 +133,8 @@ function curve_expr(op, U, baseline, triples)
 end
 
 """
-    umag_var(model, dvr, dvi) -> VariableRef
+    umag_var(model, dvr, dvi; on_variable=nothing, on_definition=nothing,
+             on_lower_bound=nothing) -> VariableRef
 
 Voltage magnitude √(dvr² + dvi²) as an auxiliary variable `u ≥ 0` pinned by the
 smooth equality `u² == dvr² + dvi²` — an *implicit* square root.
@@ -145,9 +146,12 @@ node), so the singular corner is reachable and would poison Ipopt's Jacobian.
 The `u²`-equality has a bounded Jacobian everywhere. This mirrors the load
 model's `W`/`s` implicit-magnitude variables.
 """
-function umag_var(model, dvr, dvi; on_variable::Union{Nothing,Function}=nothing)
+function umag_var(model, dvr, dvi;
+                  on_variable::Union{Nothing,Function}=nothing,
+                  on_definition::Union{Nothing,Function}=nothing,
+                  on_lower_bound::Union{Nothing,Function}=nothing)
     u = @variable(model, lower_bound = 0.0, base_name = "umag")
-    @constraint(model, u^2 == dvr^2 + dvi^2)
+    definition = @constraint(model, u^2 == dvr^2 + dvi^2)
     # Seed the start from the voltage warm-start, so Ipopt does not begin at the
     # degenerate u = 0 point (where the u²-equality has a zero gradient in u and
     # the solver can stall on a spurious stationary point). Unset starts (e.g. a
@@ -156,5 +160,7 @@ function umag_var(model, dvr, dvi; on_variable::Union{Nothing,Function}=nothing)
     mag0 = sqrt(JuMP.value(sv, dvr)^2 + JuMP.value(sv, dvi)^2)
     JuMP.set_start_value(u, max(mag0, 1e-6))
     !isnothing(on_variable) && on_variable(u)
+    !isnothing(on_definition) && on_definition(definition)
+    !isnothing(on_lower_bound) && on_lower_bound(JuMP.LowerBoundRef(u))
     return u
 end

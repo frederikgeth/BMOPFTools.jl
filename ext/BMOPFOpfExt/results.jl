@@ -128,9 +128,11 @@ end
 #    (OpenDSS rneut/xneut) from a side's shared neutral terminal to earth.
 #
 # Returns (cg_r, cg_i) in A; zero when neither path reaches earth.
-function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
+function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr;
+                              current_weights=Dict{String,Float64}())
     cg_r = 0.0; cg_i = 0.0
     nlabels = BMOPFTools._neutral_labels(net)
+    weight(bus) = Float64(get(current_weights, String(bus), 1.0))
 
     # Internal neutral-grounding branches (rneut/xneut).
     for (side, bkey, tmkey) in (("from", "bus_from", "terminal_map_from"),
@@ -146,8 +148,9 @@ function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
         zn2 = rn^2 + xn^2
         gn  = rn / zn2; bn = -xn / zn2
         vnr = val(vr_v[(b, tm[npos])]); vni = val(vi_v[(b, tm[npos])])
-        cg_r += gn * vnr - bn * vni
-        cg_i += gn * vni + bn * vnr
+        scale = weight(b)
+        cg_r += scale * (gn * vnr - bn * vni)
+        cg_i += scale * (gn * vni + bn * vnr)
     end
 
     G = Float64(get(xfmr, "g_no_load", 0.0))
@@ -167,7 +170,8 @@ function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
         isempty(ph_to) && return cg_r, cg_i
         n = length(ph_to)
         sr, si = _shunt_ground_current(vr_v, vi_v, val, G/n, B/n, b_to, ph_to)
-        return cg_r + sr, cg_i + si
+        scale = weight(b_to)
+        return cg_r + scale * sr, cg_i + scale * si
     elseif subtype in ("single_phase", "single_phase_autotransformer")
         # One coil per to-side pair; earth only for phase-to-ground coils (no q).
         pairs_to = BMOPFTools._xfmr_winding_pairs(tmto, nlabels)
@@ -176,7 +180,8 @@ function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
         ground_ph = [tmto[p] for (p, q) in pairs_to if q === nothing]
         isempty(ground_ph) && return cg_r, cg_i
         sr, si = _shunt_ground_current(vr_v, vi_v, val, G/n_c, B/n_c, b_to, ground_ph)
-        return cg_r + sr, cg_i + si
+        scale = weight(b_to)
+        return cg_r + scale * sr, cg_i + scale * si
     else
         return cg_r, cg_i
     end
@@ -197,7 +202,7 @@ end
 # sum of per-terminal apparent powers Σ|V_t||I_t| — a throughput scale used to
 # size numerical tolerances downstream (p_loss is a difference of large near-
 # equal terminal powers, so its cancellation noise scales with this).
-function _branch_loss(records, vr_v, vi_v, grounded, val)
+function _branch_loss(records, vr_v, vi_v, grounded, val; power_weights=nothing)
     p = 0.0; q = 0.0; s = 0.0
     for (bus, t, cr_e, ci_e) in records
         if (bus, t) in grounded
@@ -207,9 +212,10 @@ function _branch_loss(records, vr_v, vi_v, grounded, val)
         end
         # I_into_element = −(cr + j ci); S = V · conj(I_into_element)
         ir = -val(cr_e); ii = -val(ci_e)
-        p += vr_t*ir + vi_t*ii
-        q += vi_t*ir - vr_t*ii
-        s += sqrt(vr_t^2 + vi_t^2) * sqrt(ir^2 + ii^2)
+        weight = power_weights === nothing ? 1.0 : get(power_weights, bus, 1.0)
+        p += weight * (vr_t*ir + vi_t*ii)
+        q += weight * (vi_t*ir - vr_t*ii)
+        s += weight * sqrt(vr_t^2 + vi_t^2) * sqrt(ir^2 + ii^2)
     end
     p, q, s
 end
@@ -248,7 +254,7 @@ function _report_xfmr_tap!(rec, tapd, subtype, tid, xfmr, val)
 end
 
 function _extract_results(model, net, bus_terminals, grounded, vars,
-                          branch_inj=nothing)
+                          branch_inj=nothing; bases=nothing)
     status = string(JuMP.termination_status(model))
     tsolve = JuMP.solve_time(model)
     nlabels = BMOPFTools._neutral_labels(net)
@@ -375,25 +381,39 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
         ph_results = Dict{String,Any}()
-        for (idx, ph) in enumerate(ph_pos)
-            t_ph = tm[ph]
-            cr = val(crd_v[(lid, idx)]); ci = val(cid_v[(lid, idx)])
+        if cfg == "SINGLE_PHASE" && length(tm) == 2
+            t_ph, t_ref = tm
+            cr = val(crd_v[(lid, 1)]); ci = val(cid_v[(lid, 1)])
             vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
             vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
-            # Reference: line-to-line (next phase) for DELTA, neutral for WYE.
-            if is_delta
-                t_ref = tm[(ph % n_c) + 1]
-                vr_n  = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-                vi_n  = feasible ? val(vi_v[(bus, t_ref)]) : NaN
-            else
-                vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-                vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
-            end
-            dvr = vr_t - vr_n; dvi = vi_t - vi_n
-            pd  =  dvr*cr + dvi*ci
-            qd  =  dvi*cr - dvr*ci
+            vr_r = feasible ? val(vr_v[(bus, t_ref)]) : NaN
+            vi_r = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+            dvr = vr_t - vr_r; dvi = vi_t - vi_r
+            pd = dvr*cr + dvi*ci
+            qd = dvi*cr - dvr*ci
             ph_results[t_ph] = Dict{String,Any}(
                 "crd" => cr, "cid" => ci, "pd" => pd, "qd" => qd)
+        else
+            for (idx, ph) in enumerate(ph_pos)
+                t_ph = tm[ph]
+                cr = val(crd_v[(lid, idx)]); ci = val(cid_v[(lid, idx)])
+                vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
+                vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
+                # Reference: line-to-line (next phase) for DELTA, neutral for WYE.
+                if is_delta
+                    t_ref = tm[(ph % n_c) + 1]
+                    vr_n  = feasible ? val(vr_v[(bus, t_ref)]) : NaN
+                    vi_n  = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+                else
+                    vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
+                    vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+                end
+                dvr = vr_t - vr_n; dvi = vi_t - vi_n
+                pd  =  dvr*cr + dvi*ci
+                qd  =  dvi*cr - dvr*ci
+                ph_results[t_ph] = Dict{String,Any}(
+                    "crd" => cr, "cid" => ci, "pd" => pd, "qd" => qd)
+            end
         end
         load_res[lid] = ph_results
     end
@@ -510,6 +530,33 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             end
         end
 
+        # Native AC/DC port result in the model's working coordinates.  Keep it
+        # alongside the phase records under a reserved descriptive key; the
+        # per-unit recovery pass applies DC voltage/current/power bases here,
+        # independently of the AC phase-power recovery above.
+        if haskey(inv, "dc_bus") && haskey(vars, :idc_conv) &&
+                haskey(vars[:idc_conv], inv_id) && haskey(vars, :v_dc)
+            dc_bus = String(inv["dc_bus"])
+            dc_tm = string.(get(inv, "dc_terminal_map", String[]))
+            vdc = vars[:v_dc]
+            Udc = if length(dc_tm) >= 2 &&
+                    haskey(vdc, (dc_bus, dc_tm[1])) &&
+                    haskey(vdc, (dc_bus, dc_tm[2]))
+                val(vdc[(dc_bus, dc_tm[1])]) - val(vdc[(dc_bus, dc_tm[2])])
+            elseif length(dc_tm) == 1 && haskey(vdc, (dc_bus, dc_tm[1]))
+                val(vdc[(dc_bus, dc_tm[1])])
+            else
+                NaN
+            end
+            Idc = val(vars[:idc_conv][inv_id])
+            ph_results["dc_port"] = Dict{String,Any}(
+                "v_dc" => Udc,
+                "i_dc" => Idc,
+                "p_dc" => Udc * Idc,
+                "control" => String(get(inv, "dc_control", "P")),
+            )
+        end
+
         inv_res[inv_id] = ph_results
     end
 
@@ -553,7 +600,20 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                 to_dict[string(k)] = Dict{String,Any}("cr" => cr, "ci" => ci,
                                                        "cm" => sqrt(cr^2 + ci^2))
             end
-            cg_r, cg_i = _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr)
+            # A device earth current may combine shunt/neutral paths attached to
+            # opposite winding buses. Convert each path into the from-side
+            # reporting coordinate before summation; `_from_per_unit` then
+            # applies the from-side current base exactly once.
+            current_weights = if bases === nothing
+                Dict{String,Float64}()
+            else
+                bf = String(get(xfmr, "bus_from", ""))
+                ib_ref = Float64(get(bases.i_base, bf, 1.0))
+                Dict(String(bus) => Float64(base) / ib_ref
+                     for (bus, base) in bases.i_base)
+            end
+            cg_r, cg_i = _xfmr_ground_current(
+                vr_v, vi_v, val, net, subtype, xfmr; current_weights)
             rec = Dict{String,Any}(
                 "fr" => fr_dict, "to" => to_dict,
                 "ground" => Dict{String,Any}(
@@ -689,16 +749,22 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
     # entry {p_loss [W], q_loss [var]} to each line and transformer, and totals
     # them into the top-level "losses" summary.
     total_p_loss = 0.0; total_q_loss = 0.0
+    power_weights = bases === nothing ? nothing : Dict(
+        bus => _ac_power_base(bases, bus) / bases.s_base
+        for bus in keys(bases.v_base)
+    )
     if branch_inj !== nothing
         for (lid, recs) in get(branch_inj, "line", Dict())
-            pl, ql, sl = _branch_loss(recs, vr_v, vi_v, grounded, val)
+            pl, ql, sl = _branch_loss(
+                recs, vr_v, vi_v, grounded, val; power_weights)
             total_p_loss += pl; total_q_loss += ql
             haskey(line_res, lid) &&
                 (line_res[lid]["loss"] = Dict{String,Any}(
                     "p_loss" => pl, "q_loss" => ql, "s_through" => sl))
         end
         for (tid, recs) in get(branch_inj, "transformer", Dict())
-            pl, ql, sl = _branch_loss(recs, vr_v, vi_v, grounded, val)
+            pl, ql, sl = _branch_loss(
+                recs, vr_v, vi_v, grounded, val; power_weights)
             total_p_loss += pl; total_q_loss += ql
             haskey(xfmr_res, tid) &&
                 (xfmr_res[tid]["loss"] = Dict{String,Any}(

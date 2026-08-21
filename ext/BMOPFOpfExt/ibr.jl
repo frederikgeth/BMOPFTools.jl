@@ -228,17 +228,28 @@ function _monitor_U(ctx, vr, vi, bus, ph_terms, t_n, c::DroopCurve, override_avg
         perphase = Vector{Any}(undef, n)
         for k in 1:n
             tk = ph_terms[k]
+            semantic_index = (String(inv_id), quantity_ref, k)
+            definition_callback = cref -> _register_semantic_constraint!(ctx,
+                :ibr_voltage_magnitude_definition, semantic_index, cref)
+            lower_callback = cref -> _register_semantic_constraint!(ctx,
+                :ibr_voltage_magnitude_lower_bound, semantic_index, cref)
             if quantity == :PG
-                perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)])
+                perphase[k] = umag_var(model, vr[(bus,tk)], vi[(bus,tk)];
+                    on_definition=definition_callback,
+                    on_lower_bound=lower_callback)
             elseif quantity == :PN
                 perphase[k] = umag_var(model,
                     @expression(model, vr[(bus,tk)] - vr[(bus,t_n)]),
-                    @expression(model, vi[(bus,tk)] - vi[(bus,t_n)]))
+                    @expression(model, vi[(bus,tk)] - vi[(bus,t_n)]);
+                    on_definition=definition_callback,
+                    on_lower_bound=lower_callback)
             else # :PP
                 tj = ph_terms[mod1(k+1, n)]
                 perphase[k] = umag_var(model,
                     @expression(model, vr[(bus,tk)] - vr[(bus,tj)]),
-                    @expression(model, vi[(bus,tk)] - vi[(bus,tj)]))
+                    @expression(model, vi[(bus,tk)] - vi[(bus,tj)]);
+                    on_definition=definition_callback,
+                    on_lower_bound=lower_callback)
             end
         end
         ubar = averaged && n >= 1 ? @expression(model, sum(perphase) / n) : nothing
@@ -477,7 +488,8 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         p_avail_per = let pa = get(inv, "p_avail", nothing)
             n = max(length(_phase_positions(tm, nlabels)), 1)
             pa isa Number ?
-                Float64(pa) / n / (bases === nothing ? 1.0 : Float64(bases.s_base)) : 0.0
+                Float64(pa) / n /
+                (bases === nothing ? 1.0 : _ac_power_base(bases, bus)) : 0.0
         end
 
         tan_phi  = pf_val !== nothing ? tan(acos(abs(pf_val))) : nothing
@@ -524,7 +536,9 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             # of the (≤2) entries — never constrain the same variable twice.
             if !isempty(imax)
                 ilim_sp = minimum(imax)
-                _soc_norm!(model, cri[(inv_id,1)], cii[(inv_id,1)], ilim_sp)
+                _register_semantic_constraint!(ctx, :ibr_current_thermal,
+                    (String(inv_id), 1),
+                    _soc_norm!(model, cri[(inv_id,1)], cii[(inv_id,1)], ilim_sp))
             end
 
             avg_ref && @warn "IBR '$inv_id': voltage_aggregation=AVERAGE has no effect for SINGLE_PHASE — using per-phase magnitude."
@@ -535,8 +549,17 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 reference=:single_pg, controller=:single)
             key_diff = BMOPFTools.opf_ibr_voltage_magnitude_key(inv_id, 1;
                 reference=:single_diff, controller=:single)
-            U_pg   = umag_var(model, vr[(bus, t_ph)], vi[(bus, t_ph)])
-            U_diff = umag_var(model, dvr, dvi)
+            magnitude_variable(reference, dvr_value, dvi_value) = umag_var(
+                model, dvr_value, dvi_value;
+                on_definition=cref -> _register_semantic_constraint!(ctx,
+                    :ibr_voltage_magnitude_definition,
+                    (String(inv_id), reference, 1), cref),
+                on_lower_bound=cref -> _register_semantic_constraint!(ctx,
+                    :ibr_voltage_magnitude_lower_bound,
+                    (String(inv_id), reference, 1), cref))
+            U_pg = magnitude_variable(:single_pg,
+                vr[(bus, t_ph)], vi[(bus, t_ph)])
+            U_diff = magnitude_variable(:single_diff, dvr, dvi)
             BMOPFTools.register_opf_object!(ctx, key_pg, U_pg)
             BMOPFTools.register_opf_object!(ctx, key_diff, U_diff)
             single_U(c) = c === nothing ? nothing : (c.quantity == :PG ? U_pg : U_diff)
@@ -575,8 +598,9 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr))
                 collect_p && push!(p_exprs, p_expr)
 
-                length(imax) >= idx &&
-                    _soc_norm!(model, cri[(inv_id,idx)], cii[(inv_id,idx)], imax[idx])
+                length(imax) >= idx && _register_semantic_constraint!(ctx,
+                    :ibr_current_thermal, (String(inv_id), idx),
+                    _soc_norm!(model, cri[(inv_id,idx)], cii[(inv_id,idx)], imax[idx]))
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph,  cri[(inv_id,idx)],  cii[(inv_id,idx)])
                 t_n !== nothing &&
@@ -588,9 +612,12 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             # current = −Σ phase currents.
             n_ph = length(ph_pos)
             if t_n !== nothing && length(imax) == n_ph + 1
-                _neutral_current_limit!(model,
+                neutral_limit = _neutral_current_limit!(model,
                     [cri[(inv_id,idx)] for idx in 1:n_ph],
                     [cii[(inv_id,idx)] for idx in 1:n_ph], imax[n_ph + 1])
+                neutral_limit === nothing || _register_semantic_constraint!(ctx,
+                    :ibr_neutral_current_thermal,
+                    (String(inv_id), n_ph + 1), neutral_limit)
             end
 
             # Monitored droop voltages, per curve (quantity + aggregation from each
@@ -624,8 +651,9 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                     _warmstart_ibr_current!(cri[(inv_id,k)], cii[(inv_id,k)], dvr, dvi, pt, qt)
                 end
 
-                length(imax) >= k &&
-                    _soc_norm!(model, cri[(inv_id,k)], cii[(inv_id,k)], imax[k])
+                length(imax) >= k && _register_semantic_constraint!(ctx,
+                    :ibr_current_thermal, (String(inv_id), k),
+                    _soc_norm!(model, cri[(inv_id,k)], cii[(inv_id,k)], imax[k]))
 
                 # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
                 _apply_ibr_phase!(ctx, inv_id, k, p_expr, q_expr, nothing, nothing,
@@ -651,7 +679,8 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac, smax,
                                      p_min, p_max;
                                      relu_eps=relu_eps, relu_ops=relu_ops,
-                                     softplus=softplus, net=net)
+                                     softplus=softplus, net=net,
+                                     constraint_context=ctx)
         elseif dc_coupled && !isempty(p_exprs)
             # Isolated DC link: bound the net (sum of per-phase) active power,
             # letting the converter circulate active power between phases.
@@ -660,8 +689,10 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             p_net = @expression(model, sum(p_exprs))
             p_dc_min = get(inv, "p_dc_min", 0.0)
             p_dc_max = get(inv, "p_dc_max", 0.0)
-            @constraint(model, p_net >= Float64(p_dc_min))
-            @constraint(model, p_net <= Float64(p_dc_max))
+            _register_semantic_constraint!(ctx, :ibr_dc_power_lower,
+                String(inv_id), @constraint(model, p_net >= Float64(p_dc_min)))
+            _register_semantic_constraint!(ctx, :ibr_dc_power_upper,
+                String(inv_id), @constraint(model, p_net <= Float64(p_dc_max)))
         end
     end
 end
@@ -677,8 +708,12 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
                                 p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
                                 vv, vw, p_avail_per, relu_ops, softplus)
     model = ctx.model
+    register_constraint(family, cref) = BMOPFTools.register_opf_object!(ctx,
+        BMOPFTools.OpfModelKey(:constraint, family, (string(inv_id), idx)), cref)
     # P lower bound (always a box bound).
-    length(p_min) >= idx && @constraint(model, p_expr >= p_min[idx])
+    if length(p_min) >= idx
+        register_constraint(:ibr_p_lower, @constraint(model, p_expr >= p_min[idx]))
+    end
 
     # P upper bound(s). The available-power box `p_max` always applies — you cannot
     # generate more active power than is available, regardless of any curtailment
@@ -686,25 +721,34 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     # the effective bound is the tighter of the two (P ≤ min(p_max, p_base·f^VW)).
     # (When p_ref=P_MAX the cap is already ≤ p_max and binds first; when p_ref=S_MAX
     # the cap is a fraction of rated and p_max is what enforces availability.)
-    length(p_max) >= idx && @constraint(model, p_expr <= p_max[idx])
+    if length(p_max) >= idx
+        register_constraint(:ibr_p_upper, @constraint(model, p_expr <= p_max[idx]))
+    end
     if vw !== nothing
         op   = relu_operator_for!(relu_ops, model, vw.eps; mode=softplus)
         base = _droop_base(vw, idx, smax, p_max, p_avail_per)
-        @constraint(model, p_expr <= curve_expr(op, U_vw, base * vw.baseline,
-                                                 [(base*a, x̄) for (a, x̄) in vw.triples]))
+        register_constraint(:ibr_p_volt_watt, @constraint(model,
+            p_expr <= curve_expr(op, U_vw, base * vw.baseline,
+                                 [(base*a, x̄) for (a, x̄) in vw.triples])))
     end
 
     # Reactive power: constant-PF equality, Volt-var droop equality, or box.
     if tan_phi !== nothing
-        @constraint(model, pf_sign * q_expr + tan_phi * p_expr == 0)
+        register_constraint(:ibr_power_factor, @constraint(model,
+            pf_sign * q_expr + tan_phi * p_expr == 0))
     elseif vv !== nothing
         op   = relu_operator_for!(relu_ops, model, vv.eps; mode=softplus)
         base = _droop_base(vv, idx, smax, p_max, p_avail_per)
-        @constraint(model, q_expr == curve_expr(op, U_vv, base * vv.baseline,
-                                                [(base*a, x̄) for (a, x̄) in vv.triples]))
+        register_constraint(:ibr_q_volt_var, @constraint(model,
+            q_expr == curve_expr(op, U_vv, base * vv.baseline,
+                                 [(base*a, x̄) for (a, x̄) in vv.triples])))
     else
-        length(q_min) >= idx && @constraint(model, q_expr >= q_min[idx])
-        length(q_max) >= idx && @constraint(model, q_expr <= q_max[idx])
+        if length(q_min) >= idx
+            register_constraint(:ibr_q_lower, @constraint(model, q_expr >= q_min[idx]))
+        end
+        if length(q_max) >= idx
+            register_constraint(:ibr_q_upper, @constraint(model, q_expr <= q_max[idx]))
+        end
     end
 
     # Register the native active/reactive power auxiliaries uniformly, even
@@ -716,10 +760,11 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         BMOPFTools.opf_ibr_power_key(string(inv_id), idx), p_aux)
     BMOPFTools.register_opf_object!(ctx,
         BMOPFTools.opf_ibr_power_key(string(inv_id), idx; component = :reactive), q_aux)
-    @constraint(model, p_aux == p_expr)
-    @constraint(model, q_aux == q_expr)
+    register_constraint(:ibr_power_link_p, @constraint(model, p_aux == p_expr))
+    register_constraint(:ibr_power_link_q, @constraint(model, q_aux == q_expr))
     # Apparent-power circle.
     if length(smax) >= idx
-        _soc_norm!(model, p_aux, q_aux, smax[idx])
+        register_constraint(:ibr_power_circle,
+            _soc_norm!(model, p_aux, q_aux, smax[idx]))
     end
 end

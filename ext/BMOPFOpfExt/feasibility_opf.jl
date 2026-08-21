@@ -47,6 +47,8 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
                                            t_index::Int=1,
                                            per_unit::Bool=true,
                                            s_base::Float64=1e6,
+                                           scaling_policy::Union{
+                                               BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing,
                                            volt_var_watt_eps::Float64=2e-3,
                                            softplus::Symbol=:user_defined,
                                            build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
@@ -58,7 +60,8 @@ function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
     # across the two hooks via this closed-over scratch dict.
     slack = Dict{Symbol,Any}()
     _build_and_solve(net; optimizer=optimizer, t_index=t_index,
-                     per_unit=per_unit, s_base=s_base, relu_eps=volt_var_watt_eps,
+                     per_unit=per_unit, s_base=s_base, scaling_policy,
+                     relu_eps=volt_var_watt_eps,
                      softplus=softplus, build_spec=build_spec,
                      problem=:feasibility_opf,
                      configure! = _configure_feasibility!,
@@ -100,7 +103,12 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
     # minimum; it is an initialisation heuristic, not a convergence guarantee.
     _run_opf_stage!(ctx, :start_values, () -> begin
         _set_level_aware_start_values!(vars, working, bus_terminals, grounded)
-        _set_yd_dy_start_values!(vars, working, grounded)
+        transport = _set_topology_aware_voltage_start_values!(
+            vars, working, bus_terminals, grounded)
+        _set_yd_dy_start_values!(
+            vars, working, grounded; set_voltage_starts=false)
+        state = BMOPFTools.extension_state!(ctx, :BMOPFToolsInitialization)
+        state[:phasor_transport] = transport
     end; required=(:variables,))
 
     # Bound parity with solve_opf: the feasibility model carries the same

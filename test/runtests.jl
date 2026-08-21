@@ -3854,6 +3854,8 @@ const IEEE13_FIXTURE = """
         if !_HAS_JUMP_IPOPT
             @test_skip "JuMP/Ipopt not in load path — skipping OPF tests"
         else
+            include("scaling_policy_tests.jl")
+            include("semantic_block_tests.jl")
             include("opf_tests.jl")
             include("pmd_opf_port_tests.jl")
             include("volt_var_watt_tests.jl")

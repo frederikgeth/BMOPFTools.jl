@@ -9,7 +9,9 @@
 # Model (WYE and/or DELTA windings), four-wire rectangular IVR. The leakage is
 # the OpenDSS-style ZB matrix referred to winding 1 (exact for any n — see
 # `_nw_zb_matrix`), with winding 1 as the reference winding. Per phase/leg, with
-# referred coil currents `I_k^r = N_k I_k` (`N_k = v_nom[k]/v_nom[1]`, `N_1 = 1`)
+# referred coil currents `I_k^r = N_k f_k I_k`
+# (`N_k = v_nom[k]/v_nom[1]`, `N_1 = 1`, and
+# `f_k = S_base[k]/S_base[1]`; every `f_k == 1` in SI and system-base p.u.)
 # and referred coil voltages `V_k^r = U_k / N_k`:
 #
 #   Ampere-turn (ideal core):   Σ_k N_k I_k = 0
@@ -77,10 +79,14 @@ Add the n-winding transformer leakage (ZB) + ampere-turn constraints and KCL
 contributions. Handles WYE and DELTA windings (connection-aware coil incidence);
 independent of `_add_transformer_constraints!`.
 """
-function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=nothing)
+function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i;
+                                    branch_inj=nothing,
+                                    constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
     cr = vars[:cr_nw]; ci = vars[:ci_nw]
     scoil = get!(vars, :s_coil_xf, Dict{Any,Any}())   # per-winding coil (P,Q) ledger
+    register(family, index, cref) = _register_semantic_constraint!(
+        constraint_context, family, index, cref)
 
     nwd = get(get(net, "transformer", Dict()), "n_winding", Dict())
     for (tid, xfmr) in nwd
@@ -99,6 +105,10 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
             "every winding needs a strictly positive v_nom (got " *
             "$(round.([w.v_nom for w in ws], sigdigits=4))).")
         N  = BMOPFTools._nw_turns_ratios(xfmr)
+        power_factors = Float64.(get(
+            xfmr, "_ampere_turn_power_factors", ones(length(ws))))
+        length(power_factors) == n || error("n_winding transformer '$tid': " *
+            "expected one ampere-turn power factor per winding")
         ZB = BMOPFTools._nw_zb_for_opf(xfmr)          # (n-1)×(n-1), model units
         phases1, _ = BMOPFTools._nw_phase_terminals(ws[1].terminal_map)
         nph = length(phases1)
@@ -137,13 +147,20 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
         end
 
         for pk in 1:nph
-            # Referred winding currents I_k^r = N_k I_k.
-            irr = [@expression(model, N[k] * cr[(tid, k, pk)]) for k in 1:n]
-            iri = [@expression(model, N[k] * ci[(tid, k, pk)]) for k in 1:n]
+            # Referred winding currents in winding-1 current coordinates:
+            # I_k^r = N_k (S_k/S_1) I_k. The explicit power factor is unity in
+            # SI and ordinary system-base p.u.; it is essential when isolated
+            # windings use different local power bases.
+            irr = [@expression(model,
+                N[k] * power_factors[k] * cr[(tid, k, pk)]) for k in 1:n]
+            iri = [@expression(model,
+                N[k] * power_factors[k] * ci[(tid, k, pk)]) for k in 1:n]
 
             # Ampere-turn (ideal core): Σ_k N_k I_k = 0.
-            @constraint(model, sum(irr[k] for k in 1:n) == 0)
-            @constraint(model, sum(iri[k] for k in 1:n) == 0)
+            register(:nwind_ampere_turn_real, (tid, pk),
+                @constraint(model, sum(irr[k] for k in 1:n) == 0))
+            register(:nwind_ampere_turn_imag, (tid, pk),
+                @constraint(model, sum(iri[k] for k in 1:n) == 0))
 
             # Leakage: V_1^r − V_{i+1}^r = −Σ_j ZB[i,j] I_{j+1}^r  (i = 1..n-1).
             # The minus sign is the current-into-element convention (derived from
@@ -157,8 +174,10 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                     sum(real(ZB[i, j]) * irr[j+1] - imag(ZB[i, j]) * iri[j+1] for j in 1:n-1))
                 rhs_i = @expression(model,
                     sum(real(ZB[i, j]) * iri[j+1] + imag(ZB[i, j]) * irr[j+1] for j in 1:n-1))
-                @constraint(model, lhs_r + rhs_r == 0)
-                @constraint(model, lhs_i + rhs_i == 0)
+                register(:nwind_voltage_drop_real, (tid, pk, i),
+                    @constraint(model, lhs_r + rhs_r == 0))
+                register(:nwind_voltage_drop_imag, (tid, pk, i),
+                    @constraint(model, lhs_i + rhs_i == 0))
             end
 
             # Inject coil currents into bus terminals (connection-aware). The coil
@@ -179,7 +198,8 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                 # of each phase leg: |I_{k,pk}| ≤ i_max_k. Optional per winding.
                 ilim = w.i_max
                 if ilim !== nothing && ilim > 0.0
-                    _soc_norm!(model, cr[(tid, k, pk)], ci[(tid, k, pk)], ilim)
+                    register(:nwind_current_thermal, (tid, k, pk),
+                        _soc_norm!(model, cr[(tid, k, pk)], ci[(tid, k, pk)], ilim))
                     _limit_current_box!(cr[(tid, k, pk)], ci[(tid, k, pk)], ilim)
                 end
                 # Per-winding apparent-power cap on the coil: S = U_k ∘ conj(I_k)
@@ -191,7 +211,9 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i; branch_inj=n
                     _apparent_power_limit!(model, ukr, uki,
                         cr[(tid, k, pk)], ci[(tid, k, pk)], w.s_max / nph;
                         base_name = "$(tid)_w$(k)_$(pk)",
-                        ledger = scoil, key = (tid, k, pk))
+                        ledger = scoil, key = (tid, k, pk),
+                        register_constraint=(family, cref) -> register(
+                            Symbol("nwind_", family), (tid, k, pk), cref))
                 end
             end
         end
