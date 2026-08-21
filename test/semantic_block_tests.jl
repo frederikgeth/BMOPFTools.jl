@@ -103,6 +103,65 @@
         model_to_canonical=[1.0 0.0; 0.0 0.0],
     )
 
+    # Native blocks are lazy, but a custom block registered after KCL must
+    # still fail at its own registration call when it overlaps a native pair.
+    late_context = build_opf_model(
+        network; scaling_policy=policy, add_objective=false,
+    )
+    enforce_kcl!(late_context)
+    late_overlap = BMOPFTools.OpfSemanticBlock(
+        "late_overlap",
+        :variable,
+        [
+            opf_bus_voltage_key("source", "1"; component=:real),
+            opf_bus_voltage_key("source", "1"; component=:imag),
+        ],
+        [:real, :imag],
+        :voltage,
+        :V,
+    )
+    @test_throws ArgumentError BMOPFTools.register_opf_semantic_block!(
+        late_context, late_overlap,
+    )
+    @test !isempty(opf_diagnostic_schema(late_context).semantic_blocks)
+
+    # A conflict with a user block that predates KCL must roll back native
+    # registration. Repeating the schema request should report the same user
+    # conflict, rather than an unrelated duplicate native id from a partial
+    # first pass.
+    pre_context = build_opf_model(
+        network; scaling_policy=policy, add_objective=false,
+    )
+    pre_overlap = BMOPFTools.OpfSemanticBlock(
+        "mine",
+        :variable,
+        [
+            opf_bus_voltage_key("source", "1"; component=:real),
+            opf_bus_voltage_key("source", "1"; component=:imag),
+        ],
+        [:real, :imag],
+        :voltage,
+        :V,
+    )
+    BMOPFTools.register_opf_semantic_block!(pre_context, pre_overlap)
+    enforce_kcl!(pre_context)
+    first_schema_error = try
+        opf_diagnostic_schema(pre_context)
+        nothing
+    catch error
+        error
+    end
+    second_schema_error = try
+        opf_diagnostic_schema(pre_context)
+        nothing
+    catch error
+        error
+    end
+    @test first_schema_error isa ArgumentError
+    @test second_schema_error isa ArgumentError
+    @test occursin("mine", sprint(showerror, first_schema_error))
+    @test occursin("mine", sprint(showerror, second_schema_error))
+
     provenance = opf_research_provenance(context)
     semantic = provenance["semantic_references"]
     @test semantic["semantic_block_counts_by_kind"]["variable"] ==

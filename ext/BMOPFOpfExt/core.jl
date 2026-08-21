@@ -654,6 +654,19 @@ function BMOPFTools.register_opf_semantic_block!(
     block::BMOPFTools.OpfSemanticBlock;
     replace::Bool = false,
 )
+    # Native semantic blocks are lazy so ordinary solves do not pay for their
+    # metadata. Once KCL has been finalized, a custom registration must see
+    # the native registry immediately; otherwise an overlap can appear to
+    # register successfully and fail only at the later schema call. The
+    # in-progress guard keeps native table entries from recursing here.
+    if ctx.lifecycle[] == :kcl_finalized
+        state = BMOPFTools.extension_state!(
+            ctx, :BMOPFToolsSemanticBlockSummary,
+        )
+        if !get(state, :native_registration_in_progress, false)
+            _register_native_semantic_blocks!(ctx)
+        end
+    end
     registry = _opf_semantic_block_registry(ctx)
     haskey(registry, block.id) && !replace && throw(ArgumentError(
         "OPF semantic-block id already registered: $(repr(block.id))",
@@ -910,16 +923,46 @@ end
 function _register_native_semantic_blocks!(ctx::OpfContext)
     state = BMOPFTools.extension_state!(ctx, :BMOPFToolsSemanticBlockSummary)
     get(state, :native_registered, false) && return ctx
-    variable_count = _register_native_semantic_pair_table!(
-        ctx, :variable, _NATIVE_VARIABLE_SEMANTIC_PAIRS,
+    get(state, :native_registration_in_progress, false) && return ctx
+
+    # Native registration spans two tables. A user block registered before
+    # KCL can conflict part-way through either table; keep materialization
+    # atomic so a failure never leaves a half-populated registry or a false
+    # native_registered flag.
+    registry = _opf_semantic_block_registry(ctx)
+    member_index = _opf_semantic_block_member_index(ctx)
+    registry_snapshot = Dict(
+        id => _copy_semantic_block(block) for (id, block) in registry
     )
-    constraint_count = _register_native_semantic_pair_table!(
-        ctx, :constraint, _NATIVE_CONSTRAINT_SEMANTIC_PAIRS,
+    member_index_snapshot = Dict(
+        member => copy(ids) for (member, ids) in member_index
     )
-    state[:native_variable_blocks] = variable_count
-    state[:native_constraint_blocks] = constraint_count
-    state[:native_registered] = true
-    return ctx
+    state_snapshot = copy(state)
+    state[:native_registration_in_progress] = true
+    try
+        variable_count = _register_native_semantic_pair_table!(
+            ctx, :variable, _NATIVE_VARIABLE_SEMANTIC_PAIRS,
+        )
+        constraint_count = _register_native_semantic_pair_table!(
+            ctx, :constraint, _NATIVE_CONSTRAINT_SEMANTIC_PAIRS,
+        )
+        state[:native_variable_blocks] = variable_count
+        state[:native_constraint_blocks] = constraint_count
+        state[:native_registered] = true
+        delete!(state, :native_registration_in_progress)
+        return ctx
+    catch
+        empty!(registry)
+        merge!(registry, registry_snapshot)
+        empty!(member_index)
+        for (member, ids) in member_index_snapshot
+            member_index[member] = ids
+        end
+        empty!(state)
+        merge!(state, state_snapshot)
+        delete!(state, :native_registration_in_progress)
+        rethrow()
+    end
 end
 
 function BMOPFTools.register_opf_objective_term!(
@@ -2514,10 +2557,9 @@ function _resolve_scaling_policy(per_unit::Bool, s_base::Float64,
             "s_base is ignored by SIUnitsScaling; omit the conflicting s_base " *
             "keyword or supply a non-SI scaling_policy"))
     elseif scaling_policy isa BMOPFTools.ClassicPerUnitScaling
-        s_base == 1.0e6 || isapprox(s_base, scaling_policy.s_base;
-            rtol=0.0, atol=0.0) || throw(ArgumentError(
-                "s_base=$s_base conflicts with the supplied classic scaling " *
-                "policy base $(scaling_policy.s_base)"))
+        s_base == 1.0e6 || s_base == scaling_policy.s_base || throw(ArgumentError(
+            "s_base=$s_base conflicts with the supplied classic scaling " *
+            "policy base $(scaling_policy.s_base)"))
     elseif s_base != 1.0e6
         @warn "s_base is ignored by the supplied custom scaling_policy; use its explicit power-base fields"
     end

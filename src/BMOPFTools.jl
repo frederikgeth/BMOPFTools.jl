@@ -1039,11 +1039,15 @@ effective coordinate system is recorded by [`opf_diagnostic_schema`](@ref) and
 
   **Units.** With `per_unit=true` (the default) the model — and therefore every
   native model variable is in per-unit, so any physical-unit literal in a hook
-  must be scaled by the matching base. `opf_bases(ctx)` returns these as a
-  NamedTuple with `s_base` (VA), per-bus `v_base`/`i_base`/`z_base`/`y_base`
-  Dicts and the DC `v_dc_base`/`i_dc_base`/`z_dc_base`, or `nothing` in SI mode
-  (`per_unit=false`), where no scaling is needed. A watt cap, for instance,
-  becomes `expr <= P_watts / (bases === nothing ? 1.0 : bases.s_base)`.
+  must be scaled by the matching base. `opf_bases(ctx)` returns the raw
+  per-unit metadata as a NamedTuple with `s_base` (a compatibility/reference
+  value), per-bus `v_base`/`i_base`/`z_base`/`y_base` Dicts and the DC
+  `v_dc_base`/`i_dc_base`/`z_dc_base`, or `nothing` in SI mode
+  (`per_unit=false`). Under a zone-local or otherwise nonuniform policy,
+  use `opf_coordinate_bases(ctx, bus).power` for a hook literal at a
+  particular bus; this returns `1.0` in SI mode. A watt cap at `bus1`, for
+  instance, becomes
+  `expr <= P_watts / opf_coordinate_bases(ctx, "bus1").power`.
 
   Example — cap one generator's phase-a active power at 5 kW:
 
@@ -1056,8 +1060,7 @@ effective coordinate system is recorded by [`opf_diagnostic_schema`](@ref) and
       crg = opf_object(ctx, opf_generator_current_key("g1", 1))
       cig = opf_object(ctx,
           opf_generator_current_key("g1", 1; component=:imag))
-      bases = opf_bases(ctx)
-      sb = bases === nothing ? 1.0 : bases.s_base
+      sb = opf_coordinate_bases(ctx, "bus1").power
       JuMP.@constraint(model, vr*crg + vi*cig <= 5_000.0 / sb)
   end)
   ```
@@ -1068,9 +1071,10 @@ effective coordinate system is recorded by [`opf_diagnostic_schema`](@ref) and
   hook can read `JuMP.value` of the custom variables it declared in a
   `model_hook!` (capture them in a shared closure) and append its own keys to
   the `result` dict. Because it runs in the model's units (per-unit by default),
-  the hook must scale its outputs to SI via `opf_bases(ctx)` so they sit alongside the
-  engine's SI results; the standard per-unit keys are unwrapped automatically but
-  custom keys are not.
+  the hook must scale its outputs to SI via the matching
+  `opf_coordinate_bases(ctx, bus).power` (or another local coordinate base) so
+  they sit alongside the engine's SI results; the standard per-unit keys are
+  unwrapped automatically but custom keys are not.
 
   A hook device that wants to be counted in `profile_solution`'s network
   power-balance check writes its **net terminal power** (SI, generator sign:
@@ -1090,8 +1094,7 @@ effective coordinate system is recorded by [`opf_diagnostic_schema`](@ref) and
           bat[:P] = P_expr; bat[:Q] = Q_expr        # JuMP expressions
       end,
       solution_hook! = (ctx, result) -> begin
-          bases = opf_bases(ctx)
-          sb = bases === nothing ? 1.0 : bases.s_base
+          sb = opf_coordinate_bases(ctx, "bus1").power
           p_W  = JuMP.value(bat[:P]) * sb           # per-unit → SI watts
           q_var = JuMP.value(bat[:Q]) * sb
           result["battery"] = Dict("bat1" => Dict("p"=>p_W, "q"=>q_var))
