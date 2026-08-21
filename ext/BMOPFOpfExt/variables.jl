@@ -822,6 +822,10 @@ function _set_yd_dy_start_values!(
     cr_xf = vars[:cr_xf]; ci_xf = vars[:ci_xf]
     xfmr_dict = get(net, "transformer", Dict())
     nlabels = BMOPFTools._neutral_labels(net)
+    start_component(variable, fallback=0.0) = something(
+        JuMP.start_value(variable), fallback)
+    start_complex(real_variable, imag_variable) = complex(
+        start_component(real_variable), start_component(imag_variable))
     for subtype in ("wye_delta", "delta_wye")
         for (tid, xfmr) in get(xfmr_dict, subtype, Dict())
             wye_is_from = (subtype == "wye_delta")
@@ -846,15 +850,15 @@ function _set_yd_dy_start_values!(
             # no start value, so JuMP.start_value would return `nothing` — treat it
             # as 0 explicitly.
             Vn = if n_pos !== nothing && !((b_wye, tm_wye[n_pos]) in grounded)
-                complex(JuMP.start_value(vr[(b_wye, tm_wye[n_pos])]),
-                        JuMP.start_value(vi[(b_wye, tm_wye[n_pos])]))
+                start_complex(vr[(b_wye, tm_wye[n_pos])],
+                              vi[(b_wye, tm_wye[n_pos])])
             else
                 0.0 + 0.0im
             end
 
             # Read wye phase start values
-            Vw = [complex(JuMP.start_value(vr[(b_wye, tm_wye[ph_idx[k]])]),
-                          JuMP.start_value(vi[(b_wye, tm_wye[ph_idx[k]])])) for k in 1:n_ph]
+            Vw = [start_complex(vr[(b_wye, tm_wye[ph_idx[k]])],
+                                vi[(b_wye, tm_wye[ph_idx[k]])]) for k in 1:n_ph]
             Vw_pn = Vw .- Vn
 
             # Find the first grounded delta terminal to anchor the propagation
@@ -872,8 +876,8 @@ function _set_yd_dy_start_values!(
             # guard as the wye neutral Vn above.
             V_del = zeros(ComplexF64, n_ph)
             V_del[start_k] = (b_del, tm_del[start_k]) in grounded ? (0.0 + 0.0im) :
-                complex(JuMP.start_value(vr[(b_del, tm_del[start_k])]),
-                        JuMP.start_value(vi[(b_del, tm_del[start_k])]))
+                start_complex(vr[(b_del, tm_del[start_k])],
+                              vi[(b_del, tm_del[start_k])])
             for step in 1:(n_ph - 1)
                 k      = mod1(start_k + step - 1, n_ph)
                 k_next = mod1(k, n_ph) + 1
@@ -923,19 +927,19 @@ function _set_yd_dy_start_values!(
                         ((k - 2 + n_ph) % n_ph) + 1 :  # k_prev for Yd
                         (k % n_ph) + 1                   # k_next for Dy
                     ph_other = ph_idx[k_other]
-                    I_del_r = -(JuMP.start_value(cr_xf[(tid, side_wye, ph)]) -
-                                JuMP.start_value(cr_xf[(tid, side_wye, ph_other)])) /
+                    I_del_r = -(start_component(cr_xf[(tid, side_wye, ph)]) -
+                                start_component(cr_xf[(tid, side_wye, ph_other)])) /
                                (n_eff * delta_current_factor)
-                    I_del_i = -(JuMP.start_value(ci_xf[(tid, side_wye, ph)]) -
-                                JuMP.start_value(ci_xf[(tid, side_wye, ph_other)])) /
+                    I_del_i = -(start_component(ci_xf[(tid, side_wye, ph)]) -
+                                start_component(ci_xf[(tid, side_wye, ph_other)])) /
                                (n_eff * delta_current_factor)
                     JuMP.set_start_value(cr_xf[(tid, side_del, k)], I_del_r)
                     JuMP.set_start_value(ci_xf[(tid, side_del, k)], I_del_i)
                 end
                 # Neutral wye current start value
                 if n_pos !== nothing
-                    I_n_r = -sum(JuMP.start_value(cr_xf[(tid, side_wye, ph_idx[k])]) for k in 1:n_ph)
-                    I_n_i = -sum(JuMP.start_value(ci_xf[(tid, side_wye, ph_idx[k])]) for k in 1:n_ph)
+                    I_n_r = -sum(start_component(cr_xf[(tid, side_wye, ph_idx[k])]) for k in 1:n_ph)
+                    I_n_i = -sum(start_component(ci_xf[(tid, side_wye, ph_idx[k])]) for k in 1:n_ph)
                     JuMP.set_start_value(cr_xf[(tid, side_wye, n_pos)], I_n_r)
                     JuMP.set_start_value(ci_xf[(tid, side_wye, n_pos)], I_n_i)
                 end

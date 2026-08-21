@@ -149,6 +149,11 @@ end
         power_bases=Dict("hv" => 1.0e6, "lv" => 25.0e3, "loadbus" => 25.0e3),
     )
     @test BMOPFTools.opf_scaling_policy_data(zone)["kind"] == "zone_per_unit"
+    @test_throws ArgumentError build_opf_model(
+        net; scaling_policy=OpfScaling(:si), s_base=2.0e6)
+    @test_throws ArgumentError build_opf_model(
+        net; scaling_policy=OpfScaling(:classic; power_base=2.0e6),
+        per_unit=false)
     ext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
     working, bases = ext._to_per_unit(net, zone)
     @test bases.s_base== 1.0e6
@@ -161,6 +166,16 @@ end
     @test net == original
 
     context = build_opf_model(net; scaling_policy=zone, add_objective=false)
+    pre_kcl_schema = opf_diagnostic_schema(context)
+    @test pre_kcl_schema.capabilities["lifecycle"] == "building"
+    @test !pre_kcl_schema.capabilities["semantic_blocks_available"]
+    @test !pre_kcl_schema.capabilities["semantic_blocks_registered"]
+    @test isempty(pre_kcl_schema.semantic_blocks)
+    enforce_kcl!(context)
+    post_kcl_schema = opf_diagnostic_schema(context)
+    @test post_kcl_schema.capabilities["semantic_blocks_available"]
+    @test post_kcl_schema.capabilities["semantic_blocks_registered"]
+    @test !isempty(post_kcl_schema.semantic_blocks)
     contract = BMOPFTools.opf_transformer_scaling_contract_data(context)
     @test contract["proposal_admissible"]
     @test contract["applied_to_model"]

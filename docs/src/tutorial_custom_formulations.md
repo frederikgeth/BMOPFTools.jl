@@ -315,8 +315,9 @@ constraint with a state-of-charge recursion — the
 Hard-won rules, in checklist form:
 
 - **Scale every physical literal.** The model is per-unit by default;
-  `opf_bases(ctx)` (`s_base`, per-bus `v_base`/`i_base`/`z_base`) is the
-  dictionary, and it is `nothing` in SI mode — the
+  `opf_coordinate_bases(ctx, bus)` is the authoritative local dictionary. In a
+  uniform policy `opf_bases(ctx).s_base` is also valid; with zone-local bases
+  it is only a reference value. `opf_bases(ctx)` is `nothing` in SI mode — the
   `x / (bases === nothing ? 1.0 : bases.s_base)` guard keeps a hook
   correct under both.
 - **Prefer rung 0.** If the schema can say it (§2), say it in data — it

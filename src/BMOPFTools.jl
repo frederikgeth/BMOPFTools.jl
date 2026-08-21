@@ -1288,9 +1288,10 @@ function OpfSemanticBlock(
         throw(ArgumentError("semantic-block components must be unique"))
     all(member -> member.kind == kind, normalized_members) ||
         throw(ArgumentError("every semantic-block member must match block kind"))
-    set_contract in (
-        :none, :zero_equality, :scalar_bounds, :euclidean_ball, :unsupported,
-    ) || throw(ArgumentError("unsupported semantic-block set contract"))
+    set_contract in (:none, :zero_equality, :scalar_bounds, :euclidean_ball) ||
+        throw(ArgumentError(
+            "unsupported semantic-block set contract; use :none, " *
+            ":zero_equality, :scalar_bounds, or :euclidean_ball"))
     kind == :variable && set_contract != :none && throw(ArgumentError(
         "variable semantic blocks must use set_contract=:none",
     ))
@@ -1706,7 +1707,7 @@ struct ZonePerUnitScaling <: AbstractOpfScalingPolicy
             name::Symbol=:zone_local)
         isempty(String(name)) && throw(ArgumentError(
             "scaling policy name cannot be empty"))
-        normalize(values, label) = begin
+        normalize_bases(values, label) = begin
             result = Dict{String,Float64}()
             for (bus, raw) in values
                 value = Float64(raw)
@@ -1716,8 +1717,8 @@ struct ZonePerUnitScaling <: AbstractOpfScalingPolicy
             end
             result
         end
-        vb = normalize(voltage_bases, "voltage base")
-        sb = normalize(power_bases, "power base")
+        vb = normalize_bases(voltage_bases, "voltage base")
+        sb = normalize_bases(power_bases, "power base")
         dcv = dc_voltage_base === nothing ? nothing : Float64(dc_voltage_base)
         dcs = dc_power_base === nothing ? nothing : Float64(dc_power_base)
         dcv === nothing || (isfinite(dcv) && dcv > 0) || throw(ArgumentError(
@@ -2087,7 +2088,12 @@ function opf_model end
 """Return the prepared working network owned by a staged OPF context."""
 function opf_network end
 
-"""Return per-unit base metadata, or `nothing` for an SI staged model."""
+"""Return per-unit base metadata, or `nothing` for an SI staged model.
+
+For zone-local policies, `s_base` is a compatibility/reference value rather
+than a universal local power base. Use [`opf_coordinate_bases`](@ref) for
+bus-local hook literals and residual interpretation.
+"""
 function opf_bases end
 
 """
@@ -2141,7 +2147,11 @@ function opf_acdc_scaling_contract_data end
 Return a defensive, versioned description of a staged model's scaling,
 semantic blocks, initialization provenance, and qualified coordinate
 interfaces. Optional proposed AC bases affect only the transformer-interface
-audit; this function never modifies the model.
+audit; this function never modifies the model. Native semantic blocks are
+materialised lazily after KCL finalisation; inspect `capabilities` for
+`semantic_blocks_available` and `semantic_blocks_registered` before relying on
+their completeness. Bind the returned schema once when several fields are
+needed; each call rebuilds its defensive evidence dictionaries.
 """
 function opf_diagnostic_schema end
 

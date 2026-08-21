@@ -4294,6 +4294,24 @@ end
         @test res["transformer"]["t1"]["loss"]["p_loss"] > 0.0   # R·|I|² dissipation
     end
 
+    @testset "LL: SINGLE_PHASE load stamps the declared phase pair" begin
+        # Regression for the two-terminal load path: a phase-to-phase load is
+        # one branch across terminals 1 and 2, not a phase-to-neutral load on 1.
+        net = parse_bmopf("""
+        {"bus":{"b":{"terminal_names":["1","2","n"],
+                         "perfectly_grounded_terminals":["n"]}},
+         "voltage_source":{"vs":{"bus":"b","terminal_map":["1","2","n"],
+             "v_magnitude":[240.0,240.0,0.0],
+             "v_angle":[0.0,3.141592653589793,0.0]}},
+         "load":{"ll":{"bus":"b","terminal_map":["1","2"],
+             "configuration":"SINGLE_PHASE","p_nom":[1000.0],"q_nom":[0.0]}}}
+        """; from_string=true)
+        result = solve_pf(net)
+        @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        @test result["load"]["ll"]["1"]["pd"] ≈ 1000.0 rtol=1e-6
+        @test length(result["load"]["ll"]) == 1
+    end
+
     @testset "LL: single_phase autotransformer across two phases" begin
         # Type B regulator across phases 1-2 (no neutral): V_LL boosted by a.
         a = 1.05

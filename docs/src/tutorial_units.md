@@ -174,6 +174,11 @@ represented by this policy. A comparison should therefore first establish
 physical solution and derivative covariance, then compare solver trajectories;
 iteration counts alone are not evidence that the mathematical problems match.
 
+With a zone-local policy, `opf_bases(ctx).s_base` is retained as a reference
+value for compatibility and reporting; it is not a universal local power base.
+Use `opf_coordinate_bases(ctx, bus).power` (or the `s_base_bus` table) whenever
+constructing a bus-local hook or interpreting a local residual.
+
 ### Auditing transformer-local power bases
 
 A genuinely local power base cannot be introduced by independently dividing
@@ -194,9 +199,9 @@ proposal = opf_diagnostic_schema(
     voltage_bases = Dict("hv" => 6350.0, "delta" => 415 / sqrt(3)),
     power_bases = Dict("hv" => 10e6, "delta" => 1e6),
 ).transformer_scaling
-@assert proposal["proposal_admissible"]
-@assert proposal["power_product_identity_passed"]
-@assert proposal["requires_new_transformer_stamping"]
+proposal["proposal_admissible"]
+proposal["power_product_identity_passed"]
+proposal["requires_new_transformer_stamping"]
 ```
 
 The report partitions buses into galvanically continuous zones and gives every
@@ -218,8 +223,9 @@ zone_policy = OpfScaling(
     power_bases = Dict("hv" => 1e6, "lv" => 25e3),
 )
 ctx = build_opf_model(net; scaling_policy = zone_policy)
-evidence = opf_diagnostic_schema(ctx).transformer_scaling
-@assert evidence["applied_to_model"]
+schema = opf_diagnostic_schema(ctx)
+evidence = schema.transformer_scaling
+evidence["applied_to_model"]
 ```
 
 The implementation derives local `I`, `Z`, and `Y` bases, stamps the side-base
@@ -379,8 +385,8 @@ chains. Inspect the evidence rather than assuming this worked:
 
 ```julia
 initialization = opf_diagnostic_schema(ctx).initialization
-@assert initialization["applied"]
-@assert initialization["maximum_normalized_physics_residual"] < 1e-10
+initialization["applied"]
+initialization["maximum_normalized_physics_residual"]
 println(initialization["maximum_normalized_residual_by_kind"])
 ```
 

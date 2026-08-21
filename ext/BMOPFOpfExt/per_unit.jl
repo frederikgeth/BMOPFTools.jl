@@ -103,8 +103,8 @@ function _compute_classic_bases(net::Dict{String,Any}, s_base::Float64)
         push!(get!(line_adj, bt, String[]), bf)
     end
 
-    queue = [src_bus]
-    visited = Set{String}([src_bus])
+    queue = isempty(src_bus) ? String[] : [src_bus]
+    visited = isempty(src_bus) ? Set{String}() : Set{String}([src_bus])
     while !isempty(queue)
         bus = popfirst!(queue)
         vb  = v_base[bus]
@@ -201,14 +201,14 @@ end
 function _validate_custom_voltage_bases!(net, v_base)
     expected = Set(String.(keys(get(net, "bus", Dict()))))
     supplied = Set(keys(v_base))
-    missing = sort!(collect(setdiff(expected, supplied)))
-    extra = sort!(collect(setdiff(supplied, expected)))
-    isempty(missing) || throw(ArgumentError(
+    missing_buses = sort!(collect(setdiff(expected, supplied)))
+    extra_buses = sort!(collect(setdiff(supplied, expected)))
+    isempty(missing_buses) || throw(ArgumentError(
         "ConsistentPerUnitScaling requires a voltage base for every AC bus; " *
-        "missing $(join(repr.(missing), ", "))"))
-    isempty(extra) || throw(ArgumentError(
+        "missing $(join(repr.(missing_buses), ", "))"))
+    isempty(extra_buses) || throw(ArgumentError(
         "ConsistentPerUnitScaling contains unknown AC buses: " *
-        join(repr.(extra), ", ")))
+        join(repr.(extra_buses), ", ")))
 
     for family in ("line", "switch")
         for (id, component) in get(net, family, Dict())
@@ -300,21 +300,21 @@ _dc_power_base(bases) = Float64(bases.s_dc_base)
 function _validate_zone_power_bases!(net, power_bases)
     expected = Set(String.(keys(get(net, "bus", Dict()))))
     supplied = Set(keys(power_bases))
-    missing = sort!(collect(setdiff(expected, supplied)))
-    extra = sort!(collect(setdiff(supplied, expected)))
-    isempty(missing) || throw(ArgumentError(
+    missing_buses = sort!(collect(setdiff(expected, supplied)))
+    extra_buses = sort!(collect(setdiff(supplied, expected)))
+    isempty(missing_buses) || throw(ArgumentError(
         "ZonePerUnitScaling requires a power base for every AC bus; missing " *
-        join(repr.(missing), ", ")))
-    isempty(extra) || throw(ArgumentError(
-        "ZonePerUnitScaling contains unknown AC buses: " * join(repr.(extra), ", ")))
+        join(repr.(missing_buses), ", ")))
+    isempty(extra_buses) || throw(ArgumentError(
+        "ZonePerUnitScaling contains unknown AC buses: " * join(repr.(extra_buses), ", ")))
 
     for zone in BMOPFTools._galvanic_zones(net)
         buses = sort!(String.(collect(zone)))
-        values = unique(power_bases[bus] for bus in buses)
-        length(values) == 1 || throw(ArgumentError(
+        zone_values = unique(power_bases[bus] for bus in buses)
+        length(zone_values) == 1 || throw(ArgumentError(
             "ZonePerUnitScaling power bases must be constant inside a " *
             "galvanically continuous zone; buses $(join(repr.(buses), ", ")) " *
-            "use bases $(sort!(collect(values))) VA"))
+            "use bases $(sort!(collect(zone_values))) VA"))
     end
 
     # Cross-zone current/power coefficients are qualified for ordinary isolated

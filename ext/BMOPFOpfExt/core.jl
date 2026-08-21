@@ -99,7 +99,23 @@ end
 
 BMOPFTools.opf_model(ctx::OpfContext) = ctx.model
 BMOPFTools.opf_network(ctx::OpfContext) = ctx.net
-BMOPFTools.opf_bases(ctx::OpfContext) = ctx.bases
+function BMOPFTools.opf_bases(ctx::OpfContext)
+    bases = ctx.bases
+    if bases !== nothing && hasproperty(bases, :s_base_bus)
+        local_bases = collect(values(bases.s_base_bus))
+        if !isempty(local_bases) &&
+           any(!isapprox(value, first(local_bases); rtol=1.0e-12, atol=0.0)
+               for value in local_bases)
+            warned = get(ctx.extension_state,
+                :BMOPFToolsNonuniformSBaseWarning, false)
+            if !warned
+                @warn "opf_bases(ctx).s_base is a reference power base under nonuniform scaling; use opf_coordinate_bases(ctx, bus).power for local coordinates"
+                ctx.extension_state[:BMOPFToolsNonuniformSBaseWarning] = true
+            end
+        end
+    end
+    return bases
+end
 BMOPFTools.opf_scaling_policy(ctx::OpfContext) = ctx.bases === nothing ?
     BMOPFTools.SIUnitsScaling() : ctx.bases.scaling_policy
 
@@ -483,20 +499,29 @@ function BMOPFTools.opf_diagnostic_schema(
         )
         for bus in sort!(collect(keys(get(ctx.net, "dc_bus", Dict()))); by=string)
     )
+    semantic_blocks = BMOPFTools.opf_semantic_blocks(ctx)
+    semantic_blocks_available = ctx.lifecycle[] == :kcl_finalized
+    semantic_state = get(ctx.extension_state,
+        :BMOPFToolsSemanticBlockSummary, Dict{Symbol,Any}())
+    semantic_blocks_registered = semantic_state isa AbstractDict &&
+        get(semantic_state, :native_registered, false)
     return BMOPFTools.OpfDiagnosticSchema(
         v"1.0.0",
         BMOPFTools.opf_scaling_policy_data(
             BMOPFTools.opf_scaling_policy(ctx),
         ),
         Dict{String,Any}("ac" => ac, "dc" => dc),
-        BMOPFTools.opf_semantic_blocks(ctx),
+        semantic_blocks,
         BMOPFTools.opf_initialization_data(ctx),
         BMOPFTools.opf_transformer_scaling_contract_data(
             ctx; voltage_bases, power_bases,
         ),
         BMOPFTools.opf_acdc_scaling_contract_data(ctx),
         Dict{String,Any}(
-            "semantic_blocks" => true,
+            "semantic_blocks" => semantic_blocks_available,
+            "semantic_blocks_available" => semantic_blocks_available,
+            "semantic_blocks_registered" => semantic_blocks_registered,
+            "lifecycle" => string(ctx.lifecycle[]),
             "initialization_provenance" => true,
             "transformer_scaling_interfaces" => true,
             "acdc_scaling_interfaces" => true,
@@ -618,6 +643,12 @@ function _opf_semantic_block_registry(ctx::OpfContext)
     end
 end
 
+function _opf_semantic_block_member_index(ctx::OpfContext)
+    return BMOPFTools.extension_state!(ctx, :BMOPFToolsSemanticBlockMemberIndex) do
+        Dict{BMOPFTools.OpfModelKey,Set{String}}()
+    end
+end
+
 function BMOPFTools.register_opf_semantic_block!(
     ctx::OpfContext,
     block::BMOPFTools.OpfSemanticBlock;
@@ -632,15 +663,36 @@ function BMOPFTools.register_opf_semantic_block!(
             "semantic-block member is not present in the OPF object registry: $member",
         ))
     end
-    for (id, existing) in registry
-        id == block.id && replace && continue
-        overlap = intersect(Set(existing.members), Set(block.members))
-        isempty(overlap) || throw(ArgumentError(
+    member_index = _opf_semantic_block_member_index(ctx)
+    candidate_ids = Set{String}()
+    for member in block.members
+        union!(candidate_ids, get(member_index, member, Set{String}()))
+    end
+    if replace
+        delete!(candidate_ids, block.id)
+    end
+    isempty(candidate_ids) || begin
+        conflicting_id = first(sort!(collect(candidate_ids)))
+        overlap = intersect(
+            Set(registry[conflicting_id].members), Set(block.members),
+        )
+        throw(ArgumentError(
             "semantic block $(repr(block.id)) overlaps registered block " *
-            "$(repr(id)) at $(collect(overlap))",
+            "$(repr(conflicting_id)) at $(collect(overlap))",
         ))
     end
-    registry[block.id] = _copy_semantic_block(block)
+    if replace && haskey(registry, block.id)
+        for member in registry[block.id].members
+            ids = get(member_index, member, Set{String}())
+            delete!(ids, block.id)
+            isempty(ids) && delete!(member_index, member)
+        end
+    end
+    copied = _copy_semantic_block(block)
+    registry[block.id] = copied
+    for member in copied.members
+        push!(get!(member_index, member, Set{String}()), copied.id)
+    end
     return block
 end
 
@@ -648,6 +700,11 @@ function BMOPFTools.opf_semantic_blocks(ctx::OpfContext; kind=nothing)
     kind in (nothing, :variable, :constraint) || throw(ArgumentError(
         "kind must be :variable, :constraint, or nothing",
     ))
+    # Native blocks are intentionally lazy: ordinary solves do not pay for
+    # semantic metadata they never inspect.  A schema/provenance request after
+    # KCL finalisation is the first point at which all native rows exist.
+    ctx.lifecycle[] == :kcl_finalized &&
+        _register_native_semantic_blocks!(ctx)
     registry = _opf_semantic_block_registry(ctx)
     blocks = [block for block in values(registry) if
         isnothing(kind) || block.kind == kind]
@@ -851,15 +908,17 @@ function _register_native_semantic_pair_table!(
 end
 
 function _register_native_semantic_blocks!(ctx::OpfContext)
+    state = BMOPFTools.extension_state!(ctx, :BMOPFToolsSemanticBlockSummary)
+    get(state, :native_registered, false) && return ctx
     variable_count = _register_native_semantic_pair_table!(
         ctx, :variable, _NATIVE_VARIABLE_SEMANTIC_PAIRS,
     )
     constraint_count = _register_native_semantic_pair_table!(
         ctx, :constraint, _NATIVE_CONSTRAINT_SEMANTIC_PAIRS,
     )
-    state = BMOPFTools.extension_state!(ctx, :BMOPFToolsSemanticBlockSummary)
     state[:native_variable_blocks] = variable_count
     state[:native_constraint_blocks] = constraint_count
+    state[:native_registered] = true
     return ctx
 end
 
@@ -1990,28 +2049,6 @@ function _register_native_variables!(ctx::OpfContext)
             for (index, object) in collection
                 key = BMOPFTools.OpfModelKey(:variable, Symbol(family), index)
                 BMOPFTools.register_opf_object!(ctx, key, object)
-                if object isa JuMP.VariableRef && JuMP.is_fixed(object)
-                    fixed_family = if family == :vr && index in ctx.grounded
-                        :ground_voltage_real
-                    elseif family == :vi && index in ctx.grounded
-                        :ground_voltage_imag
-                    else
-                        Symbol("$(family)_fixed")
-                    end
-                    BMOPFTools.register_opf_constraint!(ctx, fixed_family,
-                        index, JuMP.FixRef(object))
-                elseif object isa JuMP.VariableRef
-                    if JuMP.has_lower_bound(object)
-                        BMOPFTools.register_opf_constraint!(ctx,
-                            Symbol("$(family)_lower_bound"), index,
-                            JuMP.LowerBoundRef(object))
-                    end
-                    if JuMP.has_upper_bound(object)
-                        BMOPFTools.register_opf_constraint!(ctx,
-                            Symbol("$(family)_upper_bound"), index,
-                            JuMP.UpperBoundRef(object))
-                    end
-                end
             end
         else
             key = BMOPFTools.OpfModelKey(:variable, Symbol(family))
@@ -2022,30 +2059,52 @@ function _register_native_variables!(ctx::OpfContext)
 end
 
 function _register_native_variable_bounds!(ctx::OpfContext)
-    registered = Set{Any}()
+    # Bound/fix references may be represented by scalar, quadratic, or other
+    # MOI constraint-function types depending on the variable's native bounds.
+    # Keep a typed identity key rather than forcing every index into the
+    # VariableIndex specialization.
+    constraint_identity(cref) = begin
+        index = JuMP.index(cref)
+        (typeof(index), Int(index.value))
+    end
+    registered = Set{Tuple{DataType,Int}}()
     for object in values(ctx.objects)
         object isa JuMP.ConstraintRef || continue
-        push!(registered, JuMP.index(object))
+        push!(registered, constraint_identity(object))
     end
     for (family, collection) in ctx.vars
         collection isa AbstractDict || continue
         for (index, object) in collection
             object isa JuMP.VariableRef || continue
-            JuMP.is_fixed(object) && continue
+            if JuMP.is_fixed(object)
+                fixed_family = if family == :vr && index in ctx.grounded
+                    :ground_voltage_real
+                elseif family == :vi && index in ctx.grounded
+                    :ground_voltage_imag
+                else
+                    Symbol("$(family)_fixed")
+                end
+                cref = JuMP.FixRef(object)
+                if !(constraint_identity(cref) in registered)
+                    BMOPFTools.register_opf_constraint!(ctx, fixed_family, index, cref)
+                    push!(registered, constraint_identity(cref))
+                end
+                continue
+            end
             if JuMP.has_lower_bound(object)
                 cref = JuMP.LowerBoundRef(object)
-                if !(JuMP.index(cref) in registered)
+                if !(constraint_identity(cref) in registered)
                     BMOPFTools.register_opf_constraint!(ctx,
                         Symbol("$(family)_lower_bound"), index, cref)
-                    push!(registered, JuMP.index(cref))
+                    push!(registered, constraint_identity(cref))
                 end
             end
             if JuMP.has_upper_bound(object)
                 cref = JuMP.UpperBoundRef(object)
-                if !(JuMP.index(cref) in registered)
+                if !(constraint_identity(cref) in registered)
                     BMOPFTools.register_opf_constraint!(ctx,
                         Symbol("$(family)_upper_bound"), index, cref)
-                    push!(registered, JuMP.index(cref))
+                    push!(registered, constraint_identity(cref))
                 end
             end
         end
@@ -2445,6 +2504,23 @@ function _resolve_scaling_policy(per_unit::Bool, s_base::Float64,
         scaling_policy::Union{BMOPFTools.AbstractOpfScalingPolicy,Nothing})
     scaling_policy === nothing && return per_unit ?
         BMOPFTools.ClassicPerUnitScaling(s_base) : BMOPFTools.SIUnitsScaling()
+    if !per_unit && !(scaling_policy isa BMOPFTools.SIUnitsScaling)
+        throw(ArgumentError(
+            "per_unit=false conflicts with the supplied non-SI scaling_policy; " *
+            "omit per_unit or use BMOPFTools.SIUnitsScaling()"))
+    end
+    if scaling_policy isa BMOPFTools.SIUnitsScaling
+        s_base == 1.0e6 || throw(ArgumentError(
+            "s_base is ignored by SIUnitsScaling; omit the conflicting s_base " *
+            "keyword or supply a non-SI scaling_policy"))
+    elseif scaling_policy isa BMOPFTools.ClassicPerUnitScaling
+        s_base == 1.0e6 || isapprox(s_base, scaling_policy.s_base;
+            rtol=0.0, atol=0.0) || throw(ArgumentError(
+                "s_base=$s_base conflicts with the supplied classic scaling " *
+                "policy base $(scaling_policy.s_base)"))
+    elseif s_base != 1.0e6
+        @warn "s_base is ignored by the supplied custom scaling_policy; use its explicit power-base fields"
+    end
     return scaling_policy
 end
 
@@ -2506,6 +2582,10 @@ function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64
                      Dict{Symbol,BMOPFTools.OpfDifferentiabilityAnnotation}(),
                      manifest, owned_spec, Dict{Symbol,Function}(), Ref(:building))
     _register_native_variables!(ctx)
+    # Register native fixed/bound references once the complete variable ledger
+    # exists.  The same idempotent pass is repeated after device physics so
+    # late-created auxiliary variables receive identical treatment.
+    _register_native_variable_bounds!(ctx)
     return ctx
 end
 
@@ -2588,7 +2668,6 @@ function _enforce_kcl!(ctx::OpfContext)
         end
         _add_dc_kcl_constraints!(ctx.model, ctx.vars;
                                  constraint_context=ctx)
-        _register_native_semantic_blocks!(ctx)
     end; required=(:device_physics,))
     ctx.lifecycle[] = :kcl_finalized
     return ctx

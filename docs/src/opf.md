@@ -235,7 +235,8 @@ custom = OpfScaling(
 )
 
 ctx = build_opf_model(net; scaling_policy = custom)
-@assert opf_diagnostic_schema(ctx).scaling["kind"] == "consistent_per_unit"
+schema = opf_diagnostic_schema(ctx)
+schema.scaling["kind"]  # => "consistent_per_unit"
 ```
 
 For an experimental power base that changes across an isolated transformer,

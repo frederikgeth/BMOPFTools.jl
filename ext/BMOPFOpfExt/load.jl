@@ -152,7 +152,6 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
     nlabels = BMOPFTools._neutral_labels(net)
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
-    register_load(family, index, cref) = register(family, index, cref)
     register_load_variable(family, index, variable) =
         constraint_context === nothing ? variable :
         BMOPFTools.register_opf_object!(constraint_context,
@@ -187,7 +186,7 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                 _add_subload_power!(model, load, lid, 1, P_tot, Q_tot,
                                     p0, q0, dvr, dvi;
                                     register_constraint=(family, index, cref) ->
-                                        register_load(family, index, cref),
+                                        register(family, index, cref),
                                     register_variable=register_load_variable)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos, -crd[(lid,1)], -cid[(lid,1)])
@@ -219,7 +218,7 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                 _add_subload_power!(model, load, lid, idx, P_tot, Q_tot,
                                     p0, q0, dvr, dvi;
                                     register_constraint=(family, index, cref) ->
-                                        register_load(family, index, cref),
+                                        register(family, index, cref),
                                     register_variable=register_load_variable)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_ph, -crd[(lid,idx)], -cid[(lid,idx)])
@@ -245,7 +244,7 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                 _add_subload_power!(model, load, lid, k, P_tot, Q_tot,
                                     p0, q0, dvr, dvi;
                                     register_constraint=(family, index, cref) ->
-                                        register_load(family, index, cref),
+                                        register(family, index, cref),
                                     register_variable=register_load_variable)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos, -crd[(lid,k)], -cid[(lid,k)])
