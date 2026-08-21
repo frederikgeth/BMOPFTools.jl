@@ -2580,7 +2580,7 @@ export profile_solution, render_solution, solution_check
 export parse_bmopf, write_bmopf
 export write_result, read_result
 export to_pmd
-export from_dss, to_dss
+export from_dss, to_dss, powerio_source_behavior_contract
 export project_solution, dispatch_as_loads
 export sideload_coordinates!
 export analyze, render

@@ -14,6 +14,437 @@ const _DSS_TERMINAL_MAP = Dict(
 # Terminal names PowerIO can emit for an OpenDSS bus (phases, neutral, earth).
 const _DSS_NUMERIC_TERMINALS = Set(("1", "2", "3", "4", "5"))
 
+"""Summarize source-only `extras` fields without copying raw source values."""
+function _powerio_source_metadata(dn)
+    groups = Dict{String,Any}()
+    all_fields = String[]
+    collections = (
+        ("bus", PowerIO.buses(dn)),
+        ("linecode", PowerIO.linecodes(dn)),
+        ("line", PowerIO.lines(dn)),
+        ("switch", PowerIO.switches(dn)),
+        ("transformer", PowerIO.transformers(dn)),
+        ("load", PowerIO.loads(dn)),
+        ("generator", PowerIO.generators(dn)),
+        ("shunt", PowerIO.shunts(dn)),
+        ("source", PowerIO.sources(dn)),
+    )
+    for (kind, collection) in collections
+        for (position, item) in enumerate(collection)
+            extras = try
+                getproperty(item, :extras)
+            catch
+                nothing
+            end
+            extras isa AbstractDict || continue
+            fields = sort!(unique(String[string(key) for key in keys(extras)]))
+            isempty(fields) && continue
+            identifier = try
+                getproperty(item, :name)
+            catch
+                try
+                    getproperty(item, :id)
+                catch
+                    position
+                end
+            end
+            scope = "$(kind):$(identifier)"
+            groups[scope] = fields
+            append!(all_fields, fields)
+        end
+    end
+    return Dict{String,Any}(
+        "source_format" => something(PowerIO.source_format(dn), "unknown"),
+        "field_count" => length(unique(all_fields)),
+        "fields" => sort!(unique(all_fields)),
+        "by_scope" => groups,
+    )
+end
+
+function _powerio_extra(item, field::AbstractString)
+    extras = try
+        getproperty(item, :extras)
+    catch
+        nothing
+    end
+    extras isa AbstractDict || return nothing
+    return get(extras, field, get(extras, Symbol(field), nothing))
+end
+
+function _powerio_mapping_policy(field::AbstractString)
+    field == "units" && return (impact = "representational", blocking = false,
+        reason = "source_units_have_no_direct_BMOPF_field")
+    field == "model" && return (impact = "device_semantics", blocking = true,
+        reason = "source_device_model_requires_an_explicit_component_contract")
+    field in ("vmaxpu", "vminpu") && return (impact = "physical_or_operating_point", blocking = true,
+        reason = "load_voltage_behavior_threshold_is_not_a_bus_voltage_bound")
+    field in ("angle", "basekv", "kv", "phases", "vmaxpu", "vminpu", "zipv") &&
+        return (impact = "physical_or_operating_point", blocking = true,
+            reason = "source_physical_metadata_requires_an_explicit_BMOPF_mapping")
+    return (impact = "unknown", blocking = true,
+        reason = "source_field_has_no_classified_BMOPF_mapping")
+end
+
+function _powerio_warning_scope(message)
+    tokens = split(strip(String(message)))
+    length(tokens) >= 3 || return "unknown"
+    if tokens[1] == "voltage" && tokens[2] == "source"
+        return "source:$(replace(tokens[3], ":" => ""))"
+    end
+    return "$(tokens[1]):$(replace(tokens[2], ":" => ""))"
+end
+
+function _powerio_float(value)
+    value === nothing && return nothing
+    value isa Real && return isfinite(Float64(value)) ? Float64(value) : nothing
+    parsed = tryparse(Float64, strip(String(value)))
+    parsed === nothing || !isfinite(parsed) ? nothing : parsed
+end
+
+"""Retain normalized source semantics that have no active BMOPF field."""
+function _powerio_source_semantics(dn)
+    load_thresholds = Dict{String,Any}[]
+    for item in PowerIO.loads(dn)
+        vmin = _powerio_float(_powerio_extra(item, "vminpu"))
+        vmax = _powerio_float(_powerio_extra(item, "vmaxpu"))
+        (vmin === nothing && vmax === nothing) && continue
+        status = if vmin !== nothing && vmax !== nothing && vmin <= vmax
+            "observed_ordered"
+        elseif vmin === nothing || vmax === nothing
+            "observed_incomplete"
+        else
+            "observed_inverted"
+        end
+        push!(load_thresholds, Dict{String,Any}(
+            "scope" => "load:$(lowercase(string(getproperty(item, :name))))",
+            "vminpu" => vmin,
+            "vmaxpu" => vmax,
+            "status" => status,
+            "interpretation" => "load_voltage_behavior_threshold_not_bus_bound",
+        ))
+    end
+    source_models = Dict{String,Any}[]
+    for item in PowerIO.sources(dn)
+        raw_model = _powerio_extra(item, "model")
+        raw_model === nothing && continue
+        model = lowercase(strip(string(raw_model)))
+        push!(source_models, Dict{String,Any}(
+            "scope" => "source:$(lowercase(string(getproperty(item, :name))))",
+            "model" => model,
+            "status" => model == "ideal" ?
+                "represented_as_fixed_voltage_boundary" : "unmapped_source_model",
+            "target" => model == "ideal" ?
+                "voltage_source.v_magnitude/v_angle" : "unmapped",
+        ))
+    end
+    return Dict{String,Any}(
+        "load_voltage_thresholds" => load_thresholds,
+        "voltage_source_models" => source_models,
+    )
+end
+
+"""
+    powerio_source_behavior_contract(net; plan_auxiliary_constraints = false)
+
+Return the explicit, non-mutating contract for source-side voltage-behavior
+metadata retained by `from_dss`. OpenDSS `vminpu`/`vmaxpu` values describe a
+load law's voltage-behavior domain; they are not silently promoted to BMOPF
+bus bounds. The returned records expose enough topology and nominal-voltage
+context for a caller or domain plugin to construct an auxiliary diagnostic
+problem deliberately.
+
+When `plan_auxiliary_constraints=true`, the same records are returned as
+candidate terminal-voltage-ratio constraints. This is a plan only: no JuMP or
+BMOPF model is modified and no constraint is active in the original model.
+"""
+function powerio_source_behavior_contract(
+    net::AbstractDict;
+    plan_auxiliary_constraints::Bool = false,
+)
+    meta = get(net, "_meta", get(net, :_meta, Dict{Any,Any}()))
+    meta isa AbstractDict || (meta = Dict{Any,Any}())
+    semantics = get(meta, "powerio_source_semantics",
+                    get(meta, :powerio_source_semantics, Dict{Any,Any}()))
+    semantics isa AbstractDict || (semantics = Dict{Any,Any}())
+    raw_thresholds = get(semantics, "load_voltage_thresholds",
+                         get(semantics, :load_voltage_thresholds, Any[]))
+    thresholds = raw_thresholds isa AbstractVector ? raw_thresholds : Any[]
+    loads = get(net, "load", get(net, :load, Dict{Any,Any}()))
+    loads isa AbstractDict || (loads = Dict{Any,Any}())
+    observations = Dict{String,Any}[]
+    candidates = Dict{String,Any}[]
+    eligible_count = 0
+    for raw in thresholds
+        raw isa AbstractDict || continue
+        scope = string(get(raw, "scope", get(raw, :scope, "")))
+        parts = split(scope, ":"; limit = 2)
+        load_id = length(parts) == 2 ? lowercase(strip(parts[2])) : ""
+        load = get(loads, load_id, get(loads, Symbol(load_id), nothing))
+        load = load isa AbstractDict ? load : Dict{Any,Any}()
+        status = string(get(raw, "status", get(raw, :status, "unknown")))
+        vmin = get(raw, "vminpu", get(raw, :vminpu, nothing))
+        vmax = get(raw, "vmaxpu", get(raw, :vmaxpu, nothing))
+        bus = get(load, "bus", get(load, :bus, nothing))
+        terminal_map = get(load, "terminal_map", get(load, :terminal_map, Any[]))
+        nominal_voltage = get(load, "v_nom", get(load, :v_nom, Any[]))
+        ordered = status == "observed_ordered" && bus !== nothing &&
+            terminal_map isa AbstractVector && !isempty(terminal_map) &&
+            nominal_voltage isa AbstractVector && !isempty(nominal_voltage)
+        ordered && (eligible_count += 1)
+        observation = Dict{String,Any}(
+            "scope" => scope,
+            "load" => load_id,
+            "bus" => bus,
+            "terminal_map" => terminal_map,
+            "nominal_voltage" => nominal_voltage,
+            "vminpu" => vmin,
+            "vmaxpu" => vmax,
+            "status" => status,
+            "interpretation" => "load_voltage_behavior_threshold_not_bus_bound",
+            "constraint_candidate_status" => ordered ?
+                "eligible_terminal_voltage_ratio_candidate" :
+                "requires_load_and_terminal_alignment",
+        )
+        push!(observations, observation)
+        plan_auxiliary_constraints || continue
+        push!(candidates, Dict{String,Any}(
+            "scope" => scope,
+            "load" => load_id,
+            "bus" => bus,
+            "terminal_map" => terminal_map,
+            "nominal_voltage" => nominal_voltage,
+            "vminpu" => vmin,
+            "vmaxpu" => vmax,
+            "status" => ordered ? "candidate" : "not_ready",
+            "constraint_family" => "load_terminal_voltage_ratio_bounds",
+            "constraint_form" => "vminpu <= abs(V_terminal) / v_nom <= vmaxpu",
+            "active_in_original_model" => false,
+            "materialization" => "not_materialized",
+        ))
+    end
+    source_models = get(semantics, "voltage_source_models",
+                         get(semantics, :voltage_source_models, Any[]))
+    source_models = source_models isa AbstractVector ? source_models : Any[]
+    return Dict{String,Any}(
+        "contract_version" => "powerio_source_behavior/v1",
+        "mutation_policy" => "non_mutating",
+        "constraint_policy" => plan_auxiliary_constraints ?
+            "candidate_plan" : "observation_only",
+        "source_semantics_available" => !isempty(observations) || !isempty(source_models),
+        "active_constraints_added" => false,
+        "load_voltage_behavior" => observations,
+        "auxiliary_constraint_candidates" => candidates,
+        "threshold_observation_count" => length(observations),
+        "eligible_candidate_count" => eligible_count,
+        "voltage_source_models" => source_models,
+    )
+end
+
+"""Record source fields that are demonstrably represented by BMOPF fields."""
+function _powerio_bmopf_field_mapping(dn, net)
+    by_field = Dict{String,Any}()
+    load_net = get(net, "load", Dict{String,Any}())
+    for (field, target, transform) in (
+        ("kv", "load.v_nom", "kV_to_volts"),
+        ("phases", "load.terminal_map/configuration", "source_phase_count_to_terminal_structure"),
+    )
+        scopes = String[]
+        for item in PowerIO.loads(dn)
+            _powerio_extra(item, field) === nothing && continue
+            name = lowercase(string(getproperty(item, :name)))
+            converted = get(load_net, name, nothing)
+            converted isa AbstractDict || continue
+            if field == "kv"
+                haskey(converted, "v_nom") || continue
+                vals = converted["v_nom"]
+                vals isa AbstractVector && !isempty(vals) || continue
+                all(value -> value isa Real && isfinite(Float64(value)), vals) || continue
+            else
+                haskey(converted, "terminal_map") && haskey(converted, "configuration") || continue
+            end
+            push!(scopes, "load:$(name)")
+        end
+        isempty(scopes) || (by_field[field] = Dict(
+            "status" => "mapped",
+            "target" => target,
+            "transform" => transform,
+            "scope_count" => length(scopes),
+            "scopes" => scopes,
+        ))
+    end
+    # OpenDSS vminpu/vmaxpu are load-law validity/behavior thresholds, not
+    # network-wide voltage bounds. Preserve them through the explicit source
+    # behavior contract instead of either dropping them or silently adding
+    # constraints to the production BMOPF model.
+    for field in ("vminpu", "vmaxpu")
+        scopes = String[]
+        for item in PowerIO.loads(dn)
+            _powerio_float(_powerio_extra(item, field)) === nothing && continue
+            name = lowercase(string(getproperty(item, :name)))
+            converted = get(load_net, name, nothing)
+            converted isa AbstractDict || continue
+            push!(scopes, "load:$(name)")
+        end
+        isempty(scopes) || (by_field[field] = Dict(
+            "status" => "mapped_with_contract",
+            "target" => "_meta.powerio_source_semantics.load_voltage_thresholds",
+            "transform" => "source_load_voltage_behavior_threshold_contract",
+            "scope_count" => length(scopes),
+            "scopes" => sort!(unique(scopes)),
+            "impact" => "physical_or_operating_point",
+            "physical_readiness_blocking" => false,
+            "reason" => "preserved_as_load_behavior_contract_not_bus_voltage_bound",
+            "active_in_original_model" => false,
+        ))
+    end
+    for (field, target, transform) in (
+        ("model", "load.model", "opendss_load_model_to_bmopf_model"),
+        ("zipv", "load.model/alpha_z/alpha_i/alpha_p/beta_z/beta_i/beta_p",
+            "opendss_zipv_to_bmopf_zip_parameters"),
+    )
+        scopes = String[]
+        for item in PowerIO.loads(dn)
+            _powerio_extra(item, field) === nothing && continue
+            name = lowercase(string(getproperty(item, :name)))
+            converted = get(load_net, name, nothing)
+            converted isa AbstractDict || continue
+            if field == "model"
+                model = lowercase(string(get(converted, "model", "")))
+                model in ("constant_power", "constant_current", "constant_impedance", "zip", "exponential") || continue
+            else
+                lowercase(string(get(converted, "model", ""))) == "zip" || continue
+                all(haskey(converted, key) for key in
+                    ("alpha_z", "alpha_i", "alpha_p", "beta_z", "beta_i", "beta_p")) || continue
+            end
+            push!(scopes, "load:$(name)")
+        end
+        isempty(scopes) || (by_field[field] = Dict(
+            "status" => "mapped",
+            "target" => target,
+            "transform" => transform,
+            "scope_count" => length(scopes),
+            "scopes" => sort!(unique(scopes)),
+        ))
+    end
+    source_net = get(net, "voltage_source", Dict{String,Any}())
+    source_net isa AbstractDict || (source_net = Dict{String,Any}())
+    source_model_scopes = String[]
+    for item in PowerIO.sources(dn)
+        lowercase(string(_powerio_extra(item, "model"))) == "ideal" || continue
+        name = lowercase(string(getproperty(item, :name)))
+        converted = get(source_net, name, nothing)
+        converted isa AbstractDict || continue
+        values = (get(converted, "v_magnitude", nothing), get(converted, "v_angle", nothing))
+        all(value -> value isa AbstractVector && !isempty(value) &&
+            all(entry -> entry isa Real && isfinite(Float64(entry)), value), values) || continue
+        push!(source_model_scopes, "source:$(name)")
+    end
+    if !isempty(source_model_scopes)
+        if haskey(by_field, "model")
+            entry = by_field["model"]
+            entry["status"] = "mapped_with_contract"
+            entry["target"] *= ";voltage_source.v_magnitude/v_angle"
+            entry["transform"] *= ";source_model_ideal_to_fixed_voltage_boundary"
+            append!(entry["scopes"], source_model_scopes)
+        else
+            by_field["model"] = Dict(
+                "status" => "mapped_with_contract",
+                "target" => "voltage_source.v_magnitude/v_angle",
+                "transform" => "source_model_ideal_to_fixed_voltage_boundary",
+                "scope_count" => length(source_model_scopes),
+                "scopes" => source_model_scopes,
+            )
+        end
+    end
+    for (field, target, transform) in (
+        ("angle", "voltage_source.v_angle", "source_angle_with_phase_sequence"),
+        ("basekv", "voltage_source.v_magnitude", "line_to_neutral_voltage_conversion"),
+    )
+        scopes = String[]
+        for item in PowerIO.sources(dn)
+            _powerio_extra(item, field) === nothing && continue
+            name = lowercase(string(getproperty(item, :name)))
+            converted = get(source_net, name, nothing)
+            converted isa AbstractDict || continue
+            target_key = field == "angle" ? "v_angle" : "v_magnitude"
+            values = get(converted, target_key, nothing)
+            values isa AbstractVector && !isempty(values) || continue
+            all(value -> value isa Real && isfinite(Float64(value)), values) || continue
+            push!(scopes, "source:$(name)")
+        end
+        isempty(scopes) || (by_field[field] = Dict(
+            "status" => "mapped_with_transform",
+            "target" => target,
+            "transform" => transform,
+            "scope_count" => length(scopes),
+            "scopes" => scopes,
+        ))
+    end
+    # Every conversion warning gets a ledger entry, including fields that are
+    # intentionally not represented. This prevents the absence of a mapping
+    # record from being mistaken for a completed mapping.
+    meta = get(net, "_meta", Dict{String,Any}())
+    warnings = meta isa AbstractDict ? get(meta, "powerio_warnings", Any[]) : Any[]
+    warning_fields = String[]
+    warning_scopes = Dict{String,Vector{String}}()
+    warnings isa AbstractVector || (warnings = Any[warnings])
+    for message in warnings
+        match_result = match(r"`([^`]+)`", String(message))
+        isnothing(match_result) && continue
+        field = String(match_result.captures[1])
+        push!(warning_fields, field)
+        push!(get!(warning_scopes, field, String[]), _powerio_warning_scope(message))
+    end
+    unmapped_fields = String[]
+    blocking_unmapped_fields = String[]
+    for field in sort!(unique(warning_fields))
+        source_scopes = sort!(unique(get(warning_scopes, field, String[])))
+        if haskey(by_field, field)
+            entry = by_field[field]
+            mapped_scopes = sort!(unique(String[string(scope) for scope in
+                get(entry, "scopes", String[])]))
+            missing_scopes = sort!(setdiff(source_scopes, mapped_scopes))
+            entry["mapped_scopes"] = mapped_scopes
+            entry["unmapped_scopes"] = missing_scopes
+            entry["scope_count"] = length(source_scopes)
+            entry["scopes"] = source_scopes
+            isempty(missing_scopes) && continue
+            policy = _powerio_mapping_policy(field)
+            entry["status"] = "partially_mapped"
+            entry["impact"] = policy.impact
+            entry["physical_readiness_blocking"] = policy.blocking
+            entry["reason"] = "mapping_covers_some_source_scopes_but_not_all"
+            push!(unmapped_fields, field)
+            policy.blocking && push!(blocking_unmapped_fields, field)
+            continue
+        end
+        policy = _powerio_mapping_policy(field)
+        push!(unmapped_fields, field)
+        policy.blocking && push!(blocking_unmapped_fields, field)
+        field_scopes = source_scopes
+        by_field[field] = Dict(
+            "status" => "unmapped",
+            "target" => "unmapped",
+            "transform" => "none",
+            "scope_count" => length(field_scopes),
+            "scopes" => field_scopes,
+            "impact" => policy.impact,
+            "physical_readiness_blocking" => policy.blocking,
+            "reason" => policy.reason,
+        )
+    end
+    fields = sort!(collect(keys(by_field)))
+    mapped_fields = sort!([field for field in fields if
+        get(get(by_field, field, Dict()), "status", "unmapped") in
+            ("mapped", "mapped_with_transform", "mapped_with_contract")])
+    return Dict{String,Any}(
+        "fields" => mapped_fields,
+        "unmapped_fields" => unmapped_fields,
+        "blocking_unmapped_fields" => blocking_unmapped_fields,
+        "by_field" => by_field,
+    )
+end
+
 """
     from_dss(path::AbstractString; name=nothing) -> Dict{String,Any}
 
@@ -100,6 +531,11 @@ function from_dss(path::AbstractString;
     net["_meta"] = get(net, "_meta", Dict{String,Any}())
     net["_meta"]["powerio_warnings"] = collect(String, warnings_list)
     net["_meta"]["powerio_source"]   = abspath_dss
+    net["_meta"]["powerio_source_metadata"] = _powerio_source_metadata(dn)
+    source_mapping = _powerio_bmopf_field_mapping(dn, net)
+    net["_meta"]["powerio_source_mapped_fields"] = source_mapping["fields"]
+    net["_meta"]["powerio_source_mapping"] = source_mapping
+    net["_meta"]["powerio_source_semantics"] = _powerio_source_semantics(dn)
 
     # Capture the system frequency PowerIO parsed from the DSS circuit
     # (OpenDSS `Set DefaultBaseFreq`, itself defaulting to 60 Hz), or the
