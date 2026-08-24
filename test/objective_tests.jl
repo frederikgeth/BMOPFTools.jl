@@ -29,6 +29,62 @@ _obj_net(smax) = parse_bmopf("""
       "cost":[0.0,0.0,0.0]}}}
  """; from_string=true)
 
+# 4-wire feeder with an explicit neutral conductor, so a neutral current exists.
+_obj_net_4w() = parse_bmopf("""
+ {"bus":{
+   "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+          "v_min":[180.0,180.0,180.0],"v_max":[280.0,280.0,280.0]},
+   "b1": {"terminal_names":["1","2","3","n"],
+          "v_min":[180.0,180.0,180.0],"v_max":[280.0,280.0,280.0]}},
+  "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+      "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944],
+      "cost":[1.0,1.0,1.0]}},
+  "linecode":{"lc":{"R_series_1_1":0.08,"R_series_2_2":0.08,"R_series_3_3":0.08,
+                    "R_series_4_4":0.08}},
+  "line":{"l1":{"bus_from":"src","bus_to":"b1",
+      "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
+      "linecode":"lc","length":1.0}},
+  "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
+      "configuration":"WYE","p_nom":[6000.0,1000.0,500.0],"q_nom":[0.0,0.0,0.0]}}}
+ """; from_string=true)
+
+
+# Two independently-controllable compensators on separate laterals: the case
+# where a group-lasso can actually choose, unlike a single radial path.
+_obj_net_2lat(smax = 6000.0) = parse_bmopf("""
+ {"bus":{
+   "src":{"terminal_names":["a","b","c","n"],"perfectly_grounded_terminals":["n"],
+          "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
+   "L1":{"terminal_names":["a","b","c","n"],
+         "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
+   "L2":{"terminal_names":["a","b","c","n"],
+         "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]}},
+  "voltage_source":{"grid":{"bus":"src","terminal_map":["a","b","c"],
+      "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944],
+      "cost":[0.3,0.3,0.3]}},
+  "linecode":{"lc":{"R_series_1_1":0.15,"R_series_2_2":0.15,"R_series_3_3":0.15,
+                    "R_series_4_4":0.15}},
+  "line":{"a1":{"bus_from":"src","bus_to":"L1",
+      "terminal_map_from":["a","b","c","n"],"terminal_map_to":["a","b","c","n"],
+      "linecode":"lc","length":1.0},
+          "a2":{"bus_from":"src","bus_to":"L2",
+      "terminal_map_from":["a","b","c","n"],"terminal_map_to":["a","b","c","n"],
+      "linecode":"lc","length":1.0}},
+  "load":{"d1":{"bus":"L1","terminal_map":["a","b","c","n"],"configuration":"WYE",
+                "p_nom":[5000.0,900.0,600.0],"q_nom":[800.0,150.0,100.0]},
+          "d2":{"bus":"L2","terminal_map":["a","b","c","n"],"configuration":"WYE",
+                "p_nom":[600.0,900.0,5000.0],"q_nom":[100.0,150.0,800.0]}},
+  "ibr":{"c1":{"bus":"L1","terminal_map":["a","b","c","n"],"topology":"FOUR_LEG",
+               "prime_mover":"STATCOM","s_max":[$smax,$smax,$smax],
+               "p_max":[$(smax/2),$(smax/2),$(smax/2)],"p_min":[$(-smax/2),$(-smax/2),$(-smax/2)],
+               "dc_link_coupled":true,"cost":[0.0,0.0,0.0]},
+         "c2":{"bus":"L2","terminal_map":["a","b","c","n"],"topology":"FOUR_LEG",
+               "prime_mover":"STATCOM","s_max":[$smax,$smax,$smax],
+               "p_max":[$(smax/2),$(smax/2),$(smax/2)],"p_min":[$(-smax/2),$(-smax/2),$(-smax/2)],
+               "dc_link_coupled":true,"cost":[0.0,0.0,0.0]}}}
+ """; from_string=true)
+
+
 @testset "smooth_norm — accuracy bound" begin
     # The contract is a UNIFORM ONE-SIDED bound: the surrogate never exceeds the
     # exact norm, and never falls short of it by more than eps. This is what
@@ -371,23 +427,48 @@ end
     @test BMOPFTools.opf_physical_scale(si, :V; bus="b1") == 1.0
 end
 
-@testset "norm modes give genuinely different answers" begin
-    # If :squared, :magnitude and :max coincided, offering three would be
-    # decorative. Two buses, one compensator: it cannot zero both, so the
-    # reductions must disagree about which to favour.
-    function v2_at(norm)
-        ctx = BMOPFTools.build_opf_model(_obj_net(3_000.0); per_unit=true,
+@testset "norm modes — :max equalises, :squared and :magnitude do not" begin
+    # The original version of this testset was named for a property it never
+    # asserted: it checked only that every solve returned a value, and would
+    # have passed with all three norms producing identical dispatch.
+    #
+    # The compensators are deliberately UNDER-rated (smax=1000) so the optimum
+    # is bounded away from zero. Given full authority all three norms drive both
+    # buses to ~1e-11 and any comparison between them is vacuous.
+    function residuals(norm)
+        ctx = BMOPFTools.build_opf_model(_obj_net_2lat(1_000.0); per_unit=true,
                                          add_objective=false)
-        t = BMOPFTools.opf_sequence_term(ctx, ["b1", "src"]; norm=norm, weight=1.0)
+        t = BMOPFTools.opf_sequence_term(ctx, ["L1","L2"]; norm=norm, weight=1.0)
         BMOPFTools.set_opf_objective!(ctx, [t])
         BMOPFTools.enforce_kcl!(ctx)
         m = BMOPFTools.opf_model(ctx)
         JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
         JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL) || return nothing
-        [hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx, b))...) for b in ("b1", "src")]
+        [hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx, b;
+                                                           component=:negative))...)
+         for b in ("L1", "L2")]
     end
-    got = Dict(n => v2_at(n) for n in (:squared, :magnitude, :max))
-    @test all(!isnothing, values(got))
+    got = Dict(n => residuals(n) for n in (:squared, :magnitude, :max))
+    for n in keys(got); @test !isnothing(got[n]); end
+
+    # Non-vacuous: the residuals are genuinely nonzero, so the comparisons below
+    # are between real operating points.
+    @test minimum(minimum(v) for v in values(got)) > 1e-6
+
+    spread(v) = maximum(v) - minimum(v)
+
+    # :max is indifferent to everything but the worst target, so it EQUALISES:
+    # it lets the better bus drift up rather than spending effort there. That is
+    # the minimax signature and it is strictly measurable here.
+    @test spread(got[:max]) < spread(got[:squared])
+    @test maximum(got[:max]) <= maximum(got[:squared]) + 1e-6
+
+    # Honest negative result: :magnitude and :squared coincide on this fixture.
+    # The two laterals are near-symmetric, so there is no reason to prefer
+    # zeroing one over the other and a sparsity-inducing norm has nothing to
+    # choose. Group-lasso behaviour needs ASYMMETRIC targets -- see the control
+    # effort testset below, which constructs exactly that.
+    @test got[:magnitude] ≈ got[:squared] rtol=1e-4
 end
 
 @testset "epsilon is commensurate across voltage and current, in both unit modes" begin
@@ -438,25 +519,6 @@ end
     @test _OBJEXT._quantity_scale(ctx_pu, :A2; bus="b1") ≈
           _OBJEXT._quantity_scale(ctx_pu, :A; bus="b1")^2
 end
-
-# 4-wire feeder with an explicit neutral conductor, so a neutral current exists.
-_obj_net_4w() = parse_bmopf("""
- {"bus":{
-   "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
-          "v_min":[180.0,180.0,180.0],"v_max":[280.0,280.0,280.0]},
-   "b1": {"terminal_names":["1","2","3","n"],
-          "v_min":[180.0,180.0,180.0],"v_max":[280.0,280.0,280.0]}},
-  "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
-      "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944],
-      "cost":[1.0,1.0,1.0]}},
-  "linecode":{"lc":{"R_series_1_1":0.08,"R_series_2_2":0.08,"R_series_3_3":0.08,
-                    "R_series_4_4":0.08}},
-  "line":{"l1":{"bus_from":"src","bus_to":"b1",
-      "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
-      "linecode":"lc","length":1.0}},
-  "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
-      "configuration":"WYE","p_nom":[6000.0,1000.0,500.0],"q_nom":[0.0,0.0,0.0]}}}
- """; from_string=true)
 
 @testset "opf_neutral_current — is exactly three times the zero-sequence current" begin
     # Independent cross-check of two separately-derived quantities: for a 4-wire
@@ -552,41 +614,6 @@ end
     @test o_pu > 1.0                        # amps, not a vacuous zero
 end
 
-# Two independently-controllable compensators on separate laterals: the case
-# where a group-lasso can actually choose, unlike a single radial path.
-_obj_net_2lat() = parse_bmopf("""
- {"bus":{
-   "src":{"terminal_names":["a","b","c","n"],"perfectly_grounded_terminals":["n"],
-          "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
-   "L1":{"terminal_names":["a","b","c","n"],
-         "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
-   "L2":{"terminal_names":["a","b","c","n"],
-         "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]}},
-  "voltage_source":{"grid":{"bus":"src","terminal_map":["a","b","c"],
-      "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944],
-      "cost":[0.3,0.3,0.3]}},
-  "linecode":{"lc":{"R_series_1_1":0.15,"R_series_2_2":0.15,"R_series_3_3":0.15,
-                    "R_series_4_4":0.15}},
-  "line":{"a1":{"bus_from":"src","bus_to":"L1",
-      "terminal_map_from":["a","b","c","n"],"terminal_map_to":["a","b","c","n"],
-      "linecode":"lc","length":1.0},
-          "a2":{"bus_from":"src","bus_to":"L2",
-      "terminal_map_from":["a","b","c","n"],"terminal_map_to":["a","b","c","n"],
-      "linecode":"lc","length":1.0}},
-  "load":{"d1":{"bus":"L1","terminal_map":["a","b","c","n"],"configuration":"WYE",
-                "p_nom":[5000.0,900.0,600.0],"q_nom":[800.0,150.0,100.0]},
-          "d2":{"bus":"L2","terminal_map":["a","b","c","n"],"configuration":"WYE",
-                "p_nom":[600.0,900.0,5000.0],"q_nom":[100.0,150.0,800.0]}},
-  "ibr":{"c1":{"bus":"L1","terminal_map":["a","b","c","n"],"topology":"FOUR_LEG",
-               "prime_mover":"STATCOM","s_max":[6000.0,6000.0,6000.0],
-               "p_max":[3000.0,3000.0,3000.0],"p_min":[-3000.0,-3000.0,-3000.0],
-               "dc_link_coupled":true,"cost":[0.0,0.0,0.0]},
-         "c2":{"bus":"L2","terminal_map":["a","b","c","n"],"topology":"FOUR_LEG",
-               "prime_mover":"STATCOM","s_max":[6000.0,6000.0,6000.0],
-               "p_max":[3000.0,3000.0,3000.0],"p_min":[-3000.0,-3000.0,-3000.0],
-               "dc_link_coupled":true,"cost":[0.0,0.0,0.0]}}}
- """; from_string=true)
-
 @testset "smooth_norm — vector form groups components under one norm" begin
     ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0); per_unit=true,
                                      add_objective=false)
@@ -603,29 +630,54 @@ _obj_net_2lat() = parse_bmopf("""
     @test_throws ArgumentError BMOPFTools.smooth_norm(ctx, xs; scale=0.0)
 end
 
-@testset "opf_control_effort_term — group-lasso moves fewer devices" begin
-    # The claim :magnitude exists to support. Two independent compensators; a
-    # grouped norm should concentrate the response, a squared norm spread it.
-    function effort(norm)
-        ctx = BMOPFTools.build_opf_model(_obj_net_2lat(); per_unit=true,
-                                         add_objective=false)
-        terms = [BMOPFTools.opf_sequence_term(ctx, ["L1","L2"];
-                                              norm=:squared, weight=1.0,
-                                              name=:unbal),
+@testset "opf_control_effort_term — group-lasso concentrates, :squared shrinks" begin
+    # The original version asserted only that currents were non-negative, which
+    # every norm satisfies. This asserts the property the :magnitude default
+    # exists to support.
+    #
+    # The laterals must be ASYMMETRIC or there is nothing to concentrate: with
+    # mirrored loads and equal ratings both compensators move identically under
+    # every norm (measured: concentration exactly 0.5 throughout). Here c2 is
+    # deliberately under-rated, so preferring c1 is a real choice.
+    function movement(norm, weight)
+        net = _obj_net_2lat(6_000.0)
+        net["ibr"]["c2"]["s_max"] = [700.0, 700.0, 700.0]
+        net["ibr"]["c2"]["p_max"] = [350.0, 350.0, 350.0]
+        net["ibr"]["c2"]["p_min"] = [-350.0, -350.0, -350.0]
+        ctx = BMOPFTools.build_opf_model(net; per_unit=true, add_objective=false)
+        terms = [BMOPFTools.opf_sequence_term(ctx, ["L1","L2"]; norm=:squared,
+                                              weight=1.0, name=:unbal),
                  BMOPFTools.opf_control_effort_term(ctx, [("ibr","c1"),("ibr","c2")];
-                                                    norm=norm, weight=5e-4)]
+                                                    norm=norm, weight=weight)]
         BMOPFTools.set_opf_objective!(ctx, terms)
         BMOPFTools.enforce_kcl!(ctx)
         m = BMOPFTools.opf_model(ctx)
         JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
         JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL) || return nothing
         crv = ctx.vars[:cri]; civ = ctx.vars[:cii]
-        [sum(hypot(JuMP.value(crv[k]), JuMP.value(civ[k]))
-             for k in keys(crv) if String(k[1]) == d) for d in ("c1", "c2")]
+        sort([sum(hypot(JuMP.value(crv[k]), JuMP.value(civ[k]))
+                  for k in keys(crv) if String(k[1]) == d)
+              for d in ("c1", "c2")]; rev=true)
     end
-    sq = effort(:squared); mg = effort(:magnitude)
-    @test !isnothing(sq) && !isnothing(mg)
-    @test all(>=(0), sq) && all(>=(0), mg)
+    conc(v) = sum(v) > 0 ? v[1] / sum(v) : 0.5
+
+    for weight in (1e-2, 1e-1)
+        sq = movement(:squared, weight); mg = movement(:magnitude, weight)
+        @test !isnothing(sq) && !isnothing(mg)
+        @test sum(sq) > 1e-8 && sum(mg) > 1e-8      # both actually move
+
+        # A squared penalty's gradient vanishes as movement does, so it shrinks
+        # every device toward zero together -- concentration collapses to 0.5. A
+        # grouped norm has constant gradient, so it keeps the EFFECTIVE device
+        # working instead of shrinking both uniformly.
+        @test conc(mg) > conc(sq)
+        @test sum(mg) > sum(sq)
+    end
+
+    # Not a claim of exact sparsity: neither device is driven to identically
+    # zero here. This is relative concentration, which is what a smoothed
+    # group-lasso delivers; exact zeros would need a nonconvex or thresholded
+    # formulation.
 end
 
 @testset "opf_control_effort_term — unit-mode independent" begin
@@ -731,4 +783,134 @@ end
     @test st0 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
     @test st1 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
     @test u1 < u0
+end
+
+@testset "epsilon is per-target, not shared across a heterogeneous set" begin
+    # The relative-smoothing promise is per TARGET. A single scale taken from
+    # the largest target gives every smaller one an eps sized for something
+    # else: on a 33 kV / 230 V network that is two orders out at the LV end,
+    # which changes that term's gradient and its trade-off weight.
+    ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0); per_unit=true,
+                                     add_objective=false)
+    m = BMOPFTools.opf_model(ctx)
+    mk() = (JuMP.@variable(m), JuMP.@variable(m))
+    pairs = [mk(), mk()]
+    scales = [1.0, 100.0]
+    BMOPFTools.opf_reduce_norm(ctx, pairs; norm=:magnitude, scale=scales,
+                               eps_rel=1e-3, name="het")
+    ann = collect(values(BMOPFTools.opf_differentiability_annotations(ctx)))
+    eps_used = sort([Float64(a.metadata["eps"]) for a in ann])
+    scl_used = sort([Float64(a.metadata["scale"]) for a in ann])
+    @test length(eps_used) == 2
+    # Two DIFFERENT epsilons, each 1e-3 of its own target's scale.
+    @test scl_used ≈ scales
+    @test eps_used ≈ 1e-3 .* scales
+    @test eps_used[2] / eps_used[1] ≈ 100.0 rtol=1e-12
+    # ...and therefore identical RELATIVE smoothing, which is the actual promise.
+    for a in ann
+        @test Float64(a.metadata["eps"]) / Float64(a.metadata["scale"]) ≈ 1e-3 rtol=1e-12
+    end
+
+    # Malformed scale vectors are refused rather than silently recycled.
+    @test_throws ArgumentError BMOPFTools.opf_reduce_norm(ctx, pairs;
+        norm=:magnitude, scale=[1.0, 2.0, 3.0])
+    @test_throws ArgumentError BMOPFTools.opf_reduce_norm(ctx, pairs;
+        norm=:magnitude, scale=[1.0, 0.0])
+end
+
+@testset "sequence current is anchored to bus phase order, not terminal-map order" begin
+    # The Fortescue transform assumes its inputs are phases A,B,C in rotational
+    # order. Ledger order follows the ELEMENT's terminal map, which is free to
+    # permute; feeding a permuted set silently swaps positive and negative
+    # sequence. Every map must agree with a hand transform built from the BUS's
+    # declared phase order.
+    function check(perm)
+        net = _obj_net_4w()
+        net["line"]["l1"]["terminal_map_to"] = perm
+        ctx = BMOPFTools.build_opf_model(net; per_unit=true, add_objective=false)
+        m = BMOPFTools.opf_model(ctx)
+        got = Dict(c => BMOPFTools.opf_sequence_current(ctx, "line", "l1";
+                                                        side=:to, component=c)
+                   for c in (:zero, :positive, :negative))
+        entries = BMOPFTools.opf_branch_currents(ctx, "line", "l1"; side=:to)
+        JuMP.@objective(m, Min, 0.0); BMOPFTools.enforce_kcl!(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        byt = Dict(t => JuMP.value(re) + im * JuMP.value(ie) for (t, re, ie) in entries)
+        I = [byt[t] for t in ("1", "2", "3")]          # BUS declaration order
+        a = exp(im * 2π / 3)
+        hand = Dict(:zero     => sum(I) / 3,
+                    :positive => (I[1] + a*I[2] + a^2*I[3]) / 3,
+                    :negative => (I[1] + a^2*I[2] + a*I[3]) / 3)
+        for c in (:zero, :positive, :negative)
+            g = JuMP.value(got[c][1]) + im * JuMP.value(got[c][2])
+            @test g ≈ hand[c] atol=1e-10
+        end
+        abs(hand[:negative])
+    end
+    # Identity, a transposition, a cyclic rotation, and a neutral-first map.
+    i2 = [check(p) for p in (["1","2","3","n"], ["2","1","3","n"],
+                             ["3","1","2","n"], ["n","3","2","1"])]
+    @test all(>(0), i2)
+    # A cyclic rotation relabels the same rotational sequence, and this linecode
+    # is symmetric (equal diagonals, no mutuals), so it is an equivalent circuit
+    # and must reproduce the identity map's negative-sequence magnitude. The
+    # tolerance is solver convergence between two separately-solved models, not
+    # a modelling difference. A transposition is a genuinely DIFFERENT circuit
+    # and is not expected to agree.
+    @test i2[3] ≈ i2[1] rtol=1e-5
+    @test !isapprox(i2[2], i2[1]; rtol=1e-3)
+end
+
+@testset "composed objective — epigraph terms refuse an invalid orientation" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0); per_unit=true,
+                                     add_objective=false)
+    tmax = BMOPFTools.opf_sequence_term(ctx, "b1"; norm=:max, weight=1.0)
+    @test tmax.valid_sense == :min
+
+    # `t` is bounded from BELOW by its targets and from above by nothing, so
+    # maximising it -- or minimising it with a negative weight -- is unbounded,
+    # not merely inaccurate. Refuse instead of handing Ipopt an unbounded model.
+    @test_throws ArgumentError BMOPFTools.set_opf_objective!(ctx, [tmax]; sense=:max)
+    tneg = BMOPFTools.opf_sequence_term(ctx, "b1"; norm=:max, weight=-1.0,
+                                        name=:neg)
+    @test_throws ArgumentError BMOPFTools.set_opf_objective!(ctx, [tneg])
+
+    # Non-epigraph reductions carry no such restriction.
+    for norm in (:squared, :magnitude)
+        t = BMOPFTools.opf_sequence_term(ctx, "b1"; norm=norm)
+        @test t.valid_sense == :any
+    end
+end
+
+@testset "opf_total_loss — default blocks match what results actually total" begin
+    # opf_total_loss promises equality with result["losses"]["p_loss"].
+    # results.jl totals ONLY lines and transformers, so a default that included
+    # switches would make the contract false on any network with one. The
+    # earlier test could not catch this: its fixture had no switch.
+    net = _obj_net_4w()
+    net["bus"]["mid"] = Dict{String,Any}(
+        "terminal_names" => ["1","2","3","n"],
+        "v_min" => [180.0,180.0,180.0], "v_max" => [280.0,280.0,280.0])
+    net["line"]["l1"]["bus_to"] = "mid"
+    net["switch"] = Dict{String,Any}("sw1" => Dict{String,Any}(
+        "bus_from" => "mid", "bus_to" => "b1",
+        "terminal_map_from" => ["1","2","3","n"],
+        "terminal_map_to" => ["1","2","3","n"], "status" => "CLOSED"))
+    ctx = BMOPFTools.build_opf_model(net; per_unit=true, add_objective=false)
+    m = BMOPFTools.opf_model(ctx)
+    # Switches are NOT ledger-recorded: branch.jl calls _kcl_add! for them
+    # without an `entry`, so this collection is always empty. Offering "switch"
+    # as a loss block would be a silent no-op returning exactly zero.
+    @test isempty(get(ctx.branch_inj, "switch", Dict()))
+    total = BMOPFTools.opf_total_loss(ctx)                        # default blocks
+    JuMP.@objective(m, Min, 0.0); BMOPFTools.enforce_kcl!(ctx)
+    JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+    @test JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    res = BMOPFTools.extract_result(ctx)
+    @test JuMP.value(total) * ctx.bases.s_base ≈ res["losses"]["p_loss"] rtol=1e-8
+    @test res["losses"]["p_loss"] > 1.0
+    # Asking for switch loss is refused, not answered with a misleading zero.
+    @test_throws ArgumentError BMOPFTools.opf_total_loss(ctx;
+        blocks=("line","transformer","switch"))
+    @test_throws ArgumentError BMOPFTools.opf_element_loss(ctx, "switch", "sw1")
 end

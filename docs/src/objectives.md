@@ -46,7 +46,7 @@ result = extract_result(ctx)
 | [`opf_loss_term`](@ref) | W | exact | bilinear, non-convex | Least-loss dispatch. |
 | [`opf_sequence_term`](@ref) `norm=:squared` | V² | exact | quadratic | Reduces unbalance everywhere a little. |
 | [`opf_sequence_term`](@ref) `norm=:magnitude` | V | to ε | group-lasso | Drives a few buses to balanced. |
-| [`opf_sequence_term`](@ref) `norm=:max` | V² | exact | linear epigraph | Protects the worst bus. |
+| [`opf_sequence_term`](@ref) `norm=:max` | V² | exact | convex quadratic epigraph | Protects the worst bus. **Minimisation only.** |
 | [`opf_current_term`](@ref) `quantity=:neutral` | A² or A | exact / to ε | per `norm` | Reduces neutral conductor current. |
 | [`opf_current_term`](@ref) `quantity=:sequence` | A² or A | exact / to ε | per `norm` | Reduces zero-/negative-sequence current. |
 | [`opf_control_effort_term`](@ref) | A² or A | exact / to ε | per `norm` | Penalises moving devices off a reference. `:magnitude` gives device-level sparsity. |
@@ -118,8 +118,12 @@ modelling decision:
   targets to (near) zero rather than shrinking all of them. Use it when you want
   "fix these few completely" rather than "improve everything slightly".
 - **`:max`** — L∞. Minimises the worst target. A fairness objective. Exact
-  through a **linear** epigraph, because `max` is monotone under squaring, so no
-  square root is needed at all.
+  through an epigraph over **squared** magnitudes, because `max` is monotone
+  under squaring, so no square root is needed. The epigraph variable enters
+  linearly but each constraint is a convex quadratic. It is exact **only while
+  being minimised with a non-negative weight** — the constraints bound it from
+  below only, so maximising it is unbounded. `set_opf_objective!` refuses that
+  combination rather than handing the solver an unbounded problem.
 
 !!! danger "Never reduce a phasor componentwise"
     `|re| + |im|` is **not rotation-invariant**: the answer would depend on your

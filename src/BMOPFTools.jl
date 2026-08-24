@@ -2326,6 +2326,15 @@ stays correct across unit modes and under a future nondimensionalisation.
 `units` is recorded rather than checked: it reaches the regularization
 declaration and [`opf_research_hashes`](@ref), so what was combined — and in
 what units — is auditable after the fact.
+
+`valid_sense` records whether the term's expression means what it says under
+either optimisation direction (`:any`) or only when pushed DOWN (`:min`). An
+epigraph reduction such as `norm=:max` is `:min`: its variable is bounded from
+below by the targets and from above by nothing, so it equals the maximum only
+while it is being minimised with a non-negative weight. Maximising it, or giving
+it a negative weight, is unbounded rather than wrong-by-a-little.
+[`set_opf_objective!`](@ref) rejects those combinations instead of handing the
+solver an unbounded problem.
 """
 struct OpfObjectiveTerm
     name::Symbol
@@ -2333,14 +2342,20 @@ struct OpfObjectiveTerm
     weight::Float64
     units::Symbol
     purpose::String
+    valid_sense::Symbol
 end
 
 function OpfObjectiveTerm(name::Symbol, expr; weight::Real=1.0,
                           units::Symbol=:dimensionless,
-                          purpose::AbstractString="")
+                          purpose::AbstractString="",
+                          valid_sense::Symbol=:any)
     isfinite(Float64(weight)) || throw(ArgumentError(
         "objective term '$name': weight must be finite, got $weight"))
-    return OpfObjectiveTerm(name, expr, Float64(weight), units, String(purpose))
+    valid_sense in (:any, :min) || throw(ArgumentError(
+        "objective term '$name': valid_sense must be :any or :min, got " *
+        "$valid_sense"))
+    return OpfObjectiveTerm(name, expr, Float64(weight), units, String(purpose),
+                            valid_sense)
 end
 export OpfObjectiveTerm
 
@@ -2366,7 +2381,7 @@ export opf_physical_scale
 
 Reduce complex quantities `pairs` (a vector of `(re, im)` expression pairs) to
 one scalar, by `:squared` (L2), `:magnitude` (group-lasso, via
-[`smooth_norm`](@ref)) or `:max` (L∞ through a linear epigraph).
+[`smooth_norm`](@ref)) or `:max` (L∞ through a convex-quadratic epigraph, minimisation only).
 
 The choice changes the answer, not just the arithmetic: `:squared` improves
 every target a little, `:magnitude` drives a few to zero, `:max` protects the

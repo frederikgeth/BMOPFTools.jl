@@ -20,10 +20,12 @@
 #                                      shrinking all of them: use it when you
 #                                      want "fix these few" rather than "improve
 #                                      everything a little". Smoothed; see below.
-#   :max        maxᵢ (xᵢ² + yᵢ²)       L∞ / minimax. Exact via a LINEAR epigraph,
-#                                      no smoothing: `max` is monotone under
-#                                      squaring, so the worst element is the same
-#                                      whether ranked by magnitude or its square.
+#   :max        maxᵢ (xᵢ² + yᵢ²)       L∞ / minimax. Exact via an epigraph over
+#                                      SQUARED magnitudes — `max` is monotone
+#                                      under squaring, so no root is needed. The
+#                                      epigraph variable enters linearly but each
+#                                      constraint is a convex quadratic, and it is
+#                                      exact only while MINIMISED (see valid_sense).
 #
 # Never reduce a complex quantity componentwise (|x| + |y|): that is not
 # rotation-invariant, so the answer would depend on the phase reference. It is a
@@ -374,7 +376,21 @@ end
 # In per-unit each term carries the per-bus power base over the system base, so
 # a network with heterogeneous bus bases totals correctly.
 
-const _LOSS_BLOCKS = ("line", "transformer", "switch")
+# Blocks that carry terminal-injection records AND that `results.jl` totals into
+# `result["losses"]`. Both halves matter, and switches satisfy neither:
+#
+#   * `branch.jl` calls `_kcl_add!` for a switch WITHOUT a ledger `entry`, so
+#     `ctx.branch_inj["switch"]` is always empty -- offering "switch" here would
+#     be a silent no-op that always contributes exactly zero;
+#   * `results.jl` totals only lines and transformers, so including any third
+#     block would break the equality `opf_total_loss` promises with the reported
+#     number.
+#
+# BMOPF models a switch as an ideal closure -- a voltage equality with no series
+# impedance -- so its loss is identically zero by construction and there is
+# nothing to report. Asking for it is rejected rather than answered with a zero
+# that looks like a measurement.
+const _LOSS_BLOCKS = ("line", "transformer")
 
 """
     _element_loss_expr(ctx, records) -> JuMP expression
@@ -413,7 +429,10 @@ quadratic: a loss objective needs no smoothing.
 function BMOPFTools.opf_element_loss(ctx::OpfContext, block::AbstractString,
                                      id::AbstractString)
     block in _LOSS_BLOCKS || throw(ArgumentError(
-        "unknown loss block '$block'; expected one of " * join(_LOSS_BLOCKS, ", ")))
+        "unknown loss block '$block'; expected one of " *
+        join(_LOSS_BLOCKS, ", ") * ". BMOPF models a switch as an ideal " *
+        "closure with no series impedance, so it has no loss to report and is " *
+        "not carried in the injection ledger."))
     recs = get(get(ctx.branch_inj, block, Dict{String,Any}()), id, nothing)
     recs === nothing && throw(ArgumentError(
         "no terminal-injection records for $block '$id'. Either the id is not " *
@@ -432,6 +451,13 @@ reports.
 Sums [`opf_element_loss`](@ref) over the ledger, so it is an exact smooth
 quadratic and matches the reported total by construction.
 
+!!! note "Switches have no loss to report"
+    BMOPF models a switch as an ideal closure — a voltage equality with no
+    series impedance — so its loss is identically zero by construction. It is
+    not carried in the injection ledger and `results.jl` does not total it, so
+    `"switch"` is rejected rather than answered with a zero that looks like a
+    measurement.
+
 !!! note "Losses are not generation cost"
     Minimising losses is NOT the same as minimising `generation_cost`, and on a
     network with heterogeneous generation prices the two can disagree sharply:
@@ -443,7 +469,8 @@ function BMOPFTools.opf_total_loss(ctx::OpfContext; blocks = _LOSS_BLOCKS)
     for b in blocks
         b in _LOSS_BLOCKS || throw(ArgumentError(
             "unknown loss block '$b'; expected a subset of " *
-            join(_LOSS_BLOCKS, ", ")))
+            join(_LOSS_BLOCKS, ", ") * ". BMOPF models a switch as an ideal " *
+            "closure with no series impedance, so it has no loss to report."))
     end
     terms = Any[]
     for b in blocks, (_, recs) in get(ctx.branch_inj, b, Dict{String,Any}())
@@ -594,7 +621,7 @@ expression pairs — to one scalar JuMP expression, using `norm`:
 |--------------|-----------------------|--------|-------|
 | `:squared`   | `Σ (reᵢ² + imᵢ²)`     | yes    | L2. Cheapest, most reliable. Spreads the penalty over all targets. Default. |
 | `:magnitude` | `Σ ‖(reᵢ, imᵢ)‖₂`     | to ε   | Group-lasso. Drives individual targets to zero rather than shrinking all. Uses [`smooth_norm`](@ref). |
-| `:max`       | `maxᵢ (reᵢ² + imᵢ²)`  | yes    | L∞ via a LINEAR epigraph. `max` is monotone under squaring, so no root is needed. |
+| `:max`       | `maxᵢ (reᵢ² + imᵢ²)`  | yes    | L∞ via an epigraph over squared magnitudes; no root needed. Convex quadratic constraints, exact only when MINIMISED. |
 
 Choosing between them is a modelling decision, not an implementation detail:
 `:squared` improves everything a little, `:magnitude` fixes a few targets
@@ -609,7 +636,7 @@ neither. `scale`/`eps_rel` are used only by `:magnitude`.
 """
 function BMOPFTools.opf_reduce_norm(ctx::OpfContext, pairs;
                                     norm::Symbol = :squared,
-                                    scale::Real = 1.0,
+                                    scale = 1.0,
                                     eps_rel::Real = _SMOOTH_NORM_EPS_REL,
                                     name::AbstractString = "")
     norm in _NORM_MODES || throw(ArgumentError(
@@ -617,21 +644,39 @@ function BMOPFTools.opf_reduce_norm(ctx::OpfContext, pairs;
     isempty(pairs) && throw(ArgumentError(
         "opf_reduce_norm: nothing to reduce. An empty penalty is almost always " *
         "a mis-specified target list rather than an intentional zero."))
+    # `scale` may be ONE value or one PER PAIR. Per-pair is the correct form for
+    # a heterogeneous target set: a single scale drawn from the largest target
+    # gives every smaller one an eps far too big for it, which is exactly the
+    # relative-smoothing promise this file makes. On a 33 kV / 230 V network a
+    # shared scale is two orders out at the LV end.
+    scales = scale isa Real ? fill(Float64(scale), length(pairs)) :
+                              Float64.(collect(scale))
+    length(scales) == length(pairs) || throw(ArgumentError(
+        "opf_reduce_norm: got $(length(scales)) scale(s) for $(length(pairs)) " *
+        "target(s). Pass one scale, or exactly one per target."))
+    all(>(0), scales) || throw(ArgumentError(
+        "opf_reduce_norm: every scale must be strictly positive; got $(scales)"))
     m = ctx.model
     if norm === :squared
         return JuMP.@expression(m, sum(re^2 + im^2 for (re, im) in pairs))
     elseif norm === :magnitude
-        parts = [BMOPFTools.smooth_norm(ctx, re, im; scale=scale, eps_rel=eps_rel,
+        parts = [BMOPFTools.smooth_norm(ctx, re, im; scale=scales[k],
+                                        eps_rel=eps_rel,
                                         name = isempty(name) ? "" : "$(name)[$k]")
                  for (k, (re, im)) in enumerate(pairs)]
         return JuMP.@expression(m, sum(parts))
-    else # :max — linear epigraph over squared magnitudes
+    else # :max — epigraph over squared magnitudes
+        # `t` enters linearly but each constraint is a CONVEX QUADRATIC
+        # (rotated second-order cone). Exact only while `t` is pushed DOWN, i.e.
+        # minimised with a non-negative weight: the constraints bound it from
+        # below only, so maximising it is unbounded. `set_opf_objective!`
+        # enforces that via the term's `valid_sense`.
         t = JuMP.@variable(m, lower_bound = 0.0,
                            base_name = isempty(name) ? "objmax" : "objmax_$(name)")
         for (re, im) in pairs
             JuMP.@constraint(m, re^2 + im^2 <= t)
         end
-        JuMP.set_start_value(t, max(1e-9, (Float64(scale) * 1e-2)^2))
+        JuMP.set_start_value(t, max(1e-9, (maximum(scales) * 1e-2)^2))
         return JuMP.@expression(m, t)
     end
 end
@@ -678,11 +723,12 @@ function BMOPFTools.opf_sequence_term(ctx::OpfContext, buses;
     end
     tname = name === nothing ? Symbol("v", component, "_", norm) : name
     expr = BMOPFTools.opf_reduce_norm(ctx, pairs; norm=norm,
-                                      scale=maximum(scales), eps_rel=eps_rel,
+                                      scale=scales, eps_rel=eps_rel,
                                       name=String(tname))
     return BMOPFTools.OpfObjectiveTerm(tname, expr;
         weight = weight,
         units  = _norm_result_unit(norm, :V),
+        valid_sense = norm === :max ? :min : :any,
         purpose = "$(component)-sequence voltage penalty over " *
                   "$(length(ids)) bus(es), $(norm) norm")
 end
@@ -764,6 +810,19 @@ function BMOPFTools.set_opf_objective!(ctx::OpfContext,
             "duplicate objective term names: " * join(sort(string.(dups)), ", ") *
             ". Each term is registered under its name, so names must be unique."))
     end
+    for t in terms
+        getfield(t, :valid_sense) === :min || continue
+        sense === :min || throw(ArgumentError(
+            "objective term '$(t.name)' is only exact when MINIMISED: it uses " *
+            "an epigraph whose variable is bounded from below by its targets " *
+            "and from above by nothing. Maximising it is unbounded, not merely " *
+            "inaccurate. Use sense=:min, or a norm other than :max."))
+        t.weight >= 0 || throw(ArgumentError(
+            "objective term '$(t.name)' has weight $(t.weight): an epigraph " *
+            "term needs a NON-NEGATIVE weight to be pushed down. A negative " *
+            "weight turns the minimisation into an unbounded maximisation of " *
+            "the epigraph variable."))
+    end
     return _run_opf_stage!(ctx, :objective, () -> begin
         for t in terms
             key = BMOPFTools.OpfModelKey(:objective, :composed, String(t.name))
@@ -811,6 +870,42 @@ function _element_bus(ctx::OpfContext, block::AbstractString, id::AbstractString
     rec = get(coll, id, nothing)
     rec isa AbstractDict || throw(ArgumentError("$block '$id' is not in the network"))
     return String(get(rec, field, ""))
+end
+
+"""
+    _phases_in_bus_order(ctx, bus, entries, what) -> Vector{Tuple{Any,Any}}
+
+Reorder `(terminal, re, im)` entries into the bus's own phase-terminal
+declaration order, dropping neutrals.
+
+The symmetrical-component transform assumes its three inputs are phases A, B, C
+IN THAT ROTATIONAL ORDER. The package's convention is that a bus's
+`terminal_names`, with neutrals removed, gives that order; every sequence
+quantity in this file is anchored to it so voltages and currents on the same bus
+are directly comparable.
+
+Element terminal maps are free to list phases in any order, so anything read
+from the injection ledger MUST be reordered through here. Feeding a permuted
+set to the transform swaps positive and negative sequence without any error.
+"""
+function _phases_in_bus_order(ctx::OpfContext, bus::AbstractString, entries, what)
+    nlabels = BMOPFTools._neutral_labels(ctx.net)
+    bus_dict = get(get(ctx.net, "bus", Dict{String,Any}()), String(bus), nothing)
+    bus_dict isa AbstractDict || throw(ArgumentError("bus '$bus' is not in the network"))
+    neutral = BMOPFTools._neutral_terminal(bus_dict)
+    order = [t for t in get(ctx.bus_terminals, String(bus), String[])
+             if t != neutral && !(t in nlabels)]
+    by_terminal = Dict(String(t) => (re, ie) for (t, re, ie) in entries)
+    picked = Tuple{Any,Any}[]
+    for t in order
+        haskey(by_terminal, String(t)) || continue
+        push!(picked, by_terminal[String(t)])
+    end
+    length(picked) == 3 || throw(ArgumentError(
+        "symmetrical components need exactly 3 phase terminals for $what, " *
+        "resolved against bus '$bus' phase order $(order); found " *
+        "$(length(picked))"))
+    return picked
 end
 
 """
@@ -887,13 +982,16 @@ function BMOPFTools.opf_sequence_current(ctx::OpfContext, block::AbstractString,
     component in _SEQUENCE_COMPONENTS || throw(ArgumentError(
         "unknown sequence component '$component'; expected one of " *
         join(_SEQUENCE_COMPONENTS, ", ")))
-    nlabels = BMOPFTools._neutral_labels(ctx.net)
-    phases = [(re, ie) for (t, re, ie) in
-              BMOPFTools.opf_branch_currents(ctx, block, id; side=side)
-              if !(t in nlabels)]
-    length(phases) == 3 || throw(ArgumentError(
-        "symmetrical components need exactly 3 phase terminals at the $side " *
-        "end of $block '$id'; found $(length(phases))"))
+    # Order by the BUS's phase-terminal declaration, not by the order the ledger
+    # happened to record. Ledger order follows the ELEMENT's terminal map, and a
+    # perfectly valid map like ["b","a","c"] would otherwise feed the Fortescue
+    # transform a permuted phase set — silently swapping positive and negative
+    # sequence. `opf_sequence_voltage` anchors to the same bus order, so voltage
+    # and current sequence components stay comparable by construction.
+    bus = _element_bus(ctx, block, id, side)
+    phases = _phases_in_bus_order(ctx, bus,
+        BMOPFTools.opf_branch_currents(ctx, block, id; side=side),
+        "$block '$id' at its $side end")
     s3 = sqrt(3.0) / 2.0
     (a_r, a_i) = phases[1]; (b_r, b_i) = phases[2]; (c_r, c_i) = phases[3]
     m = ctx.model
@@ -953,10 +1051,11 @@ function BMOPFTools.opf_current_term(ctx::OpfContext, elements;
     tname = name === nothing ?
         Symbol(quantity === :neutral ? "i_neutral_" : "i$(component)_", norm) : name
     expr = BMOPFTools.opf_reduce_norm(ctx, pairs; norm=norm,
-                                      scale=maximum(scales), eps_rel=eps_rel,
+                                      scale=scales, eps_rel=eps_rel,
                                       name=String(tname))
     return BMOPFTools.OpfObjectiveTerm(tname, expr;
         weight = weight, units = _norm_result_unit(norm, :A),
+        valid_sense = norm === :max ? :min : :any,
         purpose = (quantity === :neutral ? "neutral conductor current" :
                    "$(component)-sequence current") *
                   " penalty over $(length(specs)) element(s), $(norm) norm")
@@ -1030,14 +1129,15 @@ function BMOPFTools.opf_control_effort_term(ctx::OpfContext, devices;
         end
         push!(per_device, comps)
     end
-    scale = maximum(scales)
     m = ctx.model
     expr = if norm === :squared
         JuMP.@expression(m, sum(sum(c^2 for c in comps) for comps in per_device))
     elseif norm === :magnitude
         # ONE grouped norm per device — this is what makes it a group-lasso.
-        parts = [BMOPFTools.smooth_norm(ctx, comps; scale=scale, eps_rel=eps_rel,
-                                        name="$(name)[$k]")
+        # Per-device scale: a shared one would give a small device an eps sized
+        # for the largest in the fleet.
+        parts = [BMOPFTools.smooth_norm(ctx, comps; scale=scales[k],
+                                        eps_rel=eps_rel, name="$(name)[$k]")
                  for (k, comps) in enumerate(per_device)]
         JuMP.@expression(m, sum(parts))
     else
@@ -1045,11 +1145,12 @@ function BMOPFTools.opf_control_effort_term(ctx::OpfContext, devices;
         for comps in per_device
             JuMP.@constraint(m, sum(c^2 for c in comps) <= t)
         end
-        JuMP.set_start_value(t, max(1e-9, (scale * 1e-2)^2))
+        JuMP.set_start_value(t, max(1e-9, (maximum(scales) * 1e-2)^2))
         JuMP.@expression(m, t)
     end
     return BMOPFTools.OpfObjectiveTerm(name, expr;
         weight = weight, units = _norm_result_unit(norm, :A),
+        valid_sense = norm === :max ? :min : :any,
         purpose = "control effort (injected-current deviation from reference) " *
                   "over $(length(specs)) device(s), $(norm) norm")
 end
