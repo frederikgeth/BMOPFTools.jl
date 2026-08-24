@@ -2720,10 +2720,10 @@ end
 # `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
 # nodal accumulators, which means a staged caller can reach `JuMP.optimize!` on a
 # model whose network is electrically disconnected. That failure is SILENT:
-# nodal balance is simply absent, so bus voltages are free variables, the solve
-# reports LOCALLY_SOLVED, and the answer is plausible and meaningless. It bit us
-# for real while building `bench/sequence_objective_norms.jl`, where a negative
-# sequence objective reached |V2| ~ 8e-16 with the compensator sitting idle.
+# nodal balance is simply absent, so bus voltages are free variables and any
+# objective over them is minimised without physics. It bit us for real while
+# building `bench/sequence_objective_norms.jl`, where a negative-sequence
+# objective reached |V2| ~ 8e-16 with the compensator sitting idle.
 #
 # Two guards close it, at different exits:
 #
@@ -2739,40 +2739,56 @@ end
 # multi-period build puts several contexts in one model; all of them must be
 # stamped, and the message should say how many are not.
 #
-# The MODEL key is weak, so an abandoned model takes its whole entry — contexts
-# included — with it. The contexts are held STRONGLY, and deliberately: an
-# `OpfContext` is an immutable struct, so `WeakRef(ctx)` boxes a copy that is
-# unreachable the moment it is created and reads back as `nothing` immediately.
-# A guard built on that counts zero unstamped contexts forever and never fires,
-# which is worse than no guard at all. A context is useless without its model,
-# so bounding their lifetime by the model's is the right scope anyway.
-const _KCL_GUARD_REGISTRY = WeakKeyDict{JuMP.Model,Vector{Any}}()
+# WHAT IS STORED, AND WHY IT IS NOT THE CONTEXT. Two opposite traps meet here.
+#
+#   * `WeakRef(ctx)` does not work. `OpfContext` is an IMMUTABLE struct, so the
+#     WeakRef boxes a copy that is unreachable the moment it is created and
+#     reads back as `nothing` immediately. A registry built on it counts zero
+#     unstamped contexts forever and never fires — green on every "the guarded
+#     path still works" test while doing nothing at all.
+#   * Holding the context strongly does not work either. A context owns its
+#     model, so a strong value gives the registry a path value -> ctx -> model
+#     that reaches its own weak KEY. The key is then never collectable and the
+#     registry retains complete JuMP models for the life of the session.
+#
+# So the registry stores neither: it keeps each context's live
+# `manifest.stages` vector, which `_run_opf_stage!` mutates in place. A
+# `Vector{Symbol}` references nothing, so the weak key stays collectable, and
+# reading it still reflects the context's true stage state.
+const _KCL_GUARD_REGISTRY = WeakKeyDict{JuMP.Model,Vector{Vector{Symbol}}}()
 const _KCL_GUARD_LOCK = ReentrantLock()
 
 """
     _install_kcl_guard!(ctx)
 
-Register `ctx` against its model and, for the first context on that model,
-install the optimize hook. A pre-existing hook is CHAINED, not replaced — if a
-caller installs their own hook after this point ours is dropped, which is why
-the `extract_result` check exists as well.
+Register `ctx`'s stage record against its model and, for the first context on
+that model, install the optimize hook. A pre-existing hook is CHAINED, not
+replaced — if a caller installs their own hook after this point ours is dropped,
+which is why the `extract_result` check exists as well.
 """
 function _install_kcl_guard!(ctx::OpfContext)
     model = ctx.model
+    stages = ctx.manifest.stages          # mutated in place by _run_opf_stage!
     first_on_model = lock(_KCL_GUARD_LOCK) do
         entries = get(_KCL_GUARD_REGISTRY, model, nothing)
         if entries === nothing
-            _KCL_GUARD_REGISTRY[model] = Any[ctx]
+            _KCL_GUARD_REGISTRY[model] = Vector{Symbol}[stages]
             true
         else
-            push!(entries, ctx)
+            push!(entries, stages)
             false
         end
     end
     first_on_model || return ctx
     prior = model.optimize_hook
+    # `origin` is captured so the hook can tell whether it is running on the
+    # model it was installed for. `JuMP.copy_model` copies the hook but NOT the
+    # registry entry, so a copy would otherwise query itself, find no registered
+    # contexts, and permit an unstamped solve — the guard failing OPEN, which is
+    # the one direction a guard must never fail.
+    origin = model
     JuMP.set_optimize_hook(model, function (m::JuMP.Model; kwargs...)
-        _assert_kcl_enforced(m)
+        _assert_kcl_enforced(m, origin)
         return prior === nothing ?
             JuMP.optimize!(m; ignore_optimize_hook=true, kwargs...) :
             prior(m; kwargs...)
@@ -2786,21 +2802,33 @@ function _unstamped_kcl_contexts(model::JuMP.Model)
         get(_KCL_GUARD_REGISTRY, model, nothing)
     end
     entries === nothing && return 0
-    count = 0
-    for ctx in entries
-        ctx isa OpfContext || continue
-        BMOPFTools.opf_stage_completed(ctx, :kcl) || (count += 1)
-    end
-    return count
+    return count(stages -> !(:kcl in stages), entries)
 end
 
 const _KCL_SKIPPED_MESSAGE =
     "Without it the network is electrically disconnected: nodal balance is " *
     "absent, so bus voltages are free variables and any objective over them is " *
-    "minimised without physics. The solve still reports LOCALLY_SOLVED and " *
-    "returns a plausible, meaningless answer."
+    "minimised without physics. The solve can still report a successful-looking " *
+    "status and plausible values — LOCALLY_SOLVED in the case that motivated " *
+    "this check, though the status depends on what equations, objective and " *
+    "solver remain."
 
-function _assert_kcl_enforced(model::JuMP.Model)
+function _assert_kcl_enforced(model::JuMP.Model,
+                              origin::Union{JuMP.Model,Nothing}=nothing)
+    if origin !== nothing && model !== origin
+        # A hook-bearing model with no guard state of its own: almost always a
+        # `JuMP.copy_model` of a guarded model. The copy carries whatever
+        # constraints the original had WHEN IT WAS COPIED, which the guard has
+        # no way to reconstruct, so it refuses rather than vouching for it.
+        throw(ArgumentError(
+            "this JuMP model carries a KCL guard copied from another model " *
+            "(`JuMP.copy_model` copies the optimize hook but not the guard's " *
+            "state), so the guard cannot tell whether KCL was stamped before " *
+            "the copy was taken. $_KCL_SKIPPED_MESSAGE Build the snapshot " *
+            "against this model with `build_opf_model(...; model=...)`, or " *
+            "call `JuMP.set_optimize_hook(model, nothing)` to solve it " *
+            "unguarded."))
+    end
     n = _unstamped_kcl_contexts(model)
     n == 0 && return nothing
     throw(ArgumentError(
@@ -2810,6 +2838,7 @@ function _assert_kcl_enforced(model::JuMP.Model)
         "optimising. Pass `kcl_guard=false` to `build_opf_model` / " *
         "`initialize_opf_model` to opt out of this check."))
 end
+
 # ── Public staged build/solve/extract API ──────────────────────────────────
 # The fused `solve_opf` is the convenience path. These four functions expose the
 # same pipeline as discrete, composable steps so a caller (typically an external
@@ -2839,10 +2868,13 @@ step of the staged API; see the module notes above.
     compensator idle. Call `enforce_kcl!(ctx)` on every snapshot after the last
     constraint is added and before `JuMP.optimize!`.
 
-    Skipping it used to be silent. It is now an error: this call installs a
-    guard that refuses `JuMP.optimize!` on a model holding any unstamped
-    context, and [`extract_result`](@ref) refuses an unstamped context too.
-    Pass `kcl_guard=false` to opt out of the optimize-time check.
+    Skipping it used to be silent — the solve returned a successful-looking
+    status and plausible values (`LOCALLY_SOLVED` in the case that motivated the
+    check, though the status depends on what equations, objective and solver
+    remain). It is now an error: this call installs a guard that refuses
+    `JuMP.optimize!` on a model holding any unstamped context, and
+    [`extract_result`](@ref) refuses an unstamped context too. Pass
+    `kcl_guard=false` to opt out of the optimize-time check.
 
 - `model` — build into this existing JuMP model instead of a fresh one. Pass the
   same model for every snapshot of a multi-period problem so they share one
@@ -2859,7 +2891,11 @@ step of the staged API; see the module notes above.
   this model while any context built into it has not had `enforce_kcl!` called.
   A pre-existing hook is chained, not replaced. Pass `false` for an expert path
   that deliberately optimises a partially built model; the [`extract_result`](@ref)
-  check still applies, and a hook installed after this call supersedes ours.
+  check still applies. Two limits: a hook installed *after* this call supersedes
+  ours, and a `JuMP.copy_model` of a guarded model is refused outright — the copy
+  carries the hook but not the guard's state, so the guard cannot tell whether
+  KCL was stamped before the copy was taken. Clear it with
+  `JuMP.set_optimize_hook(copy, nothing)` if you meant to solve the copy.
 - `softplus` — selects the smooth-ReLU encoding used by Volt-var/Volt-watt
   droop. The stable default is `:user_defined`. Pass `:builtin` explicitly for
   current DiffOpt nonlinear wrappers, which reject `MOI.UserDefinedFunction`;

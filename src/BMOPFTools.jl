@@ -2861,10 +2861,19 @@ results = [extract_result(c) for c in ctxs]
     `build_opf_model` deliberately does not stamp KCL, so that a `model_hook!`
     can still contribute to the nodal accumulators. Until `enforce_kcl!` runs,
     the network is electrically disconnected and bus voltages are free
-    variables. Skipping it does not error: the solve reports `LOCALLY_SOLVED`
-    and returns a physically meaningless answer. `solve_opf` handles this for
-    you; a staged caller must not omit the `foreach(enforce_kcl!, ctxs)` line
-    above.
+    variables, so any objective over them is minimised without physics — the
+    solve can return a successful-looking status and a physically meaningless
+    answer. `solve_opf` handles this for you; a staged caller must not omit the
+    `foreach(enforce_kcl!, ctxs)` line above.
+
+    This is guarded by default. `JuMP.optimize!` raises on a model holding any
+    context whose KCL stage never ran, and `extract_result` raises on such a
+    context. Two limits are worth knowing: the optimize-time check is a JuMP
+    optimize hook, so a hook installed *after* `build_opf_model` supersedes it
+    (the `extract_result` check still applies), and a `JuMP.copy_model` of a
+    guarded model is refused outright because the copy carries the hook but not
+    the guard's state. Pass `kcl_guard=false` to `build_opf_model` /
+    `initialize_opf_model` to opt out of the optimize-time check.
 
 The full per-argument contract for each function is documented on its own entry
 below.

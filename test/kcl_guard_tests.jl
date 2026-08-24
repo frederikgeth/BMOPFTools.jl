@@ -95,6 +95,47 @@ end
     @test occursin("2 staged OPF context", sprint(showerror, err))
 end
 
+@testset "KCL guard — a copied model is refused, not silently permitted" begin
+    # `JuMP.copy_model` copies the optimize hook but NOT the registry entry, so
+    # the copy would query itself, find no registered contexts, and permit an
+    # unstamped solve — the guard failing OPEN. It is bound to its originating
+    # model and refuses anything else.
+    m = _kg_model()
+    ctx = BMOPFTools.build_opf_model(_kg_net(); model=m)
+    BMOPFTools.enforce_kcl!(ctx)                 # original is fully stamped
+    cp, _ = JuMP.copy_model(m)
+    @test cp.optimize_hook !== nothing           # the hook does come across
+    @test _KCLEXT._unstamped_kcl_contexts(cp) == 0   # ...but the state does not
+
+    JuMP.set_optimizer(cp, Ipopt.Optimizer); JuMP.set_silent(cp)
+    err = try JuMP.optimize!(cp); nothing catch e; e end
+    @test err isa ArgumentError
+    @test occursin("copy_model", sprint(showerror, err))
+
+    # The documented escape: drop the inherited hook and solve unguarded.
+    JuMP.set_optimize_hook(cp, nothing)
+    JuMP.optimize!(cp)
+    @test JuMP.termination_status(cp) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+
+    JuMP.optimize!(m)                            # original still works
+    @test JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+end
+
+@testset "KCL guard — an abandoned model is not retained by the registry" begin
+    # The registry must not reach its own weak key. Storing the CONTEXT would:
+    # a context owns its model, so value -> ctx -> model pins the key and the
+    # session retains complete JuMP models. Only the stage vector is stored,
+    # which references nothing.
+    build_and_drop() = (m = _kg_model();
+                        BMOPFTools.build_opf_model(_kg_net(); model=m);
+                        nothing)
+    for _ in 1:5; GC.gc(true); end
+    before = length(_KCLEXT._KCL_GUARD_REGISTRY)
+    for _ in 1:3; build_and_drop(); end
+    for _ in 1:5; GC.gc(true); end
+    @test length(_KCLEXT._KCL_GUARD_REGISTRY) == before
+end
+
 @testset "KCL guard — survives garbage collection" begin
     # Regression: OpfContext is an IMMUTABLE struct, so `WeakRef(ctx)` boxes a
     # copy that is unreachable immediately and reads back as `nothing`. A guard
