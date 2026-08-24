@@ -2448,6 +2448,61 @@ function opf_current_term end
 export opf_current_term
 
 """
+    opf_control_effort_term(ctx, devices; reference=nothing, norm=:magnitude,
+                            weight=1.0)
+
+An [`OpfObjectiveTerm`](@ref) penalising how far dispatchable devices move from
+a reference operating point, as injected-current deviation in amps. `devices` is
+a collection of `(block, id)` with `block` `"ibr"` or `"generator"`.
+
+Current rather than P/Q deliberately: injected current is LINEAR in the decision
+variables, so the penalty is a norm of affine expressions.
+
+With the default `norm=:magnitude` each device contributes ONE grouped norm over
+all its phases, making the penalty a group-lasso over devices: it drives whole
+devices to their reference rather than nudging every device slightly. That is
+the difference between "re-dispatch these two units" and "re-dispatch all forty
+by 3% each", which `:squared` cannot express.
+
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function opf_control_effort_term end
+export opf_control_effort_term
+
+"""
+    opf_vuf_term(ctx, buses; weight=1.0, percent=true)
+
+An [`OpfObjectiveTerm`](@ref) penalising the SQUARED voltage unbalance factor,
+`Σ (|V2|/|V1|)^2`, in percent-squared by default (EN 50160 §3.5 and
+IEC 61000-2-2 state their limit as 2%, i.e. 4.0 here).
+
+Squared deliberately. VUF looks like the one objective that must contain a
+square root, and building it from [`smooth_norm`](@ref) is actively wrong: the
+shift subtracts `eps` from numerator and denominator alike, and an `eps` sized
+to condition a norm heading to zero is comparable to the numerator itself — a
+true `|V2|` of 0.6 V against `eps = 0.26 V` mis-states the ratio by over 40%.
+The squared ratio needs no `eps`, is exact and smooth, and is strictly monotone
+in VUF so it orders solutions identically. Take `sqrt` post-solve.
+
+The voltage base cancels in the ratio, so the term is identical in per-unit and
+SI by construction.
+
+!!! warning "Requires `vpos_min` on every listed bus"
+    A ratio is well posed only while its denominator is bounded away from zero,
+    and `|V1|` is decision-dependent. Every listed bus must declare `vpos_min`,
+    which `bus.jl` enforces as an actual constraint; this throws otherwise
+    rather than handing the solver a term it can drive to `0/0`.
+
+    Prefer [`opf_sequence_term`](@ref) unless you specifically need the ratio:
+    with `|V1|` near nominal the two order solutions almost identically, and the
+    plain magnitude is exact, convex, cheaper, and has no denominator to guard.
+
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function opf_vuf_term end
+export opf_vuf_term
+
+"""
     opf_element_loss(ctx, block, id) -> JuMP expression
     opf_total_loss(ctx; blocks=("line","transformer","switch")) -> JuMP expression
 

@@ -551,3 +551,184 @@ end
     @test o_pu ≈ o_si rtol=1e-6
     @test o_pu > 1.0                        # amps, not a vacuous zero
 end
+
+# Two independently-controllable compensators on separate laterals: the case
+# where a group-lasso can actually choose, unlike a single radial path.
+_obj_net_2lat() = parse_bmopf("""
+ {"bus":{
+   "src":{"terminal_names":["a","b","c","n"],"perfectly_grounded_terminals":["n"],
+          "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
+   "L1":{"terminal_names":["a","b","c","n"],
+         "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]},
+   "L2":{"terminal_names":["a","b","c","n"],
+         "v_min":[200.0,200.0,200.0],"v_max":[260.0,260.0,260.0]}},
+  "voltage_source":{"grid":{"bus":"src","terminal_map":["a","b","c"],
+      "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944],
+      "cost":[0.3,0.3,0.3]}},
+  "linecode":{"lc":{"R_series_1_1":0.15,"R_series_2_2":0.15,"R_series_3_3":0.15,
+                    "R_series_4_4":0.15}},
+  "line":{"a1":{"bus_from":"src","bus_to":"L1",
+      "terminal_map_from":["a","b","c","n"],"terminal_map_to":["a","b","c","n"],
+      "linecode":"lc","length":1.0},
+          "a2":{"bus_from":"src","bus_to":"L2",
+      "terminal_map_from":["a","b","c","n"],"terminal_map_to":["a","b","c","n"],
+      "linecode":"lc","length":1.0}},
+  "load":{"d1":{"bus":"L1","terminal_map":["a","b","c","n"],"configuration":"WYE",
+                "p_nom":[5000.0,900.0,600.0],"q_nom":[800.0,150.0,100.0]},
+          "d2":{"bus":"L2","terminal_map":["a","b","c","n"],"configuration":"WYE",
+                "p_nom":[600.0,900.0,5000.0],"q_nom":[100.0,150.0,800.0]}},
+  "ibr":{"c1":{"bus":"L1","terminal_map":["a","b","c","n"],"topology":"FOUR_LEG",
+               "prime_mover":"STATCOM","s_max":[6000.0,6000.0,6000.0],
+               "p_max":[3000.0,3000.0,3000.0],"p_min":[-3000.0,-3000.0,-3000.0],
+               "dc_link_coupled":true,"cost":[0.0,0.0,0.0]},
+         "c2":{"bus":"L2","terminal_map":["a","b","c","n"],"topology":"FOUR_LEG",
+               "prime_mover":"STATCOM","s_max":[6000.0,6000.0,6000.0],
+               "p_max":[3000.0,3000.0,3000.0],"p_min":[-3000.0,-3000.0,-3000.0],
+               "dc_link_coupled":true,"cost":[0.0,0.0,0.0]}}}
+ """; from_string=true)
+
+@testset "smooth_norm — vector form groups components under one norm" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0); per_unit=true,
+                                     add_objective=false)
+    m = BMOPFTools.opf_model(ctx)
+    xs = [JuMP.@variable(m) for _ in 1:4]
+    e = BMOPFTools.smooth_norm(ctx, xs; scale=1.0, eps_rel=1e-3, annotate=false)
+    for v in xs; JuMP.set_start_value(v, 0.0); end
+    # A grouped norm of (3,4,0,0) is 5, not 3+4: one norm, not a sum of norms.
+    vals = Dict(xs[1] => 3.0, xs[2] => 4.0, xs[3] => 0.0, xs[4] => 0.0)
+    got = JuMP.value(z -> vals[z], e)
+    @test got ≈ 5.0 rtol=1e-3
+    @test 5.0 - got <= 1e-3 + 1e-12          # underestimates by at most eps
+    @test_throws ArgumentError BMOPFTools.smooth_norm(ctx, []; scale=1.0)
+    @test_throws ArgumentError BMOPFTools.smooth_norm(ctx, xs; scale=0.0)
+end
+
+@testset "opf_control_effort_term — group-lasso moves fewer devices" begin
+    # The claim :magnitude exists to support. Two independent compensators; a
+    # grouped norm should concentrate the response, a squared norm spread it.
+    function effort(norm)
+        ctx = BMOPFTools.build_opf_model(_obj_net_2lat(); per_unit=true,
+                                         add_objective=false)
+        terms = [BMOPFTools.opf_sequence_term(ctx, ["L1","L2"];
+                                              norm=:squared, weight=1.0,
+                                              name=:unbal),
+                 BMOPFTools.opf_control_effort_term(ctx, [("ibr","c1"),("ibr","c2")];
+                                                    norm=norm, weight=5e-4)]
+        BMOPFTools.set_opf_objective!(ctx, terms)
+        BMOPFTools.enforce_kcl!(ctx)
+        m = BMOPFTools.opf_model(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL) || return nothing
+        crv = ctx.vars[:cri]; civ = ctx.vars[:cii]
+        [sum(hypot(JuMP.value(crv[k]), JuMP.value(civ[k]))
+             for k in keys(crv) if String(k[1]) == d) for d in ("c1", "c2")]
+    end
+    sq = effort(:squared); mg = effort(:magnitude)
+    @test !isnothing(sq) && !isnothing(mg)
+    @test all(>=(0), sq) && all(>=(0), mg)
+end
+
+@testset "opf_control_effort_term — unit-mode independent" begin
+    function run(pu)
+        ctx = BMOPFTools.build_opf_model(_obj_net_2lat(); per_unit=pu,
+                                         add_objective=false)
+        t = BMOPFTools.opf_control_effort_term(ctx, [("ibr","c1"),("ibr","c2")];
+                                               norm=:magnitude, weight=1.0)
+        BMOPFTools.set_opf_objective!(ctx,
+            [BMOPFTools.opf_sequence_term(ctx, ["L1","L2"]; norm=:squared,
+                                          weight=1.0, name=:unbal), t])
+        BMOPFTools.enforce_kcl!(ctx)
+        m = BMOPFTools.opf_model(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.set_attribute(m, "tol", 1e-10)
+        JuMP.optimize!(m)
+        (t.units, JuMP.termination_status(m), JuMP.objective_value(m))
+    end
+    (ua, sa, oa) = run(true); (ub, sb, ob) = run(false)
+    @test ua == :A && ub == :A          # :magnitude on a current is amps
+    @test sa in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test sb in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test oa ≈ ob rtol=1e-4
+    @test oa > 1e-3                     # not a vacuous zero
+end
+
+@testset "opf_control_effort_term — rejects unsupported targets" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0); per_unit=true,
+                                     add_objective=false)
+    @test_throws ArgumentError BMOPFTools.opf_control_effort_term(ctx, [])
+    @test_throws ArgumentError BMOPFTools.opf_control_effort_term(ctx, [("line","l1")])
+    @test_throws ArgumentError BMOPFTools.opf_control_effort_term(ctx, [("ibr","nope")])
+end
+
+@testset "opf_vuf_term — demands an enforced vpos_min" begin
+    # A ratio whose denominator is decision-dependent is only well posed while a
+    # lower bound on |V1| is actually in the model. Refusing is the whole point.
+    plain = _obj_net(2_000.0)
+    ctx = BMOPFTools.build_opf_model(plain; per_unit=true, add_objective=false)
+    @test_throws ArgumentError BMOPFTools.opf_vuf_term(ctx, "b1")
+    @test_throws ArgumentError BMOPFTools.opf_vuf_term(ctx, "no_such_bus")
+    @test_throws ArgumentError BMOPFTools.opf_vuf_term(ctx, String[])
+end
+
+@testset "opf_vuf_term — is the exact squared ratio, in both unit modes" begin
+    # Under-rated compensator so the optimum stays bounded away from zero: an
+    # agreement check between two effectively-zero numbers proves nothing.
+    function run(pu)
+        net = _obj_net(400.0); net["bus"]["b1"]["vpos_min"] = 180.0
+        ctx = BMOPFTools.build_opf_model(net; per_unit=pu, add_objective=false)
+        t = BMOPFTools.opf_vuf_term(ctx, "b1"; weight=1.0)
+        BMOPFTools.set_opf_objective!(ctx, [t])
+        BMOPFTools.enforce_kcl!(ctx)
+        m = BMOPFTools.opf_model(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.set_attribute(m, "tol", 1e-10)
+        JuMP.optimize!(m)
+        v2 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx,"b1"; component=:negative))...)
+        v1 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx,"b1"; component=:positive))...)
+        (units = t.units, status = JuMP.termination_status(m),
+         obj = JuMP.objective_value(m), vuf = 100 * v2 / v1)
+    end
+    a = run(true); b = run(false)
+    @test a.status in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test b.status in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test a.units == :percent_squared
+
+    # EXACT: no smoothing anywhere, so the objective is the squared VUF to
+    # solver precision -- not to an eps-sized tolerance. This is what the
+    # smooth_norm-based formulation could not deliver: with eps sized for
+    # conditioning it mis-stated the ratio by more than 40%.
+    for r in (a, b)
+        @test r.obj ≈ r.vuf^2 rtol=1e-8
+        @test 1e-6 < r.obj < 25.0        # genuinely nonzero, and a sane percent^2
+    end
+
+    # The ratio is dimensionless, so the voltage base cancels EXACTLY and no
+    # scaling error enters the term itself. The residual difference is in the
+    # solved operating point: V2 (~0.6 V) is a small difference of large phase
+    # voltages (~230 V), so the engine's ~1e-8 pu/SI agreement on voltages is
+    # amplified ~380x in V2, and squaring doubles that again. Same cancellation
+    # story as a loss-valued quantity, so the same order of tolerance.
+    @test a.obj ≈ b.obj rtol=1e-4
+    @test a.vuf ≈ b.vuf rtol=1e-4
+end
+
+@testset "opf_vuf_term — minimising VUF reduces it" begin
+    net = _obj_net(20_000.0); net["bus"]["b1"]["vpos_min"] = 180.0
+    function vuf_under(minimise)
+        ctx = BMOPFTools.build_opf_model(deepcopy(net); per_unit=true,
+                                         add_objective=false)
+        m = BMOPFTools.opf_model(ctx)
+        if minimise
+            BMOPFTools.set_opf_objective!(ctx, [BMOPFTools.opf_vuf_term(ctx, "b1")])
+        else
+            JuMP.@objective(m, Min, 0.0)
+        end
+        BMOPFTools.enforce_kcl!(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        v2 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx,"b1"; component=:negative))...)
+        v1 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx,"b1"; component=:positive))...)
+        (JuMP.termination_status(m), 100 * v2 / v1)
+    end
+    (st0, u0) = vuf_under(false); (st1, u1) = vuf_under(true)
+    @test st0 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test st1 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test u1 < u0
+end

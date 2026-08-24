@@ -171,6 +171,24 @@ way. Weights are declared per physical unit precisely so this stays visible, and
 so the same specification gives the same answer in `per_unit = true` and
 `per_unit = false`.
 
+## The traps that bite hardest
+
+Three of these cost real debugging time while this feature was built, and all
+three are silent — nothing errors, and the numbers look plausible.
+
+1. **Forgetting `enforce_kcl!`** gives a disconnected network in which an
+   unbalance objective reaches exactly zero with every compensator idle. It
+   reads as a triumph.
+2. **Sizing `ε` from a unit-conversion factor** rather than the quantity's
+   characteristic magnitude makes one specification give two different answers
+   in the two unit modes.
+3. **Putting a smoothed norm inside a ratio** — the `ε` that conditions a
+   vanishing norm mis-states a ratio built on it by tens of percent. It is why
+   [`opf_vuf_term`](@ref) is the *squared* ratio.
+
+The full list, with the numbers, is under
+[Pitfalls](@ref objective-pitfalls).
+
 ## Where to go next
 
 - [Choosing an objective](objectives.md) — the full catalogue, the ε guidance,

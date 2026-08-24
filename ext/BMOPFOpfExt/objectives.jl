@@ -84,6 +84,43 @@
 # the other term, so ε does shift the trade-off point. Treat ε as part of the
 # model there, and report it alongside λ.
 #
+# ── Traps, kept so they are not reintroduced ──────────────────────────────────
+# Each of these was a live bug or a wrong assumption during this file's
+# development. The user-facing versions are in docs/src/objectives.md under
+# "Pitfalls"; these are the implementation-level notes.
+#
+#  1. eps must be sized from the quantity's CHARACTERISTIC MAGNITUDE
+#     (`_quantity_scale`), never from the working->physical CONVERSION FACTOR
+#     (`opf_physical_scale`). They coincide numerically in per-unit and differ by
+#     ~230x in SI, so confusing them makes one specification give two answers.
+#     The two helpers are deliberately separate and documented against each other.
+#
+#  2. A smoothed norm must NOT appear inside a ratio. `smooth_norm` subtracts eps,
+#     so a ratio of two of them is (|V2|-eps)/(|V1|-eps). At an eps sized for
+#     conditioning that is a >40% error on VUF. `opf_vuf_term` is the squared
+#     ratio for exactly this reason -- if anyone "improves" it to use
+#     `smooth_norm`, this is why they should not.
+#
+#  3. One eps_rel is not a global constant: see the two-regime note above.
+#     PowerOptLab's policy (anchor a decade under solver tol) fails 13/40 here.
+#
+#  4. `smooth_norm` can return a tiny NEGATIVE value (~-1e-19*scale) at an
+#     exactly-zero argument, because sqrt(eps^2) need not round-trip to eps.
+#     Do not assert strict non-negativity on it.
+#
+#  5. The <= eps accuracy bound is exact in real arithmetic and holds only to
+#     ROUNDING in Float64: the resolution is the ulp of the result, not of eps.
+#     At (1e6,1e6) with eps=1e-6 one ulp is ~2.3e-10.
+#
+#  6. Loss, |V2| and VUF are all small differences of large numbers, so the
+#     engine's ~1e-8 per-unit/SI agreement on voltages shows up as ~1e-4..1e-6 in
+#     them. Tests comparing unit modes on these quantities must not use tight
+#     tolerances; that is the quantity, not a defect.
+#
+#  7. Callers of `build_opf_model` must call `enforce_kcl!` before solving. Its
+#     omission is silent and yields a disconnected network in which any voltage
+#     objective is trivially zero. See issue #371.
+#
 # Background.
 #   Nesterov, "Smooth minimization of non-smooth functions", Math. Program. 103,
 #     127–152 (2005) — the O(μ) accuracy versus O(1/μ) gradient-Lipschitz
@@ -177,6 +214,52 @@ function BMOPFTools.smooth_norm(ctx::OpfContext, x, y;
             replace = true)
     end
     return JuMP.@expression(ctx.model, sqrt(x^2 + y^2 + eps^2) - eps)
+end
+
+"""
+    BMOPFTools.smooth_norm(ctx, components; scale, eps_rel=1e-3, annotate=true,
+                           name="")
+
+Smooth 2-norm of a VECTOR of components, `sqrt(Σ cᵢ² + ε²) − ε`.
+
+The two-argument method is the complex-scalar case; this one groups an arbitrary
+set of components under a single norm. That distinction is what makes
+group-level sparsity possible: penalising `‖(Δp₁, Δq₁, Δp₂, Δq₂, Δp₃, Δq₃)‖₂`
+for one device drives the WHOLE DEVICE to zero or not at all, whereas summing
+per-phase norms would let a device move on one phase and idle on the others.
+
+Same accuracy contract: underestimates the exact norm by at most `ε`, with
+equality at the origin.
+"""
+function BMOPFTools.smooth_norm(ctx::OpfContext, components::AbstractVector;
+                                scale::Real,
+                                eps_rel::Real = _SMOOTH_NORM_EPS_REL,
+                                annotate::Bool = true,
+                                name::AbstractString = "")
+    isempty(components) && throw(ArgumentError(
+        "smooth_norm: no components to take a norm of."))
+    scale > 0 || throw(ArgumentError(
+        "smooth_norm: `scale` must be strictly positive, got $scale."))
+    eps_rel > 0 || throw(ArgumentError(
+        "smooth_norm: `eps_rel` must be strictly positive, got $eps_rel."))
+    eps = Float64(eps_rel) * Float64(scale)
+    if annotate
+        label = isempty(name) ? "smooth_norm_group" : "smooth_norm_group[$name]"
+        BMOPFTools.register_opf_differentiability_annotation!(
+            ctx, Symbol("$(label)@eps=$(eps)");
+            kind = :nonsmooth_operator,
+            description = "grouped 2-norm over $(length(components)) components " *
+                          "replaced by sqrt(sum(c^2) + eps^2) - eps (eps = $(eps)); " *
+                          "underestimates the exact norm by at most eps.",
+            owner = :BMOPFTools, blocking = false,
+            metadata = Dict("eps" => eps, "eps_rel" => Float64(eps_rel),
+                            "scale" => Float64(scale),
+                            "n_components" => length(components),
+                            "form" => "shifted_group_2norm"),
+            replace = true)
+    end
+    return JuMP.@expression(ctx.model,
+        sqrt(sum(c^2 for c in components) + eps^2) - eps)
 end
 
 # ── Symmetrical components ────────────────────────────────────────────────────
@@ -877,4 +960,180 @@ function BMOPFTools.opf_current_term(ctx::OpfContext, elements;
         purpose = (quantity === :neutral ? "neutral conductor current" :
                    "$(component)-sequence current") *
                   " penalty over $(length(specs)) element(s), $(norm) norm")
+end
+
+# ── Control effort ────────────────────────────────────────────────────────────
+
+const _CONTROL_FAMILIES = Dict{String,Tuple{Symbol,Symbol}}(
+    "ibr" => (:cri, :cii), "generator" => (:crg, :cig))
+
+"""
+    BMOPFTools.opf_control_effort_term(ctx, devices; reference=nothing,
+                                       norm=:magnitude, weight=1.0,
+                                       eps_rel=1e-3, name=:control_effort)
+
+An [`OpfObjectiveTerm`](@ref) penalising how far dispatchable devices move from a
+reference operating point, measured as injected-current deviation in **amps**.
+
+`devices` is a collection of `(block, id)` with `block` one of `"ibr"` or
+`"generator"`. `reference` maps `(block, id) => Vector{Complex}` of per-phase
+reference currents in amps; omitted or missing entries default to zero, i.e.
+"penalise moving at all".
+
+Current rather than P/Q deliberately: the injected current is LINEAR in the
+decision variables, so the penalty is a norm of affine expressions — the
+well-conditioned case. A P/Q deviation would be bilinear in (V, I) for the same
+modelling intent, and at a roughly fixed terminal voltage the two are
+proportional anyway.
+
+`norm=:magnitude` is the interesting choice here, and the default. Each device
+contributes ONE grouped norm over all its phases, so the penalty is a
+group-lasso over devices: it drives whole devices to their reference rather than
+nudging every device a little. That is the difference between "re-dispatch these
+two units" and "re-dispatch all forty by 3% each" — an operationally real
+distinction that `:squared` cannot express.
+"""
+function BMOPFTools.opf_control_effort_term(ctx::OpfContext, devices;
+                                            reference = nothing,
+                                            norm::Symbol = :magnitude,
+                                            weight::Real = 1.0,
+                                            eps_rel::Real = _SMOOTH_NORM_EPS_REL,
+                                            name::Symbol = :control_effort)
+    norm in (:squared, :magnitude, :max) || throw(ArgumentError(
+        "unknown norm '$norm'; expected :squared, :magnitude or :max"))
+    specs = [(String(d[1]), String(d[2])) for d in devices]
+    isempty(specs) && throw(ArgumentError(
+        "opf_control_effort_term: `devices` is empty; nothing would be penalised."))
+    refs = reference === nothing ? Dict{Any,Any}() : reference
+    per_device = Any[]; scales = Float64[]
+    for (blk, id) in specs
+        fam = get(_CONTROL_FAMILIES, blk, nothing)
+        fam === nothing && throw(ArgumentError(
+            "control effort is defined for " *
+            join(sort(collect(keys(_CONTROL_FAMILIES))), "/") *
+            " devices; got block '$blk'"))
+        crv = ctx.vars[fam[1]]; civ = ctx.vars[fam[2]]
+        idx = sort([k for k in keys(crv) if String(k[1]) == id], by = k -> k[2])
+        isempty(idx) && throw(ArgumentError(
+            "no dispatch variables for $blk '$id'; is it in the network?"))
+        coll = get(ctx.net, blk, Dict{String,Any}())
+        dev = get(coll, id, Dict{String,Any}())
+        bus = String(get(dev, "bus", ""))
+        ib = BMOPFTools.opf_physical_scale(ctx, :A; bus=bus)
+        push!(scales, _quantity_scale(ctx, :A; bus=bus))
+        want = get(refs, (blk, id), get(refs, id, nothing))
+        comps = Any[]
+        for (n, k) in enumerate(idx)
+            z = want === nothing || n > length(want) ? 0.0 + 0.0im : ComplexF64(want[n])
+            push!(comps, JuMP.@expression(ctx.model, ib * crv[k] - real(z)))
+            push!(comps, JuMP.@expression(ctx.model, ib * civ[k] - imag(z)))
+        end
+        push!(per_device, comps)
+    end
+    scale = maximum(scales)
+    m = ctx.model
+    expr = if norm === :squared
+        JuMP.@expression(m, sum(sum(c^2 for c in comps) for comps in per_device))
+    elseif norm === :magnitude
+        # ONE grouped norm per device — this is what makes it a group-lasso.
+        parts = [BMOPFTools.smooth_norm(ctx, comps; scale=scale, eps_rel=eps_rel,
+                                        name="$(name)[$k]")
+                 for (k, comps) in enumerate(per_device)]
+        JuMP.@expression(m, sum(parts))
+    else
+        t = JuMP.@variable(m, lower_bound = 0.0, base_name = "objmax_$(name)")
+        for comps in per_device
+            JuMP.@constraint(m, sum(c^2 for c in comps) <= t)
+        end
+        JuMP.set_start_value(t, max(1e-9, (scale * 1e-2)^2))
+        JuMP.@expression(m, t)
+    end
+    return BMOPFTools.OpfObjectiveTerm(name, expr;
+        weight = weight, units = _norm_result_unit(norm, :A),
+        purpose = "control effort (injected-current deviation from reference) " *
+                  "over $(length(specs)) device(s), $(norm) norm")
+end
+
+# ── Voltage unbalance factor ──────────────────────────────────────────────────
+# VUF = |V2|/|V1| is a ratio of magnitudes, which looks like the one place a
+# square root is unavoidable. It is not — and reaching for `smooth_norm` here is
+# actively wrong.
+#
+# The shifted norm subtracts eps from BOTH numerator and denominator. Sized for
+# a norm heading to zero (eps_rel = 1e-3 of a 260 V scale, so eps = 0.26 V) it
+# is comparable to the numerator itself: a true |V2| of 0.6 V and |V1| of 230 V
+# gives (0.6 - 0.26)/(230 - 0.26) instead of 0.6/230, an error of 43%. The eps
+# that CONDITIONS a vanishing norm is the eps that DESTROYS a ratio built on it.
+#
+# So VUF is stamped as the ratio of SQUARED magnitudes:
+#
+#     VUF^2 = (|V2| / |V1|)^2 = (V2r^2 + V2i^2) / (V1r^2 + V1i^2)
+#
+# Exact, smooth, no eps, and trivially identical in per-unit and SI because the
+# voltage base cancels in the ratio. VUF^2 is strictly monotone in VUF, so
+# minimising one minimises the other and the ordering of solutions is unchanged;
+# recover the percentage post-solve with `sqrt`.
+
+"""
+    BMOPFTools.opf_vuf_term(ctx, buses; weight=1.0, percent=true, name=:vuf_squared)
+
+An [`OpfObjectiveTerm`](@ref) penalising the **squared** voltage unbalance
+factor, `Σ (|V₂|/|V₁|)²`, over `buses` — in percent-squared when `percent=true`
+(EN 50160 §3.5 and IEC 61000-2-2 state their 2% limit as a percentage, so `2.0`
+there corresponds to `4.0` here).
+
+Squared deliberately, and this is the interesting part. `VUF` is a ratio of
+magnitudes, which looks like the one objective that must have a square root in
+it. Building it from [`smooth_norm`](@ref) is actively wrong: the shift subtracts
+`ε` from numerator and denominator alike, and an `ε` sized to condition a norm
+heading toward zero is comparable to the numerator itself — a true `|V₂|` of
+0.6 V against `ε = 0.26 V` mis-states the ratio by more than 40%. The squared
+ratio needs no `ε` at all, is exact and smooth, and is strictly monotone in VUF,
+so it orders solutions identically. Take `sqrt` post-solve for the percentage.
+
+The voltage base cancels in the ratio, so this term is identical in
+`per_unit=true` and `per_unit=false` by construction.
+
+!!! warning "Requires `vpos_min` on every listed bus"
+    A ratio is well posed only while its denominator is bounded away from zero,
+    and `|V₁|` is decision-dependent. Every listed bus must declare `vpos_min`,
+    which `bus.jl` then enforces as an actual constraint; this throws otherwise
+    rather than handing the solver a term it can drive to `0/0`.
+
+    Prefer [`opf_sequence_term`](@ref) unless you specifically need the ratio:
+    with `|V₁|` near nominal the two order solutions almost identically, and
+    `|V₂|²` has no denominator to guard.
+"""
+function BMOPFTools.opf_vuf_term(ctx::OpfContext, buses;
+                                 weight::Real = 1.0,
+                                 percent::Bool = true,
+                                 name::Symbol = :vuf_squared)
+    ids = buses isa AbstractString ? [String(buses)] : [String(b) for b in buses]
+    isempty(ids) && throw(ArgumentError(
+        "opf_vuf_term: `buses` is empty; nothing would be penalised."))
+    parts = Any[]
+    for b in ids
+        bus = get(get(ctx.net, "bus", Dict{String,Any}()), b, nothing)
+        bus isa AbstractDict || throw(ArgumentError("bus '$b' is not in the network"))
+        vpos_min = get(bus, "vpos_min", nothing)
+        (vpos_min isa Real && Float64(vpos_min) > 0) || throw(ArgumentError(
+            "opf_vuf_term: bus '$b' has no positive `vpos_min`. VUF is a ratio, " *
+            "and its denominator |V1| is decision-dependent, so the objective " *
+            "is only well posed while a positive-sequence lower bound is " *
+            "ENFORCED on the model. Declare `vpos_min` on the bus, or use " *
+            "`opf_sequence_term` (|V2| alone), which needs no denominator."))
+        (n_r, n_i) = BMOPFTools.opf_sequence_voltage(ctx, b; component=:negative)
+        (d_r, d_i) = BMOPFTools.opf_sequence_voltage(ctx, b; component=:positive)
+        # No base conversion: the ratio is dimensionless, so the voltage base
+        # cancels and the term is mode-independent without any scaling.
+        push!(parts, JuMP.@expression(ctx.model,
+            (n_r^2 + n_i^2) / (d_r^2 + d_i^2)))
+    end
+    factor = percent ? 100.0^2 : 1.0
+    return BMOPFTools.OpfObjectiveTerm(name,
+        JuMP.@expression(ctx.model, factor * sum(parts));
+        weight = weight,
+        units = percent ? :percent_squared : :dimensionless,
+        purpose = "squared voltage unbalance factor (|V2|/|V1|)^2 over " *
+                  "$(length(ids)) bus(es)" * (percent ? ", in percent^2" : ""))
 end

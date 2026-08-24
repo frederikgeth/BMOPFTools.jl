@@ -49,6 +49,8 @@ result = extract_result(ctx)
 | [`opf_sequence_term`](@ref) `norm=:max` | V² | exact | linear epigraph | Protects the worst bus. |
 | [`opf_current_term`](@ref) `quantity=:neutral` | A² or A | exact / to ε | per `norm` | Reduces neutral conductor current. |
 | [`opf_current_term`](@ref) `quantity=:sequence` | A² or A | exact / to ε | per `norm` | Reduces zero-/negative-sequence current. |
+| [`opf_control_effort_term`](@ref) | A² or A | exact / to ε | per `norm` | Penalises moving devices off a reference. `:magnitude` gives device-level sparsity. |
+| [`opf_vuf_term`](@ref) | %² | exact | ratio, non-convex | Squared voltage unbalance factor. Needs `vpos_min`. |
 
 Anything not on this list you can build yourself from
 [`opf_sequence_voltage`](@ref), [`opf_element_loss`](@ref),
@@ -150,7 +152,7 @@ do. Squared quantities are exact, smooth, cheaper, and better conditioned.
 | VUF = `\|V₂\|/\|V₁\|` | **Yes** | A ratio of magnitudes. |
 | Conduction loss `a·\|I\|` | **Yes** | Linear in current, and an idle leg sits at exactly zero. |
 
-## Sizing ε — two regimes with opposite guidance
+## [Sizing ε — two regimes with opposite guidance](@id Sizing-ε)
 
 [`smooth_norm`](@ref) approximates `‖·‖₂` by `√(x² + y² + ε²) − ε`, which
 underestimates the exact norm by at most `ε` and is C^∞ everywhere including the
@@ -209,6 +211,94 @@ reliability above wall clock.
 
 The exception is `:max`, where the epigraph is **linear** rather than conic —
 there it is exact, cheap and reliable, and it is what `:max` uses.
+
+## [Pitfalls](@id objective-pitfalls)
+
+Every entry here is a mistake that was actually made while building these terms,
+kept so it is not made again. The first four change your *answer* without
+changing anything that looks wrong.
+
+### Do not put a smoothed norm inside a ratio
+
+The `ε` that makes a vanishing norm well-conditioned is the same `ε` that
+destroys a ratio built on that norm. `smooth_norm` subtracts `ε` from its
+result, so a ratio of two smoothed norms is
+
+```
+(|V₂| − ε) / (|V₁| − ε)     rather than     |V₂| / |V₁|
+```
+
+With `ε` sized for conditioning (`1e-3` of a 260 V scale, so `ε = 0.26 V`) and a
+true `|V₂|` of 0.6 V, that mis-states VUF by **more than 40%**. The objective
+value looks entirely plausible.
+
+This is why [`opf_vuf_term`](@ref) is the *squared* ratio, which needs no `ε` at
+all. Whenever a magnitude appears in a denominator, or anywhere its small
+absolute value matters rather than just its ordering, use squared quantities.
+
+### Do not carry an ε policy between regimes
+
+Anchoring `ε` just under the solver tolerance is correct when the norm is a
+coefficient, and fails **13 times out of 40** when the norm is what you are
+minimising. See [Sizing ε](@ref) above. One `eps_rel` is not a global constant.
+
+### Do not size ε from a unit-conversion factor
+
+`ε = eps_rel × scale` needs `scale` to be the quantity's **characteristic
+magnitude** (≈230 V for an LV phase voltage), not the working→physical
+conversion factor. They differ: in per-unit the conversion factor *is* about
+230, but in SI it is `1.0`. Using the conversion factor gives `ε = 0.23 V` in
+one mode and `1e-3 V` in the other — different smoothing, different answers,
+from one specification. [`opf_physical_scale`](@ref) is the conversion factor
+and is deliberately *not* what sizes `ε`.
+
+### An exact reformulation is not automatically the reliable one
+
+The textbook epigraph for a minimised magnitude is exact and looks obviously
+correct. Measured, it fails 3/40 where the smoothed form fails none. Reach for
+measurement before intuition on solver behaviour; `bench/sequence_objective_norms.jl`
+is there to be re-run.
+
+### Do not reduce a phasor componentwise
+
+`|re| + |im|` is not rotation-invariant — the answer depends on your phase
+reference. Always a bug. Use [`smooth_norm`](@ref).
+
+### Expect ~1e-4, not ~1e-8, when comparing unit modes
+
+The engine's physics agrees between `per_unit=true` and `per_unit=false` to
+~1e-8 on voltages. But losses, `|V₂|` and VUF are all **small differences of
+large numbers** — a 61 W loss out of 7.5 kW of terminal power, a 0.6 V `V₂` out
+of 230 V phase voltages — so that agreement is amplified by two to three orders
+in any of them. This is inherent to the quantity, not a defect. Writing a `1e-8`
+tolerance against one of these asserts something arithmetic cannot deliver.
+
+### `smooth_norm` is not exactly zero at zero, and its bound is not exact in Float64
+
+Two floating-point consequences worth knowing before you assert on them:
+
+- At an exactly-zero argument the result can be a tiny **negative** number
+  (~`-1e-19 × scale`), because `sqrt(ε²)` need not round-trip to `ε`. Do not
+  assert strict non-negativity.
+- The `≤ ε` accuracy bound is exact in real arithmetic but holds only to
+  rounding in `Float64`: the achievable resolution is the ulp of the *result*,
+  not of `ε`. At `(1e6, 1e6)` with `ε = 1e-6` one ulp is ~2.3e-10, five orders
+  above `ε`.
+
+### Two objectives that sound alike and are not
+
+- **Cost and losses.** With heterogeneous prices these actively disagree — see
+  above, and the [tutorial](@ref tutorial-objectives) where least-loss dispatch
+  costs 28% more and least-cost dispatch loses 3.6× more.
+- **Voltage unbalance and current unbalance.** Minimising neutral current can
+  make `|V₂|` *worse than doing nothing about unbalance at all*. If someone says
+  "we minimise unbalance", ask which one.
+
+### `:magnitude` only differs from `:squared` when targets compete
+
+Group-lasso sparsity needs **independently controllable** targets. On a radial
+path with one compensator the targets are coupled — one degree of freedom — and
+both norms find the same point. Prefer `:squared` there: exact, cheaper, no `ε`.
 
 ## Reproducibility
 

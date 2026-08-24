@@ -220,6 +220,8 @@ opf_branch_currents
 opf_neutral_current
 opf_sequence_current
 opf_reduce_norm
+opf_control_effort_term
+opf_vuf_term
 smooth_norm
 opf_physical_scale
 ```
