@@ -33,10 +33,15 @@ result = extract_result(ctx)
     `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
     nodal accumulators. Until [`enforce_kcl!`](@ref) runs, **the network is
     electrically disconnected**: bus voltages are free variables and your
-    objective is minimised without physics. This does not error — the solve
-    reports `LOCALLY_SOLVED` and returns a plausible, meaningless answer. An
-    unbalance objective in particular reaches exactly zero with every
-    compensator idle, which reads as a great result.
+    objective is minimised without physics. An unbalance objective in particular
+    reaches exactly zero with every compensator idle, which reads as a great
+    result.
+
+    This used to fail silently — `LOCALLY_SOLVED`, plausible numbers, no
+    warning. It is now an error: `JuMP.optimize!` refuses a model holding any
+    unstamped context, and [`extract_result`](@ref) refuses an unstamped
+    context. Pass `kcl_guard=false` to `build_opf_model` if you deliberately
+    want the optimise-time check off.
 
 ## The catalogue
 

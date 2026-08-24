@@ -2715,6 +2715,101 @@ function _enforce_kcl!(ctx::OpfContext)
     return ctx
 end
 
+
+# ── KCL guard ──────────────────────────────────────────────────────────────
+# `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
+# nodal accumulators, which means a staged caller can reach `JuMP.optimize!` on a
+# model whose network is electrically disconnected. That failure is SILENT:
+# nodal balance is simply absent, so bus voltages are free variables, the solve
+# reports LOCALLY_SOLVED, and the answer is plausible and meaningless. It bit us
+# for real while building `bench/sequence_objective_norms.jl`, where a negative
+# sequence objective reached |V2| ~ 8e-16 with the compensator sitting idle.
+#
+# Two guards close it, at different exits:
+#
+#  1. A JuMP optimize hook, which is the one that catches the realistic mistake.
+#     A caller reading `JuMP.value(...)` straight off the model — the benchmark
+#     harness, the tutorials, every `opf_report_*` helper — never touches
+#     `extract_result`, so guarding only that would have missed the original bug
+#     entirely.
+#  2. A check in `extract_result`, as the backstop for when the hook is not in
+#     place: `kcl_guard=false`, or a foreign hook installed after the build.
+#
+# The registry is keyed on the MODEL rather than the context because a
+# multi-period build puts several contexts in one model; all of them must be
+# stamped, and the message should say how many are not.
+#
+# The MODEL key is weak, so an abandoned model takes its whole entry — contexts
+# included — with it. The contexts are held STRONGLY, and deliberately: an
+# `OpfContext` is an immutable struct, so `WeakRef(ctx)` boxes a copy that is
+# unreachable the moment it is created and reads back as `nothing` immediately.
+# A guard built on that counts zero unstamped contexts forever and never fires,
+# which is worse than no guard at all. A context is useless without its model,
+# so bounding their lifetime by the model's is the right scope anyway.
+const _KCL_GUARD_REGISTRY = WeakKeyDict{JuMP.Model,Vector{Any}}()
+const _KCL_GUARD_LOCK = ReentrantLock()
+
+"""
+    _install_kcl_guard!(ctx)
+
+Register `ctx` against its model and, for the first context on that model,
+install the optimize hook. A pre-existing hook is CHAINED, not replaced — if a
+caller installs their own hook after this point ours is dropped, which is why
+the `extract_result` check exists as well.
+"""
+function _install_kcl_guard!(ctx::OpfContext)
+    model = ctx.model
+    first_on_model = lock(_KCL_GUARD_LOCK) do
+        entries = get(_KCL_GUARD_REGISTRY, model, nothing)
+        if entries === nothing
+            _KCL_GUARD_REGISTRY[model] = Any[ctx]
+            true
+        else
+            push!(entries, ctx)
+            false
+        end
+    end
+    first_on_model || return ctx
+    prior = model.optimize_hook
+    JuMP.set_optimize_hook(model, function (m::JuMP.Model; kwargs...)
+        _assert_kcl_enforced(m)
+        return prior === nothing ?
+            JuMP.optimize!(m; ignore_optimize_hook=true, kwargs...) :
+            prior(m; kwargs...)
+    end)
+    return ctx
+end
+
+"""Number of contexts registered against `model` whose KCL stage never ran."""
+function _unstamped_kcl_contexts(model::JuMP.Model)
+    entries = lock(_KCL_GUARD_LOCK) do
+        get(_KCL_GUARD_REGISTRY, model, nothing)
+    end
+    entries === nothing && return 0
+    count = 0
+    for ctx in entries
+        ctx isa OpfContext || continue
+        BMOPFTools.opf_stage_completed(ctx, :kcl) || (count += 1)
+    end
+    return count
+end
+
+const _KCL_SKIPPED_MESSAGE =
+    "Without it the network is electrically disconnected: nodal balance is " *
+    "absent, so bus voltages are free variables and any objective over them is " *
+    "minimised without physics. The solve still reports LOCALLY_SOLVED and " *
+    "returns a plausible, meaningless answer."
+
+function _assert_kcl_enforced(model::JuMP.Model)
+    n = _unstamped_kcl_contexts(model)
+    n == 0 && return nothing
+    throw(ArgumentError(
+        "enforce_kcl! has not been called on $n staged OPF context(s) built " *
+        "into this model. $_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` on " *
+        "every snapshot after its last constraint is added and before " *
+        "optimising. Pass `kcl_guard=false` to `build_opf_model` / " *
+        "`initialize_opf_model` to opt out of this check."))
+end
 # ── Public staged build/solve/extract API ──────────────────────────────────
 # The fused `solve_opf` is the convenience path. These four functions expose the
 # same pipeline as discrete, composable steps so a caller (typically an external
@@ -2728,7 +2823,8 @@ end
     BMOPFTools.build_opf_model(net; optimizer=Ipopt.Optimizer, t_index=1,
         per_unit=true, s_base=1e6, model=nothing, add_objective=true,
         build_spec=OpfBuildSpec(), model_hook!=nothing,
-        volt_var_watt_eps=2e-3, softplus=:user_defined, verbose=false) -> ctx
+        volt_var_watt_eps=2e-3, softplus=:user_defined, kcl_guard=true,
+        verbose=false) -> ctx
 
 Build the IVR-EN OPF device model, bounds, and (optionally) the generation-cost
 objective for one snapshot, **without enforcing KCL or optimising**. The first
@@ -2738,12 +2834,15 @@ step of the staged API; see the module notes above.
     KCL is not stamped here, so that a `model_hook!` can still contribute to the
     accumulators. Until [`enforce_kcl!`](@ref) is called the network is
     **electrically disconnected**: nodal balance is absent, so bus voltages are
-    free variables and any objective over them is minimised without physics.
-    This does not error — `optimize!` reports `LOCALLY_SOLVED` and returns a
-    plausible-looking, meaningless answer (an unbalance objective, for instance,
-    reaches exactly zero with every compensator idle). Call `enforce_kcl!(ctx)`
-    on every snapshot after the last constraint is added and before
-    `JuMP.optimize!`.
+    free variables and any objective over them is minimised without physics —
+    an unbalance objective, for instance, reaches exactly zero with every
+    compensator idle. Call `enforce_kcl!(ctx)` on every snapshot after the last
+    constraint is added and before `JuMP.optimize!`.
+
+    Skipping it used to be silent. It is now an error: this call installs a
+    guard that refuses `JuMP.optimize!` on a model holding any unstamped
+    context, and [`extract_result`](@ref) refuses an unstamped context too.
+    Pass `kcl_guard=false` to opt out of the optimize-time check.
 
 - `model` — build into this existing JuMP model instead of a fresh one. Pass the
   same model for every snapshot of a multi-period problem so they share one
@@ -2756,6 +2855,11 @@ step of the staged API; see the module notes above.
 - `build_spec` — assigns typed whole-family or per-component builders and
   coefficient providers. Unsupported ownership transfers are rejected before
   device physics is stamped; see [`OpfBuildSpec`](@ref).
+- `kcl_guard` — when `true` (the default), a JuMP optimize hook refuses to solve
+  this model while any context built into it has not had `enforce_kcl!` called.
+  A pre-existing hook is chained, not replaced. Pass `false` for an expert path
+  that deliberately optimises a partially built model; the [`extract_result`](@ref)
+  check still applies, and a hook installed after this call supersedes ours.
 - `softplus` — selects the smooth-ReLU encoding used by Volt-var/Volt-watt
   droop. The stable default is `:user_defined`. Pass `:builtin` explicitly for
   current DiffOpt nonlinear wrappers, which reject `MOI.UserDefinedFunction`;
@@ -2780,11 +2884,12 @@ function BMOPFTools.build_opf_model(net::Dict{String,Any};
                                     model_hook!::Union{Function,Nothing}=nothing,
                                     volt_var_watt_eps::Float64=2e-3,
                                     softplus::Symbol=:user_defined,
+                                    kcl_guard::Bool=true,
                                     verbose::Bool=false)
     ctx = BMOPFTools.initialize_opf_model(net; optimizer, t_index, per_unit,
                                           s_base, scaling_policy, model,
                                           build_spec, volt_var_watt_eps,
-                                          softplus, verbose)
+                                          softplus, kcl_guard, verbose)
     build_opf!(ctx; add_objective=add_objective)
     model_hook! === nothing || model_hook!(ctx)
     return ctx
@@ -2801,6 +2906,7 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
                                          build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                          volt_var_watt_eps::Float64=2e-3,
                                          softplus::Symbol=:user_defined,
+                                         kcl_guard::Bool=true,
                                          verbose::Bool=false)
     working, bases = _prepare_working_net(
         net, t_index, per_unit, s_base, scaling_policy)
@@ -2809,9 +2915,11 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
         verbose || JuMP.set_silent(model)
     end
     effective_s_base = bases === nothing ? s_base : bases.s_base
-    return _new_context(model, working, bases, volt_var_watt_eps;
-                        problem=:opf, s_base=effective_s_base, build_spec=build_spec,
-                        softplus=softplus)
+    ctx = _new_context(model, working, bases, volt_var_watt_eps;
+                       problem=:opf, s_base=effective_s_base, build_spec=build_spec,
+                       softplus=softplus)
+    kcl_guard && _install_kcl_guard!(ctx)
+    return ctx
 end
 
 """
@@ -2854,6 +2962,10 @@ per-unit back to SI. Safe to call once per snapshot `ctx` after a single solve.
 """
 function BMOPFTools.extract_result(ctx::OpfContext;
                                    solution_hook!::Union{Function,Nothing}=nothing)
+    BMOPFTools.opf_stage_completed(ctx, :kcl) || throw(ArgumentError(
+        "enforce_kcl! was never called on this staged OPF context. " *
+        "$_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` before optimising, " *
+        "then extract."))
     result = _extract_results(ctx.model, ctx.net, ctx.bus_terminals,
                               ctx.grounded, ctx.vars, ctx.branch_inj;
                               bases=ctx.bases)
