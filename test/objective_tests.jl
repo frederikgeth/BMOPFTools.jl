@@ -195,3 +195,83 @@ end
         @test JuMP.termination_status(mb) != JuMP.OPTIMAL
     end
 end
+
+@testset "opf_total_loss — agrees with the reported post-solve loss" begin
+    # The strongest available check: the expression the solver would minimise
+    # and the number the result reports must be the SAME quantity. This also
+    # validates the per-bus power weighting and the grounded-terminal handling,
+    # which are the two places a model-side reimplementation would drift.
+    for pu in (true, false)
+        ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0);
+                                         per_unit=pu, add_objective=false)
+        m = BMOPFTools.opf_model(ctx)
+        loss = BMOPFTools.opf_total_loss(ctx)
+        JuMP.@objective(m, Min, 0.0)
+        BMOPFTools.enforce_kcl!(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        @test JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+
+        res = BMOPFTools.extract_result(ctx)
+        # extract_result unwraps per-unit back to SI; the expression is in
+        # working units, so scale it the same way before comparing.
+        s_base = ctx.bases === nothing ? 1.0 : ctx.bases.s_base
+        @test JuMP.value(loss) * s_base ≈ res["losses"]["p_loss"] rtol=1e-8
+        # Passive network: the loss must be strictly positive, or the test
+        # would be satisfied by an expression that is identically zero.
+        @test res["losses"]["p_loss"] > 1.0
+    end
+end
+
+@testset "opf_element_loss — per-element losses sum to the total" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0); per_unit=true,
+                                     add_objective=false)
+    m = BMOPFTools.opf_model(ctx)
+    total = BMOPFTools.opf_total_loss(ctx)
+    per_element = Any[]
+    for block in ("line", "transformer", "switch")
+        for id in keys(get(ctx.branch_inj, block, Dict{String,Any}()))
+            push!(per_element, BMOPFTools.opf_element_loss(ctx, block, id))
+        end
+    end
+    @test !isempty(per_element)
+    JuMP.@objective(m, Min, 0.0); BMOPFTools.enforce_kcl!(ctx)
+    JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+    @test sum(JuMP.value.(per_element)) ≈ JuMP.value(total) rtol=1e-9
+
+    # And each element's expression matches its own reported loss.
+    res = BMOPFTools.extract_result(ctx)
+    s_base = ctx.bases.s_base
+    for (lid, _) in get(ctx.branch_inj, "line", Dict{String,Any}())
+        e = BMOPFTools.opf_element_loss(ctx, "line", lid)
+        @test JuMP.value(e) * s_base ≈ res["line"][lid]["loss"]["p_loss"] rtol=1e-8
+    end
+end
+
+@testset "opf_element_loss — rejects an unknown target" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0); per_unit=true,
+                                     add_objective=false)
+    @test_throws ArgumentError BMOPFTools.opf_element_loss(ctx, "bogus_block", "l1")
+    @test_throws ArgumentError BMOPFTools.opf_element_loss(ctx, "line", "no_such_line")
+    @test_throws ArgumentError BMOPFTools.opf_total_loss(ctx; blocks=("line", "nope"))
+end
+
+@testset "opf_total_loss — minimising it actually reduces losses" begin
+    # A loss objective must move the answer, or it is decorative. Compare the
+    # loss at a zero-objective feasible point against the loss-minimising one.
+    function loss_under(objective)
+        ctx = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=true,
+                                         add_objective=false)
+        m = BMOPFTools.opf_model(ctx)
+        L = BMOPFTools.opf_total_loss(ctx)
+        objective === :none ? JuMP.@objective(m, Min, 0.0) : JuMP.@objective(m, Min, L)
+        BMOPFTools.enforce_kcl!(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        (JuMP.termination_status(m), JuMP.value(L))
+    end
+    (st0, l0) = loss_under(:none)
+    (st1, l1) = loss_under(:loss)
+    @test st0 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test st1 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test l1 <= l0 + 1e-9          # never worse
+    @test l1 < l0                  # and the STATCOM genuinely finds headroom
+end

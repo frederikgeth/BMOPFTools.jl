@@ -2309,6 +2309,38 @@ function opf_dual end
 function opf_objective_value end
 
 """
+    opf_element_loss(ctx, block, id) -> JuMP expression
+    opf_total_loss(ctx; blocks=("line","transformer","switch")) -> JuMP expression
+
+Active-power loss of one two-port element, or of the whole network, as a JuMP
+expression in the model's WORKING units (per-unit when `per_unit=true`).
+
+Built from the same per-device terminal-injection ledger the post-solve result
+uses, so these expressions and `result["losses"]["p_loss"]` are the same
+quantity: an objective built on one cannot silently disagree with the other.
+
+`S_loss = Σ V · conj(I_into_element)` is BILINEAR in voltage and current, hence
+an exact smooth quadratic. A loss objective needs no smoothing and no magnitude
+— [`smooth_norm`](@ref) has no business here. (Semiconductor CONDUCTION loss is
+a different quantity: it is linear in `|I|` and does need the norm, but that is
+a device model rather than a network loss.)
+
+!!! note "Losses are not generation cost"
+    Minimising loss is not minimising [`generation_cost`](@ref). With
+    heterogeneous generation prices the two disagree: least-loss dispatch will
+    source from an expensive nearby unit rather than transport cheap distant
+    power. Combine them deliberately with explicit weights.
+
+Implemented in the `BMOPFOpfExt` extension (requires JuMP and Ipopt loaded).
+"""
+function opf_element_loss end
+export opf_element_loss
+
+@doc (@doc opf_element_loss)
+function opf_total_loss end
+export opf_total_loss
+
+"""
     opf_sequence_voltage(ctx, bus; component=:negative) -> (re, im)
 
 Symmetrical-component voltage at `bus` as a pair of affine JuMP expressions in

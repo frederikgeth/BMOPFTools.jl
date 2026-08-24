@@ -273,3 +273,99 @@ function BMOPFTools.opf_sequence_voltage(ctx::OpfContext, bus::AbstractString;
                                     bus, phase_all, neutral, ctx.grounded)
     return getfield(terms, component)
 end
+
+# ── Network losses ────────────────────────────────────────────────────────────
+# Active loss in a two-port element, from the same per-device terminal-injection
+# ledger `results.jl` uses post-solve, so the objective the solver minimises and
+# the loss the result reports are the same quantity by construction:
+#
+#     S_loss = Σ_terminals V · conj(I_into_element),   I_into_element = −I_into_bus
+#     P_loss = Σ_terminals −(vr·cr + vi·ci)
+#
+# BILINEAR in (V, I), hence an exact smooth quadratic. A loss objective needs no
+# smoothing and no magnitude: `smooth_norm` has no business here. (Semiconductor
+# CONDUCTION loss is different — it is linear in |I| and does need the norm, but
+# that is a device model, not a network loss.)
+#
+# Grounded terminals contribute V = 0 and are dropped, matching `_branch_loss`.
+# In per-unit each term carries the per-bus power base over the system base, so
+# a network with heterogeneous bus bases totals correctly.
+
+const _LOSS_BLOCKS = ("line", "transformer", "switch")
+
+"""
+    _element_loss_expr(ctx, records) -> JuMP expression
+
+Active-power loss of one two-port element from its terminal-injection records,
+in the model's working units.
+"""
+function _element_loss_expr(ctx::OpfContext, records)
+    vr = ctx.vars[:vr]; vi = ctx.vars[:vi]
+    terms = Any[]
+    for (bus, t, cr_e, ci_e) in records
+        (bus, t) in ctx.grounded && continue      # V ≡ 0 there
+        w = ctx.bases === nothing ? 1.0 :
+            _ac_power_base(ctx.bases, bus) / ctx.bases.s_base
+        push!(terms, JuMP.@expression(ctx.model,
+            -w * (vr[(bus,t)] * cr_e + vi[(bus,t)] * ci_e)))
+    end
+    isempty(terms) && return JuMP.@expression(ctx.model, 0.0)
+    return JuMP.@expression(ctx.model, sum(terms))
+end
+
+"""
+    BMOPFTools.opf_element_loss(ctx, block, id) -> JuMP expression
+
+Active-power loss of one two-port element (`block` is `"line"`, `"transformer"`,
+or `"switch"`) as a JuMP expression in the model's working units.
+
+Built from the same per-device terminal-injection ledger that the post-solve
+result uses, so `result[block][id]["loss"]["p_loss"]` and this expression are
+the same quantity — an objective built on it cannot silently disagree with the
+loss that gets reported.
+
+The expression is bilinear in voltage and current, hence an exact smooth
+quadratic: a loss objective needs no smoothing.
+"""
+function BMOPFTools.opf_element_loss(ctx::OpfContext, block::AbstractString,
+                                     id::AbstractString)
+    block in _LOSS_BLOCKS || throw(ArgumentError(
+        "unknown loss block '$block'; expected one of " * join(_LOSS_BLOCKS, ", ")))
+    recs = get(get(ctx.branch_inj, block, Dict{String,Any}()), id, nothing)
+    recs === nothing && throw(ArgumentError(
+        "no terminal-injection records for $block '$id'. Either the id is not " *
+        "in the network, or device constraints have not been built yet — the " *
+        "ledger is populated during `build_opf_model`."))
+    return _element_loss_expr(ctx, recs)
+end
+
+"""
+    BMOPFTools.opf_total_loss(ctx; blocks=("line","transformer","switch")) -> expr
+
+Total active-power loss over every two-port element in `blocks`, as a JuMP
+expression in the model's working units. The quantity `result["losses"]["p_loss"]`
+reports.
+
+Sums [`opf_element_loss`](@ref) over the ledger, so it is an exact smooth
+quadratic and matches the reported total by construction.
+
+!!! note "Losses are not generation cost"
+    Minimising losses is NOT the same as minimising `generation_cost`, and on a
+    network with heterogeneous generation prices the two can disagree sharply:
+    least-loss dispatch happily sources from an expensive nearby unit to avoid
+    transporting cheap distant power. Combine them deliberately with explicit
+    weights rather than assuming one proxies for the other.
+"""
+function BMOPFTools.opf_total_loss(ctx::OpfContext; blocks = _LOSS_BLOCKS)
+    for b in blocks
+        b in _LOSS_BLOCKS || throw(ArgumentError(
+            "unknown loss block '$b'; expected a subset of " *
+            join(_LOSS_BLOCKS, ", ")))
+    end
+    terms = Any[]
+    for b in blocks, (_, recs) in get(ctx.branch_inj, b, Dict{String,Any}())
+        push!(terms, _element_loss_expr(ctx, recs))
+    end
+    isempty(terms) && return JuMP.@expression(ctx.model, 0.0)
+    return JuMP.@expression(ctx.model, sum(terms))
+end
