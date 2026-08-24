@@ -172,10 +172,16 @@ dict**, so you can inspect it whenever you like:
 ```julia
 net = from_dss("Master.dss")
 
-net["_meta"]["powerio_warnings"]      # Vector{String} — every warning, untruncated
+net["_meta"]["powerio_warnings"]      # Vector{String} — the warning list
 println.(net["_meta"]["powerio_warnings"]);   # print them all, one per line
 net["_meta"]["powerio_source"]        # absolute path of the parsed .dss file
 ```
+
+The list is capped by the parser's per-call channel: on a large feeder its last
+entry reads `... warning list truncated at 4096 bytes`, and the warnings past
+that point are gone. The [source field ledger](@ref source-field-ledger) below
+reports that condition explicitly rather than presenting a short list as a
+complete one.
 
 Because the list is ordinary data on the dict, it survives into any
 downstream processing and can be filtered like any vector, e.g.
@@ -187,6 +193,59 @@ completeness, domain rules, …) and does **not** re-surface these ingest
 warnings — `powerio_warnings` is about what the conversion could not carry
 over, `analyze` is about the quality of what arrived. Run both after an
 import.
+
+### [The source field ledger](@id source-field-ledger)
+
+Alongside the raw warnings, `from_dss` records **which OpenDSS fields it did and
+did not carry over**, so a caller can gate on the answer instead of grepping
+prose:
+
+```julia
+mapping = net["_meta"]["powerio_source_mapping"]
+
+mapping["fields"]                     # source fields demonstrably represented in BMOPF
+mapping["unmapped_fields"]            # source fields with no BMOPF representation
+mapping["blocking_unmapped_fields"]   # …of those, the ones that move the physics
+mapping["by_field"]["kv"]             # per-field record (see below)
+```
+
+Every `by_field` record carries the same keys. `mapped_scopes` are the objects
+where the mapping was demonstrated *on the converted output*; `warned_scopes`
+are the objects whose source carried the field and where the parser dropped it;
+`unmapped_scopes` is the difference — the actual fidelity gap — and `scopes` is
+the union, i.e. the field's full footprint in the source. `impact`,
+`reason` and `physical_readiness_blocking` classify the gap.
+
+Classification is per `(element kind, field)` where the kind matters: dropping
+a `length` from a **switch** is benign, because BMOPF models a switch as an
+ideal closure with no series impedance, whereas dropping the same field from a
+**line** would change its impedance. An unrecognized field stays blocking.
+
+`blocking_unmapped_fields` is only as complete as the warning list it was built
+from, so read it together with the status keys:
+
+```julia
+mapping["warning_status"]                # parsed | partially_classified |
+                                         # truncated_upstream | unrecognized_warning_format
+mapping["warnings_truncated_upstream"]   # true ⇒ unmapped_fields under-reports
+mapping["unclassified_warnings"]         # fidelity losses not attributable to one field
+```
+
+An empty `blocking_unmapped_fields` is a fidelity statement **only** when
+`warning_status == "parsed"`. Under any other status the ledger did not see the
+whole input, and `from_dss` emits a warning saying so.
+
+Two source semantics have no BMOPF field but are preserved rather than dropped,
+on `net["_meta"]["powerio_source_semantics"]`: an OpenDSS load's `vminpu` /
+`vmaxpu` (the voltage domain over which its load law is valid — *not* a bus
+voltage bound) and a voltage source's `model`. Read them through
+[`powerio_source_behavior_contract`](@ref), which joins each threshold to the
+converted load's bus, terminal map and nominal voltage. It is non-mutating:
+with `plan_auxiliary_constraints=true` it returns the same records as *candidate*
+terminal-voltage-ratio constraints, but nothing is ever added to a model.
+
+Scope keys (`"load:ld1"`, `"source:source"`) are lower-cased for the same reason
+identifiers are — see below — so records join across all three `_meta` blocks.
 
 ### Identifier case-folding
 

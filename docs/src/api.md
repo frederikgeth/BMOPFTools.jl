@@ -98,6 +98,7 @@ compile_linecodes!
 ```@docs
 to_pmd
 from_dss
+powerio_source_behavior_contract
 to_dss
 project_solution
 dispatch_as_loads

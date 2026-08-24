@@ -14,42 +14,56 @@ const _DSS_TERMINAL_MAP = Dict(
 # Terminal names PowerIO can emit for an OpenDSS bus (phases, neutral, earth).
 const _DSS_NUMERIC_TERMINALS = Set(("1", "2", "3", "4", "5"))
 
+# PowerIO exposes the key/value pairs it could not place in the BMOPF schema on
+# an `extras` property. If a future PowerIO renames or drops it, every ledger
+# below would report "nothing was dropped" — indistinguishable from a perfect
+# conversion — so probe for the property explicitly and surface its absence.
+function _powerio_extras(item)
+    hasproperty(item, :extras) || return nothing
+    extras = getproperty(item, :extras)
+    return extras isa AbstractDict ? extras : nothing
+end
+
+# Scope keys join three independent `_meta` blocks (source metadata, field
+# mapping, source semantics), and the mapping derives its names from PowerIO
+# warning text rather than from the objects themselves. OpenDSS names are
+# case-insensitive, so every producer has to fold case the same way or the join
+# silently fails and a complete mapping reads as a partial one.
+_powerio_scope(kind, name) = "$(kind):$(lowercase(strip(string(name))))"
+
+function _powerio_item_name(item, position::Integer)
+    hasproperty(item, :name) && return getproperty(item, :name)
+    hasproperty(item, :id) && return getproperty(item, :id)
+    return position
+end
+
+_powerio_collections(dn) = (
+    ("bus", PowerIO.buses(dn)),
+    ("linecode", PowerIO.linecodes(dn)),
+    ("line", PowerIO.lines(dn)),
+    ("switch", PowerIO.switches(dn)),
+    ("transformer", PowerIO.transformers(dn)),
+    ("load", PowerIO.loads(dn)),
+    ("generator", PowerIO.generators(dn)),
+    ("shunt", PowerIO.shunts(dn)),
+    ("source", PowerIO.sources(dn)),
+)
+
 """Summarize source-only `extras` fields without copying raw source values."""
 function _powerio_source_metadata(dn)
     groups = Dict{String,Any}()
     all_fields = String[]
-    collections = (
-        ("bus", PowerIO.buses(dn)),
-        ("linecode", PowerIO.linecodes(dn)),
-        ("line", PowerIO.lines(dn)),
-        ("switch", PowerIO.switches(dn)),
-        ("transformer", PowerIO.transformers(dn)),
-        ("load", PowerIO.loads(dn)),
-        ("generator", PowerIO.generators(dn)),
-        ("shunt", PowerIO.shunts(dn)),
-        ("source", PowerIO.sources(dn)),
-    )
-    for (kind, collection) in collections
+    inspected = 0
+    with_extras = 0
+    for (kind, collection) in _powerio_collections(dn)
         for (position, item) in enumerate(collection)
-            extras = try
-                getproperty(item, :extras)
-            catch
-                nothing
-            end
-            extras isa AbstractDict || continue
+            inspected += 1
+            extras = _powerio_extras(item)
+            extras === nothing && continue
+            with_extras += 1
             fields = sort!(unique(String[string(key) for key in keys(extras)]))
             isempty(fields) && continue
-            identifier = try
-                getproperty(item, :name)
-            catch
-                try
-                    getproperty(item, :id)
-                catch
-                    position
-                end
-            end
-            scope = "$(kind):$(identifier)"
-            groups[scope] = fields
+            groups[_powerio_scope(kind, _powerio_item_name(item, position))] = fields
             append!(all_fields, fields)
         end
     end
@@ -58,29 +72,72 @@ function _powerio_source_metadata(dn)
         "field_count" => length(unique(all_fields)),
         "fields" => sort!(unique(all_fields)),
         "by_scope" => groups,
+        # `no_extras_exposed` distinguishes "the source dropped nothing" from
+        # "this build of PowerIO no longer reports what it dropped".
+        "extras_status" => inspected == 0 ? "no_source_objects" :
+            with_extras == 0 ? "no_extras_exposed" : "available",
+        "objects_inspected" => inspected,
+        "objects_with_extras" => with_extras,
     )
 end
 
 function _powerio_extra(item, field::AbstractString)
-    extras = try
-        getproperty(item, :extras)
-    catch
-        nothing
-    end
-    extras isa AbstractDict || return nothing
+    extras = _powerio_extras(item)
+    extras === nothing && return nothing
     return get(extras, field, get(extras, Symbol(field), nothing))
 end
 
-function _powerio_mapping_policy(field::AbstractString)
-    field == "units" && return (impact = "representational", blocking = false,
-        reason = "source_units_have_no_direct_BMOPF_field")
-    field == "model" && return (impact = "device_semantics", blocking = true,
-        reason = "source_device_model_requires_an_explicit_component_contract")
-    field in ("vmaxpu", "vminpu") && return (impact = "physical_or_operating_point", blocking = true,
-        reason = "load_voltage_behavior_threshold_is_not_a_bus_voltage_bound")
-    field in ("angle", "basekv", "kv", "phases", "vmaxpu", "vminpu", "zipv") &&
-        return (impact = "physical_or_operating_point", blocking = true,
-            reason = "source_physical_metadata_requires_an_explicit_BMOPF_mapping")
+# Classification of a PowerIO "has no place in the BMOPF schema" warning.
+# `blocking` means the drop moves the physics or the operating point, so a
+# caller must not treat the converted case as physically ready.
+#
+# Some drops are benign only for one element kind: BMOPF models a switch as an
+# ideal closure, so the `length` and `linecode` OpenDSS carries on a
+# switch-as-line have nothing left to represent, while the same fields dropped
+# from a *line* would change the series impedance. Keep those keyed by
+# (kind, field) so the field name alone never decides.
+const _POWERIO_KIND_FIELD_POLICY = Dict(
+    ("switch", "length") => (impact = "representational", blocking = false,
+        reason = "switch_is_an_ideal_closure_with_no_series_impedance"),
+    ("switch", "linecode") => (impact = "representational", blocking = false,
+        reason = "switch_is_an_ideal_closure_with_no_series_impedance"),
+)
+
+const _POWERIO_FIELD_POLICY = Dict(
+    "units" => (impact = "representational", blocking = false,
+        reason = "source_units_have_no_direct_BMOPF_field"),
+    "model" => (impact = "device_semantics", blocking = true,
+        reason = "source_device_model_requires_an_explicit_component_contract"),
+    "vminpu" => (impact = "physical_or_operating_point", blocking = true,
+        reason = "load_voltage_behavior_threshold_is_not_a_bus_voltage_bound"),
+    "vmaxpu" => (impact = "physical_or_operating_point", blocking = true,
+        reason = "load_voltage_behavior_threshold_is_not_a_bus_voltage_bound"),
+    "angle" => (impact = "physical_or_operating_point", blocking = true,
+        reason = "source_physical_metadata_requires_an_explicit_BMOPF_mapping"),
+    "basekv" => (impact = "physical_or_operating_point", blocking = true,
+        reason = "source_physical_metadata_requires_an_explicit_BMOPF_mapping"),
+    "kv" => (impact = "physical_or_operating_point", blocking = true,
+        reason = "source_physical_metadata_requires_an_explicit_BMOPF_mapping"),
+    "phases" => (impact = "physical_or_operating_point", blocking = true,
+        reason = "source_physical_metadata_requires_an_explicit_BMOPF_mapping"),
+    "zipv" => (impact = "physical_or_operating_point", blocking = true,
+        reason = "source_physical_metadata_requires_an_explicit_BMOPF_mapping"),
+)
+
+"""
+Classify `field` against the scopes it was dropped from. A (kind, field) rule
+applies only when *every* affected scope is of that kind; a mixed footprint
+falls back to the field-level rule, and an unrecognized field stays blocking.
+"""
+function _powerio_mapping_policy(field::AbstractString,
+                                 scopes::AbstractVector = String[])
+    kinds = unique(String[first(split(scope, ":"; limit = 2)) for scope in scopes])
+    policies = unique([_POWERIO_KIND_FIELD_POLICY[(kind, field)] for kind in kinds
+                       if haskey(_POWERIO_KIND_FIELD_POLICY, (kind, field))])
+    # One rule only if it covers every affected kind and they agree on it;
+    # anything else is a mixed footprint that the field-level rule must judge.
+    length(policies) == 1 && length(kinds) == 1 && return only(policies)
+    haskey(_POWERIO_FIELD_POLICY, field) && return _POWERIO_FIELD_POLICY[field]
     return (impact = "unknown", blocking = true,
         reason = "source_field_has_no_classified_BMOPF_mapping")
 end
@@ -89,9 +146,9 @@ function _powerio_warning_scope(message)
     tokens = split(strip(String(message)))
     length(tokens) >= 3 || return "unknown"
     if tokens[1] == "voltage" && tokens[2] == "source"
-        return "source:$(replace(tokens[3], ":" => ""))"
+        return _powerio_scope("source", replace(tokens[3], ":" => ""))
     end
-    return "$(tokens[1]):$(replace(tokens[2], ":" => ""))"
+    return _powerio_scope(tokens[1], replace(tokens[2], ":" => ""))
 end
 
 function _powerio_float(value)
@@ -116,7 +173,7 @@ function _powerio_source_semantics(dn)
             "observed_inverted"
         end
         push!(load_thresholds, Dict{String,Any}(
-            "scope" => "load:$(lowercase(string(getproperty(item, :name))))",
+            "scope" => _powerio_scope("load", getproperty(item, :name)),
             "vminpu" => vmin,
             "vmaxpu" => vmax,
             "status" => status,
@@ -129,7 +186,7 @@ function _powerio_source_semantics(dn)
         raw_model === nothing && continue
         model = lowercase(strip(string(raw_model)))
         push!(source_models, Dict{String,Any}(
-            "scope" => "source:$(lowercase(string(getproperty(item, :name))))",
+            "scope" => _powerio_scope("source", getproperty(item, :name)),
             "model" => model,
             "status" => model == "ideal" ?
                 "represented_as_fixed_voltage_boundary" : "unmapped_source_model",
@@ -262,14 +319,13 @@ function _powerio_bmopf_field_mapping(dn, net)
             else
                 haskey(converted, "terminal_map") && haskey(converted, "configuration") || continue
             end
-            push!(scopes, "load:$(name)")
+            push!(scopes, _powerio_scope("load", name))
         end
-        isempty(scopes) || (by_field[field] = Dict(
+        isempty(scopes) || (by_field[field] = Dict{String,Any}(
             "status" => "mapped",
             "target" => target,
             "transform" => transform,
-            "scope_count" => length(scopes),
-            "scopes" => scopes,
+            "mapped_scopes" => sort!(unique(scopes)),
         ))
     end
     # OpenDSS vminpu/vmaxpu are load-law validity/behavior thresholds, not
@@ -283,14 +339,13 @@ function _powerio_bmopf_field_mapping(dn, net)
             name = lowercase(string(getproperty(item, :name)))
             converted = get(load_net, name, nothing)
             converted isa AbstractDict || continue
-            push!(scopes, "load:$(name)")
+            push!(scopes, _powerio_scope("load", name))
         end
-        isempty(scopes) || (by_field[field] = Dict(
+        isempty(scopes) || (by_field[field] = Dict{String,Any}(
             "status" => "mapped_with_contract",
             "target" => "_meta.powerio_source_semantics.load_voltage_thresholds",
             "transform" => "source_load_voltage_behavior_threshold_contract",
-            "scope_count" => length(scopes),
-            "scopes" => sort!(unique(scopes)),
+            "mapped_scopes" => sort!(unique(scopes)),
             "impact" => "physical_or_operating_point",
             "physical_readiness_blocking" => false,
             "reason" => "preserved_as_load_behavior_contract_not_bus_voltage_bound",
@@ -316,14 +371,13 @@ function _powerio_bmopf_field_mapping(dn, net)
                 all(haskey(converted, key) for key in
                     ("alpha_z", "alpha_i", "alpha_p", "beta_z", "beta_i", "beta_p")) || continue
             end
-            push!(scopes, "load:$(name)")
+            push!(scopes, _powerio_scope("load", name))
         end
-        isempty(scopes) || (by_field[field] = Dict(
+        isempty(scopes) || (by_field[field] = Dict{String,Any}(
             "status" => "mapped",
             "target" => target,
             "transform" => transform,
-            "scope_count" => length(scopes),
-            "scopes" => sort!(unique(scopes)),
+            "mapped_scopes" => sort!(unique(scopes)),
         ))
     end
     source_net = get(net, "voltage_source", Dict{String,Any}())
@@ -337,7 +391,7 @@ function _powerio_bmopf_field_mapping(dn, net)
         values = (get(converted, "v_magnitude", nothing), get(converted, "v_angle", nothing))
         all(value -> value isa AbstractVector && !isempty(value) &&
             all(entry -> entry isa Real && isfinite(Float64(entry)), value), values) || continue
-        push!(source_model_scopes, "source:$(name)")
+        push!(source_model_scopes, _powerio_scope("source", name))
     end
     if !isempty(source_model_scopes)
         if haskey(by_field, "model")
@@ -345,14 +399,14 @@ function _powerio_bmopf_field_mapping(dn, net)
             entry["status"] = "mapped_with_contract"
             entry["target"] *= ";voltage_source.v_magnitude/v_angle"
             entry["transform"] *= ";source_model_ideal_to_fixed_voltage_boundary"
-            append!(entry["scopes"], source_model_scopes)
+            entry["mapped_scopes"] =
+                sort!(unique(vcat(entry["mapped_scopes"], source_model_scopes)))
         else
-            by_field["model"] = Dict(
+            by_field["model"] = Dict{String,Any}(
                 "status" => "mapped_with_contract",
                 "target" => "voltage_source.v_magnitude/v_angle",
                 "transform" => "source_model_ideal_to_fixed_voltage_boundary",
-                "scope_count" => length(source_model_scopes),
-                "scopes" => source_model_scopes,
+                "mapped_scopes" => sort!(unique(source_model_scopes)),
             )
         end
     end
@@ -370,14 +424,13 @@ function _powerio_bmopf_field_mapping(dn, net)
             values = get(converted, target_key, nothing)
             values isa AbstractVector && !isempty(values) || continue
             all(value -> value isa Real && isfinite(Float64(value)), values) || continue
-            push!(scopes, "source:$(name)")
+            push!(scopes, _powerio_scope("source", name))
         end
-        isempty(scopes) || (by_field[field] = Dict(
+        isempty(scopes) || (by_field[field] = Dict{String,Any}(
             "status" => "mapped_with_transform",
             "target" => target,
             "transform" => transform,
-            "scope_count" => length(scopes),
-            "scopes" => scopes,
+            "mapped_scopes" => sort!(unique(scopes)),
         ))
     end
     # Every conversion warning gets a ledger entry, including fields that are
@@ -385,53 +438,90 @@ function _powerio_bmopf_field_mapping(dn, net)
     # record from being mistaken for a completed mapping.
     meta = get(net, "_meta", Dict{String,Any}())
     warnings = meta isa AbstractDict ? get(meta, "powerio_warnings", Any[]) : Any[]
-    warning_fields = String[]
-    warning_scopes = Dict{String,Vector{String}}()
     warnings isa AbstractVector || (warnings = Any[warnings])
+    warning_scopes = Dict{String,Vector{String}}()
+    unclassified = String[]
+    truncated = false
     for message in warnings
-        match_result = match(r"`([^`]+)`", String(message))
-        isnothing(match_result) && continue
-        field = String(match_result.captures[1])
-        push!(warning_fields, field)
-        push!(get!(warning_scopes, field, String[]), _powerio_warning_scope(message))
-    end
-    unmapped_fields = String[]
-    blocking_unmapped_fields = String[]
-    for field in sort!(unique(warning_fields))
-        source_scopes = sort!(unique(get(warning_scopes, field, String[])))
-        if haskey(by_field, field)
-            entry = by_field[field]
-            mapped_scopes = sort!(unique(String[string(scope) for scope in
-                get(entry, "scopes", String[])]))
-            missing_scopes = sort!(setdiff(source_scopes, mapped_scopes))
-            entry["mapped_scopes"] = mapped_scopes
-            entry["unmapped_scopes"] = missing_scopes
-            entry["scope_count"] = length(source_scopes)
-            entry["scopes"] = source_scopes
-            isempty(missing_scopes) && continue
-            policy = _powerio_mapping_policy(field)
-            entry["status"] = "partially_mapped"
-            entry["impact"] = policy.impact
-            entry["physical_readiness_blocking"] = policy.blocking
-            entry["reason"] = "mapping_covers_some_source_scopes_but_not_all"
-            push!(unmapped_fields, field)
-            policy.blocking && push!(blocking_unmapped_fields, field)
+        text = String(message)
+        # PowerIO caps its per-call warning channel and appends this sentinel
+        # (see PowerIO `_warn_lines`). Past the cap the dropped fields are gone,
+        # so the ledger below is provably incomplete and must say so.
+        if occursin("warning list truncated at", text)
+            truncated = true
             continue
         end
-        policy = _powerio_mapping_policy(field)
+        # Only the ``field``-quoting warnings can be classified by field. Other
+        # phrasings (e.g. a transformer's %noloadloss shunt drop) are recorded
+        # verbatim rather than pattern-matched, so the ledger does not grow a
+        # dependency on every upstream message shape.
+        match_result = match(r"`([^`]+)`", text)
+        if isnothing(match_result)
+            push!(unclassified, text)
+            continue
+        end
+        field = String(match_result.captures[1])
+        push!(get!(warning_scopes, field, String[]), _powerio_warning_scope(text))
+    end
+    classified = length(warnings) - length(unclassified) - (truncated ? 1 : 0)
+    # A ledger that cannot read all of its own input must not present an empty
+    # `unmapped_fields`: that is indistinguishable from a clean conversion. The
+    # warning text comes from PowerIO, so both a truncated list and a reformatted
+    # message have to surface as a status here, not as silently perfect fidelity.
+    warning_status = truncated ? "truncated_upstream" :
+        isempty(warnings) ? "no_warnings" :
+        classified == 0 ? "unrecognized_warning_format" :
+        isempty(unclassified) ? "parsed" : "partially_classified"
+    if warning_status in ("truncated_upstream", "unrecognized_warning_format")
+        @warn "from_dss: the source field ledger on " *
+              "net[\"_meta\"][\"powerio_source_mapping\"] is incomplete " *
+              "($(warning_status)); its unmapped_fields under-reports what the " *
+              "conversion dropped and must not be read as a fidelity proof"
+    end
+
+    unmapped_fields = String[]
+    blocking_unmapped_fields = String[]
+    # Reconcile the demonstrated mapping against the source footprint. Every
+    # record ends up with the same keys, so a consumer never has to know
+    # whether a warning happened to fire for the field it is reading:
+    #   mapped_scopes   where the mapping was demonstrated on the output
+    #   warned_scopes   where the source carried the field and PowerIO dropped it
+    #   unmapped_scopes warned minus mapped — the actual fidelity gap
+    #   scopes          the union: the field's full source footprint
+    for field in sort!(union(collect(keys(by_field)), collect(keys(warning_scopes))))
+        entry = get!(by_field, field) do
+            Dict{String,Any}(
+                "status" => "unmapped",
+                "target" => "unmapped",
+                "transform" => "none",
+                "mapped_scopes" => String[],
+            )
+        end
+        mapped_scopes = sort!(unique(String[string(scope) for scope in
+            get(entry, "mapped_scopes", String[])]))
+        warned_scopes = sort!(unique(get(warning_scopes, field, String[])))
+        missing_scopes = sort!(setdiff(warned_scopes, mapped_scopes))
+        entry["mapped_scopes"] = mapped_scopes
+        entry["warned_scopes"] = warned_scopes
+        entry["unmapped_scopes"] = missing_scopes
+        entry["scopes"] = sort!(union(mapped_scopes, warned_scopes))
+        entry["scope_count"] = length(entry["scopes"])
+        if isempty(missing_scopes)
+            # Contract-backed records carry their own classification; only fill
+            # in the ones that have none.
+            get!(entry, "impact", "represented")
+            get!(entry, "physical_readiness_blocking", false)
+            get!(entry, "reason", "mapping_covers_every_source_scope")
+            continue
+        end
+        policy = _powerio_mapping_policy(field, missing_scopes)
+        entry["status"] = isempty(mapped_scopes) ? "unmapped" : "partially_mapped"
+        entry["impact"] = policy.impact
+        entry["physical_readiness_blocking"] = policy.blocking
+        entry["reason"] = isempty(mapped_scopes) ? policy.reason :
+            "mapping_covers_some_source_scopes_but_not_all"
         push!(unmapped_fields, field)
         policy.blocking && push!(blocking_unmapped_fields, field)
-        field_scopes = source_scopes
-        by_field[field] = Dict(
-            "status" => "unmapped",
-            "target" => "unmapped",
-            "transform" => "none",
-            "scope_count" => length(field_scopes),
-            "scopes" => field_scopes,
-            "impact" => policy.impact,
-            "physical_readiness_blocking" => policy.blocking,
-            "reason" => policy.reason,
-        )
     end
     fields = sort!(collect(keys(by_field)))
     mapped_fields = sort!([field for field in fields if
@@ -441,6 +531,13 @@ function _powerio_bmopf_field_mapping(dn, net)
         "fields" => mapped_fields,
         "unmapped_fields" => unmapped_fields,
         "blocking_unmapped_fields" => blocking_unmapped_fields,
+        # A caller gating on `blocking_unmapped_fields` must read these too:
+        # they say whether the field ledger saw the whole warning list.
+        "warning_status" => warning_status,
+        "warnings_seen" => length(warnings),
+        "warnings_classified" => classified,
+        "warnings_truncated_upstream" => truncated,
+        "unclassified_warnings" => unclassified,
         "by_field" => by_field,
     )
 end

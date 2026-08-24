@@ -3628,6 +3628,109 @@ const IEEE13_FIXTURE = """
         @test roundtrip["_meta"]["powerio_source_metadata"]["field_count"] == 9
     end
 
+    @testset "from_dss — source ledger is case-folded and honest" begin
+        source_path = joinpath(@__DIR__, "data", "pf_comparison", "pf_delta_load.dss")
+        # OpenDSS identifiers are case-insensitive, and the ledger joins scopes
+        # built from the converted objects against scopes parsed out of PowerIO's
+        # warning text. Both sides must fold case or a complete mapping reads as
+        # a partial one and lands in blocking_unmapped_fields.
+        mixed_path = joinpath(mktempdir(), "pf_delta_load_mixed_case.dss")
+        write(mixed_path, replace(read(source_path, String),
+            "d12" => "D12", "d23" => "D23", "d31" => "D31"))
+        lower = from_dss(source_path)["_meta"]
+        mixed = from_dss(mixed_path)["_meta"]
+        @test any(contains("load D12"), mixed["powerio_warnings"])
+        @test mixed["powerio_source_mapping"]["by_field"] ==
+              lower["powerio_source_mapping"]["by_field"]
+        @test mixed["powerio_source_mapping"]["blocking_unmapped_fields"] == String[]
+        @test mixed["powerio_source_metadata"]["by_scope"] ==
+              lower["powerio_source_metadata"]["by_scope"]
+        @test haskey(mixed["powerio_source_metadata"]["by_scope"], "load:d12")
+        for field in ("kv", "phases", "vminpu", "vmaxpu")
+            @test mixed["powerio_source_mapping"]["by_field"][field]["unmapped_scopes"] ==
+                  String[]
+        end
+
+        # Scope keys are the join key across all three _meta blocks.
+        semantics_scopes = Set(String[record["scope"] for record in
+            mixed["powerio_source_semantics"]["load_voltage_thresholds"]])
+        @test issubset(semantics_scopes,
+                       Set(keys(mixed["powerio_source_metadata"]["by_scope"])))
+
+        # Every by_field record carries the same keys, whether or not a warning
+        # happened to fire for that field.
+        for (field, record) in mixed["powerio_source_mapping"]["by_field"]
+            for key in ("status", "target", "transform", "mapped_scopes",
+                        "warned_scopes", "unmapped_scopes", "scopes", "scope_count",
+                        "impact", "physical_readiness_blocking", "reason")
+                @test haskey(record, key)
+            end
+            @test record["scopes"] ==
+                  sort!(union(record["mapped_scopes"], record["warned_scopes"]))
+            @test record["scope_count"] == length(record["scopes"])
+            @test record["unmapped_scopes"] ==
+                  sort!(setdiff(record["warned_scopes"], record["mapped_scopes"]))
+        end
+
+        mapping = mixed["powerio_source_mapping"]
+        @test mapping["warning_status"] == "parsed"
+        @test mapping["warnings_truncated_upstream"] == false
+        @test mapping["unclassified_warnings"] == String[]
+        @test mapping["warnings_classified"] == mapping["warnings_seen"]
+        @test mixed["powerio_source_metadata"]["extras_status"] == "available"
+        @test mixed["powerio_source_metadata"]["objects_with_extras"] > 0
+    end
+
+    @testset "from_dss — source ledger on a real feeder" begin
+        net = from_dss(joinpath(@__DIR__, "data", "LV", "LV1_14bus", "Master.dss"))
+        mapping = net["_meta"]["powerio_source_mapping"]
+        # OpenDSS carries a length and a linecode on a switch-as-line. BMOPF
+        # models a switch as an ideal closure, so dropping them changes no
+        # physics — the catch-all "unknown field ⇒ blocking" rule must not fire.
+        @test "length" in mapping["unmapped_fields"]
+        @test "linecode" in mapping["unmapped_fields"]
+        @test "length" ∉ mapping["blocking_unmapped_fields"]
+        @test "linecode" ∉ mapping["blocking_unmapped_fields"]
+        for field in ("length", "linecode")
+            record = mapping["by_field"][field]
+            @test record["physical_readiness_blocking"] == false
+            @test record["impact"] == "representational"
+            @test record["reason"] ==
+                  "switch_is_an_ideal_closure_with_no_series_impedance"
+            @test all(startswith("switch:"), record["unmapped_scopes"])
+        end
+        @test mapping["blocking_unmapped_fields"] == String[]
+
+        # PowerIO caps its warning channel, so on this feeder the ledger is
+        # built from a truncated list and has to say so rather than presenting
+        # an empty blocking list as a fidelity proof.
+        @test any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
+        @test mapping["warnings_truncated_upstream"] == true
+        @test mapping["warning_status"] == "truncated_upstream"
+
+        # The same field name is only benign for the kind it was classified on:
+        # a `length` dropped from a line would still block.
+        @test BMOPFTools._powerio_mapping_policy("length", ["switch:s1"]).blocking == false
+        @test BMOPFTools._powerio_mapping_policy("length", ["line:l1"]).blocking == true
+        @test BMOPFTools._powerio_mapping_policy(
+            "length", ["switch:s1", "line:l1"]).blocking == true
+    end
+
+    @testset "from_dss — unclassifiable fidelity losses are surfaced" begin
+        net = from_dss(joinpath(@__DIR__, "data", "SWER", "Master.dss"))
+        mapping = net["_meta"]["powerio_source_mapping"]
+        # A transformer %noloadloss drop is a real fidelity loss that names no
+        # single source field, so it cannot enter by_field. It must still be
+        # visible instead of silently vanishing from the ledger.
+        @test mapping["warning_status"] == "partially_classified"
+        @test !isempty(mapping["unclassified_warnings"])
+        @test any(contains("%noloadloss"), mapping["unclassified_warnings"])
+        @test all(warning -> isnothing(match(r"`([^`]+)`", warning)),
+                  mapping["unclassified_warnings"])
+        @test mapping["warnings_classified"] + length(mapping["unclassified_warnings"]) ==
+              mapping["warnings_seen"]
+    end
+
     @testset "from_dss — ZIP load semantics are mapped by scope" begin
         source_path = joinpath(@__DIR__, "data", "pf_comparison", "pf_zip_3ph.dss")
         net = from_dss(source_path)
