@@ -2545,6 +2545,32 @@ const IEEE13_FIXTURE = """
         @test net2["transformer"]["delta_wye"]["t1"]["r_series_to"] ≈ 0.015
     end
 
+    @testset "Migration — wye-referred lump, checked against real DSS fixtures" begin
+        # The testset above pins the routing on hand-written dicts. This pins
+        # the BASE the value arrives on, end to end through PowerIO, on the two
+        # fixtures that discriminate all three candidate readings of "which
+        # side": a wrong-side referral is off by (v_from/v_to)^2 (~700x here).
+        dir = joinpath(@__DIR__, "data", "pf_comparison")
+
+        # pf_yd_xfmr.dss: 500 kVA, 11 kV wye / 415 V delta, %r=1.0 per winding
+        # (2 % total), xhl=4.0. Wye is the FROM side — and also winding 1, and
+        # also HV, so on its own this case cannot tell the three apart.
+        yd = first(values(from_dss(joinpath(dir, "pf_yd_xfmr.dss"))["transformer"]["wye_delta"]))
+        z_base_hv = 11.0^2 / 0.5                      # Ω, on kVLL / MVA
+        @test yd["r_series_from"] ≈ 0.02 * z_base_hv  # 4.84 Ω
+        @test yd["x_series_from"] ≈ 0.04 * z_base_hv  # 9.68 Ω
+        @test yd["r_series_to"] == 0.0 && yd["x_series_to"] == 0.0
+
+        # pf_dy_xfmr.dss: same ratings, 11 kV delta / 415 V wye. Here wye is the
+        # TO side while winding 1 and HV are the FROM side, so agreeing with the
+        # wye rule here rules out both other readings.
+        dy = first(values(from_dss(joinpath(dir, "pf_dy_xfmr.dss"))["transformer"]["delta_wye"]))
+        z_base_lv = 0.415^2 / 0.5                     # Ω
+        @test dy["r_series_to"] ≈ 0.02 * z_base_lv    # 0.006889 Ω
+        @test dy["x_series_to"] ≈ 0.04 * z_base_lv    # 0.013778 Ω
+        @test dy["r_series_from"] == 0.0 && dy["x_series_from"] == 0.0
+    end
+
     @testset "Schema — own output validates (layer drift)" begin
         # Regression: the bundled JSON schema only allowed the legacy lumped
         # r_series/x_series on wye/delta transformers and had no time_series
@@ -3709,12 +3735,13 @@ const IEEE13_FIXTURE = """
         end
         @test mapping["blocking_unmapped_fields"] == String[]
 
-        # PowerIO caps its warning channel, so on this feeder the ledger is
-        # built from a truncated list and has to say so rather than presenting
-        # an empty blocking list as a fidelity proof.
-        @test any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
-        @test mapping["warnings_truncated_upstream"] == true
-        @test mapping["warning_status"] == "truncated_upstream"
+        # PowerIO 0.9 returns owned diagnostic records rather than capping a
+        # per-call channel, so even this feeder's long list arrives complete and
+        # the ledger's empty blocking list IS a fidelity statement. (Under
+        # PowerIO <= 0.7 the list was truncated and the status had to say so.)
+        @test !any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
+        @test mapping["warnings_truncated_upstream"] == false
+        @test mapping["warning_status"] == "parsed"
 
         # The same field name is only benign for the kind it was classified on:
         # a `length` dropped from a line would still block.

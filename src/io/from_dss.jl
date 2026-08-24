@@ -143,7 +143,12 @@ function _powerio_mapping_policy(field::AbstractString,
 end
 
 function _powerio_warning_scope(message)
-    tokens = split(strip(String(message)))
+    # PowerIO 0.9 renders diagnostics as `CODE: message` (e.g.
+    # `EMIT.BMOPF.FIELD_DROPPED: load ld1: ...`). Reuse the writer-side splitter
+    # so the ledger and `powerio_findings` agree on what counts as a code;
+    # an uncoded line comes back whole and parses as it always did.
+    _, text = _split_powerio_line(strip(String(message)))
+    tokens = split(text)
     length(tokens) >= 3 || return "unknown"
     if tokens[1] == "voltage" && tokens[2] == "source"
         return _powerio_scope("source", replace(tokens[3], ":" => ""))
@@ -297,6 +302,34 @@ function powerio_source_behavior_contract(
     )
 end
 
+"""
+Demonstrate that an OpenDSS load `pf` actually reached the converted load, by
+reproducing it: BMOPF carries no power factor, so the only evidence that `pf`
+was honoured is `q_nom` standing in the ratio `pf` prescribes to `p_nom`. A
+weaker "both vectors are finite" test would be satisfied by every converted
+load whether or not `pf` was read, which is exactly the silent fidelity gap the
+ledger exists to rule out. Magnitudes only: the lead/lag sign convention is the
+parser's, and a sign flip is not evidence that `pf` was ignored.
+"""
+function _powerio_pf_is_demonstrated(raw_pf, converted::AbstractDict)::Bool
+    pf = _powerio_float(raw_pf)
+    (pf === nothing || abs(pf) > 1.0) && return false
+    p_nom = get(converted, "p_nom", nothing)
+    q_nom = get(converted, "q_nom", nothing)
+    (p_nom isa AbstractVector && q_nom isa AbstractVector) || return false
+    (isempty(p_nom) || length(p_nom) != length(q_nom)) && return false
+    tan_phi = tan(acos(abs(pf)))
+    for (p_raw, q_raw) in zip(p_nom, q_nom)
+        p = _powerio_float(p_raw)
+        q = _powerio_float(q_raw)
+        (p === nothing || q === nothing) && return false
+        expected = abs(p) * tan_phi
+        isapprox(abs(q), expected; rtol = 1e-6, atol = 1e-6 * (1.0 + abs(p))) ||
+            return false
+    end
+    return true
+end
+
 """Record source fields that are demonstrably represented by BMOPF fields."""
 function _powerio_bmopf_field_mapping(dn, net)
     by_field = Dict{String,Any}()
@@ -304,10 +337,16 @@ function _powerio_bmopf_field_mapping(dn, net)
     for (field, target, transform) in (
         ("kv", "load.v_nom", "kV_to_volts"),
         ("phases", "load.terminal_map/configuration", "source_phase_count_to_terminal_structure"),
+        # PowerIO 0.9 drops `pf` from the BMOPF output (BMOPF has no power
+        # factor field), so without a record here it would be classified by the
+        # catch-all "unrecognized field stays blocking" rule — even though the
+        # information is fully carried, as q_nom.
+        ("pf", "load.p_nom/q_nom", "active_power_and_power_factor_to_reactive_power"),
     )
         scopes = String[]
         for item in PowerIO.loads(dn)
-            _powerio_extra(item, field) === nothing && continue
+            raw = _powerio_extra(item, field)
+            raw === nothing && continue
             name = lowercase(string(getproperty(item, :name)))
             converted = get(load_net, name, nothing)
             converted isa AbstractDict || continue
@@ -316,8 +355,10 @@ function _powerio_bmopf_field_mapping(dn, net)
                 vals = converted["v_nom"]
                 vals isa AbstractVector && !isempty(vals) || continue
                 all(value -> value isa Real && isfinite(Float64(value)), vals) || continue
-            else
+            elseif field == "phases"
                 haskey(converted, "terminal_map") && haskey(converted, "configuration") || continue
+            else
+                _powerio_pf_is_demonstrated(raw, converted) || continue
             end
             push!(scopes, _powerio_scope("load", name))
         end
