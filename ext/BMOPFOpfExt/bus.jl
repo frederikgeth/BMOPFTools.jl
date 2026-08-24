@@ -233,7 +233,8 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
         # so use phase_all — not a grounded/fixed-filtered subset.
         if n_phase == 3 &&
                 (vpos_min !== nothing || vpos_max !== nothing ||
-                 vneg_max !== nothing || vzero_max !== nothing)
+                 vneg_max !== nothing || vzero_max !== nothing ||
+                 get(bus, "vuf_max", nothing) !== nothing)
             # One shared definition of the Fortescue transform, so these bounds
             # and the sequence OBJECTIVE terms cannot drift apart. See
             # `_sequence_voltage_terms` in objectives.jl for the reference
@@ -258,6 +259,29 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
             if vzero_max !== nothing
                 (V0_r, V0_i) = seq.zero
                 _soc_norm!(model, V0_r, V0_i, Float64(vzero_max))
+            end
+
+            # ── VUF: a true ratio limit, |V2|/|V1| <= u ────────────────────────
+            # `vneg_max` bounds |V2| ABSOLUTELY, so it only coincides with a
+            # standard's unbalance limit if |V1| is treated as fixed at nominal.
+            # |V1| is a decision variable, so that is an approximation. The exact
+            # instantaneous constraint needs no square roots:
+            #
+            #     |V2|^2 <= u^2 |V1|^2
+            #
+            # Both sides scale as voltage squared, so `vuf_max` is dimensionless
+            # and -- alone among the bus voltage bounds -- needs no per-unit
+            # conversion.
+            vuf_max = get(bus, "vuf_max", nothing)
+            if vuf_max !== nothing
+                u = Float64(vuf_max)
+                u >= 0 || throw(ArgumentError(
+                    "bus '$bid': vuf_max must be non-negative, got $u"))
+                (V2_r, V2_i) = seq.negative
+                (V1_r, V1_i) = seq.positive
+                register(:bus_voltage_unbalance_factor, bid,
+                    @constraint(model,
+                        V2_r^2 + V2_i^2 <= u^2 * (V1_r^2 + V1_i^2)))
             end
         end
     end

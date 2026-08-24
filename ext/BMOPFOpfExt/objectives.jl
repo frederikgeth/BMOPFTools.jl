@@ -50,6 +50,11 @@
 # project ranks convergence reliability above wall clock, so `:magnitude` is the
 # smoothed form.
 #
+# SCOPE: one case family, one solver (Ipopt), default tolerance. Enough to
+# choose between the alternatives tried and to justify the defaults; NOT a
+# general claim about arbitrary networks or solvers. The benchmark prints its
+# own environment and re-runs in seconds.
+#
 # ── ε is a conditioning knob, and its safe range depends on the use ────────────
 # `smooth_norm` approximates ‖·‖₂ by √(x² + y² + ε²) − ε, a uniform ε-accurate
 # UNDERestimator: 0 ≤ ‖·‖₂ − smooth_norm ≤ ε, with equality at the origin. It is
@@ -697,8 +702,21 @@ means the same thing in `per_unit=true` and `per_unit=false`. `weight` is
 therefore in objective-units per V² (`norm=:squared` or `:max`) or per V
 (`:magnitude`).
 
-`component=:negative` is the usual unbalance objective; `:zero` targets neutral
-displacement, which is the quantity that actually heats a neutral conductor.
+`component=:negative` is the usual unbalance objective.
+
+!!! note "`:zero` here is not neutral displacement, and not neutral heating"
+    On a floating-neutral bus the transform's input is already phase-to-NEUTRAL,
+    so this `V₀` has the common neutral displacement subtracted out — it is the
+    residual zero-sequence content of the phase-to-neutral voltages, not the
+    neutral's own offset.
+
+    * Neutral **displacement** is `Vₙ` itself, relative to ground. Bound it with
+      the bus field `vn_max`.
+    * Neutral **heating** is `|Iₙ|²R`, a current quantity. Penalise it with
+      [`opf_current_term`](@ref) using `quantity=:neutral`.
+
+    `:zero` voltage is still a meaningful unbalance measure; it is simply not
+    either of those two things.
 """
 function BMOPFTools.opf_sequence_term(ctx::OpfContext, buses;
                                       component::Symbol = :negative,
@@ -1189,8 +1207,23 @@ it. Building it from [`smooth_norm`](@ref) is actively wrong: the shift subtract
 `ε` from numerator and denominator alike, and an `ε` sized to condition a norm
 heading toward zero is comparable to the numerator itself — a true `|V₂|` of
 0.6 V against `ε = 0.26 V` mis-states the ratio by more than 40%. The squared
-ratio needs no `ε` at all, is exact and smooth, and is strictly monotone in VUF,
-so it orders solutions identically. Take `sqrt` post-solve for the percentage.
+ratio needs no `ε` at all and is exact and smooth.
+
+!!! warning "This is a squared-VUF PENALTY, not a drop-in for VUF"
+    `x ↦ x²` is monotone, so for **one bus as the sole objective** minimising
+    this and minimising VUF pick the same solution. That equivalence does NOT
+    survive either generalisation, and both are implemented here:
+
+    * **Summed over several buses**, `Σ VUFᵢ²` and `Σ VUFᵢ` rank differently.
+      VUFs of `(0, 2)` give sum `2` and sum-of-squares `4`; `(1.1, 1.1)` give
+      `2.2` and `2.42`. Unsquared prefers the first, squared prefers the second.
+      Squaring is an implicit preference for evenness. Use `norm=:max` if what
+      you mean is the worst bus, which IS order-equivalent to worst-bus VUF.
+    * **Combined with another term**, squaring changes the scalarisation, so the
+      trade-off point against cost or losses moves.
+
+    Take `sqrt` post-solve to report a percentage — see
+    [`opf_report_vuf`](@ref).
 
 The voltage base cancels in the ratio, so this term is identical in
 `per_unit=true` and `per_unit=false` by construction.
@@ -1204,6 +1237,18 @@ The voltage base cancels in the ratio, so this term is identical in
     Prefer [`opf_sequence_term`](@ref) unless you specifically need the ratio:
     with `|V₁|` near nominal the two order solutions almost identically, and
     `|V₂|²` has no denominator to guard.
+
+!!! note "A LIMIT is better expressed as `vuf_max`"
+    If the intent is a standard's unbalance limit rather than a penalty, declare
+    the bus field `vuf_max` instead. It is enforced exactly as
+    `|V₂|² ≤ u² |V₁|²` — no square roots, no nominal-voltage assumption, and
+    dimensionless so it needs no per-unit conversion. `vneg_max` bounds `|V₂|`
+    ABSOLUTELY and is only equivalent to a ratio limit if `|V₁|` is treated as
+    fixed at nominal.
+
+    Note also that a standard's limit is a TEMPORAL compliance criterion
+    (EN 50160:2010 §5.3 assesses 10-minute means over a week); a snapshot OPF
+    constrains one instant and does not by itself demonstrate compliance.
 """
 function BMOPFTools.opf_vuf_term(ctx::OpfContext, buses;
                                  weight::Real = 1.0,
@@ -1237,4 +1282,69 @@ function BMOPFTools.opf_vuf_term(ctx::OpfContext, buses;
         units = percent ? :percent_squared : :dimensionless,
         purpose = "squared voltage unbalance factor (|V2|/|V1|)^2 over " *
                   "$(length(ids)) bus(es)" * (percent ? ", in percent^2" : ""))
+end
+
+# ── Post-solve reporting ──────────────────────────────────────────────────────
+# Every term above is an expression in the model. After a solve a caller wants
+# the PHYSICAL quantity back — volts, amps, percent — without reconstructing the
+# Fortescue transform or remembering that the VUF term is squared. Telling users
+# to do that by hand is how the squared/unsquared confusion gets reintroduced.
+
+"""
+    BMOPFTools.opf_report_sequence_voltage(ctx, bus; component=:negative) -> Float64
+
+Solved symmetrical-component voltage magnitude at `bus`, **in volts**, in either
+unit mode. Call after `JuMP.optimize!`.
+"""
+function BMOPFTools.opf_report_sequence_voltage(ctx::OpfContext,
+                                                bus::AbstractString;
+                                                component::Symbol = :negative)
+    (re, ie) = BMOPFTools.opf_sequence_voltage(ctx, bus; component=component)
+    return hypot(JuMP.value(re), JuMP.value(ie)) *
+           BMOPFTools.opf_physical_scale(ctx, :V; bus=String(bus))
+end
+
+"""
+    BMOPFTools.opf_report_vuf(ctx, bus; percent=true) -> Float64
+
+Solved voltage unbalance factor `|V₂|/|V₁|` at `bus`, as a percentage by default.
+
+The counterpart to [`opf_vuf_term`](@ref), which minimises the SQUARED ratio:
+this returns the unsquared, directly comparable number. Reporting the objective
+value as if it were a VUF is a mistake this exists to prevent. Dimensionless, so
+it is identical in both unit modes.
+"""
+function BMOPFTools.opf_report_vuf(ctx::OpfContext, bus::AbstractString;
+                                   percent::Bool = true)
+    v2 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx, bus;
+                                                           component=:negative))...)
+    v1 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx, bus;
+                                                           component=:positive))...)
+    v1 > 0 || throw(ErrorException(
+        "bus '$bus' solved with |V1| = 0, so VUF is undefined there. A bus " *
+        "carrying a VUF penalty or a vuf_max bound should declare vpos_min."))
+    return (percent ? 100.0 : 1.0) * v2 / v1
+end
+
+"""
+    BMOPFTools.opf_report_current(ctx, block, id; side=:from, quantity=:neutral,
+                                  component=:zero) -> Float64
+
+Solved branch current magnitude, **in amps**, in either unit mode. `quantity` is
+`:neutral` or `:sequence`.
+"""
+function BMOPFTools.opf_report_current(ctx::OpfContext, block::AbstractString,
+                                       id::AbstractString;
+                                       side::Symbol = :from,
+                                       quantity::Symbol = :neutral,
+                                       component::Symbol = :zero)
+    quantity in (:neutral, :sequence) || throw(ArgumentError(
+        "quantity must be :neutral or :sequence; got $quantity"))
+    (re, ie) = quantity === :neutral ?
+        BMOPFTools.opf_neutral_current(ctx, block, id; side=side) :
+        BMOPFTools.opf_sequence_current(ctx, block, id; side=side,
+                                        component=component)
+    bus = _element_bus(ctx, block, id, side)
+    return hypot(JuMP.value(re), JuMP.value(ie)) *
+           BMOPFTools.opf_physical_scale(ctx, :A; bus=bus)
 end

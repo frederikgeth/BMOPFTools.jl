@@ -17,7 +17,7 @@
 # contribute to the accumulators; a caller assembling its own objective MUST
 # call `BMOPFTools.enforce_kcl!(ctx)` before solving. Without it the model is
 # silently unconstrained and every formulation "converges" to |V2| = 0.
-using BMOPFTools, JuMP, Ipopt, Printf
+using BMOPFTools, JuMP, Ipopt, Printf, InteractiveUtils, Pkg
 
 netdef(smax) = parse_bmopf("""
  {"bus":{
@@ -74,7 +74,40 @@ function solve1(mode, net, pu, eps_rel)
      v2 = hypot(value(r), value(i)) * (pu ? 230.0 : 1.0))
 end
 
+"""
+Record what the numbers below actually depend on. A convergence comparison is
+not reproducible without the solver version and tolerance, and its conclusions
+do not automatically transfer off the machine or the case family it was run on.
+"""
+function environment()
+    deps = Pkg.dependencies()
+    ver(name) = begin
+        hit = findfirst(d -> d.name == name, deps)
+        hit === nothing ? "?" : string(deps[hit].version)
+    end
+    println("environment")
+    println("  julia        ", VERSION)
+    println("  platform     ", Sys.MACHINE)
+    println("  Ipopt.jl     ", ver("Ipopt"))
+    println("  JuMP         ", ver("JuMP"))
+    println("  BMOPFTools   ", ver("BMOPFTools"))
+    println("  solver tol   Ipopt default (tol = 1e-8), max_iter default (3000)")
+    println("  case family  one 2-bus unbalanced 4-wire LV feeder with a")
+    println("               per-phase STATCOM; 5 load unbalances x 4 STATCOM")
+    println("               ratings x 2 unit modes = 40 configurations")
+    println()
+    println("SCOPE: these are convergence counts for ONE case family on ONE")
+    println("solver at its default tolerance. They justify the DEFAULTS chosen")
+    println("in ext/BMOPFOpfExt/objectives.jl -- notably that a minimised norm")
+    println("wants a large eps -- and they are strong enough to rule out the")
+    println("alternatives tried here. They are NOT a general claim about the")
+    println("reliability of these formulations on arbitrary networks, solvers")
+    println("or tolerances. Re-run before relying on them elsewhere.")
+    println()
+end
+
 function main()
+    environment()
     modes = [(:squared,0.0), (:epigraph,0.0),
              (:smooth,1e-3), (:smooth,1e-6), (:smooth,1e-9)]
     loads = [(6000,1000,500),(4000,4000,500),(8000,200,200),

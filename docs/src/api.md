@@ -222,6 +222,9 @@ opf_sequence_current
 opf_reduce_norm
 opf_control_effort_term
 opf_vuf_term
+opf_report_sequence_voltage
+opf_report_vuf
+opf_report_current
 smooth_norm
 opf_physical_scale
 ```

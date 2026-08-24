@@ -2463,6 +2463,33 @@ function opf_current_term end
 export opf_current_term
 
 """
+    opf_report_sequence_voltage(ctx, bus; component=:negative) -> Float64
+    opf_report_vuf(ctx, bus; percent=true) -> Float64
+    opf_report_current(ctx, block, id; side=:from, quantity=:neutral) -> Float64
+
+Post-solve reporting for the objective building blocks: solved magnitudes in
+PHYSICAL units (volts, percent, amps) in either unit mode. Call after
+`JuMP.optimize!`.
+
+`opf_report_vuf` is the counterpart to [`opf_vuf_term`](@ref), which minimises
+the SQUARED ratio — this returns the unsquared, directly comparable percentage.
+Reading a squared-VUF objective value as if it were a VUF is the mistake these
+helpers exist to prevent.
+
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function opf_report_sequence_voltage end
+export opf_report_sequence_voltage
+
+@doc (@doc opf_report_sequence_voltage)
+function opf_report_vuf end
+export opf_report_vuf
+
+@doc (@doc opf_report_sequence_voltage)
+function opf_report_current end
+export opf_report_current
+
+"""
     opf_control_effort_term(ctx, devices; reference=nothing, norm=:magnitude,
                             weight=1.0)
 

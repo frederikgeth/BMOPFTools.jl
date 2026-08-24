@@ -148,6 +148,10 @@
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Maximum positive-sequence voltage magnitude [V] (three-phase buses)"
                     },
+                    "vuf_max": {
+                        "$ref": "#/$defs/nonnegative_number",
+                        "description": "Maximum voltage unbalance factor |V2|/|V1|, DIMENSIONLESS (0.02 = 2%), three-phase buses. Enforced exactly as |V2|^2 <= vuf_max^2 |V1|^2 -- no square roots and no nominal-voltage assumption. Unlike vneg_max this is a true ratio, so it needs no per-unit scaling. Prefer it over vneg_max when the intent is a standard's unbalance limit (EN 50160:2010 3.5, IEC 61000-2-2:2002+A1:2017+A2:2018), which is defined as a ratio."
+                    },
                     "vneg_max": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Maximum negative-sequence voltage magnitude [V] (three-phase buses); the lower bound is always 0"

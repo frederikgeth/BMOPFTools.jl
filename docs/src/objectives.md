@@ -50,7 +50,7 @@ result = extract_result(ctx)
 | [`opf_current_term`](@ref) `quantity=:neutral` | A² or A | exact / to ε | per `norm` | Reduces neutral conductor current. |
 | [`opf_current_term`](@ref) `quantity=:sequence` | A² or A | exact / to ε | per `norm` | Reduces zero-/negative-sequence current. |
 | [`opf_control_effort_term`](@ref) | A² or A | exact / to ε | per `norm` | Penalises moving devices off a reference. `:magnitude` gives device-level sparsity. |
-| [`opf_vuf_term`](@ref) | %² | exact | ratio, non-convex | Squared voltage unbalance factor. Needs `vpos_min`. |
+| [`opf_vuf_term`](@ref) | %² | exact | ratio, non-convex | **Squared** VUF penalty. Needs `vpos_min`. Not a drop-in for VUF — see Pitfalls. |
 
 Anything not on this list you can build yourself from
 [`opf_sequence_voltage`](@ref), [`opf_element_loss`](@ref),
@@ -62,13 +62,26 @@ Anything not on this list you can build yourself from
 
 They are different objectives and they do not have the same optimum.
 
-Voltage unbalance is what a *standard* limits — EN 50160 §3.5 caps VUF at 2%,
-and the engine already enforces that as a bound through `vneg_max`. Penalising
-`|V₂|` is the right objective when compliance is the goal.
+Voltage unbalance is what a *standard* limits. EN 50160:2010 §3.5 caps the
+voltage unbalance factor at 2%, and IEC 61000-2-2:2002+A1:2017+A2:2018 gives the
+compatibility level; both define it as the **ratio** `|V₂|/|V₁|`.
+
+Declare that with the bus field **`vuf_max`** (dimensionless: `0.02` = 2%),
+which is enforced exactly as `|V₂|² ≤ u²|V₁|²`. `vneg_max` bounds `|V₂|`
+**absolutely** and is only equivalent to a ratio limit if `|V₁|` is treated as
+fixed at nominal — a reasonable approximation, but an approximation.
+
+A standard's limit is also a *temporal* compliance criterion (EN 50160 assesses
+10-minute means across a week). A snapshot OPF constrains one instant; satisfying
+`vuf_max` is necessary for compliance, not sufficient to demonstrate it.
 
 Current unbalance is what *heats things*. `opf_current_term` with
 `quantity=:neutral` targets the neutral conductor current directly, which is the
-quantity behind neutral heating and 4-wire losses. On a 4-wire element with no
+quantity behind neutral heating (`|Iₙ|²R`) and 4-wire losses. Note that
+**zero-sequence VOLTAGE is neither neutral displacement nor neutral heating**:
+on a floating-neutral bus the transform's input is already phase-to-neutral, so
+`V₀` has the common displacement subtracted out. Neutral displacement is `Vₙ`
+itself (bound it with `vn_max`); neutral heating is a current quantity. On a 4-wire element with no
 parallel earth path `I_n = −3·I₀`, so a neutral penalty and a zero-sequence
 current penalty are the same objective up to a factor of three — but the neutral
 form is in amps of real conductor current, which is easier to reason about
@@ -84,10 +97,18 @@ squared voltage penalty, per V for a magnitude one. Term expressions are
 converted to physical units before weighting.
 
 The consequence worth relying on: **the same specification gives the same
-answer in `per_unit = true` and `per_unit = false`.** A weight tuned once stays
-correct, and stays correct under a future nondimensionalisation. This mirrors
-what the engine already does for generation cost, where the per-unit working net
-pre-scales every cost coefficient by `s_base` so the factors cancel.
+answer in `per_unit = true` and `per_unit = false`**, and keeps doing so under a
+future nondimensionalisation. This mirrors what the engine already does for
+generation cost, where the per-unit working net pre-scales every cost
+coefficient by `s_base` so the factors cancel.
+
+!!! warning "That invariance is over unit modes, not over target sets"
+    Reductions **sum** over their targets, so a term's magnitude grows with how
+    many buses or devices you list. A weight tuned against three buses does not
+    mean the same thing against thirty. Re-tune when the target set changes, or
+    compare only across studies with the same one. ([#373](https://github.com/frederikgeth/BMOPFTools.jl/issues/373)
+    tracks adding a `:mean` aggregation, which would make weights portable
+    across target-set sizes.)
 
 What is *not* handled, and cannot be: **commensurability**. Summing
 currency/hour with V² is only meaningful once your weight states the exchange
@@ -182,7 +203,10 @@ conditioning directly. Measured over 40 configurations
 | `:magnitude`, ε_rel = 1e-6 | 39/40 | 71 | 1184 |
 | `:magnitude`, ε_rel = 1e-9 | **27/40** | 116 | 3000 |
 
-**Keep ε large** — the `1e-3` default. The accuracy price is irrelevant: even
+**Keep ε large** — the `1e-3` default. (Scope: one case family, Ipopt at its
+default tolerance. Enough to pick between the alternatives tried; re-run
+`bench/sequence_objective_norms.jl`, which prints its own environment, before
+relying on it elsewhere.) The accuracy price is irrelevant: even
 ε_rel = 1e-2 resolves `|V₂|` to ~1e-7 V against an EN 50160 VUF limit of ~4.6 V
 on a 230 V base.
 
@@ -213,6 +237,10 @@ rather than argued: on the same 40 configurations it reported
 the smoothed norm at a sensible ε never failed. This project ranks convergence
 reliability above wall clock.
 
+That is a result for one case family on one solver at its default tolerance —
+enough to choose between the alternatives tried, not a general claim. The
+benchmark records its own Julia/Ipopt/platform versions and tolerance.
+
 The exception is `:max`, where the epigraph is **linear** rather than conic —
 there it is exact, cheap and reliable, and it is what `:max` uses.
 
@@ -239,6 +267,36 @@ value looks entirely plausible.
 This is why [`opf_vuf_term`](@ref) is the *squared* ratio, which needs no `ε` at
 all. Whenever a magnitude appears in a denominator, or anywhere its small
 absolute value matters rather than just its ordering, use squared quantities.
+
+### Squared VUF is not a drop-in replacement for VUF
+
+`x ↦ x²` is monotone, so minimising `VUF²` and minimising `VUF` agree **for one
+bus as the sole objective**. Neither generalisation preserves that, and both are
+implemented:
+
+- **Summed over buses**, `Σ VUFᵢ²` and `Σ VUFᵢ` rank differently. VUFs of
+  `(0, 2)` give sum `2`, sum-of-squares `4`; `(1.1, 1.1)` give `2.2` and `2.42`.
+  Unsquared prefers the first, squared the second — squaring is an implicit
+  preference for evenness. If you mean the worst bus, use `norm=:max`, which
+  *is* order-equivalent to worst-bus VUF.
+- **Combined with another term**, squaring changes the scalarisation, so the
+  trade-off point against cost or losses moves.
+
+Report the unsquared number with [`opf_report_vuf`](@ref) rather than reading
+the objective value.
+
+### `vneg_max` is not a VUF limit
+
+`vneg_max` bounds `|V₂|` absolutely; a standard's unbalance limit is the ratio
+`|V₂|/|V₁|`. They coincide only if `|V₁|` is fixed at nominal. Use `vuf_max` for
+the exact ratio bound.
+
+### An epigraph term is only exact when minimised
+
+`norm=:max` builds `t` with `re² + im² ≤ t`, which bounds `t` from **below**
+only. It equals the maximum while being pushed down, and is **unbounded** if
+maximised or given a negative weight. `set_opf_objective!` rejects those, but the
+underlying asymmetry is worth knowing before writing a custom epigraph term.
 
 ### Do not carry an ε policy between regimes
 
@@ -297,6 +355,12 @@ Two floating-point consequences worth knowing before you assert on them:
 - **Voltage unbalance and current unbalance.** Minimising neutral current can
   make `|V₂|` *worse than doing nothing about unbalance at all*. If someone says
   "we minimise unbalance", ask which one.
+
+### A weight is unit-mode invariant, not target-set invariant
+
+Reductions sum over targets, so adding buses to a penalty scales it up. "Tuned
+once" means across `per_unit` modes, not across different target lists. See
+[#373](https://github.com/frederikgeth/BMOPFTools.jl/issues/373).
 
 ### `:magnitude` only differs from `:squared` when targets compete
 

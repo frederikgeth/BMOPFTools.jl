@@ -914,3 +914,81 @@ end
         blocks=("line","transformer","switch"))
     @test_throws ArgumentError BMOPFTools.opf_element_loss(ctx, "switch", "sw1")
 end
+
+@testset "vuf_max — an exact ratio bound, not a nominal-voltage approximation" begin
+    # `vneg_max` bounds |V2| ABSOLUTELY; a standard's unbalance limit is the
+    # RATIO |V2|/|V1|. They coincide only if |V1| is treated as fixed nominal.
+    # `vuf_max` is the exact instantaneous constraint |V2|^2 <= u^2 |V1|^2.
+    vuf_of(ctx) = begin
+        v2 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx, "b1";
+                                                               component=:negative))...)
+        v1 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx, "b1";
+                                                               component=:positive))...)
+        v2 / v1
+    end
+    function solve_with(bound, pu)
+        net = _obj_net(400.0)
+        bound === nothing || (net["bus"]["b1"]["vuf_max"] = bound)
+        ctx = BMOPFTools.build_opf_model(net; per_unit=pu, add_objective=false)
+        m = BMOPFTools.opf_model(ctx)
+        JuMP.@objective(m, Min, 0.0); BMOPFTools.enforce_kcl!(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        (JuMP.termination_status(m), vuf_of(ctx))
+    end
+    (st0, free) = solve_with(nothing, true)
+    @test st0 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test free > 1e-4                      # genuinely unbalanced to begin with
+
+    # Binding below the unconstrained value must actually constrain it.
+    limit = 0.5 * free
+    (st1, got) = solve_with(limit, true)
+    if st1 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+        @test got <= limit + 1e-6
+    else
+        @test st1 != JuMP.OPTIMAL          # refusing is consistent; exceeding is not
+    end
+
+    # DIMENSIONLESS: alone among the bus voltage bounds it must NOT be rescaled
+    # between unit modes. The same number has to mean the same limit in both.
+    (st_pu, v_pu) = solve_with(limit, true)
+    (st_si, v_si) = solve_with(limit, false)
+    for st in (st_pu, st_si)
+        @test st in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL, JuMP.LOCALLY_INFEASIBLE)
+    end
+    if st_pu in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL) &&
+       st_si in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+        @test v_pu ≈ v_si rtol=1e-4
+        @test v_si <= limit + 1e-6
+    end
+
+    # A slack bound leaves the answer alone.
+    (st2, slack) = solve_with(10.0 * free, true)
+    @test st2 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test slack ≈ free rtol=1e-4
+end
+
+@testset "post-solve reporting helpers agree with hand computation" begin
+    for pu in (true, false)
+        net = _obj_net_4w(); net["bus"]["b1"]["vpos_min"] = 180.0
+        ctx = BMOPFTools.build_opf_model(net; per_unit=pu, add_objective=false)
+        m = BMOPFTools.opf_model(ctx)
+        JuMP.@objective(m, Min, 0.0); BMOPFTools.enforce_kcl!(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        @test JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+
+        v2 = BMOPFTools.opf_report_sequence_voltage(ctx, "b1"; component=:negative)
+        v1 = BMOPFTools.opf_report_sequence_voltage(ctx, "b1"; component=:positive)
+        vuf = BMOPFTools.opf_report_vuf(ctx, "b1")
+        In  = BMOPFTools.opf_report_current(ctx, "line", "l1"; side=:to,
+                                            quantity=:neutral)
+        I0  = BMOPFTools.opf_report_current(ctx, "line", "l1"; side=:to,
+                                            quantity=:sequence, component=:zero)
+
+        @test 200.0 < v1 < 260.0            # volts, not per-unit
+        @test 0.0 < v2 < 20.0
+        @test vuf ≈ 100 * v2 / v1 rtol=1e-9
+        @test 5.0 < In < 100.0              # amps
+        @test In ≈ 3 * I0 rtol=1e-8
+        @test BMOPFTools.opf_report_vuf(ctx, "b1"; percent=false) ≈ vuf / 100 rtol=1e-12
+    end
+end
