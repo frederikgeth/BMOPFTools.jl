@@ -2544,7 +2544,7 @@ const IEEE13_FIXTURE = """
          "bus":{"hv":{"terminal_names":["a","b","c"]},
                 "lv":{"terminal_names":["a","b","c","n"]}},
          "load":{"ld1":{"bus":"lv","terminal_map":["a","n"],
-             "configuration":"SINGLE_PHASE","model":"CONSTANT_POWER",
+             "configuration":"WYE","model":"CONSTANT_POWER",
              "p_nom":[100.0],"q_nom":[20.0]}},
          "transformer":{"delta_wye":{"t1":{
              "bus_from":"hv","bus_to":"lv",
@@ -2567,6 +2567,64 @@ const IEEE13_FIXTURE = """
         @test net["meta"]["\$schema"] == BMOPFTools._BMOPF_SCHEMA_URI
         @test any(n -> n["code"] == "W.MIGRATE.BMOPF_0_1_0",
                   net["_meta"]["migration_notes"])
+        @test !haskey(net, "extras")
+    end
+
+    @testset "Migration — 0.1.0 lumped leakage never overwrites per-winding" begin
+        # A dict carrying BOTH forms is ambiguous. The explicit per-winding
+        # split is the more specific statement and must survive; silently
+        # zeroing it from the lumped pair would change the modelled impedance.
+        uri = "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json"
+        mixed = Dict{String,Any}(
+            "meta" => Dict{String,Any}("\$schema" => uri),
+            "transformer" => Dict{String,Any}("delta_wye" => Dict{String,Any}(
+                "t1" => Dict{String,Any}(
+                    "r_series" => 0.015, "x_series" => 0.0007,
+                    "r_series_from" => 0.004, "x_series_from" => 0.002))))
+        BMOPFTools.migrate(mixed)
+        tx = mixed["transformer"]["delta_wye"]["t1"]
+        @test tx["r_series_from"] ≈ 0.004
+        @test tx["x_series_from"] ≈ 0.002
+
+        # Only one lumped quantity present: both are still written, so no
+        # downstream builder reads a missing field instead of an explicit zero.
+        partial = Dict{String,Any}(
+            "meta" => Dict{String,Any}("\$schema" => uri),
+            "transformer" => Dict{String,Any}("wye_delta" => Dict{String,Any}(
+                "t1" => Dict{String,Any}("x_series" => 0.0007))))
+        BMOPFTools.migrate(partial)
+        tx = partial["transformer"]["wye_delta"]["t1"]
+        @test tx["x_series_from"] ≈ 0.0007
+        @test tx["x_series_to"] == 0.0
+        @test tx["r_series_from"] == 0.0
+        @test tx["r_series_to"] == 0.0
+        @test !haskey(tx, "x_series") && !haskey(tx, "r_series")
+    end
+
+    @testset "Migration — lumped leakage lands on the wye winding's base" begin
+        # The side the lumped pair lands on is otherwise only guarded by the
+        # from_dss/OpenDSS power-flow comparison. Pin the convention directly:
+        # a wrong-side referral is off by (v_from/v_to)^2 (~700x here), so
+        # these two fixtures — wye on the HV side, then wye on the LV side —
+        # discriminate "wye winding" from "winding 1" and from "HV side".
+        dir = joinpath(@__DIR__, "data", "pf_comparison")
+
+        # pf_yd_xfmr.dss: 500 kVA, 11 kV wye / 415 V delta, %r=1.0 per winding
+        # (2 % total), xhl=4.0. Wye winding is the FROM side.
+        yd = first(values(from_dss(joinpath(dir, "pf_yd_xfmr.dss"))["transformer"]["wye_delta"]))
+        z_base_hv = 11.0^2 / 0.5                      # Ω, on kVLL / MVA
+        @test yd["r_series_from"] ≈ 0.02 * z_base_hv  # 4.84 Ω
+        @test yd["x_series_from"] ≈ 0.04 * z_base_hv  # 9.68 Ω
+        @test yd["r_series_to"] == 0.0 && yd["x_series_to"] == 0.0
+
+        # pf_dy_xfmr.dss: same ratings, 11 kV delta / 415 V wye. Wye winding is
+        # the TO side, and it is winding 2 and the LV side — so agreeing with
+        # the wye rule here rules out both other readings.
+        dy = first(values(from_dss(joinpath(dir, "pf_dy_xfmr.dss"))["transformer"]["delta_wye"]))
+        z_base_lv = 0.415^2 / 0.5                     # Ω
+        @test dy["r_series_to"] ≈ 0.02 * z_base_lv    # 0.006889 Ω
+        @test dy["x_series_to"] ≈ 0.04 * z_base_lv    # 0.013778 Ω
+        @test dy["r_series_from"] == 0.0 && dy["x_series_from"] == 0.0
     end
 
     @testset "Schema — own output validates (layer drift)" begin

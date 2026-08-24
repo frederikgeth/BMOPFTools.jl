@@ -17,10 +17,17 @@
 # internal version tag symbols. Entries should be added in chronological order.
 const _SPEC_VERSIONS = Dict{String,Symbol}(
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json" => :draft,
-    # Published BMOPF 0.1.0 URI emitted by PowerIO 0.8+.
+    # Published BMOPF 0.1.0 URI emitted by PowerIO 0.8+. NOTE: this is a
+    # DIFFERENT DATA MODEL from the `draft_schema_and_networks` alias below,
+    # despite the near-identical path — 0.1.0 uppercases the load-model enums,
+    # carries three-phase transformer leakage as one lumped pair on the wye
+    # base, and parks transformer controls and the extension tables under
+    # `extras`. Declaring this URI therefore triggers a rewrite of the dict
+    # (`_migrate_v0_1_0_to_draft!`); declaring the alias does not. Do not
+    # collapse the two entries.
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json" => :v0_1_0,
     # Legacy URI written by earlier exports (e.g. output/LV, output/MV cases);
-    # same draft data model, kept as an accepted alias.
+    # same draft data model as the internal shape, kept as an accepted alias.
     "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks" => :draft,
 )
 
@@ -131,11 +138,24 @@ function _migrate_v0_1_0_to_draft!(net::Dict{String,Any})
             other_side = wye_side == "from" ? "to" : "from"
             for transformer in values(collection)
                 transformer isa AbstractDict || continue
+                # Only migrate a genuinely lumped unit, and never overwrite a
+                # per-winding value that is already there — same guard as
+                # `_migrate_one_transformer_series_fields!`. A dict carrying
+                # both forms is ambiguous; the explicit per-winding split is
+                # the more specific statement, so it wins and the stray lumped
+                # pair is left untouched (that function declines it too).
+                any(haskey(transformer, "$(quantity)_series")
+                    for quantity in ("r", "x")) || continue
+                any(haskey(transformer, "$(quantity)_series_$(side)")
+                    for quantity in ("r", "x"), side in ("from", "to")) && continue
+                # Both quantities are written, even when only one lumped field
+                # is present: a half-migrated transformer with an `x_series_to`
+                # but no `r_series_*` at all would leave the OPF and Ybus
+                # builders reading a missing field instead of an explicit zero.
                 for quantity in ("r", "x")
                     lumped = "$(quantity)_series"
-                    haskey(transformer, lumped) || continue
                     transformer["$(quantity)_series_$(wye_side)"] =
-                        Float64(transformer[lumped])
+                        haskey(transformer, lumped) ? Float64(transformer[lumped]) : 0.0
                     transformer["$(quantity)_series_$(other_side)"] = 0.0
                     delete!(transformer, lumped)
                 end

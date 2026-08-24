@@ -298,7 +298,7 @@ fixtures above:
   compares to OpenDSS, matching voltages and total losses. It guards the
   no-load shunt normalization — placed on **winding 2** (the OpenDSS
   convention), including the magnetising susceptance (`%imag` → negative
-  `b_no_load`) — and the `delta_wye` leakage carried by PowerIO v0.7's BMOPF
+  `b_no_load`) — and the `delta_wye` leakage carried by PowerIO v0.9's BMOPF
   export, plus the `phases=1` requirement on grounding reactors without which
   the Dy neutral floats and the solve diverges.
 - **Transformer `Yprim` matches OpenDSS** (`single_phase`, `center_tap`,
@@ -331,7 +331,7 @@ fixtures above:
   and the OPF↔`Yprim` setpoint gate.
 - **PowerIO import fidelity** (`from_dss`): fixed off-nominal `taps=`, neutral
   grounding, and validated 3-phase 3-winding transformers arrive through
-  PowerIO v0.7's BMOPF export and are checked end to end against OpenDSS.
+  PowerIO v0.9's BMOPF export and are checked end to end against OpenDSS.
   Unsupported winding sets refuse loudly.
 
 ### System nodal admittance gates

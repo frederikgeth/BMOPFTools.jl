@@ -131,10 +131,13 @@ BMOPF conventions:
   (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
 - **Transformer impedance normalisation** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
-- **Transformer fidelity** — PowerIO v0.7 emits BMOPF transformer neutral
+- **Transformer fidelity** — PowerIO v0.9 emits BMOPF transformer neutral
   grounding, fixed taps, center-tap leakage, delta-wye leakage, and the validated
-  `n_winding` cases directly. BMOPFTools still normalizes the no-load shunt sign
-  and placement to its OPF convention.
+  `n_winding` cases. Under BMOPF 0.1.0 the controls (`tap`, `r_neutral_*`,
+  `x_neutral_*`, `g_no_load`, `b_no_load`) and the extension tables arrive under
+  a top-level `extras` block; `migrate` lifts them back onto the objects they
+  belong to (below). BMOPFTools still normalizes the no-load shunt sign and
+  placement to its OPF convention.
 - **System frequency capture** — the OpenDSS base frequency (`Set
   DefaultBaseFreq`, itself defaulting to 60 Hz; European decks set it to 50)
   is otherwise absent from BMOPF impedance data, so `from_dss` reads
@@ -179,9 +182,9 @@ net["_meta"]["powerio_source"]        # absolute path of the parsed .dss file
 
 PowerIO 0.9 returns owned diagnostic records, so the list is complete even for
 large feeders. BMOPFTools stores their rendered, code-prefixed text as strings
-to keep the network dict JSON-serializable. The [source field ledger](@ref
-source-field-ledger) below classifies those diagnostics by source object and
-field.
+to keep the network dict JSON-serializable. The
+[source field ledger](@ref source-field-ledger) below classifies those
+diagnostics by source object and field.
 
 Because the list is ordinary data on the dict, it survives into any
 downstream processing and can be filtered like any vector, e.g.
@@ -235,6 +238,15 @@ An empty `blocking_unmapped_fields` is a fidelity statement **only** when
 `warning_status == "parsed"`. Under any other status the ledger did not see the
 whole input, and `from_dss` emits a warning saying so.
 
+`truncated_upstream` and `warnings_truncated_upstream` cover a condition that
+the currently supported parser cannot produce: PowerIO ≤ 0.7 capped its warning
+channel and appended a `... warning list truncated at 4096 bytes` sentinel,
+past which the dropped fields were unrecoverable. PowerIO 0.9 returns owned
+diagnostic records instead, so the list is always complete and the status is
+never `truncated_upstream`. The keys are kept — a status that silently
+disappears is worse than one that stays and reads `false` — but on a supported
+build they are a constant.
+
 Two source semantics have no BMOPF field but are preserved rather than dropped,
 on `net["_meta"]["powerio_source_semantics"]`: an OpenDSS load's `vminpu` /
 `vmaxpu` (the voltage domain over which its load law is valid — *not* a bus
@@ -276,12 +288,30 @@ recorded under `net["_meta"]["earth_terminal_routing"]` so it stays inspectable.
 ### Transformer impedance on ingest
 
 PowerIO emits `wye_delta`/`delta_wye` units with a **single lumped**
-`r_series`/`x_series` (wye-side, delta ideal) rather than the per-winding T-model
-the OPF and Ybus builders read. The lumped form is **normalised at parse time**
-by `migrate` / `_migrate_transformer_series_fields!`: it is moved onto
-`r_series_from`/`x_series_from` (with the secondary branch zero) and a
-`W.MIGRATE.XFMR_SERIES_FIELDS` note is recorded. The percentage→ohm conversions
-PowerIO performs upstream — and that `to_pmd` reverses — are tabulated under
+`r_series`/`x_series` rather than the per-winding T-model the OPF and Ybus
+builders read. The lumped value is referred to the **wye winding's** base — the
+delta base is ambiguous by √3, so the wye side is the unambiguous one — which
+is the *from* side of a `wye_delta` and the *to* side of a `delta_wye`.
+
+The lumped form is **normalised at parse time**, onto that same side so the
+electrical base is unchanged, with the other branch set to zero:
+
+| Source | Migration | Lumped value lands on | Note code |
+|---|---|---|---|
+| BMOPF 0.1.0 (PowerIO 0.8+) | `_migrate_v0_1_0_to_draft!` | `_from` for `wye_delta`, `_to` for `delta_wye` | `W.MIGRATE.BMOPF_0_1_0` |
+| Hand-written / pre-per-winding JSON | `_migrate_transformer_series_fields!` | `_from` (no wye side is declared) | `W.MIGRATE.XFMR_SERIES_FIELDS` |
+
+Both run from `migrate`, and both leave a note on
+`net["_meta"]["migration_notes"]`. A dict that already carries the per-winding
+fields is never overwritten.
+
+For example, the 500 kVA 11 kV delta / 415 V wye unit in
+`test/data/pf_comparison/pf_dy_xfmr.dss` (`%r=1.0` per winding, `xhl=4.0`)
+arrives as `r_series_to = 0.02 × 0.415² / 0.5 = 0.006889 Ω` and
+`x_series_to = 0.013778 Ω`, with both `_from` fields zero.
+
+The percentage→ohm conversions PowerIO performs upstream — and that `to_pmd`
+reverses — are tabulated under
 [Transformer impedance bases](#Transformer-impedance-bases).
 
 ### [Capacitor banks](@id capacitor)
@@ -390,7 +420,7 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
   `√3`/coil-base factor lives in `v_nom`, so `r_winding`/`x_sc` are on the coil
   base `n_ph·v_nom²/s_rating` and per-unit needs no `√3` correction.
 
-Ingest and export status: PowerIO v0.7 emits `n_winding` from its BMOPF export
+Ingest and export status: PowerIO v0.9 emits `n_winding` from its BMOPF export
 for the validated OpenDSS cases. `to_pmd` **skips** `n_winding` transformers
 with a warning, since PowerModelsDistribution has no general n-winding model.
 The OPF/PF model is validated to match OpenDSS's own 3-winding solve.
@@ -559,7 +589,8 @@ b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       /
     The winding split of the leakage is convention-dependent (see above): PMD's
     star conversion (`_sc2br_impedance`) puts the *entire* `xhl` on the
     winding-1 (HV) branch with zero on the LV branch, while PowerIO's BMOPF
-    export — what [`from_dss`](@ref) delivers — splits it evenly in percent.
+    export — what [`from_dss`](@ref) delivers — carries a single lumped total
+    on the wye winding's base, which lands entirely on that side.
     BMOPFTools accepts either; the physics (the series sum, and the exact
     tap² referral of the tapped winding's share) is convention-independent.
     Any lumped single-impedance form is migrated onto the per-winding fields

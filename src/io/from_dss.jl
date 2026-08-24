@@ -302,6 +302,34 @@ function powerio_source_behavior_contract(
     )
 end
 
+"""
+Demonstrate that an OpenDSS load `pf` actually reached the converted load, by
+reproducing it: BMOPF carries no power factor, so the only evidence that `pf`
+was honoured is `q_nom` standing in the ratio `pf` prescribes to `p_nom`. The
+weaker "both vectors are finite" test would be satisfied by every converted
+load whether or not `pf` was read, which is exactly the silent-fidelity-gap the
+ledger exists to rule out. Magnitudes only: the lead/lag sign convention is the
+parser's, and a sign flip is not evidence that `pf` was ignored.
+"""
+function _powerio_pf_is_demonstrated(raw_pf, converted::AbstractDict)::Bool
+    pf = _powerio_float(raw_pf)
+    (pf === nothing || abs(pf) > 1.0) && return false
+    p_nom = get(converted, "p_nom", nothing)
+    q_nom = get(converted, "q_nom", nothing)
+    (p_nom isa AbstractVector && q_nom isa AbstractVector) || return false
+    (isempty(p_nom) || length(p_nom) != length(q_nom)) && return false
+    tan_phi = tan(acos(abs(pf)))
+    for (p_raw, q_raw) in zip(p_nom, q_nom)
+        p = _powerio_float(p_raw)
+        q = _powerio_float(q_raw)
+        (p === nothing || q === nothing) && return false
+        expected = abs(p) * tan_phi
+        isapprox(abs(q), expected; rtol = 1e-6, atol = 1e-6 * (1.0 + abs(p))) ||
+            return false
+    end
+    return true
+end
+
 """Record source fields that are demonstrably represented by BMOPF fields."""
 function _powerio_bmopf_field_mapping(dn, net)
     by_field = Dict{String,Any}()
@@ -313,7 +341,8 @@ function _powerio_bmopf_field_mapping(dn, net)
     )
         scopes = String[]
         for item in PowerIO.loads(dn)
-            _powerio_extra(item, field) === nothing && continue
+            raw = _powerio_extra(item, field)
+            raw === nothing && continue
             name = lowercase(string(getproperty(item, :name)))
             converted = get(load_net, name, nothing)
             converted isa AbstractDict || continue
@@ -325,9 +354,7 @@ function _powerio_bmopf_field_mapping(dn, net)
             elseif field == "phases"
                 haskey(converted, "terminal_map") && haskey(converted, "configuration") || continue
             else
-                values = (get(converted, "p_nom", nothing), get(converted, "q_nom", nothing))
-                all(value -> value isa AbstractVector && !isempty(value) &&
-                    all(entry -> entry isa Real && isfinite(Float64(entry)), value), values) || continue
+                _powerio_pf_is_demonstrated(raw, converted) || continue
             end
             push!(scopes, _powerio_scope("load", name))
         end
