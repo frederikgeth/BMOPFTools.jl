@@ -177,11 +177,11 @@ println.(net["_meta"]["powerio_warnings"]);   # print them all, one per line
 net["_meta"]["powerio_source"]        # absolute path of the parsed .dss file
 ```
 
-The list is capped by the parser's per-call channel: on a large feeder its last
-entry reads `... warning list truncated at 4096 bytes`, and the warnings past
-that point are gone. The [source field ledger](@ref source-field-ledger) below
-reports that condition explicitly rather than presenting a short list as a
-complete one.
+PowerIO 0.9 returns owned diagnostic records, so the list is complete even for
+large feeders. BMOPFTools stores their rendered, code-prefixed text as strings
+to keep the network dict JSON-serializable. The [source field ledger](@ref
+source-field-ledger) below classifies those diagnostics by source object and
+field.
 
 Because the list is ordinary data on the dict, it survives into any
 downstream processing and can be filtered like any vector, e.g.

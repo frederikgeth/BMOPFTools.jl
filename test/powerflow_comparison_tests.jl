@@ -2696,7 +2696,7 @@ end
         ("pf_dy_xfmr.dss",  "delta_wye",    1.0),
         ("pf_dy_xfmr.dss",  "delta_wye",    0.97),
         # rneut/xneut fixture: unbalanced load + internal neutral grounding
-        # carried through by PowerIO v0.7.
+        # carried through by PowerIO v0.9.
         ("pf_dy_xfmr_rneut.dss", "delta_wye", 1.0),
     )
     for (fname, sub, tapm) in cases

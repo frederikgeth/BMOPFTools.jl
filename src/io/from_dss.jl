@@ -143,7 +143,12 @@ function _powerio_mapping_policy(field::AbstractString,
 end
 
 function _powerio_warning_scope(message)
-    tokens = split(strip(String(message)))
+    # PowerIO 0.9 prefixes rendered diagnostics with their stable code, e.g.
+    # `EMIT.BMOPF.FIELD_DROPPED: load ld1: ...`. Strip that transport-level
+    # prefix before recovering the element kind and identifier. Older warning
+    # strings without a code continue through unchanged.
+    text = replace(strip(String(message)), r"^[A-Z][A-Z0-9_.-]*:\s*" => "")
+    tokens = split(text)
     length(tokens) >= 3 || return "unknown"
     if tokens[1] == "voltage" && tokens[2] == "source"
         return _powerio_scope("source", replace(tokens[3], ":" => ""))
@@ -304,6 +309,7 @@ function _powerio_bmopf_field_mapping(dn, net)
     for (field, target, transform) in (
         ("kv", "load.v_nom", "kV_to_volts"),
         ("phases", "load.terminal_map/configuration", "source_phase_count_to_terminal_structure"),
+        ("pf", "load.p_nom/q_nom", "active_power_and_power_factor_to_reactive_power"),
     )
         scopes = String[]
         for item in PowerIO.loads(dn)
@@ -316,8 +322,12 @@ function _powerio_bmopf_field_mapping(dn, net)
                 vals = converted["v_nom"]
                 vals isa AbstractVector && !isempty(vals) || continue
                 all(value -> value isa Real && isfinite(Float64(value)), vals) || continue
-            else
+            elseif field == "phases"
                 haskey(converted, "terminal_map") && haskey(converted, "configuration") || continue
+            else
+                values = (get(converted, "p_nom", nothing), get(converted, "q_nom", nothing))
+                all(value -> value isa AbstractVector && !isempty(value) &&
+                    all(entry -> entry isa Real && isfinite(Float64(entry)), value), values) || continue
             end
             push!(scopes, _powerio_scope("load", name))
         end
@@ -620,7 +630,11 @@ function from_dss(path::AbstractString;
     # no earth wire — the OpenDSS earth node is routed to neutral, ground stays
     # implicit). from_dss knows the mapping it just applied, so this is declared
     # rather than left to be inferred downstream (W.CONV.TERMINAL_ROLES_INFERRED).
-    get!(net, "terminal_conventions", _terminal_conventions_dict(net))
+    # PowerIO 0.9's BMOPF 0.1.0 output describes the original OpenDSS numeric
+    # labels here.  They are stale after the numeric-to-a/b/c/n remap above, so
+    # rebuild the declaration from the remapped bus terminals.
+    pop!(net, "terminal_conventions", nothing)
+    net["terminal_conventions"] = _terminal_conventions_dict(net)
 
     # Store conversion warnings so callers can inspect fidelity losses, and
     # surface an aggregate @warn so the losses are visible even when the
@@ -682,7 +696,7 @@ end
     powerio_version() -> String
 
 Return the version of the PowerIO.jl package backing [`from_dss`](@ref),
-e.g. `"PowerIO.jl 0.7.2"`. Useful for pinning test expectations and bug reports.
+e.g. `"PowerIO.jl 0.9.0"`. Useful for pinning test expectations and bug reports.
 """
 function powerio_version()::String
     string("PowerIO.jl ", pkgversion(PowerIO))

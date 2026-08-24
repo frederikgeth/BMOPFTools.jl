@@ -17,6 +17,8 @@
 # internal version tag symbols. Entries should be added in chronological order.
 const _SPEC_VERSIONS = Dict{String,Symbol}(
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json" => :draft,
+    # Published BMOPF 0.1.0 URI emitted by PowerIO 0.8+.
+    "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json" => :v0_1_0,
     # Legacy URI written by earlier exports (e.g. output/LV, output/MV cases);
     # same draft data model, kept as an accepted alias.
     "https://github.com/frederikgeth/bmopf-report/draft_schema_and_networks" => :draft,
@@ -55,6 +57,14 @@ Called automatically by [`parse_bmopf`](@ref); can also be called directly on
 an already-parsed dict.
 """
 function migrate(net::Dict{String,Any})::Dict{String,Any}
+    v = _detect_spec_version(net)
+
+    # BMOPF 0.1.0 changed load-model enum casing, put three-phase transformer
+    # leakage on the wye base, and moved extension tables/transformer controls
+    # under `extras`. Restore BMOPFTools' richer internal representation before
+    # the version-independent field migrations run.
+    v == :v0_1_0 && _migrate_v0_1_0_to_draft!(net)
+
     # Field-level migrations run unconditionally (independent of spec version).
     _migrate_transformer_series_fields!(net)
     _migrate_field_renames!(net)
@@ -82,6 +92,114 @@ function migrate(net::Dict{String,Any})::Dict{String,Any}
     # (currently empty: only one spec version exists)
 
     return net
+end
+
+const _V0_1_TRANSFORMER_EXTRA_FIELDS = (
+    "tap", "tap_min", "tap_max",
+    "tap_ratio", "tap_ratio_min", "tap_ratio_max",
+    "r_neutral_from", "x_neutral_from", "r_neutral_to", "x_neutral_to",
+    "g_no_load", "b_no_load",
+)
+
+const _V0_1_RELOCATED_TABLES = (
+    "ibr", "control_profile", "dc_bus", "dc_branch", "dc_grounding",
+    "dc_load", "dc_source", "time_series",
+)
+
+"""Migrate the published BMOPF 0.1.0 wire shape to the internal draft shape."""
+function _migrate_v0_1_0_to_draft!(net::Dict{String,Any})
+    # 0.1.0 spells load-model enums in uppercase. Internally BMOPFTools uses
+    # lowercase tokens throughout its schema, validation, and model builders.
+    loads = get(net, "load", nothing)
+    if loads isa AbstractDict
+        for load in values(loads)
+            load isa AbstractDict || continue
+            model = get(load, "model", nothing)
+            model isa AbstractString && (load["model"] = lowercase(String(model)))
+        end
+    end
+
+    # Three-phase leakage is one lumped pair referred to the wye winding in
+    # 0.1.0. Split it into BMOPFTools' per-winding T-model without changing its
+    # electrical base: FROM for wye_delta, TO for delta_wye.
+    transformers = get(net, "transformer", nothing)
+    if transformers isa AbstractDict
+        for subtype in ("wye_delta", "delta_wye")
+            collection = get(transformers, subtype, nothing)
+            collection isa AbstractDict || continue
+            wye_side = subtype == "wye_delta" ? "from" : "to"
+            other_side = wye_side == "from" ? "to" : "from"
+            for transformer in values(collection)
+                transformer isa AbstractDict || continue
+                for quantity in ("r", "x")
+                    lumped = "$(quantity)_series"
+                    haskey(transformer, lumped) || continue
+                    transformer["$(quantity)_series_$(wye_side)"] =
+                        Float64(transformer[lumped])
+                    transformer["$(quantity)_series_$(other_side)"] = 0.0
+                    delete!(transformer, lumped)
+                end
+            end
+        end
+    end
+
+    extras = get(net, "extras", nothing)
+    if extras isa AbstractDict
+        _restore_v0_1_transformer_extras!(net, extras)
+        for table in _V0_1_RELOCATED_TABLES
+            relocated = get(extras, table, nothing)
+            relocated isa AbstractDict || continue
+            destination = get!(net, table, Dict{String,Any}())
+            destination isa AbstractDict || continue
+            for id in collect(keys(relocated))
+                haskey(destination, id) && continue
+                destination[id] = relocated[id]
+                delete!(relocated, id)
+            end
+            isempty(relocated) && delete!(extras, table)
+        end
+        isempty(extras) && delete!(net, "extras")
+    end
+
+    original_uri = get(get(net, "meta", Dict()), "\$schema", nothing)
+    get!(net, "meta", Dict{String,Any}())["\$schema"] = _BMOPF_SCHEMA_URI
+    meta = get!(net, "_meta", Dict{String,Any}())
+    notes = get!(meta, "migration_notes", Any[])
+    push!(notes, Dict(
+        "code" => "W.MIGRATE.BMOPF_0_1_0",
+        "from_schema" => original_uri,
+        "to_schema" => _BMOPF_SCHEMA_URI,
+        "message" => "Migrated BMOPF 0.1.0 enums, transformer leakage, and relocated extras to the BMOPFTools internal representation.",
+    ))
+    return net
+end
+
+function _restore_v0_1_transformer_extras!(net::Dict{String,Any}, extras::AbstractDict)
+    relocated = get(extras, "transformer", nothing)
+    relocated isa AbstractDict || return
+    transformers = get(net, "transformer", nothing)
+    transformers isa AbstractDict || return
+    for subtype in collect(keys(relocated))
+        by_id = relocated[subtype]
+        by_id isa AbstractDict || continue
+        destination = get(transformers, subtype, nothing)
+        destination isa AbstractDict || continue
+        for id in collect(keys(by_id))
+            fields = by_id[id]
+            fields isa AbstractDict || continue
+            transformer = get(destination, id, nothing)
+            transformer isa AbstractDict || continue
+            for field in _V0_1_TRANSFORMER_EXTRA_FIELDS
+                haskey(fields, field) || continue
+                haskey(transformer, field) || (transformer[field] = fields[field])
+                delete!(fields, field)
+            end
+            isempty(fields) && delete!(by_id, id)
+        end
+        isempty(by_id) && delete!(relocated, subtype)
+    end
+    isempty(relocated) && delete!(extras, "transformer")
+    return
 end
 
 """

@@ -2537,6 +2537,38 @@ const IEEE13_FIXTURE = """
         @test net2["transformer"]["delta_wye"]["t1"]["r_series_from"] ≈ 0.015
     end
 
+    @testset "Migration — published BMOPF 0.1.0 → internal model" begin
+        uri = "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json"
+        json = """
+        {"meta":{"\$schema":"$uri"},
+         "bus":{"hv":{"terminal_names":["a","b","c"]},
+                "lv":{"terminal_names":["a","b","c","n"]}},
+         "load":{"ld1":{"bus":"lv","terminal_map":["a","n"],
+             "configuration":"SINGLE_PHASE","model":"CONSTANT_POWER",
+             "p_nom":[100.0],"q_nom":[20.0]}},
+         "transformer":{"delta_wye":{"t1":{
+             "bus_from":"hv","bus_to":"lv",
+             "terminal_map_from":["a","b","c"],"terminal_map_to":["a","b","c","n"],
+             "v_nom_from":11000.0,"v_nom_to":433.0,"s_rating":100000.0,
+             "r_series":0.015,"x_series":0.0007}}},
+         "extras":{"transformer":{"delta_wye":{"t1":{
+             "tap":1.02,"r_neutral_to":2.0,"x_neutral_to":1.0}}}}}
+        """
+        net = parse_bmopf(json; from_string=true)
+        tx = net["transformer"]["delta_wye"]["t1"]
+        @test net["load"]["ld1"]["model"] == "constant_power"
+        @test tx["r_series_from"] == 0.0
+        @test tx["x_series_from"] == 0.0
+        @test tx["r_series_to"] ≈ 0.015
+        @test tx["x_series_to"] ≈ 0.0007
+        @test tx["tap"] ≈ 1.02
+        @test tx["r_neutral_to"] ≈ 2.0
+        @test tx["x_neutral_to"] ≈ 1.0
+        @test net["meta"]["\$schema"] == BMOPFTools._BMOPF_SCHEMA_URI
+        @test any(n -> n["code"] == "W.MIGRATE.BMOPF_0_1_0",
+                  net["_meta"]["migration_notes"])
+    end
+
     @testset "Schema — own output validates (layer drift)" begin
         # Regression: the bundled JSON schema only allowed the legacy lumped
         # r_series/x_series on wye/delta transformers and had no time_series
@@ -3491,7 +3523,7 @@ const IEEE13_FIXTURE = """
     # (PowerIO.jl). PowerIO is a hard dependency, so this always runs.
     # --------------------------------------------------------------------------
     @testset "OpenDSS generator conversion via PowerIO" begin
-        @test startswith(BMOPFTools.powerio_version(), "PowerIO.jl 0.7.")
+        @test startswith(BMOPFTools.powerio_version(), "PowerIO.jl 0.9.")
         net = from_dss(joinpath(@__DIR__, "data", "issue190_generator.dss"))
 
         @test haskey(net, "generator")
@@ -3701,12 +3733,11 @@ const IEEE13_FIXTURE = """
         end
         @test mapping["blocking_unmapped_fields"] == String[]
 
-        # PowerIO caps its warning channel, so on this feeder the ledger is
-        # built from a truncated list and has to say so rather than presenting
-        # an empty blocking list as a fidelity proof.
-        @test any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
-        @test mapping["warnings_truncated_upstream"] == true
-        @test mapping["warning_status"] == "truncated_upstream"
+        # PowerIO 0.9 returns owned diagnostic records, so even this feeder's
+        # long list is complete and the ledger can make a fidelity statement.
+        @test !any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
+        @test mapping["warnings_truncated_upstream"] == false
+        @test mapping["warning_status"] == "parsed"
 
         # The same field name is only benign for the kind it was classified on:
         # a `length` dropped from a line would still block.
@@ -3765,11 +3796,12 @@ const IEEE13_FIXTURE = """
             tx = first(values(xfmr["delta_wye"]))
             @test tx["v_nom_from"] > tx["v_nom_to"]               # step-down
             @test tx["v_nom_from"] / tx["v_nom_to"] ≈ 11.0/0.433  rtol=0.02
-            # PowerIO emits a lumped Γ-model; the parse-time migration normalises
-            # it to the per-winding fields the OPF/Ybus builders consume, so a
-            # nonzero leakage impedance reaches them (not silently zero).
-            @test haskey(tx, "r_series_from") && tx["r_series_from"] > 0
-            @test haskey(tx, "x_series_from") && tx["x_series_from"] > 0
+            # PowerIO 0.9 emits the lumped Γ-model impedance on the wye base;
+            # this delta-wye transformer's wye winding is the to side. The
+            # parse-time migration normalises it to the per-winding fields the
+            # OPF/Ybus builders consume, so nonzero leakage reaches them.
+            @test haskey(tx, "r_series_to") && tx["r_series_to"] > 0
+            @test haskey(tx, "x_series_to") && tx["x_series_to"] > 0
             @test !haskey(tx, "r_series") && !haskey(tx, "x_series")
             # spec arity: delta side 3 terminals, wye side 4 (incl. neutral)
             @test length(tx["terminal_map_from"]) == 3
