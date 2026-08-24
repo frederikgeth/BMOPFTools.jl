@@ -3564,6 +3564,197 @@ const IEEE13_FIXTURE = """
         @test parse_bmopf(path)["meta"]["frequency"] == 50.0
     end
 
+    @testset "from_dss — source provenance and BMOPF field mapping" begin
+        source_path = joinpath(@__DIR__, "data", "pf_comparison", "pf_delta_load.dss")
+        net = from_dss(source_path)
+        source_meta = net["_meta"]["powerio_source_metadata"]
+        @test source_meta["source_format"] == "dss"
+        @test source_meta["field_count"] == 9
+        @test Set(source_meta["fields"]) == Set([
+            "angle", "basekv", "conn", "kv", "model", "phases", "units", "vmaxpu", "vminpu",
+        ])
+        @test haskey(source_meta["by_scope"], "load:d12")
+        @test "vminpu" in source_meta["by_scope"]["load:d12"]
+
+        mapping = net["_meta"]["powerio_source_mapping"]
+        @test net["_meta"]["powerio_source_mapped_fields"] ==
+              ["angle", "basekv", "kv", "model", "phases", "vmaxpu", "vminpu"]
+        @test mapping["fields"] ==
+              ["angle", "basekv", "kv", "model", "phases", "vmaxpu", "vminpu"]
+        @test mapping["by_field"]["kv"]["target"] == "load.v_nom"
+        @test mapping["by_field"]["kv"]["transform"] == "kV_to_volts"
+        @test mapping["by_field"]["phases"]["target"] == "load.terminal_map/configuration"
+        @test mapping["by_field"]["basekv"]["status"] == "mapped_with_transform"
+        @test mapping["by_field"]["angle"]["target"] == "voltage_source.v_angle"
+        @test mapping["unmapped_fields"] == ["units"]
+        @test isempty(mapping["blocking_unmapped_fields"])
+        @test mapping["by_field"]["model"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["model"]["target"] == "voltage_source.v_magnitude/v_angle"
+        @test mapping["by_field"]["model"]["scopes"] == ["source:source"]
+        @test mapping["by_field"]["vminpu"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["vmaxpu"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["vminpu"]["impact"] == "physical_or_operating_point"
+        @test mapping["by_field"]["vminpu"]["reason"] ==
+              "preserved_as_load_behavior_contract_not_bus_voltage_bound"
+        @test mapping["by_field"]["vminpu"]["active_in_original_model"] == false
+        @test mapping["by_field"]["vminpu"]["target"] ==
+              "_meta.powerio_source_semantics.load_voltage_thresholds"
+        @test mapping["by_field"]["units"]["physical_readiness_blocking"] == false
+        semantics = net["_meta"]["powerio_source_semantics"]
+        @test semantics["load_voltage_thresholds"][1]["status"] == "observed_ordered"
+        @test semantics["load_voltage_thresholds"][1]["vminpu"] == 0.0
+        @test semantics["load_voltage_thresholds"][1]["vmaxpu"] == 2.0
+        @test semantics["voltage_source_models"][1]["status"] ==
+              "represented_as_fixed_voltage_boundary"
+
+        behavior = powerio_source_behavior_contract(net)
+        @test behavior["contract_version"] == "powerio_source_behavior/v1"
+        @test behavior["mutation_policy"] == "non_mutating"
+        @test behavior["constraint_policy"] == "observation_only"
+        @test behavior["source_semantics_available"] == true
+        @test behavior["active_constraints_added"] == false
+        @test behavior["threshold_observation_count"] == 3
+        @test behavior["eligible_candidate_count"] == 3
+        @test behavior["auxiliary_constraint_candidates"] == Dict{String,Any}[]
+        @test behavior["load_voltage_behavior"][1]["bus"] == "lb"
+        @test behavior["load_voltage_behavior"][1]["constraint_candidate_status"] ==
+              "eligible_terminal_voltage_ratio_candidate"
+
+        planned = powerio_source_behavior_contract(net;
+            plan_auxiliary_constraints = true)
+        @test planned["constraint_policy"] == "candidate_plan"
+        @test length(planned["auxiliary_constraint_candidates"]) == 3
+        @test all(!candidate["active_in_original_model"] for candidate in
+                  planned["auxiliary_constraint_candidates"])
+        @test all(candidate["materialization"] == "not_materialized" for candidate in
+                  planned["auxiliary_constraint_candidates"])
+
+        roundtrip_path = joinpath(mktempdir(), "source_mapping.json")
+        write_bmopf(net, roundtrip_path)
+        roundtrip = parse_bmopf(roundtrip_path)
+        @test roundtrip["_meta"]["powerio_source_mapping"]["fields"] == mapping["fields"]
+        @test roundtrip["_meta"]["powerio_source_metadata"]["field_count"] == 9
+    end
+
+    @testset "from_dss — source ledger is case-folded and honest" begin
+        source_path = joinpath(@__DIR__, "data", "pf_comparison", "pf_delta_load.dss")
+        # OpenDSS identifiers are case-insensitive, and the ledger joins scopes
+        # built from the converted objects against scopes parsed out of PowerIO's
+        # warning text. Both sides must fold case or a complete mapping reads as
+        # a partial one and lands in blocking_unmapped_fields.
+        mixed_path = joinpath(mktempdir(), "pf_delta_load_mixed_case.dss")
+        write(mixed_path, replace(read(source_path, String),
+            "d12" => "D12", "d23" => "D23", "d31" => "D31"))
+        lower = from_dss(source_path)["_meta"]
+        mixed = from_dss(mixed_path)["_meta"]
+        @test any(contains("load D12"), mixed["powerio_warnings"])
+        @test mixed["powerio_source_mapping"]["by_field"] ==
+              lower["powerio_source_mapping"]["by_field"]
+        @test mixed["powerio_source_mapping"]["blocking_unmapped_fields"] == String[]
+        @test mixed["powerio_source_metadata"]["by_scope"] ==
+              lower["powerio_source_metadata"]["by_scope"]
+        @test haskey(mixed["powerio_source_metadata"]["by_scope"], "load:d12")
+        for field in ("kv", "phases", "vminpu", "vmaxpu")
+            @test mixed["powerio_source_mapping"]["by_field"][field]["unmapped_scopes"] ==
+                  String[]
+        end
+
+        # Scope keys are the join key across all three _meta blocks.
+        semantics_scopes = Set(String[record["scope"] for record in
+            mixed["powerio_source_semantics"]["load_voltage_thresholds"]])
+        @test issubset(semantics_scopes,
+                       Set(keys(mixed["powerio_source_metadata"]["by_scope"])))
+
+        # Every by_field record carries the same keys, whether or not a warning
+        # happened to fire for that field.
+        for (field, record) in mixed["powerio_source_mapping"]["by_field"]
+            for key in ("status", "target", "transform", "mapped_scopes",
+                        "warned_scopes", "unmapped_scopes", "scopes", "scope_count",
+                        "impact", "physical_readiness_blocking", "reason")
+                @test haskey(record, key)
+            end
+            @test record["scopes"] ==
+                  sort!(union(record["mapped_scopes"], record["warned_scopes"]))
+            @test record["scope_count"] == length(record["scopes"])
+            @test record["unmapped_scopes"] ==
+                  sort!(setdiff(record["warned_scopes"], record["mapped_scopes"]))
+        end
+
+        mapping = mixed["powerio_source_mapping"]
+        @test mapping["warning_status"] == "parsed"
+        @test mapping["warnings_truncated_upstream"] == false
+        @test mapping["unclassified_warnings"] == String[]
+        @test mapping["warnings_classified"] == mapping["warnings_seen"]
+        @test mixed["powerio_source_metadata"]["extras_status"] == "available"
+        @test mixed["powerio_source_metadata"]["objects_with_extras"] > 0
+    end
+
+    @testset "from_dss — source ledger on a real feeder" begin
+        net = from_dss(joinpath(@__DIR__, "data", "LV", "LV1_14bus", "Master.dss"))
+        mapping = net["_meta"]["powerio_source_mapping"]
+        # OpenDSS carries a length and a linecode on a switch-as-line. BMOPF
+        # models a switch as an ideal closure, so dropping them changes no
+        # physics — the catch-all "unknown field ⇒ blocking" rule must not fire.
+        @test "length" in mapping["unmapped_fields"]
+        @test "linecode" in mapping["unmapped_fields"]
+        @test "length" ∉ mapping["blocking_unmapped_fields"]
+        @test "linecode" ∉ mapping["blocking_unmapped_fields"]
+        for field in ("length", "linecode")
+            record = mapping["by_field"][field]
+            @test record["physical_readiness_blocking"] == false
+            @test record["impact"] == "representational"
+            @test record["reason"] ==
+                  "switch_is_an_ideal_closure_with_no_series_impedance"
+            @test all(startswith("switch:"), record["unmapped_scopes"])
+        end
+        @test mapping["blocking_unmapped_fields"] == String[]
+
+        # PowerIO caps its warning channel, so on this feeder the ledger is
+        # built from a truncated list and has to say so rather than presenting
+        # an empty blocking list as a fidelity proof.
+        @test any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
+        @test mapping["warnings_truncated_upstream"] == true
+        @test mapping["warning_status"] == "truncated_upstream"
+
+        # The same field name is only benign for the kind it was classified on:
+        # a `length` dropped from a line would still block.
+        @test BMOPFTools._powerio_mapping_policy("length", ["switch:s1"]).blocking == false
+        @test BMOPFTools._powerio_mapping_policy("length", ["line:l1"]).blocking == true
+        @test BMOPFTools._powerio_mapping_policy(
+            "length", ["switch:s1", "line:l1"]).blocking == true
+    end
+
+    @testset "from_dss — unclassifiable fidelity losses are surfaced" begin
+        net = from_dss(joinpath(@__DIR__, "data", "SWER", "Master.dss"))
+        mapping = net["_meta"]["powerio_source_mapping"]
+        # A transformer %noloadloss drop is a real fidelity loss that names no
+        # single source field, so it cannot enter by_field. It must still be
+        # visible instead of silently vanishing from the ledger.
+        @test mapping["warning_status"] == "partially_classified"
+        @test !isempty(mapping["unclassified_warnings"])
+        @test any(contains("%noloadloss"), mapping["unclassified_warnings"])
+        @test all(warning -> isnothing(match(r"`([^`]+)`", warning)),
+                  mapping["unclassified_warnings"])
+        @test mapping["warnings_classified"] + length(mapping["unclassified_warnings"]) ==
+              mapping["warnings_seen"]
+    end
+
+    @testset "from_dss — ZIP load semantics are mapped by scope" begin
+        source_path = joinpath(@__DIR__, "data", "pf_comparison", "pf_zip_3ph.dss")
+        net = from_dss(source_path)
+        mapping = net["_meta"]["powerio_source_mapping"]
+        @test "zipv" in mapping["fields"]
+        @test mapping["by_field"]["zipv"]["target"] ==
+              "load.model/alpha_z/alpha_i/alpha_p/beta_z/beta_i/beta_p"
+        @test mapping["by_field"]["zipv"]["status"] == "mapped"
+        @test mapping["by_field"]["model"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["model"]["mapped_scopes"] ==
+              ["load:ld1", "load:ld2", "load:ld3", "source:source"]
+        @test mapping["by_field"]["model"]["unmapped_scopes"] == String[]
+        @test "zipv" ∉ mapping["blocking_unmapped_fields"]
+        @test "model" ∉ mapping["blocking_unmapped_fields"]
+    end
+
     @testset "LV1_14bus — OpenDSS integration" begin
         dss_master = joinpath(@__DIR__, "data", "LV", "LV1_14bus", "Master.dss")
 
