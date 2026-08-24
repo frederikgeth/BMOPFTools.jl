@@ -2400,6 +2400,54 @@ function opf_generation_cost_term end
 export opf_generation_cost_term
 
 """
+    opf_branch_currents(ctx, block, id; side=:from) -> Vector{(terminal, re, im)}
+    opf_neutral_current(ctx, block, id; side=:from) -> (re, im)
+    opf_sequence_current(ctx, block, id; side=:from, component=:zero) -> (re, im)
+
+Conductor currents at one end of a two-port element, in the model's working
+units. The sign is the current flowing INTO the element (out of the bus) — the
+conductor current, not the ledger's "into bus" convention.
+
+`opf_neutral_current` is the current in the neutral terminal: the quantity that
+physically heats a neutral conductor, and usually what a 4-wire unbalance study
+wants to reduce. For a 4-wire element with no parallel earth path it equals
+`−3·I₀`, so it and a zero-sequence penalty are the same objective up to a
+factor of three — but this one is in amps of real conductor current. It throws
+on a three-wire element rather than returning a zero that would silently make
+the penalty vanish.
+
+`opf_sequence_current` uses the same Fortescue convention as
+[`opf_sequence_voltage`](@ref) and requires exactly three phase terminals.
+
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function opf_branch_currents end
+export opf_branch_currents
+
+@doc (@doc opf_branch_currents)
+function opf_neutral_current end
+export opf_neutral_current
+
+@doc (@doc opf_branch_currents)
+function opf_sequence_current end
+export opf_sequence_current
+
+"""
+    opf_current_term(ctx, elements; quantity=:neutral, component=:zero,
+                     norm=:squared, weight=1.0)
+
+An [`OpfObjectiveTerm`](@ref) penalising branch currents over `elements`, each
+`(block, id)` or `(block, id, side)`. `quantity` is `:neutral` or `:sequence`.
+
+Converted to amps before reduction, so elements at different voltage levels are
+weighted on one physical footing and the weight is unit-mode independent.
+
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function opf_current_term end
+export opf_current_term
+
+"""
     opf_element_loss(ctx, block, id) -> JuMP expression
     opf_total_loss(ctx; blocks=("line","transformer","switch")) -> JuMP expression
 

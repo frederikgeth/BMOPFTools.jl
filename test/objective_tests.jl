@@ -438,3 +438,116 @@ end
     @test _OBJEXT._quantity_scale(ctx_pu, :A2; bus="b1") ≈
           _OBJEXT._quantity_scale(ctx_pu, :A; bus="b1")^2
 end
+
+# 4-wire feeder with an explicit neutral conductor, so a neutral current exists.
+_obj_net_4w() = parse_bmopf("""
+ {"bus":{
+   "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"],
+          "v_min":[180.0,180.0,180.0],"v_max":[280.0,280.0,280.0]},
+   "b1": {"terminal_names":["1","2","3","n"],
+          "v_min":[180.0,180.0,180.0],"v_max":[280.0,280.0,280.0]}},
+  "voltage_source":{"vs":{"bus":"src","terminal_map":["1","2","3"],
+      "v_magnitude":[230.0,230.0,230.0],"v_angle":[0.0,-2.0944,2.0944],
+      "cost":[1.0,1.0,1.0]}},
+  "linecode":{"lc":{"R_series_1_1":0.08,"R_series_2_2":0.08,"R_series_3_3":0.08,
+                    "R_series_4_4":0.08}},
+  "line":{"l1":{"bus_from":"src","bus_to":"b1",
+      "terminal_map_from":["1","2","3","n"],"terminal_map_to":["1","2","3","n"],
+      "linecode":"lc","length":1.0}},
+  "load":{"ld":{"bus":"b1","terminal_map":["1","2","3","n"],
+      "configuration":"WYE","p_nom":[6000.0,1000.0,500.0],"q_nom":[0.0,0.0,0.0]}}}
+ """; from_string=true)
+
+@testset "opf_neutral_current — is exactly three times the zero-sequence current" begin
+    # Independent cross-check of two separately-derived quantities: for a 4-wire
+    # element with no parallel earth path, I_n = -(Ia+Ib+Ic) = -3*I0. The
+    # neutral current is read straight off a ledger record; I0 comes from the
+    # Fortescue transform. If either the sign convention or the transform were
+    # wrong, this exact factor of 3 would not appear.
+    ctx = BMOPFTools.build_opf_model(_obj_net_4w(); per_unit=true,
+                                     add_objective=false)
+    m = BMOPFTools.opf_model(ctx)
+    (nr, ni) = BMOPFTools.opf_neutral_current(ctx, "line", "l1"; side=:to)
+    (zr, zi) = BMOPFTools.opf_sequence_current(ctx, "line", "l1"; side=:to,
+                                               component=:zero)
+    JuMP.@objective(m, Min, 0.0); BMOPFTools.enforce_kcl!(ctx)
+    JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+    @test JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+
+    In = hypot(JuMP.value(nr), JuMP.value(ni))
+    I0 = hypot(JuMP.value(zr), JuMP.value(zi))
+    @test In > 1e-4                      # genuinely unbalanced, not a vacuous pass
+    @test In ≈ 3 * I0 rtol=1e-8
+
+    # And in amps it is a physically plausible number for this unbalance.
+    In_amps = In * ctx.bases.i_base["b1"]
+    @test 5.0 < In_amps < 100.0
+end
+
+@testset "opf_neutral_current — refuses a three-wire element" begin
+    # Returning zero would make the penalty silently contribute nothing.
+    ctx = BMOPFTools.build_opf_model(_obj_net(2_000.0); per_unit=true,
+                                     add_objective=false)
+    @test_throws ArgumentError BMOPFTools.opf_neutral_current(ctx, "line", "l1")
+    @test_throws ArgumentError BMOPFTools.opf_branch_currents(ctx, "line", "nope")
+    @test_throws ArgumentError BMOPFTools.opf_branch_currents(ctx, "line", "l1";
+                                                              side=:sideways)
+end
+
+@testset "opf_current_term — minimising neutral current actually reduces it" begin
+    # With a per-phase STATCOM the compensator can shift current between phases,
+    # so a neutral-current objective must move the answer.
+    net = _obj_net_4w()
+    net["ibr"] = Dict{String,Any}("pv1" => Dict{String,Any}(
+        "bus" => "b1", "terminal_map" => ["1","2","3","n"],
+        "topology" => "FOUR_LEG", "prime_mover" => "STATCOM",
+        "s_max" => [20000.0,20000.0,20000.0],
+        "p_max" => [0.0,0.0,0.0], "p_min" => [0.0,0.0,0.0],
+        "cost" => [0.0,0.0,0.0]))
+    function neutral_under(minimise)
+        ctx = BMOPFTools.build_opf_model(deepcopy(net); per_unit=true,
+                                         add_objective=false)
+        m = BMOPFTools.opf_model(ctx)
+        (nr, ni) = BMOPFTools.opf_neutral_current(ctx, "line", "l1"; side=:to)
+        if minimise
+            t = BMOPFTools.opf_current_term(ctx, [("line","l1",:to)];
+                                            quantity=:neutral, norm=:squared)
+            BMOPFTools.set_opf_objective!(ctx, [t])
+        else
+            JuMP.@objective(m, Min, 0.0)
+        end
+        BMOPFTools.enforce_kcl!(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        (JuMP.termination_status(m), hypot(JuMP.value(nr), JuMP.value(ni)))
+    end
+    (st0, n0) = neutral_under(false)
+    (st1, n1) = neutral_under(true)
+    @test st0 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test st1 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test n1 < n0
+end
+
+@testset "opf_current_term — declares amps and stays unit-mode independent" begin
+    function build(pu)
+        ctx = BMOPFTools.build_opf_model(_obj_net_4w(); per_unit=pu,
+                                         add_objective=false)
+        t = BMOPFTools.opf_current_term(ctx, [("line","l1",:to)];
+                                        quantity=:sequence, component=:zero,
+                                        norm=:magnitude, weight=1.0)
+        BMOPFTools.set_opf_objective!(ctx, [t])
+        BMOPFTools.enforce_kcl!(ctx)
+        m = BMOPFTools.opf_model(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.set_attribute(m, "tol", 1e-10)
+        JuMP.optimize!(m)
+        (t.units, JuMP.termination_status(m), JuMP.objective_value(m))
+    end
+    (u_pu, st_pu, o_pu) = build(true)
+    (u_si, st_si, o_si) = build(false)
+    @test u_pu == :A && u_si == :A          # :magnitude on a current is amps
+    @test st_pu in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test st_si in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    # No loss term here, so no cancellation amplification: the two modes should
+    # agree far more tightly than the loss-containing objective does.
+    @test o_pu ≈ o_si rtol=1e-6
+    @test o_pu > 1.0                        # amps, not a vacuous zero
+end

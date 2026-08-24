@@ -701,3 +701,180 @@ function BMOPFTools.set_opf_objective!(ctx::OpfContext,
                          JuMP.@objective(ctx.model, Max, total)
     end; required = (:device_physics,))
 end
+
+# ── Branch currents ───────────────────────────────────────────────────────────
+# The injection ledger records BOTH ends of a two-port, interleaved, each as the
+# current injected INTO a bus terminal. A conductor current is the negative of
+# that (current into the ELEMENT), which is the sign a neutral-conductor or
+# sequence-current penalty is about.
+
+"""Resolve `(block, id, side)` to the bus that end connects to."""
+function _element_bus(ctx::OpfContext, block::AbstractString, id::AbstractString,
+                      side::Symbol)
+    side in (:from, :to) || throw(ArgumentError(
+        "side must be :from or :to; got $side"))
+    field = side === :from ? "bus_from" : "bus_to"
+    coll = get(ctx.net, block, nothing)
+    coll isa AbstractDict || throw(ArgumentError("no '$block' table in the network"))
+    if block == "transformer"
+        # Transformers are nested by subtype.
+        for (_, by_id) in coll
+            by_id isa AbstractDict || continue
+            rec = get(by_id, id, nothing)
+            rec isa AbstractDict && return String(get(rec, field, ""))
+        end
+        throw(ArgumentError("transformer '$id' is not in the network"))
+    end
+    rec = get(coll, id, nothing)
+    rec isa AbstractDict || throw(ArgumentError("$block '$id' is not in the network"))
+    return String(get(rec, field, ""))
+end
+
+"""
+    BMOPFTools.opf_branch_currents(ctx, block, id; side=:from)
+        -> Vector{Tuple{String,Any,Any}}
+
+Per-terminal conductor currents at one end of a two-port element, as
+`(terminal, re, im)` in the model's working units, in the order the injection
+ledger recorded them.
+
+Sign convention: the current flowing **into the element** (out of the bus),
+which is the negative of the ledger's "into bus" convention. This is the
+conductor current a neutral-heating or sequence-current penalty is about.
+"""
+function BMOPFTools.opf_branch_currents(ctx::OpfContext, block::AbstractString,
+                                        id::AbstractString; side::Symbol = :from)
+    recs = get(get(ctx.branch_inj, block, Dict{String,Any}()), id, nothing)
+    recs === nothing && throw(ArgumentError(
+        "no terminal-injection records for $block '$id'"))
+    bus = _element_bus(ctx, block, id, side)
+    out = Tuple{String,Any,Any}[]
+    for (b, t, cr, ci) in recs
+        b == bus || continue
+        push!(out, (String(t), JuMP.@expression(ctx.model, -cr),
+                                JuMP.@expression(ctx.model, -ci)))
+    end
+    isempty(out) && throw(ArgumentError(
+        "no records at the $side end (bus '$bus') of $block '$id'"))
+    return out
+end
+
+"""
+    BMOPFTools.opf_neutral_current(ctx, block, id; side=:from) -> (re, im)
+
+Conductor current in the NEUTRAL terminal at one end of a two-port element.
+
+This is the quantity that physically heats a neutral conductor, and the one a
+4-wire unbalance study usually wants to reduce. For a 4-wire element with no
+parallel earth path it is `−(Ia + Ib + Ic) = −3·I₀`, so penalising it and
+penalising zero-sequence current are the same objective up to a factor of three
+— but this one is in amps of actual conductor current.
+
+Throws when the element has no neutral terminal at that end: a three-wire
+element has no neutral current to reduce, and returning zero would quietly make
+the penalty vanish.
+"""
+function BMOPFTools.opf_neutral_current(ctx::OpfContext, block::AbstractString,
+                                        id::AbstractString; side::Symbol = :from)
+    nlabels = BMOPFTools._neutral_labels(ctx.net)
+    for (t, re, ie) in BMOPFTools.opf_branch_currents(ctx, block, id; side=side)
+        t in nlabels && return (re, ie)
+    end
+    throw(ArgumentError(
+        "$block '$id' has no neutral terminal at its $side end, so it has no " *
+        "neutral current. A three-wire element cannot carry one; penalising " *
+        "zero here would silently contribute nothing."))
+end
+
+"""
+    BMOPFTools.opf_sequence_current(ctx, block, id; side=:from, component=:zero)
+        -> (re, im)
+
+Symmetrical-component conductor current at one end of a two-port element, using
+the same Fortescue convention as [`opf_sequence_voltage`](@ref).
+
+Requires exactly three phase terminals at that end. `:zero` is the usual target
+in a 4-wire study (it is the neutral return divided by three); `:negative`
+targets the unbalance a rotating machine sees.
+"""
+function BMOPFTools.opf_sequence_current(ctx::OpfContext, block::AbstractString,
+                                         id::AbstractString;
+                                         side::Symbol = :from,
+                                         component::Symbol = :zero)
+    component in _SEQUENCE_COMPONENTS || throw(ArgumentError(
+        "unknown sequence component '$component'; expected one of " *
+        join(_SEQUENCE_COMPONENTS, ", ")))
+    nlabels = BMOPFTools._neutral_labels(ctx.net)
+    phases = [(re, ie) for (t, re, ie) in
+              BMOPFTools.opf_branch_currents(ctx, block, id; side=side)
+              if !(t in nlabels)]
+    length(phases) == 3 || throw(ArgumentError(
+        "symmetrical components need exactly 3 phase terminals at the $side " *
+        "end of $block '$id'; found $(length(phases))"))
+    s3 = sqrt(3.0) / 2.0
+    (a_r, a_i) = phases[1]; (b_r, b_i) = phases[2]; (c_r, c_i) = phases[3]
+    m = ctx.model
+    if component === :zero
+        return (JuMP.@expression(m, (a_r + b_r + c_r) / 3),
+                JuMP.@expression(m, (a_i + b_i + c_i) / 3))
+    elseif component === :positive
+        return (JuMP.@expression(m, (a_r - 0.5*b_r - s3*b_i - 0.5*c_r + s3*c_i) / 3),
+                JuMP.@expression(m, (a_i + s3*b_r - 0.5*b_i - s3*c_r - 0.5*c_i) / 3))
+    else
+        return (JuMP.@expression(m, (a_r - 0.5*b_r + s3*b_i - 0.5*c_r - s3*c_i) / 3),
+                JuMP.@expression(m, (a_i - s3*b_r - 0.5*b_i + s3*c_r - 0.5*c_i) / 3))
+    end
+end
+
+"""
+    BMOPFTools.opf_current_term(ctx, elements; quantity=:neutral, component=:zero,
+                                norm=:squared, weight=1.0, eps_rel=1e-3, name=nothing)
+
+An [`OpfObjectiveTerm`](@ref) penalising a branch current over `elements`, each
+given as `(block, id)` or `(block, id, side)` with `side` defaulting to `:from`.
+
+`quantity` is `:neutral` (the neutral conductor current — what actually heats a
+neutral) or `:sequence` (then `component` selects `:zero`/`:negative`/`:positive`).
+
+Currents are converted to **amps** before reduction, so elements at different
+voltage levels are weighted on one physical footing and the term means the same
+thing in both unit modes. `weight` is per A² (`norm=:squared`/`:max`) or per A
+(`:magnitude`).
+"""
+function BMOPFTools.opf_current_term(ctx::OpfContext, elements;
+                                     quantity::Symbol = :neutral,
+                                     component::Symbol = :zero,
+                                     norm::Symbol = :squared,
+                                     weight::Real = 1.0,
+                                     eps_rel::Real = _SMOOTH_NORM_EPS_REL,
+                                     name::Union{Symbol,Nothing} = nothing)
+    quantity in (:neutral, :sequence) || throw(ArgumentError(
+        "quantity must be :neutral or :sequence; got $quantity"))
+    specs = [e isa Tuple && length(e) == 3 ?
+             (String(e[1]), String(e[2]), Symbol(e[3])) :
+             (String(e[1]), String(e[2]), :from) for e in elements]
+    isempty(specs) && throw(ArgumentError(
+        "opf_current_term: `elements` is empty; nothing would be penalised."))
+    pairs = Any[]; scales = Float64[]
+    for (blk, id, side) in specs
+        (re, ie) = quantity === :neutral ?
+            BMOPFTools.opf_neutral_current(ctx, blk, id; side=side) :
+            BMOPFTools.opf_sequence_current(ctx, blk, id; side=side,
+                                            component=component)
+        bus = _element_bus(ctx, blk, id, side)
+        ib = BMOPFTools.opf_physical_scale(ctx, :A; bus=bus)
+        push!(scales, _quantity_scale(ctx, :A; bus=bus))
+        push!(pairs, (JuMP.@expression(ctx.model, ib * re),
+                      JuMP.@expression(ctx.model, ib * ie)))
+    end
+    tname = name === nothing ?
+        Symbol(quantity === :neutral ? "i_neutral_" : "i$(component)_", norm) : name
+    expr = BMOPFTools.opf_reduce_norm(ctx, pairs; norm=norm,
+                                      scale=maximum(scales), eps_rel=eps_rel,
+                                      name=String(tname))
+    return BMOPFTools.OpfObjectiveTerm(tname, expr;
+        weight = weight, units = _norm_result_unit(norm, :A),
+        purpose = (quantity === :neutral ? "neutral conductor current" :
+                   "$(component)-sequence current") *
+                  " penalty over $(length(specs)) element(s), $(norm) norm")
+end

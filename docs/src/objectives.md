@@ -47,11 +47,33 @@ result = extract_result(ctx)
 | [`opf_sequence_term`](@ref) `norm=:squared` | V² | exact | quadratic | Reduces unbalance everywhere a little. |
 | [`opf_sequence_term`](@ref) `norm=:magnitude` | V | to ε | group-lasso | Drives a few buses to balanced. |
 | [`opf_sequence_term`](@ref) `norm=:max` | V² | exact | linear epigraph | Protects the worst bus. |
+| [`opf_current_term`](@ref) `quantity=:neutral` | A² or A | exact / to ε | per `norm` | Reduces neutral conductor current. |
+| [`opf_current_term`](@ref) `quantity=:sequence` | A² or A | exact / to ε | per `norm` | Reduces zero-/negative-sequence current. |
 
 Anything not on this list you can build yourself from
 [`opf_sequence_voltage`](@ref), [`opf_element_loss`](@ref),
+[`opf_neutral_current`](@ref), [`opf_sequence_current`](@ref),
 [`opf_reduce_norm`](@ref) and [`smooth_norm`](@ref), wrapped in an
 [`OpfObjectiveTerm`](@ref).
+
+### Voltage unbalance or current unbalance?
+
+They are different objectives and they do not have the same optimum.
+
+Voltage unbalance is what a *standard* limits — EN 50160 §3.5 caps VUF at 2%,
+and the engine already enforces that as a bound through `vneg_max`. Penalising
+`|V₂|` is the right objective when compliance is the goal.
+
+Current unbalance is what *heats things*. `opf_current_term` with
+`quantity=:neutral` targets the neutral conductor current directly, which is the
+quantity behind neutral heating and 4-wire losses. On a 4-wire element with no
+parallel earth path `I_n = −3·I₀`, so a neutral penalty and a zero-sequence
+current penalty are the same objective up to a factor of three — but the neutral
+form is in amps of real conductor current, which is easier to reason about
+against a conductor rating.
+
+A rough rule: if you are answering to a limit, penalise voltage; if you are
+answering to a thermal or loss question, penalise current.
 
 ## Weights carry units — and that is deliberate
 

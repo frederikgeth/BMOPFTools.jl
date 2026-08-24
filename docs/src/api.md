@@ -215,6 +215,10 @@ opf_generation_cost_term
 opf_total_loss
 opf_element_loss
 opf_sequence_voltage
+opf_current_term
+opf_branch_currents
+opf_neutral_current
+opf_sequence_current
 opf_reduce_norm
 smooth_norm
 opf_physical_scale
