@@ -1,0 +1,200 @@
+# [Choosing an objective](@id objectives)
+
+`solve_opf` minimises generation cost. That is one choice among many, and for a
+lot of distribution questions it is the wrong one: least-cost dispatch has no
+opinion about losses, and no opinion at all about unbalance.
+
+This page is the catalogue of the objective terms BMOPFTools ships, what each
+one *does to the answer*, and — as importantly — when not to use it.
+
+## The shape of a composed objective
+
+Build the model without its default objective, assemble terms, set them, then
+enforce KCL and solve:
+
+```julia
+using JuMP, Ipopt
+
+ctx = build_opf_model(net; add_objective = false)
+
+terms = [
+    opf_loss_term(ctx;              weight = 1.0),          # per W
+    opf_sequence_term(ctx, ["b1"];  weight = 50.0,          # per V²
+                      component = :negative, norm = :squared),
+]
+set_opf_objective!(ctx, terms)
+
+enforce_kcl!(ctx)          # REQUIRED — see the warning below
+JuMP.optimize!(opf_model(ctx))
+result = extract_result(ctx)
+```
+
+!!! danger "`enforce_kcl!` is not optional"
+    `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
+    nodal accumulators. Until [`enforce_kcl!`](@ref) runs, **the network is
+    electrically disconnected**: bus voltages are free variables and your
+    objective is minimised without physics. This does not error — the solve
+    reports `LOCALLY_SOLVED` and returns a plausible, meaningless answer. An
+    unbalance objective in particular reaches exactly zero with every
+    compensator idle, which reads as a great result.
+
+## The catalogue
+
+| Term | Physical unit | Smooth? | Convex? | What it does |
+|---|---|---|---|---|
+| [`opf_generation_cost_term`](@ref) | currency/hour | exact | quadratic | The `solve_opf` default. Cheapest dispatch. |
+| [`opf_loss_term`](@ref) | W | exact | bilinear, non-convex | Least-loss dispatch. |
+| [`opf_sequence_term`](@ref) `norm=:squared` | V² | exact | quadratic | Reduces unbalance everywhere a little. |
+| [`opf_sequence_term`](@ref) `norm=:magnitude` | V | to ε | group-lasso | Drives a few buses to balanced. |
+| [`opf_sequence_term`](@ref) `norm=:max` | V² | exact | linear epigraph | Protects the worst bus. |
+
+Anything not on this list you can build yourself from
+[`opf_sequence_voltage`](@ref), [`opf_element_loss`](@ref),
+[`opf_reduce_norm`](@ref) and [`smooth_norm`](@ref), wrapped in an
+[`OpfObjectiveTerm`](@ref).
+
+## Weights carry units — and that is deliberate
+
+A weight is declared **per physical unit**: per W for losses, per V² for a
+squared voltage penalty, per V for a magnitude one. Term expressions are
+converted to physical units before weighting.
+
+The consequence worth relying on: **the same specification gives the same
+answer in `per_unit = true` and `per_unit = false`.** A weight tuned once stays
+correct, and stays correct under a future nondimensionalisation. This mirrors
+what the engine already does for generation cost, where the per-unit working net
+pre-scales every cost coefficient by `s_base` so the factors cancel.
+
+What is *not* handled, and cannot be: **commensurability**. Summing
+currency/hour with V² is only meaningful once your weight states the exchange
+rate you intend. No check can infer that.
+
+!!! warning "Switching `norm` changes what your weight means"
+    `:squared` and `:max` are in the **square** of the quantity's unit;
+    `:magnitude` is in the unit itself. A weight of 50 means "50 per V²" in one
+    and "50 per V" in the other — a factor of ~230 apart on an LV feeder. The
+    objective value looks perfectly reasonable either way. Re-tune when you
+    switch, and read the recorded `units` on the term to check yourself.
+
+Every term is registered as a regularization declaration carrying its weight,
+units and purpose, so what you combined is recoverable afterwards from
+[`opf_regularizations`](@ref) and fingerprinted by
+[`opf_research_hashes`](@ref). A weighted objective whose weights are not
+recorded is not a reproducible experiment.
+
+## Which norm?
+
+Every penalty on a complex quantity has to reduce a phasor to a scalar. The
+three reductions give **different answers**, and choosing between them is a
+modelling decision:
+
+- **`:squared`** — L2. Spreads the penalty. Improves every target a little.
+  Cheapest and most reliable. Start here.
+- **`:magnitude`** — the group-lasso norm, `Σ‖(re, im)‖₂`. Drives *individual*
+  targets to (near) zero rather than shrinking all of them. Use it when you want
+  "fix these few completely" rather than "improve everything slightly".
+- **`:max`** — L∞. Minimises the worst target. A fairness objective. Exact
+  through a **linear** epigraph, because `max` is monotone under squaring, so no
+  square root is needed at all.
+
+!!! danger "Never reduce a phasor componentwise"
+    `|re| + |im|` is **not rotation-invariant**: the answer would depend on your
+    phase reference. That is a bug, not a modelling choice. `:magnitude` sums
+    per-element 2-norms precisely to avoid it. If you build a custom term, use
+    [`smooth_norm`](@ref) rather than summing absolute values of real and
+    imaginary parts.
+
+## Losses are not cost, and cost is not losses
+
+With heterogeneous generation prices these two objectives actively disagree.
+Least-loss dispatch will happily source from an expensive nearby unit rather
+than transport cheap distant power; least-cost dispatch will push power across
+the network to reach a cheap generator and pay for it in `I²R`. Combining them
+is a deliberate act with a weight that states your exchange rate — not a
+formality.
+
+## What needs a square root, and what does not
+
+A recurring mistake is reaching for a magnitude when a squared quantity would
+do. Squared quantities are exact, smooth, cheaper, and better conditioned.
+
+| Quantity | Needs `smooth_norm`? | Why |
+|---|---|---|
+| Network loss `Σ V·conj(I)` | **No** | Bilinear in (V, I) — an exact smooth quadratic. |
+| `\|V₂\|²`, `\|I₀\|²` | **No** | The Fortescue transform is linear, so the square is a plain quadratic. |
+| Current/apparent-power **limits** | **No** | Naturally squared: `ir² + ii² ≤ i_max²`. |
+| Worst-case (L∞) of a magnitude | **No** | `max` is monotone under squaring. |
+| `Σ\|V₂\|` (group-lasso) | **Yes** | A genuine 2-norm sum. |
+| VUF = `\|V₂\|/\|V₁\|` | **Yes** | A ratio of magnitudes. |
+| Conduction loss `a·\|I\|` | **Yes** | Linear in current, and an idle leg sits at exactly zero. |
+
+## Sizing ε — two regimes with opposite guidance
+
+[`smooth_norm`](@ref) approximates `‖·‖₂` by `√(x² + y² + ε²) − ε`, which
+underestimates the exact norm by at most `ε` and is C^∞ everywhere including the
+origin (where the exact norm's AD gradient is `0/0` and Ipopt rejects the model
+outright).
+
+`ε = eps_rel × scale`, where `scale` is the quantity's characteristic physical
+magnitude. One `eps_rel` therefore means the same *relative* smoothing for a
+voltage penalty and a current penalty, in either unit mode.
+
+**The safe range for `eps_rel` depends on how the norm is used, and guidance
+that is right in one regime is wrong in the other.**
+
+**Regime 1 — the norm is being minimised** (every `:magnitude` term here). The
+solver's endgame happens *inside* the smoothed region, so ε controls
+conditioning directly. Measured over 40 configurations
+(`bench/sequence_objective_norms.jl`):
+
+| formulation | converged | median iters | max iters |
+|---|---:|---:|---:|
+| `:squared` (reference) | 40/40 | 21 | 28 |
+| `:magnitude`, ε_rel = 1e-3 | 40/40 | 19 | 59 |
+| `:magnitude`, ε_rel = 1e-6 | 39/40 | 71 | 1184 |
+| `:magnitude`, ε_rel = 1e-9 | **27/40** | 116 | 3000 |
+
+**Keep ε large** — the `1e-3` default. The accuracy price is irrelevant: even
+ε_rel = 1e-2 resolves `|V₂|` to ~1e-7 V against an EN 50160 VUF limit of ~4.6 V
+on a 230 V base.
+
+**Regime 2 — the norm is a coefficient** in a term whose optimum is *away* from
+zero, such as a conduction loss `a·|I|`. The solver never enters the smoothed
+region, ε is invisible to conditioning, and it can be as small as your accuracy
+target wants. Upstream measurements in that regime report iteration counts
+identical from ε_rel = 1e-2 down to 1e-18.
+
+!!! warning "Do not carry an ε policy across that boundary"
+    Anchoring ε just under the solver tolerance is correct in regime 2 and
+    fails a third of the time in regime 1.
+
+!!! warning "ε shifts the trade-off in a weighted objective"
+    For a *pure* norm objective ε does not move the minimiser — `√(x²+ε²) − ε`
+    is still minimised at `x = 0` — it only flattens the gradient near zero, so
+    the solver stops a little earlier and looser. In a **weighted** objective
+    like `cost + λ·unbalance` that flattened gradient competes against the other
+    term, so ε *does* move the answer. Treat it as part of the model there, and
+    report it alongside λ.
+
+## Why not an exact cone?
+
+The textbook exact form of a minimised magnitude is the epigraph
+`min t s.t. x² + y² ≤ t²`. It is not used here, and the reason is measured
+rather than argued: on the same 40 configurations it reported
+`LOCALLY_INFEASIBLE` on **3/40**, all high-compensator-authority cases, while
+the smoothed norm at a sensible ε never failed. This project ranks convergence
+reliability above wall clock.
+
+The exception is `:max`, where the epigraph is **linear** rather than conic —
+there it is exact, cheap and reliable, and it is what `:max` uses.
+
+## Reproducibility
+
+```julia
+opf_regularizations(ctx)     # every term: weight, units, purpose
+opf_differentiability_annotations(ctx)   # every smoothing and its ε
+opf_research_hashes(ctx)     # fingerprints over both
+```
+
+Any `smooth_norm` you stamp records itself, so an approximation in your model is
+never silent.

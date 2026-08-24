@@ -369,3 +369,335 @@ function BMOPFTools.opf_total_loss(ctx::OpfContext; blocks = _LOSS_BLOCKS)
     isempty(terms) && return JuMP.@expression(ctx.model, 0.0)
     return JuMP.@expression(ctx.model, sum(terms))
 end
+
+# ── Physical scales ───────────────────────────────────────────────────────────
+# Objective terms must mean the SAME THING in `per_unit=true` and `per_unit=false`,
+# and must keep meaning it under a future nondimensionalisation strategy. The
+# engine already sets this precedent for generation cost: `_pu_scale_generators!`
+# multiplies every cost coefficient by `s_base` in the per-unit working net, so
+# the `s_base` factors cancel and the objective comes out in the same
+# currency/hour either way (see per_unit.jl).
+#
+# Every term here follows the same rule, made explicit:
+#
+#   * a quantity EXPRESSION is in the model's working units;
+#   * a term declares the PHYSICAL unit it is measured in;
+#   * a weight is declared in [objective-unit per physical-unit];
+#   * the engine multiplies the expression by the physical value of one working
+#     unit before applying the weight.
+#
+# So the composed objective is a physical quantity, identical in both unit modes,
+# and a weight tuned once stays correct. Nothing is left for the caller to
+# reconcile by hand.
+
+"""
+    BMOPFTools.opf_physical_scale(ctx, unit; bus=nothing) -> Float64
+
+Physical value of one working unit of `unit` — the factor that converts an
+expression in the model's working units into SI. Returns `1.0` throughout when
+the model was built in SI (`per_unit=false`), so a term written against this is
+correct in both modes without a branch.
+
+`unit` is one of `:W`, `:var`, `:VA` (scaled by the bus/system power base),
+`:V`, `:V2` (bus voltage base, squared for `:V2`), `:A`, `:A2`, or
+`:dimensionless`. Voltage and current bases are PER BUS, so `bus` is required
+for those.
+"""
+function BMOPFTools.opf_physical_scale(ctx::OpfContext, unit::Symbol;
+                                       bus::Union{AbstractString,Nothing}=nothing)
+    ctx.bases === nothing && return 1.0          # already SI
+    needs_bus(u) = u in (:V, :V2, :A, :A2)
+    if needs_bus(unit)
+        bus === nothing && throw(ArgumentError(
+            "opf_physical_scale: unit '$unit' has a PER-BUS base, so `bus` is " *
+            "required. Passing a system-wide scale would be wrong on any " *
+            "network with more than one voltage level."))
+    end
+    if unit === :dimensionless
+        return 1.0
+    elseif unit in (:W, :var, :VA)
+        return bus === nothing ? Float64(ctx.bases.s_base) :
+                                 _ac_power_base(ctx.bases, bus)
+    elseif unit === :V
+        return Float64(get(ctx.bases.v_base, String(bus), 1.0))
+    elseif unit === :V2
+        return Float64(get(ctx.bases.v_base, String(bus), 1.0))^2
+    elseif unit === :A
+        return Float64(get(ctx.bases.i_base, String(bus), 1.0))
+    elseif unit === :A2
+        return Float64(get(ctx.bases.i_base, String(bus), 1.0))^2
+    end
+    throw(ArgumentError(
+        "opf_physical_scale: unknown unit '$unit'; expected :W, :var, :VA, " *
+        ":V, :V2, :A, :A2, or :dimensionless"))
+end
+
+"""
+    _quantity_scale(ctx, unit; bus) -> Float64
+
+Characteristic PHYSICAL magnitude of `unit` at `bus` — volts for `:V`, amps for
+`:A`, VA for `:W`/`:var`/`:VA` — returning the same number in `per_unit=true`
+and `per_unit=false`.
+
+Distinct from [`opf_physical_scale`](@ref), which is the working→physical
+CONVERSION FACTOR. `smooth_norm`'s eps needs the quantity's characteristic
+MAGNITUDE. Conflating the two makes eps differ between unit modes, which
+silently changes the smoothing and therefore the answer — a bug this file's own
+per-unit/SI equivalence test caught.
+
+ONE rule for every unit, so voltage and current smoothing stay commensurate:
+
+  * voltage — the bus's own declared bound in the WORKING net, converted with
+    the same factor, so both modes reach the same volts (`v_max_pu * v_base` in
+    per-unit, `v_max_V * 1.0` in SI);
+  * current — `s_base / v_scale`, mirroring the engine's own
+    `i_base = s_base / v_base` (per_unit.jl). `ctx.manifest.s_base` is populated
+    in both modes, so this is mode-independent too;
+  * power — `s_base`.
+
+The consequence that matters: the RELATIVE smoothing `eps / scale` is then the
+same number for a voltage penalty and a current penalty, at the same `eps_rel`,
+in either unit mode. A single `eps_rel` therefore means one thing everywhere.
+"""
+function _quantity_scale(ctx::OpfContext, unit::Symbol;
+                         bus::Union{AbstractString,Nothing}=nothing)
+    s_base = Float64(ctx.manifest.s_base)
+    unit in (:W, :var, :VA) && return s_base
+    unit === :dimensionless && return 1.0
+    bus === nothing && throw(ArgumentError(
+        "_quantity_scale: unit '$unit' is per-bus; `bus` is required"))
+    factor = BMOPFTools.opf_physical_scale(ctx, :V; bus=bus)
+    b = get(get(ctx.net, "bus", Dict{String,Any}()), String(bus), nothing)
+    working = 1.0
+    if b isa AbstractDict
+        for field in ("v_max", "v_min")
+            v = get(b, field, nothing)
+            v isa AbstractVector && !isempty(v) || continue
+            cand = maximum(abs(Float64(x)) for x in v if x isa Real; init=0.0)
+            if cand > 0
+                working = cand
+                break
+            end
+        end
+    end
+    v_scale = working * factor
+    unit in (:V, :V2) && return unit === :V2 ? v_scale^2 : v_scale
+    unit in (:A, :A2) && begin
+        i_scale = v_scale > 0 ? s_base / v_scale : 1.0
+        return unit === :A2 ? i_scale^2 : i_scale
+    end
+    throw(ArgumentError(
+        "_quantity_scale: unknown unit '$unit'; expected :W, :var, :VA, :V, " *
+        ":V2, :A, :A2, or :dimensionless"))
+end
+
+# ── Norm reduction ────────────────────────────────────────────────────────────
+
+const _NORM_MODES = (:squared, :magnitude, :max)
+
+# Physical unit produced by each norm mode, given the unit of the quantity.
+_norm_result_unit(norm::Symbol, quantity_unit::Symbol) =
+    norm === :magnitude ? quantity_unit :
+        quantity_unit === :V ? :V2 : quantity_unit === :A ? :A2 : quantity_unit
+
+"""
+    BMOPFTools.opf_reduce_norm(ctx, pairs; norm=:squared, scale=1.0,
+                               eps_rel=1e-3, name="") -> expr
+
+Reduce a collection of complex quantities `pairs` — a vector of `(re, im)`
+expression pairs — to one scalar JuMP expression, using `norm`:
+
+| `norm`       | expression            | exact? | notes |
+|--------------|-----------------------|--------|-------|
+| `:squared`   | `Σ (reᵢ² + imᵢ²)`     | yes    | L2. Cheapest, most reliable. Spreads the penalty over all targets. Default. |
+| `:magnitude` | `Σ ‖(reᵢ, imᵢ)‖₂`     | to ε   | Group-lasso. Drives individual targets to zero rather than shrinking all. Uses [`smooth_norm`](@ref). |
+| `:max`       | `maxᵢ (reᵢ² + imᵢ²)`  | yes    | L∞ via a LINEAR epigraph. `max` is monotone under squaring, so no root is needed. |
+
+Choosing between them is a modelling decision, not an implementation detail:
+`:squared` improves everything a little, `:magnitude` fixes a few targets
+completely, `:max` protects the worst one. They give different answers.
+
+`pairs` must already be in the units you want the result in — see
+[`opf_physical_scale`](@ref). `:squared` and `:max` return the SQUARE of that
+unit; `:magnitude` returns the unit itself.
+
+`:max` adds one variable and `length(pairs)` linear constraints; the others add
+neither. `scale`/`eps_rel` are used only by `:magnitude`.
+"""
+function BMOPFTools.opf_reduce_norm(ctx::OpfContext, pairs;
+                                    norm::Symbol = :squared,
+                                    scale::Real = 1.0,
+                                    eps_rel::Real = _SMOOTH_NORM_EPS_REL,
+                                    name::AbstractString = "")
+    norm in _NORM_MODES || throw(ArgumentError(
+        "unknown norm '$norm'; expected one of " * join(_NORM_MODES, ", ")))
+    isempty(pairs) && throw(ArgumentError(
+        "opf_reduce_norm: nothing to reduce. An empty penalty is almost always " *
+        "a mis-specified target list rather than an intentional zero."))
+    m = ctx.model
+    if norm === :squared
+        return JuMP.@expression(m, sum(re^2 + im^2 for (re, im) in pairs))
+    elseif norm === :magnitude
+        parts = [BMOPFTools.smooth_norm(ctx, re, im; scale=scale, eps_rel=eps_rel,
+                                        name = isempty(name) ? "" : "$(name)[$k]")
+                 for (k, (re, im)) in enumerate(pairs)]
+        return JuMP.@expression(m, sum(parts))
+    else # :max — linear epigraph over squared magnitudes
+        t = JuMP.@variable(m, lower_bound = 0.0,
+                           base_name = isempty(name) ? "objmax" : "objmax_$(name)")
+        for (re, im) in pairs
+            JuMP.@constraint(m, re^2 + im^2 <= t)
+        end
+        JuMP.set_start_value(t, max(1e-9, (Float64(scale) * 1e-2)^2))
+        return JuMP.@expression(m, t)
+    end
+end
+
+# ── Objective terms ───────────────────────────────────────────────────────────
+
+"""
+    BMOPFTools.opf_sequence_term(ctx, buses; component=:negative, norm=:squared,
+                                 weight=1.0, eps_rel=1e-3, name=nothing)
+
+An [`OpfObjectiveTerm`](@ref) penalising a symmetrical-component voltage over
+`buses`. `buses` may be one bus id or a collection; every bus must be
+three-phase.
+
+The per-bus voltage expressions are converted to **volts** before reduction, so
+a network spanning several voltage levels is weighted consistently and the term
+means the same thing in `per_unit=true` and `per_unit=false`. `weight` is
+therefore in objective-units per V² (`norm=:squared` or `:max`) or per V
+(`:magnitude`).
+
+`component=:negative` is the usual unbalance objective; `:zero` targets neutral
+displacement, which is the quantity that actually heats a neutral conductor.
+"""
+function BMOPFTools.opf_sequence_term(ctx::OpfContext, buses;
+                                      component::Symbol = :negative,
+                                      norm::Symbol = :squared,
+                                      weight::Real = 1.0,
+                                      eps_rel::Real = _SMOOTH_NORM_EPS_REL,
+                                      name::Union{Symbol,Nothing} = nothing)
+    ids = buses isa AbstractString ? [String(buses)] : [String(b) for b in buses]
+    isempty(ids) && throw(ArgumentError(
+        "opf_sequence_term: `buses` is empty; nothing would be penalised."))
+    pairs = Any[]; scales = Float64[]
+    for b in ids
+        (re, ie) = BMOPFTools.opf_sequence_voltage(ctx, b; component=component)
+        vb = BMOPFTools.opf_physical_scale(ctx, :V; bus=b)
+        # eps must be sized from the quantity's characteristic MAGNITUDE in
+        # volts, not from the conversion factor — see `_quantity_scale`.
+        push!(scales, _quantity_scale(ctx, :V; bus=b))
+        # Convert to VOLTS here, so buses at different voltage levels are
+        # compared on one physical footing and the weight is mode-independent.
+        push!(pairs, (JuMP.@expression(ctx.model, vb * re),
+                      JuMP.@expression(ctx.model, vb * ie)))
+    end
+    tname = name === nothing ? Symbol("v", component, "_", norm) : name
+    expr = BMOPFTools.opf_reduce_norm(ctx, pairs; norm=norm,
+                                      scale=maximum(scales), eps_rel=eps_rel,
+                                      name=String(tname))
+    return BMOPFTools.OpfObjectiveTerm(tname, expr;
+        weight = weight,
+        units  = _norm_result_unit(norm, :V),
+        purpose = "$(component)-sequence voltage penalty over " *
+                  "$(length(ids)) bus(es), $(norm) norm")
+end
+
+"""
+    BMOPFTools.opf_loss_term(ctx; blocks=("line","transformer","switch"),
+                             weight=1.0, name=:losses)
+
+An [`OpfObjectiveTerm`](@ref) for total active-power loss, in **watts**, so the
+term and its weight mean the same thing in both unit modes. `weight` is in
+objective-units per W.
+"""
+function BMOPFTools.opf_loss_term(ctx::OpfContext;
+                                  blocks = _LOSS_BLOCKS,
+                                  weight::Real = 1.0,
+                                  name::Symbol = :losses)
+    working = BMOPFTools.opf_total_loss(ctx; blocks=blocks)
+    s = BMOPFTools.opf_physical_scale(ctx, :W)      # system power base, or 1.0 in SI
+    return BMOPFTools.OpfObjectiveTerm(name,
+        JuMP.@expression(ctx.model, s * working);
+        weight = weight, units = :W,
+        purpose = "total active-power loss over " * join(blocks, "/"))
+end
+
+"""
+    BMOPFTools.opf_generation_cost_term(ctx; weight=1.0, name=:generation_cost)
+
+An [`OpfObjectiveTerm`](@ref) wrapping [`generation_cost`](@ref), in
+currency/hour. Already mode-independent: the per-unit working net pre-scales
+every cost coefficient by `s_base`, so the `s_base` factors cancel.
+"""
+BMOPFTools.opf_generation_cost_term(ctx::OpfContext; weight::Real = 1.0,
+                                    name::Symbol = :generation_cost) =
+    BMOPFTools.OpfObjectiveTerm(name, BMOPFTools.generation_cost(ctx);
+        weight = weight, units = :currency_per_hour,
+        purpose = "total active-power generation cost rate")
+
+# ── Composition ───────────────────────────────────────────────────────────────
+
+"""
+    BMOPFTools.set_opf_objective!(ctx, terms; sense=:min)
+
+Set a weighted sum of [`OpfObjectiveTerm`](@ref)s, `Σ tᵢ.weight * tᵢ.expr`,
+instead of the bare generation cost. Pair with
+`build_opf_model(...; add_objective=false)`.
+
+Every term's expression is in the PHYSICAL unit the term declares, so the
+composed objective is a physical quantity: the same specification produces the
+same objective value and the same dispatch in `per_unit=true` and
+`per_unit=false`, and a weight tuned once stays correct. This is the same
+convention the engine already uses for generation cost.
+
+Each term is registered under a semantic key and declared as a regularization
+carrying its weight, units and purpose, so the composition reaches
+[`opf_research_hashes`](@ref) — a weighted objective whose weights are not
+recorded is not a reproducible experiment.
+
+!!! note "Weights still carry meaning you must supply"
+    Unit-consistency is handled; COMMENSURABILITY is not, and cannot be. Summing
+    currency/hour with V² is only meaningful once the weight states the exchange
+    rate you intend, and no check can infer that for you. Note also that
+    `:squared`/`:max` penalties are in the square of the quantity's unit while
+    `:magnitude` is in the unit itself, so switching `norm` changes what a given
+    weight means — the declared `units` on each term make that visible after the
+    fact.
+"""
+function BMOPFTools.set_opf_objective!(ctx::OpfContext,
+                                       terms::AbstractVector;
+                                       sense::Symbol = :min)
+    sense in (:min, :max) || throw(ArgumentError(
+        "objective sense must be :min or :max; got $sense"))
+    isempty(terms) && throw(ArgumentError(
+        "set_opf_objective!: no terms. An empty objective makes every feasible " *
+        "point optimal; use `solve_feasibility_opf` if that is what you want."))
+    names = [t.name for t in terms]
+    if length(unique(names)) != length(names)
+        dups = unique([n for n in names if count(==(n), names) > 1])
+        throw(ArgumentError(
+            "duplicate objective term names: " * join(sort(string.(dups)), ", ") *
+            ". Each term is registered under its name, so names must be unique."))
+    end
+    return _run_opf_stage!(ctx, :objective, () -> begin
+        for t in terms
+            key = BMOPFTools.OpfModelKey(:objective, :composed, String(t.name))
+            BMOPFTools.register_opf_objective_term!(ctx, key, t.expr; replace=true)
+            BMOPFTools.register_opf_regularization!(
+                ctx, Symbol("objective_term_", t.name);
+                method   = :weighted_objective_term,
+                weight   = t.weight,
+                term_key = key,
+                purpose  = t.purpose,
+                units    = t.units,
+                owner    = :BMOPFTools,
+                replace  = true)
+        end
+        total = JuMP.@expression(ctx.model,
+            sum(Float64(t.weight) * t.expr for t in terms))
+        sense === :min ? JuMP.@objective(ctx.model, Min, total) :
+                         JuMP.@objective(ctx.model, Max, total)
+    end; required = (:device_physics,))
+end

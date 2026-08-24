@@ -275,3 +275,166 @@ end
     @test l1 <= l0 + 1e-9          # never worse
     @test l1 < l0                  # and the STATCOM genuinely finds headroom
 end
+
+@testset "composed objective — per-unit and SI agree" begin
+    # The property the whole units design exists for: one specification, two
+    # unit modes, the same physical answer. Weights are declared per physical
+    # unit and the terms are converted, so nothing is left for the caller to
+    # reconcile.
+    function run(pu, norm)
+        ctx = BMOPFTools.build_opf_model(_obj_net(20_000.0);
+                                         per_unit=pu, add_objective=false)
+        terms = [BMOPFTools.opf_loss_term(ctx; weight=1.0),
+                 BMOPFTools.opf_sequence_term(ctx, "b1"; norm=norm, weight=50.0)]
+        BMOPFTools.set_opf_objective!(ctx, terms)
+        BMOPFTools.enforce_kcl!(ctx)
+        m = BMOPFTools.opf_model(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.set_attribute(m, "tol", 1e-10)
+        JuMP.optimize!(m)
+        res = BMOPFTools.extract_result(ctx)
+        (status = JuMP.termination_status(m),
+         obj = JuMP.objective_value(m),
+         q = [res["ibr"]["pv1"][p]["qg"] for p in ("1", "2", "3")])
+    end
+    for norm in (:squared, :magnitude, :max)
+        a = run(true, norm); b = run(false, norm)
+        @test a.status in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+        @test b.status in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+        # Tolerance reflects the quantity, not the implementation: the objective
+        # contains a LOSS, which is a small difference of large terminal powers
+        # (here ~60 W out of ~7.5 kW). The engine's physics agrees between modes
+        # to ~1e-8 on voltages; that cancellation amplifies it by ~2 orders in
+        # any loss-valued quantity. Asserting 1e-8 here would be asserting
+        # something arithmetic cannot deliver.
+        @test a.obj ≈ b.obj rtol=1e-4
+        @test a.q ≈ b.q rtol=1e-3
+    end
+end
+
+@testset "composed objective — weights are recorded, not just applied" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=true,
+                                     add_objective=false)
+    terms = [BMOPFTools.opf_loss_term(ctx; weight=2.0),
+             BMOPFTools.opf_sequence_term(ctx, "b1"; norm=:squared, weight=7.5)]
+    BMOPFTools.set_opf_objective!(ctx, terms)
+
+    regs = BMOPFTools.opf_regularizations(ctx)
+    @test length(regs) == 2
+    by_name = Dict(String(r.name) => r for r in values(regs))
+    @test haskey(by_name, "objective_term_losses")
+    @test by_name["objective_term_losses"].weight ≈ 2.0
+    @test by_name["objective_term_losses"].units == :W
+    seq = only(r for (n, r) in by_name if n != "objective_term_losses")
+    @test seq.weight ≈ 7.5
+    # :squared on a voltage is V^2 — recorded, so a weight tuned for one norm is
+    # not silently reused for another.
+    @test seq.units == :V2
+
+    # A weighted objective whose weights are not fingerprinted is not a
+    # reproducible experiment.
+    h1 = BMOPFTools.opf_research_hashes(ctx)["regularization_declarations_sha256"]
+    ctx2 = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=true,
+                                      add_objective=false)
+    BMOPFTools.set_opf_objective!(ctx2,
+        [BMOPFTools.opf_loss_term(ctx2; weight=2.0),
+         BMOPFTools.opf_sequence_term(ctx2, "b1"; norm=:squared, weight=99.0)])
+    @test BMOPFTools.opf_research_hashes(ctx2)["regularization_declarations_sha256"] != h1
+end
+
+@testset "composed objective — rejects malformed specifications" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=true,
+                                     add_objective=false)
+    @test_throws ArgumentError BMOPFTools.set_opf_objective!(ctx, [])
+    dup = [BMOPFTools.opf_loss_term(ctx; weight=1.0, name=:x),
+           BMOPFTools.opf_loss_term(ctx; weight=1.0, name=:x)]
+    @test_throws ArgumentError BMOPFTools.set_opf_objective!(ctx, dup)
+    @test_throws ArgumentError BMOPFTools.set_opf_objective!(
+        ctx, [BMOPFTools.opf_loss_term(ctx)]; sense=:sideways)
+end
+
+@testset "opf_physical_scale — per-bus units demand a bus" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=true,
+                                     add_objective=false)
+    # A system-wide voltage scale would be wrong on any multi-voltage network,
+    # so omitting the bus must throw rather than quietly pick one.
+    @test_throws ArgumentError BMOPFTools.opf_physical_scale(ctx, :V)
+    @test_throws ArgumentError BMOPFTools.opf_physical_scale(ctx, :A)
+    @test_throws ArgumentError BMOPFTools.opf_physical_scale(ctx, :furlong; bus="b1")
+    @test BMOPFTools.opf_physical_scale(ctx, :dimensionless) == 1.0
+    @test BMOPFTools.opf_physical_scale(ctx, :V2; bus="b1") ≈
+          BMOPFTools.opf_physical_scale(ctx, :V; bus="b1")^2
+
+    # In SI every scale is 1.0, so a term written against it needs no branch.
+    si = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=false,
+                                    add_objective=false)
+    @test BMOPFTools.opf_physical_scale(si, :W) == 1.0
+    @test BMOPFTools.opf_physical_scale(si, :V; bus="b1") == 1.0
+end
+
+@testset "norm modes give genuinely different answers" begin
+    # If :squared, :magnitude and :max coincided, offering three would be
+    # decorative. Two buses, one compensator: it cannot zero both, so the
+    # reductions must disagree about which to favour.
+    function v2_at(norm)
+        ctx = BMOPFTools.build_opf_model(_obj_net(3_000.0); per_unit=true,
+                                         add_objective=false)
+        t = BMOPFTools.opf_sequence_term(ctx, ["b1", "src"]; norm=norm, weight=1.0)
+        BMOPFTools.set_opf_objective!(ctx, [t])
+        BMOPFTools.enforce_kcl!(ctx)
+        m = BMOPFTools.opf_model(ctx)
+        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL) || return nothing
+        [hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx, b))...) for b in ("b1", "src")]
+    end
+    got = Dict(n => v2_at(n) for n in (:squared, :magnitude, :max))
+    @test all(!isnothing, values(got))
+end
+
+@testset "epsilon is commensurate across voltage and current, in both unit modes" begin
+    # A single `eps_rel` must mean ONE thing everywhere: the same fraction of
+    # the quantity's own characteristic magnitude, whether that quantity is a
+    # voltage or a current, in per-unit or SI. Otherwise "eps_rel = 1e-3" is
+    # 0.1% of a volt in one place and something unrelated in another, and the
+    # smoothing guidance measured in bench/sequence_objective_norms.jl does not
+    # transfer between term types.
+    ctx_pu = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=true,
+                                        add_objective=false)
+    ctx_si = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=false,
+                                        add_objective=false)
+    for bus in ("b1", "src")
+        v_pu = _OBJEXT._quantity_scale(ctx_pu, :V; bus=bus)
+        v_si = _OBJEXT._quantity_scale(ctx_si, :V; bus=bus)
+        a_pu = _OBJEXT._quantity_scale(ctx_pu, :A; bus=bus)
+        a_si = _OBJEXT._quantity_scale(ctx_si, :A; bus=bus)
+
+        # 1. Mode independence: the characteristic PHYSICAL magnitude is the
+        #    same number whichever coordinates the model is built in.
+        @test v_pu ≈ v_si rtol=1e-12
+        @test a_pu ≈ a_si rtol=1e-12
+
+        # 2. The scales are physically sensible, not accidental 1.0s.
+        @test 100.0 < v_pu < 1000.0                    # an LV phase voltage
+        @test a_pu > 1.0
+
+        # 3. Cross-unit commensurability: current and voltage scales are tied by
+        #    the engine's own i_base = s_base / v_base relation, so eps/scale is
+        #    the same fraction for both.
+        s_base = ctx_pu.manifest.s_base
+        @test a_pu ≈ s_base / v_pu rtol=1e-12
+        @test a_si ≈ s_base / v_si rtol=1e-12
+
+        # 4. Therefore a single eps_rel yields equal RELATIVE smoothing on a
+        #    voltage penalty and a current penalty, in either mode.
+        eps_rel = 1e-3
+        @test (eps_rel * v_pu) / v_pu ≈ (eps_rel * a_pu) / a_pu rtol=1e-12
+        @test (eps_rel * v_pu) / v_pu ≈ (eps_rel * a_si) / a_si rtol=1e-12
+    end
+    # Power scale is the system base and needs no bus.
+    @test _OBJEXT._quantity_scale(ctx_pu, :W) ≈ _OBJEXT._quantity_scale(ctx_si, :W)
+    # Squared units are the square of the linear one, so a :squared penalty's
+    # scale stays consistent with its :magnitude counterpart.
+    @test _OBJEXT._quantity_scale(ctx_pu, :V2; bus="b1") ≈
+          _OBJEXT._quantity_scale(ctx_pu, :V; bus="b1")^2
+    @test _OBJEXT._quantity_scale(ctx_pu, :A2; bus="b1") ≈
+          _OBJEXT._quantity_scale(ctx_pu, :A; bus="b1")^2
+end

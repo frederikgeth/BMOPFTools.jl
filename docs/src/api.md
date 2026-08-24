@@ -200,6 +200,26 @@ extension_state!
 add_terminal_injection!
 ```
 
+## Objective building blocks
+
+Composable, individually weighted objective terms — losses, sequence-component
+unbalance, and the magnitude primitive behind them. See
+[Choosing an objective](objectives.md) for what each one does to the answer and
+when not to use it.
+
+```@docs
+OpfObjectiveTerm
+opf_loss_term
+opf_sequence_term
+opf_generation_cost_term
+opf_total_loss
+opf_element_loss
+opf_sequence_voltage
+opf_reduce_norm
+smooth_norm
+opf_physical_scale
+```
+
 ## Configuration
 
 ```@docs

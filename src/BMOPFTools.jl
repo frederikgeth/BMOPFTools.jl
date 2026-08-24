@@ -2309,6 +2309,97 @@ function opf_dual end
 function opf_objective_value end
 
 """
+    OpfObjectiveTerm(name, expr; weight=1.0, units=:dimensionless, purpose="")
+
+One named, weighted contribution to a composed OPF objective.
+
+`expr` must be in the PHYSICAL unit named by `units` — watts, volts, V², or
+currency/hour — not in the model's working (per-unit) coordinates. That is what
+makes a composed objective mean the same thing in `per_unit=true` and
+`per_unit=false`: the term constructors ([`opf_loss_term`](@ref),
+[`opf_sequence_term`](@ref), [`opf_generation_cost_term`](@ref)) convert for you
+via [`opf_physical_scale`](@ref), and a hand-built term should do the same.
+
+`weight` is then in objective-units per physical-unit, so a weight tuned once
+stays correct across unit modes and under a future nondimensionalisation.
+
+`units` is recorded rather than checked: it reaches the regularization
+declaration and [`opf_research_hashes`](@ref), so what was combined — and in
+what units — is auditable after the fact.
+"""
+struct OpfObjectiveTerm
+    name::Symbol
+    expr
+    weight::Float64
+    units::Symbol
+    purpose::String
+end
+
+function OpfObjectiveTerm(name::Symbol, expr; weight::Real=1.0,
+                          units::Symbol=:dimensionless,
+                          purpose::AbstractString="")
+    isfinite(Float64(weight)) || throw(ArgumentError(
+        "objective term '$name': weight must be finite, got $weight"))
+    return OpfObjectiveTerm(name, expr, Float64(weight), units, String(purpose))
+end
+export OpfObjectiveTerm
+
+"""
+    opf_physical_scale(ctx, unit; bus=nothing) -> Float64
+
+Physical value of one working unit of `unit` — the factor converting an
+expression in the model's working coordinates into SI. Returns `1.0` throughout
+when the model was built in SI, so a term written against it needs no branch.
+
+`unit` is `:W`, `:var`, `:VA`, `:V`, `:V2`, `:A`, `:A2`, or `:dimensionless`.
+Voltage and current bases are PER BUS, so `bus` is required for those and
+omitting it throws — a system-wide voltage scale would be wrong on any network
+with more than one voltage level.
+
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function opf_physical_scale end
+export opf_physical_scale
+
+"""
+    opf_reduce_norm(ctx, pairs; norm=:squared, scale=1.0, eps_rel=1e-3, name="")
+
+Reduce complex quantities `pairs` (a vector of `(re, im)` expression pairs) to
+one scalar, by `:squared` (L2), `:magnitude` (group-lasso, via
+[`smooth_norm`](@ref)) or `:max` (L∞ through a linear epigraph).
+
+The choice changes the answer, not just the arithmetic: `:squared` improves
+every target a little, `:magnitude` drives a few to zero, `:max` protects the
+worst one. `:squared` and `:max` return the SQUARE of the input unit;
+`:magnitude` returns the input unit.
+
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function opf_reduce_norm end
+export opf_reduce_norm
+
+"""
+    opf_loss_term(ctx; blocks, weight=1.0, name=:losses)
+    opf_sequence_term(ctx, buses; component=:negative, norm=:squared, weight=1.0)
+    opf_generation_cost_term(ctx; weight=1.0)
+
+Ready-made [`OpfObjectiveTerm`](@ref)s, in physical units (W, V²/V,
+currency/hour respectively), for [`set_opf_objective!`](@ref).
+
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function opf_loss_term end
+export opf_loss_term
+
+@doc (@doc opf_loss_term)
+function opf_sequence_term end
+export opf_sequence_term
+
+@doc (@doc opf_loss_term)
+function opf_generation_cost_term end
+export opf_generation_cost_term
+
+"""
     opf_element_loss(ctx, block, id) -> JuMP expression
     opf_total_loss(ctx; blocks=("line","transformer","switch")) -> JuMP expression
 
