@@ -919,6 +919,14 @@ end
     # `vneg_max` bounds |V2| ABSOLUTELY; a standard's unbalance limit is the
     # RATIO |V2|/|V1|. They coincide only if |V1| is treated as fixed nominal.
     # `vuf_max` is the exact instantaneous constraint |V2|^2 <= u^2 |V1|^2.
+    #
+    # Exercised under the generation-cost objective, NOT a `Min 0.0` feasibility
+    # solve. A feasibility problem has no unique solution — Ipopt stops at
+    # whatever interior point the barrier happens to reach — so under `Min 0.0`
+    # neither "the bound is active" nor "pu agrees with SI" is a testable
+    # property, and a bound the compensator cannot reach surfaces as
+    # ITERATION_LIMIT rather than LOCALLY_INFEASIBLE. With a real objective the
+    # constrained optimum is determinate and the bound is genuinely active.
     vuf_of(ctx) = begin
         v2 = hypot(JuMP.value.(BMOPFTools.opf_sequence_voltage(ctx, "b1";
                                                                component=:negative))...)
@@ -926,40 +934,60 @@ end
                                                                component=:positive))...)
         v2 / v1
     end
-    function solve_with(bound, pu)
-        net = _obj_net(400.0)
+    function solve_with(bound, pu; tol=nothing)
+        net = _obj_net(4000.0)          # enough authority to reach the bound
         bound === nothing || (net["bus"]["b1"]["vuf_max"] = bound)
-        ctx = BMOPFTools.build_opf_model(net; per_unit=pu, add_objective=false)
+        ctx = BMOPFTools.build_opf_model(net; per_unit=pu)
         m = BMOPFTools.opf_model(ctx)
-        JuMP.@objective(m, Min, 0.0); BMOPFTools.enforce_kcl!(ctx)
-        JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+        BMOPFTools.enforce_kcl!(ctx)
+        JuMP.set_attribute(m, "print_level", 0)
+        if tol !== nothing
+            JuMP.set_attribute(m, "tol", tol)
+            JuMP.set_attribute(m, "constr_viol_tol", tol)
+        end
+        JuMP.optimize!(m)
         (JuMP.termination_status(m), vuf_of(ctx))
     end
-    (st0, free) = solve_with(nothing, true)
-    @test st0 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+
+    # Unconstrained: a determinate optimum, so the two unit modes must agree
+    # tightly. Measured 5.6e-8.
+    (st_free_pu, free)    = solve_with(nothing, true)
+    (st_free_si, free_si) = solve_with(nothing, false)
+    @test st_free_pu in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test st_free_si in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
     @test free > 1e-4                      # genuinely unbalanced to begin with
+    @test free ≈ free_si rtol=1e-6
 
-    # Binding below the unconstrained value must actually constrain it.
+    # A bound below the unconstrained optimum must become ACTIVE, not merely
+    # respected: the cost-optimal point sits on it.
     limit = 0.5 * free
-    (st1, got) = solve_with(limit, true)
-    if st1 in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
-        @test got <= limit + 1e-6
-    else
-        @test st1 != JuMP.OPTIMAL          # refusing is consistent; exceeding is not
-    end
-
-    # DIMENSIONLESS: alone among the bus voltage bounds it must NOT be rescaled
-    # between unit modes. The same number has to mean the same limit in both.
     (st_pu, v_pu) = solve_with(limit, true)
     (st_si, v_si) = solve_with(limit, false)
-    for st in (st_pu, st_si)
-        @test st in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL, JuMP.LOCALLY_INFEASIBLE)
-    end
-    if st_pu in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL) &&
-       st_si in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
-        @test v_pu ≈ v_si rtol=1e-4
-        @test v_si <= limit + 1e-6
-    end
+    @test st_pu in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test st_si in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test v_pu ≈ limit rtol=5e-3
+    @test v_si ≈ limit rtol=5e-3
+    @test v_pu < free && v_si < free
+
+    # DIMENSIONLESS: alone among the bus voltage bounds it must NOT be rescaled
+    # between unit modes — the same number means the same limit in both.
+    #
+    # The agreement tolerance is 5e-3, not 1e-6, and that is a property of the
+    # SOLVER, not of the constraint. The residual `|V2|^2 - u^2 |V1|^2` is
+    # dimensionful (volts^2) while `u` is not, so its absolute magnitude differs
+    # between modes by v_base^2 ~ 5e4. Ipopt's `constr_viol_tol` is ABSOLUTE, so
+    # at default tolerance the same bound is enforced to ~2e-3 relative in
+    # per-unit and ~1e-7 relative in SI.
+    @test v_pu ≈ v_si rtol=5e-3
+
+    # Proof that the gap above is tolerance and not a scaling defect: tightening
+    # `constr_viol_tol` drives the per-unit overshoot to zero (2.2e-3 at
+    # default, 2.0e-5 at 1e-10, 2.2e-7 at 1e-12). A mis-scaled bound would not
+    # improve with tolerance.
+    (st_tight, v_tight) = solve_with(limit, true; tol=1e-10)
+    @test st_tight in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+    @test (v_tight - limit) / limit < 1e-4
+    @test (v_tight - limit) / limit < (v_pu - limit) / limit
 
     # A slack bound leaves the answer alone.
     (st2, slack) = solve_with(10.0 * free, true)

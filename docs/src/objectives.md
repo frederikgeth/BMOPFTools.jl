@@ -291,6 +291,41 @@ the objective value.
 `|V₂|/|V₁|`. They coincide only if `|V₁|` is fixed at nominal. Use `vuf_max` for
 the exact ratio bound.
 
+### A dimensionless bound is enforced to different precision in the two unit modes
+
+`vuf_max` is a ratio, so it is deliberately **not** rescaled by
+`_pu_scale_buses!` — the same number means the same limit in per-unit and in SI.
+The *semantics* are unit-mode independent. The *numerical enforcement* is not.
+
+The constraint residual `|V₂|² − u²|V₁|²` is dimensionful (volts²) while `u` is
+not, so its absolute magnitude differs between modes by `v_base²` — about
+`5×10⁴` on a 230 V feeder. Ipopt's `constr_viol_tol` is an **absolute**
+tolerance, so at the default setting the same bound is satisfied to roughly
+`2×10⁻³` relative in per-unit and `1×10⁻⁷` relative in SI.
+
+This is solver tolerance, not a scaling defect: tightening `constr_viol_tol`
+drives the per-unit overshoot monotonically to zero (measured `2.2×10⁻³` at the
+default, `2.0×10⁻⁵` at `1e-10`, `2.2×10⁻⁷` at `1e-12`). If you need a
+dimensionless bound honoured to tight relative precision in per-unit, tighten
+`constr_viol_tol` rather than padding the bound.
+
+### A feasibility solve cannot tell you whether a bound works
+
+Checking a constraint by minimising a constant (`@objective(m, Min, 0.0)`) looks
+like the neutral way to ask "is this bound respected?". It is not, for two
+reasons.
+
+A feasibility problem has **no unique solution**: the interior-point method stops
+wherever the barrier happens to land, so the answer is not determinate, two unit
+modes will not agree on it, and a bound that is nowhere near active still
+"passes" a `≤ limit` check. And an unreachable bound tends to surface as
+`ITERATION_LIMIT` rather than `LOCALLY_INFEASIBLE` — the solver grinds instead of
+proving infeasibility, so you cannot distinguish "too tight" from "too slow".
+
+Exercise a bound under a **real objective** that pushes against it. Then the
+constrained optimum is determinate, the bound is genuinely active, and both unit
+modes converge to the same point.
+
 ### An epigraph term is only exact when minimised
 
 `norm=:max` builds `t` with `re² + im² ≤ t`, which bounds `t` from **below**
