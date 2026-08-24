@@ -2309,6 +2309,42 @@ function opf_dual end
 function opf_objective_value end
 
 """
+    smooth_norm(ctx, x, y; scale, eps_rel=1e-3, annotate=true, name="")
+
+Smooth 2-norm `sqrt(x^2 + y^2 + eps^2) - eps` of a complex quantity `(x, y)`, as
+a JuMP expression on `ctx`'s model, with `eps = eps_rel * scale`.
+
+The building block for any objective or constraint that needs the MAGNITUDE of a
+phasor where the exact norm's gradient would be singular. It is C-infinity
+everywhere including the origin (the exact norm's AD gradient there is 0/0, which
+Ipopt rejects outright), and it underestimates the exact norm by at most `eps` —
+a closed-form one-sided error budget rather than a tuning knob.
+
+`scale` is the quantity's characteristic magnitude in the model's WORKING units
+(a conductor rating for a current, a nominal voltage for a voltage), so the
+relative smoothing is the same for every device in a heterogeneous fleet and the
+same in SI and per-unit. See `ctx.bases` for the conversion.
+
+`eps_rel`'s safe range depends on how the norm is used, and guidance correct in
+one regime is wrong in the other:
+
+  * The norm is being **minimised** (it is the objective, or a penalty term). The
+    solve's endgame happens inside the smoothed region, so `eps` controls
+    conditioning: keep it large, around the `1e-3` default. Shrinking it to
+    solver-tolerance scale is measurably unreliable.
+  * The norm is a **coefficient** in a term whose optimum is away from zero (a
+    current-linear conduction loss, say). The solver never enters the smoothed
+    region, `eps` costs nothing, and it can be as small as the accuracy target
+    wants.
+
+Implemented in the `BMOPFOpfExt` extension (requires JuMP and Ipopt loaded).
+See also [`register_opf_differentiability_annotation!`](@ref), which this
+records by default so the approximation is never silent.
+"""
+function smooth_norm end
+export smooth_norm
+
+"""
     register_opf_regularization!(ctx, name; method, weight, term_key,
         targets=[], purpose, units=:dimensionless, owner=:downstream,
         metadata=Dict(), replace=false)

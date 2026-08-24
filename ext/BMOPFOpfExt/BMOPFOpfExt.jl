@@ -84,6 +84,7 @@ include("results.jl")
 include("profile.jl")
 include("per_unit.jl")
 include("core.jl")
+include("objectives.jl")   # needs OpfContext from core.jl
 include("feasibility_opf.jl")
 include("pf.jl")
 
