@@ -2527,6 +2527,15 @@ JuMP.optimize!(model)
 results = [extract_result(c) for c in ctxs]
 ```
 
+!!! warning "`enforce_kcl!` is not optional"
+    `build_opf_model` deliberately does not stamp KCL, so that a `model_hook!`
+    can still contribute to the nodal accumulators. Until `enforce_kcl!` runs,
+    the network is electrically disconnected and bus voltages are free
+    variables. Skipping it does not error: the solve reports `LOCALLY_SOLVED`
+    and returns a physically meaningless answer. `solve_opf` handles this for
+    you; a staged caller must not omit the `foreach(enforce_kcl!, ctxs)` line
+    above.
+
 The full per-argument contract for each function is documented on its own entry
 below.
 """

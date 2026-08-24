@@ -2734,6 +2734,17 @@ Build the IVR-EN OPF device model, bounds, and (optionally) the generation-cost
 objective for one snapshot, **without enforcing KCL or optimising**. The first
 step of the staged API; see the module notes above.
 
+!!! warning "KCL is deferred — you must call `enforce_kcl!` before solving"
+    KCL is not stamped here, so that a `model_hook!` can still contribute to the
+    accumulators. Until [`enforce_kcl!`](@ref) is called the network is
+    **electrically disconnected**: nodal balance is absent, so bus voltages are
+    free variables and any objective over them is minimised without physics.
+    This does not error — `optimize!` reports `LOCALLY_SOLVED` and returns a
+    plausible-looking, meaningless answer (an unbalance objective, for instance,
+    reaches exactly zero with every compensator idle). Call `enforce_kcl!(ctx)`
+    on every snapshot after the last constraint is added and before
+    `JuMP.optimize!`.
+
 - `model` — build into this existing JuMP model instead of a fresh one. Pass the
   same model for every snapshot of a multi-period problem so they share one
   optimisation. When `nothing`, a new `JuMP.Model(optimizer)` is created (and
