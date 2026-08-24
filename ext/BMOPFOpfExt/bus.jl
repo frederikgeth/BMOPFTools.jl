@@ -234,28 +234,15 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
         if n_phase == 3 &&
                 (vpos_min !== nothing || vpos_max !== nothing ||
                  vneg_max !== nothing || vzero_max !== nothing)
-            s3 = sqrt(3.0) / 2.0
-            neutral_floating = neutral !== nothing && !((bid, neutral) in grounded)
-
-            # Δv helper: phase-to-neutral if neutral floats, else phase-to-ground
-            function _dv(t)
-                if neutral_floating
-                    return (@expression(model, vr[(bid,t)] - vr[(bid,neutral)]),
-                            @expression(model, vi[(bid,t)] - vi[(bid,neutral)]))
-                else
-                    return (vr[(bid,t)], vi[(bid,t)])
-                end
-            end
-
-            (dvr1, dvi1) = _dv(phase_all[1])
-            (dvr2, dvi2) = _dv(phase_all[2])
-            (dvr3, dvi3) = _dv(phase_all[3])
+            # One shared definition of the Fortescue transform, so these bounds
+            # and the sequence OBJECTIVE terms cannot drift apart. See
+            # `_sequence_voltage_terms` in objectives.jl for the reference
+            # convention (phase-to-neutral on a floating-neutral bus).
+            seq = _sequence_voltage_terms(model, vr, vi, bid,
+                                          phase_all, neutral, grounded)
 
             if vpos_min !== nothing || vpos_max !== nothing
-                V1_r = @expression(model,
-                    (dvr1 - 0.5*dvr2 - s3*dvi2 - 0.5*dvr3 + s3*dvi3) / 3)
-                V1_i = @expression(model,
-                    (dvi1 + s3*dvr2 - 0.5*dvi2 - s3*dvr3 - 0.5*dvi3) / 3)
+                (V1_r, V1_i) = seq.positive
                 v1_sq = @expression(model, V1_r^2 + V1_i^2)
                 vpos_min !== nothing && register(:bus_positive_sequence_lower, bid,
                     @constraint(model, v1_sq >= Float64(vpos_min)^2))
@@ -264,16 +251,12 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
             end
 
             if vneg_max !== nothing
-                V2_r = @expression(model,
-                    (dvr1 - 0.5*dvr2 + s3*dvi2 - 0.5*dvr3 - s3*dvi3) / 3)
-                V2_i = @expression(model,
-                    (dvi1 - s3*dvr2 - 0.5*dvi2 + s3*dvr3 - 0.5*dvi3) / 3)
+                (V2_r, V2_i) = seq.negative
                 _soc_norm!(model, V2_r, V2_i, Float64(vneg_max))
             end
 
             if vzero_max !== nothing
-                V0_r = @expression(model, (dvr1 + dvr2 + dvr3) / 3)
-                V0_i = @expression(model, (dvi1 + dvi2 + dvi3) / 3)
+                (V0_r, V0_i) = seq.zero
                 _soc_norm!(model, V0_r, V0_i, Float64(vzero_max))
             end
         end

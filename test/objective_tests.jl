@@ -127,3 +127,71 @@ end
     pu_err = hypot(1.0, 0.0) - _OBJEXT.smooth_norm_value(1.0, 0.0, eps_rel * 1.0)
     @test si_err / 230.0 ≈ pu_err / 1.0 rtol=1e-12
 end
+
+@testset "opf_sequence_voltage — matches a hand-computed Fortescue transform" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(200.0); per_unit=true,
+                                     add_objective=false)
+    m = BMOPFTools.opf_model(ctx)
+    seq = Dict(c => BMOPFTools.opf_sequence_voltage(ctx, "b1"; component=c)
+               for c in (:zero, :positive, :negative))
+    JuMP.@objective(m, Min, 0.0)
+    BMOPFTools.enforce_kcl!(ctx)
+    JuMP.set_attribute(m, "print_level", 0); JuMP.optimize!(m)
+    @test JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+
+    vr = ctx.vars[:vr]; vi = ctx.vars[:vi]
+    # b1's neutral is perfectly grounded here, so the reference is
+    # phase-to-ground and the hand transform uses the raw phase voltages.
+    V = [JuMP.value(vr[("b1", t)]) + im * JuMP.value(vi[("b1", t)])
+         for t in ("1", "2", "3")]
+    a = exp(im * 2π / 3)
+    hand = Dict(:zero     => sum(V) / 3,
+                :positive => (V[1] + a*V[2] + a^2*V[3]) / 3,
+                :negative => (V[1] + a^2*V[2] + a*V[3]) / 3)
+    for c in (:zero, :positive, :negative)
+        (re, ie) = seq[c]
+        @test JuMP.value(re) ≈ real(hand[c]) atol=1e-10
+        @test JuMP.value(ie) ≈ imag(hand[c]) atol=1e-10
+    end
+    # The feeder is genuinely unbalanced, or this test would pass vacuously.
+    @test hypot(JuMP.value(seq[:negative][1]), JuMP.value(seq[:negative][2])) > 1e-4
+end
+
+@testset "opf_sequence_voltage — rejects an undefined request" begin
+    ctx = BMOPFTools.build_opf_model(_obj_net(200.0); per_unit=true,
+                                     add_objective=false)
+    @test_throws ArgumentError BMOPFTools.opf_sequence_voltage(ctx, "b1"; component=:bogus)
+    @test_throws ArgumentError BMOPFTools.opf_sequence_voltage(ctx, "no_such_bus")
+end
+
+@testset "opf_sequence_voltage — shares one definition with the bus bounds" begin
+    # Regression guard for the refactor that made bus.jl consume
+    # `_sequence_voltage_terms`: a vneg_max LIMIT and an opf_sequence_voltage
+    # PENALTY must be talking about the same number. If the two Fortescue
+    # copies ever drift, a bound would stop matching the quantity it bounds.
+    net = _obj_net(200.0)
+    ctx0 = BMOPFTools.build_opf_model(net; per_unit=true, add_objective=false)
+    m0 = BMOPFTools.opf_model(ctx0)
+    (r0, i0) = BMOPFTools.opf_sequence_voltage(ctx0, "b1"; component=:negative)
+    JuMP.@objective(m0, Min, 0.0); BMOPFTools.enforce_kcl!(ctx0)
+    JuMP.set_attribute(m0, "print_level", 0); JuMP.optimize!(m0)
+    v2_free = hypot(JuMP.value(r0), JuMP.value(i0))
+    @test v2_free > 1e-4
+
+    # Now impose vneg_max BELOW what the unconstrained solve produced. If the
+    # bound is built from the same expression, it must bind.
+    netb = _obj_net(200.0)
+    netb["bus"]["b1"]["vneg_max"] = 0.5 * v2_free
+    ctxb = BMOPFTools.build_opf_model(netb; per_unit=true, add_objective=false)
+    mb = BMOPFTools.opf_model(ctxb)
+    (rb, ib) = BMOPFTools.opf_sequence_voltage(ctxb, "b1"; component=:negative)
+    JuMP.@objective(mb, Min, 0.0); BMOPFTools.enforce_kcl!(ctxb)
+    JuMP.set_attribute(mb, "print_level", 0); JuMP.optimize!(mb)
+    if JuMP.termination_status(mb) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+        @test hypot(JuMP.value(rb), JuMP.value(ib)) <= 0.5 * v2_free + 1e-6
+    else
+        # Refusing the tightened bound is also consistent with the two agreeing;
+        # silently exceeding it would not be.
+        @test JuMP.termination_status(mb) != JuMP.OPTIMAL
+    end
+end

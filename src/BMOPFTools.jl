@@ -2309,6 +2309,32 @@ function opf_dual end
 function opf_objective_value end
 
 """
+    opf_sequence_voltage(ctx, bus; component=:negative) -> (re, im)
+
+Symmetrical-component voltage at `bus` as a pair of affine JuMP expressions in
+the model's working units. `component` is `:zero`, `:positive`, or `:negative`.
+
+These are the same expressions the bus sequence BOUNDS are built from
+(`vneg_max`, `vzero_max`, `vpos_min`/`vpos_max`), so a penalty and a limit on
+the same quantity cannot drift apart.
+
+The reference is phase-to-neutral where the bus neutral floats and
+phase-to-ground otherwise; using phase-to-ground on a floating-neutral bus would
+fold the neutral displacement into the zero-sequence component. Requires a
+three-phase bus and throws otherwise, rather than reporting the unbalance of an
+imagined one.
+
+The Fortescue transform is linear in the rectangular voltage variables, so both
+returned expressions are affine. `re^2 + im^2` is therefore an exact smooth
+quadratic needing no smoothing; only a MAGNITUDE penalty needs
+[`smooth_norm`](@ref).
+
+Implemented in the `BMOPFOpfExt` extension (requires JuMP and Ipopt loaded).
+"""
+function opf_sequence_voltage end
+export opf_sequence_voltage
+
+"""
     smooth_norm(ctx, x, y; scale, eps_rel=1e-3, annotate=true, name="")
 
 Smooth 2-norm `sqrt(x^2 + y^2 + eps^2) - eps` of a complex quantity `(x, y)`, as

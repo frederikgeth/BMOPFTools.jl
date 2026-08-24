@@ -178,3 +178,98 @@ function BMOPFTools.smooth_norm(ctx::OpfContext, x, y;
     end
     return JuMP.@expression(ctx.model, sqrt(x^2 + y^2 + eps^2) - eps)
 end
+
+# ── Symmetrical components ────────────────────────────────────────────────────
+# One definition of V₀/V₁/V₂, shared by the bus sequence BOUNDS
+# (`vpos_min`/`vpos_max`/`vneg_max`/`vzero_max`, see `bus.jl`) and by the
+# sequence objective terms below. Two independent copies of the Fortescue
+# transform would be free to drift apart, and a bound that disagreed with the
+# objective penalising the same quantity is the kind of inconsistency nothing
+# would catch.
+#
+# α = exp(j2π/3): Re(α) = −0.5, Im(α) = √3/2
+#   V₀ = (Va + Vb + Vc)/3          zero sequence
+#   V₁ = (Va + α·Vb + α²·Vc)/3     positive sequence
+#   V₂ = (Va + α²·Vb + α·Vc)/3     negative sequence
+#
+# The transform is LINEAR in the rectangular voltage variables, so every
+# component comes back as an affine expression: `:squared` penalties on them are
+# plain quadratics, and only `:magnitude` needs `smooth_norm`.
+
+const _SEQUENCE_COMPONENTS = (:zero, :positive, :negative)
+
+"""
+    _sequence_voltage_terms(model, vr, vi, bid, phase_all, neutral, grounded)
+
+Return `(zero=(re,im), positive=(re,im), negative=(re,im))` for a three-phase
+bus, as affine JuMP expressions.
+
+The transform's input is the phase-to-NEUTRAL voltage when the bus has a
+floating neutral, and the phase-to-ground voltage otherwise (grounded neutral,
+or no neutral at all). Using phase-to-ground on a bus whose neutral floats would
+fold the neutral displacement into the zero-sequence component and report
+unbalance that the phase conductors do not actually see.
+
+`phase_all` must be all three phase terminals in declaration order; the
+symmetrical-component transform is defined over the full set, so a
+grounded/source-fixed phase is still included (it is a legitimate zero).
+"""
+function _sequence_voltage_terms(model, vr, vi, bid, phase_all, neutral, grounded)
+    length(phase_all) == 3 || throw(ArgumentError(
+        "symmetrical components need exactly 3 phase terminals at bus '$bid', " *
+        "got $(length(phase_all)): $(phase_all)"))
+    s3 = sqrt(3.0) / 2.0
+    neutral_floating = neutral !== nothing && !((bid, neutral) in grounded)
+    dv(t) = neutral_floating ?
+        (JuMP.@expression(model, vr[(bid,t)] - vr[(bid,neutral)]),
+         JuMP.@expression(model, vi[(bid,t)] - vi[(bid,neutral)])) :
+        (vr[(bid,t)], vi[(bid,t)])
+    (dvr1, dvi1) = dv(phase_all[1])
+    (dvr2, dvi2) = dv(phase_all[2])
+    (dvr3, dvi3) = dv(phase_all[3])
+    return (
+        zero = (JuMP.@expression(model, (dvr1 + dvr2 + dvr3) / 3),
+                JuMP.@expression(model, (dvi1 + dvi2 + dvi3) / 3)),
+        positive = (
+            JuMP.@expression(model, (dvr1 - 0.5*dvr2 - s3*dvi2 - 0.5*dvr3 + s3*dvi3) / 3),
+            JuMP.@expression(model, (dvi1 + s3*dvr2 - 0.5*dvi2 - s3*dvr3 - 0.5*dvi3) / 3)),
+        negative = (
+            JuMP.@expression(model, (dvr1 - 0.5*dvr2 + s3*dvi2 - 0.5*dvr3 - s3*dvi3) / 3),
+            JuMP.@expression(model, (dvi1 - s3*dvr2 - 0.5*dvi2 + s3*dvr3 - 0.5*dvi3) / 3)),
+    )
+end
+
+"""
+    BMOPFTools.opf_sequence_voltage(ctx, bus; component=:negative) -> (re, im)
+
+Symmetrical-component voltage at `bus` as a pair of affine JuMP expressions in
+the model's working units. `component` is `:zero`, `:positive`, or `:negative`.
+
+The same expressions the bus sequence bounds (`vneg_max`, `vzero_max`,
+`vpos_min`/`vpos_max`) are built from, so a penalty and a limit on the same
+quantity cannot disagree.
+
+Reference: phase-to-neutral where the bus neutral floats, phase-to-ground
+otherwise. Requires a three-phase bus — symmetrical components are not defined
+over a partial phase set, and this throws rather than silently reporting the
+unbalance of an imagined three-phase bus.
+
+The transform is linear, so `re`/`im` are affine: `re^2 + im^2` is an exact
+smooth quadratic and needs no smoothing. Only a MAGNITUDE penalty (`|V₂|`
+rather than `|V₂|²`) needs [`smooth_norm`](@ref).
+"""
+function BMOPFTools.opf_sequence_voltage(ctx::OpfContext, bus::AbstractString;
+                                         component::Symbol = :negative)
+    component in _SEQUENCE_COMPONENTS || throw(ArgumentError(
+        "unknown sequence component '$component'; expected one of " *
+        join(_SEQUENCE_COMPONENTS, ", ")))
+    bus_dict = get(get(ctx.net, "bus", Dict{String,Any}()), bus, nothing)
+    bus_dict isa AbstractDict || throw(ArgumentError(
+        "bus '$bus' is not in the network"))
+    terminals = get(ctx.bus_terminals, bus, String[])
+    neutral   = BMOPFTools._neutral_terminal(bus_dict)
+    phase_all = [t for t in terminals if t != neutral]
+    terms = _sequence_voltage_terms(ctx.model, ctx.vars[:vr], ctx.vars[:vi],
+                                    bus, phase_all, neutral, ctx.grounded)
+    return getfield(terms, component)
+end
