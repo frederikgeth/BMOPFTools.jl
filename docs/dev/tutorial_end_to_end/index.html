@@ -10,16 +10,13 @@ for comp in (&quot;bus&quot;, &quot;line&quot;, &quot;linecode&quot;, &quot;swit
 end
 xfmr = get(net, &quot;transformer&quot;, Dict())
 println(rpad(&quot;transformer&quot;, 16), &quot;: &quot;, sum(length(v) for v in values(xfmr) if v isa Dict; init=0),
-        &quot;  (&quot;, join(keys(xfmr), &quot;, &quot;), &quot;)&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>from_dss: the source field ledger on net[&quot;_meta&quot;][&quot;powerio_source_mapping&quot;] is incomplete (truncated_upstream); its unmapped_fields under-reports what the conversion dropped and must not be read as a fidelity proof
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ BMOPFTools ~/work/BMOPFTools.jl/BMOPFTools.jl/src/io/from_dss.jl:476</span>
-<span class="sgr33"><span class="sgr1">┌ Warning: </span></span>from_dss: 43 piece(s) of OpenDSS information could not be represented in BMOPF (full list on net[&quot;_meta&quot;][&quot;powerio_warnings&quot;]):
-<span class="sgr33"><span class="sgr1">│ </span></span>  linecode generic/lv: `units` has no place in the BMOPF schema; dropped from the output
-<span class="sgr33"><span class="sgr1">│ </span></span>  linecode uglv_4cu_xlpe/pvc_ug_4w_bundled: `units` has no place in the BMOPF schema; dropped from the output
-<span class="sgr33"><span class="sgr1">│ </span></span>  linecode moon_hv_oh_3wire: `units` has no place in the BMOPF schema; dropped from the output
-<span class="sgr33"><span class="sgr1">│ </span></span>  linecode moon_lv_oh_4wire: `units` has no place in the BMOPF schema; dropped from the output
-<span class="sgr33"><span class="sgr1">│ </span></span>  linecode ughv_400al_triplex_ug_4w_bundled: `units` has no place in the BMOPF schema; dropped from the output
-<span class="sgr33"><span class="sgr1">│ </span></span>  … and 38 more
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ BMOPFTools ~/work/BMOPFTools.jl/BMOPFTools.jl/src/io/from_dss.jl:668</span>
+        &quot;  (&quot;, join(keys(xfmr), &quot;, &quot;), &quot;)&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>from_dss: 56 piece(s) of OpenDSS information could not be represented in BMOPF, in 5 class(es) (full list on net[&quot;_meta&quot;][&quot;powerio_warnings&quot;]):
+<span class="sgr33"><span class="sgr1">│ </span></span>  EMIT.BMOPF.FIELD_DROPPED: 9 occurrences, e.g. line L_226: `units` has no place in the BMOPF schema; dropped from the output
+<span class="sgr33"><span class="sgr1">│ </span></span>  EMIT.BMOPF.FIELD_DROPPED: 22 occurrences, e.g. linecode generic/lv: `units` has no place in the BMOPF schema; dropped from the output
+<span class="sgr33"><span class="sgr1">│ </span></span>  EMIT.BMOPF.FIELD_DROPPED: 10 occurrences, e.g. load Ld3313_LOAD_A: `kv` has no place in the BMOPF schema; dropped from the output
+<span class="sgr33"><span class="sgr1">│ </span></span>  EMIT.BMOPF.FIELD_DROPPED: 12 occurrences, e.g. switch Switch_499_CLOSED: `length` has no place in the BMOPF schema; dropped from the output
+<span class="sgr33"><span class="sgr1">│ </span></span>  EMIT.BMOPF.FIELD_DROPPED: 3 occurrences, e.g. voltage source source: `angle` has no place in the BMOPF schema; dropped from the output
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ BMOPFTools ~/work/BMOPFTools.jl/BMOPFTools.jl/src/io/from_dss.jl:732</span>
 bus             : 15
 line            : 9
 linecode        : 22
@@ -27,22 +24,28 @@ switch          : 4
 load            : 2
 shunt           : 3
 voltage_source  : 1
-transformer     : 1  (delta_wye)</code></pre><p><code>from_dss</code> is loud about fidelity: the <code>Warning</code> it prints above lists every piece of OpenDSS information that has no BMOPF representation and was dropped (here mostly cosmetic fields such as linecode <code>units</code>). The console preview is capped at five items — the full, untruncated list stays inspectable at <code>net[&quot;_meta&quot;][&quot;powerio_warnings&quot;]</code> (see <a href="../conversion/#ingest-warnings">Ingest warnings</a>).</p><h2 id="2.-Analyze-and-diagnose"><a class="docs-heading-anchor" href="#2.-Analyze-and-diagnose">2. Analyze &amp; diagnose</a><a id="2.-Analyze-and-diagnose-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Analyze-and-diagnose" title="Permalink"></a></h2><p><a href="../api/#BMOPFTools.analyze"><code>analyze</code></a> runs fifteen passes — inventory, connectivity, voltage levels, provenance, schema, completeness, domain rules, redundancy, integrity, spec conformance, benchmark readiness, and more — and returns a <a href="../api/#BMOPFTools.SummaryReport"><code>SummaryReport</code></a>. Each diagnostic is a <a href="../api/#BMOPFTools.Finding"><code>Finding</code></a> with a stable dot-separated code; see <a href="../analysis/">Analysis &amp; reports</a> for what each pass computes and the <a href="../findings/">finding-code reference</a> for the full catalogue.</p><pre><code class="language-julia hljs">report = analyze(net)
+transformer     : 1  (delta_wye)</code></pre><p><code>from_dss</code> is loud about fidelity: the <code>Warning</code> it prints above lists every piece of OpenDSS information that has no BMOPF representation and was dropped (here mostly cosmetic fields such as linecode <code>units</code>). The console preview shows one line per diagnostic class — the full, untruncated list stays inspectable at <code>net[&quot;_meta&quot;][&quot;powerio_warnings&quot;]</code>, and the same diagnostics reach <a href="../api/#BMOPFTools.analyze"><code>analyze</code></a> as findings (see <a href="../conversion/#ingest-warnings">Ingest warnings</a>).</p><h2 id="2.-Analyze-and-diagnose"><a class="docs-heading-anchor" href="#2.-Analyze-and-diagnose">2. Analyze &amp; diagnose</a><a id="2.-Analyze-and-diagnose-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Analyze-and-diagnose" title="Permalink"></a></h2><p><a href="../api/#BMOPFTools.analyze"><code>analyze</code></a> runs fifteen passes — inventory, connectivity, voltage levels, provenance, schema, completeness, domain rules, redundancy, integrity, spec conformance, benchmark readiness, and more — and returns a <a href="../api/#BMOPFTools.SummaryReport"><code>SummaryReport</code></a>. Each diagnostic is a <a href="../api/#BMOPFTools.Finding"><code>Finding</code></a> with a stable dot-separated code; see <a href="../analysis/">Analysis &amp; reports</a> for what each pass computes and the <a href="../findings/">finding-code reference</a> for the full catalogue.</p><pre><code class="language-julia hljs">report = analyze(net)
 
 println(&quot;ERRORs   : &quot;, length(errors(report)))
 println(&quot;WARNINGs : &quot;, length(warnings(report)))
 println(&quot;INFOs    : &quot;, length(infos(report)))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ERRORs   : 0
-WARNINGs : 2
-INFOs    : 22</code></pre><p>Findings are meant to be matched on their <strong>code</strong>, never on message text. This feeder imports with zero errors and two warnings: a handful of degree-1 buses with nothing attached (<code>W.CONN.DANGLING</code> — switch and stub endpoints), and <code>W.OPS.IMPORT_DEPENDENT</code> — the feeder has <strong>no local generation at all</strong>. That second warning is the analyzer telling you the import is a <em>passive load feeder</em>: there is nothing for an OPF to optimise yet, which is exactly what the DER-placement step below is for. The missing operating bounds show up as INFO findings such as <code>I.PRE.NO_VOLT_BOUNDS</code>, which the augmentation step fills.</p><pre><code class="language-julia hljs">for f in warnings(report)
+WARNINGs : 8
+INFOs    : 20</code></pre><p>Findings are meant to be matched on their <strong>code</strong>, never on message text. This feeder imports with zero errors and two warnings: a handful of degree-1 buses with nothing attached (<code>W.CONN.DANGLING</code> — switch and stub endpoints), and <code>W.OPS.IMPORT_DEPENDENT</code> — the feeder has <strong>no local generation at all</strong>. That second warning is the analyzer telling you the import is a <em>passive load feeder</em>: there is nothing for an OPF to optimise yet, which is exactly what the DER-placement step below is for. The missing operating bounds show up as INFO findings such as <code>I.PRE.NO_VOLT_BOUNDS</code>, which the augmentation step fills.</p><pre><code class="language-julia hljs">for f in warnings(report)
     println(&quot;WARN  [&quot;, f.code, &quot;]  &quot;, f.message)
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">WARN  [W.CONN.DANGLING]  5 bus(es) are degree-1 with no attached load, generator, shunt, capacitor, ibr, or source.
-WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.02 MW).</code></pre><p>The full report renders to a terminal or a Markdown file. The one-line <strong>modeling-convention statement</strong> (wires per voltage level, grounding style, normalisations) makes the case&#39;s hidden assumptions explicit:</p><pre><code class="language-julia hljs">render(report, stdout)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">
+WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.02 MW).
+WARN  [EMIT.BMOPF.FIELD_DROPPED]  9 occurrences, e.g. line L_226: `units` has no place in the BMOPF schema; dropped from the output
+WARN  [EMIT.BMOPF.FIELD_DROPPED]  22 occurrences, e.g. linecode generic/lv: `units` has no place in the BMOPF schema; dropped from the output
+WARN  [EMIT.BMOPF.FIELD_DROPPED]  10 occurrences, e.g. load Ld3313_LOAD_A: `kv` has no place in the BMOPF schema; dropped from the output
+WARN  [EMIT.BMOPF.FIELD_DROPPED]  12 occurrences, e.g. switch Switch_499_CLOSED: `length` has no place in the BMOPF schema; dropped from the output
+WARN  [EMIT.BMOPF.FIELD_DROPPED]  3 occurrences, e.g. voltage source source: `angle` has no place in the BMOPF schema; dropped from the output
+WARN  [W.DOM.XFMR_LOW_IMPEDANCE]  Transformer &#39;tx3170&#39; (delta_wye) has near-zero series impedance (|Z| ≈ 1.2e-5 pu &lt; 0.001 pu on the rating base; real units are 1–15 %) — almost certainly a small placeholder for zero carried over from an admittance-based tool. In this IVR engine a tiny leakage ill-conditions the winding voltage-drop equation, whereas exact zero collapses to the well-posed ideal constraint V_fr = N·V_to. Set it to exactly zero (the fix recipe can, via `apply_snap_transformer_impedance`) or to a realistic %Z.</code></pre><p>The full report renders to a terminal or a Markdown file. The one-line <strong>modeling-convention statement</strong> (wires per voltage level, grounding style, normalisations) makes the case&#39;s hidden assumptions explicit:</p><pre><code class="language-julia hljs">render(report, stdout)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">
 ──────────────────────────────────────────────────────────────────────
   BMOPF NETWORK SUMMARY REPORT
 ──────────────────────────────────────────────────────────────────────
 </span>  Case name                     lv1_14bus
-  Generated                     2026-08-24 06:33:54
-  Findings                      0 errors, 2 warnings, 22 info
+  Generated                     2026-08-24 09:24:41
+  Findings                      0 errors, 8 warnings, 20 info
   Convention                    MV_6.4kV: 4-wire; LV_250V: 4-wire; 4 grounding point(s); symmetric π-only line model
 <span class="sgr1">
 ──────────────────────────────────────────────────────────────────────
@@ -199,6 +202,8 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
     6.35 kV    1 bus(es)    4-wire   star: solid        +0 downstream → solidly earthed
     250.0 V    14 bus(es)   4-wire   star: solid        +2 downstream → TN-C-S / multi-earthed (PME/MEN-style)
 
+  PowerIO conversion: 56 fidelity loss(es) in 5 class(es) — see findings
+
   <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/abc4x95_lv_oh_4w_bundled
     Linecode &#39;abc4x95_lv_oh_4w_bundled&#39; B_from_block has positive mutual susceptance — deviates from the Maxwell sign pattern; typical of screen-eliminated/bundled cable reductions, otherwise a sign-convention suspect.
   <span class="sgr36">[INFO] I.PROV.B_OFFDIAG</span>  linecode/abc4x95_lv_oh_4w_bundled
@@ -217,6 +222,16 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
     2 load(s) have power factor exactly 0.88 — the OpenDSS default; reactive demand was likely never specified.
   <span class="sgr36">[INFO] I.PROV.IMPEDANCE_TRANSFORM_KR</span>
     9 three-wire linecode(s) match the impedance signature of Kron reduction — neutral row/column eliminated from the original four-wire Carson impedance matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate with finite grounding. Zero-sequence behaviour is not captured by the three-wire representation.: moon_hv_oh_3wire, pluto_lv_oh_3wire, ughv_240al_triplex_ug_3w_bundled, ughv_240cu_hdpe/nyl/pvc_ug_3w_bundled, ughv_240cu_xlpe/nyl/pvc_ug_3w_bundled, ughv_400al_triplex_ug_3w_bundled, ughv_400al_xlpe/nyl/pvc_ug_3w_bundled, ughv_95al_xlpe/nyl/pvc_ug_3w_bundled, uglv_240al_xlpe/nyl/pvc_ug_3w_bundled.
+  <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>
+    9 occurrences, e.g. line L_226: `units` has no place in the BMOPF schema; dropped from the output
+  <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>
+    22 occurrences, e.g. linecode generic/lv: `units` has no place in the BMOPF schema; dropped from the output
+  <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>
+    10 occurrences, e.g. load Ld3313_LOAD_A: `kv` has no place in the BMOPF schema; dropped from the output
+  <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>
+    12 occurrences, e.g. switch Switch_499_CLOSED: `length` has no place in the BMOPF schema; dropped from the output
+  <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>  voltage_source/source
+    3 occurrences, e.g. voltage source source: `angle` has no place in the BMOPF schema; dropped from the output
 <span class="sgr1">
 ──────────────────────────────────────────────────────────────────────
   8. SPEC CONFORMANCE &amp; BENCHMARK READINESS
@@ -248,13 +263,25 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
 ──────────────────────────────────────────────────────────────────────
   9. DATA QUALITY SUMMARY
 ──────────────────────────────────────────────────────────────────────
-</span>  Total findings: 24  (0 errors, 2 warnings, 22 info)
+</span>  Total findings: 28  (0 errors, 8 warnings, 20 info)
 
   WARNINGS:
     <span class="sgr33">[WARN] W.CONN.DANGLING</span>
       5 bus(es) are degree-1 with no attached load, generator, shunt, capacitor, ibr, or source.
     <span class="sgr33">[WARN] W.OPS.IMPORT_DEPENDENT</span>
       Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.02 MW).
+    <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>
+      9 occurrences, e.g. line L_226: `units` has no place in the BMOPF schema; dropped from the output
+    <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>
+      22 occurrences, e.g. linecode generic/lv: `units` has no place in the BMOPF schema; dropped from the output
+    <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>
+      10 occurrences, e.g. load Ld3313_LOAD_A: `kv` has no place in the BMOPF schema; dropped from the output
+    <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>
+      12 occurrences, e.g. switch Switch_499_CLOSED: `length` has no place in the BMOPF schema; dropped from the output
+    <span class="sgr33">[WARN] EMIT.BMOPF.FIELD_DROPPED</span>  voltage_source/source
+      3 occurrences, e.g. voltage source source: `angle` has no place in the BMOPF schema; dropped from the output
+    <span class="sgr33">[WARN] W.DOM.XFMR_LOW_IMPEDANCE</span>  transformer/tx3170
+      Transformer &#39;tx3170&#39; (delta_wye) has near-zero series impedance (|Z| ≈ 1.2e-5 pu &lt; 0.001 pu on the rating base; real units are 1–15 %) — almost certainly a small placeholder for zero carried over from an admittance-based tool. In this IVR engine a tiny leakage ill-conditions the winding voltage-drop equation, whereas exact zero collapses to the well-posed ideal constraint V_fr = N·V_to. Set it to exactly zero (the fix recipe can, via `apply_snap_transformer_impedance`) or to a realistic %Z.
   INFO:
     <span class="sgr36">[INFO] I.DIV.LOAD_PHASE_BALANCED</span>
       Galvanic zone anchored at &#39;b1133&#39; has balanced aggregate load across 2 phase(s) (max spread 0.0%) — the network is effectively balanced and a single-phase equivalent would suffice.
@@ -290,10 +317,6 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
       15 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
     <span class="sgr36">[INFO] I.PRE.SINGLE_SOURCE</span>
       Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
-    <span class="sgr36">[INFO] I.SCHEMA.UNKNOWN_FIELDS</span>
-      Additional property not defined in schema at [meta].
-    <span class="sgr36">[INFO] I.SCHEMA.UNKNOWN_FIELDS</span>
-      meta has field(s) not in the BMOPF schema: generator.
     <span class="sgr36">[INFO] I.RED.UNUSED_LINECODES</span>
       20 linecode(s) defined but not referenced by any line.
     <span class="sgr36">[INFO] I.RED.DUPLICATE_LINECODES</span>
@@ -301,7 +324,7 @@ WARN  [W.OPS.IMPORT_DEPENDENT]  Network is heavily import-dependent: local gener
     <span class="sgr36">[INFO] I.BENCH.AUGMENTATION</span>
       Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.</code></pre><h2 id="3.-Fix-—-structural-repair"><a class="docs-heading-anchor" href="#3.-Fix-—-structural-repair">3. Fix — structural repair</a><a id="3.-Fix-—-structural-repair-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Fix-—-structural-repair" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.fix_case"><code>fix_case</code></a> applies idempotent structural repairs and returns the repaired network plus a <a href="../augmentation/#TransformationManifest"><code>TransformationManifest</code></a> recording every change. The default <a href="../augmentation/#BMOPFTools.FixRecipe"><code>FixRecipe</code></a> keeps the largest connected component, merges trivial series lines, drops electrically-inert zero loads, turns near-zero-impedance lines into switches, and strips redundant voltage bounds off source buses. Four passes are opt-in because they change topology inference, representation, or OPF physics: <code>apply_adjacent_current_bounds</code>, <code>apply_perfect_grounding</code>, <code>apply_shunt_to_capacitor</code>, and <code>apply_snap_transformer_impedance</code>.</p><pre><code class="language-julia hljs">net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
 
-render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-08-24T06:33:57.942
+render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-08-24T09:24:46.123
   6 change(s)  |  findings before: 1  after: 1
 
 ── BUS (2 change(s)) ──
@@ -331,7 +354,7 @@ render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code
 
 net_der, der_mf = add_ibrs(net_fixed; recipe = ibr_recipe)
 
-render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-08-24T06:33:58.274
+render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-08-24T09:24:46.638
   14 change(s)  |  findings before: 1  after: 3
 
 ── IBR (14 change(s)) ──
@@ -366,7 +389,7 @@ render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code
     topology         —                    → SINGLE_PHASE
                      [IBR_PLACEMENT/load_following, synthetic] inferred from load terminal_map (2 terminals)</code></pre><h2 id="5.-Augment-—-standards-grounded-gap-filling"><a class="docs-heading-anchor" href="#5.-Augment-—-standards-grounded-gap-filling">5. Augment — standards-grounded gap-filling</a><a id="5.-Augment-—-standards-grounded-gap-filling-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Augment-—-standards-grounded-gap-filling" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.augment_case"><code>augment_case</code></a> fills the bounds and costs an OPF needs, <strong>without overwriting any value already present</strong>. Each fill is tagged in the manifest as <code>:standard</code> (derived from a cited standard) or <code>:synthetic</code> (a design choice). The passes draw on EN 50160 (voltage bounds), a heuristic conductor-size → ampacity estimate (thermal limits, loosely IEC-60228/60364-calibrated), and EN 50549-1 / IEEE 1547 (reactive capability). See <a href="../augmentation/">Case augmentation</a> for the full pass-by-pass rationale.</p><pre><code class="language-julia hljs">net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
 
-render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-08-24T06:33:58.306
+render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-08-24T09:24:46.690
   95 change(s)  |  findings before: 1  after: 0
 
 ── BUS (86 change(s)) ──
@@ -614,9 +637,9 @@ println(&quot;ERRORs   : &quot;, length(errors(report)),   &quot; → &quot;, le
 println(&quot;WARNINGs : &quot;, length(warnings(report)), &quot; → &quot;, length(warnings(report2)))
 println(&quot;Cleared  : &quot;, join(sort(collect(setdiff(before, after))), &quot;, &quot;))
 println(&quot;New      : &quot;, join(sort(collect(setdiff(after, before))), &quot;, &quot;))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ERRORs   : 0 → 0
-WARNINGs : 2 → 1
+WARNINGs : 8 → 7
 Cleared  : I.BENCH.AUGMENTATION, I.PRE.NO_VOLT_BOUNDS, W.OPS.IMPORT_DEPENDENT
-New      : I.DIV.LINE_SYMMETRIC, I.PROV.OVERLAPPING_VOLTAGE_BOUNDS</code></pre><p>Augmentation cleared <code>I.PRE.NO_VOLT_BOUNDS</code> — every bus now has voltage bounds, so the OPF is well-posed — and the new INFO codes are consequences of the fills (e.g. <code>I.PROV.OVERLAPPING_VOLTAGE_BOUNDS</code> notes that the phase-to-ground and phase-to-neutral envelopes now coexist). <code>W.OPS.IMPORT_DEPENDENT</code> also cleared: the DER-placement step gave the feeder local active capacity, and that pass counts both dispatchable <code>generator</code> units and the <code>ibr</code> fleet we placed (a PV IBR on each load bus, sized well above the local load), so the feeder is no longer a passive import. The lone surviving warning is <code>W.CONN.DANGLING</code>: a few degree-1 stub buses that are live switch endpoints (it dropped from 5 buses to</p><ol><li>— a <strong>structural</strong> finding that gap-filling does not (and should not) touch.</li></ol><p>Re-validation is a diff to be read, not a score to be zeroed.</p><h2 id="7.-Solve"><a class="docs-heading-anchor" href="#7.-Solve">7. Solve</a><a id="7.-Solve-1"></a><a class="docs-heading-anchor-permalink" href="#7.-Solve" title="Permalink"></a></h2><p><code>solve_opf</code> lives in a package extension that loads once <strong>JuMP</strong> and a solver such as <strong>Ipopt</strong> are present. It solves the four-wire IVR-EN model (see <a href="../opf/">Optimal power flow</a>) and returns a result dictionary mirroring the network structure (see <a href="../results/">OPF result dictionary</a>).</p><pre><code class="language-julia hljs">using JuMP, Ipopt
+New      : I.DIV.LINE_SYMMETRIC, I.PROV.OVERLAPPING_VOLTAGE_BOUNDS, I.SCHEMA.UNKNOWN_FIELDS</code></pre><p>Augmentation cleared <code>I.PRE.NO_VOLT_BOUNDS</code> — every bus now has voltage bounds, so the OPF is well-posed — and the new INFO codes are consequences of the fills (e.g. <code>I.PROV.OVERLAPPING_VOLTAGE_BOUNDS</code> notes that the phase-to-ground and phase-to-neutral envelopes now coexist). <code>W.OPS.IMPORT_DEPENDENT</code> also cleared: the DER-placement step gave the feeder local active capacity, and that pass counts both dispatchable <code>generator</code> units and the <code>ibr</code> fleet we placed (a PV IBR on each load bus, sized well above the local load), so the feeder is no longer a passive import. The lone surviving warning is <code>W.CONN.DANGLING</code>: a few degree-1 stub buses that are live switch endpoints (it dropped from 5 buses to</p><ol><li>— a <strong>structural</strong> finding that gap-filling does not (and should not) touch.</li></ol><p>Re-validation is a diff to be read, not a score to be zeroed.</p><h2 id="7.-Solve"><a class="docs-heading-anchor" href="#7.-Solve">7. Solve</a><a id="7.-Solve-1"></a><a class="docs-heading-anchor-permalink" href="#7.-Solve" title="Permalink"></a></h2><p><code>solve_opf</code> lives in a package extension that loads once <strong>JuMP</strong> and a solver such as <strong>Ipopt</strong> are present. It solves the four-wire IVR-EN model (see <a href="../opf/">Optimal power flow</a>) and returns a result dictionary mirroring the network structure (see <a href="../results/">OPF result dictionary</a>).</p><pre><code class="language-julia hljs">using JuMP, Ipopt
 
 optimizer = optimizer_with_attributes(Ipopt.Optimizer, &quot;print_level&quot; =&gt; 0)
 result = solve_opf(net_ready; optimizer = optimizer, per_unit = true)
@@ -649,10 +672,10 @@ render_solution(sol_report, stdout)</code></pre><pre class="documenter-example-o
 Solution WARNINGs : 2
 # BMOPF Solution Profile: lv1_14bus
 
-**Generated:** 2026-08-24 06:34:01
+**Generated:** 2026-08-24 09:24:51
 **Status:** `LOCALLY_SOLVED`
 **Objective:** -48.6794
-**Solve time:** 0.02 s
+**Solve time:** 0.029 s
 **Findings:** 0 errors · 2 warnings · 3 info
 
 ---
@@ -733,7 +756,7 @@ Per-unit magnitudes are relative to each zone&#39;s own voltage base; volts are 
 | Strictly complementary | true |
 | Weakly-active (degenerate) | 0 |
 | Barrier iterations | 13 |
-| Solve time (s) | 0.02008795738220215 |
+| Solve time (s) | 0.02858901023864746 |
 | Max shadow price (per_unit) | 13.01 |
 
 ## 6. All Findings
@@ -771,5 +794,5 @@ println(&quot;Result JSON round-trips : &quot;,
 println(&quot;Wrote case, result, report, and manifests to &quot;, out_dir)
 println(&quot;Captured &quot;, sum(length(m[&quot;entries&quot;]) for m in values(manifests)),
         &quot; transformation entries across the three manifests&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Result JSON round-trips : true
-Wrote case, result, report, and manifests to /tmp/jl_3lXoTX
-Captured 115 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF, an exported result and report, and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../installation/">« Installation &amp; first steps</a><a class="docs-footer-nextpage" href="../choose_tutorial/">Choose your tutorial »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 24 August 2026 06:34">Monday 24 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Wrote case, result, report, and manifests to /tmp/jl_HMnAGn
+Captured 115 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF, an exported result and report, and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../installation/">« Installation &amp; first steps</a><a class="docs-footer-nextpage" href="../choose_tutorial/">Choose your tutorial »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 24 August 2026 09:26">Monday 24 August 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
