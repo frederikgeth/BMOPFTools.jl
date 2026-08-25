@@ -325,7 +325,9 @@ A useful identity ties this back to feasibility: slack power $=$ losses $+$ net 
 which is why min-import can push dispatchable DER against upper voltage bounds — see the
 [decision matrix](decision_matrix.md)). This is why a bare feasibility problem is so often
 quietly turned into a min-slack (loss-min) problem — it makes the problem well-posed *and*
-branch-correct in one move.
+branch-favourable in one move. Favourable is not the same as correct: it changes
+what the optimization prefers, and does not certify which branch a local solver
+returned.
 
 The objectives that violate the monotonicity test, and the reformulations that fix them,
 are catalogued in [Objectives that imply loss maximization](loss_maximization.md).

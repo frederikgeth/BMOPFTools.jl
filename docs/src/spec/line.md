@@ -223,8 +223,10 @@ conductor, with $\textcolor{blue}{z}=\textcolor{blue}{U_{i,\cdot}}\,(\textcolor{
     independently to `i_max` and `s_max`), and both are enforced natively by the
     OPF — the current cone `I∘I* ≤ I_max∘I_max` and the ground-referenced
     per-conductor apparent-power cone `S∘S* ≤ S_max∘S_max` with
-    `S = U∘conj(I)`. Enforcing both is generally redundant; current is preferred
-    for conductors and the neutral entry of `s_max` is degenerate (`U_n ≈ 0`).
+    `S = U∘conj(I)`. The binding one can change with voltage, so the pair is not
+    mathematically redundant, but declaring both is usually an engineering
+    duplication; current is the source of truth for conductors and the neutral
+    entry of `s_max` is degenerate (`U_n ≈ 0`).
     See [current vs. apparent-power limits](../opf.md#Current-vs-apparent-power-limits).
 
 !!! warning "Asymmetric shunt half-sections"

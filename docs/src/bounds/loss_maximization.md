@@ -61,7 +61,7 @@ objective not on the safe list:
   canonical safe family. Because slack power $=$ losses $+$ net load, minimizing it
   *is* loss minimization *when the other injections are fixed* — which is exactly why a
   feasibility problem is so often turned into min-slack to make it well posed and
-  branch-correct ([§5](index.md)). With other dispatchable generators free, min-slack
+  branch-favourable ([§5](index.md)). With other dispatchable generators free, min-slack
   minimizes losses plus their output, which can drive local injection against upper
   voltage bounds; see the min-import caveat in the [decision matrix](decision_matrix.md).
 

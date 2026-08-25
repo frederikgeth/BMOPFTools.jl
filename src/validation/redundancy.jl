@@ -25,8 +25,12 @@ function redundancy_check(net::Dict{String,Any},
 end
 
 # The OPF now enforces BOTH a current limit and an apparent-power limit natively
-# on every element that carries them. Declaring both is generally redundant — the
-# tighter one binds and the other is inert — so flag it and name the preferred
+# on every element that carries them. Declaring both is not MATHEMATICALLY
+# redundant: since |S| = |V||I|, S_max/I_max is a voltage, and if it falls inside
+# the bus voltage range the binding row changes with voltage. It is usually
+# redundant in ENGINEERING terms, which is the useful reading — a device has one
+# thermal limit, and two declared rows normally mean one was derived from the
+# other — so flag it and name the preferred
 # representation for that component type. Preference (see the "current vs.
 # apparent-power limits" docs): current for lines/cables/switches and for
 # regulators (the tap-changer current is the physical limit); apparent power for
@@ -37,10 +41,13 @@ function _check_dual_thermal_limits(net, findings)
     prefer_current(ct, id, extra="") =
         push!(findings, Finding(WARNING, "W.RED.DUAL_THERMAL_LIMIT", :redundancy, ct, id,
             "$(ct) '$id' declares both a current limit (i_max) and an apparent-power " *
-            "limit (s_max)$extra. Enforcing both is generally redundant — the tighter " *
-            "binds. Prefer the current limit here (it is the physical thermal driver " *
-            "and has no voltage-reference ambiguity); drop s_max or convert it to a " *
-            "current limit in augmentation.", nothing))
+            "limit (s_max)$extra. Both are enforced, and since |S| = |V||I| the binding " *
+            "one can change with voltage — so the pair is not mathematically redundant, " *
+            "it is a composite envelope no datasheet specifies. It is usually redundant " *
+            "in engineering terms: the device has one thermal limit and two rows " *
+            "normally mean one was derived from the other. Prefer the current limit " *
+            "here (conductor heating is specified in amperes, with no voltage-reference " *
+            "ambiguity); drop s_max or convert it in augmentation.", nothing))
 
     for (id, l) in get(net, "line", Dict())
         l isa Dict || continue
@@ -64,10 +71,12 @@ function _check_dual_thermal_limits(net, findings)
                 push!(findings, Finding(WARNING, "W.RED.DUAL_THERMAL_LIMIT", :redundancy,
                     ct, id,
                     "$(ct) '$id' declares both a current limit (i_max) and an " *
-                    "apparent-power limit (s_max). Both are enforced but this is " *
-                    "generally redundant; a current cap additionally makes deliverable " *
-                    "power roll off with voltage. Keep whichever reflects the true " *
-                    "device limit.", nothing))
+                    "apparent-power limit (s_max). Both are enforced, and since " *
+                    "|S| = |V||I| the binding one can change with voltage, so the pair " *
+                    "is not mathematically redundant; a current cap additionally makes " *
+                    "deliverable power roll off with voltage. Declaring both usually " *
+                    "reflects duplicated data rather than two real limits — keep " *
+                    "whichever is the device's source of truth.", nothing))
             end
         end
     end

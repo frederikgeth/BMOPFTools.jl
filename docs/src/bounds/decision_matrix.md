@@ -17,7 +17,7 @@ prose reasoning behind every entry in
 Legend: ✓ = well behaved / exact / physical; ⚠ = conditional, verify;
 ✗ = ill posed / inexact / non-physical.
 
-| Objective family | Bounded? (no op. limits) | Bounded? (full op. limits) | Branch selected | Relaxation exactness (SOC/SDP) | Recommended model |
+| Objective family | Bounded? (no op. limits) | Bounded? (full op. limits) | Branch favoured | Relaxation exactness (SOC/SDP) | Recommended model |
 |---|:---:|:---:|---|:---:|---|
 | **Min generation cost** (non-neg. coeffs) | ⚠ coercive only if strongly convex (e.g. strictly convex quadratic) | ✓ | High-voltage | ✓ under standard conditions | Relaxation, verify ex post |
 | **Min losses / min slack power** | ✓ (coercive) | ✓ | High-voltage | ✓ | Relaxation |
@@ -32,12 +32,17 @@ Legend: ✓ = well behaved / exact / physical; ⚠ = conditional, verify;
 | **Max revenue / profit** | ✗ | ⚠ | More generation & flow | ✗ | Nonconvex |
 | **Min cost with a negative coefficient** | ✗ | ⚠ | Inverted → toward low-voltage | ✗ data-induced | Audit signs; nonconvex if real |
 
-!!! warning "The columns are not independent"
+!!! warning "The columns are not independent — and none of them is a certificate"
     "Bounded," "branch," and "exact" are three readings of one underlying property
     (see [§5](index.md)). A row that is ✗ on
     exactness is almost always boundary-seeking and low-voltage-leaning too. The green
     family at the top — objectives non-decreasing in generation/losses — is green in
     every column for the same reason.
+
+    The "branch favoured" column records which branch an objective *pulls toward*,
+    not which branch a local solver will return. Confirm the sheet a solve actually
+    landed on with the [diagnostics](diagnostics.md); a green row is a reason to
+    expect an operational answer, not evidence that you got one.
 
 ## Formulation cross-cut
 

@@ -306,9 +306,11 @@ limit and an apparent-power limit, and both are enforced natively when present:
 | n-winding transformer | per-winding `i_max` | per-winding `s_max` rating | power (per winding) |
 
 Declaring **both** on the same element triggers the audit finding
-[`W.RED.DUAL_THERMAL_LIMIT`](findings.md), but that finding is not by itself a
-proof that one row is redundant. Which representation to keep is physics, not
-taste:
+[`W.RED.DUAL_THERMAL_LIMIT`](findings.md). The pair is not *mathematically*
+redundant — see the warning below — but it is usually redundant in *engineering*
+terms, because a device has one thermal limit and two declared rows normally mean
+one was derived from the other. Which representation is the source of truth is
+physics, not taste:
 
 - **Lines and cables** are limited by conductor heating, which the manufacturer
   specifies in amperes — current is the physical driver, so `i_max` is preferred.
@@ -371,6 +373,12 @@ transformers are never converted (their nameplate stays canonical).
     unless the equivalence conditions are demonstrated; different
     local-optimum behaviour is then a modelling result, not automatically a
     formulation bug.
+
+    None of this makes keeping both rows the safe default. Two rows impose a
+    voltage-dependent envelope that matches no real rating, so the resolution is
+    an engineering one — decide which row is the device's source of truth and
+    drop the derived one — rather than a licence to declare both and let the
+    solver sort it out.
 
 ---
 
@@ -518,10 +526,12 @@ with $P_{\ell,k} = v^r c^{r,\text{tot}} + v^i c^{i,\text{tot}}$ and
 $Q_{\ell,k} = v^i c^{r,\text{tot}} - v^r c^{i,\text{tot}}$ (all at from-terminal
 $t_k$; a matching cone is added at the to-end when a to-shunt is present).
 `s_max` follows the same **element → linecode → unconstrained** precedence as
-`i_max`. Both limits may be present and are both enforced, but doing so is
-generally redundant — see [current vs. apparent-power limits](@ref
-Current-vs-apparent-power-limits) for why current is preferred here and why the
-**neutral entry of `s_max` is degenerate** ($v_n \approx 0 \Rightarrow S \approx 0$).
+`i_max`. Both limits may be present and are both enforced; the binding one can
+change with voltage, so the pair is not mathematically redundant, but declaring
+both is usually an engineering duplication — see [current vs. apparent-power
+limits](@ref Current-vs-apparent-power-limits) for why current is the source of
+truth here and why the **neutral entry of `s_max` is degenerate**
+($v_n \approx 0 \Rightarrow S \approx 0$).
 
 #### Switches
 
