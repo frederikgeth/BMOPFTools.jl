@@ -168,17 +168,23 @@ second eigenvalue $\to 0$) means exact
 A nonconvex solver can converge to the low-voltage solution, especially under a
 loss-rewarding objective or a poor start. Checks:
 
-- **Voltage profile.** Operational solutions sit near $1$ p.u.; a solution with a
-  cluster of buses well below $\underline v$-class values (e.g. $0.5$–$0.8$ p.u.) on a
-  normally loaded feeder is the low-voltage branch.
+- **Voltage profile.** Operational solutions often sit near $1$ p.u.; a solution
+  with a cluster of buses well below $\underline v$-class values (e.g.
+  $0.5$–$0.8$ p.u.) on a normally loaded feeder is a warning signal. Magnitude
+  alone does not classify a voltage sheet. Confirm the branch under a declared
+  load/control continuation using the power-flow Jacobian and voltage response.
 - **Restart from a high-voltage start.** Flat start or warm-start from a linear-model
-  solution; the high-voltage solution is the one fixed-point and relaxation methods
-  converge to ([Dvijotham et al., 2017](https://arxiv.org/abs/1706.05290)). If the two
-  starts give different solutions, you have multiplicity.
-- **Cross-solver / cross-formulation.** Solve the relaxation too; if it is exact, its
-  (unique, global) solution is the high-voltage one and is the reference your nonconvex
-  solution should match
-  ([§2](index.md)).
+  solution. Under the assumptions of Dvijotham et al. the standard fixed-point
+  methods recover the high-voltage solution
+  ([2017](https://arxiv.org/abs/1706.05290)); do not export that theorem to an
+  arbitrary meshed, multiphase OPF. Distinct verified terminal states establish
+  multiplicity. Agreement across tested starts is evidence, not proof of
+  uniqueness.
+- **Cross-solver / cross-formulation.** Solve an equivalent formulation or
+  relaxation too. If a relaxation is exact, it supplies an AC-feasible global
+  optimum, not necessarily a unique or upper-sheet optimum. Check the recovered
+  state independently and compare only models with identical objective, bounds,
+  angle conventions, and branch-rating semantics ([§2](index.md)).
 
 ## Symptom 5 — the solve is slow, churns in restoration, or the duals look wrong
 
@@ -193,8 +199,9 @@ formulation ([Trusting the solver §4–§6](solver_trust.md)):
 - **Degeneracy (CQ failure).** Slow convergence with a *stable primal but unstable duals*
   is the signature ([Trusting the solver §4](solver_trust.md)). Look for pinned or
   linearly dependent active constraints — most often the
-  `W.BENCH.GEN_*` structures ([Methodology](../methodology.md)). The dispatch is usually
-  fine; the prices are not.
+  `W.BENCH.GEN_*` structures ([Methodology](../methodology.md)). Independently
+  verify the primal state; treat local-optimality, price, and sensitivity claims
+  as unsupported until the CQ failure is resolved.
 - **Non-smoothness / zero voltage.** Restoration churn with exploding Hessian entries and
   vanishing steps points at a fractional ZIP exponent or a zero-voltage bilinear
   bifurcation ([Trusting the solver §5–§6](solver_trust.md)). Check that a strictly

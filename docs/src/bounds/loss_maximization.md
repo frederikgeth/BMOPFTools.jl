@@ -8,8 +8,8 @@ the catalogue, with safe reformulations.
 ## The one test
 
 An objective **non-decreasing in every nodal generation — equivalently, in line losses**
-is the *objective-side* condition for a relaxation to stay exact and for the nonconvex
-problem to stay on the high-voltage branch ([Low, 2014](https://doi.org/10.1109/TCNS.2014.2323634);
+is an important *objective-side* hypothesis in relaxation-exactness and
+high-voltage-selection results ([Low, 2014](https://doi.org/10.1109/TCNS.2014.2323634);
 [Gan et al., 2015](https://arxiv.org/abs/1311.7170);
 [Yuan & Paolone, 2020](https://arxiv.org/abs/1906.06105)). It is not sufficient on its
 own — the theorems additionally assume radiality, non-binding upper voltage bounds, and
@@ -20,7 +20,7 @@ objective not on the safe list:
 !!! tip "Self-diagnosis"
     At fixed loads and topology, **does the optimizer prefer larger branch current
     anywhere — or does its optimum sit where an upper voltage bound binds?** If either
-    is yes, expect relaxation inexactness and drift toward the low-voltage solution.
+    is yes, audit relaxation exactness and voltage-sheet selection explicitly.
 
 ## The catalogue
 
@@ -51,11 +51,11 @@ objective not on the safe list:
 ## Two that look risky but are mostly fine
 
 - **Maximize $\sum_i |V_i|$.** Counterintuitively this is usually loss-*reducing* and
-  correctly selects the high-voltage branch. The residual risk is different: it can
+  often favours a high-voltage branch under the cited radial assumptions. It can
   drive into binding **upper** voltage bounds, which is a separate exactness-failure
   mode — the non-binding-upper-voltage-bound hypothesis of the radial exactness theorem
-  ([Gan et al., 2015](https://arxiv.org/abs/1311.7170)). Safe for branch selection; watch
-  the ceiling for relaxation tightness.
+  ([Gan et al., 2015](https://arxiv.org/abs/1311.7170)). Outside those assumptions,
+  verify the selected sheet and relaxation tightness rather than assuming either.
 
 - **Minimize generation / min slack power / min cost (non-negative coeffs).** The
   canonical safe family. Because slack power $=$ losses $+$ net load, minimizing it

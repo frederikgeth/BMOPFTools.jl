@@ -124,16 +124,19 @@ explicitly:
     can sit near `1e-6` — below `constr_viol_tol` — so a limit that ought to force
     infeasibility is silently accepted.) This is the constraint-scaling companion to
     the variable scaling in [Units and scaling](#Units-and-scaling).
-12. **The formulation is non-convex — determinism comes from the warm start.**
-    Rectangular AC power flow is non-convex: the feasible set has multiple local
-    optima (a voltage-collapsed root, phase-rotated roots), and the interior-point
-    solver returns whichever is nearest its starting point. Every variable is
-    therefore initialised from a physically-motivated, deterministic guess —
-    canonical 120° phase angles, anti-phase split-phase legs, delta-loop voltage
-    propagation, and `I = conj(S)/conj(V)` current seeding — to steer the solve to
-    the *operational* root rather than a spurious one. The warm start is not a
-    performance nicety; it is what makes the returned solution reproducible and
-    physically meaningful (see [Warm-start initialisation](#Warm-start-initialisation)).
+12. **The formulation is non-convex — use a deterministic, auditable start.**
+    AC power-flow equations can have multiple roots, and AC OPF can have multiple
+    stationary points and locally optimal solutions. A local interior-point method
+    follows a start-dependent trajectory; it is not a nearest-solution algorithm.
+    Every variable is therefore initialised from a physically motivated,
+    deterministic guess — canonical 120° phase angles, anti-phase split-phase
+    legs, delta-loop voltage propagation, and `I = conj(S)/conj(V)` current
+    seeding. This improves reproducibility and avoids obvious phase-mapping and
+    voltage-level mistakes. It does **not** certify which basin was selected, that
+    the point is locally or globally optimal, or that it lies on the operational
+    voltage sheet. Those are separate validation questions (see
+    [Warm-start initialisation](#Warm-start-initialisation) and
+    [Trusting the solver](bounds/solver_trust.md)).
 13. **One sign convention, and results are recomputed with it.** A single
     convention is fixed and applied to *every* element type — current into a bus is
     positive in KCL, apparent power is `S = V · conj(I)`. The result writer derives
@@ -302,9 +305,10 @@ limit and an apparent-power limit, and both are enforced natively when present:
 | 2-winding transformer (+ regulators) | `i_max_from`/`i_max_to` (per winding) | `s_rating` (nameplate — **required**, always enforced) | **power** (nameplate); regulators prefer current |
 | n-winding transformer | per-winding `i_max` | per-winding `s_max` rating | power (per winding) |
 
-Enforcing **both** on the same element is generally redundant — the tighter one
-binds and the other is inert (flagged as
-[`W.RED.DUAL_THERMAL_LIMIT`](findings.md)). Which to keep is physics, not taste:
+Declaring **both** on the same element triggers the audit finding
+[`W.RED.DUAL_THERMAL_LIMIT`](findings.md), but that finding is not by itself a
+proof that one row is redundant. Which representation to keep is physics, not
+taste:
 
 - **Lines and cables** are limited by conductor heating, which the manufacturer
   specifies in amperes — current is the physical driver, so `i_max` is preferred.
@@ -350,6 +354,23 @@ independently to `i_max` and `s_max`. Augmentation can convert a power limit int
 an equivalent current limit for lines/switches (`I = S/v_\text{ref}`, exact only
 at the reference voltage) via the opt-in `apply_power_to_current` recipe flag;
 transformers are never converted (their nameplate stays canonical).
+
+!!! warning "Current and apparent-power limits are not interchangeable"
+    Since `|S| = |V||I|`, a conversion
+    `I_max = S_max / V_ref` is exact only at the declared reference voltage.
+    Away from that voltage it changes the feasible set and can change the active
+    set, local minima, and solver basin. Nor is one of two simultaneously
+    declared limits necessarily inactive over the whole voltage range: if
+    `S_max / I_max` lies between `V_min` and `V_max`, the binding
+    representation can switch with voltage. One row is provably dominated only
+    after using the relevant voltage bounds and voltage reference to establish
+    that ordering throughout the feasible range.
+
+    This distinction matters in computational comparisons. A current-limited
+    OPF and an apparent-power-limited OPF are different optimization problems
+    unless the equivalence conditions are demonstrated; different
+    local-optimum behaviour is then a modelling result, not automatically a
+    formulation bug.
 
 ---
 
@@ -1287,6 +1308,39 @@ regulators contribute their winding and shared-bushing relations. A weak
 canonical three-phase prior only chooses coordinates left free by source and
 topology equations, such as a floating delta common mode; it does not impose a
 balanced-bus claim.
+
+!!! important "A warm start selects a trajectory, not a solution certificate"
+    The transport solve constructs a deterministic **zero-current phasor guess**.
+    It is not a loaded power-flow solution, and Ipopt is not guaranteed to return
+    the feasible or stationary point nearest to it. Repeating the solve from the
+    same start can establish computational reproducibility under a fixed software
+    environment; it cannot establish uniqueness of the power-flow root,
+    uniqueness of the OPF minimizer, local optimality, or global optimality.
+    Multiple materially different starts are useful basin probes, but failure to
+    discover another basin is not proof that none exists. Multiple local AC-OPF
+    solutions from different initializations are documented by
+    [Bukhsh et al. (2013)](https://doi.org/10.1109/TPWRS.2013.2274577).
+
+!!! info "Concept: high voltage and the upper sheet"
+    **High voltage** is a descriptive statement about voltage magnitudes relative
+    to nominal values. The **upper sheet** is a local power-flow branch
+    classification under a *declared continuation path*: it is normally the
+    branch connected to the ordinary high-voltage solution before the relevant
+    saddle-node (nose) point. Evidence can include a nonsingular power-flow
+    Jacobian and the expected local voltage response as demand increases. The
+    classification depends on which loads and controls are continued; voltage
+    magnitude alone is not a certificate.
+
+    Neither label proves OPF local optimality, OPF globality, transient
+    stability, or small-signal stability. Radial and multiphase uniqueness
+    results justify useful high-voltage initialisation heuristics only under
+    their stated assumptions
+    ([Dvijotham, Mallada & Simpson-Porco,
+    2017](https://arxiv.org/abs/1706.05290);
+    [Bernstein et al.,
+    2018](https://doi.org/10.1109/TPWRS.2018.2823277)).
+    For voltage-sheet and collapse terminology, see Van Cutsem & Vournas in the
+    [bounds bibliography](bounds/references.md).
 
 Use `opf_diagnostic_schema(ctx).initialization` to inspect the equation counts and maximum
 normalized transport residual by relation family. That evidence describes the

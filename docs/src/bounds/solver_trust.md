@@ -28,17 +28,41 @@ what Ipopt just told me?**
       Ipopt entered restoration, minimised constraint violation locally, and
       could not drive it to zero. Repeated starts and a consistent slack-current
       pattern strengthen the diagnosis but do not prove the feasible set is empty.
-    - **`LOCALLY_SOLVED` means a KKT point was found.** A high-voltage start and a
-      non-decreasing generation-cost objective often favour the operational
-      branch, but this does not establish global optimality. Only a valid global
-      bound — for example from an exact relaxation or global solver — can do that.
+    - **`LOCALLY_SOLVED` means Ipopt satisfied its approximate first-order
+      termination tests.** Interpreting that point as a regular KKT point requires
+      constraint-qualification evidence; interpreting it as a local minimizer
+      requires additional second-order evidence. A high-voltage start and a
+      non-decreasing generation-cost objective often favour an operational
+      branch, but this does not establish either claim, much less global
+      optimality. Only a valid global bound — for example from an exact
+      relaxation or global solver — can establish the last one.
+
+!!! important "Four questions that must remain separate"
+    1. **Primal feasibility:** does the reported state satisfy the original AC
+       equations and bounds to an engineering-relevant tolerance?
+    2. **Local optimality and regularity:** are the first-order residuals small,
+       does a constraint qualification such as LICQ hold, and is the Lagrangian
+       Hessian positive on the feasible critical directions?
+    3. **Voltage-sheet classification:** under a declared load/control
+       continuation, is the power-flow state on the intended upper sheet, away
+       from the relevant saddle-node?
+    4. **Global optimality:** does a valid lower bound match the objective of an
+       independently AC-feasible point?
+
+    None of these answers implies the next. In particular, high voltage or an
+    upper-sheet certificate does not prove local/global OPF optimality; LICQ
+    does not prove that a KKT point is a minimizer or that the minimizer is
+    unique; and a strict local minimum need not be global.
 
 ## 1. What Ipopt's verdicts actually certify
 
 !!! tip "Takeaway"
     Ipopt is a **local** interior-point solver. `LOCALLY_SOLVED` reports that its
-    termination tests for approximate first-order (KKT) conditions passed — a
-    stationary-point claim for a *nonconvex* program, not a global optimum.
+    termination tests for approximate first-order conditions passed. Under an
+    appropriate constraint qualification those residuals support a KKT
+    interpretation; without one they are solver termination evidence, not a
+    theorem that the point is a local minimizer. In either case they do not
+    establish a global optimum.
     `LOCALLY_INFEASIBLE` ("Converged to a locally infeasible point") reports that
     Ipopt's **restoration phase** reached a local minimiser of constraint violation
     with violation still above tolerance. Independently inspect primal residuals
@@ -50,8 +74,8 @@ cannot make progress toward both feasibility and optimality, it switches to a
 **feasibility restoration phase** that ignores the objective and minimises the constraint
 violation. The two terminal messages map onto this machinery directly:
 
-- **`LOCALLY_SOLVED`** — the KKT residual and the constraint violation are both below
-  tolerance at a stationary point.
+- **`LOCALLY_SOLVED`** — Ipopt's reported first-order residual and constraint
+  violation are both below tolerance at its terminal point.
 - **`LOCALLY_INFEASIBLE`** — restoration converged to a local minimiser of infeasibility
   whose residual is still positive: Ipopt got as close to feasible as it locally could,
   and that was not close enough.
@@ -120,21 +144,53 @@ a theorem that carries over ([Bernstein et al.,
 2018](https://doi.org/10.1109/TPWRS.2018.2823277)). Globality remains an open
 claim until a valid lower bound closes the optimality gap.
 
+!!! warning "Upper-sheet local minima can still coexist"
+    A plausible voltage profile, a normal branch-angle screen, and an
+    upper-sheet classification remove important pathological explanations; they
+    do not make the OPF landscape convex. Distinct dispatches and active sets can
+    remain as separate locally optimal basins while every retained voltage is
+    operationally ordinary. Bukhsh et al. give documented multiple-local-solution
+    AC-OPF examples
+    ([2013](https://doi.org/10.1109/TPWRS.2013.2274577)). Therefore use a
+    high-voltage warm start to seek an operational candidate, not to infer that
+    the candidate is unique.
+
 !!! details "Derivation: what an actual globality certificate would require"
     Attraction to a familiar branch is not a theorem about your specific
     instance. A genuine certificate comes from one of two places:
 
-    - **An exact convex relaxation.** Solve the SOC/SDP relaxation, then confirm exactness
-      ([Diagnostics Symptom 3](diagnostics.md)). An exact relaxation has a *single global*
-      optimum; if your nonconvex objective value matches it, you have proof of globality.
-      This is why the validation workflow pairs the two solves.
+    - **An exact convex relaxation.** Solve the SOC/SDP relaxation, then confirm
+      exactness ([Diagnostics Symptom 3](diagnostics.md)). Exactness means that a
+      relaxation optimum can be recovered as an AC-feasible global optimum; it
+      does **not** imply that the global minimizer is unique. If a valid
+      relaxation lower bound matches the objective of your independently
+      AC-feasible point, that point is globally optimal.
     - **A global optimization method** that brackets the global optimum between a feasible
       upper bound (any AC-feasible point) and a relaxation lower bound, and drives the gap
       to zero — surveyed in the note below.
 
-    Absent either, treat `LOCALLY_SOLVED` as a high-confidence operating point — and use
-    the [low-voltage-branch checks](diagnostics.md) to rule out the one failure mode that
-    *does* fake a clean solve: convergence to the low-voltage branch under a poor start.
+    Absent either, treat `LOCALLY_SOLVED` as a candidate operating point. Verify
+    primal feasibility, local optimality/regularity, and voltage-sheet
+    classification separately. A low-voltage branch is an important failure
+    mode, but it is not the only way a clean local-solver termination can fall
+    short of the claim you want.
+
+!!! note "Cross-formulation agreement: useful, but not a gate"
+    ACP, ACR, and IVR are coordinate formulations of the same AC physics only
+    when they encode the same variables after elimination, objective, bounds,
+    angle conventions, and branch-rating semantics. Agreement among equivalent
+    implementations is valuable robustness evidence; disagreement is a prompt to
+    audit model equivalence and conditioning. It is not necessary for all three
+    formulations to discover every basin: a local minimum reproduced in one
+    formulation by an independent implementation remains scientifically
+    interesting.
+
+    Compare the same optimization problem. In particular, replacing
+    `|S| <= S_max` by `|I| <= S_max / V_ref` is exact only at `V_ref`.
+    Across variable voltages the feasible sets and active faces differ, so
+    different local minima may be a genuine consequence of different rating
+    models. See [Current vs. apparent-power
+    limits](../opf.md#Current-vs-apparent-power-limits).
 
 !!! warning "Why there is no cheap certificate: AC OPF is NP-hard"
     The absence of a free globality certificate is **fundamental, not a tooling gap**.
@@ -192,9 +248,12 @@ claim until a valid lower bound closes the optimality gap.
 !!! tip "Takeaway"
     Degeneracy is a **constraint-qualification failure**: the gradients of the active
     constraints stop being linearly independent. Its symptoms are slow convergence and
-    **non-unique or blown-up duals** (shadow prices, sensitivities) — *not* a wrong primal
-    point. A `LOCALLY_SOLVED` with a small primal residual is still a valid operating
-    point even when its duals are garbage. Distrust the prices, not the dispatch.
+    **non-unique or blown-up duals** (shadow prices, sensitivities). Primal
+    feasibility is a separate question: a small independently recomputed residual
+    can still validate the represented operating point, but degeneracy prevents a
+    routine KKT/local-optimality interpretation. Treat the dispatch as a feasible
+    candidate and the prices or sensitivities as unsupported until the
+    degeneracy is resolved.
 
 Augmenting a case — adding generators, fixing a dispatch, pinning a regulator — is exactly
 where degeneracy creeps in. The classic example is an **over-determined bus**: a generator
@@ -229,14 +288,21 @@ which fails LICQ only on a measure-zero parameter set, a structural redundancy b
     fixes, or grounding a neutral the source already fixes to zero. **Fix:** delete the
     redundant equation; do not regularise around it.
 
-!!! details "Derivation: LICQ, MFCQ, and what fails"
+!!! info "Concept: LICQ, MFCQ, and what they do not prove"
     The **linear independence constraint qualification (LICQ)** asks that the gradients of
-    the active constraints be linearly independent at the solution; it guarantees a
-    *unique, bounded* multiplier vector. The weaker **Mangasarian–Fromovitz CQ (MFCQ)**
-    asks only positive-linear independence and guarantees the multiplier set is *bounded*
-    but not unique. Interior-point convergence analysis leans on at least MFCQ: when even
-    that fails, the dual iterates can diverge and the solve crawls
+    the active constraints be linearly independent at the solution. At a
+    differentiable local minimizer, LICQ supplies KKT multipliers and makes that
+    multiplier vector unique. The weaker **Mangasarian–Fromovitz CQ (MFCQ)**
+    supplies a nonempty bounded multiplier set, but not necessarily a unique
+    vector. Interior-point convergence analysis leans on regularity of this kind:
+    when even MFCQ fails, the dual iterates can diverge and the solve crawls
     ([on multiplier behaviour in infeasible IPMs](https://arxiv.org/abs/1707.07327)).
+
+    These are statements about constraint geometry and multipliers. LICQ does
+    **not** imply that a stationary point is a local minimizer, that a local
+    minimizer is unique, or that it is global. It also does not detect whether
+    one nominal network contains weakly coupled or independent subnetworks; that
+    is a separate graph/control-structure audit.
 
     For AC OPF, LICQ holds *generically* — it fails only on a measure-zero set of
     parameter values, a fact made precise with tools from differential topology by
@@ -252,10 +318,22 @@ which fails LICQ only on a measure-zero parameter set, a structural redundancy b
     iterates (`NORM_LIMIT`) or an unbounded-objective termination — the runtime echo of
     `W.BENCH.GEN_ZERO_COST`.
 
+!!! note "From a KKT point to a local minimum"
+    First-order KKT conditions are necessary under a suitable constraint
+    qualification, but they are also satisfied by some saddles. A conventional
+    numerical audit therefore checks curvature of the Lagrangian on the
+    **critical cone** (the feasible first-order directions), not the unconstrained
+    Hessian. A positive second-order sufficient-condition margin supports a
+    strict isolated local minimum; it still says nothing about globality.
+    OPF-specific work explicitly distinguishing computed KKT points from local
+    optima includes [Wang & Chiang
+    (2023)](https://doi.org/10.1109/TPWRS.2022.3230901).
+
 The trust message: clear the `W.BENCH.GEN_*` flags, keep redundant equations out of your
-formulation, and degeneracy mostly evaporates. Where it remains, read it as a warning about
-*prices and sensitivities*, and confirm the primal dispatch is unaffected by re-solving from
-a second start ([Symptom 5](diagnostics.md)).
+formulation, and you remove common avoidable sources of degeneracy. Where it
+remains, read it as a warning about local-optimality claims, prices, and
+sensitivities; independently verify primal feasibility and compare materially
+different starts ([Symptom 5](diagnostics.md)).
 
 ## 5. Residual trap B — smoothness loss and the zero-voltage bifurcation
 
@@ -344,17 +422,23 @@ Work top to bottom; each step removes one alternative explanation for the solver
        generation ([loss-maximization list](loss_maximization.md)).
     5. **Load models away from their singular point?** Voltage floor in place so fractional
        ZIP exponents stay smooth ([§5](@ref "5. Residual trap B — smoothness loss and the zero-voltage bifurcation")).
-    6. **Multi-start agrees?** Same verdict, comparable objective, no low-voltage cluster
+    6. **Compared models genuinely equivalent?** Same objective, bounds, angle
+       semantics, and current/apparent-power rating model before interpreting
+       formulation agreement or disagreement.
+    7. **Multi-start agrees?** Same verdict, comparable objective, no distinct
+       physical cluster
        across several starts ([Symptom 4–5](diagnostics.md)).
 
 !!! note "Then read the verdict this way"
-    - **`INFEASIBLE`** after steps 1–6 ⇒ report a strengthened but still local
+    - **`INFEASIBLE`** after steps 1–7 ⇒ report a strengthened but still local
       infeasibility diagnosis; show the multi-start outcomes and localise the
       residual with `solve_feasibility_opf`.
-    - **`LOCALLY_SOLVED`** after steps 1–6 ⇒ treat it as a candidate operating
-      point after independently checking primal feasibility. Do not label it
-      globally optimal unless a relaxation/global solve supplies a matching valid
-      bound ([Symptom 3](diagnostics.md)).
+    - **`LOCALLY_SOLVED`** after steps 1–7 ⇒ treat it as a candidate operating
+      point after independently checking primal feasibility. For a *local
+      minimum* claim, add a CQ/critical-cone curvature audit. For an
+      *upper-sheet* claim, add a declared continuation test. For a *global*
+      claim, require a matching valid lower bound
+      ([Symptom 3](diagnostics.md)).
     - **Slow / churning / suspicious duals** ⇒ you are in Section 4, 5, or a collapse
       regime; localise with [Symptom 5](diagnostics.md) before trusting *any* number.
 

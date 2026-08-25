@@ -45,8 +45,9 @@ benchmarks are meant to be solved with across the broader PowerModels ecosystem
    [Trusting the solver](solver_trust.md)). This is the family BMOPFTools' own engine
    implements.
 2. **Convex relaxations** (second-order-cone branch-flow / bus-injection models, SDP).
-   A single global optimum, but it equals an AC solution only when the relaxation is
-   *exact*. Reached here via export to PMD or your own solver, not shipped in-package.
+   A globally solvable convex model, possibly with multiple global optima; a
+   recovered point is an AC solution only when the relaxation is *exact*.
+   Reached here via export to PMD or your own solver, not shipped in-package.
 3. **Linear approximations** (LinDistFlow, network/DC-style models). Always convex and
    well behaved, but blind to the phenomena that motivate this page.
 
@@ -117,8 +118,8 @@ faithfully.
     Constant-power loads generically admit a **high-voltage** (operational) and a
     **low-voltage** solution; meshed networks can admit many. Uniqueness of the
     high-voltage solution is a theorem only under loading/`R/X` conditions. The
-    objective is what **selects** the physical branch — it is not a tie-breaker, it is
-    the mechanism.
+    objective can **favour** one branch over another, but does not certify that a
+    local algorithm found a unique physical branch.
 
 Fixing $V_1 = V^{\text{ref}}$ removes the reference degree of freedom; fixing $S_i$ at
 every other bus closes the system. Counting real equations and unknowns gives a square
@@ -167,9 +168,10 @@ the system is loaded toward its limit*, and the standard computational routes �
 [fixed-point iteration, convex relaxation, and energy-function minimization — all return
 exactly that solution if and only if one exists](https://arxiv.org/abs/1706.05290)
 ([Dvijotham, Mallada & Simpson-Porco, 2017](https://arxiv.org/abs/1706.05290), a radial
-result). A voltage-maximizing / loss-minimizing objective is the lever that pins you to
-the physical branch. On meshed and on multiphase/unbalanced networks this is an
-*extrapolation*, not a theorem — see the caveat in the scope section above
+result). Under those assumptions, voltage-maximizing or loss-minimizing
+constructions select the high-voltage solution. On meshed and on
+multiphase/unbalanced networks, treating the same objective as a branch selector
+is an *extrapolation*, not a theorem — see the caveat in the scope section above
 ([Bernstein et al., 2018](https://doi.org/10.1109/TPWRS.2018.2823277)).
 
 !!! warning "Definition matters"
@@ -267,20 +269,20 @@ one). So with constant-power loads, feasibility silently encodes the stability l
     feasible region can extend into the $\rho < 0$ region — reporting "feasible" for a
     loading the network cannot serve.
 
-## 5. The objective decides everything
+## 5. The objective changes what the optimization prefers
 
 !!! tip "Takeaway"
     An objective **non-decreasing in every nodal generation — equivalently, in line
-    losses** is the *objective-side* condition for a relaxation to be exact and for the
-    nonconvex problem to stay on the high-voltage branch. It is necessary in practice but
-    **not sufficient on its own**: the exactness theorems also need *network-side*
+    losses** is an important *objective-side* hypothesis in several relaxation
+    exactness and benign-landscape results. It is **not sufficient on its own**:
+    the theorems also need *network-side*
     conditions (radiality, non-binding upper voltage bounds, and either no binding
     generator lower bounds or permitted load over-satisfaction — see the proof sketch
     below and Section 3). Loss / cost /
-    slack-power minimization supplies the objective-side condition; an objective that
-    rewards higher losses or currents fails even that, dragging the exact model toward the
-    low-voltage branch **and** breaking relaxation exactness, so the relaxed answer stops
-    corresponding to any real operating point.
+    slack-power minimization supplies the objective-side condition. An objective
+    that rewards higher losses or currents fails even that, increasing the risk
+    of low-voltage solutions and relaxation inexactness; neither outcome follows
+    from the objective sign alone.
 
 In the branch-flow relaxation the squared-current variable $\ell_{ij}$ satisfies the
 relaxed inequality

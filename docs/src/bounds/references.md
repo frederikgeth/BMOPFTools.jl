@@ -99,6 +99,26 @@ formal list.
   2020. [DOI](https://doi.org/10.1016/j.epsr.2020.106688) ·
   [arXiv](https://arxiv.org/abs/1910.03716)
 
+## Local optima and OPF landscape
+
+- W. A. Bukhsh, A. Grothey, K. I. M. McKinnon, and P. A. Trodden, "Local
+  solutions of the optimal power flow problem" (documented multiple local
+  AC-OPF solutions and initialization dependence), *IEEE Transactions on Power
+  Systems*, vol. 28, no. 4, pp. 4780–4788, 2013.
+  [DOI](https://doi.org/10.1109/TPWRS.2013.2274577) ·
+  [manuscript](https://www.pure.ed.ac.uk/ws/portalfiles/portal/10890500/Local_Solutions_of_Optimal_Power_Flow.pdf)
+- Z.-Y. Wang and H.-D. Chiang, "A necessary and sufficient condition for
+  computed OPF solutions to be locally optimal" (distinguishing KKT points and
+  local minima), *IEEE Transactions on Power Systems*, vol. 38, no. 6,
+  pp. 5491–5500, 2023.
+  [DOI](https://doi.org/10.1109/TPWRS.2022.3230901)
+- F. Zhou and S. H. Low, "Conditions for exact convex relaxation and no
+  spurious local optima" (a benign-landscape theorem under explicit path,
+  monotonicity, and OPF-specialization assumptions), *IEEE Transactions on
+  Control of Network Systems*, vol. 9, no. 3, 2022.
+  [DOI](https://doi.org/10.1109/TCNS.2021.3112758) ·
+  [arXiv](https://arxiv.org/abs/2102.11946)
+
 ## Solver behaviour, constraint qualifications, and insolvability
 
 - A. Wächter and L. T. Biegler, "On the implementation of an interior-point filter
@@ -111,7 +131,7 @@ formal list.
 - A. Hauswirth, S. Bolognani, G. Hug, and F. Dörfler, "Generic existence of unique
   Lagrange multipliers in AC optimal power flow" (LICQ holds generically, via differential
   topology), *IEEE Control Systems Letters*, vol. 2, no. 4, pp. 791–796, 2018.
-  [DOI](https://doi.org/10.1109/LCSYS.2018.2849657) ·
+  [DOI](https://doi.org/10.1109/LCSYS.2018.2849598) ·
   [arXiv](https://arxiv.org/abs/1806.06615)
 - G. Haeser, O. Hinder, and Y. Ye, "On the behavior of Lagrange multipliers in convex and
   non-convex infeasible interior point methods" (LICQ/MFCQ and multiplier boundedness),
