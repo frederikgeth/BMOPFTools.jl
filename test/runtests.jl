@@ -4062,7 +4062,9 @@ const IEEE13_FIXTURE = """
     # -----------------------------------------------------------------------
     # Executable scientific contracts — algebraic, no solver required
     # -----------------------------------------------------------------------
-    include("scientific_contract_tests.jl")
+include("scientific_contract_tests.jl")
+
+include("executable_knowledge_tests.jl")
 
     # -----------------------------------------------------------------------
     # Network simplification

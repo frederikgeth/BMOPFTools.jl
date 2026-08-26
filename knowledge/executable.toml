@@ -1,0 +1,54 @@
+schema_version = "0.1.0"
+
+[[contract]]
+id = "parallel_member_limit_preservation"
+knowledge_ids = ["PSK-000001"]
+title = "Parallel member-current-limit preservation"
+entrypoint = "check_parallel_member_limit_preservation"
+scope = "Scalar, fixed-linear, series-only parallel lines with an explicit source-member to target-aggregate mapping."
+applicability = [
+  "Every source member and the target aggregate connect the same scalar terminal pair, allowing reversed orientation.",
+  "Every included line has a finite, nonzero scalar series impedance and no shunt model.",
+  "Every source member and the target aggregate has a nonnegative scalar current rating.",
+]
+checked_dimensions = ["terminal_behavior", "scalar_member_current_limits"]
+unassessed_dimensions = [
+  "member_identity",
+  "independent_outage_state",
+  "switching_decisions",
+  "asset_provenance",
+  "individual_measurements",
+  "protection_quantities",
+]
+finding_codes = [
+  "E.CONTRACT.PARALLEL_TERMINAL_RELATION_MISMATCH",
+  "W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS",
+  "I.CONTRACT.NOT_APPLICABLE",
+  "W.CONTRACT.INDETERMINATE",
+]
+fixture_ids = ["parallel-rating-outer-relaxation-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.PARALLEL_TERMINAL_RELATION_MISMATCH"
+severity = "ERROR"
+meaning = "The declared target aggregate does not preserve the summed scalar source admittance."
+
+[[finding]]
+code = "W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS"
+severity = "WARNING"
+meaning = "The target aggregate rating defines an inner restriction or outer relaxation of the source member-current-limit region."
+
+[[finding]]
+code = "I.CONTRACT.NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The input lies outside the contract's declared scalar, fixed-linear, series-only domain."
+
+[[finding]]
+code = "W.CONTRACT.INDETERMINATE"
+severity = "WARNING"
+meaning = "Required mapped components or scalar ratings are unavailable, so preservation cannot be decided."

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/frederikgeth/BMOPFTools.jl/schemas/executable-knowledge.schema.json",
+  "title": "BMOPFTools executable knowledge record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "record_type",
+    "knowledge_ids",
+    "title",
+    "text",
+    "package",
+    "source"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "record_id": {"type": "string", "minLength": 1},
+    "record_type": {
+      "enum": ["executable_contract", "api_operation", "finding", "fixture"]
+    },
+    "knowledge_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^PSK-[0-9]{6}$"}
+    },
+    "title": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "contract_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "entrypoint": {"type": "string", "pattern": "^[a-z][A-Za-z0-9_!?]*$"},
+    "scope": {"type": "string", "minLength": 1},
+    "applicability": {"$ref": "#/$defs/nonemptyStrings"},
+    "checked_dimensions": {"$ref": "#/$defs/nonemptyStrings"},
+    "unassessed_dimensions": {"$ref": "#/$defs/nonemptyStrings"},
+    "finding_codes": {"$ref": "#/$defs/nonemptyStrings"},
+    "fixture_ids": {"$ref": "#/$defs/nonemptyStrings"},
+    "finding_code": {"type": "string", "pattern": "^[EWI]\\.[A-Z0-9_]+(?:\\.[A-Z0-9_]+)+$"},
+    "severity": {"enum": ["ERROR", "WARNING", "INFO"]},
+    "meaning": {"type": "string", "minLength": 1},
+    "fixture_id": {"type": "string", "minLength": 1},
+    "kind": {"type": "string", "minLength": 1},
+    "expected_finding_codes": {"$ref": "#/$defs/nonemptyStrings"},
+    "does_not_establish": {"$ref": "#/$defs/nonemptyStrings"},
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"const": "BMOPFTools"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "paths", "sha256"],
+      "properties": {
+        "repository": {"const": "frederikgeth/BMOPFTools.jl"},
+        "paths": {"$ref": "#/$defs/nonemptyStrings"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "nonemptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"record_type": {"const": "executable_contract"}}},
+      "then": {"required": ["contract_id", "entrypoint", "scope", "applicability", "checked_dimensions", "unassessed_dimensions", "finding_codes", "fixture_ids"]}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "api_operation"}}},
+      "then": {"required": ["contract_id", "entrypoint", "scope", "applicability", "finding_codes"]}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "finding"}}},
+      "then": {"required": ["contract_id", "finding_code", "severity", "meaning"]}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "fixture"}}},
+      "then": {"required": ["contract_id", "fixture_id", "kind", "expected_finding_codes", "does_not_establish", "files"]}
+    }
+  ]
+}

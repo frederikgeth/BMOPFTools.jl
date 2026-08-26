@@ -1,0 +1,72 @@
+{
+  "contract_ids": [
+    "parallel_member_limit_preservation"
+  ],
+  "corpus_sha256": "7151774070dc6cc4f0cd2d0c19c9b258ca9fc9cd6bad687f88634753b9292bf9",
+  "knowledge_ids": [
+    "PSK-000001"
+  ],
+  "manifest_id": "bmopftools-executable-knowledge-0.1.0",
+  "package": {
+    "name": "BMOPFTools",
+    "version": "0.1.0"
+  },
+  "record_count": 7,
+  "record_counts": {
+    "api_operation": 1,
+    "executable_contract": 1,
+    "finding": 4,
+    "fixture": 1
+  },
+  "schema_version": "0.1.0",
+  "source_files": [
+    {
+      "path": "Project.toml",
+      "sha256": "5c98d192ca7f8dd588d500633953bdcca3b25b173db2896003503061d4c2871e"
+    },
+    {
+      "path": "docs/src/findings.md",
+      "sha256": "19f199361afd892493f8a678226a4703266906d54d6b824f0eb1d01de52e8646"
+    },
+    {
+      "path": "knowledge/executable.toml",
+      "sha256": "3e5805199810134b03cad58d1a46ce43643dc8b4e9599809313c879e30f71b16"
+    },
+    {
+      "path": "schemas/executable-knowledge.schema.json",
+      "sha256": "a0c9f7136251f9365f3173d9560baa3ab52b08b7cec095bb8cfaafe0f09427fe"
+    },
+    {
+      "path": "src/knowledge/contracts.jl",
+      "sha256": "339798d8caf8e3d20b46f056afb962d3fb8ba7a52be125777c776e9053ca35af"
+    },
+    {
+      "path": "test/fixtures/negative/parallel-rating-outer-relaxation/exact-target.json",
+      "sha256": "bc89ad8de4cc6a3b2ff4e1ec29425014ee511d6c06651b68cb1af1e5afc52a89"
+    },
+    {
+      "path": "test/fixtures/negative/parallel-rating-outer-relaxation/expected.json",
+      "sha256": "ae8b8ecac21ac34c5aecd82f56d246230232185567c62bb9a8afd7e7199f765c"
+    },
+    {
+      "path": "test/fixtures/negative/parallel-rating-outer-relaxation/metadata.toml",
+      "sha256": "2a27473a567375d67430600ffcba9de6caa0a17af7b91a9db0d4299171e1497c"
+    },
+    {
+      "path": "test/fixtures/negative/parallel-rating-outer-relaxation/reproduce.jl",
+      "sha256": "214636bce3f68db2daadb91691fdf08101d36942f46b6591292bd8913b4381ee"
+    },
+    {
+      "path": "test/fixtures/negative/parallel-rating-outer-relaxation/source.json",
+      "sha256": "28c3c74235e12a6b0f7f2692ec17e4ab11c9f450351c596f3024b22d7c887940"
+    },
+    {
+      "path": "test/fixtures/negative/parallel-rating-outer-relaxation/transformed.json",
+      "sha256": "b98e114846b2a1caf0e552f4f2d5dfdd2ad8fd936ba13a03951e2a9b2f70c16e"
+    },
+    {
+      "path": "test/scientific_contract_tests.jl",
+      "sha256": "93953faba5ded31b90810de16294d58ba061e203a55f8058a55d3faa03de1a60"
+    }
+  ]
+}
