@@ -10,6 +10,7 @@ the whole sequence on one feeder.
 |---|---|---|
 | Ingest a case | [`from_dss`](@ref), [`parse_bmopf`](@ref) | [Conversion guide](conversion.md) |
 | Analyse & diagnose it | [`analyze`](@ref), [`render`](@ref), [`errors`](@ref)/[`warnings`](@ref)/[`infos`](@ref) | [Analysis & reports](analysis.md), [Findings](findings.md) |
+| Check a scientific preservation contract | [`check_parallel_member_limit_preservation`](@ref) | [Scientific contracts](scientific_contracts.md) |
 | Repair structure | [`fix_case`](@ref) ([`FixRecipe`](@ref)) | [Case augmentation](augmentation.md) |
 | Place DERs | [`add_generators`](@ref), [`add_ibrs`](@ref) | [DER placement](tutorial_ders.md) |
 | Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
@@ -46,6 +47,7 @@ OpfDeviceBuilder
 OpfBuildSpec
 OpfCoefficientKey
 OpfCoefficientProvider
+ScientificContractResult
 ```
 
 ## Finding accessors
@@ -54,6 +56,13 @@ OpfCoefficientProvider
 errors
 warnings
 infos
+```
+
+## Scientific contracts
+
+```@docs
+BMOPFTools.check_parallel_member_limit_preservation
+BMOPFTools.contract_result_to_dict
 ```
 
 ## IO

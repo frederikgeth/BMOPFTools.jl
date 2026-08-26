@@ -2,7 +2,7 @@
   "contract_ids": [
     "parallel_member_limit_preservation"
   ],
-  "corpus_sha256": "7151774070dc6cc4f0cd2d0c19c9b258ca9fc9cd6bad687f88634753b9292bf9",
+  "corpus_sha256": "eee3a41cd349502afe1855762f27664f6183dd45b5f8279c583eb9e53565d6f7",
   "knowledge_ids": [
     "PSK-000001"
   ],
@@ -38,7 +38,7 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "339798d8caf8e3d20b46f056afb962d3fb8ba7a52be125777c776e9053ca35af"
+      "sha256": "0537be641406b993c6eec54ca4d8073c72c317a4b099f3def611337c930b6dd8"
     },
     {
       "path": "test/fixtures/negative/parallel-rating-outer-relaxation/exact-target.json",

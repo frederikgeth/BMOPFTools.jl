@@ -197,7 +197,7 @@ function _contract_aligned(member, aggregate)::Bool
     direct || reverse
 end
 
-raw"""
+"""
     check_parallel_member_limit_preservation(source, target;
         member_ids, aggregate_id, atol=1e-9, rtol=1e-8)
         -> ScientificContractResult
@@ -213,8 +213,8 @@ preserved, it compares the exact scalar voltage-drop regions induced by source
 member limits and the target aggregate limit:
 
 ```math
-|\Delta V| \le \min_l I_l^{\max}/|Y_l|, \qquad
-|\Delta V| \le I_{eq}^{\max}/|\sum_l Y_l|.
+|ΔV| ≤ minₗ(Iₗmax / |Yₗ|),
+|ΔV| ≤ Ieqmax / |Σₗ Yₗ|.
 ```
 
 It returns `:failed` with `W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS` when the
