@@ -562,3 +562,7 @@ Checks for the DC side: `dc_bus` nodes (signed line-to-ground voltage, no angle)
 | `E.CONTRACT.PERMUTATION_RELATION_MISMATCH` | E | The target series primitive is not the source primitive conjugated by the declared permutation. |
 | `I.CONTRACT.PERMUTATION_NOT_APPLICABLE` | I | The explicit permutation contract does not apply because a bijection, line, or compatible matrix dimensions are unavailable. |
 | `W.CONTRACT.PERMUTATION_INDETERMINATE` | W | A required source or target line primitive or terminal-map record is missing or malformed. |
+| `E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION` | E | An independently computed equation, KCL, power-balance, or recovery residual exceeds its declared tolerance. |
+| `E.CONTRACT.FEASIBILITY_DEVICE_LIMIT_VIOLATION` | E | Independent device-limit validation reports one or more violations. |
+| `I.CONTRACT.FEASIBILITY_NOT_APPLICABLE` | I | No solved/feasible solver status was supplied for the residual-witness contract. |
+| `W.CONTRACT.FEASIBILITY_INDETERMINATE` | W | A solved result lacks finite, independently computed residual or device-limit witness fields. |

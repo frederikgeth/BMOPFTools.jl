@@ -1,0 +1,6 @@
+{
+  "contract_id": "solved_network_feasibility_validation",
+  "knowledge_ids": ["PSK-000013"],
+  "finding_codes": ["E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION"],
+  "classification": "independent_feasibility_witness_failed"
+}

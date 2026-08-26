@@ -1,5 +1,29 @@
 using JSON3
 
+@testset "Scientific contracts — solved-network feasibility witness" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative", "solved-network-feasibility")
+    load(name) = JSON3.read(read(joinpath(fixture, name), String), Dict{String,Any})
+    result = check_solved_network_feasibility(load("source.json"))
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION"
+    @test result.evidence["classification"] == "independent_feasibility_witness_failed"
+
+    result = check_solved_network_feasibility(load("exact-target.json"))
+    @test result.status == :passed
+    @test isempty(result.findings)
+    @test "complete_feasible_set" in result.unassessed_dimensions
+
+    result = check_solved_network_feasibility(Dict{String,Any}(
+        "termination_status" => "INFEASIBLE"))
+    @test result.status == :inapplicable
+    @test only(result.findings).code == "I.CONTRACT.FEASIBILITY_NOT_APPLICABLE"
+
+    result = check_solved_network_feasibility(Dict{String,Any}(
+        "termination_status" => "OPTIMAL"))
+    @test result.status == :indeterminate
+    @test only(result.findings).code == "W.CONTRACT.FEASIBILITY_INDETERMINATE"
+end
+
 @testset "Scientific contracts — terminal permutation invariance" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative", "terminal-permutation")
     load(name) = parse_bmopf(joinpath(fixture, name))

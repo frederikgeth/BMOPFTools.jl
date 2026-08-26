@@ -40,6 +40,8 @@ const _REFERENCE_SINGULARITY_CONTRACT = "reference_singularity_validation"
 const _REFERENCE_SINGULARITY_PSK = "PSK-000011"
 const _PERMUTATION_CONTRACT = "terminal_permutation_invariance"
 const _PERMUTATION_PSK = "PSK-000012"
+const _FEASIBILITY_CONTRACT = "solved_network_feasibility_validation"
+const _FEASIBILITY_PSK = "PSK-000013"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -1027,6 +1029,111 @@ function check_terminal_permutation_invariance(
         Dict{String,Any}("relation_error" => error, "relation_tolerance" => tolerance))
     _permutation_result(:failed, [finding], evidence;
         checked=["permutation_bijection", "endpoint_terminal_map_alignment"])
+end
+
+function _feasibility_result(status::Symbol, findings::Vector{Finding},
+                             evidence::AbstractDict; checked=String[])
+    ScientificContractResult(
+        _FEASIBILITY_CONTRACT, status, [_FEASIBILITY_PSK], checked,
+        ["residual_computation_independence", "model_equation_coverage",
+         "complete_feasible_set", "objective_or_optimizer_equivalence",
+         "solver_status_or_optimality"], findings, Dict{String,Any}(evidence))
+end
+
+"""
+    check_solved_network_feasibility(result; tolerances=Dict()) -> ScientificContractResult
+
+Validate an independently computed residual witness for a claimed solved
+network (`PSK-000013`). The result must contain finite residual norms for
+equations, KCL, power balance, and recovery, plus a nonnegative device-limit
+violation count. Solver termination is recorded separately and is never used
+as a substitute for these measurements.
+"""
+function check_solved_network_feasibility(
+        result::Dict{String,Any}; tolerances::AbstractDict=Dict{String,Any}())::ScientificContractResult
+    raw_status = get(result, "termination_status", nothing)
+    raw_status isa AbstractString && !isempty(strip(raw_status)) || begin
+        f = Finding(WARNING, "W.CONTRACT.FEASIBILITY_INDETERMINATE", :scientific_contract,
+                    :solution, nothing,
+                    "Solved-network feasibility is indeterminate: termination_status is missing.",
+                    Dict{String,Any}("knowledge_ids" => [_FEASIBILITY_PSK],
+                        "contract_id" => _FEASIBILITY_CONTRACT,
+                        "reason" => "termination_status is missing"))
+        return _feasibility_result(:indeterminate, [f], Dict("classification" => "missing_termination_status"); checked=[])
+    end
+    status = String(raw_status)
+    accepted = ("LOCALLY_SOLVED", "OPTIMAL", "ALMOST_LOCALLY_SOLVED")
+    status in accepted || begin
+        f = Finding(INFO, "I.CONTRACT.FEASIBILITY_NOT_APPLICABLE", :scientific_contract,
+                    :solution, nothing,
+                    "Solved-network feasibility is not applicable: solver status does not claim a solved result.",
+                    Dict{String,Any}("knowledge_ids" => [_FEASIBILITY_PSK],
+                        "contract_id" => _FEASIBILITY_CONTRACT,
+                        "termination_status" => status))
+        return _feasibility_result(:inapplicable, [f], Dict("classification" => "unsolved_status", "termination_status" => status); checked=[])
+    end
+    validation = get(result, "feasibility_validation", nothing)
+    validation isa AbstractDict || begin
+        f = Finding(WARNING, "W.CONTRACT.FEASIBILITY_INDETERMINATE", :scientific_contract,
+                    :solution, nothing,
+                    "Solved-network feasibility is indeterminate: feasibility_validation is missing.",
+                    Dict{String,Any}("knowledge_ids" => [_FEASIBILITY_PSK],
+                        "contract_id" => _FEASIBILITY_CONTRACT,
+                        "reason" => "feasibility_validation must contain independently computed residuals"))
+        return _feasibility_result(:indeterminate, [f], Dict("classification" => "missing_residual_witness", "termination_status" => status); checked=[])
+    end
+    fields = ("equation_residual_norm", "kcl_residual_norm", "power_balance_residual_norm", "recovery_residual_norm")
+    missing = String[]
+    residuals = Dict{String,Float64}()
+    for field in fields
+        value = get(validation, field, nothing)
+        if !(value isa Number) || !isfinite(Float64(value))
+            push!(missing, field)
+        else
+            residuals[field] = abs(Float64(value))
+        end
+    end
+    violations = get(validation, "device_limit_violations", nothing)
+    if !(violations isa Integer) || violations < 0
+        push!(missing, "device_limit_violations")
+    end
+    isempty(missing) || begin
+        f = Finding(WARNING, "W.CONTRACT.FEASIBILITY_INDETERMINATE", :scientific_contract,
+                    :solution, nothing,
+                    "Solved-network feasibility is indeterminate: residual witness fields are missing or malformed.",
+                    Dict{String,Any}("knowledge_ids" => [_FEASIBILITY_PSK],
+                        "contract_id" => _FEASIBILITY_CONTRACT,
+                        "missing_fields" => missing))
+        return _feasibility_result(:indeterminate, [f], Dict("classification" => "malformed_residual_witness", "termination_status" => status); checked=[])
+    end
+    defaults = Dict{String,Float64}(field => 1e-8 for field in fields)
+    for (key, value) in tolerances
+        key in fields && value isa Number && isfinite(Float64(value)) && Float64(value) >= 0 && (defaults[String(key)] = Float64(value))
+    end
+    failures = Finding[]
+    for field in fields
+        residuals[field] > defaults[field] && push!(failures,
+            Finding(ERROR, "E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION", :scientific_contract,
+                :solution, nothing,
+                "Independent $(field) exceeds its declared tolerance.",
+                Dict{String,Any}("knowledge_ids" => [_FEASIBILITY_PSK],
+                    "contract_id" => _FEASIBILITY_CONTRACT, "field" => field,
+                    "residual" => residuals[field], "tolerance" => defaults[field])))
+    end
+    violations > 0 && push!(failures,
+        Finding(ERROR, "E.CONTRACT.FEASIBILITY_DEVICE_LIMIT_VIOLATION", :scientific_contract,
+            :solution, nothing,
+            "Independent device-limit validation reports one or more violations.",
+            Dict{String,Any}("knowledge_ids" => [_FEASIBILITY_PSK],
+                "contract_id" => _FEASIBILITY_CONTRACT,
+                "device_limit_violations" => violations)))
+    evidence = Dict{String,Any}("classification" => isempty(failures) ? "independent_feasibility_witness_passed" : "independent_feasibility_witness_failed",
+        "termination_status" => status, "residuals" => residuals,
+        "tolerances" => defaults, "device_limit_violations" => violations)
+    checked = ["termination_status", "equation_residual_norm", "kcl_residual_norm",
+               "power_balance_residual_norm", "device_limit_violations", "recovery_residual_norm"]
+    isempty(failures) && return _feasibility_result(:passed, Finding[], evidence; checked=checked)
+    _feasibility_result(:failed, failures, evidence; checked=checked)
 end
 
 function _decision_manifest_result(

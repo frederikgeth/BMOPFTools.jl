@@ -697,3 +697,44 @@ meaning = "The explicit permutation contract does not apply because a bijection,
 code = "W.CONTRACT.PERMUTATION_INDETERMINATE"
 severity = "WARNING"
 meaning = "A required source or target line primitive or terminal-map record is missing or malformed."
+
+[[contract]]
+id = "solved_network_feasibility_validation"
+knowledge_ids = ["PSK-000013"]
+title = "Independent solved-network feasibility witness"
+entrypoint = "check_solved_network_feasibility"
+scope = "Claimed solved results with independently computed equation, KCL, power-balance, device-limit, and recovery evidence."
+applicability = [
+  "The result reports a claimed solved status such as OPTIMAL or LOCALLY_SOLVED.",
+  "The result carries finite residual norms and a nonnegative device-limit violation count.",
+]
+checked_dimensions = ["termination_status", "equation_residual_norm", "kcl_residual_norm", "power_balance_residual_norm", "device_limit_violations", "recovery_residual_norm"]
+unassessed_dimensions = ["residual_computation_independence", "model_equation_coverage", "complete_feasible_set", "objective_or_optimizer_equivalence", "solver_status_or_optimality"]
+finding_codes = [
+  "E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION",
+  "E.CONTRACT.FEASIBILITY_DEVICE_LIMIT_VIOLATION",
+  "I.CONTRACT.FEASIBILITY_NOT_APPLICABLE",
+  "W.CONTRACT.FEASIBILITY_INDETERMINATE",
+]
+fixture_ids = ["solved-network-feasibility-001"]
+source_paths = ["src/knowledge/contracts.jl", "docs/src/findings.md", "test/scientific_contract_tests.jl"]
+
+[[finding]]
+code = "E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION"
+severity = "ERROR"
+meaning = "An independently computed equation, KCL, power-balance, or recovery residual exceeds its declared tolerance."
+
+[[finding]]
+code = "E.CONTRACT.FEASIBILITY_DEVICE_LIMIT_VIOLATION"
+severity = "ERROR"
+meaning = "Independent device-limit validation reports one or more violations."
+
+[[finding]]
+code = "I.CONTRACT.FEASIBILITY_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "No solved/feasible solver status was supplied for the residual-witness contract."
+
+[[finding]]
+code = "W.CONTRACT.FEASIBILITY_INDETERMINATE"
+severity = "WARNING"
+meaning = "A solved result lacks finite, independently computed residual or device-limit witness fields."

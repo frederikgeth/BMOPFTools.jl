@@ -358,6 +358,30 @@ limits, complete-network feasible sets, decisions, objectives, or solver
 equivalence. Matching conductor counts or labels alone is not evidence of
 permutation invariance.
 
+## Complete solved-network feasibility witness
+
+[`check_solved_network_feasibility`](@ref) checks the independent residual
+bundle proposed by `PSK-000013`. A claimed solved status must be accompanied by
+finite equation, KCL, power-balance, and recovery residual norms plus a device-
+limit violation count. Each residual is compared with its declared tolerance;
+solver termination is recorded but never substitutes for the witness.
+
+```julia
+result = Dict("termination_status" => "OPTIMAL",
+    "feasibility_validation" => Dict(
+        "equation_residual_norm" => 1e-10,
+        "kcl_residual_norm" => 2e-10,
+        "power_balance_residual_norm" => 3e-10,
+        "device_limit_violations" => 0,
+        "recovery_residual_norm" => 1e-10))
+check_solved_network_feasibility(result).status # :passed
+```
+
+This is an evidence gate for independently computed residuals, not a residual
+calculator or a global-optimality certificate. The source model equations,
+complete feasible set, objective/optimizer equivalence, and solver guarantees
+remain outside the checked dimensions.
+
 ## Decision-preservation manifests
 
 [`check_decision_preservation_manifest`](@ref) implements the declaration-

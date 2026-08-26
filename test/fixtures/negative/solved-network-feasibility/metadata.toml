@@ -1,0 +1,18 @@
+schema_version = "0.1.0"
+fixture_id = "solved-network-feasibility-001"
+knowledge_ids = ["PSK-000013"]
+contract_id = "solved_network_feasibility_validation"
+kind = "counterexample"
+title = "Solver success with a failed independent power-balance residual"
+scope = "A claimed solved result accompanied by independently computed network and recovery residual witnesses."
+minimality_status = "hand_minimized_one_residual_violation"
+source_file = "source.json"
+transformed_file = "source.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION"]
+does_not_establish = [
+  "The solver termination status is meaningless.",
+  "A residual witness alone proves global optimality or complete study equivalence.",
+]

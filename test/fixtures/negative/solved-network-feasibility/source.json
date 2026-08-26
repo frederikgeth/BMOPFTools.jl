@@ -1,0 +1,10 @@
+{
+  "termination_status": "OPTIMAL",
+  "feasibility_validation": {
+    "equation_residual_norm": 1.0e-10,
+    "kcl_residual_norm": 2.0e-10,
+    "power_balance_residual_norm": 2.0e-4,
+    "device_limit_violations": 0,
+    "recovery_residual_norm": 1.0e-10
+  }
+}

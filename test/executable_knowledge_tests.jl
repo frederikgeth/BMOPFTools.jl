@@ -20,15 +20,15 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 85
-    @test manifest.record_counts.executable_contract == 12
-    @test manifest.record_counts.api_operation == 12
-    @test manifest.record_counts.finding == 49
-    @test manifest.record_counts.fixture == 12
+    @test manifest.record_count == length(records) == 92
+    @test manifest.record_counts.executable_contract == 13
+    @test manifest.record_counts.api_operation == 13
+    @test manifest.record_counts.finding == 53
+    @test manifest.record_counts.fixture == 13
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
         "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
-        "PSK-000010", "PSK-000011", "PSK-000012"]
+        "PSK-000010", "PSK-000011", "PSK-000012", "PSK-000013"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
         "decision_preservation_manifest_completeness",
@@ -38,6 +38,7 @@ using SHA
         "parallel_member_limit_preservation",
         "positive_sequence_collapse_applicability",
         "reference_singularity_validation",
+        "solved_network_feasibility_validation",
         "state_dependent_equivalent_provenance",
         "terminal_permutation_invariance",
         "transformer_tap_domain_preservation",
@@ -151,6 +152,15 @@ using SHA
     @test permutation_fixture.fixture_id in permutation_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               permutation_contract.finding_codes)
+
+    feasibility_contract = by_id["contract:solved_network_feasibility_validation"]
+    feasibility_fixture = by_id["fixture:solved-network-feasibility-001"]
+    feasibility_api = by_id["api:check_solved_network_feasibility"]
+    @test feasibility_contract.entrypoint == feasibility_api.entrypoint ==
+          "check_solved_network_feasibility"
+    @test feasibility_fixture.fixture_id in feasibility_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              feasibility_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

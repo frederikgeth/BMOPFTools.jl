@@ -8,12 +8,13 @@
     "parallel_member_limit_preservation",
     "positive_sequence_collapse_applicability",
     "reference_singularity_validation",
+    "solved_network_feasibility_validation",
     "state_dependent_equivalent_provenance",
     "terminal_permutation_invariance",
     "transformer_tap_domain_preservation",
     "transformer_winding_convention_preservation"
   ],
-  "corpus_sha256": "53907ac3bac970bd6a4eb0a86226cb6e58fa3cf61cd715e1ee55e3e5109c2489",
+  "corpus_sha256": "5c64c77b98f7f0c78359aeb084a173043c5c2bd4c35a760ea901af1670079839",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -26,19 +27,20 @@
     "PSK-000009",
     "PSK-000010",
     "PSK-000011",
-    "PSK-000012"
+    "PSK-000012",
+    "PSK-000013"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 85,
+  "record_count": 92,
   "record_counts": {
-    "api_operation": 12,
-    "executable_contract": 12,
-    "finding": 49,
-    "fixture": 12
+    "api_operation": 13,
+    "executable_contract": 13,
+    "finding": 53,
+    "fixture": 13
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -48,11 +50,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "2d7f93e6557b648f122e7c5a08f0874464adee44eb11b298ce61fa45a3a6c808"
+      "sha256": "9057e4b6db0269d149682d6c7f58d0b8d30dcc03840916bfcb18b540ce0c77fe"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "47c8628039470cf42753a0a058c733b4e00c00a7a082beae509d03d7315c8282"
+      "sha256": "8ae27a6e9b2ccd47045b5e7f73ae6ca978412364990594048492a1b32d7de59f"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -68,7 +70,7 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "589b9167c54adc0f52a17cd27b2b833b29628ced4ab3f86344cb61af30eacee0"
+      "sha256": "1fb01e013c12bac6d54682e026cd7d91b4337a24a46be796b0296d0046605755"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -263,6 +265,26 @@
       "sha256": "506832158ebb267af6028fba2ec25118e73aa5dd49ae7beeee13fc3a795920c8"
     },
     {
+      "path": "test/fixtures/negative/solved-network-feasibility/exact-target.json",
+      "sha256": "9f25e1adeb1fbcb0f718a1d6e8ccab21ca2cca81570201b7172ed951bbb1a0b7"
+    },
+    {
+      "path": "test/fixtures/negative/solved-network-feasibility/expected.json",
+      "sha256": "b4d6cc016175124d3705055cb3a406d3fd5aea451a91bf946e3efa3133aef6d1"
+    },
+    {
+      "path": "test/fixtures/negative/solved-network-feasibility/metadata.toml",
+      "sha256": "f3569d0cc46f81f988d88e6d4c56ef9386b890c15fedee7e20f90377464a7c82"
+    },
+    {
+      "path": "test/fixtures/negative/solved-network-feasibility/reproduce.jl",
+      "sha256": "4b9ca8ad7ada520158eae7bb4e2bbc19ff4ca4e9bc4bdd3f11c00fbeb891f17f"
+    },
+    {
+      "path": "test/fixtures/negative/solved-network-feasibility/source.json",
+      "sha256": "f53c62098901fe75e1125bcd7d44ca8b6467e121d58065e98e7448f932b542c1"
+    },
+    {
       "path": "test/fixtures/negative/state-dependent-equivalent/exact-target.json",
       "sha256": "86c8b1623891425fc058555c47e6906bcab19dacd059ae3a09bece65254ea49f"
     },
@@ -360,7 +382,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "fc35d9c9cb507e6024138f5c4cd34a9758740ce8333253b930ab9ba085b75189"
+      "sha256": "9a11b0861aeabe03da72b7dc37cffbf5d17880ceb588ce3930b78ffef9bc9364"
     }
   ]
 }
