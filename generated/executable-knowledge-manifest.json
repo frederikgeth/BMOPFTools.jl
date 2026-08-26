@@ -1,32 +1,34 @@
 {
   "contract_ids": [
     "claimed_solution_validity",
+    "decision_preservation_manifest_completeness",
     "load_voltage_base_consistency",
     "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation",
     "transformer_tap_domain_preservation",
     "transformer_winding_convention_preservation"
   ],
-  "corpus_sha256": "aeed2551c64b15711b414845287674445b809aedfd4e650b3b5036af242e06dd",
+  "corpus_sha256": "e89f8b7d6d3ba3cb98d291e6fdef31d121f9a72f908ed48912fb2f91c9c2af41",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
     "PSK-000003",
     "PSK-000004",
     "PSK-000005",
-    "PSK-000006"
+    "PSK-000006",
+    "PSK-000007"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 40,
+  "record_count": 47,
   "record_counts": {
-    "api_operation": 6,
-    "executable_contract": 6,
-    "finding": 22,
-    "fixture": 6
+    "api_operation": 7,
+    "executable_contract": 7,
+    "finding": 26,
+    "fixture": 7
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -36,11 +38,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "dda15d24cf17d71b4d1d41bacbc2e9f273bfa4c781ccfdc832c2840adee41320"
+      "sha256": "5a8210d2fe8aa1068a66ef3cddcd0772c9ac336036ae94018f56a9e947227cfe"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "c11e247f0a950e9e6f2d7cb030e61a9647171fc8a540c321e902dcc2dac284e7"
+      "sha256": "4585dad54b5a371b9a58e67befe67260caf5102ec701127e9991f63d26e4e45e"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -52,7 +54,7 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "940229a8c4eafc6f403d3b34f99d4cfe819c47e2962eb8f11f3ab480f91a9de1"
+      "sha256": "52c139cd89993a552389401de2246813249175b27b8c0dfd6f6f24878602f689"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -85,6 +87,30 @@
     {
       "path": "test/fixtures/negative/claimed-feasible-invalid-solution/validated-result.json",
       "sha256": "3c9dc5c9914625fa6e9060515100a424f580a2c2dc56aae52835ac0225a06269"
+    },
+    {
+      "path": "test/fixtures/negative/decision-manifest-terminal-only/exact-target.json",
+      "sha256": "de1a0de8fcd10fc1680fd562861f8c0ed0ceb484fefe1e27c96ca2f2b022bfe9"
+    },
+    {
+      "path": "test/fixtures/negative/decision-manifest-terminal-only/expected.json",
+      "sha256": "a65bc62c5c5959c52a567787e544861b89bc2f272f4c52d79f3089deaf7f4832"
+    },
+    {
+      "path": "test/fixtures/negative/decision-manifest-terminal-only/metadata.toml",
+      "sha256": "f49d00c5d3aea05a428173f50f63eecefce7976ed273c64c535492f96f4e3c92"
+    },
+    {
+      "path": "test/fixtures/negative/decision-manifest-terminal-only/reproduce.jl",
+      "sha256": "253107694530fe9aba8a8c7a860d95d75187032bb1d31e57af559f53988dcd96"
+    },
+    {
+      "path": "test/fixtures/negative/decision-manifest-terminal-only/source.json",
+      "sha256": "13f70398daf8de279d58837d8dcb325ea31f0a30d13083e1163dbb40b165977b"
+    },
+    {
+      "path": "test/fixtures/negative/decision-manifest-terminal-only/transformed.json",
+      "sha256": "153aef02d763b7ed8e8fcf7b85ccb62966dbb8ede4a36c9cc2496cbe90fc24bf"
     },
     {
       "path": "test/fixtures/negative/load-voltage-base-mismatch/expected.json",
@@ -204,7 +230,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "59a5f127d88db22a3587b34b7ba7c0a7ccbea7ea3398ddfe9f920664fa3d652a"
+      "sha256": "411a31488075c58380b8010cdc859858a9b2673bd29e2355d37244ab034afe34"
     }
   ]
 }

@@ -338,3 +338,62 @@ meaning = "The transformer subtype, tap state, bus mapping, or terminal mapping 
 code = "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE"
 severity = "WARNING"
 meaning = "A mapped transformer, bus, terminal map, positive winding reference, fixed tap, or incidence relation is unavailable, so convention preservation cannot be decided."
+
+[[contract]]
+id = "decision_preservation_manifest_completeness"
+knowledge_ids = ["PSK-000007"]
+title = "Decision-preservation manifest completeness"
+entrypoint = "check_decision_preservation_manifest"
+scope = "Version 0.1.0 transformation manifests that explicitly claim exact decision equivalence and declare source and target model identities."
+applicability = [
+  "The manifest uses schema_version 0.1.0 and names a transformation, source model, and target model.",
+  "The claim exactness_object is decision_equivalence and its classification is exact.",
+  "Each required dimension is an object with a supported disposition.",
+]
+checked_dimensions = [
+  "manifest_identity_and_claim_scope",
+  "required_dimension_dispositions",
+  "verified_evidence_reference_presence",
+  "not_required_justification_presence",
+]
+unassessed_dimensions = [
+  "truth_or_independence_of_cited_evidence",
+  "source_and_target_equation_equivalence",
+  "source_and_target_feasible_set_equivalence",
+  "objective_value_or_optimizer_equivalence",
+  "correctness_of_constraint_decision_or_recovery_maps",
+  "provenance_completeness_beyond_declared_references",
+  "solver_status_or_optimality",
+]
+finding_codes = [
+  "E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP",
+  "E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION",
+  "I.CONTRACT.DECISION_MANIFEST_NOT_APPLICABLE",
+  "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE",
+]
+fixture_ids = ["decision-manifest-terminal-only-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP"
+severity = "ERROR"
+meaning = "A manifest claiming exact decision equivalence omits a required admissible-domain, terminal, observation, constraint, decision-variable, objective, or recovery disposition, or lacks the evidence reference or justification required by that disposition."
+
+[[finding]]
+code = "E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION"
+severity = "ERROR"
+meaning = "A manifest claiming exact decision equivalence explicitly marks a required dimension as unassessed or not preserved."
+
+[[finding]]
+code = "I.CONTRACT.DECISION_MANIFEST_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The manifest does not claim exact decision equivalence; a narrower terminal, inner, outer, or approximate claim is outside this completeness gate and is not treated as a failure."
+
+[[finding]]
+code = "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE"
+severity = "WARNING"
+meaning = "The manifest schema, identity, claim, dimension object, or disposition is missing, malformed, or unsupported, so declaration completeness cannot be decided."

@@ -242,6 +242,10 @@ target cannot reveal source information that has already been discarded.
 | `E.CONTRACT.TRANSFORMER_WINDING_BASE_RATIO_MISMATCH` | E | The target changes a mapped `v_nom_from`/`v_nom_to` winding reference or the resulting fixed effective coil ratio under the subtype's connection convention. |
 | `I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE` | I | The initial winding-convention contract does not cover the subtype, adjustable tap, non-bijective mapping, or subtype-changing reversal. No preservation conclusion is drawn. |
 | `W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE` | W | A mapped transformer, bus, terminal map, positive winding reference, fixed tap, or constructible incidence relation is missing. No preservation conclusion is drawn. |
+| `E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP` | E | A manifest claiming exact decision equivalence omits a required admissible-domain, terminal, observation, constraint, decision-variable, objective, or recovery disposition, or lacks the evidence reference or justification required by that disposition. Terminal evidence alone is insufficient. |
+| `E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION` | E | A manifest claiming exact decision equivalence explicitly marks a required dimension as `unassessed` or `not_preserved`, contradicting the unqualified exactness claim. |
+| `I.CONTRACT.DECISION_MANIFEST_NOT_APPLICABLE` | I | The manifest does not claim exact decision equivalence. A narrower terminal, inner, outer, or approximate claim lies outside this completeness gate and is not mislabeled as a failure. |
+| `W.CONTRACT.DECISION_MANIFEST_INDETERMINATE` | W | The manifest schema, identity, claim, dimension object, or disposition is missing, malformed, or unsupported. No declaration-completeness conclusion is drawn. |
 
 ## PROV — provenance & conventions
 

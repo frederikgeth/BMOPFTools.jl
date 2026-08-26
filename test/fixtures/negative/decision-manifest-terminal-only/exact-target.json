@@ -1,0 +1,40 @@
+{
+  "schema_version": "0.1.0",
+  "transformation_id": "parallel_bundle_reduction",
+  "source_model_id": "two_parallel_members",
+  "target_model_id": "exact_lifted_aggregate",
+  "claim": {
+    "exactness_object": "decision_equivalence",
+    "classification": "exact"
+  },
+  "dimensions": {
+    "admissible_domain": {
+      "status": "verified",
+      "evidence_ids": ["certificate:common-voltage-drop-domain"]
+    },
+    "terminal_behavior": {
+      "status": "verified",
+      "evidence_ids": ["certificate:parallel-terminal-relation"]
+    },
+    "observations": {
+      "status": "verified",
+      "evidence_ids": ["certificate:member-current-recovery"]
+    },
+    "constraints": {
+      "status": "verified",
+      "evidence_ids": ["contract:parallel_member_limit_preservation/passed"]
+    },
+    "decision_variables": {
+      "status": "verified",
+      "evidence_ids": ["certificate:served-load-decision-map"]
+    },
+    "objective": {
+      "status": "verified",
+      "evidence_ids": ["certificate:maximum-served-load-objective"]
+    },
+    "recovery": {
+      "status": "verified",
+      "evidence_ids": ["certificate:member-current-recovery"]
+    }
+  }
+}

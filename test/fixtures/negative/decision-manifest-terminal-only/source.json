@@ -1,0 +1,9 @@
+{
+  "transformation_id": "parallel_bundle_reduction",
+  "source_model_id": "two_parallel_members",
+  "target_model_id": "one_aggregate_member",
+  "terminal_evidence": {
+    "summed_admittance_identity": true,
+    "evidence_id": "certificate:parallel-terminal-relation"
+  }
+}

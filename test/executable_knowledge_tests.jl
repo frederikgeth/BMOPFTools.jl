@@ -20,16 +20,17 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 40
-    @test manifest.record_counts.executable_contract == 6
-    @test manifest.record_counts.api_operation == 6
-    @test manifest.record_counts.finding == 22
-    @test manifest.record_counts.fixture == 6
+    @test manifest.record_count == length(records) == 47
+    @test manifest.record_counts.executable_contract == 7
+    @test manifest.record_counts.api_operation == 7
+    @test manifest.record_counts.finding == 26
+    @test manifest.record_counts.fixture == 7
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
-        "PSK-000005", "PSK-000006"]
+        "PSK-000005", "PSK-000006", "PSK-000007"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
+        "decision_preservation_manifest_completeness",
         "load_voltage_base_consistency",
         "neutral_ground_reference_preservation",
         "parallel_member_limit_preservation",
@@ -90,6 +91,15 @@ using SHA
     @test winding_fixture.fixture_id in winding_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               winding_contract.finding_codes)
+
+    decision_contract = by_id["contract:decision_preservation_manifest_completeness"]
+    decision_fixture = by_id["fixture:decision-manifest-terminal-only-001"]
+    decision_api = by_id["api:check_decision_preservation_manifest"]
+    @test decision_contract.entrypoint == decision_api.entrypoint ==
+          "check_decision_preservation_manifest"
+    @test decision_fixture.fixture_id in decision_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              decision_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

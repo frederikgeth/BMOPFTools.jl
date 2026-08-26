@@ -88,6 +88,17 @@ For a converter that changes transformer endpoint or terminal ordering:
 Use [`check_transformer_winding_convention_preservation`](@ref). Adjustable taps
 must be checked separately rather than forced into this fixed-convention route.
 
+For a transformation that is being promoted from terminal exactness to a
+decision-equivalence claim:
+
+> Evaluate the versioned transformation manifest with `check_decision_preservation_manifest`. Report missing, unsupported, and explicitly unresolved dimensions. Do not fill absent evidence from prose or infer that a passing completeness result authenticates evidence, validates mappings, compares feasible sets or objectives, or proves optimization equivalence. Use the relevant case-specific contracts to support individual manifest dimensions.
+
+Use [`check_decision_preservation_manifest`](@ref). A correctly scoped
+terminal-only manifest is `inapplicable` to this gate, not failed; the failure
+arises only when a manifest claims exact decision equivalence without closing
+the admissible-domain, observation, constraint, decision-variable, objective,
+and recovery obligations.
+
 ### Contribute a package change
 
 > Implement `<change>` on the current branch. First inspect the relevant public API, tests, documentation, and repository instructions. Preserve unrelated changes. Add focused positive, negative, boundary, and serialization tests in proportion to the change. Update Finding documentation and executable metadata when their stable identities or sources change. Run the focused tests, the stale-output check, and the relevant documentation build. Commit only after the diff and checks are clean.

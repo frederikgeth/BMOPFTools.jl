@@ -1,0 +1,19 @@
+schema_version = "0.1.0"
+fixture_id = "decision-manifest-terminal-only-001"
+knowledge_ids = ["PSK-000007"]
+contract_id = "decision_preservation_manifest_completeness"
+kind = "counterexample"
+title = "Terminal-only evidence overclaimed as exact decision equivalence"
+scope = "One transformation manifest that claims exact decision equivalence but supplies only a verified aggregate terminal-relation reference, omitting admissible-domain, observation, constraint, decision-variable, objective, and recovery obligations."
+minimality_status = "hand_minimized_one_claim_one_terminal_evidence_record"
+source_file = "source.json"
+transformed_file = "transformed.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP"]
+does_not_establish = [
+  "The terminal-relation evidence is false.",
+  "Every transformation must preserve the same decision study.",
+  "A passing completeness check authenticates evidence, proves maps correct, compares feasible sets or objectives, or establishes optimization equivalence.",
+]

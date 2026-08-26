@@ -1,0 +1,16 @@
+{
+  "schema_version": "0.1.0",
+  "transformation_id": "parallel_bundle_reduction",
+  "source_model_id": "two_parallel_members",
+  "target_model_id": "one_aggregate_member",
+  "claim": {
+    "exactness_object": "decision_equivalence",
+    "classification": "exact"
+  },
+  "dimensions": {
+    "terminal_behavior": {
+      "status": "verified",
+      "evidence_ids": ["certificate:parallel-terminal-relation"]
+    }
+  }
+}

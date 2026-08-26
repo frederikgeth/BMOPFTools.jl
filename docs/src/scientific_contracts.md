@@ -254,6 +254,53 @@ sets, objectives, and solver evidence remain unassessed. In particular, this
 check complements the package's `transformer_yprim` and OPF/Yprim consistency
 tests; it does not replace them.
 
+## Decision-preservation manifests
+
+[`check_decision_preservation_manifest`](@ref) implements the declaration-
+completeness portion of `PSK-000007`. It applies only to version `0.1.0`
+manifests that explicitly claim exact `decision_equivalence`; narrower
+terminal, inner, outer, or approximate claims return `:inapplicable` instead
+of being mislabeled as failures.
+
+```julia
+using BMOPFTools
+using JSON3
+
+fixture = joinpath(
+    pkgdir(BMOPFTools), "test", "fixtures", "negative",
+    "decision-manifest-terminal-only",
+)
+manifest = JSON3.read(
+    read(joinpath(fixture, "transformed.json"), String),
+    Dict{String,Any},
+)
+
+result = check_decision_preservation_manifest(manifest)
+result.status                      # :failed
+result.findings[1].code
+# "E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP"
+result.evidence["missing_dimensions"]
+# admissible domain, observations, constraints, decisions, objective, recovery
+```
+
+An exact decision-equivalence manifest must name its source and target and
+close seven dimensions: admissible domain, terminal behavior, observations,
+constraints, decision variables, objective, and recovery. Each dimension is
+either `verified` with one or more `evidence_ids`, `not_required` with a
+justification, `not_preserved`, or `unassessed`. The last two dispositions
+contradict an exact decision-equivalence claim; omitted dimensions and missing
+supporting references create an evidence gap.
+
+The negative fixture deliberately supplies a verified terminal-relation
+reference and nothing else. Its evidence-complete companion declares every
+required disposition and passes. That pass is administrative, not scientific:
+BMOPFTools has checked the manifest's completeness and internal claim boundary,
+but has not authenticated the evidence IDs, proved the maps correct, compared
+source and target feasible sets or objectives, or established optimization or
+solver equivalence. Use narrower case-specific contracts—such as the parallel
+member-limit or transformer tap-domain checks—to produce actual evidence for
+individual dimensions.
+
 ## Result statuses
 
 [`ScientificContractResult`](@ref) uses four statuses:

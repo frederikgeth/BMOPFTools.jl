@@ -1,0 +1,14 @@
+{
+  "contract_id": "decision_preservation_manifest_completeness",
+  "knowledge_ids": ["PSK-000007"],
+  "finding_codes": ["E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP"],
+  "classification": "evidence_gap",
+  "missing_dimensions": [
+    "admissible_domain",
+    "observations",
+    "constraints",
+    "decision_variables",
+    "objective",
+    "recovery"
+  ]
+}

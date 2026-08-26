@@ -17,6 +17,19 @@ const _TRANSFORMER_TAP_SUBTYPES = ("single_phase", "center_tap", "wye_delta", "d
 const _TRANSFORMER_WINDING_CONVENTION_CONTRACT = "transformer_winding_convention_preservation"
 const _TRANSFORMER_WINDING_CONVENTION_PSK = "PSK-000006"
 const _TRANSFORMER_WINDING_CONVENTION_SUBTYPES = ("single_phase", "wye_delta", "delta_wye")
+const _DECISION_MANIFEST_CONTRACT = "decision_preservation_manifest_completeness"
+const _DECISION_MANIFEST_PSK = "PSK-000007"
+const _DECISION_MANIFEST_DIMENSIONS = (
+    "admissible_domain",
+    "terminal_behavior",
+    "observations",
+    "constraints",
+    "decision_variables",
+    "objective",
+    "recovery",
+)
+const _DECISION_MANIFEST_STATUSES =
+    ("verified", "not_required", "not_preserved", "unassessed")
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -54,6 +67,295 @@ struct ScientificContractResult
             String.(checked_dimensions), String.(unassessed_dimensions),
             Vector{Finding}(findings), Dict{String,Any}(evidence))
     end
+end
+
+function _decision_manifest_result(
+        status::Symbol, findings::Vector{Finding}, evidence::Dict{String,Any};
+        checked=String[])
+    ScientificContractResult(
+        _DECISION_MANIFEST_CONTRACT,
+        status,
+        [_DECISION_MANIFEST_PSK],
+        checked,
+        [
+            "truth_or_independence_of_cited_evidence",
+            "source_and_target_equation_equivalence",
+            "source_and_target_feasible_set_equivalence",
+            "objective_value_or_optimizer_equivalence",
+            "correctness_of_constraint_decision_or_recovery_maps",
+            "provenance_completeness_beyond_declared_references",
+            "solver_status_or_optimality",
+        ],
+        findings,
+        evidence,
+    )
+end
+
+function _decision_manifest_finding(code::String, severity::Severity,
+                                    transformation_id, message::String,
+                                    detail::Dict{String,Any})
+    Finding(severity, code, :scientific_contract, :transformation,
+            transformation_id isa String && !isempty(transformation_id) ?
+                transformation_id : nothing,
+            message, detail)
+end
+
+function _decision_manifest_refusal(status::Symbol, code::String,
+                                    severity::Severity, message::String,
+                                    manifest::AbstractDict, reason::String)
+    transformation_id = get(manifest, "transformation_id", nothing)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_DECISION_MANIFEST_PSK],
+        "contract_id" => _DECISION_MANIFEST_CONTRACT,
+        "transformation_id" => transformation_id,
+        "reason" => reason,
+        "invalid_inferences" => [
+            "A terminal-equivalence claim is not a decision-equivalence claim.",
+            "An absent, malformed, or out-of-scope manifest cannot be treated as a failed or passed decision-equivalence certificate.",
+        ],
+        "recommended_checks" => [
+            "Declare the exactness object and classification explicitly.",
+            "For an exact decision-equivalence claim, provide a disposition and evidence reference or justification for every required dimension.",
+        ],
+    )
+    finding = _decision_manifest_finding(
+        code, severity, transformation_id, message, detail)
+    _decision_manifest_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status),
+        "transformation_id" => transformation_id,
+        "reason" => reason,
+    ))
+end
+
+function _decision_manifest_nonempty_string(value)::Bool
+    value isa AbstractString && !isempty(strip(String(value)))
+end
+
+function _decision_manifest_string_array(value)
+    value isa AbstractVector || return nothing
+    strings = String[]
+    for item in value
+        _decision_manifest_nonempty_string(item) || return nothing
+        push!(strings, String(item))
+    end
+    isempty(strings) || length(strings) != length(unique(strings)) ? nothing : strings
+end
+
+"""
+    check_decision_preservation_manifest(manifest) -> ScientificContractResult
+
+Check declaration-level evidence completeness for a transformation manifest
+that claims exact decision equivalence (`PSK-000007`). The manifest must name
+its source and target models and give each required dimension—admissible
+domain, terminal behavior, observations, constraints, decision variables,
+objective, and recovery—one of four dispositions:
+
+- `verified`, with one or more nonempty `evidence_ids`; or
+- `not_required`, with a nonempty `justification`; or
+- `not_preserved`; or
+- `unassessed`.
+
+An exact decision-equivalence claim passes this completeness gate only when
+every dimension is closed by `verified` evidence or a justified
+`not_required` disposition. Missing evidence produces
+`E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP`; an explicit `not_preserved` or
+`unassessed` dimension produces
+`E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION`. A manifest that claims a
+different exactness object is `:inapplicable`, so a correctly scoped terminal-
+only certificate is not mislabeled as a failure.
+
+A pass establishes only that the declaration is complete and internally
+non-contradictory at this schema boundary. BMOPFTools does not resolve or
+authenticate the cited evidence, prove the maps correct, compare feasible
+sets or objectives, or establish solver or optimization equivalence.
+"""
+function check_decision_preservation_manifest(
+        manifest::AbstractDict)::ScientificContractResult
+    schema_version = get(manifest, "schema_version", nothing)
+    transformation_id = get(manifest, "transformation_id", nothing)
+    source_model_id = get(manifest, "source_model_id", nothing)
+    target_model_id = get(manifest, "target_model_id", nothing)
+    if schema_version != "0.1.0" ||
+       !_decision_manifest_nonempty_string(transformation_id) ||
+       !_decision_manifest_nonempty_string(source_model_id) ||
+       !_decision_manifest_nonempty_string(target_model_id)
+        return _decision_manifest_refusal(
+            :indeterminate,
+            "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE",
+            WARNING,
+            "Decision-preservation manifest is indeterminate: schema or model identity is missing or unsupported.",
+            manifest,
+            "schema_version must be 0.1.0 and transformation_id, source_model_id, and target_model_id must be nonempty strings",
+        )
+    end
+
+    claim = get(manifest, "claim", nothing)
+    claim isa AbstractDict || return _decision_manifest_refusal(
+        :indeterminate,
+        "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE",
+        WARNING,
+        "Decision-preservation manifest is indeterminate: claim declaration is missing or malformed.",
+        manifest,
+        "claim must be an object with exactness_object and classification",
+    )
+    exactness_object = get(claim, "exactness_object", nothing)
+    classification = get(claim, "classification", nothing)
+    (_decision_manifest_nonempty_string(exactness_object) &&
+     _decision_manifest_nonempty_string(classification)) ||
+        return _decision_manifest_refusal(
+            :indeterminate,
+            "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE",
+            WARNING,
+            "Decision-preservation manifest is indeterminate: exactness object or classification is missing.",
+            manifest,
+            "claim exactness_object and classification must be nonempty strings",
+        )
+    if exactness_object != "decision_equivalence" || classification != "exact"
+        return _decision_manifest_refusal(
+            :inapplicable,
+            "I.CONTRACT.DECISION_MANIFEST_NOT_APPLICABLE",
+            INFO,
+            "Decision-preservation manifest completeness is not applicable: the manifest does not claim exact decision equivalence.",
+            manifest,
+            "claimed exactness object is '$exactness_object' with classification '$classification'",
+        )
+    end
+
+    dimensions = get(manifest, "dimensions", nothing)
+    dimensions isa AbstractDict || return _decision_manifest_refusal(
+        :indeterminate,
+        "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE",
+        WARNING,
+        "Decision-preservation manifest is indeterminate: dimensions declaration is missing or malformed.",
+        manifest,
+        "dimensions must be an object",
+    )
+
+    missing_dimensions = String[]
+    missing_support = String[]
+    unresolved_dimensions = String[]
+    dispositions = Dict{String,Any}()
+    for dimension in _DECISION_MANIFEST_DIMENSIONS
+        entry = get(dimensions, dimension, nothing)
+        if entry === nothing
+            push!(missing_dimensions, dimension)
+            continue
+        end
+        entry isa AbstractDict || return _decision_manifest_refusal(
+            :indeterminate,
+            "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE",
+            WARNING,
+            "Decision-preservation manifest is indeterminate: dimension '$dimension' is malformed.",
+            manifest,
+            "dimension '$dimension' must be an object",
+        )
+        status = get(entry, "status", nothing)
+        if !(status isa AbstractString) || !(String(status) in _DECISION_MANIFEST_STATUSES)
+            return _decision_manifest_refusal(
+                :indeterminate,
+                "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE",
+                WARNING,
+                "Decision-preservation manifest is indeterminate: dimension '$dimension' has an unsupported disposition.",
+                manifest,
+                "dimension '$dimension' status must be one of $(_DECISION_MANIFEST_STATUSES)",
+            )
+        end
+        status_string = String(status)
+        if status_string == "verified"
+            evidence_ids = _decision_manifest_string_array(
+                get(entry, "evidence_ids", nothing))
+            evidence_ids === nothing && push!(missing_support, dimension)
+            dispositions[dimension] = Dict{String,Any}(
+                "status" => status_string,
+                "evidence_ids" => evidence_ids === nothing ? String[] : evidence_ids,
+            )
+        elseif status_string == "not_required"
+            justification = get(entry, "justification", nothing)
+            _decision_manifest_nonempty_string(justification) ||
+                push!(missing_support, dimension)
+            dispositions[dimension] = Dict{String,Any}(
+                "status" => status_string,
+                "justification" => justification isa AbstractString ?
+                    String(justification) : "",
+            )
+        else
+            push!(unresolved_dimensions, dimension)
+            dispositions[dimension] = Dict{String,Any}("status" => status_string)
+        end
+    end
+
+    common = Dict{String,Any}(
+        "transformation_id" => String(transformation_id),
+        "source_model_id" => String(source_model_id),
+        "target_model_id" => String(target_model_id),
+        "exactness_object" => String(exactness_object),
+        "classification" => String(classification),
+        "required_dimensions" => collect(_DECISION_MANIFEST_DIMENSIONS),
+        "dimension_dispositions" => dispositions,
+        "missing_dimensions" => missing_dimensions,
+        "dimensions_missing_support" => missing_support,
+        "unresolved_dimensions" => unresolved_dimensions,
+    )
+    checked = [
+        "manifest_identity_and_claim_scope",
+        "required_dimension_dispositions",
+        "verified_evidence_reference_presence",
+        "not_required_justification_presence",
+    ]
+    if isempty(missing_dimensions) && isempty(missing_support) &&
+       isempty(unresolved_dimensions)
+        common["classification"] = "decision_manifest_evidence_complete"
+        common["qualification"] =
+            "Pass establishes declaration completeness only; cited evidence and decision equivalence remain unverified by this contract."
+        return _decision_manifest_result(:passed, Finding[], common; checked=checked)
+    end
+
+    findings = Finding[]
+    if !isempty(missing_dimensions) || !isempty(missing_support)
+        detail = merge(copy(common), Dict{String,Any}(
+            "knowledge_ids" => [_DECISION_MANIFEST_PSK],
+            "contract_id" => _DECISION_MANIFEST_CONTRACT,
+            "invalid_inferences" => [
+                "Verified terminal behavior does not close omitted domain, observation, constraint, decision, objective, or recovery obligations.",
+            ],
+            "recommended_checks" => [
+                "Add every missing required dimension.",
+                "Attach at least one evidence ID to verified dimensions and a justification to not-required dimensions.",
+            ],
+        ))
+        push!(findings, _decision_manifest_finding(
+            "E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP",
+            ERROR,
+            String(transformation_id),
+            "Exact decision-equivalence manifest omits required dimensions or supporting references.",
+            detail,
+        ))
+    end
+    if !isempty(unresolved_dimensions)
+        detail = merge(copy(common), Dict{String,Any}(
+            "knowledge_ids" => [_DECISION_MANIFEST_PSK],
+            "contract_id" => _DECISION_MANIFEST_CONTRACT,
+            "invalid_inferences" => [
+                "A manifest cannot claim exact decision equivalence while a required dimension is explicitly unassessed or not preserved.",
+            ],
+            "recommended_checks" => [
+                "Narrow the exactness claim or supply independent evidence closing every unresolved dimension.",
+            ],
+        ))
+        push!(findings, _decision_manifest_finding(
+            "E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION",
+            ERROR,
+            String(transformation_id),
+            "Exact decision-equivalence manifest contains an unassessed or not-preserved obligation.",
+            detail,
+        ))
+    end
+    common["classification"] =
+        !isempty(unresolved_dimensions) &&
+        (!isempty(missing_dimensions) || !isempty(missing_support)) ?
+            "evidence_gap_and_unresolved_obligation" :
+        !isempty(unresolved_dimensions) ? "unresolved_obligation" : "evidence_gap"
+    _decision_manifest_result(:failed, findings, common; checked=checked)
 end
 
 function _neutral_ground_result(status::Symbol, findings::Vector{Finding},

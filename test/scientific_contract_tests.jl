@@ -97,6 +97,136 @@ using JSON3
     end
 end
 
+@testset "Scientific contracts — decision-preservation manifest" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative",
+                       "decision-manifest-terminal-only")
+    load_manifest(name) = JSON3.read(
+        read(joinpath(fixture, name), String), Dict{String,Any})
+    overclaimed = load_manifest("transformed.json")
+    complete = load_manifest("exact-target.json")
+    expected = JSON3.read(read(joinpath(fixture, "expected.json"), String))
+
+    @testset "terminal evidence does not complete a decision claim" begin
+        result = check_decision_preservation_manifest(overclaimed)
+        @test result isa ScientificContractResult
+        @test result.status == :failed
+        @test result.contract_id == expected.contract_id
+        @test result.knowledge_ids == String.(expected.knowledge_ids)
+        @test [finding.code for finding in result.findings] ==
+              String.(expected.finding_codes)
+        @test result.evidence["classification"] == expected.classification
+        @test result.evidence["missing_dimensions"] ==
+              String.(expected.missing_dimensions)
+        @test isempty(result.evidence["dimensions_missing_support"])
+        detail = only(result.findings).detail
+        @test detail["knowledge_ids"] == ["PSK-000007"]
+        @test !isempty(detail["invalid_inferences"])
+        @test !isempty(detail["recommended_checks"])
+    end
+
+    @testset "an evidence-complete declaration passes narrowly" begin
+        result = check_decision_preservation_manifest(complete)
+        @test result.status == :passed
+        @test isempty(result.findings)
+        @test result.checked_dimensions == [
+            "manifest_identity_and_claim_scope",
+            "required_dimension_dispositions",
+            "verified_evidence_reference_presence",
+            "not_required_justification_presence",
+        ]
+        @test "truth_or_independence_of_cited_evidence" in
+              result.unassessed_dimensions
+        @test "source_and_target_feasible_set_equivalence" in
+              result.unassessed_dimensions
+        @test "objective_value_or_optimizer_equivalence" in
+              result.unassessed_dimensions
+        @test result.evidence["classification"] ==
+              "decision_manifest_evidence_complete"
+        decoded = JSON3.read(JSON3.write(contract_result_to_dict(result)))
+        @test decoded.status == "passed"
+        @test decoded.knowledge_ids == ["PSK-000007"]
+    end
+
+    @testset "justified not-required dimensions close an obligation" begin
+        feasibility_only = deepcopy(complete)
+        feasibility_only["dimensions"]["objective"] = Dict{String,Any}(
+            "status" => "not_required",
+            "justification" => "The declared study is feasibility-only with no ranked objective.",
+        )
+        @test check_decision_preservation_manifest(feasibility_only).status == :passed
+
+        missing_justification = deepcopy(feasibility_only)
+        missing_justification["dimensions"]["objective"] =
+            Dict{String,Any}("status" => "not_required")
+        missing_result = check_decision_preservation_manifest(missing_justification)
+        @test missing_result.status == :failed
+        @test only(missing_result.findings).code ==
+              "E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP"
+        @test missing_result.evidence["dimensions_missing_support"] == ["objective"]
+    end
+
+    @testset "explicit unresolved obligations contradict exactness" begin
+        unresolved = deepcopy(complete)
+        unresolved["dimensions"]["constraints"] =
+            Dict{String,Any}("status" => "not_preserved")
+        unresolved["dimensions"]["recovery"] =
+            Dict{String,Any}("status" => "unassessed")
+        result = check_decision_preservation_manifest(unresolved)
+        @test result.status == :failed
+        @test [finding.code for finding in result.findings] ==
+              ["E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION"]
+        @test result.evidence["classification"] == "unresolved_obligation"
+        @test result.evidence["unresolved_dimensions"] == ["constraints", "recovery"]
+
+        mixed = deepcopy(overclaimed)
+        mixed["dimensions"]["constraints"] =
+            Dict{String,Any}("status" => "unassessed")
+        mixed_result = check_decision_preservation_manifest(mixed)
+        @test [finding.code for finding in mixed_result.findings] == [
+            "E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP",
+            "E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION",
+        ]
+        @test mixed_result.evidence["classification"] ==
+              "evidence_gap_and_unresolved_obligation"
+    end
+
+    @testset "narrow claims and malformed inputs refuse explicitly" begin
+        terminal_only = deepcopy(overclaimed)
+        terminal_only["claim"]["exactness_object"] = "terminal_behavior"
+        terminal_result = check_decision_preservation_manifest(terminal_only)
+        @test terminal_result.status == :inapplicable
+        @test only(terminal_result.findings).code ==
+              "I.CONTRACT.DECISION_MANIFEST_NOT_APPLICABLE"
+
+        inner = deepcopy(complete)
+        inner["claim"]["classification"] = "inner"
+        @test check_decision_preservation_manifest(inner).status == :inapplicable
+
+        missing_identity = deepcopy(complete)
+        delete!(missing_identity, "source_model_id")
+        identity_result = check_decision_preservation_manifest(missing_identity)
+        @test identity_result.status == :indeterminate
+        @test only(identity_result.findings).code ==
+              "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE"
+
+        malformed = deepcopy(complete)
+        malformed["dimensions"]["constraints"] = "verified"
+        @test check_decision_preservation_manifest(malformed).status == :indeterminate
+
+        unsupported = deepcopy(complete)
+        unsupported["dimensions"]["constraints"] =
+            Dict{String,Any}("status" => "assumed")
+        @test check_decision_preservation_manifest(unsupported).status == :indeterminate
+
+        missing_evidence = deepcopy(complete)
+        missing_evidence["dimensions"]["constraints"] =
+            Dict{String,Any}("status" => "verified", "evidence_ids" => String[])
+        evidence_result = check_decision_preservation_manifest(missing_evidence)
+        @test evidence_result.status == :failed
+        @test evidence_result.evidence["dimensions_missing_support"] == ["constraints"]
+    end
+end
+
 @testset "Scientific contracts — transformer tap-domain preservation" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative",
                        "transformer-tap-domain-loss")
