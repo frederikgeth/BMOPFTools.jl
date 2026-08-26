@@ -331,6 +331,33 @@ sets, objectives, and solver evidence remain unassessed. In particular, this
 check complements the package's `transformer_yprim` and OPF/Yprim consistency
 tests; it does not replace them.
 
+## Terminal and conductor permutation invariance
+
+[`check_terminal_permutation_invariance`](@ref) implements the executable
+portion of `PSK-000012`: a fixed linear series primitive may be relabelled only
+when an explicit one-based bijection is declared, both endpoint terminal maps
+follow it, and the target matrix is the corresponding source row/column
+permutation.
+
+```julia
+source = parse_bmopf("source.json")
+target = parse_bmopf("relabelled-target.json")
+result = check_terminal_permutation_invariance(
+    source, target;
+    source_line_id = "l3", target_line_id = "l3",
+    permutation = [2, 3, 1],
+)
+result.status                 # :passed or :failed
+result.evidence["relation_error"]
+```
+
+The check distinguishes a terminal-order mismatch from a matrix-relation
+mismatch. It is intentionally smaller than a coordinate-action theorem: a
+pass does not establish asset identity, nonlinear or state-dependent factors,
+limits, complete-network feasible sets, decisions, objectives, or solver
+equivalence. Matching conductor counts or labels alone is not evidence of
+permutation invariance.
+
 ## Decision-preservation manifests
 
 [`check_decision_preservation_manifest`](@ref) implements the declaration-

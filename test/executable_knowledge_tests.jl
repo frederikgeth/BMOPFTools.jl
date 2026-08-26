@@ -20,15 +20,15 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 78
-    @test manifest.record_counts.executable_contract == 11
-    @test manifest.record_counts.api_operation == 11
-    @test manifest.record_counts.finding == 45
-    @test manifest.record_counts.fixture == 11
+    @test manifest.record_count == length(records) == 85
+    @test manifest.record_counts.executable_contract == 12
+    @test manifest.record_counts.api_operation == 12
+    @test manifest.record_counts.finding == 49
+    @test manifest.record_counts.fixture == 12
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
         "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
-        "PSK-000010", "PSK-000011"]
+        "PSK-000010", "PSK-000011", "PSK-000012"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
         "decision_preservation_manifest_completeness",
@@ -39,6 +39,7 @@ using SHA
         "positive_sequence_collapse_applicability",
         "reference_singularity_validation",
         "state_dependent_equivalent_provenance",
+        "terminal_permutation_invariance",
         "transformer_tap_domain_preservation",
         "transformer_winding_convention_preservation",
     ]
@@ -141,6 +142,15 @@ using SHA
     @test reference_fixture.fixture_id in reference_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               reference_contract.finding_codes)
+
+    permutation_contract = by_id["contract:terminal_permutation_invariance"]
+    permutation_fixture = by_id["fixture:terminal-permutation-001"]
+    permutation_api = by_id["api:check_terminal_permutation_invariance"]
+    @test permutation_contract.entrypoint == permutation_api.entrypoint ==
+          "check_terminal_permutation_invariance"
+    @test permutation_fixture.fixture_id in permutation_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              permutation_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

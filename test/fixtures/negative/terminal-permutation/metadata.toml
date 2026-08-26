@@ -1,0 +1,18 @@
+schema_version = "0.1.0"
+fixture_id = "terminal-permutation-001"
+knowledge_ids = ["PSK-000012"]
+contract_id = "terminal_permutation_invariance"
+kind = "counterexample"
+title = "Matching terminal counts conceal a wrong permuted primitive"
+scope = "A fixed linear three-conductor series primitive with an explicit endpoint terminal permutation."
+minimality_status = "hand_minimized_one_permutation_one_perturbed_matrix_entry"
+source_file = "source.json"
+transformed_file = "target.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"]
+does_not_establish = [
+  "A terminal permutation is merely cosmetic in a complete network.",
+  "A passing primitive-level check proves asset identity, nonlinear-state, limits, decisions, or solver equivalence.",
+]

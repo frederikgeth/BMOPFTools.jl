@@ -1,5 +1,40 @@
 using JSON3
 
+@testset "Scientific contracts — terminal permutation invariance" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative", "terminal-permutation")
+    load(name) = parse_bmopf(joinpath(fixture, name))
+    source, target, exact = load("source.json"), load("target.json"), load("exact-target.json")
+    result = check_terminal_permutation_invariance(source, target;
+        source_line_id="l3", target_line_id="l3", permutation=[2, 3, 1])
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.PERMUTATION_RELATION_MISMATCH"
+    @test result.evidence["classification"] == "permutation_relation_mismatch"
+
+    result = check_terminal_permutation_invariance(source, exact;
+        source_line_id="l3", target_line_id="l3", permutation=[2, 3, 1])
+    @test result.status == :passed
+    @test isempty(result.findings)
+    @test result.checked_dimensions == ["permutation_bijection",
+        "endpoint_terminal_map_alignment", "series_matrix_permutation_relation"]
+    @test "complete_network_feasible_set" in result.unassessed_dimensions
+
+    mismatched = deepcopy(exact)
+    mismatched["line"]["l3"]["terminal_map_to"] = ["a", "c", "b"]
+    result = check_terminal_permutation_invariance(source, mismatched;
+        source_line_id="l3", target_line_id="l3", permutation=[2, 3, 1])
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.TERMINAL_ORDER_MISMATCH"
+
+    result = check_terminal_permutation_invariance(source, exact;
+        source_line_id="l3", target_line_id="l3", permutation=[1, 1, 2])
+    @test result.status == :inapplicable
+    @test only(result.findings).code == "I.CONTRACT.PERMUTATION_NOT_APPLICABLE"
+
+    decoded = JSON3.read(JSON3.write(contract_result_to_dict(result)))
+    @test decoded.status == "inapplicable"
+    @test decoded.knowledge_ids == ["PSK-000012"]
+end
+
 @testset "Scientific contracts — reference and singularity validation" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative", "reference-singularity")
     load(name) = JSON3.read(read(joinpath(fixture, name), String), Dict{String,Any})

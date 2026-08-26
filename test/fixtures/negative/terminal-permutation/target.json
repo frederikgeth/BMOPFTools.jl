@@ -1,0 +1,19 @@
+{
+  "bus": {
+    "src": {"terminal_names": ["b", "c", "a"]},
+    "load": {"terminal_names": ["b", "c", "a"]}
+  },
+  "line": {
+    "l3": {
+      "bus_from": "src", "bus_to": "load", "length": 1.0,
+      "terminal_map_from": ["b", "c", "a"],
+      "terminal_map_to": ["b", "c", "a"],
+      "R_series_1_1": 0.51, "R_series_1_2": 0.04, "R_series_1_3": 0.03,
+      "R_series_2_1": 0.06, "R_series_2_2": 0.6, "R_series_2_3": 0.05,
+      "R_series_3_1": 0.01, "R_series_3_2": 0.02, "R_series_3_3": 0.4,
+      "X_series_1_1": 0.25, "X_series_1_2": 0.04, "X_series_1_3": 0.03,
+      "X_series_2_1": 0.06, "X_series_2_2": 0.3, "X_series_2_3": 0.05,
+      "X_series_3_1": 0.01, "X_series_3_2": 0.02, "X_series_3_3": 0.2
+    }
+  }
+}

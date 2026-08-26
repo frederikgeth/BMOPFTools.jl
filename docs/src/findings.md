@@ -558,3 +558,7 @@ Checks for the DC side: `dc_bus` nodes (signed line-to-ground voltage, no angle)
 | `E.CONTRACT.SINGULARITY_CHANGE` | E | A target island becomes rank-deficient relative to a full-rank source island. |
 | `I.CONTRACT.REFERENCE_SINGULARITY_NOT_APPLICABLE` | I | No connected-island reference evidence was supplied, so this initial validation bundle is not applicable. |
 | `W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE` | W | Reference-analysis island records or their mapping are missing or malformed. |
+| `E.CONTRACT.TERMINAL_ORDER_MISMATCH` | E | Target endpoint terminal maps do not follow the declared permutation. |
+| `E.CONTRACT.PERMUTATION_RELATION_MISMATCH` | E | The target series primitive is not the source primitive conjugated by the declared permutation. |
+| `I.CONTRACT.PERMUTATION_NOT_APPLICABLE` | I | The explicit permutation contract does not apply because a bijection, line, or compatible matrix dimensions are unavailable. |
+| `W.CONTRACT.PERMUTATION_INDETERMINATE` | W | A required source or target line primitive or terminal-map record is missing or malformed. |

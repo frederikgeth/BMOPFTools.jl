@@ -645,3 +645,55 @@ meaning = "No connected-island reference evidence was supplied, so this initial 
 code = "W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE"
 severity = "WARNING"
 meaning = "Reference-analysis island records or their mapping are missing or malformed."
+
+[[contract]]
+id = "terminal_permutation_invariance"
+knowledge_ids = ["PSK-000012"]
+title = "Terminal and conductor permutation invariance"
+entrypoint = "check_terminal_permutation_invariance"
+scope = "Fixed linear series primitives with ordered endpoint terminal maps and an explicit one-based permutation."
+applicability = [
+  "The declared permutation is a nonempty bijection over the source matrix coordinates.",
+  "Both endpoint terminal maps are available and the target maps follow the same permutation.",
+  "Source and target series primitives are square matrices of the declared conductor count.",
+]
+checked_dimensions = ["permutation_bijection", "endpoint_terminal_map_alignment", "series_matrix_permutation_relation"]
+unassessed_dimensions = [
+  "asset_identity_and_provenance",
+  "nonlinear_or_state_dependent_factors",
+  "complete_network_feasible_set",
+  "objective_or_optimizer_equivalence",
+  "solver_status_or_optimality",
+]
+finding_codes = [
+  "E.CONTRACT.TERMINAL_ORDER_MISMATCH",
+  "E.CONTRACT.PERMUTATION_RELATION_MISMATCH",
+  "I.CONTRACT.PERMUTATION_NOT_APPLICABLE",
+  "W.CONTRACT.PERMUTATION_INDETERMINATE",
+]
+fixture_ids = ["terminal-permutation-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.TERMINAL_ORDER_MISMATCH"
+severity = "ERROR"
+meaning = "Target endpoint terminal maps do not follow the declared permutation."
+
+[[finding]]
+code = "E.CONTRACT.PERMUTATION_RELATION_MISMATCH"
+severity = "ERROR"
+meaning = "The target series primitive is not the source primitive conjugated by the declared permutation."
+
+[[finding]]
+code = "I.CONTRACT.PERMUTATION_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The explicit permutation contract does not apply because a bijection, line, or compatible matrix dimensions are unavailable."
+
+[[finding]]
+code = "W.CONTRACT.PERMUTATION_INDETERMINATE"
+severity = "WARNING"
+meaning = "A required source or target line primitive or terminal-map record is missing or malformed."

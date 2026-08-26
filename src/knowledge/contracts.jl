@@ -38,6 +38,8 @@ const _STATE_EQUIVALENT_CONTRACT = "state_dependent_equivalent_provenance"
 const _STATE_EQUIVALENT_PSK = "PSK-000010"
 const _REFERENCE_SINGULARITY_CONTRACT = "reference_singularity_validation"
 const _REFERENCE_SINGULARITY_PSK = "PSK-000011"
+const _PERMUTATION_CONTRACT = "terminal_permutation_invariance"
+const _PERMUTATION_PSK = "PSK-000012"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -907,6 +909,124 @@ function check_reference_singularity(
         checked=["island_mapping", "voltage_reference_incidence", "rank_deficiency"])
     _reference_singularity_result(:failed, failures, evidence;
         checked=["island_mapping", "voltage_reference_incidence", "rank_deficiency"])
+end
+
+function _permutation_result(status::Symbol, findings::Vector{Finding},
+                             evidence::Dict{String,Any}; checked=String[])
+    ScientificContractResult(
+        _PERMUTATION_CONTRACT, status, [_PERMUTATION_PSK], checked,
+        ["asset_identity_and_provenance", "nonlinear_or_state_dependent_factors",
+         "complete_network_feasible_set", "objective_or_optimizer_equivalence",
+         "solver_status_or_optimality"], findings, evidence)
+end
+
+function _permutation_finding(code::String, severity::Severity,
+                              line_id, message::String,
+                              detail::Dict{String,Any})
+    Finding(severity, code, :scientific_contract, :line,
+            line_id isa String && !isempty(line_id) ? line_id : nothing,
+            message, detail)
+end
+
+function _permutation_refusal(status::Symbol, code::String,
+                              severity::Severity, message::String,
+                              mapping::Dict{String,Any}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_PERMUTATION_PSK],
+        "contract_id" => _PERMUTATION_CONTRACT,
+        "line_mapping" => mapping, "reason" => reason,
+        "invalid_inferences" => [
+            "Matching conductor counts do not establish that terminal labels or matrix coordinates were permuted consistently.",
+            "A passing permutation check does not establish asset identity, nonlinear state, limits, decisions, or solver equivalence.",
+        ],
+        "recommended_checks" => [
+            "Declare a bijective permutation and compare both endpoint terminal maps.",
+            "Conjugate the source primitive by the declared permutation and compare the target matrix.",
+            "Retain source provenance when a relabelled view is exported.",
+        ],
+    )
+    finding = _permutation_finding(code, severity,
+        get(mapping, "target_line_id", nothing), message, detail)
+    _permutation_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status), "line_mapping" => mapping, "reason" => reason))
+end
+
+"""
+    check_terminal_permutation_invariance(source, target;
+        source_line_id, target_line_id, permutation)
+        -> ScientificContractResult
+
+Check that a target series primitive is exactly the source primitive under an
+explicit bijective terminal permutation (`PSK-000012`). The permutation is a
+one-based vector whose target coordinate `i` takes source coordinate
+`permutation[i]`; both endpoint terminal maps must transform accordingly.
+"""
+function check_terminal_permutation_invariance(
+        source::Dict{String,Any}, target::Dict{String,Any};
+        source_line_id::AbstractString, target_line_id::AbstractString,
+        permutation::AbstractVector{<:Integer})::ScientificContractResult
+    source_key, target_key = String(source_line_id), String(target_line_id)
+    mapping = Dict{String,Any}("source_line_id" => source_key,
+                               "target_line_id" => target_key,
+                               "permutation" => Int.(permutation))
+    n = length(permutation)
+    n > 0 && sort(Int.(permutation)) == collect(1:n) ||
+        return _permutation_refusal(:inapplicable,
+            "I.CONTRACT.PERMUTATION_NOT_APPLICABLE", INFO,
+            "Terminal permutation is not applicable: permutation must be a nonempty bijection.",
+            mapping, "permutation must contain each one-based index exactly once")
+    Zs, source_line, source_status, source_reason = _kron_boundary_matrix(source, source_key)
+    Zs === nothing && return _permutation_refusal(
+        source_status === :inapplicable ? :inapplicable : :indeterminate,
+        source_status === :inapplicable ? "I.CONTRACT.PERMUTATION_NOT_APPLICABLE" : "W.CONTRACT.PERMUTATION_INDETERMINATE",
+        source_status === :inapplicable ? INFO : WARNING,
+        "Terminal permutation cannot resolve the source line primitive.", mapping, source_reason)
+    size(Zs, 1) == n && size(Zs, 2) == n || return _permutation_refusal(:inapplicable,
+        "I.CONTRACT.PERMUTATION_NOT_APPLICABLE", INFO,
+        "Terminal permutation is not applicable: permutation length does not match source conductors.",
+        mapping, "permutation length must equal source matrix dimension")
+    Zt, target_line, target_status, target_reason = _kron_boundary_matrix(target, target_key)
+    Zt === nothing && return _permutation_refusal(
+        target_status === :inapplicable ? :inapplicable : :indeterminate,
+        target_status === :inapplicable ? "I.CONTRACT.PERMUTATION_NOT_APPLICABLE" : "W.CONTRACT.PERMUTATION_INDETERMINATE",
+        target_status === :inapplicable ? INFO : WARNING,
+        "Terminal permutation cannot resolve the target line primitive.", mapping, target_reason)
+    size(Zt) == (n, n) || return _permutation_refusal(:inapplicable,
+        "I.CONTRACT.PERMUTATION_NOT_APPLICABLE", INFO,
+        "Terminal permutation is not applicable: target conductor count differs.",
+        mapping, "source and target matrix dimensions must match")
+    src_from = string.(get(source_line, "terminal_map_from", String[]))
+    src_to = string.(get(source_line, "terminal_map_to", String[]))
+    dst_from = string.(get(target_line, "terminal_map_from", String[]))
+    dst_to = string.(get(target_line, "terminal_map_to", String[]))
+    expected_from = src_from[Int.(permutation)]
+    expected_to = src_to[Int.(permutation)]
+    (dst_from == expected_from && dst_to == expected_to) || begin
+        finding = _permutation_finding("E.CONTRACT.TERMINAL_ORDER_MISMATCH", ERROR,
+            target_key, "Target terminal maps do not follow the declared permutation.",
+            Dict{String,Any}("source_from" => src_from, "target_from" => dst_from,
+                "expected_from" => expected_from, "source_to" => src_to,
+                "target_to" => dst_to, "expected_to" => expected_to))
+        return _permutation_result(:failed, [finding], Dict{String,Any}(
+            "classification" => "terminal_order_mismatch", "line_mapping" => mapping))
+    end
+    expected = Zs[Int.(permutation), Int.(permutation)]
+    delta = Zt - expected
+    error = norm(delta)
+    tolerance = 1e-9 + 1e-8 * max(norm(expected), norm(Zt))
+    evidence = Dict{String,Any}(
+        "classification" => error <= tolerance ? "permutation_relation_preserved" : "permutation_relation_mismatch",
+        "line_mapping" => mapping, "source_terminal_maps" => Dict("from" => src_from, "to" => src_to),
+        "target_terminal_maps" => Dict("from" => dst_from, "to" => dst_to),
+        "relation_error" => error, "relation_tolerance" => tolerance,
+        "expected_matrix" => expected, "target_matrix" => Zt)
+    error <= tolerance && return _permutation_result(:passed, Finding[], evidence;
+        checked=["permutation_bijection", "endpoint_terminal_map_alignment", "series_matrix_permutation_relation"])
+    finding = _permutation_finding("E.CONTRACT.PERMUTATION_RELATION_MISMATCH", ERROR,
+        target_key, "Target series primitive does not equal the permuted source primitive.",
+        Dict{String,Any}("relation_error" => error, "relation_tolerance" => tolerance))
+    _permutation_result(:failed, [finding], evidence;
+        checked=["permutation_bijection", "endpoint_terminal_map_alignment"])
 end
 
 function _decision_manifest_result(

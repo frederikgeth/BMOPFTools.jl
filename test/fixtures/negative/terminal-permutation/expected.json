@@ -1,0 +1,6 @@
+{
+  "contract_id": "terminal_permutation_invariance",
+  "knowledge_ids": ["PSK-000012"],
+  "finding_codes": ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"],
+  "classification": "permutation_relation_mismatch"
+}

@@ -9,10 +9,11 @@
     "positive_sequence_collapse_applicability",
     "reference_singularity_validation",
     "state_dependent_equivalent_provenance",
+    "terminal_permutation_invariance",
     "transformer_tap_domain_preservation",
     "transformer_winding_convention_preservation"
   ],
-  "corpus_sha256": "6be32f9e5442d11975c8f02edd2291c24404c8eab5e683fd7589aa10adb0d614",
+  "corpus_sha256": "53907ac3bac970bd6a4eb0a86226cb6e58fa3cf61cd715e1ee55e3e5109c2489",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -24,19 +25,20 @@
     "PSK-000008",
     "PSK-000009",
     "PSK-000010",
-    "PSK-000011"
+    "PSK-000011",
+    "PSK-000012"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 78,
+  "record_count": 85,
   "record_counts": {
-    "api_operation": 11,
-    "executable_contract": 11,
-    "finding": 45,
-    "fixture": 11
+    "api_operation": 12,
+    "executable_contract": 12,
+    "finding": 49,
+    "fixture": 12
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -46,11 +48,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "072354b94a394f6a2e78d6b43c26130bc10526e824738228eaeff67ad44dd9a5"
+      "sha256": "2d7f93e6557b648f122e7c5a08f0874464adee44eb11b298ce61fa45a3a6c808"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "e2d730fde7dd00024e362c20beda0cfd7787a6c338029d706253f3168bd4fee8"
+      "sha256": "47c8628039470cf42753a0a058c733b4e00c00a7a082beae509d03d7315c8282"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -66,7 +68,7 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "65cd6cf960c5fc9034367ca3ce107a2ff2f8e5e012ea725291904e4e504af0db"
+      "sha256": "589b9167c54adc0f52a17cd27b2b833b29628ced4ab3f86344cb61af30eacee0"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -285,6 +287,30 @@
       "sha256": "1489bbb3d42b84cf2f02f9a4499a6cca993755b4a7a66c8ad77e32e3f9b8e1e9"
     },
     {
+      "path": "test/fixtures/negative/terminal-permutation/exact-target.json",
+      "sha256": "ff746992c5b13c0f7bf28abebeb1cf4dd62218a71540fec840f8f984b89ece3a"
+    },
+    {
+      "path": "test/fixtures/negative/terminal-permutation/expected.json",
+      "sha256": "d4019a3378d9286f8f9d73f2dc408c5dec997db927d5b2b107d09f098e783ca5"
+    },
+    {
+      "path": "test/fixtures/negative/terminal-permutation/metadata.toml",
+      "sha256": "b3ad5f53a45ceb373eb3a12c74d0e4c4e6054f9d22656ee7a2fdde8ddc31256c"
+    },
+    {
+      "path": "test/fixtures/negative/terminal-permutation/reproduce.jl",
+      "sha256": "5059c73b100346717642cbead5b3974fa4d4e69a9cdde08a5681a1ba5fa0bc45"
+    },
+    {
+      "path": "test/fixtures/negative/terminal-permutation/source.json",
+      "sha256": "9e372fdf6bde09911717c8c8ab804f7dd22b9914fcae48fea9d851606b9fbba2"
+    },
+    {
+      "path": "test/fixtures/negative/terminal-permutation/target.json",
+      "sha256": "a61acf0dbcc4a426b868cccdf46880380acf14e663f746922edf3666820d1fa9"
+    },
+    {
       "path": "test/fixtures/negative/transformer-tap-domain-loss/exact-target.json",
       "sha256": "e7aeef4c670a668679cd270c78db2d45bc6e759212dcf51eeee74caa62d45cf0"
     },
@@ -334,7 +360,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "d240712df96e7d1bc5a0f3ba518127f07fd8837a14074d52fbda0f0cfd90badf"
+      "sha256": "fc35d9c9cb507e6024138f5c4cd34a9758740ce8333253b930ab9ba085b75189"
     }
   ]
 }
