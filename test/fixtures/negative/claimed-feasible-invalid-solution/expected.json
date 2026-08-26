@@ -1,0 +1,8 @@
+{
+  "contract_id": "claimed_solution_validity",
+  "knowledge_ids": ["PSK-000003"],
+  "classification": "claimed_feasible_result_failed_validation",
+  "finding_codes": ["E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID"],
+  "blocking_solution_finding_codes": ["E.SOL.VOLT_VIOLATION"],
+  "termination_status": "LOCALLY_SOLVED"
+}

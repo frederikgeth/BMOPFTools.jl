@@ -1,0 +1,19 @@
+{
+  "name": "claimed-feasible-invalid-solution-network",
+  "bus": {
+    "study_bus": {
+      "terminal_names": ["a", "n"],
+      "perfectly_grounded_terminals": ["n"],
+      "v_min": [200.0],
+      "v_max": [260.0]
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "study_bus",
+      "terminal_map": ["a"],
+      "v_magnitude": [230.0],
+      "v_angle": [0.0]
+    }
+  }
+}

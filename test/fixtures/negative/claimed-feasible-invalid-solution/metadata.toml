@@ -1,0 +1,19 @@
+schema_version = "0.1.0"
+fixture_id = "claimed-feasible-invalid-solution-001"
+knowledge_ids = ["PSK-000003"]
+contract_id = "claimed_solution_validity"
+kind = "counterexample"
+title = "Claimed-feasible termination with an independently detected voltage violation"
+scope = "One single-phase bus with a declared 200--260 V magnitude range and a solver result labelled LOCALLY_SOLVED whose returned magnitude is 180.5 V."
+minimality_status = "hand_minimized_one_bus_two_terminal"
+source_file = "network.json"
+transformed_file = "claimed-solved-result.json"
+exact_target_file = "validated-result.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID"]
+does_not_establish = [
+  "Every LOCALLY_SOLVED result is invalid.",
+  "Passing the initial bus-result contract establishes KCL, device limits, power balance, or optimality.",
+  "The fixture characterizes every solver's status semantics or numerical tolerances.",
+]

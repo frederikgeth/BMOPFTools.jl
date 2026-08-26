@@ -20,13 +20,14 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 15
-    @test manifest.record_counts.executable_contract == 2
-    @test manifest.record_counts.api_operation == 2
-    @test manifest.record_counts.finding == 9
-    @test manifest.record_counts.fixture == 2
-    @test manifest.knowledge_ids == ["PSK-000001", "PSK-000002"]
+    @test manifest.record_count == length(records) == 21
+    @test manifest.record_counts.executable_contract == 3
+    @test manifest.record_counts.api_operation == 3
+    @test manifest.record_counts.finding == 12
+    @test manifest.record_counts.fixture == 3
+    @test manifest.knowledge_ids == ["PSK-000001", "PSK-000002", "PSK-000003"]
     @test manifest.contract_ids == [
+        "claimed_solution_validity",
         "neutral_ground_reference_preservation",
         "parallel_member_limit_preservation",
     ]
@@ -48,6 +49,15 @@ using SHA
     @test neutral_fixture.fixture_id in neutral_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               neutral_contract.finding_codes)
+
+    solution_contract = by_id["contract:claimed_solution_validity"]
+    solution_fixture = by_id["fixture:claimed-feasible-invalid-solution-001"]
+    solution_api = by_id["api:check_claimed_solution_validity"]
+    @test solution_contract.entrypoint == solution_api.entrypoint ==
+          "check_claimed_solution_validity"
+    @test solution_fixture.fixture_id in solution_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              solution_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

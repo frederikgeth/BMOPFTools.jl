@@ -229,6 +229,9 @@ target cannot reveal source information that has already been discarded.
 | `E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH` | E | The target changes a mapped neutral's declared perfect-ground, scalar finite-grounding-shunt, or voltage-source-reference relation. Those declarations are not interchangeable. |
 | `I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE` | I | The neutral/ground/reference check is outside its implemented domain, for example because the source lacks explicit neutrals or a grounding shunt couples multiple terminals. No preservation conclusion is drawn. |
 | `W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE` | W | A mapped bus or scalar grounding relation is missing or unresolved. No preservation conclusion is drawn; detail names the missing evidence and recommended follow-up. |
+| `E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID` | E | A result labelled `LOCALLY_SOLVED`, `OPTIMAL`, or `ALMOST_LOCALLY_SOLVED` contains non-finite values or violates a declared bus voltage or angle limit when independently recomputed by `profile_solution`. The contract finding retains the underlying `E.SOL.*` evidence. |
+| `I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE` | I | The solver did not claim a feasible result, or the network has no declared bus terminals. The initial claimed-solution contract therefore makes no validity conclusion. |
+| `W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE` | W | Termination status or required `vr`/`vi`/`vm` data for a declared bus terminal is missing. No validation conclusion is drawn; detail identifies the missing evidence. |
 
 ## PROV — provenance & conventions
 

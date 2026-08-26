@@ -112,3 +112,58 @@ meaning = "The input lies outside the contract's explicit-neutral and scalar neu
 code = "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE"
 severity = "WARNING"
 meaning = "A mapped bus or resolvable grounding relation is unavailable, so preservation cannot be decided."
+
+[[contract]]
+id = "claimed_solution_validity"
+knowledge_ids = ["PSK-000003"]
+title = "Claimed-feasible solution validity"
+entrypoint = "check_claimed_solution_validity"
+scope = "Independent validation of a claimed-feasible result's complete bus-terminal numeric data and declared bus voltage-magnitude, sequence-voltage, and angle-difference limits."
+applicability = [
+  "The result declares LOCALLY_SOLVED, OPTIMAL, or ALMOST_LOCALLY_SOLVED.",
+  "The network declares at least one bus terminal.",
+  "The result provides numeric vr, vi, and vm fields for every declared bus terminal.",
+]
+checked_dimensions = [
+  "termination_status",
+  "result_numeric_finiteness",
+  "declared_bus_voltage_and_angle_limits",
+]
+unassessed_dimensions = [
+  "network_equation_residuals",
+  "branch_thermal_limits",
+  "transformer_limits",
+  "generator_and_ibr_limits",
+  "load_model_residuals",
+  "network_power_balance",
+  "objective_optimality",
+  "local_or_global_optimality",
+  "solver_derivative_quality",
+]
+finding_codes = [
+  "E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID",
+  "I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE",
+  "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE",
+]
+fixture_ids = ["claimed-feasible-invalid-solution-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "src/validation/solution.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID"
+severity = "ERROR"
+meaning = "A result with a claimed-feasible termination status contains non-finite values or violates a declared bus voltage or angle limit under independent profiling."
+
+[[finding]]
+code = "I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The solver did not claim a feasible solution, or the network has no declared bus terminals, so the initial claimed-solution contract is not applicable."
+
+[[finding]]
+code = "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE"
+severity = "WARNING"
+meaning = "Termination status or required bus-terminal result data is missing, so the implemented validation dimensions cannot be decided."

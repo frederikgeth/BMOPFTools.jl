@@ -74,6 +74,52 @@ grounding-asset identity and state, fault current, touch voltage, and protection
 operation remain explicitly unassessed. Coupled multiconductor grounding models
 return `:inapplicable`; missing mapped evidence returns `:indeterminate`.
 
+## Claimed-feasible solution validity
+
+[`check_claimed_solution_validity`](@ref) implements the initial executable
+portion of `PSK-000003`. It treats an accepted solver termination status as a
+precondition for inspecting a candidate solution, never as proof that the
+returned values satisfy the study model.
+
+```julia
+using BMOPFTools
+using JSON3
+
+fixture = joinpath(
+    pkgdir(BMOPFTools), "test", "fixtures", "negative",
+    "claimed-feasible-invalid-solution",
+)
+network = parse_bmopf(joinpath(fixture, "network.json"))
+solver_result = JSON3.read(
+    read(joinpath(fixture, "claimed-solved-result.json"), String),
+    Dict{String,Any},
+)
+
+result = check_claimed_solution_validity(network, solver_result)
+
+result.status              # :failed
+result.findings[1].code    # "E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID"
+result.evidence["blocking_solution_findings"][1]["code"]
+# "E.SOL.VOLT_VIOLATION"
+```
+
+The fixture result is labelled `LOCALLY_SOLVED`, but its reported 180.5 V
+terminal magnitude violates the network's declared 200--260 V range. The
+contract reuses [`profile_solution`](@ref), retains the underlying `E.SOL`
+evidence, and rejects the tempting inference from status alone.
+
+The initial contract requires numeric `vr`, `vi`, and `vm` values for every
+declared bus terminal. It checks the complete result tree for non-finite values
+and recomputes declared bus magnitude, sequence, and angle-difference limits.
+Missing status or terminal data is `:indeterminate`; a status that does not
+claim feasibility is `:inapplicable`.
+
+A pass remains deliberately incomplete. Network-equation residuals, branch and
+device limits, load-model residuals, power balance, objective optimality,
+local/global guarantees, and solver derivative quality are unassessed by this
+initial contract even though other BMOPFTools profiling paths already cover
+parts of that larger validation problem.
+
 ## Result statuses
 
 [`ScientificContractResult`](@ref) uses four statuses:

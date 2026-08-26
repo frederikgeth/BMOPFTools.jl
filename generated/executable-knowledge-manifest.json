@@ -1,24 +1,26 @@
 {
   "contract_ids": [
+    "claimed_solution_validity",
     "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation"
   ],
-  "corpus_sha256": "c5a64e80a23965a32ed0e08cd51f6b0f20d19ba8d8a4a1e30ff5aa1aab47a950",
+  "corpus_sha256": "a2bf99fc2230a00851e68be85a83197539aa1b740c35b838575ded947db4949a",
   "knowledge_ids": [
     "PSK-000001",
-    "PSK-000002"
+    "PSK-000002",
+    "PSK-000003"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 15,
+  "record_count": 21,
   "record_counts": {
-    "api_operation": 2,
-    "executable_contract": 2,
-    "finding": 9,
-    "fixture": 2
+    "api_operation": 3,
+    "executable_contract": 3,
+    "finding": 12,
+    "fixture": 3
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -28,11 +30,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "a161bd6b1b763bcd46aca759ccd911a8e4b3a3c4f223b12b649d39cd6e808b3d"
+      "sha256": "17c862c1b2e3ee541d28d68e2fb95e79d6e6725cc18fa1aaeb2d90db67423e0d"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "c2f237c525b580e755df0d79e544dcc055ad7d7a2681c5a7a171744a3867e546"
+      "sha256": "a5224f077c2170e258d8d0ab4b7891cb24319e78490bd9798c3e1f35cca4eaed"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -40,7 +42,35 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "37092c685e43e76895b4f70e13440fa728589e449d6b32c71394d0bebac57f02"
+      "sha256": "ebe648e4512b8f04ef4cbc8d9590d9f1cf032e455f3cd7735438641001852760"
+    },
+    {
+      "path": "src/validation/solution.jl",
+      "sha256": "688a8a5afb9b1332a57d0e82805726330ee4a87db506f23c6db13ac694186fb6"
+    },
+    {
+      "path": "test/fixtures/negative/claimed-feasible-invalid-solution/claimed-solved-result.json",
+      "sha256": "86e2ba0eb942dc71cce5240de3a1c5c79ff225279a6e770df500e7b7a183a82b"
+    },
+    {
+      "path": "test/fixtures/negative/claimed-feasible-invalid-solution/expected.json",
+      "sha256": "bd59ad667a14b0a0ae9cb60edeb9174816b5b3472fe8c8afd7572205ea2b98fd"
+    },
+    {
+      "path": "test/fixtures/negative/claimed-feasible-invalid-solution/metadata.toml",
+      "sha256": "2f034ee87991eca00610762d46a07d931228ab925d099bf1591aa0fcd9b2774e"
+    },
+    {
+      "path": "test/fixtures/negative/claimed-feasible-invalid-solution/network.json",
+      "sha256": "ddbfda8db55f2a6ba723bfb39980f0b50eabb97827adaddcb06afa941d7ea511"
+    },
+    {
+      "path": "test/fixtures/negative/claimed-feasible-invalid-solution/reproduce.jl",
+      "sha256": "cd2be355dbda70ecbf2ddb62fd170a9d2c515eef9d42c93f6f6a8fdfeb4235fd"
+    },
+    {
+      "path": "test/fixtures/negative/claimed-feasible-invalid-solution/validated-result.json",
+      "sha256": "3c9dc5c9914625fa6e9060515100a424f580a2c2dc56aae52835ac0225a06269"
     },
     {
       "path": "test/fixtures/negative/neutral-ground-reference-conflation/exact-target.json",
@@ -92,7 +122,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "5c07eaee99c755f107a5589ed74b7bb49581342dccfee08792f5f56575351049"
+      "sha256": "1fcf4707095fe15425f8cce490d86e945624adea2b3cb5879e99e590a154c027"
     }
   ]
 }

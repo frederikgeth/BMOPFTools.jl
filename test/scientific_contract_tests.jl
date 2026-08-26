@@ -97,6 +97,96 @@ using JSON3
     end
 end
 
+@testset "Scientific contracts — claimed solution validity" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative",
+                       "claimed-feasible-invalid-solution")
+    network = parse_bmopf(joinpath(fixture, "network.json"))
+    claimed = JSON3.read(
+        read(joinpath(fixture, "claimed-solved-result.json"), String),
+        Dict{String,Any},
+    )
+    validated = JSON3.read(
+        read(joinpath(fixture, "validated-result.json"), String),
+        Dict{String,Any},
+    )
+    expected = JSON3.read(read(joinpath(fixture, "expected.json"), String))
+
+    @testset "claimed-feasible status does not override independent evidence" begin
+        result = check_claimed_solution_validity(network, claimed)
+        @test result isa ScientificContractResult
+        @test result.status == :failed
+        @test result.contract_id == expected.contract_id
+        @test result.knowledge_ids == String.(expected.knowledge_ids)
+        @test [finding.code for finding in result.findings] ==
+              String.(expected.finding_codes)
+        @test result.evidence["classification"] == expected.classification
+        @test result.evidence["termination_status"] == expected.termination_status
+        @test [finding["code"] for finding in
+               result.evidence["blocking_solution_findings"]] ==
+              String.(expected.blocking_solution_finding_codes)
+        @test result.evidence["solution_summary"]["n_volt_violations"] == 1
+        detail = only(result.findings).detail
+        @test detail["knowledge_ids"] == ["PSK-000003"]
+        @test !isempty(detail["invalid_inferences"])
+        @test !isempty(detail["recommended_checks"])
+    end
+
+    @testset "clean checked dimensions pass narrowly" begin
+        result = check_claimed_solution_validity(network, validated)
+        @test result.status == :passed
+        @test isempty(result.findings)
+        @test result.checked_dimensions == [
+            "termination_status",
+            "result_numeric_finiteness",
+            "declared_bus_voltage_and_angle_limits",
+        ]
+        @test "network_equation_residuals" in result.unassessed_dimensions
+        @test "objective_optimality" in result.unassessed_dimensions
+        @test "local_or_global_optimality" in result.unassessed_dimensions
+        @test result.evidence["classification"] == "checked_solution_dimensions_valid"
+
+        decoded = JSON3.read(JSON3.write(contract_result_to_dict(result)))
+        @test decoded.status == "passed"
+        @test decoded.knowledge_ids == ["PSK-000003"]
+    end
+
+    @testset "non-finite values fail independently of feasible status" begin
+        nonfinite = deepcopy(validated)
+        nonfinite["bus"]["study_bus"]["a"]["vm"] = NaN
+        result = check_claimed_solution_validity(network, nonfinite)
+        @test result.status == :failed
+        @test only(result.findings).code ==
+              "E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID"
+        @test [finding["code"] for finding in
+               result.evidence["blocking_solution_findings"]] ==
+              ["E.SOL.NAN_IN_RESULT"]
+    end
+
+    @testset "status and completeness refusals are explicit" begin
+        unfinished = deepcopy(validated)
+        unfinished["termination_status"] = "INFEASIBLE"
+        inapplicable = check_claimed_solution_validity(network, unfinished)
+        @test inapplicable.status == :inapplicable
+        @test only(inapplicable.findings).code ==
+              "I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE"
+
+        missing_status = deepcopy(validated)
+        delete!(missing_status, "termination_status")
+        unknown = check_claimed_solution_validity(network, missing_status)
+        @test unknown.status == :indeterminate
+        @test only(unknown.findings).code ==
+              "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE"
+
+        incomplete = deepcopy(validated)
+        delete!(incomplete["bus"]["study_bus"]["a"], "vi")
+        indeterminate = check_claimed_solution_validity(network, incomplete)
+        @test indeterminate.status == :indeterminate
+        @test only(indeterminate.findings).code ==
+              "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE"
+        @test occursin("bus.study_bus.a.vi", indeterminate.evidence["reason"])
+    end
+end
+
 @testset "Scientific contracts — neutral, ground, and reference" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative",
                        "neutral-ground-reference-conflation")

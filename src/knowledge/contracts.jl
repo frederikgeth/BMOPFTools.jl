@@ -7,6 +7,8 @@ const _PARALLEL_MEMBER_LIMIT_CONTRACT = "parallel_member_limit_preservation"
 const _PARALLEL_MEMBER_LIMIT_PSK = "PSK-000001"
 const _NEUTRAL_GROUND_CONTRACT = "neutral_ground_reference_preservation"
 const _NEUTRAL_GROUND_PSK = "PSK-000002"
+const _CLAIMED_SOLUTION_CONTRACT = "claimed_solution_validity"
+const _CLAIMED_SOLUTION_PSK = "PSK-000003"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -746,4 +748,194 @@ function check_neutral_ground_reference_preservation(
         "Pass covers explicit neutral identity, pairwise continuity, and declared grounding/reference relations only; it is not an electrical or protection equivalence certificate."
     _neutral_ground_result(:passed, Finding[], common_evidence;
         checked=["neutral_terminal_identity", "neutral_continuity", "ground_reference_relations"])
+end
+
+function _claimed_solution_result(status::Symbol, findings::Vector{Finding},
+                                  evidence::Dict{String,Any}; checked=String[])
+    ScientificContractResult(
+        _CLAIMED_SOLUTION_CONTRACT,
+        status,
+        [_CLAIMED_SOLUTION_PSK],
+        checked,
+        [
+            "network_equation_residuals",
+            "branch_thermal_limits",
+            "transformer_limits",
+            "generator_and_ibr_limits",
+            "load_model_residuals",
+            "network_power_balance",
+            "objective_optimality",
+            "local_or_global_optimality",
+            "solver_derivative_quality",
+        ],
+        findings,
+        evidence,
+    )
+end
+
+function _claimed_solution_refusal(status::Symbol, code::String, severity::Severity,
+                                   message::String, reason::String, termination_status)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_CLAIMED_SOLUTION_PSK],
+        "contract_id" => _CLAIMED_SOLUTION_CONTRACT,
+        "termination_status" => termination_status,
+        "reason" => reason,
+        "invalid_inferences" => [
+            "No validated-solution conclusion follows from a missing, non-feasible, or structurally incomplete solver result.",
+        ],
+        "recommended_checks" => [
+            "Supply a claimed-feasible result with vr, vi, and vm for every declared bus terminal.",
+            "Run profile_solution and the equation-, limit-, and optimality-specific checks required by the study.",
+        ],
+    )
+    finding = Finding(severity, code, :scientific_contract, :solution, nothing,
+                      message, detail)
+    _claimed_solution_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status),
+        "termination_status" => termination_status,
+        "reason" => reason,
+    ))
+end
+
+"""
+    check_claimed_solution_validity(net, result) -> ScientificContractResult
+
+Check the initial executable portion of scientific contract
+`claimed_solution_validity` (`PSK-000003`). The result must report a
+claimed-feasible termination status and provide `vr`, `vi`, and `vm` for every
+declared bus terminal. The contract then reuses [`profile_solution`](@ref) to
+independently check:
+
+- finiteness of the complete result tree; and
+- declared bus voltage-magnitude, sequence-voltage, and angle-difference
+  limits recomputed from the primal bus voltages.
+
+An accepted solver termination status is an applicability precondition, not
+evidence that these checks passed. A claimed-feasible result with non-finite
+values or a declared bus-limit violation returns `:failed` with
+`E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID` and retains the underlying
+`E.SOL.*` evidence.
+
+A pass is deliberately narrow. It does not establish network-equation
+residuals, thermal or device limits, load-model residuals, power balance,
+objective optimality, global optimality, or solver derivative quality. Those
+dimensions remain explicitly unassessed and require their own validators or a
+broader future contract.
+"""
+function check_claimed_solution_validity(
+        net::Dict{String,Any}, result::Dict{String,Any})::ScientificContractResult
+    raw_status = get(result, "termination_status", nothing)
+    if !(raw_status isa AbstractString) || isempty(strip(raw_status))
+        return _claimed_solution_refusal(
+            :indeterminate, "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE", WARNING,
+            "Claimed-solution validity is indeterminate: termination_status is missing or invalid.",
+            "termination_status is missing or invalid", raw_status)
+    end
+    termination_status = String(raw_status)
+    accepted = ("LOCALLY_SOLVED", "OPTIMAL", "ALMOST_LOCALLY_SOLVED")
+    if !(termination_status in accepted)
+        return _claimed_solution_refusal(
+            :inapplicable, "I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE", INFO,
+            "Claimed-solution validity is not applicable to termination status '$termination_status'.",
+            "the solver did not claim a feasible solution", termination_status)
+    end
+
+    buses = get(net, "bus", nothing)
+    if !(buses isa AbstractDict) || isempty(buses)
+        return _claimed_solution_refusal(
+            :inapplicable, "I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE", INFO,
+            "Claimed-solution validity is not applicable: the network has no declared buses.",
+            "the network has no declared buses", termination_status)
+    end
+    result_buses = get(result, "bus", nothing)
+    if !(result_buses isa AbstractDict)
+        return _claimed_solution_refusal(
+            :indeterminate, "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE", WARNING,
+            "Claimed-solution validity is indeterminate: the result has no bus block.",
+            "the result has no bus block", termination_status)
+    end
+
+    missing = String[]
+    terminal_count = 0
+    for (bus_id_raw, bus) in sort(collect(pairs(buses)); by=pair -> string(first(pair)))
+        bus_id = string(bus_id_raw)
+        bus isa AbstractDict || continue
+        bus_result = get(result_buses, bus_id, nothing)
+        if !(bus_result isa AbstractDict)
+            push!(missing, "bus.$bus_id")
+            continue
+        end
+        for terminal in string.(get(bus, "terminal_names", String[]))
+            terminal_count += 1
+            terminal_result = get(bus_result, terminal, nothing)
+            if !(terminal_result isa AbstractDict)
+                push!(missing, "bus.$bus_id.$terminal")
+                continue
+            end
+            for field in ("vr", "vi", "vm")
+                value = get(terminal_result, field, nothing)
+                value isa Number || push!(missing, "bus.$bus_id.$terminal.$field")
+            end
+        end
+    end
+    if terminal_count == 0
+        return _claimed_solution_refusal(
+            :inapplicable, "I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE", INFO,
+            "Claimed-solution validity is not applicable: no bus terminals are declared.",
+            "no bus terminals are declared", termination_status)
+    end
+    if !isempty(missing)
+        reason = "required bus-terminal result fields are missing: $(join(missing, ", "))"
+        return _claimed_solution_refusal(
+            :indeterminate, "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE", WARNING,
+            "Claimed-solution validity is indeterminate: $reason.",
+            reason, termination_status)
+    end
+
+    report = profile_solution(net, result)
+    blocking_codes = Set([
+        "E.SOL.NAN_IN_RESULT",
+        "E.SOL.VOLT_VIOLATION",
+        "E.SOL.ANGLE_VIOLATION",
+    ])
+    blocking = [finding for finding in report.findings if finding.code in blocking_codes]
+    observed_codes = sort(unique(finding.code for finding in report.findings))
+    evidence = Dict{String,Any}(
+        "termination_status" => termination_status,
+        "covered_bus_count" => length(buses),
+        "covered_terminal_count" => terminal_count,
+        "observed_solution_finding_codes" => observed_codes,
+        "solution_summary" => report.results[:solution],
+    )
+    checked = [
+        "termination_status",
+        "result_numeric_finiteness",
+        "declared_bus_voltage_and_angle_limits",
+    ]
+
+    if !isempty(blocking)
+        evidence["classification"] = "claimed_feasible_result_failed_validation"
+        evidence["blocking_solution_findings"] = _contract_finding_to_dict.(blocking)
+        detail = merge(copy(evidence), Dict{String,Any}(
+            "knowledge_ids" => [_CLAIMED_SOLUTION_PSK],
+            "contract_id" => _CLAIMED_SOLUTION_CONTRACT,
+            "invalid_inferences" => [
+                "A solver's feasible termination label does not establish that the returned primal values are finite or satisfy declared study limits.",
+            ],
+            "recommended_checks" => [
+                "Correct every retained E.SOL finding and rerun the independent solution profile.",
+                "Run the additional equation, device-limit, balance, and optimality checks required by the study before making a broader validity claim.",
+            ],
+        ))
+        finding = Finding(ERROR, "E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID",
+            :scientific_contract, :solution, nothing,
+            "Solver status '$termination_status' claims feasibility, but independent bus-result validation failed.",
+            detail)
+        return _claimed_solution_result(:failed, [finding], evidence; checked=checked)
+    end
+
+    evidence["classification"] = "checked_solution_dimensions_valid"
+    evidence["qualification"] =
+        "Pass covers result finiteness and declared bus voltage/angle limits only; it is not an equation-feasibility or optimality certificate."
+    _claimed_solution_result(:passed, Finding[], evidence; checked=checked)
 end

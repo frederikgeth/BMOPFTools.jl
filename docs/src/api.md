@@ -10,7 +10,7 @@ the whole sequence on one feeder.
 |---|---|---|
 | Ingest a case | [`from_dss`](@ref), [`parse_bmopf`](@ref) | [Conversion guide](conversion.md) |
 | Analyse & diagnose it | [`analyze`](@ref), [`render`](@ref), [`errors`](@ref)/[`warnings`](@ref)/[`infos`](@ref) | [Analysis & reports](analysis.md), [Findings](findings.md) |
-| Check a scientific preservation contract | [`check_parallel_member_limit_preservation`](@ref), [`check_neutral_ground_reference_preservation`](@ref) | [Scientific contracts](scientific_contracts.md) |
+| Check a scientific preservation contract | [`check_parallel_member_limit_preservation`](@ref), [`check_neutral_ground_reference_preservation`](@ref), [`check_claimed_solution_validity`](@ref) | [Scientific contracts](scientific_contracts.md) |
 | Repair structure | [`fix_case`](@ref) ([`FixRecipe`](@ref)) | [Case augmentation](augmentation.md) |
 | Place DERs | [`add_generators`](@ref), [`add_ibrs`](@ref) | [DER placement](tutorial_ders.md) |
 | Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
@@ -63,6 +63,7 @@ infos
 ```@docs
 BMOPFTools.check_parallel_member_limit_preservation
 BMOPFTools.check_neutral_ground_reference_preservation
+BMOPFTools.check_claimed_solution_validity
 BMOPFTools.contract_result_to_dict
 ```
 
