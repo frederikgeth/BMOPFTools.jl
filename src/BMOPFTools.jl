@@ -2934,6 +2934,7 @@ export check_neutral_ground_reference_preservation
 export check_claimed_solution_validity
 export check_load_voltage_base_consistency
 export check_transformer_tap_domain_preservation
+export check_transformer_winding_convention_preservation
 export errors, warnings, infos
 export profile_solution, render_solution, solution_check
 export parse_bmopf, write_bmopf

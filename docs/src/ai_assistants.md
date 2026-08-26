@@ -81,6 +81,13 @@ Use [`check_transformer_tap_domain_preservation`](@ref). The negative fixture
 `transformer-tap-domain-loss-001` shows why retaining only the source start tap
 is an inner restriction rather than preservation of the adjustable domain.
 
+For a converter that changes transformer endpoint or terminal ordering:
+
+> Evaluate `transformer_winding_convention_preservation` with explicit source/target transformer IDs and a one-to-one bus mapping. If terminal labels changed, provide the terminal-label mapping. Report winding incidence and winding-reference/ratio Findings separately. Do not treat a bare endpoint swap as an ordinary edge reorientation, and do not promote a pass to leakage, grounding, limit, complete-factor, or decision equivalence.
+
+Use [`check_transformer_winding_convention_preservation`](@ref). Adjustable taps
+must be checked separately rather than forced into this fixed-convention route.
+
 ### Contribute a package change
 
 > Implement `<change>` on the current branch. First inspect the relevant public API, tests, documentation, and repository instructions. Preserve unrelated changes. Add focused positive, negative, boundary, and serialization tests in proportion to the change. Update Finding documentation and executable metadata when their stable identities or sources change. Run the focused tests, the stale-output check, and the relevant documentation build. Commit only after the diff and checks are clean.

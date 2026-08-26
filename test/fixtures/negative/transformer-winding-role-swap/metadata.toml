@@ -1,0 +1,19 @@
+schema_version = "0.1.0"
+fixture_id = "transformer-winding-role-swap-001"
+knowledge_ids = ["PSK-000006"]
+contract_id = "transformer_winding_convention_preservation"
+kind = "counterexample"
+title = "Transformer endpoints swapped as if they were an ordinary branch arrow"
+scope = "One fixed-tap WYE/DELTA transformer whose target swaps only bus_from and bus_to while retaining the original subtype, ordered winding terminal maps, reference voltages, and fixed ratio convention."
+minimality_status = "hand_minimized_two_bus_one_transformer"
+source_file = "source.json"
+transformed_file = "transformed.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH"]
+does_not_establish = [
+  "Every transformer must be stored with the high-voltage side as bus_from.",
+  "A full typed transformer reversal can never be exact.",
+  "A passing winding-convention check establishes leakage, excitation, grounding, limits, tap-domain, complete terminal-factor, network, objective, or solver equivalence.",
+]

@@ -20,20 +20,21 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 33
-    @test manifest.record_counts.executable_contract == 5
-    @test manifest.record_counts.api_operation == 5
-    @test manifest.record_counts.finding == 18
-    @test manifest.record_counts.fixture == 5
+    @test manifest.record_count == length(records) == 40
+    @test manifest.record_counts.executable_contract == 6
+    @test manifest.record_counts.api_operation == 6
+    @test manifest.record_counts.finding == 22
+    @test manifest.record_counts.fixture == 6
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
-        "PSK-000005"]
+        "PSK-000005", "PSK-000006"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
         "load_voltage_base_consistency",
         "neutral_ground_reference_preservation",
         "parallel_member_limit_preservation",
         "transformer_tap_domain_preservation",
+        "transformer_winding_convention_preservation",
     ]
     @test manifest.corpus_sha256 == bytes2hex(sha256(read(corpus_path)))
 
@@ -80,6 +81,15 @@ using SHA
     @test tap_fixture.fixture_id in tap_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               tap_contract.finding_codes)
+
+    winding_contract = by_id["contract:transformer_winding_convention_preservation"]
+    winding_fixture = by_id["fixture:transformer-winding-role-swap-001"]
+    winding_api = by_id["api:check_transformer_winding_convention_preservation"]
+    @test winding_contract.entrypoint == winding_api.entrypoint ==
+          "check_transformer_winding_convention_preservation"
+    @test winding_fixture.fixture_id in winding_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              winding_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

@@ -219,6 +219,181 @@ end
     end
 end
 
+@testset "Scientific contracts — transformer winding conventions" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative",
+                       "transformer-winding-role-swap")
+    source = parse_bmopf(joinpath(fixture, "source.json"))
+    swapped = parse_bmopf(joinpath(fixture, "transformed.json"))
+    exact = parse_bmopf(joinpath(fixture, "exact-target.json"))
+    expected = JSON3.read(read(joinpath(fixture, "expected.json"), String))
+    bus_mapping = Dict("primary" => "primary", "secondary" => "secondary")
+
+    check_winding(target; kwargs...) =
+        check_transformer_winding_convention_preservation(
+            source,
+            target;
+            source_subtype="wye_delta",
+            source_id="tx",
+            target_id="tx_equiv",
+            bus_mapping=bus_mapping,
+            kwargs...,
+        )
+
+    @testset "a bare endpoint swap changes typed winding incidence" begin
+        result = check_winding(swapped)
+        @test result isa ScientificContractResult
+        @test result.status == :failed
+        @test result.contract_id == expected.contract_id
+        @test result.knowledge_ids == String.(expected.knowledge_ids)
+        @test [finding.code for finding in result.findings] ==
+              String.(expected.finding_codes)
+        @test result.evidence["classification"] == expected.classification
+        @test result.evidence["incidence_match"] === false
+        @test result.evidence["effective_coil_ratio_match"] === true
+        @test isempty(result.evidence["reference_voltage_mismatch_sides"])
+        source_core = first(result.evidence["source_mapped_incidence"])
+        target_core = first(result.evidence["target_incidence"])
+        @test first(source_core["winding_1"])["bus"] == expected.source_from_bus
+        @test first(source_core["winding_2"])["bus"] == expected.source_to_bus
+        @test first(target_core["winding_1"])["bus"] == expected.target_from_bus
+        @test first(target_core["winding_2"])["bus"] == expected.target_to_bus
+        detail = only(result.findings).detail
+        @test detail["knowledge_ids"] == ["PSK-000006"]
+        @test !isempty(detail["invalid_inferences"])
+        @test !isempty(detail["recommended_checks"])
+    end
+
+    @testset "the scoped winding convention passes narrowly" begin
+        result = check_winding(exact)
+        @test result.status == :passed
+        @test isempty(result.findings)
+        @test result.checked_dimensions == [
+            "mapped_winding_side_identity_and_orientation",
+            "ordered_terminal_to_coil_incidence",
+            "nominal_winding_reference_voltages",
+            "fixed_effective_coil_ratio",
+        ]
+        @test "series_leakage_parameters" in result.unassessed_dimensions
+        @test "excitation_shunt_placement_and_value" in result.unassessed_dimensions
+        @test "complete_terminal_admittance_or_ideal_constraints" in
+              result.unassessed_dimensions
+        @test result.evidence["classification"] == "winding_convention_preserved"
+
+        different_unassessed = deepcopy(exact)
+        tx = different_unassessed["transformer"]["wye_delta"]["tx_equiv"]
+        tx["x_series_from"] = 9.0
+        tx["s_rating"] = 750000.0
+        @test check_winding(different_unassessed).status == :passed
+
+        decoded = JSON3.read(JSON3.write(contract_result_to_dict(result)))
+        @test decoded.status == "passed"
+        @test decoded.knowledge_ids == ["PSK-000006"]
+    end
+
+    @testset "reference-base and terminal-map changes fail separately" begin
+        changed_base = deepcopy(exact)
+        changed_base["transformer"]["wye_delta"]["tx_equiv"]["v_nom_to"] = 230.0
+        base_result = check_winding(changed_base)
+        @test base_result.status == :failed
+        @test [finding.code for finding in base_result.findings] ==
+              ["E.CONTRACT.TRANSFORMER_WINDING_BASE_RATIO_MISMATCH"]
+        @test base_result.evidence["classification"] ==
+              "winding_base_ratio_mismatch"
+        @test base_result.evidence["reference_voltage_mismatch_sides"] == ["to"]
+        @test base_result.evidence["effective_coil_ratio_match"] === false
+
+        changed_incidence = deepcopy(exact)
+        changed_tx = changed_incidence["transformer"]["wye_delta"]["tx_equiv"]
+        changed_tx["terminal_map_to"] = ["a", "c", "b"]
+        incidence_result = check_winding(changed_incidence)
+        @test incidence_result.status == :failed
+        @test [finding.code for finding in incidence_result.findings] ==
+              ["E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH"]
+        @test incidence_result.evidence["classification"] ==
+              "winding_incidence_mismatch"
+    end
+
+    @testset "explicit terminal relabelling is supported" begin
+        renamed = deepcopy(exact)
+        tx = renamed["transformer"]["wye_delta"]["tx_equiv"]
+        tx["terminal_map_from"] = ["1", "2", "3", "N"]
+        tx["terminal_map_to"] = ["1", "2", "3"]
+        result = check_winding(
+            renamed;
+            terminal_mapping=Dict("a" => "1", "b" => "2", "c" => "3", "n" => "N"),
+        )
+        @test result.status == :passed
+        @test result.evidence["incidence_match"] === true
+    end
+
+    @testset "unsupported or incomplete inputs refuse explicitly" begin
+        incomplete = check_transformer_winding_convention_preservation(
+            source,
+            exact;
+            source_subtype="wye_delta",
+            source_id="tx",
+            target_id="tx_equiv",
+            bus_mapping=Dict("primary" => "primary"),
+        )
+        @test incomplete.status == :indeterminate
+        @test only(incomplete.findings).code ==
+              "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE"
+
+        collapsed = check_winding(
+            exact;
+            terminal_mapping=Dict("a" => "x", "b" => "x"),
+        )
+        @test collapsed.status == :inapplicable
+        @test only(collapsed.findings).code ==
+              "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE"
+
+        adjustable = deepcopy(source)
+        tx = adjustable["transformer"]["wye_delta"]["tx"]
+        tx["tap_min"] = 0.95
+        tx["tap_max"] = 1.05
+        adjustable_result = check_transformer_winding_convention_preservation(
+            adjustable,
+            exact;
+            source_subtype="wye_delta",
+            source_id="tx",
+            target_id="tx_equiv",
+            bus_mapping=bus_mapping,
+        )
+        @test adjustable_result.status == :inapplicable
+        @test only(adjustable_result.findings).code ==
+              "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE"
+
+        missing_ref = deepcopy(exact)
+        delete!(missing_ref["transformer"]["wye_delta"]["tx_equiv"], "v_nom_to")
+        missing_result = check_winding(missing_ref)
+        @test missing_result.status == :indeterminate
+        @test only(missing_result.findings).code ==
+              "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE"
+
+        subtype_result = check_transformer_winding_convention_preservation(
+            source,
+            exact;
+            source_subtype="center_tap",
+            source_id="tx",
+            target_subtype="center_tap",
+            target_id="tx_equiv",
+            bus_mapping=bus_mapping,
+        )
+        @test subtype_result.status == :inapplicable
+        @test only(subtype_result.findings).code ==
+              "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE"
+
+        @test_throws ArgumentError check_winding(exact; rtol=-1.0)
+    end
+
+    @testset "reference-voltage tolerance is explicit" begin
+        near = deepcopy(exact)
+        near["transformer"]["wye_delta"]["tx_equiv"]["v_nom_to"] += 1e-7
+        @test check_winding(near; atol=1e-6, rtol=0.0).status == :passed
+        @test check_winding(near; atol=1e-10, rtol=0.0).status == :failed
+    end
+end
+
 @testset "Scientific contracts — load voltage-base consistency" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative",
                        "load-voltage-base-mismatch")

@@ -1,0 +1,10 @@
+{
+  "contract_id": "transformer_winding_convention_preservation",
+  "knowledge_ids": ["PSK-000006"],
+  "finding_codes": ["E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH"],
+  "classification": "winding_incidence_mismatch",
+  "source_from_bus": "primary",
+  "source_to_bus": "secondary",
+  "target_from_bus": "secondary",
+  "target_to_bus": "primary"
+}

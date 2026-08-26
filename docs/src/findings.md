@@ -238,6 +238,10 @@ target cannot reveal source information that has already been discarded.
 | `E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS` | E | The mapped target transformer has a different continuous tap interval from the adjustable source: an inner restriction, outer extension, shifted overlap, or disjoint decision domain. Detail includes `PSK-000005`, both intervals, the classification, and a tap witness admitted by only one domain. |
 | `I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE` | I | The source is not an adjustable continuous tap transformer in the implemented domain, the subtype is unsupported or changes, or mapped non-tap declarations differ. No domain-preservation conclusion is drawn. |
 | `W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE` | W | A mapped transformer, complete numeric tap interval, or admissible start is missing or invalid. No domain-preservation conclusion is drawn. |
+| `E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH` | E | The target changes a mapped transformer winding side, stored orientation, or ordered terminal-to-coil incidence. A bare `bus_from`/`bus_to` swap is not a complete typed transformer reversal. |
+| `E.CONTRACT.TRANSFORMER_WINDING_BASE_RATIO_MISMATCH` | E | The target changes a mapped `v_nom_from`/`v_nom_to` winding reference or the resulting fixed effective coil ratio under the subtype's connection convention. |
+| `I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE` | I | The initial winding-convention contract does not cover the subtype, adjustable tap, non-bijective mapping, or subtype-changing reversal. No preservation conclusion is drawn. |
+| `W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE` | W | A mapped transformer, bus, terminal map, positive winding reference, fixed tap, or constructible incidence relation is missing. No preservation conclusion is drawn. |
 
 ## PROV — provenance & conventions
 

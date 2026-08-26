@@ -275,3 +275,66 @@ meaning = "The source is not an adjustable continuous transformer in the impleme
 code = "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE"
 severity = "WARNING"
 meaning = "A mapped transformer, complete numeric tap interval, or admissible tap start is unavailable, so domain preservation cannot be decided."
+
+[[contract]]
+id = "transformer_winding_convention_preservation"
+knowledge_ids = ["PSK-000006"]
+title = "Transformer winding convention preservation"
+entrypoint = "check_transformer_winding_convention_preservation"
+scope = "Fixed-tap single_phase, wye_delta, and delta_wye records with the same subtype, explicit one-to-one bus mapping, and stable or explicitly mapped terminal labels."
+applicability = [
+  "Source and target each contain one mapped fixed-tap transformer with the same supported subtype.",
+  "Both transformers connect two distinct buses and declare finite positive v_nom_from and v_nom_to values.",
+  "The source bus mapping and optional global terminal-label mapping are one-to-one and complete for the transformer terminals.",
+]
+checked_dimensions = [
+  "mapped_winding_side_identity_and_orientation",
+  "ordered_terminal_to_coil_incidence",
+  "nominal_winding_reference_voltages",
+  "fixed_effective_coil_ratio",
+]
+unassessed_dimensions = [
+  "series_leakage_parameters",
+  "excitation_shunt_placement_and_value",
+  "internal_or_external_grounding",
+  "tap_decision_domain",
+  "current_and_apparent_power_limits",
+  "complete_terminal_admittance_or_ideal_constraints",
+  "automatic_control_logic",
+  "network_feasible_set",
+  "objective_value",
+  "solver_status_or_optimality",
+]
+finding_codes = [
+  "E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH",
+  "E.CONTRACT.TRANSFORMER_WINDING_BASE_RATIO_MISMATCH",
+  "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE",
+  "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE",
+]
+fixture_ids = ["transformer-winding-role-swap-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "src/io/to_ybus.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH"
+severity = "ERROR"
+meaning = "The target changes a mapped winding side, orientation, or ordered terminal-to-coil incidence relation."
+
+[[finding]]
+code = "E.CONTRACT.TRANSFORMER_WINDING_BASE_RATIO_MISMATCH"
+severity = "ERROR"
+meaning = "The target changes a mapped winding reference-voltage declaration or resulting fixed effective coil ratio."
+
+[[finding]]
+code = "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The transformer subtype, tap state, bus mapping, or terminal mapping lies outside the initial fixed-convention contract domain."
+
+[[finding]]
+code = "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE"
+severity = "WARNING"
+meaning = "A mapped transformer, bus, terminal map, positive winding reference, fixed tap, or incidence relation is unavailable, so convention preservation cannot be decided."

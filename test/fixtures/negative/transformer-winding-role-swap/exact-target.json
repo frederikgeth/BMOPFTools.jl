@@ -1,0 +1,30 @@
+{
+  "name": "transformer-winding-role-exact-target",
+  "bus": {
+    "primary": {
+      "terminal_names": ["a", "b", "c", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    },
+    "secondary": {
+      "terminal_names": ["a", "b", "c"]
+    }
+  },
+  "transformer": {
+    "wye_delta": {
+      "tx_equiv": {
+        "bus_from": "primary",
+        "bus_to": "secondary",
+        "terminal_map_from": ["a", "b", "c", "n"],
+        "terminal_map_to": ["a", "b", "c"],
+        "v_nom_from": 11000.0,
+        "v_nom_to": 400.0,
+        "s_rating": 500000.0,
+        "r_series_from": 1.0,
+        "x_series_from": 3.0,
+        "r_series_to": 0.001322,
+        "x_series_to": 0.003967,
+        "tap": 1.0
+      }
+    }
+  }
+}

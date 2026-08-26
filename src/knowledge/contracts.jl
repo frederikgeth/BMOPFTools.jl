@@ -14,6 +14,9 @@ const _LOAD_VOLTAGE_BASE_PSK = "PSK-000004"
 const _TRANSFORMER_TAP_DOMAIN_CONTRACT = "transformer_tap_domain_preservation"
 const _TRANSFORMER_TAP_DOMAIN_PSK = "PSK-000005"
 const _TRANSFORMER_TAP_SUBTYPES = ("single_phase", "center_tap", "wye_delta", "delta_wye")
+const _TRANSFORMER_WINDING_CONVENTION_CONTRACT = "transformer_winding_convention_preservation"
+const _TRANSFORMER_WINDING_CONVENTION_PSK = "PSK-000006"
+const _TRANSFORMER_WINDING_CONVENTION_SUBTYPES = ("single_phase", "wye_delta", "delta_wye")
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -1452,4 +1455,398 @@ function check_transformer_tap_domain_preservation(
         "Mapped transformer '$target_key' has a $classification relative to source tap interval [$(source_domain.minimum), $(source_domain.maximum)].",
         detail)
     _transformer_tap_result(:failed, [finding], evidence; checked=checked)
+end
+
+function _transformer_winding_convention_result(
+        status::Symbol, findings::Vector{Finding}, evidence::Dict{String,Any};
+        checked=String[])
+    ScientificContractResult(
+        _TRANSFORMER_WINDING_CONVENTION_CONTRACT,
+        status,
+        [_TRANSFORMER_WINDING_CONVENTION_PSK],
+        checked,
+        [
+            "series_leakage_parameters",
+            "excitation_shunt_placement_and_value",
+            "internal_or_external_grounding",
+            "tap_decision_domain",
+            "current_and_apparent_power_limits",
+            "complete_terminal_admittance_or_ideal_constraints",
+            "automatic_control_logic",
+            "network_feasible_set",
+            "objective_value",
+            "solver_status_or_optimality",
+        ],
+        findings,
+        evidence,
+    )
+end
+
+function _transformer_winding_convention_refusal(
+        status::Symbol, code::String, severity::Severity, message::String,
+        mapping::Dict{String,Any}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_TRANSFORMER_WINDING_CONVENTION_PSK],
+        "contract_id" => _TRANSFORMER_WINDING_CONVENTION_CONTRACT,
+        "transformer_mapping" => mapping,
+        "reason" => reason,
+        "invalid_inferences" => [
+            "No winding-convention preservation conclusion follows from a bare endpoint swap, an unsupported subtype change, or incomplete terminal mapping.",
+        ],
+        "recommended_checks" => [
+            "Map both transformer buses and every renamed terminal explicitly.",
+            "Retain the typed winding roles, ordered terminal-to-coil relation, winding reference voltages, and fixed tap coefficient.",
+            "Use transformer_tap_domain_preservation separately when either transformer has an adjustable tap domain.",
+        ],
+    )
+    target_id = get(mapping, "target_id", nothing)
+    finding = Finding(severity, code, :scientific_contract, :transformer,
+                      target_id isa String ? target_id : nothing, message, detail)
+    _transformer_winding_convention_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status),
+        "transformer_mapping" => mapping,
+        "reason" => reason,
+    ))
+end
+
+function _transformer_winding_role(subtype::String, side::String)::String
+    subtype == "wye_delta" && return side == "from" ? "wye" : "delta"
+    subtype == "delta_wye" && return side == "from" ? "delta" : "wye"
+    side == "from" ? "winding_1" : "winding_2"
+end
+
+function _transformer_fixed_tap(record::AbstractDict)
+    domain, status, reason = _transformer_tap_domain(record; require_adjustable=false)
+    domain === nothing && return (nothing, status, reason)
+    domain.minimum == domain.maximum || return (
+        nothing, :inapplicable,
+        "transformer has an adjustable tap interval; use transformer_tap_domain_preservation",
+    )
+    (domain.start, :applicable, "")
+end
+
+function _transformer_reference_voltage(record::AbstractDict, side::String)
+    key = "v_nom_" * side
+    raw = get(record, key, nothing)
+    raw isa Number || return (nothing, "$key is missing or nonnumeric")
+    value = Float64(raw)
+    isfinite(value) && value > 0 || return (nothing, "$key must be finite and positive")
+    value, ""
+end
+
+function _transformer_terminal_map(record::AbstractDict, side::String)
+    key = "terminal_map_" * side
+    raw = get(record, key, nothing)
+    raw isa AbstractVector || return (nothing, "$key is missing or is not an array")
+    labels = String[string(item) for item in raw]
+    isempty(labels) && return (nothing, "$key is empty")
+    length(labels) == length(unique(labels)) || return (nothing, "$key contains duplicate labels")
+    labels, ""
+end
+
+function _transformer_incidence_payload(incidence; map_node=identity)
+    [
+        Dict{String,Any}(
+            "core_index" => index,
+            "winding_1" => [
+                Dict{String,Any}(
+                    "bus" => map_node(node)[1],
+                    "terminal" => map_node(node)[2],
+                    "coefficient" => coefficient,
+                )
+                for (node, coefficient) in zip(core.w1_nodes, core.w1_coeffs)
+            ],
+            "winding_2" => [
+                Dict{String,Any}(
+                    "bus" => map_node(node)[1],
+                    "terminal" => map_node(node)[2],
+                    "coefficient" => coefficient,
+                )
+                for (node, coefficient) in zip(core.w2_nodes, core.w2_coeffs)
+            ],
+            "effective_coil_ratio" => core.ratio,
+        )
+        for (index, core) in enumerate(incidence)
+    ]
+end
+
+function _transformer_incidence_structure(payload)
+    [
+        (
+            [(item["bus"], item["terminal"], item["coefficient"])
+             for item in core["winding_1"]],
+            [(item["bus"], item["terminal"], item["coefficient"])
+             for item in core["winding_2"]],
+        )
+        for core in payload
+    ]
+end
+
+"""
+    check_transformer_winding_convention_preservation(source, target;
+        source_subtype, source_id, target_subtype=source_subtype,
+        target_id=source_id, bus_mapping, terminal_mapping=Dict(),
+        atol=1e-9, rtol=1e-8) -> ScientificContractResult
+
+Check the initial executable portion of scientific contract
+`transformer_winding_convention_preservation` (`PSK-000006`). The check covers
+fixed-tap `single_phase`, `wye_delta`, and `delta_wye` transformer records with
+the same subtype, an explicit one-to-one source-bus to target-bus mapping, and
+stable terminal labels or an explicit global terminal-label mapping.
+
+It compares mapped winding-side identity, ordered terminal-to-coil incidence,
+positive winding reference-voltage declarations, and the resulting fixed
+effective coil ratio. A bare `bus_from`/`bus_to` swap therefore fails: a
+transformer side is a typed winding role, not an arbitrary branch arrow.
+
+A pass does not establish equality of leakage, excitation, grounding, limits,
+the complete terminal factor, tap decision domains, controls, network feasible
+sets, objectives, or solver results. Adjustable taps are explicitly
+`:inapplicable` here and belong to `transformer_tap_domain_preservation`.
+"""
+function check_transformer_winding_convention_preservation(
+        source::Dict{String,Any}, target::Dict{String,Any};
+        source_subtype::AbstractString,
+        source_id::AbstractString,
+        target_subtype::AbstractString=source_subtype,
+        target_id::AbstractString=source_id,
+        bus_mapping::AbstractDict,
+        terminal_mapping::AbstractDict=Dict{String,String}(),
+        atol::Real=1e-9,
+        rtol::Real=1e-8)::ScientificContractResult
+    atol_f = Float64(atol)
+    rtol_f = Float64(rtol)
+    (isfinite(atol_f) && atol_f >= 0 && isfinite(rtol_f) && rtol_f >= 0) ||
+        throw(ArgumentError("atol and rtol must be finite and nonnegative"))
+
+    source_type = String(source_subtype)
+    target_type = String(target_subtype)
+    source_key = String(source_id)
+    target_key = String(target_id)
+    buses = Dict{String,String}(string(key) => string(value)
+                                for (key, value) in bus_mapping)
+    terminals = Dict{String,String}(string(key) => string(value)
+                                    for (key, value) in terminal_mapping)
+    mapping = Dict{String,Any}(
+        "source_subtype" => source_type,
+        "source_id" => source_key,
+        "target_subtype" => target_type,
+        "target_id" => target_key,
+        "bus_mapping" => buses,
+        "terminal_mapping" => terminals,
+    )
+
+    if !(source_type in _TRANSFORMER_WINDING_CONVENTION_SUBTYPES) ||
+       !(target_type in _TRANSFORMER_WINDING_CONVENTION_SUBTYPES) ||
+       source_type != target_type
+        return _transformer_winding_convention_refusal(
+            :inapplicable, "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE", INFO,
+            "Transformer winding-convention preservation is not applicable: source and target must use the same supported subtype.",
+            mapping, "source and target subtypes are unsupported or differ")
+    end
+
+    source_record = _transformer_tap_record(source, source_type, source_key)
+    source_record === nothing && return _transformer_winding_convention_refusal(
+        :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+        "Transformer winding-convention preservation is indeterminate: mapped source transformer is missing.",
+        mapping, "mapped source transformer is missing")
+    target_record = _transformer_tap_record(target, target_type, target_key)
+    target_record === nothing && return _transformer_winding_convention_refusal(
+        :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+        "Transformer winding-convention preservation is indeterminate: mapped target transformer is missing.",
+        mapping, "mapped target transformer is missing")
+
+    source_buses = String[]
+    target_buses = String[]
+    source_maps = Dict{String,Vector{String}}()
+    target_maps = Dict{String,Vector{String}}()
+    source_refs = Dict{String,Float64}()
+    target_refs = Dict{String,Float64}()
+    for side in ("from", "to")
+        source_bus = get(source_record, "bus_" * side, nothing)
+        target_bus = get(target_record, "bus_" * side, nothing)
+        (source_bus isa AbstractString && target_bus isa AbstractString) ||
+            return _transformer_winding_convention_refusal(
+                :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+                "Transformer winding-convention preservation is indeterminate: mapped transformer bus declarations are incomplete.",
+                mapping, "source or target bus declaration is missing")
+        push!(source_buses, string(source_bus))
+        push!(target_buses, string(target_bus))
+
+        source_map, source_map_reason = _transformer_terminal_map(source_record, side)
+        source_map === nothing && return _transformer_winding_convention_refusal(
+            :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+            "Transformer winding-convention preservation is indeterminate: $source_map_reason.",
+            mapping, source_map_reason)
+        target_map, target_map_reason = _transformer_terminal_map(target_record, side)
+        target_map === nothing && return _transformer_winding_convention_refusal(
+            :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+            "Transformer winding-convention preservation is indeterminate: $target_map_reason.",
+            mapping, target_map_reason)
+        source_maps[side] = source_map
+        target_maps[side] = target_map
+
+        source_ref, source_ref_reason = _transformer_reference_voltage(source_record, side)
+        source_ref === nothing && return _transformer_winding_convention_refusal(
+            :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+            "Transformer winding-convention preservation is indeterminate: $source_ref_reason.",
+            mapping, source_ref_reason)
+        target_ref, target_ref_reason = _transformer_reference_voltage(target_record, side)
+        target_ref === nothing && return _transformer_winding_convention_refusal(
+            :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+            "Transformer winding-convention preservation is indeterminate: $target_ref_reason.",
+            mapping, target_ref_reason)
+        source_refs[side] = source_ref
+        target_refs[side] = target_ref
+    end
+
+    length(unique(source_buses)) == 2 && length(unique(target_buses)) == 2 ||
+        return _transformer_winding_convention_refusal(
+            :inapplicable, "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE", INFO,
+            "Transformer winding-convention preservation is not applicable: each transformer must connect two distinct buses.",
+            mapping, "source or target transformer does not connect two distinct buses")
+    all(haskey(buses, bus) for bus in source_buses) ||
+        return _transformer_winding_convention_refusal(
+            :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+            "Transformer winding-convention preservation is indeterminate: bus mapping is incomplete.",
+            mapping, "bus mapping omits a source transformer bus")
+    length(unique([buses[bus] for bus in source_buses])) == 2 ||
+        return _transformer_winding_convention_refusal(
+            :inapplicable, "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE", INFO,
+            "Transformer winding-convention preservation is not applicable: mapped source transformer buses are not one-to-one.",
+            mapping, "bus mapping is not one-to-one")
+
+    source_labels = unique(vcat(values(source_maps)...))
+    mapped_labels = [get(terminals, label, label) for label in source_labels]
+    length(mapped_labels) == length(unique(mapped_labels)) ||
+        return _transformer_winding_convention_refusal(
+            :inapplicable, "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE", INFO,
+            "Transformer winding-convention preservation is not applicable: terminal mapping is not one-to-one.",
+            mapping, "terminal mapping collapses source terminal labels")
+
+    source_tap, source_tap_status, source_tap_reason =
+        _transformer_fixed_tap(source_record)
+    source_tap === nothing && return _transformer_winding_convention_refusal(
+        source_tap_status === :inapplicable ? :inapplicable : :indeterminate,
+        source_tap_status === :inapplicable ?
+            "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE" :
+            "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE",
+        source_tap_status === :inapplicable ? INFO : WARNING,
+        "Transformer winding-convention preservation is $(source_tap_status): $source_tap_reason.",
+        mapping, source_tap_reason)
+    target_tap, target_tap_status, target_tap_reason =
+        _transformer_fixed_tap(target_record)
+    target_tap === nothing && return _transformer_winding_convention_refusal(
+        target_tap_status === :inapplicable ? :inapplicable : :indeterminate,
+        target_tap_status === :inapplicable ?
+            "I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE" :
+            "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE",
+        target_tap_status === :inapplicable ? INFO : WARNING,
+        "Transformer winding-convention preservation is $(target_tap_status): $target_tap_reason.",
+        mapping, target_tap_reason)
+
+    source_incidence = _xfmr_winding_incidence(source_record, source_type)
+    target_incidence = _xfmr_winding_incidence(target_record, target_type)
+    (isempty(source_incidence) || isempty(target_incidence)) &&
+        return _transformer_winding_convention_refusal(
+            :indeterminate, "W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE", WARNING,
+            "Transformer winding-convention preservation is indeterminate: terminal-to-coil incidence could not be constructed.",
+            mapping, "source or target terminal-to-coil incidence is empty")
+
+    map_node(node) = (buses[node[1]], get(terminals, node[2], node[2]))
+    source_payload = _transformer_incidence_payload(source_incidence; map_node=map_node)
+    target_payload = _transformer_incidence_payload(target_incidence)
+    source_structure = _transformer_incidence_structure(source_payload)
+    target_structure = _transformer_incidence_structure(target_payload)
+    incidence_match = source_structure == target_structure
+
+    ratio_tolerance = atol_f + rtol_f * max(
+        maximum(abs(core.ratio) for core in source_incidence),
+        maximum(abs(core.ratio) for core in target_incidence), 1.0)
+    ratio_match = length(source_incidence) == length(target_incidence) &&
+                  all(abs(source_incidence[index].ratio - target_incidence[index].ratio) <=
+                      ratio_tolerance for index in eachindex(source_incidence))
+    reference_mismatches = String[]
+    reference_evidence = Dict{String,Any}()
+    for side in ("from", "to")
+        tolerance = atol_f + rtol_f * max(abs(source_refs[side]), abs(target_refs[side]), 1.0)
+        same = abs(source_refs[side] - target_refs[side]) <= tolerance
+        same || push!(reference_mismatches, side)
+        reference_evidence[side] = Dict{String,Any}(
+            "winding_role" => _transformer_winding_role(source_type, side),
+            "mapped_source_bus" => buses[source_buses[side == "from" ? 1 : 2]],
+            "target_bus" => target_buses[side == "from" ? 1 : 2],
+            "source_v_nom_V" => source_refs[side],
+            "target_v_nom_V" => target_refs[side],
+            "within_tolerance" => same,
+        )
+    end
+    base_ratio_match = isempty(reference_mismatches) && ratio_match
+
+    evidence = Dict{String,Any}(
+        "transformer_mapping" => mapping,
+        "winding_references" => reference_evidence,
+        "source_fixed_tap" => source_tap,
+        "target_fixed_tap" => target_tap,
+        "source_mapped_incidence" => source_payload,
+        "target_incidence" => target_payload,
+        "incidence_match" => incidence_match,
+        "reference_voltage_mismatch_sides" => reference_mismatches,
+        "effective_coil_ratio_match" => ratio_match,
+        "ratio_tolerance" => ratio_tolerance,
+    )
+    checked = [
+        "mapped_winding_side_identity_and_orientation",
+        "ordered_terminal_to_coil_incidence",
+        "nominal_winding_reference_voltages",
+        "fixed_effective_coil_ratio",
+    ]
+    if incidence_match && base_ratio_match
+        evidence["classification"] = "winding_convention_preserved"
+        evidence["qualification"] =
+            "Pass covers winding roles, incidence, references, and fixed coil ratio only; it is not a complete transformer-factor or decision-equivalence certificate."
+        return _transformer_winding_convention_result(
+            :passed, Finding[], evidence; checked=checked)
+    end
+
+    findings = Finding[]
+    if !incidence_match
+        detail = merge(copy(evidence), Dict{String,Any}(
+            "knowledge_ids" => [_TRANSFORMER_WINDING_CONVENTION_PSK],
+            "contract_id" => _TRANSFORMER_WINDING_CONVENTION_CONTRACT,
+            "invalid_inferences" => [
+                "A transformer's bus_from/bus_to order is not an arbitrary edge arrow when the ordered terminal maps define typed winding coils.",
+            ],
+            "recommended_checks" => [
+                "Restore the mapped winding buses and ordered terminal-to-coil incidence, or provide a complete typed coordinate transformation.",
+            ],
+        ))
+        push!(findings, Finding(ERROR,
+            "E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH",
+            :scientific_contract, :transformer, target_key,
+            "Mapped transformer '$target_key' changes winding-side orientation or terminal-to-coil incidence.",
+            detail))
+    end
+    if !base_ratio_match
+        detail = merge(copy(evidence), Dict{String,Any}(
+            "knowledge_ids" => [_TRANSFORMER_WINDING_CONVENTION_PSK],
+            "contract_id" => _TRANSFORMER_WINDING_CONVENTION_CONTRACT,
+            "invalid_inferences" => [
+                "Matching bus endpoints does not preserve transformer semantics when winding reference voltages or the fixed effective coil ratio change.",
+            ],
+            "recommended_checks" => [
+                "Retain each mapped winding reference voltage and fixed tap coefficient in the same connection convention.",
+            ],
+        ))
+        push!(findings, Finding(ERROR,
+            "E.CONTRACT.TRANSFORMER_WINDING_BASE_RATIO_MISMATCH",
+            :scientific_contract, :transformer, target_key,
+            "Mapped transformer '$target_key' changes a winding reference voltage or fixed effective coil ratio.",
+            detail))
+    end
+    evidence["classification"] = !incidence_match && !base_ratio_match ?
+        "winding_incidence_and_base_ratio_mismatch" :
+        !incidence_match ? "winding_incidence_mismatch" :
+        "winding_base_ratio_mismatch"
+    _transformer_winding_convention_result(:failed, findings, evidence; checked=checked)
 end

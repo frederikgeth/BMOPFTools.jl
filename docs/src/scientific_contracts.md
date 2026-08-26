@@ -200,6 +200,60 @@ tap-dependent losses, discrete positions, coupling, automatic-control behavior,
 network feasible-set or objective equality, the optimal tap, or solver
 guarantees. Those dimensions remain explicit follow-on contracts.
 
+## Transformer winding conventions
+
+[`check_transformer_winding_convention_preservation`](@ref) implements the
+initial compact-serialization portion of `PSK-000006`. It checks whether one
+fixed-tap `single_phase`, `wye_delta`, or `delta_wye` transformer retains its
+mapped winding sides, ordered terminal-to-coil incidence, positive winding
+reference voltages, and fixed effective coil ratio.
+
+```julia
+using BMOPFTools
+
+fixture = joinpath(
+    pkgdir(BMOPFTools), "test", "fixtures", "negative",
+    "transformer-winding-role-swap",
+)
+source = parse_bmopf(joinpath(fixture, "source.json"))
+swapped = parse_bmopf(joinpath(fixture, "transformed.json"))
+
+result = check_transformer_winding_convention_preservation(
+    source,
+    swapped;
+    source_subtype = "wye_delta",
+    source_id = "tx",
+    target_id = "tx_equiv",
+    bus_mapping = Dict("primary" => "primary", "secondary" => "secondary"),
+)
+
+result.status                      # :failed
+result.findings[1].code
+# "E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH"
+result.evidence["classification"] # "winding_incidence_mismatch"
+```
+
+The negative fixture swaps only `bus_from` and `bus_to`. That operation would
+be harmless for the reference arrow of a symmetric ordinary edge, but not for
+a transformer record: the subtype assigns WYE and DELTA winding roles, and the
+ordered terminal maps define which bus-terminal differences form each coil.
+The fixture therefore attaches the same compact winding relations to the wrong
+mapped buses. Its exact companion target changes only the transformer ID.
+
+The bus mapping is mandatory because a target cannot recover source identity
+after a transformation. Terminal labels are stable by default; pass
+`terminal_mapping=Dict("a"=>"1", ...)` for a bijective relabelling. Adjustable
+taps return `:inapplicable` and belong to the tap-domain contract. Subtype-
+changing or fully reversed transformer encodings are also outside this initial
+compact contract: they require a complete typed transformation, not a guessed
+field swap.
+
+A pass is narrow. Leakage, excitation-shunt placement and value, grounding,
+tap domains, ratings, the complete terminal factor, controls, network feasible
+sets, objectives, and solver evidence remain unassessed. In particular, this
+check complements the package's `transformer_yprim` and OPF/Yprim consistency
+tests; it does not replace them.
+
 ## Result statuses
 
 [`ScientificContractResult`](@ref) uses four statuses:

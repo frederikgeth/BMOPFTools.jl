@@ -4,27 +4,29 @@
     "load_voltage_base_consistency",
     "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation",
-    "transformer_tap_domain_preservation"
+    "transformer_tap_domain_preservation",
+    "transformer_winding_convention_preservation"
   ],
-  "corpus_sha256": "80592a591d5d362ffc3c00fc8f78f62e825df7b16cbb701419b9d7186b1a4b95",
+  "corpus_sha256": "aeed2551c64b15711b414845287674445b809aedfd4e650b3b5036af242e06dd",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
     "PSK-000003",
     "PSK-000004",
-    "PSK-000005"
+    "PSK-000005",
+    "PSK-000006"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 33,
+  "record_count": 40,
   "record_counts": {
-    "api_operation": 5,
-    "executable_contract": 5,
-    "finding": 18,
-    "fixture": 5
+    "api_operation": 6,
+    "executable_contract": 6,
+    "finding": 22,
+    "fixture": 6
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -34,19 +36,23 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "7198f855008c83301f36933b74b7eeb70371710366abb57b60583172f1d941ba"
+      "sha256": "dda15d24cf17d71b4d1d41bacbc2e9f273bfa4c781ccfdc832c2840adee41320"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "5565cf0403da61d232ddde043c47cf891946c41aab6eabcdb230c5ac2444ffd0"
+      "sha256": "c11e247f0a950e9e6f2d7cb030e61a9647171fc8a540c321e902dcc2dac284e7"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
       "sha256": "a0c9f7136251f9365f3173d9560baa3ab52b08b7cec095bb8cfaafe0f09427fe"
     },
     {
+      "path": "src/io/to_ybus.jl",
+      "sha256": "7853d64e87ccfdbd8050e475689cf7c0893b20bfc0926e72538512ce8a3f93eb"
+    },
+    {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "35faf3b1a95f9737b57f4eb7b8857027a30ce8d7687dae08b565c2acc8f50fda"
+      "sha256": "940229a8c4eafc6f403d3b34f99d4cfe819c47e2962eb8f11f3ab480f91a9de1"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -173,8 +179,32 @@
       "sha256": "eb6412e3a66a6e0f3c64d557906bb297f313f9f114bd5b5d09e4379161e150a7"
     },
     {
+      "path": "test/fixtures/negative/transformer-winding-role-swap/exact-target.json",
+      "sha256": "3504d623367be659a2603a32289b5231238dc73b227bf0330c6e7ee8b0cbcb7c"
+    },
+    {
+      "path": "test/fixtures/negative/transformer-winding-role-swap/expected.json",
+      "sha256": "320472e52484012ebcd2d1a0e693f83e53856d0642a4d4bc2e5d75bf4bc49f4b"
+    },
+    {
+      "path": "test/fixtures/negative/transformer-winding-role-swap/metadata.toml",
+      "sha256": "19ba40f59168f51e38bb10b9d745b4a015f2118154e45f1b6d42aac627608010"
+    },
+    {
+      "path": "test/fixtures/negative/transformer-winding-role-swap/reproduce.jl",
+      "sha256": "74e8808899bf329eaa334692b65c69a0a6c5abe6f36795e82288c75d8a8ff501"
+    },
+    {
+      "path": "test/fixtures/negative/transformer-winding-role-swap/source.json",
+      "sha256": "31aded10664f1efe6c473452505b2320221018241618ed42a22de318b17b081d"
+    },
+    {
+      "path": "test/fixtures/negative/transformer-winding-role-swap/transformed.json",
+      "sha256": "40264e7b42e09edd74179bc019d200ccd0efcf63ba258e035e776fd736741385"
+    },
+    {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "14e8993444715f604fe4f2194fd78ac24b4445696476c4d79de427e41ef1b04d"
+      "sha256": "59a5f127d88db22a3587b34b7ba7c0a7ccbea7ea3398ddfe9f920664fa3d652a"
     }
   ]
 }
