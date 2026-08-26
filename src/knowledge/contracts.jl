@@ -30,6 +30,8 @@ const _DECISION_MANIFEST_DIMENSIONS = (
 )
 const _DECISION_MANIFEST_STATUSES =
     ("verified", "not_required", "not_preserved", "unassessed")
+const _KRON_BOUNDARY_CONTRACT = "kron_boundary_recovery_preservation"
+const _KRON_BOUNDARY_PSK = "PSK-000008"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -67,6 +69,374 @@ struct ScientificContractResult
             String.(checked_dimensions), String.(unassessed_dimensions),
             Vector{Finding}(findings), Dict{String,Any}(evidence))
     end
+end
+
+function _kron_boundary_result(
+        status::Symbol, findings::Vector{Finding}, evidence::Dict{String,Any};
+        checked=String[])
+    ScientificContractResult(
+        _KRON_BOUNDARY_CONTRACT,
+        status,
+        [_KRON_BOUNDARY_PSK],
+        checked,
+        [
+            "internal_asset_identity_and_state",
+            "internal_equipment_limits",
+            "internal_protection_quantities",
+            "state_dependent_or_nonlinear_factors",
+            "complete_network_feasible_set",
+            "objective_or_optimizer_equivalence",
+            "solver_status_or_optimality",
+        ],
+        findings,
+        evidence,
+    )
+end
+
+function _kron_boundary_finding(code::String, severity::Severity,
+                                line_id, message::String,
+                                detail::Dict{String,Any})
+    Finding(severity, code, :scientific_contract, :line,
+            line_id isa String && !isempty(line_id) ? line_id : nothing,
+            message, detail)
+end
+
+function _kron_boundary_refusal(status::Symbol, code::String,
+                                severity::Severity, message::String,
+                                mapping::Dict{String,Any}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_KRON_BOUNDARY_PSK],
+        "contract_id" => _KRON_BOUNDARY_CONTRACT,
+        "line_mapping" => mapping,
+        "reason" => reason,
+        "invalid_inferences" => [
+            "A three-wire target with a Kron-shaped impedance does not establish an exact reduction when an eliminated neutral is not pinned at every connection point.",
+            "A boundary relation does not by itself preserve internal line quantities, limits, protection observations, or source provenance.",
+        ],
+        "recommended_checks" => [
+            "Confirm perfect grounding of the eliminated terminal at every source connection point.",
+            "Compare the target boundary impedance with the declared Schur complement and retain an explicit recovery map.",
+            "Use the full four-wire source model for finite-grounding or floating-neutral studies.",
+        ],
+    )
+    line_id = get(mapping, "target_line_id", nothing)
+    finding = _kron_boundary_finding(code, severity, line_id, message, detail)
+    _kron_boundary_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status),
+        "line_mapping" => mapping,
+        "reason" => reason,
+    ))
+end
+
+function _kron_boundary_matrix(net::Dict{String,Any}, line_id::String)
+    lines = get(net, "line", Dict())
+    line = get(lines, line_id, nothing)
+    line isa Dict{String,Any} || return (nothing, nothing, :indeterminate,
+        "line '$line_id' does not resolve to a BMOPF line record")
+    linecodes = get(net, "linecode", Dict())
+    Z, n = _line_z_complex(line, linecodes)
+    Z isa AbstractMatrix || return (nothing, line, :indeterminate,
+        "line '$line_id' has no resolvable series impedance")
+    (size(Z, 1) == n && size(Z, 2) == n) || return (nothing, line, :indeterminate,
+        "line '$line_id' has a non-square series impedance")
+    all(isfinite(real(value)) && isfinite(imag(value)) for value in Z) ||
+        return (nothing, line, :indeterminate,
+            "line '$line_id' has non-finite series impedance values")
+    (Z, line, :applicable, "")
+end
+
+function _kron_boundary_bus(net::Dict{String,Any}, bus_id::String)
+    buses = get(net, "bus", Dict())
+    bus = get(buses, bus_id, nothing)
+    bus isa Dict{String,Any} || return (nothing, :indeterminate,
+        "bus '$bus_id' does not resolve to a BMOPF bus record")
+    (bus, :applicable, "")
+end
+
+function _kron_boundary_nonzero_shunt(line::Dict{String,Any}, linecodes,
+                                      atol::Float64)
+    Yfr, Yto = _line_shunt_complex(line, linecodes)
+    for (side, Y) in (("from", Yfr), ("to", Yto))
+        Y !== nothing && norm(Y) > atol &&
+            return (false, "line has a nonzero $side-side shunt")
+    end
+    (true, "")
+end
+
+"""
+    check_kron_boundary_recovery(source, target;
+        source_line_id, target_line_id, bus_mapping,
+        phase_terminals=["a", "b", "c"], neutral_terminal="n",
+        terminal_mapping=Dict(), recovery_map, atol=1e-9, rtol=1e-8)
+        -> ScientificContractResult
+
+Check the initial executable portion of the Kron boundary/recovery contract
+(`PSK-000008`). The supported case is a single four-conductor source line and
+three-conductor target line with aligned phase terminal coordinates, no line
+shunts, and the source neutral perfectly grounded at both source buses. The
+target series impedance must equal the Schur complement obtained by eliminating
+the source neutral row and column. An explicit recovery-map declaration for the
+eliminated terminal is also required.
+
+This is a boundary relation check, not a claim that Kron reduction preserves
+internal equipment, protection, state, limits, decisions, objectives, or
+solver results. Floating or finite-grounded neutrals return `:failed` with
+`E.CONTRACT.KRON_GROUNDING_PRECONDITION`; missing declarations return
+`:indeterminate`, and unsupported wire or shunt shapes return `:inapplicable`.
+"""
+function check_kron_boundary_recovery(
+        source::Dict{String,Any}, target::Dict{String,Any};
+        source_line_id::AbstractString,
+        target_line_id::AbstractString,
+        bus_mapping::AbstractDict,
+        phase_terminals::AbstractVector{<:AbstractString}=["a", "b", "c"],
+        neutral_terminal::AbstractString="n",
+        terminal_mapping::AbstractDict=Dict{String,String}(),
+        recovery_map::AbstractDict,
+        atol::Real=1e-9,
+        rtol::Real=1e-8)::ScientificContractResult
+    atol_f, rtol_f = Float64(atol), Float64(rtol)
+    (isfinite(atol_f) && atol_f >= 0 && isfinite(rtol_f) && rtol_f >= 0) ||
+        throw(ArgumentError("atol and rtol must be finite and nonnegative"))
+    source_key, target_key = String(source_line_id), String(target_line_id)
+    phases = String.(phase_terminals)
+    neutral = String(neutral_terminal)
+    buses = Dict{String,String}(string(key) => string(value) for (key, value) in bus_mapping)
+    terminals = Dict{String,String}(string(key) => string(value) for (key, value) in terminal_mapping)
+    mapping = Dict{String,Any}(
+        "source_line_id" => source_key,
+        "target_line_id" => target_key,
+        "bus_mapping" => buses,
+        "phase_terminals" => phases,
+        "neutral_terminal" => neutral,
+        "terminal_mapping" => terminals,
+    )
+    length(phases) == 3 && neutral ∉ phases ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: exactly three distinct phase terminals and one distinct neutral are required.",
+            mapping, "phase_terminals must contain three distinct labels excluding neutral_terminal")
+    length(unique(phases)) == 3 ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: phase terminals are not distinct.",
+            mapping, "phase terminal labels are duplicated")
+
+    Zs, source_line, source_status, source_reason =
+        _kron_boundary_matrix(source, source_key)
+    Zs === nothing && return _kron_boundary_refusal(
+        source_status === :inapplicable ? :inapplicable : :indeterminate,
+        source_status === :inapplicable ? "I.CONTRACT.KRON_NOT_APPLICABLE" :
+            "W.CONTRACT.KRON_INDETERMINATE",
+        source_status === :inapplicable ? INFO : WARNING,
+        "Kron boundary/recovery contract is $(source_status): $source_reason.",
+        mapping, source_reason)
+    Zt, target_line, target_status, target_reason =
+        _kron_boundary_matrix(target, target_key)
+    Zt === nothing && return _kron_boundary_refusal(
+        target_status === :inapplicable ? :inapplicable : :indeterminate,
+        target_status === :inapplicable ? "I.CONTRACT.KRON_NOT_APPLICABLE" :
+            "W.CONTRACT.KRON_INDETERMINATE",
+        target_status === :inapplicable ? INFO : WARNING,
+        "Kron boundary/recovery contract is $(target_status): $target_reason.",
+        mapping, target_reason)
+    size(Zs, 1) == 4 || return _kron_boundary_refusal(
+        :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+        "Kron boundary/recovery contract is not applicable: source line must have four conductors.",
+        mapping, "source line has $(size(Zs, 1)) conductors")
+    size(Zt, 1) == 3 || return _kron_boundary_refusal(
+        :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+        "Kron boundary/recovery contract is not applicable: target line must have three conductors.",
+        mapping, "target line has $(size(Zt, 1)) conductors")
+
+    source_from = get(source_line, "bus_from", nothing)
+    source_to = get(source_line, "bus_to", nothing)
+    target_from = get(target_line, "bus_from", nothing)
+    target_to = get(target_line, "bus_to", nothing)
+    all(item isa AbstractString for item in (source_from, source_to, target_from, target_to)) ||
+        return _kron_boundary_refusal(
+            :indeterminate, "W.CONTRACT.KRON_INDETERMINATE", WARNING,
+            "Kron boundary/recovery contract is indeterminate: line endpoint declarations are incomplete.",
+            mapping, "source or target line bus_from/bus_to is missing")
+    source_from, source_to = String(source_from), String(source_to)
+    target_from, target_to = String(target_from), String(target_to)
+    source_from != source_to && target_from != target_to ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: each line must connect two distinct buses.",
+            mapping, "source or target line is a self-loop")
+    haskey(buses, source_from) && haskey(buses, source_to) ||
+        return _kron_boundary_refusal(
+            :indeterminate, "W.CONTRACT.KRON_INDETERMINATE", WARNING,
+            "Kron boundary/recovery contract is indeterminate: bus mapping is incomplete.",
+            mapping, "bus_mapping omits a source line endpoint")
+    (buses[source_from] == target_from && buses[source_to] == target_to) ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: target line endpoints do not follow the declared bus mapping.",
+            mapping, "target line endpoint orientation differs from bus_mapping")
+
+    source_from_map = String.(get(source_line, "terminal_map_from", String[]))
+    source_to_map = String.(get(source_line, "terminal_map_to", String[]))
+    target_from_map = String.(get(target_line, "terminal_map_from", String[]))
+    target_to_map = String.(get(target_line, "terminal_map_to", String[]))
+    source_from_map == source_to_map && length(source_from_map) == 4 ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: source terminal maps must have the same four ordered conductors at both ends.",
+            mapping, "source terminal maps are missing, unequal, or not four-conductor")
+    target_from_map == target_to_map && length(target_from_map) == 3 ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: target terminal maps must have the same three ordered phase conductors at both ends.",
+            mapping, "target terminal maps are missing, unequal, or not three-conductor")
+    Set(source_from_map) == Set(vcat(phases, [neutral])) ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: source terminal map does not contain the declared phases and neutral.",
+            mapping, "source terminal map does not match declared conductor labels")
+    expected_target_terms = [get(terminals, phase, phase) for phase in phases]
+    target_from_map == expected_target_terms ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: target phase terminal order does not follow terminal_mapping.",
+            mapping, "target phase terminal labels or order differs from terminal_mapping")
+    length(unique(expected_target_terms)) == 3 ||
+        return _kron_boundary_refusal(
+            :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+            "Kron boundary/recovery contract is not applicable: terminal_mapping is not one-to-one.",
+            mapping, "terminal_mapping collapses phase labels")
+
+    source_buses = get(source, "bus", Dict())
+    source_bus_from, status_from, reason_from = _kron_boundary_bus(source, source_from)
+    source_bus_from === nothing && return _kron_boundary_refusal(
+        :indeterminate, "W.CONTRACT.KRON_INDETERMINATE", WARNING,
+        "Kron boundary/recovery contract is indeterminate: $reason_from.",
+        mapping, reason_from)
+    source_bus_to, status_to, reason_to = _kron_boundary_bus(source, source_to)
+    source_bus_to === nothing && return _kron_boundary_refusal(
+        :indeterminate, "W.CONTRACT.KRON_INDETERMINATE", WARNING,
+        "Kron boundary/recovery contract is indeterminate: $reason_to.",
+        mapping, reason_to)
+    function bus_has_ground(bus)
+        names = String.(get(bus, "terminal_names", String[]))
+        grounded = String.(get(bus, "perfectly_grounded_terminals", String[]))
+        neutral in names && neutral in grounded
+    end
+    grounded_from, grounded_to = bus_has_ground(source_bus_from), bus_has_ground(source_bus_to)
+
+    linecodes_source = get(source, "linecode", Dict())
+    linecodes_target = get(target, "linecode", Dict())
+    source_shunt_ok, source_shunt_reason =
+        _kron_boundary_nonzero_shunt(source_line, linecodes_source, atol_f)
+    target_shunt_ok, target_shunt_reason =
+        _kron_boundary_nonzero_shunt(target_line, linecodes_target, atol_f)
+    (source_shunt_ok && target_shunt_ok) || return _kron_boundary_refusal(
+        :inapplicable, "I.CONTRACT.KRON_NOT_APPLICABLE", INFO,
+        "Kron boundary/recovery contract is not applicable: the initial exact series-only domain excludes nonzero line shunts.",
+        mapping, !source_shunt_ok ? source_shunt_reason : target_shunt_reason)
+
+    n_source_from = findfirst(==(neutral), source_from_map)
+    n_source_from === nothing && return _kron_boundary_refusal(
+        :indeterminate, "W.CONTRACT.KRON_INDETERMINATE", WARNING,
+        "Kron boundary/recovery contract is indeterminate: source neutral position is unavailable.",
+        mapping, "neutral terminal is absent from source terminal map")
+    phase_indices = [findfirst(==(phase), source_from_map) for phase in phases]
+    all(index !== nothing for index in phase_indices) || return _kron_boundary_refusal(
+        :indeterminate, "W.CONTRACT.KRON_INDETERMINATE", WARNING,
+        "Kron boundary/recovery contract is indeterminate: a declared phase is absent from source terminal map.",
+        mapping, "phase terminal position is unavailable")
+    pidx = Int[index for index in phase_indices]
+    nidx = Int(n_source_from)
+    Zk = Zs[pidx, pidx] - Zs[pidx, nidx:nidx] *
+         (Zs[nidx:nidx, nidx:nidx] \ Zs[nidx:nidx, pidx])
+    target_indices = Int[findfirst(==(label), target_from_map) for label in expected_target_terms]
+    target_ordered = Zt[target_indices, target_indices]
+    relation_error = norm(target_ordered - Zk)
+    relation_tolerance = atol_f + rtol_f * max(norm(Zk), norm(target_ordered), 1.0)
+    recovery_fields = Dict{String,Any}()
+    for key in ("eliminated_terminal", "voltage_constraint", "current_recovery")
+        value = get(recovery_map, key, nothing)
+        _decision_manifest_nonempty_string(value) || return _kron_boundary_refusal(
+            :indeterminate, "W.CONTRACT.KRON_RECOVERY_INDETERMINATE", WARNING,
+            "Kron boundary/recovery contract is indeterminate: recovery-map field '$key' is missing.",
+            mapping, "recovery_map.$key must be a nonempty string")
+        recovery_fields[key] = String(value)
+    end
+    recovery_fields["eliminated_terminal"] == neutral || return _kron_boundary_refusal(
+        :indeterminate, "W.CONTRACT.KRON_RECOVERY_INDETERMINATE", WARNING,
+        "Kron boundary/recovery contract is indeterminate: recovery map names a different eliminated terminal.",
+        mapping, "recovery_map.eliminated_terminal does not match neutral_terminal")
+
+    evidence = Dict{String,Any}(
+        "line_mapping" => mapping,
+        "source_bus_grounding" => Dict(
+            source_from => grounded_from, source_to => grounded_to),
+        "source_conductor_order" => source_from_map,
+        "target_conductor_order" => target_from_map,
+        "eliminated_neutral_index" => nidx,
+        "retained_phase_indices" => pidx,
+        "source_impedance_ohm" => Zs,
+        "target_impedance_ohm" => target_ordered,
+        "schur_complement_impedance_ohm" => Zk,
+        "boundary_relation_error_ohm" => relation_error,
+        "boundary_relation_tolerance_ohm" => relation_tolerance,
+        "recovery_map" => recovery_fields,
+        "perfect_grounding_precondition" => grounded_from && grounded_to,
+        "boundary_relation_match" => relation_error <= relation_tolerance,
+    )
+    checked = [
+        "perfect_grounding_at_eliminated_terminal",
+        "kron_boundary_impedance_relation",
+        "target_terminal_coordinate_alignment",
+        "recovery_obligation_declared",
+    ]
+    findings = Finding[]
+    if !grounded_from || !grounded_to
+        push!(findings, _kron_boundary_finding(
+            "E.CONTRACT.KRON_GROUNDING_PRECONDITION", ERROR, target_key,
+            "Kron boundary claim is invalid: the eliminated neutral is not perfectly grounded at every source line endpoint.",
+            merge(copy(evidence), Dict{String,Any}(
+                "knowledge_ids" => [_KRON_BOUNDARY_PSK],
+                "contract_id" => _KRON_BOUNDARY_CONTRACT,
+                "invalid_inferences" => [
+                    "The eliminated neutral is not pinned to zero at every source connection point.",
+                ],
+                "recommended_checks" => [
+                    "Retain the four-wire model for floating or finite-grounded neutrals, or prove the grounding precondition.",
+                ],
+            )),
+        ))
+    end
+    if relation_error > relation_tolerance
+        push!(findings, _kron_boundary_finding(
+            "E.CONTRACT.KRON_BOUNDARY_RELATION_MISMATCH", ERROR, target_key,
+            "Target line impedance differs from the declared source Schur-complement boundary relation.",
+            merge(copy(evidence), Dict{String,Any}(
+                "knowledge_ids" => [_KRON_BOUNDARY_PSK],
+                "contract_id" => _KRON_BOUNDARY_CONTRACT,
+                "invalid_inferences" => [
+                    "A Kron-shaped target is not boundary-exact when its impedance differs from the source Schur complement.",
+                ],
+                "recommended_checks" => [
+                    "Recompute the Schur complement in the declared conductor order and preserve the target boundary map.",
+                ],
+            )),
+        ))
+    end
+    if isempty(findings)
+        evidence["classification"] = "exact_grounded_kron_boundary"
+        evidence["qualification"] =
+            "Pass covers the fixed series boundary relation under endpoint perfect grounding and a declared neutral recovery map only."
+        return _kron_boundary_result(:passed, Finding[], evidence; checked=checked)
+    end
+    if !grounded_from || !grounded_to
+        evidence["classification"] = relation_error > relation_tolerance ?
+            "grounding_and_boundary_mismatch" : "grounding_precondition_failure"
+    else
+        evidence["classification"] = "boundary_relation_mismatch"
+    end
+    _kron_boundary_result(:failed, findings, evidence; checked=checked)
 end
 
 function _decision_manifest_result(

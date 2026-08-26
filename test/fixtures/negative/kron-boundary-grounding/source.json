@@ -1,0 +1,21 @@
+{
+  "bus": {
+    "src": {"terminal_names": ["a", "b", "c", "n"], "perfectly_grounded_terminals": ["n"]},
+    "load": {"terminal_names": ["a", "b", "c", "n"], "perfectly_grounded_terminals": []}
+  },
+  "line": {
+    "l4": {
+      "bus_from": "src", "bus_to": "load", "length": 1.0,
+      "terminal_map_from": ["a", "b", "c", "n"],
+      "terminal_map_to": ["a", "b", "c", "n"],
+      "R_series_1_1": 0.5, "R_series_1_2": 0.02, "R_series_1_3": 0.02, "R_series_1_4": 0.02,
+      "R_series_2_1": 0.02, "R_series_2_2": 0.5, "R_series_2_3": 0.02, "R_series_2_4": 0.02,
+      "R_series_3_1": 0.02, "R_series_3_2": 0.02, "R_series_3_3": 0.5, "R_series_3_4": 0.02,
+      "R_series_4_1": 0.02, "R_series_4_2": 0.02, "R_series_4_3": 0.02, "R_series_4_4": 0.5,
+      "X_series_1_1": 0.2, "X_series_1_2": 0.05, "X_series_1_3": 0.05, "X_series_1_4": 0.05,
+      "X_series_2_1": 0.05, "X_series_2_2": 0.2, "X_series_2_3": 0.05, "X_series_2_4": 0.05,
+      "X_series_3_1": 0.05, "X_series_3_2": 0.05, "X_series_3_3": 0.2, "X_series_3_4": 0.05,
+      "X_series_4_1": 0.05, "X_series_4_2": 0.05, "X_series_4_3": 0.05, "X_series_4_4": 0.2
+    }
+  }
+}

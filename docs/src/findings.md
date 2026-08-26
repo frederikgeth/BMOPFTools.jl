@@ -246,6 +246,11 @@ target cannot reveal source information that has already been discarded.
 | `E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION` | E | A manifest claiming exact decision equivalence explicitly marks a required dimension as `unassessed` or `not_preserved`, contradicting the unqualified exactness claim. |
 | `I.CONTRACT.DECISION_MANIFEST_NOT_APPLICABLE` | I | The manifest does not claim exact decision equivalence. A narrower terminal, inner, outer, or approximate claim lies outside this completeness gate and is not mislabeled as a failure. |
 | `W.CONTRACT.DECISION_MANIFEST_INDETERMINATE` | W | The manifest schema, identity, claim, dimension object, or disposition is missing, malformed, or unsupported. No declaration-completeness conclusion is drawn. |
+| `E.CONTRACT.KRON_BOUNDARY_RELATION_MISMATCH` | E | The target series impedance differs from the source Schur-complement boundary relation in the declared phase coordinate order. |
+| `E.CONTRACT.KRON_GROUNDING_PRECONDITION` | E | The eliminated source neutral is not perfectly grounded at every source line endpoint, so the three-wire Kron target is not exact for the declared network boundary. |
+| `I.CONTRACT.KRON_NOT_APPLICABLE` | I | The initial Kron contract does not cover the supplied conductor count, terminal order, endpoint mapping, line shunts, or self-loop shape. No reduction conclusion is drawn. |
+| `W.CONTRACT.KRON_INDETERMINATE` | W | A mapped line, bus, conductor order, impedance matrix, or endpoint declaration is missing or unresolved, so the Kron boundary cannot be decided. |
+| `W.CONTRACT.KRON_RECOVERY_INDETERMINATE` | W | The required eliminated-terminal recovery map is missing, malformed, or names a different terminal, so internal recovery obligations cannot be decided. |
 
 ## PROV — provenance & conventions
 

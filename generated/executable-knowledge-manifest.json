@@ -2,13 +2,14 @@
   "contract_ids": [
     "claimed_solution_validity",
     "decision_preservation_manifest_completeness",
+    "kron_boundary_recovery_preservation",
     "load_voltage_base_consistency",
     "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation",
     "transformer_tap_domain_preservation",
     "transformer_winding_convention_preservation"
   ],
-  "corpus_sha256": "e89f8b7d6d3ba3cb98d291e6fdef31d121f9a72f908ed48912fb2f91c9c2af41",
+  "corpus_sha256": "1f8a656e49ddb593c2475b612a47612fbdc8eafb90651b0c5724d01a818c7cda",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -16,19 +17,20 @@
     "PSK-000004",
     "PSK-000005",
     "PSK-000006",
-    "PSK-000007"
+    "PSK-000007",
+    "PSK-000008"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 47,
+  "record_count": 55,
   "record_counts": {
-    "api_operation": 7,
-    "executable_contract": 7,
-    "finding": 26,
-    "fixture": 7
+    "api_operation": 8,
+    "executable_contract": 8,
+    "finding": 31,
+    "fixture": 8
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -38,11 +40,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "5a8210d2fe8aa1068a66ef3cddcd0772c9ac336036ae94018f56a9e947227cfe"
+      "sha256": "da26dd3cb8ff0d238c3cc0c9a8108024f3d7f8a1bce6b82ea9d49b157b51dda2"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "4585dad54b5a371b9a58e67befe67260caf5102ec701127e9991f63d26e4e45e"
+      "sha256": "792b00d461eef9ee4fda9ddb920a593d331174560f317b9a5c1a0878ad8cfae4"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -53,8 +55,12 @@
       "sha256": "7853d64e87ccfdbd8050e475689cf7c0893b20bfc0926e72538512ce8a3f93eb"
     },
     {
+      "path": "src/io/ybus.jl",
+      "sha256": "377715e4b77f97b74042849b0d3caad20784a469733d3f516957febe7b960084"
+    },
+    {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "52c139cd89993a552389401de2246813249175b27b8c0dfd6f6f24878602f689"
+      "sha256": "67c55f8ff34435198eae1db0f351a631311dd73ed298c8a7cdd0b0620790f9bc"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -111,6 +117,30 @@
     {
       "path": "test/fixtures/negative/decision-manifest-terminal-only/transformed.json",
       "sha256": "153aef02d763b7ed8e8fcf7b85ccb62966dbb8ede4a36c9cc2496cbe90fc24bf"
+    },
+    {
+      "path": "test/fixtures/negative/kron-boundary-grounding/exact-target.json",
+      "sha256": "4be189d4ec87dbe5d36dcf264af1c3cecfdd2695a2d95151cd53a7a24338eae5"
+    },
+    {
+      "path": "test/fixtures/negative/kron-boundary-grounding/expected.json",
+      "sha256": "971816f7aa68a4f4b4613d81d33cd8de9bf5ca1db7a2812cf8fe49b98db1ee9a"
+    },
+    {
+      "path": "test/fixtures/negative/kron-boundary-grounding/metadata.toml",
+      "sha256": "9d51d6723da4d6c49bf7a00b9e85708632a5d8f799156eb7bf806dbae8c313eb"
+    },
+    {
+      "path": "test/fixtures/negative/kron-boundary-grounding/reproduce.jl",
+      "sha256": "3d78ecafc5922fa3523343795de1d9fc2dcc353064d3eada965d202fac0c64dc"
+    },
+    {
+      "path": "test/fixtures/negative/kron-boundary-grounding/source.json",
+      "sha256": "b27c203dfadce0a673edb0539f33255f1cecb7a87924936459ab2158a97b3528"
+    },
+    {
+      "path": "test/fixtures/negative/kron-boundary-grounding/transformed.json",
+      "sha256": "4be189d4ec87dbe5d36dcf264af1c3cecfdd2695a2d95151cd53a7a24338eae5"
     },
     {
       "path": "test/fixtures/negative/load-voltage-base-mismatch/expected.json",
@@ -230,7 +260,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "411a31488075c58380b8010cdc859858a9b2673bd29e2355d37244ab034afe34"
+      "sha256": "6d9e39546e07e8c972f91a7ef7fa6ccbff59b89a9b7429d257c55cfe6556c1ba"
     }
   ]
 }

@@ -397,3 +397,69 @@ meaning = "The manifest does not claim exact decision equivalence; a narrower te
 code = "W.CONTRACT.DECISION_MANIFEST_INDETERMINATE"
 severity = "WARNING"
 meaning = "The manifest schema, identity, claim, dimension object, or disposition is missing, malformed, or unsupported, so declaration completeness cannot be decided."
+
+[[contract]]
+id = "kron_boundary_recovery_preservation"
+knowledge_ids = ["PSK-000008"]
+title = "Kron boundary and recovery preservation"
+entrypoint = "check_kron_boundary_recovery"
+scope = "One four-conductor fixed series source line reduced to a three-conductor target by eliminating a neutral that is perfectly grounded at both source endpoints, with aligned phase coordinates and an explicit recovery map."
+applicability = [
+  "The source and target lines are explicitly mapped and connect two distinct mapped buses.",
+  "The source has four ordered conductors containing three declared phases and one neutral; the target has three aligned phase conductors.",
+  "Both lines are series-only with finite matrices, and the source neutral is declared perfectly grounded at both endpoints.",
+]
+checked_dimensions = [
+  "perfect_grounding_at_eliminated_terminal",
+  "kron_boundary_impedance_relation",
+  "target_terminal_coordinate_alignment",
+  "recovery_obligation_declared",
+]
+unassessed_dimensions = [
+  "internal_asset_identity_and_state",
+  "internal_equipment_limits",
+  "internal_protection_quantities",
+  "state_dependent_or_nonlinear_factors",
+  "complete_network_feasible_set",
+  "objective_or_optimizer_equivalence",
+  "solver_status_or_optimality",
+]
+finding_codes = [
+  "E.CONTRACT.KRON_BOUNDARY_RELATION_MISMATCH",
+  "E.CONTRACT.KRON_GROUNDING_PRECONDITION",
+  "I.CONTRACT.KRON_NOT_APPLICABLE",
+  "W.CONTRACT.KRON_INDETERMINATE",
+  "W.CONTRACT.KRON_RECOVERY_INDETERMINATE",
+]
+fixture_ids = ["kron-boundary-grounding-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "src/io/ybus.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.KRON_BOUNDARY_RELATION_MISMATCH"
+severity = "ERROR"
+meaning = "The target series impedance differs from the source Schur-complement boundary relation in the declared phase coordinate order."
+
+[[finding]]
+code = "E.CONTRACT.KRON_GROUNDING_PRECONDITION"
+severity = "ERROR"
+meaning = "The eliminated source neutral is not perfectly grounded at every source line endpoint, so the three-wire Kron target is not exact for the declared network boundary."
+
+[[finding]]
+code = "I.CONTRACT.KRON_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The initial Kron contract does not cover the supplied conductor count, terminal order, endpoint mapping, line shunts, or self-loop shape. No reduction conclusion is drawn."
+
+[[finding]]
+code = "W.CONTRACT.KRON_INDETERMINATE"
+severity = "WARNING"
+meaning = "A mapped line, bus, conductor order, impedance matrix, or endpoint declaration is missing or unresolved, so the Kron boundary cannot be decided."
+
+[[finding]]
+code = "W.CONTRACT.KRON_RECOVERY_INDETERMINATE"
+severity = "WARNING"
+meaning = "The required eliminated-terminal recovery map is missing, malformed, or names a different terminal, so internal recovery obligations cannot be decided."

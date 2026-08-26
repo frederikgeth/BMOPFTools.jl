@@ -99,6 +99,15 @@ arises only when a manifest claims exact decision equivalence without closing
 the admissible-domain, observation, constraint, decision-variable, objective,
 and recovery obligations.
 
+For a proposed Kron reduction, start with the tutorial's grounding premise:
+
+> Evaluate `check_kron_boundary_recovery` for the mapped four-wire source line and three-wire target. Report whether the eliminated neutral is perfectly grounded at every source endpoint, the Schur-complement boundary error and tolerance, and the declared recovery map. Do not call a floating or finite-grounded neutral exact merely because the reduced impedance has the Schur-complement numbers; do not promote a boundary pass to internal-limit, protection, decision, or solver equivalence.
+
+Use [`check_kron_boundary_recovery`](@ref). The [grounding tutorial](tutorial_grounding.md)
+shows the same distinction experimentally: perfect endpoint grounding gives an
+exact three-wire boundary, while floating or finite grounding changes the
+network behaviour that the reduced model cannot represent.
+
 ### Contribute a package change
 
 > Implement `<change>` on the current branch. First inspect the relevant public API, tests, documentation, and repository instructions. Preserve unrelated changes. Add focused positive, negative, boundary, and serialization tests in proportion to the change. Update Finding documentation and executable metadata when their stable identities or sources change. Run the focused tests, the stale-output check, and the relevant documentation build. Commit only after the diff and checks are clean.

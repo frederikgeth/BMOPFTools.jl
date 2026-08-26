@@ -97,6 +97,138 @@ using JSON3
     end
 end
 
+@testset "Scientific contracts — Kron boundary and recovery" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative", "kron-boundary-grounding")
+    load_network(name) = parse_bmopf(joinpath(fixture, name))
+    source = load_network("source.json")
+    target = load_network("transformed.json")
+    exact_target = load_network("exact-target.json")
+    expected = JSON3.read(read(joinpath(fixture, "expected.json"), String))
+    mapping = Dict("src" => "src", "load" => "load")
+    recovery = Dict(
+        "eliminated_terminal" => "n",
+        "voltage_constraint" => "V_n = 0 at both endpoints",
+        "current_recovery" => "recover I_n from retained phase voltages and source Z",
+    )
+    check(src, dst; kwargs...) = check_kron_boundary_recovery(
+        src, dst; source_line_id="l4", target_line_id="l3",
+        bus_mapping=mapping, recovery_map=recovery, kwargs...)
+
+    @testset "floating neutral refuses a Kron-shaped target" begin
+        result = check(source, target)
+        @test result isa ScientificContractResult
+        @test result.status == :failed
+        @test result.contract_id == expected.contract_id
+        @test result.knowledge_ids == String.(expected.knowledge_ids)
+        @test [finding.code for finding in result.findings] ==
+              String.(expected.finding_codes)
+        @test result.evidence["classification"] == expected.classification
+        @test result.evidence["source_bus_grounding"]["src"] === true
+        @test result.evidence["source_bus_grounding"]["load"] === false
+        @test result.evidence["boundary_relation_match"] === true
+        detail = only(result.findings).detail
+        @test detail["knowledge_ids"] == ["PSK-000008"]
+        @test !isempty(detail["invalid_inferences"])
+        @test !isempty(detail["recommended_checks"])
+    end
+
+    @testset "perfectly grounded endpoints pass the narrow boundary check" begin
+        grounded_source = deepcopy(source)
+        grounded_source["bus"]["load"]["perfectly_grounded_terminals"] = ["n"]
+        result = check(grounded_source, exact_target)
+        @test result.status == :passed
+        @test isempty(result.findings)
+        @test result.checked_dimensions == [
+            "perfect_grounding_at_eliminated_terminal",
+            "kron_boundary_impedance_relation",
+            "target_terminal_coordinate_alignment",
+            "recovery_obligation_declared",
+        ]
+        @test "internal_equipment_limits" in result.unassessed_dimensions
+        @test "complete_network_feasible_set" in result.unassessed_dimensions
+        @test result.evidence["classification"] == "exact_grounded_kron_boundary"
+        @test result.evidence["boundary_relation_error_ohm"] < 1e-12
+        decoded = JSON3.read(JSON3.write(contract_result_to_dict(result)))
+        @test decoded.status == "passed"
+        @test decoded.knowledge_ids == ["PSK-000008"]
+    end
+
+    @testset "boundary relation and recovery declarations are separate obligations" begin
+        grounded_source = deepcopy(source)
+        grounded_source["bus"]["load"]["perfectly_grounded_terminals"] = ["n"]
+        changed = deepcopy(exact_target)
+        changed["line"]["l3"]["R_series_1_1"] += 1e-3
+        result = check(grounded_source, changed)
+        @test result.status == :failed
+        @test only(result.findings).code == "E.CONTRACT.KRON_BOUNDARY_RELATION_MISMATCH"
+        @test result.evidence["boundary_relation_match"] === false
+
+        missing_recovery = check_kron_boundary_recovery(
+            grounded_source, exact_target;
+            source_line_id="l4", target_line_id="l3", bus_mapping=mapping,
+            recovery_map=Dict("eliminated_terminal" => "n",
+                              "voltage_constraint" => "V_n = 0 at both endpoints"),
+        )
+        @test missing_recovery.status == :indeterminate
+        @test only(missing_recovery.findings).code ==
+              "W.CONTRACT.KRON_RECOVERY_INDETERMINATE"
+
+        wrong_recovery = deepcopy(recovery)
+        wrong_recovery["eliminated_terminal"] = "x"
+        wrong = check_kron_boundary_recovery(
+            grounded_source, exact_target;
+            source_line_id="l4", target_line_id="l3", bus_mapping=mapping,
+            recovery_map=wrong_recovery,
+        )
+        @test wrong.status == :indeterminate
+        @test only(wrong.findings).code == "W.CONTRACT.KRON_RECOVERY_INDETERMINATE"
+    end
+
+    @testset "unsupported shapes and mappings refuse explicitly" begin
+        grounded_source = deepcopy(source)
+        grounded_source["bus"]["load"]["perfectly_grounded_terminals"] = ["n"]
+        bad_phase = check_kron_boundary_recovery(
+            grounded_source, exact_target;
+            source_line_id="l4", target_line_id="l3", bus_mapping=mapping,
+            phase_terminals=["a", "b"], recovery_map=recovery,
+        )
+        @test bad_phase.status == :inapplicable
+        @test only(bad_phase.findings).code == "I.CONTRACT.KRON_NOT_APPLICABLE"
+
+        incomplete = check_kron_boundary_recovery(
+            grounded_source, exact_target;
+            source_line_id="l4", target_line_id="l3",
+            bus_mapping=Dict("src" => "src"), recovery_map=recovery,
+        )
+        @test incomplete.status == :indeterminate
+        @test only(incomplete.findings).code == "W.CONTRACT.KRON_INDETERMINATE"
+
+        shunted = deepcopy(exact_target)
+        shunted["line"]["l3"]["G_from_1_1"] = 0.01
+        shunted_result = check(grounded_source, shunted)
+        @test shunted_result.status == :inapplicable
+        @test only(shunted_result.findings).code == "I.CONTRACT.KRON_NOT_APPLICABLE"
+
+        bad_target_order = deepcopy(exact_target)
+        bad_target_order["line"]["l3"]["terminal_map_from"] = ["b", "a", "c"]
+        bad_target_order["line"]["l3"]["terminal_map_to"] = ["b", "a", "c"]
+        order_result = check(grounded_source, bad_target_order)
+        @test order_result.status == :inapplicable
+        @test only(order_result.findings).code == "I.CONTRACT.KRON_NOT_APPLICABLE"
+
+        @test_throws ArgumentError check(grounded_source, exact_target; rtol=-1.0)
+    end
+
+    @testset "declared tolerances are explicit" begin
+        grounded_source = deepcopy(source)
+        grounded_source["bus"]["load"]["perfectly_grounded_terminals"] = ["n"]
+        near = deepcopy(exact_target)
+        near["line"]["l3"]["R_series_1_1"] += 1e-7
+        @test check(grounded_source, near; atol=1e-6, rtol=0.0).status == :passed
+        @test check(grounded_source, near; atol=1e-10, rtol=0.0).status == :failed
+    end
+end
+
 @testset "Scientific contracts — decision-preservation manifest" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative",
                        "decision-manifest-terminal-only")

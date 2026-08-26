@@ -20,17 +20,18 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 47
-    @test manifest.record_counts.executable_contract == 7
-    @test manifest.record_counts.api_operation == 7
-    @test manifest.record_counts.finding == 26
-    @test manifest.record_counts.fixture == 7
+    @test manifest.record_count == length(records) == 55
+    @test manifest.record_counts.executable_contract == 8
+    @test manifest.record_counts.api_operation == 8
+    @test manifest.record_counts.finding == 31
+    @test manifest.record_counts.fixture == 8
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
-        "PSK-000005", "PSK-000006", "PSK-000007"]
+        "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
         "decision_preservation_manifest_completeness",
+        "kron_boundary_recovery_preservation",
         "load_voltage_base_consistency",
         "neutral_ground_reference_preservation",
         "parallel_member_limit_preservation",
@@ -100,6 +101,15 @@ using SHA
     @test decision_fixture.fixture_id in decision_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               decision_contract.finding_codes)
+
+    kron_contract = by_id["contract:kron_boundary_recovery_preservation"]
+    kron_fixture = by_id["fixture:kron-boundary-grounding-001"]
+    kron_api = by_id["api:check_kron_boundary_recovery"]
+    @test kron_contract.entrypoint == kron_api.entrypoint ==
+          "check_kron_boundary_recovery"
+    @test kron_fixture.fixture_id in kron_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              kron_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

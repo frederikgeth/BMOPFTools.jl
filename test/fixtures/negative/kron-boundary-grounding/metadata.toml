@@ -1,0 +1,19 @@
+schema_version = "0.1.0"
+fixture_id = "kron-boundary-grounding-001"
+knowledge_ids = ["PSK-000008"]
+contract_id = "kron_boundary_recovery_preservation"
+kind = "counterexample"
+title = "Kron-shaped three-wire impedance with a floating source neutral"
+scope = "One four-conductor series line whose target uses the exact neutral Schur complement even though the source neutral is not perfectly grounded at both line endpoints."
+minimality_status = "hand_minimized_two_bus_four_to_three_wire_series_line"
+source_file = "source.json"
+transformed_file = "transformed.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.KRON_GROUNDING_PRECONDITION"]
+does_not_establish = [
+  "Kron reduction is always invalid.",
+  "The target Schur complement is numerically wrong.",
+  "A passing grounded boundary check preserves internal limits, protection quantities, state-dependent factors, complete network decisions, or solver results.",
+]

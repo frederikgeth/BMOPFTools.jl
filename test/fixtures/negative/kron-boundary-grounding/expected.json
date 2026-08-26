@@ -1,0 +1,8 @@
+{
+  "contract_id": "kron_boundary_recovery_preservation",
+  "knowledge_ids": ["PSK-000008"],
+  "finding_codes": ["E.CONTRACT.KRON_GROUNDING_PRECONDITION"],
+  "classification": "grounding_precondition_failure",
+  "source_from_bus_grounded": true,
+  "source_to_bus_grounded": false
+}

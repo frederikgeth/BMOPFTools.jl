@@ -320,6 +320,45 @@ inference about a dimension it does not name as checked.
 
 Use [`contract_result_to_dict`](@ref) for deterministic JSON-ready serialization. Finding codes and their meanings are listed in the [Finding-code reference](findings.md).
 
+## Kron boundary and recovery
+
+[`check_kron_boundary_recovery`](@ref) implements the initial fixed-series
+boundary portion of `PSK-000008`. It follows the grounding tutorial's
+pedagogical guardrail: eliminating a neutral is exact only when that neutral is
+perfectly grounded at every source line endpoint. The check accepts one mapped
+four-conductor source line and three-conductor target, computes the source
+neutral Schur complement, compares the target matrix in the declared phase
+order, and requires an explicit recovery-map declaration.
+
+```julia
+using BMOPFTools
+
+source = parse_bmopf("source-four-wire.json")
+target = parse_bmopf("target-three-wire.json")
+result = check_kron_boundary_recovery(
+    source,
+    target;
+    source_line_id = "l4",
+    target_line_id = "l3",
+    bus_mapping = Dict("src" => "src", "load" => "load"),
+    recovery_map = Dict(
+        "eliminated_terminal" => "n",
+        "voltage_constraint" => "V_n = 0 at both endpoints",
+        "current_recovery" => "recover the source neutral current",
+    ),
+)
+```
+
+A floating or finite-grounded neutral returns `:failed` with
+`E.CONTRACT.KRON_GROUNDING_PRECONDITION`, even when the target matrix is the
+exact algebraic Schur complement. Unsupported conductor counts, shunts, or
+coordinate mappings return `:inapplicable`; missing matrices or recovery
+fields return `:indeterminate`. A pass establishes only the fixed series
+boundary relation under perfect endpoint grounding and the presence of a
+recovery declaration. Internal asset identity, equipment limits, protection
+quantities, state-dependent factors, complete network feasible sets, objectives,
+and solver results remain unassessed.
+
 ## Executable discovery export
 
 `knowledge/executable.toml` is the package-owned registry for executable contracts and Findings. The generator validates its source paths, exported API, fixture metadata, Finding definitions, and source hashes, then writes:
