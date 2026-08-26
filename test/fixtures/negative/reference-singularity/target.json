@@ -1,0 +1,6 @@
+{
+  "model_id": "floating-target",
+  "reference_analysis": {"islands": [
+    {"id": "island-1", "has_voltage_reference": false, "dimension": 4, "rank": 3}
+  ]}
+}

@@ -1,0 +1,18 @@
+schema_version = "0.1.0"
+fixture_id = "reference-singularity-001"
+knowledge_ids = ["PSK-000011"]
+contract_id = "reference_singularity_validation"
+kind = "counterexample"
+title = "Target introduces a floating singular island"
+scope = "A referenced full-rank source island is mapped to a target that loses its voltage reference and one rank."
+minimality_status = "hand_minimized_one_island_reference_loss"
+source_file = "source.json"
+transformed_file = "target.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.REFERENCE_LOSS", "E.CONTRACT.SINGULARITY_CHANGE"]
+does_not_establish = [
+  "Every rank deficiency is a modelling error; intentional gauge freedoms need their own declaration.",
+  "The declaration check replaces equation-level Ybus or solver-rank validation."
+]

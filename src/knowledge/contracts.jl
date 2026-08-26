@@ -36,6 +36,8 @@ const _POSITIVE_SEQUENCE_CONTRACT = "positive_sequence_collapse_applicability"
 const _POSITIVE_SEQUENCE_PSK = "PSK-000009"
 const _STATE_EQUIVALENT_CONTRACT = "state_dependent_equivalent_provenance"
 const _STATE_EQUIVALENT_PSK = "PSK-000010"
+const _REFERENCE_SINGULARITY_CONTRACT = "reference_singularity_validation"
+const _REFERENCE_SINGULARITY_PSK = "PSK-000011"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -778,6 +780,133 @@ function check_state_dependent_equivalent(
         "target_domain" => [dst_lo, dst_hi], "target_update_rule_id" => String(dst_update));
         checked=["state_domain_declared", "state_parameter_alignment",
                  "base_state_alignment", "update_provenance_declared"])
+end
+
+function _reference_singularity_result(status::Symbol, findings::Vector{Finding},
+                                       evidence::Dict{String,Any}; checked=String[])
+    ScientificContractResult(
+        _REFERENCE_SINGULARITY_CONTRACT, status, [_REFERENCE_SINGULARITY_PSK], checked,
+        ["physical_reference_asset_identity", "equation_and_solver_rank_details",
+         "complete_network_feasible_set", "objective_or_optimizer_equivalence",
+         "solver_status_or_optimality"], findings, evidence)
+end
+
+function _reference_singularity_finding(code::String, severity::Severity,
+                                        model_id, message::String,
+                                        detail::Dict{String,Any})
+    Finding(severity, code, :scientific_contract, :transformation,
+            model_id isa String && !isempty(model_id) ? model_id : nothing,
+            message, detail)
+end
+
+function _reference_singularity_refusal(status::Symbol, code::String,
+                                        severity::Severity, message::String,
+                                        mapping::Dict{String,Any}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_REFERENCE_SINGULARITY_PSK],
+        "contract_id" => _REFERENCE_SINGULARITY_CONTRACT,
+        "model_mapping" => mapping, "reason" => reason,
+        "invalid_inferences" => [
+            "A successful parser or solver termination does not establish that every connected island has a voltage reference or full rank.",
+            "A target rank number without its island and reference provenance is not a source-model equivalence certificate.",
+        ],
+        "recommended_checks" => [
+            "Identify every connected island and its physical or mathematical voltage reference.",
+            "Compare rank deficiency and reference incidence after each topology or reduction step.",
+            "Retain the source model for floating-island, grounding, and solver-singularity diagnosis.",
+        ],
+    )
+    finding = _reference_singularity_finding(code, severity,
+        get(mapping, "target_model_id", nothing), message, detail)
+    _reference_singularity_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status), "model_mapping" => mapping, "reason" => reason))
+end
+
+"""
+    check_reference_singularity(source, target;
+        source_model_id, target_model_id, island_mapping=Dict())
+        -> ScientificContractResult
+
+Compare declared reference/rank evidence for mapped connected islands
+(`PSK-000011`). Each model must provide `reference_analysis.islands`, where
+each island has an id, `has_voltage_reference`, `dimension`, and `rank`.
+"""
+function check_reference_singularity(
+        source::AbstractDict, target::AbstractDict;
+        source_model_id::AbstractString, target_model_id::AbstractString,
+        island_mapping::AbstractDict=Dict{String,String}())::ScientificContractResult
+    mapping = Dict{String,Any}("source_model_id" => String(source_model_id),
+                               "target_model_id" => String(target_model_id),
+                               "island_mapping" => Dict{String,String}(string(k) => string(v) for (k, v) in island_mapping))
+    src = get(source, "reference_analysis", nothing)
+    dst = get(target, "reference_analysis", nothing)
+    src isa AbstractDict && dst isa AbstractDict ||
+        return _reference_singularity_refusal(:indeterminate,
+            "W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE", WARNING,
+            "Reference/singularity validation is indeterminate: both analyses are required.",
+            mapping, "reference_analysis must be an object in both models")
+    src_islands, dst_islands = get(src, "islands", nothing), get(dst, "islands", nothing)
+    src_islands isa AbstractVector && dst_islands isa AbstractVector ||
+        return _reference_singularity_refusal(:indeterminate,
+            "W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE", WARNING,
+            "Reference/singularity validation is indeterminate: island lists are missing.",
+            mapping, "reference_analysis.islands must be arrays")
+    function normalize_islands(raw)
+        out = Dict{String,Any}()
+        for item in raw
+            item isa AbstractDict || return nothing
+            id = get(item, "id", nothing)
+            id isa AbstractString && !isempty(id) || return nothing
+            ref = get(item, "has_voltage_reference", nothing)
+            dim, rank = get(item, "dimension", nothing), get(item, "rank", nothing)
+            ref isa Bool && dim isa Integer && dim >= 0 && rank isa Integer && 0 <= rank <= dim || return nothing
+            out[String(id)] = (reference=ref, dimension=Int(dim), rank=Int(rank))
+        end
+        out
+    end
+    src_map, dst_map = normalize_islands(src_islands), normalize_islands(dst_islands)
+    src_map isa Dict && dst_map isa Dict ||
+        return _reference_singularity_refusal(:indeterminate,
+            "W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE", WARNING,
+            "Reference/singularity validation is indeterminate: island records are malformed.",
+            mapping, "each island needs id, boolean reference, dimension, and rank")
+    isempty(src_map) && return _reference_singularity_refusal(:inapplicable,
+        "I.CONTRACT.REFERENCE_SINGULARITY_NOT_APPLICABLE", INFO,
+        "Reference/singularity validation is not applicable: no connected islands were supplied.",
+        mapping, "island list is empty")
+    mapped = Dict{String,String}()
+    for id in keys(src_map)
+        mapped[id] = get(mapping["island_mapping"], id, id)
+    end
+    all(haskey(dst_map, id) for id in values(mapped)) ||
+        return _reference_singularity_refusal(:indeterminate,
+            "W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE", WARNING,
+            "Reference/singularity validation is indeterminate: an island mapping is unresolved.",
+            mapping, "every source island must map to a target island")
+    failures = Finding[]
+    for (src_id, dst_id) in sort(collect(mapped); by=first)
+        s, d = src_map[src_id], dst_map[dst_id]
+        if s.reference && !d.reference
+            push!(failures, _reference_singularity_finding("E.CONTRACT.REFERENCE_LOSS", ERROR,
+                String(target_model_id), "Target island loses the source voltage reference.",
+                Dict{String,Any}("source_island" => src_id, "target_island" => dst_id)))
+        end
+        if s.rank == s.dimension && d.rank < d.dimension
+            push!(failures, _reference_singularity_finding("E.CONTRACT.SINGULARITY_CHANGE", ERROR,
+                String(target_model_id), "Target island becomes rank-deficient relative to the source.",
+                Dict{String,Any}("source_island" => src_id, "target_island" => dst_id,
+                                  "source_rank" => s.rank, "target_rank" => d.rank,
+                                  "target_rank_deficiency" => d.dimension - d.rank)))
+        end
+    end
+    evidence = Dict{String,Any}("classification" => isempty(failures) ?
+        "references_and_rank_preserved" : "reference_or_singularity_failure",
+        "model_mapping" => mapping, "mapped_islands" => mapped,
+        "source_islands" => src_map, "target_islands" => dst_map)
+    isempty(failures) && return _reference_singularity_result(:passed, Finding[], evidence;
+        checked=["island_mapping", "voltage_reference_incidence", "rank_deficiency"])
+    _reference_singularity_result(:failed, failures, evidence;
+        checked=["island_mapping", "voltage_reference_incidence", "rank_deficiency"])
 end
 
 function _decision_manifest_result(

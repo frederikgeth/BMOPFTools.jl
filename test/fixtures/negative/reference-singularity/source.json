@@ -1,0 +1,6 @@
+{
+  "model_id": "referenced-source",
+  "reference_analysis": {"islands": [
+    {"id": "island-1", "has_voltage_reference": true, "dimension": 4, "rank": 4}
+  ]}
+}

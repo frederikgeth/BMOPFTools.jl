@@ -7,11 +7,12 @@
     "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation",
     "positive_sequence_collapse_applicability",
+    "reference_singularity_validation",
     "state_dependent_equivalent_provenance",
     "transformer_tap_domain_preservation",
     "transformer_winding_convention_preservation"
   ],
-  "corpus_sha256": "6b4e25f55a637c5965d31a5a0a32ca5dd162aaaa9a173e711cf85a40355c9e4d",
+  "corpus_sha256": "6be32f9e5442d11975c8f02edd2291c24404c8eab5e683fd7589aa10adb0d614",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -22,19 +23,20 @@
     "PSK-000007",
     "PSK-000008",
     "PSK-000009",
-    "PSK-000010"
+    "PSK-000010",
+    "PSK-000011"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 71,
+  "record_count": 78,
   "record_counts": {
-    "api_operation": 10,
-    "executable_contract": 10,
-    "finding": 41,
-    "fixture": 10
+    "api_operation": 11,
+    "executable_contract": 11,
+    "finding": 45,
+    "fixture": 11
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -44,11 +46,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "92b2d36430aff67627a9655362eff3b155254c52e65979aa631e16755cf75bd2"
+      "sha256": "072354b94a394f6a2e78d6b43c26130bc10526e824738228eaeff67ad44dd9a5"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "c8d77ccc131996b8cc456656b913c72ef9b85441f5caf3ed129bf8e4011072b5"
+      "sha256": "e2d730fde7dd00024e362c20beda0cfd7787a6c338029d706253f3168bd4fee8"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -64,7 +66,7 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "62c60986dc205a49350a5ba05d1030483bfcf7d41ceb68895b7bef9da5c794ae"
+      "sha256": "65cd6cf960c5fc9034367ca3ce107a2ff2f8e5e012ea725291904e4e504af0db"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -235,6 +237,30 @@
       "sha256": "7c3da9333e2b29dcfb32a48c79d056abd3688aeef076e0851a48ea95146f4a1a"
     },
     {
+      "path": "test/fixtures/negative/reference-singularity/exact-target.json",
+      "sha256": "32300337433de6d5f9b57b73526295b684bb9b7317c4aaa437be5b10e9a56a7f"
+    },
+    {
+      "path": "test/fixtures/negative/reference-singularity/expected.json",
+      "sha256": "baaa2394517e7d8dbab9ffb15e823ad7639526a62234ab91a0e3edd30ec7735f"
+    },
+    {
+      "path": "test/fixtures/negative/reference-singularity/metadata.toml",
+      "sha256": "1d8f65f7d3d91d498a57475e6f69b94648b8f07ab919f07f7cef081994064f20"
+    },
+    {
+      "path": "test/fixtures/negative/reference-singularity/reproduce.jl",
+      "sha256": "7f63b38a01a0b3c851231927ab601065d4fbd6a4aeebfaac27e0eeb45f784326"
+    },
+    {
+      "path": "test/fixtures/negative/reference-singularity/source.json",
+      "sha256": "6b39fd7b8f21c1545b91caa4fe42611db93dfea3035774e5bb0fbae56595c368"
+    },
+    {
+      "path": "test/fixtures/negative/reference-singularity/target.json",
+      "sha256": "506832158ebb267af6028fba2ec25118e73aa5dd49ae7beeee13fc3a795920c8"
+    },
+    {
       "path": "test/fixtures/negative/state-dependent-equivalent/exact-target.json",
       "sha256": "86c8b1623891425fc058555c47e6906bcab19dacd059ae3a09bece65254ea49f"
     },
@@ -308,7 +334,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "65e8a948bf1a558b9254d6197cf5d65fe3252844642563b70493dc5047c0ad3f"
+      "sha256": "d240712df96e7d1bc5a0f3ba518127f07fd8837a14074d52fbda0f0cfd90badf"
     }
   ]
 }

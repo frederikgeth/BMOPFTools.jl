@@ -1,5 +1,29 @@
 using JSON3
 
+@testset "Scientific contracts — reference and singularity validation" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative", "reference-singularity")
+    load(name) = JSON3.read(read(joinpath(fixture, name), String), Dict{String,Any})
+    result = check_reference_singularity(
+        load("source.json"), load("target.json");
+        source_model_id="referenced-source", target_model_id="floating-target")
+    @test result.status == :failed
+    @test [f.code for f in result.findings] ==
+          ["E.CONTRACT.REFERENCE_LOSS", "E.CONTRACT.SINGULARITY_CHANGE"]
+    @test result.evidence["classification"] == "reference_or_singularity_failure"
+
+    result = check_reference_singularity(
+        load("source.json"), load("exact-target.json");
+        source_model_id="referenced-source", target_model_id="referenced-target")
+    @test result.status == :passed
+    @test result.checked_dimensions == ["island_mapping", "voltage_reference_incidence", "rank_deficiency"]
+
+    missing = Dict("reference_analysis" => Dict("islands" => Any[]))
+    result = check_reference_singularity(
+        missing, missing; source_model_id="source", target_model_id="target")
+    @test result.status == :inapplicable
+    @test only(result.findings).code == "I.CONTRACT.REFERENCE_SINGULARITY_NOT_APPLICABLE"
+end
+
 @testset "Scientific contracts — fixed versus state-dependent equivalents" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative", "state-dependent-equivalent")
     load(name) = JSON3.read(read(joinpath(fixture, name), String), Dict{String,Any})

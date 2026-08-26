@@ -20,15 +20,15 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 71
-    @test manifest.record_counts.executable_contract == 10
-    @test manifest.record_counts.api_operation == 10
-    @test manifest.record_counts.finding == 41
-    @test manifest.record_counts.fixture == 10
+    @test manifest.record_count == length(records) == 78
+    @test manifest.record_counts.executable_contract == 11
+    @test manifest.record_counts.api_operation == 11
+    @test manifest.record_counts.finding == 45
+    @test manifest.record_counts.fixture == 11
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
         "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
-        "PSK-000010"]
+        "PSK-000010", "PSK-000011"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
         "decision_preservation_manifest_completeness",
@@ -37,6 +37,8 @@ using SHA
         "neutral_ground_reference_preservation",
         "parallel_member_limit_preservation",
         "positive_sequence_collapse_applicability",
+        "reference_singularity_validation",
+        "state_dependent_equivalent_provenance",
         "transformer_tap_domain_preservation",
         "transformer_winding_convention_preservation",
     ]
@@ -130,6 +132,15 @@ using SHA
     @test state_fixture.fixture_id in state_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               state_contract.finding_codes)
+
+    reference_contract = by_id["contract:reference_singularity_validation"]
+    reference_fixture = by_id["fixture:reference-singularity-001"]
+    reference_api = by_id["api:check_reference_singularity"]
+    @test reference_contract.entrypoint == reference_api.entrypoint ==
+          "check_reference_singularity"
+    @test reference_fixture.fixture_id in reference_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              reference_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

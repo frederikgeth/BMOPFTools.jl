@@ -2,6 +2,24 @@
 
 BMOPFTools scientific contracts turn a scoped knowledge statement into an executable decision with structured evidence. The scientific statement and its evidence remain owned by the sibling `multi-graph-book`; this package owns the code-level applicability checks, result status, Findings, fixtures, and export metadata. See the repository-root `ARCHITECTURE.md` for the stable boundary.
 
+## Floating references and singularity
+
+[`check_reference_singularity`](@ref) compares mapped connected-island
+reference incidence and declared rank evidence (`PSK-000011`). It rejects a
+target that loses a source voltage reference or becomes rank-deficient, while
+leaving physical reference assets and solver-specific rank details
+unassessed.
+
+```julia
+source = Dict("reference_analysis" => Dict("islands" => [
+    Dict("id" => "i1", "has_voltage_reference" => true, "dimension" => 4, "rank" => 4)]))
+target = Dict("reference_analysis" => Dict("islands" => [
+    Dict("id" => "i1", "has_voltage_reference" => false, "dimension" => 4, "rank" => 3)]))
+result = check_reference_singularity(source, target;
+    source_model_id="source", target_model_id="target")
+result.findings[1].code # "E.CONTRACT.REFERENCE_LOSS"
+```
+
 ## Fixed versus state-dependent equivalents
 
 [`check_state_dependent_equivalent`](@ref) checks whether a target preserves a

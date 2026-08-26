@@ -1,0 +1,6 @@
+{
+  "contract_id": "reference_singularity_validation",
+  "knowledge_ids": ["PSK-000011"],
+  "finding_codes": ["E.CONTRACT.REFERENCE_LOSS", "E.CONTRACT.SINGULARITY_CHANGE"],
+  "classification": "reference_or_singularity_failure"
+}

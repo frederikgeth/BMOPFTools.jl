@@ -554,3 +554,7 @@ Checks for the DC side: `dc_bus` nodes (signed line-to-ground voltage, no angle)
 | `E.CONTRACT.STATE_BASE_ALIGNMENT_MISMATCH` | E | The target calibration state differs from the source base state. |
 | `I.CONTRACT.STATE_EQUIVALENT_NOT_APPLICABLE` | I | The initial state-dependent-equivalent contract does not cover the supplied domain declaration. |
 | `W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE` | W | A required state parameter, domain, base state, or update declaration is missing or malformed. |
+| `E.CONTRACT.REFERENCE_LOSS` | E | A target island loses a voltage reference present in the source island. |
+| `E.CONTRACT.SINGULARITY_CHANGE` | E | A target island becomes rank-deficient relative to a full-rank source island. |
+| `I.CONTRACT.REFERENCE_SINGULARITY_NOT_APPLICABLE` | I | No connected-island reference evidence was supplied, so this initial validation bundle is not applicable. |
+| `W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE` | W | Reference-analysis island records or their mapping are missing or malformed. |

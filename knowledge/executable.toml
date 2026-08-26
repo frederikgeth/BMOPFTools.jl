@@ -594,3 +594,54 @@ meaning = "The initial state-dependent-equivalent contract does not cover the su
 code = "W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE"
 severity = "WARNING"
 meaning = "A required state parameter, domain, base state, or update declaration is missing or malformed."
+
+[[contract]]
+id = "reference_singularity_validation"
+knowledge_ids = ["PSK-000011"]
+title = "Floating-reference and singularity validation"
+entrypoint = "check_reference_singularity"
+scope = "Declaration-level comparison of mapped connected-island voltage references and rank evidence before accepting a transformed model."
+applicability = [
+  "Both models provide reference_analysis.islands records with stable ids, reference incidence, dimension, and rank.",
+  "Every source island maps to one target island, and source full-rank/reference declarations are the preservation baseline.",
+]
+checked_dimensions = ["island_mapping", "voltage_reference_incidence", "rank_deficiency"]
+unassessed_dimensions = [
+  "physical_reference_asset_identity",
+  "equation_and_solver_rank_details",
+  "complete_network_feasible_set",
+  "objective_or_optimizer_equivalence",
+  "solver_status_or_optimality",
+]
+finding_codes = [
+  "E.CONTRACT.REFERENCE_LOSS",
+  "E.CONTRACT.SINGULARITY_CHANGE",
+  "I.CONTRACT.REFERENCE_SINGULARITY_NOT_APPLICABLE",
+  "W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE",
+]
+fixture_ids = ["reference-singularity-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.REFERENCE_LOSS"
+severity = "ERROR"
+meaning = "A target island loses a voltage reference present in the source island."
+
+[[finding]]
+code = "E.CONTRACT.SINGULARITY_CHANGE"
+severity = "ERROR"
+meaning = "A target island becomes rank-deficient relative to a full-rank source island."
+
+[[finding]]
+code = "I.CONTRACT.REFERENCE_SINGULARITY_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "No connected-island reference evidence was supplied, so this initial validation bundle is not applicable."
+
+[[finding]]
+code = "W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE"
+severity = "WARNING"
+meaning = "Reference-analysis island records or their mapping are missing or malformed."
