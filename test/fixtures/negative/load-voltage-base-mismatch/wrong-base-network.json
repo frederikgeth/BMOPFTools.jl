@@ -1,0 +1,34 @@
+{
+  "name": "load-voltage-base-mismatch",
+  "bus": {
+    "load_bus": {
+      "terminal_names": ["a", "b", "c", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "load_bus",
+      "terminal_map": ["a", "b", "c"],
+      "v_magnitude": [230.0, 230.0, 230.0],
+      "v_angle": [0.0, -2.0943951023931953, 2.0943951023931953]
+    }
+  },
+  "load": {
+    "delta_zip": {
+      "bus": "load_bus",
+      "configuration": "DELTA",
+      "terminal_map": ["a", "b", "c"],
+      "p_nom": [1000.0, 1000.0, 1000.0],
+      "q_nom": [200.0, 200.0, 200.0],
+      "model": "zip",
+      "v_nom": [230.0],
+      "alpha_z": [0.2],
+      "alpha_i": [0.3],
+      "alpha_p": [0.5],
+      "beta_z": [0.2],
+      "beta_i": [0.3],
+      "beta_p": [0.5]
+    }
+  }
+}

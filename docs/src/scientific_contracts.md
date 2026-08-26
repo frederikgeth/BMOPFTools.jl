@@ -120,6 +120,40 @@ local/global guarantees, and solver derivative quality are unassessed by this
 initial contract even though other BMOPFTools profiling paths already cover
 parts of that larger validation problem.
 
+## Load connection voltage bases
+
+[`check_load_voltage_base_consistency`](@ref) implements the initial executable
+portion of `PSK-000004`. It checks voltage-dependent WYE and DELTA load anchors
+against the nominal phase-to-neutral bus base propagated by BMOPFTools from
+declared voltage sources. WYE uses that base directly; DELTA uses the
+line-to-line base, `sqrt(3)` times larger.
+
+```julia
+using BMOPFTools
+
+fixture = joinpath(
+    pkgdir(BMOPFTools), "test", "fixtures", "negative",
+    "load-voltage-base-mismatch",
+)
+network = parse_bmopf(joinpath(fixture, "wrong-base-network.json"))
+result = check_load_voltage_base_consistency(network; load_ids=["delta_zip"])
+
+result.status                                      # :failed
+result.findings[1].code                            # "E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH"
+result.evidence["loads"]["delta_zip"]["ratios"] # [1 / sqrt(3)]
+```
+
+The fixture source is 230 V phase-to-neutral. Its DELTA ZIP load incorrectly
+uses 230 V as `v_nom`, instead of the 398.37 V line-to-line anchor. The contract
+uses the same connection-coordinate conversion and default 0.8--1.25 ratio
+band as ordinary `W.LOAD.VNOM_MISMATCH` validation.
+
+A pass is deliberately declaration-relative. It does not validate the source
+or transformer values used during propagation, the terminal map, load-law
+coefficients, units, solved operating voltage, network equations, or equipment
+limits. Missing required evidence is `:indeterminate`; constant-power or
+unsupported connection cases are `:inapplicable`.
+
 ## Result statuses
 
 [`ScientificContractResult`](@ref) uses four statuses:

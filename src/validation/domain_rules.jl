@@ -787,8 +787,10 @@ function _check_load_models(net, findings, n_checks)
         v_bus_pn === nothing && continue      # bus unreachable from source — skip
 
         cfg = get(l, "configuration", "WYE")
-        # v_bus_pn is phase-to-neutral; DELTA loads reference line-to-line
-        v_expected = cfg == "DELTA" ? v_bus_pn * sqrt(3.0) : v_bus_pn
+        # v_bus_pn is phase-to-neutral; DELTA loads reference line-to-line.
+        # Keep this conversion in one helper so scientific-contract checks use
+        # the same connection-coordinate convention as ordinary validation.
+        v_expected = _load_nominal_voltage_base(v_bus_pn, cfg)
 
         for (k, vk) in enumerate(vnom_vals)
             ratio = vk / v_expected
@@ -810,6 +812,9 @@ function _check_load_models(net, findings, n_checks)
         end
     end
 end
+
+_load_nominal_voltage_base(v_bus_pn::Real, configuration::AbstractString) =
+    configuration == "DELTA" ? Float64(v_bus_pn) * sqrt(3.0) : Float64(v_bus_pn)
 
 # ZIP coefficient checks: per-family arity, and sum ≈ 1 (warning, not error,
 # because experimentally-fitted coefficients need not sum exactly to 1).

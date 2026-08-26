@@ -97,6 +97,103 @@ using JSON3
     end
 end
 
+@testset "Scientific contracts — load voltage-base consistency" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative",
+                       "load-voltage-base-mismatch")
+    wrong = parse_bmopf(joinpath(fixture, "wrong-base-network.json"))
+    validated = parse_bmopf(joinpath(fixture, "validated-network.json"))
+    expected = JSON3.read(read(joinpath(fixture, "expected.json"), String))
+
+    @testset "delta line-to-line base rejects the phase-to-neutral shortcut" begin
+        result = check_load_voltage_base_consistency(
+            wrong; load_ids=["delta_zip"])
+        @test result isa ScientificContractResult
+        @test result.status == :failed
+        @test result.contract_id == expected.contract_id
+        @test result.knowledge_ids == String.(expected.knowledge_ids)
+        @test [finding.code for finding in result.findings] ==
+              String.(expected.finding_codes)
+        @test result.evidence["classification"] == expected.classification
+        record = result.evidence["loads"][expected.load_id]
+        atol = Float64(expected.absolute_tolerance)
+        @test record["bus_phase_to_neutral_base_V"] ≈
+              expected.bus_phase_to_neutral_base_V atol=atol
+        @test record["expected_v_nom_V"] ≈ expected.expected_v_nom_V atol=atol
+        @test only(record["declared_v_nom_V"]) ≈ expected.declared_v_nom_V atol=atol
+        @test only(record["ratios"]) ≈ expected.ratio atol=atol
+        @test record["voltage_coordinate"] == "line_to_line"
+        detail = only(result.findings).detail
+        @test detail["knowledge_ids"] == ["PSK-000004"]
+        @test !isempty(detail["invalid_inferences"])
+        @test !isempty(detail["recommended_checks"])
+
+        ordinary = Finding[]
+        domain_rules_check(wrong, ordinary)
+        @test "W.LOAD.VNOM_MISMATCH" in [finding.code for finding in ordinary]
+    end
+
+    @testset "connection-consistent anchors pass only declared dimensions" begin
+        result = check_load_voltage_base_consistency(validated)
+        @test result.status == :passed
+        @test isempty(result.findings)
+        @test result.checked_dimensions == [
+            "source_propagated_bus_voltage_base",
+            "declared_load_connection_voltage_coordinate",
+            "load_nominal_voltage_anchor",
+        ]
+        @test "terminal_map_correctness" in result.unassessed_dimensions
+        @test "network_equation_feasibility" in result.unassessed_dimensions
+        @test result.evidence["classification"] ==
+              "connection_voltage_bases_consistent"
+
+        wye = deepcopy(validated)
+        wye_load = wye["load"]["delta_zip"]
+        wye_load["configuration"] = "WYE"
+        wye_load["terminal_map"] = ["a", "b", "c", "n"]
+        wye_load["v_nom"] = [230.0]
+        wye_result = check_load_voltage_base_consistency(wye)
+        @test wye_result.status == :passed
+        @test wye_result.evidence["loads"]["delta_zip"]["voltage_coordinate"] ==
+              "phase_to_neutral"
+
+        decoded = JSON3.read(JSON3.write(contract_result_to_dict(result)))
+        @test decoded.status == "passed"
+        @test decoded.knowledge_ids == ["PSK-000004"]
+    end
+
+    @testset "ratio boundaries and refusal semantics are explicit" begin
+        low = deepcopy(validated)
+        low["load"]["delta_zip"]["v_nom"] = [0.8 * 230.0 * sqrt(3.0)]
+        @test check_load_voltage_base_consistency(low).status == :passed
+        low["load"]["delta_zip"]["v_nom"] = [0.799 * 230.0 * sqrt(3.0)]
+        @test check_load_voltage_base_consistency(low).status == :failed
+
+        constant = deepcopy(validated)
+        constant["load"]["delta_zip"]["model"] = "constant_power"
+        inapplicable = check_load_voltage_base_consistency(
+            constant; load_ids=["delta_zip"])
+        @test inapplicable.status == :inapplicable
+        @test only(inapplicable.findings).code ==
+              "I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE"
+
+        missing = check_load_voltage_base_consistency(
+            validated; load_ids=["missing"])
+        @test missing.status == :indeterminate
+        @test only(missing.findings).code ==
+              "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE"
+
+        no_anchor = deepcopy(validated)
+        delete!(no_anchor["load"]["delta_zip"], "v_nom")
+        indeterminate = check_load_voltage_base_consistency(no_anchor)
+        @test indeterminate.status == :indeterminate
+        @test only(indeterminate.findings).code ==
+              "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE"
+
+        @test_throws ArgumentError check_load_voltage_base_consistency(
+            validated; ratio_min=1.1, ratio_max=1.2)
+    end
+end
+
 @testset "Scientific contracts — claimed solution validity" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative",
                        "claimed-feasible-invalid-solution")

@@ -1,0 +1,12 @@
+{
+  "contract_id": "load_voltage_base_consistency",
+  "knowledge_ids": ["PSK-000004"],
+  "classification": "connection_voltage_base_mismatch",
+  "finding_codes": ["E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH"],
+  "load_id": "delta_zip",
+  "bus_phase_to_neutral_base_V": 230.0,
+  "expected_v_nom_V": 398.37168574084177,
+  "declared_v_nom_V": 230.0,
+  "ratio": 0.5773502691896257,
+  "absolute_tolerance": 1e-12
+}

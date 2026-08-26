@@ -9,6 +9,8 @@ const _NEUTRAL_GROUND_CONTRACT = "neutral_ground_reference_preservation"
 const _NEUTRAL_GROUND_PSK = "PSK-000002"
 const _CLAIMED_SOLUTION_CONTRACT = "claimed_solution_validity"
 const _CLAIMED_SOLUTION_PSK = "PSK-000003"
+const _LOAD_VOLTAGE_BASE_CONTRACT = "load_voltage_base_consistency"
+const _LOAD_VOLTAGE_BASE_PSK = "PSK-000004"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -938,4 +940,235 @@ function check_claimed_solution_validity(
     evidence["qualification"] =
         "Pass covers result finiteness and declared bus voltage/angle limits only; it is not an equation-feasibility or optimality certificate."
     _claimed_solution_result(:passed, Finding[], evidence; checked=checked)
+end
+
+function _load_voltage_base_result(status::Symbol, findings::Vector{Finding},
+                                   evidence::Dict{String,Any}; checked=String[])
+    ScientificContractResult(
+        _LOAD_VOLTAGE_BASE_CONTRACT,
+        status,
+        [_LOAD_VOLTAGE_BASE_PSK],
+        checked,
+        [
+            "source_voltage_declaration_correctness",
+            "transformer_ratio_declaration_correctness",
+            "terminal_map_correctness",
+            "load_law_and_coefficient_correctness",
+            "operating_voltage",
+            "network_equation_feasibility",
+            "equipment_limits",
+            "unit_provenance",
+        ],
+        findings,
+        evidence,
+    )
+end
+
+function _load_voltage_base_refusal(status::Symbol, code::String, severity::Severity,
+                                    message::String, load_ids::Vector{String}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_LOAD_VOLTAGE_BASE_PSK],
+        "contract_id" => _LOAD_VOLTAGE_BASE_CONTRACT,
+        "load_ids" => load_ids,
+        "reason" => reason,
+        "invalid_inferences" => [
+            "No voltage-base conclusion follows when the load connection, nominal anchor, or source-propagated bus base is unavailable or outside the supported domain.",
+        ],
+        "recommended_checks" => [
+            "Declare a voltage-dependent WYE or DELTA load with a finite positive v_nom.",
+            "Provide a source-reachable bus voltage base and verify source and transformer nominal-voltage declarations independently.",
+        ],
+    )
+    finding = Finding(severity, code, :scientific_contract, :load,
+                      length(load_ids) == 1 ? only(load_ids) : nothing,
+                      message, detail)
+    _load_voltage_base_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status),
+        "load_ids" => load_ids,
+        "reason" => reason,
+    ))
+end
+
+"""
+    check_load_voltage_base_consistency(net; load_ids=nothing,
+        ratio_min=0.8, ratio_max=1.25) -> ScientificContractResult
+
+Check the initial executable portion of scientific contract
+`load_voltage_base_consistency` (`PSK-000004`). The contract applies to
+voltage-dependent WYE and DELTA loads whose buses have a nominal
+phase-to-neutral voltage reachable from a declared voltage source through the
+existing BMOPFTools voltage-level propagation.
+
+For each selected load, the expected nominal anchor is the propagated
+phase-to-neutral bus base for WYE and that base multiplied by `sqrt(3)` for
+DELTA. Every scalar or per-subload `v_nom` must lie within the declared ratio
+band. This uses the same connection-coordinate conversion and default
+plausibility band as `W.LOAD.VNOM_MISMATCH` in [`domain_rules_check`](@ref).
+
+A pass establishes only consistency among the declared source-propagated bus
+base, load connection, and load-model nominal anchor. It does not validate the
+source or transformer declarations used to infer the base, the load law or
+coefficients, operating-point voltage, network equations, equipment limits, or
+unit provenance.
+"""
+function check_load_voltage_base_consistency(
+        net::Dict{String,Any};
+        load_ids::Union{Nothing,AbstractVector{<:AbstractString}}=nothing,
+        ratio_min::Real=0.8,
+        ratio_max::Real=1.25)::ScientificContractResult
+    ratio_min_f = Float64(ratio_min)
+    ratio_max_f = Float64(ratio_max)
+    (isfinite(ratio_min_f) && isfinite(ratio_max_f) &&
+     0 < ratio_min_f <= 1 <= ratio_max_f) || throw(ArgumentError(
+        "ratio_min and ratio_max must be finite, positive, and bracket 1"))
+
+    loads = get(net, "load", nothing)
+    if !(loads isa AbstractDict) || isempty(loads)
+        return _load_voltage_base_refusal(
+            :inapplicable, "I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE", INFO,
+            "Load voltage-base consistency is not applicable: the network has no loads.",
+            String[], "the network has no loads")
+    end
+
+    requested = if load_ids === nothing
+        sort([string(id) for (id, load) in loads
+              if load isa AbstractDict &&
+                 get(load, "model", "constant_power") != "constant_power"])
+    else
+        String.(load_ids)
+    end
+    if isempty(requested) || length(unique(requested)) != length(requested)
+        return _load_voltage_base_refusal(
+            :inapplicable, "I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE", INFO,
+            "Load voltage-base consistency is not applicable: load_ids must identify at least one unique voltage-dependent load.",
+            requested, "no unique voltage-dependent load was selected")
+    end
+
+    selected = Pair{String,Any}[]
+    for id in requested
+        load = get(loads, id, nothing)
+        if !(load isa AbstractDict)
+            return _load_voltage_base_refusal(
+                :indeterminate, "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE", WARNING,
+                "Load voltage-base consistency is indeterminate: load '$id' is missing.",
+                requested, "load '$id' is missing")
+        end
+        model = string(get(load, "model", "constant_power"))
+        if model == "constant_power"
+            return _load_voltage_base_refusal(
+                :inapplicable, "I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE", INFO,
+                "Load voltage-base consistency is not applicable: load '$id' is constant-power and has no operative voltage anchor.",
+                requested, "load '$id' is constant-power")
+        end
+        configuration = string(get(load, "configuration", "WYE"))
+        if !(configuration in ("WYE", "DELTA"))
+            return _load_voltage_base_refusal(
+                :inapplicable, "I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE", INFO,
+                "Load voltage-base consistency is not applicable: load '$id' has unsupported configuration '$configuration'.",
+                requested, "load '$id' has unsupported configuration '$configuration'")
+        end
+        push!(selected, id => load)
+    end
+
+    bus_bases = try
+        _assign_nominal_voltages(net)
+    catch error
+        return _load_voltage_base_refusal(
+            :indeterminate, "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE", WARNING,
+            "Load voltage-base consistency is indeterminate: nominal bus voltages could not be propagated.",
+            requested, "nominal bus voltage propagation failed: $(sprint(showerror, error))")
+    end
+
+    records = Dict{String,Any}()
+    mismatches = String[]
+    for (id, load) in selected
+        bus_id = get(load, "bus", nothing)
+        if !(bus_id isa AbstractString) || !haskey(bus_bases, String(bus_id))
+            return _load_voltage_base_refusal(
+                :indeterminate, "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE", WARNING,
+                "Load voltage-base consistency is indeterminate: load '$id' has no source-reachable bus voltage base.",
+                requested, "load '$id' has no source-reachable bus voltage base")
+        end
+        raw_vnom = get(load, "v_nom", nothing)
+        values = if raw_vnom isa Number
+            [Float64(raw_vnom)]
+        elseif raw_vnom isa AbstractVector && all(value -> value isa Number, raw_vnom)
+            Float64.(raw_vnom)
+        else
+            return _load_voltage_base_refusal(
+                :indeterminate, "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE", WARNING,
+                "Load voltage-base consistency is indeterminate: load '$id' has no numeric v_nom.",
+                requested, "load '$id' has no numeric v_nom")
+        end
+        if isempty(values) || any(value -> !isfinite(value) || value <= 0, values)
+            return _load_voltage_base_refusal(
+                :indeterminate, "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE", WARNING,
+                "Load voltage-base consistency is indeterminate: load '$id' has an empty, non-finite, or non-positive v_nom.",
+                requested, "load '$id' has an invalid v_nom")
+        end
+
+        configuration = string(get(load, "configuration", "WYE"))
+        bus_base_pn = bus_bases[String(bus_id)]
+        expected = _load_nominal_voltage_base(bus_base_pn, configuration)
+        ratios = values ./ expected
+        outside_ratio_band(ratio) = begin
+            endpoint_atol = 8 * eps(max(abs(ratio), abs(ratio_min_f),
+                                        abs(ratio_max_f), 1.0))
+            below = ratio < ratio_min_f &&
+                    !isapprox(ratio, ratio_min_f; atol=endpoint_atol, rtol=0)
+            above = ratio > ratio_max_f &&
+                    !isapprox(ratio, ratio_max_f; atol=endpoint_atol, rtol=0)
+            below || above
+        end
+        load_mismatch = any(outside_ratio_band, ratios)
+        load_mismatch && push!(mismatches, id)
+        records[id] = Dict{String,Any}(
+            "bus" => String(bus_id),
+            "configuration" => configuration,
+            "voltage_coordinate" => configuration == "DELTA" ? "line_to_line" : "phase_to_neutral",
+            "bus_phase_to_neutral_base_V" => bus_base_pn,
+            "expected_v_nom_V" => expected,
+            "declared_v_nom_V" => values,
+            "ratios" => ratios,
+            "within_ratio_band" => !load_mismatch,
+        )
+    end
+
+    checked = [
+        "source_propagated_bus_voltage_base",
+        "declared_load_connection_voltage_coordinate",
+        "load_nominal_voltage_anchor",
+    ]
+    evidence = Dict{String,Any}(
+        "load_ids" => requested,
+        "ratio_band" => Dict{String,Any}("minimum" => ratio_min_f,
+                                         "maximum" => ratio_max_f),
+        "loads" => records,
+    )
+    if !isempty(mismatches)
+        evidence["classification"] = "connection_voltage_base_mismatch"
+        evidence["mismatched_load_ids"] = mismatches
+        detail = merge(copy(evidence), Dict{String,Any}(
+            "knowledge_ids" => [_LOAD_VOLTAGE_BASE_PSK],
+            "contract_id" => _LOAD_VOLTAGE_BASE_CONTRACT,
+            "invalid_inferences" => [
+                "The same numeric nominal voltage cannot be used for WYE phase-to-neutral and DELTA line-to-line load coordinates without an explicit base conversion.",
+            ],
+            "recommended_checks" => [
+                "Use the propagated phase-to-neutral base for WYE loads and sqrt(3) times that base for DELTA loads.",
+                "Rerun domain_rules_check and resolve W.LOAD.VNOM_MISMATCH before solving a voltage-dependent load model.",
+            ],
+        ))
+        finding = Finding(ERROR, "E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH",
+            :scientific_contract, :load,
+            length(mismatches) == 1 ? only(mismatches) : nothing,
+            "Voltage-dependent load nominal voltage uses a connection-inconsistent base for $(join(mismatches, ", ")).",
+            detail)
+        return _load_voltage_base_result(:failed, [finding], evidence; checked=checked)
+    end
+
+    evidence["classification"] = "connection_voltage_bases_consistent"
+    evidence["qualification"] =
+        "Pass covers consistency with the declared source-propagated base only; it does not validate the declarations, load law, or solved operating point."
+    _load_voltage_base_result(:passed, Finding[], evidence; checked=checked)
 end

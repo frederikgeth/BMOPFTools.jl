@@ -167,3 +167,57 @@ meaning = "The solver did not claim a feasible solution, or the network has no d
 code = "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE"
 severity = "WARNING"
 meaning = "Termination status or required bus-terminal result data is missing, so the implemented validation dimensions cannot be decided."
+
+[[contract]]
+id = "load_voltage_base_consistency"
+knowledge_ids = ["PSK-000004"]
+title = "Load connection voltage-base consistency"
+entrypoint = "check_load_voltage_base_consistency"
+scope = "Voltage-dependent WYE and DELTA loads with finite positive nominal anchors and source-reachable phase-to-neutral bus bases."
+applicability = [
+  "At least one selected load uses a voltage-dependent model and declares WYE or DELTA configuration.",
+  "Every selected load has a finite positive scalar or per-subload v_nom.",
+  "Every selected load bus has a nominal phase-to-neutral voltage reachable from a declared source through BMOPFTools voltage-level propagation.",
+]
+checked_dimensions = [
+  "source_propagated_bus_voltage_base",
+  "declared_load_connection_voltage_coordinate",
+  "load_nominal_voltage_anchor",
+]
+unassessed_dimensions = [
+  "source_voltage_declaration_correctness",
+  "transformer_ratio_declaration_correctness",
+  "terminal_map_correctness",
+  "load_law_and_coefficient_correctness",
+  "operating_voltage",
+  "network_equation_feasibility",
+  "equipment_limits",
+  "unit_provenance",
+]
+finding_codes = [
+  "E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH",
+  "I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE",
+  "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE",
+]
+fixture_ids = ["load-voltage-base-mismatch-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "src/validation/domain_rules.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH"
+severity = "ERROR"
+meaning = "A voltage-dependent load's nominal anchor lies outside the declared ratio band for its source-propagated WYE phase-to-neutral or DELTA line-to-line voltage base."
+
+[[finding]]
+code = "I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "No unique voltage-dependent WYE or DELTA load is selected, so the initial load voltage-base contract is not applicable."
+
+[[finding]]
+code = "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE"
+severity = "WARNING"
+meaning = "A selected load, numeric nominal anchor, or source-reachable bus voltage base is unavailable, so consistency cannot be decided."

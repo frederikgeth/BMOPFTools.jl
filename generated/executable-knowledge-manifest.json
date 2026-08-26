@@ -1,26 +1,28 @@
 {
   "contract_ids": [
     "claimed_solution_validity",
+    "load_voltage_base_consistency",
     "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation"
   ],
-  "corpus_sha256": "a2bf99fc2230a00851e68be85a83197539aa1b740c35b838575ded947db4949a",
+  "corpus_sha256": "b9086eaa2c1ca855c0430d12fa36dfdeb997e294bc42f0e8e788dc9f571630d9",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
-    "PSK-000003"
+    "PSK-000003",
+    "PSK-000004"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 21,
+  "record_count": 27,
   "record_counts": {
-    "api_operation": 3,
-    "executable_contract": 3,
-    "finding": 12,
-    "fixture": 3
+    "api_operation": 4,
+    "executable_contract": 4,
+    "finding": 15,
+    "fixture": 4
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -30,11 +32,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "17c862c1b2e3ee541d28d68e2fb95e79d6e6725cc18fa1aaeb2d90db67423e0d"
+      "sha256": "83bf32b900eba7250fe533d5ae2fb8ee5d1c5fc5b4b7eec0844c5fa624b48f39"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "a5224f077c2170e258d8d0ab4b7891cb24319e78490bd9798c3e1f35cca4eaed"
+      "sha256": "4ac45d584e0e635f0f870f4f9c726ffd5790741f671b945612102de9195e51ef"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -42,7 +44,11 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "ebe648e4512b8f04ef4cbc8d9590d9f1cf032e455f3cd7735438641001852760"
+      "sha256": "22d93815fc725d5cc1c34ff9ce950dd7ce73816d648d2214c06700b2a131c6dc"
+    },
+    {
+      "path": "src/validation/domain_rules.jl",
+      "sha256": "ceabb800e1f823dbb2b8ebf1cd0332488b29d7fea24c4d099fac9e7ea3c9eb38"
     },
     {
       "path": "src/validation/solution.jl",
@@ -71,6 +77,26 @@
     {
       "path": "test/fixtures/negative/claimed-feasible-invalid-solution/validated-result.json",
       "sha256": "3c9dc5c9914625fa6e9060515100a424f580a2c2dc56aae52835ac0225a06269"
+    },
+    {
+      "path": "test/fixtures/negative/load-voltage-base-mismatch/expected.json",
+      "sha256": "3338c1478a8f9d89617b6eec5bf5d01db9716eedf95e6862852d8376c11d66d5"
+    },
+    {
+      "path": "test/fixtures/negative/load-voltage-base-mismatch/metadata.toml",
+      "sha256": "4c4dd17de103c36539d0098fbd1194a7a13d85d191a11b0942a8875d78e032db"
+    },
+    {
+      "path": "test/fixtures/negative/load-voltage-base-mismatch/reproduce.jl",
+      "sha256": "90434e7012987f19b7a42ca1af861d8c83689e68904e310f38341a6dc8fe98b5"
+    },
+    {
+      "path": "test/fixtures/negative/load-voltage-base-mismatch/validated-network.json",
+      "sha256": "197c8c6686355b59dccf3ebef5010d20ba119ded5c9849999fd3768e7af8af17"
+    },
+    {
+      "path": "test/fixtures/negative/load-voltage-base-mismatch/wrong-base-network.json",
+      "sha256": "f8efe8e700e02eca36fc56c41551a39196ce65552ed1812605b9914485af22a5"
     },
     {
       "path": "test/fixtures/negative/neutral-ground-reference-conflation/exact-target.json",
@@ -122,7 +148,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "1fcf4707095fe15425f8cce490d86e945624adea2b3cb5879e99e590a154c027"
+      "sha256": "a6d599042bc956f9476230b48228ab9309ea3eba19111a38ac8e645763736c47"
     }
   ]
 }

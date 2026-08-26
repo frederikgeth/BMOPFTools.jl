@@ -1,0 +1,19 @@
+schema_version = "0.1.0"
+fixture_id = "load-voltage-base-mismatch-001"
+knowledge_ids = ["PSK-000004"]
+contract_id = "load_voltage_base_consistency"
+kind = "counterexample"
+title = "Delta voltage-dependent load using a phase-to-neutral nominal anchor"
+scope = "One balanced 230 V phase-to-neutral bus and one DELTA ZIP load whose negative fixture incorrectly declares v_nom=230 V instead of the 398.37 V line-to-line base."
+minimality_status = "hand_minimized_one_bus_one_load"
+source_file = "wrong-base-network.json"
+transformed_file = "wrong-base-network.json"
+exact_target_file = "validated-network.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH"]
+does_not_establish = [
+  "Every load nameplate mismatch is exactly a square-root-of-three error.",
+  "A passing declaration proves the source, transformer, load-law, units, or solved operating point are correct.",
+  "The initial WYE/DELTA contract covers arbitrary terminal maps or other connection families.",
+]
