@@ -5,6 +5,8 @@
 
 const _PARALLEL_MEMBER_LIMIT_CONTRACT = "parallel_member_limit_preservation"
 const _PARALLEL_MEMBER_LIMIT_PSK = "PSK-000001"
+const _NEUTRAL_GROUND_CONTRACT = "neutral_ground_reference_preservation"
+const _NEUTRAL_GROUND_PSK = "PSK-000002"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -42,6 +44,51 @@ struct ScientificContractResult
             String.(checked_dimensions), String.(unassessed_dimensions),
             Vector{Finding}(findings), Dict{String,Any}(evidence))
     end
+end
+
+function _neutral_ground_result(status::Symbol, findings::Vector{Finding},
+                                evidence::Dict{String,Any}; checked=String[])
+    ScientificContractResult(
+        _NEUTRAL_GROUND_CONTRACT,
+        status,
+        [_NEUTRAL_GROUND_PSK],
+        checked,
+        [
+            "electrical_terminal_behavior",
+            "explicit_earth_conductor_behavior",
+            "soil_and_electrode_model",
+            "grounding_asset_identity_and_state",
+            "fault_current",
+            "touch_voltage",
+            "protection_operation",
+        ],
+        findings,
+        evidence,
+    )
+end
+
+function _neutral_ground_refusal(status::Symbol, code::String, severity::Severity,
+                                 message::String, mapping::Dict{String,String}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_NEUTRAL_GROUND_PSK],
+        "contract_id" => _NEUTRAL_GROUND_CONTRACT,
+        "bus_mapping" => mapping,
+        "reason" => reason,
+        "invalid_inferences" => [
+            "No neutral/ground/reference preservation conclusion follows when the mapping is incomplete or the declared relation lies outside the supported domain.",
+        ],
+        "recommended_checks" => [
+            "Provide a one-to-one mapping for at least two source buses with explicit neutral terminals.",
+            "Retain neutral terminal identity, neutral continuity, and the declared perfect-ground, finite-grounding, and source-reference relations.",
+        ],
+    )
+    finding = Finding(severity, code, :scientific_contract, :transformation,
+                      nothing, message, detail)
+    _neutral_ground_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status),
+        "reason" => reason,
+        "bus_mapping" => mapping,
+    ))
 end
 
 _contract_finding_to_dict(f::Finding) = Dict{String,Any}(
@@ -367,4 +414,336 @@ function check_parallel_member_limit_preservation(
         detail)
     _contract_result(:failed, [finding], common_evidence;
         checked=["terminal_behavior", "scalar_member_current_limits"])
+end
+
+function _neutral_ground_signature(net::Dict{String,Any}, bus_id::String;
+                                   atol::Float64)
+    bus = get(get(net, "bus", Dict()), bus_id, nothing)
+    bus isa Dict{String,Any} || return (nothing, :indeterminate,
+        "bus '$bus_id' does not resolve to a BMOPF bus record")
+    neutral = _neutral_terminal(bus)
+    neutral === nothing && return (nothing, :inapplicable,
+        "bus '$bus_id' has no identifiable explicit neutral terminal")
+
+    perfect = neutral in string.(get(bus, "perfectly_grounded_terminals", String[]))
+    source_references = String[]
+    for (id, source) in get(net, "voltage_source", Dict())
+        source isa AbstractDict || continue
+        string(get(source, "bus", "")) == bus_id || continue
+        neutral in string.(get(source, "terminal_map", String[])) && push!(source_references, string(id))
+    end
+
+    grounding_shunts = Pair{String,ComplexF64}[]
+    for (id, shunt) in get(net, "shunt", Dict())
+        shunt isa Dict{String,Any} || continue
+        string(get(shunt, "bus", "")) == bus_id || continue
+        terminal_map = string.(get(shunt, "terminal_map", String[]))
+        neutral in terminal_map || continue
+        length(terminal_map) == 1 || return (nothing, :inapplicable,
+            "shunt '$id' couples neutral '$neutral' to other terminals; the initial contract supports scalar neutral-only grounding shunts")
+        nodes, yprim = _shunt_yprim(shunt)
+        size(yprim) == (1, 1) || return (nothing, :indeterminate,
+            "shunt '$id' has no resolvable scalar grounding admittance")
+        y = ComplexF64(yprim[1, 1])
+        (isfinite(real(y)) && isfinite(imag(y))) || return (nothing, :indeterminate,
+            "shunt '$id' has a non-finite grounding admittance")
+        abs(y) > atol && push!(grounding_shunts, string(id) => y)
+    end
+    sort!(grounding_shunts; by=first)
+
+    classification = String[]
+    perfect && push!(classification, "perfect_ground")
+    !isempty(grounding_shunts) && push!(classification, "finite_grounding")
+    !isempty(source_references) && push!(classification, "source_reference")
+    isempty(classification) && push!(classification, "floating")
+    values_sorted = sort(last.(grounding_shunts); by=z -> (real(z), imag(z)))
+    raw = (
+        neutral=neutral,
+        perfect=perfect,
+        source_reference_count=length(source_references),
+        grounding_values=values_sorted,
+    )
+    evidence = Dict{String,Any}(
+        "bus_id" => bus_id,
+        "neutral_terminal" => neutral,
+        "relation_classes" => classification,
+        "perfectly_grounded" => perfect,
+        "source_reference_ids" => sort(source_references),
+        "grounding_shunts" => [
+            Dict{String,Any}("id" => id, "admittance_S" => _contract_complex(y))
+            for (id, y) in grounding_shunts
+        ],
+    )
+    (raw, evidence, :applicable, "")
+end
+
+function _neutral_component_labels(net::Dict{String,Any})::Dict{String,Int}
+    buses = get(net, "bus", Dict())
+    neutral_of = _bus_neutral_map(buses)
+    neutral_buses = Set(id for (id, neutral) in neutral_of if neutral !== nothing)
+    adjacency = Dict{String,Set{String}}(id => Set{String}() for id in neutral_buses)
+    uses_neutral(bus_id, terminal_map) = begin
+        neutral = get(neutral_of, bus_id, nothing)
+        neutral !== nothing && neutral in string.(terminal_map)
+    end
+
+    for component_type in ("line", "switch")
+        for (_, component) in get(net, component_type, Dict())
+            component isa AbstractDict || continue
+            component_type == "switch" && get(component, "open_switch", false) && continue
+            from = string(get(component, "bus_from", ""))
+            to = string(get(component, "bus_to", ""))
+            (from in neutral_buses && to in neutral_buses) || continue
+            uses_neutral(from, get(component, "terminal_map_from", String[])) || continue
+            uses_neutral(to, get(component, "terminal_map_to", String[])) || continue
+            push!(adjacency[from], to)
+            push!(adjacency[to], from)
+        end
+    end
+    for (_, component) in get(get(net, "transformer", Dict()),
+                              "single_phase_autotransformer", Dict())
+        component isa AbstractDict || continue
+        from = string(get(component, "bus_from", ""))
+        to = string(get(component, "bus_to", ""))
+        (from in neutral_buses && to in neutral_buses) || continue
+        uses_neutral(from, get(component, "terminal_map_from", String[])) || continue
+        uses_neutral(to, get(component, "terminal_map_to", String[])) || continue
+        push!(adjacency[from], to)
+        push!(adjacency[to], from)
+    end
+
+    labels = Dict{String,Int}()
+    label = 0
+    for start in sort(collect(neutral_buses))
+        haskey(labels, start) && continue
+        label += 1
+        queue = [start]
+        labels[start] = label
+        while !isempty(queue)
+            bus_id = popfirst!(queue)
+            for neighbor in sort(collect(adjacency[bus_id]))
+                haskey(labels, neighbor) && continue
+                labels[neighbor] = label
+                push!(queue, neighbor)
+            end
+        end
+    end
+    labels
+end
+
+function _neutral_relation_equal(source, target; atol::Float64, rtol::Float64)::Bool
+    source.perfect == target.perfect || return false
+    source.source_reference_count == target.source_reference_count || return false
+    length(source.grounding_values) == length(target.grounding_values) || return false
+    all(isapprox(a, b; atol=atol, rtol=rtol)
+        for (a, b) in zip(source.grounding_values, target.grounding_values))
+end
+
+"""
+    check_neutral_ground_reference_preservation(source, target;
+        bus_mapping, atol=1e-9, rtol=1e-8) -> ScientificContractResult
+
+Check the representation-level portion of scientific contract
+`neutral_ground_reference_preservation` (`PSK-000002`). `bus_mapping` must be
+a one-to-one mapping for at least two source buses with explicit neutral
+terminals. The initial executable domain checks whether the target retains:
+
+- an identifiable neutral terminal at every mapped bus;
+- the pairwise neutral-continuity relation among mapped buses; and
+- each mapped bus's declared perfect-ground, scalar finite-grounding-shunt,
+  and voltage-source-reference relations.
+
+The check deliberately distinguishes an intentional perfectly grounded neutral
+from conflating every neutral with the mathematical reference. A pass applies
+only to the declared representation relations. It does not establish equal
+terminal equations, explicit-earth behavior, fault current, touch voltage,
+protection operation, or grounding-asset identity. Coupled multiconductor
+grounding shunts are refused as `:inapplicable` rather than reduced to a scalar
+guess.
+"""
+function check_neutral_ground_reference_preservation(
+        source::Dict{String,Any}, target::Dict{String,Any};
+        bus_mapping::AbstractDict,
+        atol::Real=1e-9,
+        rtol::Real=1e-8)::ScientificContractResult
+    atol_f = Float64(atol)
+    rtol_f = Float64(rtol)
+    (isfinite(atol_f) && atol_f >= 0 && isfinite(rtol_f) && rtol_f >= 0) ||
+        throw(ArgumentError("atol and rtol must be finite and nonnegative"))
+    mapping = Dict{String,String}(string(source_id) => string(target_id)
+                                  for (source_id, target_id) in bus_mapping)
+    if length(mapping) < 2 || length(unique(values(mapping))) != length(mapping)
+        return _neutral_ground_refusal(
+            :inapplicable, "I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE", INFO,
+            "Neutral/ground/reference contract is not applicable: bus_mapping must contain at least two one-to-one bus mappings.",
+            mapping, "bus_mapping must contain at least two one-to-one bus mappings")
+    end
+
+    source_buses = get(source, "bus", Dict())
+    target_buses = get(target, "bus", Dict())
+    for source_id in sort(collect(keys(mapping)))
+        haskey(source_buses, source_id) || return _neutral_ground_refusal(
+            :indeterminate, "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE", WARNING,
+            "Neutral/ground/reference contract is indeterminate: source bus '$source_id' is missing.",
+            mapping, "source bus '$source_id' is missing")
+        target_id = mapping[source_id]
+        haskey(target_buses, target_id) || return _neutral_ground_refusal(
+            :indeterminate, "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE", WARNING,
+            "Neutral/ground/reference contract is indeterminate: target bus '$target_id' is missing.",
+            mapping, "target bus '$target_id' is missing")
+        _neutral_terminal(source_buses[source_id]) === nothing && return _neutral_ground_refusal(
+            :inapplicable, "I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE", INFO,
+            "Neutral/ground/reference contract is not applicable: source bus '$source_id' has no identifiable explicit neutral terminal.",
+            mapping, "source bus '$source_id' has no identifiable explicit neutral terminal")
+    end
+
+    terminal_mapping = Dict{String,Any}()
+    missing_target_neutrals = String[]
+    for source_id in sort(collect(keys(mapping)))
+        target_id = mapping[source_id]
+        source_neutral = _neutral_terminal(source_buses[source_id])
+        target_neutral = _neutral_terminal(target_buses[target_id])
+        terminal_mapping[source_id] = Dict{String,Any}(
+            "target_bus" => target_id,
+            "source_neutral" => source_neutral,
+            "target_neutral" => target_neutral,
+        )
+        target_neutral === nothing && push!(missing_target_neutrals, target_id)
+    end
+    common_evidence = Dict{String,Any}(
+        "bus_mapping" => mapping,
+        "neutral_terminal_mapping" => terminal_mapping,
+    )
+    if !isempty(missing_target_neutrals)
+        common_evidence["classification"] = "neutral_identity_loss"
+        common_evidence["target_buses_without_neutral"] = missing_target_neutrals
+        detail = merge(copy(common_evidence), Dict{String,Any}(
+            "knowledge_ids" => [_NEUTRAL_GROUND_PSK],
+            "contract_id" => _NEUTRAL_GROUND_CONTRACT,
+            "invalid_inferences" => [
+                "Omitting an explicit neutral terminal does not establish that its voltage, current, limits, or grounding relation are represented by the mathematical reference.",
+            ],
+            "recommended_checks" => [
+                "Retain an explicit target neutral or provide a separately justified reduction and recovery contract.",
+            ],
+        ))
+        finding = Finding(ERROR, "E.CONTRACT.NEUTRAL_IDENTITY_LOSS",
+            :scientific_contract, :bus, nothing,
+            "Target model loses the explicit neutral terminal at mapped bus(es): $(join(missing_target_neutrals, ", ")).",
+            detail)
+        return _neutral_ground_result(:failed, [finding], common_evidence;
+                                      checked=["neutral_terminal_identity"])
+    end
+
+    source_relations = Dict{String,Any}()
+    target_relations = Dict{String,Any}()
+    source_raw = Dict{String,Any}()
+    target_raw = Dict{String,Any}()
+    for source_id in sort(collect(keys(mapping)))
+        target_id = mapping[source_id]
+        source_signature = _neutral_ground_signature(source, source_id; atol=atol_f)
+        source_signature[1] === nothing && return _neutral_ground_refusal(
+            source_signature[2] === :inapplicable ? :inapplicable : :indeterminate,
+            source_signature[2] === :inapplicable ?
+                "I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE" :
+                "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE",
+            source_signature[2] === :inapplicable ? INFO : WARNING,
+            "Neutral/ground/reference contract is $(source_signature[2]): $(source_signature[end]).",
+            mapping, source_signature[end])
+        target_signature = _neutral_ground_signature(target, target_id; atol=atol_f)
+        target_signature[1] === nothing && return _neutral_ground_refusal(
+            target_signature[2] === :inapplicable ? :inapplicable : :indeterminate,
+            target_signature[2] === :inapplicable ?
+                "I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE" :
+                "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE",
+            target_signature[2] === :inapplicable ? INFO : WARNING,
+            "Neutral/ground/reference contract is $(target_signature[2]): $(target_signature[end]).",
+            mapping, target_signature[end])
+        source_raw[source_id] = source_signature[1]
+        source_relations[source_id] = source_signature[2]
+        target_raw[source_id] = target_signature[1]
+        target_relations[source_id] = target_signature[2]
+    end
+    common_evidence["source_relations"] = source_relations
+    common_evidence["target_relations"] = target_relations
+
+    source_components = _neutral_component_labels(source)
+    target_components = _neutral_component_labels(target)
+    source_ids = sort(collect(keys(mapping)))
+    continuity_mismatches = Dict{String,Any}[]
+    for left_index in eachindex(source_ids), right_index in (left_index + 1):length(source_ids)
+        right_index > length(source_ids) && continue
+        left = source_ids[left_index]
+        right = source_ids[right_index]
+        target_left = mapping[left]
+        target_right = mapping[right]
+        source_connected = source_components[left] == source_components[right]
+        target_connected = target_components[target_left] == target_components[target_right]
+        source_connected == target_connected && continue
+        push!(continuity_mismatches, Dict{String,Any}(
+            "source_buses" => [left, right],
+            "target_buses" => [target_left, target_right],
+            "source_connected" => source_connected,
+            "target_connected" => target_connected,
+        ))
+    end
+    common_evidence["neutral_continuity_mismatches"] = continuity_mismatches
+
+    relation_mismatches = Dict{String,Any}[]
+    for source_id in source_ids
+        _neutral_relation_equal(source_raw[source_id], target_raw[source_id];
+                                atol=atol_f, rtol=rtol_f) && continue
+        push!(relation_mismatches, Dict{String,Any}(
+            "source_bus" => source_id,
+            "target_bus" => mapping[source_id],
+            "source_relation" => source_relations[source_id],
+            "target_relation" => target_relations[source_id],
+        ))
+    end
+    common_evidence["ground_reference_relation_mismatches"] = relation_mismatches
+
+    findings = Finding[]
+    if !isempty(continuity_mismatches)
+        detail = Dict{String,Any}(
+            "knowledge_ids" => [_NEUTRAL_GROUND_PSK],
+            "contract_id" => _NEUTRAL_GROUND_CONTRACT,
+            "mismatches" => continuity_mismatches,
+            "invalid_inferences" => [
+                "A matching simple bus graph does not imply preservation of the neutral conductor's continuity graph.",
+            ],
+            "recommended_checks" => [
+                "Retain neutral-carrying branch terminal maps or provide an explicit neutral recovery map.",
+            ],
+        )
+        push!(findings, Finding(ERROR, "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+            :scientific_contract, :network, nothing,
+            "Target model changes neutral continuity among mapped buses.", detail))
+    end
+    if !isempty(relation_mismatches)
+        detail = Dict{String,Any}(
+            "knowledge_ids" => [_NEUTRAL_GROUND_PSK],
+            "contract_id" => _NEUTRAL_GROUND_CONTRACT,
+            "mismatches" => relation_mismatches,
+            "invalid_inferences" => [
+                "A finite grounding relation, a perfect ground, and a voltage-source gauge reference are not interchangeable declarations.",
+            ],
+            "recommended_checks" => [
+                "Restore the mapped perfect-ground, scalar grounding-admittance, and source-reference relations before claiming representation preservation.",
+            ],
+        )
+        push!(findings, Finding(ERROR, "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH",
+            :scientific_contract, :network, nothing,
+            "Target model changes a mapped neutral grounding or voltage-reference relation.", detail))
+    end
+    if !isempty(findings)
+        common_evidence["classification"] = "neutral_ground_reference_relation_loss"
+        return _neutral_ground_result(:failed, findings, common_evidence;
+            checked=["neutral_terminal_identity", "neutral_continuity", "ground_reference_relations"])
+    end
+
+    common_evidence["classification"] = "representation_relations_preserved"
+    common_evidence["qualification"] =
+        "Pass covers explicit neutral identity, pairwise continuity, and declared grounding/reference relations only; it is not an electrical or protection equivalence certificate."
+    _neutral_ground_result(:passed, Finding[], common_evidence;
+        checked=["neutral_terminal_identity", "neutral_continuity", "ground_reference_relations"])
 end

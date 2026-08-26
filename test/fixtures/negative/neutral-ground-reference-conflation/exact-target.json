@@ -1,0 +1,50 @@
+{
+  "name": "neutral-ground-relations-preserved-target",
+  "bus": {
+    "source": {
+      "terminal_names": ["a", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    },
+    "load": {
+      "terminal_names": ["a", "n"],
+      "perfectly_grounded_terminals": []
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "source",
+      "terminal_map": ["a"],
+      "v_magnitude": [230.0],
+      "v_angle": [0.0]
+    }
+  },
+  "line": {
+    "renamed_feeder": {
+      "bus_from": "source",
+      "bus_to": "load",
+      "terminal_map_from": ["a", "n"],
+      "terminal_map_to": ["a", "n"],
+      "R_series_1_1": 0.2,
+      "R_series_1_2": 0.0,
+      "R_series_2_1": 0.0,
+      "R_series_2_2": 0.1,
+      "i_max": [100.0, 100.0]
+    }
+  },
+  "shunt": {
+    "renamed_grounding": {
+      "bus": "load",
+      "terminal_map": ["n"],
+      "G_1_1": 0.1
+    }
+  },
+  "load": {
+    "load": {
+      "bus": "load",
+      "terminal_map": ["a", "n"],
+      "configuration": "SINGLE_PHASE",
+      "p_nom": [1000.0],
+      "q_nom": [0.0]
+    }
+  }
+}

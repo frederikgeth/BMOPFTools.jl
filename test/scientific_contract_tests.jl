@@ -96,3 +96,104 @@ using JSON3
               "parallel_member_limit_preservation"
     end
 end
+
+@testset "Scientific contracts — neutral, ground, and reference" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative",
+                       "neutral-ground-reference-conflation")
+    source = parse_bmopf(joinpath(fixture, "source.json"))
+    naive = parse_bmopf(joinpath(fixture, "transformed.json"))
+    exact = parse_bmopf(joinpath(fixture, "exact-target.json"))
+    expected = JSON3.read(read(joinpath(fixture, "expected.json"), String))
+    mapping = Dict("source" => "source", "load" => "load")
+
+    @testset "conflation fixture loses two distinct relations" begin
+        result = check_neutral_ground_reference_preservation(
+            source, naive; bus_mapping=mapping)
+        @test result isa ScientificContractResult
+        @test result.status == :failed
+        @test result.contract_id == expected.contract_id
+        @test result.knowledge_ids == String.(expected.knowledge_ids)
+        @test [finding.code for finding in result.findings] ==
+              String.(expected.finding_codes)
+        @test result.evidence["classification"] == expected.classification
+        @test result.evidence["source_relations"]["load"]["relation_classes"] ==
+              String.(expected.source_load_relation_classes)
+        @test result.evidence["target_relations"]["load"]["relation_classes"] ==
+              String.(expected.target_load_relation_classes)
+        @test only(result.evidence["neutral_continuity_mismatches"])["source_connected"]
+        @test !only(result.evidence["neutral_continuity_mismatches"])["target_connected"]
+        @test all(!isempty(finding.detail["invalid_inferences"]) for finding in result.findings)
+        @test all(!isempty(finding.detail["recommended_checks"]) for finding in result.findings)
+    end
+
+    @testset "renaming assets preserves the checked relations" begin
+        result = check_neutral_ground_reference_preservation(
+            source, exact; bus_mapping=mapping)
+        @test result.status == :passed
+        @test isempty(result.findings)
+        @test result.checked_dimensions == [
+            "neutral_terminal_identity",
+            "neutral_continuity",
+            "ground_reference_relations",
+        ]
+        @test "electrical_terminal_behavior" in result.unassessed_dimensions
+        @test "grounding_asset_identity_and_state" in result.unassessed_dimensions
+        @test result.evidence["classification"] == "representation_relations_preserved"
+
+        payload = contract_result_to_dict(result)
+        decoded = JSON3.read(JSON3.write(payload))
+        @test decoded.status == "passed"
+        @test decoded.knowledge_ids == ["PSK-000002"]
+    end
+
+    @testset "identity loss, unsupported coupling, and missing evidence refuse explicitly" begin
+        missing_neutral = deepcopy(exact)
+        missing_neutral["bus"]["load"]["terminal_names"] = ["a"]
+        identity = check_neutral_ground_reference_preservation(
+            source, missing_neutral; bus_mapping=mapping)
+        @test identity.status == :failed
+        @test only(identity.findings).code == "E.CONTRACT.NEUTRAL_IDENTITY_LOSS"
+
+        coupled = deepcopy(source)
+        coupled["shunt"]["load_grounding"] = Dict{String,Any}(
+            "bus" => "load",
+            "terminal_map" => ["a", "n"],
+            "G_1_1" => 0.0,
+            "G_1_2" => 0.0,
+            "G_2_1" => 0.0,
+            "G_2_2" => 0.1,
+        )
+        inapplicable = check_neutral_ground_reference_preservation(
+            coupled, exact; bus_mapping=mapping)
+        @test inapplicable.status == :inapplicable
+        @test only(inapplicable.findings).code ==
+              "I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE"
+
+        indeterminate = check_neutral_ground_reference_preservation(
+            source, exact; bus_mapping=Dict("source" => "missing", "load" => "load"))
+        @test indeterminate.status == :indeterminate
+        @test only(indeterminate.findings).code ==
+              "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE"
+
+        no_neutral_source = deepcopy(source)
+        no_neutral_source["bus"]["load"]["terminal_names"] = ["a"]
+        no_neutral = check_neutral_ground_reference_preservation(
+            no_neutral_source, exact; bus_mapping=mapping)
+        @test no_neutral.status == :inapplicable
+        @test only(no_neutral.findings).code ==
+              "I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE"
+    end
+
+    @testset "finite grounding comparison honors declared tolerances" begin
+        perturbed = deepcopy(exact)
+        perturbed["shunt"]["renamed_grounding"]["G_1_1"] = 0.1000001
+        near = check_neutral_ground_reference_preservation(
+            source, perturbed; bus_mapping=mapping, atol=1e-6, rtol=0)
+        @test near.status == :passed
+        far = check_neutral_ground_reference_preservation(
+            source, perturbed; bus_mapping=mapping, atol=1e-9, rtol=0)
+        @test far.status == :failed
+        @test only(far.findings).code ==
+              "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH"
+    end
+end

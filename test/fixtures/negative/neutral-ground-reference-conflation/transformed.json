@@ -1,0 +1,40 @@
+{
+  "name": "neutral-collapsed-to-local-reference-target",
+  "bus": {
+    "source": {
+      "terminal_names": ["a", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    },
+    "load": {
+      "terminal_names": ["a", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "source",
+      "terminal_map": ["a"],
+      "v_magnitude": [230.0],
+      "v_angle": [0.0]
+    }
+  },
+  "line": {
+    "feeder": {
+      "bus_from": "source",
+      "bus_to": "load",
+      "terminal_map_from": ["a"],
+      "terminal_map_to": ["a"],
+      "R_series_1_1": 0.2,
+      "i_max": [100.0]
+    }
+  },
+  "load": {
+    "load": {
+      "bus": "load",
+      "terminal_map": ["a", "n"],
+      "configuration": "SINGLE_PHASE",
+      "p_nom": [1000.0],
+      "q_nom": [0.0]
+    }
+  }
+}

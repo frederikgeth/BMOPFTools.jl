@@ -1,22 +1,24 @@
 {
   "contract_ids": [
+    "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation"
   ],
-  "corpus_sha256": "eee3a41cd349502afe1855762f27664f6183dd45b5f8279c583eb9e53565d6f7",
+  "corpus_sha256": "c5a64e80a23965a32ed0e08cd51f6b0f20d19ba8d8a4a1e30ff5aa1aab47a950",
   "knowledge_ids": [
-    "PSK-000001"
+    "PSK-000001",
+    "PSK-000002"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 7,
+  "record_count": 15,
   "record_counts": {
-    "api_operation": 1,
-    "executable_contract": 1,
-    "finding": 4,
-    "fixture": 1
+    "api_operation": 2,
+    "executable_contract": 2,
+    "finding": 9,
+    "fixture": 2
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -26,11 +28,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "19f199361afd892493f8a678226a4703266906d54d6b824f0eb1d01de52e8646"
+      "sha256": "a161bd6b1b763bcd46aca759ccd911a8e4b3a3c4f223b12b649d39cd6e808b3d"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "3e5805199810134b03cad58d1a46ce43643dc8b4e9599809313c879e30f71b16"
+      "sha256": "c2f237c525b580e755df0d79e544dcc055ad7d7a2681c5a7a171744a3867e546"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -38,7 +40,31 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "0537be641406b993c6eec54ca4d8073c72c317a4b099f3def611337c930b6dd8"
+      "sha256": "37092c685e43e76895b4f70e13440fa728589e449d6b32c71394d0bebac57f02"
+    },
+    {
+      "path": "test/fixtures/negative/neutral-ground-reference-conflation/exact-target.json",
+      "sha256": "9053f552f478bb63539557ecdf594b469c43c8a81bcb67981ae30d88232be2bd"
+    },
+    {
+      "path": "test/fixtures/negative/neutral-ground-reference-conflation/expected.json",
+      "sha256": "e664f75d9666e1ab4f83ce7fb3e8aa200240abbbab9d8e81aa6c6e11b338ed89"
+    },
+    {
+      "path": "test/fixtures/negative/neutral-ground-reference-conflation/metadata.toml",
+      "sha256": "07fa99b8aa26b3426ae5434b4a4066b77402d3b10b1551a7437257a40d1c5491"
+    },
+    {
+      "path": "test/fixtures/negative/neutral-ground-reference-conflation/reproduce.jl",
+      "sha256": "ad81a8c229306a16c5cf4de992cdc681f3108641921dee55c9da3d0a678315a2"
+    },
+    {
+      "path": "test/fixtures/negative/neutral-ground-reference-conflation/source.json",
+      "sha256": "cef7350260d8c2f70423caac90aa877e715e33bfee8a745aaf32acb98708de52"
+    },
+    {
+      "path": "test/fixtures/negative/neutral-ground-reference-conflation/transformed.json",
+      "sha256": "7f450098105e6f61b32791e4a0240e1367e52db2de8068a6623c427f6a0290db"
     },
     {
       "path": "test/fixtures/negative/parallel-rating-outer-relaxation/exact-target.json",
@@ -66,7 +92,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "93953faba5ded31b90810de16294d58ba061e203a55f8058a55d3faa03de1a60"
+      "sha256": "5c07eaee99c755f107a5589ed74b7bb49581342dccfee08792f5f56575351049"
     }
   ]
 }

@@ -52,3 +52,63 @@ meaning = "The input lies outside the contract's declared scalar, fixed-linear, 
 code = "W.CONTRACT.INDETERMINATE"
 severity = "WARNING"
 meaning = "Required mapped components or scalar ratings are unavailable, so preservation cannot be decided."
+
+[[contract]]
+id = "neutral_ground_reference_preservation"
+knowledge_ids = ["PSK-000002"]
+title = "Neutral, ground, and reference preservation"
+entrypoint = "check_neutral_ground_reference_preservation"
+scope = "Representation-level comparison of explicit neutral identity, neutral continuity, perfect grounding, scalar finite grounding shunts, and voltage-source reference incidence across an explicit bus mapping."
+applicability = [
+  "At least two source buses with identifiable explicit neutral terminals map one-to-one to target buses.",
+  "Neutral continuity is represented by line, closed-switch, or single-phase-autotransformer terminal maps.",
+  "Finite grounding is represented by resolvable scalar neutral-only shunts; coupled grounding models are outside this initial contract.",
+]
+checked_dimensions = ["neutral_terminal_identity", "neutral_continuity", "ground_reference_relations"]
+unassessed_dimensions = [
+  "electrical_terminal_behavior",
+  "explicit_earth_conductor_behavior",
+  "soil_and_electrode_model",
+  "grounding_asset_identity_and_state",
+  "fault_current",
+  "touch_voltage",
+  "protection_operation",
+]
+finding_codes = [
+  "E.CONTRACT.NEUTRAL_IDENTITY_LOSS",
+  "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+  "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH",
+  "I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE",
+  "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE",
+]
+fixture_ids = ["neutral-ground-reference-conflation-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.NEUTRAL_IDENTITY_LOSS"
+severity = "ERROR"
+meaning = "A mapped target bus has no identifiable explicit neutral terminal, so the source neutral representation was discarded."
+
+[[finding]]
+code = "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH"
+severity = "ERROR"
+meaning = "The target changes whether mapped bus neutrals are connected through declared neutral-carrying components."
+
+[[finding]]
+code = "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH"
+severity = "ERROR"
+meaning = "The target changes a mapped neutral's perfect-ground, finite-grounding, or voltage-source-reference relation."
+
+[[finding]]
+code = "I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The input lies outside the contract's explicit-neutral and scalar neutral-only grounding domain."
+
+[[finding]]
+code = "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE"
+severity = "WARNING"
+meaning = "A mapped bus or resolvable grounding relation is unavailable, so preservation cannot be decided."

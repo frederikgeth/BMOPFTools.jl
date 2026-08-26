@@ -1,0 +1,15 @@
+{
+  "contract_id": "neutral_ground_reference_preservation",
+  "knowledge_ids": ["PSK-000002"],
+  "classification": "neutral_ground_reference_relation_loss",
+  "finding_codes": [
+    "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+    "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH"
+  ],
+  "bus_mapping": {
+    "source": "source",
+    "load": "load"
+  },
+  "source_load_relation_classes": ["finite_grounding"],
+  "target_load_relation_classes": ["perfect_ground"]
+}

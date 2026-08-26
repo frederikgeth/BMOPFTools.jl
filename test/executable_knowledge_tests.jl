@@ -20,13 +20,16 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 7
-    @test manifest.record_counts.executable_contract == 1
-    @test manifest.record_counts.api_operation == 1
-    @test manifest.record_counts.finding == 4
-    @test manifest.record_counts.fixture == 1
-    @test manifest.knowledge_ids == ["PSK-000001"]
-    @test manifest.contract_ids == ["parallel_member_limit_preservation"]
+    @test manifest.record_count == length(records) == 15
+    @test manifest.record_counts.executable_contract == 2
+    @test manifest.record_counts.api_operation == 2
+    @test manifest.record_counts.finding == 9
+    @test manifest.record_counts.fixture == 2
+    @test manifest.knowledge_ids == ["PSK-000001", "PSK-000002"]
+    @test manifest.contract_ids == [
+        "neutral_ground_reference_preservation",
+        "parallel_member_limit_preservation",
+    ]
     @test manifest.corpus_sha256 == bytes2hex(sha256(read(corpus_path)))
 
     by_id = Dict(String(record.record_id) => record for record in records)
@@ -36,6 +39,15 @@ using SHA
     @test contract.entrypoint == api.entrypoint == "check_parallel_member_limit_preservation"
     @test fixture.fixture_id in contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)), contract.finding_codes)
+
+    neutral_contract = by_id["contract:neutral_ground_reference_preservation"]
+    neutral_fixture = by_id["fixture:neutral-ground-reference-conflation-001"]
+    neutral_api = by_id["api:check_neutral_ground_reference_preservation"]
+    @test neutral_contract.entrypoint == neutral_api.entrypoint ==
+          "check_neutral_ground_reference_preservation"
+    @test neutral_fixture.fixture_id in neutral_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              neutral_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

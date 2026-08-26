@@ -224,6 +224,11 @@ target cannot reveal source information that has already been discarded.
 | `W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS` | W | The aggregate preserves the summed scalar terminal admittance but its current rating defines an inner restriction or outer relaxation of the source member-current-limit region. Detail includes `PSK-000001`, the classification, exact voltage-drop bounds, and a concrete current witness. |
 | `I.CONTRACT.NOT_APPLICABLE` | I | A declared executable contract is outside its implemented domain, for example because the initial parallel-member check received a multiconductor or shunted line. No preservation conclusion is drawn. |
 | `W.CONTRACT.INDETERMINATE` | W | Required source, target, mapping, impedance, or rating evidence is missing or unresolved. No preservation conclusion is drawn; detail names the missing evidence and recommended follow-up. |
+| `E.CONTRACT.NEUTRAL_IDENTITY_LOSS` | E | A mapped target bus has no identifiable explicit neutral terminal. Omitting it does not establish that its voltage, current, limits, or grounding relation are represented by the mathematical reference. |
+| `E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH` | E | The target changes whether mapped bus neutrals are connected through neutral-bearing lines, closed switches, or single-phase autotransformers. A matching simple bus graph is not sufficient. |
+| `E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH` | E | The target changes a mapped neutral's declared perfect-ground, scalar finite-grounding-shunt, or voltage-source-reference relation. Those declarations are not interchangeable. |
+| `I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE` | I | The neutral/ground/reference check is outside its implemented domain, for example because the source lacks explicit neutrals or a grounding shunt couples multiple terminals. No preservation conclusion is drawn. |
+| `W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE` | W | A mapped bus or scalar grounding relation is missing or unresolved. No preservation conclusion is drawn; detail names the missing evidence and recommended follow-up. |
 
 ## PROV — provenance & conventions
 

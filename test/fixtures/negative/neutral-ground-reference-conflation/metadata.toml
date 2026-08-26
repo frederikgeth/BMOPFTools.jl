@@ -1,0 +1,22 @@
+schema_version = "0.1.0"
+fixture_id = "neutral-ground-reference-conflation-001"
+knowledge_ids = ["PSK-000002"]
+contract_id = "neutral_ground_reference_preservation"
+kind = "counterexample"
+title = "Explicit neutral and finite grounding collapsed into a local reference"
+scope = "Two-bus, one-phase, two-conductor fixed-linear network with an explicit neutral conductor, one perfect source neutral, and one finite customer-end grounding shunt."
+minimality_status = "hand_minimized_two_bus_two_conductor"
+source_file = "source.json"
+transformed_file = "transformed.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = [
+  "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+  "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH",
+]
+does_not_establish = [
+  "A perfectly grounded neutral is always an invalid representation.",
+  "Every three-wire model has incorrectly eliminated a physical neutral.",
+  "The representation-level check establishes equal terminal behavior, fault current, touch voltage, protection operation, or grounding-asset state.",
+]

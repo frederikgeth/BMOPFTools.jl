@@ -2930,6 +2930,7 @@ export Severity, ERROR, WARNING, INFO
 export Finding, SummaryReport, SolutionReport
 export ScientificContractResult, contract_result_to_dict
 export check_parallel_member_limit_preservation
+export check_neutral_ground_reference_preservation
 export errors, warnings, infos
 export profile_solution, render_solution, solution_check
 export parse_bmopf, write_bmopf
