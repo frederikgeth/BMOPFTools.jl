@@ -212,6 +212,19 @@ and [`load_model_analysis`](@ref) (`load_models` pass).
 | `I.RED.UNUSED_LINECODES` | I | Linecodes never referenced by a line — a cable library shipped with the case; harmless, but distinguishes library data from network data. |
 | `I.RED.DUPLICATE_LINECODES` | I | Groups of linecodes with identical `R/X_series_1_1` fingerprints (codes lacking impedance data are excluded — absence is not evidence of duplication). |
 
+## CONTRACT — executable scientific contracts
+
+These findings come from explicit source-versus-target scientific-contract
+checks. They do not fire during ordinary single-case analysis because a reduced
+target cannot reveal source information that has already been discarded.
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `E.CONTRACT.PARALLEL_TERMINAL_RELATION_MISMATCH` | E | The declared scalar aggregate line's admittance differs from the sum of the explicitly mapped source-member admittances. The target therefore fails even the unconstrained terminal-current relation. |
+| `W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS` | W | The aggregate preserves the summed scalar terminal admittance but its current rating defines an inner restriction or outer relaxation of the source member-current-limit region. Detail includes `PSK-000001`, the classification, exact voltage-drop bounds, and a concrete current witness. |
+| `I.CONTRACT.NOT_APPLICABLE` | I | A declared executable contract is outside its implemented domain, for example because the initial parallel-member check received a multiconductor or shunted line. No preservation conclusion is drawn. |
+| `W.CONTRACT.INDETERMINATE` | W | Required source, target, mapping, impedance, or rating evidence is missing or unresolved. No preservation conclusion is drawn; detail names the missing evidence and recommended follow-up. |
+
 ## PROV — provenance & conventions
 
 The largest family; full derivations in the

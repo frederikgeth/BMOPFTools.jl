@@ -1,0 +1,21 @@
+{
+  "fixture_id": "parallel-rating-outer-relaxation-001",
+  "contract_id": "parallel_member_limit_preservation",
+  "knowledge_ids": ["PSK-000001"],
+  "status": "failed",
+  "classification": "outer_relaxation",
+  "finding_codes": ["W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS"],
+  "source_voltage_drop_limit_V": 10.0,
+  "target_voltage_drop_limit_V": 18.181818181818183,
+  "witness": {
+    "voltage_drop_V": 15.0,
+    "member_currents_A": {
+      "l1": 150.0,
+      "l2": 15.0
+    },
+    "aggregate_current_A": 165.0,
+    "source_feasible": false,
+    "target_feasible": true
+  },
+  "absolute_tolerance": 1e-9
+}

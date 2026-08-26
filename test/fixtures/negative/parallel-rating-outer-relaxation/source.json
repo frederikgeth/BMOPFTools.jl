@@ -1,0 +1,48 @@
+{
+  "name": "parallel-rating-source",
+  "bus": {
+    "source": {
+      "terminal_names": ["1", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    },
+    "load": {
+      "terminal_names": ["1", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "source",
+      "terminal_map": ["1"],
+      "v_magnitude": [230.0],
+      "v_angle": [0.0]
+    }
+  },
+  "line": {
+    "l1": {
+      "bus_from": "source",
+      "bus_to": "load",
+      "terminal_map_from": ["1"],
+      "terminal_map_to": ["1"],
+      "R_series_1_1": 0.1,
+      "i_max": [100.0]
+    },
+    "l2": {
+      "bus_from": "source",
+      "bus_to": "load",
+      "terminal_map_from": ["1"],
+      "terminal_map_to": ["1"],
+      "R_series_1_1": 1.0,
+      "i_max": [100.0]
+    }
+  },
+  "load": {
+    "load": {
+      "bus": "load",
+      "terminal_map": ["1", "n"],
+      "configuration": "SINGLE_PHASE",
+      "p_nom": [1000.0],
+      "q_nom": [0.0]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+schema_version = "0.1.0"
+fixture_id = "parallel-rating-outer-relaxation-001"
+knowledge_ids = ["PSK-000001"]
+contract_id = "parallel_member_limit_preservation"
+kind = "counterexample"
+title = "Summed parallel ratings create an outer relaxation"
+scope = "Two scalar resistive series-only parallel lines with common terminals and explicit current ratings."
+minimality_status = "hand_minimized_scalar"
+source_file = "source.json"
+transformed_file = "transformed.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS"]
+does_not_establish = [
+  "Parallel aggregation is always invalid.",
+  "A scalar exact aggregate preserves member identity or independent outage state.",
+  "The result automatically extends to multiconductor, shunted, singular, or state-dependent branches.",
+]

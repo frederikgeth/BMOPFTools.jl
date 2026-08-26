@@ -751,6 +751,8 @@ include("validation/integrity.jl")
 include("validation/spec_conformance.jl")
 include("validation/solution.jl")
 
+include("knowledge/contracts.jl")
+
 include("network/simplify.jl")
 
 include("report/formatting.jl")
@@ -2926,6 +2928,8 @@ export extract_result
 
 export Severity, ERROR, WARNING, INFO
 export Finding, SummaryReport, SolutionReport
+export ScientificContractResult, contract_result_to_dict
+export check_parallel_member_limit_preservation
 export errors, warnings, infos
 export profile_solution, render_solution, solution_check
 export parse_bmopf, write_bmopf
