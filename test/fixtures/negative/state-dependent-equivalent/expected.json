@@ -1,0 +1,6 @@
+{
+  "contract_id": "state_dependent_equivalent_provenance",
+  "knowledge_ids": ["PSK-000010"],
+  "finding_codes": ["E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS"],
+  "classification": "frozen_state_dependent_equivalent"
+}

@@ -1,0 +1,18 @@
+schema_version = "0.1.0"
+fixture_id = "state-dependent-equivalent-001"
+knowledge_ids = ["PSK-000010"]
+contract_id = "state_dependent_equivalent_provenance"
+kind = "counterexample"
+title = "Base-state equivalent overclaimed across a state domain"
+scope = "A source equivalent varies with load_scale over a non-singleton domain while the target freezes the calibrated base state and omits update provenance."
+minimality_status = "hand_minimized_one_parameter_frozen_target"
+source_file = "source.json"
+transformed_file = "target.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS"]
+does_not_establish = [
+  "Every operating-point equivalent is invalid.",
+  "An update-rule identifier authenticates nonlinear correctness or decision equivalence."
+]

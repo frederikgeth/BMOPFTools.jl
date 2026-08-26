@@ -7,10 +7,11 @@
     "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation",
     "positive_sequence_collapse_applicability",
+    "state_dependent_equivalent_provenance",
     "transformer_tap_domain_preservation",
     "transformer_winding_convention_preservation"
   ],
-  "corpus_sha256": "814786b7c66eb0b1ada18041c0d62b594c6729984cf46451e6f337ef79842178",
+  "corpus_sha256": "6b4e25f55a637c5965d31a5a0a32ca5dd162aaaa9a173e711cf85a40355c9e4d",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -20,19 +21,20 @@
     "PSK-000006",
     "PSK-000007",
     "PSK-000008",
-    "PSK-000009"
+    "PSK-000009",
+    "PSK-000010"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 63,
+  "record_count": 71,
   "record_counts": {
-    "api_operation": 9,
-    "executable_contract": 9,
-    "finding": 36,
-    "fixture": 9
+    "api_operation": 10,
+    "executable_contract": 10,
+    "finding": 41,
+    "fixture": 10
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -42,11 +44,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "4d01f32ca255b680fbe7fa3ce6273dae1cd6c53902e1ebd6bdd82e25b80d34fd"
+      "sha256": "92b2d36430aff67627a9655362eff3b155254c52e65979aa631e16755cf75bd2"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "98b07c458ca15d5709807a9abc5637fadda13a26d1306c1b488f645b5fbce2c3"
+      "sha256": "c8d77ccc131996b8cc456656b913c72ef9b85441f5caf3ed129bf8e4011072b5"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -62,7 +64,7 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "e4975787deca75732406ee3be2aaad2b987b82bcb31cddcb242c3b3146652626"
+      "sha256": "62c60986dc205a49350a5ba05d1030483bfcf7d41ceb68895b7bef9da5c794ae"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -233,6 +235,30 @@
       "sha256": "7c3da9333e2b29dcfb32a48c79d056abd3688aeef076e0851a48ea95146f4a1a"
     },
     {
+      "path": "test/fixtures/negative/state-dependent-equivalent/exact-target.json",
+      "sha256": "86c8b1623891425fc058555c47e6906bcab19dacd059ae3a09bece65254ea49f"
+    },
+    {
+      "path": "test/fixtures/negative/state-dependent-equivalent/expected.json",
+      "sha256": "5906647176409582bb48b9c75671e0b13dcd635bcda1b9aecb75a17f2f1284e4"
+    },
+    {
+      "path": "test/fixtures/negative/state-dependent-equivalent/metadata.toml",
+      "sha256": "1ae84a1333abd46095e2abe814b4a33d3c3effdfa3e8d7b91ce4235f6b98d2d8"
+    },
+    {
+      "path": "test/fixtures/negative/state-dependent-equivalent/reproduce.jl",
+      "sha256": "8cdecf9dc04c850e45840dc95c1e64c4568dd4b453e58a8ab55ec614f1974834"
+    },
+    {
+      "path": "test/fixtures/negative/state-dependent-equivalent/source.json",
+      "sha256": "634b779e73223c7020d05d0fd98aee2f9bd57f95870e85807ae17f0f0a4a3d50"
+    },
+    {
+      "path": "test/fixtures/negative/state-dependent-equivalent/target.json",
+      "sha256": "1489bbb3d42b84cf2f02f9a4499a6cca993755b4a7a66c8ad77e32e3f9b8e1e9"
+    },
+    {
       "path": "test/fixtures/negative/transformer-tap-domain-loss/exact-target.json",
       "sha256": "e7aeef4c670a668679cd270c78db2d45bc6e759212dcf51eeee74caa62d45cf0"
     },
@@ -282,7 +308,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "ef9616502873a24b1a62b4883d354a4695056055e26ac6663f9f473a88d473c9"
+      "sha256": "65e8a948bf1a558b9254d6197cf5d65fe3252844642563b70493dc5047c0ad3f"
     }
   ]
 }

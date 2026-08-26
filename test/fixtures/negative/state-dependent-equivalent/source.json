@@ -1,0 +1,10 @@
+{
+  "model_id": "source-state-dependent",
+  "state_dependent": {
+    "parameter": "load_scale",
+    "domain": [0.8, 1.2],
+    "base_state": 1.0,
+    "is_state_dependent": true,
+    "update_rule_id": "recompute-load-map-v1"
+  }
+}

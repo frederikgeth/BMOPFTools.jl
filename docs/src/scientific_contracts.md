@@ -2,6 +2,28 @@
 
 BMOPFTools scientific contracts turn a scoped knowledge statement into an executable decision with structured evidence. The scientific statement and its evidence remain owned by the sibling `multi-graph-book`; this package owns the code-level applicability checks, result status, Findings, fixtures, and export metadata. See the repository-root `ARCHITECTURE.md` for the stable boundary.
 
+## Fixed versus state-dependent equivalents
+
+[`check_state_dependent_equivalent`](@ref) checks whether a target preserves a
+source equivalent's declared state parameter, non-singleton domain, calibration
+state, and update-rule provenance (`PSK-000010`). It rejects a base-state map
+that is silently presented as reusable over a wider domain.
+
+```julia
+source = Dict("state_dependent" => Dict(
+    "parameter" => "load_scale", "domain" => [0.8, 1.2],
+    "base_state" => 1.0))
+target = Dict("state_dependent" => Dict(
+    "parameter" => "load_scale", "domain" => [1.0, 1.0],
+    "base_state" => 1.0, "is_state_dependent" => false))
+result = check_state_dependent_equivalent(
+    source, target; source_model_id="source", target_model_id="target")
+result.findings[1].code # "E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS"
+```
+
+A passing declaration does not authenticate the nonlinear update rule or prove
+feasible-set, objective, or solver equivalence. Those remain unassessed.
+
 ## Positive-sequence collapse applicability
 
 [`check_positive_sequence_collapse`](@ref) implements the guarded applicability

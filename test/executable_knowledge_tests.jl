@@ -20,14 +20,15 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 63
-    @test manifest.record_counts.executable_contract == 9
-    @test manifest.record_counts.api_operation == 9
-    @test manifest.record_counts.finding == 36
-    @test manifest.record_counts.fixture == 9
+    @test manifest.record_count == length(records) == 71
+    @test manifest.record_counts.executable_contract == 10
+    @test manifest.record_counts.api_operation == 10
+    @test manifest.record_counts.finding == 41
+    @test manifest.record_counts.fixture == 10
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
-        "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009"]
+        "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
+        "PSK-000010"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
         "decision_preservation_manifest_completeness",
@@ -120,6 +121,15 @@ using SHA
     @test sequence_fixture.fixture_id in sequence_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               sequence_contract.finding_codes)
+
+    state_contract = by_id["contract:state_dependent_equivalent_provenance"]
+    state_fixture = by_id["fixture:state-dependent-equivalent-001"]
+    state_api = by_id["api:check_state_dependent_equivalent"]
+    @test state_contract.entrypoint == state_api.entrypoint ==
+          "check_state_dependent_equivalent"
+    @test state_fixture.fixture_id in state_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              state_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

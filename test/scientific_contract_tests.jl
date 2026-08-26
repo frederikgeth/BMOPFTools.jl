@@ -1,5 +1,41 @@
 using JSON3
 
+@testset "Scientific contracts — fixed versus state-dependent equivalents" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative", "state-dependent-equivalent")
+    load(name) = JSON3.read(read(joinpath(fixture, name), String), Dict{String,Any})
+    source, frozen, updating = load("source.json"), load("target.json"), load("exact-target.json")
+    result = check_state_dependent_equivalent(
+        source, frozen; source_model_id="source-state-dependent",
+        target_model_id="target-frozen-base")
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS"
+    @test result.evidence["classification"] == "frozen_state_dependent_equivalent"
+
+    result = check_state_dependent_equivalent(
+        source, updating; source_model_id="source-state-dependent",
+        target_model_id="target-updating-equivalent")
+    @test result.status == :passed
+    @test result.checked_dimensions == ["state_domain_declared", "state_parameter_alignment",
+                                       "base_state_alignment", "update_provenance_declared"]
+    @test "complete_network_feasible_set" in result.unassessed_dimensions
+
+    malformed = deepcopy(source)
+    delete!(malformed["state_dependent"], "domain")
+    result = check_state_dependent_equivalent(
+        malformed, updating; source_model_id="source-state-dependent",
+        target_model_id="target-updating-equivalent")
+    @test result.status == :indeterminate
+    @test only(result.findings).code == "W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE"
+
+    narrowed = deepcopy(updating)
+    narrowed["state_dependent"]["domain"] = [0.9, 1.2]
+    result = check_state_dependent_equivalent(
+        source, narrowed; source_model_id="source-state-dependent",
+        target_model_id="target-updating-equivalent")
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.STATE_DOMAIN_MISMATCH"
+end
+
 @testset "Scientific contracts — parallel member limits" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative",
                        "parallel-rating-outer-relaxation")

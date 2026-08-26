@@ -532,3 +532,65 @@ meaning = "The initial positive-sequence contract does not cover the supplied co
 code = "W.CONTRACT.SEQUENCE_INDETERMINATE"
 severity = "WARNING"
 meaning = "A source or target factor, terminal map, or required collapse-domain declaration is missing or unresolved."
+
+[[contract]]
+id = "state_dependent_equivalent_provenance"
+knowledge_ids = ["PSK-000010"]
+title = "State-dependent equivalent provenance"
+entrypoint = "check_state_dependent_equivalent"
+scope = "Declaration-level comparison of a state-dependent source equivalent and a target over a declared parameter domain, base state, and update-rule provenance."
+applicability = [
+  "Both records declare a state_dependent object with a parameter, finite two-point domain, and base state inside that domain.",
+  "The target either preserves the source domain and parameter with an explicit update_rule_id or is reported as a frozen overclaim.",
+]
+checked_dimensions = [
+  "state_domain_declared",
+  "state_parameter_alignment",
+  "base_state_alignment",
+  "update_provenance_declared",
+]
+unassessed_dimensions = [
+  "state_domain_preservation_beyond_declared_parameter",
+  "nonlinear_or_topology_update_correctness",
+  "complete_network_feasible_set",
+  "objective_or_optimizer_equivalence",
+  "solver_status_or_optimality",
+]
+finding_codes = [
+  "E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS",
+  "E.CONTRACT.STATE_DOMAIN_MISMATCH",
+  "E.CONTRACT.STATE_BASE_ALIGNMENT_MISMATCH",
+  "I.CONTRACT.STATE_EQUIVALENT_NOT_APPLICABLE",
+  "W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE",
+]
+fixture_ids = ["state-dependent-equivalent-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS"
+severity = "ERROR"
+meaning = "The target freezes or omits update provenance for a source equivalent that varies over a non-singleton state domain."
+
+[[finding]]
+code = "E.CONTRACT.STATE_DOMAIN_MISMATCH"
+severity = "ERROR"
+meaning = "The target state domain differs from the source domain, so the declared equivalent does not cover the same state range."
+
+[[finding]]
+code = "E.CONTRACT.STATE_BASE_ALIGNMENT_MISMATCH"
+severity = "ERROR"
+meaning = "The target calibration state differs from the source base state."
+
+[[finding]]
+code = "I.CONTRACT.STATE_EQUIVALENT_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The initial state-dependent-equivalent contract does not cover the supplied domain declaration."
+
+[[finding]]
+code = "W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE"
+severity = "WARNING"
+meaning = "A required state parameter, domain, base state, or update declaration is missing or malformed."

@@ -549,3 +549,8 @@ Checks for the DC side: `dc_bus` nodes (signed line-to-ground voltage, no angle)
 | `E.CONTRACT.SEQUENCE_RELATION_MISMATCH` | E | The scalar target relation differs from the source positive-sequence eigenvalue in the declared convention. |
 | `I.CONTRACT.SEQUENCE_NOT_APPLICABLE` | I | The initial positive-sequence contract does not cover the supplied conductor count, terminal order, factor shape, or unsupported shunt structure. |
 | `W.CONTRACT.SEQUENCE_INDETERMINATE` | W | A source or target factor, terminal map, or required collapse-domain declaration is missing or unresolved. |
+| `E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS` | E | The target freezes or omits update provenance for a source equivalent that varies over a non-singleton state domain. |
+| `E.CONTRACT.STATE_DOMAIN_MISMATCH` | E | The target state domain differs from the source domain, so the declared equivalent does not cover the same state range. |
+| `E.CONTRACT.STATE_BASE_ALIGNMENT_MISMATCH` | E | The target calibration state differs from the source base state. |
+| `I.CONTRACT.STATE_EQUIVALENT_NOT_APPLICABLE` | I | The initial state-dependent-equivalent contract does not cover the supplied domain declaration. |
+| `W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE` | W | A required state parameter, domain, base state, or update declaration is missing or malformed. |

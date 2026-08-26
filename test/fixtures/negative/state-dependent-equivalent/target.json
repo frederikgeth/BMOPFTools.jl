@@ -1,0 +1,9 @@
+{
+  "model_id": "target-frozen-base",
+  "state_dependent": {
+    "parameter": "load_scale",
+    "domain": [1.0, 1.0],
+    "base_state": 1.0,
+    "is_state_dependent": false
+  }
+}

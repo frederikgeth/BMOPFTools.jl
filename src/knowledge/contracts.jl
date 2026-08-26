@@ -34,6 +34,8 @@ const _KRON_BOUNDARY_CONTRACT = "kron_boundary_recovery_preservation"
 const _KRON_BOUNDARY_PSK = "PSK-000008"
 const _POSITIVE_SEQUENCE_CONTRACT = "positive_sequence_collapse_applicability"
 const _POSITIVE_SEQUENCE_PSK = "PSK-000009"
+const _STATE_EQUIVALENT_CONTRACT = "state_dependent_equivalent_provenance"
+const _STATE_EQUIVALENT_PSK = "PSK-000010"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -638,6 +640,144 @@ function check_positive_sequence_collapse(
         Dict{String,Any}("relation_error" => abs(delta), "relation_tolerance" => tolerance))
     _positive_sequence_result(:failed, [finding], evidence;
         checked=["source_series_cyclic_symmetry", "source_shunt_cyclic_symmetry"])
+end
+
+function _state_equivalent_result(status::Symbol, findings::Vector{Finding},
+                                  evidence::Dict{String,Any}; checked=String[])
+    ScientificContractResult(
+        _STATE_EQUIVALENT_CONTRACT, status, [_STATE_EQUIVALENT_PSK], checked,
+        [
+            "state_domain_preservation_beyond_declared_parameter",
+            "nonlinear_or_topology_update_correctness",
+            "complete_network_feasible_set",
+            "objective_or_optimizer_equivalence",
+            "solver_status_or_optimality",
+        ], findings, evidence)
+end
+
+function _state_equivalent_finding(code::String, severity::Severity,
+                                   model_id, message::String,
+                                   detail::Dict{String,Any})
+    Finding(severity, code, :scientific_contract, :transformation,
+            model_id isa String && !isempty(model_id) ? model_id : nothing,
+            message, detail)
+end
+
+function _state_equivalent_refusal(status::Symbol, code::String,
+                                   severity::Severity, message::String,
+                                   mapping::Dict{String,Any}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_STATE_EQUIVALENT_PSK],
+        "contract_id" => _STATE_EQUIVALENT_CONTRACT,
+        "model_mapping" => mapping, "reason" => reason,
+        "invalid_inferences" => [
+            "A target calibrated at one operating point is not a reusable state-dependent equivalent over a non-singleton domain.",
+            "An update-rule identifier does not authenticate nonlinear map correctness, feasible-set preservation, or optimizer equivalence.",
+        ],
+        "recommended_checks" => [
+            "Retain the state domain and identify the parameter controlling the equivalent.",
+            "Recompute the map at every declared state or provide a bounded approximation certificate.",
+            "Validate state-dependent constraints and decisions against the source model.",
+        ],
+    )
+    finding = _state_equivalent_finding(code, severity,
+        get(mapping, "target_model_id", nothing), message, detail)
+    _state_equivalent_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status), "model_mapping" => mapping, "reason" => reason))
+end
+
+"""
+    check_state_dependent_equivalent(source, target;
+        source_model_id, target_model_id)
+        -> ScientificContractResult
+
+Check the declaration boundary for a fixed versus state-dependent equivalent
+(`PSK-000010`). Both records must provide a `state_dependent` object with a
+non-singleton numeric domain, parameter identity, base state, and update-rule
+provenance. A target that freezes the source at one base point fails rather
+than being silently promoted to a reusable equivalent.
+"""
+function check_state_dependent_equivalent(
+        source::AbstractDict, target::AbstractDict;
+        source_model_id::AbstractString,
+        target_model_id::AbstractString)::ScientificContractResult
+    mapping = Dict{String,Any}("source_model_id" => String(source_model_id),
+                               "target_model_id" => String(target_model_id))
+    src = get(source, "state_dependent", nothing)
+    dst = get(target, "state_dependent", nothing)
+    src isa AbstractDict && dst isa AbstractDict ||
+        return _state_equivalent_refusal(:indeterminate,
+            "W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE", WARNING,
+            "State-dependent equivalent is indeterminate: both source and target state declarations are required.",
+            mapping, "state_dependent must be an object in both models")
+    parameter = get(src, "parameter", nothing)
+    domain = get(src, "domain", nothing)
+    base = get(src, "base_state", nothing)
+    parameter isa AbstractString && !isempty(parameter) ||
+        return _state_equivalent_refusal(:indeterminate,
+            "W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE", WARNING,
+            "State-dependent equivalent is indeterminate: source parameter identity is missing.",
+            mapping, "source.state_dependent.parameter must be nonempty")
+    domain isa AbstractVector && length(domain) == 2 && all(x -> x isa Number && isfinite(Float64(x)), domain) ||
+        return _state_equivalent_refusal(:indeterminate,
+            "W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE", WARNING,
+            "State-dependent equivalent is indeterminate: source state domain is missing or malformed.",
+            mapping, "source.state_dependent.domain must contain two finite numbers")
+    lo, hi = Float64(domain[1]), Float64(domain[2])
+    lo <= hi || return _state_equivalent_refusal(:inapplicable,
+        "I.CONTRACT.STATE_EQUIVALENT_NOT_APPLICABLE", INFO,
+        "State-dependent equivalent is not applicable: source state domain is reversed.",
+        mapping, "domain lower bound exceeds upper bound")
+    src_base = base isa Number && isfinite(Float64(base)) ? Float64(base) : NaN
+    src_base >= lo - 1e-12 && src_base <= hi + 1e-12 ||
+        return _state_equivalent_refusal(:indeterminate,
+            "W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE", WARNING,
+            "State-dependent equivalent is indeterminate: source base state lies outside its domain.",
+            mapping, "base_state must lie inside domain")
+    dst_parameter = get(dst, "parameter", nothing)
+    dst_domain = get(dst, "domain", nothing)
+    dst_update = get(dst, "update_rule_id", nothing)
+    dst_flag = get(dst, "is_state_dependent", nothing)
+    if !(dst_parameter isa AbstractString && dst_parameter == parameter &&
+         dst_domain isa AbstractVector && length(dst_domain) == 2 &&
+         all(x -> x isa Number && isfinite(Float64(x)), dst_domain) &&
+         dst_update isa AbstractString && !isempty(dst_update) && dst_flag === true)
+        finding = _state_equivalent_finding("E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS", ERROR,
+            String(target_model_id),
+            "Target equivalent freezes or omits the source state update provenance over a non-singleton domain.",
+            Dict{String,Any}("parameter" => parameter, "source_domain" => [lo, hi],
+                "target_is_state_dependent" => dst_flag,
+                "target_update_rule_id" => dst_update,
+                "invalid_inference" => "a base-state map is globally reusable"))
+        return _state_equivalent_result(:failed, [finding], Dict{String,Any}(
+            "classification" => "frozen_state_dependent_equivalent",
+            "model_mapping" => mapping, "parameter" => parameter,
+            "source_domain" => [lo, hi], "source_base_state" => src_base))
+    end
+    dst_lo, dst_hi = Float64(dst_domain[1]), Float64(dst_domain[2])
+    dst_lo == lo && dst_hi == hi || begin
+        finding = _state_equivalent_finding("E.CONTRACT.STATE_DOMAIN_MISMATCH", ERROR,
+            String(target_model_id), "Target equivalent does not preserve the source state domain.",
+            Dict{String,Any}("source_domain" => [lo, hi], "target_domain" => [dst_lo, dst_hi]))
+        return _state_equivalent_result(:failed, [finding], Dict{String,Any}(
+            "classification" => "state_domain_mismatch", "model_mapping" => mapping))
+    end
+    target_base = get(dst, "base_state", nothing)
+    target_base isa Number && isfinite(Float64(target_base)) &&
+        abs(Float64(target_base) - src_base) <= 1e-12 || begin
+        finding = _state_equivalent_finding("E.CONTRACT.STATE_BASE_ALIGNMENT_MISMATCH", ERROR,
+            String(target_model_id), "Target equivalent base state is not aligned with the source calibration state.",
+            Dict{String,Any}("source_base_state" => src_base, "target_base_state" => target_base))
+        return _state_equivalent_result(:failed, [finding], Dict{String,Any}(
+            "classification" => "state_base_mismatch", "model_mapping" => mapping))
+    end
+    _state_equivalent_result(:passed, Finding[], Dict{String,Any}(
+        "classification" => "state_domain_and_update_provenance_declared",
+        "model_mapping" => mapping, "parameter" => parameter,
+        "source_domain" => [lo, hi], "source_base_state" => src_base,
+        "target_domain" => [dst_lo, dst_hi], "target_update_rule_id" => String(dst_update));
+        checked=["state_domain_declared", "state_parameter_alignment",
+                 "base_state_alignment", "update_provenance_declared"])
 end
 
 function _decision_manifest_result(
