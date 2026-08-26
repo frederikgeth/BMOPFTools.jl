@@ -544,3 +544,8 @@ Checks for the DC side: `dc_bus` nodes (signed line-to-ground voltage, no angle)
 | `W.RED.DC_REDUNDANT_GROUNDING` | W | A `dc_grounding` earths a terminal already in the dc_bus's `perfectly_grounded_terminals`. |
 | `E.SOL.DC_VOLT_VIOLATION` | E | Post-solve: a signed DC node voltage lies outside its `[v_dc_min, v_dc_max]` band. |
 | `E.SOL.DC_THERMAL_VIOLATION` | E | Post-solve: a DC branch conductor current exceeds its `i_max`. |
+| `E.CONTRACT.SEQUENCE_SYMMETRY_MISMATCH` | E | A source series or shunt factor is not circulant in the declared phase order and can mix positive, negative, and zero sequence components. |
+| `E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH` | E | The declared boundary, grounding, device, decision, or observation domain is not closed under the positive-sequence restriction. |
+| `E.CONTRACT.SEQUENCE_RELATION_MISMATCH` | E | The scalar target relation differs from the source positive-sequence eigenvalue in the declared convention. |
+| `I.CONTRACT.SEQUENCE_NOT_APPLICABLE` | I | The initial positive-sequence contract does not cover the supplied conductor count, terminal order, factor shape, or unsupported shunt structure. |
+| `W.CONTRACT.SEQUENCE_INDETERMINATE` | W | A source or target factor, terminal map, or required collapse-domain declaration is missing or unresolved. |

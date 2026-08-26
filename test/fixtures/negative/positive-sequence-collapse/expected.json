@@ -1,0 +1,6 @@
+{
+  "contract_id": "positive_sequence_collapse_applicability",
+  "knowledge_ids": ["PSK-000009"],
+  "finding_codes": ["E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH"],
+  "classification": "sequence_domain_failure"
+}

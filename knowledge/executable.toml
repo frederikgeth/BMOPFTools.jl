@@ -463,3 +463,72 @@ meaning = "A mapped line, bus, conductor order, impedance matrix, or endpoint de
 code = "W.CONTRACT.KRON_RECOVERY_INDETERMINATE"
 severity = "WARNING"
 meaning = "The required eliminated-terminal recovery map is missing, malformed, or names a different terminal, so internal recovery obligations cannot be decided."
+
+[[contract]]
+id = "positive_sequence_collapse_applicability"
+knowledge_ids = ["PSK-000009"]
+title = "Positive-sequence collapse applicability"
+entrypoint = "check_positive_sequence_collapse"
+scope = "Three-conductor fixed linear series factors reduced to a scalar positive-sequence relation under explicit balanced-domain, grounding, device, decision, and observation declarations."
+applicability = [
+  "The source and scalar target lines are explicitly mapped and use the declared ordered three-phase source terminals.",
+  "The source series and any supplied shunt matrices are finite 3x3 circulant factors; the target is a finite scalar series factor.",
+  "Balanced boundary data, sequence-compatible grounding, two-terminal closure, phase-symmetric decisions, and positive-sequence observations are explicitly declared.",
+]
+checked_dimensions = [
+  "source_series_cyclic_symmetry",
+  "source_shunt_cyclic_symmetry",
+  "balanced_boundary_data",
+  "sequence_compatible_grounding",
+  "two_terminal_factor_closure",
+  "phase_symmetric_decisions",
+  "positive_sequence_observations",
+  "positive_sequence_relation",
+]
+unassessed_dimensions = [
+  "phase_specific_limits_and_controls",
+  "neutral_or_explicit_earth_observations",
+  "unbalanced_boundary_data",
+  "internal_device_and_protection_quantities",
+  "complete_network_feasible_set",
+  "objective_or_optimizer_equivalence",
+  "solver_status_or_optimality",
+]
+finding_codes = [
+  "E.CONTRACT.SEQUENCE_SYMMETRY_MISMATCH",
+  "E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH",
+  "E.CONTRACT.SEQUENCE_RELATION_MISMATCH",
+  "I.CONTRACT.SEQUENCE_NOT_APPLICABLE",
+  "W.CONTRACT.SEQUENCE_INDETERMINATE",
+]
+fixture_ids = ["positive-sequence-collapse-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.SEQUENCE_SYMMETRY_MISMATCH"
+severity = "ERROR"
+meaning = "A source series or shunt factor is not circulant in the declared phase order, so it can mix positive, negative, and zero sequence components."
+
+[[finding]]
+code = "E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH"
+severity = "ERROR"
+meaning = "The declared boundary, grounding, device, decision, or observation domain is not closed under the positive-sequence restriction."
+
+[[finding]]
+code = "E.CONTRACT.SEQUENCE_RELATION_MISMATCH"
+severity = "ERROR"
+meaning = "The scalar target relation differs from the source positive-sequence eigenvalue in the declared convention."
+
+[[finding]]
+code = "I.CONTRACT.SEQUENCE_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The initial positive-sequence contract does not cover the supplied conductor count, terminal order, factor shape, or unsupported shunt structure."
+
+[[finding]]
+code = "W.CONTRACT.SEQUENCE_INDETERMINATE"
+severity = "WARNING"
+meaning = "A source or target factor, terminal map, or required collapse-domain declaration is missing or unresolved."

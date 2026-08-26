@@ -6,10 +6,11 @@
     "load_voltage_base_consistency",
     "neutral_ground_reference_preservation",
     "parallel_member_limit_preservation",
+    "positive_sequence_collapse_applicability",
     "transformer_tap_domain_preservation",
     "transformer_winding_convention_preservation"
   ],
-  "corpus_sha256": "1f8a656e49ddb593c2475b612a47612fbdc8eafb90651b0c5724d01a818c7cda",
+  "corpus_sha256": "814786b7c66eb0b1ada18041c0d62b594c6729984cf46451e6f337ef79842178",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -18,19 +19,20 @@
     "PSK-000005",
     "PSK-000006",
     "PSK-000007",
-    "PSK-000008"
+    "PSK-000008",
+    "PSK-000009"
   ],
   "manifest_id": "bmopftools-executable-knowledge-0.1.0",
   "package": {
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 55,
+  "record_count": 63,
   "record_counts": {
-    "api_operation": 8,
-    "executable_contract": 8,
-    "finding": 31,
-    "fixture": 8
+    "api_operation": 9,
+    "executable_contract": 9,
+    "finding": 36,
+    "fixture": 9
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -40,11 +42,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "da26dd3cb8ff0d238c3cc0c9a8108024f3d7f8a1bce6b82ea9d49b157b51dda2"
+      "sha256": "4d01f32ca255b680fbe7fa3ce6273dae1cd6c53902e1ebd6bdd82e25b80d34fd"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "792b00d461eef9ee4fda9ddb920a593d331174560f317b9a5c1a0878ad8cfae4"
+      "sha256": "98b07c458ca15d5709807a9abc5637fadda13a26d1306c1b488f645b5fbce2c3"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -60,7 +62,7 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "67c55f8ff34435198eae1db0f351a631311dd73ed298c8a7cdd0b0620790f9bc"
+      "sha256": "e4975787deca75732406ee3be2aaad2b987b82bcb31cddcb242c3b3146652626"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -211,6 +213,26 @@
       "sha256": "b98e114846b2a1caf0e552f4f2d5dfdd2ad8fd936ba13a03951e2a9b2f70c16e"
     },
     {
+      "path": "test/fixtures/negative/positive-sequence-collapse/expected.json",
+      "sha256": "e60d5a98023c8e729956dd96e6df873490a8f11d454b7aa9d207f093168e0f46"
+    },
+    {
+      "path": "test/fixtures/negative/positive-sequence-collapse/metadata.toml",
+      "sha256": "a1d721c438ed712a98e286282660ca21323fbf9117b3ca385df95a3688198908"
+    },
+    {
+      "path": "test/fixtures/negative/positive-sequence-collapse/reproduce.jl",
+      "sha256": "5b8093cefc4a0105e59d33ee55ec63934c8e13b22ac0955d893a125507399650"
+    },
+    {
+      "path": "test/fixtures/negative/positive-sequence-collapse/source.json",
+      "sha256": "4803397d1485d950bfe7321650a3143a1006e797e675fb09d6d6b2ccdbbb0818"
+    },
+    {
+      "path": "test/fixtures/negative/positive-sequence-collapse/target.json",
+      "sha256": "7c3da9333e2b29dcfb32a48c79d056abd3688aeef076e0851a48ea95146f4a1a"
+    },
+    {
       "path": "test/fixtures/negative/transformer-tap-domain-loss/exact-target.json",
       "sha256": "e7aeef4c670a668679cd270c78db2d45bc6e759212dcf51eeee74caa62d45cf0"
     },
@@ -260,7 +282,7 @@
     },
     {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "6d9e39546e07e8c972f91a7ef7fa6ccbff59b89a9b7429d257c55cfe6556c1ba"
+      "sha256": "ef9616502873a24b1a62b4883d354a4695056055e26ac6663f9f473a88d473c9"
     }
   ]
 }

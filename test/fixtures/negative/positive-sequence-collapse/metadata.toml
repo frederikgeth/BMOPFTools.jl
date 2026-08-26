@@ -1,0 +1,19 @@
+schema_version = "0.1.0"
+fixture_id = "positive-sequence-collapse-001"
+knowledge_ids = ["PSK-000009"]
+title = "Circulant balanced factor with guarded positive-sequence target"
+contract_id = "positive_sequence_collapse_applicability"
+kind = "counterexample"
+expected_status = "failed"
+expected_finding_codes = ["E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH"]
+minimality_status = "hand_minimized_three_phase_series_factor_with_one_failed_domain_guard"
+source_file = "source.json"
+transformed_file = "target.json"
+exact_target_file = "target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+scope = "Three-conductor series factor with cyclic phase symmetry and a scalar positive-sequence target."
+does_not_establish = [
+  "Positive-sequence exactness for unbalanced data, phase-specific limits, grounding observations, protection, or internal devices.",
+  "Global decision or solver equivalence."
+]

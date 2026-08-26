@@ -1,0 +1,13 @@
+{
+  "bus": {
+    "src": {"terminal_names": ["p"]},
+    "load": {"terminal_names": ["p"]}
+  },
+  "line": {
+    "l1": {
+      "bus_from": "src", "bus_to": "load", "length": 1.0,
+      "terminal_map_from": ["p"], "terminal_map_to": ["p"],
+      "R_series_1_1": 0.35, "X_series_1_1": 0.17
+    }
+  }
+}

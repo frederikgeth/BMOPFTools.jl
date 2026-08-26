@@ -20,14 +20,14 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 55
-    @test manifest.record_counts.executable_contract == 8
-    @test manifest.record_counts.api_operation == 8
-    @test manifest.record_counts.finding == 31
-    @test manifest.record_counts.fixture == 8
+    @test manifest.record_count == length(records) == 63
+    @test manifest.record_counts.executable_contract == 9
+    @test manifest.record_counts.api_operation == 9
+    @test manifest.record_counts.finding == 36
+    @test manifest.record_counts.fixture == 9
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
-        "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008"]
+        "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
         "decision_preservation_manifest_completeness",
@@ -35,6 +35,7 @@ using SHA
         "load_voltage_base_consistency",
         "neutral_ground_reference_preservation",
         "parallel_member_limit_preservation",
+        "positive_sequence_collapse_applicability",
         "transformer_tap_domain_preservation",
         "transformer_winding_convention_preservation",
     ]
@@ -110,6 +111,15 @@ using SHA
     @test kron_fixture.fixture_id in kron_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               kron_contract.finding_codes)
+
+    sequence_contract = by_id["contract:positive_sequence_collapse_applicability"]
+    sequence_fixture = by_id["fixture:positive-sequence-collapse-001"]
+    sequence_api = by_id["api:check_positive_sequence_collapse"]
+    @test sequence_contract.entrypoint == sequence_api.entrypoint ==
+          "check_positive_sequence_collapse"
+    @test sequence_fixture.fixture_id in sequence_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              sequence_contract.finding_codes)
 
     for record in records
         for path in record.source.paths

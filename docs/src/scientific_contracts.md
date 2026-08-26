@@ -2,6 +2,43 @@
 
 BMOPFTools scientific contracts turn a scoped knowledge statement into an executable decision with structured evidence. The scientific statement and its evidence remain owned by the sibling `multi-graph-book`; this package owns the code-level applicability checks, result status, Findings, fixtures, and export metadata. See the repository-root `ARCHITECTURE.md` for the stable boundary.
 
+## Positive-sequence collapse applicability
+
+[`check_positive_sequence_collapse`](@ref) implements the guarded applicability
+portion of `PSK-000009`. It checks a three-phase series factor and scalar target
+only when the source factors are circulant in the declared phase order and the
+study explicitly closes the balanced boundary, grounding, device, decision,
+and observation domains.
+
+```julia
+using BMOPFTools
+
+fixture = joinpath(pkgdir(BMOPFTools), "test", "fixtures", "negative",
+                   "positive-sequence-collapse")
+source = parse_bmopf(joinpath(fixture, "source.json"))
+target = parse_bmopf(joinpath(fixture, "target.json"))
+result = check_positive_sequence_collapse(
+    source, target; source_line_id="l3", target_line_id="l1",
+    declarations=Dict(
+        "balanced_boundary_data" => true,
+        "sequence_compatible_grounding" => true,
+        "two_terminal_closure" => true,
+        "phase_symmetric_decisions" => true,
+        "positive_sequence_observations" => true,
+    ),
+)
+result.status                 # :passed
+result.evidence["relation_error"]
+```
+
+The pass is a restricted positive-sequence relation, not a generic balanced
+model certificate. A non-circulant factor produces
+`E.CONTRACT.SEQUENCE_SYMMETRY_MISMATCH`; an unbalanced or phase-specific study
+produces `E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH`; missing declarations are
+`W.CONTRACT.SEQUENCE_INDETERMINATE`. Neutral/earth, negative- or zero-sequence,
+phase-specific limits, protection, internal-device quantities, complete
+feasible sets, objectives, and solver results remain unassessed.
+
 ## Parallel member-current limits
 
 [`check_parallel_member_limit_preservation`](@ref) implements the scalar, fixed-linear, series-only portion of `PSK-000001`. It requires an explicit mapping because a reduced aggregate cannot reveal discarded member identity.

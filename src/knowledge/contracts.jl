@@ -32,6 +32,8 @@ const _DECISION_MANIFEST_STATUSES =
     ("verified", "not_required", "not_preserved", "unassessed")
 const _KRON_BOUNDARY_CONTRACT = "kron_boundary_recovery_preservation"
 const _KRON_BOUNDARY_PSK = "PSK-000008"
+const _POSITIVE_SEQUENCE_CONTRACT = "positive_sequence_collapse_applicability"
+const _POSITIVE_SEQUENCE_PSK = "PSK-000009"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -437,6 +439,205 @@ function check_kron_boundary_recovery(
         evidence["classification"] = "boundary_relation_mismatch"
     end
     _kron_boundary_result(:failed, findings, evidence; checked=checked)
+end
+
+function _positive_sequence_result(status::Symbol, findings::Vector{Finding},
+                                    evidence::Dict{String,Any}; checked=String[])
+    ScientificContractResult(
+        _POSITIVE_SEQUENCE_CONTRACT,
+        status,
+        [_POSITIVE_SEQUENCE_PSK],
+        checked,
+        [
+            "phase_specific_limits_and_controls",
+            "neutral_or_explicit_earth_observations",
+            "unbalanced_boundary_data",
+            "internal_device_and_protection_quantities",
+            "complete_network_feasible_set",
+            "objective_or_optimizer_equivalence",
+            "solver_status_or_optimality",
+        ],
+        findings,
+        evidence,
+    )
+end
+
+function _positive_sequence_finding(code::String, severity::Severity,
+                                     line_id, message::String,
+                                     detail::Dict{String,Any})
+    Finding(severity, code, :scientific_contract, :line,
+            line_id isa String && !isempty(line_id) ? line_id : nothing,
+            message, detail)
+end
+
+function _positive_sequence_refusal(status::Symbol, code::String,
+                                    severity::Severity, message::String,
+                                    mapping::Dict{String,Any}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_POSITIVE_SEQUENCE_PSK],
+        "contract_id" => _POSITIVE_SEQUENCE_CONTRACT,
+        "line_mapping" => mapping,
+        "reason" => reason,
+        "invalid_inferences" => [
+            "Transposition or a numerically plausible scalar target does not establish positive-sequence exactness without sequence-invariant factors and a restricted study domain.",
+            "A positive-sequence pass does not preserve phase-specific, neutral, zero-sequence, negative-sequence, protection, or internal-device observations.",
+        ],
+        "recommended_checks" => [
+            "Check circulant series and shunt factors in the declared phase order.",
+            "Restrict sources, injections, controls, limits, and observations to the balanced positive-sequence domain.",
+            "Retain the phase-domain model for unbalanced, grounding, protection, or phase-specific studies.",
+        ],
+    )
+    finding = _positive_sequence_finding(code, severity,
+        get(mapping, "source_line_id", nothing), message, detail)
+    _positive_sequence_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status), "line_mapping" => mapping, "reason" => reason))
+end
+
+function _positive_sequence_circulant(Z::AbstractMatrix, atol::Float64)
+    size(Z) == (3, 3) || return false
+    for i in 1:3, j in 1:3
+        expected = Z[1, mod1(j - i + 1, 3)]
+        abs(Z[i, j] - expected) <= atol || return false
+    end
+    true
+end
+
+"""
+    check_positive_sequence_collapse(source, target;
+        source_line_id, target_line_id, declarations,
+        phase_terminals=["a", "b", "c"], terminal_mapping=Dict(),
+        atol=1e-9, rtol=1e-8)
+        -> ScientificContractResult
+
+Check the guarded positive-sequence specialization (`PSK-000009`). The
+supported case is a three-conductor source factor with circulant series and
+shunt matrices and a scalar target whose impedance is the positive-sequence
+eigenvalue. `declarations` must explicitly close balanced boundary data,
+sequence-compatible grounding, two-terminal factor closure,
+phase-symmetric decisions, and positive-sequence observations.
+"""
+function check_positive_sequence_collapse(
+        source::Dict{String,Any}, target::Dict{String,Any};
+        source_line_id::AbstractString,
+        target_line_id::AbstractString,
+        declarations::AbstractDict,
+        phase_terminals::AbstractVector{<:AbstractString}=["a", "b", "c"],
+        terminal_mapping::AbstractDict=Dict{String,String}(),
+        atol::Real=1e-9, rtol::Real=1e-8)::ScientificContractResult
+    atol_f, rtol_f = Float64(atol), Float64(rtol)
+    (isfinite(atol_f) && atol_f >= 0 && isfinite(rtol_f) && rtol_f >= 0) ||
+        throw(ArgumentError("atol and rtol must be finite and nonnegative"))
+    source_key, target_key = String(source_line_id), String(target_line_id)
+    phases = String.(phase_terminals)
+    mapping = Dict{String,Any}(
+        "source_line_id" => source_key, "target_line_id" => target_key,
+        "phase_terminals" => phases,
+        "terminal_mapping" => Dict{String,String}(string(k) => string(v) for (k, v) in terminal_mapping),
+    )
+    length(phases) == 3 && length(unique(phases)) == 3 ||
+        return _positive_sequence_refusal(:inapplicable, "I.CONTRACT.SEQUENCE_NOT_APPLICABLE", INFO,
+            "Positive-sequence collapse is not applicable: exactly three distinct phase terminals are required.",
+            mapping, "phase_terminals must contain three distinct labels")
+
+    Zs, source_line, source_status, source_reason = _kron_boundary_matrix(source, source_key)
+    Zs === nothing && return _positive_sequence_refusal(
+        source_status === :inapplicable ? :inapplicable : :indeterminate,
+        source_status === :inapplicable ? "I.CONTRACT.SEQUENCE_NOT_APPLICABLE" : "W.CONTRACT.SEQUENCE_INDETERMINATE",
+        source_status === :inapplicable ? INFO : WARNING,
+        "Positive-sequence collapse cannot resolve the source series factor.", mapping, source_reason)
+    size(Zs) == (3, 3) || return _positive_sequence_refusal(:inapplicable,
+        "I.CONTRACT.SEQUENCE_NOT_APPLICABLE", INFO,
+        "Positive-sequence collapse is not applicable: the source factor is not three-conductor.",
+        mapping, "source series impedance must be 3×3")
+    linecodes = get(source, "linecode", Dict())
+    shunt_ok, shunt_reason = _kron_boundary_nonzero_shunt(source_line, linecodes, atol_f)
+    # A positive-sequence reduction supports shunts only when their matrices are circulant.
+    shunt_matrices = Dict{String,Any}()
+    for (side, Y) in (("from", _line_shunt_complex(source_line, linecodes)[1]),
+                      ("to", _line_shunt_complex(source_line, linecodes)[2]))
+        Y === nothing && continue
+        size(Y) == (3, 3) || return _positive_sequence_refusal(:inapplicable,
+            "I.CONTRACT.SEQUENCE_NOT_APPLICABLE", INFO,
+            "Positive-sequence collapse is not applicable: $side shunt is not 3×3.", mapping,
+            "shunt matrices must use the three declared phase coordinates")
+        _positive_sequence_circulant(Y, atol_f) || begin
+            finding = _positive_sequence_finding("E.CONTRACT.SEQUENCE_SYMMETRY_MISMATCH", ERROR,
+                source_key, "Positive-sequence collapse fails: a shunt matrix mixes sequence subspaces.",
+                Dict{String,Any}("side" => side, "invalid_inference" => "transposition alone establishes exact positive-sequence closure"))
+            return _positive_sequence_result(:failed, [finding], Dict{String,Any}(
+                "classification" => "sequence_symmetry_failure", "line_mapping" => mapping,
+                "source_series_circulant" => _positive_sequence_circulant(Zs, atol_f)))
+        end
+        shunt_matrices[side] = true
+    end
+    _positive_sequence_circulant(Zs, atol_f) || begin
+        finding = _positive_sequence_finding("E.CONTRACT.SEQUENCE_SYMMETRY_MISMATCH", ERROR,
+            source_key, "Positive-sequence collapse fails: the source series matrix is not circulant.",
+            Dict{String,Any}("invalid_inference" => "transposition alone establishes exact positive-sequence closure"))
+        return _positive_sequence_result(:failed, [finding], Dict{String,Any}(
+            "classification" => "sequence_symmetry_failure", "line_mapping" => mapping,
+            "source_series_circulant" => false))
+    end
+    target_Z, target_line, target_status, target_reason = _kron_boundary_matrix(target, target_key)
+    target_Z === nothing && return _positive_sequence_refusal(
+        target_status === :inapplicable ? :inapplicable : :indeterminate,
+        target_status === :inapplicable ? "I.CONTRACT.SEQUENCE_NOT_APPLICABLE" : "W.CONTRACT.SEQUENCE_INDETERMINATE",
+        target_status === :inapplicable ? INFO : WARNING,
+        "Positive-sequence collapse cannot resolve the target factor.", mapping, target_reason)
+    size(target_Z) == (1, 1) || return _positive_sequence_refusal(:inapplicable,
+        "I.CONTRACT.SEQUENCE_NOT_APPLICABLE", INFO,
+        "Positive-sequence collapse is not applicable: target must be scalar.", mapping,
+        "target series impedance must be 1×1")
+    src_from = string.(get(source_line, "terminal_map_from", String[]))
+    src_to = string.(get(source_line, "terminal_map_to", String[]))
+    (src_from == phases && src_to == phases) || return _positive_sequence_refusal(:inapplicable,
+        "I.CONTRACT.SEQUENCE_NOT_APPLICABLE", INFO,
+        "Positive-sequence collapse is not applicable: source terminal order is not aligned.", mapping,
+        "source terminal maps must equal the declared phase order at both ends")
+    required = ("balanced_boundary_data", "sequence_compatible_grounding",
+                "two_terminal_closure", "phase_symmetric_decisions",
+                "positive_sequence_observations")
+    missing = String[]
+    for key in required
+        haskey(declarations, key) || push!(missing, key)
+    end
+    isempty(missing) || return _positive_sequence_refusal(:indeterminate,
+        "W.CONTRACT.SEQUENCE_INDETERMINATE", WARNING,
+        "Positive-sequence collapse is indeterminate: applicability declarations are incomplete.",
+        mapping, "missing declarations: $(join(missing, ", "))")
+    bad = [key for key in required if declarations[key] !== true]
+    isempty(bad) || begin
+        finding = _positive_sequence_finding("E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH", ERROR,
+            source_key, "Positive-sequence collapse fails: the study domain is not closed under the positive-sequence restriction.",
+            Dict{String,Any}("failed_guards" => bad, "invalid_inference" => "a balanced factor makes an unbalanced or phase-specific study exact"))
+        return _positive_sequence_result(:failed, [finding], Dict{String,Any}(
+            "classification" => "sequence_domain_failure", "line_mapping" => mapping,
+            "failed_guards" => bad, "source_series_circulant" => true))
+    end
+    a = cis(2pi / 3)
+    zpos = Zs[1, 1] + Zs[1, 2] * a^2 + Zs[1, 3] * a
+    delta = ComplexF64(target_Z[1, 1] - zpos)
+    tolerance = atol_f + rtol_f * max(abs(zpos), abs(target_Z[1, 1]))
+    evidence = Dict{String,Any}(
+        "classification" => "positive_sequence_restriction",
+        "line_mapping" => mapping, "source_series_circulant" => true,
+        "positive_sequence_impedance" => _contract_complex(zpos),
+        "target_impedance" => _contract_complex(ComplexF64(target_Z[1, 1])),
+        "relation_error" => abs(delta), "relation_tolerance" => tolerance,
+        "declarations" => Dict{String,Any}(string(k) => declarations[k] for k in required),
+        "shunt_matrices_circulant" => shunt_matrices,
+    )
+    abs(delta) <= tolerance && return _positive_sequence_result(:passed, Finding[], evidence;
+        checked=["source_series_cyclic_symmetry", "source_shunt_cyclic_symmetry",
+                 "balanced_boundary_data", "sequence_compatible_grounding",
+                 "two_terminal_factor_closure", "phase_symmetric_decisions",
+                 "positive_sequence_observations", "positive_sequence_relation"])
+    finding = _positive_sequence_finding("E.CONTRACT.SEQUENCE_RELATION_MISMATCH", ERROR,
+        target_key, "Positive-sequence collapse fails: scalar target does not match the source positive-sequence relation.",
+        Dict{String,Any}("relation_error" => abs(delta), "relation_tolerance" => tolerance))
+    _positive_sequence_result(:failed, [finding], evidence;
+        checked=["source_series_cyclic_symmetry", "source_shunt_cyclic_symmetry"])
 end
 
 function _decision_manifest_result(

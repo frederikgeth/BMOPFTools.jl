@@ -2937,6 +2937,7 @@ export check_transformer_tap_domain_preservation
 export check_transformer_winding_convention_preservation
 export check_decision_preservation_manifest
 export check_kron_boundary_recovery
+export check_positive_sequence_collapse
 export errors, warnings, infos
 export profile_solution, render_solution, solution_check
 export parse_bmopf, write_bmopf

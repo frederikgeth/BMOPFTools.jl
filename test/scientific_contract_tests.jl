@@ -97,6 +97,61 @@ using JSON3
     end
 end
 
+@testset "Scientific contracts — positive-sequence collapse applicability" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative", "positive-sequence-collapse")
+    source = parse_bmopf(joinpath(fixture, "source.json"))
+    target = parse_bmopf(joinpath(fixture, "target.json"))
+    declarations = Dict(
+        "balanced_boundary_data" => true,
+        "sequence_compatible_grounding" => true,
+        "two_terminal_closure" => true,
+        "phase_symmetric_decisions" => true,
+        "positive_sequence_observations" => true,
+    )
+    result = check_positive_sequence_collapse(
+        source, target; source_line_id="l3", target_line_id="l1",
+        declarations=declarations)
+    @test result.status == :passed
+    @test result.contract_id == "positive_sequence_collapse_applicability"
+    @test result.knowledge_ids == ["PSK-000009"]
+    @test result.evidence["source_series_circulant"] === true
+    @test result.evidence["relation_error"] < 1e-12
+    @test "positive_sequence_relation" in result.checked_dimensions
+
+    unbalanced = deepcopy(declarations)
+    unbalanced["balanced_boundary_data"] = false
+    result = check_positive_sequence_collapse(
+        source, target; source_line_id="l3", target_line_id="l1",
+        declarations=unbalanced)
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH"
+
+    nonsymmetric = deepcopy(source)
+    nonsymmetric["line"]["l3"]["R_series_2_3"] = 0.09
+    result = check_positive_sequence_collapse(
+        nonsymmetric, target; source_line_id="l3", target_line_id="l1",
+        declarations=declarations)
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.SEQUENCE_SYMMETRY_MISMATCH"
+
+    incomplete = check_positive_sequence_collapse(
+        source, target; source_line_id="l3", target_line_id="l1",
+        declarations=Dict("balanced_boundary_data" => true))
+    @test incomplete.status == :indeterminate
+    @test only(incomplete.findings).code == "W.CONTRACT.SEQUENCE_INDETERMINATE"
+
+    wrong_target = deepcopy(target)
+    wrong_target["line"]["l1"]["R_series_1_1"] = 0.36
+    result = check_positive_sequence_collapse(
+        source, wrong_target; source_line_id="l3", target_line_id="l1",
+        declarations=declarations)
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.SEQUENCE_RELATION_MISMATCH"
+
+    serialized = JSON3.write(contract_result_to_dict(result))
+    @test occursin("positive_sequence_collapse_applicability", String(serialized))
+end
+
 @testset "Scientific contracts — Kron boundary and recovery" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative", "kron-boundary-grounding")
     load_network(name) = parse_bmopf(joinpath(fixture, name))
