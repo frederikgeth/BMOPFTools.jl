@@ -1,0 +1,1 @@
+{"contract_id":"unit_base_serialization_invariance","knowledge_ids":["PSK-000014"],"finding_codes":["E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH"],"classification":"canonical_payload_mismatch"}

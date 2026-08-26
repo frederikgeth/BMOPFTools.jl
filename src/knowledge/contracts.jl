@@ -42,6 +42,8 @@ const _PERMUTATION_CONTRACT = "terminal_permutation_invariance"
 const _PERMUTATION_PSK = "PSK-000012"
 const _FEASIBILITY_CONTRACT = "solved_network_feasibility_validation"
 const _FEASIBILITY_PSK = "PSK-000013"
+const _UNIT_BASE_CONTRACT = "unit_base_serialization_invariance"
+const _UNIT_BASE_PSK = "PSK-000014"
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -1038,6 +1040,84 @@ function _feasibility_result(status::Symbol, findings::Vector{Finding},
         ["residual_computation_independence", "model_equation_coverage",
          "complete_feasible_set", "objective_or_optimizer_equivalence",
          "solver_status_or_optimality"], findings, Dict{String,Any}(evidence))
+end
+
+function _unit_base_result(status::Symbol, findings::Vector{Finding},
+                           evidence::AbstractDict; checked=String[])
+    ScientificContractResult(
+        _UNIT_BASE_CONTRACT, status, [_UNIT_BASE_PSK], checked,
+        ["canonical_payload_identity", "source_hash_binding",
+         "physical_unit_semantics", "complete_network_equivalence",
+         "objective_or_optimizer_equivalence"], findings,
+        Dict{String,Any}(evidence))
+end
+
+function _unit_base_equal(a, b)
+    a isa AbstractDict && b isa AbstractDict &&
+        Set(string.(keys(a))) == Set(string.(keys(b))) &&
+        all(_unit_base_equal(get(a, k, nothing), get(b, k, nothing)) for k in keys(a)) ||
+        (a isa AbstractVector && b isa AbstractVector && length(a) == length(b) &&
+         all(_unit_base_equal(a[i], b[i]) for i in eachindex(a)) || a == b)
+end
+
+"""
+    check_unit_base_serialization_invariance(source, target;
+        source_model_id, target_model_id) -> ScientificContractResult
+
+Check explicit unit/base metadata and a canonical semantic hash across a
+serialization round trip (`PSK-000014`). The contract compares the declared
+unit system, base map, and semantic payload hash; it does not infer units from
+numeric magnitudes or claim that metadata equality proves network equivalence.
+"""
+function check_unit_base_serialization_invariance(
+        source::Dict{String,Any}, target::Dict{String,Any};
+        source_model_id::AbstractString, target_model_id::AbstractString)::ScientificContractResult
+    mapping = Dict{String,Any}("source_model_id" => String(source_model_id),
+        "target_model_id" => String(target_model_id))
+    sm, tm = get(source, "serialization", nothing), get(target, "serialization", nothing)
+    sm isa AbstractDict && tm isa AbstractDict || begin
+        f = Finding(WARNING, "W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE",
+            :scientific_contract, :model, String(target_model_id),
+            "Unit/base serialization invariance is indeterminate: serialization metadata is missing.",
+            Dict{String,Any}("knowledge_ids" => [_UNIT_BASE_PSK], "contract_id" => _UNIT_BASE_CONTRACT,
+                "line_mapping" => mapping, "reason" => "each model needs serialization.unit_system, bases, and semantic_hash"))
+        return _unit_base_result(:indeterminate, [f], Dict("classification" => "missing_serialization_metadata", "line_mapping" => mapping))
+    end
+    fields = ("unit_system", "bases", "semantic_hash")
+    missing = [field for field in fields if get(sm, field, nothing) === nothing || get(tm, field, nothing) === nothing]
+    isempty(missing) || begin
+        f = Finding(WARNING, "W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE",
+            :scientific_contract, :model, String(target_model_id),
+            "Unit/base serialization invariance is indeterminate: required metadata is missing.",
+            Dict{String,Any}("knowledge_ids" => [_UNIT_BASE_PSK], "contract_id" => _UNIT_BASE_CONTRACT,
+                "missing_fields" => missing))
+        return _unit_base_result(:indeterminate, [f], Dict("classification" => "incomplete_serialization_metadata", "line_mapping" => mapping))
+    end
+    sm["unit_system"] == tm["unit_system"] || begin
+        f = Finding(ERROR, "E.CONTRACT.UNIT_SYSTEM_MISMATCH", :scientific_contract, :model,
+            String(target_model_id), "Target serialization declares a different unit system.",
+            Dict{String,Any}("knowledge_ids" => [_UNIT_BASE_PSK], "contract_id" => _UNIT_BASE_CONTRACT,
+                "source_unit_system" => sm["unit_system"], "target_unit_system" => tm["unit_system"]))
+        return _unit_base_result(:failed, [f], Dict("classification" => "unit_system_mismatch", "line_mapping" => mapping))
+    end
+    _unit_base_equal(sm["bases"], tm["bases"]) || begin
+        f = Finding(ERROR, "E.CONTRACT.BASE_MAP_MISMATCH", :scientific_contract, :model,
+            String(target_model_id), "Target serialization does not preserve the declared unit/base map.",
+            Dict{String,Any}("knowledge_ids" => [_UNIT_BASE_PSK], "contract_id" => _UNIT_BASE_CONTRACT,
+                "source_bases" => sm["bases"], "target_bases" => tm["bases"]))
+        return _unit_base_result(:failed, [f], Dict("classification" => "base_map_mismatch", "line_mapping" => mapping))
+    end
+    sm["semantic_hash"] == tm["semantic_hash"] || begin
+        f = Finding(ERROR, "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH", :scientific_contract, :model,
+            String(target_model_id), "Target serialization has a different canonical semantic payload hash.",
+            Dict{String,Any}("knowledge_ids" => [_UNIT_BASE_PSK], "contract_id" => _UNIT_BASE_CONTRACT,
+                "source_semantic_hash" => sm["semantic_hash"], "target_semantic_hash" => tm["semantic_hash"]))
+        return _unit_base_result(:failed, [f], Dict("classification" => "canonical_payload_mismatch", "line_mapping" => mapping))
+    end
+    _unit_base_result(:passed, Finding[], Dict("classification" => "unit_base_and_payload_preserved",
+        "line_mapping" => mapping, "unit_system" => sm["unit_system"], "bases" => sm["bases"],
+        "semantic_hash" => sm["semantic_hash"]);
+        checked=["canonical_payload_identity", "source_hash_binding", "physical_unit_semantics"])
 end
 
 """

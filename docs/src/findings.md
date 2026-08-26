@@ -566,3 +566,7 @@ Checks for the DC side: `dc_bus` nodes (signed line-to-ground voltage, no angle)
 | `E.CONTRACT.FEASIBILITY_DEVICE_LIMIT_VIOLATION` | E | Independent device-limit validation reports one or more violations. |
 | `I.CONTRACT.FEASIBILITY_NOT_APPLICABLE` | I | No solved/feasible solver status was supplied for the residual-witness contract. |
 | `W.CONTRACT.FEASIBILITY_INDETERMINATE` | W | A solved result lacks finite, independently computed residual or device-limit witness fields. |
+| `E.CONTRACT.UNIT_SYSTEM_MISMATCH` | E | Target serialization declares a different unit system. |
+| `E.CONTRACT.BASE_MAP_MISMATCH` | E | Target serialization does not preserve the declared unit/base map. |
+| `E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH` | E | Target serialization has a different canonical semantic payload hash. |
+| `W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE` | W | Required unit/base or canonical semantic-hash metadata is missing or malformed. |

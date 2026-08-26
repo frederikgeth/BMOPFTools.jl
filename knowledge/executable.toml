@@ -738,3 +738,44 @@ meaning = "No solved/feasible solver status was supplied for the residual-witnes
 code = "W.CONTRACT.FEASIBILITY_INDETERMINATE"
 severity = "WARNING"
 meaning = "A solved result lacks finite, independently computed residual or device-limit witness fields."
+
+[[contract]]
+id = "unit_base_serialization_invariance"
+knowledge_ids = ["PSK-000014"]
+title = "Unit/base and serialization invariance"
+entrypoint = "check_unit_base_serialization_invariance"
+scope = "Serialization pairs with explicit unit-system, base-map, and canonical semantic-hash metadata."
+applicability = [
+  "Both records declare a unit system, base map, and canonical semantic payload hash.",
+  "The target is claimed to represent the same serialized semantic payload as the source.",
+]
+checked_dimensions = ["canonical_payload_identity", "source_hash_binding", "physical_unit_semantics"]
+unassessed_dimensions = ["hash_computation_authenticity", "unit_inference_from_magnitude", "complete_network_equivalence", "objective_or_optimizer_equivalence"]
+finding_codes = [
+  "E.CONTRACT.UNIT_SYSTEM_MISMATCH",
+  "E.CONTRACT.BASE_MAP_MISMATCH",
+  "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH",
+  "W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE",
+]
+fixture_ids = ["unit-base-serialization-001"]
+source_paths = ["src/knowledge/contracts.jl", "docs/src/findings.md", "test/scientific_contract_tests.jl"]
+
+[[finding]]
+code = "E.CONTRACT.UNIT_SYSTEM_MISMATCH"
+severity = "ERROR"
+meaning = "Target serialization declares a different unit system."
+
+[[finding]]
+code = "E.CONTRACT.BASE_MAP_MISMATCH"
+severity = "ERROR"
+meaning = "Target serialization does not preserve the declared unit/base map."
+
+[[finding]]
+code = "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH"
+severity = "ERROR"
+meaning = "Target serialization has a different canonical semantic payload hash."
+
+[[finding]]
+code = "W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE"
+severity = "WARNING"
+meaning = "Required unit/base or canonical semantic-hash metadata is missing or malformed."

@@ -382,6 +382,17 @@ calculator or a global-optimality certificate. The source model equations,
 complete feasible set, objective/optimizer equivalence, and solver guarantees
 remain outside the checked dimensions.
 
+## Unit/base and serialization invariance
+
+[`check_unit_base_serialization_invariance`](@ref) checks that a serialization
+round trip preserves explicit unit-system metadata, the declared base map, and
+a canonical semantic payload hash (`PSK-000014`). It distinguishes unit-system
+drift, base-map drift, and payload mutation; missing metadata is indeterminate.
+
+The contract does not infer units from magnitudes, authenticate how a hash was
+computed, or prove complete physical or decision equivalence. It complements
+`write_bmopf`/`parse_bmopf` round-trip tests and source-hash provenance.
+
 ## Decision-preservation manifests
 
 [`check_decision_preservation_manifest`](@ref) implements the declaration-

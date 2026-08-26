@@ -2942,6 +2942,7 @@ export check_state_dependent_equivalent
 export check_reference_singularity
 export check_terminal_permutation_invariance
 export check_solved_network_feasibility
+export check_unit_base_serialization_invariance
 export errors, warnings, infos
 export profile_solution, render_solution, solution_check
 export parse_bmopf, write_bmopf

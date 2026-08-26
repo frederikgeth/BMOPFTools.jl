@@ -1,5 +1,24 @@
 using JSON3
 
+@testset "Scientific contracts — unit/base serialization invariance" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative", "unit-base-serialization")
+    load(name) = JSON3.read(read(joinpath(fixture, name), String), Dict{String,Any})
+    result = check_unit_base_serialization_invariance(load("source.json"), load("target.json");
+        source_model_id="source", target_model_id="target")
+    @test result.status == :failed
+    @test only(result.findings).code == "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH"
+    @test result.evidence["classification"] == "canonical_payload_mismatch"
+    result = check_unit_base_serialization_invariance(load("source.json"), load("exact-target.json");
+        source_model_id="source", target_model_id="target")
+    @test result.status == :passed
+    @test result.checked_dimensions == ["canonical_payload_identity", "source_hash_binding", "physical_unit_semantics"]
+    bad = deepcopy(load("exact-target.json")); bad["serialization"]["bases"]["voltage_V"] = 240.0
+    @test only(check_unit_base_serialization_invariance(load("source.json"), bad;
+        source_model_id="source", target_model_id="target").findings).code == "E.CONTRACT.BASE_MAP_MISMATCH"
+    @test check_unit_base_serialization_invariance(Dict{String,Any}(), Dict{String,Any}();
+        source_model_id="source", target_model_id="target").status == :indeterminate
+end
+
 @testset "Scientific contracts — solved-network feasibility witness" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative", "solved-network-feasibility")
     load(name) = JSON3.read(read(joinpath(fixture, name), String), Dict{String,Any})
