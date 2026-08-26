@@ -72,6 +72,15 @@ The relevant entry points are documented under [OPF result dictionaries](results
 
 Use [`check_parallel_member_limit_preservation`](@ref) and serialize results with [`contract_result_to_dict`](@ref). The [scientific-contract guide](scientific_contracts.md) defines the current applicability boundary.
 
+For an adjustable transformer, use the same reporting discipline with an
+explicit subtype and source/target transformer mapping:
+
+> Evaluate `transformer_tap_domain_preservation` for source transformer `<subtype>/<ID>` and mapped target `<subtype>/<ID>`. Distinguish its tap decision interval from its start value. Report the interval classification and witness, then list every unassessed dimension. Do not describe a matching interval as transformer-equation, control, network-feasible-set, objective, or optimal-tap equivalence.
+
+Use [`check_transformer_tap_domain_preservation`](@ref). The negative fixture
+`transformer-tap-domain-loss-001` shows why retaining only the source start tap
+is an inner restriction rather than preservation of the adjustable domain.
+
 ### Contribute a package change
 
 > Implement `<change>` on the current branch. First inspect the relevant public API, tests, documentation, and repository instructions. Preserve unrelated changes. Add focused positive, negative, boundary, and serialization tests in proportion to the change. Update Finding documentation and executable metadata when their stable identities or sources change. Run the focused tests, the stale-output check, and the relevant documentation build. Commit only after the diff and checks are clean.

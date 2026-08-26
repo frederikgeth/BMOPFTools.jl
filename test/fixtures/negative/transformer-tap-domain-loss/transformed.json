@@ -1,0 +1,31 @@
+{
+  "name": "adjustable-transformer-source",
+  "bus": {
+    "primary": {
+      "terminal_names": ["1", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    },
+    "secondary": {
+      "terminal_names": ["1", "n"],
+      "perfectly_grounded_terminals": ["n"]
+    }
+  },
+  "transformer": {
+    "single_phase": {
+      "tx": {
+        "bus_from": "primary",
+        "bus_to": "secondary",
+        "terminal_map_from": ["1", "n"],
+        "terminal_map_to": ["1", "n"],
+        "v_nom_from": 7200.0,
+        "v_nom_to": 240.0,
+        "r_series_from": 14.5152,
+        "x_series_from": 51.84,
+        "r_series_to": 0.016128,
+        "x_series_to": 0.0,
+        "s_rating": 25000.0,
+        "tap": 1.0
+      }
+    }
+  }
+}

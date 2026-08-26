@@ -11,6 +11,9 @@ const _CLAIMED_SOLUTION_CONTRACT = "claimed_solution_validity"
 const _CLAIMED_SOLUTION_PSK = "PSK-000003"
 const _LOAD_VOLTAGE_BASE_CONTRACT = "load_voltage_base_consistency"
 const _LOAD_VOLTAGE_BASE_PSK = "PSK-000004"
+const _TRANSFORMER_TAP_DOMAIN_CONTRACT = "transformer_tap_domain_preservation"
+const _TRANSFORMER_TAP_DOMAIN_PSK = "PSK-000005"
+const _TRANSFORMER_TAP_SUBTYPES = ("single_phase", "center_tap", "wye_delta", "delta_wye")
 const _CONTRACT_STATUSES = (:passed, :failed, :inapplicable, :indeterminate)
 
 """
@@ -1171,4 +1174,282 @@ function check_load_voltage_base_consistency(
     evidence["qualification"] =
         "Pass covers consistency with the declared source-propagated base only; it does not validate the declarations, load law, or solved operating point."
     _load_voltage_base_result(:passed, Finding[], evidence; checked=checked)
+end
+
+function _transformer_tap_result(status::Symbol, findings::Vector{Finding},
+                                 evidence::Dict{String,Any}; checked=String[])
+    ScientificContractResult(
+        _TRANSFORMER_TAP_DOMAIN_CONTRACT,
+        status,
+        [_TRANSFORMER_TAP_DOMAIN_PSK],
+        checked,
+        [
+            "pointwise_terminal_equations",
+            "tap_dependent_leakage_or_excitation",
+            "discrete_tap_positions",
+            "mechanical_or_per_phase_coupling",
+            "automatic_control_logic",
+            "network_feasible_set",
+            "objective_value",
+            "optimal_tap",
+            "solver_status_or_optimality",
+        ],
+        findings,
+        evidence,
+    )
+end
+
+function _transformer_tap_refusal(status::Symbol, code::String, severity::Severity,
+                                  message::String, mapping::Dict{String,String}, reason::String)
+    detail = Dict{String,Any}(
+        "knowledge_ids" => [_TRANSFORMER_TAP_DOMAIN_PSK],
+        "contract_id" => _TRANSFORMER_TAP_DOMAIN_CONTRACT,
+        "transformer_mapping" => mapping,
+        "reason" => reason,
+        "invalid_inferences" => [
+            "No tap-decision preservation conclusion follows when the source has no valid adjustable domain or the mapped base transformer factors differ.",
+        ],
+        "recommended_checks" => [
+            "Provide a mapped two-winding isolating transformer with a finite positive source tap interval.",
+            "Keep all non-tap transformer declarations unchanged and retain the complete tap decision domain in the target.",
+        ],
+    )
+    finding = Finding(severity, code, :scientific_contract, :transformer,
+                      get(mapping, "target_id", nothing), message, detail)
+    _transformer_tap_result(status, [finding], Dict{String,Any}(
+        "applicability" => string(status),
+        "transformer_mapping" => mapping,
+        "reason" => reason,
+    ))
+end
+
+function _transformer_tap_record(net::Dict{String,Any}, subtype::String, id::String)
+    transformers = get(net, "transformer", nothing)
+    transformers isa AbstractDict || return nothing
+    records = get(transformers, subtype, nothing)
+    records isa AbstractDict || return nothing
+    record = get(records, id, nothing)
+    record isa AbstractDict ? record : nothing
+end
+
+function _transformer_tap_domain(record::AbstractDict; require_adjustable::Bool)
+    has_min = haskey(record, "tap_min")
+    has_max = haskey(record, "tap_max")
+    if has_min != has_max
+        return (nothing, :indeterminate, "tap_min and tap_max must be declared together")
+    end
+
+    raw_start = get(record, "tap", 1.0)
+    raw_start isa Number || return (nothing, :indeterminate, "tap start is not numeric")
+    start = Float64(raw_start)
+    isfinite(start) && start > 0 ||
+        return (nothing, :indeterminate, "tap start must be finite and positive")
+
+    if !has_min
+        require_adjustable && return (nothing, :inapplicable,
+            "source transformer has no declared adjustable tap interval")
+        return ((minimum=start, maximum=start, start=start, explicit=false), :applicable, "")
+    end
+
+    raw_min = record["tap_min"]
+    raw_max = record["tap_max"]
+    (raw_min isa Number && raw_max isa Number) ||
+        return (nothing, :indeterminate, "tap interval bounds are not numeric")
+    lower = Float64(raw_min)
+    upper = Float64(raw_max)
+    all(isfinite, (lower, upper)) && lower > 0 && upper > 0 ||
+        return (nothing, :indeterminate, "tap interval bounds must be finite and positive")
+    lower <= upper || return (nothing, :indeterminate, "tap_min exceeds tap_max")
+    require_adjustable && lower == upper && return (nothing, :inapplicable,
+        "source tap interval is a singleton rather than an adjustable decision domain")
+    lower <= start <= upper ||
+        return (nothing, :indeterminate, "tap start lies outside the declared interval")
+    ((minimum=lower, maximum=upper, start=start, explicit=true), :applicable, "")
+end
+
+function _transformer_without_tap_domain(record::AbstractDict)::Dict{String,Any}
+    ignored = Set(["tap", "tap_min", "tap_max"])
+    Dict{String,Any}(string(key) => value for (key, value) in record
+                     if !(string(key) in ignored))
+end
+
+"""
+    check_transformer_tap_domain_preservation(source, target;
+        source_subtype, source_id, target_subtype=source_subtype,
+        target_id=source_id, atol=1e-9, rtol=1e-8)
+        -> ScientificContractResult
+
+Check the initial executable portion of scientific contract
+`transformer_tap_domain_preservation` (`PSK-000005`). The source must contain
+an adjustable two-winding isolating transformer with a finite positive
+`tap_min < tap_max` interval. The target transformer must have the same subtype
+and identical non-tap declarations under the explicit mapping.
+
+The check compares the complete continuous tap intervals. Omitting target
+bounds is interpreted according to the BMOPFTools data model as a fixed
+singleton at `tap` (default `1.0`). A narrower target interval is an inner
+restriction; a wider interval is an outer extension; shifted or disjoint
+intervals are different decision domains. Any mismatch returns `:failed` with
+`E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS` and an interval witness.
+
+A pass establishes only preservation of the mapped base-factor declaration,
+tap-start admissibility, and continuous decision domain. It does not establish
+pointwise terminal equations, tap-dependent losses, discrete positions,
+automatic controls, network feasible-set equality, objective equality, an
+optimal tap, or solver guarantees.
+"""
+function check_transformer_tap_domain_preservation(
+        source::Dict{String,Any}, target::Dict{String,Any};
+        source_subtype::AbstractString,
+        source_id::AbstractString,
+        target_subtype::AbstractString=source_subtype,
+        target_id::AbstractString=source_id,
+        atol::Real=1e-9,
+        rtol::Real=1e-8)::ScientificContractResult
+    atol_f = Float64(atol)
+    rtol_f = Float64(rtol)
+    (isfinite(atol_f) && atol_f >= 0 && isfinite(rtol_f) && rtol_f >= 0) ||
+        throw(ArgumentError("atol and rtol must be finite and nonnegative"))
+
+    source_type = String(source_subtype)
+    target_type = String(target_subtype)
+    source_key = String(source_id)
+    target_key = String(target_id)
+    mapping = Dict{String,String}(
+        "source_subtype" => source_type,
+        "source_id" => source_key,
+        "target_subtype" => target_type,
+        "target_id" => target_key,
+    )
+    if !(source_type in _TRANSFORMER_TAP_SUBTYPES) ||
+       !(target_type in _TRANSFORMER_TAP_SUBTYPES) || source_type != target_type
+        return _transformer_tap_refusal(
+            :inapplicable, "I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE", INFO,
+            "Transformer tap-domain preservation is not applicable: source and target must use the same supported isolating-transformer subtype.",
+            mapping, "source and target subtypes are unsupported or differ")
+    end
+
+    source_record = _transformer_tap_record(source, source_type, source_key)
+    source_record === nothing && return _transformer_tap_refusal(
+        :indeterminate, "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE", WARNING,
+        "Transformer tap-domain preservation is indeterminate: mapped source transformer is missing.",
+        mapping, "mapped source transformer is missing")
+    target_record = _transformer_tap_record(target, target_type, target_key)
+    target_record === nothing && return _transformer_tap_refusal(
+        :indeterminate, "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE", WARNING,
+        "Transformer tap-domain preservation is indeterminate: mapped target transformer is missing.",
+        mapping, "mapped target transformer is missing")
+
+    source_domain, source_status, source_reason =
+        _transformer_tap_domain(source_record; require_adjustable=true)
+    if source_domain === nothing
+        status = source_status === :inapplicable ? :inapplicable : :indeterminate
+        code = status === :inapplicable ?
+            "I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE" :
+            "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE"
+        severity = status === :inapplicable ? INFO : WARNING
+        return _transformer_tap_refusal(status, code, severity,
+            "Transformer tap-domain preservation is $status: $source_reason.",
+            mapping, source_reason)
+    end
+    target_domain, target_status, target_reason =
+        _transformer_tap_domain(target_record; require_adjustable=false)
+    if target_domain === nothing
+        status = target_status === :inapplicable ? :inapplicable : :indeterminate
+        code = status === :inapplicable ?
+            "I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE" :
+            "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE"
+        severity = status === :inapplicable ? INFO : WARNING
+        return _transformer_tap_refusal(status, code, severity,
+            "Transformer tap-domain preservation is $status: $target_reason.",
+            mapping, target_reason)
+    end
+
+    source_base = _transformer_without_tap_domain(source_record)
+    target_base = _transformer_without_tap_domain(target_record)
+    source_base == target_base || return _transformer_tap_refusal(
+        :inapplicable, "I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE", INFO,
+        "Transformer tap-domain preservation is not applicable: mapped non-tap transformer declarations differ.",
+        mapping, "mapped non-tap transformer declarations differ")
+
+    tolerance = atol_f + rtol_f * max(abs(source_domain.minimum),
+                                      abs(source_domain.maximum),
+                                      abs(target_domain.minimum),
+                                      abs(target_domain.maximum), 1.0)
+    same_lower = abs(source_domain.minimum - target_domain.minimum) <= tolerance
+    same_upper = abs(source_domain.maximum - target_domain.maximum) <= tolerance
+    evidence = Dict{String,Any}(
+        "transformer_mapping" => mapping,
+        "source_domain" => Dict{String,Any}(
+            "minimum" => source_domain.minimum,
+            "maximum" => source_domain.maximum,
+            "start" => source_domain.start,
+            "explicit" => source_domain.explicit,
+        ),
+        "target_domain" => Dict{String,Any}(
+            "minimum" => target_domain.minimum,
+            "maximum" => target_domain.maximum,
+            "start" => target_domain.start,
+            "explicit" => target_domain.explicit,
+        ),
+        "domain_tolerance" => tolerance,
+        "base_factor_declarations_equal" => true,
+    )
+    checked = [
+        "mapped_transformer_base_factor_identity",
+        "tap_start_admissibility",
+        "continuous_tap_decision_domain",
+    ]
+    if same_lower && same_upper
+        evidence["classification"] = "continuous_tap_domain_preserved"
+        evidence["qualification"] =
+            "Pass covers the mapped continuous tap interval and base declaration only; it is not a network decision-equivalence or optimality certificate."
+        return _transformer_tap_result(:passed, Finding[], evidence; checked=checked)
+    end
+
+    source_contains_target =
+        target_domain.minimum >= source_domain.minimum - tolerance &&
+        target_domain.maximum <= source_domain.maximum + tolerance
+    target_contains_source =
+        source_domain.minimum >= target_domain.minimum - tolerance &&
+        source_domain.maximum <= target_domain.maximum + tolerance
+    classification = source_contains_target ? "inner_restriction" :
+                     target_contains_source ? "outer_extension" :
+                     max(source_domain.minimum, target_domain.minimum) <=
+                         min(source_domain.maximum, target_domain.maximum) + tolerance ?
+                         "shifted_partial_overlap" : "disjoint_domain"
+
+    witness_tap = if source_domain.minimum < target_domain.minimum - tolerance
+        source_domain.minimum
+    elseif source_domain.maximum > target_domain.maximum + tolerance
+        source_domain.maximum
+    elseif target_domain.minimum < source_domain.minimum - tolerance
+        target_domain.minimum
+    else
+        target_domain.maximum
+    end
+    admissible(value, domain) =
+        domain.minimum - tolerance <= value <= domain.maximum + tolerance
+    evidence["classification"] = classification
+    evidence["witness"] = Dict{String,Any}(
+        "tap" => witness_tap,
+        "source_admissible" => admissible(witness_tap, source_domain),
+        "target_admissible" => admissible(witness_tap, target_domain),
+    )
+    detail = merge(copy(evidence), Dict{String,Any}(
+        "knowledge_ids" => [_TRANSFORMER_TAP_DOMAIN_PSK],
+        "contract_id" => _TRANSFORMER_TAP_DOMAIN_CONTRACT,
+        "invalid_inferences" => [
+            "Evaluating or storing an adjustable transformer only at its start tap does not preserve the source tap decision domain.",
+        ],
+        "recommended_checks" => [
+            "Retain tap_min and tap_max with the mapped transformer instead of replacing the decision by one fixed tap.",
+            "Verify pointwise transformer equations and network constraints separately at every tap required by the study.",
+        ],
+    ))
+    finding = Finding(ERROR, "E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS",
+        :scientific_contract, :transformer, target_key,
+        "Mapped transformer '$target_key' has a $classification relative to source tap interval [$(source_domain.minimum), $(source_domain.maximum)].",
+        detail)
+    _transformer_tap_result(:failed, [finding], evidence; checked=checked)
 end

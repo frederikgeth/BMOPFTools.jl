@@ -221,3 +221,57 @@ meaning = "No unique voltage-dependent WYE or DELTA load is selected, so the ini
 code = "W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE"
 severity = "WARNING"
 meaning = "A selected load, numeric nominal anchor, or source-reachable bus voltage base is unavailable, so consistency cannot be decided."
+
+[[contract]]
+id = "transformer_tap_domain_preservation"
+knowledge_ids = ["PSK-000005"]
+title = "Adjustable transformer tap-domain preservation"
+entrypoint = "check_transformer_tap_domain_preservation"
+scope = "Continuous scalar tap intervals on explicitly mapped two-winding isolating transformers whose subtype and non-tap declarations are unchanged."
+applicability = [
+  "Source and target map one transformer with the same supported single_phase, center_tap, wye_delta, or delta_wye subtype.",
+  "The source declares finite positive tap_min < tap_max and a tap start inside that continuous interval.",
+  "All mapped non-tap transformer declarations are identical; target bounds may be explicit or omitted to represent a fixed tap singleton.",
+]
+checked_dimensions = [
+  "mapped_transformer_base_factor_identity",
+  "tap_start_admissibility",
+  "continuous_tap_decision_domain",
+]
+unassessed_dimensions = [
+  "pointwise_terminal_equations",
+  "tap_dependent_leakage_or_excitation",
+  "discrete_tap_positions",
+  "mechanical_or_per_phase_coupling",
+  "automatic_control_logic",
+  "network_feasible_set",
+  "objective_value",
+  "optimal_tap",
+  "solver_status_or_optimality",
+]
+finding_codes = [
+  "E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS",
+  "I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE",
+  "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE",
+]
+fixture_ids = ["transformer-tap-domain-loss-001"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+]
+
+[[finding]]
+code = "E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS"
+severity = "ERROR"
+meaning = "The target transformer tap interval differs from the mapped adjustable source interval, creating an inner restriction, outer extension, shifted overlap, or disjoint decision domain."
+
+[[finding]]
+code = "I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE"
+severity = "INFO"
+meaning = "The source is not an adjustable continuous transformer in the implemented domain, or mapped subtype and non-tap declarations differ."
+
+[[finding]]
+code = "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE"
+severity = "WARNING"
+meaning = "A mapped transformer, complete numeric tap interval, or admissible tap start is unavailable, so domain preservation cannot be decided."

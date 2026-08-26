@@ -97,6 +97,128 @@ using JSON3
     end
 end
 
+@testset "Scientific contracts — transformer tap-domain preservation" begin
+    fixture = joinpath(@__DIR__, "fixtures", "negative",
+                       "transformer-tap-domain-loss")
+    source = parse_bmopf(joinpath(fixture, "source.json"))
+    frozen = parse_bmopf(joinpath(fixture, "transformed.json"))
+    exact = parse_bmopf(joinpath(fixture, "exact-target.json"))
+    expected = JSON3.read(read(joinpath(fixture, "expected.json"), String))
+
+    check(target; kwargs...) = check_transformer_tap_domain_preservation(
+        source, target; source_subtype="single_phase", source_id="tx", kwargs...)
+
+    @testset "freezing the start value is an inner restriction with a witness" begin
+        result = check(frozen)
+        @test result isa ScientificContractResult
+        @test result.status == :failed
+        @test result.contract_id == expected.contract_id
+        @test result.knowledge_ids == String.(expected.knowledge_ids)
+        @test [finding.code for finding in result.findings] ==
+              String.(expected.finding_codes)
+        @test result.evidence["classification"] == expected.classification
+        atol = Float64(expected.absolute_tolerance)
+        @test result.evidence["source_domain"]["minimum"] ≈
+              expected.source_domain.minimum atol=atol
+        @test result.evidence["source_domain"]["maximum"] ≈
+              expected.source_domain.maximum atol=atol
+        @test result.evidence["target_domain"]["minimum"] ≈
+              expected.target_domain.minimum atol=atol
+        @test result.evidence["target_domain"]["maximum"] ≈
+              expected.target_domain.maximum atol=atol
+        witness = result.evidence["witness"]
+        @test witness["tap"] ≈ expected.witness.tap atol=atol
+        @test witness["source_admissible"] === true
+        @test witness["target_admissible"] === false
+        detail = only(result.findings).detail
+        @test detail["knowledge_ids"] == ["PSK-000005"]
+        @test !isempty(detail["invalid_inferences"])
+        @test !isempty(detail["recommended_checks"])
+    end
+
+    @testset "the complete interval passes independently of the start" begin
+        result = check(exact)
+        @test result.status == :passed
+        @test isempty(result.findings)
+        @test result.checked_dimensions == [
+            "mapped_transformer_base_factor_identity",
+            "tap_start_admissibility",
+            "continuous_tap_decision_domain",
+        ]
+        @test "pointwise_terminal_equations" in result.unassessed_dimensions
+        @test "network_feasible_set" in result.unassessed_dimensions
+        @test "optimal_tap" in result.unassessed_dimensions
+        @test result.evidence["classification"] ==
+              "continuous_tap_domain_preserved"
+
+        decoded = JSON3.read(JSON3.write(contract_result_to_dict(result)))
+        @test decoded.status == "passed"
+        @test decoded.knowledge_ids == ["PSK-000005"]
+    end
+
+    @testset "other domain mismatches are classified" begin
+        wider = deepcopy(exact)
+        wider["transformer"]["single_phase"]["tx"]["tap_min"] = 0.9
+        @test check(wider).evidence["classification"] == "outer_extension"
+
+        shifted = deepcopy(exact)
+        shifted_tx = shifted["transformer"]["single_phase"]["tx"]
+        shifted_tx["tap_min"] = 1.0
+        shifted_tx["tap_max"] = 1.1
+        @test check(shifted).evidence["classification"] ==
+              "shifted_partial_overlap"
+
+        disjoint = deepcopy(exact)
+        disjoint_tx = disjoint["transformer"]["single_phase"]["tx"]
+        disjoint_tx["tap"] = 1.2
+        disjoint_tx["tap_min"] = 1.15
+        disjoint_tx["tap_max"] = 1.25
+        @test check(disjoint).evidence["classification"] == "disjoint_domain"
+    end
+
+    @testset "applicability and evidence failures refuse explicitly" begin
+        fixed_source = deepcopy(source)
+        delete!(fixed_source["transformer"]["single_phase"]["tx"], "tap_min")
+        delete!(fixed_source["transformer"]["single_phase"]["tx"], "tap_max")
+        inapplicable = check_transformer_tap_domain_preservation(
+            fixed_source, frozen;
+            source_subtype="single_phase", source_id="tx")
+        @test inapplicable.status == :inapplicable
+        @test only(inapplicable.findings).code ==
+              "I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE"
+
+        missing = deepcopy(exact)
+        delete!(missing["transformer"]["single_phase"], "tx")
+        indeterminate = check(missing)
+        @test indeterminate.status == :indeterminate
+        @test only(indeterminate.findings).code ==
+              "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE"
+
+        changed_base = deepcopy(exact)
+        changed_base["transformer"]["single_phase"]["tx"]["v_nom_to"] = 230.0
+        base_result = check(changed_base)
+        @test base_result.status == :inapplicable
+        @test only(base_result.findings).code ==
+              "I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE"
+
+        invalid = deepcopy(exact)
+        invalid["transformer"]["single_phase"]["tx"]["tap"] = 1.2
+        invalid_result = check(invalid)
+        @test invalid_result.status == :indeterminate
+        @test only(invalid_result.findings).code ==
+              "W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE"
+
+        @test_throws ArgumentError check(exact; atol=-1.0)
+    end
+
+    @testset "endpoint tolerance is explicit" begin
+        near = deepcopy(exact)
+        near["transformer"]["single_phase"]["tx"]["tap_min"] = 0.95 + 1e-10
+        @test check(near; atol=1e-9, rtol=0.0).status == :passed
+        @test check(near; atol=1e-12, rtol=0.0).status == :failed
+    end
+end
+
 @testset "Scientific contracts — load voltage-base consistency" begin
     fixture = joinpath(@__DIR__, "fixtures", "negative",
                        "load-voltage-base-mismatch")

@@ -1,0 +1,14 @@
+{
+  "contract_id": "transformer_tap_domain_preservation",
+  "knowledge_ids": ["PSK-000005"],
+  "finding_codes": ["E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS"],
+  "classification": "inner_restriction",
+  "source_domain": {"minimum": 0.95, "maximum": 1.05},
+  "target_domain": {"minimum": 1.0, "maximum": 1.0},
+  "witness": {
+    "tap": 0.95,
+    "source_admissible": true,
+    "target_admissible": false
+  },
+  "absolute_tolerance": 1e-12
+}

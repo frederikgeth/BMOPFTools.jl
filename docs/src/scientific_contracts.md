@@ -154,6 +154,52 @@ coefficients, units, solved operating voltage, network equations, or equipment
 limits. Missing required evidence is `:indeterminate`; constant-power or
 unsupported connection cases are `:inapplicable`.
 
+## Adjustable transformer tap domains
+
+[`check_transformer_tap_domain_preservation`](@ref) implements the initial
+continuous scalar portion of `PSK-000005`. It compares the complete tap decision
+interval on one explicitly mapped two-winding isolating transformer. In the
+BMOPFTools data model, omitting `tap_min` and `tap_max` leaves a fixed tap at
+`tap` (default `1.0`); it does not retain an implicit adjustable decision.
+
+```julia
+using BMOPFTools
+
+fixture = joinpath(
+    pkgdir(BMOPFTools), "test", "fixtures", "negative",
+    "transformer-tap-domain-loss",
+)
+source = parse_bmopf(joinpath(fixture, "source.json"))
+frozen = parse_bmopf(joinpath(fixture, "transformed.json"))
+
+result = check_transformer_tap_domain_preservation(
+    source,
+    frozen;
+    source_subtype = "single_phase",
+    source_id = "tx",
+)
+
+result.status                                  # :failed
+result.findings[1].code                        # "E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS"
+result.evidence["classification"]             # "inner_restriction"
+result.evidence["source_domain"]              # [0.95, 1.05] plus start
+result.evidence["target_domain"]              # singleton 1.0
+```
+
+The exact target fixture retains `[0.95, 1.05]` and passes even though its
+admissible start differs from the source. This distinguishes a decision domain
+from an initial guess. The check classifies narrower, wider, partially
+overlapping, and disjoint target intervals and supplies a tap admitted by only
+one side as its mismatch witness.
+
+Applicability is intentionally strict: source and target must have the same
+supported subtype and identical non-tap declarations. A pass establishes only
+mapped base-factor identity, start admissibility, and equality of the continuous
+tap interval. It does not establish pointwise transformer equations,
+tap-dependent losses, discrete positions, coupling, automatic-control behavior,
+network feasible-set or objective equality, the optimal tap, or solver
+guarantees. Those dimensions remain explicit follow-on contracts.
+
 ## Result statuses
 
 [`ScientificContractResult`](@ref) uses four statuses:

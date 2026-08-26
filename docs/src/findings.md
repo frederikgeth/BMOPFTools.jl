@@ -235,6 +235,9 @@ target cannot reveal source information that has already been discarded.
 | `E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID` | E | A result labelled `LOCALLY_SOLVED`, `OPTIMAL`, or `ALMOST_LOCALLY_SOLVED` contains non-finite values or violates a declared bus voltage or angle limit when independently recomputed by `profile_solution`. The contract finding retains the underlying `E.SOL.*` evidence. |
 | `I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE` | I | The solver did not claim a feasible result, or the network has no declared bus terminals. The initial claimed-solution contract therefore makes no validity conclusion. |
 | `W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE` | W | Termination status or required `vr`/`vi`/`vm` data for a declared bus terminal is missing. No validation conclusion is drawn; detail identifies the missing evidence. |
+| `E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS` | E | The mapped target transformer has a different continuous tap interval from the adjustable source: an inner restriction, outer extension, shifted overlap, or disjoint decision domain. Detail includes `PSK-000005`, both intervals, the classification, and a tap witness admitted by only one domain. |
+| `I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE` | I | The source is not an adjustable continuous tap transformer in the implemented domain, the subtype is unsupported or changes, or mapped non-tap declarations differ. No domain-preservation conclusion is drawn. |
+| `W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE` | W | A mapped transformer, complete numeric tap interval, or admissible start is missing or invalid. No domain-preservation conclusion is drawn. |
 
 ## PROV — provenance & conventions
 

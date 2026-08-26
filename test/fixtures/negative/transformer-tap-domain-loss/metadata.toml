@@ -1,0 +1,19 @@
+schema_version = "0.1.0"
+fixture_id = "transformer-tap-domain-loss-001"
+knowledge_ids = ["PSK-000005"]
+contract_id = "transformer_tap_domain_preservation"
+kind = "counterexample"
+title = "Adjustable transformer tap frozen at its start value"
+scope = "One mapped single-phase isolating transformer with a continuous tap decision over [0.95, 1.05], naively replaced by the fixed singleton tap 1.0 while all non-tap declarations remain unchanged."
+minimality_status = "hand_minimized_one_transformer_two_bus"
+source_file = "source.json"
+transformed_file = "transformed.json"
+exact_target_file = "exact-target.json"
+expected_file = "expected.json"
+reproducer = "reproduce.jl"
+expected_finding_codes = ["E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS"]
+does_not_establish = [
+  "Freezing an adjustable tap always changes the network optimum.",
+  "Matching tap intervals proves pointwise transformer equations, tap-dependent losses, control logic, or network feasible-set equality.",
+  "The initial continuous scalar contract covers discrete tap positions, independently controlled phases, or mechanical coupling.",
+]

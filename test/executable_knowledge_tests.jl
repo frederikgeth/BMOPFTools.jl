@@ -20,18 +20,20 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 27
-    @test manifest.record_counts.executable_contract == 4
-    @test manifest.record_counts.api_operation == 4
-    @test manifest.record_counts.finding == 15
-    @test manifest.record_counts.fixture == 4
+    @test manifest.record_count == length(records) == 33
+    @test manifest.record_counts.executable_contract == 5
+    @test manifest.record_counts.api_operation == 5
+    @test manifest.record_counts.finding == 18
+    @test manifest.record_counts.fixture == 5
     @test manifest.knowledge_ids == [
-        "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004"]
+        "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
+        "PSK-000005"]
     @test manifest.contract_ids == [
         "claimed_solution_validity",
         "load_voltage_base_consistency",
         "neutral_ground_reference_preservation",
         "parallel_member_limit_preservation",
+        "transformer_tap_domain_preservation",
     ]
     @test manifest.corpus_sha256 == bytes2hex(sha256(read(corpus_path)))
 
@@ -69,6 +71,15 @@ using SHA
     @test load_base_fixture.fixture_id in load_base_contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)),
               load_base_contract.finding_codes)
+
+    tap_contract = by_id["contract:transformer_tap_domain_preservation"]
+    tap_fixture = by_id["fixture:transformer-tap-domain-loss-001"]
+    tap_api = by_id["api:check_transformer_tap_domain_preservation"]
+    @test tap_contract.entrypoint == tap_api.entrypoint ==
+          "check_transformer_tap_domain_preservation"
+    @test tap_fixture.fixture_id in tap_contract.fixture_ids
+    @test all(code -> haskey(by_id, "finding:" * String(code)),
+              tap_contract.finding_codes)
 
     for record in records
         for path in record.source.paths
