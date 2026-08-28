@@ -555,6 +555,61 @@ droop curve in every regime:
   (`PG_PER_PHASE`) and phase-to-neutral (`PN_PER_PHASE`) dispatch differently once
   the neutral is displaced from ground.
 
+### Tier 4 — bound-constrained optima
+Source: [`test/pmd_opf_bounds_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/pmd_opf_bounds_tests.jl).
+Where Tier 2 leaves the operating bounds slack, these fixtures make the target
+bound the binding (active) constraint at the optimum — a stable, non-degenerate
+boundary solution. DER generators driven by per-phase linear `cost` push the
+network onto the limit, and the dispatch and binding value are pinned. Each
+target is reproduced in a matching PMD formulation and hardcoded, so no PMD
+dependency is needed at test time. The committed scripts in
+[`test/scripts/pmd_reproduction/`](https://github.com/frederikgeth/BMOPFTools.jl/tree/main/test/scripts/pmd_reproduction)
+regenerate the numbers of every two-generator case (F onward) plus the Case-A
+pipeline gate; the remaining single-DER targets (B–E) were locked from the
+original IVREN reproduction and predate the scripts. Cases A–E use a single
+DER; the later cases carry
+**two generators** whose split the binding bound arbitrates, gated by a
+cost-ratio perturbation check (scaling one unit's cost must move the split).
+
+The default reference is PMD's explicit-neutral `IVRENPowerModel`, whose wye
+power equations are identical to BMOPF's IVR-EN engine. Two limits need other
+references: the angle-difference bound (D1) is compared against the three-wire
+`IVRUPowerModel` (PMD's EN models implement no angle constraint), and the
+sequence bounds (S1–S3) against `ACPUPowerModel` with a custom builder (PMD
+implements the sequence constraints only for ACP and wires them into no
+shipped problem).
+
+**Locked-in baseline** (dispatch `atol = 1e-2 kW`, binding bound `atol = 1e-2 V/A`;
+two-generator rows list Σ pg per unit):
+
+| Case | Binding bound | Bound value | Σ pg (kW) |
+|---|---|---:|---:|
+| A | bus voltage upper to ground `v_max` | 235 V | 11.7642 |
+| B | line current `i_max` (no shunt) | 25 A | 17.6243 |
+| C | bus voltage lower to ground `v_min` | 218 V | 106.958 |
+| D | switch current `i_max` | 18 A | 12.6142 |
+| E | generator reactive `q_max` | 8 kvar/phase | — (pg ≈ 0) |
+| F | neutral voltage `vn_max` (2-D disc budget) | 6 V | 0.5809 + 0.4008 |
+| G1 | phase-to-neutral upper `vpn_max` | 240 V | 27.0 + 3.3943 |
+| G2 | phase-to-neutral lower `vpn_min` | 218 V | 23.7793 + 4.0 |
+| H1 | phase-to-phase upper `vpp_max` (pair 1–2) | 405 V | 27.0 + 9.2675 |
+| H2 | phase-to-phase lower `vpp_min` (per-pair floors) | 395 / 375 V | 11.0412 + 12.4209 |
+| W1 | line `i_max` **with** from-side shunt | 25 A | 24.0 + 8.5463 |
+| X1 | transformer nameplate `s_rating` | 10 kVA/phase | 24.0095 + 12.0048 |
+| D1 | branch angle difference `va_diff_min` | −0.03 rad | 18.0 + 7.6528 |
+| S1 | positive-sequence `vpos_max` | 236 V | 18.0 + 13.2433 |
+| S2 | negative-sequence `vneg_max` | 3 V | 3.4101 + 2.4158 |
+| S3 | zero-sequence `vzero_max` | 3 V | 3.4467 + 2.3883 |
+
+The four-wire cases (F, G1, G2) run an explicit neutral conductor grounded
+only at the source, so the pn/neutral quantities genuinely differ from
+phase-to-ground at the constrained bus, and each fixture carries a
+discrimination assertion (e.g. `|V_pg|` off the cap by far more than the
+tolerance, or an unbounded bus/pair/line exceeding the capped one's limit) so
+a mis-encoded bound cannot pass. Fixture data lives in
+`test/data/pmd_bounds/`, shared verbatim between the testsets and the
+reproduction scripts.
+
 ## Limit-encoding evidence and coverage
 
 Feasibility checks the physics and optimality checks the dispatch — but both take
@@ -607,20 +662,20 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Limit | Class | Encoding | Source | Status |
 |---|---|---|---|---|
 | Terminal voltage magnitude (`v_min`/`v_max`) | A | `vr²+vi² ∈ [lb²,ub²]` | `bus.jl` | covered (T1, T10) |
-| Neutral voltage magnitude (`vn_max`) | A | `vr_n²+vi_n² ≤ vn_max²` | `bus.jl` | gap |
-| Phase-to-neutral magnitude (`vpn_min`/`vpn_max`) | A | `Δ(p,n)² ∈ [·²,·²]` | `bus.jl` | gap |
-| Phase-to-phase magnitude (`vpp_min`/`vpp_max`) | A | `Δ(k,j)² ∈ [·²,·²]` | `bus.jl` | gap |
+| Neutral voltage magnitude (`vn_max`) | A | `vr_n²+vi_n² ≤ vn_max²` | `bus.jl` | covered (Tier-4 F) |
+| Phase-to-neutral magnitude (`vpn_min`/`vpn_max`) | A | `Δ(p,n)² ∈ [·²,·²]` | `bus.jl` | covered (Tier-4 G1, G2) |
+| Phase-to-phase magnitude (`vpp_min`/`vpp_max`) | A | `Δ(k,j)² ∈ [·²,·²]` | `bus.jl` | covered (Tier-4 H1, H2) |
 | Bus angle difference (`va_diff_min`/`va_diff_max`, centered on `va_nom`) | B | `tan·c ≤ s ≤ tan·c` on `θ_j−θ_k−Δ`, `Δ=va_nom[j]−va_nom[k]` | `bus.jl` | covered (L-B1, L-B1b) |
-| Positive-sequence voltage (`vpos_min`/`vpos_max`) | C | `|V₁|²` via Fortescue | `bus.jl` | covered (T10) |
-| Negative-sequence voltage (`vneg_max`) | C | `|V₂|² ≤ vneg_max²` | `bus.jl` | covered (L-C2, T10) |
-| Zero-sequence voltage (`vzero_max`) | C | `|V₀|² ≤ vzero_max²` (note `/3`) | `bus.jl` | covered (T10) |
-| Branch series current (`i_max`) | A | `cr²+ci² ≤ i_max²` (both ends) | `branch.jl` | scaffold (L-A5) |
+| Positive-sequence voltage (`vpos_min`/`vpos_max`) | C | `|V₁|²` via Fortescue | `bus.jl` | covered (T10, Tier-4 S1) |
+| Negative-sequence voltage (`vneg_max`) | C | `|V₂|² ≤ vneg_max²` | `bus.jl` | covered (L-C2, T10, Tier-4 S2) |
+| Zero-sequence voltage (`vzero_max`) | C | `|V₀|² ≤ vzero_max²` (note `/3`) | `bus.jl` | covered (T10, Tier-4 S3) |
+| Branch total current (`i_max`) | A | `cr²+ci² ≤ i_max²` (total current, both ends) | `branch.jl` | covered (Tier-4 W1 with shunt; scaffold L-A5) |
 | Branch apparent power (`s_max`) | D | `P²+Q² ≤ s_max²`, `S=v∘conj(I_tot)` ground-referenced per conductor (both ends) | `branch.jl` | covered (L-SMAX-LINE) |
-| Branch angle difference (`va_diff_*`) | B | `tan·c ≤ s ≤ tan·c` | `branch.jl` | gap |
-| Switch current | A | `cr_sw²+ci_sw² ≤ ilim²` | `branch.jl` | gap |
+| Branch angle difference (`va_diff_*`) | B | `tan·c ≤ s ≤ tan·c` | `branch.jl` | covered (Tier-4 D1) |
+| Switch current | A | `cr_sw²+ci_sw² ≤ ilim²` | `branch.jl` | covered (Tier-4 D) |
 | Switch apparent power (`s_max`) | D | `P²+Q² ≤ s_max²` ground-referenced per conductor | `branch.jl` | covered (L-SMAX-SW) |
 | Transformer winding/terminal currents | A | `Is²,It²,In² ≤ i_max²` (native); post-solve per-winding `cm ≤ i_max_from/to` | `transformer.jl`, `solution.jl` | covered (post-solve) |
-| Transformer nameplate power (`s_rating`, required → always enforced) | D | per-winding coil `P²+Q² ≤ (s_rating/n_ph)²` (native); post-solve coil `\|S\| ≤ s_max` from result `s`/`s_max` | `transformer.jl`, `solution.jl` | covered (L-SMAX-XFMR) |
+| Transformer nameplate power (`s_rating`, required → always enforced) | D | per-winding coil `P²+Q² ≤ (s_rating/n_ph)²` (native); post-solve coil `\|S\| ≤ s_max` from result `s`/`s_max` | `transformer.jl`, `solution.jl` | covered (L-SMAX-XFMR, Tier-4 X1) |
 | n-winding per-winding power (`s_max`) | D | per-winding coil `P²+Q² ≤ (s_max/n_ph)²` (native + post-solve) | `nwinding.jl`, `solution.jl` | covered (L-SMAX-NW) |
 | Generator / source P,Q limits | D | bounds on `p=vr·ir+vi·ii` | `generator.jl`, `source.jl` | covered (T3, T4) |
 | Generator / IBR apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `ibr.jl` | covered (T-INV3); strict recompute scaffold (L-A8) |
