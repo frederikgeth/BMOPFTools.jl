@@ -80,7 +80,7 @@ function to_dss(net::Dict{String,Any};
     findings === nothing ||
         append!(findings, powerio_findings(_powerio_diagnostic_records(warnings_list)))
 
-    dss_text, collect(String, warnings_list)
+    dss_text, String[_powerio_render_line(d) for d in warnings_list]
 end
 
 """

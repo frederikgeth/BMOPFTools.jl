@@ -73,7 +73,7 @@
                      message="load ld$i: `kv` dropped", stage="emit") for i in 1:40]
         push!(diags, (code="EMIT.BMOPF.TRANSFORMER_UNSUPPORTED", severity="warning",
                       message="transformer t1: not representable", stage="emit",
-                      element_path="transformer t1"))
+                      target="transformer t1"))
         recs = BMOPFTools._powerio_diagnostic_records(diags; fold_ids=true)
         @test length(recs) == 2
 
@@ -96,9 +96,9 @@
     @testset "two elements in a class drop the id and keep the paths" begin
         recs = BMOPFTools._powerio_diagnostic_records([
             (code="EMIT.BMOPF.TRANSFORMER_UNSUPPORTED", severity="warning",
-             message="transformer reg1: no", stage="emit", element_path="transformer reg1"),
+             message="transformer reg1: no", stage="emit", target="transformer reg1"),
             (code="EMIT.BMOPF.TRANSFORMER_UNSUPPORTED", severity="warning",
-             message="transformer reg2: no", stage="emit", element_path="transformer reg2"),
+             message="transformer reg2: no", stage="emit", target="transformer reg2"),
         ])
         @test length(recs) == 1
         @test !haskey(recs[1], "component_id")
@@ -110,7 +110,7 @@
         recs = BMOPFTools._powerio_diagnostic_records([
             (code="EMIT.BMOPF.TRANSFORMER_UNSUPPORTED", severity="warning",
              message="transformer t1: not representable", stage="emit",
-             element_path="transformer t1"),
+             target="transformer t1"),
         ])
         fs = powerio_findings(recs)
         @test length(fs) == 1
@@ -128,9 +128,13 @@
     end
 
     @testset "from_dss records both views and fills a caller's vector" begin
-        # pf_open_delta_reg.dss: two line-to-line legs powerio's BMOPF writer
-        # cannot represent, so it drops both — the case in this fixture set
-        # where a fidelity loss removes a device rather than a field.
+        # pf_open_delta_reg.dss: two line-to-line legs. Before PowerIO 0.10 the
+        # BMOPF writer could not represent them and dropped both
+        # (EMIT.BMOPF.TRANSFORMER_UNSUPPORTED); it now emits each as a
+        # single_phase transformer and reports the connection loss instead
+        # (EMIT.BMOPF.TRANSFORMER_CONNECTION_LOSSY) — the case in this fixture
+        # set where a fidelity loss narrows a device's representation rather
+        # than removing it.
         path = joinpath(@__DIR__, "data", "pf_comparison", "pf_open_delta_reg.dss")
         fs   = Finding[]
         net  = from_dss(path; findings=fs)
@@ -144,12 +148,16 @@
         @test length(recs) < length(lines)
         @test length(fs) == length(recs)
 
-        dropped = filter(f -> f.code == "EMIT.BMOPF.TRANSFORMER_UNSUPPORTED", fs)
-        @test length(dropped) == 1
-        @test dropped[1].component_type == :transformer
-        @test dropped[1].detail["elements"] == ["transformer reg1", "transformer reg2"]
-        # …and the transformers really are gone from the dict.
-        @test isempty(get(net, "transformer", Dict()))
+        lossy = filter(f -> f.code == "EMIT.BMOPF.TRANSFORMER_CONNECTION_LOSSY", fs)
+        @test length(lossy) == 1
+        @test lossy[1].component_type == :transformer
+        @test lossy[1].detail["elements"] == ["transformer reg1", "transformer reg2"]
+        # …and the regulators are represented, not dropped: two single_phase
+        # transformers, each carrying the tap the DSS deck set (1/1.05, 1/1.025).
+        single_phase = net["transformer"]["single_phase"]
+        @test Set(keys(single_phase)) == Set(["reg1", "reg2"])
+        @test single_phase["reg1"]["tap"] ≈ 1 / 1.05
+        @test single_phase["reg2"]["tap"] ≈ 1 / 1.025
     end
 
     @testset "analyze reports them, before and after a round trip" begin

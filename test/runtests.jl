@@ -3497,7 +3497,7 @@ const IEEE13_FIXTURE = """
     # (PowerIO.jl). PowerIO is a hard dependency, so this always runs.
     # --------------------------------------------------------------------------
     @testset "OpenDSS generator conversion via PowerIO" begin
-        @test startswith(BMOPFTools.powerio_version(), "PowerIO.jl 0.9.")
+        @test startswith(BMOPFTools.powerio_version(), "PowerIO.jl 0.10.")
         net = from_dss(joinpath(@__DIR__, "data", "issue190_generator.dss"))
 
         @test haskey(net, "generator")

@@ -84,9 +84,12 @@ function from_dss(path::AbstractString;
     abspath_dss = abspath(path)
     isfile(abspath_dss) || throw(ArgumentError("DSS file not found: $abspath_dss"))
 
-    # PowerIO parses to a MulticonductorNetwork handle, then emits BMOPF JSON
-    # plus a list of fidelity-loss warnings.
-    dn = PowerIO.parse_file(PowerIO.MulticonductorNetwork, abspath_dss)
+    # PowerIO parses to a typed module wrapping a MulticonductorNetwork handle,
+    # then emits BMOPF JSON plus a list of fidelity-loss diagnostics.
+    m = PowerIO.parse_file(abspath_dss)
+    m isa PowerIO.PioModule{PowerIO.MulticonductorNetwork} || throw(ErrorException(
+        "from_dss: $path parsed as $(PowerIO.kind(m)), not a multiconductor network"))
+    dn = m.value
     json_raw, warnings_list = PowerIO.to_format(dn, "bmopf")
 
     if isempty(json_raw)
@@ -116,7 +119,7 @@ function from_dss(path::AbstractString;
     # as Findings. Identifiers are folded to lower case above, so the records
     # name their components the way the rest of the dict does.
     net["_meta"] = get(net, "_meta", Dict{String,Any}())
-    net["_meta"]["powerio_warnings"] = collect(String, warnings_list)
+    net["_meta"]["powerio_warnings"] = String[_powerio_render_line(d) for d in warnings_list]
     net["_meta"]["powerio_diagnostics"] =
         _powerio_diagnostic_records(warnings_list; fold_ids=true)
     net["_meta"]["powerio_source"]   = abspath_dss

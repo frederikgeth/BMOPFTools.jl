@@ -9,10 +9,14 @@
 # loss reads the same way as a data quality problem found in the dict.
 
 # powerio's severity ladder (powerio-diag) onto this package's three levels.
-# `fatal` is an error that ended the operation; `debug` is an info nobody
-# normally prints.
+# `note` and `remark` are the current vocabulary (`note` adds context, `remark`
+# reports a successful operation); `debug`, `info`, and `fatal` are the
+# pre-0.10 spellings, kept so a diagnostic built against either vocabulary maps
+# the same way.
 const _POWERIO_SEVERITY = Dict{String,Severity}(
+    "note"    => INFO,
     "debug"   => INFO,
+    "remark"  => INFO,
     "info"    => INFO,
     "warning" => WARNING,
     "error"   => ERROR,
@@ -62,7 +66,7 @@ end
 """
     _powerio_element(path, fold_ids) -> (component_type, component_id)
 
-Resolve a powerio `element_path` to a component this package can address. The
+Resolve a powerio diagnostic `target` to a component this package can address. The
 writer spells its paths `"<class> <name>"` (`"transformer reg1"`); the reader
 spells its own as JSON pointers, which name a field rather than a component and
 so resolve to the network. `fold_ids` lower-cases the name for the `from_dss`
@@ -78,16 +82,32 @@ function _powerio_element(path, fold_ids::Bool)::Tuple{Symbol,Union{String,Nothi
 end
 
 # One diagnostic, normalised to the fields this package reads. Handles both
-# shapes PowerIO.jl returns: a `Diagnostic`, which forwards its record's fields
-# as properties of the line it renders as, and a bare line, which carries a
-# code and a message and nothing else.
+# shapes PowerIO.jl returns: a `Diagnostic`, whose `target` names the element
+# it is about, and a bare line, which carries a code and a message and
+# nothing else. `stage` is a pre-0.10 field kept for a caller that still
+# builds diagnostic stand-ins with one; PowerIO.jl's own `Diagnostic` has no
+# such field, so a real diagnostic always reads it as `nothing`.
 function _powerio_fields(d)
     hasproperty(d, :code) || return (_split_powerio_line(String(d))...,
                                      nothing, nothing, nothing)
-    prop(name) = hasproperty(d, name) ? String(getproperty(d, name)) : nothing
+    # `hasproperty` only says the field exists — a `Diagnostic`'s `target` is
+    # `Union{Nothing,String}` and declares the property on every instance, so
+    # an absent value must be read past `hasproperty` and back off `nothing`.
+    function prop(name)
+        hasproperty(d, name) || return nothing
+        v = getproperty(d, name)
+        v === nothing ? nothing : String(v)
+    end
     return (String(d.code), something(prop(:message), ""),
-            prop(:severity), prop(:element_path), prop(:stage))
+            prop(:severity), prop(:target), prop(:stage))
 end
+
+# Render one diagnostic as the `"CODE: message"` line this package's own
+# `_meta["powerio_warnings"]` and the `to_dss`/`from_dss` two-element returns
+# document and carry. Built from `code` and `message` directly rather than
+# `string(d)`/`sprint(show, d)`: PowerIO.jl's `Base.show` for `Diagnostic`
+# prepends the severity and appends the target, a different line.
+_powerio_render_line(d) = hasproperty(d, :code) ? string(d.code, ": ", d.message) : String(d)
 
 """
     _powerio_diagnostic_records(diagnostics; fold_ids=false) -> Vector{Dict{String,Any}}
