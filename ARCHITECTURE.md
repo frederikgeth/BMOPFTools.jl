@@ -80,3 +80,12 @@ Their federated executable status is explicitly `not_applicable`; BMOPFTools
 must not add an empty contract, Finding, or fixture solely to make those records
 look symmetric. Package metadata is added only when concrete package behavior
 or evidence exists.
+
+Consequential cross-repository architecture choices and rejected approaches
+are recorded in the book-owned development research and decision log at
+`../multi-graph-book/docs/src/literature/development-decision-log.md`. That log
+records software rationale and conditions for revisiting; it does not replace
+BMOPFTools tests, runtime documentation, issue history, or the book's scientific
+claims ledger. Package-local implementation details need a cross-repository log
+entry only when they alter an authority boundary, federation contract, or
+shared agent workflow.
