@@ -502,7 +502,8 @@ and solver results remain unassessed.
 
 `knowledge/executable.toml` is the package-owned registry for executable contracts and Findings. The generator validates its source paths, exported API, fixture metadata, Finding definitions, and source hashes, then writes:
 
-- `generated/executable_knowledge.jsonl`, containing contract, API, Finding, and fixture records; and
+- `generated/executable_knowledge.jsonl`, containing contract, API, Finding,
+  fixture, and recipe records; and
 - `generated/executable-knowledge-manifest.json`, containing package identity, record counts, corpus hash, and source hashes.
 
 Check that committed records are current with:
@@ -512,3 +513,7 @@ python3 scripts/generate_executable_knowledge.py --check
 ```
 
 The sibling book pins this export in its federated pair manifest. That link lets book retrieval expose an implemented guardrail without copying package semantics into the scientific registry.
+
+The [JSON execution interface and recipes](execution_interface.md) use these
+same stable identifiers. Recipe metadata is canonical under `recipes/` and is
+validated and source-hash-bound by the executable-knowledge generator.

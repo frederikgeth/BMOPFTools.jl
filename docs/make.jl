@@ -19,6 +19,7 @@ makedocs(
         "Getting started"         => [
             "Installation & first steps" => "installation.md",
             "Use with AI coding assistants" => "ai_assistants.md",
+            "JSON execution & recipes" => "execution_interface.md",
             "End-to-end tutorial"      => "tutorial_end_to_end.md",
             "Choose your tutorial"     => "choose_tutorial.md",
             "Positioning & ecosystem"  => "positioning.md",

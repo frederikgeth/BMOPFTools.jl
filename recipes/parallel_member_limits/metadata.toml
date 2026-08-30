@@ -1,0 +1,24 @@
+schema_version = "0.1.0"
+recipe_id = "parallel_member_limits"
+title = "Check parallel member-current-limit preservation"
+purpose = "Run the PSK-000001 scalar parallel-member contract on the minimized outer-relaxation fixture and emit a stable JSON execution response."
+operation = "check_contract"
+contract_id = "parallel_member_limit_preservation"
+knowledge_ids = ["PSK-000001"]
+fixture_ids = ["parallel-rating-outer-relaxation-001"]
+script = "recipe.jl"
+readme = "README.md"
+interface_paths = [
+  "bin/bmopf",
+  "scripts/bmopf_cli.jl",
+  "schemas/execution-response.schema.json",
+  "src/execution/interface.jl",
+]
+command = "julia --startup-file=no --project=. recipes/parallel_member_limits/recipe.jl"
+expected_status = "failed"
+expected_finding_codes = ["W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS"]
+does_not_establish = [
+  "Parallel aggregation is always invalid.",
+  "A scalar contract result establishes multiconductor, shunted, singular, or state-dependent preservation.",
+  "Terminal and member-limit preservation recovers member identity, outage state, measurements, provenance, or protection quantities.",
+]

@@ -11,6 +11,7 @@ the whole sequence on one feeder.
 | Ingest a case | [`from_dss`](@ref), [`parse_bmopf`](@ref) | [Conversion guide](conversion.md) |
 | Analyse & diagnose it | [`analyze`](@ref), [`render`](@ref), [`errors`](@ref)/[`warnings`](@ref)/[`infos`](@ref) | [Analysis & reports](analysis.md), [Findings](findings.md) |
 | Check a scientific preservation contract | [`check_parallel_member_limit_preservation`](@ref), [`check_neutral_ground_reference_preservation`](@ref), [`check_claimed_solution_validity`](@ref), [`check_load_voltage_base_consistency`](@ref), [`check_transformer_tap_domain_preservation`](@ref), [`check_transformer_winding_convention_preservation`](@ref), [`check_decision_preservation_manifest`](@ref), [`check_kron_boundary_recovery`](@ref), [`check_positive_sequence_collapse`](@ref), [`check_state_dependent_equivalent`](@ref), [`check_reference_singularity`](@ref), [`check_terminal_permutation_invariance`](@ref), [`check_solved_network_feasibility`](@ref), [`check_unit_base_serialization_invariance`](@ref) | [Scientific contracts](scientific_contracts.md) |
+| Produce a stable JSON contract response | [`execute_contract`](@ref) | [JSON execution interface and recipes](execution_interface.md) |
 | Repair structure | [`fix_case`](@ref) ([`FixRecipe`](@ref)) | [Case augmentation](augmentation.md) |
 | Place DERs | [`add_generators`](@ref), [`add_ibrs`](@ref) | [DER placement](tutorial_ders.md) |
 | Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
@@ -77,6 +78,8 @@ BMOPFTools.check_terminal_permutation_invariance
 BMOPFTools.check_solved_network_feasibility
 BMOPFTools.check_unit_base_serialization_invariance
 BMOPFTools.contract_result_to_dict
+BMOPFTools.execute_contract
+BMOPFTools.execution_error_response
 ```
 
 ## IO

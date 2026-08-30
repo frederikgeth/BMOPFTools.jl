@@ -20,11 +20,12 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 99
+    @test manifest.record_count == length(records) == 100
     @test manifest.record_counts.executable_contract == 14
     @test manifest.record_counts.api_operation == 14
     @test manifest.record_counts.finding == 57
     @test manifest.record_counts.fixture == 14
+    @test manifest.record_counts.recipe == 1
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
         "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
@@ -54,6 +55,14 @@ using SHA
     @test contract.entrypoint == api.entrypoint == "check_parallel_member_limit_preservation"
     @test fixture.fixture_id in contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)), contract.finding_codes)
+
+    recipe = by_id["recipe:parallel_member_limits"]
+    @test recipe.contract_id == contract.contract_id
+    @test recipe.knowledge_ids == ["PSK-000001"]
+    @test recipe.fixture_ids == ["parallel-rating-outer-relaxation-001"]
+    @test recipe.expected_status == "failed"
+    @test recipe.expected_finding_codes == ["W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), recipe.files)
 
     neutral_contract = by_id["contract:neutral_ground_reference_preservation"]
     neutral_fixture = by_id["fixture:neutral-ground-reference-conflation-001"]

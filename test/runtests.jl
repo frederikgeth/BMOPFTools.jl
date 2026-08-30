@@ -4066,6 +4066,8 @@ include("scientific_contract_tests.jl")
 
 include("executable_knowledge_tests.jl")
 
+include("execution_interface_tests.jl")
+
     # -----------------------------------------------------------------------
     # Network simplification
     # -----------------------------------------------------------------------

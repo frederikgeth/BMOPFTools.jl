@@ -33,3 +33,12 @@ The following local constraints are architectural:
 
 Changes that alter these constraints must update the canonical architecture in
 `multi-graph-book` and be reviewed as a cross-repository architectural change.
+
+The first transport slice now exposes
+`parallel_member_limit_preservation` through the package-owned
+`execute_contract` API and `bin/bmopf check-contract`. Its response is validated
+against `schemas/execution-response.schema.json`, distinguishes request errors
+from the four scientific-contract statuses, and binds source and target input
+hashes. The `parallel_member_limits` recipe is the first CI-tested operational
+example. Other contracts remain available through their Julia APIs until each
+mapping has an explicit reviewed transport shape.

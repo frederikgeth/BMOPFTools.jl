@@ -18,7 +18,7 @@
     "schema_version": {"const": "0.1.0"},
     "record_id": {"type": "string", "minLength": 1},
     "record_type": {
-      "enum": ["executable_contract", "api_operation", "finding", "fixture"]
+      "enum": ["executable_contract", "api_operation", "finding", "fixture", "recipe"]
     },
     "knowledge_ids": {
       "type": "array",
@@ -40,7 +40,14 @@
     "severity": {"enum": ["ERROR", "WARNING", "INFO"]},
     "meaning": {"type": "string", "minLength": 1},
     "fixture_id": {"type": "string", "minLength": 1},
+    "recipe_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
     "kind": {"type": "string", "minLength": 1},
+    "purpose": {"type": "string", "minLength": 1},
+    "operation": {"const": "check_contract"},
+    "command": {"type": "string", "minLength": 1},
+    "expected_status": {
+      "enum": ["passed", "failed", "inapplicable", "indeterminate"]
+    },
     "expected_finding_codes": {"$ref": "#/$defs/nonemptyStrings"},
     "does_not_establish": {"$ref": "#/$defs/nonemptyStrings"},
     "files": {
@@ -100,6 +107,10 @@
     {
       "if": {"properties": {"record_type": {"const": "fixture"}}},
       "then": {"required": ["contract_id", "fixture_id", "kind", "expected_finding_codes", "does_not_establish", "files"]}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "recipe"}}},
+      "then": {"required": ["recipe_id", "purpose", "operation", "contract_id", "command", "fixture_ids", "expected_status", "expected_finding_codes", "does_not_establish", "files"]}
     }
   ]
 }

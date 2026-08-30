@@ -1,0 +1,39 @@
+# BMOPFTools.jl
+
+BMOPFTools parses, validates, analyses, solves, and reports on BMOPF-format
+multiconductor distribution-network models. Use the package for executable
+behavior on a concrete case. The companion multi-graph-book owns scientific
+claims, evidence status, misconceptions, and stable PSK identities.
+
+## Primary documentation
+
+- Documentation index: docs/src/index.md
+- Data-model conventions: docs/src/conventions.md
+- API reference: docs/src/api.md
+- Finding codes: docs/src/findings.md
+- Scientific contracts: docs/src/scientific_contracts.md
+- JSON execution interface and recipes: docs/src/execution_interface.md
+- AI-assistant guidance: docs/src/ai_assistants.md
+- Repository architecture: ARCHITECTURE.md
+
+## Machine-readable discovery
+
+- Executable registry: knowledge/executable.toml
+- Generated records: generated/executable_knowledge.jsonl
+- Generated manifest: generated/executable-knowledge-manifest.json
+- Execution response schema: schemas/execution-response.schema.json
+- Recipes: recipes/README.md
+
+## Initial JSON execution operation
+
+```sh
+bin/bmopf check-contract parallel_member_limit_preservation \
+  --source SOURCE.json --target TARGET.json \
+  --member-id LINE_ID --member-id LINE_ID --aggregate-id LINE_ID --pretty
+```
+
+Treat `passed`, `failed`, `inapplicable`, and `indeterminate` as distinct
+scientific-contract outcomes. An `error` response means no contract evaluation
+was produced. Match Findings by stable code, retain checked and unassessed
+dimensions, and do not promote package behavior or a fixture into a general
+scientific result.

@@ -19,7 +19,12 @@ This page applies equally to ChatGPT, Codex, Claude, and other assistants. It de
 | Analyse confidential network data | A locally controlled environment approved for that data | Do not upload protected models to an unapproved external service |
 | Establish a general scientific conclusion | The book's grounded access route, followed by the relevant executable check | A package result alone is not a literature or evidence review |
 
-BMOPFTools does not currently expose a package-specific MCP or HTTP retrieval service. An assistant with repository and terminal access should call the Julia API directly. An application integration should likewise use the package API and serialize its structured outputs, rather than scrape documentation or diagnostic prose.
+BMOPFTools does not expose a package-specific retrieval service: scientific
+retrieval remains in the book. An assistant with repository and terminal access
+can call the Julia API directly or use the package's curated
+[JSON execution interface](execution_interface.md). Application integrations
+should consume these structured outputs rather than scrape documentation or
+diagnostic prose. A package MCP adapter remains future work.
 
 ## Give the assistant an operating contract
 
@@ -40,6 +45,20 @@ Base.pkgversion(BMOPFTools)
 For a development checkout, record the Git commit as well. Version `0.1.0` at two different commits need not have identical behavior while the package is evolving rapidly.
 
 ## Prompt templates
+
+For the initial parallel-member contract, the same evidence can be produced
+without composing Julia code:
+
+```sh
+bin/bmopf check-contract parallel_member_limit_preservation \
+  --source source.json --target aggregate.json \
+  --member-id line_1 --member-id line_2 --aggregate-id aggregate --pretty
+```
+
+The response records package identity, input hashes, request parameters,
+contract status, checked and unassessed dimensions, Findings, and evidence.
+An `error` response means no scientific evaluation occurred; it must not be
+reported as `failed` or `inapplicable`.
 
 ### Analyse and triage a case
 

@@ -23,6 +23,8 @@ PSK_ID = re.compile(r"^PSK-[0-9]{6}$")
 CONTRACT_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 FINDING_CODE = re.compile(r"^[EWI]\.[A-Z0-9_]+(?:\.[A-Z0-9_]+)+$")
 FIXTURE_ROOT = ROOT / "test/fixtures/negative"
+RECIPE_ROOT = ROOT / "recipes"
+RECIPE_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def canonical_json(value: object) -> str:
@@ -79,6 +81,13 @@ def fixture_metadata() -> list[tuple[Path, dict]]:
     ]
 
 
+def recipe_metadata() -> list[tuple[Path, dict]]:
+    return [
+        (path, tomllib.loads(path.read_text()))
+        for path in sorted(RECIPE_ROOT.glob("*/metadata.toml"))
+    ]
+
+
 def validate_and_build() -> tuple[list[dict], dict, list[str]]:
     errors: list[str] = []
     registry = tomllib.loads(REGISTRY.read_text())
@@ -104,6 +113,7 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
         errors.append(f"duplicate finding codes: {duplicates}")
     finding_by_code = {item.get("code"): item for item in findings}
     fixture_by_id = {item.get("fixture_id"): (path, item) for path, item in fixture_metadata()}
+    contract_by_id = {item.get("id"): item for item in contracts}
 
     module_text = (ROOT / "src/BMOPFTools.jl").read_text()
     contract_text = (ROOT / "src/knowledge/contracts.jl").read_text()
@@ -255,6 +265,105 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
                 "files": files,
             })
             records.append(fixture_record)
+
+    recipe_entries = recipe_metadata()
+    recipe_ids = [item.get("recipe_id") for _, item in recipe_entries]
+    duplicates = sorted(item for item, count in Counter(recipe_ids).items() if count > 1)
+    if duplicates:
+        errors.append(f"duplicate recipe IDs: {duplicates}")
+    recipe_index = RECIPE_ROOT / "README.md"
+    if not recipe_index.is_file():
+        errors.append("recipes/README.md is missing")
+    else:
+        all_sources.add(recipe_index)
+
+    for metadata_path, item in recipe_entries:
+        recipe_id = item.get("recipe_id", "<missing>")
+        if item.get("schema_version") != SCHEMA_VERSION:
+            errors.append(f"{recipe_id}: unexpected recipe schema version")
+        if not isinstance(recipe_id, str) or not RECIPE_ID.fullmatch(recipe_id):
+            errors.append(f"invalid recipe ID: {recipe_id}")
+            continue
+        title = item.get("title")
+        purpose = item.get("purpose")
+        operation = item.get("operation")
+        contract_id = item.get("contract_id")
+        command = item.get("command")
+        expected_status = item.get("expected_status")
+        knowledge_ids = require_strings(recipe_id, "knowledge_ids", item.get("knowledge_ids"), errors)
+        fixture_ids = require_strings(recipe_id, "fixture_ids", item.get("fixture_ids"), errors)
+        expected_codes = require_strings(
+            recipe_id, "expected_finding_codes", item.get("expected_finding_codes"), errors
+        )
+        does_not_establish = require_strings(
+            recipe_id, "does_not_establish", item.get("does_not_establish"), errors
+        )
+        interface_paths = require_strings(
+            recipe_id, "interface_paths", item.get("interface_paths"), errors
+        )
+        if not isinstance(title, str) or not title.strip():
+            errors.append(f"{recipe_id}: missing title")
+        if not isinstance(purpose, str) or not purpose.strip():
+            errors.append(f"{recipe_id}: missing purpose")
+        if operation != "check_contract":
+            errors.append(f"{recipe_id}: unsupported recipe operation {operation}")
+        if not isinstance(command, str) or not command.strip():
+            errors.append(f"{recipe_id}: missing command")
+        if expected_status not in {"passed", "failed", "inapplicable", "indeterminate"}:
+            errors.append(f"{recipe_id}: invalid expected status {expected_status}")
+        contract = contract_by_id.get(contract_id)
+        if contract is None:
+            errors.append(f"{recipe_id}: unknown contract {contract_id}")
+            continue
+        if knowledge_ids != contract.get("knowledge_ids"):
+            errors.append(f"{recipe_id}: knowledge IDs differ from {contract_id}")
+        if not set(fixture_ids).issubset(set(contract.get("fixture_ids", []))):
+            errors.append(f"{recipe_id}: fixture IDs are outside {contract_id}")
+        if not set(expected_codes).issubset(set(contract.get("finding_codes", []))):
+            errors.append(f"{recipe_id}: expected Finding codes are outside {contract_id}")
+        for fixture_id in fixture_ids:
+            if fixture_id not in fixture_by_id:
+                errors.append(f"{recipe_id}: unknown fixture {fixture_id}")
+
+        recipe_files: list[Path] = []
+        for key in ("script", "readme"):
+            filename = item.get(key)
+            path = metadata_path.parent / filename if isinstance(filename, str) else metadata_path.parent / "<missing>"
+            if not path.is_file():
+                errors.append(f"{recipe_id}: missing {key}: {filename}")
+            else:
+                recipe_files.append(path)
+        for path_string in interface_paths:
+            path = ROOT / path_string
+            if not path.is_file():
+                errors.append(f"{recipe_id}: missing interface path {path_string}")
+            else:
+                recipe_files.append(path)
+        all_sources.update([metadata_path, *recipe_files])
+        files = [
+            {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256_file(path)}
+            for path in sorted(recipe_files)
+        ]
+        recipe_record = record_base(
+            f"recipe:{recipe_id}", "recipe", knowledge_ids, title,
+            f"Executable recipe {recipe_id} for {contract_id}. {purpose} "
+            f"Expected status: {expected_status}. Expected Findings: {', '.join(expected_codes)}. "
+            f"Does not establish: {' '.join(does_not_establish)}",
+            package, [metadata_path, *recipe_files],
+        )
+        recipe_record.update({
+            "recipe_id": recipe_id,
+            "purpose": purpose,
+            "operation": operation,
+            "contract_id": contract_id,
+            "command": command,
+            "fixture_ids": fixture_ids,
+            "expected_status": expected_status,
+            "expected_finding_codes": expected_codes,
+            "does_not_establish": does_not_establish,
+            "files": files,
+        })
+        records.append(recipe_record)
 
     records.sort(key=lambda record: record["record_id"])
     ids = [record["record_id"] for record in records]
