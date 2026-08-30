@@ -44,6 +44,57 @@ using SHA
     @test refusal["status"] == "inapplicable"
     @test JSONSchema.validate(schema, JSON3.read(JSON3.write(refusal))) === nothing
 
+    neutral_fixture = joinpath(root, "test", "fixtures", "negative",
+                               "neutral-ground-reference-conflation")
+    neutral_source_path = joinpath(neutral_fixture, "source.json")
+    neutral_failed_path = joinpath(neutral_fixture, "transformed.json")
+    neutral_passed_path = joinpath(neutral_fixture, "exact-target.json")
+    neutral_source = parse_bmopf(neutral_source_path)
+    neutral_failed_target = parse_bmopf(neutral_failed_path)
+    neutral_passed_target = parse_bmopf(neutral_passed_path)
+    neutral_parameters = Dict{String,Any}(
+        "bus_mapping" => Dict("source" => "source", "load" => "load"),
+    )
+
+    neutral_failed = execute_contract(
+        "neutral_ground_reference_preservation",
+        neutral_source,
+        neutral_failed_target;
+        parameters=neutral_parameters,
+    )
+    @test neutral_failed["status"] == "failed"
+    @test neutral_failed["result"]["knowledge_ids"] == ["PSK-000002"]
+    @test Set(finding["code"] for finding in neutral_failed["result"]["findings"]) == Set([
+        "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+        "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH",
+    ])
+    @test JSONSchema.validate(schema,
+        JSON3.read(JSON3.write(neutral_failed))) === nothing
+
+    neutral_passed = execute_contract(
+        "neutral_ground_reference_preservation",
+        neutral_source,
+        neutral_passed_target;
+        parameters=neutral_parameters,
+    )
+    @test neutral_passed["status"] == "passed"
+    @test isempty(neutral_passed["result"]["findings"])
+    @test JSONSchema.validate(schema,
+        JSON3.read(JSON3.write(neutral_passed))) === nothing
+
+    neutral_indeterminate = execute_contract(
+        "neutral_ground_reference_preservation",
+        neutral_source,
+        neutral_passed_target;
+        parameters=Dict("bus_mapping" =>
+            Dict("source" => "missing", "load" => "load")),
+    )
+    @test neutral_indeterminate["status"] == "indeterminate"
+    @test only(neutral_indeterminate["result"]["findings"])["code"] ==
+          "W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE"
+    @test JSONSchema.validate(schema,
+        JSON3.read(JSON3.write(neutral_indeterminate))) === nothing
+
     error_response = execution_error_response(
         "missing mapping"; contract_id="parallel_member_limit_preservation")
     @test error_response["status"] == "error"
@@ -62,6 +113,12 @@ using SHA
     @test_throws ArgumentError execute_contract(
         "parallel_member_limit_preservation", source, target;
         parameters=merge(parameters, Dict("atol" => true)))
+    @test_throws ArgumentError execute_contract(
+        "neutral_ground_reference_preservation", neutral_source, neutral_passed_target;
+        parameters=Dict("bus_mapping" => ["source=source"]))
+    @test_throws ArgumentError execute_contract(
+        "neutral_ground_reference_preservation", neutral_source, neutral_passed_target;
+        parameters=merge(neutral_parameters, Dict("aggregate_id" => "line")))
 
     cli_module = Module(:BMOPFCLIExecutionTest)
     Base.include(cli_module, joinpath(root, "scripts", "bmopf_cli.jl"))
@@ -81,6 +138,37 @@ using SHA
     @test cli_response.status == "failed"
     @test cli_response.inputs[1].sha256 == bytes2hex(sha256(read(source_path)))
     @test JSONSchema.validate(schema, cli_response) === nothing
+
+    neutral_cli_out = IOBuffer()
+    neutral_cli_err = IOBuffer()
+    neutral_cli_code = cli_module.main([
+        "check-contract", "neutral_ground_reference_preservation",
+        "--source", neutral_source_path,
+        "--target", neutral_passed_path,
+        "--bus-map", "source=source",
+        "--bus-map", "load=load",
+    ]; out=neutral_cli_out, err=neutral_cli_err)
+    @test neutral_cli_code == 0
+    @test isempty(String(take!(neutral_cli_err)))
+    neutral_cli_response = JSON3.read(String(take!(neutral_cli_out)))
+    @test neutral_cli_response.status == "passed"
+    @test neutral_cli_response.request.parameters.bus_mapping.source == "source"
+    @test JSONSchema.validate(schema, neutral_cli_response) === nothing
+
+    indeterminate_cli_out = IOBuffer()
+    indeterminate_cli_err = IOBuffer()
+    indeterminate_cli_code = cli_module.main([
+        "check-contract", "neutral_ground_reference_preservation",
+        "--source", neutral_source_path,
+        "--target", neutral_passed_path,
+        "--bus-map", "source=missing",
+        "--bus-map", "load=load",
+    ]; out=indeterminate_cli_out, err=indeterminate_cli_err)
+    @test indeterminate_cli_code == 0
+    @test isempty(String(take!(indeterminate_cli_err)))
+    indeterminate_cli_response = JSON3.read(String(take!(indeterminate_cli_out)))
+    @test indeterminate_cli_response.status == "indeterminate"
+    @test JSONSchema.validate(schema, indeterminate_cli_response) === nothing
 
     malformed_out = IOBuffer()
     malformed_err = IOBuffer()
@@ -106,4 +194,15 @@ using SHA
     recipe_response = JSON3.read(recipe_output)
     @test recipe_response.status == "failed"
     @test JSONSchema.validate(schema, recipe_response) === nothing
+
+    neutral_recipe = joinpath(root, "recipes", "neutral_ground_reference", "recipe.jl")
+    neutral_recipe_output = read(
+        `$(Base.julia_cmd()) --startup-file=no --project=$root $neutral_recipe`, String)
+    neutral_recipe_response = JSON3.read(neutral_recipe_output)
+    @test neutral_recipe_response.status == "failed"
+    @test Set(String(finding.code) for finding in neutral_recipe_response.result.findings) == Set([
+        "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+        "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH",
+    ])
+    @test JSONSchema.validate(schema, neutral_recipe_response) === nothing
 end

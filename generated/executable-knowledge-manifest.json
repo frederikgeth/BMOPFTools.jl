@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "4574a626122e1c5079f7feeb21110d70537fea040a028f1ce736aee27b8be072",
+  "corpus_sha256": "e7a0ecc8315365056c6743fc7447f61d3766fe3bb8a903f3b781521f943e1890",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -37,13 +37,13 @@
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 100,
+  "record_count": 101,
   "record_counts": {
     "api_operation": 14,
     "executable_contract": 14,
     "finding": 57,
     "fixture": 14,
-    "recipe": 1
+    "recipe": 2
   },
   "schema_version": "0.1.0",
   "source_files": [
@@ -65,7 +65,19 @@
     },
     {
       "path": "recipes/README.md",
-      "sha256": "deb203786c31ca7322f8cc191a0b79b875ccb59ae7f4ca974fef574616a1e444"
+      "sha256": "9dc498d4537e99569eb1ac1dd39604f9754627dccac25ddd2f10eea7da9c9a1b"
+    },
+    {
+      "path": "recipes/neutral_ground_reference/README.md",
+      "sha256": "fea0d840a4a4d63bb658638373712f1b823201d65aab2b19c949d2087fb6667a"
+    },
+    {
+      "path": "recipes/neutral_ground_reference/metadata.toml",
+      "sha256": "6e9671ee7b6d249b1a157d39457ead4c597b80fa13da8362d98f0b0d8d5c8a43"
+    },
+    {
+      "path": "recipes/neutral_ground_reference/recipe.jl",
+      "sha256": "79621b48218a96c5a5107dfd5cd326ca8d771a8f7868ef49fd6d8dfdf12beffa"
     },
     {
       "path": "recipes/parallel_member_limits/README.md",
@@ -89,11 +101,11 @@
     },
     {
       "path": "scripts/bmopf_cli.jl",
-      "sha256": "80242c2b493ee8b785c2619eff07e2837ef70681255a478e1bc69ecf50740a51"
+      "sha256": "7838d20ef8695134bb0f305441103b412c45ec653110ac1a669d45867f59e774"
     },
     {
       "path": "src/execution/interface.jl",
-      "sha256": "8ea4f3a36d815ff686de6cb01428be337dae5438570f3c98ce18886954beda75"
+      "sha256": "71b7289c631b3cf9f6fdc6d68b27efff3604903850c40055c5d018bc57b8be07"
     },
     {
       "path": "src/io/to_ybus.jl",

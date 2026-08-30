@@ -1,0 +1,27 @@
+schema_version = "0.1.0"
+recipe_id = "neutral_ground_reference"
+title = "Check neutral, ground, and reference preservation"
+purpose = "Run the PSK-000002 representation-level contract on the minimized neutral-conflation fixture and emit a stable JSON execution response."
+operation = "check_contract"
+contract_id = "neutral_ground_reference_preservation"
+knowledge_ids = ["PSK-000002"]
+fixture_ids = ["neutral-ground-reference-conflation-001"]
+script = "recipe.jl"
+readme = "README.md"
+interface_paths = [
+  "bin/bmopf",
+  "scripts/bmopf_cli.jl",
+  "schemas/execution-response.schema.json",
+  "src/execution/interface.jl",
+]
+command = "julia --startup-file=no --project=. recipes/neutral_ground_reference/recipe.jl"
+expected_status = "failed"
+expected_finding_codes = [
+  "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+  "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH",
+]
+does_not_establish = [
+  "A perfectly grounded neutral is always an invalid representation.",
+  "A representation-level pass establishes electrical terminal behavior, explicit-earth behavior, fault current, touch voltage, or protection operation.",
+  "Matching terminal labels imply preservation of neutral continuity or grounding relations.",
+]

@@ -16,10 +16,11 @@ JSON schema exactly: no wrapper types, so data flows naturally between JSON,
 the `to_pmd` PowerModelsDistribution export, and your own code.
 
 For automation, the repository also provides a deliberately small JSON
-execution interface and CI-tested recipes. The first operation evaluates the
-`parallel_member_limit_preservation` scientific contract and preserves its
-`passed`/`failed`/`inapplicable`/`indeterminate` status, Finding codes, input
-hashes, checked dimensions, and unassessed dimensions. See
+execution interface and CI-tested recipes. The first two reviewed mappings
+evaluate the `parallel_member_limit_preservation` and
+`neutral_ground_reference_preservation` scientific contracts and preserve
+their `passed`/`failed`/`inapplicable`/`indeterminate` status, Finding codes,
+input hashes, checked dimensions, and unassessed dimensions. See
 [`docs/src/execution_interface.md`](docs/src/execution_interface.md).
 
 ## IEEE PES Task Force

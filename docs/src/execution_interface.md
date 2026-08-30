@@ -6,7 +6,7 @@ diagnostic prose. The interface is deliberately narrower than the public Julia
 API: each supported operation maps to a reviewed domain function and returns a
 versioned JSON response.
 
-## First supported operation
+## Supported contracts
 
 From a repository checkout, evaluate the scalar parallel-member contract with:
 
@@ -21,10 +21,24 @@ The wrapper activates the repository environment and runs
 `scripts/bmopf_cli.jl`. Applications may invoke that Julia script directly if
 they already control the environment.
 
-The initial CLI intentionally exposes only
-`parallel_member_limit_preservation`. Additional contracts should be promoted
-one at a time after their required inputs and mappings have an unambiguous
-transport representation.
+The second curated route checks explicit neutral, ground, and reference
+relations with a declared bus mapping:
+
+```sh
+bin/bmopf check-contract neutral_ground_reference_preservation \
+  --source test/fixtures/negative/neutral-ground-reference-conflation/source.json \
+  --target test/fixtures/negative/neutral-ground-reference-conflation/transformed.json \
+  --bus-map source=source --bus-map load=load --pretty
+```
+
+`--bus-map` is repeatable and uses `SOURCE_BUS=TARGET_BUS`. BMOPFTools does not
+infer this mapping from matching names: explicit mapping is part of the
+scientific request whenever the target alone cannot establish source identity.
+
+The CLI intentionally exposes only these two reviewed contracts. They are
+registered through package-owned adapters with explicit parameter allowlists;
+additional contracts should be promoted one at a time after their required
+inputs and mappings have an unambiguous transport representation.
 
 ## Response contract
 
@@ -93,22 +107,33 @@ response = execute_contract(
 )
 ```
 
+For the neutral/ground/reference route, replace the parameters with:
+
+```julia
+parameters = Dict(
+    "bus_mapping" => Dict("source" => "source", "load" => "load"),
+)
+```
+
 ## Executable recipes
 
 The `recipes/` directory contains small operational companions to the longer
 tutorials. Each recipe has machine-readable metadata, a runnable Julia file,
 and a short explanation of scope and invalid inferences.
 
-The first recipe is:
+The first two recipes are:
 
 ```sh
 julia --startup-file=no --project=. recipes/parallel_member_limits/recipe.jl
+julia --startup-file=no --project=. recipes/neutral_ground_reference/recipe.jl
 ```
 
-It runs the existing minimized `PSK-000001` fixture, asserts the expected
-status and Finding code, and prints the execution-response JSON. Recipe records
-are generated into `generated/executable_knowledge.jsonl`, including source
-hashes, expected status, fixture IDs, and “does not establish” statements.
+They run the existing minimized `PSK-000001` and `PSK-000002` fixtures, assert
+their expected statuses and Finding codes, and print execution-response JSON.
+The second recipe is the compact operational companion to the pedagogical
+[grounding tutorial](tutorial_grounding.md). Recipe records are generated into
+`generated/executable_knowledge.jsonl`, including source hashes, expected
+status, fixture IDs, and “does not establish” statements.
 
 Recipes do not replace the tutorials. Tutorials explain modelling choices and
 misconceptions in context; recipes provide a short, repeatable operation that

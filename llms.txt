@@ -24,12 +24,16 @@ claims, evidence status, misconceptions, and stable PSK identities.
 - Execution response schema: schemas/execution-response.schema.json
 - Recipes: recipes/README.md
 
-## Initial JSON execution operation
+## Curated JSON execution operations
 
 ```sh
 bin/bmopf check-contract parallel_member_limit_preservation \
   --source SOURCE.json --target TARGET.json \
   --member-id LINE_ID --member-id LINE_ID --aggregate-id LINE_ID --pretty
+
+bin/bmopf check-contract neutral_ground_reference_preservation \
+  --source SOURCE.json --target TARGET.json \
+  --bus-map SOURCE_BUS=TARGET_BUS --bus-map SOURCE_BUS=TARGET_BUS --pretty
 ```
 
 Treat `passed`, `failed`, `inapplicable`, and `indeterminate` as distinct

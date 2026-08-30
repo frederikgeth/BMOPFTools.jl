@@ -14,3 +14,11 @@ Each recipe contains:
 Run a recipe from the repository root with its documented command. Longer
 tutorials under `docs/src/` remain the pedagogical source; recipes are compact
 operational companions rather than replacements for those tutorials.
+
+Current recipes:
+
+- `parallel_member_limits`: checks the `PSK-000001` scalar member-limit
+  counterexample; and
+- `neutral_ground_reference`: checks the `PSK-000002` neutral-continuity and
+  grounding-relation counterexample, complementing the pedagogical grounding
+  tutorial.

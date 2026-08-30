@@ -151,6 +151,11 @@ grounding-asset identity and state, fault current, touch voltage, and protection
 operation remain explicitly unassessed. Coupled multiconductor grounding models
 return `:inapplicable`; missing mapped evidence returns `:indeterminate`.
 
+The compact `recipes/neutral_ground_reference/recipe.jl` example runs this
+fixture through the versioned JSON execution interface. It complements the
+[grounding tutorial](tutorial_grounding.md), which develops the physical and
+modelling distinction pedagogically.
+
 ## Claimed-feasible solution validity
 
 [`check_claimed_solution_validity`](@ref) implements the initial executable

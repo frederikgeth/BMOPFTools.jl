@@ -1,7 +1,6 @@
 # execution/interface.jl
 
 const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.1.0"
-const _EXECUTION_CONTRACT_IDS = ("parallel_member_limit_preservation",)
 
 function _execution_package_identity()
     Dict{String,Any}(
@@ -37,6 +36,92 @@ function _execution_parameters(parameters::AbstractDict)
     Dict{String,Any}(string(key) => _jsonable(value) for (key, value) in parameters)
 end
 
+function _execution_validate_parameter_keys(
+        contract_id::String,
+        parameters::Dict{String,Any};
+        required::Tuple,
+        optional::Tuple=())
+    allowed = Set(vcat(collect(required), collect(optional)))
+    unknown = sort!(collect(setdiff(Set(keys(parameters)), allowed)))
+    isempty(unknown) || throw(ArgumentError(
+        "unsupported parameters for $contract_id: " * join(unknown, ", ")))
+    missing = [key for key in required if !haskey(parameters, key)]
+    isempty(missing) || throw(ArgumentError(
+        "$contract_id requires parameter(s): " * join(missing, ", ")))
+end
+
+function _execution_tolerances(parameters::Dict{String,Any})
+    atol = get(parameters, "atol", 1e-9)
+    rtol = get(parameters, "rtol", 1e-8)
+    atol isa Real && !(atol isa Bool) || throw(ArgumentError(
+        "parameter 'atol' must be numeric"))
+    rtol isa Real && !(rtol isa Bool) || throw(ArgumentError(
+        "parameter 'rtol' must be numeric"))
+    (atol=atol, rtol=rtol)
+end
+
+function _execute_parallel_member_limit(
+        source::Dict{String,Any}, target::Dict{String,Any},
+        parameters::Dict{String,Any})
+    contract_id = "parallel_member_limit_preservation"
+    _execution_validate_parameter_keys(
+        contract_id, parameters;
+        required=("member_ids", "aggregate_id"),
+        optional=("atol", "rtol"),
+    )
+    member_ids = parameters["member_ids"]
+    aggregate_id = parameters["aggregate_id"]
+    member_ids isa AbstractVector && all(item -> item isa AbstractString, member_ids) ||
+        throw(ArgumentError("$contract_id requires string-array parameter 'member_ids'"))
+    aggregate_id isa AbstractString && !isempty(aggregate_id) || throw(ArgumentError(
+        "$contract_id requires nonempty string parameter 'aggregate_id'"))
+    tolerances = _execution_tolerances(parameters)
+    check_parallel_member_limit_preservation(
+        source,
+        target;
+        member_ids=String.(member_ids),
+        aggregate_id=String(aggregate_id),
+        atol=tolerances.atol,
+        rtol=tolerances.rtol,
+    )
+end
+
+function _execute_neutral_ground_reference(
+        source::Dict{String,Any}, target::Dict{String,Any},
+        parameters::Dict{String,Any})
+    contract_id = "neutral_ground_reference_preservation"
+    _execution_validate_parameter_keys(
+        contract_id, parameters;
+        required=("bus_mapping",),
+        optional=("atol", "rtol"),
+    )
+    raw_mapping = parameters["bus_mapping"]
+    raw_mapping isa AbstractDict || throw(ArgumentError(
+        "$contract_id requires object parameter 'bus_mapping'"))
+    mapping = Dict{String,String}()
+    for (source_id, target_id) in raw_mapping
+        source_id isa AbstractString && !isempty(source_id) || throw(ArgumentError(
+            "$contract_id requires nonempty string bus_mapping keys"))
+        target_id isa AbstractString && !isempty(target_id) || throw(ArgumentError(
+            "$contract_id requires nonempty string bus_mapping values"))
+        mapping[String(source_id)] = String(target_id)
+    end
+    tolerances = _execution_tolerances(parameters)
+    check_neutral_ground_reference_preservation(
+        source,
+        target;
+        bus_mapping=mapping,
+        atol=tolerances.atol,
+        rtol=tolerances.rtol,
+    )
+end
+
+const _EXECUTION_CONTRACT_ADAPTERS = Dict{String,Function}(
+    "neutral_ground_reference_preservation" => _execute_neutral_ground_reference,
+    "parallel_member_limit_preservation" => _execute_parallel_member_limit,
+)
+const _EXECUTION_CONTRACT_IDS = Tuple(sort!(collect(keys(_EXECUTION_CONTRACT_ADAPTERS))))
+
 """
     execute_contract(contract_id, source, target; parameters, inputs=[])
 
@@ -45,11 +130,11 @@ The response preserves the scientific-contract status (`passed`, `failed`,
 `inapplicable`, or `indeterminate`), package identity, explicit request
 parameters, optional input hashes, and the complete structured contract result.
 
-The initial interface supports `parallel_member_limit_preservation`. Its
-`parameters` dictionary must contain `member_ids` and `aggregate_id`; optional
-`atol` and `rtol` entries are passed to the underlying domain API. Unsupported
-contracts raise `ArgumentError` instead of dynamically invoking arbitrary Julia
-functions.
+The curated interface supports `parallel_member_limit_preservation`, with
+`member_ids` and `aggregate_id`, and `neutral_ground_reference_preservation`,
+with an explicit `bus_mapping`. Optional `atol` and `rtol` entries are passed to
+the underlying domain API. Unsupported contracts raise `ArgumentError` instead
+of dynamically invoking arbitrary Julia functions.
 """
 function execute_contract(
         contract_id::AbstractString,
@@ -58,39 +143,13 @@ function execute_contract(
         parameters::AbstractDict,
         inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
     id = String(contract_id)
-    id in _EXECUTION_CONTRACT_IDS || throw(ArgumentError(
+    adapter = get(_EXECUTION_CONTRACT_ADAPTERS, id, nothing)
+    adapter === nothing && throw(ArgumentError(
         "unsupported executable contract '$id'; supported contracts: " *
         join(_EXECUTION_CONTRACT_IDS, ", ")))
 
     normalized_parameters = _execution_parameters(parameters)
-    unknown_parameters = setdiff(
-        Set(keys(normalized_parameters)),
-        Set(["member_ids", "aggregate_id", "atol", "rtol"]),
-    )
-    isempty(unknown_parameters) || throw(ArgumentError(
-        "unsupported parameters for parallel_member_limit_preservation: " *
-        join(sort!(collect(unknown_parameters)), ", ")))
-    member_ids = get(normalized_parameters, "member_ids", nothing)
-    aggregate_id = get(normalized_parameters, "aggregate_id", nothing)
-    member_ids isa AbstractVector && all(item -> item isa AbstractString, member_ids) ||
-        throw(ArgumentError("parallel_member_limit_preservation requires string-array parameter 'member_ids'"))
-    aggregate_id isa AbstractString && !isempty(aggregate_id) || throw(ArgumentError(
-        "parallel_member_limit_preservation requires nonempty string parameter 'aggregate_id'"))
-
-    atol = get(normalized_parameters, "atol", 1e-9)
-    rtol = get(normalized_parameters, "rtol", 1e-8)
-    atol isa Real && !(atol isa Bool) || throw(ArgumentError(
-        "parameter 'atol' must be numeric"))
-    rtol isa Real && !(rtol isa Bool) || throw(ArgumentError(
-        "parameter 'rtol' must be numeric"))
-    result = check_parallel_member_limit_preservation(
-        source,
-        target;
-        member_ids=String.(member_ids),
-        aggregate_id=String(aggregate_id),
-        atol=atol,
-        rtol=rtol,
-    )
+    result = adapter(source, target, normalized_parameters)
     result_payload = contract_result_to_dict(result)
     Dict{String,Any}(
         "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,

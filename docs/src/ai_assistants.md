@@ -60,6 +60,15 @@ contract status, checked and unassessed dimensions, Findings, and evidence.
 An `error` response means no scientific evaluation occurred; it must not be
 reported as `failed` or `inapplicable`.
 
+The neutral/ground/reference route likewise requires an explicit mapping rather
+than inferring identity from equal bus names:
+
+```sh
+bin/bmopf check-contract neutral_ground_reference_preservation \
+  --source source.json --target transformed.json \
+  --bus-map source_bus=source_bus --bus-map load_bus=load_bus --pretty
+```
+
 ### Analyse and triage a case
 
 > Parse `<case.json>` with `parse_bmopf`, run `analyze`, and summarize errors, warnings, and informational Findings by stable code. For each material Finding, name the affected component, explain what the package established, and link to the relevant BMOPFTools documentation. Do not claim the case is OPF-ready merely because parsing succeeds. Do not edit the input. Return the commands used and any limitations of the analysis.
@@ -90,6 +99,15 @@ The relevant entry points are documented under [OPF result dictionaries](results
 > Evaluate `parallel_member_limit_preservation` for the declared source members `<IDs>` and target aggregate `<ID>`. Report the `ScientificContractResult` status, checked dimensions, unassessed dimensions, Findings, tolerances, and witness. If the result is `inapplicable` or `indeterminate`, do not convert it to a pass or failure. Treat `PSK-000001` as a link to the book's scoped scientific statement, not as a claim that the scalar implementation covers multiconductor or state-dependent branches.
 
 Use [`check_parallel_member_limit_preservation`](@ref) and serialize results with [`contract_result_to_dict`](@ref). The [scientific-contract guide](scientific_contracts.md) defines the current applicability boundary.
+
+For a grounding transformation, follow the pedagogical grounding tutorial and
+declare the bus correspondence explicitly:
+
+> Evaluate `neutral_ground_reference_preservation` for the declared source-to-target bus mapping. Report neutral identity, pairwise neutral continuity, and perfect-ground, finite-grounding, and source-reference relations separately. Do not infer preservation from matching `n` labels, and do not promote a representation-level pass to terminal-equation, earth-return, fault, touch-voltage, protection, or grounding-asset equivalence.
+
+Use [`check_neutral_ground_reference_preservation`](@ref), the
+[grounding tutorial](tutorial_grounding.md), and the runnable
+`recipes/neutral_ground_reference` example.
 
 For an adjustable transformer, use the same reporting discipline with an
 explicit subtype and source/target transformer mapping:

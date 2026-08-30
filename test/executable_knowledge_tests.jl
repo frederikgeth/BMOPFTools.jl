@@ -20,12 +20,12 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 100
+    @test manifest.record_count == length(records) == 101
     @test manifest.record_counts.executable_contract == 14
     @test manifest.record_counts.api_operation == 14
     @test manifest.record_counts.finding == 57
     @test manifest.record_counts.fixture == 14
-    @test manifest.record_counts.recipe == 1
+    @test manifest.record_counts.recipe == 2
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
         "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
@@ -63,6 +63,17 @@ using SHA
     @test recipe.expected_status == "failed"
     @test recipe.expected_finding_codes == ["W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS"]
     @test all(file -> isfile(joinpath(root, String(file.path))), recipe.files)
+
+    neutral_recipe = by_id["recipe:neutral_ground_reference"]
+    @test neutral_recipe.contract_id == "neutral_ground_reference_preservation"
+    @test neutral_recipe.knowledge_ids == ["PSK-000002"]
+    @test neutral_recipe.fixture_ids == ["neutral-ground-reference-conflation-001"]
+    @test neutral_recipe.expected_status == "failed"
+    @test Set(String.(neutral_recipe.expected_finding_codes)) == Set([
+        "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+        "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH",
+    ])
+    @test all(file -> isfile(joinpath(root, String(file.path))), neutral_recipe.files)
 
     neutral_contract = by_id["contract:neutral_ground_reference_preservation"]
     neutral_fixture = by_id["fixture:neutral-ground-reference-conflation-001"]
