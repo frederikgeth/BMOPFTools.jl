@@ -89,3 +89,9 @@ BMOPFTools tests, runtime documentation, issue history, or the book's scientific
 claims ledger. Package-local implementation details need a cross-repository log
 entry only when they alter an authority boundary, federation contract, or
 shared agent workflow.
+
+Scientifically constrained agent-benchmark protocols, condition comparisons,
+and measured run results are book-owned research records. BMOPFTools participates
+only through its already-reviewed package APIs, contracts, recipes, fixtures,
+Findings, and their source hashes. Benchmark harnesses must call or pin those
+oracles rather than copying their scientific-runtime semantics into the book.
