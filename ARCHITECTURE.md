@@ -34,7 +34,7 @@ The following local constraints are architectural:
 Changes that alter these constraints must update the canonical architecture in
 `multi-graph-book` and be reviewed as a cross-repository architectural change.
 
-The first two transport slices expose `parallel_member_limit_preservation` and
+The first two scientific transport slices expose `parallel_member_limit_preservation` and
 `neutral_ground_reference_preservation` through the package-owned
 `execute_contract` API and `bin/bmopf check-contract`. A curated adapter
 registry gives each contract an explicit parameter allowlist; it does not
@@ -42,5 +42,10 @@ perform dynamic Julia dispatch. Responses are validated against
 `schemas/execution-response.schema.json`, distinguish request errors from the
 four scientific-contract statuses, and bind source and target input hashes.
 The `parallel_member_limits` and `neutral_ground_reference` recipes are
-CI-tested operational examples. Other contracts remain available through their
-Julia APIs until each mapping has an explicit reviewed transport shape.
+CI-tested operational examples. The separate `execute_analysis` API and
+`bin/bmopf analyze-case` route serialize the package's existing `analyze`
+report with operation status `completed`; ERROR and WARNING Findings remain
+case diagnostics rather than transport failures. Its tutorial-derived
+`analyze_case` recipe carries no PSK identity because it does not itself assert
+a scientific preservation claim. Other contracts remain available through
+their Julia APIs until each mapping has an explicit reviewed transport shape.

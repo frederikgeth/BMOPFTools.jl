@@ -6,8 +6,8 @@ evidence without copying scientific claims from the companion book.
 
 Each recipe contains:
 
-- `metadata.toml`, which binds the recipe to stable contract, PSK, fixture, and
-  Finding identifiers;
+- `metadata.toml`, which binds scientific recipes to stable contract, PSK, and
+  fixture identifiers and binds every recipe to expected Finding identifiers;
 - `recipe.jl`, a directly runnable Julia example; and
 - `README.md`, which explains inputs, outputs, scope, and invalid inferences.
 
@@ -17,6 +17,8 @@ operational companions rather than replacements for those tutorials.
 
 Current recipes:
 
+- `analyze_case`: parses and analyzes the tutorial network, demonstrating that
+  a completed operation can still contain Findings that need triage;
 - `parallel_member_limits`: checks the `PSK-000001` scalar member-limit
   counterexample; and
 - `neutral_ground_reference`: checks the `PSK-000002` neutral-continuity and

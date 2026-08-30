@@ -16,11 +16,14 @@ Usage:
     --bus-map SOURCE_BUS=TARGET_BUS --bus-map SOURCE_BUS=TARGET_BUS \\
     [--atol VALUE] [--rtol VALUE] [--pretty]
 
+  bmopf analyze-case --input CASE.json [--time-index INTEGER] [--pretty]
+
 The command writes one execution-response JSON object to stdout. Diagnostics
 and usage errors are written to stderr. Exit codes are 0 for a completed
-scientific-contract evaluation, 2 for an invalid request, and 1 for an input or
-execution failure. A completed contract may itself report passed, failed,
-inapplicable, or indeterminate status.
+operation, 2 for an invalid request, and 1 for an input or execution failure. A
+completed contract may itself report passed, failed, inapplicable, or
+indeterminate status. A completed analysis may contain ERROR Findings without
+turning the operation status into an error.
 """
 const _CLI_CONTRACT_IDS = (
     "neutral_ground_reference_preservation",
@@ -34,10 +37,8 @@ function _cli_bus_mapping(value::String)
     String(pair[1]) => String(pair[2])
 end
 
-function _cli_parse(args::Vector{String})
-    length(args) >= 2 || throw(ArgumentError("missing operation or contract ID"))
-    args[1] == "check-contract" || throw(ArgumentError(
-        "unsupported operation '$(args[1])'; expected check-contract"))
+function _cli_parse_contract(args::Vector{String})
+    length(args) >= 2 || throw(ArgumentError("missing contract ID"))
     contract_id = args[2]
     contract_id in _CLI_CONTRACT_IDS || throw(ArgumentError(
         "unsupported contract '$contract_id'; supported contracts: " *
@@ -105,6 +106,7 @@ function _cli_parse(args::Vector{String})
             "--aggregate-id is not valid for $contract_id"))
     end
     (
+        operation="check_contract",
         contract_id=contract_id,
         source=String(source),
         target=String(target),
@@ -115,6 +117,45 @@ function _cli_parse(args::Vector{String})
         rtol=Float64(rtol),
         pretty=pretty,
     )
+end
+
+function _cli_parse_analysis(args::Vector{String})
+    input = nothing
+    t_index = 1
+    pretty = false
+    index = 2
+    while index <= length(args)
+        flag = args[index]
+        if flag == "--pretty"
+            pretty = true
+            index += 1
+            continue
+        end
+        index < length(args) || throw(ArgumentError("missing value for $flag"))
+        value = args[index + 1]
+        if flag == "--input"
+            input === nothing || throw(ArgumentError("--input may be supplied only once"))
+            input = value
+        elseif flag == "--time-index"
+            parsed_index = tryparse(Int, value)
+            parsed_index !== nothing && parsed_index >= 1 || throw(ArgumentError(
+                "--time-index must be an integer of at least 1"))
+            t_index = parsed_index
+        else
+            throw(ArgumentError("unknown option '$flag'"))
+        end
+        index += 2
+    end
+    input === nothing && throw(ArgumentError("--input is required"))
+    (operation="analyze_case", input=String(input), t_index=t_index, pretty=pretty)
+end
+
+function _cli_parse(args::Vector{String})
+    isempty(args) && throw(ArgumentError("missing operation"))
+    args[1] == "check-contract" && return _cli_parse_contract(args)
+    args[1] == "analyze-case" && return _cli_parse_analysis(args)
+    throw(ArgumentError(
+        "unsupported operation '$(args[1])'; expected check-contract or analyze-case"))
 end
 
 function _cli_parameters(parsed)
@@ -156,42 +197,56 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
         message = sprint(showerror, exception)
         println(err, message)
         println(err, _CLI_USAGE)
-        contract_id = length(args) >= 2 ? args[2] : nothing
+        operation = !isempty(args) && args[1] == "analyze-case" ? "analyze_case" : "check_contract"
+        contract_id = operation == "check_contract" && length(args) >= 2 ? args[2] : nothing
         _cli_write(out, execution_error_response(
-            message; code="invalid_request", contract_id=contract_id))
+            message; code="invalid_request", operation=operation,
+            contract_id=contract_id))
         return 2
     end
 
     inputs = try
-        [_cli_input("source", parsed.source), _cli_input("target", parsed.target)]
+        parsed.operation == "check_contract" ?
+            [_cli_input("source", parsed.source), _cli_input("target", parsed.target)] :
+            [_cli_input("case", parsed.input)]
     catch exception
         message = sprint(showerror, exception)
         println(err, message)
         _cli_write(out, execution_error_response(
             message;
             code="input_error",
-            contract_id=parsed.contract_id,
+            operation=parsed.operation,
+            contract_id=parsed.operation == "check_contract" ? parsed.contract_id : nothing,
         ); pretty=parsed.pretty)
         return 1
     end
 
     payload = try
-        source = parse_bmopf(parsed.source)
-        target = parse_bmopf(parsed.target)
-        execute_contract(
-            parsed.contract_id,
-            source,
-            target;
-            parameters=_cli_parameters(parsed),
-            inputs=inputs,
-        )
+        if parsed.operation == "check_contract"
+            source = parse_bmopf(parsed.source)
+            target = parse_bmopf(parsed.target)
+            execute_contract(
+                parsed.contract_id,
+                source,
+                target;
+                parameters=_cli_parameters(parsed),
+                inputs=inputs,
+            )
+        else
+            execute_analysis(
+                parse_bmopf(parsed.input);
+                t_index=parsed.t_index,
+                inputs=inputs,
+            )
+        end
     catch exception
         message = sprint(showerror, exception)
         println(err, message)
         _cli_write(out, execution_error_response(
             message;
             code="execution_error",
-            contract_id=parsed.contract_id,
+            operation=parsed.operation,
+            contract_id=parsed.operation == "check_contract" ? parsed.contract_id : nothing,
             inputs=inputs,
         ); pretty=parsed.pretty)
         return 1

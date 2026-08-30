@@ -18,7 +18,7 @@ SCHEMA = ROOT / "schemas/executable-knowledge.schema.json"
 PROJECT = ROOT / "Project.toml"
 OUTPUT = ROOT / "generated/executable_knowledge.jsonl"
 MANIFEST = ROOT / "generated/executable-knowledge-manifest.json"
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.2.0"
 PSK_ID = re.compile(r"^PSK-[0-9]{6}$")
 CONTRACT_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 FINDING_CODE = re.compile(r"^[EWI]\.[A-Z0-9_]+(?:\.[A-Z0-9_]+)+$")
@@ -43,6 +43,19 @@ def require_strings(record_id: str, field: str, value: object, errors: list[str]
     if not isinstance(value, list) or not value or not all(isinstance(item, str) and item.strip() for item in value):
         errors.append(f"{record_id}: {field} must be a nonempty string array")
         return []
+    if len(value) != len(set(value)):
+        errors.append(f"{record_id}: {field} contains duplicates")
+    return value
+
+
+def require_string_array(record_id: str, field: str, value: object,
+                         errors: list[str], *, nonempty: bool = False) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
+        qualifier = "nonempty " if nonempty else ""
+        errors.append(f"{record_id}: {field} must be a {qualifier}string array")
+        return []
+    if nonempty and not value:
+        errors.append(f"{record_id}: {field} must be a nonempty string array")
     if len(value) != len(set(value)):
         errors.append(f"{record_id}: {field} contains duplicates")
     return value
@@ -290,8 +303,10 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
         contract_id = item.get("contract_id")
         command = item.get("command")
         expected_status = item.get("expected_status")
-        knowledge_ids = require_strings(recipe_id, "knowledge_ids", item.get("knowledge_ids"), errors)
-        fixture_ids = require_strings(recipe_id, "fixture_ids", item.get("fixture_ids"), errors)
+        knowledge_ids = require_string_array(
+            recipe_id, "knowledge_ids", item.get("knowledge_ids"), errors)
+        fixture_ids = require_string_array(
+            recipe_id, "fixture_ids", item.get("fixture_ids"), errors)
         expected_codes = require_strings(
             recipe_id, "expected_finding_codes", item.get("expected_finding_codes"), errors
         )
@@ -305,25 +320,44 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
             errors.append(f"{recipe_id}: missing title")
         if not isinstance(purpose, str) or not purpose.strip():
             errors.append(f"{recipe_id}: missing purpose")
-        if operation != "check_contract":
+        if operation not in {"check_contract", "analyze_case"}:
             errors.append(f"{recipe_id}: unsupported recipe operation {operation}")
         if not isinstance(command, str) or not command.strip():
             errors.append(f"{recipe_id}: missing command")
-        if expected_status not in {"passed", "failed", "inapplicable", "indeterminate"}:
+        valid_statuses = ({"passed", "failed", "inapplicable", "indeterminate"}
+                          if operation == "check_contract" else {"completed"})
+        if expected_status not in valid_statuses:
             errors.append(f"{recipe_id}: invalid expected status {expected_status}")
-        contract = contract_by_id.get(contract_id)
-        if contract is None:
-            errors.append(f"{recipe_id}: unknown contract {contract_id}")
-            continue
-        if knowledge_ids != contract.get("knowledge_ids"):
-            errors.append(f"{recipe_id}: knowledge IDs differ from {contract_id}")
-        if not set(fixture_ids).issubset(set(contract.get("fixture_ids", []))):
-            errors.append(f"{recipe_id}: fixture IDs are outside {contract_id}")
-        if not set(expected_codes).issubset(set(contract.get("finding_codes", []))):
-            errors.append(f"{recipe_id}: expected Finding codes are outside {contract_id}")
-        for fixture_id in fixture_ids:
-            if fixture_id not in fixture_by_id:
-                errors.append(f"{recipe_id}: unknown fixture {fixture_id}")
+        if operation == "check_contract":
+            contract = contract_by_id.get(contract_id)
+            if contract is None:
+                errors.append(f"{recipe_id}: unknown contract {contract_id}")
+                continue
+            if not knowledge_ids:
+                errors.append(f"{recipe_id}: check_contract recipes require knowledge IDs")
+            if not fixture_ids:
+                errors.append(f"{recipe_id}: check_contract recipes require fixture IDs")
+            if knowledge_ids != contract.get("knowledge_ids"):
+                errors.append(f"{recipe_id}: knowledge IDs differ from {contract_id}")
+            if not set(fixture_ids).issubset(set(contract.get("fixture_ids", []))):
+                errors.append(f"{recipe_id}: fixture IDs are outside {contract_id}")
+            if not set(expected_codes).issubset(set(contract.get("finding_codes", []))):
+                errors.append(f"{recipe_id}: expected Finding codes are outside {contract_id}")
+            for fixture_id in fixture_ids:
+                if fixture_id not in fixture_by_id:
+                    errors.append(f"{recipe_id}: unknown fixture {fixture_id}")
+        elif contract_id is not None:
+            errors.append(f"{recipe_id}: analyze_case recipes must not name a contract")
+        elif knowledge_ids:
+            errors.append(f"{recipe_id}: package-only analysis recipes must not claim PSK identities")
+        elif fixture_ids:
+            errors.append(f"{recipe_id}: analysis recipe inputs belong in input_paths, not contract fixture_ids")
+        if operation == "analyze_case":
+            for code in expected_codes:
+                if not FINDING_CODE.fullmatch(code):
+                    errors.append(f"{recipe_id}: invalid Finding code {code}")
+                if code not in finding_docs:
+                    errors.append(f"{recipe_id}: expected Finding code {code} is absent from docs/src/findings.md")
 
         recipe_files: list[Path] = []
         for key in ("script", "readme"):
@@ -339,6 +373,18 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
                 errors.append(f"{recipe_id}: missing interface path {path_string}")
             else:
                 recipe_files.append(path)
+        support_paths = []
+        if operation == "analyze_case":
+            support_paths = [
+                *require_strings(recipe_id, "input_paths", item.get("input_paths"), errors),
+                *require_strings(recipe_id, "tutorial_paths", item.get("tutorial_paths"), errors),
+            ]
+        for path_string in support_paths:
+            path = ROOT / path_string
+            if not path.is_file():
+                errors.append(f"{recipe_id}: missing supporting path {path_string}")
+            else:
+                recipe_files.append(path)
         all_sources.update([metadata_path, *recipe_files])
         files = [
             {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256_file(path)}
@@ -346,7 +392,7 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
         ]
         recipe_record = record_base(
             f"recipe:{recipe_id}", "recipe", knowledge_ids, title,
-            f"Executable recipe {recipe_id} for {contract_id}. {purpose} "
+            f"Executable recipe {recipe_id} for operation {operation}. {purpose} "
             f"Expected status: {expected_status}. Expected Findings: {', '.join(expected_codes)}. "
             f"Does not establish: {' '.join(does_not_establish)}",
             package, [metadata_path, *recipe_files],
@@ -355,7 +401,6 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
             "recipe_id": recipe_id,
             "purpose": purpose,
             "operation": operation,
-            "contract_id": contract_id,
             "command": command,
             "fixture_ids": fixture_ids,
             "expected_status": expected_status,
@@ -363,6 +408,8 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
             "does_not_establish": does_not_establish,
             "files": files,
         })
+        if operation == "check_contract":
+            recipe_record["contract_id"] = contract_id
         records.append(recipe_record)
 
     records.sort(key=lambda record: record["record_id"])
@@ -379,7 +426,7 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
         "record_count": len(records),
         "record_counts": dict(sorted(Counter(record["record_type"] for record in records).items())),
         "knowledge_ids": sorted({value for record in records for value in record["knowledge_ids"]}),
-        "contract_ids": sorted({record["contract_id"] for record in records}),
+        "contract_ids": sorted({record["contract_id"] for record in records if "contract_id" in record}),
         "corpus_sha256": sha256_bytes(corpus.encode()),
         "source_files": [
             {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256_file(path)}

@@ -73,6 +73,16 @@ bin/bmopf check-contract neutral_ground_reference_preservation \
 
 > Parse `<case.json>` with `parse_bmopf`, run `analyze`, and summarize errors, warnings, and informational Findings by stable code. For each material Finding, name the affected component, explain what the package established, and link to the relevant BMOPFTools documentation. Do not claim the case is OPF-ready merely because parsing succeeds. Do not edit the input. Return the commands used and any limitations of the analysis.
 
+For a stable JSON response with an input hash, use:
+
+```sh
+bin/bmopf analyze-case --input case.json --pretty
+```
+
+Its `completed` status means the analyzer ran; it does not override the ERROR
+or WARNING severities in `result.findings`. The CI-tested `recipes/analyze_case`
+example demonstrates that distinction using the small tutorial network.
+
 A minimal verifiable workflow is:
 
 ```julia

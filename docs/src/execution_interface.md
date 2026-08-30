@@ -1,10 +1,10 @@
 # JSON execution interface and recipes
 
 BMOPFTools provides a small automation surface for evaluating package-owned
-scientific contracts without asking an agent to construct Julia calls or parse
-diagnostic prose. The interface is deliberately narrower than the public Julia
-API: each supported operation maps to a reviewed domain function and returns a
-versioned JSON response.
+scientific contracts and running ordinary case analysis without asking an agent
+to construct Julia calls or parse diagnostic prose. The interface is
+deliberately narrower than the public Julia API: each supported operation maps
+to a reviewed package function and returns a versioned JSON response.
 
 ## Supported contracts
 
@@ -40,6 +40,25 @@ registered through package-owned adapters with explicit parameter allowlists;
 additional contracts should be promoted one at a time after their required
 inputs and mappings have an unambiguous transport representation.
 
+## Analyze one case
+
+The first non-contract route parses one BMOPF JSON file and runs the same
+[`analyze`](@ref) battery used throughout the tutorials:
+
+```sh
+bin/bmopf analyze-case --input examples/lv1_14bus.json --pretty
+```
+
+For a time-series case, add `--time-index N` to select the snapshot. The
+equivalent Julia entry point is `execute_analysis(net; t_index=1)`.
+
+An analysis response has operation `analyze_case`, status `completed`, and the
+structured `SummaryReport` under `result`: severity counts, stable result
+sections, and full Finding records. `completed` means that the requested
+analysis ran. It does not mean the case is clean, solver-ready, feasible, or
+scientifically validated; ERROR and WARNING Findings describe the case and do
+not turn transport status into `error`.
+
 ## Response contract
 
 Every invocation writes one JSON object to standard output. The schema is
@@ -47,7 +66,7 @@ Every invocation writes one JSON object to standard output. The schema is
 
 ```json
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "operation": "check_contract",
   "status": "failed",
   "package": {"name": "BMOPFTools", "version": "0.1.0"},
@@ -88,10 +107,11 @@ The four scientific-contract statuses retain their existing meanings:
 - `indeterminate`: required evidence was absent.
 
 `error` is a separate transport/request status. It indicates that no scientific
-contract result was produced. A contract that evaluates to `failed`,
+contract result or analysis report was produced. A contract that evaluates to `failed`,
 `inapplicable`, or `indeterminate` is still a successfully completed CLI
 operation and therefore exits with code zero. Invalid requests exit with code
-2; input or execution errors exit with code 1.
+2; input or execution errors exit with code 1. For `analyze_case`, `completed`
+is the only non-error operation status.
 
 Julia callers can obtain the same envelope without starting a subprocess:
 
@@ -121,16 +141,22 @@ The `recipes/` directory contains small operational companions to the longer
 tutorials. Each recipe has machine-readable metadata, a runnable Julia file,
 and a short explanation of scope and invalid inferences.
 
-The first two recipes are:
+The first three recipes are:
 
 ```sh
+julia --startup-file=no --project=. recipes/analyze_case/recipe.jl
 julia --startup-file=no --project=. recipes/parallel_member_limits/recipe.jl
 julia --startup-file=no --project=. recipes/neutral_ground_reference/recipe.jl
 ```
 
-They run the existing minimized `PSK-000001` and `PSK-000002` fixtures, assert
+The analysis recipe uses the same small network as several tutorials and makes
+their triage lesson executable: a completed report can still contain warnings
+and readiness disclosures. It intentionally carries no PSK identity because it
+demonstrates ordinary package analysis rather than a scientific preservation
+claim. The two contract recipes run the existing minimized `PSK-000001` and
+`PSK-000002` fixtures, assert
 their expected statuses and Finding codes, and print execution-response JSON.
-The second recipe is the compact operational companion to the pedagogical
+The neutral recipe is the compact operational companion to the pedagogical
 [grounding tutorial](tutorial_grounding.md). Recipe records are generated into
 `generated/executable_knowledge.jsonl`, including source hashes, expected
 status, fixture IDs, and “does not establish” statements.

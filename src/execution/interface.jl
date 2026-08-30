@@ -1,6 +1,6 @@
 # execution/interface.jl
 
-const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.1.0"
+const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.2.0"
 
 function _execution_package_identity()
     Dict{String,Any}(
@@ -166,7 +166,40 @@ function execute_contract(
 end
 
 """
+    execute_analysis(net; t_index=1, inputs=[])
+
+Run BMOPFTools' standard case analysis through the stable, JSON-ready execution
+interface. A completed operation has status `completed` even when the report
+contains ERROR or WARNING Findings: Finding severity describes the case, while
+the envelope status describes whether the requested operation ran.
+
+`t_index` selects a snapshot for time-series inputs and is ignored for snapshot
+networks. Optional input records bind the response to caller-supplied file
+hashes in the same way as [`execute_contract`](@ref).
+"""
+function execute_analysis(
+        net::Dict{String,Any};
+        t_index::Int=1,
+        inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
+    t_index >= 1 || throw(ArgumentError("t_index must be at least 1"))
+    report = analyze(net; t_index=t_index)
+    Dict{String,Any}(
+        "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,
+        "operation" => "analyze_case",
+        "status" => "completed",
+        "package" => _execution_package_identity(),
+        "request" => Dict{String,Any}(
+            "contract_id" => nothing,
+            "parameters" => Dict{String,Any}("t_index" => t_index),
+        ),
+        "inputs" => _execution_inputs(inputs),
+        "result" => _report_to_json(report),
+    )
+end
+
+"""
     execution_error_response(message; code="invalid_request",
+                             operation="check_contract",
                              contract_id=nothing, inputs=[])
 
 Construct the same stable response envelope for a transport or request error.
@@ -176,13 +209,18 @@ represent scientific evidence.
 function execution_error_response(
         message::AbstractString;
         code::AbstractString="invalid_request",
+        operation::AbstractString="check_contract",
         contract_id::Union{AbstractString,Nothing}=nothing,
         inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
     isempty(message) && throw(ArgumentError("execution error message must be nonempty"))
     isempty(code) && throw(ArgumentError("execution error code must be nonempty"))
+    operation in ("check_contract", "analyze_case") || throw(ArgumentError(
+        "unsupported execution operation '$operation'"))
+    operation == "analyze_case" && contract_id !== nothing && throw(ArgumentError(
+        "analyze_case errors cannot name a scientific contract"))
     Dict{String,Any}(
         "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,
-        "operation" => "check_contract",
+        "operation" => String(operation),
         "status" => "error",
         "package" => _execution_package_identity(),
         "request" => Dict{String,Any}(
