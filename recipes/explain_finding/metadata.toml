@@ -1,4 +1,4 @@
-schema_version = "0.4.0"
+schema_version = "0.5.0"
 recipe_id = "explain_finding"
 title = "Explain one stable Finding code offline"
 purpose = "Look up E.SOL.VOLT_VIOLATION in the generated package Finding registry and return its canonical meaning and provenance without diagnosing a case or inventing a repair."

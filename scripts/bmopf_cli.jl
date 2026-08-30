@@ -18,6 +18,8 @@ Usage:
 
   bmopf analyze-case --input CASE.json [--time-index INTEGER] [--pretty]
 
+  bmopf parse-case --input CASE.json [--pretty]
+
   bmopf verify-solution --case CASE.json --result RESULT.json \
     [--time-index INTEGER] [--pretty]
 
@@ -29,7 +31,9 @@ operation, 2 for an invalid request, and 1 for an input or execution failure. A
 completed contract may itself report passed, failed, inapplicable, or
 indeterminate status. A completed analysis or verification may contain ERROR
 Findings without turning the operation status into an error. Finding
-explanation is a deterministic offline catalogue lookup, not diagnosis.
+explanation is a deterministic offline catalogue lookup, not diagnosis. A
+completed parse means only that supported ingest and normalization ran; it is
+not schema validation or analysis.
 """
 const _CLI_CONTRACT_IDS = (
     "neutral_ground_reference_preservation",
@@ -156,6 +160,32 @@ function _cli_parse_analysis(args::Vector{String})
     (operation="analyze_case", input=String(input), t_index=t_index, pretty=pretty)
 end
 
+function _cli_parse_case(args::Vector{String})
+    input = nothing
+    pretty = false
+    index = 2
+    while index <= length(args)
+        flag = args[index]
+        if flag == "--pretty"
+            pretty && throw(ArgumentError("--pretty may be supplied only once"))
+            pretty = true
+            index += 1
+            continue
+        end
+        index < length(args) || throw(ArgumentError("missing value for $flag"))
+        value = args[index + 1]
+        if flag == "--input"
+            input === nothing || throw(ArgumentError("--input may be supplied only once"))
+            input = value
+        else
+            throw(ArgumentError("unknown option '$flag'"))
+        end
+        index += 2
+    end
+    input === nothing && throw(ArgumentError("--input is required"))
+    (operation="parse_case", input=String(input), pretty=pretty)
+end
+
 function _cli_parse_solution(args::Vector{String})
     case_path = nothing
     result_path = nothing
@@ -217,15 +247,17 @@ end
 function _cli_parse(args::Vector{String})
     isempty(args) && throw(ArgumentError("missing operation"))
     args[1] == "check-contract" && return _cli_parse_contract(args)
+    args[1] == "parse-case" && return _cli_parse_case(args)
     args[1] == "analyze-case" && return _cli_parse_analysis(args)
     args[1] == "verify-solution" && return _cli_parse_solution(args)
     args[1] == "explain-finding" && return _cli_parse_finding(args)
     throw(ArgumentError(
-        "unsupported operation '$(args[1])'; expected check-contract, analyze-case, " *
-        "verify-solution, or explain-finding"))
+        "unsupported operation '$(args[1])'; expected check-contract, parse-case, " *
+        "analyze-case, verify-solution, or explain-finding"))
 end
 
 function _cli_operation(args::Vector{String})
+    !isempty(args) && args[1] == "parse-case" && return "parse_case"
     !isempty(args) && args[1] == "analyze-case" && return "analyze_case"
     !isempty(args) && args[1] == "verify-solution" && return "verify_solution"
     !isempty(args) && args[1] == "explain-finding" && return "explain_finding"
@@ -282,7 +314,7 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
     inputs = try
         if parsed.operation == "check_contract"
             [_cli_input("source", parsed.source), _cli_input("target", parsed.target)]
-        elseif parsed.operation == "analyze_case"
+        elseif parsed.operation in ("parse_case", "analyze_case")
             [_cli_input("case", parsed.input)]
         elseif parsed.operation == "verify_solution"
             [_cli_input("case", parsed.case_path), _cli_input("result", parsed.result_path)]
@@ -312,6 +344,8 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
                 parameters=_cli_parameters(parsed),
                 inputs=inputs,
             )
+        elseif parsed.operation == "parse_case"
+            execute_case_parse(parse_bmopf(parsed.input); inputs=inputs)
         elseif parsed.operation == "analyze_case"
             execute_analysis(
                 parse_bmopf(parsed.input);

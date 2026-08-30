@@ -21,6 +21,8 @@ Current recipes:
   a completed operation can still contain Findings that need triage;
 - `explain_finding`: looks up one stable package Finding code in the generated
   offline registry without diagnosing a case or inventing a repair;
+- `parse_case`: inventories a deliberately incomplete document after supported
+  ingest migration, demonstrating that parse completion is not schema validity;
 - `parallel_member_limits`: checks the `PSK-000001` scalar member-limit
   counterexample;
 - `neutral_ground_reference`: checks the `PSK-000002` neutral-continuity and

@@ -24,7 +24,7 @@ using SHA
     response = execute_contract(
         "parallel_member_limit_preservation", source, target;
         parameters=parameters, inputs=inputs)
-    @test response["schema_version"] == "0.4.0"
+    @test response["schema_version"] == "0.5.0"
     @test response["operation"] == "check_contract"
     @test response["status"] == "failed"
     @test response["request"]["parameters"]["member_ids"] == ["l1", "l2"]
@@ -37,6 +37,33 @@ using SHA
     schema_path = joinpath(root, "schemas", "execution-response.schema.json")
     schema = JSONSchema.Schema(JSON3.read(read(schema_path, String)))
     @test JSONSchema.validate(schema, JSON3.read(JSON3.write(response))) === nothing
+
+    parse_path = joinpath(root, "recipes", "parse_case", "input.json")
+    parse_input = Dict(
+        "role" => "case",
+        "path" => "recipes/parse_case/input.json",
+        "sha256" => bytes2hex(sha256(read(parse_path))),
+    )
+    parsed = execute_case_parse(parse_bmopf(parse_path); inputs=[parse_input])
+    @test parsed["operation"] == "parse_case"
+    @test parsed["status"] == "completed"
+    @test parsed["request"]["contract_id"] === nothing
+    @test isempty(parsed["request"]["parameters"])
+    @test parsed["result"]["network_name"] == "parse-only-boundary"
+    @test parsed["result"]["component_counts"]["load"] == 1
+    @test parsed["result"]["component_counts"]["transformer"] == 0
+    @test !parsed["result"]["is_timeseries"]
+    @test "W.MIGRATE.LOAD_MODEL_CASE" in Set(
+        note["code"] for note in parsed["result"]["migration_notes"])
+    @test JSONSchema.validate(schema, JSON3.read(JSON3.write(parsed))) === nothing
+
+    numeric_terminals = parse_bmopf(
+        """{"name":"terminals","bus":{"b":{"terminal_names":[1,2,3,4]}}}""";
+        from_string=true)
+    normalized = execute_case_parse(numeric_terminals)
+    @test normalized["result"]["terminal_coercions"] == Dict(
+        "n" => 4, "mode" => "aliases")
+    @test JSONSchema.validate(schema, JSON3.read(JSON3.write(normalized))) === nothing
 
     analysis_path = joinpath(root, "examples", "lv1_14bus.json")
     analysis_input = Dict(
@@ -221,6 +248,21 @@ using SHA
     @test analysis_cli_response.inputs[1].sha256 == bytes2hex(sha256(read(analysis_path)))
     @test JSONSchema.validate(schema, analysis_cli_response) === nothing
 
+    parse_cli_out = IOBuffer()
+    parse_cli_err = IOBuffer()
+    parse_cli_code = cli_module.main([
+        "parse-case", "--input", parse_path,
+    ]; out=parse_cli_out, err=parse_cli_err)
+    @test parse_cli_code == 0
+    @test isempty(String(take!(parse_cli_err)))
+    parse_cli_response = JSON3.read(String(take!(parse_cli_out)))
+    @test parse_cli_response.operation == "parse_case"
+    @test parse_cli_response.status == "completed"
+    @test parse_cli_response.inputs[1].role == "case"
+    @test parse_cli_response.inputs[1].sha256 == bytes2hex(sha256(read(parse_path)))
+    @test parse_cli_response.result.component_counts.load == 1
+    @test JSONSchema.validate(schema, parse_cli_response) === nothing
+
     verification_cli_out = IOBuffer()
     verification_cli_err = IOBuffer()
     verification_cli_code = cli_module.main([
@@ -370,4 +412,12 @@ using SHA
     @test explanation_recipe_response.result.code == "E.SOL.VOLT_VIOLATION"
     @test isempty(explanation_recipe_response.result.knowledge_ids)
     @test JSONSchema.validate(schema, explanation_recipe_response) === nothing
+
+    parse_recipe = joinpath(root, "recipes", "parse_case", "recipe.jl")
+    parse_recipe_output = read(
+        `$(Base.julia_cmd()) --startup-file=no --project=$root $parse_recipe`, String)
+    parse_recipe_response = JSON3.read(parse_recipe_output)
+    @test parse_recipe_response.status == "completed"
+    @test parse_recipe_response.result.component_counts.load == 1
+    @test JSONSchema.validate(schema, parse_recipe_response) === nothing
 end

@@ -6,8 +6,8 @@
   "additionalProperties": false,
   "required": ["schema_version", "operation", "status", "package", "request", "inputs"],
   "properties": {
-    "schema_version": {"const": "0.4.0"},
-    "operation": {"enum": ["check_contract", "analyze_case", "verify_solution", "explain_finding"]},
+    "schema_version": {"const": "0.5.0"},
+    "operation": {"enum": ["check_contract", "parse_case", "analyze_case", "verify_solution", "explain_finding"]},
     "status": {"enum": ["passed", "failed", "inapplicable", "indeterminate", "completed", "error"]},
     "package": {
       "type": "object",
@@ -40,7 +40,7 @@
         }
       }
     },
-    "result": {"oneOf": [{"$ref": "#/$defs/contractResult"}, {"$ref": "#/$defs/analysisResult"}, {"$ref": "#/$defs/solutionResult"}, {"$ref": "#/$defs/findingExplanation"}]},
+    "result": {"oneOf": [{"$ref": "#/$defs/contractResult"}, {"$ref": "#/$defs/parseResult"}, {"$ref": "#/$defs/analysisResult"}, {"$ref": "#/$defs/solutionResult"}, {"$ref": "#/$defs/findingExplanation"}]},
     "error": {
       "type": "object",
       "additionalProperties": false,
@@ -78,6 +78,25 @@
         "unassessed_dimensions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
         "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
         "evidence": {"type": "object"}
+      }
+    },
+    "parseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_name", "declared_schema_uri", "is_timeseries", "component_counts", "migration_notes", "terminal_coercions"],
+      "properties": {
+        "network_name": {"type": ["string", "null"]},
+        "declared_schema_uri": {"type": ["string", "null"]},
+        "is_timeseries": {"type": "boolean"},
+        "component_counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "migration_notes": {
+          "type": "array",
+          "items": {"type": "object"}
+        },
+        "terminal_coercions": {"type": ["object", "null"]}
       }
     },
     "analysisResult": {
@@ -184,6 +203,10 @@
           "request": {"properties": {"contract_id": {"type": "null"}}}
         }
       }
+    },
+    {
+      "if": {"properties": {"operation": {"const": "parse_case"}}},
+      "then": {"properties": {"result": {"$ref": "#/$defs/parseResult"}}}
     },
     {
       "if": {"properties": {"operation": {"const": "analyze_case"}}},

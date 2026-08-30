@@ -39,6 +39,8 @@ bin/bmopf check-contract neutral_ground_reference_preservation \
 
 bin/bmopf analyze-case --input CASE.json --pretty
 
+bin/bmopf parse-case --input CASE.json --pretty
+
 bin/bmopf verify-solution --case CASE.json --result RESULT.json --pretty
 
 bin/bmopf explain-finding FINDING_CODE --pretty
@@ -51,6 +53,8 @@ dimensions, and do not promote package behavior or a fixture into a general
 scientific result. For `analyze_case`, `completed` means the operation ran; it
 does not override ERROR or WARNING Findings and does not establish solver
 readiness or feasibility.
+For `parse_case`, `completed` means only that decoding and supported ingest
+migration/normalization ran. It is not a schema or domain validation result.
 For `verify_solution`, retain the solver's termination status but do not treat
 it as a substitute for the independently recomputed `E.SOL.*`, `W.SOL.*`, and
 `I.SOL.*` Findings.

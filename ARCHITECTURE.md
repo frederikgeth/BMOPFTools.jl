@@ -47,7 +47,11 @@ CI-tested operational examples. The separate `execute_analysis` API and
 report with operation status `completed`; ERROR and WARNING Findings remain
 case diagnostics rather than transport failures. Its tutorial-derived
 `analyze_case` recipe carries no PSK identity because it does not itself assert
-a scientific preservation claim. The same package-only boundary applies to
+a scientific preservation claim. `execute_case_parse`, `bin/bmopf parse-case`,
+and the `parse_case` recipe report decode/migration/normalization evidence and
+a compact inventory without turning successful intake into a validation
+claim. The deliberately incomplete recipe input parses while a separate schema
+assertion emits `E.SCHEMA.REQUIRED`. The same package-only boundary applies to
 `execute_solution_verification`, `bin/bmopf verify-solution`, and its
 `verify_solution` recipe: they serialize existing `profile_solution` behavior
 without rerunning a solver or claiming the book's invalid-inference statement.

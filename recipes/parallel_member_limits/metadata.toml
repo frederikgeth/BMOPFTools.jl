@@ -1,4 +1,4 @@
-schema_version = "0.4.0"
+schema_version = "0.5.0"
 recipe_id = "parallel_member_limits"
 title = "Check parallel member-current-limit preservation"
 purpose = "Run the PSK-000001 scalar parallel-member contract on the minimized outer-relaxation fixture and emit a stable JSON execution response."

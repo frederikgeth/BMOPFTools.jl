@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "5c6ac4c82306690b1746804d5d2c4d4cae768ff15b2a31730d8e94e1b4df80dd",
+  "corpus_sha256": "4081941ba000401d903cf4d3e41a5abbe270c81dc054d2d4361381cae3001f34",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -37,15 +37,15 @@
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 104,
+  "record_count": 105,
   "record_counts": {
     "api_operation": 14,
     "executable_contract": 14,
     "finding": 57,
     "fixture": 14,
-    "recipe": 5
+    "recipe": 6
   },
-  "schema_version": "0.4.0",
+  "schema_version": "0.5.0",
   "source_files": [
     {
       "path": "Project.toml",
@@ -54,6 +54,10 @@
     {
       "path": "bin/bmopf",
       "sha256": "011865b6109c680a958120a46670bf1430029e4fab6821e020295a0094492020"
+    },
+    {
+      "path": "docs/src/dev/versioning.md",
+      "sha256": "abf76a75467e30941b3856fce239e6e9cb25140053be577520ee9ca8ea47e705"
     },
     {
       "path": "docs/src/findings.md",
@@ -81,11 +85,11 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "ecf1f02828e36ddfca4f65b57f25f8377e207c66106c3daa5bac6915460c4f99"
+      "sha256": "929488a3105442ebf126fe8fe49113f9ac26d38071336ff06ba00817d9e964a6"
     },
     {
       "path": "recipes/README.md",
-      "sha256": "f04befb73deeacfecae6b886c349ae7f99ef0a1e97044869beccf6e2ff0f510d"
+      "sha256": "fb50c18213e8a7d3b09eb379ec4fba476d1de55b092bf44f74d6a41d3aa6528a"
     },
     {
       "path": "recipes/analyze_case/README.md",
@@ -93,7 +97,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "bcf21bc8ddc72c80f8971cd40989ca7466a83152cecb1c7f8ed9d03b8b3acc2a"
+      "sha256": "a7a446afcb350170773e3284a314ea2fdf42312e83074d6bb7a3f23eb59fd66e"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -105,7 +109,7 @@
     },
     {
       "path": "recipes/explain_finding/metadata.toml",
-      "sha256": "3da368cec684f37e9130fffc06964c449a24250c54c1cf018bbf618534db6e44"
+      "sha256": "f57c58b5c14e08a5ec9e658d1f50809d7bdd5f7932820c4732e0db9751785a56"
     },
     {
       "path": "recipes/explain_finding/recipe.jl",
@@ -117,7 +121,7 @@
     },
     {
       "path": "recipes/neutral_ground_reference/metadata.toml",
-      "sha256": "b41cc8a2229beb57d9e789091af55ecdd6832ab2eb16b13f0155e2d9711fe547"
+      "sha256": "8e74ca6c4ad794bdd43502cdd8add74b4fe7b9f59885c212c81a9670032b1444"
     },
     {
       "path": "recipes/neutral_ground_reference/recipe.jl",
@@ -129,11 +133,27 @@
     },
     {
       "path": "recipes/parallel_member_limits/metadata.toml",
-      "sha256": "c94ebd17f474b10ef40db094d79b13ec83abf8eb7cfd1e7d80c9eaff6fef034f"
+      "sha256": "7d36541a4bbf10eba5be1c1de6f246fc18af6b8f2dd11534b7d567ac8703f6f4"
     },
     {
       "path": "recipes/parallel_member_limits/recipe.jl",
       "sha256": "4e4d38aaeb91094c14ed58421ed8e3c3905e44ee646b82b4747c23d2fe8fe4f9"
+    },
+    {
+      "path": "recipes/parse_case/README.md",
+      "sha256": "c5885ddece244cd47fe4a40d9ca791c1e7239917697ec54a819db93109bc7960"
+    },
+    {
+      "path": "recipes/parse_case/input.json",
+      "sha256": "02dc394764df5006696e85fa2efd25e923b577d77eab8c5f210f937726a74a8d"
+    },
+    {
+      "path": "recipes/parse_case/metadata.toml",
+      "sha256": "c66defb22571ec193ac943e1f9aee8a191b01ae10ee9f6fd2261b857f7328cc4"
+    },
+    {
+      "path": "recipes/parse_case/recipe.jl",
+      "sha256": "0be186e0e561f506d7ed229e1cb97be42b9752b18122d48a5d617c3a891e3975"
     },
     {
       "path": "recipes/verify_solution/README.md",
@@ -141,7 +161,7 @@
     },
     {
       "path": "recipes/verify_solution/metadata.toml",
-      "sha256": "92a0ead0b0eefa8731f3b798eb2a32332c0470f3c155b30c57289cdf7d35782c"
+      "sha256": "e796001c91d440ca051456a2d3bca2ce7b476a1ed22a878435e3b1ec447b3125"
     },
     {
       "path": "recipes/verify_solution/recipe.jl",
@@ -149,11 +169,11 @@
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
-      "sha256": "25d2571a3be09f2c976a7193e512c80e398a61c82cd38db8f6f8c07024c1b3aa"
+      "sha256": "161e04e611b8131c0f96cdeabab941850230270e915832fe6fec95209ed19ab0"
     },
     {
       "path": "schemas/execution-response.schema.json",
-      "sha256": "f611bf5eeddc59e8c04d54abe563c3e10629cbbf618571881bc989c2f6a34acd"
+      "sha256": "87a296e7aa3b9a2237bb1f6c7eb7ce682807ef358dcc33e1f5eb4ef5e244a8e6"
     },
     {
       "path": "schemas/finding-registry.schema.json",
@@ -161,7 +181,7 @@
     },
     {
       "path": "scripts/bmopf_cli.jl",
-      "sha256": "fce321531eb9a5b3076df4035cfc1981b85f09da76e343ac51e07bda6c4f61f7"
+      "sha256": "e6d06a3f80721bc0f350d1e248daaa358861215dbd7df1f968ea98d2307f3584"
     },
     {
       "path": "scripts/generate_finding_registry.py",
@@ -169,7 +189,15 @@
     },
     {
       "path": "src/execution/interface.jl",
-      "sha256": "cf985bf8c00c56bb1a564f70bf52da47fead95ea7d8a5c4508f0d5cf81888d11"
+      "sha256": "68bfda5f156bf94d1efa6d6f8242095e886559f2a64d01ea241753dc031253df"
+    },
+    {
+      "path": "src/io/migrate.jl",
+      "sha256": "27448d00983ec53565ff57330170e2d1d1408b03978e6769cde2a2bbc9d0c3e6"
+    },
+    {
+      "path": "src/io/parse_bmopf.jl",
+      "sha256": "6a5963b8927d9330b1a95a8e3249e66f7c2ad74fb17e5f30237cb39a62592ce5"
     },
     {
       "path": "src/io/to_ybus.jl",

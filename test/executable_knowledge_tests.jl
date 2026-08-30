@@ -31,12 +31,12 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 104
+    @test manifest.record_count == length(records) == 105
     @test manifest.record_counts.executable_contract == 14
     @test manifest.record_counts.api_operation == 14
     @test manifest.record_counts.finding == 57
     @test manifest.record_counts.fixture == 14
-    @test manifest.record_counts.recipe == 5
+    @test manifest.record_counts.recipe == 6
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
         "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
@@ -116,6 +116,15 @@ using SHA
     @test explanation_recipe.expected_status == "completed"
     @test explanation_recipe.expected_finding_codes == ["E.SOL.VOLT_VIOLATION"]
     @test all(file -> isfile(joinpath(root, String(file.path))), explanation_recipe.files)
+
+    parse_recipe = by_id["recipe:parse_case"]
+    @test parse_recipe.operation == "parse_case"
+    @test parse_recipe.knowledge_ids == []
+    @test parse_recipe.fixture_ids == []
+    @test !haskey(parse_recipe, :contract_id)
+    @test parse_recipe.expected_status == "completed"
+    @test parse_recipe.expected_finding_codes == ["E.SCHEMA.REQUIRED"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), parse_recipe.files)
 
     neutral_contract = by_id["contract:neutral_ground_reference_preservation"]
     neutral_fixture = by_id["fixture:neutral-ground-reference-conflation-001"]

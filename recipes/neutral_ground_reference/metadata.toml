@@ -1,4 +1,4 @@
-schema_version = "0.4.0"
+schema_version = "0.5.0"
 recipe_id = "neutral_ground_reference"
 title = "Check neutral, ground, and reference preservation"
 purpose = "Run the PSK-000002 representation-level contract on the minimized neutral-conflation fixture and emit a stable JSON execution response."

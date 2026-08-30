@@ -2932,7 +2932,7 @@ export Severity, ERROR, WARNING, INFO
 export Finding, SummaryReport, SolutionReport
 export ScientificContractResult, contract_result_to_dict
 export explain_finding
-export execute_contract, execute_analysis, execute_solution_verification
+export execute_contract, execute_case_parse, execute_analysis, execute_solution_verification
 export execute_finding_explanation, execution_error_response
 export check_parallel_member_limit_preservation
 export check_neutral_ground_reference_preservation

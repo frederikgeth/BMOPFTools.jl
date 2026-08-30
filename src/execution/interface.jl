@@ -1,6 +1,6 @@
 # execution/interface.jl
 
-const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.4.0"
+const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.5.0"
 
 function _execution_package_identity()
     Dict{String,Any}(
@@ -34,6 +34,66 @@ end
 
 function _execution_parameters(parameters::AbstractDict)
     Dict{String,Any}(string(key) => _jsonable(value) for (key, value) in parameters)
+end
+
+function _execution_component_counts(net::Dict{String,Any})
+    counts = Dict{String,Any}()
+    for collection in COMPONENT_COLLECTIONS
+        value = get(net, collection, nothing)
+        counts[collection] = value isa AbstractDict ? length(value) : 0
+    end
+    transformers = get(net, "transformer", nothing)
+    counts["transformer"] = transformers isa AbstractDict ?
+        sum(length(value) for value in values(transformers) if value isa AbstractDict; init=0) : 0
+    counts
+end
+
+"""
+    execute_case_parse(net; inputs=[])
+
+Summarize a BMOPF dict that has already passed through [`parse_bmopf`](@ref)
+using the stable, JSON-ready execution envelope. The result reports document
+identity, component counts, time-series detection, and parse-time migration or
+terminal-normalization evidence.
+
+This operation does **not** run JSON Schema validation, domain checks,
+[`analyze`](@ref), or a solver. A `completed` response establishes only that
+JSON decoding and BMOPFTools' supported ingest migrations/normalizations ran.
+Use [`execute_analysis`](@ref) when structured validation Findings are needed.
+"""
+function execute_case_parse(
+        net::Dict{String,Any};
+        inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
+    meta = get(net, "meta", nothing)
+    internal_meta = get(net, "_meta", nothing)
+    network_name = get(net, "name", nothing)
+    schema_uri = meta isa AbstractDict ? get(meta, "\$schema", nothing) : nothing
+    migration_notes = internal_meta isa AbstractDict ?
+        get(internal_meta, "migration_notes", Any[]) : Any[]
+    terminal_coercions = internal_meta isa AbstractDict ?
+        get(internal_meta, "terminal_coercions", nothing) : nothing
+
+    Dict{String,Any}(
+        "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,
+        "operation" => "parse_case",
+        "status" => "completed",
+        "package" => _execution_package_identity(),
+        "request" => Dict{String,Any}(
+            "contract_id" => nothing,
+            "parameters" => Dict{String,Any}(),
+        ),
+        "inputs" => _execution_inputs(inputs),
+        "result" => Dict{String,Any}(
+            "network_name" => network_name isa AbstractString ? String(network_name) : nothing,
+            "declared_schema_uri" => schema_uri isa AbstractString ? String(schema_uri) : nothing,
+            "is_timeseries" => is_timeseries(net),
+            "component_counts" => _execution_component_counts(net),
+            "migration_notes" => migration_notes isa AbstractVector ?
+                _jsonable(migration_notes) : Any[],
+            "terminal_coercions" => terminal_coercions isa AbstractDict ?
+                _jsonable(terminal_coercions) : nothing,
+        ),
+    )
 end
 
 function _execution_validate_parameter_keys(
@@ -269,7 +329,7 @@ function execution_error_response(
         inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
     isempty(message) && throw(ArgumentError("execution error message must be nonempty"))
     isempty(code) && throw(ArgumentError("execution error code must be nonempty"))
-    operation in ("check_contract", "analyze_case", "verify_solution", "explain_finding") || throw(ArgumentError(
+    operation in ("check_contract", "parse_case", "analyze_case", "verify_solution", "explain_finding") || throw(ArgumentError(
         "unsupported execution operation '$operation'"))
     operation != "check_contract" && contract_id !== nothing && throw(ArgumentError(
         "$operation errors cannot name a scientific contract"))

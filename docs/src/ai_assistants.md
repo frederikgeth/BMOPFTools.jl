@@ -69,6 +69,22 @@ bin/bmopf check-contract neutral_ground_reference_preservation \
   --bus-map source_bus=source_bus --bus-map load_bus=load_bus --pretty
 ```
 
+### Parse and inventory without validating
+
+Use the narrow intake route when the user wants to know whether a JSON file can
+be decoded and migrated, or wants a component inventory before full analysis:
+
+```sh
+bin/bmopf parse-case --input case.json --pretty
+```
+
+Report migration notes and terminal coercions as intake evidence. Do not say
+the case is schema-valid, domain-valid, clean, or solver-ready: `parse-case`
+does not run those checks. The CI-tested `recipes/parse_case` example makes the
+distinction concrete by parsing a deliberately incomplete document whose
+separate schema check emits `E.SCHEMA.REQUIRED`. Escalate to `analyze-case` when
+the user asks whether the case is valid or usable.
+
 ### Analyse and triage a case
 
 > Parse `<case.json>` with `parse_bmopf`, run `analyze`, and summarize errors, warnings, and informational Findings by stable code. For each material Finding, name the affected component, explain what the package established, and link to the relevant BMOPFTools documentation. Do not claim the case is OPF-ready merely because parsing succeeds. Do not edit the input. Return the commands used and any limitations of the analysis.

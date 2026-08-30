@@ -22,8 +22,10 @@ evaluate the `parallel_member_limit_preservation` and
 their `passed`/`failed`/`inapplicable`/`indeterminate` status, Finding codes,
 input hashes, checked dimensions, and unassessed dimensions. See
 [`docs/src/execution_interface.md`](docs/src/execution_interface.md).
-The same interface also exposes deterministic case analysis, solution
-verification, and offline Finding-code explanation. The complete generated
+The same interface also exposes parse-only intake inventories, deterministic
+case analysis, solution verification, and offline Finding-code explanation.
+Parse completion is deliberately not a schema-validity or solver-readiness
+claim. The complete generated
 Finding registry is `generated/finding-registry.json`; it explains code classes
 without diagnosing a particular observation or guessing a repair.
 

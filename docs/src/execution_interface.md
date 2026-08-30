@@ -40,6 +40,25 @@ registered through package-owned adapters with explicit parameter allowlists;
 additional contracts should be promoted one at a time after their required
 inputs and mappings have an unambiguous transport representation.
 
+## Parse and inventory one case
+
+The parse-only route decodes a BMOPF JSON document, applies the same supported
+forward migrations and terminal normalization as [`parse_bmopf`](@ref), and
+returns a small intake inventory:
+
+```sh
+bin/bmopf parse-case --input recipes/parse_case/input.json --pretty
+```
+
+Julia callers use `execute_case_parse(net)` after `parse_bmopf`. The result
+reports document identity, known component counts, time-series detection,
+migration notes, and terminal-coercion evidence. It deliberately omits a
+validation verdict. `completed` means only that JSON decoding and supported
+ingest processing ran; it does not establish JSON Schema conformance, domain
+validity, solver readiness, feasibility, or scientific validity. Use
+`analyze-case` for the package's complete structured validation and analysis
+report.
+
 ## Analyze one case
 
 The first non-contract route parses one BMOPF JSON file and runs the same
@@ -104,7 +123,7 @@ Every invocation writes one JSON object to standard output. The schema is
 
 ```json
 {
-  "schema_version": "0.4.0",
+  "schema_version": "0.5.0",
   "operation": "check_contract",
   "status": "failed",
   "package": {"name": "BMOPFTools", "version": "0.1.0"},
@@ -148,7 +167,7 @@ The four scientific-contract statuses retain their existing meanings:
 contract result or analysis report was produced. A contract that evaluates to `failed`,
 `inapplicable`, or `indeterminate` is still a successfully completed CLI
 operation and therefore exits with code zero. Invalid requests exit with code
-2; input or execution errors exit with code 1. For `analyze_case` and
+2; input or execution errors exit with code 1. For `parse_case`, `analyze_case`,
 `verify_solution`, and `explain_finding`, `completed` is the only non-error
 operation status.
 
@@ -180,11 +199,12 @@ The `recipes/` directory contains small operational companions to the longer
 tutorials. Each recipe has machine-readable metadata, a runnable Julia file,
 and a short explanation of scope and invalid inferences.
 
-The first five recipes are:
+The six recipes are:
 
 ```sh
 julia --startup-file=no --project=. recipes/analyze_case/recipe.jl
 julia --startup-file=no --project=. recipes/explain_finding/recipe.jl
+julia --startup-file=no --project=. recipes/parse_case/recipe.jl
 julia --startup-file=no --project=. recipes/parallel_member_limits/recipe.jl
 julia --startup-file=no --project=. recipes/neutral_ground_reference/recipe.jl
 julia --startup-file=no --project=. recipes/verify_solution/recipe.jl
@@ -212,6 +232,12 @@ The Finding-explanation recipe looks up that same `E.SOL.VOLT_VIOLATION` code
 without inspecting the result. It demonstrates the boundary between a
 catalogue meaning and case-specific evidence, carries no invented PSK identity,
 and refuses to turn the code into a guessed cause or repair.
+
+The parse recipe uses a deliberately incomplete document with a legacy load
+model. Ingest succeeds and records the normalization, while a separate CI
+assertion requires `E.SCHEMA.REQUIRED`. That executable contrast preserves the
+intake tutorial's core boundary: successful parsing is not successful
+validation. Like the other ordinary package recipes, it carries no PSK link.
 
 Recipes do not replace the tutorials. Tutorials explain modelling choices and
 misconceptions in context; recipes provide a short, repeatable operation that
