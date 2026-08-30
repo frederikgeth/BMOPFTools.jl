@@ -18,7 +18,7 @@
     "schema_version": {"const": "0.5.0"},
     "record_id": {"type": "string", "minLength": 1},
     "record_type": {
-      "enum": ["executable_contract", "api_operation", "finding", "fixture", "recipe"]
+      "enum": ["executable_contract", "api_operation", "finding", "fixture", "property_suite", "recipe"]
     },
     "knowledge_ids": {
       "type": "array",
@@ -39,6 +39,14 @@
     "severity": {"enum": ["ERROR", "WARNING", "INFO"]},
     "meaning": {"type": "string", "minLength": 1},
     "fixture_id": {"type": "string", "minLength": 1},
+    "property_suite_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "generator_domain": {"$ref": "#/$defs/nonemptyStrings"},
+    "seed_algorithm": {"type": "string", "minLength": 1},
+    "seed": {"type": "string", "pattern": "^0x[0-9a-f]{16}$"},
+    "case_count": {"type": "integer", "minimum": 1},
+    "properties_checked": {"$ref": "#/$defs/nonemptyStrings"},
+    "minimization_strategy": {"type": "string", "minLength": 1},
+    "failure_classification": {"type": "string", "minLength": 1},
     "recipe_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
     "kind": {"type": "string", "minLength": 1},
     "purpose": {"type": "string", "minLength": 1},
@@ -118,6 +126,17 @@
     {
       "if": {"properties": {"record_type": {"const": "fixture"}}},
       "then": {"required": ["contract_id", "fixture_id", "kind", "expected_finding_codes", "does_not_establish", "files"]}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "property_suite"}}},
+      "then": {
+        "required": [
+          "contract_id", "property_suite_id", "scope", "generator_domain",
+          "seed_algorithm", "seed", "case_count", "properties_checked",
+          "minimization_strategy", "failure_classification",
+          "expected_finding_codes", "does_not_establish", "files"
+        ]
+      }
     },
     {
       "if": {"properties": {"record_type": {"const": "recipe"}}},

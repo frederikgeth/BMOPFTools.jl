@@ -25,6 +25,8 @@ FINDING_CODE = re.compile(r"^[EWI]\.[A-Z0-9_]+(?:\.[A-Z0-9_]+)+$")
 FIXTURE_ROOT = ROOT / "test/fixtures/negative"
 RECIPE_ROOT = ROOT / "recipes"
 RECIPE_ID = re.compile(r"^[a-z][a-z0-9_]*$")
+PROPERTY_SUITE_ID = re.compile(r"^[a-z][a-z0-9_]*$")
+SEED = re.compile(r"^0x[0-9a-f]{16}$")
 
 
 def canonical_json(value: object) -> str:
@@ -278,6 +280,94 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
                 "files": files,
             })
             records.append(fixture_record)
+
+    property_suites = registry.get("property_suite", [])
+    property_suite_ids = [item.get("id") for item in property_suites]
+    duplicates = sorted(item for item, count in Counter(property_suite_ids).items() if count > 1)
+    if duplicates:
+        errors.append(f"duplicate property-suite IDs: {duplicates}")
+    for item in property_suites:
+        suite_id = item.get("id", "<missing>")
+        if not isinstance(suite_id, str) or not PROPERTY_SUITE_ID.fullmatch(suite_id):
+            errors.append(f"invalid property-suite ID: {suite_id}")
+            continue
+        contract_id = item.get("contract_id")
+        contract = contract_by_id.get(contract_id)
+        if contract is None:
+            errors.append(f"{suite_id}: unknown contract {contract_id}")
+            continue
+        knowledge_ids = require_strings(
+            suite_id, "knowledge_ids", item.get("knowledge_ids"), errors)
+        if knowledge_ids != contract.get("knowledge_ids"):
+            errors.append(f"{suite_id}: knowledge IDs differ from {contract_id}")
+        title = item.get("title")
+        scope = item.get("scope")
+        seed_algorithm = item.get("seed_algorithm")
+        seed = item.get("seed")
+        case_count = item.get("case_count")
+        minimization_strategy = item.get("minimization_strategy")
+        failure_classification = item.get("failure_classification")
+        if not isinstance(title, str) or not title.strip():
+            errors.append(f"{suite_id}: missing title")
+        if not isinstance(scope, str) or not scope.strip():
+            errors.append(f"{suite_id}: missing scope")
+        if not isinstance(seed_algorithm, str) or not seed_algorithm.strip():
+            errors.append(f"{suite_id}: missing seed algorithm")
+        if not isinstance(seed, str) or not SEED.fullmatch(seed):
+            errors.append(f"{suite_id}: seed must be a lowercase 64-bit hexadecimal value")
+        if not isinstance(case_count, int) or isinstance(case_count, bool) or case_count < 1:
+            errors.append(f"{suite_id}: case_count must be a positive integer")
+        if not isinstance(minimization_strategy, str) or not minimization_strategy.strip():
+            errors.append(f"{suite_id}: missing minimization strategy")
+        if not isinstance(failure_classification, str) or not failure_classification.strip():
+            errors.append(f"{suite_id}: missing failure classification")
+        generator_domain = require_strings(
+            suite_id, "generator_domain", item.get("generator_domain"), errors)
+        properties_checked = require_strings(
+            suite_id, "properties_checked", item.get("properties_checked"), errors)
+        expected_codes = require_strings(
+            suite_id, "expected_finding_codes", item.get("expected_finding_codes"), errors)
+        if not set(expected_codes).issubset(set(contract.get("finding_codes", []))):
+            errors.append(f"{suite_id}: expected Finding codes are outside {contract_id}")
+        does_not_establish = require_strings(
+            suite_id, "does_not_establish", item.get("does_not_establish"), errors)
+        path_strings = require_strings(
+            suite_id, "source_paths", item.get("source_paths"), errors)
+        source_paths = [ROOT / path_string for path_string in path_strings]
+        for path in source_paths:
+            if not path.is_file():
+                errors.append(f"{suite_id}: missing source path {path.relative_to(ROOT)}")
+        all_sources.update(path for path in source_paths if path.is_file())
+        files = [
+            {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256_file(path)}
+            for path in sorted(source_paths)
+            if path.is_file()
+        ]
+        suite_record = record_base(
+            f"property_suite:{suite_id}", "property_suite", knowledge_ids, title,
+            f"Seeded property suite {suite_id} for {contract_id}. Scope: {scope} "
+            f"Generator: {seed_algorithm} seed {seed}, {case_count} cases. "
+            f"Properties: {' '.join(properties_checked)} Minimization: {minimization_strategy} "
+            f"Failure classification: {failure_classification}. "
+            f"Does not establish: {' '.join(does_not_establish)}",
+            package, [REGISTRY, *source_paths],
+        )
+        suite_record.update({
+            "contract_id": contract_id,
+            "property_suite_id": suite_id,
+            "scope": scope,
+            "generator_domain": generator_domain,
+            "seed_algorithm": seed_algorithm,
+            "seed": seed,
+            "case_count": case_count,
+            "properties_checked": properties_checked,
+            "minimization_strategy": minimization_strategy,
+            "failure_classification": failure_classification,
+            "expected_finding_codes": expected_codes,
+            "does_not_establish": does_not_establish,
+            "files": files,
+        })
+        records.append(suite_record)
 
     recipe_entries = recipe_metadata()
     recipe_ids = [item.get("recipe_id") for _, item in recipe_entries]

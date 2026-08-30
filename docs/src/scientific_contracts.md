@@ -363,6 +363,31 @@ limits, complete-network feasible sets, decisions, objectives, or solver
 equivalence. Matching conductor counts or labels alone is not evidence of
 permutation invariance.
 
+### Seeded property suite
+
+The contract also has a deterministic property suite at
+`test/property_based_contract_tests.jl`. Its committed seed record declares a
+SplitMix64 stream of 64 reciprocal, strictly diagonally dominant complex
+series matrices with one through six conductors and explicit terminal
+bijections. For every generated case, the exact coordinate action must pass;
+adding a fixed error to one target matrix entry must fail with
+`E.CONTRACT.PERMUTATION_RELATION_MISMATCH`. The failing example is then
+projected to a one-conductor witness and checked again.
+
+Run it directly with:
+
+```sh
+julia --project=test --startup-file=no --compiled-modules=no -e \
+  'using Test, BMOPFTools; include("test/property_based_contract_tests.jl")'
+```
+
+The seed, generator domain, case count, minimization rule, and failure
+classification are exported as the `terminal_permutation_seeded_properties`
+property-suite record. These generated failures are expected contract
+rejections, not newly discovered scientific counterexamples. The suite tests
+implemented behavior over its declared finite sample; it does not prove the
+general permutation theorem or widen the contract's applicability domain.
+
 ## Complete solved-network feasibility witness
 
 [`check_solved_network_feasibility`](@ref) checks the independent residual

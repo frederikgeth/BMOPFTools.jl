@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "4af274e0c0783bb8dc512016dd8f56d8a1e1734633f8ccc271e15ecaac6f47d0",
+  "corpus_sha256": "e822d7fd54b2477ecb2ab5e22facc42a628910c6aee1a7b17548745f5801dbd0",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -37,12 +37,13 @@
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 105,
+  "record_count": 106,
   "record_counts": {
     "api_operation": 14,
     "executable_contract": 14,
     "finding": 57,
     "fixture": 14,
+    "property_suite": 1,
     "recipe": 6
   },
   "schema_version": "0.5.0",
@@ -89,7 +90,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "929488a3105442ebf126fe8fe49113f9ac26d38071336ff06ba00817d9e964a6"
+      "sha256": "55a35ca55d51f741045bd8632eb75c125a8f8e47a86b0b9ecd8b2ffe5686005e"
     },
     {
       "path": "recipes/README.md",
@@ -173,7 +174,7 @@
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
-      "sha256": "161e04e611b8131c0f96cdeabab941850230270e915832fe6fec95209ed19ab0"
+      "sha256": "3be56d591742d5f2da6b86b1e0d4097b4ac54c6218824e9bc31f1b4d046b23de"
     },
     {
       "path": "schemas/execution-response.schema.json",
@@ -560,8 +561,16 @@
       "sha256": "f787b84accc51bf01b00341a48d023f8d6633c5a2d589b34b79ffac47fb1d101"
     },
     {
+      "path": "test/property/terminal-permutation-seed.json",
+      "sha256": "3cd96637a042fe06e119a5c99f7a4dc29fd7258143366ec875cb9a61cd91851a"
+    },
+    {
+      "path": "test/property_based_contract_tests.jl",
+      "sha256": "9d67406a56f4218f45fe048426fa52c2720d7c77eaefe68ccb683fd062e9c9e8"
+    },
+    {
       "path": "test/scientific_contract_tests.jl",
-      "sha256": "445e6f1b50cd7f0d4016c42ef85e9757c0824c83cd8087c9e85eb632ab227565"
+      "sha256": "66226647a02ec71aa764712b32a9f4009e1e23ab876000699b026f7638e43da9"
     }
   ]
 }

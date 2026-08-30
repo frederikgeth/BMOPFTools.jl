@@ -238,6 +238,14 @@ network behaviour that the reduced model cannot represent.
 
 An assistant should not hand-edit `generated/executable_knowledge.jsonl`. Changes begin in package code, fixtures, documentation, or `knowledge/executable.toml`, followed by the deterministic generator.
 
+When the export contains a `property_suite` record, treat its generator domain,
+seed algorithm, seed value, case count, oracle, minimization strategy, and
+failure classification as part of the reproducibility contract. Replay the
+committed suite before discussing a generated witness. An
+`expected_contract_rejection` is a negative test of package behavior, not a new
+scientific counterexample and not evidence beyond the linked contract's
+declared scope.
+
 ## How to judge an assistant's result
 
 Accept a package-level conclusion only when the response makes its evidence inspectable:

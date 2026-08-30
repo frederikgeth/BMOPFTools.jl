@@ -1136,3 +1136,5 @@ end
               "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH"
     end
 end
+
+include("property_based_contract_tests.jl")

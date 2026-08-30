@@ -30,6 +30,10 @@ The following local constraints are architectural:
   remain thin.
 - Generated executable records describe capabilities and provenance; they do
   not duplicate the book's scientific prose.
+- Seeded property suites declare their finite generator domain, algorithm,
+  seed, case count, oracle, minimization rule, and failure classification.
+  They test package behavior without widening a linked PSK claim; expected
+  contract rejections are not promoted to scientific counterexamples.
 
 Changes that alter these constraints must update the canonical architecture in
 `multi-graph-book` and be reviewed as a cross-repository architectural change.

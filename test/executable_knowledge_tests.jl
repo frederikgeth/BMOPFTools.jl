@@ -31,11 +31,12 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 105
+    @test manifest.record_count == length(records) == 106
     @test manifest.record_counts.executable_contract == 14
     @test manifest.record_counts.api_operation == 14
     @test manifest.record_counts.finding == 57
     @test manifest.record_counts.fixture == 14
+    @test manifest.record_counts.property_suite == 1
     @test manifest.record_counts.recipe == 6
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
@@ -66,6 +67,17 @@ using SHA
     @test contract.entrypoint == api.entrypoint == "check_parallel_member_limit_preservation"
     @test fixture.fixture_id in contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)), contract.finding_codes)
+
+    property_suite = by_id["property_suite:terminal_permutation_seeded_properties"]
+    @test property_suite.contract_id == "terminal_permutation_invariance"
+    @test property_suite.knowledge_ids == ["PSK-000012"]
+    @test property_suite.seed_algorithm == "splitmix64-v1"
+    @test property_suite.seed == "0x6d5a56da4b9c2f17"
+    @test property_suite.case_count == 64
+    @test property_suite.failure_classification == "expected_contract_rejection"
+    @test property_suite.expected_finding_codes ==
+          ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), property_suite.files)
 
     recipe = by_id["recipe:parallel_member_limits"]
     @test recipe.contract_id == contract.contract_id

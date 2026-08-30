@@ -676,6 +676,8 @@ source_paths = [
   "src/knowledge/contracts.jl",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
+  "test/property_based_contract_tests.jl",
+  "test/property/terminal-permutation-seed.json",
 ]
 
 [[finding]]
@@ -697,6 +699,41 @@ meaning = "The explicit permutation contract does not apply because a bijection,
 code = "W.CONTRACT.PERMUTATION_INDETERMINATE"
 severity = "WARNING"
 meaning = "A required source or target line primitive or terminal-map record is missing or malformed."
+
+[[property_suite]]
+id = "terminal_permutation_seeded_properties"
+knowledge_ids = ["PSK-000012"]
+contract_id = "terminal_permutation_invariance"
+title = "Seeded terminal-permutation property suite"
+scope = "Finite reciprocal one- through six-conductor fixed-linear series primitives with positive strictly diagonally dominant real and imaginary parts, distinct ordered endpoint labels, and explicit bijective coordinate actions."
+generator_domain = [
+  "Dimensions are integers from one through six.",
+  "Real and imaginary matrix parts are finite, reciprocal, strictly diagonally dominant, and have positive diagonal entries.",
+  "Endpoint terminal labels are distinct and the exact target applies one explicit bijection to maps and matrix coordinates.",
+  "The negative property injects a 0.01 ohm real perturbation at target coordinate (1,1) after exact permutation.",
+]
+seed_algorithm = "splitmix64-v1"
+seed = "0x6d5a56da4b9c2f17"
+case_count = 64
+properties_checked = [
+  "Exact permutations return passed for every generated case.",
+  "The injected one-entry corruption returns E.CONTRACT.PERMUTATION_RELATION_MISMATCH for every generated case.",
+  "Every injected failure minimizes to one conductor while preserving its Finding code.",
+  "Replaying the recorded algorithm and seed reproduces the case summaries.",
+]
+minimization_strategy = "Retain target coordinate 1 and its mapped source coordinate, discard all other coordinates, and replay the same injected perturbation."
+failure_classification = "expected_contract_rejection"
+expected_finding_codes = ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"]
+does_not_establish = [
+  "Random sampling proves the complete typed coordinate-action theorem.",
+  "Generated matrices represent every physical line or cable class.",
+  "A primitive-level pass preserves assets, limits, controls, decisions, objectives, or solver behavior.",
+  "An injected failure is a newly discovered scientific counterexample.",
+]
+source_paths = [
+  "test/property_based_contract_tests.jl",
+  "test/property/terminal-permutation-seed.json",
+]
 
 [[contract]]
 id = "solved_network_feasibility_validation"
