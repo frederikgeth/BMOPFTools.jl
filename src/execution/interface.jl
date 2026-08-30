@@ -1,6 +1,6 @@
 # execution/interface.jl
 
-const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.2.0"
+const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.3.0"
 
 function _execution_package_identity()
     Dict{String,Any}(
@@ -198,6 +198,38 @@ function execute_analysis(
 end
 
 """
+    execute_solution_verification(net, result; t_index=1, inputs=[])
+
+Profile a solver result against its BMOPF case through the stable, JSON-ready
+execution interface. The operation recomputes the package's solution checks and
+returns the complete structured `SolutionReport`.
+
+A response has status `completed` whenever profiling ran, even if the solver
+reported an infeasible status or the report contains ERROR Findings. Solver
+termination, Finding severity, and execution status are deliberately separate.
+"""
+function execute_solution_verification(
+        net::Dict{String,Any},
+        result::Dict{String,Any};
+        t_index::Int=1,
+        inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
+    t_index >= 1 || throw(ArgumentError("t_index must be at least 1"))
+    report = profile_solution(net, result; t_index=t_index)
+    Dict{String,Any}(
+        "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,
+        "operation" => "verify_solution",
+        "status" => "completed",
+        "package" => _execution_package_identity(),
+        "request" => Dict{String,Any}(
+            "contract_id" => nothing,
+            "parameters" => Dict{String,Any}("t_index" => t_index),
+        ),
+        "inputs" => _execution_inputs(inputs),
+        "result" => _solution_report_to_json(report),
+    )
+end
+
+"""
     execution_error_response(message; code="invalid_request",
                              operation="check_contract",
                              contract_id=nothing, inputs=[])
@@ -214,10 +246,10 @@ function execution_error_response(
         inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
     isempty(message) && throw(ArgumentError("execution error message must be nonempty"))
     isempty(code) && throw(ArgumentError("execution error code must be nonempty"))
-    operation in ("check_contract", "analyze_case") || throw(ArgumentError(
+    operation in ("check_contract", "analyze_case", "verify_solution") || throw(ArgumentError(
         "unsupported execution operation '$operation'"))
-    operation == "analyze_case" && contract_id !== nothing && throw(ArgumentError(
-        "analyze_case errors cannot name a scientific contract"))
+    operation != "check_contract" && contract_id !== nothing && throw(ArgumentError(
+        "$operation errors cannot name a scientific contract"))
     Dict{String,Any}(
         "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,
         "operation" => String(operation),

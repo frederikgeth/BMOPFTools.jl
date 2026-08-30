@@ -23,4 +23,7 @@ Current recipes:
   counterexample; and
 - `neutral_ground_reference`: checks the `PSK-000002` neutral-continuity and
   grounding-relation counterexample, complementing the pedagogical grounding
-  tutorial.
+  tutorial; and
+- `verify_solution`: independently profiles a result that says
+  `LOCALLY_SOLVED` but violates its case's declared voltage bound, complementing
+  the “Trust but verify” tutorial.

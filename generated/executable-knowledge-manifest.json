@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "9ab5ce6804c9b012f33dbe60524aba98623a8420dfe6ce4d8b894d14ead1fbf7",
+  "corpus_sha256": "a884ce8ac71f00f523035f925ec5f61b6d3fe3f89f7cd9d22de9bed2cadefa6a",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -37,15 +37,15 @@
     "name": "BMOPFTools",
     "version": "0.1.0"
   },
-  "record_count": 102,
+  "record_count": 103,
   "record_counts": {
     "api_operation": 14,
     "executable_contract": 14,
     "finding": 57,
     "fixture": 14,
-    "recipe": 3
+    "recipe": 4
   },
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "source_files": [
     {
       "path": "Project.toml",
@@ -68,16 +68,20 @@
       "sha256": "1b868dec0127c97ca04d7a12291f73e65b2aff0a89126f63ebbdf89649e8f017"
     },
     {
+      "path": "docs/src/tutorial_trust_but_verify.md",
+      "sha256": "7cdec95e31421469bdd147d20d61d4318f2a94190de19685eb8f8bf9589b8298"
+    },
+    {
       "path": "examples/lv1_14bus.json",
       "sha256": "438bb573d6de282f64c2194eb3a838b12ceacd517d37fb68d3ac10557806a8ee"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "041c9d48313c79232cca0eee71f377a825eccf41c07b0410ec2db3bd107c7c06"
+      "sha256": "56392b4bab477097374a3dffc22dc32da4f87ee752e582b2624674212f5ffb27"
     },
     {
       "path": "recipes/README.md",
-      "sha256": "52ed54f0846402d62529a8d31b965f56c44e0ed94670a83cc89b6656fcaa24ec"
+      "sha256": "811ade378abbd9970bb996be2c93431196bea6f4e3132f58eb5ce219a46ee021"
     },
     {
       "path": "recipes/analyze_case/README.md",
@@ -85,7 +89,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "45e7e068aa465f4237c0c4ec98d5eb9172d3541d97899c5be0a3714706f2931a"
+      "sha256": "a23c4df0442f12e26ad74ad01f9ba10eb90b4b7e3c5cf0890ca2a826fbf9adff"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -97,7 +101,7 @@
     },
     {
       "path": "recipes/neutral_ground_reference/metadata.toml",
-      "sha256": "c29f8143cb1eb1acb22460507526d1a78cc8338e15ef1789c010f1c3c3c23399"
+      "sha256": "489c8d8968cdd98ac0b2d335d1639864ec705e4869f9be3e88c4b6d90f98c11c"
     },
     {
       "path": "recipes/neutral_ground_reference/recipe.jl",
@@ -109,27 +113,39 @@
     },
     {
       "path": "recipes/parallel_member_limits/metadata.toml",
-      "sha256": "119cf5379568a1ee969ce3e33f0f61486298f68e1700d57ee84728e99963914e"
+      "sha256": "1a872c801f87c0f58afab31d21e28e0dab93bcaeb64028b314950ed3bca410d6"
     },
     {
       "path": "recipes/parallel_member_limits/recipe.jl",
       "sha256": "4e4d38aaeb91094c14ed58421ed8e3c3905e44ee646b82b4747c23d2fe8fe4f9"
     },
     {
+      "path": "recipes/verify_solution/README.md",
+      "sha256": "1c3c7a4960855a2519529bbb1d30968525ce653230af1ebefeb74c25b896331a"
+    },
+    {
+      "path": "recipes/verify_solution/metadata.toml",
+      "sha256": "bc812d427c22b36b301b9b7607547d2ae5992dcd64f66361481bc4831ebe58e1"
+    },
+    {
+      "path": "recipes/verify_solution/recipe.jl",
+      "sha256": "4cff373253679a2e122226da65524b1c4b3d5b44d3a0b0c02a658eef27015d5e"
+    },
+    {
       "path": "schemas/executable-knowledge.schema.json",
-      "sha256": "01d610f2d1b03b79074c31bdbafb692df57909314a82524a74ed790ecaf902d6"
+      "sha256": "ab4a0280a623ae533672323d68ce030cd1c5b8fa98d2a12f9d74381a72dd750f"
     },
     {
       "path": "schemas/execution-response.schema.json",
-      "sha256": "0e34440f2e0a95eea81542ac8b72235cacab0449e62225cd2b4732575c0aaddd"
+      "sha256": "69002cf756cba86891e5edb53c65a6060348dc20e4cb49150059ffa2def764a3"
     },
     {
       "path": "scripts/bmopf_cli.jl",
-      "sha256": "041ace6b7c71208d92378a57a74194d262ef35431de019346e12053a724ca33e"
+      "sha256": "c946aaedf5ac858826d68c6ef6c64a1ba376dc50a24ee79ac204fb4dc7c66d31"
     },
     {
       "path": "src/execution/interface.jl",
-      "sha256": "4b5c3b8c3f73d14f4899aebef06328e77da2a2fb733493e4683beea2c3bb58c0"
+      "sha256": "89dd84308b48a105e6f9e5bc3dd7bcc1c409dd083999c73a92b3eed2e52d7f90"
     },
     {
       "path": "src/io/to_ybus.jl",

@@ -18,7 +18,7 @@ SCHEMA = ROOT / "schemas/executable-knowledge.schema.json"
 PROJECT = ROOT / "Project.toml"
 OUTPUT = ROOT / "generated/executable_knowledge.jsonl"
 MANIFEST = ROOT / "generated/executable-knowledge-manifest.json"
-SCHEMA_VERSION = "0.2.0"
+SCHEMA_VERSION = "0.3.0"
 PSK_ID = re.compile(r"^PSK-[0-9]{6}$")
 CONTRACT_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 FINDING_CODE = re.compile(r"^[EWI]\.[A-Z0-9_]+(?:\.[A-Z0-9_]+)+$")
@@ -320,7 +320,7 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
             errors.append(f"{recipe_id}: missing title")
         if not isinstance(purpose, str) or not purpose.strip():
             errors.append(f"{recipe_id}: missing purpose")
-        if operation not in {"check_contract", "analyze_case"}:
+        if operation not in {"check_contract", "analyze_case", "verify_solution"}:
             errors.append(f"{recipe_id}: unsupported recipe operation {operation}")
         if not isinstance(command, str) or not command.strip():
             errors.append(f"{recipe_id}: missing command")
@@ -347,12 +347,12 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
                 if fixture_id not in fixture_by_id:
                     errors.append(f"{recipe_id}: unknown fixture {fixture_id}")
         elif contract_id is not None:
-            errors.append(f"{recipe_id}: analyze_case recipes must not name a contract")
+            errors.append(f"{recipe_id}: package-operation recipes must not name a contract")
         elif knowledge_ids:
-            errors.append(f"{recipe_id}: package-only analysis recipes must not claim PSK identities")
+            errors.append(f"{recipe_id}: package-operation recipes must not claim PSK identities")
         elif fixture_ids:
-            errors.append(f"{recipe_id}: analysis recipe inputs belong in input_paths, not contract fixture_ids")
-        if operation == "analyze_case":
+            errors.append(f"{recipe_id}: package-operation inputs belong in input_paths, not contract fixture_ids")
+        if operation in {"analyze_case", "verify_solution"}:
             for code in expected_codes:
                 if not FINDING_CODE.fullmatch(code):
                     errors.append(f"{recipe_id}: invalid Finding code {code}")
@@ -374,7 +374,7 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
             else:
                 recipe_files.append(path)
         support_paths = []
-        if operation == "analyze_case":
+        if operation in {"analyze_case", "verify_solution"}:
             support_paths = [
                 *require_strings(recipe_id, "input_paths", item.get("input_paths"), errors),
                 *require_strings(recipe_id, "tutorial_paths", item.get("tutorial_paths"), errors),

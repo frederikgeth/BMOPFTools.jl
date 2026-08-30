@@ -47,5 +47,9 @@ CI-tested operational examples. The separate `execute_analysis` API and
 report with operation status `completed`; ERROR and WARNING Findings remain
 case diagnostics rather than transport failures. Its tutorial-derived
 `analyze_case` recipe carries no PSK identity because it does not itself assert
-a scientific preservation claim. Other contracts remain available through
+a scientific preservation claim. The same package-only boundary applies to
+`execute_solution_verification`, `bin/bmopf verify-solution`, and its
+`verify_solution` recipe: they serialize existing `profile_solution` behavior
+without rerunning a solver or claiming the book's invalid-inference statement.
+Other contracts remain available through
 their Julia APIs until each mapping has an explicit reviewed transport shape.

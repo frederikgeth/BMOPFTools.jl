@@ -2930,7 +2930,7 @@ export extract_result
 export Severity, ERROR, WARNING, INFO
 export Finding, SummaryReport, SolutionReport
 export ScientificContractResult, contract_result_to_dict
-export execute_contract, execute_analysis, execution_error_response
+export execute_contract, execute_analysis, execute_solution_verification, execution_error_response
 export check_parallel_member_limit_preservation
 export check_neutral_ground_reference_preservation
 export check_claimed_solution_validity

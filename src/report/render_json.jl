@@ -49,6 +49,21 @@ function _report_to_json(report::SummaryReport)
     )
 end
 
+function _solution_report_to_json(report::SolutionReport)
+    Dict{String,Any}(
+        "network_name" => report.network_name,
+        "generated_at" => Dates.format(report.generated_at, "yyyy-mm-ddTHH:MM:SS"),
+        "result_meta" => _jsonable(report.result_meta),
+        "summary" => Dict{String,Any}(
+            "errors"   => length(errors(report)),
+            "warnings" => length(warnings(report)),
+            "info"     => length(infos(report)),
+        ),
+        "results"  => _jsonable(report.results),
+        "findings" => [_finding_to_json(f) for f in report.findings],
+    )
+end
+
 _finding_to_json(f::Finding) = Dict{String,Any}(
     "severity"       => string(f.severity),
     "code"           => f.code,

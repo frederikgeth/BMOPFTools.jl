@@ -24,7 +24,7 @@ using SHA
     response = execute_contract(
         "parallel_member_limit_preservation", source, target;
         parameters=parameters, inputs=inputs)
-    @test response["schema_version"] == "0.2.0"
+    @test response["schema_version"] == "0.3.0"
     @test response["operation"] == "check_contract"
     @test response["status"] == "failed"
     @test response["request"]["parameters"]["member_ids"] == ["l1", "l2"]
@@ -58,6 +58,31 @@ using SHA
     ])
     @test JSONSchema.validate(schema, JSON3.read(JSON3.write(analysis))) === nothing
     @test_throws ArgumentError execute_analysis(parse_bmopf(analysis_path); t_index=0)
+
+    solution_fixture = joinpath(root, "test", "fixtures", "negative",
+                                "claimed-feasible-invalid-solution")
+    solution_case_path = joinpath(solution_fixture, "network.json")
+    solution_result_path = joinpath(solution_fixture, "claimed-solved-result.json")
+    solution_inputs = [
+        Dict("role" => "case", "path" => "network.json",
+             "sha256" => bytes2hex(sha256(read(solution_case_path)))),
+        Dict("role" => "result", "path" => "claimed-solved-result.json",
+             "sha256" => bytes2hex(sha256(read(solution_result_path)))),
+    ]
+    verification = execute_solution_verification(
+        parse_bmopf(solution_case_path), read_result(solution_result_path);
+        inputs=solution_inputs)
+    @test verification["operation"] == "verify_solution"
+    @test verification["status"] == "completed"
+    @test verification["result"]["result_meta"]["termination_status"] ==
+          "LOCALLY_SOLVED"
+    @test verification["result"]["summary"]["errors"] == 1
+    @test "E.SOL.VOLT_VIOLATION" in
+          Set(finding["code"] for finding in verification["result"]["findings"])
+    @test JSONSchema.validate(schema,
+        JSON3.read(JSON3.write(verification))) === nothing
+    @test_throws ArgumentError execute_solution_verification(
+        parse_bmopf(solution_case_path), read_result(solution_result_path); t_index=0)
 
     refusal = execute_contract(
         "parallel_member_limit_preservation", source, target;
@@ -174,6 +199,23 @@ using SHA
     @test analysis_cli_response.inputs[1].sha256 == bytes2hex(sha256(read(analysis_path)))
     @test JSONSchema.validate(schema, analysis_cli_response) === nothing
 
+    verification_cli_out = IOBuffer()
+    verification_cli_err = IOBuffer()
+    verification_cli_code = cli_module.main([
+        "verify-solution",
+        "--case", solution_case_path,
+        "--result", solution_result_path,
+    ]; out=verification_cli_out, err=verification_cli_err)
+    @test verification_cli_code == 0
+    @test isempty(String(take!(verification_cli_err)))
+    verification_cli_response = JSON3.read(String(take!(verification_cli_out)))
+    @test verification_cli_response.operation == "verify_solution"
+    @test verification_cli_response.status == "completed"
+    @test verification_cli_response.inputs[1].role == "case"
+    @test verification_cli_response.inputs[2].role == "result"
+    @test verification_cli_response.result.summary.errors == 1
+    @test JSONSchema.validate(schema, verification_cli_response) === nothing
+
     bad_analysis_out = IOBuffer()
     bad_analysis_err = IOBuffer()
     bad_analysis_code = cli_module.main([
@@ -261,4 +303,14 @@ using SHA
     @test analysis_recipe_response.status == "completed"
     @test analysis_recipe_response.result.summary.errors == 0
     @test JSONSchema.validate(schema, analysis_recipe_response) === nothing
+
+    verification_recipe = joinpath(root, "recipes", "verify_solution", "recipe.jl")
+    verification_recipe_output = read(
+        `$(Base.julia_cmd()) --startup-file=no --project=$root $verification_recipe`, String)
+    verification_recipe_response = JSON3.read(verification_recipe_output)
+    @test verification_recipe_response.status == "completed"
+    @test verification_recipe_response.result.result_meta.termination_status ==
+          "LOCALLY_SOLVED"
+    @test verification_recipe_response.result.summary.errors == 1
+    @test JSONSchema.validate(schema, verification_recipe_response) === nothing
 end

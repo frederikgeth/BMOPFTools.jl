@@ -59,6 +59,25 @@ analysis ran. It does not mean the case is clean, solver-ready, feasible, or
 scientifically validated; ERROR and WARNING Findings describe the case and do
 not turn transport status into `error`.
 
+## Verify one solution
+
+The solution route reads a BMOPF case and a compatible result JSON, then runs
+the existing [`profile_solution`](@ref) checks without invoking a solver:
+
+```sh
+bin/bmopf verify-solution \
+  --case test/fixtures/negative/claimed-feasible-invalid-solution/network.json \
+  --result test/fixtures/negative/claimed-feasible-invalid-solution/claimed-solved-result.json \
+  --pretty
+```
+
+Julia callers use `execute_solution_verification(net, result; t_index=1)`. The
+structured result preserves solver metadata, severity counts, solution and
+optimization summaries, and complete Finding records. Solver termination,
+operation status, and Finding severity remain separate: a `LOCALLY_SOLVED`
+result can produce `E.SOL.*` Findings while the verification operation itself
+correctly reports `completed`.
+
 ## Response contract
 
 Every invocation writes one JSON object to standard output. The schema is
@@ -66,7 +85,7 @@ Every invocation writes one JSON object to standard output. The schema is
 
 ```json
 {
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "operation": "check_contract",
   "status": "failed",
   "package": {"name": "BMOPFTools", "version": "0.1.0"},
@@ -110,8 +129,8 @@ The four scientific-contract statuses retain their existing meanings:
 contract result or analysis report was produced. A contract that evaluates to `failed`,
 `inapplicable`, or `indeterminate` is still a successfully completed CLI
 operation and therefore exits with code zero. Invalid requests exit with code
-2; input or execution errors exit with code 1. For `analyze_case`, `completed`
-is the only non-error operation status.
+2; input or execution errors exit with code 1. For `analyze_case` and
+`verify_solution`, `completed` is the only non-error operation status.
 
 Julia callers can obtain the same envelope without starting a subprocess:
 
@@ -141,12 +160,13 @@ The `recipes/` directory contains small operational companions to the longer
 tutorials. Each recipe has machine-readable metadata, a runnable Julia file,
 and a short explanation of scope and invalid inferences.
 
-The first three recipes are:
+The first four recipes are:
 
 ```sh
 julia --startup-file=no --project=. recipes/analyze_case/recipe.jl
 julia --startup-file=no --project=. recipes/parallel_member_limits/recipe.jl
 julia --startup-file=no --project=. recipes/neutral_ground_reference/recipe.jl
+julia --startup-file=no --project=. recipes/verify_solution/recipe.jl
 ```
 
 The analysis recipe uses the same small network as several tutorials and makes
@@ -160,6 +180,12 @@ The neutral recipe is the compact operational companion to the pedagogical
 [grounding tutorial](tutorial_grounding.md). Recipe records are generated into
 `generated/executable_knowledge.jsonl`, including source hashes, expected
 status, fixture IDs, and “does not establish” statements.
+
+The solution-verification recipe reuses the minimized claimed-feasible result
+behind the `PSK-000003` contract, but it runs ordinary `profile_solution`
+behavior rather than the scientific contract. It therefore carries no PSK
+identity in its executable metadata and demonstrates the tutorial's central
+misconception directly: solver status does not replace independent checks.
 
 Recipes do not replace the tutorials. Tutorials explain modelling choices and
 misconceptions in context; recipes provide a short, repeatable operation that

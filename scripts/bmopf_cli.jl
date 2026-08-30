@@ -18,6 +18,9 @@ Usage:
 
   bmopf analyze-case --input CASE.json [--time-index INTEGER] [--pretty]
 
+  bmopf verify-solution --case CASE.json --result RESULT.json \
+    [--time-index INTEGER] [--pretty]
+
 The command writes one execution-response JSON object to stdout. Diagnostics
 and usage errors are written to stderr. Exit codes are 0 for a completed
 operation, 2 for an invalid request, and 1 for an input or execution failure. A
@@ -150,12 +153,61 @@ function _cli_parse_analysis(args::Vector{String})
     (operation="analyze_case", input=String(input), t_index=t_index, pretty=pretty)
 end
 
+function _cli_parse_solution(args::Vector{String})
+    case_path = nothing
+    result_path = nothing
+    t_index = 1
+    pretty = false
+    index = 2
+    while index <= length(args)
+        flag = args[index]
+        if flag == "--pretty"
+            pretty = true
+            index += 1
+            continue
+        end
+        index < length(args) || throw(ArgumentError("missing value for $flag"))
+        value = args[index + 1]
+        if flag == "--case"
+            case_path === nothing || throw(ArgumentError("--case may be supplied only once"))
+            case_path = value
+        elseif flag == "--result"
+            result_path === nothing || throw(ArgumentError("--result may be supplied only once"))
+            result_path = value
+        elseif flag == "--time-index"
+            parsed_index = tryparse(Int, value)
+            parsed_index !== nothing && parsed_index >= 1 || throw(ArgumentError(
+                "--time-index must be an integer of at least 1"))
+            t_index = parsed_index
+        else
+            throw(ArgumentError("unknown option '$flag'"))
+        end
+        index += 2
+    end
+    case_path === nothing && throw(ArgumentError("--case is required"))
+    result_path === nothing && throw(ArgumentError("--result is required"))
+    (
+        operation="verify_solution",
+        case_path=String(case_path),
+        result_path=String(result_path),
+        t_index=t_index,
+        pretty=pretty,
+    )
+end
+
 function _cli_parse(args::Vector{String})
     isempty(args) && throw(ArgumentError("missing operation"))
     args[1] == "check-contract" && return _cli_parse_contract(args)
     args[1] == "analyze-case" && return _cli_parse_analysis(args)
+    args[1] == "verify-solution" && return _cli_parse_solution(args)
     throw(ArgumentError(
-        "unsupported operation '$(args[1])'; expected check-contract or analyze-case"))
+        "unsupported operation '$(args[1])'; expected check-contract, analyze-case, or verify-solution"))
+end
+
+function _cli_operation(args::Vector{String})
+    !isempty(args) && args[1] == "analyze-case" && return "analyze_case"
+    !isempty(args) && args[1] == "verify-solution" && return "verify_solution"
+    "check_contract"
 end
 
 function _cli_parameters(parsed)
@@ -197,7 +249,7 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
         message = sprint(showerror, exception)
         println(err, message)
         println(err, _CLI_USAGE)
-        operation = !isempty(args) && args[1] == "analyze-case" ? "analyze_case" : "check_contract"
+        operation = _cli_operation(args)
         contract_id = operation == "check_contract" && length(args) >= 2 ? args[2] : nothing
         _cli_write(out, execution_error_response(
             message; code="invalid_request", operation=operation,
@@ -206,9 +258,13 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
     end
 
     inputs = try
-        parsed.operation == "check_contract" ?
-            [_cli_input("source", parsed.source), _cli_input("target", parsed.target)] :
+        if parsed.operation == "check_contract"
+            [_cli_input("source", parsed.source), _cli_input("target", parsed.target)]
+        elseif parsed.operation == "analyze_case"
             [_cli_input("case", parsed.input)]
+        else
+            [_cli_input("case", parsed.case_path), _cli_input("result", parsed.result_path)]
+        end
     catch exception
         message = sprint(showerror, exception)
         println(err, message)
@@ -232,9 +288,16 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
                 parameters=_cli_parameters(parsed),
                 inputs=inputs,
             )
-        else
+        elseif parsed.operation == "analyze_case"
             execute_analysis(
                 parse_bmopf(parsed.input);
+                t_index=parsed.t_index,
+                inputs=inputs,
+            )
+        else
+            execute_solution_verification(
+                parse_bmopf(parsed.case_path),
+                read_result(parsed.result_path);
                 t_index=parsed.t_index,
                 inputs=inputs,
             )

@@ -36,6 +36,8 @@ bin/bmopf check-contract neutral_ground_reference_preservation \
   --bus-map SOURCE_BUS=TARGET_BUS --bus-map SOURCE_BUS=TARGET_BUS --pretty
 
 bin/bmopf analyze-case --input CASE.json --pretty
+
+bin/bmopf verify-solution --case CASE.json --result RESULT.json --pretty
 ```
 
 Treat `passed`, `failed`, `inapplicable`, and `indeterminate` as distinct
@@ -45,3 +47,6 @@ dimensions, and do not promote package behavior or a fixture into a general
 scientific result. For `analyze_case`, `completed` means the operation ran; it
 does not override ERROR or WARNING Findings and does not establish solver
 readiness or feasibility.
+For `verify_solution`, retain the solver's termination status but do not treat
+it as a substitute for the independently recomputed `E.SOL.*`, `W.SOL.*`, and
+`I.SOL.*` Findings.

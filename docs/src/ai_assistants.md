@@ -104,6 +104,17 @@ See [Analysis and reports](analysis.md), the [Finding-code reference](findings.m
 
 The relevant entry points are documented under [OPF result dictionaries](results.md) and [validating the OPF](validation.md).
 
+For a hash-bound JSON report without rerunning the solver, use:
+
+```sh
+bin/bmopf verify-solution --case case.json --result result.json --pretty
+```
+
+The `recipes/verify_solution` example deliberately profiles a
+`LOCALLY_SOLVED` result that emits `E.SOL.VOLT_VIOLATION`. Report all three
+facts separately: solver termination, `completed` verification transport, and
+the ERROR Finding.
+
 ### Evaluate a scientific contract
 
 > Evaluate `parallel_member_limit_preservation` for the declared source members `<IDs>` and target aggregate `<ID>`. Report the `ScientificContractResult` status, checked dimensions, unassessed dimensions, Findings, tolerances, and witness. If the result is `inapplicable` or `indeterminate`, do not convert it to a pass or failure. Treat `PSK-000001` as a link to the book's scoped scientific statement, not as a claim that the scalar implementation covers multiconductor or state-dependent branches.

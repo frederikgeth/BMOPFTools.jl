@@ -6,8 +6,8 @@
   "additionalProperties": false,
   "required": ["schema_version", "operation", "status", "package", "request", "inputs"],
   "properties": {
-    "schema_version": {"const": "0.2.0"},
-    "operation": {"enum": ["check_contract", "analyze_case"]},
+    "schema_version": {"const": "0.3.0"},
+    "operation": {"enum": ["check_contract", "analyze_case", "verify_solution"]},
     "status": {"enum": ["passed", "failed", "inapplicable", "indeterminate", "completed", "error"]},
     "package": {
       "type": "object",
@@ -40,7 +40,7 @@
         }
       }
     },
-    "result": {"oneOf": [{"$ref": "#/$defs/contractResult"}, {"$ref": "#/$defs/analysisResult"}]},
+    "result": {"oneOf": [{"$ref": "#/$defs/contractResult"}, {"$ref": "#/$defs/analysisResult"}, {"$ref": "#/$defs/solutionResult"}]},
     "error": {
       "type": "object",
       "additionalProperties": false,
@@ -100,6 +100,31 @@
         "results": {"type": "object"},
         "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}
       }
+    },
+    "solutionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_name", "generated_at", "result_meta", "summary", "results", "findings"],
+      "properties": {
+        "network_name": {"type": ["string", "null"]},
+        "generated_at": {"type": "string", "minLength": 1},
+        "result_meta": {
+          "type": "object",
+          "required": ["termination_status", "objective", "solve_time"]
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["errors", "warnings", "info"],
+          "properties": {
+            "errors": {"type": "integer", "minimum": 0},
+            "warnings": {"type": "integer", "minimum": 0},
+            "info": {"type": "integer", "minimum": 0}
+          }
+        },
+        "results": {"type": "object"},
+        "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}
+      }
     }
   },
   "allOf": [
@@ -119,9 +144,15 @@
       "else": {
         "properties": {
           "status": {"enum": ["completed", "error"]},
-          "request": {"properties": {"contract_id": {"type": "null"}}},
-          "result": {"$ref": "#/$defs/analysisResult"}
-        }
+          "request": {"properties": {"contract_id": {"type": "null"}}}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"operation": {"const": "analyze_case"}}},
+            "then": {"properties": {"result": {"$ref": "#/$defs/analysisResult"}}},
+            "else": {"properties": {"result": {"$ref": "#/$defs/solutionResult"}}}
+          }
+        ]
       }
     }
   ]

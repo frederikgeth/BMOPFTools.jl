@@ -15,7 +15,7 @@
     "source"
   ],
   "properties": {
-    "schema_version": {"const": "0.2.0"},
+    "schema_version": {"const": "0.3.0"},
     "record_id": {"type": "string", "minLength": 1},
     "record_type": {
       "enum": ["executable_contract", "api_operation", "finding", "fixture", "recipe"]
@@ -42,7 +42,7 @@
     "recipe_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
     "kind": {"type": "string", "minLength": 1},
     "purpose": {"type": "string", "minLength": 1},
-    "operation": {"enum": ["check_contract", "analyze_case"]},
+    "operation": {"enum": ["check_contract", "analyze_case", "verify_solution"]},
     "command": {"type": "string", "minLength": 1},
     "expected_status": {
       "enum": ["passed", "failed", "inapplicable", "indeterminate", "completed"]
