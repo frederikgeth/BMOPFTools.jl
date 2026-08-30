@@ -795,7 +795,13 @@ finding_codes = [
   "W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE",
 ]
 fixture_ids = ["unit-base-serialization-001"]
-source_paths = ["src/knowledge/contracts.jl", "docs/src/findings.md", "test/scientific_contract_tests.jl"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+  "test/property_based_contract_tests.jl",
+  "test/property/unit-base-serialization-seed.json",
+]
 
 [[finding]]
 code = "E.CONTRACT.UNIT_SYSTEM_MISMATCH"
@@ -816,3 +822,45 @@ meaning = "Target serialization has a different canonical semantic payload hash.
 code = "W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE"
 severity = "WARNING"
 meaning = "Required unit/base or canonical semantic-hash metadata is missing or malformed."
+
+[[property_suite]]
+id = "unit_base_serialization_seeded_properties"
+knowledge_ids = ["PSK-000014"]
+contract_id = "unit_base_serialization_invariance"
+title = "Seeded unit/base serialization property suite"
+scope = "Finite JSON serialization pairs with explicit SI metadata, one or more positive finite declared base values, and a sha256-prefixed 64-digit lowercase hexadecimal semantic-hash declaration."
+generator_domain = [
+  "Voltage bases are integer-valued floats from 100 V through 35 kV and power bases are integer kVA values from 10 kVA through 10 MVA.",
+  "Current, impedance, and admittance bases are finite and positive and satisfy I=S/V, Z=V^2/S, and Y=1/Z before fault injection.",
+  "The exact target is produced by JSON3 encoding and decoding and reverses base-map key insertion order.",
+  "Independent negative properties change only the unit-system string, one voltage-base value, or the final semantic-hash digit.",
+]
+seed_algorithm = "splitmix64-v1"
+seed = "0x4f1bbcdc6762c7a9"
+case_count = 64
+properties_checked = [
+  "Exact JSON round trips return passed despite base-map insertion-order changes.",
+  "Unit-system mutations return E.CONTRACT.UNIT_SYSTEM_MISMATCH.",
+  "One-value base-map mutations return E.CONTRACT.BASE_MAP_MISMATCH.",
+  "Semantic-hash mutations return E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH.",
+  "Every injected failure minimizes to one positive finite base value while preserving its Finding code.",
+  "Replaying the recorded algorithm and seed reproduces the case summaries.",
+]
+minimization_strategy = "Retain unit_system, semantic_hash, and only voltage_V in each base map, then replay exactly one mutation."
+failure_classification = "expected_contract_rejection"
+expected_finding_codes = [
+  "E.CONTRACT.UNIT_SYSTEM_MISMATCH",
+  "E.CONTRACT.BASE_MAP_MISMATCH",
+  "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH",
+]
+does_not_establish = [
+  "Matching declarations authenticate how a semantic hash was computed.",
+  "Matching metadata proves a physical SI-to-per-unit conversion or its inverse.",
+  "Generated base maps cover every package scaling policy or component-local coordinate system.",
+  "A declared serialization pass preserves equations, limits, decisions, objectives, or solver behavior.",
+  "An injected metadata fault is a newly discovered scientific counterexample.",
+]
+source_paths = [
+  "test/property_based_contract_tests.jl",
+  "test/property/unit-base-serialization-seed.json",
+]

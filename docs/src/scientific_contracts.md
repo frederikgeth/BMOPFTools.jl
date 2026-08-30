@@ -423,6 +423,35 @@ The contract does not infer units from magnitudes, authenticate how a hash was
 computed, or prove complete physical or decision equivalence. It complements
 `write_bmopf`/`parse_bmopf` round-trip tests and source-hash provenance.
 
+### Seeded property suite
+
+The `unit_base_serialization_seeded_properties` suite generates 64 positive,
+finite SI base maps from a committed SplitMix64 seed. Voltage and power bases
+are sampled in the declared range; current, impedance, and admittance bases are
+derived consistently. Each source is encoded and decoded with JSON3, and the
+target base-map keys are inserted in reverse order to ensure that map ordering
+is not mistaken for semantic drift.
+
+Every exact round trip must pass. Three independent fault injections then
+change only the unit-system declaration, one voltage-base value, or the final
+semantic-hash digit. They must fail with
+`E.CONTRACT.UNIT_SYSTEM_MISMATCH`, `E.CONTRACT.BASE_MAP_MISMATCH`, and
+`E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH`, respectively. Each failure is also
+reduced to a one-base witness and rechecked.
+
+Run both committed property suites with:
+
+```sh
+julia --project=test --startup-file=no --compiled-modules=no -e \
+  'using Test, BMOPFTools; include("test/property_based_contract_tests.jl")'
+```
+
+This suite checks declared serialization identity. It does not compute an
+SI-to-per-unit transformation, authenticate the declared hash, or establish
+physical, equation, limit, decision, objective, or solver equivalence. For the
+separate scaling semantics and numerical demonstrations, see the pedagogical
+[Units, per-unit scaling, and cost arithmetic](tutorial_units.md) tutorial.
+
 ## Decision-preservation manifests
 
 [`check_decision_preservation_manifest`](@ref) implements the declaration-

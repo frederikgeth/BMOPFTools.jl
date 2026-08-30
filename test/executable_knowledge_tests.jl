@@ -31,12 +31,12 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 106
+    @test manifest.record_count == length(records) == 107
     @test manifest.record_counts.executable_contract == 14
     @test manifest.record_counts.api_operation == 14
     @test manifest.record_counts.finding == 57
     @test manifest.record_counts.fixture == 14
-    @test manifest.record_counts.property_suite == 1
+    @test manifest.record_counts.property_suite == 2
     @test manifest.record_counts.recipe == 6
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
@@ -78,6 +78,20 @@ using SHA
     @test property_suite.expected_finding_codes ==
           ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"]
     @test all(file -> isfile(joinpath(root, String(file.path))), property_suite.files)
+
+    unit_property_suite = by_id["property_suite:unit_base_serialization_seeded_properties"]
+    @test unit_property_suite.contract_id == "unit_base_serialization_invariance"
+    @test unit_property_suite.knowledge_ids == ["PSK-000014"]
+    @test unit_property_suite.seed_algorithm == "splitmix64-v1"
+    @test unit_property_suite.seed == "0x4f1bbcdc6762c7a9"
+    @test unit_property_suite.case_count == 64
+    @test unit_property_suite.failure_classification == "expected_contract_rejection"
+    @test Set(String.(unit_property_suite.expected_finding_codes)) == Set([
+        "E.CONTRACT.UNIT_SYSTEM_MISMATCH",
+        "E.CONTRACT.BASE_MAP_MISMATCH",
+        "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH",
+    ])
+    @test all(file -> isfile(joinpath(root, String(file.path))), unit_property_suite.files)
 
     recipe = by_id["recipe:parallel_member_limits"]
     @test recipe.contract_id == contract.contract_id
