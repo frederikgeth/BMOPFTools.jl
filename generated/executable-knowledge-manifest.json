@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "4081941ba000401d903cf4d3e41a5abbe270c81dc054d2d4361381cae3001f34",
+  "corpus_sha256": "4af274e0c0783bb8dc512016dd8f56d8a1e1734633f8ccc271e15ecaac6f47d0",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -56,6 +56,10 @@
       "sha256": "011865b6109c680a958120a46670bf1430029e4fab6821e020295a0094492020"
     },
     {
+      "path": "bin/bmopf-mcp",
+      "sha256": "51ee85df44b0de0fcde84db4673a08aecfc8ffb7dbf38c02fa1f7750d88144a7"
+    },
+    {
       "path": "docs/src/dev/versioning.md",
       "sha256": "abf76a75467e30941b3856fce239e6e9cb25140053be577520ee9ca8ea47e705"
     },
@@ -89,7 +93,7 @@
     },
     {
       "path": "recipes/README.md",
-      "sha256": "fb50c18213e8a7d3b09eb379ec4fba476d1de55b092bf44f74d6a41d3aa6528a"
+      "sha256": "870cd68b26fc8c88f4e0e957360f769b960af4d5fddd3987e33a64efabbc8249"
     },
     {
       "path": "recipes/analyze_case/README.md",
@@ -97,7 +101,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "a7a446afcb350170773e3284a314ea2fdf42312e83074d6bb7a3f23eb59fd66e"
+      "sha256": "fb5d7486a322fc9a811446293abc74eaa3afd27beb21d6e0e9d7cc008ef94382"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -109,7 +113,7 @@
     },
     {
       "path": "recipes/explain_finding/metadata.toml",
-      "sha256": "f57c58b5c14e08a5ec9e658d1f50809d7bdd5f7932820c4732e0db9751785a56"
+      "sha256": "28379a794202f60eb8dd3333c6625f7b4d36e1aaca8fa4cd9e9073cf9ba56080"
     },
     {
       "path": "recipes/explain_finding/recipe.jl",
@@ -121,7 +125,7 @@
     },
     {
       "path": "recipes/neutral_ground_reference/metadata.toml",
-      "sha256": "8e74ca6c4ad794bdd43502cdd8add74b4fe7b9f59885c212c81a9670032b1444"
+      "sha256": "0ad665b8add51ad52f7f80ca142c023da875770eb7ef777679083e8449c8681f"
     },
     {
       "path": "recipes/neutral_ground_reference/recipe.jl",
@@ -133,7 +137,7 @@
     },
     {
       "path": "recipes/parallel_member_limits/metadata.toml",
-      "sha256": "7d36541a4bbf10eba5be1c1de6f246fc18af6b8f2dd11534b7d567ac8703f6f4"
+      "sha256": "496d9b8b6407dfe8487572e20b9ed2707b1f4c4b2133429e99976772013175a0"
     },
     {
       "path": "recipes/parallel_member_limits/recipe.jl",
@@ -149,7 +153,7 @@
     },
     {
       "path": "recipes/parse_case/metadata.toml",
-      "sha256": "c66defb22571ec193ac943e1f9aee8a191b01ae10ee9f6fd2261b857f7328cc4"
+      "sha256": "1c6045c51d0fd746cf2289ef167f29dc188a0b8c7a47af25fdbb9764c517c61c"
     },
     {
       "path": "recipes/parse_case/recipe.jl",
@@ -161,7 +165,7 @@
     },
     {
       "path": "recipes/verify_solution/metadata.toml",
-      "sha256": "e796001c91d440ca051456a2d3bca2ce7b476a1ed22a878435e3b1ec447b3125"
+      "sha256": "d512efd1ebe8c6472909f734dcfc635cb36127353b8cf0a75717ab74d25e409f"
     },
     {
       "path": "recipes/verify_solution/recipe.jl",
@@ -182,6 +186,10 @@
     {
       "path": "scripts/bmopf_cli.jl",
       "sha256": "e6d06a3f80721bc0f350d1e248daaa358861215dbd7df1f968ea98d2307f3584"
+    },
+    {
+      "path": "scripts/bmopf_mcp.jl",
+      "sha256": "96035734415ca7df584eba7d0b63cd7041a3bcd71dba5ec26b29b9b3e5fe3ef7"
     },
     {
       "path": "scripts/generate_finding_registry.py",

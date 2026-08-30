@@ -9,11 +9,13 @@ script = "recipe.jl"
 readme = "README.md"
 interface_paths = [
   "bin/bmopf",
+  "bin/bmopf-mcp",
   "docs/src/findings.md",
   "generated/finding-registry.json",
   "schemas/execution-response.schema.json",
   "schemas/finding-registry.schema.json",
   "scripts/bmopf_cli.jl",
+  "scripts/bmopf_mcp.jl",
   "scripts/generate_finding_registry.py",
   "src/execution/interface.jl",
   "src/report/finding_registry.jl",

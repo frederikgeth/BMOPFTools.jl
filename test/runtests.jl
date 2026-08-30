@@ -4068,6 +4068,8 @@ include("executable_knowledge_tests.jl")
 
 include("execution_interface_tests.jl")
 
+include("mcp_execution_tests.jl")
+
     # -----------------------------------------------------------------------
     # Network simplification
     # -----------------------------------------------------------------------

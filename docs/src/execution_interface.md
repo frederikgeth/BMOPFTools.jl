@@ -243,11 +243,63 @@ Recipes do not replace the tutorials. Tutorials explain modelling choices and
 misconceptions in context; recipes provide a short, repeatable operation that
 agents and CI can execute.
 
+## MCP stdio adapter
+
+`bin/bmopf-mcp` exposes the same settled execution operations to local MCP
+clients. It is a transport adapter, not another execution or retrieval layer:
+every successful tool call returns the existing `0.5.0` execution envelope as
+`structuredContent`, while tool failures return a schema-valid execution error
+with MCP `isError = true`.
+
+| MCP tool | Existing operation |
+|---|---|
+| `bmopf_parse` | `parse_case` |
+| `bmopf_analyze` | `analyze_case` |
+| `bmopf_verify_solution` | `verify_solution` |
+| `bmopf_explain_finding` | `explain_finding` |
+| `bmopf_check_parallel_member_limits` | reviewed `parallel_member_limit_preservation` adapter |
+| `bmopf_check_neutral_ground_reference` | reviewed `neutral_ground_reference_preservation` adapter |
+
+The server also exposes `bmopf://execution/manifest` and
+`bmopf://execution/response-schema` as read-only resources. It does not expose
+arbitrary Julia evaluation, invoke a solver, infer source-to-target mappings,
+or retrieve scientific prose from the book.
+
+Run the newline-delimited MCP stdio server from any directory with:
+
+```sh
+/absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
+```
+
+Input paths are read-only and restricted to the repository checkout by
+default. To allow case and result files elsewhere, set
+`BMOPFTOOLS_MCP_ALLOWED_ROOTS` to an OS path-separator-delimited list of
+directories. Existing files are resolved through symlinks before containment is
+checked.
+
+For Codex, the current official configuration can be added with:
+
+```sh
+codex mcp add bmopftools \
+  --env BMOPFTOOLS_MCP_ALLOWED_ROOTS=/absolute/path/to/BMOPFTools.jl:/absolute/path/to/cases \
+  -- /absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
+```
+
+The ChatGPT desktop app can add the same executable as a local STDIO server
+under **Settings → MCP servers**. See the
+[official OpenAI MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
+for current client instructions. Other MCP clients use the same executable and
+environment variable.
+
+The adapter follows standard MCP tool/resource conventions and can run
+alongside the power-system servers collected by
+[PowerMCP](https://github.com/Power-Agent/PowerMCP). It is not bundled with, or
+a runtime dependency of, the `powermcp` package.
+
 ## Interface boundary
 
 The CLI does not retrieve scientific prose, infer mappings, expose arbitrary
 Julia evaluation, or contact the companion book. The book remains the authority
 for what a PSK statement establishes. This interface reports what BMOPFTools
-checked on the supplied models. A future MCP or PowerMCP adapter should expose
-the same curated operations and response schema rather than introduce another
-execution model.
+checked on the supplied models. The MCP adapter exposes exactly this curated
+surface and response schema; it does not introduce another execution model.

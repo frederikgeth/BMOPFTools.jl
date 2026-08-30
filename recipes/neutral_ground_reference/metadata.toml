@@ -10,6 +10,8 @@ script = "recipe.jl"
 readme = "README.md"
 interface_paths = [
   "bin/bmopf",
+  "bin/bmopf-mcp",
+  "scripts/bmopf_mcp.jl",
   "scripts/bmopf_cli.jl",
   "schemas/execution-response.schema.json",
   "src/execution/interface.jl",

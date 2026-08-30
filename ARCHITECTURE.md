@@ -62,3 +62,11 @@ inspect a Finding instance, infer causes or repairs, query the book, or invent
 scientific links. External PowerIO diagnostic namespaces remain PowerIO-owned.
 Other contracts remain available through
 their Julia APIs until each mapping has an explicit reviewed transport shape.
+
+`bin/bmopf-mcp` is the thin execution adapter over this settled surface. Its six
+read-only tools map one-to-one to the parse, analysis, supplied-result
+verification, Finding lookup, and two reviewed contract operations. Successful
+and failed tool calls preserve the existing execution-response schema; MCP does
+not define new scientific or transport statuses. Local paths are constrained to
+explicit roots, arbitrary Julia evaluation and solver invocation are absent,
+and the book remains the only scientific retrieval service.

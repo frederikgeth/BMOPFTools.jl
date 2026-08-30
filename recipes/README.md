@@ -15,6 +15,10 @@ Run a recipe from the repository root with its documented command. Longer
 tutorials under `docs/src/` remain the pedagogical source; recipes are compact
 operational companions rather than replacements for those tutorials.
 
+The same six reviewed operations are available through the read-only
+`bin/bmopf-mcp` stdio adapter. Recipe `interface_paths` include that adapter so
+changes to either transport invalidate the generated recipe source hash.
+
 Current recipes:
 
 - `analyze_case`: parses and analyzes the tutorial network, demonstrating that

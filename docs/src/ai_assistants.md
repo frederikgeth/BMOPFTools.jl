@@ -24,7 +24,41 @@ retrieval remains in the book. An assistant with repository and terminal access
 can call the Julia API directly or use the package's curated
 [JSON execution interface](execution_interface.md). Application integrations
 should consume these structured outputs rather than scrape documentation or
-diagnostic prose. A package MCP adapter remains future work.
+diagnostic prose. Local MCP clients can launch `bin/bmopf-mcp`; the adapter
+returns the same versioned execution envelopes and does not add retrieval logic.
+
+## Connect ChatGPT, Codex, Claude, or another MCP client
+
+The repository ships a read-only local MCP stdio server:
+
+```sh
+/absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
+```
+
+For Codex, add it with the current documented CLI form:
+
+```sh
+codex mcp add bmopftools \
+  --env BMOPFTOOLS_MCP_ALLOWED_ROOTS=/absolute/path/to/BMOPFTools.jl:/absolute/path/to/cases \
+  -- /absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
+```
+
+The ChatGPT desktop app can register the executable as a local STDIO server in
+**Settings → MCP servers**; Codex CLI, the IDE extension, and the desktop app
+share MCP configuration on the same Codex host. Consult the
+[official OpenAI MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
+for current setup details.
+
+Claude Desktop and Claude Code can use the same executable as an MCP stdio
+command. Other clients should configure the command using their own MCP server
+settings. By default the server reads only files inside this checkout; expand
+the allowlist deliberately with `BMOPFTOOLS_MCP_ALLOWED_ROOTS` when case or
+result files live elsewhere.
+
+The server exposes package execution, not scientific retrieval. Keep the
+book's `multi-graph-book` MCP server connected when the task also requires
+evidence status, misconceptions, qualifications, or source-grounded scientific
+interpretation.
 
 ## Give the assistant an operating contract
 

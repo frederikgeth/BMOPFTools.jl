@@ -24,6 +24,7 @@ claims, evidence status, misconceptions, and stable PSK identities.
 - Offline Finding registry: generated/finding-registry.json
 - Finding registry schema: schemas/finding-registry.schema.json
 - Execution response schema: schemas/execution-response.schema.json
+- MCP stdio adapter: bin/bmopf-mcp
 - Recipes: recipes/README.md
 
 ## Curated JSON execution operations
@@ -45,6 +46,13 @@ bin/bmopf verify-solution --case CASE.json --result RESULT.json --pretty
 
 bin/bmopf explain-finding FINDING_CODE --pretty
 ```
+
+The read-only MCP adapter exposes the same six reviewed operations as
+`bmopf_parse`, `bmopf_analyze`, `bmopf_verify_solution`,
+`bmopf_explain_finding`, `bmopf_check_parallel_member_limits`, and
+`bmopf_check_neutral_ground_reference`. It returns the existing execution
+envelope as structured content. Input paths are restricted to the checkout by
+default; use `BMOPFTOOLS_MCP_ALLOWED_ROOTS` to declare additional roots.
 
 Treat `passed`, `failed`, `inapplicable`, and `indeterminate` as distinct
 scientific-contract outcomes. An `error` response means no contract evaluation

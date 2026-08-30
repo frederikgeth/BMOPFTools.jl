@@ -29,6 +29,11 @@ claim. The complete generated
 Finding registry is `generated/finding-registry.json`; it explains code classes
 without diagnosing a particular observation or guessing a repair.
 
+Local MCP clients can launch the same curated surface through `bin/bmopf-mcp`.
+The read-only stdio adapter returns the existing versioned execution envelopes,
+restricts file access to declared roots, and leaves scientific retrieval to the
+companion book.
+
 ## IEEE PES Task Force
 
 **Benchmarking Multiconductor OPF for Distribution Systems**
