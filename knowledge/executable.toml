@@ -1,4 +1,4 @@
-schema_version = "0.5.0"
+schema_version = "0.6.0"
 
 [[contract]]
 id = "parallel_member_limit_preservation"
@@ -702,33 +702,14 @@ meaning = "A required source or target line primitive or terminal-map record is 
 
 [[property_suite]]
 id = "terminal_permutation_seeded_properties"
-knowledge_ids = ["PSK-000012"]
-contract_id = "terminal_permutation_invariance"
 title = "Seeded terminal-permutation property suite"
 scope = "Finite reciprocal one- through six-conductor fixed-linear series primitives with positive strictly diagonally dominant real and imaginary parts, distinct ordered endpoint labels, and explicit bijective coordinate actions."
+seed_path = "test/property/terminal-permutation-seed.json"
 generator_domain = [
   "Dimensions are integers from one through six.",
   "Real and imaginary matrix parts are finite, reciprocal, strictly diagonally dominant, and have positive diagonal entries.",
   "Endpoint terminal labels are distinct and the exact target applies one explicit bijection to maps and matrix coordinates.",
   "The negative property injects a 0.01 ohm real perturbation at target coordinate (1,1) after exact permutation.",
-]
-seed_algorithm = "splitmix64-v1"
-seed = "0x6d5a56da4b9c2f17"
-case_count = 64
-properties_checked = [
-  "Exact permutations return passed for every generated case.",
-  "The injected one-entry corruption returns E.CONTRACT.PERMUTATION_RELATION_MISMATCH for every generated case.",
-  "Every injected failure minimizes to one conductor while preserving its Finding code.",
-  "Replaying the recorded algorithm and seed reproduces the case summaries.",
-]
-minimization_strategy = "Retain target coordinate 1 and its mapped source coordinate, discard all other coordinates, and replay the same injected perturbation."
-failure_classification = "expected_contract_rejection"
-expected_finding_codes = ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"]
-does_not_establish = [
-  "Random sampling proves the complete typed coordinate-action theorem.",
-  "Generated matrices represent every physical line or cable class.",
-  "A primitive-level pass preserves assets, limits, controls, decisions, objectives, or solver behavior.",
-  "An injected failure is a newly discovered scientific counterexample.",
 ]
 source_paths = [
   "test/property_based_contract_tests.jl",
@@ -825,40 +806,14 @@ meaning = "Required unit/base or canonical semantic-hash metadata is missing or 
 
 [[property_suite]]
 id = "unit_base_serialization_seeded_properties"
-knowledge_ids = ["PSK-000014"]
-contract_id = "unit_base_serialization_invariance"
 title = "Seeded unit/base serialization property suite"
 scope = "Finite JSON serialization pairs with explicit SI metadata, one or more positive finite declared base values, and a sha256-prefixed 64-digit lowercase hexadecimal semantic-hash declaration."
+seed_path = "test/property/unit-base-serialization-seed.json"
 generator_domain = [
   "Voltage bases are integer-valued floats from 100 V through 35 kV and power bases are integer kVA values from 10 kVA through 10 MVA.",
   "Current, impedance, and admittance bases are finite and positive and satisfy I=S/V, Z=V^2/S, and Y=1/Z before fault injection.",
   "The exact target is produced by JSON3 encoding and decoding and reverses base-map key insertion order.",
   "Independent negative properties change only the unit-system string, one voltage-base value, or the final semantic-hash digit.",
-]
-seed_algorithm = "splitmix64-v1"
-seed = "0x4f1bbcdc6762c7a9"
-case_count = 64
-properties_checked = [
-  "Exact JSON round trips return passed despite base-map insertion-order changes.",
-  "Unit-system mutations return E.CONTRACT.UNIT_SYSTEM_MISMATCH.",
-  "One-value base-map mutations return E.CONTRACT.BASE_MAP_MISMATCH.",
-  "Semantic-hash mutations return E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH.",
-  "Every injected failure minimizes to one positive finite base value while preserving its Finding code.",
-  "Replaying the recorded algorithm and seed reproduces the case summaries.",
-]
-minimization_strategy = "Retain unit_system, semantic_hash, and only voltage_V in each base map, then replay exactly one mutation."
-failure_classification = "expected_contract_rejection"
-expected_finding_codes = [
-  "E.CONTRACT.UNIT_SYSTEM_MISMATCH",
-  "E.CONTRACT.BASE_MAP_MISMATCH",
-  "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH",
-]
-does_not_establish = [
-  "Matching declarations authenticate how a semantic hash was computed.",
-  "Matching metadata proves a physical SI-to-per-unit conversion or its inverse.",
-  "Generated base maps cover every package scaling policy or component-local coordinate system.",
-  "A declared serialization pass preserves equations, limits, decisions, objectives, or solver behavior.",
-  "An injected metadata fault is a newly discovered scientific counterexample.",
 ]
 source_paths = [
   "test/property_based_contract_tests.jl",

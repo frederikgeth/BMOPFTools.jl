@@ -20,8 +20,8 @@ using SHA
         JSON3.read(read(finding_registry_schema_path, String)))
     finding_registry = JSON3.read(read(finding_registry_path, String))
     @test JSONSchema.validate(finding_registry_schema, finding_registry) === nothing
-    @test finding_registry.finding_count == length(finding_registry.findings) == 341
-    @test length(unique(String(item.code) for item in finding_registry.findings)) == 341
+    @test finding_registry.finding_count == length(finding_registry.findings) == 353
+    @test length(unique(String(item.code) for item in finding_registry.findings)) == 353
 
     schema = JSONSchema.Schema(JSON3.read(read(schema_path, String)))
     lines = filter(!isempty, split(read(corpus_path, String), '\n'))
@@ -79,6 +79,21 @@ using SHA
           ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"]
     @test all(file -> isfile(joinpath(root, String(file.path))), property_suite.files)
 
+    property_spec = JSON3.read(read(
+        joinpath(root, "test", "property", "terminal-permutation-seed.json"), String))
+    @test property_suite.property_suite_id == property_spec.property_suite_id
+    @test property_suite.contract_id == property_spec.contract_id
+    @test property_suite.knowledge_ids == property_spec.knowledge_ids
+    @test property_suite.seed_algorithm == property_spec.generator.algorithm
+    @test property_suite.seed == property_spec.generator.seed
+    @test property_suite.case_count == property_spec.generator.case_count
+    @test property_suite.properties_checked == property_spec.properties
+    @test property_suite.minimization_strategy == property_spec.minimization.strategy
+    @test property_suite.failure_classification == property_spec.failure_classification
+    @test property_suite.expected_finding_codes ==
+          [property_spec.minimization.preserved_finding_code]
+    @test property_suite.does_not_establish == property_spec.does_not_establish
+
     unit_property_suite = by_id["property_suite:unit_base_serialization_seeded_properties"]
     @test unit_property_suite.contract_id == "unit_base_serialization_invariance"
     @test unit_property_suite.knowledge_ids == ["PSK-000014"]
@@ -92,6 +107,21 @@ using SHA
         "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH",
     ])
     @test all(file -> isfile(joinpath(root, String(file.path))), unit_property_suite.files)
+
+    unit_property_spec = JSON3.read(read(
+        joinpath(root, "test", "property", "unit-base-serialization-seed.json"), String))
+    @test unit_property_suite.property_suite_id == unit_property_spec.property_suite_id
+    @test unit_property_suite.contract_id == unit_property_spec.contract_id
+    @test unit_property_suite.knowledge_ids == unit_property_spec.knowledge_ids
+    @test unit_property_suite.seed_algorithm == unit_property_spec.generator.algorithm
+    @test unit_property_suite.seed == unit_property_spec.generator.seed
+    @test unit_property_suite.case_count == unit_property_spec.generator.case_count
+    @test unit_property_suite.properties_checked == unit_property_spec.properties
+    @test unit_property_suite.minimization_strategy == unit_property_spec.minimization.strategy
+    @test unit_property_suite.failure_classification == unit_property_spec.failure_classification
+    @test unit_property_suite.expected_finding_codes ==
+          unit_property_spec.minimization.preserved_finding_codes
+    @test unit_property_suite.does_not_establish == unit_property_spec.does_not_establish
 
     recipe = by_id["recipe:parallel_member_limits"]
     @test recipe.contract_id == contract.contract_id

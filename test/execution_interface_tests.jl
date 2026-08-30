@@ -24,7 +24,7 @@ using SHA
     response = execute_contract(
         "parallel_member_limit_preservation", source, target;
         parameters=parameters, inputs=inputs)
-    @test response["schema_version"] == "0.5.0"
+    @test response["schema_version"] == "0.6.0"
     @test response["operation"] == "check_contract"
     @test response["status"] == "failed"
     @test response["request"]["parameters"]["member_ids"] == ["l1", "l2"]
@@ -357,6 +357,19 @@ using SHA
     @test malformed_response.status == "error"
     @test JSONSchema.validate(schema, malformed_response) === nothing
     @test occursin("Usage:", String(take!(malformed_err)))
+
+    unknown_operation_out = IOBuffer()
+    unknown_operation_err = IOBuffer()
+    unknown_operation_code = cli_module.main([
+        "solve-case", "--input", analysis_path,
+    ]; out=unknown_operation_out, err=unknown_operation_err)
+    @test unknown_operation_code == 2
+    unknown_operation_response = JSON3.read(String(take!(unknown_operation_out)))
+    @test unknown_operation_response.status == "error"
+    @test unknown_operation_response.operation === nothing
+    @test unknown_operation_response.request.contract_id === nothing
+    @test JSONSchema.validate(schema, unknown_operation_response) === nothing
+    @test occursin("unsupported operation", String(take!(unknown_operation_err)))
 
     unsupported_out = IOBuffer()
     unsupported_err = IOBuffer()

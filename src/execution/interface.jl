@@ -1,6 +1,6 @@
 # execution/interface.jl
 
-const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.5.0"
+const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.6.0"
 
 function _execution_package_identity()
     Dict{String,Any}(
@@ -324,18 +324,19 @@ represent scientific evidence.
 function execution_error_response(
         message::AbstractString;
         code::AbstractString="invalid_request",
-        operation::AbstractString="check_contract",
+        operation::Union{AbstractString,Nothing}="check_contract",
         contract_id::Union{AbstractString,Nothing}=nothing,
         inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
     isempty(message) && throw(ArgumentError("execution error message must be nonempty"))
     isempty(code) && throw(ArgumentError("execution error code must be nonempty"))
-    operation in ("check_contract", "parse_case", "analyze_case", "verify_solution", "explain_finding") || throw(ArgumentError(
-        "unsupported execution operation '$operation'"))
+    operation === nothing || operation in (
+        "check_contract", "parse_case", "analyze_case", "verify_solution", "explain_finding") ||
+        throw(ArgumentError("unsupported execution operation '$operation'"))
     operation != "check_contract" && contract_id !== nothing && throw(ArgumentError(
-        "$operation errors cannot name a scientific contract"))
+        "errors without a check_contract operation cannot name a scientific contract"))
     Dict{String,Any}(
         "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,
-        "operation" => String(operation),
+        "operation" => operation === nothing ? nothing : String(operation),
         "status" => "error",
         "package" => _execution_package_identity(),
         "request" => Dict{String,Any}(

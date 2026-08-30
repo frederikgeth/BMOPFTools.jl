@@ -8,8 +8,9 @@ end
 
 Base.showerror(io::IO, error::UnknownFindingCode) = print(
     io,
-    "unknown BMOPFTools Finding code '", error.code,
-    "'; external PowerIO conversion codes are catalogued by PowerIO",
+    "unknown or undocumented Finding code '", error.code,
+    "'; BMOPFTools-authored codes must be catalogued in docs/src/findings.md, " *
+    "while external PowerIO conversion codes use PowerIO's catalogues",
 )
 
 """

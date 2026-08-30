@@ -340,7 +340,7 @@ function _mcp_read_resource(uri)
     nothing
 end
 
-function mcp_handle_request(request::AbstractDict)
+function _mcp_handle_request(request::AbstractDict)
     method = get(request, "method", nothing)
     request_id = get(request, "id", nothing)
     params = get(request, "params", Dict{String,Any}())
@@ -409,6 +409,11 @@ function mcp_handle_request(request::AbstractDict)
         end
     end
     mcp_error_response(request_id, -32601, "method not found: $method")
+end
+
+function mcp_handle_request(request::AbstractDict)
+    response = _mcp_handle_request(request)
+    haskey(request, "id") ? response : nothing
 end
 
 function main(; input::IO=stdin, output::IO=stdout)::Int

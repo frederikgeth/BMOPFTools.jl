@@ -17,6 +17,7 @@ CONTRACTS = ROOT / "knowledge/executable.toml"
 SCHEMA = ROOT / "schemas/finding-registry.schema.json"
 OUTPUT = ROOT / "generated/finding-registry.json"
 JULIA_OUTPUT = ROOT / "src/report/finding_registry_generated.jl"
+SOURCE_ROOT = ROOT / "src"
 SCHEMA_VERSION = "0.1.0"
 REGISTRY_ID = "bmopftools-findings-0.1.0"
 HEADING = re.compile(r"^## ([A-Z][A-Z0-9_]*) — (.+)$")
@@ -25,6 +26,17 @@ ROW = re.compile(
     r"\| (?P<severity>[EWI]) \| (?P<meaning>.+) \|$"
 )
 SEVERITY = {"E": "ERROR", "W": "WARNING", "I": "INFO"}
+CODE_LITERAL = re.compile(r'"([EWI]\.[A-Z0-9_]+(?:\.[A-Z0-9_]+)+)"')
+
+
+def source_finding_codes() -> set[str]:
+    """Return Finding codes authored in package source, excluding generated output."""
+    codes: set[str] = set()
+    for path in SOURCE_ROOT.rglob("*.jl"):
+        if path == JULIA_OUTPUT:
+            continue
+        codes.update(CODE_LITERAL.findall(path.read_text()))
+    return codes
 
 
 def canonical_json(value: object) -> str:
@@ -95,6 +107,12 @@ def build_registry() -> tuple[dict, list[str]]:
         errors.append(
             "executable-contract Finding codes absent from canonical docs: "
             + ", ".join(missing_contract_codes)
+        )
+    missing_source_codes = sorted(source_finding_codes() - seen)
+    if missing_source_codes:
+        errors.append(
+            "BMOPFTools-authored Finding codes absent from canonical docs: "
+            + ", ".join(missing_source_codes)
         )
     return {
         "schema_version": SCHEMA_VERSION,

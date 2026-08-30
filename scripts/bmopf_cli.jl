@@ -257,11 +257,12 @@ function _cli_parse(args::Vector{String})
 end
 
 function _cli_operation(args::Vector{String})
+    !isempty(args) && args[1] == "check-contract" && return "check_contract"
     !isempty(args) && args[1] == "parse-case" && return "parse_case"
     !isempty(args) && args[1] == "analyze-case" && return "analyze_case"
     !isempty(args) && args[1] == "verify-solution" && return "verify_solution"
     !isempty(args) && args[1] == "explain-finding" && return "explain_finding"
-    "check_contract"
+    nothing
 end
 
 function _cli_parameters(parsed)
@@ -304,7 +305,8 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
         println(err, message)
         println(err, _CLI_USAGE)
         operation = _cli_operation(args)
-        contract_id = operation == "check_contract" && length(args) >= 2 ? args[2] : nothing
+        contract_id = operation == "check_contract" && length(args) >= 2 &&
+            !startswith(args[2], "--") ? args[2] : nothing
         _cli_write(out, execution_error_response(
             message; code="invalid_request", operation=operation,
             contract_id=contract_id))

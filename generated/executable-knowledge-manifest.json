@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "87aa50c554fb451d82e2e9744fd822165b957332e4c7139686e6dc85e787fcee",
+  "corpus_sha256": "df23fd1025de2d09691de5bbfd19549383392658ccb73df51443fd8b8f77aba2",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -46,7 +46,7 @@
     "property_suite": 2,
     "recipe": 6
   },
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "source_files": [
     {
       "path": "Project.toml",
@@ -66,7 +66,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "ab6cedd5cde7d019ae0f5737c856130c9c1f51608a993ccb9285738baa1e0e4b"
+      "sha256": "5c9bc098a69f4fc6c93496d8d903c50e78472e35eefec98e11450e84a1e41be4"
     },
     {
       "path": "docs/src/tutorial_nameplate.md",
@@ -86,11 +86,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "270afb3528394c173ba794c03ba84c6afd2d6757b0b48c9d7c1356b909fbcd23"
+      "sha256": "e9827d2eca5b005747956e7269aaaba2c061a7d7a1a0cefa586d49c228b618f6"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "78fb2076f1011733626aa58eb08357b1dbe4b100330b503ac80abbd65c14e2bc"
+      "sha256": "0bfbb29bde7b013d6a42506a85c2aaf897f7c7b0eaa005d7762e657eaa4f3056"
     },
     {
       "path": "recipes/README.md",
@@ -102,7 +102,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "fb5d7486a322fc9a811446293abc74eaa3afd27beb21d6e0e9d7cc008ef94382"
+      "sha256": "15b2d9aba0b1c81cf6810203c9f1017833a6dfbf397f0cdfa8e7495959df8530"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -114,7 +114,7 @@
     },
     {
       "path": "recipes/explain_finding/metadata.toml",
-      "sha256": "28379a794202f60eb8dd3333c6625f7b4d36e1aaca8fa4cd9e9073cf9ba56080"
+      "sha256": "004373317791f81c54460039d3cd6c8e3234890264bfaee9810a1d682e3e01d0"
     },
     {
       "path": "recipes/explain_finding/recipe.jl",
@@ -126,7 +126,7 @@
     },
     {
       "path": "recipes/neutral_ground_reference/metadata.toml",
-      "sha256": "0ad665b8add51ad52f7f80ca142c023da875770eb7ef777679083e8449c8681f"
+      "sha256": "e1f2f17fb9e690aecc897bcae880937e3da1d68596fcf5b09907da3515cabc57"
     },
     {
       "path": "recipes/neutral_ground_reference/recipe.jl",
@@ -138,7 +138,7 @@
     },
     {
       "path": "recipes/parallel_member_limits/metadata.toml",
-      "sha256": "496d9b8b6407dfe8487572e20b9ed2707b1f4c4b2133429e99976772013175a0"
+      "sha256": "13fd52da92d1f98a458a6cc5f71821de1fc175a8ac44186cd14f8bf935a64072"
     },
     {
       "path": "recipes/parallel_member_limits/recipe.jl",
@@ -154,7 +154,7 @@
     },
     {
       "path": "recipes/parse_case/metadata.toml",
-      "sha256": "1c6045c51d0fd746cf2289ef167f29dc188a0b8c7a47af25fdbb9764c517c61c"
+      "sha256": "8eb1733ecb75ba918792b43cb2aff32bf629230eb7add4e8096f76dfc9d4f21d"
     },
     {
       "path": "recipes/parse_case/recipe.jl",
@@ -166,7 +166,7 @@
     },
     {
       "path": "recipes/verify_solution/metadata.toml",
-      "sha256": "d512efd1ebe8c6472909f734dcfc635cb36127353b8cf0a75717ab74d25e409f"
+      "sha256": "fa08d71957a9a174e88a9cc2ee67656bd406d7d522e85c90691a759e5d97bd65"
     },
     {
       "path": "recipes/verify_solution/recipe.jl",
@@ -174,11 +174,11 @@
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
-      "sha256": "3be56d591742d5f2da6b86b1e0d4097b4ac54c6218824e9bc31f1b4d046b23de"
+      "sha256": "b4b9f5f0467a4330a2e8129efcf07fdd202bc7a3da71ebe023be2e9d2a216002"
     },
     {
       "path": "schemas/execution-response.schema.json",
-      "sha256": "87a296e7aa3b9a2237bb1f6c7eb7ce682807ef358dcc33e1f5eb4ef5e244a8e6"
+      "sha256": "7cf4e828dd94b9f853b28f1e6899d00c15d31c9498262372be7eef0141ceb8a7"
     },
     {
       "path": "schemas/finding-registry.schema.json",
@@ -186,19 +186,19 @@
     },
     {
       "path": "scripts/bmopf_cli.jl",
-      "sha256": "e6d06a3f80721bc0f350d1e248daaa358861215dbd7df1f968ea98d2307f3584"
+      "sha256": "9359642632538f310535e9869584065d911af391108bb8236cbc3b038f17adbe"
     },
     {
       "path": "scripts/bmopf_mcp.jl",
-      "sha256": "96035734415ca7df584eba7d0b63cd7041a3bcd71dba5ec26b29b9b3e5fe3ef7"
+      "sha256": "3ece803eb21284ac56a378edd20992efa709b9091157c34f3470f27024530923"
     },
     {
       "path": "scripts/generate_finding_registry.py",
-      "sha256": "11206e46a984f62c3ac3f5c5c9fcf373b2ccf09aac15503dee91ab2144c81b32"
+      "sha256": "c8d428a8c6f8fa97bff2dbd063f201bab17e8971e651fae5b49ecda0c30fc3f4"
     },
     {
       "path": "src/execution/interface.jl",
-      "sha256": "68bfda5f156bf94d1efa6d6f8242095e886559f2a64d01ea241753dc031253df"
+      "sha256": "285f88633dc6a8aa2bebf3c8e561fa748a89da342ada403651903567e780957f"
     },
     {
       "path": "src/io/migrate.jl",
@@ -222,11 +222,11 @@
     },
     {
       "path": "src/report/finding_registry.jl",
-      "sha256": "dac8f32d3262b576b1dade361e80277b7c6769102321d9643f7315642ad7c872"
+      "sha256": "376160dc872ddf1a337fec902afed7a2e88ae5e41613714518955e5cc191e5f2"
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "20a3eb74e59f784ece992fe3b9440e67b44c28860249aac1df1abfb237e89c5e"
+      "sha256": "9ac3722fc23bf9305cc0eb791b868a3d9ac7602f213fd5d6e7578bbb2678b11c"
     },
     {
       "path": "src/validation/domain_rules.jl",

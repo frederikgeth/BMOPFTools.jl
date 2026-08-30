@@ -6,8 +6,8 @@
   "additionalProperties": false,
   "required": ["schema_version", "operation", "status", "package", "request", "inputs"],
   "properties": {
-    "schema_version": {"const": "0.5.0"},
-    "operation": {"enum": ["check_contract", "parse_case", "analyze_case", "verify_solution", "explain_finding"]},
+    "schema_version": {"const": "0.6.0"},
+    "operation": {"enum": ["check_contract", "parse_case", "analyze_case", "verify_solution", "explain_finding", null]},
     "status": {"enum": ["passed", "failed", "inapplicable", "indeterminate", "completed", "error"]},
     "package": {
       "type": "object",

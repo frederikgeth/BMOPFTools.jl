@@ -18,7 +18,7 @@ SCHEMA = ROOT / "schemas/executable-knowledge.schema.json"
 PROJECT = ROOT / "Project.toml"
 OUTPUT = ROOT / "generated/executable_knowledge.jsonl"
 MANIFEST = ROOT / "generated/executable-knowledge-manifest.json"
-SCHEMA_VERSION = "0.5.0"
+SCHEMA_VERSION = "0.6.0"
 PSK_ID = re.compile(r"^PSK-[0-9]{6}$")
 CONTRACT_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 FINDING_CODE = re.compile(r"^[EWI]\.[A-Z0-9_]+(?:\.[A-Z0-9_]+)+$")
@@ -291,22 +291,50 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
         if not isinstance(suite_id, str) or not PROPERTY_SUITE_ID.fullmatch(suite_id):
             errors.append(f"invalid property-suite ID: {suite_id}")
             continue
-        contract_id = item.get("contract_id")
+        seed_path_string = item.get("seed_path")
+        if not isinstance(seed_path_string, str) or not seed_path_string.strip():
+            errors.append(f"{suite_id}: missing seed_path")
+            continue
+        seed_path = ROOT / seed_path_string
+        if not seed_path.is_file():
+            errors.append(f"{suite_id}: missing seed specification {seed_path_string}")
+            continue
+        try:
+            seed_spec = json.loads(seed_path.read_text())
+        except (OSError, json.JSONDecodeError) as exception:
+            errors.append(f"{suite_id}: cannot read seed specification: {exception}")
+            continue
+        if not isinstance(seed_spec, dict):
+            errors.append(f"{suite_id}: seed specification must be a JSON object")
+            continue
+        if seed_spec.get("schema_version") != "0.1.0":
+            errors.append(f"{suite_id}: unsupported seed specification schema version")
+        if seed_spec.get("property_suite_id") != suite_id:
+            errors.append(f"{suite_id}: seed specification property-suite ID differs")
+        contract_id = seed_spec.get("contract_id")
         contract = contract_by_id.get(contract_id)
         if contract is None:
             errors.append(f"{suite_id}: unknown contract {contract_id}")
             continue
         knowledge_ids = require_strings(
-            suite_id, "knowledge_ids", item.get("knowledge_ids"), errors)
+            suite_id, "knowledge_ids", seed_spec.get("knowledge_ids"), errors)
         if knowledge_ids != contract.get("knowledge_ids"):
             errors.append(f"{suite_id}: knowledge IDs differ from {contract_id}")
         title = item.get("title")
         scope = item.get("scope")
-        seed_algorithm = item.get("seed_algorithm")
-        seed = item.get("seed")
-        case_count = item.get("case_count")
-        minimization_strategy = item.get("minimization_strategy")
-        failure_classification = item.get("failure_classification")
+        generator = seed_spec.get("generator", {})
+        minimization = seed_spec.get("minimization", {})
+        if not isinstance(generator, dict):
+            errors.append(f"{suite_id}: generator must be an object")
+            generator = {}
+        if not isinstance(minimization, dict):
+            errors.append(f"{suite_id}: minimization must be an object")
+            minimization = {}
+        seed_algorithm = generator.get("algorithm")
+        seed = generator.get("seed")
+        case_count = generator.get("case_count")
+        minimization_strategy = minimization.get("strategy")
+        failure_classification = seed_spec.get("failure_classification")
         if not isinstance(title, str) or not title.strip():
             errors.append(f"{suite_id}: missing title")
         if not isinstance(scope, str) or not scope.strip():
@@ -324,15 +352,20 @@ def validate_and_build() -> tuple[list[dict], dict, list[str]]:
         generator_domain = require_strings(
             suite_id, "generator_domain", item.get("generator_domain"), errors)
         properties_checked = require_strings(
-            suite_id, "properties_checked", item.get("properties_checked"), errors)
+            suite_id, "properties", seed_spec.get("properties"), errors)
+        preserved_codes = minimization.get("preserved_finding_codes")
+        if preserved_codes is None and minimization.get("preserved_finding_code") is not None:
+            preserved_codes = [minimization.get("preserved_finding_code")]
         expected_codes = require_strings(
-            suite_id, "expected_finding_codes", item.get("expected_finding_codes"), errors)
+            suite_id, "minimization preserved Finding codes", preserved_codes, errors)
         if not set(expected_codes).issubset(set(contract.get("finding_codes", []))):
             errors.append(f"{suite_id}: expected Finding codes are outside {contract_id}")
         does_not_establish = require_strings(
-            suite_id, "does_not_establish", item.get("does_not_establish"), errors)
+            suite_id, "does_not_establish", seed_spec.get("does_not_establish"), errors)
         path_strings = require_strings(
             suite_id, "source_paths", item.get("source_paths"), errors)
+        if seed_path_string not in path_strings:
+            errors.append(f"{suite_id}: seed_path must also appear in source_paths")
         source_paths = [ROOT / path_string for path_string in path_strings]
         for path in source_paths:
             if not path.is_file():

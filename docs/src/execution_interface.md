@@ -123,7 +123,7 @@ Every invocation writes one JSON object to standard output. The schema is
 
 ```json
 {
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "operation": "check_contract",
   "status": "failed",
   "package": {"name": "BMOPFTools", "version": "0.1.0"},
@@ -247,7 +247,7 @@ agents and CI can execute.
 
 `bin/bmopf-mcp` exposes the same settled execution operations to local MCP
 clients. It is a transport adapter, not another execution or retrieval layer:
-every successful tool call returns the existing `0.5.0` execution envelope as
+every successful tool call returns the existing `0.6.0` execution envelope as
 `structuredContent`, while tool failures return a schema-valid execution error
 with MCP `isError = true`.
 

@@ -40,7 +40,7 @@ using JSONSchema
         manifest = mcp.mcp_handle_request(request(
             4, "resources/read", Dict("uri" => "bmopf://execution/manifest")))
         manifest_payload = JSON3.read(only(manifest["result"]["contents"])["text"])
-        @test manifest_payload.schema_version == "0.5.0"
+        @test manifest_payload.schema_version == "0.6.0"
         @test manifest_payload.record_counts.recipe == 6
 
         parse_path = joinpath(root, "recipes", "parse_case", "input.json")
@@ -148,7 +148,16 @@ using JSONSchema
         unknown_tool = mcp.mcp_handle_request(tool_call(13, "bmopf_solve", Dict()))
         @test unknown_tool["error"]["code"] == -32602
 
+        @test mcp.mcp_handle_request(Dict{String,Any}(
+            "jsonrpc" => "2.0", "method" => "ping")) === nothing
+        @test mcp.mcp_handle_request(Dict{String,Any}(
+            "jsonrpc" => "2.0", "method" => "notifications/progress",
+            "params" => Dict{String,Any}("progress" => 1))) === nothing
+        @test mcp.mcp_handle_request(Dict{String,Any}(
+            "jsonrpc" => "2.0", "method" => "unknown/notification")) === nothing
+
         messages = [
+            Dict{String,Any}("jsonrpc" => "2.0", "method" => "ping"),
             request(14, "initialize", Dict("protocolVersion" => "2025-11-25")),
             request(15, "tools/list"),
             tool_call(16, "bmopf_parse", Dict("path" => parse_path)),

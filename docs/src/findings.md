@@ -47,6 +47,20 @@ and the leading namespace is what tells them apart from the codes below. See
 | `W.SCHEMA.META_ORCID_FORMAT` | W | An entry in `meta.authors` has an `orcid` field that does not match the standard ORCID format `XXXX-XXXX-XXXX-XXXX`. |
 | `W.SCHEMA.META_SOURCE_URL` | W | A `url` field in `meta.sources` is present but does not look like an `https://` URI. |
 
+## MIGRATE — input migration notes
+
+These notes record deterministic compatibility transformations applied while
+loading older BMOPF documents. They describe what changed; they do not certify
+that the migrated model preserves every intended scientific meaning.
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `W.MIGRATE.XFMR_SERIES_FIELDS` | W | Legacy lumped transformer `r_series`/`x_series` fields were assigned to the wye winding and zeroed on the delta winding. The transformation follows the legacy convention but should be checked against the source model. |
+| `W.MIGRATE.FIELD_RENAMES` | W | One or more legacy component fields were renamed to their current schema names, including voltage, winding-configuration, or IBR voltage-aggregation fields. |
+| `W.MIGRATE.XFMR_EXTRAS_FOLD` | W | Transformer fields temporarily relocated under `extras.transformer` by schema 0.1.0 were folded back onto their transformer record. |
+| `W.MIGRATE.TOP_LEVEL_EXTRAS_FOLD` | W | Component tables temporarily relocated under top-level `extras` by schema 0.1.0 were folded back onto the network record. |
+| `W.MIGRATE.LOAD_MODEL_CASE` | W | Uppercase legacy/upstream load-model enum values were lowercased to the values used by this package and its bundled schema. |
+
 ## CONN — connectivity & topology
 
 | Code | Sev | Trigger & rationale |
@@ -226,6 +240,10 @@ and [`load_model_analysis`](@ref) (`load_models` pass).
 
 The largest family; full derivations in the
 [methodology notes](methodology.md).
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `W.PROV.POWERIO_UNCODED` | W | A PowerIO conversion diagnostic arrived without a stable code. BMOPFTools retained it under this explicit fallback rather than silently dropping it or inventing a conversion-stage identity. |
 
 ### Impedance matrix structure
 
@@ -469,6 +487,22 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `W.SOL.INIT_LEVEL_MISMATCH` | W | One or more terminals have `vm_init / vm_solved` outside [0.1, 10] — the initialisation used the wrong voltage level (e.g. source voltage applied to an LV bus via flat warm-start). Solver may still converge but local-minimum risk is elevated. Only emitted when `result["initialisation"]` is present. |
 | `W.SOL.INIT_LARGE_ERROR` | W | One or more phase terminals have an initialisation error exceeding 20 % of the solved voltage magnitude — the start point was a poor approximation of the solution. |
 | `I.SOL.INIT_NEUTRAL_NONZERO` | I | One or more neutral terminals were initialised with non-zero voltage. Neutral start values should be zero; non-zero values indicate an initialisation inconsistency. |
+
+## DER — distributed-energy-resource augmentation
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `W.DER.NO_CANDIDATES` | W | The selected DER placement strategy produced no placements because no candidate load buses passed its filters. |
+| `I.DER.PLACED` | I | DER augmentation placed one or more generators; the Finding records the strategy, count, total active-power capacity, and generation/load ratio. |
+| `W.DER.OVERSUPPLY` | W | Added DER active-power capacity exceeds 150% of total load, so the resulting OPF may be trivially over-supplied. |
+
+## IBR — inverter-based-resource augmentation
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `W.IBR.NO_CANDIDATES` | W | The selected IBR placement strategy produced no placements because no candidate load buses passed its filters. |
+| `I.IBR.PLACED` | I | IBR augmentation placed one or more devices; the Finding records the strategy, count, total apparent-power rating, and rating/load ratio. |
+| `W.IBR.OVERSUPPLY` | W | Added IBR apparent-power rating exceeds 150% of total load, so the resulting OPF may be trivially over-supplied. |
 
 ## BENCH — benchmark readiness
 

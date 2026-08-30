@@ -1,4 +1,4 @@
-schema_version = "0.5.0"
+schema_version = "0.6.0"
 recipe_id = "parse_case"
 title = "Parse and inventory one BMOPF document"
 purpose = "Decode a deliberately incomplete BMOPF document, apply supported ingest migration, and return a hash-bound inventory while proving separately that parse completion does not establish schema validity."

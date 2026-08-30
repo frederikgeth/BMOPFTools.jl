@@ -1,4 +1,4 @@
-schema_version = "0.5.0"
+schema_version = "0.6.0"
 recipe_id = "analyze_case"
 title = "Analyze and triage one BMOPF case"
 purpose = "Parse the small tutorial network, run the standard analysis battery, and emit the complete structured Finding report without interpreting warnings as transport failure."
