@@ -19,11 +19,13 @@ Current recipes:
 
 - `analyze_case`: parses and analyzes the tutorial network, demonstrating that
   a completed operation can still contain Findings that need triage;
+- `explain_finding`: looks up one stable package Finding code in the generated
+  offline registry without diagnosing a case or inventing a repair;
 - `parallel_member_limits`: checks the `PSK-000001` scalar member-limit
-  counterexample; and
+  counterexample;
 - `neutral_ground_reference`: checks the `PSK-000002` neutral-continuity and
   grounding-relation counterexample, complementing the pedagogical grounding
-  tutorial; and
+  tutorial;
 - `verify_solution`: independently profiles a result that says
   `LOCALLY_SOLVED` but violates its case's declared voltage bound, complementing
   the “Trust but verify” tutorial.

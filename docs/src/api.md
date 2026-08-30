@@ -14,6 +14,7 @@ the whole sequence on one feeder.
 | Produce a stable JSON contract response | [`execute_contract`](@ref) | [JSON execution interface and recipes](execution_interface.md) |
 | Produce a stable JSON case-analysis response | [`execute_analysis`](@ref) | [JSON execution interface and recipes](execution_interface.md) |
 | Produce a stable JSON solution-verification response | [`execute_solution_verification`](@ref) | [JSON execution interface and recipes](execution_interface.md) |
+| Explain one stable Finding code offline | [`explain_finding`](@ref), [`execute_finding_explanation`](@ref) | [Findings](findings.md), [JSON execution interface and recipes](execution_interface.md) |
 | Repair structure | [`fix_case`](@ref) ([`FixRecipe`](@ref)) | [Case augmentation](augmentation.md) |
 | Place DERs | [`add_generators`](@ref), [`add_ibrs`](@ref) | [DER placement](tutorial_ders.md) |
 | Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
@@ -83,6 +84,8 @@ BMOPFTools.contract_result_to_dict
 BMOPFTools.execute_contract
 BMOPFTools.execute_analysis
 BMOPFTools.execute_solution_verification
+BMOPFTools.explain_finding
+BMOPFTools.execute_finding_explanation
 BMOPFTools.execution_error_response
 ```
 

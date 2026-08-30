@@ -51,5 +51,10 @@ a scientific preservation claim. The same package-only boundary applies to
 `execute_solution_verification`, `bin/bmopf verify-solution`, and its
 `verify_solution` recipe: they serialize existing `profile_solution` behavior
 without rerunning a solver or claiming the book's invalid-inference statement.
+The package-owned `explain_finding` lookup and `bin/bmopf explain-finding`
+route are generated from the canonical local Finding reference. They explain a
+stable code class offline and preserve existing contract/PSK links, but do not
+inspect a Finding instance, infer causes or repairs, query the book, or invent
+scientific links. External PowerIO diagnostic namespaces remain PowerIO-owned.
 Other contracts remain available through
 their Julia APIs until each mapping has an explicit reviewed transport shape.

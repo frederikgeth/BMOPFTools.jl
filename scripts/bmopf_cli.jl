@@ -21,12 +21,15 @@ Usage:
   bmopf verify-solution --case CASE.json --result RESULT.json \
     [--time-index INTEGER] [--pretty]
 
+  bmopf explain-finding FINDING_CODE [--pretty]
+
 The command writes one execution-response JSON object to stdout. Diagnostics
 and usage errors are written to stderr. Exit codes are 0 for a completed
 operation, 2 for an invalid request, and 1 for an input or execution failure. A
 completed contract may itself report passed, failed, inapplicable, or
-indeterminate status. A completed analysis may contain ERROR Findings without
-turning the operation status into an error.
+indeterminate status. A completed analysis or verification may contain ERROR
+Findings without turning the operation status into an error. Finding
+explanation is a deterministic offline catalogue lookup, not diagnosis.
 """
 const _CLI_CONTRACT_IDS = (
     "neutral_ground_reference_preservation",
@@ -195,18 +198,37 @@ function _cli_parse_solution(args::Vector{String})
     )
 end
 
+function _cli_parse_finding(args::Vector{String})
+    length(args) >= 2 || throw(ArgumentError("missing Finding code"))
+    code = args[2]
+    isempty(code) && throw(ArgumentError("Finding code must be nonempty"))
+    pretty = false
+    index = 3
+    while index <= length(args)
+        flag = args[index]
+        flag == "--pretty" || throw(ArgumentError("unknown option '$flag'"))
+        pretty && throw(ArgumentError("--pretty may be supplied only once"))
+        pretty = true
+        index += 1
+    end
+    (operation="explain_finding", code=code, pretty=pretty)
+end
+
 function _cli_parse(args::Vector{String})
     isempty(args) && throw(ArgumentError("missing operation"))
     args[1] == "check-contract" && return _cli_parse_contract(args)
     args[1] == "analyze-case" && return _cli_parse_analysis(args)
     args[1] == "verify-solution" && return _cli_parse_solution(args)
+    args[1] == "explain-finding" && return _cli_parse_finding(args)
     throw(ArgumentError(
-        "unsupported operation '$(args[1])'; expected check-contract, analyze-case, or verify-solution"))
+        "unsupported operation '$(args[1])'; expected check-contract, analyze-case, " *
+        "verify-solution, or explain-finding"))
 end
 
 function _cli_operation(args::Vector{String})
     !isempty(args) && args[1] == "analyze-case" && return "analyze_case"
     !isempty(args) && args[1] == "verify-solution" && return "verify_solution"
+    !isempty(args) && args[1] == "explain-finding" && return "explain_finding"
     "check_contract"
 end
 
@@ -262,8 +284,10 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
             [_cli_input("source", parsed.source), _cli_input("target", parsed.target)]
         elseif parsed.operation == "analyze_case"
             [_cli_input("case", parsed.input)]
-        else
+        elseif parsed.operation == "verify_solution"
             [_cli_input("case", parsed.case_path), _cli_input("result", parsed.result_path)]
+        else
+            Dict{String,Any}[]
         end
     catch exception
         message = sprint(showerror, exception)
@@ -294,20 +318,24 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
                 t_index=parsed.t_index,
                 inputs=inputs,
             )
-        else
+        elseif parsed.operation == "verify_solution"
             execute_solution_verification(
                 parse_bmopf(parsed.case_path),
                 read_result(parsed.result_path);
                 t_index=parsed.t_index,
                 inputs=inputs,
             )
+        else
+            execute_finding_explanation(parsed.code)
         end
     catch exception
         message = sprint(showerror, exception)
         println(err, message)
+        error_code = exception isa BMOPFTools.UnknownFindingCode ?
+                     "unknown_finding_code" : "execution_error"
         _cli_write(out, execution_error_response(
             message;
-            code="execution_error",
+            code=error_code,
             operation=parsed.operation,
             contract_id=parsed.operation == "check_contract" ? parsed.contract_id : nothing,
             inputs=inputs,

@@ -78,6 +78,25 @@ operation status, and Finding severity remain separate: a `LOCALLY_SOLVED`
 result can produce `E.SOL.*` Findings while the verification operation itself
 correctly reports `completed`.
 
+## Explain one Finding code
+
+The package catalogue is also available as a deterministic offline lookup:
+
+```sh
+bin/bmopf explain-finding E.SOL.VOLT_VIOLATION --pretty
+```
+
+Julia callers use `explain_finding(code)` for the catalogue entry alone or
+`execute_finding_explanation(code)` for the versioned execution envelope. The
+result contains canonical severity, namespace, catalogue section, meaning,
+documentation hash, and any existing executable-contract/PSK links. It does
+not inspect a case, infer a root cause, recommend a repair, or query the book.
+
+The registry is generated from the complete [Finding-code reference](findings.md)
+and checked against `schemas/finding-registry.schema.json`. External PowerIO
+conversion codes such as `EMIT.*` are refused explicitly because their meanings
+belong to PowerIO's catalogue.
+
 ## Response contract
 
 Every invocation writes one JSON object to standard output. The schema is
@@ -85,7 +104,7 @@ Every invocation writes one JSON object to standard output. The schema is
 
 ```json
 {
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "operation": "check_contract",
   "status": "failed",
   "package": {"name": "BMOPFTools", "version": "0.1.0"},
@@ -130,7 +149,8 @@ contract result or analysis report was produced. A contract that evaluates to `f
 `inapplicable`, or `indeterminate` is still a successfully completed CLI
 operation and therefore exits with code zero. Invalid requests exit with code
 2; input or execution errors exit with code 1. For `analyze_case` and
-`verify_solution`, `completed` is the only non-error operation status.
+`verify_solution`, and `explain_finding`, `completed` is the only non-error
+operation status.
 
 Julia callers can obtain the same envelope without starting a subprocess:
 
@@ -160,10 +180,11 @@ The `recipes/` directory contains small operational companions to the longer
 tutorials. Each recipe has machine-readable metadata, a runnable Julia file,
 and a short explanation of scope and invalid inferences.
 
-The first four recipes are:
+The first five recipes are:
 
 ```sh
 julia --startup-file=no --project=. recipes/analyze_case/recipe.jl
+julia --startup-file=no --project=. recipes/explain_finding/recipe.jl
 julia --startup-file=no --project=. recipes/parallel_member_limits/recipe.jl
 julia --startup-file=no --project=. recipes/neutral_ground_reference/recipe.jl
 julia --startup-file=no --project=. recipes/verify_solution/recipe.jl
@@ -186,6 +207,11 @@ behind the `PSK-000003` contract, but it runs ordinary `profile_solution`
 behavior rather than the scientific contract. It therefore carries no PSK
 identity in its executable metadata and demonstrates the tutorial's central
 misconception directly: solver status does not replace independent checks.
+
+The Finding-explanation recipe looks up that same `E.SOL.VOLT_VIOLATION` code
+without inspecting the result. It demonstrates the boundary between a
+catalogue meaning and case-specific evidence, carries no invented PSK identity,
+and refuses to turn the code into a guessed cause or repair.
 
 Recipes do not replace the tutorials. Tutorials explain modelling choices and
 misconceptions in context; recipes provide a short, repeatable operation that

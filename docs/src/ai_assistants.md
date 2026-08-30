@@ -115,6 +115,22 @@ The `recipes/verify_solution` example deliberately profiles a
 facts separately: solver termination, `completed` verification transport, and
 the ERROR Finding.
 
+### Explain a Finding code
+
+Use the offline registry when the user asks what a stable BMOPFTools code means:
+
+```sh
+bin/bmopf explain-finding E.SOL.VOLT_VIOLATION --pretty
+```
+
+Report the canonical meaning and provenance separately from the observed
+Finding instance. The catalogue entry does not diagnose why the violation
+occurred, identify an automatic repair, or prove that other checks passed.
+Preserve empty `knowledge_ids` when no scientific-contract link is declared;
+do not infer a PSK link from topical similarity. If the code belongs to an
+external PowerIO namespace such as `EMIT.*`, use PowerIO's catalogue rather
+than inventing a BMOPFTools explanation.
+
 ### Evaluate a scientific contract
 
 > Evaluate `parallel_member_limit_preservation` for the declared source members `<IDs>` and target aggregate `<ID>`. Report the `ScientificContractResult` status, checked dimensions, unassessed dimensions, Findings, tolerances, and witness. If the result is `inapplicable` or `indeterminate`, do not convert it to a pass or failure. Treat `PSK-000001` as a link to the book's scoped scientific statement, not as a claim that the scalar implementation covers multiconductor or state-dependent branches.

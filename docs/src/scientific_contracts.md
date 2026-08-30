@@ -514,6 +514,7 @@ and solver results remain unassessed.
 Check that committed records are current with:
 
 ```bash
+python3 scripts/generate_finding_registry.py --check
 python3 scripts/generate_executable_knowledge.py --check
 ```
 

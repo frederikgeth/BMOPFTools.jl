@@ -5,6 +5,13 @@ The complete catalogue of finding codes, grouped by family. Codes are
 prefix: `E.` error, `W.` warning, `I.` info (see
 [Analysis & reports](analysis.md) for the severity semantics).
 
+For deterministic offline lookup, use `explain_finding(code)` or
+`bin/bmopf explain-finding CODE --pretty`. The checked machine-readable export
+is `generated/finding-registry.json`, generated from this page. A catalogue
+entry explains the stable code class; a Finding instance's component, message,
+and detail describe one observation. Neither should be treated as an inferred
+root cause or an automatically safe repair.
+
 Two families on this page are **not** produced by [`analyze`](@ref). The
 `CONTRACT.` codes at the end come from the explicit source-versus-target
 [scientific contracts](scientific_contracts.md), which must be invoked directly

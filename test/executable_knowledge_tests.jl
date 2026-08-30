@@ -7,10 +7,21 @@ using SHA
     corpus_path = joinpath(root, "generated", "executable_knowledge.jsonl")
     manifest_path = joinpath(root, "generated", "executable-knowledge-manifest.json")
     schema_path = joinpath(root, "schemas", "executable-knowledge.schema.json")
+    finding_registry_path = joinpath(root, "generated", "finding-registry.json")
+    finding_registry_schema_path = joinpath(root, "schemas", "finding-registry.schema.json")
 
     @test isfile(corpus_path)
     @test isfile(manifest_path)
     @test isfile(schema_path)
+    @test isfile(finding_registry_path)
+    @test isfile(finding_registry_schema_path)
+
+    finding_registry_schema = JSONSchema.Schema(
+        JSON3.read(read(finding_registry_schema_path, String)))
+    finding_registry = JSON3.read(read(finding_registry_path, String))
+    @test JSONSchema.validate(finding_registry_schema, finding_registry) === nothing
+    @test finding_registry.finding_count == length(finding_registry.findings) == 341
+    @test length(unique(String(item.code) for item in finding_registry.findings)) == 341
 
     schema = JSONSchema.Schema(JSON3.read(read(schema_path, String)))
     lines = filter(!isempty, split(read(corpus_path, String), '\n'))
@@ -20,12 +31,12 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 103
+    @test manifest.record_count == length(records) == 104
     @test manifest.record_counts.executable_contract == 14
     @test manifest.record_counts.api_operation == 14
     @test manifest.record_counts.finding == 57
     @test manifest.record_counts.fixture == 14
-    @test manifest.record_counts.recipe == 4
+    @test manifest.record_counts.recipe == 5
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
         "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
@@ -96,6 +107,15 @@ using SHA
     @test verification_recipe.expected_status == "completed"
     @test verification_recipe.expected_finding_codes == ["E.SOL.VOLT_VIOLATION"]
     @test all(file -> isfile(joinpath(root, String(file.path))), verification_recipe.files)
+
+    explanation_recipe = by_id["recipe:explain_finding"]
+    @test explanation_recipe.operation == "explain_finding"
+    @test explanation_recipe.knowledge_ids == []
+    @test explanation_recipe.fixture_ids == []
+    @test !haskey(explanation_recipe, :contract_id)
+    @test explanation_recipe.expected_status == "completed"
+    @test explanation_recipe.expected_finding_codes == ["E.SOL.VOLT_VIOLATION"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), explanation_recipe.files)
 
     neutral_contract = by_id["contract:neutral_ground_reference_preservation"]
     neutral_fixture = by_id["fixture:neutral-ground-reference-conflation-001"]
@@ -227,4 +247,6 @@ using SHA
 
     generator = joinpath(root, "scripts", "generate_executable_knowledge.py")
     @test success(`python3 $generator --check`)
+    finding_generator = joinpath(root, "scripts", "generate_finding_registry.py")
+    @test success(`python3 $finding_generator --check`)
 end

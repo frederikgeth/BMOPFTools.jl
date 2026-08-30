@@ -6,8 +6,8 @@
   "additionalProperties": false,
   "required": ["schema_version", "operation", "status", "package", "request", "inputs"],
   "properties": {
-    "schema_version": {"const": "0.3.0"},
-    "operation": {"enum": ["check_contract", "analyze_case", "verify_solution"]},
+    "schema_version": {"const": "0.4.0"},
+    "operation": {"enum": ["check_contract", "analyze_case", "verify_solution", "explain_finding"]},
     "status": {"enum": ["passed", "failed", "inapplicable", "indeterminate", "completed", "error"]},
     "package": {
       "type": "object",
@@ -40,7 +40,7 @@
         }
       }
     },
-    "result": {"oneOf": [{"$ref": "#/$defs/contractResult"}, {"$ref": "#/$defs/analysisResult"}, {"$ref": "#/$defs/solutionResult"}]},
+    "result": {"oneOf": [{"$ref": "#/$defs/contractResult"}, {"$ref": "#/$defs/analysisResult"}, {"$ref": "#/$defs/solutionResult"}, {"$ref": "#/$defs/findingExplanation"}]},
     "error": {
       "type": "object",
       "additionalProperties": false,
@@ -125,6 +125,43 @@
         "results": {"type": "object"},
         "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}
       }
+    },
+    "findingExplanation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "namespace", "catalogue_section", "section_title", "meaning", "contract_id", "knowledge_ids", "documentation", "registry"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[EWI]\\.[A-Z0-9_]+(?:\\.[A-Z0-9_]+)+$"},
+        "severity": {"enum": ["ERROR", "WARNING", "INFO"]},
+        "namespace": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "catalogue_section": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "section_title": {"type": "string", "minLength": 1},
+        "meaning": {"type": "string", "minLength": 1},
+        "contract_id": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$"},
+        "knowledge_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^PSK-[0-9]{6}$"}
+        },
+        "documentation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {"const": "docs/src/findings.md"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        "registry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "schema_version"],
+          "properties": {
+            "id": {"const": "bmopftools-findings-0.1.0"},
+            "schema_version": {"const": "0.1.0"}
+          }
+        }
+      }
     }
   },
   "allOf": [
@@ -145,15 +182,20 @@
         "properties": {
           "status": {"enum": ["completed", "error"]},
           "request": {"properties": {"contract_id": {"type": "null"}}}
-        },
-        "allOf": [
-          {
-            "if": {"properties": {"operation": {"const": "analyze_case"}}},
-            "then": {"properties": {"result": {"$ref": "#/$defs/analysisResult"}}},
-            "else": {"properties": {"result": {"$ref": "#/$defs/solutionResult"}}}
-          }
-        ]
+        }
       }
+    },
+    {
+      "if": {"properties": {"operation": {"const": "analyze_case"}}},
+      "then": {"properties": {"result": {"$ref": "#/$defs/analysisResult"}}}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "verify_solution"}}},
+      "then": {"properties": {"result": {"$ref": "#/$defs/solutionResult"}}}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "explain_finding"}}},
+      "then": {"properties": {"result": {"$ref": "#/$defs/findingExplanation"}}}
     }
   ]
 }

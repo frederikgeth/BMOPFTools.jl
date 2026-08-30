@@ -21,6 +21,8 @@ claims, evidence status, misconceptions, and stable PSK identities.
 - Executable registry: knowledge/executable.toml
 - Generated records: generated/executable_knowledge.jsonl
 - Generated manifest: generated/executable-knowledge-manifest.json
+- Offline Finding registry: generated/finding-registry.json
+- Finding registry schema: schemas/finding-registry.schema.json
 - Execution response schema: schemas/execution-response.schema.json
 - Recipes: recipes/README.md
 
@@ -38,6 +40,8 @@ bin/bmopf check-contract neutral_ground_reference_preservation \
 bin/bmopf analyze-case --input CASE.json --pretty
 
 bin/bmopf verify-solution --case CASE.json --result RESULT.json --pretty
+
+bin/bmopf explain-finding FINDING_CODE --pretty
 ```
 
 Treat `passed`, `failed`, `inapplicable`, and `indeterminate` as distinct
@@ -50,3 +54,6 @@ readiness or feasibility.
 For `verify_solution`, retain the solver's termination status but do not treat
 it as a substitute for the independently recomputed `E.SOL.*`, `W.SOL.*`, and
 `I.SOL.*` Findings.
+For `explain_finding`, distinguish the canonical code meaning from one observed
+Finding instance. Do not infer a cause, repair, or PSK identity absent from the
+registry. External PowerIO conversion codes are outside this package registry.

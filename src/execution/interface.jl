@@ -1,6 +1,6 @@
 # execution/interface.jl
 
-const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.3.0"
+const _EXECUTION_RESPONSE_SCHEMA_VERSION = "0.4.0"
 
 function _execution_package_identity()
     Dict{String,Any}(
@@ -230,6 +230,29 @@ function execute_solution_verification(
 end
 
 """
+    execute_finding_explanation(code) -> Dict{String,Any}
+
+Look up one stable BMOPFTools Finding code through the versioned JSON execution
+interface. This is a deterministic catalogue lookup over [`explain_finding`](@ref),
+not case analysis, scientific retrieval, diagnosis, or automatic remediation.
+"""
+function execute_finding_explanation(code::AbstractString)::Dict{String,Any}
+    explanation = explain_finding(code)
+    Dict{String,Any}(
+        "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,
+        "operation" => "explain_finding",
+        "status" => "completed",
+        "package" => _execution_package_identity(),
+        "request" => Dict{String,Any}(
+            "contract_id" => nothing,
+            "parameters" => Dict{String,Any}("code" => String(code)),
+        ),
+        "inputs" => Dict{String,Any}[],
+        "result" => explanation,
+    )
+end
+
+"""
     execution_error_response(message; code="invalid_request",
                              operation="check_contract",
                              contract_id=nothing, inputs=[])
@@ -246,7 +269,7 @@ function execution_error_response(
         inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
     isempty(message) && throw(ArgumentError("execution error message must be nonempty"))
     isempty(code) && throw(ArgumentError("execution error code must be nonempty"))
-    operation in ("check_contract", "analyze_case", "verify_solution") || throw(ArgumentError(
+    operation in ("check_contract", "analyze_case", "verify_solution", "explain_finding") || throw(ArgumentError(
         "unsupported execution operation '$operation'"))
     operation != "check_contract" && contract_id !== nothing && throw(ArgumentError(
         "$operation errors cannot name a scientific contract"))

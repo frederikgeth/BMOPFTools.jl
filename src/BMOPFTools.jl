@@ -761,6 +761,7 @@ include("report/render_markdown.jl")
 include("report/render_ascii_tree.jl")
 include("report/render_solution_markdown.jl")
 include("report/render_json.jl")
+include("report/finding_registry.jl")
 include("execution/interface.jl")
 
 include("infeasibility/infeasibility.jl")
@@ -2930,7 +2931,9 @@ export extract_result
 export Severity, ERROR, WARNING, INFO
 export Finding, SummaryReport, SolutionReport
 export ScientificContractResult, contract_result_to_dict
-export execute_contract, execute_analysis, execute_solution_verification, execution_error_response
+export explain_finding
+export execute_contract, execute_analysis, execute_solution_verification
+export execute_finding_explanation, execution_error_response
 export check_parallel_member_limit_preservation
 export check_neutral_ground_reference_preservation
 export check_claimed_solution_validity

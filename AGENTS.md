@@ -17,6 +17,7 @@ For scientific guardrails:
 Primary gates:
 
 ```bash
+python3 scripts/generate_finding_registry.py --check
 python3 scripts/generate_executable_knowledge.py --check
 julia --project=test --startup-file=no -e \
   'using Test, BMOPFTools; include("test/scientific_contract_tests.jl"); include("test/executable_knowledge_tests.jl"); include("test/execution_interface_tests.jl")'

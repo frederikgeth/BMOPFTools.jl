@@ -24,7 +24,7 @@ using SHA
     response = execute_contract(
         "parallel_member_limit_preservation", source, target;
         parameters=parameters, inputs=inputs)
-    @test response["schema_version"] == "0.3.0"
+    @test response["schema_version"] == "0.4.0"
     @test response["operation"] == "check_contract"
     @test response["status"] == "failed"
     @test response["request"]["parameters"]["member_ids"] == ["l1", "l2"]
@@ -83,6 +83,28 @@ using SHA
         JSON3.read(JSON3.write(verification))) === nothing
     @test_throws ArgumentError execute_solution_verification(
         parse_bmopf(solution_case_path), read_result(solution_result_path); t_index=0)
+
+    finding = explain_finding("E.SOL.VOLT_VIOLATION")
+    @test finding["severity"] == "ERROR"
+    @test finding["namespace"] == "SOL"
+    @test finding["catalogue_section"] == "SOL"
+    @test finding["contract_id"] === nothing
+    @test isempty(finding["knowledge_ids"])
+    @test finding["documentation"]["path"] == "docs/src/findings.md"
+    @test occursin("voltage", lowercase(finding["meaning"]))
+
+    contract_finding = explain_finding("W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS")
+    @test contract_finding["contract_id"] == "parallel_member_limit_preservation"
+    @test contract_finding["knowledge_ids"] == ["PSK-000001"]
+    @test_throws BMOPFTools.UnknownFindingCode explain_finding("EMIT.BMOPF.FIELD_DROPPED")
+
+    explanation = execute_finding_explanation("E.SOL.VOLT_VIOLATION")
+    @test explanation["operation"] == "explain_finding"
+    @test explanation["status"] == "completed"
+    @test explanation["request"]["parameters"]["code"] == "E.SOL.VOLT_VIOLATION"
+    @test isempty(explanation["inputs"])
+    @test explanation["result"] == finding
+    @test JSONSchema.validate(schema, JSON3.read(JSON3.write(explanation))) === nothing
 
     refusal = execute_contract(
         "parallel_member_limit_preservation", source, target;
@@ -216,6 +238,32 @@ using SHA
     @test verification_cli_response.result.summary.errors == 1
     @test JSONSchema.validate(schema, verification_cli_response) === nothing
 
+    explanation_cli_out = IOBuffer()
+    explanation_cli_err = IOBuffer()
+    explanation_cli_code = cli_module.main([
+        "explain-finding", "E.SOL.VOLT_VIOLATION",
+    ]; out=explanation_cli_out, err=explanation_cli_err)
+    @test explanation_cli_code == 0
+    @test isempty(String(take!(explanation_cli_err)))
+    explanation_cli_response = JSON3.read(String(take!(explanation_cli_out)))
+    @test explanation_cli_response.operation == "explain_finding"
+    @test explanation_cli_response.status == "completed"
+    @test explanation_cli_response.result.code == "E.SOL.VOLT_VIOLATION"
+    @test isempty(explanation_cli_response.inputs)
+    @test JSONSchema.validate(schema, explanation_cli_response) === nothing
+
+    unknown_finding_out = IOBuffer()
+    unknown_finding_err = IOBuffer()
+    unknown_finding_code = cli_module.main([
+        "explain-finding", "EMIT.BMOPF.FIELD_DROPPED",
+    ]; out=unknown_finding_out, err=unknown_finding_err)
+    @test unknown_finding_code == 1
+    unknown_finding_response = JSON3.read(String(take!(unknown_finding_out)))
+    @test unknown_finding_response.operation == "explain_finding"
+    @test unknown_finding_response.status == "error"
+    @test unknown_finding_response.error.code == "unknown_finding_code"
+    @test JSONSchema.validate(schema, unknown_finding_response) === nothing
+
     bad_analysis_out = IOBuffer()
     bad_analysis_err = IOBuffer()
     bad_analysis_code = cli_module.main([
@@ -313,4 +361,13 @@ using SHA
           "LOCALLY_SOLVED"
     @test verification_recipe_response.result.summary.errors == 1
     @test JSONSchema.validate(schema, verification_recipe_response) === nothing
+
+    explanation_recipe = joinpath(root, "recipes", "explain_finding", "recipe.jl")
+    explanation_recipe_output = read(
+        `$(Base.julia_cmd()) --startup-file=no --project=$root $explanation_recipe`, String)
+    explanation_recipe_response = JSON3.read(explanation_recipe_output)
+    @test explanation_recipe_response.status == "completed"
+    @test explanation_recipe_response.result.code == "E.SOL.VOLT_VIOLATION"
+    @test isempty(explanation_recipe_response.result.knowledge_ids)
+    @test JSONSchema.validate(schema, explanation_recipe_response) === nothing
 end
