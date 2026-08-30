@@ -70,3 +70,9 @@ and failed tool calls preserve the existing execution-response schema; MCP does
 not define new scientific or transport statuses. Local paths are constrained to
 explicit roots, arbitrary Julia evaluation and solver invocation are absent,
 and the book remains the only scientific retrieval service.
+
+Some book-owned negative results have no meaningful BMOPFTools counterpart.
+Their federated executable status is explicitly `not_applicable`; BMOPFTools
+must not add an empty contract, Finding, or fixture solely to make those records
+look symmetric. Package metadata is added only when concrete package behavior
+or evidence exists.
