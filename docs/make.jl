@@ -1,6 +1,8 @@
 using Documenter
 using BMOPFTools
 
+const REPOSITORY_ROOT = normpath(joinpath(@__DIR__, ".."))
+
 makedocs(
     sitename = "BMOPFTools.jl",
     modules  = [BMOPFTools],
@@ -119,6 +121,14 @@ makedocs(
         ],
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)
+)
+
+# Keep one canonical machine-discovery file at the repository root and publish
+# that exact file with the Documenter site.
+cp(
+    joinpath(REPOSITORY_ROOT, "llms.txt"),
+    joinpath(@__DIR__, "build", "llms.txt");
+    force=true,
 )
 
 deploydocs(

@@ -28,6 +28,8 @@ Parse completion is deliberately not a schema-validity or solver-readiness
 claim. The complete generated
 Finding registry is `generated/finding-registry.json`; it explains code classes
 without diagnosing a particular observation or guessing a repair.
+The concise machine-discovery entry point is [llms.txt](llms.txt); the
+documentation build publishes the same canonical file alongside the site.
 
 Local MCP clients can launch the same curated surface through `bin/bmopf-mcp`.
 The read-only stdio adapter returns the existing versioned execution envelopes,

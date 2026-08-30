@@ -4,6 +4,11 @@ AI coding assistants can help inspect BMOPF cases, explain diagnostics, write Ju
 
 This page applies equally to ChatGPT, Codex, Claude, and other assistants. It describes safe use of the package; it does not add an LLM retrieval service to BMOPFTools.
 
+For machine discovery, start with the concise published
+[`llms.txt`](https://frederikgeth.github.io/BMOPFTools.jl/docs/llms.txt) index.
+It links the canonical documentation, executable manifests, response schema,
+MCP adapter, and recipes; this page remains the fuller operating guide.
+
 !!! important "Package behavior and scientific authority are different"
     BMOPFTools owns executable behavior: APIs, applicability checks, structured results, Finding codes, fixtures, and package tests. The companion *What Power-Network Models Preserve* resource owns the scientific statements, evidence status, misconceptions, and stable `PSK-*` identities.
 

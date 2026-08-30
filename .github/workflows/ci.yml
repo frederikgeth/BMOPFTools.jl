@@ -25,6 +25,8 @@ jobs:
         arch: [default]
     steps:
       - uses: actions/checkout@v6
+      - name: Check machine-discovery entry point
+        run: python3 scripts/check_llms_entrypoint.py
       - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
