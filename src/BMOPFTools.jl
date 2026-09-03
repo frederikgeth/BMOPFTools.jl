@@ -2278,6 +2278,12 @@ function register_opf_object! end
 Register and retrieve semantic complementarity relations between objects in the
 OPF registry. The active OPF extension validates the endpoint objects and an
 optional solver adapter maps the returned keys to solver-native indices.
+
+Registering a pair does **not** stamp `r · s = 0` into the model — only an MPCC
+adapter can enforce it — so the OPF extension arms an optimize hook that refuses
+a plain `JuMP.optimize!` on a model carrying unenforced pairs. Solving such a
+model directly relaxes every hinge, which for a saturating droop curve can stop
+the constraint binding at all while still reporting a successful status.
 """
 function register_opf_complementarity_pair! end
 function opf_complementarity_pairs end
@@ -2955,11 +2961,30 @@ when the BMOPFOpfExt extension and CCOpt's optional dependencies are loaded.
 function build_ccopt_model end
 export build_ccopt_model
 
-"""Solve a model returned by [`build_ccopt_model`](@ref)."""
+"""
+    solve_ccopt!(handle; method=:relaxation, kwargs...)
+
+Solve a model returned by [`build_ccopt_model`](@ref). `method` selects CCOpt's
+`:relaxation` (Scholtes homotopy) or `:penalty` solver; remaining keywords are
+forwarded to the CCOpt solver constructor.
+"""
 function solve_ccopt! end
 export solve_ccopt!
 
-"""Extract a BMOPFTools result dictionary from a solved CCOpt model."""
+"""
+    extract_ccopt_result(handle; stats, solution_hook!, curve_error_tol,
+                         bound_tol) -> Dict
+
+Extract a `solve_opf`-shaped result dictionary from a solved CCOpt model.
+
+The point is reported as feasible only when the solver succeeded **and** the
+complementarity pairs hold to tolerance — a homotopy stopped early returns a
+point on a relaxed droop curve, which is precisely the error the exact encoding
+exists to remove. The `"ccopt"` entry of the result records the measured
+residuals; `curve_error_tol` bounds `|slope| · min(r, s)` as a fraction of each
+curve's reference base, and `bound_tol` bounds how far a hinge variable may sit
+below its own zero (both in model units).
+"""
 function extract_ccopt_result end
 export extract_ccopt_result
 

@@ -27,15 +27,24 @@ _slack(v, s::MOI.Interval)    = min(v - s.lower, s.upper - v)
 _slack(v, ::Any) = nothing
 
 """
-    _optimization_profile(model; per_unit, tol_active, tol_primal) -> Dict
+    _optimization_profile(model; per_unit, tol_active, tol_primal,
+                          value_function, iterations, solve_time) -> Dict
 
 Return a machine-readable optimization fingerprint of `model` after `optimize!`.
 See docs/TAGGING.md (BMOPFDraftData) for how these feed benchmark classification.
+
+Pass `value_function` (a `VariableRef -> Float64` map), `iterations` and
+`solve_time` when the point came from a solver that never ran through JuMP — an
+MPCC adapter, say. The primal active set is then computed against that point;
+`has_duals` stays false, because such a point carries no JuMP multipliers.
 """
 function _optimization_profile(model::JuMP.Model;
                                per_unit::Bool=true,
                                tol_active::Float64=1e-6,
-                               tol_primal::Float64=1e-6)
+                               tol_primal::Float64=1e-6,
+                               value_function=nothing,
+                               iterations=nothing,
+                               solve_time=nothing)
     prof = Dict{String,Any}(
         "units" => per_unit ? "per_unit" : "SI",
         "n_variables" => nothing, "n_eq_constraints" => nothing,
@@ -64,13 +73,23 @@ function _optimization_profile(model::JuMP.Model;
     end
 
     # --- solver-reported iterations & time ---
-    try
-        prof["barrier_iterations"] = Int(MOI.get(model, MOI.BarrierIterations()))
-    catch
+    # An off-JuMP solver (an MPCC adapter, say) reports its own counters; the
+    # model never saw an `optimize!` and MOI would have nothing to give.
+    if iterations !== nothing
+        prof["barrier_iterations"] = Int(iterations)
+    else
+        try
+            prof["barrier_iterations"] = Int(MOI.get(model, MOI.BarrierIterations()))
+        catch
+        end
     end
-    try
-        prof["solve_time_s"] = JuMP.solve_time(model)
-    catch
+    if solve_time !== nothing
+        prof["solve_time_s"] = Float64(solve_time)
+    else
+        try
+            prof["solve_time_s"] = JuMP.solve_time(model)
+        catch
+        end
     end
 
     # --- primal active set + dual-based strict complementarity ---
@@ -79,10 +98,15 @@ function _optimization_profile(model::JuMP.Model;
     # for inactive bounds too, which would grossly overcount. The dual is then used
     # only to certify complementarity: a binding constraint with a ~0 multiplier is
     # weakly active (a degeneracy — the "easily solvable degeneracy" we want to flag).
+    # An externally solved point carries no JuMP duals, so the strict-
+    # complementarity half of the profile is unavailable by construction; the
+    # primal active set below is still exact and is what `is_opf` reads.
     hd = false
-    try
-        hd = JuMP.has_duals(model)
-    catch
+    if value_function === nothing
+        try
+            hd = JuMP.has_duals(model)
+        catch
+        end
     end
     prof["has_duals"] = hd
 
@@ -95,7 +119,8 @@ function _optimization_profile(model::JuMP.Model;
             for con in JuMP.all_constraints(model, F, S)
                 sl = nothing; v = 0.0
                 try
-                    v = JuMP.value(con)
+                    v = value_function === nothing ? JuMP.value(con) :
+                        JuMP.value(value_function, con)
                     sl = _slack(v, JuMP.constraint_object(con).set)
                 catch
                     continue

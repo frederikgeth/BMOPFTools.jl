@@ -2,6 +2,9 @@ module BMOPFCCOptExt
 
 using BMOPFTools
 using JuMP
+# Not called here. It is in this extension's trigger list because BMOPFOpfExt —
+# whose staged builder and result extraction this adapter reuses — is itself
+# triggered by [JuMP, Ipopt], and `_opf_extension()` below requires it loaded.
 using Ipopt
 using CCOpt
 using MPCCModels
@@ -14,6 +17,6 @@ function _opf_extension()
     return ext
 end
 
-include("../BMOPFOpfExt/ccopt.jl")
+include("ccopt.jl")
 
 end # module BMOPFCCOptExt

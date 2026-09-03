@@ -387,6 +387,11 @@ function _complementarity_curve_expr!(ctx, inv_id, idx, controller::Symbol,
                 "hinge" => hinge,
                 "slope" => Float64(a),
                 "breakpoint" => Float64(xbar),
+                # The curve reference base, in model power units. A residual
+                # `min(r, s)` on this pair perturbs the enforced curve value by
+                # `base * |slope| * min(r, s)`, which is how a solver adapter
+                # converts a complementarity residual into a physical error.
+                "base" => Float64(base),
                 "encoding" => "exact_relu_hinge",
             ))
         BMOPFTools.register_opf_complementarity_pair!(ctx, pair)

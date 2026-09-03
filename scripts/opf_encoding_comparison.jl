@@ -6,8 +6,16 @@ complementarity formulation on one BMOPF snapshot.
 
 The script reports the objective, status, feasibility, solver-reported time,
 and (for smooth-vs-CCOpt rows) the maximum differences in the extracted IBR
-outputs and bus voltage magnitudes.  CCOpt rows also report the maximum
-complementarity product and the number of registered pairs.
+outputs and bus voltage magnitudes.  CCOpt rows also report how far the
+returned point is from satisfying the complementarity pairs exactly, and the
+number of registered pairs.
+
+Two caveats on reading the timing columns.  `solve_time_s` is the solver's own
+report, and the two solvers do not measure the same span: CCOpt's wall time
+includes MadNLP initialisation, while Ipopt's `JuMP.solve_time` excludes model
+construction.  `outer_time_s` brackets the whole call for both and is the
+column to compare.  Use `--warmup` regardless, because the first invocation of
+either path includes Julia compilation.
 
 Usage:
 
@@ -17,7 +25,8 @@ Usage:
 Options:
 
     --eps=1e-2,2e-3,1e-4,1e-5   Smooth epsilons (default shown above)
-    --method=relaxation         CCOpt method: relaxation or penalty
+    --method=relaxation         CCOpt method (relaxation; penalty is broken
+                                upstream in CCOpt 0.1.0)
     --warmup                    Run one discarded solve of each formulation
     --verbose                   Keep solver output instead of suppressing it
     --out=/path/to/results.tsv  Also write the tab-separated report to a file
@@ -121,9 +130,11 @@ end
 
 function _run_smooth(path, epsilon; verbose=false)
     net = parse_bmopf(path)
-    _call_quiet(verbose) do
+    t0 = time()
+    result = _call_quiet(verbose) do
         solve_opf(net; volt_var_watt_eps=epsilon, verbose=verbose)
     end
+    return result, time() - t0
 end
 
 function _ccopt_options(method)
@@ -180,6 +191,9 @@ function _row(label, epsilon, result; reference=nothing, outer_time=nothing)
         solve_time=get(result, "solve_time", missing),
         outer_time=outer_time,
         max_complementarity=get(ccopt, "max_complementarity_product", missing),
+        curve_error=get(ccopt, "max_curve_error_relative", missing),
+        bound_violation=get(ccopt, "max_hinge_bound_violation", missing),
+        complementarity_ok=get(ccopt, "complementarity_satisfied", missing),
         pair_count=get(ccopt, "pair_count", missing),
         objective_delta=comparison[1],
         max_pg_delta=comparison[2],
@@ -191,7 +205,9 @@ end
 
 const _HEADERS = [
     "formulation", "epsilon", "status", "feasible", "objective",
-    "solve_time_s", "outer_time_s", "max_complementarity_product", "pair_count",
+    "solve_time_s", "outer_time_s", "max_complementarity_product",
+    "max_curve_error_relative", "max_hinge_bound_violation",
+    "complementarity_satisfied", "pair_count",
     "objective_delta_vs_ccopt", "max_pg_delta", "max_qg_delta",
     "max_cri_delta", "max_vm_delta",
 ]
@@ -206,6 +222,9 @@ function _field_strings(row)
         row.solve_time === missing ? "" : @sprintf("%.6g", row.solve_time),
         row.outer_time === nothing ? "" : @sprintf("%.6g", row.outer_time),
         row.max_complementarity === missing ? "" : @sprintf("%.6g", row.max_complementarity),
+        row.curve_error === missing ? "" : @sprintf("%.6g", row.curve_error),
+        row.bound_violation === missing ? "" : @sprintf("%.6g", row.bound_violation),
+        row.complementarity_ok === missing ? "" : string(row.complementarity_ok),
         row.pair_count === missing ? "" : string(row.pair_count),
         row.objective_delta === missing ? "" : @sprintf("%.6g", row.objective_delta),
         row.max_pg_delta === missing ? "" : @sprintf("%.6g", row.max_pg_delta),
@@ -220,6 +239,7 @@ function _write_report(io, options, rows)
     println(io, "# case=$(options.path)")
     println(io, "# ccopt_method=$(options.method)")
     println(io, "# smooth rows compare against the CCOpt row")
+    println(io, "# compare timings on outer_time_s; solve_time_s spans differ per solver")
     println(io, join(_HEADERS, '\t'))
     for row in rows
         println(io, join(_field_strings(row), '\t'))
@@ -241,8 +261,9 @@ function main(args=ARGS)
               for epsilon in options.epsilons]
     ccopt, ccopt_outer_time = _run_ccopt(options.path, options.method;
                                          verbose=options.verbose)
-    rows = Any[_row("smooth", epsilon, result; reference=ccopt)
-               for (epsilon, result) in smooth]
+    rows = Any[_row("smooth", epsilon, result;
+                    reference=ccopt, outer_time=elapsed)
+               for (epsilon, (result, elapsed)) in smooth]
     push!(rows, _row("ccopt", nothing, ccopt; outer_time=ccopt_outer_time))
 
     _write_report(stdout, options, rows)
