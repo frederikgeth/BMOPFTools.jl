@@ -25,13 +25,18 @@ construction. `outer_time_s` brackets the whole call for every row and is the
 column to compare. Use `--warmup` regardless, because the first invocation of
 any path includes Julia compilation.
 
-A note on `--softplus`. The default is `builtin`, not the package default
-`user_defined`, because MadNLP's MOI layer mishandles JuMP user-defined
-nonlinear operators: on the two-bus Volt-watt case it returns p_g = 800.8 W
-where every other combination agrees on 1183.3 W, and reports LOCALLY_SOLVED
-while doing it. Ipopt gives identical answers under both modes, so `builtin` is
-the mode in which a cross-solver comparison is meaningful. Pass
-`--softplus=user_defined` to see the discrepancy.
+A note on `--tol`. It is applied to every smooth row, and defaults to 1e-10
+rather than the solvers' own 1e-8, because MadNLP terminates prematurely on this
+problem class at its default: on the two-bus Volt-watt case it returns
+p_g = 800.8 W where Ipopt returns 1183.3 W, reporting LOCALLY_SOLVED after as
+few as 7 iterations. Which epsilon triggers it varies erratically with the
+softplus mode; at 1e-10 MadNLP matches Ipopt at every epsilon tested, in both
+modes. Ipopt is unaffected either way. Pass `--tol=1e-8` to see it.
+
+The script also cross-checks the smooth rows against each other: any pair of
+solvers that disagree at the same epsilon is flagged, since that means at least
+one of them is not at the optimum and the row should not be read as a solver
+comparison.
 
 Usage:
 
@@ -42,7 +47,8 @@ Options:
 
     --eps=1e-2,2e-3,1e-4,1e-5   Smooth epsilons (default shown above)
     --solvers=ipopt,madnlp      Solvers for the smooth rows
-    --softplus=builtin          Smooth-ReLU mode: builtin or user_defined
+    --softplus=user_defined     Smooth-ReLU mode: user_defined or builtin
+    --tol=1e-10                 Convergence tolerance for the smooth rows
     --method=relaxation         CCOpt method (relaxation; penalty is broken
                                 upstream in CCOpt 0.1.0)
     --warmup                    Run one discarded solve of each formulation
@@ -87,6 +93,7 @@ struct Options
     epsilons::Vector{Float64}
     solvers::Vector{Symbol}
     softplus::Symbol
+    tol::Float64
     method::Symbol
     warmup::Bool
     verbose::Bool
@@ -97,7 +104,8 @@ function _usage(io=stdout)
     println(io, "Usage: julia --project=<env> scripts/opf_encoding_comparison.jl CASE [options]")
     println(io, "  --eps=1e-2,2e-3,1e-4,1e-5    smooth epsilon sweep")
     println(io, "  --solvers=ipopt,madnlp       solvers for the smooth rows")
-    println(io, "  --softplus=builtin|user_defined  smooth-ReLU mode")
+    println(io, "  --softplus=user_defined|builtin  smooth-ReLU mode")
+    println(io, "  --tol=1e-10                  convergence tolerance, smooth rows")
     println(io, "  --method=relaxation|penalty  CCOpt method")
     println(io, "  --warmup                     discard one solve per formulation")
     println(io, "  --verbose                    show solver output")
@@ -109,7 +117,8 @@ function _parse_args(args)
     path = nothing
     epsilons = copy(_DEFAULT_EPS)
     solvers = collect(_SOLVERS)
-    softplus = :builtin
+    softplus = :user_defined
+    tol = 1e-10
     method = :relaxation
     warmup = false
     verbose = false
@@ -140,6 +149,9 @@ function _parse_args(args)
             softplus = Symbol(last(split(arg, "=", limit=2)))
             softplus in (:builtin, :user_defined) ||
                 error("--softplus must be builtin or user_defined")
+        elseif startswith(arg, "--tol=")
+            tol = parse(Float64, last(split(arg, "=", limit=2)))
+            isfinite(tol) && tol > 0 || error("--tol must be finite and positive")
         elseif startswith(arg, "--method=")
             method = Symbol(last(split(arg, "=", limit=2)))
             method in (:relaxation, :penalty) ||
@@ -156,7 +168,7 @@ function _parse_args(args)
     end
     path === nothing && error("a .bmopf.json case path is required")
     isfile(path) || error("benchmark file does not exist: $path")
-    Options(normpath(path), epsilons, solvers, softplus, method,
+    Options(normpath(path), epsilons, solvers, softplus, tol, method,
             warmup, verbose, output)
 end
 
@@ -170,19 +182,20 @@ end
 # default `solve_ccopt!` applies: MadNLP otherwise relaxes every variable bound
 # by 1e-8, which on an MPCC lets a hinge variable go negative and floors the
 # achievable complementarity residual. Holding it at zero everywhere keeps the
-# smooth rows on the same footing as the CCOpt row.
+# smooth rows on the same footing as the CCOpt row. `tol` is likewise shared, so
+# no row is advantaged by a looser stopping rule.
 # Options are a TUPLE of pairs, not a vector: a vector unifies the element type,
 # which turns Ipopt's integer `print_level` into a `Real` and gets it rejected.
-_solver_spec(name::Symbol, verbose::Bool) =
+_solver_spec(name::Symbol, verbose::Bool, tol::Float64) =
     name === :ipopt ?
         (Ipopt.Optimizer, ("print_level" => (verbose ? 5 : 0),
-                           "bound_relax_factor" => 0.0)) :
+                           "bound_relax_factor" => 0.0, "tol" => tol)) :
         (MadNLP.Optimizer, ("print_level" => (verbose ? MadNLP.INFO : MadNLP.ERROR),
-                            "bound_relax_factor" => 0.0))
+                            "bound_relax_factor" => 0.0, "tol" => tol))
 
-function _run_smooth(path, epsilon, solver, softplus; verbose=false)
+function _run_smooth(path, epsilon, solver, softplus, tol; verbose=false)
     net = parse_bmopf(path)
-    optimizer, options = _solver_spec(solver, verbose)
+    optimizer, options = _solver_spec(solver, verbose, tol)
     t0 = time()
     result = _call_quiet(verbose) do
         solve_opf(net; optimizer=optimizer, solver_options=options,
@@ -199,6 +212,13 @@ function _ccopt_options(method, verbose)
     )
 end
 
+# `tol` is deliberately NOT forwarded here. It exists to stop the smooth rows
+# being decided by a stopping rule rather than by the encoding, and CCOpt's
+# homotopy has its own convergence machinery that a tightened inner tolerance
+# actively disrupts (on the two-bus case, tol=1e-10 drops it from
+# SOLVE_SUCCEEDED to an acceptable-level stop). How exactly the CCOpt row solved
+# its complementarity pairs is reported directly, in the residual columns, which
+# is a stronger statement than any inner tolerance.
 function _run_ccopt(path, method; verbose=false)
     net = parse_bmopf(path)
     handle = build_ccopt_model(net; verbose=verbose)
@@ -301,14 +321,73 @@ end
 function _write_report(io, options, rows)
     println(io, "# BMOPFTools OPF encoding comparison")
     println(io, "# case=$(options.path)")
-    println(io, "# ccopt_method=$(options.method)  softplus=$(options.softplus)")
+    println(io, "# ccopt_method=$(options.method)  softplus=$(options.softplus)  tol=$(options.tol)")
     println(io, "# smooth rows compare against the CCOpt row")
     println(io, "# compare timings on outer_time_s; solve_time_s spans differ per solver")
-    println(io, "# bound_relax_factor=0.0 on every solver")
+    println(io, "# bound_relax_factor=0.0 everywhere; tol=$(options.tol) on the " *
+                "smooth rows (CCOpt uses its own homotopy tolerances)")
     println(io, join(_HEADERS, '\t'))
     for row in rows
         println(io, join(_field_strings(row), '\t'))
     end
+end
+
+"""
+    _relative_solution_gap(a, b) -> Float64
+
+How far apart two results are, as a fraction of the largest bus voltage
+magnitude in either.
+
+Bus voltages are the probe rather than the objective or the IBR setpoints,
+because both of those can be degenerate: an objective near zero — common on a
+feeder whose cost terms nearly cancel — makes a relative comparison of
+objectives meaningless, and a feeder whose IBRs all sit at p_g = 0 gives a
+setpoint scale so small that any difference reads as 100 %. Voltages are always
+present, never near zero, and any materially different solution moves them.
+"""
+function _relative_solution_gap(a, b)
+    scale = 0.0
+    for result in (a, b), (_, terminals) in get(result, "bus", Dict())
+        for (_, values) in terminals
+            values isa Dict && haskey(values, "vm") || continue
+            scale = max(scale, abs(Float64(values["vm"])))
+        end
+    end
+    scale > 0 || return 0.0
+    return _max_group_difference(a, b, "bus", "vm") / scale
+end
+
+"""
+    _warn_on_solver_disagreement(smooth, options)
+
+Cross-check the smooth rows against each other. Two solvers running the SAME
+encoding at the SAME epsilon should agree; when they do not, at least one has
+stopped somewhere that is not the optimum, and neither the solver comparison nor
+the delta columns for that epsilon mean what they appear to. Worth a loud
+warning rather than a footnote, because the failure reports LOCALLY_SOLVED.
+"""
+function _warn_on_solver_disagreement(smooth, options; rtol=1e-6)
+    by_epsilon = Dict{Float64,Vector{Tuple{Symbol,Any}}}()
+    for (solver, epsilon, (result, _)) in smooth
+        push!(get!(by_epsilon, epsilon, Tuple{Symbol,Any}[]), (solver, result))
+    end
+    for epsilon in sort!(collect(keys(by_epsilon)))
+        entries = by_epsilon[epsilon]
+        length(entries) > 1 || continue
+        reference_solver, reference = first(entries)
+        for (solver, result) in entries[2:end]
+            result["feasible"] && reference["feasible"] || continue
+            gap = _relative_solution_gap(reference, result)
+            gap > rtol || continue
+            @warn "Smooth solvers disagree at eps=$epsilon: relative " *
+                  "solution gap $(gap) between $reference_solver and " *
+                  "$solver, both reporting success. At least one is not at " *
+                  "the optimum; try a tighter --tol (currently $(options.tol))." *
+                  "\n  $reference_solver objective : $(reference["objective"])" *
+                  "\n  $solver objective : $(result["objective"])"
+        end
+    end
+    return smooth
 end
 
 function main(args=ARGS)
@@ -316,29 +395,25 @@ function main(args=ARGS)
     println("Comparing OPF encodings for $(options.path)")
     println("Smooth epsilons: $(join(options.epsilons, ", "))")
     println("Smooth solvers: $(join(string.(options.solvers), ", ")); " *
-            "softplus: $(options.softplus); CCOpt method: $(options.method)")
-    if options.softplus === :user_defined && :madnlp in options.solvers
-        @warn "MadNLP's MOI layer mishandles JuMP user-defined nonlinear " *
-              "operators; the smooth/madnlp rows below are not trustworthy " *
-              "under --softplus=user_defined. Use --softplus=builtin for a " *
-              "cross-solver comparison."
-    end
+            "softplus: $(options.softplus); tol: $(options.tol); " *
+            "CCOpt method: $(options.method)")
 
     if options.warmup
         for solver in options.solvers
             _run_smooth(options.path, first(options.epsilons), solver,
-                        options.softplus; verbose=options.verbose)
+                        options.softplus, options.tol; verbose=options.verbose)
         end
         _run_ccopt(options.path, options.method; verbose=options.verbose)
         println("Warm-up complete; reported rows exclude the warm-up solves.")
     end
 
     smooth = [(solver, epsilon,
-               _run_smooth(options.path, epsilon, solver, options.softplus;
-                           verbose=options.verbose))
+               _run_smooth(options.path, epsilon, solver, options.softplus,
+                           options.tol; verbose=options.verbose))
               for solver in options.solvers, epsilon in options.epsilons]
     ccopt, ccopt_outer_time = _run_ccopt(options.path, options.method;
                                          verbose=options.verbose)
+    _warn_on_solver_disagreement(smooth, options)
 
     # `smooth` is a solver x epsilon matrix; flatten it so rows stay a Vector.
     rows = vec(Any[_row("smooth", solver, options.softplus, epsilon, result;

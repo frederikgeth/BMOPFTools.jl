@@ -18,7 +18,11 @@ optimiser. Three row families separate them:
 | `ccopt` | exact hinge | MadNLP via CCOpt | encoding effect |
 
 Every solver runs with `bound_relax_factor = 0.0`, matching the default
-`solve_ccopt!` applies.
+`solve_ccopt!` applies, and every smooth row shares one `--tol` so no row is
+advantaged by a looser stopping rule. The CCOpt row keeps its own homotopy
+tolerances — tightening the inner tolerance actively disrupts it — and how
+exactly it solved its complementarity pairs is reported in the residual columns
+instead.
 
 The script needs an active Julia environment containing `BMOPFTools`, `JuMP`,
 `Ipopt`, `CCOpt`, `MPCCModels`, and `NLPModelsJuMP`. The ordinary `scripts`
@@ -50,35 +54,42 @@ julia --project=/path/to/ccopt-environment \
   scripts/opf_encoding_comparison.jl CASE.bmopf.json \
   --eps=2e-3,1e-4,1e-5 --warmup
 
-# Fine-epsilon sweep. MadNLP cannot run the smooth encoding here — see the
-# caveats below — so restrict it to Ipopt with the stable softplus.
+# Reproduce MadNLP's premature termination (see the caveats below).
 julia --project=/path/to/ccopt-environment \
   scripts/opf_encoding_comparison.jl CASE.bmopf.json \
-  --eps=1e-4,1e-5 --solvers=ipopt --softplus=user_defined --warmup
+  --eps=1e-5 --tol=1e-8 --warmup
 ```
 
 ## Two solver caveats worth knowing before you read a table
 
-**MadNLP mishandles JuMP user-defined nonlinear operators.** `softplus=:user_defined`
-(the package default) registers a softplus operator with analytic first and
-second derivatives. Ipopt gives identical answers under `:user_defined` and
-`:builtin`; MadNLP does not — on the two-bus Volt-watt case it returns
-p_g = 800.8 W where every other combination agrees on 1183.3 W, and reports
-`LOCALLY_SOLVED` while doing it. The script therefore defaults to
-`--softplus=builtin`, which is the mode in which a cross-solver comparison is
-meaningful, and warns if you ask for `user_defined` with MadNLP in the mix.
+**MadNLP terminates prematurely at its default tolerance.** On the two-bus
+Volt-watt case it returns p_g = 800.8 W where Ipopt returns 1183.3 W, reporting
+`LOCALLY_SOLVED` after as few as 7 iterations. The returned point is feasible —
+it is not garbage — but it is not a local optimum: Ipopt warm-started there
+walks away to the better objective, and MadNLP started at the better point walks
+away from it. Which epsilon triggers this varies erratically with the softplus
+mode, and both modes are affected:
+
+| ε | Ipopt | MadNLP, `tol=1e-8` | MadNLP, `tol=1e-10` |
+| --- | --- | --- | --- |
+| 1e-1 | 1779.6419 | 1779.6419 | 1779.6419 |
+| 1e-2 | 1554.9024 | **1079.8999** | 1554.9024 |
+| 1e-3 | 1183.5450 | **798.1582** | 1183.5450 |
+| 1e-4 | 1183.2966 | 1183.2966 | 1183.2966 |
+| 1e-5 | 1183.2966 | **800.7890** | 1183.2966 |
+
+At `tol=1e-10` MadNLP matches Ipopt at every epsilon, in both softplus modes,
+which is why the script's `--tol` defaults to 1e-10 and applies the same value
+to every smooth row. Ipopt is unaffected either way. The script also warns when
+two solvers disagree at the same epsilon, since that is the visible symptom.
 
 **`softplus=:builtin` overflows at small ε.** Its expression form is
 `ε·log1p(exp(x/ε))`, emitted as native MOI operators so DiffOpt can
 differentiate it; there is no MOI `log1pexp`. For ε ≲ 1e-3 over a realistic
 per-unit voltage span this overflows — `exp(0.2/1e-4) = Inf` — and the solve
-returns `INVALID_MODEL`. `:user_defined` uses the stable `log1pexp` and is fine
-down to 1e-5.
-
-Between them these mean there is currently **no way to run MadNLP on the smooth
-encoding at small ε**: `:user_defined` is wrong there and `:builtin` overflows.
-Run the fine-ε sweep with `--solvers=ipopt --softplus=user_defined`, and the
-cross-solver comparison at coarser ε with the default `--softplus=builtin`.
+returns `INVALID_MODEL`. The default `:user_defined` mode uses the stable
+`log1pexp` with analytic derivatives and is fine down to 1e-5, so prefer it
+unless you specifically need the DiffOpt-compatible form.
 
 ## The penalty method
 
