@@ -13,6 +13,14 @@ if _HAS_JUMP_IPOPT
     @eval using JuMP, Ipopt
 end
 
+const _HAS_CCOPT = _HAS_JUMP_IPOPT &&
+                   !isnothing(Base.identify_package("CCOpt")) &&
+                   !isnothing(Base.identify_package("MPCCModels")) &&
+                   !isnothing(Base.identify_package("NLPModelsJuMP"))
+if _HAS_CCOPT
+    @eval using CCOpt, MPCCModels, NLPModelsJuMP
+end
+
 # Remove the transformer nameplate power limit (`s_rating`) from a network so a
 # physics / power-flow comparison against limit-free OpenDSS is not distorted by
 # the always-enforced nameplate cap. `s_rating` is not used by the solve for the
@@ -4110,6 +4118,7 @@ include("executable_knowledge_tests.jl")
             include("kcl_guard_tests.jl")
             include("network_limit_tests.jl")
             include("dc_network_tests.jl")
+            _HAS_CCOPT && include("ccopt_tests.jl")
         end
     end
 

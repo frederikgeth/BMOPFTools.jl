@@ -254,9 +254,14 @@ function _report_xfmr_tap!(rec, tapd, subtype, tid, xfmr, val)
 end
 
 function _extract_results(model, net, bus_terminals, grounded, vars,
-                          branch_inj=nothing; bases=nothing)
-    status = string(JuMP.termination_status(model))
-    tsolve = JuMP.solve_time(model)
+                          branch_inj=nothing; bases=nothing,
+                          value_function=nothing, status_override=nothing,
+                          solve_time_override=nothing, objective_override=nothing,
+                          feasible_override=nothing)
+    native_status = JuMP.termination_status(model)
+    status = status_override === nothing ? string(native_status) : String(status_override)
+    tsolve = solve_time_override === nothing ? JuMP.solve_time(model) :
+             Float64(solve_time_override)
     nlabels = BMOPFTools._neutral_labels(net)
 
     vr_v    = vars[:vr];    vi_v    = vars[:vi]
@@ -272,19 +277,23 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
     # Only read primal values when the solver actually produced a result —
     # some optimizers return no candidate point on INFEASIBLE/errors, and
     # objective_value/value throw in that case rather than returning NaN.
-    feasible = JuMP.termination_status(model) in (
+    native_feasible = native_status in (
         JuMP.MOI.LOCALLY_SOLVED, JuMP.MOI.OPTIMAL, JuMP.MOI.ALMOST_LOCALLY_SOLVED)
-    has_values = feasible && JuMP.result_count(model) >= 1 &&
-                 JuMP.primal_status(model) != JuMP.MOI.NO_SOLUTION
-    obj = has_values ? JuMP.objective_value(model) : NaN
+    feasible = feasible_override === nothing ? native_feasible : Bool(feasible_override)
+    has_values = value_function === nothing ?
+                 (feasible && JuMP.result_count(model) >= 1 &&
+                  JuMP.primal_status(model) != JuMP.MOI.NO_SOLUTION) : feasible
+    obj = objective_override !== nothing ? Float64(objective_override) :
+          (has_values ? JuMP.objective_value(model) : NaN)
 
-    if JuMP.termination_status(model) == JuMP.MOI.ALMOST_LOCALLY_SOLVED
+    if native_status == JuMP.MOI.ALMOST_LOCALLY_SOLVED
         @warn "Solver stopped at ALMOST_LOCALLY_SOLVED: the returned point " *
               "satisfies only relaxed (acceptable) tolerances — treat " *
               "residuals and binding constraints with care."
     end
 
-    val(v) = has_values ? JuMP.value(v) : NaN
+    val(v) = has_values ?
+        (value_function === nothing ? JuMP.value(v) : value_function(v)) : NaN
 
     # ── Bus voltages ─────────────────────────────────────────────────────────
     bus_res = Dict{String,Any}()

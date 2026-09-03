@@ -63,6 +63,7 @@ struct OpfContext
     bases
     relu_eps::Float64
     softplus::Symbol
+    droop_encoding::Symbol
     relu_ops::Dict{Float64,Any}
     # Stable downstream-extension substrate. `objects` maps public
     # `BMOPFTools.OpfModelKey`s to live JuMP objects; `extension_state` is
@@ -590,6 +591,33 @@ function BMOPFTools.register_opf_object!(ctx::OpfContext,
     end
     ctx.objects[key] = object
     return object
+end
+
+function BMOPFTools.register_opf_complementarity_pair!(
+        ctx::OpfContext, pair::BMOPFTools.OpfComplementarityPair;
+        replace::Bool=false)
+    pair.relation == :variable_variable || throw(ArgumentError(
+        "the JuMP OPF extension currently supports only variable-variable " *
+        "complementarity pairs"))
+    pair.left.kind == :variable && pair.right.kind == :variable ||
+        throw(ArgumentError("complementarity pair endpoints must be variable keys"))
+    left = BMOPFTools.opf_object(ctx, pair.left)
+    right = BMOPFTools.opf_object(ctx, pair.right)
+    left isa JuMP.VariableRef && right isa JuMP.VariableRef || throw(ArgumentError(
+        "complementarity pair endpoints must resolve to JuMP variables"))
+    state = BMOPFTools.extension_state!(ctx, :BMOPFToolsComplementarityPairs) do
+        Dict{String,BMOPFTools.OpfComplementarityPair}()
+    end
+    haskey(state, pair.id) && !replace && throw(ArgumentError(
+        "complementarity pair id already registered: $(pair.id)"))
+    state[pair.id] = pair
+    return pair
+end
+
+function BMOPFTools.opf_complementarity_pairs(ctx::OpfContext)
+    state = get(ctx.extension_state, :BMOPFToolsComplementarityPairs, nothing)
+    state isa AbstractDict || return BMOPFTools.OpfComplementarityPair[]
+    return sort!(collect(values(state)); by=pair -> pair.id)
 end
 
 function BMOPFTools.register_opf_constraint!(ctx::OpfContext,
@@ -2594,9 +2622,12 @@ KCL accumulators and branch-injection ledger, and bundle them into an
 function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64;
                       problem::Symbol, s_base::Float64,
                       softplus::Symbol=:user_defined,
+                      droop_encoding::Symbol=:softplus,
                       build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec())
     softplus in (:user_defined, :builtin) || throw(ArgumentError(
         "softplus must be :user_defined or :builtin, got :$softplus"))
+    droop_encoding in (:softplus, :complementarity) || throw(ArgumentError(
+        "droop_encoding must be :softplus or :complementarity, got :$droop_encoding"))
     bus_terminals = _bus_terminals(working)
     grounded      = _grounded_terminals(working)
 
@@ -2615,6 +2646,7 @@ function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64
         coefficient_providers=copy(build_spec.coefficient_providers))
     ctx = OpfContext(model, working, bus_terminals, grounded, vars,
                      kcl_r, kcl_i, branch_inj, bases, relu_eps, softplus,
+                     droop_encoding,
                      Dict{Float64,Any}(),
                      Dict{BMOPFTools.OpfModelKey,Any}(), Dict{Any,Any}(),
                      Dict{BMOPFTools.OpfModelKey,BMOPFTools.OpfParameterBinding}(),
@@ -2920,12 +2952,13 @@ function BMOPFTools.build_opf_model(net::Dict{String,Any};
                                     model_hook!::Union{Function,Nothing}=nothing,
                                     volt_var_watt_eps::Float64=2e-3,
                                     softplus::Symbol=:user_defined,
+                                    droop_encoding::Symbol=:softplus,
                                     kcl_guard::Bool=true,
                                     verbose::Bool=false)
     ctx = BMOPFTools.initialize_opf_model(net; optimizer, t_index, per_unit,
                                           s_base, scaling_policy, model,
                                           build_spec, volt_var_watt_eps,
-                                          softplus, kcl_guard, verbose)
+                                          softplus, droop_encoding, kcl_guard, verbose)
     build_opf!(ctx; add_objective=add_objective)
     model_hook! === nothing || model_hook!(ctx)
     return ctx
@@ -2942,6 +2975,7 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
                                          build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                          volt_var_watt_eps::Float64=2e-3,
                                          softplus::Symbol=:user_defined,
+                                         droop_encoding::Symbol=:softplus,
                                          kcl_guard::Bool=true,
                                          verbose::Bool=false)
     working, bases = _prepare_working_net(
@@ -2953,7 +2987,7 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
     effective_s_base = bases === nothing ? s_base : bases.s_base
     ctx = _new_context(model, working, bases, volt_var_watt_eps;
                        problem=:opf, s_base=effective_s_base, build_spec=build_spec,
-                       softplus=softplus)
+                       softplus=softplus, droop_encoding=droop_encoding)
     kcl_guard && _install_kcl_guard!(ctx)
     return ctx
 end

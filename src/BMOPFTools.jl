@@ -1499,6 +1499,55 @@ function opf_ibr_voltage_magnitude_key(
                         String(reference), String(controller)))
 end
 
+"""
+    opf_droop_hinge_key(ibr, phase, controller, hinge; side=:value)
+
+Stable key for one auxiliary variable in the exact complementarity encoding of
+an IBR Volt-var/Volt-watt hinge. `side=:value` identifies the hinge value
+``r = max(U - x̄, 0)`` and `side=:slack` identifies its complementary slack
+``s = r - U + x̄``.
+"""
+function opf_droop_hinge_key(ibr::AbstractString, phase::Integer,
+                             controller::Symbol, hinge::Integer;
+                             side::Symbol=:value)
+    side in (:value, :slack) || throw(ArgumentError(
+        "droop hinge side must be :value or :slack"))
+    controller in (:volt_var, :volt_watt) || throw(ArgumentError(
+        "droop hinge controller must be :volt_var or :volt_watt"))
+    family = side == :value ? :droop_hinge_value : :droop_hinge_slack
+    return OpfModelKey(:variable, family,
+                       (String(ibr), _opf_positive_position(phase, "phase"),
+                        String(controller), _opf_positive_position(hinge, "hinge")))
+end
+
+"""
+    OpfComplementarityPair(id, left, right; relation=:variable_variable,
+                           metadata=Dict())
+
+Stable description of a complementarity relation between two registered OPF
+model objects. The base package deliberately stores only semantic keys and
+JSON-compatible metadata; solver-specific MPCC encodings belong to extensions.
+"""
+struct OpfComplementarityPair
+    id::String
+    left::OpfModelKey
+    right::OpfModelKey
+    relation::Symbol
+    metadata::Dict{String,Any}
+end
+
+function OpfComplementarityPair(id::AbstractString,
+                                left::OpfModelKey,
+                                right::OpfModelKey;
+                                relation::Symbol=:variable_variable,
+                                metadata=Dict{String,Any}())
+    isempty(String(id)) && throw(ArgumentError("complementarity pair id cannot be empty"))
+    relation in (:variable_variable, :constraint_constraint) || throw(ArgumentError(
+        "unsupported complementarity relation '$relation'"))
+    return OpfComplementarityPair(String(id), left, right, relation,
+                                  Dict{String,Any}(string(k) => v for (k, v) in metadata))
+end
+
 """Return the native signed DC bus-terminal voltage key."""
 opf_dc_voltage_key(bus::AbstractString, terminal::AbstractString) =
     OpfModelKey(:variable, :v_dc, (String(bus), String(terminal)))
@@ -2223,6 +2272,17 @@ their existing variable-family symbol and raw index.
 function register_opf_object! end
 
 """
+    register_opf_complementarity_pair!(ctx, pair; replace=false)
+    opf_complementarity_pairs(ctx)
+
+Register and retrieve semantic complementarity relations between objects in the
+OPF registry. The active OPF extension validates the endpoint objects and an
+optional solver adapter maps the returned keys to solver-native indices.
+"""
+function register_opf_complementarity_pair! end
+function opf_complementarity_pairs end
+
+"""
     register_opf_constraint!(ctx, family, index, constraint; replace=false)
 
 Convenience wrapper for model hooks and device extensions. Registers a JuMP
@@ -2795,6 +2855,7 @@ export opf_transformer_current_key, opf_transformer_tap_key
 export opf_nwinding_current_key, opf_ibr_current_key
 export opf_ibr_power_key
 export opf_ibr_voltage_magnitude_key
+export opf_droop_hinge_key, OpfComplementarityPair
 export opf_dc_voltage_key, opf_dc_ground_current_key
 export opf_dc_branch_current_key, opf_converter_dc_current_key
 export opf_dc_load_current_key, opf_dc_source_current_key
@@ -2812,6 +2873,7 @@ export initialize_opf_model, set_opf_start_values!
 export add_opf_operational_limits!, add_opf_device_constraints!
 export set_opf_objective!
 export register_opf_object!, opf_object, opf_object_keys
+export register_opf_complementarity_pair!, opf_complementarity_pairs
 export register_opf_objective_term!, opf_primal, opf_constraint_value
 export opf_constraint_slack, opf_dual, opf_objective_value
 export register_opf_regularization!, opf_regularizations, opf_research_hashes
@@ -2882,6 +2944,24 @@ below.
 """
 function build_opf_model end
 export build_opf_model
+
+"""
+    build_ccopt_model(net; kwargs...)
+
+Build a BMOPF OPF as an `NLPModelsJuMP` model plus the registered
+complementarity pairs required by CCOpt. This optional adapter is available
+when the BMOPFOpfExt extension and CCOpt's optional dependencies are loaded.
+"""
+function build_ccopt_model end
+export build_ccopt_model
+
+"""Solve a model returned by [`build_ccopt_model`](@ref)."""
+function solve_ccopt! end
+export solve_ccopt!
+
+"""Extract a BMOPFTools result dictionary from a solved CCOpt model."""
+function extract_ccopt_result end
+export extract_ccopt_result
 
 """
     enforce_kcl!(ctx) -> ctx
