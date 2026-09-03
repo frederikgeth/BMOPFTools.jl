@@ -80,6 +80,15 @@ end
         # The exactness claim, measured rather than asserted: the enforced curve
         # is displaced by less than 0.01 % of its own reference base.
         @test result["ccopt"]["max_curve_error_relative"] < 1e-4
+        # `bound_relax_factor = 0.0` is the adapter's default, and this is what
+        # it buys: MadNLP's own default relaxes `r >= 0` by 1e-8, which lets a
+        # hinge return a NEGATIVE ReLU value. Exactly zero, not approximately.
+        @test result["ccopt"]["max_hinge_bound_violation"] == 0.0
+
+        relaxed_handle = build_ccopt_model(_ccopt_net())
+        solve_ccopt!(relaxed_handle; bound_relax_factor=1e-8)
+        relaxed = extract_ccopt_result(relaxed_handle)
+        @test relaxed["ccopt"]["max_hinge_bound_violation"] > 0.0
 
         # The smooth encoding converges as ε shrinks; the exact encoding must
         # land on that limit rather than on any particular ε's answer.

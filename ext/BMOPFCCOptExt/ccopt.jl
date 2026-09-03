@@ -87,14 +87,29 @@ const _PENALTY_UPSTREAM_HINT =
     "least one pair; if that is the error below, it is an upstream defect and " *
     "not a property of this model. Use `method=:relaxation`."
 
+# MadNLP relaxes every variable bound by `bound_relax_factor` (default 1e-8)
+# before solving, which is harmless for an ordinary NLP and corrosive for an
+# MPCC: the hinge pair's own `r >= 0`, `s >= 0` are what make `r ⟂ s` mean
+# `r = max(U - x̄, 0)`, so relaxing them lets the "exact" encoding return a
+# NEGATIVE ReLU value and floors the achievable complementarity residual at
+# twice the relaxation. Measured on the two-bus Volt-watt case: the default
+# leaves a hinge at r = -1.0e-8 and stops at SOLVED_TO_ACCEPTABLE_LEVEL with a
+# constraint violation pinned at 2.0e-8 (exactly 2x the relaxation), while
+# `0.0` reaches SOLVE_SUCCEEDED with the bound violation identically zero and
+# half the curve error. So it is defaulted here rather than left to the caller,
+# who can still override it like any other MadNLP option. (Diagnosis from
+# CCOpt's authors, on PR #383.)
+const _CCOPT_IPM_DEFAULTS = (bound_relax_factor = 0.0,)
+
 function BMOPFTools.solve_ccopt!(handle::CCOptOpfModel;
                                  method::Symbol=:relaxation, kwargs...)
     CCOpt, _, _ = _ccopt_dependencies()
     method in (:relaxation, :penalty) || throw(ArgumentError(
         "CCOpt method must be :relaxation or :penalty, got :$method"))
+    ipm = merge(_CCOPT_IPM_DEFAULTS, NamedTuple(kwargs))
     solver = method == :relaxation ?
-        CCOpt.RelaxationSolver(handle.mpcc; kwargs...) :
-        CCOpt.PenaltySolver(handle.mpcc; kwargs...)
+        CCOpt.RelaxationSolver(handle.mpcc; ipm...) :
+        CCOpt.PenaltySolver(handle.mpcc; ipm...)
     stats = try
         CCOpt.solve_homotopy!(solver)
     catch err

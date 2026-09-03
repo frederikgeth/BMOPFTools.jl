@@ -2966,7 +2966,13 @@ export build_ccopt_model
 
 Solve a model returned by [`build_ccopt_model`](@ref). `method` selects CCOpt's
 `:relaxation` (Scholtes homotopy) or `:penalty` solver; remaining keywords are
-forwarded to the CCOpt solver constructor.
+forwarded to the CCOpt solver constructor and on to MadNLP.
+
+`bound_relax_factor` defaults to `0.0` here, overriding MadNLP's own default.
+An MPCC's hinge bounds `r ≥ 0`, `s ≥ 0` are what make complementarity mean
+`r = max(U − x̄, 0)`; relaxing them lets the exact encoding return a negative
+ReLU value and floors the achievable complementarity residual. Pass a different
+value explicitly to opt out.
 """
 function solve_ccopt! end
 export solve_ccopt!
