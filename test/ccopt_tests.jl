@@ -156,8 +156,22 @@ end
         @test !gated["feasible"]
         @test gated["termination_status"] == "CCOPT_COMPLEMENTARITY_NOT_SATISFIED"
         @test !gated["ccopt"]["complementarity_satisfied"]
-        @test gated["ccopt"]["max_curve_error_relative"] > 1e-4
+        @test gated["ccopt"]["max_curve_error_relative"] > 1e-3
         @test gated["ccopt"]["worst_pair"] isa String
+        # A rejected point is still reported in full: the verdict says do not
+        # trust it, and the values are what let a reader check that verdict
+        # against their own tolerance. Blanking them to NaN would hide it.
+        @test all(isfinite, (gated["bus"][b][t]["vm"]
+                             for (b, terminals) in gated["bus"]
+                             for (t, v) in terminals if v isa Dict && haskey(v, "vm")))
+        @test isfinite(gated["objective"])
+        # Device POWER is reported too, not just voltages and currents: it is
+        # read as S = V·I* through a separate path that must guard on whether a
+        # point is readable, never on the trust verdict.
+        @test all(isfinite, (gated["ibr"][i][p][f]
+                             for (i, phases) in gated["ibr"]
+                             for (p, v) in phases if v isa Dict
+                             for f in ("pg", "qg") if haskey(v, f)))
 
         # A hinge below its own zero is caught even though |r·s| stays small.
         negative = fill(0.0, n)

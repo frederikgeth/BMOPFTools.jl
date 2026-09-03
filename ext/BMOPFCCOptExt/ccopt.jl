@@ -237,15 +237,30 @@ Extract a `solve_opf`-shaped result dict from a solved CCOpt model.
 The point is accepted only if the solver terminated successfully AND the
 complementarity pairs are satisfied to tolerance — a homotopy that stops early
 returns a point on a *relaxed* droop curve, and reporting that as solved would
-be the same class of wrong answer the encoding exists to remove. `curve_error_tol`
-bounds `|slope| · min(r, s)` as a fraction of each curve's reference base
-(default 1e-4, i.e. 0.01% of nameplate); `bound_tol` bounds how far a hinge
-variable may sit below its own zero (both in model units).
+be the same class of wrong answer the encoding exists to remove. A rejected
+point is still reported in full, with `feasible = false`: the verdict says do
+not trust it, and the values are what let a reader check that verdict against
+their own tolerance. `curve_error_tol`
+bounds `|slope| · min(r, s)` as a fraction of each curve's reference base;
+`bound_tol` bounds how far a hinge variable may sit below its own zero (both in
+model units).
+
+`min(r, s)` is not a proxy for the curve error — it *is* the curve error. Above
+the breakpoint the exact hinge is `r* = U - x̄` and `s = r - r*`; below it
+`r* = 0` and the error is `r`. Either way the smaller of the pair is
+`|r - r*|`, and `|slope|` converts it into a displacement of the enforced curve
+value. The 1e-3 default is 0.1 % of a curve's own reference base — about 5 W on
+a 5 kVA inverter, comfortably under inverter metering accuracy — and still
+rejects a genuinely relaxed point by several orders of magnitude. It is
+deliberately not tighter: measured across 126 ENWL snapshots the residual is
+dominated by *biactive* pairs, hinges sitting essentially exactly on their
+breakpoint, where an MPCC is degenerate by construction rather than badly
+solved.
 """
 function BMOPFTools.extract_ccopt_result(handle::CCOptOpfModel;
                                          stats=handle.stats,
                                          solution_hook!::Union{Function,Nothing}=nothing,
-                                         curve_error_tol::Float64=1e-4,
+                                         curve_error_tol::Float64=1e-3,
                                          bound_tol::Float64=1e-6)
     stats === nothing && throw(ArgumentError(
         "the CCOpt model has not been solved; call solve_ccopt! first"))
@@ -288,7 +303,11 @@ function BMOPFTools.extract_ccopt_result(handle::CCOptOpfModel;
 
     wall_time = _ccopt_wall_time(stats)
     objective = _ccopt_objective(handle, x, stats)
-    value_function = _ccopt_value_function(handle, x)
+    # Only vouch for the point when every entry is finite; `_extract_results`
+    # treats a supplied value function as a guarantee that a readable point
+    # exists, and falls back to its own NaN handling when given none.
+    value_function = status == "CCOPT_NONFINITE_SOLUTION" ? nothing :
+                     _ccopt_value_function(handle, x)
     ctx = handle.ctx
     opfext = _opf_extension()
     result = opfext._extract_results(ctx.model, ctx.net, ctx.bus_terminals,

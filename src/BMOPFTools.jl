@@ -2989,7 +2989,8 @@ point on a relaxed droop curve, which is precisely the error the exact encoding
 exists to remove. The `"ccopt"` entry of the result records the measured
 residuals; `curve_error_tol` bounds `|slope| · min(r, s)` as a fraction of each
 curve's reference base, and `bound_tol` bounds how far a hinge variable may sit
-below its own zero (both in model units).
+below its own zero (both in model units). A rejected point is still reported in
+full with `feasible = false`, so the numbers behind the verdict stay readable.
 """
 function extract_ccopt_result end
 export extract_ccopt_result

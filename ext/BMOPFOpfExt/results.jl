@@ -280,9 +280,15 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
     native_feasible = native_status in (
         JuMP.MOI.LOCALLY_SOLVED, JuMP.MOI.OPTIMAL, JuMP.MOI.ALMOST_LOCALLY_SOLVED)
     feasible = feasible_override === nothing ? native_feasible : Bool(feasible_override)
+    # An externally supplied point EXISTS whether or not the caller judged it
+    # trustworthy — `feasible` is a verdict, not a statement about availability,
+    # and blanking the values would hide exactly the numbers a reader needs to
+    # judge that verdict. The caller passes `value_function` only for a finite
+    # point, so this cannot read garbage. The native branch is unchanged: there,
+    # an infeasible status really can mean no candidate point exists.
     has_values = value_function === nothing ?
                  (feasible && JuMP.result_count(model) >= 1 &&
-                  JuMP.primal_status(model) != JuMP.MOI.NO_SOLUTION) : feasible
+                  JuMP.primal_status(model) != JuMP.MOI.NO_SOLUTION) : true
     obj = objective_override !== nothing ? Float64(objective_override) :
           (has_values ? JuMP.objective_value(model) : NaN)
 
@@ -294,6 +300,14 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
 
     val(v) = has_values ?
         (value_function === nothing ? JuMP.value(v) : value_function(v)) : NaN
+
+    # Device power reporting below reads voltages directly rather than through
+    # `val`, to form S = V·I*. Those reads guard on `has_values` — whether a
+    # point is READABLE — and never on `feasible`, which is a verdict about
+    # whether to trust it. On the native path `has_values` implies `feasible`,
+    # so this is unchanged there; on an adapter path that supplies its own
+    # point, it is the difference between reporting the numbers behind a
+    # rejection and blanking them.
 
     # ── Bus voltages ─────────────────────────────────────────────────────────
     bus_res = Dict{String,Any}()
@@ -393,10 +407,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         if cfg == "SINGLE_PHASE" && length(tm) == 2
             t_ph, t_ref = tm
             cr = val(crd_v[(lid, 1)]); ci = val(cid_v[(lid, 1)])
-            vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-            vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
-            vr_r = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-            vi_r = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+            vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+            vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
+            vr_r = has_values ? val(vr_v[(bus, t_ref)]) : NaN
+            vi_r = has_values ? val(vi_v[(bus, t_ref)]) : NaN
             dvr = vr_t - vr_r; dvi = vi_t - vi_r
             pd = dvr*cr + dvi*ci
             qd = dvi*cr - dvr*ci
@@ -406,16 +420,16 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             for (idx, ph) in enumerate(ph_pos)
                 t_ph = tm[ph]
                 cr = val(crd_v[(lid, idx)]); ci = val(cid_v[(lid, idx)])
-                vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-                vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
+                vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+                vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
                 # Reference: line-to-line (next phase) for DELTA, neutral for WYE.
                 if is_delta
                     t_ref = tm[(ph % n_c) + 1]
-                    vr_n  = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-                    vi_n  = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+                    vr_n  = has_values ? val(vr_v[(bus, t_ref)]) : NaN
+                    vi_n  = has_values ? val(vi_v[(bus, t_ref)]) : NaN
                 else
-                    vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-                    vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+                    vr_n = (t_n !== nothing && has_values) ? val(vr_v[(bus, t_n)]) : 0.0
+                    vi_n = (t_n !== nothing && has_values) ? val(vi_v[(bus, t_n)]) : 0.0
                 end
                 dvr = vr_t - vr_n; dvi = vi_t - vi_n
                 pd  =  dvr*cr + dvi*ci
@@ -443,16 +457,16 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         for (idx, ph) in enumerate(ph_pos)
             t_ph = tm[ph]
             cr = val(crg_v[(gid, idx)]); ci = val(cig_v[(gid, idx)])
-            vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-            vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
+            vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+            vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
             # Reference: line-to-line (next phase) for DELTA, neutral for WYE.
             if is_delta
                 t_ref = tm[(ph % n_c) + 1]
-                vr_n  = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-                vi_n  = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+                vr_n  = has_values ? val(vr_v[(bus, t_ref)]) : NaN
+                vi_n  = has_values ? val(vi_v[(bus, t_ref)]) : NaN
             else
-                vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-                vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+                vr_n = (t_n !== nothing && has_values) ? val(vr_v[(bus, t_n)]) : 0.0
+                vi_n = (t_n !== nothing && has_values) ? val(vi_v[(bus, t_n)]) : 0.0
             end
             dvr = vr_t - vr_n; dvi = vi_t - vi_n
             pg  = dvr*cr + dvi*ci
@@ -493,10 +507,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         if topo == "SINGLE_PHASE" && length(tm) >= 2
             t_ph  = tm[1]; t_ref = tm[2]
             cr = val(cri_v[(inv_id,1)]); ci = val(cii_v[(inv_id,1)])
-            vr_t  = feasible ? val(vr_v[(bus, t_ph)])  : NaN
-            vi_t  = feasible ? val(vi_v[(bus, t_ph)])  : NaN
-            vr_r  = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-            vi_r  = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+            vr_t  = has_values ? val(vr_v[(bus, t_ph)])  : NaN
+            vi_t  = has_values ? val(vi_v[(bus, t_ph)])  : NaN
+            vr_r  = has_values ? val(vr_v[(bus, t_ref)]) : NaN
+            vi_r  = has_values ? val(vi_v[(bus, t_ref)]) : NaN
             dvr = vr_t - vr_r; dvi = vi_t - vi_r
             pg = dvr*cr + dvi*ci
             qg = dvi*cr - dvr*ci
@@ -511,10 +525,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             for (idx, ph) in enumerate(ph_pos)
                 t_ph = tm[ph]
                 cr = val(cri_v[(inv_id,idx)]); ci = val(cii_v[(inv_id,idx)])
-                vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-                vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
-                vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-                vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+                vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+                vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
+                vr_n = (t_n !== nothing && has_values) ? val(vr_v[(bus, t_n)]) : 0.0
+                vi_n = (t_n !== nothing && has_values) ? val(vi_v[(bus, t_n)]) : 0.0
                 dvr = vr_t - vr_n; dvi = vi_t - vi_n
                 pg = dvr*cr + dvi*ci
                 qg = dvi*cr - dvr*ci
@@ -527,10 +541,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             for k in 1:n_c
                 t_pos = tm[k]; t_neg = tm[(k % n_c) + 1]
                 cr = val(cri_v[(inv_id,k)]); ci = val(cii_v[(inv_id,k)])
-                vr_p = feasible ? val(vr_v[(bus, t_pos)]) : NaN
-                vi_p = feasible ? val(vi_v[(bus, t_pos)]) : NaN
-                vr_n = feasible ? val(vr_v[(bus, t_neg)]) : NaN
-                vi_n = feasible ? val(vi_v[(bus, t_neg)]) : NaN
+                vr_p = has_values ? val(vr_v[(bus, t_pos)]) : NaN
+                vi_p = has_values ? val(vi_v[(bus, t_pos)]) : NaN
+                vr_n = has_values ? val(vr_v[(bus, t_neg)]) : NaN
+                vi_n = has_values ? val(vi_v[(bus, t_neg)]) : NaN
                 dvr = vr_p - vr_n; dvi = vi_p - vi_n
                 pg = dvr*cr + dvi*ci
                 qg = dvi*cr - dvr*ci
@@ -697,10 +711,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         for (idx, ph) in enumerate(ph_pos)
             t_ph = tm[ph]
             cr = val(cr_src_v[(sid, idx)]); ci = val(ci_src_v[(sid, idx)])
-            vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-            vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
-            vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-            vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+            vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+            vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
+            vr_n = (t_n !== nothing && has_values) ? val(vr_v[(bus, t_n)]) : 0.0
+            vi_n = (t_n !== nothing && has_values) ? val(vi_v[(bus, t_n)]) : 0.0
             dvr = vr_t - vr_n; dvi = vi_t - vi_n
             ps  = dvr*cr + dvi*ci
             qs  = dvi*cr - dvr*ci
@@ -796,7 +810,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         for k in eachindex(tm)
             term_d[tm[k]] = Dict{String,Any}(
                 "cr" => cr[k], "ci" => ci[k], "cm" => sqrt(cr[k]^2 + ci[k]^2))
-            if feasible && haskey(vr_v, (bus, tm[k]))
+            if has_values && haskey(vr_v, (bus, tm[k]))
                 vrk = val(vr_v[(bus, tm[k])]); vik = val(vi_v[(bus, tm[k])])
                 # `cr,ci` is the current leaving the bus into the bank. The
                 # reactive power the bank *delivers* to the bus is
