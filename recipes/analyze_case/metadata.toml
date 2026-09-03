@@ -1,0 +1,34 @@
+schema_version = "0.6.0"
+recipe_id = "analyze_case"
+title = "Analyze and triage one BMOPF case"
+purpose = "Parse the small tutorial network, run the standard analysis battery, and emit the complete structured Finding report without interpreting warnings as transport failure."
+operation = "analyze_case"
+knowledge_ids = []
+fixture_ids = []
+script = "recipe.jl"
+readme = "README.md"
+interface_paths = [
+  "bin/bmopf",
+  "bin/bmopf-mcp",
+  "scripts/bmopf_mcp.jl",
+  "scripts/bmopf_cli.jl",
+  "schemas/execution-response.schema.json",
+  "src/execution/interface.jl",
+]
+input_paths = ["examples/lv1_14bus.json"]
+tutorial_paths = [
+  "docs/src/tutorial_triage.md",
+  "docs/src/tutorial_nameplate.md",
+]
+command = "julia --startup-file=no --project=. recipes/analyze_case/recipe.jl"
+expected_status = "completed"
+expected_finding_codes = [
+  "W.CONN.DANGLING",
+  "I.PRE.NO_VOLT_BOUNDS",
+  "W.CONV.TERMINAL_ROLES_INFERRED",
+]
+does_not_establish = [
+  "A completed analysis means the case is defect-free, solver-ready, feasible, or scientifically validated.",
+  "Every WARNING Finding is a defect that should be repaired automatically.",
+  "The analysis operation ran an optimizer or validated a claimed solution.",
+]

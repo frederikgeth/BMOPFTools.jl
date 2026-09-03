@@ -15,14 +15,13 @@
     "source"
   ],
   "properties": {
-    "schema_version": {"const": "0.1.0"},
+    "schema_version": {"const": "0.6.0"},
     "record_id": {"type": "string", "minLength": 1},
     "record_type": {
-      "enum": ["executable_contract", "api_operation", "finding", "fixture"]
+      "enum": ["executable_contract", "api_operation", "finding", "fixture", "property_suite", "recipe"]
     },
     "knowledge_ids": {
       "type": "array",
-      "minItems": 1,
       "uniqueItems": true,
       "items": {"type": "string", "pattern": "^PSK-[0-9]{6}$"}
     },
@@ -35,12 +34,27 @@
     "checked_dimensions": {"$ref": "#/$defs/nonemptyStrings"},
     "unassessed_dimensions": {"$ref": "#/$defs/nonemptyStrings"},
     "finding_codes": {"$ref": "#/$defs/nonemptyStrings"},
-    "fixture_ids": {"$ref": "#/$defs/nonemptyStrings"},
+    "fixture_ids": {"$ref": "#/$defs/stringArray"},
     "finding_code": {"type": "string", "pattern": "^[EWI]\\.[A-Z0-9_]+(?:\\.[A-Z0-9_]+)+$"},
     "severity": {"enum": ["ERROR", "WARNING", "INFO"]},
     "meaning": {"type": "string", "minLength": 1},
     "fixture_id": {"type": "string", "minLength": 1},
+    "property_suite_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "generator_domain": {"$ref": "#/$defs/nonemptyStrings"},
+    "seed_algorithm": {"type": "string", "minLength": 1},
+    "seed": {"type": "string", "pattern": "^0x[0-9a-f]{16}$"},
+    "case_count": {"type": "integer", "minimum": 1},
+    "properties_checked": {"$ref": "#/$defs/nonemptyStrings"},
+    "minimization_strategy": {"type": "string", "minLength": 1},
+    "failure_classification": {"type": "string", "minLength": 1},
+    "recipe_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
     "kind": {"type": "string", "minLength": 1},
+    "purpose": {"type": "string", "minLength": 1},
+    "operation": {"enum": ["check_contract", "parse_case", "analyze_case", "verify_solution", "explain_finding"]},
+    "command": {"type": "string", "minLength": 1},
+    "expected_status": {
+      "enum": ["passed", "failed", "inapplicable", "indeterminate", "completed"]
+    },
     "expected_finding_codes": {"$ref": "#/$defs/nonemptyStrings"},
     "does_not_establish": {"$ref": "#/$defs/nonemptyStrings"},
     "files": {
@@ -77,6 +91,11 @@
     }
   },
   "$defs": {
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
     "nonemptyStrings": {
       "type": "array",
       "minItems": 1,
@@ -86,8 +105,15 @@
   },
   "allOf": [
     {
+      "if": {"properties": {"record_type": {"const": "recipe"}}},
+      "else": {"properties": {"knowledge_ids": {"minItems": 1}}}
+    },
+    {
       "if": {"properties": {"record_type": {"const": "executable_contract"}}},
-      "then": {"required": ["contract_id", "entrypoint", "scope", "applicability", "checked_dimensions", "unassessed_dimensions", "finding_codes", "fixture_ids"]}
+      "then": {
+        "required": ["contract_id", "entrypoint", "scope", "applicability", "checked_dimensions", "unassessed_dimensions", "finding_codes", "fixture_ids"],
+        "properties": {"fixture_ids": {"minItems": 1}}
+      }
     },
     {
       "if": {"properties": {"record_type": {"const": "api_operation"}}},
@@ -100,6 +126,40 @@
     {
       "if": {"properties": {"record_type": {"const": "fixture"}}},
       "then": {"required": ["contract_id", "fixture_id", "kind", "expected_finding_codes", "does_not_establish", "files"]}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "property_suite"}}},
+      "then": {
+        "required": [
+          "contract_id", "property_suite_id", "scope", "generator_domain",
+          "seed_algorithm", "seed", "case_count", "properties_checked",
+          "minimization_strategy", "failure_classification",
+          "expected_finding_codes", "does_not_establish", "files"
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "recipe"}}},
+      "then": {
+        "required": ["recipe_id", "purpose", "operation", "command", "fixture_ids", "expected_status", "expected_finding_codes", "does_not_establish", "files"],
+        "allOf": [
+          {
+            "if": {"properties": {"operation": {"const": "check_contract"}}},
+            "then": {
+              "required": ["contract_id"],
+              "properties": {
+                "knowledge_ids": {"minItems": 1},
+                "fixture_ids": {"minItems": 1},
+                "expected_status": {"enum": ["passed", "failed", "inapplicable", "indeterminate"]}
+              }
+            },
+            "else": {
+              "not": {"required": ["contract_id"]},
+              "properties": {"expected_status": {"const": "completed"}}
+            }
+          }
+        ]
+      }
     }
   ]
 }

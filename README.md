@@ -15,6 +15,27 @@ The network data model is a plain `Dict{String,Any}` that mirrors the BMOPF
 JSON schema exactly: no wrapper types, so data flows naturally between JSON,
 the `to_pmd` PowerModelsDistribution export, and your own code.
 
+For automation, the repository also provides a deliberately small JSON
+execution interface and CI-tested recipes. The first two reviewed mappings
+evaluate the `parallel_member_limit_preservation` and
+`neutral_ground_reference_preservation` scientific contracts and preserve
+their `passed`/`failed`/`inapplicable`/`indeterminate` status, Finding codes,
+input hashes, checked dimensions, and unassessed dimensions. See
+[`docs/src/execution_interface.md`](docs/src/execution_interface.md).
+The same interface also exposes parse-only intake inventories, deterministic
+case analysis, solution verification, and offline Finding-code explanation.
+Parse completion is deliberately not a schema-validity or solver-readiness
+claim. The complete generated
+Finding registry is `generated/finding-registry.json`; it explains code classes
+without diagnosing a particular observation or guessing a repair.
+The concise machine-discovery entry point is [llms.txt](llms.txt); the
+documentation build publishes the same canonical file alongside the site.
+
+Local MCP clients can launch the same curated surface through `bin/bmopf-mcp`.
+The read-only stdio adapter returns the existing versioned execution envelopes,
+restricts file access to declared roots, and leaves scientific retrieval to the
+companion book.
+
 ## IEEE PES Task Force
 
 **Benchmarking Multiconductor OPF for Distribution Systems**

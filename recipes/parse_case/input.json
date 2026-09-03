@@ -1,0 +1,11 @@
+{
+  "name": "parse-only-boundary",
+  "meta": {
+    "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json"
+  },
+  "load": {
+    "legacy-load": {
+      "model": "CONSTANT_POWER"
+    }
+  }
+}

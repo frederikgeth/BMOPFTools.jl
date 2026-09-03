@@ -1,4 +1,4 @@
-schema_version = "0.1.0"
+schema_version = "0.6.0"
 
 [[contract]]
 id = "parallel_member_limit_preservation"
@@ -676,6 +676,8 @@ source_paths = [
   "src/knowledge/contracts.jl",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
+  "test/property_based_contract_tests.jl",
+  "test/property/terminal-permutation-seed.json",
 ]
 
 [[finding]]
@@ -697,6 +699,22 @@ meaning = "The explicit permutation contract does not apply because a bijection,
 code = "W.CONTRACT.PERMUTATION_INDETERMINATE"
 severity = "WARNING"
 meaning = "A required source or target line primitive or terminal-map record is missing or malformed."
+
+[[property_suite]]
+id = "terminal_permutation_seeded_properties"
+title = "Seeded terminal-permutation property suite"
+scope = "Finite reciprocal one- through six-conductor fixed-linear series primitives with positive strictly diagonally dominant real and imaginary parts, distinct ordered endpoint labels, and explicit bijective coordinate actions."
+seed_path = "test/property/terminal-permutation-seed.json"
+generator_domain = [
+  "Dimensions are integers from one through six.",
+  "Real and imaginary matrix parts are finite, reciprocal, strictly diagonally dominant, and have positive diagonal entries.",
+  "Endpoint terminal labels are distinct and the exact target applies one explicit bijection to maps and matrix coordinates.",
+  "The negative property injects a 0.01 ohm real perturbation at target coordinate (1,1) after exact permutation.",
+]
+source_paths = [
+  "test/property_based_contract_tests.jl",
+  "test/property/terminal-permutation-seed.json",
+]
 
 [[contract]]
 id = "solved_network_feasibility_validation"
@@ -758,7 +776,13 @@ finding_codes = [
   "W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE",
 ]
 fixture_ids = ["unit-base-serialization-001"]
-source_paths = ["src/knowledge/contracts.jl", "docs/src/findings.md", "test/scientific_contract_tests.jl"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+  "test/property_based_contract_tests.jl",
+  "test/property/unit-base-serialization-seed.json",
+]
 
 [[finding]]
 code = "E.CONTRACT.UNIT_SYSTEM_MISMATCH"
@@ -779,3 +803,19 @@ meaning = "Target serialization has a different canonical semantic payload hash.
 code = "W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE"
 severity = "WARNING"
 meaning = "Required unit/base or canonical semantic-hash metadata is missing or malformed."
+
+[[property_suite]]
+id = "unit_base_serialization_seeded_properties"
+title = "Seeded unit/base serialization property suite"
+scope = "Finite JSON serialization pairs with explicit SI metadata, one or more positive finite declared base values, and a sha256-prefixed 64-digit lowercase hexadecimal semantic-hash declaration."
+seed_path = "test/property/unit-base-serialization-seed.json"
+generator_domain = [
+  "Voltage bases are integer-valued floats from 100 V through 35 kV and power bases are integer kVA values from 10 kVA through 10 MVA.",
+  "Current, impedance, and admittance bases are finite and positive and satisfy I=S/V, Z=V^2/S, and Y=1/Z before fault injection.",
+  "The exact target is produced by JSON3 encoding and decoding and reverses base-map key insertion order.",
+  "Independent negative properties change only the unit-system string, one voltage-base value, or the final semantic-hash digit.",
+]
+source_paths = [
+  "test/property_based_contract_tests.jl",
+  "test/property/unit-base-serialization-seed.json",
+]

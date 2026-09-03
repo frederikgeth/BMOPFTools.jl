@@ -1,0 +1,34 @@
+{
+  "schema_version": "0.1.0",
+  "property_suite_id": "terminal_permutation_seeded_properties",
+  "contract_id": "terminal_permutation_invariance",
+  "knowledge_ids": ["PSK-000012"],
+  "generator": {
+    "algorithm": "splitmix64-v1",
+    "seed": "0x6d5a56da4b9c2f17",
+    "case_count": 64,
+    "dimension_min": 1,
+    "dimension_max": 6,
+    "matrix_domain": "finite reciprocal complex series matrices whose real and imaginary parts are strictly diagonally dominant with positive diagonal entries",
+    "terminal_domain": "distinct ordered endpoint labels with one explicit bijection",
+    "fault_injection": "add 0.01 ohm to the real part of target coordinate (1,1) after exact permutation"
+  },
+  "properties": [
+    "Every exactly permuted endpoint map and series matrix returns passed.",
+    "Every injected one-entry matrix corruption returns failed with E.CONTRACT.PERMUTATION_RELATION_MISMATCH.",
+    "Every injected failure shrinks to a one-conductor witness with the same Finding code.",
+    "Replaying the recorded algorithm and seed produces the same case summaries."
+  ],
+  "minimization": {
+    "strategy": "retain target coordinate 1 and its mapped source coordinate, then discard all other coordinates",
+    "expected_dimension": 1,
+    "preserved_finding_code": "E.CONTRACT.PERMUTATION_RELATION_MISMATCH"
+  },
+  "failure_classification": "expected_contract_rejection",
+  "does_not_establish": [
+    "Random sampling proves the complete typed coordinate-action theorem.",
+    "Generated matrices represent every physical line or cable class.",
+    "A primitive-level pass preserves assets, limits, controls, decisions, objectives, or solver behavior.",
+    "An injected failure is a newly discovered scientific counterexample."
+  ]
+}

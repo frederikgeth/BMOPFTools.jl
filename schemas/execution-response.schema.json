@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/frederikgeth/BMOPFTools.jl/schemas/execution-response.schema.json",
+  "title": "BMOPFTools execution response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "operation", "status", "package", "request", "inputs"],
+  "properties": {
+    "schema_version": {"const": "0.6.0"},
+    "operation": {"enum": ["check_contract", "parse_case", "analyze_case", "verify_solution", "explain_finding", null]},
+    "status": {"enum": ["passed", "failed", "inapplicable", "indeterminate", "completed", "error"]},
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"const": "BMOPFTools"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_id", "parameters"],
+      "properties": {
+        "contract_id": {"type": ["string", "null"], "minLength": 1},
+        "parameters": {"type": "object"}
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "path", "sha256"],
+        "properties": {
+          "role": {"type": "string", "minLength": 1},
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "result": {"oneOf": [{"$ref": "#/$defs/contractResult"}, {"$ref": "#/$defs/parseResult"}, {"$ref": "#/$defs/analysisResult"}, {"$ref": "#/$defs/solutionResult"}, {"$ref": "#/$defs/findingExplanation"}]},
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "code", "section", "component_type", "component_id", "message", "detail"],
+      "properties": {
+        "severity": {"enum": ["ERROR", "WARNING", "INFO"]},
+        "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*(?:\\.[A-Z0-9_]+)+$"},
+        "section": {"type": "string", "minLength": 1},
+        "component_type": {"type": "string", "minLength": 1},
+        "component_id": {"type": ["string", "null"]},
+        "message": {"type": "string", "minLength": 1},
+        "detail": {"type": ["object", "null"]}
+      }
+    },
+    "contractResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_id", "status", "knowledge_ids", "checked_dimensions", "unassessed_dimensions", "findings", "evidence"],
+      "properties": {
+        "contract_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "status": {"enum": ["passed", "failed", "inapplicable", "indeterminate"]},
+        "knowledge_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^PSK-[0-9]{6}$"}},
+        "checked_dimensions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "unassessed_dimensions": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+        "evidence": {"type": "object"}
+      }
+    },
+    "parseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_name", "declared_schema_uri", "is_timeseries", "component_counts", "migration_notes", "terminal_coercions"],
+      "properties": {
+        "network_name": {"type": ["string", "null"]},
+        "declared_schema_uri": {"type": ["string", "null"]},
+        "is_timeseries": {"type": "boolean"},
+        "component_counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "migration_notes": {
+          "type": "array",
+          "items": {"type": "object"}
+        },
+        "terminal_coercions": {"type": ["object", "null"]}
+      }
+    },
+    "analysisResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_name", "generated_at", "summary", "results", "findings"],
+      "properties": {
+        "network_name": {"type": ["string", "null"]},
+        "generated_at": {"type": "string", "minLength": 1},
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["errors", "warnings", "info"],
+          "properties": {
+            "errors": {"type": "integer", "minimum": 0},
+            "warnings": {"type": "integer", "minimum": 0},
+            "info": {"type": "integer", "minimum": 0}
+          }
+        },
+        "results": {"type": "object"},
+        "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}
+      }
+    },
+    "solutionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_name", "generated_at", "result_meta", "summary", "results", "findings"],
+      "properties": {
+        "network_name": {"type": ["string", "null"]},
+        "generated_at": {"type": "string", "minLength": 1},
+        "result_meta": {
+          "type": "object",
+          "required": ["termination_status", "objective", "solve_time"]
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["errors", "warnings", "info"],
+          "properties": {
+            "errors": {"type": "integer", "minimum": 0},
+            "warnings": {"type": "integer", "minimum": 0},
+            "info": {"type": "integer", "minimum": 0}
+          }
+        },
+        "results": {"type": "object"},
+        "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}
+      }
+    },
+    "findingExplanation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "namespace", "catalogue_section", "section_title", "meaning", "contract_id", "knowledge_ids", "documentation", "registry"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[EWI]\\.[A-Z0-9_]+(?:\\.[A-Z0-9_]+)+$"},
+        "severity": {"enum": ["ERROR", "WARNING", "INFO"]},
+        "namespace": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "catalogue_section": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "section_title": {"type": "string", "minLength": 1},
+        "meaning": {"type": "string", "minLength": 1},
+        "contract_id": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$"},
+        "knowledge_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^PSK-[0-9]{6}$"}
+        },
+        "documentation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {"const": "docs/src/findings.md"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        "registry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "schema_version"],
+          "properties": {
+            "id": {"const": "bmopftools-findings-0.1.0"},
+            "schema_version": {"const": "0.1.0"}
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "error"}}},
+      "then": {"required": ["error"], "not": {"required": ["result"]}},
+      "else": {"required": ["result"], "not": {"required": ["error"]}}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "check_contract"}}},
+      "then": {
+        "properties": {
+          "status": {"enum": ["passed", "failed", "inapplicable", "indeterminate", "error"]},
+          "result": {"$ref": "#/$defs/contractResult"}
+        }
+      },
+      "else": {
+        "properties": {
+          "status": {"enum": ["completed", "error"]},
+          "request": {"properties": {"contract_id": {"type": "null"}}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"operation": {"const": "parse_case"}}},
+      "then": {"properties": {"result": {"$ref": "#/$defs/parseResult"}}}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "analyze_case"}}},
+      "then": {"properties": {"result": {"$ref": "#/$defs/analysisResult"}}}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "verify_solution"}}},
+      "then": {"properties": {"result": {"$ref": "#/$defs/solutionResult"}}}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "explain_finding"}}},
+      "then": {"properties": {"result": {"$ref": "#/$defs/findingExplanation"}}}
+    }
+  ]
+}

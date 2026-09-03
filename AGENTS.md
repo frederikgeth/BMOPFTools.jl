@@ -10,13 +10,17 @@ For scientific guardrails:
 4. Add positive, negative, boundary, and serialization tests, plus a minimized fixture when a failure witness is central.
 5. Update `knowledge/executable.toml`, regenerate the executable export, and run its stale-output/schema checks whenever an API, Finding, fixture, or source path changes.
 6. Do not edit the sibling book's generated pair manifest from this repository; repin it from the book after both sides are reviewed.
+7. Keep execution adapters curated and thin. Do not expose arbitrary Julia
+   evaluation or infer source-to-target mappings. Add or update a CI-tested
+   recipe when promoting a contract into the JSON execution interface.
 
 Primary gates:
 
 ```bash
+python3 scripts/generate_finding_registry.py --check
 python3 scripts/generate_executable_knowledge.py --check
 julia --project=test --startup-file=no -e \
-  'using Test, BMOPFTools; include("test/scientific_contract_tests.jl"); include("test/executable_knowledge_tests.jl")'
+  'using Test, BMOPFTools; include("test/scientific_contract_tests.jl"); include("test/executable_knowledge_tests.jl"); include("test/execution_interface_tests.jl")'
 julia --project=test --startup-file=no test/runtests.jl
 ```
 

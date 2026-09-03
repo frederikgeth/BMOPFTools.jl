@@ -1,6 +1,8 @@
 using Documenter
 using BMOPFTools
 
+const REPOSITORY_ROOT = normpath(joinpath(@__DIR__, ".."))
+
 makedocs(
     sitename = "BMOPFTools.jl",
     modules  = [BMOPFTools],
@@ -19,6 +21,7 @@ makedocs(
         "Getting started"         => [
             "Installation & first steps" => "installation.md",
             "Use with AI coding assistants" => "ai_assistants.md",
+            "JSON execution & recipes" => "execution_interface.md",
             "End-to-end tutorial"      => "tutorial_end_to_end.md",
             "Choose your tutorial"     => "choose_tutorial.md",
             "Positioning & ecosystem"  => "positioning.md",
@@ -118,6 +121,14 @@ makedocs(
         ],
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)
+)
+
+# Keep one canonical machine-discovery file at the repository root and publish
+# that exact file with the Documenter site.
+cp(
+    joinpath(REPOSITORY_ROOT, "llms.txt"),
+    joinpath(@__DIR__, "build", "llms.txt");
+    force=true,
 )
 
 deploydocs(

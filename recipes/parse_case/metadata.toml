@@ -1,0 +1,32 @@
+schema_version = "0.6.0"
+recipe_id = "parse_case"
+title = "Parse and inventory one BMOPF document"
+purpose = "Decode a deliberately incomplete BMOPF document, apply supported ingest migration, and return a hash-bound inventory while proving separately that parse completion does not establish schema validity."
+operation = "parse_case"
+knowledge_ids = []
+fixture_ids = []
+script = "recipe.jl"
+readme = "README.md"
+interface_paths = [
+  "bin/bmopf",
+  "bin/bmopf-mcp",
+  "scripts/bmopf_mcp.jl",
+  "scripts/bmopf_cli.jl",
+  "schemas/execution-response.schema.json",
+  "src/execution/interface.jl",
+  "src/io/migrate.jl",
+  "src/io/parse_bmopf.jl",
+]
+input_paths = ["recipes/parse_case/input.json"]
+tutorial_paths = [
+  "docs/src/tutorial_triage.md",
+  "docs/src/dev/versioning.md",
+]
+command = "julia --startup-file=no --project=. recipes/parse_case/recipe.jl"
+expected_status = "completed"
+expected_finding_codes = ["E.SCHEMA.REQUIRED"]
+does_not_establish = [
+  "A completed parse means the document satisfies the BMOPF JSON Schema or package domain rules.",
+  "Parse-time migration repairs arbitrary invalid data or makes a case solver-ready.",
+  "An intake inventory is a scientific validation, feasibility result, or preservation claim.",
+]

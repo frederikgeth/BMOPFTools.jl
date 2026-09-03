@@ -4,6 +4,11 @@ AI coding assistants can help inspect BMOPF cases, explain diagnostics, write Ju
 
 This page applies equally to ChatGPT, Codex, Claude, and other assistants. It describes safe use of the package; it does not add an LLM retrieval service to BMOPFTools.
 
+For machine discovery, start with the concise published
+[`llms.txt`](https://frederikgeth.github.io/BMOPFTools.jl/docs/llms.txt) index.
+It links the canonical documentation, executable manifests, response schema,
+MCP adapter, and recipes; this page remains the fuller operating guide.
+
 !!! important "Package behavior and scientific authority are different"
     BMOPFTools owns executable behavior: APIs, applicability checks, structured results, Finding codes, fixtures, and package tests. The companion *What Power-Network Models Preserve* resource owns the scientific statements, evidence status, misconceptions, and stable `PSK-*` identities.
 
@@ -19,7 +24,46 @@ This page applies equally to ChatGPT, Codex, Claude, and other assistants. It de
 | Analyse confidential network data | A locally controlled environment approved for that data | Do not upload protected models to an unapproved external service |
 | Establish a general scientific conclusion | The book's grounded access route, followed by the relevant executable check | A package result alone is not a literature or evidence review |
 
-BMOPFTools does not currently expose a package-specific MCP or HTTP retrieval service. An assistant with repository and terminal access should call the Julia API directly. An application integration should likewise use the package API and serialize its structured outputs, rather than scrape documentation or diagnostic prose.
+BMOPFTools does not expose a package-specific retrieval service: scientific
+retrieval remains in the book. An assistant with repository and terminal access
+can call the Julia API directly or use the package's curated
+[JSON execution interface](execution_interface.md). Application integrations
+should consume these structured outputs rather than scrape documentation or
+diagnostic prose. Local MCP clients can launch `bin/bmopf-mcp`; the adapter
+returns the same versioned execution envelopes and does not add retrieval logic.
+
+## Connect ChatGPT, Codex, Claude, or another MCP client
+
+The repository ships a read-only local MCP stdio server:
+
+```sh
+/absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
+```
+
+For Codex, add it with the current documented CLI form:
+
+```sh
+codex mcp add bmopftools \
+  --env BMOPFTOOLS_MCP_ALLOWED_ROOTS=/absolute/path/to/BMOPFTools.jl:/absolute/path/to/cases \
+  -- /absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
+```
+
+The ChatGPT desktop app can register the executable as a local STDIO server in
+**Settings → MCP servers**; Codex CLI, the IDE extension, and the desktop app
+share MCP configuration on the same Codex host. Consult the
+[official OpenAI MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
+for current setup details.
+
+Claude Desktop and Claude Code can use the same executable as an MCP stdio
+command. Other clients should configure the command using their own MCP server
+settings. By default the server reads only files inside this checkout; expand
+the allowlist deliberately with `BMOPFTOOLS_MCP_ALLOWED_ROOTS` when case or
+result files live elsewhere.
+
+The server exposes package execution, not scientific retrieval. Keep the
+book's `multi-graph-book` MCP server connected when the task also requires
+evidence status, misconceptions, qualifications, or source-grounded scientific
+interpretation.
 
 ## Give the assistant an operating contract
 
@@ -41,9 +85,58 @@ For a development checkout, record the Git commit as well. Version `0.1.0` at tw
 
 ## Prompt templates
 
+For the initial parallel-member contract, the same evidence can be produced
+without composing Julia code:
+
+```sh
+bin/bmopf check-contract parallel_member_limit_preservation \
+  --source source.json --target aggregate.json \
+  --member-id line_1 --member-id line_2 --aggregate-id aggregate --pretty
+```
+
+The response records package identity, input hashes, request parameters,
+contract status, checked and unassessed dimensions, Findings, and evidence.
+An `error` response means no scientific evaluation occurred; it must not be
+reported as `failed` or `inapplicable`.
+
+The neutral/ground/reference route likewise requires an explicit mapping rather
+than inferring identity from equal bus names:
+
+```sh
+bin/bmopf check-contract neutral_ground_reference_preservation \
+  --source source.json --target transformed.json \
+  --bus-map source_bus=source_bus --bus-map load_bus=load_bus --pretty
+```
+
+### Parse and inventory without validating
+
+Use the narrow intake route when the user wants to know whether a JSON file can
+be decoded and migrated, or wants a component inventory before full analysis:
+
+```sh
+bin/bmopf parse-case --input case.json --pretty
+```
+
+Report migration notes and terminal coercions as intake evidence. Do not say
+the case is schema-valid, domain-valid, clean, or solver-ready: `parse-case`
+does not run those checks. The CI-tested `recipes/parse_case` example makes the
+distinction concrete by parsing a deliberately incomplete document whose
+separate schema check emits `E.SCHEMA.REQUIRED`. Escalate to `analyze-case` when
+the user asks whether the case is valid or usable.
+
 ### Analyse and triage a case
 
 > Parse `<case.json>` with `parse_bmopf`, run `analyze`, and summarize errors, warnings, and informational Findings by stable code. For each material Finding, name the affected component, explain what the package established, and link to the relevant BMOPFTools documentation. Do not claim the case is OPF-ready merely because parsing succeeds. Do not edit the input. Return the commands used and any limitations of the analysis.
+
+For a stable JSON response with an input hash, use:
+
+```sh
+bin/bmopf analyze-case --input case.json --pretty
+```
+
+Its `completed` status means the analyzer ran; it does not override the ERROR
+or WARNING severities in `result.findings`. The CI-tested `recipes/analyze_case`
+example demonstrates that distinction using the small tutorial network.
 
 A minimal verifiable workflow is:
 
@@ -66,11 +159,47 @@ See [Analysis and reports](analysis.md), the [Finding-code reference](findings.m
 
 The relevant entry points are documented under [OPF result dictionaries](results.md) and [validating the OPF](validation.md).
 
+For a hash-bound JSON report without rerunning the solver, use:
+
+```sh
+bin/bmopf verify-solution --case case.json --result result.json --pretty
+```
+
+The `recipes/verify_solution` example deliberately profiles a
+`LOCALLY_SOLVED` result that emits `E.SOL.VOLT_VIOLATION`. Report all three
+facts separately: solver termination, `completed` verification transport, and
+the ERROR Finding.
+
+### Explain a Finding code
+
+Use the offline registry when the user asks what a stable BMOPFTools code means:
+
+```sh
+bin/bmopf explain-finding E.SOL.VOLT_VIOLATION --pretty
+```
+
+Report the canonical meaning and provenance separately from the observed
+Finding instance. The catalogue entry does not diagnose why the violation
+occurred, identify an automatic repair, or prove that other checks passed.
+Preserve empty `knowledge_ids` when no scientific-contract link is declared;
+do not infer a PSK link from topical similarity. If the code belongs to an
+external PowerIO namespace such as `EMIT.*`, use PowerIO's catalogue rather
+than inventing a BMOPFTools explanation.
+
 ### Evaluate a scientific contract
 
 > Evaluate `parallel_member_limit_preservation` for the declared source members `<IDs>` and target aggregate `<ID>`. Report the `ScientificContractResult` status, checked dimensions, unassessed dimensions, Findings, tolerances, and witness. If the result is `inapplicable` or `indeterminate`, do not convert it to a pass or failure. Treat `PSK-000001` as a link to the book's scoped scientific statement, not as a claim that the scalar implementation covers multiconductor or state-dependent branches.
 
 Use [`check_parallel_member_limit_preservation`](@ref) and serialize results with [`contract_result_to_dict`](@ref). The [scientific-contract guide](scientific_contracts.md) defines the current applicability boundary.
+
+For a grounding transformation, follow the pedagogical grounding tutorial and
+declare the bus correspondence explicitly:
+
+> Evaluate `neutral_ground_reference_preservation` for the declared source-to-target bus mapping. Report neutral identity, pairwise neutral continuity, and perfect-ground, finite-grounding, and source-reference relations separately. Do not infer preservation from matching `n` labels, and do not promote a representation-level pass to terminal-equation, earth-return, fault, touch-voltage, protection, or grounding-asset equivalence.
+
+Use [`check_neutral_ground_reference_preservation`](@ref), the
+[grounding tutorial](tutorial_grounding.md), and the runnable
+`recipes/neutral_ground_reference` example.
 
 For an adjustable transformer, use the same reporting discipline with an
 explicit subtype and source/target transformer mapping:
@@ -113,6 +242,14 @@ network behaviour that the reduced model cannot represent.
 > Implement `<change>` on the current branch. First inspect the relevant public API, tests, documentation, and repository instructions. Preserve unrelated changes. Add focused positive, negative, boundary, and serialization tests in proportion to the change. Update Finding documentation and executable metadata when their stable identities or sources change. Run the focused tests, the stale-output check, and the relevant documentation build. Commit only after the diff and checks are clean.
 
 An assistant should not hand-edit `generated/executable_knowledge.jsonl`. Changes begin in package code, fixtures, documentation, or `knowledge/executable.toml`, followed by the deterministic generator.
+
+When the export contains a `property_suite` record, treat its generator domain,
+seed algorithm, seed value, case count, oracle, minimization strategy, and
+failure classification as part of the reproducibility contract. Replay the
+committed suite before discussing a generated witness. An
+`expected_contract_rejection` is a negative test of package behavior, not a new
+scientific counterexample and not evidence beyond the linked contract's
+declared scope.
 
 ## How to judge an assistant's result
 
