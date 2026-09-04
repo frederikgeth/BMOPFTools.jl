@@ -1,0 +1,59 @@
+{
+  "schema_version": "0.1.0",
+  "property_suite_id": "unit_base_serialization_seeded_properties",
+  "contract_id": "unit_base_serialization_invariance",
+  "knowledge_ids": ["PSK-000014"],
+  "generator": {
+    "algorithm": "splitmix64-v1",
+    "seed": "0x4f1bbcdc6762c7a9",
+    "case_count": 64,
+    "unit_system": "SI",
+    "voltage_min_V": 100,
+    "voltage_max_V": 35000,
+    "power_min_kVA": 10,
+    "power_max_kVA": 10000,
+    "base_map": "positive finite voltage, power, current, impedance, and admittance bases with I=S/V, Z=V^2/S, and Y=1/Z",
+    "semantic_hash": "sha256 prefix followed by 64 deterministic lowercase hexadecimal digits",
+    "round_trip": "JSON3 encode/decode followed by reverse lexical insertion order for base-map keys"
+  },
+  "faults": {
+    "unit_system": {
+      "mutation": "replace SI with per_unit without converting the declared bases",
+      "expected_finding_code": "E.CONTRACT.UNIT_SYSTEM_MISMATCH"
+    },
+    "base_map": {
+      "field": "voltage_V",
+      "delta": 1.0,
+      "expected_finding_code": "E.CONTRACT.BASE_MAP_MISMATCH"
+    },
+    "semantic_hash": {
+      "mutation": "replace the last hexadecimal digit",
+      "expected_finding_code": "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH"
+    }
+  },
+  "properties": [
+    "Every exact JSON round trip passes despite base-map insertion-order changes.",
+    "Every unit-system mutation fails with E.CONTRACT.UNIT_SYSTEM_MISMATCH.",
+    "Every one-value base-map mutation fails with E.CONTRACT.BASE_MAP_MISMATCH.",
+    "Every semantic-hash mutation fails with E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH.",
+    "Every injected failure minimizes to one positive finite base value while preserving its Finding code.",
+    "Replaying the recorded algorithm and seed produces the same case summaries."
+  ],
+  "minimization": {
+    "strategy": "retain unit_system, semantic_hash, and only voltage_V in each base map, then replay exactly one mutation",
+    "expected_base_count": 1,
+    "preserved_finding_codes": [
+      "E.CONTRACT.UNIT_SYSTEM_MISMATCH",
+      "E.CONTRACT.BASE_MAP_MISMATCH",
+      "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH"
+    ]
+  },
+  "failure_classification": "expected_contract_rejection",
+  "does_not_establish": [
+    "Matching declarations authenticate how a semantic hash was computed.",
+    "Matching metadata proves a physical SI-to-per-unit conversion or its inverse.",
+    "Generated base maps cover every package scaling policy or component-local coordinate system.",
+    "A declared serialization pass preserves equations, limits, decisions, objectives, or solver behavior.",
+    "An injected metadata fault is a newly discovered scientific counterexample."
+  ]
+}

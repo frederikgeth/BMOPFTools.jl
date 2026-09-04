@@ -1,0 +1,32 @@
+schema_version = "0.6.0"
+recipe_id = "explain_finding"
+title = "Explain one stable Finding code offline"
+purpose = "Look up E.SOL.VOLT_VIOLATION in the generated package Finding registry and return its canonical meaning and provenance without diagnosing a case or inventing a repair."
+operation = "explain_finding"
+knowledge_ids = []
+fixture_ids = []
+script = "recipe.jl"
+readme = "README.md"
+interface_paths = [
+  "bin/bmopf",
+  "bin/bmopf-mcp",
+  "docs/src/findings.md",
+  "generated/finding-registry.json",
+  "schemas/execution-response.schema.json",
+  "schemas/finding-registry.schema.json",
+  "scripts/bmopf_cli.jl",
+  "scripts/bmopf_mcp.jl",
+  "scripts/generate_finding_registry.py",
+  "src/execution/interface.jl",
+  "src/report/finding_registry.jl",
+  "src/report/finding_registry_generated.jl",
+]
+tutorial_paths = ["docs/src/tutorial_trust_but_verify.md"]
+command = "julia --startup-file=no --project=. recipes/explain_finding/recipe.jl"
+expected_status = "completed"
+expected_finding_codes = ["E.SOL.VOLT_VIOLATION"]
+does_not_establish = [
+  "The catalogue meaning diagnoses the cause of a particular Finding instance.",
+  "A Finding code alone identifies a safe automatic repair.",
+  "An unlinked package Finding inherits a scientific PSK identity merely because a related tutorial or claim exists.",
+]

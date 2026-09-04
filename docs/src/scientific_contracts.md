@@ -151,6 +151,11 @@ grounding-asset identity and state, fault current, touch voltage, and protection
 operation remain explicitly unassessed. Coupled multiconductor grounding models
 return `:inapplicable`; missing mapped evidence returns `:indeterminate`.
 
+The compact `recipes/neutral_ground_reference/recipe.jl` example runs this
+fixture through the versioned JSON execution interface. It complements the
+[grounding tutorial](tutorial_grounding.md), which develops the physical and
+modelling distinction pedagogically.
+
 ## Claimed-feasible solution validity
 
 [`check_claimed_solution_validity`](@ref) implements the initial executable
@@ -358,6 +363,31 @@ limits, complete-network feasible sets, decisions, objectives, or solver
 equivalence. Matching conductor counts or labels alone is not evidence of
 permutation invariance.
 
+### Seeded property suite
+
+The contract also has a deterministic property suite at
+`test/property_based_contract_tests.jl`. Its committed seed record declares a
+SplitMix64 stream of 64 reciprocal, strictly diagonally dominant complex
+series matrices with one through six conductors and explicit terminal
+bijections. For every generated case, the exact coordinate action must pass;
+adding a fixed error to one target matrix entry must fail with
+`E.CONTRACT.PERMUTATION_RELATION_MISMATCH`. The failing example is then
+projected to a one-conductor witness and checked again.
+
+Run it directly with:
+
+```sh
+julia --project=test --startup-file=no --compiled-modules=no -e \
+  'using Test, BMOPFTools; include("test/property_based_contract_tests.jl")'
+```
+
+The seed, generator domain, case count, minimization rule, and failure
+classification are exported as the `terminal_permutation_seeded_properties`
+property-suite record. These generated failures are expected contract
+rejections, not newly discovered scientific counterexamples. The suite tests
+implemented behavior over its declared finite sample; it does not prove the
+general permutation theorem or widen the contract's applicability domain.
+
 ## Complete solved-network feasibility witness
 
 [`check_solved_network_feasibility`](@ref) checks the independent residual
@@ -392,6 +422,35 @@ drift, base-map drift, and payload mutation; missing metadata is indeterminate.
 The contract does not infer units from magnitudes, authenticate how a hash was
 computed, or prove complete physical or decision equivalence. It complements
 `write_bmopf`/`parse_bmopf` round-trip tests and source-hash provenance.
+
+### Seeded property suite
+
+The `unit_base_serialization_seeded_properties` suite generates 64 positive,
+finite SI base maps from a committed SplitMix64 seed. Voltage and power bases
+are sampled in the declared range; current, impedance, and admittance bases are
+derived consistently. Each source is encoded and decoded with JSON3, and the
+target base-map keys are inserted in reverse order to ensure that map ordering
+is not mistaken for semantic drift.
+
+Every exact round trip must pass. Three independent fault injections then
+change only the unit-system declaration, one voltage-base value, or the final
+semantic-hash digit. They must fail with
+`E.CONTRACT.UNIT_SYSTEM_MISMATCH`, `E.CONTRACT.BASE_MAP_MISMATCH`, and
+`E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH`, respectively. Each failure is also
+reduced to a one-base witness and rechecked.
+
+Run both committed property suites with:
+
+```sh
+julia --project=test --startup-file=no --compiled-modules=no -e \
+  'using Test, BMOPFTools; include("test/property_based_contract_tests.jl")'
+```
+
+This suite checks declared serialization identity. It does not compute an
+SI-to-per-unit transformation, authenticate the declared hash, or establish
+physical, equation, limit, decision, objective, or solver equivalence. For the
+separate scaling semantics and numerical demonstrations, see the pedagogical
+[Units, per-unit scaling, and cost arithmetic](tutorial_units.md) tutorial.
 
 ## Decision-preservation manifests
 
@@ -502,13 +561,19 @@ and solver results remain unassessed.
 
 `knowledge/executable.toml` is the package-owned registry for executable contracts and Findings. The generator validates its source paths, exported API, fixture metadata, Finding definitions, and source hashes, then writes:
 
-- `generated/executable_knowledge.jsonl`, containing contract, API, Finding, and fixture records; and
+- `generated/executable_knowledge.jsonl`, containing contract, API, Finding,
+  fixture, and recipe records; and
 - `generated/executable-knowledge-manifest.json`, containing package identity, record counts, corpus hash, and source hashes.
 
 Check that committed records are current with:
 
 ```bash
+python3 scripts/generate_finding_registry.py --check
 python3 scripts/generate_executable_knowledge.py --check
 ```
 
 The sibling book pins this export in its federated pair manifest. That link lets book retrieval expose an implemented guardrail without copying package semantics into the scientific registry.
+
+The [JSON execution interface and recipes](execution_interface.md) use these
+same stable identifiers. Recipe metadata is canonical under `recipes/` and is
+validated and source-hash-bound by the executable-knowledge generator.

@@ -30,6 +30,68 @@ The following local constraints are architectural:
   remain thin.
 - Generated executable records describe capabilities and provenance; they do
   not duplicate the book's scientific prose.
+- Seeded property suites declare their finite generator domain, algorithm,
+  seed, case count, oracle, minimization rule, and failure classification.
+  They test package behavior without widening a linked PSK claim; expected
+  contract rejections are not promoted to scientific counterexamples.
 
 Changes that alter these constraints must update the canonical architecture in
 `multi-graph-book` and be reviewed as a cross-repository architectural change.
+
+The first two scientific transport slices expose `parallel_member_limit_preservation` and
+`neutral_ground_reference_preservation` through the package-owned
+`execute_contract` API and `bin/bmopf check-contract`. A curated adapter
+registry gives each contract an explicit parameter allowlist; it does not
+perform dynamic Julia dispatch. Responses are validated against
+`schemas/execution-response.schema.json`, distinguish request errors from the
+four scientific-contract statuses, and bind source and target input hashes.
+The `parallel_member_limits` and `neutral_ground_reference` recipes are
+CI-tested operational examples. The separate `execute_analysis` API and
+`bin/bmopf analyze-case` route serialize the package's existing `analyze`
+report with operation status `completed`; ERROR and WARNING Findings remain
+case diagnostics rather than transport failures. Its tutorial-derived
+`analyze_case` recipe carries no PSK identity because it does not itself assert
+a scientific preservation claim. `execute_case_parse`, `bin/bmopf parse-case`,
+and the `parse_case` recipe report decode/migration/normalization evidence and
+a compact inventory without turning successful intake into a validation
+claim. The deliberately incomplete recipe input parses while a separate schema
+assertion emits `E.SCHEMA.REQUIRED`. The same package-only boundary applies to
+`execute_solution_verification`, `bin/bmopf verify-solution`, and its
+`verify_solution` recipe: they serialize existing `profile_solution` behavior
+without rerunning a solver or claiming the book's invalid-inference statement.
+The package-owned `explain_finding` lookup and `bin/bmopf explain-finding`
+route are generated from the canonical local Finding reference. They explain a
+stable code class offline and preserve existing contract/PSK links, but do not
+inspect a Finding instance, infer causes or repairs, query the book, or invent
+scientific links. External PowerIO diagnostic namespaces remain PowerIO-owned.
+Other contracts remain available through
+their Julia APIs until each mapping has an explicit reviewed transport shape.
+
+`bin/bmopf-mcp` is the thin execution adapter over this settled surface. Its six
+read-only tools map one-to-one to the parse, analysis, supplied-result
+verification, Finding lookup, and two reviewed contract operations. Successful
+and failed tool calls preserve the existing execution-response schema; MCP does
+not define new scientific or transport statuses. Local paths are constrained to
+explicit roots, arbitrary Julia evaluation and solver invocation are absent,
+and the book remains the only scientific retrieval service.
+
+Some book-owned negative results have no meaningful BMOPFTools counterpart.
+Their federated executable status is explicitly `not_applicable`; BMOPFTools
+must not add an empty contract, Finding, or fixture solely to make those records
+look symmetric. Package metadata is added only when concrete package behavior
+or evidence exists.
+
+Consequential cross-repository architecture choices and rejected approaches
+are recorded in the book-owned development research and decision log at
+`../multi-graph-book/docs/src/literature/development-decision-log.md`. That log
+records software rationale and conditions for revisiting; it does not replace
+BMOPFTools tests, runtime documentation, issue history, or the book's scientific
+claims ledger. Package-local implementation details need a cross-repository log
+entry only when they alter an authority boundary, federation contract, or
+shared agent workflow.
+
+Scientifically constrained agent-benchmark protocols, condition comparisons,
+and measured run results are book-owned research records. BMOPFTools participates
+only through its already-reviewed package APIs, contracts, recipes, fixtures,
+Findings, and their source hashes. Benchmark harnesses must call or pin those
+oracles rather than copying their scientific-runtime semantics into the book.

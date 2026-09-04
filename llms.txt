@@ -1,0 +1,71 @@
+# BMOPFTools.jl
+
+BMOPFTools parses, validates, analyses, solves, and reports on BMOPF-format
+multiconductor distribution-network models. Use the package for executable
+behavior on a concrete case. The companion multi-graph-book owns scientific
+claims, evidence status, misconceptions, and stable PSK identities.
+
+## Primary documentation
+
+- Documentation index: docs/src/index.md
+- Data-model conventions: docs/src/conventions.md
+- API reference: docs/src/api.md
+- Finding codes: docs/src/findings.md
+- Scientific contracts: docs/src/scientific_contracts.md
+- JSON execution interface and recipes: docs/src/execution_interface.md
+- AI-assistant guidance: docs/src/ai_assistants.md
+- Repository architecture: ARCHITECTURE.md
+
+## Machine-readable discovery
+
+- Executable registry: knowledge/executable.toml
+- Generated records: generated/executable_knowledge.jsonl
+- Generated manifest: generated/executable-knowledge-manifest.json
+- Offline Finding registry: generated/finding-registry.json
+- Finding registry schema: schemas/finding-registry.schema.json
+- Execution response schema: schemas/execution-response.schema.json
+- MCP stdio adapter: bin/bmopf-mcp
+- Recipes: recipes/README.md
+
+## Curated JSON execution operations
+
+```sh
+bin/bmopf check-contract parallel_member_limit_preservation \
+  --source SOURCE.json --target TARGET.json \
+  --member-id LINE_ID --member-id LINE_ID --aggregate-id LINE_ID --pretty
+
+bin/bmopf check-contract neutral_ground_reference_preservation \
+  --source SOURCE.json --target TARGET.json \
+  --bus-map SOURCE_BUS=TARGET_BUS --bus-map SOURCE_BUS=TARGET_BUS --pretty
+
+bin/bmopf analyze-case --input CASE.json --pretty
+
+bin/bmopf parse-case --input CASE.json --pretty
+
+bin/bmopf verify-solution --case CASE.json --result RESULT.json --pretty
+
+bin/bmopf explain-finding FINDING_CODE --pretty
+```
+
+The read-only MCP adapter exposes the same six reviewed operations as
+`bmopf_parse`, `bmopf_analyze`, `bmopf_verify_solution`,
+`bmopf_explain_finding`, `bmopf_check_parallel_member_limits`, and
+`bmopf_check_neutral_ground_reference`. It returns the existing execution
+envelope as structured content. Input paths are restricted to the checkout by
+default; use `BMOPFTOOLS_MCP_ALLOWED_ROOTS` to declare additional roots.
+
+Treat `passed`, `failed`, `inapplicable`, and `indeterminate` as distinct
+scientific-contract outcomes. An `error` response means no contract evaluation
+was produced. Match Findings by stable code, retain checked and unassessed
+dimensions, and do not promote package behavior or a fixture into a general
+scientific result. For `analyze_case`, `completed` means the operation ran; it
+does not override ERROR or WARNING Findings and does not establish solver
+readiness or feasibility.
+For `parse_case`, `completed` means only that decoding and supported ingest
+migration/normalization ran. It is not a schema or domain validation result.
+For `verify_solution`, retain the solver's termination status but do not treat
+it as a substitute for the independently recomputed `E.SOL.*`, `W.SOL.*`, and
+`I.SOL.*` Findings.
+For `explain_finding`, distinguish the canonical code meaning from one observed
+Finding instance. Do not infer a cause, repair, or PSK identity absent from the
+registry. External PowerIO conversion codes are outside this package registry.

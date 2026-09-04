@@ -7,10 +7,21 @@ using SHA
     corpus_path = joinpath(root, "generated", "executable_knowledge.jsonl")
     manifest_path = joinpath(root, "generated", "executable-knowledge-manifest.json")
     schema_path = joinpath(root, "schemas", "executable-knowledge.schema.json")
+    finding_registry_path = joinpath(root, "generated", "finding-registry.json")
+    finding_registry_schema_path = joinpath(root, "schemas", "finding-registry.schema.json")
 
     @test isfile(corpus_path)
     @test isfile(manifest_path)
     @test isfile(schema_path)
+    @test isfile(finding_registry_path)
+    @test isfile(finding_registry_schema_path)
+
+    finding_registry_schema = JSONSchema.Schema(
+        JSON3.read(read(finding_registry_schema_path, String)))
+    finding_registry = JSON3.read(read(finding_registry_path, String))
+    @test JSONSchema.validate(finding_registry_schema, finding_registry) === nothing
+    @test finding_registry.finding_count == length(finding_registry.findings) == 353
+    @test length(unique(String(item.code) for item in finding_registry.findings)) == 353
 
     schema = JSONSchema.Schema(JSON3.read(read(schema_path, String)))
     lines = filter(!isempty, split(read(corpus_path, String), '\n'))
@@ -20,11 +31,13 @@ using SHA
     end
 
     manifest = JSON3.read(read(manifest_path, String))
-    @test manifest.record_count == length(records) == 99
+    @test manifest.record_count == length(records) == 107
     @test manifest.record_counts.executable_contract == 14
     @test manifest.record_counts.api_operation == 14
     @test manifest.record_counts.finding == 57
     @test manifest.record_counts.fixture == 14
+    @test manifest.record_counts.property_suite == 2
+    @test manifest.record_counts.recipe == 6
     @test manifest.knowledge_ids == [
         "PSK-000001", "PSK-000002", "PSK-000003", "PSK-000004",
         "PSK-000005", "PSK-000006", "PSK-000007", "PSK-000008", "PSK-000009",
@@ -54,6 +67,120 @@ using SHA
     @test contract.entrypoint == api.entrypoint == "check_parallel_member_limit_preservation"
     @test fixture.fixture_id in contract.fixture_ids
     @test all(code -> haskey(by_id, "finding:" * String(code)), contract.finding_codes)
+
+    property_suite = by_id["property_suite:terminal_permutation_seeded_properties"]
+    @test property_suite.contract_id == "terminal_permutation_invariance"
+    @test property_suite.knowledge_ids == ["PSK-000012"]
+    @test property_suite.seed_algorithm == "splitmix64-v1"
+    @test property_suite.seed == "0x6d5a56da4b9c2f17"
+    @test property_suite.case_count == 64
+    @test property_suite.failure_classification == "expected_contract_rejection"
+    @test property_suite.expected_finding_codes ==
+          ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), property_suite.files)
+
+    property_spec = JSON3.read(read(
+        joinpath(root, "test", "property", "terminal-permutation-seed.json"), String))
+    @test property_suite.property_suite_id == property_spec.property_suite_id
+    @test property_suite.contract_id == property_spec.contract_id
+    @test property_suite.knowledge_ids == property_spec.knowledge_ids
+    @test property_suite.seed_algorithm == property_spec.generator.algorithm
+    @test property_suite.seed == property_spec.generator.seed
+    @test property_suite.case_count == property_spec.generator.case_count
+    @test property_suite.properties_checked == property_spec.properties
+    @test property_suite.minimization_strategy == property_spec.minimization.strategy
+    @test property_suite.failure_classification == property_spec.failure_classification
+    @test property_suite.expected_finding_codes ==
+          [property_spec.minimization.preserved_finding_code]
+    @test property_suite.does_not_establish == property_spec.does_not_establish
+
+    unit_property_suite = by_id["property_suite:unit_base_serialization_seeded_properties"]
+    @test unit_property_suite.contract_id == "unit_base_serialization_invariance"
+    @test unit_property_suite.knowledge_ids == ["PSK-000014"]
+    @test unit_property_suite.seed_algorithm == "splitmix64-v1"
+    @test unit_property_suite.seed == "0x4f1bbcdc6762c7a9"
+    @test unit_property_suite.case_count == 64
+    @test unit_property_suite.failure_classification == "expected_contract_rejection"
+    @test Set(String.(unit_property_suite.expected_finding_codes)) == Set([
+        "E.CONTRACT.UNIT_SYSTEM_MISMATCH",
+        "E.CONTRACT.BASE_MAP_MISMATCH",
+        "E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH",
+    ])
+    @test all(file -> isfile(joinpath(root, String(file.path))), unit_property_suite.files)
+
+    unit_property_spec = JSON3.read(read(
+        joinpath(root, "test", "property", "unit-base-serialization-seed.json"), String))
+    @test unit_property_suite.property_suite_id == unit_property_spec.property_suite_id
+    @test unit_property_suite.contract_id == unit_property_spec.contract_id
+    @test unit_property_suite.knowledge_ids == unit_property_spec.knowledge_ids
+    @test unit_property_suite.seed_algorithm == unit_property_spec.generator.algorithm
+    @test unit_property_suite.seed == unit_property_spec.generator.seed
+    @test unit_property_suite.case_count == unit_property_spec.generator.case_count
+    @test unit_property_suite.properties_checked == unit_property_spec.properties
+    @test unit_property_suite.minimization_strategy == unit_property_spec.minimization.strategy
+    @test unit_property_suite.failure_classification == unit_property_spec.failure_classification
+    @test unit_property_suite.expected_finding_codes ==
+          unit_property_spec.minimization.preserved_finding_codes
+    @test unit_property_suite.does_not_establish == unit_property_spec.does_not_establish
+
+    recipe = by_id["recipe:parallel_member_limits"]
+    @test recipe.contract_id == contract.contract_id
+    @test recipe.knowledge_ids == ["PSK-000001"]
+    @test recipe.fixture_ids == ["parallel-rating-outer-relaxation-001"]
+    @test recipe.expected_status == "failed"
+    @test recipe.expected_finding_codes == ["W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), recipe.files)
+
+    neutral_recipe = by_id["recipe:neutral_ground_reference"]
+    @test neutral_recipe.contract_id == "neutral_ground_reference_preservation"
+    @test neutral_recipe.knowledge_ids == ["PSK-000002"]
+    @test neutral_recipe.fixture_ids == ["neutral-ground-reference-conflation-001"]
+    @test neutral_recipe.expected_status == "failed"
+    @test Set(String.(neutral_recipe.expected_finding_codes)) == Set([
+        "E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH",
+        "E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH",
+    ])
+    @test all(file -> isfile(joinpath(root, String(file.path))), neutral_recipe.files)
+
+    analysis_recipe = by_id["recipe:analyze_case"]
+    @test analysis_recipe.operation == "analyze_case"
+    @test analysis_recipe.knowledge_ids == []
+    @test analysis_recipe.fixture_ids == []
+    @test !haskey(analysis_recipe, :contract_id)
+    @test analysis_recipe.expected_status == "completed"
+    @test Set(String.(analysis_recipe.expected_finding_codes)) == Set([
+        "W.CONN.DANGLING",
+        "I.PRE.NO_VOLT_BOUNDS",
+        "W.CONV.TERMINAL_ROLES_INFERRED",
+    ])
+    @test all(file -> isfile(joinpath(root, String(file.path))), analysis_recipe.files)
+
+    verification_recipe = by_id["recipe:verify_solution"]
+    @test verification_recipe.operation == "verify_solution"
+    @test verification_recipe.knowledge_ids == []
+    @test verification_recipe.fixture_ids == []
+    @test !haskey(verification_recipe, :contract_id)
+    @test verification_recipe.expected_status == "completed"
+    @test verification_recipe.expected_finding_codes == ["E.SOL.VOLT_VIOLATION"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), verification_recipe.files)
+
+    explanation_recipe = by_id["recipe:explain_finding"]
+    @test explanation_recipe.operation == "explain_finding"
+    @test explanation_recipe.knowledge_ids == []
+    @test explanation_recipe.fixture_ids == []
+    @test !haskey(explanation_recipe, :contract_id)
+    @test explanation_recipe.expected_status == "completed"
+    @test explanation_recipe.expected_finding_codes == ["E.SOL.VOLT_VIOLATION"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), explanation_recipe.files)
+
+    parse_recipe = by_id["recipe:parse_case"]
+    @test parse_recipe.operation == "parse_case"
+    @test parse_recipe.knowledge_ids == []
+    @test parse_recipe.fixture_ids == []
+    @test !haskey(parse_recipe, :contract_id)
+    @test parse_recipe.expected_status == "completed"
+    @test parse_recipe.expected_finding_codes == ["E.SCHEMA.REQUIRED"]
+    @test all(file -> isfile(joinpath(root, String(file.path))), parse_recipe.files)
 
     neutral_contract = by_id["contract:neutral_ground_reference_preservation"]
     neutral_fixture = by_id["fixture:neutral-ground-reference-conflation-001"]
@@ -185,4 +312,6 @@ using SHA
 
     generator = joinpath(root, "scripts", "generate_executable_knowledge.py")
     @test success(`python3 $generator --check`)
+    finding_generator = joinpath(root, "scripts", "generate_finding_registry.py")
+    @test success(`python3 $finding_generator --check`)
 end

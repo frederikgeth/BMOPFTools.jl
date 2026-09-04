@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec julia --startup-file=no --project="$script_dir/.." "$script_dir/../scripts/bmopf_mcp.jl"

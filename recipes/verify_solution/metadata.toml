@@ -1,0 +1,30 @@
+schema_version = "0.6.0"
+recipe_id = "verify_solution"
+title = "Verify a claimed-feasible solution independently"
+purpose = "Profile the tutorial-aligned claimed-feasible counterexample and emit a structured solution report that keeps solver termination separate from independently observed Findings."
+operation = "verify_solution"
+knowledge_ids = []
+fixture_ids = []
+script = "recipe.jl"
+readme = "README.md"
+interface_paths = [
+  "bin/bmopf",
+  "bin/bmopf-mcp",
+  "scripts/bmopf_mcp.jl",
+  "scripts/bmopf_cli.jl",
+  "schemas/execution-response.schema.json",
+  "src/execution/interface.jl",
+]
+input_paths = [
+  "test/fixtures/negative/claimed-feasible-invalid-solution/network.json",
+  "test/fixtures/negative/claimed-feasible-invalid-solution/claimed-solved-result.json",
+]
+tutorial_paths = ["docs/src/tutorial_trust_but_verify.md"]
+command = "julia --startup-file=no --project=. recipes/verify_solution/recipe.jl"
+expected_status = "completed"
+expected_finding_codes = ["E.SOL.VOLT_VIOLATION"]
+does_not_establish = [
+  "A LOCALLY_SOLVED status certifies that declared voltage limits or other independent acceptance checks passed.",
+  "One solution profile establishes global optimality, model correctness, or coverage of every equation and device constraint.",
+  "A completed verification operation means the profiled solution has no ERROR or WARNING Findings.",
+]
