@@ -1041,6 +1041,8 @@ function _normalize_transformer_no_load_shunts!(net::Dict{String,Any}, dn)
         coll isa Dict || continue
         for (tid, c) in coll
             c isa Dict || continue
+            materialized = get(get(net, "_meta", Dict()), "explicit_transformer_core_shunts", Dict())
+            haskey(materialized, "$(lowercase(subtype))/$(lowercase(String(tid)))") && continue
             t = get(by_id, lowercase(String(tid)), nothing)
             t === nothing && continue
             vmn = get(t, :vm_nom, nothing)

@@ -25,3 +25,23 @@ keeps the full records in `_meta.powerio_diagnostic_details`, and records
 unattributed elements when an upstream list is truncated. Reader diagnostics
 remain separate from writer field mappings; a complete field mapping does not
 certify a clean source parse. Both records survive BMOPF JSON export.
+
+## Explicit core-shunt locations
+
+PowerIO's proposed `no_load_shunt` object keeps the exciting branch on its
+physical winding and gives the admittance per coil. The 0.1.0 output profile
+retains that object under `extras.transformer`. Intake restores it, creates
+an equivalent ordinary bus shunt with the same coil incidence, and records
+the source object and generated shunt ID in `_meta.explicit_transformer_core_shunts`.
+This conversion does not move the branch across transformer leakage. It also
+prevents the OpenDSS percentage normalization from adding a second core branch.
+
+The package continues to reject unknown declared schema retrieval URLs. This
+compatibility path supports explicitly converted PowerIO 0.11 data and does
+not claim acceptance of every field in a BMOPF 0.2.0 proposal snapshot.
+
+Materialized core shunts remain attached to their owning transformer in the
+operating-point loss ledger. Transformer loss objectives and reports include
+their active and reactive power; the network power balance counts them once.
+Neutral terminals appear last in the generated shunt map, with the admittance
+matrix permuted to preserve its physical connections.

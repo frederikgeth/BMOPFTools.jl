@@ -94,3 +94,73 @@ end
     @test parse_bmopf(path)["_meta"]["powerio_diagnostic_details"] ==
         original["_meta"]["powerio_diagnostic_details"]
 end
+
+@testset "Explicit transformer core shunts preserve their physical winding" begin
+    for winding in 1:2
+        source = Dict{String,Any}(
+            "bus" => Dict("h" => Dict("terminal_names" => ["a", "n"]),
+                          "l" => Dict("terminal_names" => ["a", "n"])),
+            "transformer" => Dict("single_phase" => Dict("t" => Dict(
+                "bus_from" => "h", "bus_to" => "l",
+                "terminal_map_from" => ["a", "n"], "terminal_map_to" => ["a", "n"],
+                "s_rating" => 25000.0, "v_nom_from" => 7200.0, "v_nom_to" => 240.0,
+                "r_series_from" => 1.0, "x_series_from" => 2.0,
+                "no_load_shunt" => Dict("winding" => winding, "g" => 0.001, "b" => -0.002))))
+        )
+        net = parse_bmopf(BMOPFTools.JSON3.write(source); from_string=true)
+        shunt = only(values(net["shunt"]))
+        @test shunt["bus"] == (winding == 1 ? "h" : "l")
+        @test shunt["terminal_map"] == ["a", "n"]
+        nodes, admittance = BMOPFTools._shunt_yprim(shunt)
+        @test admittance ≈ (0.001 - 0.002im) .* [1 -1; -1 1]
+        voltage = ComplexF64[245 + 3im, 5 + 3im]
+        power = sum(voltage .* conj.(admittance * voltage))
+        @test real(power) ≈ 57.6
+        @test imag(power) ≈ 115.2
+        @test !haskey(net["transformer"]["single_phase"]["t"], "no_load_shunt")
+        @test net["_meta"]["explicit_transformer_core_shunts"]["single_phase/t"]["source"] == source["transformer"]["single_phase"]["t"]["no_load_shunt"]
+        reparsed = BMOPFTools._postprocess(deepcopy(net))
+        @test length(reparsed["shunt"]) == 1
+        bad = deepcopy(source)
+        bad["transformer"]["single_phase"]["t"]["no_load_shunt"]["winding"] = 3
+        @test_throws ArgumentError parse_bmopf(BMOPFTools.JSON3.write(bad); from_string=true)
+        bad = deepcopy(source)
+        bad["transformer"]["single_phase"]["t"]["g_no_load"] = 0
+        @test_throws ArgumentError parse_bmopf(BMOPFTools.JSON3.write(bad); from_string=true)
+    end
+end
+
+
+@testset "Explicit core shunt conductor incidence" begin
+    cases = [
+        ("wye_delta", 2, ["a", "b", "c"], [2 -1 -1; -1 2 -1; -1 -1 2]),
+        ("delta_wye", 2, ["a", "b", "c", "return"], [1 0 0 -1; 0 1 0 -1; 0 0 1 -1; -1 -1 -1 3]),
+        ("single_phase", 2, ["a", "b"], [1 -1; -1 1]),
+        ("center_tap", 3, ["a", "return", "b"], [0 0 0; 0 1 -1; 0 -1 1]),
+    ]
+    for (subtype, winding, terminals, incidence) in cases
+        transformer = Dict{String,Any}("bus_from" => "h", "bus_to" => "l",
+            "terminal_map_from" => ["a", "n"], "terminal_map_to" => terminals,
+            "no_load_shunt" => Dict("winding" => winding, "g" => 0.001, "b" => -0.002))
+        net = Dict{String,Any}("bus" => Dict("h" => Dict("terminal_names" => ["a", "n"]),
+            "l" => Dict("terminal_names" => terminals, "neutral_terminal" => "return")),
+            "transformer" => Dict(subtype => Dict("t" => transformer)))
+        BMOPFTools._materialize_transformer_core_shunts!(net)
+        shunt = only(values(net["shunt"]))
+        _, matrix = BMOPFTools._shunt_yprim(shunt)
+        @test shunt["bus"] == "l"
+        order = [findfirst(==(terminal), terminals) for terminal in shunt["terminal_map"]]
+        @test matrix ≈ (0.001 - 0.002im) .* incidence[order, order]
+        @test maximum(abs.(sum(matrix, dims=1))) < 1e-12
+        if "return" in terminals
+            @test last(shunt["terminal_map"]) == "return"
+        end
+    end
+    transformer = Dict{String,Any}("windings" => [Dict("bus" => "bus$i", "terminal_map" => ["a", "n"], "configuration" => "WYE") for i in 1:4],
+        "no_load_shunt" => Dict("winding" => 4, "g" => 0.001, "b" => 0))
+    net = Dict{String,Any}("transformer" => Dict("n_winding" => Dict("t" => transformer)))
+    BMOPFTools._materialize_transformer_core_shunts!(net)
+    shunt = only(values(net["shunt"]))
+    @test shunt["bus"] == "bus4"
+    @test BMOPFTools._shunt_yprim(shunt)[2] ≈ 0.001 .* [1 -1; -1 1]
+end

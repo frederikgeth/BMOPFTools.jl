@@ -311,7 +311,7 @@ function _fold_transformer_extras!(net::Dict{String,Any})
     folded_fields = (
         "tap", "tap_min", "tap_max",
         "r_neutral_from", "x_neutral_from", "r_neutral_to", "x_neutral_to",
-        "g_no_load", "b_no_load",
+        "g_no_load", "b_no_load", "no_load_shunt",
     )
     for (subtype, bytransformer) in parked
         bytransformer isa Dict || continue

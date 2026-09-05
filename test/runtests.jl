@@ -3760,12 +3760,11 @@ const IEEE13_FIXTURE = """
     @testset "from_dss — unclassifiable fidelity losses are surfaced" begin
         net = from_dss(joinpath(@__DIR__, "data", "SWER", "Master.dss"))
         mapping = net["_meta"]["powerio_source_mapping"]
-        # A transformer %noloadloss drop is a real fidelity loss that names no
-        # single source field, so it cannot enter by_field. It must still be
-        # visible instead of silently vanishing from the ledger.
+        # Warnings without an attributable field remain in the complete ledger.
         @test mapping["warning_status"] == "partially_classified"
         @test !isempty(mapping["unclassified_warnings"])
-        @test any(contains("%noloadloss"), mapping["unclassified_warnings"])
+        @test !any(contains("%noloadloss"), mapping["unclassified_warnings"])
+        @test !isempty(net["_meta"]["explicit_transformer_core_shunts"])
         @test all(warning -> isnothing(match(r"`([^`]+)`", warning)),
                   mapping["unclassified_warnings"])
         @test mapping["warnings_classified"] + length(mapping["unclassified_warnings"]) ==
