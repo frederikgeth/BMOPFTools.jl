@@ -24,8 +24,8 @@ tolerances — tightening the inner tolerance actively disrupts it — and how
 exactly it solved its complementarity pairs is reported in the residual columns
 instead.
 
-The script needs an active Julia environment containing `BMOPFTools`, `JuMP`,
-`Ipopt`, `CCOpt`, `MPCCModels`, and `NLPModelsJuMP`. The ordinary `scripts`
+The scripts need an active Julia environment containing `BMOPFTools`, `JuMP`,
+`Ipopt`, `CCOpt`, `MPCCModels`, `NLPModelsJuMP`, `MadNLP`, and `JSON3`. The ordinary `scripts`
 environment predates the optional CCOpt stack, so use the environment where
 the draft PR's CCOpt dependencies have been installed. From the repository
 root, a disposable environment can be prepared with:
@@ -34,7 +34,7 @@ root, a disposable environment can be prepared with:
 julia --project=/tmp/bmopf-ccopt-env -e \
   'using Pkg; Pkg.activate("/tmp/bmopf-ccopt-env"); \
    Pkg.develop(path=pwd()); \
-   Pkg.add(["JuMP", "Ipopt", "CCOpt", "MPCCModels", "NLPModelsJuMP"])'
+   Pkg.add(["JuMP", "Ipopt", "CCOpt", "MPCCModels", "NLPModelsJuMP", "MadNLP", "JSON3"])'
 ```
 
 Then run the experiment:
@@ -123,3 +123,44 @@ row. `solve_time_s` is each solver's own report and the two do not
 measure the same span — CCOpt's includes MadNLP initialisation, Ipopt's
 excludes model construction. Use `--warmup` either way, because the first
 Julia invocation includes compilation.
+
+For the batch ENWL study, use `enwl_encoding_study.jl`. It includes shipped
+snapshots and optional PV-capacity variants; the latter are important because
+the shipped 30-bus snapshots do not cross the Volt-watt knee:
+
+```bash
+julia --project=/tmp/bmopf-ccopt-env \
+  scripts/enwl_encoding_study.jl \
+  /path/to/BMOPFDraftData/benchmarks/ENWLsnapshots \
+  --feeders=30bus_LG --times=t09,t12,t15 \
+  --pv-scale=1,2,3 --eps=2e-3,1e-4 \
+  --out=/tmp/enwl-encoding-study.tsv
+```
+
+The batch report records active Volt-var/Volt-watt hinges, maximum voltage,
+curtailment, solver disagreement, and CCOpt complementarity residuals. Scaling
+the PV ratings is an experiment variant, not a claim about the original
+snapshot operating point.
+
+### Latest rerun after the main-engine performance port
+
+The comparison was rerun on 2026-09-05 after merging the numerical-engine
+updates from `main`. These are the `30bus_LG` shipped snapshots at `pv_scale=1`,
+using the fine smooth setting `epsilon=1e-4`:
+
+| snapshot | max V (V) | VW hinges active | CCOpt time (s) | max ΔQg (var) | max ΔVm (V) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| t09 / 12:00 | 244.180 | 0 | 26.44* | 1.171 | 0.00172 |
+| t12 / 13:30 | 245.129 | 0 | 0.031 | 0.058 | 0.000057 |
+| t15 / 15:00 | 244.762 | 0 | 0.030 | 0.168 | 0.000207 |
+
+\* The t09 batch row includes first-use Julia compilation; the single-case
+warm-started rerun took 0.0205 s on the reported outer-time measure. All CCOpt
+rows were `LOCALLY_SOLVED`, had zero hinge-bound violation, and had maximum
+complementarity products below `1e-8`.
+
+The shipped 30-bus cases therefore do not exercise the Volt-watt branch: their
+maximum voltage remains below the 253 V knee. In the corresponding `pv_scale=3`
+experiment variants, the maximum voltage is about 254.5 V and 20–26 Volt-watt
+hinges become active. Those scaled rows are included to test the encoding, not
+to reinterpret the original benchmark snapshots.
