@@ -76,6 +76,18 @@ General fractional/current/mixed-load domain cleanup remains separate. The new
 serialization, analytic currents/powers/cost, zero voltage for pure Z, conductor
 limit rejection, and updates of nominal-power parameters through zero.
 
+## Angle-window hardening
+
+Bus and line angle windows now share validation and bounded sine/cosine rows.
+This fixes antipodal feasibility for exact bus-angle targets. Exact targets use
+one equality and a half-plane guard instead of two opposing inequalities plus a
+guard. Strict intervals keep two rows and unchanged variable incidence. The
+cosine scaling changes dual normalization; runtime documentation describes it.
+Malformed supplied bus nominal-angle vectors now fail instead of silently using
+partial offsets. Independent complex-phasor tests cover rotated and centered
+windows, branch cuts, exact targets, invalid inputs, and the undefined angle at
+zero voltage. This is a formulation improvement, not a measured speedup.
+
 ## Remaining correctness work
 
 These issues are **not fixed** by this branch and should precede a broad
@@ -93,18 +105,13 @@ substitution/presolve pass.
    check receiving-end line limits or branch angle bounds. Fixing the engine does
    not make that external verification complete. Track this separately in the
    main package using stable Finding codes and conductor endpoint mappings.
-3. **P2 — bus-angle domain.** The centered bus-angle encoding still lacks the
-   explicit half-plane guard for one-sided/equal bounds and build-time endpoint
-   checks now present for lines. Nominal centering does not itself impose that
-   domain. Reuse a common angle-window helper once bus and line conventions are
-   represented explicitly; add antipodal and zero-voltage tests.
-4. **P2 — invalid or unsupported elements can be skipped.** Missing line
+3. **P2 — invalid or unsupported elements can be skipped.** Missing line
    impedance skips line stamping; unsupported source configurations omit source
    current injection; n-winding tap fields warn and use nominal ratios. Define a
    strict engine applicability check that rejects unsupported requested physics
    before building a plausible partial model. Validate matching terminal counts,
    finite coefficients, rating domains, and source-reference completeness there.
-5. **P2 — ideal topology is not fully guarded.** The current check detects direct
+4. **P2 — ideal topology is not fully guarded.** The current check detects direct
    parallel zero-impedance conductors, not ideal cycles, self-loops, or general
    dependent ideal-transformer relations. Its check runs before coefficient
    providers replace impedances, so static nominal topology alone cannot justify
@@ -203,3 +210,15 @@ The optimization profile's `n_variables - n_equalities` is only a row-count
 heuristic, not a Jacobian-rank calculation. Its multiplier thresholds do not prove
 LICQ, second-order sufficiency, uniqueness, or strict complementarity independent
 of scaling. Document these as diagnostics, not scientific certificates.
+
+## Deferred branch wrap-up checklist
+
+Do this only when preparing the PR, after the engine development batches:
+
+- Remove this temporary review page and every reference to its path, including
+  the executable source-path entry; regenerate metadata and check documentation.
+- Write temporary benchmark scripts and a PR performance write-up. Use Ipopt and
+  MadNLP, with larger cases from sibling `BMOPFDraftData/benchmarks` where useful.
+- Compare the branch with its baseline under matched settings. Prioritize avoiding
+  regressions; report sparsity, feasibility and solution agreement alongside time.
+  Do not assume every substitution is faster or extrapolate from tiny cases.

@@ -120,6 +120,117 @@
         @test_throws ArgumentError angle_point_ok(0.0, NaN, nothing)
     end
 
+    @testset "bounded angle coefficients and exact targets" begin
+        model = JuMP.Model()
+        s = JuMP.@variable(model); c = JuMP.@variable(model)
+        lo, hi = E._angle_window(-pi/2 + 1e-12, pi/2 - 1e-12, "test")
+        rows = E._angle_window_constraints!(model, s, c, lo, hi)
+        @test keys(rows) == (:lower, :upper)
+        for row in rows
+            f = JuMP.constraint_object(row).func
+            @test all(abs(coef) <= 1 for (coef, _) in JuMP.linear_terms(f))
+        end
+        for theta in (-1.4, 0.0, 1.4)
+            @test isempty(JuMP.primal_feasibility_report(model,
+                Dict(s => sin(theta), c => cos(theta)); atol=1e-14))
+        end
+        @test !isempty(JuMP.primal_feasibility_report(model,
+            Dict(s => 0.0, c => -1.0); atol=1e-14))
+        exact_model = JuMP.Model(Ipopt.Optimizer); JuMP.set_silent(exact_model)
+        x = JuMP.@variable(exact_model, start=0.1)
+        y = JuMP.@variable(exact_model, start=1.0)
+        exact = E._angle_window_constraints!(exact_model, x, y, 0.2, 0.2)
+        @test keys(exact) == (:equality, :domain)
+        @test JuMP.constraint_object(exact.equality).set == JuMP.MOI.EqualTo(0.0)
+        @test E._optimization_profile(exact_model)["n_eq_constraints"] == 1
+        JuMP.@constraint(exact_model, y == 1.0)
+        JuMP.optimize!(exact_model)
+        @test JuMP.termination_status(exact_model) == JuMP.MOI.LOCALLY_SOLVED
+        @test JuMP.value(x) ≈ tan(0.2) atol=1e-8
+    end
+
+    function bus_angle_point_ok(theta, lo, hi; nominal=nothing, magnitude=1.0,
+                                reverse=false, rotation=0.0)
+        model = JuMP.Model()
+        terminals = reverse ? ["b", "a"] : ["a", "b"]
+        bt = Dict("bus" => terminals)
+        bus = Dict{String,Any}("terminal_names" => terminals)
+        lo !== nothing && (bus["va_diff_min"] = lo)
+        hi !== nothing && (bus["va_diff_max"] = hi)
+        nominal !== nothing && (bus["va_nom"] = nominal)
+        # Use the public serialization boundary before stamping the witness.
+        io = IOBuffer(); write_bmopf(Dict{String,Any}("bus" => Dict("bus" => bus)), io)
+        net = parse_bmopf(String(take!(io)); from_string=true)
+        vr, vi = E._add_voltage_variables!(model, bt, Set())
+        E._add_bus_limit_constraints!(model, net, bt, Set(), Dict(:vr => vr, :vi => vi))
+        phasors = [cis(rotation), magnitude * cis(rotation + theta)]
+        point = Dict(v => part(phasors[k]) for (k, t) in enumerate(terminals)
+                     for (v, part) in ((vr[("bus", t)], real), (vi[("bus", t)], imag)))
+        return isempty(JuMP.primal_feasibility_report(model, point; atol=1e-10))
+    end
+
+    @testset "centered bus angle domain and phasor oracle" begin
+        for offset in (0.0, -2pi/3, pi), reverse in (false, true), rotation in (0.0, 1.1)
+            nominal = [0.0, offset]
+            for deviation in (-0.3, -0.1, 0.0, 0.2, 0.4, pi)
+                # Independent principal-angle oracle, including branch cuts.
+                centered = angle(cis(offset + deviation) / cis(offset))
+                expected = -0.1 - 1e-12 <= centered <= 0.2 + 1e-12
+                @test bus_angle_point_ok(offset + deviation, -0.1, 0.2;
+                    nominal, reverse, rotation) == expected
+            end
+            @test bus_angle_point_ok(offset + 0.1, 0.1, 0.1; nominal, reverse, rotation)
+            @test !bus_angle_point_ok(offset + 0.1 + pi, 0.1, 0.1; nominal, reverse, rotation)
+        end
+        @test bus_angle_point_ok(0.1, 0.0, 0.2) # absent nominal means zero offset
+        @test bus_angle_point_ok(pi, 0.0, 0.0; magnitude=0.0) # undefined angle
+        @test angle_point_ok(0.1, 0.1, 0.1)
+        @test !angle_point_ok(0.1 + pi, 0.1, 0.1)
+        for (lo, hi) in ((nothing, 0.1), (-0.1, nothing), (-pi/2, 0.1),
+                         (-0.1, pi/2), (0.2, 0.1), ([0.0], 0.1))
+            @test_throws ArgumentError bus_angle_point_ok(0.0, lo, hi)
+            @test_throws ArgumentError angle_point_ok(0.0, lo, hi)
+        end
+        for bound in (Inf, -Inf, NaN, "bad")
+            @test_throws ArgumentError E._angle_window(bound, 0.1, "test")
+            @test_throws ArgumentError E._angle_window(-0.1, bound, "test")
+        end
+        for nominal in (0.0, [0.0], [0.0, 0.1, 0.2], [0.0, "bad"])
+            @test_throws ArgumentError bus_angle_point_ok(0.0, -0.1, 0.1; nominal)
+        end
+    end
+
+    @testset "angle semantic keys reflect equality versus interval" begin
+        net = parse_bmopf("""
+        {"bus":{"f":{"terminal_names":["a","b"]},
+                "t":{"terminal_names":["a","b"],"va_diff_min":0,"va_diff_max":0}},
+         "voltage_source":{"s":{"bus":"f","terminal_map":["a","b"],
+                                   "v_magnitude":[1,1],"v_angle":[0,0]}},
+         "line":{"l":{"bus_from":"f","bus_to":"t",
+                        "terminal_map_from":["a","b"],"terminal_map_to":["a","b"],
+                        "R_series_1_1":1,"R_series_2_2":1,
+                        "va_diff_min":0,"va_diff_max":0}}}
+        """; from_string=true)
+        for width in (0.0, 0.1), per_unit in (false, true)
+            net["bus"]["t"]["va_diff_max"] = width
+            net["line"]["l"]["va_diff_max"] = width
+            ctx = build_opf_model(net; per_unit)
+            for (prefix, index) in ((:bus_angle_, ("t", 1, 2)),
+                                     (:line_angle_, ("l", 1)))
+                suffixes = iszero(width) ? (:equality, :domain) : (:lower, :upper)
+                for suffix in suffixes
+                    key = OpfModelKey(:constraint, Symbol(prefix, suffix), index)
+                    @test key in opf_object_keys(ctx)
+                    if suffix == :equality
+                        @test JuMP.constraint_object(opf_object(ctx, key)).set == JuMP.MOI.EqualTo(0.0)
+                    end
+                end
+                absent = iszero(width) ? :lower : :equality
+                @test OpfModelKey(:constraint, Symbol(prefix, absent), index) ∉ opf_object_keys(ctx)
+            end
+        end
+    end
+
     @testset "both line-end apparent powers, including reverse flow" begin
         # V_f=1, V_t=2, R=1 => I_f=-1. Thus |S_f|=1, |S_t|=2.
         # Swapping branch orientation must not change feasibility.

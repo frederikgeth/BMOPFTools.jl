@@ -388,3 +388,38 @@ function _line_shunt_row_bound(G::Union{Matrix{Float64},Nothing},
     end
     return acc
 end
+
+# Shared by line (θ_from − θ_to) and centered bus (θ_j − θ_k − Δ)
+# angle limits. Static data only: never infer equality from a parameter value.
+function _angle_window(lo, hi, owner)
+    (lo === nothing || hi === nothing) && throw(ArgumentError(
+        "$owner: supply both va_diff_min and va_diff_max; one-sided angle windows are unsupported."))
+    for bound in (lo, hi)
+        (bound isa Real && isfinite(bound) && -pi/2 < bound < pi/2) ||
+            throw(ArgumentError("$owner: angle bounds must be finite scalars strictly within (-pi/2, pi/2)."))
+    end
+    lo <= hi || throw(ArgumentError("$owner: va_diff_min exceeds va_diff_max."))
+    lower, upper = Float64(lo), Float64(hi)
+    (-pi/2 < lower <= upper < pi/2 && (lo == hi || lower < upper)) ||
+        throw(ArgumentError("$owner: angle window cannot be represented faithfully in Float64."))
+    return lower, upper
+end
+
+"""
+    _angle_window_constraints!(model, s, c, lo, hi)
+
+Stamp a validated window for `arg(c + im*s)` with bounded coefficients.
+Multiplying each tangent row by its positive `cos(bound)` preserves feasibility
+without coefficients that diverge near ±π/2. Duals correspond to these scaled
+rows. Equal endpoints use one equality and a half-plane guard to exclude the
+antipodal solution; a strict interval already implies that guard. The origin
+remains feasible: an angle constraint cannot define an angle at zero voltage.
+"""
+function _angle_window_constraints!(model, s, c, lo, hi)
+    if lo == hi
+        return (equality=@constraint(model, cos(lo)*s - sin(lo)*c == 0),
+                domain=@constraint(model, c >= 0))
+    end
+    return (lower=@constraint(model, sin(lo)*c - cos(lo)*s <= 0),
+            upper=@constraint(model, cos(hi)*s - sin(hi)*c <= 0))
+end

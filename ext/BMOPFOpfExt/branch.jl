@@ -311,6 +311,9 @@ For each conductor k:
   c = vr_fr·vr_to + vi_fr·vi_to   (real part)
   tan(va_diff_min)·c ≤ s ≤ tan(va_diff_max)·c
 
+The actual rows are scaled by the positive cosine of each endpoint to keep
+coefficients bounded. Equal endpoints use a single equality and `c ≥ 0`.
+
 Bounds describe θ_from − θ_to. Both endpoints must be supplied and strictly
 between −π/2 and π/2. A lone endpoint does not declare the angular domain
 needed by the tangent encoding, so it is rejected rather than completed with
@@ -326,21 +329,7 @@ function _add_line_angle_constraints!(model, net, vars; constraint_context=nothi
         va_diff_min = get(line, "va_diff_min", nothing)
         va_diff_max = get(line, "va_diff_max", nothing)
         (va_diff_min === nothing && va_diff_max === nothing) && continue
-        (va_diff_min === nothing || va_diff_max === nothing) && throw(ArgumentError(
-            "Line '$lid': supply both va_diff_min and va_diff_max; " *
-            "one-sided angle windows are unsupported by the tangent encoding."))
-
-        for bound in (va_diff_min, va_diff_max)
-            bound === nothing && continue
-            (isfinite(bound) && -pi/2 < bound < pi/2) || throw(ArgumentError(
-                "Line '$lid': angle bounds must lie strictly within (-pi/2, pi/2)."))
-        end
-        if va_diff_min !== nothing && va_diff_max !== nothing && va_diff_min > va_diff_max
-            throw(ArgumentError("Line '$lid': va_diff_min exceeds va_diff_max."))
-        end
-
-        tan_min = va_diff_min !== nothing ? tan(Float64(va_diff_min)) : nothing
-        tan_max = va_diff_max !== nothing ? tan(Float64(va_diff_max)) : nothing
+        lo, hi = _angle_window(va_diff_min, va_diff_max, "Line '$lid'")
 
         b_fr  = line["bus_from"]
         b_to  = line["bus_to"]
@@ -354,19 +343,8 @@ function _add_line_angle_constraints!(model, net, vars; constraint_context=nothi
             haskey(vr, (b_to, t_to)) || continue
             s = @expression(model, vi[(b_fr,t_fr)]*vr[(b_to,t_to)] - vr[(b_fr,t_fr)]*vi[(b_to,t_to)])
             c = @expression(model, vr[(b_fr,t_fr)]*vr[(b_to,t_to)] + vi[(b_fr,t_fr)]*vi[(b_to,t_to)])
-            # A strict two-sided interval already implies c >= 0. For a
-            # zero-width interval it does not: exclude the
-            # antipodal branch of tan without adding redundant rows otherwise.
-            if tan_min == tan_max
-                register(:line_angle_domain, (lid, k), @constraint(model, c >= 0))
-            end
-            if tan_min !== nothing
-                register(:line_angle_lower, (lid, k),
-                    @constraint(model, tan_min * c <= s))
-            end
-            if tan_max !== nothing
-                register(:line_angle_upper, (lid, k),
-                    @constraint(model, s <= tan_max * c))
+            for (suffix, cref) in pairs(_angle_window_constraints!(model, s, c, lo, hi))
+                register(Symbol(:line_angle_, suffix), (lid, k), cref)
             end
         end
     end

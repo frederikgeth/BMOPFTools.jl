@@ -180,36 +180,38 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
         # va_diff_* are scalars bounding the angle difference of every applicable
         # phase pair, CENTERED on a nominal offset Δ = va_nom[j] − va_nom[k].
         # va_nom is an optional per-phase nominal-angle vector (radians) indexed
-        # by the full phase_all order (like vpn/vpp); absent/short ⇒ offset 0,
+        # by the full phase_all order (like vpn/vpp); absent ⇒ offset 0,
         # which reduces exactly to the raw θ_j − θ_k bound (back-compatible).
         #
         # With z = conj(V_k)·V_j = c₀ + i·s₀, rotating by e^{−iΔ} gives
         #   c = c₀·cosΔ + s₀·sinΔ,   s = s₀·cosΔ − c₀·sinΔ,   s/c = tan(θ_j−θ_k−Δ).
-        # The bilinear constraint tan(min)·c ≤ s ≤ tan(max)·c is faithful only
-        # while c > 0, i.e. the centered deviation stays within (−π/2, π/2); the
-        # nominal centering is what keeps it there for balanced multiphase buses.
+        # The shared helper validates the centered domain and stamps scaled
+        # bilinear rows; nominal centering alone does not enforce that domain.
         va_diff_min = get(bus, "va_diff_min", nothing)
         va_diff_max = get(bus, "va_diff_max", nothing)
         if (va_diff_min !== nothing || va_diff_max !== nothing) && n_phase >= 2
+            lo, hi = _angle_window(va_diff_min, va_diff_max, "Bus '$bid'")
             va_nom = get(bus, "va_nom", nothing)
-            nom(idx) = (va_nom isa AbstractVector && idx <= length(va_nom)) ?
-                       Float64(va_nom[idx]) : 0.0
-            tan_min = va_diff_min !== nothing ? tan(Float64(va_diff_min)) : nothing
-            tan_max = va_diff_max !== nothing ? tan(Float64(va_diff_max)) : nothing
+            if va_nom !== nothing
+                (va_nom isa AbstractVector && length(va_nom) == n_phase &&
+                 all(x -> x isa Real && isfinite(x) && isfinite(Float64(x)), va_nom)) ||
+                    throw(ArgumentError("Bus '$bid': va_nom must contain $n_phase finite phase angles."))
+            end
+            nom(idx) = va_nom === nothing ? 0.0 : Float64(va_nom[idx])
             for ki in 1:n_phase-1
                 for kj in ki+1:n_phase
                     tk = phase_all[ki]; tj = phase_all[kj]
                     (applicable(tk) && applicable(tj)) || continue
                     Δ = nom(kj) - nom(ki)
+                    isfinite(Δ) || throw(ArgumentError("Bus '$bid': nominal angle offset is nonfinite."))
                     cosΔ = cos(Δ); sinΔ = sin(Δ)
                     s0 = @expression(model, vr[(bid,tk)]*vi[(bid,tj)] - vi[(bid,tk)]*vr[(bid,tj)])
                     c0 = @expression(model, vr[(bid,tk)]*vr[(bid,tj)] + vi[(bid,tk)]*vi[(bid,tj)])
                     s = @expression(model, s0*cosΔ - c0*sinΔ)
                     c = @expression(model, c0*cosΔ + s0*sinΔ)
-                    tan_min !== nothing && register(:bus_angle_lower, (bid, ki, kj),
-                        @constraint(model, tan_min * c <= s))
-                    tan_max !== nothing && register(:bus_angle_upper, (bid, ki, kj),
-                        @constraint(model, s <= tan_max * c))
+                    for (suffix, cref) in pairs(_angle_window_constraints!(model, s, c, lo, hi))
+                        register(Symbol(:bus_angle_, suffix), (bid, ki, kj), cref)
+                    end
                 end
             end
         end

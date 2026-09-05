@@ -107,6 +107,16 @@ remaining defects, and proposed substitutions. Its executable evidence links to
   One-sided windows are rejected rather than completed with an implicit bound.
   The encoding does not define an angle at zero voltage. Unsupported windows
   raise `ArgumentError`.
+- **Bus angle convention:** bounds apply to `θ_j − θ_k − (va_nom[j] − va_nom[k])`
+  in declared phase order. The same endpoint domain applies as for lines.
+  Omitted `va_nom` means zero offsets; if supplied, it must have exactly one
+  finite angle per phase. Source-fixed and grounded phase pairs are skipped.
+- **Angle conditioning:** sine/cosine rows keep coefficients bounded near the
+  supported endpoints. Exact angle targets use an `*_angle_equality` semantic
+  row and an `*_angle_domain` half-plane guard, replacing opposing lower/upper
+  inequalities. Interval rows retain their lower/upper keys. Their multipliers
+  are for the cosine-scaled rows: multiply by the endpoint cosine to compare
+  against a tangent-row multiplier at the same solution.
 - **Line apparent power:** `s_max` applies at both ends, even without π-shunts.
   Equal current magnitudes alone do not imply equal apparent powers.
 - **Open switches:** currents remain fixed at zero; vacuous thermal constraints

@@ -740,6 +740,7 @@ source_paths = [
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
   "ext/BMOPFOpfExt/branch.jl",
+  "ext/BMOPFOpfExt/bus.jl",
   "ext/BMOPFOpfExt/data_utils.jl",
   "ext/BMOPFOpfExt/source.jl",
   "ext/BMOPFOpfExt/core.jl",
