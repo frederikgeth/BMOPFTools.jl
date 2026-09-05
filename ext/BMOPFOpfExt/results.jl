@@ -449,8 +449,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         cfg  = get(gen, "configuration", "WYE")
         is_delta  = cfg == "DELTA"
         n_c       = length(tm)
-        ph_pos    = is_delta ? collect(eachindex(tm)) : _phase_positions(tm, nlabels)
-        n_pos_idx = is_delta ? nothing : _neutral_pos(tm, nlabels)
+        ph_pos, n_pos_idx = _generator_positions(tm, cfg, nlabels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
         ph_results = Dict{String,Any}()

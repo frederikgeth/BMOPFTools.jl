@@ -69,6 +69,7 @@ function _line_z_matrix(line::Dict{String,Any}, linecodes::AbstractDict)
         X = _pkm(line, "X_series_")
         R === nothing && (R = zeros(size(X)...))
         X === nothing && (X = zeros(size(R)...))
+        _validate_line_z(R, X)
         return (R, X, size(R, 1))
     end
 
@@ -80,18 +81,40 @@ function _line_z_matrix(line::Dict{String,Any}, linecodes::AbstractDict)
     R_pm = _pkm(lc, "R_series_")   # Ω/m
     X_pm = _pkm(lc, "X_series_")   # Ω/m
     len  = Float64(get(line, "length", 1.0))  # m
+    isfinite(len) && len >= 0 || throw(ArgumentError("Line length must be finite and nonnegative."))
+    R_pm === nothing && X_pm === nothing && return (nothing, nothing, 0)
 
-    R_pm === nothing && (R_pm = zeros(1,1))
+    # A lossless linecode may declare only X. Infer the conductor dimension
+    # from the matrix that exists, just as for inline impedances above.
+    R_pm === nothing && (R_pm = X_pm === nothing ? zeros(1,1) : zeros(size(X_pm)...))
     X_pm === nothing && (X_pm = zeros(size(R_pm)...))
 
     n = size(R_pm, 1)
-    (R_pm .* len, X_pm .* len, n)
+    R, X = R_pm .* len, X_pm .* len
+    _validate_line_z(R, X)
+    (R, X, n)
+end
+
+function _validate_line_z(R, X)
+    size(R) == size(X) && size(R,1) == size(R,2) || throw(ArgumentError(
+        "Line resistance and reactance matrices must be square and have identical dimensions."))
+    all(isfinite, R) && all(isfinite, X) || throw(ArgumentError(
+        "Line impedance coefficients must be finite."))
 end
 
 # These helpers live in BMOPFTools core; alias locally for convenience.
 const _neutral_pos      = BMOPFTools._neutral_pos
 const _phase_positions  = BMOPFTools._phase_positions
 const _xfmr_turns_ratio = BMOPFTools._xfmr_turns_ratio
+
+# Branch indexing shared by generator allocation, constraints, cost, and results.
+# A two-terminal SINGLE_PHASE device is one coil, including phase-to-phase and
+# reversed terminal maps. DELTA uses the next terminal as each coil's reference.
+function _generator_positions(tm, cfg, nlabels)
+    cfg == "SINGLE_PHASE" && length(tm) == 2 && return ([1], 2)
+    cfg == "DELTA" && return (collect(eachindex(tm)), nothing)
+    return (_phase_positions(tm, nlabels), _neutral_pos(tm, nlabels))
+end
 
 """
     _source_fixed_terminals(net) -> Set{Tuple{String,String}}
@@ -148,6 +171,52 @@ function _line_pi_shunt(line::Dict{String,Any}, linecodes::AbstractDict)
     G_fr, B_fr, G_to, B_to
 end
 
+# Squared magnitudes and reciprocal-square row scaling must both be representable.
+function _check_square_scale(value::Real, name)
+    v = Float64(value)
+    isfinite(v) && v > 0 && isfinite(v^2) && v^2 > 0 && isfinite(inv(v)^2) && inv(v)^2 > 0 ||
+        throw(ArgumentError("$name is outside the representable squared-magnitude domain; rescale the model."))
+    return v
+end
+
+# Magnitude caps share one domain: nothing/+Inf means no cap; zero is exact.
+# Signed P/Q boxes and signed DC voltages are intentionally not magnitude caps.
+function _magnitude_limit(value; name="magnitude limit", allow_infinite=true)
+    value === nothing && return nothing
+    value isa Real && !isnan(value) && value >= 0 || throw(ArgumentError(
+        "$name must be a nonnegative real magnitude, got $value."))
+    if isinf(value)
+        allow_infinite && return nothing
+        throw(ArgumentError("$name must be finite."))
+    end
+    v = Float64(value)
+    isfinite(v) || throw(ArgumentError("$name is outside the Float64 domain."))
+    iszero(value) || _check_square_scale(v, name)
+    return v
+end
+
+const _MAGNITUDE_CAP_FIELDS = ("i_max", "i_max_from", "i_max_to", "s_max",
+    "v_max", "vpn_max", "vpp_max", "vn_max", "vpos_max", "vneg_max", "vzero_max", "vuf_max")
+const _MAGNITUDE_LOWER_FIELDS = ("v_min", "vpn_min", "vpp_min", "vpos_min")
+function _validate_magnitude_fields(device, owner)
+    for field in (_MAGNITUDE_CAP_FIELDS..., _MAGNITUDE_LOWER_FIELDS...)
+        values = get(device, field, nothing)
+        values === nothing && continue
+        for value in (values isa AbstractVector ? values : (values,))
+            value === nothing && throw(ArgumentError("$owner.$field entries must be real magnitudes."))
+            _magnitude_limit(value; name="$owner.$field",
+                allow_infinite=field in _MAGNITUDE_CAP_FIELDS)
+        end
+    end
+    # A nameplate can also define impedance/per-unit bases; it is not an
+    # infinity sentinel. Omit it when the supported transformer recipe is unrated.
+    if haskey(device, "s_rating")
+        rating = _magnitude_limit(device["s_rating"]; name="$owner.s_rating", allow_infinite=false)
+        rating !== nothing && rating > 0 || throw(ArgumentError("$owner.s_rating must be strictly positive when supplied."))
+    end
+    return nothing
+end
+
 """
     _limit_current_box!(cr, ci, ilim)
 
@@ -162,10 +231,15 @@ the thermal limit is on a series+shunt expression (lines, and the from-side of a
 transformer with a no-load shunt): there the variable can exceed `ilim` when the
 shunt current opposes it.
 
-`cr`/`ci` must be `VariableRef`s. No-op for a non-finite or negative `ilim`.
+`cr`/`ci` must be `VariableRef`s. No-op for an absent/infinite or zero `ilim`;
+zero radii are enforced by `_soc_norm!` component equalities.
 """
-function _limit_current_box!(cr::JuMP.VariableRef, ci::JuMP.VariableRef, ilim::Real)
-    (isfinite(ilim) && ilim >= 0) || return
+function _limit_current_box!(cr::JuMP.VariableRef, ci::JuMP.VariableRef, ilim::Union{Real,Nothing})
+    # A zero radius is already represented by component equalities in
+    # _soc_norm!. Equal lower/upper bounds would duplicate those equalities
+    # after the solver removes fixed variables.
+    ilim = _magnitude_limit(ilim)
+    (ilim === nothing || iszero(ilim)) && return
     for v in (cr, ci)
         JuMP.has_lower_bound(v) ? JuMP.set_lower_bound(v, max(JuMP.lower_bound(v), -ilim)) :
                                   JuMP.set_lower_bound(v, -ilim)
@@ -184,14 +258,43 @@ per-unit base. Current and power limits become tiny at a large `s_base` (per-uni
 currents ~1e-3, cone values ~1e-6), and Ipopt's absolute `constr_viol_tol`
 (1e-4) then tolerates gross relative violations — a limit that should force
 infeasibility is silently accepted (issue #302). The normalized form is exactly
-equivalent (same feasible set) for `lim > 0`; for `lim == 0` the raw form is used
-(it forces `a = b = 0`). Callers guard that `lim` is finite and ≥ 0.
+equivalent (same feasible set) for `lim > 0`. For `lim == 0`, use component
+equalities: the squared inequality has zero gradient at every feasible point.
+The zero-radius result is a scalar equality or a vector equality ConstraintRef
+(with a vector-valued dual), or `nothing` when both components are literal zero.
+Absent/+Inf caps return `nothing`; negative/NaN caps raise `ArgumentError`.
 """
-function _soc_norm!(model, a, b, lim::Real)
-    lim > 0 || return @constraint(model, a^2 + b^2 <= lim^2)
+function _soc_norm!(model, a, b, lim::Union{Real,Nothing})
+    lim = _magnitude_limit(lim)
+    lim === nothing && return nothing
+    iszero(lim) && return _zero_components!(model, a, b)
     @constraint(model, (a / lim)^2 + (b / lim)^2 <= 1.0)
 end
-_soc_norm!(model, a, lim::Real) = _soc_norm!(model, a, 0.0, lim)
+_soc_norm!(model, a, lim::Union{Real,Nothing}) = _soc_norm!(model, a, 0.0, lim)
+
+"""Enforce exact zero components without a degenerate squared norm row.
+
+Keep a single constraint handle for semantic registration. Literal zero
+and identically zero polynomial components need no row; no tolerance is used
+to discard a nonzero expression. A parameter currently equal to zero remains
+symbolic and is retained.
+"""
+function _zero_components!(model, components...)
+    terms = [x for x in components if !_is_structural_zero(x)]
+    isempty(terms) && return nothing
+    length(terms) == 1 && return @constraint(model, terms[1] == 0)
+    return @constraint(model, terms in MOI.Zeros(length(terms)))
+end
+
+# Inspect expression structure, never a mutable parameter's current value.
+_is_structural_zero(x) = x isa Union{Real,JuMP.AffExpr,JuMP.QuadExpr} && iszero(x)
+
+"Magnitude start from fixed values or voltage starts; nominal fallback if unset."
+function _magnitude_start(dvr, dvi, nominal)
+    sv(v) = JuMP.is_fixed(v) ? JuMP.fix_value(v) : something(JuMP.start_value(v), 0.0)
+    mag = hypot(JuMP.value(sv, dvr), JuMP.value(sv, dvi))
+    return isfinite(mag) && mag > 0 ? mag : nominal
+end
 
 """
     _neutral_current_limit!(model, cr_terms, ci_terms, ilim)
@@ -205,10 +308,11 @@ currents, so its magnitude limit is the second-order cone
 `cr_terms`/`ci_terms` are the per-phase rectangular current variables. This makes
 `i_max` per **conductor** (phases + neutral) for star-connected devices, matching
 the per-conductor `i_max` already carried by lines and switches. No-op for a
-non-finite or negative `ilim`.
+absent or infinite `ilim`; invalid caps are rejected.
 """
-function _neutral_current_limit!(model, cr_terms, ci_terms, ilim::Real)
-    (isfinite(ilim) && ilim >= 0) || return
+function _neutral_current_limit!(model, cr_terms, ci_terms, ilim::Union{Real,Nothing})
+    ilim = _magnitude_limit(ilim)
+    ilim === nothing && return nothing
     cr_n = @expression(model, sum(cr_terms))
     ci_n = @expression(model, sum(ci_terms))
     return _soc_norm!(model, cr_n, ci_n, ilim)
@@ -229,7 +333,7 @@ caller supplies — ground-referenced (node voltage) for a line/switch conductor
 or the coil voltage for a transformer winding. Note the well-known degeneracy:
 for a neutral conductor referenced to a grounded node `V ≈ 0`, so this cap is
 vacuous even as `I` overheats the conductor — a current limit is preferred there
-(see `W.DOM.POWER_LIMIT_NEUTRAL`). No-op for a non-finite or negative `slim`.
+(see `W.DOM.POWER_LIMIT_NEUTRAL`). No-op for an absent/+Inf `slim`; negative/NaN caps are rejected.
 
 `vr_k`/`vi_k`/`cr_k`/`ci_k` may be `VariableRef`s or `AffExpr`s.
 
@@ -239,11 +343,12 @@ the solved coil apparent power (`|S| = √(P²+Q²)`) and its cap — the exact
 quantities this cone constrains, with no post-solve coil-voltage reconstruction.
 Returns `(p_v, q_v)` (or `nothing` when the limit is skipped).
 """
-function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Real;
+function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Union{Real,Nothing};
                                 base_name::AbstractString="s",
                                 ledger=nothing, key=nothing,
                                 register_constraint=nothing)
-    (isfinite(slim) && slim >= 0) || return nothing
+    slim = _magnitude_limit(slim)
+    slim === nothing && return nothing
     p_v = @variable(model, base_name = "p_$(base_name)")
     q_v = @variable(model, base_name = "q_$(base_name)")
     p_link = @constraint(model, p_v == vr_k*cr_k + vi_k*ci_k)
@@ -344,4 +449,39 @@ function _line_shunt_row_bound(G::Union{Matrix{Float64},Nothing},
         acc += hypot(g_kj, b_kj) * vj
     end
     return acc
+end
+
+# Shared by line (θ_from − θ_to) and centered bus (θ_j − θ_k − Δ)
+# angle limits. Static data only: never infer equality from a parameter value.
+function _angle_window(lo, hi, owner)
+    (lo === nothing || hi === nothing) && throw(ArgumentError(
+        "$owner: supply both va_diff_min and va_diff_max; one-sided angle windows are unsupported."))
+    for bound in (lo, hi)
+        (bound isa Real && isfinite(bound) && -pi/2 < bound < pi/2) ||
+            throw(ArgumentError("$owner: angle bounds must be finite scalars strictly within (-pi/2, pi/2)."))
+    end
+    lo <= hi || throw(ArgumentError("$owner: va_diff_min exceeds va_diff_max."))
+    lower, upper = Float64(lo), Float64(hi)
+    (-pi/2 < lower <= upper < pi/2 && (lo == hi || lower < upper)) ||
+        throw(ArgumentError("$owner: angle window cannot be represented faithfully in Float64."))
+    return lower, upper
+end
+
+"""
+    _angle_window_constraints!(model, s, c, lo, hi)
+
+Stamp a validated window for `arg(c + im*s)` with bounded coefficients.
+Multiplying each tangent row by its positive `cos(bound)` preserves feasibility
+without coefficients that diverge near ±π/2. Duals correspond to these scaled
+rows. Equal endpoints use one equality and a half-plane guard to exclude the
+antipodal solution; a strict interval already implies that guard. The origin
+remains feasible: an angle constraint cannot define an angle at zero voltage.
+"""
+function _angle_window_constraints!(model, s, c, lo, hi)
+    if lo == hi
+        return (equality=@constraint(model, cos(lo)*s - sin(lo)*c == 0),
+                domain=@constraint(model, c >= 0))
+    end
+    return (lower=@constraint(model, sin(lo)*c - cos(lo)*s <= 0),
+            upper=@constraint(model, cos(hi)*s - sin(hi)*c <= 0))
 end

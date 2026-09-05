@@ -2155,20 +2155,12 @@ end
     _cmp_volts(V_ods, V_bm; label="pf-3wdg-nwinding: ")
 end
 
-@testset "n_winding tap fields warn (unsupported, not silently fixed)" begin
-    # Tap optimisation is not supported for n_winding. A tap field on a winding
-    # must raise a warning at OPF build, rather than silently holding the ratio
-    # fixed. Without the field, that warning must not fire.
-    warned(net) = any(
-        l -> occursin("tap optimisation is not supported", string(l.message)),
-        first(Test.collect_test_logs(() -> solve_opf(net; optimizer=Ipopt.Optimizer))))
-
-    @test !warned(_net_3wdg_nwinding())                 # clean net: no such warning
-
+@testset "n_winding tap fields reject unsupported requested physics" begin
+    @test build_opf_model(_net_3wdg_nwinding()) !== nothing
     nettap = _net_3wdg_nwinding()
     w = first(values(nettap["transformer"]["n_winding"]))
     w["tap_min"] = 0.9; w["tap_max"] = 1.1
-    @test warned(nettap)                                # tap field ⇒ warning fires
+    @test_throws ArgumentError build_opf_model(nettap)
 end
 
 @testset "PF (solve_pf) comparison — 3-winding transformer, unbalanced loads" begin

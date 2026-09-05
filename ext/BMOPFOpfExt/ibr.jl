@@ -90,7 +90,7 @@ function _ibr_phase_target(idx, p_min, p_max, q_min, q_max, smax, tan_phi, pf_si
         (length(lo) >= i ? lo[i] : nothing)
     pt = pmid(p_min, p_max, idx)
     if pt === nothing
-        pt = length(smax) >= idx ? 0.9*smax[idx] : 0.0
+        pt = length(smax) >= idx && isfinite(smax[idx]) ? 0.9*smax[idx] : 0.0
     end
     if tan_phi !== nothing
         # sign(pf)>0 (lagging): Q = −tan_phi·P; sign(pf)<0 (leading): Q = +tan_phi·P.
