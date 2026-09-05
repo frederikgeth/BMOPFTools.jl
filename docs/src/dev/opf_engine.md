@@ -92,8 +92,10 @@ Avoid inventing a small impedance solely to imitate an ideal connection. However
 there is no universal `κ ∝ 1/|Z|` law for the IVR KKT system, nor a guarantee that
 `Z = 0` is well-conditioned. Scaling, topology, independent references, and
 constraint rank matter. Ideal cycles can leave circulating currents undetermined
-and voltage rows dependent; the present guard detects direct parallel ideal
-conductors, not arbitrary cycles. A physically small nonzero impedance should
+and voltage rows dependent; the native guard detects structural ideal-conductor
+cycles, parallel edges, and self-loops after coefficient resolution. Symbolic
+parameters are not classified from their current value, and general dependent
+transformer-ratio relations are not covered. A physically small nonzero impedance should
 remain in the model unless an explicit, justified transformation changes it.
 
 ## Runtime limits and review status
@@ -128,15 +130,34 @@ remaining defects, and proposed substitutions. Its executable evidence links to
   including a nonzero source on a perfectly grounded terminal, raise
   `ArgumentError`. Identical colocated sources can still have an undetermined
   current allocation unless other constraints or costs resolve it.
-- **Voltage-dependent loads:** the current implementation imposes a hard
-  `0.5 v_nom ≤ |ΔV| ≤ 1.5 v_nom` domain on mixed/current/general exponential
-  models. Constant-P equivalents and pure-Z models now omit this band and their
-  W/s lifts. The remaining band still changes feasibility when bus bounds are
-  absent; it is not merely a solver initialization setting.
+- **Voltage-dependent loads:** the artificial `0.5–1.5 × v_nom` band is removed.
+  Pure-P equivalents and pure-Z laws keep their direct formulations. Remaining
+  laws use W/s lifts when fixed references or enforced bounds certify positive
+  coil voltage, and a dimensionless logarithmic magnitude otherwise. See the
+  [runtime load formulation](../opf.md#squared-voltage-drop-variable) for supported
+  domains, semantic keys, and numerical limitations.
+- **Native applicability:** missing series impedance, inconsistent matrix sizes,
+  nonfinite impedance, incomplete/nonfinite source references, unsupported
+  source/load/generator configurations or load models, incomplete load powers,
+  and n-winding tap requests raise errors. Exact zero impedance must be explicit.
+  A source may omit a trailing reference already fixed to zero by grounding;
+  a two-terminal DELTA load has one coil. Checks apply to native-owned device
+  physics; custom builders own their domain.
+
 - **Solver results:** a locally solved status does not certify every engineering
   limit or a global optimum. Independent residual and limit checks remain
-  necessary, and their coverage is finite. MadNLP is selectable through
-  `optimizer`, but the repository currently has no dedicated MadNLP CI job.
+  necessary, and their coverage is finite.
+
+## Solver parity tests
+
+`test/Project.toml` includes MadNLP alongside Ipopt; neither MadNLP nor its
+compatibility requirement is added to the main package project. Run
+`julia --project=test --startup-file=no test/runtests.jl` for the full suite.
+`test/opf_domain_tests.jl` checks both solvers on floating-neutral loads in SI
+and per-unit coordinates, inside and outside the former engineering band, and
+checks the zero-radius vector-equality bridge. These are numerical correctness
+tests, not performance measurements. Solver-specific options remain separate;
+see [MadNLP options](https://madsuite.org/MadNLP.jl/stable/options/).
 
 ## Extending the engine without forking it
 

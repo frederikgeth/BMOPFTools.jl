@@ -69,6 +69,7 @@ function _line_z_matrix(line::Dict{String,Any}, linecodes::AbstractDict)
         X = _pkm(line, "X_series_")
         R === nothing && (R = zeros(size(X)...))
         X === nothing && (X = zeros(size(R)...))
+        _validate_line_z(R, X)
         return (R, X, size(R, 1))
     end
 
@@ -80,6 +81,8 @@ function _line_z_matrix(line::Dict{String,Any}, linecodes::AbstractDict)
     R_pm = _pkm(lc, "R_series_")   # Ω/m
     X_pm = _pkm(lc, "X_series_")   # Ω/m
     len  = Float64(get(line, "length", 1.0))  # m
+    isfinite(len) && len >= 0 || throw(ArgumentError("Line length must be finite and nonnegative."))
+    R_pm === nothing && X_pm === nothing && return (nothing, nothing, 0)
 
     # A lossless linecode may declare only X. Infer the conductor dimension
     # from the matrix that exists, just as for inline impedances above.
@@ -87,7 +90,16 @@ function _line_z_matrix(line::Dict{String,Any}, linecodes::AbstractDict)
     X_pm === nothing && (X_pm = zeros(size(R_pm)...))
 
     n = size(R_pm, 1)
-    (R_pm .* len, X_pm .* len, n)
+    R, X = R_pm .* len, X_pm .* len
+    _validate_line_z(R, X)
+    (R, X, n)
+end
+
+function _validate_line_z(R, X)
+    size(R) == size(X) && size(R,1) == size(R,2) || throw(ArgumentError(
+        "Line resistance and reactance matrices must be square and have identical dimensions."))
+    all(isfinite, R) && all(isfinite, X) || throw(ArgumentError(
+        "Line impedance coefficients must be finite."))
 end
 
 # These helpers live in BMOPFTools core; alias locally for convenience.

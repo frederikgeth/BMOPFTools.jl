@@ -18,6 +18,33 @@
 #   p_min[k] ≤ P_k ≤ p_max[k] ,  q_min[k] ≤ Q_k ≤ q_max[k]
 #   KCL: bus,t_ph += cr_src[k]/ci_src[k] ;  bus,t_n −= Σ cr_src[k]/ci_src[k]
 
+# Called before native source initialization and again at native stamping.
+function _validate_source_reference(sid, vs, vars)
+    vr = vars[:vr]
+    bus = get(vs, "bus", "")
+    tm = Vector{String}(get(vs, "terminal_map", String[]))
+    cfg = get(vs, "configuration", "WYE")
+    v_mag = Float64.(get(vs, "v_magnitude", Float64[]))
+    v_ang = Float64.(get(vs, "v_angle", Float64[]))
+    cfg in ("WYE", "SINGLE_PHASE") || throw(ArgumentError(
+        "Voltage source '$sid': unsupported configuration '$cfg'."))
+    !isempty(tm) && length(unique(tm)) == length(tm) &&
+        all(t -> haskey(vr, (bus,t)), tm) || throw(ArgumentError(
+            "Voltage source '$sid': terminal map must contain distinct declared bus terminals."))
+    nref = length(v_mag)
+    # Historical prefix arrays may omit an already-grounded trailing neutral.
+    # Its reference is known exactly; an omitted free phase is not inferable.
+    length(v_ang) == nref && nref <= length(tm) &&
+        all(t -> JuMP.is_fixed(vr[(bus,t)]) && JuMP.is_fixed(vars[:vi][(bus,t)]) &&
+                 iszero(JuMP.fix_value(vr[(bus,t)])) && iszero(JuMP.fix_value(vars[:vi][(bus,t)])),
+            tm[nref+1:end]) || throw(ArgumentError(
+        "Voltage source '$sid': matching v_magnitude/v_angle arrays must cover every terminal except an already-grounded trailing zero reference."))
+    all(x -> isfinite(x) && x >= 0, v_mag) && all(isfinite, v_ang) ||
+        throw(ArgumentError("Voltage source '$sid': references need finite nonnegative magnitudes and finite angles."))
+
+    return nothing
+end
+
 """
     _add_source_constraints!(model, net, vars, kcl_r, kcl_i)
 
@@ -48,6 +75,8 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
         p_max = Float64.(get(vs, "p_max", Float64[]))
         q_min = Float64.(get(vs, "q_min", Float64[]))
         q_max = Float64.(get(vs, "q_max", Float64[]))
+
+        _validate_source_reference(sid, vs, vars)
 
         # ── Fix terminal voltages to the magnitude/angle reference ──────────────
         for (k, t) in enumerate(tm)
@@ -150,8 +179,7 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
                 end
             end
         else
-            @warn "Voltage source '$sid': unsupported configuration '$cfg' — " *
-                  "slack current not injected."
+            throw(ArgumentError("Voltage source '$sid': unsupported configuration '$cfg'."))
         end
     end
 end

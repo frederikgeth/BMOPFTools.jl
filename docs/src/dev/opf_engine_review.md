@@ -93,30 +93,33 @@ zero voltage. This is a formulation improvement, not a measured speedup.
 These issues are **not fixed** by this branch and should precede a broad
 substitution/presolve pass.
 
-1. **P1 — remaining load-voltage domain.** Mixed ZIP, constant-current, and
-   general exponential models still impose `0.5 Vnom ≤ |ΔV| ≤ 1.5 Vnom`.
-   Constant-P equivalents and pure-Z models have been corrected. Separate declared
-   physical/domain bounds from numerical initialization for the remaining cases.
-   For fractional or negative exponents, explicitly specify supported zero-voltage
-   behavior instead of imposing the same engineering band everywhere.
-2. **P1 — independent limit coverage has matching blind spots.**
-   `src/validation/solution.jl` checks line current and apparent power at the from
-   end, and its angle check covers intra-bus angles. It does not independently
-   check receiving-end line limits or branch angle bounds. Fixing the engine does
-   not make that external verification complete. Track this separately in the
-   main package using stable Finding codes and conductor endpoint mappings.
-3. **P2 — invalid or unsupported elements can be skipped.** Missing line
-   impedance skips line stamping; unsupported source configurations omit source
-   current injection; n-winding tap fields warn and use nominal ratios. Define a
-   strict engine applicability check that rejects unsupported requested physics
-   before building a plausible partial model. Validate matching terminal counts,
-   finite coefficients, rating domains, and source-reference completeness there.
-4. **P2 — ideal topology is not fully guarded.** The current check detects direct
-   parallel zero-impedance conductors, not ideal cycles, self-loops, or general
-   dependent ideal-transformer relations. Its check runs before coefficient
-   providers replace impedances, so static nominal topology alone cannot justify
-   rejecting or eliminating a parameterized branch. Distinguish inconsistent
-   reference equations, dependent rows, and unidentifiable circulating currents.
+1. **P1 — independent limit coverage has matching blind spots.**
+   The main-package `src/validation/solution.jl` still lacks receiving-end line
+   limits and branch angles. Track this separately using stable Finding codes.
+2. **P2 — remaining applicability coverage.** Native source/load/generator
+   configuration errors, incomplete source references/load powers, missing or
+   malformed line impedance, and unsupported n-winding taps now fail explicitly.
+   This is not a complete validation pass for all ratings and transformer data.
+3. **P2 — general ideal dependence.** Native structural ideal-conductor cycles,
+   self-loops and parallels are now rejected after provider resolution. Custom
+   switch builders do not contribute native edges. Symbolic parameter values
+   are not grounds for structural rejection. General transformer-ratio cycles
+   and rank loss induced by parameter updates remain separate diagnostics.
+
+## Load-domain and solver follow-up
+
+The implicit load band is removed. Remaining mixed/current/exponential laws use
+W/s lifts where an enforced physical bound certifies positive coil voltage, and
+a logarithmic magnitude otherwise. A phase-to-ground bound does not certify a
+floating-neutral coil. Fixed zero coil voltage is rejected for these laws; pure-Z
+retains its zero-voltage current law. There is no general zero-voltage continuation
+for the remaining laws. Extreme exponential evaluation and near-zero conditioning
+remain numerical limitations, not reasons to silently alter physical limits.
+
+MadNLP is now a test-only dependency. Analytic floating-neutral current, power,
+and voltage-drop checks cover both solvers and SI/per-unit coordinates, with
+positive fractional, negative, and higher exponents. Structural cycle tests cover
+provider resolution and custom builder ownership. No performance claim is made.
 
 ## More in-place substitutions
 
@@ -187,10 +190,9 @@ and stopping tolerances must be recorded with results; a shared option dictionar
 is not portable across both solvers. See [Ipopt options](https://coin-or.github.io/Ipopt/OPTIONS.html)
 and [MadNLP options](https://madnlp.github.io/MadNLP.jl/dev/options/).
 
-No speedup is claimed here. MadNLP is absent from the local test environment and
-from the dedicated CI matrix. Add an isolated MadNLP environment/job before
-claiming numerical parity, including vector equality bridging from zero-radius
-limits. Benchmark warm builds separately from first-call compilation, with repeated
+No speedup is claimed here. MadNLP now runs in the main test environment's
+OPF-only tests, including vector equality bridging from zero-radius limits.
+Broader large-network numerical parity still needs evidence. Benchmark warm builds separately from first-call compilation, with repeated
 solves, fixed starting points, objective/dispatch checks, SI residuals, Jacobian
 and Hessian nonzeros, iterations, factorization time/fill, and peak memory. Include
 radial and meshed four-wire cases, weak networks, floating neutrals, transformer

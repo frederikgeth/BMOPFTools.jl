@@ -56,8 +56,9 @@ explicitly:
 2. **Series voltage drops obey Ohm's law in impedance form.** Every series
    element (line, transformer winding) is `ΔV = Z·I`, never admittance form.
    Only elements whose counter-terminal is **ground** (shunts, line π-halves)
-   are written `I = Y·V`. This preserves the lossless limit — as `R → 0` the
-   impedance form stays finite, whereas an admittance form blows up (`Y → ∞`).
+   are written `I = Y·V`. This avoids dividing by series impedance at the exact ideal limit
+   `Z = 0`. A lossless line (`R = 0`, nonzero `X`) has finite impedance and
+   admittance; losslessness alone does not make admittance singular.
 3. **Derived quantities are expressions, not variables.** Powers, voltage
    differences, and averages are built as expressions of the real variables
    rather than fresh variables pinned down by equalities — avoiding trivial
@@ -101,13 +102,15 @@ explicitly:
    handle most reliably. Apparent power is bounded through aux `p, q` with
    `p² + q² ≤ s²` (not a quartic in voltage × current); a free tap's reciprocal
    is an aux variable pinned by `n · n⁻¹ = 1` (not a rational term); the
-   voltage-dependent load factors through `W = |ΔV|²` and `s = |ΔV|`.
+   voltage-dependent load uses W/s lifts when positive voltage is certified,
+   with a logarithmic-domain fallback otherwise.
 10. **Well-posedness is enforced, not assumed.** Removable degeneracies are
     collapsed to their exact form (principle 4); irreducible ones are rejected
     with a clear error rather than allowed to poison the model with NaN/Inf. A
-    zero nominal voltage (undefined `1/v_nom`), a zero winding turns-ratio, or two
-    zero-impedance branches shorting the same terminals (an undetermined current
-    split) are refused up front, not solved into nonsense.
+    zero nominal voltage (undefined `1/v_nom`), a zero winding turns-ratio, or structural
+    ideal-conductor cycles (including parallel edges and self-loops) are rejected.
+    The cycle check follows coefficient resolution and native builder ownership;
+    it is not a general Jacobian-rank certificate.
 11. **Prefer a hard variable bound; scale the constraint that is left.**
     Interior-point solvers enforce *variable bounds* far more tightly than general
     nonlinear constraints — Ipopt holds a bound to its `bound_relax_factor`
@@ -638,17 +641,33 @@ auxiliary variable per sub-load:
 W_k = (\Delta v^r_k)^2 + (\Delta v^i_k)^2
 ```
 
-$W_k$ is bounded: $(f \cdot V^{\text{nom}}_k)^2 \leq W_k \leq (c \cdot V^{\text{nom}}_k)^2$
-with floor fraction $f = 0.5$ and ceiling fraction $c = 1.5$.  These
-hard bounds restrict the feasible set, including when bus voltage bounds are
-absent or wider. They are an implementation domain restriction, not merely
-conditioning or start-value hints. See the [engine review](dev/opf_engine_review.md)
-for the remaining mixed/current/fractional model domain cleanup. Both W and s
-are initialized from the terminal voltage starts (or fixed source values),
-clamped to this existing domain.
+These remaining laws are supported on **strictly positive coil voltages**.
+When a fixed reference or an enforced bus bound certifies `|ΔV| ≥ L > 0`,
+the engine retains W/s lifts with the weaker domain guards `W ≥ (L/2)²`
+and, when needed, `s ≥ L/2`. Those guards are implied by the physical bound;
+there is no artificial upper voltage limit. Starts use fixed or initialized
+terminal voltages, independently of nominal engineering bands.
 
-When a constant-current term is present, a further auxiliary variable
-$s_k = \sqrt{W_k}$ is introduced with $s_k^2 = W_k$, $s_k \geq 0$.
+Only an applicable, actually stamped bound is used: phase-to-ground bounds do
+not certify a phase-to-floating-neutral voltage, and bounds omitted by a power
+flow recipe cannot justify a domain guard. Rebuild if you change the source
+references or physical bounds used to certify this domain; directly loosening
+those JuMP objects does not automatically update the derived guards.
+
+Without such a certificate, the engine uses `ell = log(|ΔV|/V_nom)` and
+`|ΔV/V_nom|² = exp(2ell)`. ZIP factors become sums of `exp(2ell)`, `exp(ell)`
+and constants; exponential factors become `exp(gamma*ell)`. This represents the
+positive domain without an arbitrary epsilon and avoids negative-base fractional
+powers during solver trials. The new variable and definition keys are
+`load_log_voltage_magnitude` and `load_log_voltage_definition`; W/s keys are absent
+on this path. `ell` and its defining residual are dimensionless.
+
+Fixed equal terminal voltages are rejected for these remaining laws. Pure-Z
+loads support zero voltage as described below. The logarithmic formulation does
+not prescribe a continuation at zero, nor guarantee good conditioning near it.
+Extreme trial values can still cause exponential overflow/underflow. Check actual
+coil voltages and physical residuals at the requested tolerances; disable solver
+bound relaxation when evaluating fractional powers near a W-domain boundary.
 
 **Structural substitutions:** constant-P-equivalent ZIP/exponential models have
 no W/s auxiliaries and no implicit voltage band. A `constant_impedance` load,
@@ -662,7 +681,10 @@ are not separately substituted yet.
 
 ##### Model types
 
-| `model` | $P_k$ pinned to | $Q_k$ pinned to | Quadratic? |
+The quadratic classifications below refer to the certified W/s path. The
+logarithmic path uses nonlinear exponentials even for ZIP/current models.
+
+| `model` | $P_k$ pinned to | $Q_k$ pinned to | Quadratic W/s path? |
 |---|---|---|---|
 | `constant_power` (default) | $P^{\text{nom}}_k$ | $Q^{\text{nom}}_k$ | yes |
 | `constant_current` | $P^{\text{nom}}_k \cdot s_k / V^{\text{nom}}_k$ | $Q^{\text{nom}}_k \cdot s_k / V^{\text{nom}}_k$ | yes (with $s_k$) |
@@ -672,8 +694,8 @@ are not separately substituted yet.
 
 **Integer-exponent routing:** exponential loads with $\gamma \in \{0, 1, 2\}$
 are automatically routed to the constant-power, constant-current, or
-constant-impedance quadratic path respectively, keeping the formulation
-quadratic.  The data-analysis pass ([`load_model_analysis`](@ref)) flags
+constant-impedance paths respectively. Current equivalents remain quadratic
+when a positive voltage bound is certified.  The data-analysis pass ([`load_model_analysis`](@ref)) flags
 these loads with `I.LOAD.EXP_ZIP_EQUIVALENT`.
 
 **v\_nom** must be finite and strictly positive for all models except `constant_power`.  It is the

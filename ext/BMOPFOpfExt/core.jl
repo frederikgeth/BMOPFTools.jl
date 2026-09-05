@@ -2207,7 +2207,6 @@ unbounded formulation (e.g. power flow) can omit them.
 """
 function _add_device_constraints!(ctx::OpfContext)
     _validate_build_spec(ctx)
-    _assert_no_parallel_zero_impedance(ctx.net)
     for family in _DEVICE_FAMILY_ORDER
         _build_device_family!(ctx, family)
     end
@@ -2636,6 +2635,12 @@ end
 
 function BMOPFTools.set_opf_start_values!(ctx::OpfContext)
     return _run_opf_stage!(ctx, :start_values, () -> begin
+        if !haskey(ctx.build_spec.family_builders, :voltage_source)
+            for (sid, vs) in get(ctx.net, "voltage_source", Dict())
+                haskey(ctx.build_spec.component_builders, (:voltage_source, string(sid))) && continue
+                _validate_source_reference(sid, vs, ctx.vars)
+            end
+        end
         # Define the warm start in the working network's physical semantics.
         # In SI this gives each voltage level its propagated nominal magnitude;
         # under a scaling policy the same quantities have already been divided

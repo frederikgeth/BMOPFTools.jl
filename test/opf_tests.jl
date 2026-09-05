@@ -2818,7 +2818,7 @@ end
         @test OpfModelKey(:constraint, :load_voltage_magnitude_lower_bound,
                           ("ld1", 1)) in current_keys
         @test OpfModelKey(:constraint, :load_voltage_magnitude_upper_bound,
-                          ("ld1", 1)) in current_keys
+                          ("ld1", 1)) ∉ current_keys
         res = solve_opf(current_net)
         @test res["bus"]["bus1"]["1"]["vm"] ≈ V_i   atol=0.01
         @test res["load"]["ld1"]["1"]["pd"] ≈ Pnom*(V_i/Vnom)   rtol=1e-4

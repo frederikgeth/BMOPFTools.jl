@@ -35,59 +35,27 @@
 # limits are symmetric and either alone would suffice; both are kept for
 # generality when shunts are non-zero.
 
-"""
-    _assert_no_parallel_zero_impedance(net)
-
-Throw if two *zero-impedance* branches — a closed switch, or a line whose entire
-series impedance is zero — directly bridge the SAME conductor endpoints, i.e. the
-same `(bus, terminal)` pair on both ends.
-
-A zero-impedance branch imposes `V_from == V_to` on its conductors. Two of them
-across the same node pair impose that equality twice and leave two current
-variables whose only determined quantity is their SUM (fixed by KCL) — the split
-is a free degree of freedom, a singular KKT system with infinitely many optima.
-Finite-impedance parallels are fine (each current is pinned by its own Ohm's-law
-drop); only the zero-impedance case is rejected. The check is per conductor
-(same terminals), not per bus: two branches on different conductors of the same
-bus pair are independent and allowed.
-"""
-function _assert_no_parallel_zero_impedance(net)
-    linecodes = get(net, "linecode", Dict())
-    Node = Tuple{String,String}
-    seen = Dict{Tuple{Node,Node}, String}()
-    function record!(bid, b_fr, b_to, tmfr, tmto, n)
-        for k in 1:n
-            p::Node = (b_fr, tmfr[k]); q::Node = (b_to, tmto[k])
-            key = p <= q ? (p, q) : (q, p)
-            if haskey(seen, key)
-                error("Parallel zero-impedance branches: '$(seen[key])' and " *
-                    "'$bid' both directly bridge terminals $p — $q with zero " *
-                    "series impedance, so the current split between them is " *
-                    "undetermined (singular system). Merge them into one branch, " *
-                    "or give one a finite impedance.")
-            end
-            seen[key] = bid
+# Union-find over native, structurally ideal voltage rows. Store it on the
+# model so line and switch builders share it, but custom switch builders do not
+# contribute fictitious native edges. Coefficients are resolved before recording.
+function _record_ideal_voltage_edge!(model, owner, p, q)
+    # Variable identity separates time/scenario contexts sharing one model.
+    Node = JuMP.VariableRef
+    parents = get!(model.ext, :BMOPFIdealVoltageForest) do
+        Dict{Node,Node}()
+    end
+    function root(x)
+        get!(parents, x, x)
+        while parents[x] != x
+            parents[x] = parents[parents[x]]
+            x = parents[x]
         end
+        return x
     end
-    # Closed switches are always zero-impedance (V_from == V_to); open ones are
-    # electrically disconnected and impose no coupling.
-    for (sid, sw) in get(net, "switch", Dict())
-        get(sw, "open_switch", false) && continue
-        tmfr = Vector{String}(get(sw, "terminal_map_from", String[]))
-        tmto = Vector{String}(get(sw, "terminal_map_to",   String[]))
-        record!(sid, sw["bus_from"], sw["bus_to"], tmfr, tmto,
-                min(length(tmfr), length(tmto)))
-    end
-    # Lines whose entire series impedance matrix is zero (stamped as V_from==V_to).
-    for (lid, line) in get(net, "line", Dict())
-        R, X, n_c = _line_z_matrix(line, linecodes)
-        (n_c == 0 || R === nothing || X === nothing) && continue
-        (all(iszero, R) && all(iszero, X)) || continue
-        tmfr = Vector{String}(get(line, "terminal_map_from", String[]))
-        tmto = Vector{String}(get(line, "terminal_map_to",   String[]))
-        record!(lid, line["bus_from"], line["bus_to"], tmfr, tmto,
-                min(n_c, length(tmfr), length(tmto)))
-    end
+    rp, rq = root(p), root(q)
+    rp == rq && throw(ArgumentError(
+        "$owner closes an ideal-conductor cycle at $p — $q (including parallel edges or a self-loop). Its voltage row is dependent; remove the redundant ideal coupling or supply the physical impedance."))
+    parents[rp] = rq
     return nothing
 end
 
@@ -129,9 +97,7 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
     for (lid, line) in get(net, "line", Dict())
         R, X, n_c = _line_z_matrix(line, linecodes)
         if n_c == 0
-            @warn "Line '$lid': no impedance source (missing/unknown linecode " *
-                  "and no inline matrices) — skipping KVL."
-            continue
+            throw(ArgumentError("Line '$lid': no impedance source (missing/unknown linecode or series matrices). Declare exact zero impedance explicitly for an ideal line."))
         end
 
         b_fr  = line["bus_from"]
@@ -163,6 +129,13 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
         X_model = coefficient === nothing ? X : Any[
             coefficient(:physics, :line, lid, :X_series, (k, j), X[k, j])
             for k in 1:n_map, j in 1:n_map]
+
+        for k in 1:n_map
+            if all(_is_structural_zero, R_model[k,:]) && all(_is_structural_zero, X_model[k,:])
+                _record_ideal_voltage_edge!(model, "Line '$lid' conductor $k",
+                    vr[(b_fr, tmfr[k])], vr[(b_to, tmto[k])])
+            end
+        end
 
         # ── KVL ───────────────────────────────────────────────────────────────
         for k in 1:n_map
@@ -381,10 +354,14 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i;
         is_open = get(sw, "open_switch", false)
         i_max   = get(sw, "i_max", nothing)
         s_max   = get(sw, "s_max", nothing)
-        n_c = min(length(tmfr), length(tmto))
+        length(tmfr) == length(tmto) && !isempty(tmfr) || throw(ArgumentError(
+            "Switch '$sid': terminal maps must have equal, nonzero length."))
+        n_c = length(tmfr)
 
         for k in 1:n_c
             if !is_open
+                _record_ideal_voltage_edge!(model, "Switch '$sid' conductor $k",
+                    vr[(b_fr, tmfr[k])], vr[(b_to, tmto[k])])
                 register(:switch_voltage_coupling_real, (sid, k),
                     @constraint(model, vr[(b_fr, tmfr[k])] == vr[(b_to, tmto[k])]))
                 register(:switch_voltage_coupling_imag, (sid, k),
