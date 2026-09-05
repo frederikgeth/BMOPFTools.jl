@@ -131,7 +131,7 @@ BMOPF conventions:
   (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
 - **Transformer impedance normalisation** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
-- **Transformer fidelity** — PowerIO v0.9 emits BMOPF transformer neutral
+- **Transformer fidelity** — PowerIO 0.11 retains BMOPF transformer neutral
   grounding, fixed taps, center-tap leakage, delta-wye leakage, and the validated
   `n_winding` cases. BMOPF schema 0.1.0 sets `additionalProperties: false` and
   has no slot for taps, neutral impedance or no-load admittance, so a conforming
@@ -144,7 +144,7 @@ BMOPF conventions:
 - **System frequency capture** — the OpenDSS base frequency (`Set
   DefaultBaseFreq`, itself defaulting to 60 Hz; European decks set it to 50)
   is otherwise absent from BMOPF impedance data, so `from_dss` reads
-  `PowerIO.base_frequency` and records it on `net["meta"]["frequency"]`,
+  the typed PowerIO network's `base_frequency` and records it on `net["meta"]["frequency"]`,
   keeping the case self-contained. It is metadata only — **never** used to
   rescale impedances (there is no OpenDSS-style base-frequency scaling in
   BMOPF) — and feeds the cross-object consistency check
@@ -172,7 +172,7 @@ issues.
 that could not be represented in BMOPF is collected during the parse. The
 console `Warning` you see after a call is a **preview only** — one line per
 diagnostic class. Nothing is lost, and nothing is written to disk: the
-**complete list travels with the returned network dict**, so you can inspect
+**received diagnostic records travel with the returned network dict**, so you can inspect
 it whenever you like:
 
 ```julia
@@ -184,17 +184,17 @@ net["_meta"]["powerio_diagnostics"]   # the same list, one record per class
 net["_meta"]["powerio_source"]        # absolute path of the parsed .dss file
 ```
 
-PowerIO 0.9 returns owned diagnostic records, so the list is complete even for
-large feeders. (PowerIO ≤ 0.7 capped its per-call channel and appended a
-`... warning list truncated at 4096 bytes` sentinel, past which the dropped
-fields were unrecoverable.) The [source field ledger](@ref source-field-ledger)
-below still reports the truncation status explicitly, so an empty blocking list
-is never mistaken for a fidelity proof — on a supported build it simply always
-reads `false`.
+PowerIO 0.11 aggregates dropped fields and retains at most 100 element locators
+per field. The record includes the total count and an `elements_truncated` flag.
+A shorter warning list does not establish fewer losses. Inspect
+`net["_meta"]["powerio_diagnostic_details"]` for the structured records;
+filtering rendered messages alone can miss elements named only in `details`.
 
-Because the list is ordinary data on the dict, it survives into any
-downstream processing and can be filtered like any vector, e.g.
-`filter(contains("transformer"), net["_meta"]["powerio_warnings"])`.
+The [source field ledger](@ref source-field-ledger) reports incomplete attribution
+as `truncated_upstream`. This occurs on supported builds, including the tested
+`LV17_279bus` feeder. Known element identities survive, but omitted identities
+are not inferred. Reader diagnostics remain separate evidence: a complete
+writer field mapping does not imply that every source command was understood.
 
 The same diagnostics reach the [analysis framework](analysis.md) as
 [`Finding`](@ref)s — [`powerio_findings`](@ref) reads them off the dict and
@@ -210,11 +210,15 @@ findings = Finding[]
 net = from_dss("Master.dss"; findings=findings)
 ```
 
-One `Finding` stands for one `(code, severity, component type)` class rather
-than one diagnostic: the bigger ENWL feeders emit five figures of
-`EMIT.BMOPF.FIELD_DROPPED`, one per dropped field per element. Each carries its
-`count`, the element paths it covers, and a few example messages under
-`detail`; `powerio_warnings` remains the ungrouped list.
+One `Finding` stands for one `(code, severity, component type)` class.
+Its `detail` retains the element paths, bounded field `attributions`, and
+`source_records` indexing the raw intake diagnostics. `count` counts source
+records contributing to that class, not affected elements. An aggregate can
+span several classes; the analysis summary counts the original diagnostics
+once and sums all records for each code. Each attribution's
+`source_element_count` is the upstream aggregate total, not a per-class count.
+Incomplete lists carry `attribution_complete = false` and an unattributed
+network record. PowerIO `remark` and `note` severities map to `INFO`.
 
 ### [The source field ledger](@id source-field-ledger)
 
@@ -437,8 +441,15 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
   `√3`/coil-base factor lives in `v_nom`, so `r_winding`/`x_sc` are on the coil
   base `n_ph·v_nom²/s_rating` and per-unit needs no `√3` correction.
 
-Ingest and export status: PowerIO v0.9 emits `n_winding` from its BMOPF export
-for the validated OpenDSS cases. `to_pmd` **skips** `n_winding` transformers
+Ingest and export status: PowerIO 0.11 retains `n_winding` under the explicit
+BMOPF 0.1 profile's `extras.transformer`; migration restores it for the validated
+OpenDSS cases. Exact unit winding `tap_ratio` defaults without competing tap
+bounds or controls normalize to the implicit nominal ratio, with
+`W.MIGRATE.NWINDING_NOMINAL_TAP` evidence. Non-unit taps and tap bounds remain
+unsupported by this numerical model and cause a solver-build rejection.
+Per-winding `s_rating` is retained nameplate metadata, not an active constraint;
+only an explicit supported `s_max` or `i_max` declares a winding limit. No rating
+or missing pairwise reactance is inferred from the other windings. `to_pmd` **skips** `n_winding` transformers
 with a warning, since PowerModelsDistribution has no general n-winding model.
 The OPF/PF model is validated to match OpenDSS's own 3-winding solve.
 

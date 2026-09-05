@@ -65,6 +65,7 @@ an already-parsed dict.
 function migrate(net::Dict{String,Any})::Dict{String,Any}
     # Field-level migrations run unconditionally (independent of spec version).
     _fold_transformer_extras!(net)
+    _normalize_nwinding_nominal_taps!(net)
     _fold_dropped_top_level_extras!(net)
     _migrate_transformer_series_fields!(net)
     _migrate_field_renames!(net)
@@ -456,4 +457,42 @@ function _normalize_load_models!(net::Dict{String,Any})
                      "bundled schema use lowercase).",
     ))
     return nothing
+end
+
+"""Remove only redundant unit winding ratios; preserve unsupported tap requests.
+
+The nominal n-winding model already uses `v_nom` ratios. This normalization
+has no tolerance and does not interpret bounds, controls, or other tap spellings.
+The original value and winding index remain in migration evidence.
+"""
+function _normalize_nwinding_nominal_taps!(net::Dict{String,Any})
+    tables = get(net, "transformer", nothing)
+    tables isa AbstractDict || return
+    table = get(tables, "n_winding", nothing)
+    table isa AbstractDict || return
+    # A competing declaration anywhere on the unit prevents normalization.
+    requests = ("tap", "tap_min", "tap_max", "tap_ratio_min", "tap_ratio_max",
+                "control", "controls", "regcontrol", "control_profile")
+    for (id, transformer) in table
+        transformer isa AbstractDict || continue
+        any(haskey(transformer, k) for k in (requests..., "tap_ratio")) && continue
+        windings = get(transformer, "windings", nothing)
+        windings isa AbstractVector || continue
+        any(w -> w isa AbstractDict && any(haskey(w, k) for k in requests), windings) && continue
+        for (index, winding) in enumerate(windings)
+            winding isa AbstractDict || continue
+            value = get(winding, "tap_ratio", nothing)
+            value isa Real && !(value isa Bool) && isfinite(value) && value == 1 || continue
+            notes = get!(get!(net, "_meta", Dict{String,Any}()), "migration_notes", Any[])
+            push!(notes, Dict{String,Any}(
+                "code" => "W.MIGRATE.NWINDING_NOMINAL_TAP", "id" => String(id),
+                "subtype" => "n_winding", "winding" => index,
+                "field" => "tap_ratio", "original_value" => value,
+                "representation" => "implicit_nominal_ratio",
+                "message" => "Removed an exact unit winding tap ratio; the nominal ratio remains defined by v_nom.",
+            ))
+            delete!(winding, "tap_ratio")
+        end
+    end
+    nothing
 end

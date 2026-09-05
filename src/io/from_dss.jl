@@ -720,6 +720,10 @@ function from_dss(path::AbstractString;
     net["_meta"]["powerio_diagnostic_details"] = [Dict{String,Any}(
         "code" => d.code, "severity" => string(d.severity),
         "message" => d.message, "target" => d.target, "details" => d.details,
+        "id" => d.id, "suggested_action" => d.suggested_action,
+        "related" => d.related,
+        "spans" => [Dict("source" => span.source, "byte_start" => span.byte_start,
+                         "byte_end" => span.byte_end) for span in d.spans],
     ) for d in diagnostics]
     net["_meta"]["powerio_diagnostics"] =
         _powerio_diagnostic_records(diagnostics; fold_ids=true)

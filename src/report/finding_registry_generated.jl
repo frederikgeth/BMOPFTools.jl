@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "5c9bc098a69f4fc6c93496d8d903c50e78472e35eefec98e11450e84a1e41be4"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "9c4f9e49f5006ccba96bb44043a465e1c485bd3047808b5b694caad334935ddf"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -145,6 +145,15 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="MIGRATE",
         section_title="input migration notes",
         meaning="Transformer fields temporarily relocated under `extras.transformer` by schema 0.1.0 were folded back onto their transformer record.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.MIGRATE.NWINDING_NOMINAL_TAP" => (
+        severity="WARNING",
+        namespace="MIGRATE",
+        catalogue_section="MIGRATE",
+        section_title="input migration notes",
+        meaning="An exact unit n-winding winding `tap_ratio`, with no competing tap bounds or control declaration, was normalized to the implicit nominal ratio. The original value and winding index remain in migration evidence; this does not enable non-unit taps or tap optimization.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

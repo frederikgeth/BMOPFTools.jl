@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "cd21473e59c4966a75273c857f3a67274806a17276056dbc9dcadd5475cee7af",
+  "corpus_sha256": "d6bdd9db2fcba750e3c6029e74126b5fc85ea45d574e0bbc13419068bdf45473",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -74,7 +74,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "5c9bc098a69f4fc6c93496d8d903c50e78472e35eefec98e11450e84a1e41be4"
+      "sha256": "9c4f9e49f5006ccba96bb44043a465e1c485bd3047808b5b694caad334935ddf"
     },
     {
       "path": "docs/src/objectives.md",
@@ -166,11 +166,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "e9827d2eca5b005747956e7269aaaba2c061a7d7a1a0cefa586d49c228b618f6"
+      "sha256": "257f4bbfaec94a9c4e33b17a12ee3695cb57f29702f0311af262d17aba10ee8f"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "64e352d1c469a79b06f8cfcb06219c4fe2abbb2419259f650f36740a0efcdd05"
+      "sha256": "243ba717e0bbc93bbf1228a3826458e9fefe2bf967bb98898d328589cc453fa3"
     },
     {
       "path": "recipes/README.md",
@@ -282,7 +282,11 @@
     },
     {
       "path": "src/io/migrate.jl",
-      "sha256": "14017fc78436a3207c519fbaa6e67919f0db26998df862a277bd1f43b4699c0d"
+      "sha256": "d9056b982a8c789dbe07f4cdc1944ad9c3d024edea163be3fe28569fc2d31c5d"
+    },
+    {
+      "path": "src/io/nwinding.jl",
+      "sha256": "875916d8d02a4a04c3cc8448c1ab6bd3d4b3751767f581d8aba3e34b819983cc"
     },
     {
       "path": "src/io/parse_bmopf.jl",
@@ -306,7 +310,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "9ac3722fc23bf9305cc0eb791b868a3d9ac7602f213fd5d6e7578bbb2678b11c"
+      "sha256": "37a525fa830b503abceb215877766a0b77ec3c02a654bfe90b030858e9e73d55"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -666,7 +670,11 @@
     },
     {
       "path": "test/powerflow_comparison_tests.jl",
-      "sha256": "7a35c139012af8b16eabf15f747ad772576728bd0d24a5ba49fe67ad7a52731f"
+      "sha256": "589372eff6dab66827ad49c87588571de9875ee24e09588cf13d7e6a120c426f"
+    },
+    {
+      "path": "test/powerio_v09_tests.jl",
+      "sha256": "30b09a3b759efa1ab6170d8d1849868ee5c5b50def0ffa35d83d3a5e3265f9f4"
     },
     {
       "path": "test/property/terminal-permutation-seed.json",

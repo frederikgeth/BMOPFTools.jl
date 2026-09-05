@@ -45,3 +45,79 @@ operating-point loss ledger. Transformer loss objectives and reports include
 their active and reactive power; the network power balance counts them once.
 Neutral terminals appear last in the generated shunt map, with the admittance
 matrix permuted to preserve its physical connections.
+
+## Supported behavior and remaining limits
+
+| Operation or field | Package behavior | Evidence and limit |
+|---|---|---|
+| Typed DSS parse → explicit BMOPF 0.1 profile | Accepted with source and writer diagnostics | Intake is separate from schema validity and solver applicability. |
+| Exact unit n-winding `tap_ratio`, no competing bounds/control | Normalized to the implicit nominal ratio | Original value and winding index survive in migration notes; normalization is idempotent. |
+| Non-unit n-winding tap or tap bounds | Retained and rejected at solver build | No tap optimization or approximate near-unit normalization. |
+| Per-winding `s_rating` | Retained as nameplate metadata | It is not automatically interpreted as the supported `s_max`/`i_max` constraint. |
+| Aggregate field diagnostics | Attributed by field and component class | Lists cap at 100 elements per field; missing identities remain unknown. |
+| PowerIO `remark` / `note` | Reported as `INFO` | Error and warning severities remain distinct. |
+| Explicit transformer core shunts | Preserved at intake and included once in the loss ledger | DSS export still loses some return connections and matrix entries; see the field-level loss ledger. |
+| Native three-winding PF fixtures | Compared against OpenDSS | Named fixtures validate the implemented nominal domain. |
+| Native four-winding DYYN fixture | Parses and solves; numerical agreement remains broken | Pairs involving winding four still have zero reactance; the observed LV discrepancy is about 31.21 V. |
+
+`W.MIGRATE.NWINDING_NOMINAL_TAP` describes representation normalization only.
+It does not extend the two-winding adjustable-tap contract linked to PSK-000005,
+or the fixed winding-convention contract linked to PSK-000006. Scientific
+contract domains and stable identities remain those declared in the existing
+package metadata and book.
+
+The fixture suite checks field-level expected losses in
+`test/data/roundtrip_expected_losses.json` as well as whole-case expected
+failures. Fixes must update the specific expected loss and promote its
+assertion; a different lost field cannot replace it unnoticed. Power-flow
+comparisons require every energized source node, with an explicit mapping
+when identities differ. An original solve that cannot converge is reported as
+a skip, not numerical agreement. No tolerance is relaxed for this upgrade.
+
+The standalone fidelity sweep uses its documented tighter tolerances; its
+results must not be substituted for the regression suite's 2 V / 2% round-trip
+gate. The separate four-winding import comparison uses 2 V / 0.3%. Parsing,
+DSS round-trip fidelity, and BMOPFTools solver acceptance have separate tests.
+
+## Reproducing prerelease validation
+
+The integration was developed against PowerIO.jl
+`d08f4510648b7307427b3ba95cfa463ae62ee381` and native PowerIO
+`a039c41a8bb89b7feb0c625c155577c03fa27275` (C ABI 7, including core-shunt preservation from `65dbc042`). A development checkout
+can use `Pkg.develop` in both the root and test environments, with `POWERIO_CAPI`
+pointing to that native build. Recipe subprocesses use the root environment.
+The same source override is needed when testing the docs, DiffOpt, and downstream
+project environments before registration. These local overrides are not
+committed package dependencies. Normal CI must resolve the coordinated released
+packages and their native artifacts before the compatibility bump is merged.
+
+The minimized `test/data/powerio_duplicate_new/Master.dss` fixture checks the
+newly visible `PARSE.DSS.SOURCE_MALFORMED` code, the final SI linecode values,
+and an independent OpenDSS comparison. The 100/101-element tests exercise the
+actual writer, not only synthetic diagnostic records. Full diagnostic records,
+including any upstream source spans, survive BMOPF JSON serialization.
+
+## Validation evidence for this update
+
+The coordinated prerelease revisions above were checked with Julia 1.12.6.
+The full package suite, scientific-contract/JSON execution gates, generated
+registry/export checks, docs build, DiffOpt tests, and downstream extension
+tests pass locally. The full suite retains 31 expected failures and three
+explicit skips: 30 lossy feature round trips, the native four-winding voltage
+comparison, the non-convergent original open-delta deck, and two pre-existing
+network-limit test scaffolds.
+
+| Check | Result | Interpretation |
+|---|---|---|
+| 35 feature cases, semantic round trip | 5 clean; 30 with recorded differences | 265 exact path/kind differences are guarded; the explicit core-shunt representation changes the old 168-difference ledger. |
+| Same cases, regression PF gate (2 V / 2%) | 34 match; 1 source solve skipped | Every energized reference node is covered, including explicitly mapped fixture returns. |
+| Same cases, stricter standalone PF sweep | 26 match; 8 differ; 1 source solve skipped | No whole-case expected failure is promoted on this evidence. |
+| 7 representative real feeders, standalone sweep | 1 matches; 6 do not establish agreement | Two regenerated decks do not converge; SWER has three unmatched source node identities. Other failures exceed the tighter tolerance. |
+
+The standalone sweep is reproduced with
+`julia --project=test --startup-file=no scripts/roundtrip_fidelity.jl --out /tmp/roundtrip-fidelity`
+under the same dependency overrides. Its reports include missing node identities
+as well as voltage errors. Imported SWER solver agreement and DSS re-export
+coverage are different checks: the former passes while the latter still needs
+an explicit reviewed node correspondence. None of these results expands a
+scientific contract's declared domain.

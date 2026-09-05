@@ -25,6 +25,15 @@
 if !@isdefined(_ROUNDTRIP_HELPERS_LOADED)
 const _ROUNDTRIP_HELPERS_LOADED = true
 
+# Explicit reviewed correspondences apply only to the named checked-in fixtures.
+# External cases keep identity correspondence unless their caller supplies a map.
+const _ROUNDTRIP_NODE_MAPS = BMOPFTools.JSON3.read(
+    read(joinpath(@__DIR__, "data", "roundtrip_node_maps.json"), String), Dict{String,Any})
+function roundtrip_fixture_node_map(path)
+    dirname(abspath(path)) == normpath(joinpath(@__DIR__, "data", "pf_comparison")) || return nothing
+    get(_ROUNDTRIP_NODE_MAPS, first(splitext(basename(path))), nothing)
+end
+
 # ── Data structures ─────────────────────────────────────────────────────────
 
 """
@@ -52,11 +61,14 @@ struct PFResult
     n_nodes_compared::Int
     over_tol_nodes::Vector{Tuple{String,Float64}}
     note::String
+    missing_nodes::Vector{String}
 end
+PFResult(solved, matched, skipped, max_dV, n, over, note) =
+    PFResult(solved, matched, skipped, max_dV, n, over, note, String[])
 
-# A PF result is "clean" only when it solved and matched (or was legitimately not
-# run). skipped results are neither pass nor fail — they carry no verdict.
-pf_ok(pf::PFResult) = pf.skipped || (pf.solved && pf.matched)
+# A PF result is "clean" only with a solved, nonempty, complete comparison.
+# Skipped results carry no numerical verdict.
+pf_ok(pf::PFResult) = !pf.skipped && pf.solved && pf.matched && pf.n_nodes_compared > 0
 
 "Full per-case diagnostic bundle across all three signal sources."
 struct CaseReport
@@ -322,25 +334,31 @@ Node names are lowercased so an original (mixed-case) and its regenerated
 (case-folded) counterpart align.
 """
 function ods_solve_volts(dss_path::String)
-    OpenDSSDirect.dss("Clear")
-    # Keep any Export/Show output the deck emits out of the working directory.
-    OpenDSSDirect.dss("Set DataPath=\"$(tempdir())\"")
-    OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
-    OpenDSSDirect.dss("Solve")
-    conv = OpenDSSDirect.Solution.Converged()
-    names = OpenDSSDirect.Circuit.AllNodeNames()
-    volts = OpenDSSDirect.Circuit.AllBusVolts()
-    d = Dict{String,ComplexF64}(lowercase(n) => v for (n, v) in zip(names, volts))
-    return conv, d
+    absolute_path = abspath(dss_path)
+    original_dir = pwd()
+    try
+        OpenDSSDirect.dss("Clear")
+        # Keep any Export/Show output the deck emits out of the working directory.
+        OpenDSSDirect.dss("Set DataPath=\"$(tempdir())\"")
+        OpenDSSDirect.dss("Redirect \"$(absolute_path)\"")
+        OpenDSSDirect.dss("Solve")
+        conv = OpenDSSDirect.Solution.Converged()
+        names = OpenDSSDirect.Circuit.AllNodeNames()
+        volts = OpenDSSDirect.Circuit.AllBusVolts()
+        d = Dict{String,ComplexF64}(lowercase(n) => v for (n, v) in zip(names, volts))
+        return conv, d
+    finally
+        cd(original_dir) # OpenDSS Set DataPath/Redirect can change the process cwd.
+    end
 end
 
 """
     pf_cross_check(orig_path, regen_path; atol=0.3, rtol=1e-3) -> PFResult
 
-Solve original and regenerated DSS in OpenDSS and compare node voltages. Skips
-nodes with |V_orig| < 1e-4 (earth reference) and nodes not present in both.
+Solve original and regenerated DSS in OpenDSS and compare every energized
+source node by its original name. Missing nodes make the comparison incomplete.
 """
-function pf_cross_check(orig_path::String, regen_path::String; atol=0.3, rtol=1e-3)::PFResult
+function pf_cross_check(orig_path::String, regen_path::String; atol=0.3, rtol=1e-3, node_map=nothing)::PFResult
     conv1, V1 = ods_solve_volts(orig_path)
     if !conv1
         return PFResult(false, false, true, NaN, 0, Tuple{String,Float64}[],
@@ -357,19 +375,7 @@ function pf_cross_check(orig_path::String, regen_path::String; atol=0.3, rtol=1e
         return PFResult(false, false, false, NaN, 0, Tuple{String,Float64}[],
                         "regenerated DSS did not converge")
     end
-    max_dV = 0.0
-    n = 0
-    over = Tuple{String,Float64}[]
-    for (node, v1) in V1
-        haskey(V2, node) || continue
-        abs(v1) < 1e-4 && continue
-        n += 1
-        dV = abs(v1 - V2[node])
-        max_dV = max(max_dV, dV)
-        isapprox(V2[node], v1; atol, rtol) || push!(over, (node, dV))
-    end
-    note = isempty(over) ? "" : "$(length(over)) node(s) over tolerance"
-    PFResult(true, isempty(over), false, max_dV, n, over, note)
+    compare_volts(V1, V2; atol, rtol, node_map)
 end
 
 # ── OPF-solution ↔ OpenDSS oracle ────────────────────────────────────────────
@@ -409,25 +415,34 @@ end
     compare_volts(V1, V2; atol=0.3, rtol=1e-3, skip_below=1e-4) -> PFResult
 
 Pure node-voltage comparison of two `"node" => complex` dicts. Compares only nodes
-in both, skipping references with `|V1| < skip_below` (earth/neutral). `solved` is
+using identity or an explicitly supplied `node_map`, skipping references with
+`|V1| < skip_below` (earth/neutral). Missing required nodes fail the comparison. `solved` is
 `true` (no solve is performed here); `matched` requires ≥1 compared node all within
 tolerance. Shared core for the A/B/C pairings.
 """
 function compare_volts(V1::AbstractDict, V2::AbstractDict;
-                       atol=0.3, rtol=1e-3, skip_below=1e-4)::PFResult
+                       atol=0.3, rtol=1e-3, skip_below=1e-4, node_map=nothing)::PFResult
     max_dV = 0.0; n = 0
     over = Tuple{String,Float64}[]
+    missing_nodes = String[]
     for (node, v1) in V1
-        haskey(V2, node) || continue
         abs(v1) < skip_below && continue
+        target = node_map === nothing ? node : get(node_map, node, nothing)
+        if target === nothing || !haskey(V2, target)
+            push!(missing_nodes, String(node))
+            continue
+        end
         n += 1
-        dV = abs(v1 - V2[node])
+        dV = abs(v1 - V2[target])
         max_dV = max(max_dV, dV)
-        isapprox(V2[node], v1; atol, rtol) || push!(over, (node, dV))
+        isapprox(V2[target], v1; atol, rtol) || push!(over, (node, dV))
     end
-    note = n == 0 ? "no comparable nodes" :
+    sort!(missing_nodes)
+    note = !isempty(missing_nodes) ? "$(length(missing_nodes)) required node(s) absent" :
+           n == 0 ? "no comparable nodes" :
            isempty(over) ? "" : "$(length(over)) node(s) over tolerance"
-    PFResult(true, n > 0 && isempty(over), false, max_dV, n, over, note)
+    PFResult(true, n > 0 && isempty(over) && isempty(missing_nodes), false,
+             max_dV, n, over, note, missing_nodes)
 end
 
 _pf_skipped(note) = PFResult(false, false, true, NaN, 0, Tuple{String,Float64}[], note)
@@ -598,7 +613,8 @@ function diagnose_case(dss_path::String; tier::Symbol=:A, has_ods::Bool=false,
         # Tighten transformer cases to atol=0.1 V, mirroring powerflow_comparison_tests.
         atol = occursin(r"_(dy|yd)_", stem) ? 0.1 : atol_v
         try
-            pf = pf_cross_check(dss_path, regen_path; atol, rtol=rtol_v)
+            pf = pf_cross_check(dss_path, regen_path; atol, rtol=rtol_v,
+                node_map=roundtrip_fixture_node_map(dss_path))
         catch e
             push!(errors, "pf_cross_check: $(sprint(showerror, e))")
             pf = PFResult(false, false, false, NaN, 0, Tuple{String,Float64}[],
