@@ -354,6 +354,62 @@ end
 _same_working_voltage_base(a::Float64, b::Float64) =
     isapprox(a, b; rtol=1e-12, atol=0.0)
 
+function _complementarity_curve_expr!(ctx, inv_id, idx, controller::Symbol,
+                                      curve::DroopCurve, U, base)
+    all(t -> t[1] isa Real && t[2] isa Real, curve.triples) || throw(ArgumentError(
+        "droop_encoding=:complementarity requires numeric $controller curve " *
+        "coefficients; parameterized coefficient providers are not supported"))
+    curve.baseline isa Real || throw(ArgumentError(
+        "droop_encoding=:complementarity requires a numeric $controller baseline"))
+    model = ctx.model
+    total = base * Float64(curve.baseline)
+    for (hinge, (a, xbar)) in enumerate(curve.triples)
+        value_key = BMOPFTools.opf_droop_hinge_key(
+            string(inv_id), idx, controller, hinge; side=:value)
+        slack_key = BMOPFTools.opf_droop_hinge_key(
+            string(inv_id), idx, controller, hinge; side=:slack)
+        r = @variable(model, lower_bound=0.0,
+                      base_name="droop_$(controller)_$(inv_id)_$(idx)_$(hinge)_value")
+        s = @variable(model, lower_bound=0.0,
+                      base_name="droop_$(controller)_$(inv_id)_$(idx)_$(hinge)_slack")
+        BMOPFTools.register_opf_object!(ctx, value_key, r)
+        BMOPFTools.register_opf_object!(ctx, slack_key, s)
+        definition = @constraint(model, s == r - U + Float64(xbar))
+        BMOPFTools.register_opf_constraint!(ctx, :droop_hinge_definition,
+            (string(inv_id), idx, String(controller), hinge), definition)
+        pair = BMOPFTools.OpfComplementarityPair(
+            "droop_$(controller)_$(inv_id)_$(idx)_$(hinge)",
+            value_key, slack_key;
+            metadata=Dict{String,Any}(
+                "controller" => String(controller),
+                "ibr" => string(inv_id),
+                "phase" => idx,
+                "hinge" => hinge,
+                "slope" => Float64(a),
+                "breakpoint" => Float64(xbar),
+                # The curve reference base, in model power units. A residual
+                # `min(r, s)` on this pair perturbs the enforced curve value by
+                # `base * |slope| * min(r, s)`, which is how a solver adapter
+                # converts a complementarity residual into a physical error.
+                "base" => Float64(base),
+                "encoding" => "exact_relu_hinge",
+            ))
+        BMOPFTools.register_opf_complementarity_pair!(ctx, pair)
+        total += base * Float64(a) * r
+    end
+    return total
+end
+
+function _droop_curve_expr(ctx, inv_id, idx, controller::Symbol,
+                           curve::DroopCurve, U, base, relu_ops, softplus)
+    ctx.droop_encoding == :complementarity &&
+        return _complementarity_curve_expr!(ctx, inv_id, idx, controller,
+                                            curve, U, base)
+    op = relu_operator_for!(relu_ops, ctx.model, curve.eps; mode=softplus)
+    return curve_expr(op, U, base * curve.baseline,
+                      [(base * a, x̄) for (a, x̄) in curve.triples])
+end
+
 """
     _add_ibr_constraints!(ctx, kcl_r, kcl_i; parameterized_profiles, coefficient)
 
@@ -725,11 +781,10 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         register_constraint(:ibr_p_upper, @constraint(model, p_expr <= p_max[idx]))
     end
     if vw !== nothing
-        op   = relu_operator_for!(relu_ops, model, vw.eps; mode=softplus)
         base = _droop_base(vw, idx, smax, p_max, p_avail_per)
         register_constraint(:ibr_p_volt_watt, @constraint(model,
-            p_expr <= curve_expr(op, U_vw, base * vw.baseline,
-                                 [(base*a, x̄) for (a, x̄) in vw.triples])))
+            p_expr <= _droop_curve_expr(ctx, inv_id, idx, :volt_watt,
+                                        vw, U_vw, base, relu_ops, softplus)))
     end
 
     # Reactive power: constant-PF equality, Volt-var droop equality, or box.
@@ -737,11 +792,10 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         register_constraint(:ibr_power_factor, @constraint(model,
             pf_sign * q_expr + tan_phi * p_expr == 0))
     elseif vv !== nothing
-        op   = relu_operator_for!(relu_ops, model, vv.eps; mode=softplus)
         base = _droop_base(vv, idx, smax, p_max, p_avail_per)
         register_constraint(:ibr_q_volt_var, @constraint(model,
-            q_expr == curve_expr(op, U_vv, base * vv.baseline,
-                                 [(base*a, x̄) for (a, x̄) in vv.triples])))
+            q_expr == _droop_curve_expr(ctx, inv_id, idx, :volt_var,
+                                        vv, U_vv, base, relu_ops, softplus)))
     else
         if length(q_min) >= idx
             register_constraint(:ibr_q_lower, @constraint(model, q_expr >= q_min[idx]))

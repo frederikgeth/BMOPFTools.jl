@@ -1501,6 +1501,55 @@ function opf_ibr_voltage_magnitude_key(
                         String(reference), String(controller)))
 end
 
+"""
+    opf_droop_hinge_key(ibr, phase, controller, hinge; side=:value)
+
+Stable key for one auxiliary variable in the exact complementarity encoding of
+an IBR Volt-var/Volt-watt hinge. `side=:value` identifies the hinge value
+``r = max(U - x̄, 0)`` and `side=:slack` identifies its complementary slack
+``s = r - U + x̄``.
+"""
+function opf_droop_hinge_key(ibr::AbstractString, phase::Integer,
+                             controller::Symbol, hinge::Integer;
+                             side::Symbol=:value)
+    side in (:value, :slack) || throw(ArgumentError(
+        "droop hinge side must be :value or :slack"))
+    controller in (:volt_var, :volt_watt) || throw(ArgumentError(
+        "droop hinge controller must be :volt_var or :volt_watt"))
+    family = side == :value ? :droop_hinge_value : :droop_hinge_slack
+    return OpfModelKey(:variable, family,
+                       (String(ibr), _opf_positive_position(phase, "phase"),
+                        String(controller), _opf_positive_position(hinge, "hinge")))
+end
+
+"""
+    OpfComplementarityPair(id, left, right; relation=:variable_variable,
+                           metadata=Dict())
+
+Stable description of a complementarity relation between two registered OPF
+model objects. The base package deliberately stores only semantic keys and
+JSON-compatible metadata; solver-specific MPCC encodings belong to extensions.
+"""
+struct OpfComplementarityPair
+    id::String
+    left::OpfModelKey
+    right::OpfModelKey
+    relation::Symbol
+    metadata::Dict{String,Any}
+end
+
+function OpfComplementarityPair(id::AbstractString,
+                                left::OpfModelKey,
+                                right::OpfModelKey;
+                                relation::Symbol=:variable_variable,
+                                metadata=Dict{String,Any}())
+    isempty(String(id)) && throw(ArgumentError("complementarity pair id cannot be empty"))
+    relation in (:variable_variable, :constraint_constraint) || throw(ArgumentError(
+        "unsupported complementarity relation '$relation'"))
+    return OpfComplementarityPair(String(id), left, right, relation,
+                                  Dict{String,Any}(string(k) => v for (k, v) in metadata))
+end
+
 """Return the native signed DC bus-terminal voltage key."""
 opf_dc_voltage_key(bus::AbstractString, terminal::AbstractString) =
     OpfModelKey(:variable, :v_dc, (String(bus), String(terminal)))
@@ -2225,6 +2274,23 @@ their existing variable-family symbol and raw index.
 function register_opf_object! end
 
 """
+    register_opf_complementarity_pair!(ctx, pair; replace=false)
+    opf_complementarity_pairs(ctx)
+
+Register and retrieve semantic complementarity relations between objects in the
+OPF registry. The active OPF extension validates the endpoint objects and an
+optional solver adapter maps the returned keys to solver-native indices.
+
+Registering a pair does **not** stamp `r · s = 0` into the model — only an MPCC
+adapter can enforce it — so the OPF extension arms an optimize hook that refuses
+a plain `JuMP.optimize!` on a model carrying unenforced pairs. Solving such a
+model directly relaxes every hinge, which for a saturating droop curve can stop
+the constraint binding at all while still reporting a successful status.
+"""
+function register_opf_complementarity_pair! end
+function opf_complementarity_pairs end
+
+"""
     register_opf_constraint!(ctx, family, index, constraint; replace=false)
 
 Convenience wrapper for model hooks and device extensions. Registers a JuMP
@@ -2797,6 +2863,7 @@ export opf_transformer_current_key, opf_transformer_tap_key
 export opf_nwinding_current_key, opf_ibr_current_key
 export opf_ibr_power_key
 export opf_ibr_voltage_magnitude_key
+export opf_droop_hinge_key, OpfComplementarityPair
 export opf_dc_voltage_key, opf_dc_ground_current_key
 export opf_dc_branch_current_key, opf_converter_dc_current_key
 export opf_dc_load_current_key, opf_dc_source_current_key
@@ -2814,6 +2881,7 @@ export initialize_opf_model, set_opf_start_values!
 export add_opf_operational_limits!, add_opf_device_constraints!
 export set_opf_objective!
 export register_opf_object!, opf_object, opf_object_keys
+export register_opf_complementarity_pair!, opf_complementarity_pairs
 export register_opf_objective_term!, opf_primal, opf_constraint_value
 export opf_constraint_slack, opf_dual, opf_objective_value
 export register_opf_regularization!, opf_regularizations, opf_research_hashes
@@ -2884,6 +2952,50 @@ below.
 """
 function build_opf_model end
 export build_opf_model
+
+"""
+    build_ccopt_model(net; kwargs...)
+
+Build a BMOPF OPF as an `NLPModelsJuMP` model plus the registered
+complementarity pairs required by CCOpt. This optional adapter is available
+when the BMOPFOpfExt extension and CCOpt's optional dependencies are loaded.
+"""
+function build_ccopt_model end
+export build_ccopt_model
+
+"""
+    solve_ccopt!(handle; method=:relaxation, kwargs...)
+
+Solve a model returned by [`build_ccopt_model`](@ref). `method` selects CCOpt's
+`:relaxation` (Scholtes homotopy) or `:penalty` solver; remaining keywords are
+forwarded to the CCOpt solver constructor and on to MadNLP.
+
+`bound_relax_factor` defaults to `0.0` here, overriding MadNLP's own default.
+An MPCC's hinge bounds `r ≥ 0`, `s ≥ 0` are what make complementarity mean
+`r = max(U − x̄, 0)`; relaxing them lets the exact encoding return a negative
+ReLU value and floors the achievable complementarity residual. Pass a different
+value explicitly to opt out.
+"""
+function solve_ccopt! end
+export solve_ccopt!
+
+"""
+    extract_ccopt_result(handle; stats, solution_hook!, curve_error_tol,
+                         bound_tol) -> Dict
+
+Extract a `solve_opf`-shaped result dictionary from a solved CCOpt model.
+
+The point is reported as feasible only when the solver succeeded **and** the
+complementarity pairs hold to tolerance — a homotopy stopped early returns a
+point on a relaxed droop curve, which is precisely the error the exact encoding
+exists to remove. The `"ccopt"` entry of the result records the measured
+residuals; `curve_error_tol` bounds `|slope| · min(r, s)` as a fraction of each
+curve's reference base, and `bound_tol` bounds how far a hinge variable may sit
+below its own zero (both in model units). A rejected point is still reported in
+full with `feasible = false`, so the numbers behind the verdict stay readable.
+"""
+function extract_ccopt_result end
+export extract_ccopt_result
 
 """
     enforce_kcl!(ctx) -> ctx

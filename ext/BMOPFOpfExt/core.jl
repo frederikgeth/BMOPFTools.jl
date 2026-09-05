@@ -63,6 +63,7 @@ struct OpfContext
     bases
     relu_eps::Float64
     softplus::Symbol
+    droop_encoding::Symbol
     relu_ops::Dict{Float64,Any}
     # Stable downstream-extension substrate. `objects` maps public
     # `BMOPFTools.OpfModelKey`s to live JuMP objects; `extension_state` is
@@ -590,6 +591,34 @@ function BMOPFTools.register_opf_object!(ctx::OpfContext,
     end
     ctx.objects[key] = object
     return object
+end
+
+function BMOPFTools.register_opf_complementarity_pair!(
+        ctx::OpfContext, pair::BMOPFTools.OpfComplementarityPair;
+        replace::Bool=false)
+    pair.relation == :variable_variable || throw(ArgumentError(
+        "the JuMP OPF extension currently supports only variable-variable " *
+        "complementarity pairs"))
+    pair.left.kind == :variable && pair.right.kind == :variable ||
+        throw(ArgumentError("complementarity pair endpoints must be variable keys"))
+    left = BMOPFTools.opf_object(ctx, pair.left)
+    right = BMOPFTools.opf_object(ctx, pair.right)
+    left isa JuMP.VariableRef && right isa JuMP.VariableRef || throw(ArgumentError(
+        "complementarity pair endpoints must resolve to JuMP variables"))
+    state = BMOPFTools.extension_state!(ctx, :BMOPFToolsComplementarityPairs) do
+        Dict{String,BMOPFTools.OpfComplementarityPair}()
+    end
+    haskey(state, pair.id) && !replace && throw(ArgumentError(
+        "complementarity pair id already registered: $(pair.id)"))
+    state[pair.id] = pair
+    _note_complementarity_pair!(ctx.model, pair.id)
+    return pair
+end
+
+function BMOPFTools.opf_complementarity_pairs(ctx::OpfContext)
+    state = get(ctx.extension_state, :BMOPFToolsComplementarityPairs, nothing)
+    state isa AbstractDict || return BMOPFTools.OpfComplementarityPair[]
+    return sort!(collect(values(state)); by=pair -> pair.id)
 end
 
 function BMOPFTools.register_opf_constraint!(ctx::OpfContext,
@@ -2603,9 +2632,12 @@ KCL accumulators and branch-injection ledger, and bundle them into an
 function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64;
                       problem::Symbol, s_base::Float64,
                       softplus::Symbol=:user_defined,
+                      droop_encoding::Symbol=:softplus,
                       build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec())
     softplus in (:user_defined, :builtin) || throw(ArgumentError(
         "softplus must be :user_defined or :builtin, got :$softplus"))
+    droop_encoding in (:softplus, :complementarity) || throw(ArgumentError(
+        "droop_encoding must be :softplus or :complementarity, got :$droop_encoding"))
     bus_terminals = _bus_terminals(working)
     grounded      = _grounded_terminals(working)
 
@@ -2624,6 +2656,7 @@ function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64
         coefficient_providers=copy(build_spec.coefficient_providers))
     ctx = OpfContext(model, working, bus_terminals, grounded, vars,
                      kcl_r, kcl_i, branch_inj, bases, relu_eps, softplus,
+                     droop_encoding,
                      Dict{Float64,Any}(),
                      Dict{BMOPFTools.OpfModelKey,Any}(), Dict{Any,Any}(),
                      Dict{BMOPFTools.OpfModelKey,BMOPFTools.OpfParameterBinding}(),
@@ -2855,6 +2888,94 @@ function _assert_kcl_enforced(model::JuMP.Model,
         "`initialize_opf_model` to opt out of this check."))
 end
 
+# ── Complementarity (MPCC) guard ───────────────────────────────────────────
+#
+# `droop_encoding=:complementarity` stamps only HALF of each exact ReLU hinge
+# into the JuMP model: `r ≥ 0`, `s ≥ 0`, `s = r − U + x̄`. The other half,
+# `r · s = 0`, is carried as semantic key pairs in `extension_state` and becomes
+# a real constraint only when an MPCC solver adapter consumes it.
+#
+# A plain `JuMP.optimize!` on such a model therefore solves a RELAXATION, and
+# the relaxation is not conservative: every saturating droop curve ends in a
+# hinge whose slope has the opposite sign to the leading one, so letting its `r`
+# float above `max(U − x̄, 0)` drives the curve's right-hand side away without
+# bound and the droop constraint stops binding at all. Measured on a two-bus
+# single-phase Volt-watt case, that returns p_g = 3000 W (the nameplate) where
+# the exact hinge gives 1183 W — reported as LOCALLY_SOLVED, with no error.
+#
+# Same shape as the KCL hazard above, so the same two guards close it: an
+# optimize hook (chained onto whatever is already installed, including the KCL
+# hook) and a backstop in `extract_result`. The registry stores pair IDs, which
+# reference nothing, so the weak model key stays collectable — see the note on
+# `_KCL_GUARD_REGISTRY` for why the context itself must not be stored.
+const _MPCC_GUARD_REGISTRY = WeakKeyDict{JuMP.Model,Vector{String}}()
+const _MPCC_GUARD_LOCK = ReentrantLock()
+
+const _MPCC_UNSOLVED_MESSAGE =
+    "A complementarity-encoded droop curve is only half-stamped into the JuMP " *
+    "model: `r ≥ 0`, `s ≥ 0` and `s = r − U + x̄` are constraints, but " *
+    "`r · s = 0` is not. Solving the model directly therefore relaxes every " *
+    "hinge, and because a saturating curve's trailing hinge has the opposite " *
+    "slope to its leading one, the droop constraint can stop binding " *
+    "altogether — a successful-looking status over an unenforced control " *
+    "curve. Solve it through an MPCC adapter (`build_ccopt_model` / " *
+    "`solve_ccopt!`), or rebuild with the default `droop_encoding=:softplus`."
+
+"""Pair IDs of complementarity relations registered against `model`."""
+function _registered_complementarity_pairs(model::JuMP.Model)
+    ids = lock(_MPCC_GUARD_LOCK) do
+        get(_MPCC_GUARD_REGISTRY, model, nothing)
+    end
+    return ids === nothing ? String[] : ids
+end
+
+"""
+    _note_complementarity_pair!(model, id)
+
+Record `id` against `model` and, for the first pair on that model, install the
+optimize hook that refuses an unadapted solve. Installed independently of
+`kcl_guard` because the hazard is independent of it: a caller who opted out of
+the KCL check has not thereby vouched for the complementarity half.
+"""
+function _note_complementarity_pair!(model::JuMP.Model, id::AbstractString)
+    first_on_model = lock(_MPCC_GUARD_LOCK) do
+        ids = get(_MPCC_GUARD_REGISTRY, model, nothing)
+        if ids === nothing
+            _MPCC_GUARD_REGISTRY[model] = String[String(id)]
+            true
+        else
+            String(id) in ids || push!(ids, String(id))
+            false
+        end
+    end
+    first_on_model || return model
+    prior = model.optimize_hook
+    origin = model
+    JuMP.set_optimize_hook(model, function (m::JuMP.Model; kwargs...)
+        _assert_complementarity_solved(m, origin)
+        return prior === nothing ?
+            JuMP.optimize!(m; ignore_optimize_hook=true, kwargs...) :
+            prior(m; kwargs...)
+    end)
+    return model
+end
+
+function _assert_complementarity_solved(model::JuMP.Model,
+                                        origin::Union{JuMP.Model,Nothing}=nothing)
+    # A copy carries the hook but not the registry entry, so it would otherwise
+    # query itself, find no pairs, and permit the very solve this guards — the
+    # guard failing OPEN, which is the one direction it must never fail.
+    ids = model === origin || origin === nothing ?
+        _registered_complementarity_pairs(model) :
+        ["<copied from another model>"]
+    isempty(ids) && return nothing
+    throw(ArgumentError(
+        "this JuMP model carries $(length(ids)) registered complementarity " *
+        "pair(s) that no solver adapter has enforced. " *
+        "$_MPCC_UNSOLVED_MESSAGE To solve the relaxation deliberately, call " *
+        "`JuMP.set_optimize_hook(model, nothing)` first."))
+end
+
 # ── Public staged build/solve/extract API ──────────────────────────────────
 # The fused `solve_opf` is the convenience path. These four functions expose the
 # same pipeline as discrete, composable steps so a caller (typically an external
@@ -2936,12 +3057,13 @@ function BMOPFTools.build_opf_model(net::Dict{String,Any};
                                     model_hook!::Union{Function,Nothing}=nothing,
                                     volt_var_watt_eps::Float64=2e-3,
                                     softplus::Symbol=:user_defined,
+                                    droop_encoding::Symbol=:softplus,
                                     kcl_guard::Bool=true,
                                     verbose::Bool=false)
     ctx = BMOPFTools.initialize_opf_model(net; optimizer, t_index, per_unit,
                                           s_base, scaling_policy, model,
                                           build_spec, volt_var_watt_eps,
-                                          softplus, kcl_guard, verbose)
+                                          softplus, droop_encoding, kcl_guard, verbose)
     build_opf!(ctx; add_objective=add_objective)
     model_hook! === nothing || model_hook!(ctx)
     return ctx
@@ -2958,6 +3080,7 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
                                          build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec(),
                                          volt_var_watt_eps::Float64=2e-3,
                                          softplus::Symbol=:user_defined,
+                                         droop_encoding::Symbol=:softplus,
                                          kcl_guard::Bool=true,
                                          verbose::Bool=false)
     working, bases = _prepare_working_net(
@@ -2969,7 +3092,7 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
     effective_s_base = bases === nothing ? s_base : bases.s_base
     ctx = _new_context(model, working, bases, volt_var_watt_eps;
                        problem=:opf, s_base=effective_s_base, build_spec=build_spec,
-                       softplus=softplus)
+                       softplus=softplus, droop_encoding=droop_encoding)
     kcl_guard && _install_kcl_guard!(ctx)
     return ctx
 end
@@ -3018,6 +3141,7 @@ function BMOPFTools.extract_result(ctx::OpfContext;
         "enforce_kcl! was never called on this staged OPF context. " *
         "$_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` before optimising, " *
         "then extract."))
+    _assert_complementarity_solved(ctx.model)
     result = _extract_results(ctx.model, ctx.net, ctx.bus_terminals,
                               ctx.grounded, ctx.vars, ctx.branch_inj;
                               bases=ctx.bases)
