@@ -2835,20 +2835,22 @@ end
         _cmp_volts(V_ods, _nwd_bm_volts(res); label="nwd-$(f): ")
     end
 
-    # 4+ windings: the current PowerIO BMOPF export still emits zero reactance for
-    # pairs touching winding 4. The model solves, but its voltage mismatch remains
-    # an expected failure; successful termination does not repair the data gap.
-    @testset "native four-winding gap" begin
+    # All six pairs use the first winding's per-coil impedance base.
+    @testset "native four-winding reactances and voltages" begin
         net4 = from_dss(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
         @test haskey(get(net4, "transformer", Dict()), "n_winding")
         xsc4 = first(values(net4["transformer"]["n_winding"]))["x_sc"]
-        @test all(iszero, (xsc4["1_4"], xsc4["2_4"], xsc4["3_4"]))  # documents the gap
+        for (pair, percent) in zip(("1_2", "1_3", "1_4", "2_3", "2_4", "3_4"), (8, 8, 8, 6, 6, 4))
+            @test xsc4[pair] ≈ percent / 100 * (115000^2 / (30000000 / 3))
+        end
         res4 = solve_pf(net4; optimizer=Ipopt.Optimizer)
         @test res4["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         V_ods4 = _ods_volts(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
         V_bm4  = _nwd_bm_volts(res4)
-        @test_broken all(isapprox(V_ods4[k], V_bm4[k]; atol=2.0, rtol=3e-3)
-                         for k in keys(V_ods4) if haskey(V_bm4, k))
+        required_nodes = [node for (node, voltage) in V_ods4 if abs(voltage) >= 1e-4]
+        @test !isempty(required_nodes)
+        @test all(haskey(V_bm4, node) for node in required_nodes)
+        _cmp_volts(V_ods4, V_bm4; label="native four-winding: ", atol=2.0, rtol=3e-3)
     end
 end
 

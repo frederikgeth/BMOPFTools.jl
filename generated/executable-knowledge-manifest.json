@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "d6bdd9db2fcba750e3c6029e74126b5fc85ea45d574e0bbc13419068bdf45473",
+  "corpus_sha256": "0f4b2d1e4b50c54a2db75013d65a52865aadf0915522749ad6c008efdafdcc31",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -670,7 +670,7 @@
     },
     {
       "path": "test/powerflow_comparison_tests.jl",
-      "sha256": "589372eff6dab66827ad49c87588571de9875ee24e09588cf13d7e6a120c426f"
+      "sha256": "3b0432e915a420ce57786ffcc9cc9083d38704cb6e336423abf5e8c084144633"
     },
     {
       "path": "test/powerio_v09_tests.jl",

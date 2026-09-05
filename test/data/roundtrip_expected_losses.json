@@ -152,10 +152,6 @@
     {
       "path": "shunt.powerio_core_n_winding_t1",
       "kind": "missing"
-    },
-    {
-      "path": "transformer.n_winding.t1.x_sc",
-      "kind": "numeric_mismatch"
     }
   ],
   "pf_4wdg_nwinding": [
@@ -166,10 +162,6 @@
     {
       "path": "shunt.powerio_core_n_winding_t1",
       "kind": "missing"
-    },
-    {
-      "path": "transformer.n_winding.t1.x_sc",
-      "kind": "numeric_mismatch"
     }
   ],
   "pf_autotransformer": [

@@ -58,7 +58,7 @@ matrix permuted to preserve its physical connections.
 | PowerIO `remark` / `note` | Reported as `INFO` | Error and warning severities remain distinct. |
 | Explicit transformer core shunts | Preserved at intake and included once in the loss ledger | DSS export still loses some return connections and matrix entries; see the field-level loss ledger. |
 | Native three-winding PF fixtures | Compared against OpenDSS | Named fixtures validate the implemented nominal domain. |
-| Native four-winding DYYN fixture | Parses and solves; numerical agreement remains broken | Pairs involving winding four still have zero reactance; the observed LV discrepancy is about 31.21 V. |
+| Native four-winding DYYN fixture | All six reactance pairs and all 12 energized nodes agree with OpenDSS | The voltage comparison uses 2 V / 0.3%; the maximum LV error is 0.094 V. |
 
 `W.MIGRATE.NWINDING_NOMINAL_TAP` describes representation normalization only.
 It does not extend the two-winding adjustable-tap contract linked to PSK-000005,
@@ -83,7 +83,7 @@ DSS round-trip fidelity, and BMOPFTools solver acceptance have separate tests.
 
 The integration was developed against PowerIO.jl
 `d08f4510648b7307427b3ba95cfa463ae62ee381` and native PowerIO
-`a039c41a8bb89b7feb0c625c155577c03fa27275` (C ABI 7, including core-shunt preservation from `65dbc042`). A development checkout
+`a84d97d97343b4175e9a846aa358997ff53b0e5f` (C ABI 7, including core-shunt preservation and complete OpenDSS `Xscarray` winding pairs). A development checkout
 can use `Pkg.develop` in both the root and test environments, with `POWERIO_CAPI`
 pointing to that native build. Recipe subprocesses use the root environment.
 The same source override is needed when testing the docs, DiffOpt, and downstream
@@ -99,17 +99,16 @@ including any upstream source spans, survive BMOPF JSON serialization.
 
 ## Validation evidence for this update
 
-The coordinated prerelease revisions above were checked with Julia 1.12.6.
+The coordinated prerelease revisions above were checked with Julia 1.12.5.
 The full package suite, scientific-contract/JSON execution gates, generated
 registry/export checks, docs build, DiffOpt tests, and downstream extension
-tests pass locally. The full suite retains 31 expected failures and three
-explicit skips: 30 lossy feature round trips, the native four-winding voltage
-comparison, the non-convergent original open-delta deck, and two pre-existing
-network-limit test scaffolds.
+tests pass locally. The full suite passes 9,087 checks and retains 30 expected failures and three
+explicit skips: 30 lossy feature round trips, the non-convergent original
+open-delta deck, and two pre-existing network-limit test scaffolds.
 
 | Check | Result | Interpretation |
 |---|---|---|
-| 35 feature cases, semantic round trip | 5 clean; 30 with recorded differences | 265 exact path/kind differences are guarded; the explicit core-shunt representation changes the old 168-difference ledger. |
+| 35 feature cases, semantic round trip | 5 clean; 30 with recorded differences | 263 exact path/kind differences are checked; the two four-winding reactance discrepancies are resolved. |
 | Same cases, regression PF gate (2 V / 2%) | 34 match; 1 source solve skipped | Every energized reference node is covered, including explicitly mapped fixture returns. |
 | Same cases, stricter standalone PF sweep | 26 match; 8 differ; 1 source solve skipped | No whole-case expected failure is promoted on this evidence. |
 | 7 representative real feeders, standalone sweep | 1 matches; 6 do not establish agreement | Two regenerated decks do not converge; SWER has three unmatched source node identities. Other failures exceed the tighter tolerance. |
