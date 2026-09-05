@@ -47,8 +47,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
         s_max_g   = Float64.(get(gen, "s_max", Float64[]))
 
         if cfg in ("WYE", "SINGLE_PHASE")
-            ph_pos    = _phase_positions(tm, nlabels)
-            n_pos_idx = _neutral_pos(tm, nlabels)
+            ph_pos, n_pos_idx = _generator_positions(tm, cfg, nlabels)
             t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
             n_ph      = length(ph_pos)
 
@@ -190,7 +189,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
                 _kcl_add!(kcl_r, kcl_i, bus, t_neg, -crg[(gid,k)], -cig[(gid,k)])
             end
         else
-            @warn "Generator '$gid': unknown configuration '$cfg' — skipping."
+            throw(ArgumentError("Generator '$gid': unsupported configuration '$cfg'."))
         end
     end
 end

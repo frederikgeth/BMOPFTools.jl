@@ -69,18 +69,18 @@ function _generation_cost_expr(model, net, vars)
         cost = get(gen, "cost", nothing)
         cost === nothing && continue
 
-        ph_pos    = cfg == "DELTA" ? collect(eachindex(tm)) : _phase_positions(tm, nlabels)
-        n_pos_idx = cfg == "DELTA" ? nothing : _neutral_pos(tm, nlabels)
+        ph_pos, n_pos_idx = _generator_positions(tm, cfg, nlabels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
         for (idx, ph) in enumerate(ph_pos)
             c1   = _phase_cost(cost, idx, "Generator", gid)
             t_ph = tm[ph]
-            dvr  = t_n !== nothing ?
-                   @expression(model, vr[(bus,t_ph)] - vr[(bus,t_n)]) :
+            t_ref = cfg == "DELTA" ? tm[(ph % length(tm)) + 1] : t_n
+            dvr  = t_ref !== nothing ?
+                   @expression(model, vr[(bus,t_ph)] - vr[(bus,t_ref)]) :
                    vr[(bus, t_ph)]
-            dvi  = t_n !== nothing ?
-                   @expression(model, vi[(bus,t_ph)] - vi[(bus,t_n)]) :
+            dvi  = t_ref !== nothing ?
+                   @expression(model, vi[(bus,t_ph)] - vi[(bus,t_ref)]) :
                    vi[(bus, t_ph)]
 
             # Linear cost: c1 * (dvr*crg + dvi*cig).
