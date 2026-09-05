@@ -283,7 +283,10 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                     base_name = "$(lid)_fr_$(k)",
                     register_constraint=(family, cref) -> register(
                         Symbol("line_", family), (lid, :from, k), cref))
-                if has_any_shunt
+                # Equal series-current magnitudes do not imply equal powers:
+                # |S_end| = |V_end| |I_end| and the end voltages can differ even
+                # without shunts. In reverse flow the to-end can be limiting.
+                begin
                     cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                     cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
                     _apparent_power_limit!(model,
@@ -304,9 +307,15 @@ Enforce per-line angle-difference bounds (`va_diff_min`, `va_diff_max`, radians)
 the from- and to-end voltages on each conductor. Shared by OPF and feasibility OPF.
 
 For each conductor k:
-  s = vr_fr·vi_to − vi_fr·vr_to   (imaginary part of V_fr · conj(V_to))
+  s = vi_fr·vr_to − vr_fr·vi_to   (imaginary part of V_fr · conj(V_to))
   c = vr_fr·vr_to + vi_fr·vi_to   (real part)
   tan(va_diff_min)·c ≤ s ≤ tan(va_diff_max)·c
+
+Bounds describe θ_from − θ_to. Both endpoints must be supplied and strictly
+between −π/2 and π/2. A lone endpoint does not declare the angular domain
+needed by the tangent encoding, so it is rejected rather than completed with
+an implicit bound. Zero voltage has no defined angle; these homogeneous rows
+do not supply a voltage lower bound.
 """
 function _add_line_angle_constraints!(model, net, vars; constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
@@ -317,6 +326,18 @@ function _add_line_angle_constraints!(model, net, vars; constraint_context=nothi
         va_diff_min = get(line, "va_diff_min", nothing)
         va_diff_max = get(line, "va_diff_max", nothing)
         (va_diff_min === nothing && va_diff_max === nothing) && continue
+        (va_diff_min === nothing || va_diff_max === nothing) && throw(ArgumentError(
+            "Line '$lid': supply both va_diff_min and va_diff_max; " *
+            "one-sided angle windows are unsupported by the tangent encoding."))
+
+        for bound in (va_diff_min, va_diff_max)
+            bound === nothing && continue
+            (isfinite(bound) && -pi/2 < bound < pi/2) || throw(ArgumentError(
+                "Line '$lid': angle bounds must lie strictly within (-pi/2, pi/2)."))
+        end
+        if va_diff_min !== nothing && va_diff_max !== nothing && va_diff_min > va_diff_max
+            throw(ArgumentError("Line '$lid': va_diff_min exceeds va_diff_max."))
+        end
 
         tan_min = va_diff_min !== nothing ? tan(Float64(va_diff_min)) : nothing
         tan_max = va_diff_max !== nothing ? tan(Float64(va_diff_max)) : nothing
@@ -331,8 +352,14 @@ function _add_line_angle_constraints!(model, net, vars; constraint_context=nothi
             t_fr = tmfr[k]; t_to = tmto[k]
             haskey(vr, (b_fr, t_fr)) || continue
             haskey(vr, (b_to, t_to)) || continue
-            s = @expression(model, vr[(b_fr,t_fr)]*vi[(b_to,t_to)] - vi[(b_fr,t_fr)]*vr[(b_to,t_to)])
+            s = @expression(model, vi[(b_fr,t_fr)]*vr[(b_to,t_to)] - vr[(b_fr,t_fr)]*vi[(b_to,t_to)])
             c = @expression(model, vr[(b_fr,t_fr)]*vr[(b_to,t_to)] + vi[(b_fr,t_fr)]*vi[(b_to,t_to)])
+            # A strict two-sided interval already implies c >= 0. For a
+            # zero-width interval it does not: exclude the
+            # antipodal branch of tan without adding redundant rows otherwise.
+            if tan_min == tan_max
+                register(:line_angle_domain, (lid, k), @constraint(model, c >= 0))
+            end
             if tan_min !== nothing
                 register(:line_angle_lower, (lid, k),
                     @constraint(model, tan_min * c <= s))
@@ -387,6 +414,10 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i;
             end
             _kcl_add!(kcl_r, kcl_i, b_fr, tmfr[k], -cr_sw[(sid,k)], -ci_sw[(sid,k)])
             _kcl_add!(kcl_r, kcl_i, b_to, tmto[k],  cr_sw[(sid,k)],  ci_sw[(sid,k)])
+            # Open-switch currents are fixed to zero. Their limits are already
+            # satisfied; adding variable bounds to a fixed JuMP variable throws.
+            # Avoid vacuous power auxiliaries and thermal rows as well.
+            is_open && continue
             if i_max !== nothing && k <= length(i_max)
                 ilim = Float64(i_max[k])
                 register(:switch_current_thermal, (sid, k),

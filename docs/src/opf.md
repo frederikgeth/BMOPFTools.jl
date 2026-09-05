@@ -640,8 +640,10 @@ W_k = (\Delta v^r_k)^2 + (\Delta v^i_k)^2
 
 $W_k$ is bounded: $(f \cdot V^{\text{nom}}_k)^2 \leq W_k \leq (c \cdot V^{\text{nom}}_k)^2$
 with floor fraction $f = 0.5$ and ceiling fraction $c = 1.5$.  These
-conditioning bounds are deliberately wider than any supply standard; the
-bus voltage-magnitude bounds are the operative engineering constraints.
+hard bounds restrict the feasible set, including when bus voltage bounds are
+absent or wider. They are an implementation domain restriction, not merely
+conditioning or start-value hints. See the [engine review](dev/opf_engine_review.md)
+for the proposed load-model substitutions and domain cleanup.
 
 When a constant-current term is present, a further auxiliary variable
 $s_k = \sqrt{W_k}$ is introduced with $s_k^2 = W_k$, $s_k \geq 0$.

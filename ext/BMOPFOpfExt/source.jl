@@ -54,8 +54,22 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
             if length(v_mag) >= k && length(v_ang) >= k
                 real_was_fixed = JuMP.is_fixed(vr[(bus, t)])
                 imag_was_fixed = JuMP.is_fixed(vi[(bus, t)])
-                fix(vr[(bus, t)], v_mag[k] * cos(v_ang[k]); force=true)
-                fix(vi[(bus, t)], v_mag[k] * sin(v_ang[k]); force=true)
+                target_r = v_mag[k] * cos(v_ang[k])
+                target_i = v_mag[k] * sin(v_ang[k])
+                # `force=true` replaces a previous reference, including a
+                # physical ground or another ideal source. Reject inconsistent
+                # references instead of letting dictionary order choose physics.
+                # Phasor-scale tolerance accommodates roundoff at e.g. 2π.
+                for (v, target) in ((vr[(bus, t)], target_r), (vi[(bus, t)], target_i))
+                    if JuMP.is_fixed(v) && !isapprox(JuMP.fix_value(v), target;
+                            atol=1e-12 * abs(v_mag[k]), rtol=1e-12)
+                        throw(ArgumentError("Voltage source '$sid': conflicting " *
+                            "voltage reference at ($bus, $t). Check other sources " *
+                            "and perfectly_grounded_terminals."))
+                    end
+                end
+                fix(vr[(bus, t)], target_r; force=true)
+                fix(vi[(bus, t)], target_i; force=true)
                 real_was_fixed || register(:source_voltage_real,
                     (string(sid), string(t)), JuMP.FixRef(vr[(bus, t)]))
                 imag_was_fixed || register(:source_voltage_imag,

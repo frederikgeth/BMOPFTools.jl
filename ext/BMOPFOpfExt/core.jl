@@ -601,6 +601,7 @@ function BMOPFTools.register_opf_constraint!(ctx::OpfContext,
 end
 
 function _register_semantic_constraint!(ctx, family::Symbol, index, constraint)
+    constraint === nothing && return nothing
     ctx === nothing && return constraint
     return BMOPFTools.register_opf_constraint!(ctx, family, index, constraint)
 end

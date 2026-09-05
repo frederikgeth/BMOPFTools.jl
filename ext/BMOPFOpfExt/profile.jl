@@ -53,7 +53,13 @@ function _optimization_profile(model::JuMP.Model;
         for (F, S) in JuMP.list_of_constraint_types(model)
             k = _set_kind(_proto(S))
             n = JuMP.num_constraints(model, F, S)
-            k === :eq   && (neq += n)
+            if k === :eq
+                # Vector zero-component limits contain one scalar equality per
+                # component, despite having one semantic constraint handle.
+                neq += S <: MOI.Zeros ? sum(
+                    MOI.dimension(JuMP.constraint_object(c).set)
+                    for c in JuMP.all_constraints(model, F, S)) : n
+            end
             k === :ineq && (nineq += n)
         end
         prof["n_variables"] = nvar

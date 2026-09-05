@@ -735,7 +735,18 @@ finding_codes = [
   "W.CONTRACT.FEASIBILITY_INDETERMINATE",
 ]
 fixture_ids = ["solved-network-feasibility-001"]
-source_paths = ["src/knowledge/contracts.jl", "docs/src/findings.md", "test/scientific_contract_tests.jl"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+  "ext/BMOPFOpfExt/branch.jl",
+  "ext/BMOPFOpfExt/data_utils.jl",
+  "ext/BMOPFOpfExt/source.jl",
+  "ext/BMOPFOpfExt/core.jl",
+  "ext/BMOPFOpfExt/profile.jl",
+  "test/opf_engine_review_tests.jl",
+  "docs/src/dev/opf_engine_review.md",
+]
 
 [[finding]]
 code = "E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION"

@@ -61,12 +61,12 @@ preferences in particular:
   Tier-3 note in the [style guide](style_guide.md).)
 - **Impedance over admittance, for series elements.** Series elements (lines,
   transformer windings) are represented with **impedance** `R + jX`, not
-  admittance `G + jB`. The reason is the lossless limit: as `R → 0` the impedance
-  form stays finite, whereas an admittance form blows up (`G → ∞`) for a lossless
-  branch. Keeping series elements in impedance form **preserves the capability to
-  build lossless models**. Shunts and the transformer no-load branch are
-  naturally admittances (a lossless shunt is pure `B`, with no blow-up) and stay
-  in `G + jB` form — there is no tension there.
+  admittance `G + jB`. This avoids inverting a singular series
+  impedance. Distinguish **lossless** (`R = 0`) from **zero impedance** (`Z = 0`):
+  for scalar `X ≠ 0`, `1/(jX) = -j/X` is finite and purely imaginary. The
+  singularity is at `Z = 0`, or a singular matrix `Z`, rather than at zero
+  resistance alone. Shunts and the transformer no-load branch remain naturally
+  represented by `G + jB`.
 - **Put valid bounds on current variables where possible/reasonable.** The
   current variables are first-class in an IVR formulation, and giving them sound
   bounds tightens the feasible region and helps the solver. Where a defensible
@@ -82,31 +82,49 @@ preferences in particular:
 
 ### [Zero impedance: represent it as is, don't approximate it](@id zero-impedance)
 
-The impedance-over-admittance choice has a sharp practical corollary for
-near-zero branches (jumpers, bus ties, idealised regulators, placeholder
-transformer leakage). The temptation is to model "approximately zero" impedance
-as a small number `ε`. That is the **worst** option on the whole axis:
+Represent a physically ideal branch by its exact zero impedance. The native
+engine retains branch currents and stamps voltage-equality or ideal-transformer
+rows; **it does not automatically merge buses**. Network transformations such as
+`fix_case` and `simplify_network` are separate operations with their own
+preservation requirements.
 
-![Numerical conditioning of a branch as a function of its impedance magnitude: an exact zero is well-conditioned, the physical range is well-conditioned, but the small-but-nonzero placeholder region in between has a condition number that grows like 1/|Z|.](../assets/impedance_conditioning.svg)
+Avoid inventing a small impedance solely to imitate an ideal connection. However,
+there is no universal `κ ∝ 1/|Z|` law for the IVR KKT system, nor a guarantee that
+`Z = 0` is well-conditioned. Scaling, topology, independent references, and
+constraint rank matter. Ideal cycles can leave circulating currents undetermined
+and voltage rows dependent; the present guard detects direct parallel ideal
+conductors, not arbitrary cycles. A physically small nonzero impedance should
+remain in the model unless an explicit, justified transformation changes it.
 
-- **`Z = 0` exactly** is well-conditioned — the engine handles it *semantically*,
-  by merging the nodes / imposing the ideal-transformer constraint
-  `V_fr = N·V_to`, rather than inverting a near-singular admittance.
-- The **physical range** (real conductors and transformers) is well-conditioned.
-- The **gap between them** is the only ill-conditioned region on the axis. A
-  small `ε` placeholder lands you exactly there, where the condition number grows
-  like `1/|Z|` and the solver's effective tolerance floor rises with it.
+## Runtime limits and review status
 
-So `lim_{Z→0⁺} κ = ∞` while `κ(0) = O(1)`: approximating a true zero by a small
-value moves it *away* from the well-conditioned point, not toward the physical
-range. In pure admittance form this is unavoidable — `Y = 1/Z → ∞` at `Z = 0` —
-which is the same reason series elements are kept in impedance form. **The remedy
-is semantic, not numerical:** represent the branch as zero and switch
-formulation. BMOPFTools' [`fix_case`](../augmentation.md#fix) does exactly this —
-collapsing low-impedance lines to switches (pass 4) and snapping placeholder
-transformer leakage to exact zero (pass 9) — and the
-[zero-voltage / ill-conditioning traps](../bounds/known_traps.md) page catalogues
-what happens when this is gotten wrong.
+The [scientific engine review](opf_engine_review.md) records regression witnesses,
+remaining defects, and proposed substitutions. Its executable evidence links to
+`PSK-000013`; it does not widen that contract's declared coverage.
+
+- **Line angle convention:** `va_diff_*` bounds `θ_from − θ_to`. Both bounds
+  must be supplied, finite, ordered, and strictly inside `(-π/2, π/2)`.
+  One-sided windows are rejected rather than completed with an implicit bound.
+  The encoding does not define an angle at zero voltage. Unsupported windows
+  raise `ArgumentError`.
+- **Line apparent power:** `s_max` applies at both ends, even without π-shunts.
+  Equal current magnitudes alone do not imply equal apparent powers.
+- **Open switches:** currents remain fixed at zero; vacuous thermal constraints
+  and power auxiliaries are omitted.
+- **Zero-radius limits:** use exact component equalities instead of a squared
+  norm inequality with a vanishing gradient. A semantic constraint handle may
+  return a vector value/dual in this case; inspect its MOI shape.
+- **Ideal voltage references:** conflicting references at the same terminal,
+  including a nonzero source on a perfectly grounded terminal, raise
+  `ArgumentError`. Identical colocated sources can still have an undetermined
+  current allocation unless other constraints or costs resolve it.
+- **Voltage-dependent loads:** the current implementation imposes a hard
+  `0.5 v_nom ≤ |ΔV| ≤ 1.5 v_nom` domain. These bounds change feasibility even when
+  bus bounds are absent; they are not merely solver initialization settings.
+- **Solver results:** a locally solved status does not certify every engineering
+  limit or a global optimum. Independent residual and limit checks remain
+  necessary, and their coverage is finite. MadNLP is selectable through
+  `optimizer`, but the repository currently has no dedicated MadNLP CI job.
 
 ## Extending the engine without forking it
 

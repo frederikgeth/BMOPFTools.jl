@@ -81,7 +81,9 @@ function _line_z_matrix(line::Dict{String,Any}, linecodes::AbstractDict)
     X_pm = _pkm(lc, "X_series_")   # Ω/m
     len  = Float64(get(line, "length", 1.0))  # m
 
-    R_pm === nothing && (R_pm = zeros(1,1))
+    # A lossless linecode may declare only X. Infer the conductor dimension
+    # from the matrix that exists, just as for inline impedances above.
+    R_pm === nothing && (R_pm = X_pm === nothing ? zeros(1,1) : zeros(size(X_pm)...))
     X_pm === nothing && (X_pm = zeros(size(R_pm)...))
 
     n = size(R_pm, 1)
@@ -162,10 +164,14 @@ the thermal limit is on a series+shunt expression (lines, and the from-side of a
 transformer with a no-load shunt): there the variable can exceed `ilim` when the
 shunt current opposes it.
 
-`cr`/`ci` must be `VariableRef`s. No-op for a non-finite or negative `ilim`.
+`cr`/`ci` must be `VariableRef`s. No-op for a non-finite or nonpositive `ilim`;
+zero radii are enforced by `_soc_norm!` component equalities.
 """
 function _limit_current_box!(cr::JuMP.VariableRef, ci::JuMP.VariableRef, ilim::Real)
-    (isfinite(ilim) && ilim >= 0) || return
+    # A zero radius is already represented by component equalities in
+    # _soc_norm!. Equal lower/upper bounds would duplicate those equalities
+    # after the solver removes fixed variables.
+    (isfinite(ilim) && ilim > 0) || return
     for v in (cr, ci)
         JuMP.has_lower_bound(v) ? JuMP.set_lower_bound(v, max(JuMP.lower_bound(v), -ilim)) :
                                   JuMP.set_lower_bound(v, -ilim)
@@ -184,14 +190,33 @@ per-unit base. Current and power limits become tiny at a large `s_base` (per-uni
 currents ~1e-3, cone values ~1e-6), and Ipopt's absolute `constr_viol_tol`
 (1e-4) then tolerates gross relative violations — a limit that should force
 infeasibility is silently accepted (issue #302). The normalized form is exactly
-equivalent (same feasible set) for `lim > 0`; for `lim == 0` the raw form is used
-(it forces `a = b = 0`). Callers guard that `lim` is finite and ≥ 0.
+equivalent (same feasible set) for `lim > 0`. For `lim == 0`, use component
+equalities: the squared inequality has zero gradient at every feasible point.
+The zero-radius result is a scalar equality or a vector equality ConstraintRef
+(with a vector-valued dual), or `nothing` when both components are literal zero.
+Callers guard that `lim` is finite and ≥ 0.
 """
 function _soc_norm!(model, a, b, lim::Real)
+    iszero(lim) && return _zero_components!(model, a, b)
     lim > 0 || return @constraint(model, a^2 + b^2 <= lim^2)
     @constraint(model, (a / lim)^2 + (b / lim)^2 <= 1.0)
 end
 _soc_norm!(model, a, lim::Real) = _soc_norm!(model, a, 0.0, lim)
+
+"""Enforce exact zero components without a degenerate squared norm row.
+
+Keep a single constraint handle for semantic registration. Literal zero
+and identically zero polynomial components need no row; no tolerance is used
+to discard a nonzero expression. A parameter currently equal to zero remains
+symbolic and is retained.
+"""
+function _zero_components!(model, components...)
+    terms = [x for x in components if !(
+        x isa Union{Real,JuMP.AffExpr,JuMP.QuadExpr} && iszero(x))]
+    isempty(terms) && return nothing
+    length(terms) == 1 && return @constraint(model, terms[1] == 0)
+    return @constraint(model, terms in MOI.Zeros(length(terms)))
+end
 
 """
     _neutral_current_limit!(model, cr_terms, ci_terms, ilim)
