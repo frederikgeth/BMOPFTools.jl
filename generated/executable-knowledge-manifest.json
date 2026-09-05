@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "008a24160236476d8300770b88cac5c038b7e27a4fcd426b90fd6ceccd7282ca",
+  "corpus_sha256": "6a2a14df521f3d8fc93400cdef04263c629b457a5d1897f8e1938b553870699d",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -62,7 +62,7 @@
     },
     {
       "path": "docs/src/dev/opf_engine_review.md",
-      "sha256": "ee79b1f6171aa5abd842a8cefdea4d0271f4f49adc291667dd98a8f2d2e1eb2b"
+      "sha256": "fe928040c72f804d98507d63cccb3634a9c6c08183ddcfa9806d330ad4a14adc"
     },
     {
       "path": "docs/src/dev/versioning.md",
@@ -94,19 +94,39 @@
     },
     {
       "path": "ext/BMOPFOpfExt/core.jl",
-      "sha256": "751dbbac29a0084af245b10b514f1cc5f74df43c190366f371861f04c55fea47"
+      "sha256": "f8048708ada6504db0f96cd8aef783d3ec98cd443a9ff4eed512469e504cec5c"
     },
     {
       "path": "ext/BMOPFOpfExt/data_utils.jl",
-      "sha256": "7ea62fdc4942b583b43a799dc02f07ddd7493ca15e0a79554a24f6178329061e"
+      "sha256": "67ac19e00aebb39508441c0a6c96cf4b294de0cabe965b1d1a22016e0f3b994b"
+    },
+    {
+      "path": "ext/BMOPFOpfExt/generator.jl",
+      "sha256": "629aaa1c649ab0ae82c077f37630b64d466af520dde382473590398ee545d7d7"
+    },
+    {
+      "path": "ext/BMOPFOpfExt/load.jl",
+      "sha256": "8792473706ce341cf4f7d34fa1c5b8e49a1401fdcec093e7118ca8e4ed4de896"
+    },
+    {
+      "path": "ext/BMOPFOpfExt/objective.jl",
+      "sha256": "563881d9e247c8c8073b7de442be19f6350795eb88d4fbe985a759a6f55cdd6a"
     },
     {
       "path": "ext/BMOPFOpfExt/profile.jl",
       "sha256": "27226b5d708ee08018dcdfe5675dc5b732a3d860c19dd6823615f788f0ccdaec"
     },
     {
+      "path": "ext/BMOPFOpfExt/results.jl",
+      "sha256": "076912216dfe2b46514091ae057e761d0cd965ec8cf9dfa93679a13b370010e9"
+    },
+    {
       "path": "ext/BMOPFOpfExt/source.jl",
       "sha256": "e773de4768f18822d8871f18c45d92e07d91c33d4666f2008e73850d996d6dd3"
+    },
+    {
+      "path": "ext/BMOPFOpfExt/variables.jl",
+      "sha256": "67e03fee4483723cb409ee841d29d0c771c486c0a2b7033252d4ac6e0cd87c35"
     },
     {
       "path": "generated/finding-registry.json",
@@ -114,7 +134,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "08d287bba8a68a76b077c460b6dc8f7e982448a62b22fcc3715782e0a8dd3fa9"
+      "sha256": "f59c3f8a6b29380e7f7f2bc68b8812d1be437c6040956acb479add26f5c19e7a"
     },
     {
       "path": "recipes/README.md",
@@ -585,8 +605,16 @@
       "sha256": "f787b84accc51bf01b00341a48d023f8d6633c5a2d589b34b79ffac47fb1d101"
     },
     {
+      "path": "test/opf_device_substitution_tests.jl",
+      "sha256": "2848623eb4a2240a993b3a07c08e8b4f9df64d93c876b323e22c0392e6bd1da9"
+    },
+    {
       "path": "test/opf_engine_review_tests.jl",
       "sha256": "5e98c9c7a36e84bde513d55c5c355936720ae3470c1aec1b94714f76aefcb576"
+    },
+    {
+      "path": "test/opf_tests.jl",
+      "sha256": "e909444d83fa73f9e66653396c454d28787f1670c50ea01835d594852719aa3c"
     },
     {
       "path": "test/property/terminal-permutation-seed.json",

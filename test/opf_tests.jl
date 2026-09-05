@@ -2794,10 +2794,10 @@ end
         @test isempty(_unregistered_opf_constraint_indices(zip_ctx))
         zip_keys = Set(opf_object_keys(zip_ctx; kind=:constraint))
         @test OpfModelKey(:constraint, :load_voltage_squared_definition,
+                          ("ld1", 1)) ∉ zip_keys
+        @test OpfModelKey(:constraint, :load_impedance_current_real,
                           ("ld1", 1)) in zip_keys
-        @test OpfModelKey(:constraint, :load_voltage_squared_lower_bound,
-                          ("ld1", 1)) in zip_keys
-        @test OpfModelKey(:constraint, :load_voltage_squared_upper_bound,
+        @test OpfModelKey(:constraint, :load_impedance_current_imag,
                           ("ld1", 1)) in zip_keys
         res = solve_opf(zip_net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")

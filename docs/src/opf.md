@@ -631,8 +631,8 @@ $Q_k$ are pinned to.
 
 ##### Squared-voltage-drop variable
 
-All voltage-dependent models introduce a scalar auxiliary variable per
-sub-load:
+Mixed ZIP, constant-current, and general exponential models introduce a scalar
+auxiliary variable per sub-load:
 
 ```math
 W_k = (\Delta v^r_k)^2 + (\Delta v^i_k)^2
@@ -643,10 +643,22 @@ with floor fraction $f = 0.5$ and ceiling fraction $c = 1.5$.  These
 hard bounds restrict the feasible set, including when bus voltage bounds are
 absent or wider. They are an implementation domain restriction, not merely
 conditioning or start-value hints. See the [engine review](dev/opf_engine_review.md)
-for the proposed load-model substitutions and domain cleanup.
+for the remaining mixed/current/fractional model domain cleanup. Both W and s
+are initialized from the terminal voltage starts (or fixed source values),
+clamped to this existing domain.
 
 When a constant-current term is present, a further auxiliary variable
 $s_k = \sqrt{W_k}$ is introduced with $s_k^2 = W_k$, $s_k \geq 0$.
+
+**Structural substitutions:** constant-P-equivalent ZIP/exponential models have
+no W/s auxiliaries and no implicit voltage band. A `constant_impedance` load,
+pure-Z ZIP, or exponential load with both exponents 2 stamps the current law
+`I = conj(S_nom) ΔV / V_nom²` directly. This is affine for fixed coefficients and
+valid at zero voltage. It keeps the public current handles and result shape but
+removes W and replaces the power rows with `load_impedance_current_real/imag`
+constraints, whose semantic units are current. Nominal-power providers remain
+symbolic, including across parameter updates through zero. Mixed ZIP Z terms
+are not separately substituted yet.
 
 ##### Model types
 
@@ -664,7 +676,7 @@ constant-impedance quadratic path respectively, keeping the formulation
 quadratic.  The data-analysis pass ([`load_model_analysis`](@ref)) flags
 these loads with `I.LOAD.EXP_ZIP_EQUIVALENT`.
 
-**v\_nom** is required for all models except `constant_power`.  It is the
+**v\_nom** must be finite and strictly positive for all models except `constant_power`.  It is the
 terminal voltage magnitude at which `p_nom`/`q_nom` are specified: phase-to-neutral (V) for WYE, line-to-line (V) for DELTA.  It may be a scalar
 (shared across all sub-loads) or a per-sub-load array.
 
@@ -673,8 +685,15 @@ $\Delta v^i_k = v^i_{b,t_k} - v^i_{b,t_{k^+}}$ (indices cyclic).
 
 #### [Generators](@id generators-section)
 
-Same bilinear form as WYE loads, with power bounds instead of equalities and
-injected (positive) sign convention:
+Generators use coil voltage with power bounds and an injected (positive) sign
+convention. WYE coils reference the listed neutral (or ground if absent); DELTA
+coils reference the next terminal cyclically. A two-terminal `SINGLE_PHASE`
+generator is one coil between the two listed terminals, including phase-to-phase
+connections. It has one P/Q/cost entry and one current pair, reported under the
+first terminal name. Both terminal current ratings apply to that same current,
+so the tighter rating is used. Constraints, generation cost, and result extraction
+use the same coil-voltage reference:
+
 
 ```math
 P^{g,\text{min}}_{g,k}

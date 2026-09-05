@@ -757,6 +757,8 @@ const _NATIVE_CONSTRAINT_SEMANTIC_PAIRS = (
         (:real, :imag), :voltage, :V),
     (:load_power_real, :load_power_imag,
         (:active, :reactive), :power, :VA),
+    (:load_impedance_current_real, :load_impedance_current_imag,
+        (:real, :imag), :current, :A),
     (:transformer_voltage_real, :transformer_voltage_imag,
         (:real, :imag), :voltage, :V),
     (:transformer_current_coupling_real, :transformer_current_coupling_imag,

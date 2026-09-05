@@ -133,7 +133,7 @@ function _add_generator_variables!(model, net)
     for (gid, gen) in get(net, "generator", Dict())
         tm  = Vector{String}(get(gen, "terminal_map", String[]))
         cfg = get(gen, "configuration", "WYE")
-        n_ph = cfg == "DELTA" ? length(tm) : length(_phase_positions(tm, nlabels))
+        n_ph = length(first(_generator_positions(tm, cfg, nlabels)))
         for k in 1:n_ph
             crg[(gid,k)] = @variable(model, base_name = "crg_$(gid)_$(k)")
             cig[(gid,k)] = @variable(model, base_name = "cig_$(gid)_$(k)")

@@ -50,46 +50,61 @@ of assuming every thermal handle is a scalar inequality. Completely zero
 expressions produce no constraint. The optimization profile counts the vector's
 scalar equations. Redundant zero-width current boxes are omitted.
 
+## Device substitution follow-up
+
+The next development slice corrects two-terminal `SINGLE_PHASE` generator
+allocation, constraints, pricing, and result extraction together. One coil now
+uses the two listed endpoints, including reversed phase-to-phase maps. Both
+conductor ratings bound its single current. It also fixes a separately discovered
+DELTA generator objective bug: cost used phase-to-ground voltage while constraints
+and result powers used line-to-line voltage. An unbalanced three-coil test with
+unequal costs checks the objective against the independent sum of coil powers.
+
+Pure-Z loads now retain their public current variables but stamp the admittance
+current law directly, removing one W auxiliary and one net equality per sub-load.
+This avoids cancellation of voltage in a power equation at the zero-voltage
+boundary. Pure-Z ZIP/exponential forms receive the same treatment. Constant-P
+equivalents omit the unused W/s variables and the artificial voltage band. Their
+current/power semantics and units are explicitly represented by separate registry
+families. Fixed nominal powers yield affine Z laws; mutable providers remain
+symbolic and can be updated through zero without rebuilding.
+
+`_magnitude_start` now seeds remaining load W/s variables from fixed or initialized
+terminal voltages, with a nominal fallback and clamping to their existing domain.
+General fractional/current/mixed-load domain cleanup remains separate. The new
+`test/opf_device_substitution_tests.jl` exercises SI/per-unit coordinates,
+serialization, analytic currents/powers/cost, zero voltage for pure Z, conductor
+limit rejection, and updates of nominal-power parameters through zero.
+
 ## Remaining correctness work
 
 These issues are **not fixed** by this branch and should precede a broad
 substitution/presolve pass.
 
-1. **P1 — hidden load-voltage domain.** `load.jl::_add_subload_power!` imposes
-   `0.5 Vnom ≤ |ΔV| ≤ 1.5 Vnom` on every non-`constant_power` model, including a
-   ZIP with only constant-P terms and an exponential model with both exponents
-   zero. Thus a mathematically constant-P equivalent can have a different feasible
-   set merely because its model label changes. A constant-Z device at twice its
-   nameplate voltage is also rejected despite its well-defined admittance law.
-   Separate declared physical/domain bounds from numerical initialization. For
-   fractional or negative exponents, explicitly specify the supported zero-voltage
-   behavior instead of silently imposing the same engineering band everywhere.
-2. **P1 — two-terminal generator semantics need the load fix too.**
-   `variables.jl::_add_generator_variables!` and
-   `generator.jl::_add_generator_constraints!` treat `SINGLE_PHASE [a,b]` through
-   the WYE phase-to-ground path. Unlike the load builder, they do not identify one
-   phase-to-phase branch. With one P/Q entry they allocate two phase currents and
-   constrain only the first phase's power. Add a split-phase analytic oracle and
-   audit result extraction, cost, and per-unit interpretation together. This is a
-   code-inspection finding; no corrected generator implementation is claimed here.
-3. **P1 — independent limit coverage has matching blind spots.**
+1. **P1 — remaining load-voltage domain.** Mixed ZIP, constant-current, and
+   general exponential models still impose `0.5 Vnom ≤ |ΔV| ≤ 1.5 Vnom`.
+   Constant-P equivalents and pure-Z models have been corrected. Separate declared
+   physical/domain bounds from numerical initialization for the remaining cases.
+   For fractional or negative exponents, explicitly specify supported zero-voltage
+   behavior instead of imposing the same engineering band everywhere.
+2. **P1 — independent limit coverage has matching blind spots.**
    `src/validation/solution.jl` checks line current and apparent power at the from
    end, and its angle check covers intra-bus angles. It does not independently
    check receiving-end line limits or branch angle bounds. Fixing the engine does
    not make that external verification complete. Track this separately in the
    main package using stable Finding codes and conductor endpoint mappings.
-4. **P2 — bus-angle domain.** The centered bus-angle encoding still lacks the
+3. **P2 — bus-angle domain.** The centered bus-angle encoding still lacks the
    explicit half-plane guard for one-sided/equal bounds and build-time endpoint
    checks now present for lines. Nominal centering does not itself impose that
    domain. Reuse a common angle-window helper once bus and line conventions are
    represented explicitly; add antipodal and zero-voltage tests.
-5. **P2 — invalid or unsupported elements can be skipped.** Missing line
+4. **P2 — invalid or unsupported elements can be skipped.** Missing line
    impedance skips line stamping; unsupported source configurations omit source
    current injection; n-winding tap fields warn and use nominal ratios. Define a
    strict engine applicability check that rejects unsupported requested physics
    before building a plausible partial model. Validate matching terminal counts,
    finite coefficients, rating domains, and source-reference completeness there.
-6. **P2 — ideal topology is not fully guarded.** The current check detects direct
+5. **P2 — ideal topology is not fully guarded.** The current check detects direct
    parallel zero-impedance conductors, not ideal cycles, self-loops, or general
    dependent ideal-transformer relations. Its check runs before coefficient
    providers replace impedances, so static nominal topology alone cannot justify
@@ -124,8 +139,8 @@ introducing rational expressions.
 - **`set_consistent_magnitude_starts!`**: initialize load `W` and `s`, and lifted
   power auxiliaries, from the final transported voltage/current starts. Use a
   declared positive fallback for fractional powers when the physical start is
-  zero; record it as initialization, not a hard bound. Currently load W/s receive
-  bounds but no explicit starts in their builder.
+  zero; record it as initialization, not a hard bound. Load W/s starts are now
+  implemented by `_magnitude_start`; lifted power starts remain follow-up work.
 - **`scale_residual_block!`**: choose positive, fixed physical scales for voltage
   drop, current balance, power, and control equations; retain the inverse map for
   duals and SI residual reports. Existing `OpfScaling` and semantic residual

@@ -744,6 +744,13 @@ source_paths = [
   "ext/BMOPFOpfExt/source.jl",
   "ext/BMOPFOpfExt/core.jl",
   "ext/BMOPFOpfExt/profile.jl",
+  "ext/BMOPFOpfExt/generator.jl",
+  "ext/BMOPFOpfExt/load.jl",
+  "ext/BMOPFOpfExt/objective.jl",
+  "ext/BMOPFOpfExt/results.jl",
+  "ext/BMOPFOpfExt/variables.jl",
+  "test/opf_tests.jl",
+  "test/opf_device_substitution_tests.jl",
   "test/opf_engine_review_tests.jl",
   "docs/src/dev/opf_engine_review.md",
 ]

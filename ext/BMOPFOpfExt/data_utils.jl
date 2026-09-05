@@ -95,6 +95,15 @@ const _neutral_pos      = BMOPFTools._neutral_pos
 const _phase_positions  = BMOPFTools._phase_positions
 const _xfmr_turns_ratio = BMOPFTools._xfmr_turns_ratio
 
+# Branch indexing shared by generator allocation, constraints, cost, and results.
+# A two-terminal SINGLE_PHASE device is one coil, including phase-to-phase and
+# reversed terminal maps. DELTA uses the next terminal as each coil's reference.
+function _generator_positions(tm, cfg, nlabels)
+    cfg == "SINGLE_PHASE" && length(tm) == 2 && return ([1], 2)
+    cfg == "DELTA" && return (collect(eachindex(tm)), nothing)
+    return (_phase_positions(tm, nlabels), _neutral_pos(tm, nlabels))
+end
+
 """
     _source_fixed_terminals(net) -> Set{Tuple{String,String}}
 
@@ -211,11 +220,20 @@ to discard a nonzero expression. A parameter currently equal to zero remains
 symbolic and is retained.
 """
 function _zero_components!(model, components...)
-    terms = [x for x in components if !(
-        x isa Union{Real,JuMP.AffExpr,JuMP.QuadExpr} && iszero(x))]
+    terms = [x for x in components if !_is_structural_zero(x)]
     isempty(terms) && return nothing
     length(terms) == 1 && return @constraint(model, terms[1] == 0)
     return @constraint(model, terms in MOI.Zeros(length(terms)))
+end
+
+# Inspect expression structure, never a mutable parameter's current value.
+_is_structural_zero(x) = x isa Union{Real,JuMP.AffExpr,JuMP.QuadExpr} && iszero(x)
+
+"Magnitude start from fixed values or voltage starts; nominal fallback if unset."
+function _magnitude_start(dvr, dvi, nominal)
+    sv(v) = JuMP.is_fixed(v) ? JuMP.fix_value(v) : something(JuMP.start_value(v), 0.0)
+    mag = hypot(JuMP.value(sv, dvr), JuMP.value(sv, dvi))
+    return isfinite(mag) && mag > 0 ? mag : nominal
 end
 
 """

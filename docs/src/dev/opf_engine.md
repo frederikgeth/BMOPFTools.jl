@@ -119,8 +119,10 @@ remaining defects, and proposed substitutions. Its executable evidence links to
   `ArgumentError`. Identical colocated sources can still have an undetermined
   current allocation unless other constraints or costs resolve it.
 - **Voltage-dependent loads:** the current implementation imposes a hard
-  `0.5 v_nom ≤ |ΔV| ≤ 1.5 v_nom` domain. These bounds change feasibility even when
-  bus bounds are absent; they are not merely solver initialization settings.
+  `0.5 v_nom ≤ |ΔV| ≤ 1.5 v_nom` domain on mixed/current/general exponential
+  models. Constant-P equivalents and pure-Z models now omit this band and their
+  W/s lifts. The remaining band still changes feasibility when bus bounds are
+  absent; it is not merely a solver initialization setting.
 - **Solver results:** a locally solved status does not certify every engineering
   limit or a global optimum. Independent residual and limit checks remain
   necessary, and their coverage is finite. MadNLP is selectable through

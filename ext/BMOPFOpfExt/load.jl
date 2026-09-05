@@ -9,7 +9,7 @@
 #   P = Δvr·crd + Δvi·cid
 #   Q = Δvi·crd − Δvr·cid
 #
-# Voltage-dependent models introduce a squared-voltage-drop variable
+# Remaining mixed/current/general exponential models introduce a squared-voltage-drop variable
 #   W = Δvr² + Δvi²            (bounded: (f·Vnom)² ≤ W ≤ (c·Vnom)²)
 # and, only when a constant-current term is present, s = √W (s ≥ 0, s² = W).
 # The right-hand side is then:
@@ -19,9 +19,9 @@
 # terms above so the formulation stays quadratic; only genuinely non-integer
 # exponents emit the nonlinear power term.
 
-# W box, as a fraction of Vnom. These are conditioning bounds (the operational
-# voltage limits are enforced separately on the bus voltages), so they are
-# deliberately wider than any supply standard.
+# Legacy hard domain for remaining mixed/current/general exponential models.
+# These bounds restrict feasibility; pure-P equivalents and pure-Z laws bypass
+# them. General domain cleanup is tracked in the engine review.
 const _W_FLOOR_FRAC = 0.5
 const _W_CEIL_FRAC  = 1.5
 
@@ -35,11 +35,26 @@ function _load_vnom_k(load, k::Int)
     # negative nominal voltage yields Inf/NaN coefficients with no well-posed
     # substitution — reject it rather than emit a poisoned model. (Constant-power
     # loads never reach this path.)
-    vnom > 0.0 || error("Load model requires a strictly positive v_nom " *
+    isfinite(vnom) && vnom > 0.0 || error("Load model requires a finite, strictly positive v_nom " *
         "(got $vnom); a voltage-dependent load divides by v_nom, which is " *
         "undefined at zero. Set the sub-load's nominal voltage, or use " *
         "model=\"constant_power\".")
     vnom
+end
+
+# A structural impedance law remains an impedance law after a nominal-power
+# parameter update, including through zero. Do not classify it from p0/q0's
+# current numerical values or cancel a voltage factor in general P/Q equations.
+function _pure_impedance_load(load, k)
+    model = get(load, "model", "constant_power")
+    model == "constant_impedance" && return true
+    if model == "zip"
+        p = _zip_coeffs(load, "alpha_z", "alpha_i", "alpha_p", k)
+        q = _zip_coeffs(load, "beta_z", "beta_i", "beta_p", k)
+        return iszero(p[2]) && iszero(p[3]) && iszero(q[2]) && iszero(q[3])
+    end
+    return model == "exponential" && _coeff_k(load, "gamma_p", k) == 2.0 &&
+           _coeff_k(load, "gamma_q", k) == 2.0
 end
 
 # Scalar coefficient at sub-load k (length-1 broadcasts; absent → 0).
@@ -94,6 +109,7 @@ end
 
 # Pin one sub-load's realized power (P_tot, Q_tot) to its model.
 function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi;
+                             cr, ci,
                              register_constraint=nothing,
                              register_variable=nothing)
     register(family, cref) = register_constraint === nothing ? cref :
@@ -108,9 +124,29 @@ function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi
     pt = _component_terms(load, ("alpha_z","alpha_i","alpha_p"), "gamma_p", p0, Vnom, k)
     qt = _component_terms(load, ("beta_z","beta_i","beta_p"),    "gamma_q", q0, Vnom, k)
 
+    if _pure_impedance_load(load, k)
+        # I = conj(S_nom)/V_nom² * ΔV, including the physical zero-voltage
+        # boundary. Keep public current handles but replace bilinear power rows
+        # and the W lift with current-law rows (affine for fixed coefficients).
+        register(:load_impedance_current_real,
+            @constraint(model, cr == pt.cW * dvr + qt.cW * dvi))
+        register(:load_impedance_current_imag,
+            @constraint(model, ci == pt.cW * dvi - qt.cW * dvr))
+        return
+    elseif pt.nl === nothing && qt.nl === nothing &&
+           all(_is_structural_zero, (pt.cW, pt.cs, qt.cW, qt.cs))
+        # A constant-P equivalent needs no W/s variables or artificial voltage
+        # band. Symbolic nominal powers remain in the right-hand sides.
+        register(:load_power_real, @constraint(model, P_tot == pt.cc))
+        register(:load_power_imag, @constraint(model, Q_tot == qt.cc))
+        return
+    end
+
+    mag_start = clamp(_magnitude_start(dvr, dvi, Vnom),
+                      _W_FLOOR_FRAC * Vnom, _W_CEIL_FRAC * Vnom)
     W = @variable(model, base_name = "W_$(lid)_$(k)",
                   lower_bound = (_W_FLOOR_FRAC * Vnom)^2,
-                  upper_bound = (_W_CEIL_FRAC  * Vnom)^2)
+                  upper_bound = (_W_CEIL_FRAC  * Vnom)^2, start = mag_start^2)
     register_variable !== nothing &&
         register_variable(:load_voltage_squared, (string(lid), k), W)
     register(:load_voltage_squared_definition,
@@ -122,7 +158,7 @@ function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi
     if pt.cs != 0.0 || qt.cs != 0.0
         s = @variable(model, base_name = "s_$(lid)_$(k)",
                       lower_bound = _W_FLOOR_FRAC * Vnom,
-                      upper_bound = _W_CEIL_FRAC  * Vnom)
+                      upper_bound = _W_CEIL_FRAC  * Vnom, start = mag_start)
         register_variable !== nothing &&
             register_variable(:load_voltage_magnitude, (string(lid), k), s)
         register(:load_voltage_magnitude_definition, @constraint(model, s^2 == W))
@@ -185,6 +221,7 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                     :load, :load, lid, :q_nom, 1, q_nom[1])
                 _add_subload_power!(model, load, lid, 1, P_tot, Q_tot,
                                     p0, q0, dvr, dvi;
+                                    cr=crd[(lid,1)], ci=cid[(lid,1)],
                                     register_constraint=(family, index, cref) ->
                                         register(family, index, cref),
                                     register_variable=register_load_variable)
@@ -217,6 +254,7 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                     :load, :load, lid, :q_nom, idx, q_nom[idx])
                 _add_subload_power!(model, load, lid, idx, P_tot, Q_tot,
                                     p0, q0, dvr, dvi;
+                                    cr=crd[(lid,idx)], ci=cid[(lid,idx)],
                                     register_constraint=(family, index, cref) ->
                                         register(family, index, cref),
                                     register_variable=register_load_variable)
@@ -243,6 +281,7 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
                     :load, :load, lid, :q_nom, k, q_nom[k])
                 _add_subload_power!(model, load, lid, k, P_tot, Q_tot,
                                     p0, q0, dvr, dvi;
+                                    cr=crd[(lid,k)], ci=cid[(lid,k)],
                                     register_constraint=(family, index, cref) ->
                                         register(family, index, cref),
                                     register_variable=register_load_variable)
