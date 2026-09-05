@@ -411,6 +411,43 @@ They intentionally cannot change topology, terminal maps, array dimensions, or
 other structure-dependent data: request `role=:structural` to obtain an explicit
 error, then rebuild the model for that case.
 
+### [Updating parameters and resolving](@id opf-parameter-resolves)
+
+Parameter providers preserve symbolic model algebra under supported updates;
+that is separate from the optimizer's numerical evaluation cache. This matters
+in scenario sweeps, learning loops, and finite-difference sensitivity checks.
+
+!!! warning "A successful repeat solve can still contain stale evaluations"
+    In the tested stack (JuMP 1.31.2, MathOptInterface 1.53.0, Ipopt.jl 1.15.0,
+    MadNLP 0.10.1), exponential-load parameter updates through nonzero → zero →
+    nonzero reproduced stale nonlinear evaluations. Both solvers could report
+    success while currents violated the updated load law. This is a measured
+    compatibility limitation, not a claim about every parameter path or version.
+
+For an already finalized **cached JuMP model**, the tested workaround is:
+
+```julia
+JuMP.set_parameter_value(p, new_value)
+JuMP.MOI.Utilities.reset_optimizer(JuMP.backend(model))
+JuMP.optimize!(model)
+residuals = JuMP.primal_feasibility_report(model; atol=1e-8)
+isempty(residuals) || error("Updated model has constraint violations")
+```
+
+The reset preserves JuMP handles, algebra, and optimizer attributes, but reloads
+the optimizer and costs setup time. It does not preserve solver-internal
+factorizations or automatically transport a primal/dual warm start. Choose
+residual tolerances in the model's working units and check physical currents,
+limits, and reference conditions independently as well. The scalar `atol` above
+is an example, not a universal engineering tolerance.
+
+The engine does not intercept parameter updates or automatically reset the
+backend. This workflow is for cached models; `direct_model` requires a separately
+managed optimizer/model rebuild. It does not make structural edits safe in place:
+changes to topology, dimensions, or the physical voltage-domain certificates
+still require rebuilding. See `test/opf_final_hardening_tests.jl` for repeat-solve
+witnesses with independent analytic current checks and a range of voltage scales.
+
 ### Coefficient providers for bespoke builders
 
 `OpfBuildSpec` can also carry typed coefficient providers. This keeps scenario,

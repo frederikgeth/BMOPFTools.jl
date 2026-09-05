@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "affef779aac181ccfa0e1a1516e9b45b1aada045fd882760e661d35b0bc66cab",
+  "corpus_sha256": "f4333cdb32b0d84f4501615fb674683196620ebf276be3af9c743b94d65515f3",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -61,6 +61,10 @@
       "sha256": "51ee85df44b0de0fcde84db4673a08aecfc8ffb7dbf38c02fa1f7750d88144a7"
     },
     {
+      "path": "docs/src/dev/opf_engine.md",
+      "sha256": "d8f481798e63b701d7aae53835dc2362665e10a50fdcc67cc57109b0c54060e8"
+    },
+    {
       "path": "docs/src/dev/opf_engine_review.md",
       "sha256": "004f020ccace0f1ec8b024f89cfbc765cc2e6e2a80fbb7a8562891103d2d2fd9"
     },
@@ -69,8 +73,28 @@
       "sha256": "abf76a75467e30941b3856fce239e6e9cb25140053be577520ee9ca8ea47e705"
     },
     {
+      "path": "docs/src/differentiable_extensions.md",
+      "sha256": "ab0156d81c1fbbb26bc34001b923254e3301c1d1183feb814a69019ec7a9827c"
+    },
+    {
       "path": "docs/src/findings.md",
       "sha256": "5c9bc098a69f4fc6c93496d8d903c50e78472e35eefec98e11450e84a1e41be4"
+    },
+    {
+      "path": "docs/src/objectives.md",
+      "sha256": "895ee7f0b6e0998f46fda8207d733beaa68035581e1aa4974e3f684c826dfa06"
+    },
+    {
+      "path": "docs/src/opf.md",
+      "sha256": "d089f787834cb5e92a3ebaf84f03692c684b6e5bd88bb3b377ea154f083c578c"
+    },
+    {
+      "path": "docs/src/relu_softplus_encoding.md",
+      "sha256": "56ccb1129e1b1f8b8ef5c6e072cb7a4b65b467e81f878c6ec0d90f22f1f6749d"
+    },
+    {
+      "path": "docs/src/tutorial_custom_formulations.md",
+      "sha256": "bec957f4a49057d8c0a0f493f971d52eb0341a7243da9f9adc80c26cc430085c"
     },
     {
       "path": "docs/src/tutorial_nameplate.md",
@@ -150,7 +174,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "62bd9929746c34b8b72ec721b2d98f8af4c582a1db307fde268191e86cf195bd"
+      "sha256": "edccf447565bbfb96bf2ce5c0960634ff5ed11b01ac22a94fce17cd4541e8d67"
     },
     {
       "path": "recipes/README.md",

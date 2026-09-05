@@ -761,6 +761,12 @@ source_paths = [
   "test/Project.toml",
   "test/opf_engine_review_tests.jl",
   "docs/src/dev/opf_engine_review.md",
+  "docs/src/dev/opf_engine.md",
+  "docs/src/opf.md",
+  "docs/src/differentiable_extensions.md",
+  "docs/src/objectives.md",
+  "docs/src/relu_softplus_encoding.md",
+  "docs/src/tutorial_custom_formulations.md",
 ]
 
 [[finding]]

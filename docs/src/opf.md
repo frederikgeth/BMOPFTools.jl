@@ -53,22 +53,23 @@ explicitly:
    sections **exactly** (each parallel branch carries its own current, loops
    close through KCL, a jumper collapses to `V_fr = V_to`), with no small-ε
    impedance to break degeneracy.
-2. **Series voltage drops obey Ohm's law in impedance form.** Every series
-   element (line, transformer winding) is `ΔV = Z·I`, never admittance form.
-   Only elements whose counter-terminal is **ground** (shunts, line π-halves)
-   are written `I = Y·V`. This avoids dividing by series impedance at the exact ideal limit
-   `Z = 0`. A lossless line (`R = 0`, nonzero `X`) has finite impedance and
-   admittance; losslessness alone does not make admittance singular.
-3. **Derived quantities are expressions, not variables.** Powers, voltage
-   differences, and averages are built as expressions of the real variables
-   rather than fresh variables pinned down by equalities — avoiding trivial
-   linear dependencies that only burden the solver. *Deliberate exception:* the
-   two-winding transformer builders (YY, Yd/Dy, center_tap) and the DC resistive
+2. **Prefer impedance form for series voltage drops.** Lines use `ΔV = Z·I`,
+   so exact zero series impedance needs no inverse. Transformer builders also
+   retain explicit equations at their supported ideal limits. One deliberate
+   exception is a fixed-tap center-tap transformer with nonzero leakage arms:
+   its coupled primitive-admittance stamp preserves winding coupling; free taps
+   or zero arms use its quadratic T-model branch. Shunts and line π-halves
+   naturally use `I = Y·V`. A lossless line (`R = 0`, nonzero `X`) has finite
+   impedance and admittance; losslessness alone does not make admittance singular.
+3. **Prefer expressions for derived quantities; lift deliberately.** Powers,
+   voltage differences, and averages normally remain expressions. An auxiliary
+   variable and its defining equality add model size, but do not by themselves
+   imply linear dependence. *Deliberate exception:* the
+   two-port transformer builders (YY, Yd/Dy, center_tap) and the DC resistive
    branch keep explicit per-winding current **variables** pinned by linear
    equalities, so that current limits (`i_max`) and the result writer have a
-   first-class handle on each physical winding current — accepting one redundant
-   linear degree of freedom per winding rather than threading an expression
-   through the limit-and-reporting machinery.
+   first-class handle on each physical winding current. Apparent-power and
+   magnitude lifts are further deliberate exceptions, discussed below.
 4. **Idealized components are represented as such.** An ideal switch is
    `V_fr = V_to`, an ideal transformer is `V_fr = N·V_to`, a lossless shunt is
    pure susceptance — represented semantically, not approximated with a small ε
@@ -88,26 +89,27 @@ explicitly:
    the feasible region. A constraint is stamped only from data that is actually
    present; the engine never derives a current bound from a power bound (or vice
    versa), because a case may carry one, both, or neither *by design*.
-8. **No known non-smooth constraints — smoothen them.** Constraints are kept
-   continuously differentiable so the interior-point solver sees a well-defined
-   Jacobian everywhere. A magnitude `√(x²+y²)` is never written directly in a
-   constraint (its gradient is unbounded at the origin, and a monitored voltage
-   difference is not bounded away from zero); instead an *implicit square root* —
-   an auxiliary `u ≥ 0` with `u² = x²+y²` — is used. Droop and saturation curves
+8. **Respect evaluation domains and distinguish smoothing from lifting.** The
+   exact magnitude `√(x²+y²)` has no unique gradient at the origin. An *implicit
+   square root*, `u ≥ 0` with `u² = x²+y²`, has polynomial rows, but its defining
+   row has zero gradient when all three variables are zero. Lifting alone does
+   not cure that degeneracy; voltage-dependent loads need the domain treatment
+   below. Droop and saturation curves
    are encoded with a smooth ReLU/softplus rather than a hard `max`/`min` (see
    [Smooth droop encoding](relu_softplus_encoding.md)).
-9. **Keep constraints low-degree (quadratic).** Where a naïve statement would be
-   quartic, rational, or higher-order, an auxiliary variable and its defining
-   constraint bring it back to degree two — the regime interior-point solvers
-   handle most reliably. Apparent power is bounded through aux `p, q` with
+9. **Use low-degree lifts where they help the formulation.** An auxiliary
+   variable and its defining equation can replace quartic or rational
+   expressions with quadratic rows. This changes sparsity and model size; it
+   does not guarantee a faster or better-conditioned NLP. Apparent power is
+   bounded through aux `p, q` with
    `p² + q² ≤ s²` (not a quartic in voltage × current); a free tap's reciprocal
    is an aux variable pinned by `n · n⁻¹ = 1` (not a rational term); the
    voltage-dependent load uses W/s lifts when positive voltage is certified,
    with a logarithmic-domain fallback otherwise.
-10. **Well-posedness is enforced, not assumed.** Removable degeneracies are
-    collapsed to their exact form (principle 4); irreducible ones are rejected
-    with a clear error rather than allowed to poison the model with NaN/Inf. A
-    zero nominal voltage (undefined `1/v_nom`), a zero winding turns-ratio, or structural
+10. **Reject known unsupported domains and structural degeneracies.** Exact
+    special cases are retained (principle 4), and the implemented applicability
+    checks reject known invalid inputs. They are not a complete well-posedness
+    or rank test. A zero nominal voltage (undefined `1/v_nom`), a zero winding turns-ratio, or structural
     ideal-conductor cycles (including parallel edges and self-loops) are rejected.
     The cycle check follows coefficient resolution and native builder ownership;
     it is not a general Jacobian-rank certificate.
@@ -149,6 +151,9 @@ explicitly:
     correctness invariant, not a convenience: a quantity reported with the opposite
     sign to its own constraint is a silent error that a feasible solve will never
     catch.
+
+For the implementation choices, supported inputs, and return shapes of the
+shared building blocks, see the [formulation helper guide](@ref opf-formulation-helpers).
 
 These principles were inspired by the IVR-EN formulation in
 [PowerModelsDistribution](positioning.md) and by Claeys et al.'s four-wire OPF
@@ -415,6 +420,8 @@ The source-bus **neutral** is additionally fixed to zero
 so that KCL is still enforced there and the grid generator's neutral return
 current can satisfy it.
 
+#### [Magnitude-limit input domain](@id opf-magnitude-domain)
+
 Declared magnitude limits must be nonnegative real values. Negative values and
 NaN are rejected, including on inactive native devices. An omitted upper cap or
 in-memory Julia `+Inf` means unconstrained; use omission in JSON. Lower magnitude
@@ -422,8 +429,13 @@ bounds must be finite. Zero remains an exact cap, including per-winding current
 and apparent-power limits. Vector entries must be real; omit the whole field
 rather than inserting `nothing`. Positive magnitudes and nominal voltages whose
 squares or reciprocal squares cannot be represented in Float64 require rescaling.
-A supplied transformer `s_rating` must be finite and strictly positive because
-it may also define impedance bases; omit it for an unrated supported recipe.
+
+!!! note "Zero, absent, and unrated are different inputs"
+    Zero is an exact cap; it does not mean disabled or unrated. In particular,
+    zero n-winding current and apparent-power caps are now enforced. A supplied
+    transformer `s_rating` must be finite and strictly positive because it may
+    also define impedance bases; omit it for an unrated supported recipe.
+
 Malformed native transformer maps, unknown subtypes, and unsupported neutral
 connections raise errors instead of leaving the device partially unstamped.
 Native n-winding transformers require matching positive phase counts and support
@@ -646,7 +658,7 @@ Q_k = \Delta v^i_k \, c^{r,d}_{d,k} - \Delta v^r_k \, c^{i,d}_{d,k}
 The load `model` field determines the right-hand-side value that $P_k$ and
 $Q_k$ are pinned to.
 
-##### Squared-voltage-drop variable
+##### [Squared-voltage-drop variable](@id squared-voltage-drop-variable)
 
 Mixed ZIP, constant-current, and general exponential models introduce a scalar
 auxiliary variable per sub-load:
@@ -662,11 +674,18 @@ and, when needed, `s ≥ L/2`. Those guards are implied by the physical bound;
 there is no artificial upper voltage limit. Starts use fixed or initialized
 terminal voltages, independently of nominal engineering bands.
 
-Only an applicable, actually stamped bound is used: phase-to-ground bounds do
-not certify a phase-to-floating-neutral voltage, and bounds omitted by a power
-flow recipe cannot justify a domain guard. Rebuild if you change the source
-references or physical bounds used to certify this domain; directly loosening
-those JuMP objects does not automatically update the derived guards.
+!!! warning "A voltage start is not a physical domain certificate"
+    Only an applicable, actually stamped bound justifies the W/s guards.
+    Phase-to-ground bounds do not certify phase-to-floating-neutral voltage,
+    and a power-flow recipe may omit operational bounds. A positive start alone
+    cannot justify adding a positive physical lower limit. The former implicit
+    `0.5–1.5 × v_nom` band could exclude valid operating points; it is removed.
+
+    Rebuild if you change the source references or loosen the physical bounds
+    used for a certificate. Editing those JuMP objects does not update the
+    derived W/s guards automatically; leaving them in place can restrict the
+    modified problem. The guards protect fractional-power evaluation, so solver
+    bound relaxation also matters near the boundary.
 
 Without such a certificate, the engine uses `ell = log(|ΔV|/V_nom)` and
 `|ΔV/V_start|² = exp(2(ell - ell_start))`, where `V_start > 0` is the fixed
@@ -697,25 +716,11 @@ constraints, whose semantic units are current. Nominal-power providers remain
 symbolic, including across parameter updates through zero. Mixed ZIP Z terms
 are not separately substituted yet.
 
-**Repeated nonlinear parameter solves:** the tested stack (JuMP 1.31.2,
-MathOptInterface 1.53.0, Ipopt.jl 1.15.0, MadNLP 0.10.1) can reuse
-stale nonlinear evaluations after `JuMP.set_parameter_value`, particularly when
-the next solve starts at the previous evaluation point. Refresh the optimizer
-cache before resolving a cached JuMP model:
-
-```julia
-JuMP.set_parameter_value(p, new_value)
-JuMP.MOI.Utilities.reset_optimizer(JuMP.backend(model))
-JuMP.optimize!(model)
-residuals = JuMP.primal_feasibility_report(model; atol=1e-8)
-```
-
-This preserves JuMP variable/constraint handles, model algebra, and optimizer
-attributes, but reloads the optimizer and costs setup time. It applies to cached
-models, not `direct_model`; recreate a direct model's optimizer/model as needed.
-The engine does not intercept parameter updates or automatically refresh the
-backend. Verify physical currents and residuals as well as termination status;
-a successful status alone did not detect the stale result in the regression.
+!!! warning "Changing a parameter does not certify a fresh solution"
+    Repeat-solve tests with both Ipopt and MadNLP found successful statuses with
+    stale currents after nominal powers changed through zero. See the
+    [parameter-update workflow](@ref opf-parameter-resolves) for the tested
+    optimizer-cache reset, its setup cost, and required residual checks.
 
 ##### Model types
 

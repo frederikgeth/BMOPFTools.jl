@@ -18,6 +18,8 @@ formulation at all. Every block runs at build time.
 For replaceable device ownership, semantic object/parameter registries, and
 DiffOpt-compatible research models, continue with
 [Parameterized and differentiable extensions](differentiable_extensions.md).
+Before choosing a lift, smoothing term, or redundant bound, consult the
+[formulation helper guide](@ref opf-formulation-helpers) for its domain and purpose.
 
 !!! note "Prerequisites"
     A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`, and three

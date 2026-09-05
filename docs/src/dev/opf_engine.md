@@ -60,9 +60,10 @@ preferences in particular:
   constraints should prefer a current form where practical**. (This mirrors the
   Tier-3 note in the [style guide](style_guide.md).)
 - **Impedance over admittance, for series elements.** Series elements (lines,
-  transformer windings) are represented with **impedance** `R + jX`, not
-  admittance `G + jB`. This avoids inverting a singular series
-  impedance. Distinguish **lossless** (`R = 0`) from **zero impedance** (`Z = 0`):
+  transformer windings) should retain **impedance** equations at their ideal
+  limits, avoiding inversion of singular series impedance. The fixed-tap
+  center-tap builder deliberately uses a coupled primitive-admittance stamp
+  with nonzero leakage arms; its free-tap/zero-arm branch uses the T-model. Distinguish **lossless** (`R = 0`) from **zero impedance** (`Z = 0`):
   for scalar `X ≠ 0`, `1/(jX) = -j/X` is finite and purely imaginary. The
   singularity is at `Z = 0`, or a singular matrix `Z`, rather than at zero
   resistance alone. Shunts and the transformer no-load branch remain naturally
@@ -142,11 +143,144 @@ remaining defects, and proposed substitutions. Its executable evidence links to
   and n-winding tap requests raise errors. Exact zero impedance must be explicit.
   A source may omit a trailing reference already fixed to zero by grounding;
   a two-terminal DELTA load has one coil. Checks apply to native-owned device
-  physics; custom builders own their domain.
+  physics; custom builders own their domain. Magnitude domains, malformed
+  transformer maps/subtypes, and unsupported neutral connections are also
+  checked; see [magnitude-limit inputs](@ref opf-magnitude-domain).
 
 - **Solver results:** a locally solved status does not certify every engineering
   limit or a global optimum. Independent residual and limit checks remain
   necessary, and their coverage is finite.
+
+## [Formulation helpers: purpose, domain, and trade-offs](@id opf-formulation-helpers)
+
+These are implementation contracts for this engine, with executable witnesses
+linked to `PSK-000013`; they do not extend that scientific contract's scope.
+Start with the physical equation and its supported domain, then choose a helper.
+An exact reformulation, a redundant bound, a domain guard, and a smoothing
+approximation serve different purposes:
+
+| Role | What must be preserved or declared | Example |
+|---|---|---|
+| Exact reformulation | Same physical feasible set on the stated domain; recover auxiliary quantities and account for row scaling in duals | Normalized positive-radius cap, P/Q lift, sine/cosine angle rows |
+| Redundant bound | Follows from constraints actually enforced for this variable | Rectangular current box implied by a current-magnitude cap |
+| Domain guard | Justified by an enforced physical condition; must be revisited when that condition changes | W/s lower guards from a positive coil-voltage certificate |
+| Smoothing approximation | Changes the represented function; declare its scale, approximation error, and effect on the study | `smooth_norm`, smooth droop hinges |
+| Initialization | Selects a starting point; does not constrain the physical feasible set | `_magnitude_start` |
+
+The underscore-prefixed helpers below are **private implementation details**, not
+a supported downstream API. They live principally in
+`ext/BMOPFOpfExt/data_utils.jl` and `load.jl`. Engine contributors should reuse
+and test them; downstream authors should use the public staged/coefficient APIs
+and own the algebra of custom builders. Public objective helpers are documented
+in [Choosing an objective](../objectives.md), and
+[`opf_piecewise_linear_expression`](@ref) in
+[Smooth droop encoding](../relu_softplus_encoding.md).
+
+### Exact limits and their return shapes
+
+`_magnitude_limit` and `_check_square_scale` centralize static numeric domains.
+Limits and expression components must already share the model's working units;
+these helpers do not convert SI data or choose a physical base. Missing/+Inf
+upper caps are omitted, zero is exact, and negative/NaN caps fail. Positive
+scales must have representable squares and reciprocal squares. That check
+prevents silent underflow/overflow in the chosen algebra; passing it is not a
+conditioning guarantee. Nameplates and lower bounds have stricter domains; see
+[the runtime input rules](@ref opf-magnitude-domain).
+
+`_soc_norm!(model, a, b, limit)` stamps
+`(a/limit)^2 + (b/limit)^2 ≤ 1` for a positive cap. Normalization makes an absolute
+row tolerance relative to the cap, avoiding tiny unscaled squared residuals.
+Despite the helper's name, this is a scalar quadratic inequality when the
+components are affine; it does not select a conic solver. It returns a constraint
+handle, or `nothing` for an absent cap or a zero cap whose components are all
+structurally zero.
+
+At a zero cap, `_zero_components!` uses exact component equalities. The squared
+inequality would have a zero gradient at every feasible point. A single
+nontrivial component produces a scalar equality; several produce a vector
+equality, so callers must accept a **vector-valued dual**. Identically zero
+polynomial components can be omitted; a JuMP parameter currently equal to zero
+is still symbolic. Do not infer structural simplifications from today's
+parameter values.
+
+`_limit_current_box!` adds the implied component bounds only when the cap applies
+to the supplied current variables themselves. If `I_total = I_series + Y_sh V`,
+then `|I_total| ≤ Imax` does **not** imply `|I_series| ≤ Imax`: the shunt current
+can oppose the series current. `_terminal_vmax_to_ground` and
+`_line_shunt_row_bound` support a conservative shunt allowance when genuine
+voltage bounds exist. They do not supply missing physical limits. The zero-cap
+box is skipped because the component equalities already enforce it.
+
+`_neutral_current_limit!` applies the cap to the sum of phase currents of a
+supported star-connected device. It represents that device's neutral return,
+not every current that may share a network neutral or earth path.
+
+`_apparent_power_limit!` introduces P/Q variables and bilinear defining rows,
+then applies the normalized cap to those variables. For affine V/I inputs this
+avoids a quartic voltage-current inequality, at the cost of two variables and
+two definitions. It returns `(p, q)` or `nothing` when skipped; optional callbacks
+and a ledger preserve semantic constraint identity and reporting. The caller
+must supply the intended voltage reference: terminal-to-ground for a conductor
+cap, coil voltage for a winding cap. Even `Smax = 0` does not imply `I = 0` at
+zero voltage. A power cap cannot replace neutral ampacity.
+
+!!! note "Exact reformulation does not preserve raw multipliers"
+    For a positive-radius squared cap, if `lambda_scaled` multiplies the
+    normalized row, the multiplier on `a² + b² − limit²` is
+    `lambda_scaled / limit²`, in the same working coordinates. Physical-unit
+    conversion is a separate step. At zero radius the representation and dual
+    shape change; there is no scalar multiplier conversion by taking that limit.
+    Inspect semantic keys and constraint shapes instead of assuming each
+    engineering limit always has one scalar dual.
+
+### Angle windows and voltage-dependent loads
+
+`_angle_window` validates **static**, two-sided, finite windows strictly inside
+`(-π/2, π/2)`. `_angle_window_constraints!` uses sine/cosine coefficients instead
+of tangent coefficients that diverge near those endpoints. An exact target uses
+one equality and a half-plane guard to exclude the antipodal solution. The
+origin remains feasible: these rows do not give zero voltage a defined angle.
+Line and centered bus angle conventions differ; see the runtime limits above.
+
+`_add_subload_power!` selects a load formulation from its structural law. Pure-Z
+uses an affine current law for fixed coefficients, including zero voltage;
+constant-P equivalents omit unused magnitude lifts. Remaining laws use W/s lifts
+only where `_load_voltage_lower` certifies positive coil voltage from enforced
+conditions. Otherwise a logarithmic variable represents positive voltage,
+without inventing a physical epsilon floor. This avoids negative-base fractional
+powers, but exponential trial values can still overflow or underflow.
+
+`_magnitude_start` evaluates fixed/initialized terminal differences and uses a
+positive nominal fallback at a zero or nonfinite magnitude. It initializes load
+auxiliaries; it is not a general repair of infeasible/nonfinite starts and does
+not certify positive voltage. The log definition is normalized by its fixed
+start magnitude squared. Changing a start later does not change that scale.
+The [load-domain warning](../opf.md#squared-voltage-drop-variable) explains when
+changing physical bounds requires rebuilding.
+
+### Smoothing, substitutions, and performance expectations
+
+`smooth_norm` is a public expression helper for a declared approximation:
+`sqrt(sum(c²) + epsilon²) − epsilon`. Size epsilon from a characteristic magnitude
+in working units, not merely the SI conversion factor. It underestimates the
+true norm, so do not use it as an exact hard cap or form ratios from shifted
+norms. `opf_reduce_norm` selects different objective constructions; a `:max`
+epigraph is tight only in its intended minimization use. The
+[objective guide](../objectives.md) explains accuracy and scaling choices.
+
+`opf_piecewise_linear_expression` constructs smoothed hinge expressions. Its
+smoothing width is in input working units; changing it changes the represented
+curve. The registered and built-in softplus modes have different numerical and
+AD compatibility limits. See the [softplus warning](../relu_softplus_encoding.md)
+and the [repeat-solve warning](@ref opf-parameter-resolves).
+
+Do not assume that fewer variables, quadratic rows, or an exact substitution
+makes Ipopt or MadNLP faster. Removing a lift can increase expression work or
+Jacobian/Hessian fill; retaining it adds rows and unknowns. Preserving feasible
+physical states also does not automatically preserve dual interpretation or KKT
+regularity. Compare analytic/independent physical residuals and solution quality
+first, then warmed build/solve time, iterations, and sparsity under matched solver
+settings. The correctness tests are not a performance benchmark.
 
 ## Solver parity tests
 
@@ -155,7 +289,10 @@ compatibility requirement is added to the main package project. Run
 `julia --project=test --startup-file=no test/runtests.jl` for the full suite.
 `test/opf_domain_tests.jl` checks both solvers on floating-neutral loads in SI
 and per-unit coordinates, inside and outside the former engineering band, and
-checks the zero-radius vector-equality bridge. These are numerical correctness
+checks the zero-radius vector-equality bridge.
+`test/opf_final_hardening_tests.jl` adds magnitude/transformer rejection witnesses,
+finite-difference Jacobian/Hessian checks, and parameter updates through zero
+with the explicit optimizer-cache reset. These are numerical correctness
 tests, not performance measurements. Solver-specific options remain separate;
 see [MadNLP options](https://madsuite.org/MadNLP.jl/stable/options/).
 
