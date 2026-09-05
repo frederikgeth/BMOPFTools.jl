@@ -171,6 +171,52 @@ function _line_pi_shunt(line::Dict{String,Any}, linecodes::AbstractDict)
     G_fr, B_fr, G_to, B_to
 end
 
+# Squared magnitudes and reciprocal-square row scaling must both be representable.
+function _check_square_scale(value::Real, name)
+    v = Float64(value)
+    isfinite(v) && v > 0 && isfinite(v^2) && v^2 > 0 && isfinite(inv(v)^2) && inv(v)^2 > 0 ||
+        throw(ArgumentError("$name is outside the representable squared-magnitude domain; rescale the model."))
+    return v
+end
+
+# Magnitude caps share one domain: nothing/+Inf means no cap; zero is exact.
+# Signed P/Q boxes and signed DC voltages are intentionally not magnitude caps.
+function _magnitude_limit(value; name="magnitude limit", allow_infinite=true)
+    value === nothing && return nothing
+    value isa Real && !isnan(value) && value >= 0 || throw(ArgumentError(
+        "$name must be a nonnegative real magnitude, got $value."))
+    if isinf(value)
+        allow_infinite && return nothing
+        throw(ArgumentError("$name must be finite."))
+    end
+    v = Float64(value)
+    isfinite(v) || throw(ArgumentError("$name is outside the Float64 domain."))
+    iszero(value) || _check_square_scale(v, name)
+    return v
+end
+
+const _MAGNITUDE_CAP_FIELDS = ("i_max", "i_max_from", "i_max_to", "s_max",
+    "v_max", "vpn_max", "vpp_max", "vn_max", "vpos_max", "vneg_max", "vzero_max", "vuf_max")
+const _MAGNITUDE_LOWER_FIELDS = ("v_min", "vpn_min", "vpp_min", "vpos_min")
+function _validate_magnitude_fields(device, owner)
+    for field in (_MAGNITUDE_CAP_FIELDS..., _MAGNITUDE_LOWER_FIELDS...)
+        values = get(device, field, nothing)
+        values === nothing && continue
+        for value in (values isa AbstractVector ? values : (values,))
+            value === nothing && throw(ArgumentError("$owner.$field entries must be real magnitudes."))
+            _magnitude_limit(value; name="$owner.$field",
+                allow_infinite=field in _MAGNITUDE_CAP_FIELDS)
+        end
+    end
+    # A nameplate can also define impedance/per-unit bases; it is not an
+    # infinity sentinel. Omit it when the supported transformer recipe is unrated.
+    if haskey(device, "s_rating")
+        rating = _magnitude_limit(device["s_rating"]; name="$owner.s_rating", allow_infinite=false)
+        rating !== nothing && rating > 0 || throw(ArgumentError("$owner.s_rating must be strictly positive when supplied."))
+    end
+    return nothing
+end
+
 """
     _limit_current_box!(cr, ci, ilim)
 
@@ -185,14 +231,15 @@ the thermal limit is on a series+shunt expression (lines, and the from-side of a
 transformer with a no-load shunt): there the variable can exceed `ilim` when the
 shunt current opposes it.
 
-`cr`/`ci` must be `VariableRef`s. No-op for a non-finite or nonpositive `ilim`;
+`cr`/`ci` must be `VariableRef`s. No-op for an absent/infinite or zero `ilim`;
 zero radii are enforced by `_soc_norm!` component equalities.
 """
-function _limit_current_box!(cr::JuMP.VariableRef, ci::JuMP.VariableRef, ilim::Real)
+function _limit_current_box!(cr::JuMP.VariableRef, ci::JuMP.VariableRef, ilim::Union{Real,Nothing})
     # A zero radius is already represented by component equalities in
     # _soc_norm!. Equal lower/upper bounds would duplicate those equalities
     # after the solver removes fixed variables.
-    (isfinite(ilim) && ilim > 0) || return
+    ilim = _magnitude_limit(ilim)
+    (ilim === nothing || iszero(ilim)) && return
     for v in (cr, ci)
         JuMP.has_lower_bound(v) ? JuMP.set_lower_bound(v, max(JuMP.lower_bound(v), -ilim)) :
                                   JuMP.set_lower_bound(v, -ilim)
@@ -215,14 +262,15 @@ equivalent (same feasible set) for `lim > 0`. For `lim == 0`, use component
 equalities: the squared inequality has zero gradient at every feasible point.
 The zero-radius result is a scalar equality or a vector equality ConstraintRef
 (with a vector-valued dual), or `nothing` when both components are literal zero.
-Callers guard that `lim` is finite and ≥ 0.
+Absent/+Inf caps return `nothing`; negative/NaN caps raise `ArgumentError`.
 """
-function _soc_norm!(model, a, b, lim::Real)
+function _soc_norm!(model, a, b, lim::Union{Real,Nothing})
+    lim = _magnitude_limit(lim)
+    lim === nothing && return nothing
     iszero(lim) && return _zero_components!(model, a, b)
-    lim > 0 || return @constraint(model, a^2 + b^2 <= lim^2)
     @constraint(model, (a / lim)^2 + (b / lim)^2 <= 1.0)
 end
-_soc_norm!(model, a, lim::Real) = _soc_norm!(model, a, 0.0, lim)
+_soc_norm!(model, a, lim::Union{Real,Nothing}) = _soc_norm!(model, a, 0.0, lim)
 
 """Enforce exact zero components without a degenerate squared norm row.
 
@@ -260,10 +308,11 @@ currents, so its magnitude limit is the second-order cone
 `cr_terms`/`ci_terms` are the per-phase rectangular current variables. This makes
 `i_max` per **conductor** (phases + neutral) for star-connected devices, matching
 the per-conductor `i_max` already carried by lines and switches. No-op for a
-non-finite or negative `ilim`.
+absent or infinite `ilim`; invalid caps are rejected.
 """
-function _neutral_current_limit!(model, cr_terms, ci_terms, ilim::Real)
-    (isfinite(ilim) && ilim >= 0) || return
+function _neutral_current_limit!(model, cr_terms, ci_terms, ilim::Union{Real,Nothing})
+    ilim = _magnitude_limit(ilim)
+    ilim === nothing && return nothing
     cr_n = @expression(model, sum(cr_terms))
     ci_n = @expression(model, sum(ci_terms))
     return _soc_norm!(model, cr_n, ci_n, ilim)
@@ -284,7 +333,7 @@ caller supplies — ground-referenced (node voltage) for a line/switch conductor
 or the coil voltage for a transformer winding. Note the well-known degeneracy:
 for a neutral conductor referenced to a grounded node `V ≈ 0`, so this cap is
 vacuous even as `I` overheats the conductor — a current limit is preferred there
-(see `W.DOM.POWER_LIMIT_NEUTRAL`). No-op for a non-finite or negative `slim`.
+(see `W.DOM.POWER_LIMIT_NEUTRAL`). No-op for an absent/+Inf `slim`; negative/NaN caps are rejected.
 
 `vr_k`/`vi_k`/`cr_k`/`ci_k` may be `VariableRef`s or `AffExpr`s.
 
@@ -294,11 +343,12 @@ the solved coil apparent power (`|S| = √(P²+Q²)`) and its cap — the exact
 quantities this cone constrains, with no post-solve coil-voltage reconstruction.
 Returns `(p_v, q_v)` (or `nothing` when the limit is skipped).
 """
-function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Real;
+function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Union{Real,Nothing};
                                 base_name::AbstractString="s",
                                 ledger=nothing, key=nothing,
                                 register_constraint=nothing)
-    (isfinite(slim) && slim >= 0) || return nothing
+    slim = _magnitude_limit(slim)
+    slim === nothing && return nothing
     p_v = @variable(model, base_name = "p_$(base_name)")
     q_v = @variable(model, base_name = "q_$(base_name)")
     p_link = @constraint(model, p_v == vr_k*cr_k + vi_k*ci_k)

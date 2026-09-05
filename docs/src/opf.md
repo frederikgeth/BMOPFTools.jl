@@ -415,6 +415,20 @@ The source-bus **neutral** is additionally fixed to zero
 so that KCL is still enforced there and the grid generator's neutral return
 current can satisfy it.
 
+Declared magnitude limits must be nonnegative real values. Negative values and
+NaN are rejected, including on inactive native devices. An omitted upper cap or
+in-memory Julia `+Inf` means unconstrained; use omission in JSON. Lower magnitude
+bounds must be finite. Zero remains an exact cap, including per-winding current
+and apparent-power limits. Vector entries must be real; omit the whole field
+rather than inserting `nothing`. Positive magnitudes and nominal voltages whose
+squares or reciprocal squares cannot be represented in Float64 require rescaling.
+A supplied transformer `s_rating` must be finite and strictly positive because
+it may also define impedance bases; omit it for an unrated supported recipe.
+Malformed native transformer maps, unknown subtypes, and unsupported neutral
+connections raise errors instead of leaving the device partially unstamped.
+Native n-winding transformers require matching positive phase counts and support
+`a`/`b`/`c` phase labels and `n` neutral (case insensitive); DELTA has no neutral.
+
 #### Voltage magnitude bounds
 
 `v_min`/`v_max` are **per-phase arrays** (phase-to-ground), one entry per phase
@@ -655,12 +669,16 @@ references or physical bounds used to certify this domain; directly loosening
 those JuMP objects does not automatically update the derived guards.
 
 Without such a certificate, the engine uses `ell = log(|ΔV|/V_nom)` and
-`|ΔV/V_nom|² = exp(2ell)`. ZIP factors become sums of `exp(2ell)`, `exp(ell)`
+`|ΔV/V_start|² = exp(2(ell - ell_start))`, where `V_start > 0` is the fixed
+initialized coil magnitude (nominal voltage is the fallback at a zero start) and
+`ell_start = log(V_start) - log(V_nom)`. This makes the two sides of the defining equation order
+one at the start, including small positive voltages. ZIP factors become sums of `exp(2ell)`, `exp(ell)`
 and constants; exponential factors become `exp(gamma*ell)`. This represents the
 positive domain without an arbitrary epsilon and avoids negative-base fractional
 powers during solver trials. The new variable and definition keys are
 `load_log_voltage_magnitude` and `load_log_voltage_definition`; W/s keys are absent
-on this path. `ell` and its defining residual are dimensionless.
+on this path. `ell` and its defining residual are dimensionless. The definition
+is scaled by `1/V_start²`; account for this normalization when interpreting its dual.
 
 Fixed equal terminal voltages are rejected for these remaining laws. Pure-Z
 loads support zero voltage as described below. The logarithmic formulation does
@@ -678,6 +696,26 @@ removes W and replaces the power rows with `load_impedance_current_real/imag`
 constraints, whose semantic units are current. Nominal-power providers remain
 symbolic, including across parameter updates through zero. Mixed ZIP Z terms
 are not separately substituted yet.
+
+**Repeated nonlinear parameter solves:** the tested stack (JuMP 1.31.2,
+MathOptInterface 1.53.0, Ipopt.jl 1.15.0, MadNLP 0.10.1) can reuse
+stale nonlinear evaluations after `JuMP.set_parameter_value`, particularly when
+the next solve starts at the previous evaluation point. Refresh the optimizer
+cache before resolving a cached JuMP model:
+
+```julia
+JuMP.set_parameter_value(p, new_value)
+JuMP.MOI.Utilities.reset_optimizer(JuMP.backend(model))
+JuMP.optimize!(model)
+residuals = JuMP.primal_feasibility_report(model; atol=1e-8)
+```
+
+This preserves JuMP variable/constraint handles, model algebra, and optimizer
+attributes, but reloads the optimizer and costs setup time. It applies to cached
+models, not `direct_model`; recreate a direct model's optimizer/model as needed.
+The engine does not intercept parameter updates or automatically refresh the
+backend. Verify physical currents and residuals as well as termination status;
+a successful status alone did not detect the stale result in the regression.
 
 ##### Model types
 

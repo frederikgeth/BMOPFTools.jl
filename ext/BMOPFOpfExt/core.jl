@@ -2207,6 +2207,7 @@ unbounded formulation (e.g. power flow) can omit them.
 """
 function _add_device_constraints!(ctx::OpfContext)
     _validate_build_spec(ctx)
+    _validate_native_transformers(ctx.net)
     for family in _DEVICE_FAMILY_ORDER
         _build_device_family!(ctx, family)
     end
@@ -2364,6 +2365,12 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
     parameterized_profiles = Set{String}(
         key.component for key in keys(ctx.build_spec.coefficient_providers)
         if key.category == :controller && key.family == :control_profile)
+    if haskey(_FLAT_DEVICE_COLLECTION, family)
+        collection = get(net, _FLAT_DEVICE_COLLECTION[family], Dict())
+        for id in ids
+            _validate_magnitude_fields(collection[id], "$family '$id'")
+        end
+    end
     action = if family == :voltage_source
         () -> _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
                                        constraint_context=ctx)
@@ -2635,6 +2642,7 @@ end
 
 function BMOPFTools.set_opf_start_values!(ctx::OpfContext)
     return _run_opf_stage!(ctx, :start_values, () -> begin
+        _validate_native_transformers(ctx.net)
         if !haskey(ctx.build_spec.family_builders, :voltage_source)
             for (sid, vs) in get(ctx.net, "voltage_source", Dict())
                 haskey(ctx.build_spec.component_builders, (:voltage_source, string(sid))) && continue

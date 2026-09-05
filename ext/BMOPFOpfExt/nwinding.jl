@@ -94,14 +94,14 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i;
         _assert_nwinding_supported_tap(tid, xfmr)
         ws = BMOPFTools._nw_windings(xfmr)
         n  = length(ws)
-        n < 2 && continue
+        n >= 2 || throw(ArgumentError("n_winding transformer '$tid' needs at least two windings."))
 
         # Every winding needs a strictly positive nominal voltage: the turns
         # ratios N_k = v_nom_k/v_nom_1 and the referred coil voltage U_k/N_k are
         # undefined otherwise (a zero downstream v_nom divides by zero at the
         # leakage constraint; a zero reference v_nom is silently masked to unity
         # by `_nw_turns_ratios`). Reject rather than emit a poisoned model.
-        all(w -> w.v_nom > 0.0, ws) || error("n_winding transformer '$tid': " *
+        all(w -> isfinite(w.v_nom) && w.v_nom > 0.0, ws) || error("n_winding transformer '$tid': " *
             "every winding needs a strictly positive v_nom (got " *
             "$(round.([w.v_nom for w in ws], sigdigits=4))).")
         N  = BMOPFTools._nw_turns_ratios(xfmr)
@@ -197,7 +197,7 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i;
                 # Per-winding current-magnitude limit on the (bare) coil current
                 # of each phase leg: |I_{k,pk}| ≤ i_max_k. Optional per winding.
                 ilim = w.i_max
-                if ilim !== nothing && ilim > 0.0
+                if ilim !== nothing && ilim >= 0.0
                     register(:nwind_current_thermal, (tid, k, pk),
                         _soc_norm!(model, cr[(tid, k, pk)], ci[(tid, k, pk)], ilim))
                     _limit_current_box!(cr[(tid, k, pk)], ci[(tid, k, pk)], ilim)
@@ -206,7 +206,7 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i;
                 # with U_k the coil voltage (phase-to-neutral / line-to-line). The
                 # per-winding rating is the total 3-phase VA, so the per-phase-leg
                 # share is s_max_k / nph. Optional per winding.
-                if w.s_max !== nothing && w.s_max > 0.0 && nph > 0
+                if w.s_max !== nothing && w.s_max >= 0.0 && nph > 0
                     ukr, uki = upn(k, pk)
                     _apparent_power_limit!(model, ukr, uki,
                         cr[(tid, k, pk)], ci[(tid, k, pk)], w.s_max / nph;

@@ -79,7 +79,7 @@ function _load_vnom_k(load, k::Int)
         "(got $vnom); a voltage-dependent load divides by v_nom, which is " *
         "undefined at zero. Set the sub-load's nominal voltage, or use " *
         "model=\"constant_power\".")
-    vnom
+    return _check_square_scale(vnom, "Load nominal voltage")
 end
 
 # A structural impedance law remains an impedance law after a nominal-power
@@ -191,11 +191,13 @@ function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi
         # ell = log(|ΔV|/Vnom). Every finite ell represents positive voltage;
         # unlike fractional powers of W, these expressions have no negative-base
         # evaluation domain. Extreme exponential trial values can still overflow.
-        ell = @variable(model, base_name="log_v_$(lid)_$(k)", start=log(mag_start / Vnom))
+        reference = _check_square_scale(mag_start, "Load '$lid' voltage start")
+        log_start = log(reference) - log(Vnom)
+        ell = @variable(model, base_name="log_v_$(lid)_$(k)", start=log_start)
         register_variable !== nothing &&
             register_variable(:load_log_voltage_magnitude, (string(lid), k), ell)
         register(:load_log_voltage_definition,
-            @constraint(model, (dvr/Vnom)^2 + (dvi/Vnom)^2 == exp(2ell)))
+            @constraint(model, (dvr/reference)^2 + (dvi/reference)^2 == exp(2 * (ell - log_start))))
         rhs(t) = t.nl === nothing ?
             @expression(model, t.cc + t.cW * Vnom^2 * exp(2ell) + t.cs * Vnom * exp(ell)) :
             @expression(model, t.nl[1] * exp(t.nl[2] * ell))

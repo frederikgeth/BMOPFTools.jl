@@ -52,6 +52,7 @@ function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars;
     nlabels = BMOPFTools._neutral_labels(net)
 
     for (bid, bus) in get(net, "bus", Dict())
+        _validate_magnitude_fields(bus, "Bus '$bid'")
         v_min = get(bus, "v_min", nothing)
         v_max = get(bus, "v_max", nothing)
         (v_min === nothing && v_max === nothing) && continue
@@ -75,7 +76,7 @@ function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars;
             ub = v_max isa AbstractVector ? get(v_max, k, nothing) : v_max
             lb !== nothing && register(:bus_voltage_lower, (bid, k),
                 @constraint(model, v2 >= Float64(lb)^2))
-            ub !== nothing && register(:bus_voltage_upper, (bid, k),
+            ub !== nothing && isfinite(ub) && register(:bus_voltage_upper, (bid, k),
                 @constraint(model, v2 <= Float64(ub)^2))
         end
     end
@@ -102,6 +103,7 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
         constraint_context, family, index, cref)
 
     for (bid, bus) in get(net, "bus", Dict())
+        _validate_magnitude_fields(bus, "Bus '$bid'")
         terminals = get(bus_terminals, bid, String[])
         neutral   = BMOPFTools._neutral_terminal(bus)
 
@@ -144,7 +146,7 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
                 end
                 vpn_min !== nothing && register(:bus_vpn_lower, (bid, k),
                     @constraint(model, v2 >= Float64(vpn_min[k])^2))
-                vpn_max !== nothing && register(:bus_vpn_upper, (bid, k),
+                vpn_max !== nothing && isfinite(vpn_max[k]) && register(:bus_vpn_upper, (bid, k),
                     @constraint(model, v2 <= Float64(vpn_max[k])^2))
             end
         end
@@ -170,7 +172,7 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
                     v2  = @expression(model, dvr^2 + dvi^2)
                     vpp_min !== nothing && register(:bus_vpp_lower, (bid, pair_idx),
                         @constraint(model, v2 >= Float64(vpp_min[pair_idx])^2))
-                    vpp_max !== nothing && register(:bus_vpp_upper, (bid, pair_idx),
+                    vpp_max !== nothing && isfinite(vpp_max[pair_idx]) && register(:bus_vpp_upper, (bid, pair_idx),
                         @constraint(model, v2 <= Float64(vpp_max[pair_idx])^2))
                 end
             end
@@ -249,7 +251,7 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
                 v1_sq = @expression(model, V1_r^2 + V1_i^2)
                 vpos_min !== nothing && register(:bus_positive_sequence_lower, bid,
                     @constraint(model, v1_sq >= Float64(vpos_min)^2))
-                vpos_max !== nothing && register(:bus_positive_sequence_upper, bid,
+                vpos_max !== nothing && isfinite(vpos_max) && register(:bus_positive_sequence_upper, bid,
                     @constraint(model, v1_sq <= Float64(vpos_max)^2))
             end
 
@@ -274,7 +276,7 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
             # Both sides scale as voltage squared, so `vuf_max` is dimensionless
             # and -- alone among the bus voltage bounds -- needs no per-unit
             # conversion.
-            vuf_max = get(bus, "vuf_max", nothing)
+            vuf_max = _magnitude_limit(get(bus, "vuf_max", nothing); name="Bus '$bid'.vuf_max")
             if vuf_max !== nothing
                 u = Float64(vuf_max)
                 u >= 0 || throw(ArgumentError(

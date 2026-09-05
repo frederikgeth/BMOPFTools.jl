@@ -99,7 +99,9 @@ substitution/presolve pass.
 2. **P2 — remaining applicability coverage.** Native source/load/generator
    configuration errors, incomplete source references/load powers, missing or
    malformed line impedance, and unsupported n-winding taps now fail explicitly.
-   This is not a complete validation pass for all ratings and transformer data.
+   Magnitude-limit domains and native transformer maps/subtypes now have explicit
+   checks; zero n-winding caps are enforced. This is not a complete validation
+   pass for every transformer coefficient.
 3. **P2 — general ideal dependence.** Native structural ideal-conductor cycles,
    self-loops and parallels are now rejected after provider resolution. Custom
    switch builders do not contribute native edges. Symbolic parameter values
@@ -119,7 +121,13 @@ remain numerical limitations, not reasons to silently alter physical limits.
 MadNLP is now a test-only dependency. Analytic floating-neutral current, power,
 and voltage-drop checks cover both solvers and SI/per-unit coordinates, with
 positive fractional, negative, and higher exponents. Structural cycle tests cover
-provider resolution and custom builder ownership. No performance claim is made.
+provider resolution and custom builder ownership. The final pass adds finite-difference Jacobian/Hessian checks at small voltages,
+negative/higher exponents, and repeated parameter changes through zero across
+five decades of nominal voltage with both solvers. It found stale nonlinear
+backend evaluations on repeated solves; an explicit cached-optimizer reset is
+tested and documented, with independent current and residual checks. The engine
+does not automatically reset solvers. The logarithmic defining row is normalized
+at its fixed voltage start. No performance claim is made.
 
 ## More in-place substitutions
 
