@@ -760,7 +760,6 @@ source_paths = [
   "test/powerflow_comparison_tests.jl",
   "test/Project.toml",
   "test/opf_engine_review_tests.jl",
-  "docs/src/dev/opf_engine_review.md",
   "docs/src/dev/opf_engine.md",
   "docs/src/opf.md",
   "docs/src/differentiable_extensions.md",

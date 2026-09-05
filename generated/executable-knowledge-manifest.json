@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "f4333cdb32b0d84f4501615fb674683196620ebf276be3af9c743b94d65515f3",
+  "corpus_sha256": "f488c19199d84da3153c8b28f01b4edd26d040922f7b15062b8486f181134235",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -62,11 +62,7 @@
     },
     {
       "path": "docs/src/dev/opf_engine.md",
-      "sha256": "d8f481798e63b701d7aae53835dc2362665e10a50fdcc67cc57109b0c54060e8"
-    },
-    {
-      "path": "docs/src/dev/opf_engine_review.md",
-      "sha256": "004f020ccace0f1ec8b024f89cfbc765cc2e6e2a80fbb7a8562891103d2d2fd9"
+      "sha256": "898b2dcd9ca48c474c95adcf61e45f1ff386cdeae6abdbbcac9eea8702511012"
     },
     {
       "path": "docs/src/dev/versioning.md",
@@ -174,7 +170,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "edccf447565bbfb96bf2ce5c0960634ff5ed11b01ac22a94fce17cd4541e8d67"
+      "sha256": "64e352d1c469a79b06f8cfcb06219c4fe2abbb2419259f650f36740a0efcdd05"
     },
     {
       "path": "recipes/README.md",

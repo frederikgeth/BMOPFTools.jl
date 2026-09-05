@@ -99,11 +99,7 @@ parameters are not classified from their current value, and general dependent
 transformer-ratio relations are not covered. A physically small nonzero impedance should
 remain in the model unless an explicit, justified transformation changes it.
 
-## Runtime limits and review status
-
-The [scientific engine review](opf_engine_review.md) records regression witnesses,
-remaining defects, and proposed substitutions. Its executable evidence links to
-`PSK-000013`; it does not widen that contract's declared coverage.
+## Runtime limits
 
 - **Line angle convention:** `va_diff_*` bounds `θ_from − θ_to`. Both bounds
   must be supplied, finite, ordered, and strictly inside `(-π/2, π/2)`.
