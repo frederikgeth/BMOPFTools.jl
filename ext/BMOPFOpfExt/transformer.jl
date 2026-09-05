@@ -47,6 +47,89 @@
 # ── delta_wye (Dy) ─────────────────────────────────────────────────────────
 #   Symmetric to wye_delta with from↔to swapped; n_eff = N * √3.
 
+# Native transformer ownership is fixed by the build-spec contract. Validate
+# even unknown-only collections, which otherwise have no native family IDs.
+function _validate_native_transformers(net)
+    buses = get(net, "bus", Dict())
+    nlabels = BMOPFTools._neutral_labels(net)
+    for (subtype, devices) in get(net, "transformer", Dict())
+        devices isa AbstractDict || throw(ArgumentError("Transformer collection '$subtype' must be a dictionary."))
+        isempty(devices) && continue
+        subtype in BMOPFTools.TRANSFORMER_SUBTYPES || throw(ArgumentError(
+            "Unsupported native transformer subtype '$subtype'."))
+        for (tid, xf) in devices
+            xf isa AbstractDict || throw(ArgumentError("Transformer '$tid' must be a dictionary."))
+            _validate_magnitude_fields(xf, "Transformer '$tid'")
+            if subtype == "n_winding"
+                windings = get(xf, "windings", nothing)
+                windings isa AbstractVector && length(windings) >= 2 || throw(ArgumentError(
+                    "n_winding transformer '$tid' needs at least two windings."))
+                phase_count = nothing
+                for (k, w) in enumerate(windings)
+                    w isa AbstractDict || throw(ArgumentError("Transformer '$tid' winding $k must be a dictionary."))
+                    _validate_magnitude_fields(w, "Transformer '$tid' winding $k")
+                    for field in ("i_max", "s_max")
+                        value = get(w,field,nothing)
+                        value === nothing || value isa Real || throw(ArgumentError(
+                            "Transformer '$tid' winding $k: $field must be a scalar cap."))
+                    end
+                    _check_square_scale(get(w,"v_nom",1.0), "Transformer '$tid' winding $k nominal voltage")
+                    uppercase(string(get(w,"configuration","WYE"))) in ("WYE","DELTA") ||
+                        throw(ArgumentError("Transformer '$tid' winding $k: unsupported configuration."))
+                    tm = get(w,"terminal_map",String[])
+                    declared = get(get(buses,get(w,"bus",""),Dict()),"terminal_names",String[])
+                    tm isa AbstractVector && !isempty(tm) && length(unique(tm)) == length(tm) && all(t -> t in declared,tm) ||
+                        throw(ArgumentError("Transformer '$tid' winding $k: invalid terminal map."))
+                    all(t -> lowercase(string(t)) in ("a","b","c","n"), tm) ||
+                        throw(ArgumentError("Transformer '$tid' winding $k: native n_winding supports a/b/c phase labels and n neutral only."))
+                    phases, neutral = BMOPFTools._nw_phase_terminals(string.(tm))
+                    count = length(phases)
+                    count > 0 && (phase_count === nothing || phase_count == count) ||
+                        throw(ArgumentError("Transformer '$tid': each winding must have the same positive phase count."))
+                    phase_count = count
+                    if uppercase(string(get(w,"configuration","WYE"))) == "DELTA"
+                        count >= 2 && neutral === nothing || throw(ArgumentError(
+                            "Transformer '$tid' winding $k: DELTA needs at least two phases and no neutral."))
+                    end
+                end
+                continue
+            end
+            for field in ("v_nom_from", "v_nom_to")
+                _check_square_scale(get(xf,field,1.0), "Transformer '$tid'.$field")
+            end
+            fr, to = get(xf,"terminal_map_from",String[]), get(xf,"terminal_map_to",String[])
+            for (side, tm) in (("from",fr), ("to",to))
+                declared = get(get(buses, get(xf,"bus_$side",""), Dict()), "terminal_names", String[])
+                tm isa AbstractVector && !isempty(tm) && length(unique(tm)) == length(tm) &&
+                    all(t -> t in declared, tm) || throw(ArgumentError(
+                        "Transformer '$tid': $side map must contain distinct declared bus terminals."))
+            end
+            if subtype == "center_tap"
+                length(fr) == 2 && length(to) == 3 || throw(ArgumentError(
+                    "center_tap '$tid' requires two from terminals and three to terminals."))
+            elseif subtype in ("wye_delta", "delta_wye")
+                wye, delta = subtype == "wye_delta" ? (fr,to) : (to,fr)
+                length(_phase_positions(wye,nlabels)) == length(delta) && length(delta) >= 2 ||
+                    throw(ArgumentError("Transformer '$tid': wye phases must match delta conductors."))
+            elseif subtype == "open_delta_regulator"
+                connection = uppercase(strip(string(get(xf,"connection",""))))
+                haskey(_OPEN_DELTA_PAIRS, connection) || throw(ArgumentError(
+                    "open_delta_regulator '$tid': unsupported connection '$connection'."))
+                all(tm -> length(_phase_positions(tm,nlabels)) == 3, (fr,to)) ||
+                    throw(ArgumentError("open_delta_regulator '$tid' needs three phase conductors on each side."))
+            elseif subtype == "single_phase_autotransformer"
+                all(tm -> length(BMOPFTools._xfmr_winding_pairs(tm,nlabels)) == 1, (fr,to)) ||
+                    throw(ArgumentError("single_phase_autotransformer '$tid' needs exactly one winding on each side."))
+            elseif subtype == "single_phase"
+                count = length(BMOPFTools._xfmr_winding_pairs(fr,nlabels))
+                count > 0 && count == length(BMOPFTools._xfmr_winding_pairs(to,nlabels)) || throw(ArgumentError(
+                        "single_phase '$tid': winding counts must match."))
+            end
+        end
+    end
+    return nothing
+end
+
 """
     _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i)
 
@@ -113,9 +196,7 @@ function _add_transformer_constraints!(model, net, vars, kcl_r, kcl_i;
     recognized = join(BMOPFTools.TRANSFORMER_SUBTYPES, ", ")
     for (subtype, sub) in xfmr_dict
         (subtype in known || !(sub isa Dict) || isempty(sub)) && continue
-        @warn "OPF: transformer subtype '$subtype' is not modeled — its " *
-              "$(length(sub)) device(s) contribute NO constraints and are absent " *
-              "from KCL. Recognized subtypes: $recognized."
+        throw(ArgumentError("OPF: transformer subtype '$subtype' is unsupported. Recognized subtypes: $recognized."))
     end
 end
 
@@ -249,9 +330,7 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         b, tm = side == "from" ? (b_fr, tmfr) : (b_to, tmto)
         (rn != 0.0 || xn != 0.0) || continue
         if n_pos === nothing
-            @warn "single_phase '$tid': r/x_neutral_$(side) set but the $(side) " *
-                  "side has no shared neutral terminal; ignored."
-            continue
+            throw(ArgumentError("single_phase '$tid': r/x_neutral_$(side) requires a shared neutral terminal."))
         end
         zn2 = rn^2 + xn^2
         Gn  = rn / zn2; Bn = -xn / zn2      # y_n = 1/(R_n + jX_n)
@@ -439,9 +518,7 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
 
     # Require exactly 2 HV and 3 LV terminals.
     length(tmfr) == 2 && length(tmto) == 3 || begin
-        @warn "center_tap '$tid': expected terminal_map_from length 2 and " *
-              "terminal_map_to length 3; got $(length(tmfr)) and $(length(tmto)). Skipping."
-        return
+        throw(ArgumentError("center_tap '$tid': expected two from terminals and three to terminals."))
     end
 
     t_fr_ph = tmfr[1]; t_fr_n  = tmfr[2]   # HV phase, HV neutral
@@ -592,12 +669,12 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         # Current-magnitude limits on the pinned winding-current variables.
         length(i_max_fr) >= 1 && register(:transformer_current_thermal,
             (tid, "from", 1),
-            @constraint(model, Isr^2 + Isi^2 <= i_max_fr[1]^2))
+            _soc_norm!(model, Isr, Isi, i_max_fr[1]))
         length(i_max_to_v) >= 1 && register(:transformer_current_thermal,
             (tid, "to", 1), _soc_norm!(model, Il1r, Il1i, i_max_to_v[1]))
         length(i_max_to_v) >= 2 && register(:transformer_current_thermal,
             (tid, "to", 2),
-            @constraint(model, Inr^2 + Ini^2 <= i_max_to_v[2]^2))
+            _soc_norm!(model, Inr, Ini, i_max_to_v[2]))
         length(i_max_to_v) >= 3 && register(:transformer_current_thermal,
             (tid, "to", 3), _soc_norm!(model, Il2r, Il2i, i_max_to_v[3]))
         # Nameplate cap on the HV coil (V_frph − V_frn) · conj(I_s).
@@ -874,7 +951,7 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     n_pos  = _neutral_pos(tm_wye, nlabels)       # position of neutral in tm_wye (or nothing)
     ph_idx = _phase_positions(tm_wye, nlabels)   # positions of phase conductors in tm_wye
 
-    length(ph_idx) < n_ph && @warn "Transformer '$tid': wye-side phase count < delta conductors."
+    length(ph_idx) == n_ph || throw(ArgumentError("Transformer '$tid': wye phase count must match delta conductors."))
 
     # Series impedance per winding (Ω). r/x_series_from is the from-side winding,
     # r/x_series_to the to-side winding. Map to wye/delta branches by side.
@@ -905,14 +982,11 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     Rn = Float64(get(xfmr, rn_key_w, 0.0))
     Xn = Float64(get(xfmr, xn_key_w, 0.0))
     if get(xfmr, rn_key_d, 0.0) != 0.0 || get(xfmr, xn_key_d, 0.0) != 0.0
-        @warn "Transformer '$tid': $(rn_key_d)/$(xn_key_d) set on the DELTA side, " *
-              "which has no neutral; ignored."
+        throw(ArgumentError("Transformer '$tid': neutral impedance on the DELTA side is unsupported."))
     end
     has_zn = (Rn != 0.0 || Xn != 0.0)
     if has_zn && n_pos === nothing
-        @warn "Transformer '$tid': $(rn_key_w)/$(xn_key_w) set but the wye side " *
-              "has no neutral terminal; ignored."
-        has_zn = false
+        throw(ArgumentError("Transformer '$tid': neutral impedance requires a wye neutral terminal."))
     end
     zn2 = Rn^2 + Xn^2
     Gn  = has_zn ? Rn / zn2 : 0.0     # y_n = 1/(R_n + jX_n) = G_n + jB_n
@@ -1254,9 +1328,7 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
     pairs_fr = BMOPFTools._xfmr_winding_pairs(tmfr, nlabels)
     pairs_to = BMOPFTools._xfmr_winding_pairs(tmto, nlabels)
     if isempty(pairs_fr) || isempty(pairs_to)
-        @warn "single_phase_autotransformer '$tid': needs a phase conductor on " *
-              "each side; got from=$(tmfr) to=$(tmto). Skipping."
-        return
+        throw(ArgumentError("single_phase_autotransformer '$tid' needs a phase conductor on each side."))
     end
     (p_fr, q_fr) = pairs_fr[1]
     (p_to, q_to) = pairs_to[1]
@@ -1429,16 +1501,12 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
     conn = uppercase(strip(string(get(xfmr, "connection", ""))))
     pairs = get(_OPEN_DELTA_PAIRS, conn, nothing)
     if pairs === nothing
-        @warn "open_delta_regulator '$tid': unknown connection '$conn' " *
-              "(expected ABBC/BCAC/CABA). Skipping."
-        return
+        throw(ArgumentError("open_delta_regulator '$tid': unknown connection '$conn' (expected ABBC/BCAC/CABA)."))
     end
     ph_fr = BMOPFTools._phase_positions(tmfr, nlabels)
     ph_to = BMOPFTools._phase_positions(tmto, nlabels)
     if length(ph_fr) < 3 || length(ph_to) < 3
-        @warn "open_delta_regulator '$tid': needs 3 phase conductors on each " *
-              "side; got from=$(tmfr) to=$(tmto). Skipping."
-        return
+        throw(ArgumentError("open_delta_regulator '$tid' needs three phase conductors on each side."))
     end
 
     # Per-regulator tap ratios → effective ratios.

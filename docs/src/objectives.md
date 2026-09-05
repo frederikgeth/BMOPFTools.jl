@@ -170,17 +170,30 @@ formality.
 ## What needs a square root, and what does not
 
 A recurring mistake is reaching for a magnitude when a squared quantity would
-do. Squared quantities are exact, smooth, cheaper, and better conditioned.
+do. Squared quantities avoid square-root evaluation and are smooth at zero.
+They still need appropriate scaling, and a zero-radius squared constraint has
+a vanishing gradient. Neither smoothness nor a lower expression degree
+guarantees good NLP conditioning.
 
 | Quantity | Needs `smooth_norm`? | Why |
 |---|---|---|
 | Network loss `Σ V·conj(I)` | **No** | Bilinear in (V, I) — an exact smooth quadratic. |
 | `\|V₂\|²`, `\|I₀\|²` | **No** | The Fortescue transform is linear, so the square is a plain quadratic. |
-| Current/apparent-power **limits** | **No** | Naturally squared: `ir² + ii² ≤ i_max²`. |
+| Current/apparent-power **limits** | **No** | Normalize a positive-radius squared cap; use component equalities at zero radius. |
 | Worst-case (L∞) of a magnitude | **No** | `max` is monotone under squaring. |
 | `Σ\|V₂\|` (group-lasso) | **Yes** | A genuine 2-norm sum. |
-| VUF = `\|V₂\|/\|V₁\|` | **Yes** | A ratio of magnitudes. |
+| VUF = `\|V₂\|/\|V₁\|` | **No** | `opf_vuf_term` uses the squared ratio; shifted smooth norms distort ratios. |
 | Conduction loss `a·\|I\|` | **Yes** | Linear in current, and an idle leg sits at exactly zero. |
+
+!!! warning "A smoothed penalty is not an exact magnitude limit"
+    `smooth_norm` underestimates the true norm. A constraint
+    `smooth_norm(...) ≤ limit` can admit a true magnitude above `limit`.
+    Use the exact positive-radius cap or zero-component formulation for hard
+    limits; reserve this helper for an explicitly chosen smoothing approximation.
+    Smoothing can also change a weighted objective's trade-off point. Report its
+    scale and epsilon, and compute final engineering metrics from the unsmoothed
+    quantities. The [formulation helper guide](@ref opf-formulation-helpers)
+    distinguishes these roles.
 
 ## [Sizing ε — two regimes with opposite guidance](@id Sizing-ε)
 

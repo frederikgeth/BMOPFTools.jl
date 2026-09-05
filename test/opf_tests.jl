@@ -2794,10 +2794,10 @@ end
         @test isempty(_unregistered_opf_constraint_indices(zip_ctx))
         zip_keys = Set(opf_object_keys(zip_ctx; kind=:constraint))
         @test OpfModelKey(:constraint, :load_voltage_squared_definition,
+                          ("ld1", 1)) ∉ zip_keys
+        @test OpfModelKey(:constraint, :load_impedance_current_real,
                           ("ld1", 1)) in zip_keys
-        @test OpfModelKey(:constraint, :load_voltage_squared_lower_bound,
-                          ("ld1", 1)) in zip_keys
-        @test OpfModelKey(:constraint, :load_voltage_squared_upper_bound,
+        @test OpfModelKey(:constraint, :load_impedance_current_imag,
                           ("ld1", 1)) in zip_keys
         res = solve_opf(zip_net)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
@@ -2818,7 +2818,7 @@ end
         @test OpfModelKey(:constraint, :load_voltage_magnitude_lower_bound,
                           ("ld1", 1)) in current_keys
         @test OpfModelKey(:constraint, :load_voltage_magnitude_upper_bound,
-                          ("ld1", 1)) in current_keys
+                          ("ld1", 1)) ∉ current_keys
         res = solve_opf(current_net)
         @test res["bus"]["bus1"]["1"]["vm"] ≈ V_i   atol=0.01
         @test res["load"]["ld1"]["1"]["pd"] ≈ Pnom*(V_i/Vnom)   rtol=1e-4
