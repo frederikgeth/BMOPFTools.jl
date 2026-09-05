@@ -17,7 +17,11 @@ const _IDENTITY_TERMINAL_ALIASES =
     parse_bmopf(json::AbstractString; from_string=true, terminal_aliases) -> Dict{String,Any}
 
 Parse a BMOPF JSON file (or IO stream, or raw JSON string) into a plain
-`Dict{String,Any}` that mirrors the schema structure exactly.
+`Dict{String,Any}` normalized for analysis and calculation. Migration and
+terminal normalization can change the representation. Explicit transformer
+`no_load_shunt` records become winding-connected shunts; their source values
+and transformer ownership remain in `_meta["explicit_transformer_core_shunts"]`.
+Use PowerIO modules when source-preserving exchange is required.
 
 The returned dict is mutable — analysis functions treat it as read-only
 but callers may modify it freely.
