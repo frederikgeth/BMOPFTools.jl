@@ -72,7 +72,7 @@ The loss current ``100 P_0/S = 0.3\,\%`` is one leg of ``I_0``; the
 susceptance current is the quadrature remainder.
 
 ```@example xfmr
-using BMOPFTools, JuMP, Ipopt
+using BMOPFTools, JuMP, Ipopt, JSON3
 
 S = 50_000.0;  Vhv = 11_000.0;  Vlv = 240.0
 pctZ = 4.0;  Pcu = 1_100.0;  P0 = 150.0;  I0 = 0.5          # the test report
@@ -235,19 +235,25 @@ dyn11 = Dict{String,Any}(
     "r_series_to"   => (pctR3/2)/100 * Vlv3^2/S3,
     "x_series_from" => (pctX3/2)/100 * Vhv3^2/S3,
     "x_series_to"   => (pctX3/2)/100 * Vlv3^2/S3,
-    "g_no_load"     =>  (P03/S3)     * S3 / Vcoil2^2,
-    "b_no_load"     => -(pct_b3/100) * S3 / Vcoil2^2)
+    "no_load_shunt" => Dict("winding" => 2,
+        "g" => P03 / (3Vcoil2^2),
+        "b" => -(pct_b3/100) * S3 / (3Vcoil2^2)))
 
-for k in ("r_series_from", "x_series_from", "r_series_to", "x_series_to",
-          "g_no_load", "b_no_load")
+for k in ("r_series_from", "x_series_from", "r_series_to", "x_series_to")
     println(rpad(k, 16), " = ", round(dyn11[k]; sigdigits = 5))
 end
+println("winding-2 core shunt (S per coil): ", dyn11["no_load_shunt"])
 ```
 
-**Independent cross-check.** The same datasheet can be written as OpenDSS
-text and imported through the entirely separate OpenDSS→PowerIO→BMOPF
-pipeline. If the hand conversion and the import pipeline agree, both would
-have to be wrong in the same way to be wrong at all:
+The proposed `no_load_shunt` records its physical winding explicitly. Its
+conductance and susceptance are siemens per coil, so three identical coils
+each carry one third of the total no-load power.
+
+**Import cross-check.** The same datasheet can be written as OpenDSS text
+and imported through PowerIO. BMOPFTools materializes the explicit core
+branch as a shunt and retains its winding and per-coil values in metadata.
+The comparison checks agreement between the declared arithmetic and import;
+the subsequent numerical tests check the resulting electrical behavior:
 
 ```@example xfmr
 deck = joinpath(mktempdir(), "Master.dss")
@@ -261,21 +267,25 @@ Set VoltageBases=[11, 0.416]
 CalcVoltageBases
 Solve
 """)
-imported = first(values(from_dss(deck)["transformer"]["delta_wye"]))
+imported_net = from_dss(deck)
+imported = first(values(imported_net["transformer"]["delta_wye"]))
+imported_core = only(values(imported_net["_meta"]["explicit_transformer_core_shunts"]))["source"]
 
 N3 = Vhv3 / Vlv3
 series(t) = (t["r_series_from"] + im*t["x_series_from"]) +
             N3^2 * (t["r_series_to"] + im*t["x_series_to"])
 println(rpad("field", 16), rpad("hand", 14), "from_dss")
-for k in ("r_series_from", "r_series_to", "g_no_load", "b_no_load")
+for k in ("r_series_from", "r_series_to")
     println(rpad(k, 16), rpad(round(dyn11[k]; sigdigits = 5), 14),
             round(Float64(imported[k]); sigdigits = 5))
 end
 println(rpad("series sum (Ω)", 16), rpad(round(series(dyn11); sigdigits = 5), 14),
         round(series(imported); sigdigits = 5))
 @assert isapprox(series(dyn11), series(imported); rtol = 1e-6)
-@assert isapprox(dyn11["g_no_load"], Float64(imported["g_no_load"]); rtol = 1e-6)
-@assert isapprox(dyn11["b_no_load"], Float64(imported["b_no_load"]); rtol = 1e-6)
+@assert imported_core["winding"] == 2
+for k in ("g", "b")
+    @assert isapprox(dyn11["no_load_shunt"][k], Float64(imported_core[k]); rtol = 1e-6)
+end
 ```
 
 The resistances and core branch match term-for-term. The *reactance split*
@@ -287,11 +297,13 @@ matters — the tapped winding's share scales as tap² — which is why the engi
 pins the referral convention explicitly;
 [transformer models](transformer_models.md).)
 
-**And re-run the tests.** Same drill as §4, three-phase:
+**Re-run the tests.** Parse the authored proposal data before solving so the
+explicit winding shunt enters the computational model. The open-circuit and
+short-circuit tests then check the three-phase datasheet values:
 
 ```@example xfmr
 vph = Vhv3 / sqrt(3)
-net3(; short = false, vscale = 1.0) = Dict{String,Any}(
+net3(; short = false, vscale = 1.0) = parse_bmopf(JSON3.write(Dict{String,Any}(
     "bus" => Dict{String,Any}(
         "hv" => Dict{String,Any}("terminal_names" => ["a", "b", "c", "n"],
                                  "perfectly_grounded_terminals" => ["n"]),
@@ -302,7 +314,7 @@ net3(; short = false, vscale = 1.0) = Dict{String,Any}(
         "v_magnitude" => [vph*vscale, vph*vscale, vph*vscale, 0.0],
         "v_angle" => [0.0, -2π/3, 2π/3, 0.0])),
     "transformer" => Dict{String,Any}("delta_wye" => Dict{String,Any}(
-        "t1" => deepcopy(dyn11))))
+        "t1" => deepcopy(dyn11))))); from_string = true)
 
 oc3 = solve_pf(net3(); optimizer = OPT)
 v_lv = abs(oc3["bus"]["lv"]["a"]["vr"] + im*oc3["bus"]["lv"]["a"]["vi"])
