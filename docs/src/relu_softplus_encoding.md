@@ -220,14 +220,21 @@ ordering guards using a small gap derived from the nominal curve. Crossing two
 breakpoints therefore yields an infeasible solve rather than a different curve
 topology and an untrustworthy derivative.
 
-DiffOpt's nonlinear wrapper may reject JuMP user-defined operators. Select
-`softplus=:builtin` explicitly when building that model to use the equivalent
-native `log1p(exp(⋅))` expression and keep parameters visible to
-differentiation. BMOPFTools does not silently switch encodings after an
-optimizer error. Unlike the default StatsFuns-backed operator, the built-in
-expression does not have the same regime-split overflow protection; studies
-using extreme voltage-to-smoothing ratios should treat the report qualification
-as a numerical warning and test the relevant range.
+!!! warning "Built-in softplus trades evaluation protection for compatibility"
+    DiffOpt's nonlinear wrapper may reject JuMP user-defined operators. Select
+    `softplus=:builtin` explicitly to use the equivalent native
+    `log1p(exp(⋅))` expression and keep parameters visible to differentiation.
+    BMOPFTools does not silently switch encodings after an optimizer error.
+
+    Unlike the default StatsFuns-backed operator, the built-in expression lacks
+    the same regime-split overflow protection. A finite physical voltage does
+    not guarantee a representable exponential when divided by a very small
+    smoothing width. Test the voltage-to-smoothing range, including solver trial
+    points; mathematical equivalence does not imply floating-point equivalence.
+
+For repeated coefficient updates, also follow the
+[parameter-update workflow](@ref opf-parameter-resolves). Operator compatibility,
+evaluation stability, and cache freshness are separate concerns.
 
 ## 7. Provenance and related work
 

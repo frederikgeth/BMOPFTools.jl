@@ -35,59 +35,27 @@
 # limits are symmetric and either alone would suffice; both are kept for
 # generality when shunts are non-zero.
 
-"""
-    _assert_no_parallel_zero_impedance(net)
-
-Throw if two *zero-impedance* branches — a closed switch, or a line whose entire
-series impedance is zero — directly bridge the SAME conductor endpoints, i.e. the
-same `(bus, terminal)` pair on both ends.
-
-A zero-impedance branch imposes `V_from == V_to` on its conductors. Two of them
-across the same node pair impose that equality twice and leave two current
-variables whose only determined quantity is their SUM (fixed by KCL) — the split
-is a free degree of freedom, a singular KKT system with infinitely many optima.
-Finite-impedance parallels are fine (each current is pinned by its own Ohm's-law
-drop); only the zero-impedance case is rejected. The check is per conductor
-(same terminals), not per bus: two branches on different conductors of the same
-bus pair are independent and allowed.
-"""
-function _assert_no_parallel_zero_impedance(net)
-    linecodes = get(net, "linecode", Dict())
-    Node = Tuple{String,String}
-    seen = Dict{Tuple{Node,Node}, String}()
-    function record!(bid, b_fr, b_to, tmfr, tmto, n)
-        for k in 1:n
-            p::Node = (b_fr, tmfr[k]); q::Node = (b_to, tmto[k])
-            key = p <= q ? (p, q) : (q, p)
-            if haskey(seen, key)
-                error("Parallel zero-impedance branches: '$(seen[key])' and " *
-                    "'$bid' both directly bridge terminals $p — $q with zero " *
-                    "series impedance, so the current split between them is " *
-                    "undetermined (singular system). Merge them into one branch, " *
-                    "or give one a finite impedance.")
-            end
-            seen[key] = bid
+# Union-find over native, structurally ideal voltage rows. Store it on the
+# model so line and switch builders share it, but custom switch builders do not
+# contribute fictitious native edges. Coefficients are resolved before recording.
+function _record_ideal_voltage_edge!(model, owner, p, q)
+    # Variable identity separates time/scenario contexts sharing one model.
+    Node = JuMP.VariableRef
+    parents = get!(model.ext, :BMOPFIdealVoltageForest) do
+        Dict{Node,Node}()
+    end
+    function root(x)
+        get!(parents, x, x)
+        while parents[x] != x
+            parents[x] = parents[parents[x]]
+            x = parents[x]
         end
+        return x
     end
-    # Closed switches are always zero-impedance (V_from == V_to); open ones are
-    # electrically disconnected and impose no coupling.
-    for (sid, sw) in get(net, "switch", Dict())
-        get(sw, "open_switch", false) && continue
-        tmfr = Vector{String}(get(sw, "terminal_map_from", String[]))
-        tmto = Vector{String}(get(sw, "terminal_map_to",   String[]))
-        record!(sid, sw["bus_from"], sw["bus_to"], tmfr, tmto,
-                min(length(tmfr), length(tmto)))
-    end
-    # Lines whose entire series impedance matrix is zero (stamped as V_from==V_to).
-    for (lid, line) in get(net, "line", Dict())
-        R, X, n_c = _line_z_matrix(line, linecodes)
-        (n_c == 0 || R === nothing || X === nothing) && continue
-        (all(iszero, R) && all(iszero, X)) || continue
-        tmfr = Vector{String}(get(line, "terminal_map_from", String[]))
-        tmto = Vector{String}(get(line, "terminal_map_to",   String[]))
-        record!(lid, line["bus_from"], line["bus_to"], tmfr, tmto,
-                min(n_c, length(tmfr), length(tmto)))
-    end
+    rp, rq = root(p), root(q)
+    rp == rq && throw(ArgumentError(
+        "$owner closes an ideal-conductor cycle at $p — $q (including parallel edges or a self-loop). Its voltage row is dependent; remove the redundant ideal coupling or supply the physical impedance."))
+    parents[rp] = rq
     return nothing
 end
 
@@ -129,9 +97,7 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
     for (lid, line) in get(net, "line", Dict())
         R, X, n_c = _line_z_matrix(line, linecodes)
         if n_c == 0
-            @warn "Line '$lid': no impedance source (missing/unknown linecode " *
-                  "and no inline matrices) — skipping KVL."
-            continue
+            throw(ArgumentError("Line '$lid': no impedance source (missing/unknown linecode or series matrices). Declare exact zero impedance explicitly for an ideal line."))
         end
 
         b_fr  = line["bus_from"]
@@ -163,6 +129,13 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
         X_model = coefficient === nothing ? X : Any[
             coefficient(:physics, :line, lid, :X_series, (k, j), X[k, j])
             for k in 1:n_map, j in 1:n_map]
+
+        for k in 1:n_map
+            if all(_is_structural_zero, R_model[k,:]) && all(_is_structural_zero, X_model[k,:])
+                _record_ideal_voltage_edge!(model, "Line '$lid' conductor $k",
+                    vr[(b_fr, tmfr[k])], vr[(b_to, tmto[k])])
+            end
+        end
 
         # ── KVL ───────────────────────────────────────────────────────────────
         for k in 1:n_map
@@ -283,7 +256,10 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                     base_name = "$(lid)_fr_$(k)",
                     register_constraint=(family, cref) -> register(
                         Symbol("line_", family), (lid, :from, k), cref))
-                if has_any_shunt
+                # Equal series-current magnitudes do not imply equal powers:
+                # |S_end| = |V_end| |I_end| and the end voltages can differ even
+                # without shunts. In reverse flow the to-end can be limiting.
+                begin
                     cto_r = @expression(model, cr_to[(lid,k)] + ish_to_r[k])
                     cto_i = @expression(model, ci_to[(lid,k)] + ish_to_i[k])
                     _apparent_power_limit!(model,
@@ -304,9 +280,18 @@ Enforce per-line angle-difference bounds (`va_diff_min`, `va_diff_max`, radians)
 the from- and to-end voltages on each conductor. Shared by OPF and feasibility OPF.
 
 For each conductor k:
-  s = vr_fr·vi_to − vi_fr·vr_to   (imaginary part of V_fr · conj(V_to))
+  s = vi_fr·vr_to − vr_fr·vi_to   (imaginary part of V_fr · conj(V_to))
   c = vr_fr·vr_to + vi_fr·vi_to   (real part)
   tan(va_diff_min)·c ≤ s ≤ tan(va_diff_max)·c
+
+The actual rows are scaled by the positive cosine of each endpoint to keep
+coefficients bounded. Equal endpoints use a single equality and `c ≥ 0`.
+
+Bounds describe θ_from − θ_to. Both endpoints must be supplied and strictly
+between −π/2 and π/2. A lone endpoint does not declare the angular domain
+needed by the tangent encoding, so it is rejected rather than completed with
+an implicit bound. Zero voltage has no defined angle; these homogeneous rows
+do not supply a voltage lower bound.
 """
 function _add_line_angle_constraints!(model, net, vars; constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
@@ -317,9 +302,7 @@ function _add_line_angle_constraints!(model, net, vars; constraint_context=nothi
         va_diff_min = get(line, "va_diff_min", nothing)
         va_diff_max = get(line, "va_diff_max", nothing)
         (va_diff_min === nothing && va_diff_max === nothing) && continue
-
-        tan_min = va_diff_min !== nothing ? tan(Float64(va_diff_min)) : nothing
-        tan_max = va_diff_max !== nothing ? tan(Float64(va_diff_max)) : nothing
+        lo, hi = _angle_window(va_diff_min, va_diff_max, "Line '$lid'")
 
         b_fr  = line["bus_from"]
         b_to  = line["bus_to"]
@@ -331,15 +314,10 @@ function _add_line_angle_constraints!(model, net, vars; constraint_context=nothi
             t_fr = tmfr[k]; t_to = tmto[k]
             haskey(vr, (b_fr, t_fr)) || continue
             haskey(vr, (b_to, t_to)) || continue
-            s = @expression(model, vr[(b_fr,t_fr)]*vi[(b_to,t_to)] - vi[(b_fr,t_fr)]*vr[(b_to,t_to)])
+            s = @expression(model, vi[(b_fr,t_fr)]*vr[(b_to,t_to)] - vr[(b_fr,t_fr)]*vi[(b_to,t_to)])
             c = @expression(model, vr[(b_fr,t_fr)]*vr[(b_to,t_to)] + vi[(b_fr,t_fr)]*vi[(b_to,t_to)])
-            if tan_min !== nothing
-                register(:line_angle_lower, (lid, k),
-                    @constraint(model, tan_min * c <= s))
-            end
-            if tan_max !== nothing
-                register(:line_angle_upper, (lid, k),
-                    @constraint(model, s <= tan_max * c))
+            for (suffix, cref) in pairs(_angle_window_constraints!(model, s, c, lo, hi))
+                register(Symbol(:line_angle_, suffix), (lid, k), cref)
             end
         end
     end
@@ -376,10 +354,14 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i;
         is_open = get(sw, "open_switch", false)
         i_max   = get(sw, "i_max", nothing)
         s_max   = get(sw, "s_max", nothing)
-        n_c = min(length(tmfr), length(tmto))
+        length(tmfr) == length(tmto) && !isempty(tmfr) || throw(ArgumentError(
+            "Switch '$sid': terminal maps must have equal, nonzero length."))
+        n_c = length(tmfr)
 
         for k in 1:n_c
             if !is_open
+                _record_ideal_voltage_edge!(model, "Switch '$sid' conductor $k",
+                    vr[(b_fr, tmfr[k])], vr[(b_to, tmto[k])])
                 register(:switch_voltage_coupling_real, (sid, k),
                     @constraint(model, vr[(b_fr, tmfr[k])] == vr[(b_to, tmto[k])]))
                 register(:switch_voltage_coupling_imag, (sid, k),
@@ -387,6 +369,10 @@ function _add_switch_constraints!(model, net, vars, kcl_r, kcl_i;
             end
             _kcl_add!(kcl_r, kcl_i, b_fr, tmfr[k], -cr_sw[(sid,k)], -ci_sw[(sid,k)])
             _kcl_add!(kcl_r, kcl_i, b_to, tmto[k],  cr_sw[(sid,k)],  ci_sw[(sid,k)])
+            # Open-switch currents are fixed to zero. Their limits are already
+            # satisfied; adding variable bounds to a fixed JuMP variable throws.
+            # Avoid vacuous power auxiliaries and thermal rows as well.
+            is_open && continue
             if i_max !== nothing && k <= length(i_max)
                 ilim = Float64(i_max[k])
                 register(:switch_current_thermal, (sid, k),

@@ -36,8 +36,9 @@ generators and IBRs: **bounds make it optimisable**.
   their native `tap_ratio` free with `tap_ratio_min`/`tap_ratio_max`.
 
 `n_winding` is the one subtype **without** tap support: its ratio is always held at
-the nominal turns ratio. Supplying a tap field on an `n_winding` raises a warning at
-OPF-build time (rather than silently fixing the ratio).
+the nominal turns ratio. Supplying a tap field on an `n_winding` transformer or
+its windings raises `ArgumentError` at native OPF-build time. Use a supported
+two-bus subtype when tap regulation is required.
 
 If `tap_min < tap_max` the tap becomes a decision variable; otherwise it is fixed
 (so existing data is unchanged). Internally the solved tap enters the winding

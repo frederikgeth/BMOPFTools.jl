@@ -735,7 +735,38 @@ finding_codes = [
   "W.CONTRACT.FEASIBILITY_INDETERMINATE",
 ]
 fixture_ids = ["solved-network-feasibility-001"]
-source_paths = ["src/knowledge/contracts.jl", "docs/src/findings.md", "test/scientific_contract_tests.jl"]
+source_paths = [
+  "src/knowledge/contracts.jl",
+  "docs/src/findings.md",
+  "test/scientific_contract_tests.jl",
+  "ext/BMOPFOpfExt/branch.jl",
+  "ext/BMOPFOpfExt/bus.jl",
+  "ext/BMOPFOpfExt/data_utils.jl",
+  "ext/BMOPFOpfExt/source.jl",
+  "ext/BMOPFOpfExt/core.jl",
+  "ext/BMOPFOpfExt/profile.jl",
+  "ext/BMOPFOpfExt/generator.jl",
+  "ext/BMOPFOpfExt/load.jl",
+  "ext/BMOPFOpfExt/nwinding.jl",
+  "ext/BMOPFOpfExt/transformer.jl",
+  "ext/BMOPFOpfExt/ibr.jl",
+  "ext/BMOPFOpfExt/objective.jl",
+  "ext/BMOPFOpfExt/results.jl",
+  "ext/BMOPFOpfExt/variables.jl",
+  "test/opf_tests.jl",
+  "test/opf_device_substitution_tests.jl",
+  "test/opf_domain_tests.jl",
+  "test/opf_final_hardening_tests.jl",
+  "test/powerflow_comparison_tests.jl",
+  "test/Project.toml",
+  "test/opf_engine_review_tests.jl",
+  "docs/src/dev/opf_engine.md",
+  "docs/src/opf.md",
+  "docs/src/differentiable_extensions.md",
+  "docs/src/objectives.md",
+  "docs/src/relu_softplus_encoding.md",
+  "docs/src/tutorial_custom_formulations.md",
+]
 
 [[finding]]
 code = "E.CONTRACT.FEASIBILITY_RESIDUAL_VIOLATION"
