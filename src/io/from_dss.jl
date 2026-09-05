@@ -14,10 +14,18 @@ const _DSS_TERMINAL_MAP = Dict(
 # Terminal names PowerIO can emit for an OpenDSS bus (phases, neutral, earth).
 const _DSS_NUMERIC_TERMINALS = Set(("1", "2", "3", "4", "5"))
 
-# PowerIO exposes the key/value pairs it could not place in the BMOPF schema on
-# an `extras` property. If a future PowerIO renames or drops it, every ledger
-# below would report "nothing was dropped" — indistinguishable from a perfect
-# conversion — so probe for the property explicitly and surface its absence.
+# Source-only metadata is inspected through the public generation-2 IR contract.
+function _powerio_audit_input(module_::PowerIO.PioModule{PowerIO.MulticonductorNetwork})
+    document = JSON3.read(PowerIO.serialize(module_).text)
+    document.schema == "pio-ir" && document.version == 2 ||
+        throw(ArgumentError("source metadata audit requires PowerIO IR generation 2"))
+    document.value.type == "powerio.MulticonductorNetwork" ||
+        throw(ArgumentError("source metadata audit requires a multiconductor network"))
+    return (module_ = module_, network = module_.value, data = document.value.data)
+end
+
+_powerio_diagnostic_line(d) = string(d.code, ": ", d.message)
+
 function _powerio_extras(item)
     hasproperty(item, :extras) || return nothing
     extras = getproperty(item, :extras)
@@ -38,15 +46,15 @@ function _powerio_item_name(item, position::Integer)
 end
 
 _powerio_collections(dn) = (
-    ("bus", PowerIO.buses(dn)),
-    ("linecode", PowerIO.linecodes(dn)),
-    ("line", PowerIO.lines(dn)),
-    ("switch", PowerIO.switches(dn)),
-    ("transformer", PowerIO.transformers(dn)),
-    ("load", PowerIO.loads(dn)),
-    ("generator", PowerIO.generators(dn)),
-    ("shunt", PowerIO.shunts(dn)),
-    ("source", PowerIO.sources(dn)),
+    ("bus", dn.data.buses),
+    ("linecode", dn.data.linecodes),
+    ("line", dn.data.lines),
+    ("switch", dn.data.switches),
+    ("transformer", dn.data.transformers),
+    ("load", dn.data.loads),
+    ("generator", dn.data.generators),
+    ("shunt", dn.data.shunts),
+    ("source", dn.data.sources),
 )
 
 """Summarize source-only `extras` fields without copying raw source values."""
@@ -68,7 +76,7 @@ function _powerio_source_metadata(dn)
         end
     end
     return Dict{String,Any}(
-        "source_format" => something(PowerIO.source_format(dn), "unknown"),
+        "source_format" => something(dn.network.source_format, "unknown"),
         "field_count" => length(unique(all_fields)),
         "fields" => sort!(unique(all_fields)),
         "by_scope" => groups,
@@ -143,10 +151,6 @@ function _powerio_mapping_policy(field::AbstractString,
 end
 
 function _powerio_warning_scope(message)
-    # PowerIO 0.9 renders diagnostics as `CODE: message` (e.g.
-    # `EMIT.BMOPF.FIELD_DROPPED: load ld1: ...`). Reuse the writer-side splitter
-    # so the ledger and `powerio_findings` agree on what counts as a code;
-    # an uncoded line comes back whole and parses as it always did.
     _, text = _split_powerio_line(strip(String(message)))
     tokens = split(text)
     length(tokens) >= 3 || return "unknown"
@@ -166,7 +170,7 @@ end
 """Retain normalized source semantics that have no active BMOPF field."""
 function _powerio_source_semantics(dn)
     load_thresholds = Dict{String,Any}[]
-    for item in PowerIO.loads(dn)
+    for item in dn.data.loads
         vmin = _powerio_float(_powerio_extra(item, "vminpu"))
         vmax = _powerio_float(_powerio_extra(item, "vmaxpu"))
         (vmin === nothing && vmax === nothing) && continue
@@ -186,7 +190,7 @@ function _powerio_source_semantics(dn)
         ))
     end
     source_models = Dict{String,Any}[]
-    for item in PowerIO.sources(dn)
+    for item in dn.data.sources
         raw_model = _powerio_extra(item, "model")
         raw_model === nothing && continue
         model = lowercase(strip(string(raw_model)))
@@ -331,7 +335,7 @@ function _powerio_pf_is_demonstrated(raw_pf, converted::AbstractDict)::Bool
 end
 
 """Record source fields that are demonstrably represented by BMOPF fields."""
-function _powerio_bmopf_field_mapping(dn, net)
+function _powerio_bmopf_field_mapping(dn, net; diagnostics=nothing)
     by_field = Dict{String,Any}()
     load_net = get(net, "load", Dict{String,Any}())
     for (field, target, transform) in (
@@ -344,7 +348,7 @@ function _powerio_bmopf_field_mapping(dn, net)
         ("pf", "load.p_nom/q_nom", "active_power_and_power_factor_to_reactive_power"),
     )
         scopes = String[]
-        for item in PowerIO.loads(dn)
+        for item in dn.data.loads
             raw = _powerio_extra(item, field)
             raw === nothing && continue
             name = lowercase(string(getproperty(item, :name)))
@@ -375,7 +379,7 @@ function _powerio_bmopf_field_mapping(dn, net)
     # constraints to the production BMOPF model.
     for field in ("vminpu", "vmaxpu")
         scopes = String[]
-        for item in PowerIO.loads(dn)
+        for item in dn.data.loads
             _powerio_float(_powerio_extra(item, field)) === nothing && continue
             name = lowercase(string(getproperty(item, :name)))
             converted = get(load_net, name, nothing)
@@ -399,7 +403,7 @@ function _powerio_bmopf_field_mapping(dn, net)
             "opendss_zipv_to_bmopf_zip_parameters"),
     )
         scopes = String[]
-        for item in PowerIO.loads(dn)
+        for item in dn.data.loads
             _powerio_extra(item, field) === nothing && continue
             name = lowercase(string(getproperty(item, :name)))
             converted = get(load_net, name, nothing)
@@ -424,7 +428,7 @@ function _powerio_bmopf_field_mapping(dn, net)
     source_net = get(net, "voltage_source", Dict{String,Any}())
     source_net isa AbstractDict || (source_net = Dict{String,Any}())
     source_model_scopes = String[]
-    for item in PowerIO.sources(dn)
+    for item in dn.data.sources
         lowercase(string(_powerio_extra(item, "model"))) == "ideal" || continue
         name = lowercase(string(getproperty(item, :name)))
         converted = get(source_net, name, nothing)
@@ -456,7 +460,7 @@ function _powerio_bmopf_field_mapping(dn, net)
         ("basekv", "voltage_source.v_magnitude", "line_to_neutral_voltage_conversion"),
     )
         scopes = String[]
-        for item in PowerIO.sources(dn)
+        for item in dn.data.sources
             _powerio_extra(item, field) === nothing && continue
             name = lowercase(string(getproperty(item, :name)))
             converted = get(source_net, name, nothing)
@@ -483,19 +487,37 @@ function _powerio_bmopf_field_mapping(dn, net)
     warning_scopes = Dict{String,Vector{String}}()
     unclassified = String[]
     truncated = false
-    for message in warnings
+    for (position, message) in enumerate(warnings)
         text = String(message)
-        # PowerIO caps its per-call warning channel and appends this sentinel
-        # (see PowerIO `_warn_lines`). Past the cap the dropped fields are gone,
-        # so the ledger below is provably incomplete and must say so.
+        diagnostic = diagnostics !== nothing && position <= length(diagnostics) ?
+            diagnostics[position] : nothing
+        details = diagnostic !== nothing && hasproperty(diagnostic, :details) ?
+            diagnostic.details : nothing
+        if diagnostic !== nothing && diagnostic.code == "EMIT.BMOPF.FIELD_DROPPED" &&
+           details isa AbstractDict && haskey(details, "field")
+            field = String(details["field"])
+            elements = get(details, "elements", Any[])
+            scopes = get!(warning_scopes, field, String[])
+            for element in elements
+                # Element locators precede the colon in single-element messages.
+                push!(scopes, _powerio_warning_scope(string(element, ": field")))
+            end
+            incomplete = get(details, "elements_truncated", false) ||
+                get(details, "count", length(elements)) != length(elements)
+            if incomplete || isempty(elements)
+                truncated = true
+                push!(scopes, "unknown:unattributed")
+            end
+            continue
+        end
+        if diagnostic !== nothing && diagnostic.code != "EMIT.BMOPF.FIELD_DROPPED"
+            push!(unclassified, text)
+            continue
+        end
         if occursin("warning list truncated at", text)
             truncated = true
             continue
         end
-        # Only the ``field``-quoting warnings can be classified by field. Other
-        # phrasings (e.g. a transformer's %noloadloss shunt drop) are recorded
-        # verbatim rather than pattern-matched, so the ledger does not grow a
-        # dependency on every upstream message shape.
         match_result = match(r"`([^`]+)`", text)
         if isnothing(match_result)
             push!(unclassified, text)
@@ -504,7 +526,8 @@ function _powerio_bmopf_field_mapping(dn, net)
         field = String(match_result.captures[1])
         push!(get!(warning_scopes, field, String[]), _powerio_warning_scope(text))
     end
-    classified = length(warnings) - length(unclassified) - (truncated ? 1 : 0)
+    classified = length(warnings) - length(unclassified) -
+        count(message -> occursin("warning list truncated at", String(message)), warnings)
     # A ledger that cannot read all of its own input must not present an empty
     # `unmapped_fields`: that is indistinguishable from a clean conversion. The
     # warning text comes from PowerIO, so both a truncated list and a reformatted
@@ -590,9 +613,10 @@ Parse an OpenDSS Master file directly to a BMOPF network dict using
 [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl).
 
 This is the recommended path for reading OpenDSS networks: the Rust parser
-(bound in-process by PowerIO.jl) materialises every OpenDSS class default
-explicitly, validates fidelity against the OpenDSS solver, and produces
-schema-valid BMOPF JSON without going through PowerModelsDistribution.
+(bound in-process by PowerIO.jl) parses a typed module and explicitly emits the
+BMOPF 0.1.0 profile with diagnosed extension relocations. Conversion diagnostics remain separate from
+schema validation and numerical validation against OpenDSS. Source metadata
+is read through a generation-2 PowerIO IR snapshot for the conversion audit.
 
 OpenDSS identifiers are case-insensitive but case-preserving, whereas BMOPF
 keys are matched exactly. To reconcile the two, every identifier and every
@@ -656,8 +680,14 @@ function from_dss(path::AbstractString;
 
     # PowerIO parses to a MulticonductorNetwork handle, then emits BMOPF JSON
     # plus a list of fidelity-loss warnings.
-    dn = PowerIO.parse_file(PowerIO.MulticonductorNetwork, abspath_dss)
-    json_raw, warnings_list = PowerIO.to_format(dn, "bmopf")
+    module_ = PowerIO.parse(abspath_dss)
+    module_ isa PowerIO.PioModule{PowerIO.MulticonductorNetwork} ||
+        throw(ArgumentError("OpenDSS input must contain a multiconductor network"))
+    dn = _powerio_audit_input(module_)
+    emission = PowerIO.emit(module_, "bmopf-json@0.1.0")
+    json_raw = emission.text
+    diagnostics = vcat(module_.diagnostics, emission.diagnostics)
+    warnings_list = _powerio_diagnostic_line.(diagnostics)
 
     if isempty(json_raw)
         throw(ErrorException("PowerIO produced no output for $path"))
@@ -687,11 +717,15 @@ function from_dss(path::AbstractString;
     # name their components the way the rest of the dict does.
     net["_meta"] = get(net, "_meta", Dict{String,Any}())
     net["_meta"]["powerio_warnings"] = collect(String, warnings_list)
+    net["_meta"]["powerio_diagnostic_details"] = [Dict{String,Any}(
+        "code" => d.code, "severity" => string(d.severity),
+        "message" => d.message, "target" => d.target, "details" => d.details,
+    ) for d in diagnostics]
     net["_meta"]["powerio_diagnostics"] =
-        _powerio_diagnostic_records(warnings_list; fold_ids=true)
+        _powerio_diagnostic_records(diagnostics; fold_ids=true)
     net["_meta"]["powerio_source"]   = abspath_dss
     net["_meta"]["powerio_source_metadata"] = _powerio_source_metadata(dn)
-    source_mapping = _powerio_bmopf_field_mapping(dn, net)
+    source_mapping = _powerio_bmopf_field_mapping(dn, net; diagnostics=diagnostics)
     net["_meta"]["powerio_source_mapped_fields"] = source_mapping["fields"]
     net["_meta"]["powerio_source_mapping"] = source_mapping
     net["_meta"]["powerio_source_semantics"] = _powerio_source_semantics(dn)
@@ -705,7 +739,7 @@ function from_dss(path::AbstractString;
     # checks. If PowerIO cannot report a base frequency, fall back silently
     # to the override or leave meta.frequency unset.
     f_powerio = try
-        Float64(PowerIO.base_frequency(dn))
+        Float64(dn.network.base_frequency)
     catch
         nothing
     end
@@ -729,8 +763,8 @@ function from_dss(path::AbstractString;
         # list whose head is often five near-identical dropped fields.
         records = net["_meta"]["powerio_diagnostics"]
         preview = join(("$(r["code"]): $(r["message"])" for r in records), "\n  ")
-        @warn "from_dss: $(length(warnings_list)) piece(s) of OpenDSS information " *
-              "could not be represented in BMOPF, in $(length(records)) class(es) " *
+        @warn "from_dss: $(length(warnings_list)) parsing and conversion diagnostic record(s) " *
+              "in $(length(records)) class(es) " *
               "(full list on net[\"_meta\"][\"powerio_warnings\"]):\n  " * preview
     end
     if !isnothing(name)
@@ -984,7 +1018,7 @@ function _normalize_transformer_no_load_shunts!(net::Dict{String,Any}, dn)
 
     local pmd
     try
-        pmd_raw, _ = PowerIO.to_format(dn, "pmd")
+        pmd_raw = PowerIO.emit(dn.module_, "pmd").text
         pmd = JSON3.read(pmd_raw)
     catch err
         @warn "from_dss: could not fetch PowerIO `pmd` export to normalise " *

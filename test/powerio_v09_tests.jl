@@ -1,6 +1,6 @@
-# PowerIO 0.9 BMOPF writer contracts consumed by BMOPFTools.
+# PowerIO BMOPF writer contracts consumed by BMOPFTools.
 
-@testset "PowerIO 0.9 BMOPF writer" begin
+@testset "PowerIO BMOPF writer" begin
     @testset "pairable regulator legs merge into one open delta regulator" begin
         # OpenDSS represents an open delta regulator bank as two independent
         # single phase transformers. RegControl marks both as regulator legs;
@@ -37,4 +37,60 @@
         @test merged["component_type"] == "transformer"
         @test merged["component_id"] == "reg1"
     end
+end
+
+@testset "PowerIO 0.11 explicit profile and metadata audit" begin
+    module_ = PowerIO.parse(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
+    audit = BMOPFTools._powerio_audit_input(module_)
+    @test audit.network isa PowerIO.MulticonductorNetwork
+    @test audit.data.loads[1].extras isa AbstractDict
+    emitted = PowerIO.emit(module_, "bmopf-json@0.1.0")
+    parsed = parse_bmopf(emitted.text; from_string=true)
+    @test BMOPFTools._detect_spec_version(parsed) == BMOPFTools._CURRENT_SPEC
+    invalid = deepcopy(parsed)
+    invalid["meta"]["\$schema"] = "https://example.invalid/unknown-schema"
+    @test_throws ArgumentError BMOPFTools.migrate(invalid)
+end
+
+@testset "Complete transformer relocation preserves conflicts" begin
+    existing = Dict{String,Any}("tap_ratio" => [1.0, 1.0])
+    retained = Dict{String,Any}("tap_ratio" => [1.05, 1.025])
+    net = Dict{String,Any}(
+        "transformer" => Dict("open_delta_regulator" => Dict("a" => existing)),
+        "extras" => Dict("transformer" => Dict("open_delta_regulator" =>
+            Dict("a" => retained, "b" => deepcopy(retained)))),
+    )
+    BMOPFTools._fold_transformer_extras!(net)
+    @test net["transformer"]["open_delta_regulator"]["a"] == existing
+    @test net["transformer"]["open_delta_regulator"]["b"] == retained
+    @test net["extras"]["transformer"]["open_delta_regulator"] == Dict("a" => retained)
+    @test only(net["_meta"]["migration_notes"])["id"] == "b"
+    BMOPFTools._fold_transformer_extras!(net)
+    @test length(net["_meta"]["migration_notes"]) == 1
+end
+
+@testset "PowerIO aggregate attribution is bounded and retained" begin
+    source_path = joinpath(@__DIR__, "data", "pf_comparison", "pf_delta_load.dss")
+    net = from_dss(source_path)
+    module_ = PowerIO.parse(source_path)
+    audit = BMOPFTools._powerio_audit_input(module_)
+    details = Dict{String,Any}("field" => "kv", "elements" => ["load d12"], "count" => 2,
+        "elements_truncated" => true)
+    diagnostic = (code="EMIT.BMOPF.FIELD_DROPPED", details=details)
+    net["_meta"]["powerio_warnings"] = ["EMIT.BMOPF.FIELD_DROPPED: aggregate"]
+    mapping = BMOPFTools._powerio_bmopf_field_mapping(audit, net; diagnostics=[diagnostic])
+    @test mapping["warnings_truncated_upstream"]
+    @test mapping["warning_status"] == "truncated_upstream"
+    @test "kv" in mapping["blocking_unmapped_fields"]
+    @test "unknown:unattributed" in mapping["by_field"]["kv"]["unmapped_scopes"]
+    details["count"] = 1
+    delete!(details, "elements_truncated")
+    complete = BMOPFTools._powerio_bmopf_field_mapping(audit, net; diagnostics=[diagnostic])
+    @test complete["warning_status"] == "parsed"
+    @test "kv" ∉ complete["blocking_unmapped_fields"]
+    path = joinpath(mktempdir(), "diagnostics.json")
+    original = from_dss(source_path)
+    write_bmopf(original, path)
+    @test parse_bmopf(path)["_meta"]["powerio_diagnostic_details"] ==
+        original["_meta"]["powerio_diagnostic_details"]
 end

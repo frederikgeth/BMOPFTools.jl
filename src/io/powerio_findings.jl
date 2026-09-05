@@ -120,9 +120,10 @@ end
 function _powerio_fields(d)
     hasproperty(d, :code) || return (_split_powerio_line(String(d))...,
                                      nothing, nothing, nothing)
-    prop(name) = hasproperty(d, name) ? String(getproperty(d, name)) : nothing
+    prop(name) = hasproperty(d, name) && getproperty(d, name) !== nothing ? String(getproperty(d, name)) : nothing
+    path = something(prop(:element_path), prop(:target), "")
     return (String(d.code), something(prop(:message), ""),
-            prop(:severity), prop(:element_path), prop(:stage))
+            prop(:severity), isempty(path) ? nothing : path, prop(:stage))
 end
 
 """
