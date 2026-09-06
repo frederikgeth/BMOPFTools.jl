@@ -86,13 +86,25 @@ function _report_powerio_conversion(net::Dict{String,Any},
                                     findings::Vector{Finding})::Dict{String,Any}
     fs = powerio_findings(net)
     append!(findings, fs)
-    count_of(f) = get(something(f.detail, Dict{String,Any}()), "count", 1)
+    # Count source diagnostics once even when an aggregate spans component classes.
+    by_code = Dict{String,Int}()
+    records = get(get(net, "_meta", Dict()), "powerio_diagnostic_details", nothing)
+    if records isa AbstractVector
+        for record in records
+            code = String(record["code"])
+            by_code[code] = get(by_code, code, 0) + 1
+        end
+    else
+        # Older serialized imports have only the per-class records.
+        for f in fs
+            by_code[f.code] = get(by_code, f.code, 0) +
+                get(something(f.detail, Dict()), "count", 1)
+        end
+    end
     Dict{String,Any}(
-        "n_classes"     => length(fs),
-        "n_diagnostics" => sum(count_of, fs; init=0),
-        "source"        => get(get(net, "_meta", Dict{String,Any}()),
-                               "powerio_source", nothing),
-        "by_code"       => Dict{String,Any}(f.code => count_of(f) for f in fs),
+        "n_classes" => length(fs), "n_diagnostics" => sum(values(by_code); init=0),
+        "source" => get(get(net, "_meta", Dict{String,Any}()), "powerio_source", nothing),
+        "by_code" => by_code,
     )
 end
 

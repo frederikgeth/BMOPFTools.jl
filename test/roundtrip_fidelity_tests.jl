@@ -44,7 +44,7 @@ const RT_SEMANTIC_CLEAN = Set([
 ])
 
 # Cases that survive the OpenDSS power-flow cross-check at the coarse tolerance
-# (solve + match, or legitimately skipped). Everything else either islands
+# (solve + match with every energized source node covered). Everything else either islands
 # (dropped transformer) or fails to converge — see the failure map.
 #
 # The transformer cases joined this list as PowerIO's OpenDSS export improved:
@@ -59,9 +59,12 @@ const RT_PF_SOUND = Set([
     "pf_center_tap_oneleg_extreme", "pf_center_tap_singleleg_pn",
     "pf_center_tap_xfmr", "pf_combined_3ph_split", "pf_delta_load",
     "pf_dy_xfmr", "pf_dy_xfmr_rneut", "pf_dy_xfmr_tap", "pf_exp_1ph",
-    "pf_open_delta_reg", "pf_pv_1ph", "pf_pv_4leg", "pf_yd_xfmr",
+    "pf_pv_1ph", "pf_pv_4leg", "pf_yd_xfmr",
     "pf_zip_1ph", "pf_zip_3ph", "pf_zip_delta",
 ])
+
+const RT_EXPECTED_LOSSES = BMOPFTools.JSON3.read(
+    read(joinpath(@__DIR__, "data", "roundtrip_expected_losses.json"), String), Dict{String,Any})
 
 const RT_PF_ATOL = 2.0
 const RT_PF_RTOL = 0.02
@@ -78,6 +81,9 @@ const RT_PF_RTOL = 0.02
         to_dss(net1, regen)
         net2 = from_dss(regen)
         diffs = semantic_diff(net1, net2)
+        observed = sort!([(d.path, string(d.kind)) for d in diffs])
+        expected = sort!([(d["path"], d["kind"]) for d in RT_EXPECTED_LOSSES[stem]])
+        @test observed == expected # A fixed loss cannot be replaced by a different regression.
         if stem in RT_SEMANTIC_CLEAN
             @test isempty(diffs)
         else
@@ -94,8 +100,14 @@ const RT_PF_RTOL = 0.02
             regen = joinpath(workdir, "$stem.dss")
             to_dss(net1, regen)
             pf = pf_cross_check(joinpath(_RT_PF_DIR, case), regen;
-                                atol=RT_PF_ATOL, rtol=RT_PF_RTOL)
-            if stem in RT_PF_SOUND
+                                atol=RT_PF_ATOL, rtol=RT_PF_RTOL,
+                                node_map=roundtrip_fixture_node_map(joinpath(_RT_PF_DIR, case)))
+            if pf.skipped
+                @test stem == "pf_open_delta_reg" # recorded original non-convergence
+                @test_skip pf_ok(pf)
+            elseif stem in RT_PF_SOUND
+                @test isempty(pf.missing_nodes)
+                @test pf.n_nodes_compared > 0
                 @test pf_ok(pf)
             else
                 # Islanding or non-convergence in the regenerated deck. If this
@@ -106,4 +118,17 @@ const RT_PF_RTOL = 0.02
     else
         @test_skip "PF cross-check requires OpenDSSDirect"
     end
+end
+
+@testset "Fidelity oracle requires evidence and explicit correspondence" begin
+    ref = Dict("a.1" => 230.0+0im, "b.1" => 231.0+0im, "a.0" => 0.0+0im)
+    @test pf_ok(compare_volts(ref, ref))
+    partial = compare_volts(ref, Dict("a.1" => 230.0+0im))
+    @test !pf_ok(partial)
+    @test partial.missing_nodes == ["b.1"]
+    @test !pf_ok(compare_volts(Dict("a.0"=>0.0+0im), Dict("a.0"=>0.0+0im)))
+    @test !pf_ok(PFResult(false, false, true, NaN, 0, [], "original did not solve"))
+    renamed = Dict("x.1" => 230.0+0im, "y.1" => 231.0+0im)
+    @test !pf_ok(compare_volts(ref, renamed))
+    @test pf_ok(compare_volts(ref, renamed; node_map=Dict("a.1"=>"x.1", "b.1"=>"y.1")))
 end

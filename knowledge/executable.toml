@@ -736,6 +736,9 @@ finding_codes = [
 ]
 fixture_ids = ["solved-network-feasibility-001"]
 source_paths = [
+  "src/io/migrate.jl",
+  "src/io/nwinding.jl",
+  "test/powerio_v09_tests.jl",
   "src/knowledge/contracts.jl",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",

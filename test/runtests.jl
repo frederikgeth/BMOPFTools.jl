@@ -1,5 +1,6 @@
 using Test
 using BMOPFTools
+using PowerIO
 using Dates
 
 const _HAS_ODS = !isnothing(Base.identify_package("OpenDSSDirect"))
@@ -3525,7 +3526,7 @@ const IEEE13_FIXTURE = """
     # (PowerIO.jl). PowerIO is a hard dependency, so this always runs.
     # --------------------------------------------------------------------------
     @testset "OpenDSS generator conversion via PowerIO" begin
-        @test startswith(BMOPFTools.powerio_version(), "PowerIO.jl 0.9.")
+        @test startswith(BMOPFTools.powerio_version(), "PowerIO.jl 0.11.")
         net = from_dss(joinpath(@__DIR__, "data", "issue190_generator.dss"))
 
         @test haskey(net, "generator")
@@ -3673,7 +3674,10 @@ const IEEE13_FIXTURE = """
             "d12" => "D12", "d23" => "D23", "d31" => "D31"))
         lower = from_dss(source_path)["_meta"]
         mixed = from_dss(mixed_path)["_meta"]
-        @test any(contains("load D12"), mixed["powerio_warnings"])
+        @test any(d -> d["code"] == "EMIT.BMOPF.FIELD_DROPPED" &&
+            d["details"] isa AbstractDict &&
+            "load D12" in get(d["details"], "elements", String[]),
+            mixed["powerio_diagnostic_details"])
         @test mixed["powerio_source_mapping"]["by_field"] ==
               lower["powerio_source_mapping"]["by_field"]
         @test mixed["powerio_source_mapping"]["blocking_unmapped_fields"] == String[]
@@ -3741,7 +3745,9 @@ const IEEE13_FIXTURE = """
         # PowerIO <= 0.7 the list was truncated and the status had to say so.)
         @test !any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
         @test mapping["warnings_truncated_upstream"] == false
-        @test mapping["warning_status"] == "parsed"
+        @test mapping["warning_status"] == "partially_classified"
+        @test Set(first(split(message, ":")) for message in mapping["unclassified_warnings"]) ==
+            Set(["PARSE.DSS.SOURCE_MALFORMED", "READ.DSS.RETAINED_SOURCE_ONLY"])
 
         # The same field name is only benign for the kind it was classified on:
         # a `length` dropped from a line would still block.
@@ -3754,12 +3760,11 @@ const IEEE13_FIXTURE = """
     @testset "from_dss — unclassifiable fidelity losses are surfaced" begin
         net = from_dss(joinpath(@__DIR__, "data", "SWER", "Master.dss"))
         mapping = net["_meta"]["powerio_source_mapping"]
-        # A transformer %noloadloss drop is a real fidelity loss that names no
-        # single source field, so it cannot enter by_field. It must still be
-        # visible instead of silently vanishing from the ledger.
+        # Warnings without an attributable field remain in the complete ledger.
         @test mapping["warning_status"] == "partially_classified"
         @test !isempty(mapping["unclassified_warnings"])
-        @test any(contains("%noloadloss"), mapping["unclassified_warnings"])
+        @test !any(contains("%noloadloss"), mapping["unclassified_warnings"])
+        @test !isempty(net["_meta"]["explicit_transformer_core_shunts"])
         @test all(warning -> isnothing(match(r"`([^`]+)`", warning)),
                   mapping["unclassified_warnings"])
         @test mapping["warnings_classified"] + length(mapping["unclassified_warnings"]) ==

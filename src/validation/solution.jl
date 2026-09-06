@@ -1236,8 +1236,10 @@ function solution_check(net::Dict{String,Any},
     # balance spuriously fail on any network with material shunt/capacitor power.
     bus_res_all = get(result, "bus", Dict())
     p_shunt = 0.0; q_shunt = 0.0
-    for (_, sh) in get(net, "shunt", Dict())
+    core_owners = _core_shunt_owners(net)
+    for (id, sh) in get(net, "shunt", Dict())
         sh isa Dict || continue
+        haskey(core_owners, string(id)) && continue
         P, Q = _shunt_power_into(sh, get(bus_res_all, string(get(sh, "bus", "")), Dict()))
         p_shunt += P; q_shunt += Q
     end

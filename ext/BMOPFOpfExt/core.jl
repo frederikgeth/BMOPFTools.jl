@@ -2397,7 +2397,7 @@ function _native_device_family!(ctx::OpfContext, family::Symbol,
                                        constraint_context=ctx)
         end
     elseif family == :shunt
-        () -> _add_shunt_constraints!(net, vars, kcl_r, kcl_i)
+        () -> _add_shunt_constraints!(net, vars, kcl_r, kcl_i; branch_inj=ctx.branch_inj)
     elseif family == :capacitor
         () -> _add_capacitor_constraints!(net, vars, kcl_r, kcl_i)
     elseif family == :load

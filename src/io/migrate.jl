@@ -16,6 +16,7 @@
 # Map canonical $schema URIs (as written into meta.$schema by write_bmopf) to
 # internal version tag symbols. Entries should be added in chronological order.
 const _SPEC_VERSIONS = Dict{String,Symbol}(
+    "https://raw.githubusercontent.com/distribution-system-opt/dsopt-schema/main/schema/bmopf/0.1.0/bmopf.schema.json" => :draft,
     # The published schema's own $id, stamped by `write_bmopf` and by powerio
     # v0.8.0 and later. Same draft data model as the two spellings below; the
     # shapes that moved with it (uppercase load models, transformer fields
@@ -64,6 +65,7 @@ an already-parsed dict.
 function migrate(net::Dict{String,Any})::Dict{String,Any}
     # Field-level migrations run unconditionally (independent of spec version).
     _fold_transformer_extras!(net)
+    _normalize_nwinding_nominal_taps!(net)
     _fold_dropped_top_level_extras!(net)
     _migrate_transformer_series_fields!(net)
     _migrate_field_renames!(net)
@@ -270,40 +272,47 @@ end
 """
     _fold_transformer_extras!(net::Dict{String,Any}) -> nothing
 
-In-place, unconditional fold of transformer fields that BMOPF schema 0.1.0
-writers park under `extras.transformer.<subtype>.<name>` back onto the
-transformer objects downstream code reads.
-
-Schema 0.1.0 sets `additionalProperties: false` on every transformer subtype
-and defines no slot for taps, neutral impedance, or no-load admittance, so a
-conforming writer (powerio v0.8.0+) moves exactly these fields out of the
-subtype objects:
-
-  `tap`, `tap_min`, `tap_max`, `r_neutral_from`, `x_neutral_from`,
-  `r_neutral_to`, `x_neutral_to`, `g_no_load`, `b_no_load`
-
-for the subtypes `single_phase`, `center_tap`, `wye_delta`, and `delta_wye`
-(`n_winding` is left alone by the writer and so also here). Without this fold
-the fields silently cease to exist for the Ybus/OPF builders and `to_pmd`: a
-tapped transformer becomes nominal-tap, an impedance-grounded neutral becomes
-solidly grounded, and the magnetising branch vanishes — with no error.
-
-A field already present on the transformer wins (never overwrite); emptied
-containers are pruned so a fully-folded document carries no residue. Folds are
-recorded under `net["_meta"]["migration_notes"]`.
+Restore transformer data retained under `extras.transformer` by the BMOPF
+0.1.0 profile. Additional parameters merge into existing records; transformer
+classes absent from that schema restore as complete records. Existing target
+values take precedence, and conflicting retained data remains in `extras`.
+Each transfer records a migration note.
 """
 function _fold_transformer_extras!(net::Dict{String,Any})
     extras = get(net, "extras", nothing)
     extras isa Dict || return
     parked = get(extras, "transformer", nothing)
     parked isa Dict || return
-    xfmrs = get(net, "transformer", nothing)
+    xfmrs = get!(net, "transformer", Dict{String,Any}())
     xfmrs isa Dict || return
+    for subtype in ("n_winding", "single_phase_autotransformer", "open_delta_regulator")
+        table = get(parked, subtype, nothing)
+        table isa Dict || continue
+        target = get!(xfmrs, subtype, Dict{String,Any}())
+        target isa Dict || continue
+        for (id, record) in collect(table)
+            haskey(target, id) && continue
+            record isa Dict || continue
+            target[id] = deepcopy(record)
+            delete!(table, id)
+            meta = get!(net, "_meta", Dict{String,Any}())
+            notes = get!(meta, "migration_notes", Any[])
+            push!(notes, Dict(
+                "code" => "W.MIGRATE.XFMR_EXTRAS_FOLD",
+                "id" => id,
+                "subtype" => subtype,
+                "fields" => sort!(collect(keys(record))),
+                "message" => "Restored a complete transformer record from " *
+                             "extras.transformer.$subtype (BMOPF 0.1.0 relocation).",
+            ))
+        end
+        isempty(table) && delete!(parked, subtype)
+    end
 
     folded_fields = (
         "tap", "tap_min", "tap_max",
         "r_neutral_from", "x_neutral_from", "r_neutral_to", "x_neutral_to",
-        "g_no_load", "b_no_load",
+        "g_no_load", "b_no_load", "no_load_shunt",
     )
     for (subtype, bytransformer) in parked
         bytransformer isa Dict || continue
@@ -448,4 +457,42 @@ function _normalize_load_models!(net::Dict{String,Any})
                      "bundled schema use lowercase).",
     ))
     return nothing
+end
+
+"""Remove only redundant unit winding ratios; preserve unsupported tap requests.
+
+The nominal n-winding model already uses `v_nom` ratios. This normalization
+has no tolerance and does not interpret bounds, controls, or other tap spellings.
+The original value and winding index remain in migration evidence.
+"""
+function _normalize_nwinding_nominal_taps!(net::Dict{String,Any})
+    tables = get(net, "transformer", nothing)
+    tables isa AbstractDict || return
+    table = get(tables, "n_winding", nothing)
+    table isa AbstractDict || return
+    # A competing declaration anywhere on the unit prevents normalization.
+    requests = ("tap", "tap_min", "tap_max", "tap_ratio_min", "tap_ratio_max",
+                "control", "controls", "regcontrol", "control_profile")
+    for (id, transformer) in table
+        transformer isa AbstractDict || continue
+        any(haskey(transformer, k) for k in (requests..., "tap_ratio")) && continue
+        windings = get(transformer, "windings", nothing)
+        windings isa AbstractVector || continue
+        any(w -> w isa AbstractDict && any(haskey(w, k) for k in requests), windings) && continue
+        for (index, winding) in enumerate(windings)
+            winding isa AbstractDict || continue
+            value = get(winding, "tap_ratio", nothing)
+            value isa Real && !(value isa Bool) && isfinite(value) && value == 1 || continue
+            notes = get!(get!(net, "_meta", Dict{String,Any}()), "migration_notes", Any[])
+            push!(notes, Dict{String,Any}(
+                "code" => "W.MIGRATE.NWINDING_NOMINAL_TAP", "id" => String(id),
+                "subtype" => "n_winding", "winding" => index,
+                "field" => "tap_ratio", "original_value" => value,
+                "representation" => "implicit_nominal_ratio",
+                "message" => "Removed an exact unit winding tap ratio; the nominal ratio remains defined by v_nom.",
+            ))
+            delete!(winding, "tap_ratio")
+        end
+    end
+    nothing
 end

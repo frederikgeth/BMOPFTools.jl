@@ -17,7 +17,11 @@ const _IDENTITY_TERMINAL_ALIASES =
     parse_bmopf(json::AbstractString; from_string=true, terminal_aliases) -> Dict{String,Any}
 
 Parse a BMOPF JSON file (or IO stream, or raw JSON string) into a plain
-`Dict{String,Any}` that mirrors the schema structure exactly.
+`Dict{String,Any}` normalized for analysis and calculation. Migration and
+terminal normalization can change the representation. Explicit transformer
+`no_load_shunt` records become winding-connected shunts; their source values
+and transformer ownership remain in `_meta["explicit_transformer_core_shunts"]`.
+Use PowerIO modules when source-preserving exchange is required.
 
 The returned dict is mutable — analysis functions treat it as read-only
 but callers may modify it freely.
@@ -114,6 +118,7 @@ function _postprocess(raw::Dict{String,Any},
     # so downstream per-bus resolution honours non-"n" neutral labels (no-op when
     # the roles are only inferred — see _materialize_terminal_roles!).
     _materialize_terminal_roles!(d)
+    _materialize_transformer_core_shunts!(d)
     d
 end
 
@@ -381,4 +386,99 @@ function _resolve_component_ts!(comp::Dict{String,Any},
 
     delete!(comp, "time_series")
     nothing
+end
+
+"""
+Materialize an explicit transformer terminal-coil shunt as an ordinary bus shunt.
+The selected winding keeps its terminal voltage; no impedance referral or ideal
+ratio approximation moves the branch across transformer leakage.
+"""
+function _materialize_transformer_core_shunts!(net::Dict{String,Any})
+    neutral_labels = _neutral_labels(net)
+    for (subtype, table) in get(net, "transformer", Dict())
+        table isa AbstractDict || continue
+        for (name, transformer) in table
+            transformer isa AbstractDict || continue
+            haskey(transformer, "no_load_shunt") || continue
+            shunt = transformer["no_load_shunt"]
+            shunt isa AbstractDict || throw(ArgumentError("transformer $name: no_load_shunt must be an object"))
+            any(haskey(transformer, key) for key in ("g_no_load", "b_no_load")) &&
+                throw(ArgumentError("transformer $name: competing no-load admittance representations"))
+            winding = get(shunt, "winding", nothing)
+            count = subtype == "n_winding" ? length(get(transformer, "windings", [])) : subtype == "center_tap" ? 3 : 2
+            winding isa Integer && !(winding isa Bool) && 1 <= winding <= count ||
+                throw(ArgumentError("transformer $name: no-load shunt winding does not exist"))
+            g, b = get(shunt, "g", nothing), get(shunt, "b", nothing)
+            g isa Real && b isa Real && !(g isa Bool) && !(b isa Bool) && isfinite(g) && isfinite(b) && g >= 0 ||
+                throw(ArgumentError("transformer $name: no-load shunt requires nonnegative finite g and finite b"))
+            side = winding == 1 ? "from" : "to"
+            if subtype == "n_winding"
+                w = transformer["windings"][winding]
+                bus, terminals = string(w["bus"]), string.(w["terminal_map"])
+                delta = get(w, "configuration", "WYE") == "DELTA"
+            else
+                bus, terminals = string(transformer["bus_" * side]), string.(transformer["terminal_map_" * side])
+                delta = subtype == "wye_delta" && winding == 2 || subtype == "delta_wye" && winding == 1
+            end
+            pairs = if subtype == "center_tap" && winding > 1
+                length(terminals) == 3 || throw(ArgumentError("center tap requires three secondary terminals"))
+                [(winding - 1, winding)]
+            elseif subtype == "open_delta_regulator"
+                collect(get(_OPEN_DELTA_YPRIM_PAIRS, get(transformer, "connection", "")) do
+                    throw(ArgumentError("open delta regulator requires a supported connection"))
+                end)
+            elseif delta
+                length(terminals) == 2 ? [(1, 2)] : [(i, mod1(i + 1, length(terminals))) for i in eachindex(terminals)]
+            else
+                neutral = _neutral_terminal(get(get(net, "bus", Dict()), bus, Dict{String,Any}()))
+                labels = neutral === nothing ? neutral_labels : Set([neutral])
+                _xfmr_winding_pairs(terminals, labels)
+            end
+            isempty(pairs) && throw(ArgumentError("transformer $name: no-load winding has no coils"))
+            matrix = zeros(Float64, length(terminals), length(terminals))
+            for (i, j) in pairs
+                matrix[i,i] += 1
+                if j !== nothing
+                    matrix[j,j] += 1
+                    matrix[i,j] -= 1
+                    matrix[j,i] -= 1
+                end
+            end
+            neutral = _neutral_terminal(get(get(net, "bus", Dict()), bus, Dict{String,Any}()))
+            if neutral !== nothing
+                order = vcat(findall(!=(neutral), terminals), findall(==(neutral), terminals))
+                terminals = terminals[order]
+                matrix = matrix[order, order]
+            end
+            collection = get!(net, "shunt", Dict{String,Any}())
+            base = "powerio_core_$(subtype)_$(name)"
+            id = base
+            suffix = 0
+            while haskey(collection, id)
+                suffix += 1
+                id = "$(base)_$(suffix)"
+            end
+            element = Dict{String,Any}("bus" => bus, "terminal_map" => terminals)
+            for i in eachindex(terminals), j in eachindex(terminals)
+                element["G_$(i)_$(j)"] = Float64(g) * matrix[i,j]
+                element["B_$(i)_$(j)"] = Float64(b) * matrix[i,j]
+            end
+            collection[id] = element
+            meta = get!(net, "_meta", Dict{String,Any}())
+            records = get!(meta, "explicit_transformer_core_shunts", Dict{String,Any}())
+            records["$(lowercase(subtype))/$(lowercase(name))"] = Dict(
+                "shunt_id" => id, "transformer_id" => string(name), "subtype" => string(subtype), "source" => deepcopy(shunt))
+            delete!(transformer, "no_load_shunt")
+        end
+    end
+    net
+end
+
+
+"""Map materialized core shunts to their owning transformer for loss accounting."""
+function _core_shunt_owners(net::Dict{String,Any})
+    records = get(get(net, "_meta", Dict()), "explicit_transformer_core_shunts", Dict())
+    Dict(string(record["shunt_id"]) => string(record["transformer_id"])
+         for record in values(records) if record isa AbstractDict &&
+         haskey(record, "shunt_id") && haskey(record, "transformer_id"))
 end

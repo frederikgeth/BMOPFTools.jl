@@ -1,0 +1,1119 @@
+{
+  "pf_1ph_freeneutral": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_1ph_impedanceneutral": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_1ph_line": [],
+  "pf_1ph_perfectneutral": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_1ph_xfmr": [
+    {
+      "path": "bus.hv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.lv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.lv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_hv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_lv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_single_phase_t1.B_1_2",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_single_phase_t1.B_2_1",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_single_phase_t1.B_2_2",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_single_phase_t1.G_1_2",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_single_phase_t1.G_2_1",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_single_phase_t1.G_2_2",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_single_phase_t1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.single_phase.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.single_phase.t1.g_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.single_phase.t1.terminal_map_from",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.single_phase.t1.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "extra"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "missing"
+    }
+  ],
+  "pf_3ph_line": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_3wdg_dyn": [
+    {
+      "path": "shunt.powerio_core_n_winding_t1",
+      "kind": "missing"
+    }
+  ],
+  "pf_3wdg_dyn_unbalanced": [
+    {
+      "path": "shunt.powerio_core_n_winding_t1",
+      "kind": "missing"
+    }
+  ],
+  "pf_3wdg_dyn_zgnd": [
+    {
+      "path": "shunt.powerio_core_n_winding_t1",
+      "kind": "missing"
+    }
+  ],
+  "pf_3wdg_nwinding": [
+    {
+      "path": "bus.hv.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_n_winding_t1",
+      "kind": "missing"
+    }
+  ],
+  "pf_3wdg_nwinding_unbalanced": [
+    {
+      "path": "bus.hv.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_n_winding_t1",
+      "kind": "missing"
+    }
+  ],
+  "pf_4wdg_dyyn": [
+    {
+      "path": "shunt.powerio_core_n_winding_t1",
+      "kind": "missing"
+    }
+  ],
+  "pf_4wdg_nwinding": [
+    {
+      "path": "bus.hv.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_n_winding_t1",
+      "kind": "missing"
+    }
+  ],
+  "pf_autotransformer": [
+    {
+      "path": "bus.reg.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.reg.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.src.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.g_reg.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.g_src.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.single_phase.reg.terminal_map_from",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.single_phase.reg.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "extra"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "missing"
+    }
+  ],
+  "pf_cap_delta": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_cap_wye": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_center_tap_240": [
+    {
+      "path": "bus.hv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.lv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.lv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.src.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_hv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_lv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_src.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_1_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_2_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_3_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.g_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_from",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "extra"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "missing"
+    }
+  ],
+  "pf_center_tap_balanced_heavy": [
+    {
+      "path": "bus.hv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.lv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.lv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.src.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld2.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_hv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_lv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_src.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_1_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_2_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_3_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.g_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_from",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "extra"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "missing"
+    }
+  ],
+  "pf_center_tap_loaded": [
+    {
+      "path": "bus.hv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.lv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.lv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.src.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld2.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_hv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_lv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_src.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_1_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_2_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_3_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.g_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_from",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "extra"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "missing"
+    }
+  ],
+  "pf_center_tap_oneleg_extreme": [
+    {
+      "path": "bus.hv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.lv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.lv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.src.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_hv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_lv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_src.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_1_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_2_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_3_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.g_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_from",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "extra"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "missing"
+    }
+  ],
+  "pf_center_tap_singleleg_pn": [
+    {
+      "path": "bus.hv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.lv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.lv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.src.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.src.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_hv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_lv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_src.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_1_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_2_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_3_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.g_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_from",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "extra"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "missing"
+    }
+  ],
+  "pf_center_tap_xfmr": [
+    {
+      "path": "bus.hv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.hv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.lv.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.lv.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.ld2.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_hv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_lv.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_1_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_2_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.G_3_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_t1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.g_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_from",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.t1.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "extra"
+    },
+    {
+      "path": "voltage_source.source",
+      "kind": "missing"
+    }
+  ],
+  "pf_combined_3ph_split": [
+    {
+      "path": "bus.lvsp.neutral_terminal",
+      "kind": "missing"
+    },
+    {
+      "path": "bus.lvsp.terminal_names",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "load.lsp1.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "load.lsp2.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.grnd_lvsp.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_tsp.G_1_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_tsp.G_2_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_tsp.G_3_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_center_tap_tsp.terminal_map",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.B_1_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.B_2_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.B_3_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.B_4_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.B_4_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.B_4_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.B_4_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.G_1_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.G_2_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.G_3_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.G_4_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.G_4_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.G_4_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t3.G_4_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "transformer.center_tap.tsp.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.tsp.g_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.center_tap.tsp.terminal_map_to",
+      "kind": "topology_mismatch"
+    },
+    {
+      "path": "transformer.delta_wye.t3.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.delta_wye.t3.g_no_load",
+      "kind": "extra"
+    }
+  ],
+  "pf_delta_load": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_dy_xfmr": [
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_1_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_2_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_3_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_4_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_4_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_4_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_4_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_1_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_2_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_3_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "transformer.delta_wye.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.delta_wye.t1.g_no_load",
+      "kind": "extra"
+    }
+  ],
+  "pf_dy_xfmr_rneut": [
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_1_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_2_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_3_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "transformer.delta_wye.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.delta_wye.t1.g_no_load",
+      "kind": "extra"
+    }
+  ],
+  "pf_dy_xfmr_tap": [
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_1_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_2_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_3_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_4_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_4_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_4_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.B_4_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_1_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_2_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_3_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_delta_wye_t1.G_4_4",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "transformer.delta_wye.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.delta_wye.t1.g_no_load",
+      "kind": "extra"
+    }
+  ],
+  "pf_exp_1ph": [],
+  "pf_open_delta_reg": [],
+  "pf_pv_1ph": [],
+  "pf_pv_4leg": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_yd_xfmr": [
+    {
+      "path": "bus.hv.perfectly_grounded_terminals",
+      "kind": "missing"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.B_1_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.B_1_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.B_2_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.B_2_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.B_3_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.B_3_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.G_1_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.G_1_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.G_2_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.G_2_3",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.G_3_1",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "shunt.powerio_core_wye_delta_t1.G_3_2",
+      "kind": "numeric_mismatch"
+    },
+    {
+      "path": "transformer.wye_delta.t1.b_no_load",
+      "kind": "extra"
+    },
+    {
+      "path": "transformer.wye_delta.t1.g_no_load",
+      "kind": "extra"
+    }
+  ],
+  "pf_zip_1ph": [],
+  "pf_zip_3ph": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ],
+  "pf_zip_delta": [
+    {
+      "path": "bus.src.perfectly_grounded_terminals",
+      "kind": "missing"
+    }
+  ]
+}

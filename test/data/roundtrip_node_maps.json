@@ -1,0 +1,66 @@
+{
+  "pf_1ph_xfmr": {
+    "hv.1": "hv.1",
+    "hv.4": "hv.2",
+    "lv.1": "lv.1",
+    "lv.4": "lv.2"
+  },
+  "pf_autotransformer": {
+    "src.1": "src.1",
+    "src.4": "src.2",
+    "reg.1": "reg.1",
+    "reg.4": "reg.2"
+  },
+  "pf_center_tap_240": {
+    "hv.1": "hv.1",
+    "hv.4": "hv.2",
+    "lv.1": "lv.1",
+    "lv.2": "lv.2",
+    "lv.4": "lv.3",
+    "src.1": "src.1",
+    "src.4": "src.2"
+  },
+  "pf_center_tap_balanced_heavy": {
+    "hv.1": "hv.1",
+    "hv.4": "hv.2",
+    "lv.1": "lv.1",
+    "lv.2": "lv.2",
+    "lv.4": "lv.3",
+    "src.1": "src.1",
+    "src.4": "src.2"
+  },
+  "pf_center_tap_loaded": {
+    "hv.1": "hv.1",
+    "hv.4": "hv.2",
+    "lv.1": "lv.1",
+    "lv.2": "lv.2",
+    "lv.4": "lv.3",
+    "src.1": "src.1",
+    "src.4": "src.2"
+  },
+  "pf_center_tap_oneleg_extreme": {
+    "hv.1": "hv.1",
+    "hv.4": "hv.2",
+    "lv.1": "lv.1",
+    "lv.2": "lv.2",
+    "lv.4": "lv.3",
+    "src.1": "src.1",
+    "src.4": "src.2"
+  },
+  "pf_center_tap_singleleg_pn": {
+    "hv.1": "hv.1",
+    "hv.4": "hv.2",
+    "lv.1": "lv.1",
+    "lv.2": "lv.2",
+    "lv.4": "lv.3",
+    "src.1": "src.1",
+    "src.4": "src.2"
+  },
+  "pf_center_tap_xfmr": {
+    "hv.1": "hv.1",
+    "hv.4": "hv.2",
+    "lv.1": "lv.1",
+    "lv.2": "lv.2",
+    "lv.4": "lv.3"
+  }
+}

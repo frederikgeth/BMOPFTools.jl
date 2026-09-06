@@ -1,0 +1,10 @@
+clear
+set defaultbasefrequency=60
+new circuit.duplicate phases=1 bus1=source.1 basekv=0.24 model=ideal
+new linecode.c nphases=1 r1=0.1 x1=0.01 c1=0 units=km
+new linecode.c nphases=1 r1=0.2 x1=0.02 c1=0 units=km
+new line.l bus1=source.1 bus2=loadbus.1 phases=1 linecode=c length=1 units=km
+new load.d bus1=loadbus.1 phases=1 kv=0.24 kw=0.1 kvar=0 model=1 vminpu=0 vmaxpu=2
+set voltagebases=[0.24]
+calcvoltagebases
+solve

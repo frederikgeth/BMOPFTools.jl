@@ -2161,6 +2161,22 @@ end
     w = first(values(nettap["transformer"]["n_winding"]))
     w["tap_min"] = 0.9; w["tap_max"] = 1.1
     @test_throws ArgumentError build_opf_model(nettap)
+
+    for value in (0.99, nextfloat(1.0), prevfloat(1.0), NaN, Inf, true, "1")
+        net = _net_3wdg_nwinding()
+        transformer = first(values(net["transformer"]["n_winding"]))
+        transformer["windings"][1]["tap_ratio"] = value
+        BMOPFTools.migrate(net)
+        @test_throws ArgumentError build_opf_model(net)
+    end
+    for key in ("tap_min", "tap_max", "tap_ratio_min", "tap_ratio_max")
+        net = _net_3wdg_nwinding()
+        transformer = first(values(net["transformer"]["n_winding"]))
+        transformer["windings"][1]["tap_ratio"] = 1.0
+        transformer["windings"][1][key] = 1.0
+        BMOPFTools.migrate(net)
+        @test_throws ArgumentError build_opf_model(net)
+    end
 end
 
 @testset "PF (solve_pf) comparison — 3-winding transformer, unbalanced loads" begin
@@ -2809,7 +2825,7 @@ end
     # the same fixtures the hand-built n_winding nets above validate (YYY, Dyn,
     # Dyn-unbalanced) means the native import is equivalent in effect to the
     # validated hand mapping.
-    for f in ("pf_3wdg_nwinding.dss", "pf_3wdg_dyn.dss", "pf_3wdg_dyn_unbalanced.dss")
+    @testset "native import $f" for f in ("pf_3wdg_nwinding.dss", "pf_3wdg_dyn.dss", "pf_3wdg_dyn_unbalanced.dss")
         path = joinpath(_PF_CMP_DIR, f)
         net  = from_dss(path)
         @test haskey(get(net, "transformer", Dict()), "n_winding")
@@ -2819,20 +2835,23 @@ end
         _cmp_volts(V_ods, _nwd_bm_volts(res); label="nwd-$(f): ")
     end
 
-    # 4+ windings: the current PowerIO BMOPF export still emits zero reactance for
-    # pairs touching winding 4. The fixture nevertheless solves within the coarse
-    # OpenDSS voltage tolerance, so the electrical baseline is locked in here
-    # while the exact pairwise data gap remains documented.
-    net4 = from_dss(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
-    @test haskey(get(net4, "transformer", Dict()), "n_winding")
-    xsc4 = first(values(net4["transformer"]["n_winding"]))["x_sc"]
-    @test all(iszero, (xsc4["1_4"], xsc4["2_4"], xsc4["3_4"]))  # documents the gap
-    res4 = solve_pf(net4; optimizer=Ipopt.Optimizer)
-    @test res4["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-    V_ods4 = _ods_volts(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
-    V_bm4  = _nwd_bm_volts(res4)
-    @test_broken all(isapprox(V_ods4[k], V_bm4[k]; atol=2.0, rtol=3e-3)
-                     for k in keys(V_ods4) if haskey(V_bm4, k))
+    # All six pairs use the first winding's per-coil impedance base.
+    @testset "native four-winding reactances and voltages" begin
+        net4 = from_dss(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
+        @test haskey(get(net4, "transformer", Dict()), "n_winding")
+        xsc4 = first(values(net4["transformer"]["n_winding"]))["x_sc"]
+        for (pair, percent) in zip(("1_2", "1_3", "1_4", "2_3", "2_4", "3_4"), (8, 8, 8, 6, 6, 4))
+            @test xsc4[pair] ≈ percent / 100 * (115000^2 / (30000000 / 3))
+        end
+        res4 = solve_pf(net4; optimizer=Ipopt.Optimizer)
+        @test res4["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        V_ods4 = _ods_volts(joinpath(_PF_CMP_DIR, "pf_4wdg_dyyn.dss"))
+        V_bm4  = _nwd_bm_volts(res4)
+        required_nodes = [node for (node, voltage) in V_ods4 if abs(voltage) >= 1e-4]
+        @test !isempty(required_nodes)
+        @test all(haskey(V_bm4, node) for node in required_nodes)
+        _cmp_volts(V_ods4, V_bm4; label="native four-winding: ", atol=2.0, rtol=3e-3)
+    end
 end
 
 @testset "Transformer Yprim matches OpenDSS (single_phase, center_tap, Yd, Dy)" begin

@@ -14,6 +14,8 @@
 const _POWERIO_SEVERITY = Dict{String,Severity}(
     "debug"   => INFO,
     "info"    => INFO,
+    "remark"  => INFO,
+    "note"    => INFO,
     "warning" => WARNING,
     "error"   => ERROR,
     "fatal"   => ERROR,
@@ -120,9 +122,10 @@ end
 function _powerio_fields(d)
     hasproperty(d, :code) || return (_split_powerio_line(String(d))...,
                                      nothing, nothing, nothing)
-    prop(name) = hasproperty(d, name) ? String(getproperty(d, name)) : nothing
+    prop(name) = hasproperty(d, name) && getproperty(d, name) !== nothing ? String(getproperty(d, name)) : nothing
+    path = something(prop(:element_path), prop(:target), "")
     return (String(d.code), something(prop(:message), ""),
-            prop(:severity), prop(:element_path), prop(:stage))
+            prop(:severity), isempty(path) ? nothing : path, prop(:stage))
 end
 
 """
@@ -132,68 +135,80 @@ Fold a conversion's diagnostics into one JSON-serialisable record per
 `(code, severity, component type)` class, ordered by that key. The powerio code
 is kept verbatim.
 
-Grouping is not cosmetic: a large feeder produces one `EMIT.BMOPF.FIELD_DROPPED`
-per dropped field per element, which reaches five figures on the bigger ENWL
-networks. Ungrouped, that list is both the whole report and most of the written
-document. Each record keeps its count, every element path in the class, and a
-few example messages, so nothing needed to identify what was lost is dropped.
+Structured aggregates retain their bounded element lists and field associations.
+`count` counts source diagnostics contributing to a class; `source_records`
+identifies them within the intake. A mixed-class aggregate contributes to more
+than one class, so summary totals must deduplicate those references. Omitted
+upstream elements remain explicitly unattributed, never guessed.
 """
 function _powerio_diagnostic_records(diagnostics;
                                      fold_ids::Bool=false)::Vector{Dict{String,Any}}
     isempty(diagnostics) && return Dict{String,Any}[]
 
-    order    = Tuple{String,String,String}[]
-    grouped  = Dict{Tuple{String,String,String},Dict{String,Any}}()
-    for d in diagnostics
+    grouped = Dict{Tuple{String,String,String},Dict{String,Any}}()
+    for (source_record, d) in enumerate(diagnostics)
         code, msg, sev, path, stage = _powerio_fields(d)
         isempty(code) && (code = _POWERIO_UNCODED)
-        sev_str = sev === nothing ? "" : lowercase(sev)
-        mapped_severity = string(get(_POWERIO_SEVERITY, sev_str,
-                                     _POWERIO_SEVERITY_DEFAULT))
-        component_type, component_id = _powerio_element(path, fold_ids)
-        element = path
-        if component_id === nothing
-            component_type, component_id = _powerio_message_element(msg, fold_ids)
-            component_id === nothing ||
-                (element = "$(string(component_type)) $component_id")
-        end
-        component_type_str = string(component_type)
-        key = (code, mapped_severity, component_type_str)
-        if !haskey(grouped, key)
-            push!(order, key)
-            grouped[key] = Dict{String,Any}(
-                "code"           => code,
-                "severity"       => mapped_severity,
-                "component_type" => component_type_str,
-                "count"          => 0,
-                "messages"       => String[],
-                "elements"       => String[],
-            )
-        end
-        g = grouped[key]
-        g["count"] += 1
-        length(g["messages"]) < 5 && msg ∉ g["messages"] && push!(g["messages"], msg)
-        if element !== nothing
-            element ∉ g["elements"] && push!(g["elements"], element)
-            if component_id !== nothing
-                # An id only identifies the finding while the class holds one
-                # element; past that the elements list is the identification.
-                g["component_id"] =
-                    get(g, "component_id", component_id) == component_id ?
-                    component_id : nothing
+        mapped_severity = string(get(_POWERIO_SEVERITY,
+            sev === nothing ? "" : lowercase(sev), _POWERIO_SEVERITY_DEFAULT))
+        details = hasproperty(d, :details) ? d.details : nothing
+        aggregate = details isa AbstractDict && haskey(details, "field") &&
+                    get(details, "elements", nothing) isa AbstractVector
+        locators = aggregate ? String.(details["elements"]) : [path]
+        by_class = Dict{String,Vector{Tuple{Union{String,Nothing},Union{String,Nothing}}}}()
+        for locator in locators
+            ctype, cid = _powerio_element(locator, fold_ids)
+            if cid === nothing
+                ctype, cid = _powerio_message_element(
+                    locator === nothing ? msg : locator * ": " * msg, fold_ids)
             end
+            element = cid === nothing ? locator : "$(ctype) $cid"
+            push!(get!(by_class, string(ctype), []), (cid, element))
         end
-        stage === nothing || (g["stage"] = stage)
+        incomplete = aggregate && (get(details, "elements_truncated", false) ||
+            get(details, "count", length(locators)) != length(locators) || isempty(locators))
+        incomplete && get!(by_class, "network", [])
+        for (ctype, elements) in by_class
+            key = (code, mapped_severity, ctype)
+            g = get!(grouped, key) do
+                Dict{String,Any}("code" => code, "severity" => mapped_severity,
+                    "component_type" => ctype, "source_records" => Int[],
+                    "messages" => String[], "elements" => String[], "attributions" => Any[])
+            end
+            push!(g["source_records"], source_record)
+            length(g["messages"]) < 5 && msg ∉ g["messages"] && push!(g["messages"], msg)
+            for (_, element) in elements
+                element === nothing || element in g["elements"] || push!(g["elements"], element)
+            end
+            if aggregate
+                push!(g["attributions"], Dict{String,Any}(
+                    "source_record" => source_record, "field" => details["field"],
+                    "elements" => [element for (_, element) in elements if element !== nothing],
+                    # This is the total in the source aggregate, not a per-class count.
+                    "source_element_count" => get(details, "count", length(locators)),
+                    "elements_truncated" => incomplete,
+                ))
+            end
+            if incomplete
+                g["attribution_complete"] = false
+            end
+            stage === nothing || (g["stage"] = stage)
+        end
     end
-
     records = Dict{String,Any}[]
-    for key in sort!(order)
+    for key in sort!(collect(keys(grouped)))
         g = grouped[key]
-        get(g, "component_id", missing) === nothing && delete!(g, "component_id")
-        isempty(g["elements"]) && delete!(g, "elements")
-        n, msgs = g["count"], g["messages"]
-        g["message"] = n == 1 ? first(msgs) :
-                       "$n occurrences, e.g. $(first(msgs))"
+        g["source_records"] = sort!(unique(g["source_records"]))
+        n = g["count"] = length(g["source_records"])
+        elements = sort!(g["elements"])
+        if length(elements) == 1 && get(g, "attribution_complete", true)
+            _, cid = _powerio_element(only(elements), false)
+            cid === nothing || (g["component_id"] = cid)
+        end
+        isempty(elements) && delete!(g, "elements")
+        isempty(g["attributions"]) && delete!(g, "attributions")
+        msgs = g["messages"]
+        g["message"] = n == 1 ? first(msgs) : "$n occurrences, e.g. $(first(msgs))"
         n == 1 && delete!(g, "messages")
         push!(records, g)
     end

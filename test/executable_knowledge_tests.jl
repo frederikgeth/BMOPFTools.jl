@@ -20,8 +20,8 @@ using SHA
         JSON3.read(read(finding_registry_schema_path, String)))
     finding_registry = JSON3.read(read(finding_registry_path, String))
     @test JSONSchema.validate(finding_registry_schema, finding_registry) === nothing
-    @test finding_registry.finding_count == length(finding_registry.findings) == 353
-    @test length(unique(String(item.code) for item in finding_registry.findings)) == 353
+    @test finding_registry.finding_count == length(finding_registry.findings) == 354
+    @test length(unique(String(item.code) for item in finding_registry.findings)) == 354
 
     schema = JSONSchema.Schema(JSON3.read(read(schema_path, String)))
     lines = filter(!isempty, split(read(corpus_path, String), '\n'))

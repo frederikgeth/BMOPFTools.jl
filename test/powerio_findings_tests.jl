@@ -165,7 +165,7 @@
         @test lines isa Vector{String}
         @test !isempty(lines)
         # The two views cover the same diagnostics.
-        @test sum(r["count"] for r in recs) == length(lines)
+        @test length(unique(vcat((r["source_records"] for r in recs)...))) == length(lines)
         @test length(recs) < length(lines)
         @test length(fs) == length(recs)
 
@@ -215,6 +215,44 @@
         @test warns isa Vector{String}          # the returned shape is unchanged
         @test !isempty(fs)
         @test all(f -> startswith(f.code, "EMIT."), fs)
-        @test sum(f -> f.detail["count"], fs) == length(warns)
+        @test length(unique(vcat((f.detail["source_records"] for f in fs)...))) == length(warns)
     end
+end
+
+@testset "PowerIO 0.11 structured attribution and severity" begin
+    for (severity, expected) in ((:error, ERROR), (:warning, WARNING), (:remark, INFO), (:note, INFO))
+        d = (code="READ.DSS.COORDINATE_SPACE_UNKNOWN", severity=severity,
+             message="coordinate reference is unspecified", target=nothing)
+        @test only(powerio_findings(BMOPFTools._powerio_diagnostic_records([d]))).severity == expected
+    end
+    net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_delta_load.dss"))
+    fs = powerio_findings(net)
+    load = only(filter(f -> f.code == "EMIT.BMOPF.FIELD_DROPPED" && f.component_type == :load, fs))
+    @test load.detail["elements"] == ["load d12", "load d23", "load d31"]
+    kv = only(filter(a -> a["field"] == "kv", load.detail["attributions"]))
+    @test kv["elements"] == load.detail["elements"]
+    @test kv["source_element_count"] == 3
+    @test !kv["elements_truncated"]
+    summary = analyze(net).results[:provenance]["powerio_conversion"]
+    @test summary["n_diagnostics"] == length(net["_meta"]["powerio_diagnostic_details"])
+    @test sum(values(summary["by_code"])) == summary["n_diagnostics"]
+    @test summary["by_code"]["EMIT.BMOPF.FIELD_DROPPED"] == 8
+    buf = IOBuffer(); write_bmopf(net, buf)
+    restored = parse_bmopf(String(take!(buf)); from_string=true)
+    @test restored["_meta"]["powerio_diagnostics"] == net["_meta"]["powerio_diagnostics"]
+    @test analyze(restored).results[:provenance]["powerio_conversion"] == summary
+
+    diagnostic(elements; count=length(elements)) = (code="EMIT.BMOPF.FIELD_DROPPED",
+        severity=:warning, message="aggregate", target=nothing,
+        details=Dict("field" => "units", "elements" => elements, "count" => count))
+    recs = BMOPFTools._powerio_diagnostic_records([diagnostic(["load A", "line B"])] ; fold_ids=true)
+    @test Set(r["component_type"] for r in recs) == Set(["load", "line"])
+    @test Set(r["component_id"] for r in recs) == Set(["a", "b"])
+    @test all(r["source_records"] == [1] && r["count"] == 1 for r in recs)
+    truncated = BMOPFTools._powerio_diagnostic_records([diagnostic(["load A"]; count=2)]; fold_ids=true)
+    unknown = only(filter(r -> r["component_type"] == "network", truncated))
+    @test !unknown["attribution_complete"]
+    @test !haskey(unknown, "component_id")
+    @test only(unknown["attributions"])["elements"] == []
+    @test all(!haskey(r, "component_id") for r in truncated)
 end

@@ -52,10 +52,11 @@ Each shunt is a bus-connected admittance matrix Y = G + jB (S) with fields
 added; the shunt current is expressed as a linear AffExpr in the bus voltage
 variables and subtracted from the KCL accumulator (current leaves the bus).
 """
-function _add_shunt_constraints!(net, vars, kcl_r, kcl_i)
+function _add_shunt_constraints!(net, vars, kcl_r, kcl_i; branch_inj=nothing)
     vr = vars[:vr]; vi = vars[:vi]
 
-    for (_, sh) in get(net, "shunt", Dict())
+    core_owners = BMOPFTools._core_shunt_owners(net)
+    for (id, sh) in get(net, "shunt", Dict())
         sh isa Dict || continue
         bus = get(sh, "bus", "")
         tm  = Vector{String}(get(sh, "terminal_map", String[]))
@@ -70,8 +71,10 @@ function _add_shunt_constraints!(net, vars, kcl_r, kcl_i)
         ci = [JuMP.AffExpr(0.0) for _ in 1:n]
         _shunt_current!(cr, ci, vr, vi, G, B, bus, tm)
 
+        owner = get(core_owners, string(id), nothing)
+        entry = owner === nothing ? nothing : ("transformer", owner)
         for k in 1:n
-            _kcl_add!(kcl_r, kcl_i, bus, tm[k], -cr[k], -ci[k])
+            _kcl_add!(kcl_r, kcl_i, bus, tm[k], -cr[k], -ci[k]; ledger=branch_inj, entry)
         end
     end
 end

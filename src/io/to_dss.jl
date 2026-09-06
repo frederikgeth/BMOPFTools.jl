@@ -69,8 +69,11 @@ function to_dss(net::Dict{String,Any};
 
     # PowerIO reads the BMOPF JSON and writes OpenDSS text, reporting every
     # fidelity loss its writer had to make.
-    dss_text, warnings_list =
-        PowerIO.convert_str(PowerIO.MulticonductorNetwork, json, "dss"; from="bmopf")
+    module_ = PowerIO.parse(IOBuffer(json); format="bmopf", name="network.bmopf.json")
+    emission = PowerIO.emit(module_, "dss")
+    dss_text = emission.text
+    diagnostics = vcat(module_.diagnostics, emission.diagnostics)
+    warnings_list = _powerio_diagnostic_line.(diagnostics)
 
     if isempty(dss_text)
         throw(ErrorException("PowerIO produced no DSS output"))
@@ -79,7 +82,7 @@ function to_dss(net::Dict{String,Any};
     # The export direction reads component ids straight out of the caller's
     # dict, so unlike `from_dss` there is no case folding to mirror here.
     findings === nothing ||
-        append!(findings, powerio_findings(_powerio_diagnostic_records(warnings_list)))
+        append!(findings, powerio_findings(_powerio_diagnostic_records(diagnostics)))
 
     dss_text, collect(String, warnings_list)
 end

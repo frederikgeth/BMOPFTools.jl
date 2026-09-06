@@ -58,6 +58,7 @@ that the migrated model preserves every intended scientific meaning.
 | `W.MIGRATE.XFMR_SERIES_FIELDS` | W | Legacy lumped transformer `r_series`/`x_series` fields were assigned to the wye winding and zeroed on the delta winding. The transformation follows the legacy convention but should be checked against the source model. |
 | `W.MIGRATE.FIELD_RENAMES` | W | One or more legacy component fields were renamed to their current schema names, including voltage, winding-configuration, or IBR voltage-aggregation fields. |
 | `W.MIGRATE.XFMR_EXTRAS_FOLD` | W | Transformer fields temporarily relocated under `extras.transformer` by schema 0.1.0 were folded back onto their transformer record. |
+| `W.MIGRATE.NWINDING_NOMINAL_TAP` | W | An exact unit n-winding winding `tap_ratio`, with no competing tap bounds or control declaration, was normalized to the implicit nominal ratio. The original value and winding index remain in migration evidence; this does not enable non-unit taps or tap optimization. |
 | `W.MIGRATE.TOP_LEVEL_EXTRAS_FOLD` | W | Component tables temporarily relocated under top-level `extras` by schema 0.1.0 were folded back onto the network record. |
 | `W.MIGRATE.LOAD_MODEL_CASE` | W | Uppercase legacy/upstream load-model enum values were lowercased to the values used by this package and its bundled schema. |
 

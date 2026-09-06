@@ -35,6 +35,7 @@ makedocs(
             "Object identity"          => "semantic_modeling.md",
             "Line geometry & impedances" => "tutorial_line_geometry.md",
             "Conversion guide"         => "conversion.md",
+            "PowerIO 0.11 integration" => "powerio-0.11.md",
         ],
         "Analysis & diagnostics"  => [
             "Analysis & reports"       => "analysis.md",
