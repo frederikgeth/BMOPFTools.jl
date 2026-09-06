@@ -148,6 +148,12 @@
       "kind": "missing"
     }
   ],
+  "pf_3wdg_unequal_kva": [
+    {
+      "path": "shunt.powerio_core_n_winding_t1",
+      "kind": "missing"
+    }
+  ],
   "pf_4wdg_dyyn": [
     {
       "path": "shunt.powerio_core_n_winding_t1",

@@ -1,8 +1,8 @@
 # Reviewed round-trip evidence
 
 `roundtrip_expected_losses.json` records each semantic difference's path and kind
-for the 35 feature fixtures, measured with PowerIO.jl d08f451 and native PowerIO
-a039c41 (including native core-shunt preservation from 65dbc04). These expectations are reviewed inputs, not generated during tests.
+for the 36 feature fixtures, checked with released PowerIO.jl/native PowerIO
+0.11.0 (including core-shunt preservation and complete four-winding reactances). These expectations are reviewed inputs, not generated during tests.
 A new loss or a fixed loss changes a normal assertion; the whole-case expected
 failure also becomes an unexpected pass when the final loss is repaired. The
 numbers or fields must never be relaxed merely to make a dependency bump pass.
@@ -33,8 +33,18 @@ incidence: single-phase return entries disappear, polyphase/center-tap matrix
 entries change, and zero-valued n-winding shunts disappear entirely. Zero
 admittance removal is structurally different but electrically harmless; loss of
 a nonzero shunt connection is a remaining export limitation. The reviewed
-snapshot therefore contains 265 differences (formerly 168): 32 old core-field
-differences are replaced by 129 explicit-shunt and zero-default differences.
+snapshot contains 264 differences. The core-shunt update changed the original
+168-entry ledger to 265 entries (32 old core-field differences replaced by 129
+explicit-shunt and zero-default differences). Complete four-winding reactance
+preservation removed two entries. The unequal-kVA fixture adds one harmless
+zero-shunt omission, bringing the current total to 264.
 No whole feature case becomes structurally lossless. These are recorded export
 limitations, not evidence that the stronger intake was a regression or that the
 coarse voltage gate validates every shunt entry.
+
+The unequal-kVA case also has an independent import-to-OpenDSS primitive
+admittance test in `test/powerio_numerical_tests.jl`. Its known #356 failure is
+separate from this DSS round-trip ledger: importing the same wrong resistance
+at both ends can make a structural round trip pass. Two resistance assertions
+(smaller/larger third-winding ratings) and one primitive-admittance assertion
+remain `@test_broken`; upstream fixes must promote them to ordinary assertions.

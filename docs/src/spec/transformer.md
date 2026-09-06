@@ -46,6 +46,23 @@ object instead carries a `windings` array (each with `bus`, `terminal_map`, `v_n
 `configuration`, `r_winding`, optional `delta_roll`, `i_max`) and pairwise
 short-circuit reactances `x_sc` keyed `"i_j"`.
 
+`r_winding` is an ohmic resistance at the winding's own coil voltage;
+`x_sc` is in ohms referred to winding 1's coil voltage. A wye coil voltage is
+line-to-neutral and a delta coil voltage is line-to-line. The engine consumes
+these ohmic values directly, without using per-winding `s_rating` to rebase
+them. That rating is retained metadata; explicit `s_max`/`i_max` fields declare
+supported winding limits.
+
+!!! warning "Unequal winding kVAs in PowerIO 0.11"
+    For the 33/11/0.4 kV, 20/20/5 MVA fixture, PowerIO imports winding 3's
+    0.8% resistance as **0.000256 Ω** using its 5 MVA rating. OpenDSS's
+    primitive admittance instead agrees with **0.000064 Ω**, using winding
+    1's 20 MVA power base. The imported primitive differs by about 34% in
+    maximum-entry relative error; a diagnostic copy with the latter resistance
+    agrees within ``10^{-6}``. Issue #356 remains open with explicit
+    expected-failure tests. This is a finite intake witness, not an extension
+    of the two-winding contracts linked to PSK-000005/PSK-000006.
+
 ## 2. Input symbols
 
 | Field | Symbol | Notes |

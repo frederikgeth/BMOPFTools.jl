@@ -660,6 +660,9 @@ Two views of the same list are recorded on the returned dict:
   [`analyze`](@ref) reports alongside every other finding.
 
 # Errors
+- `PowerIO.PowerIOError` with code `BUILD.DIST.ELECTRICAL_INCOMPLETE` if a
+  geometry-defined line lacks calculated conductor impedances or a resolved
+  terminal map. No substituted-impedance network is returned.
 - `ArgumentError` if the DSS file does not exist.
 - `ErrorException` if PowerIO produces no output (parse failure or schema error).
 

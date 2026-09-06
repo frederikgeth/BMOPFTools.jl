@@ -1,0 +1,20 @@
+! Issue #356: unequal winding ratings distinguish two %R interpretations.
+! OpenDSS uses winding 1's 20 MVA power base; PowerIO 0.11 uses each
+! winding's own rating for resistance. The primitive-admittance test records
+! this unresolved disagreement; a coarse voltage pass does not settle it.
+! Explicit neutral terminals and external grounding isolate the leakage model.
+clear
+set defaultbasefreq=60
+new circuit.unequal basekv=33 pu=1 phases=3 bus1=hvbus model=ideal
+new transformer.t1 phases=3 windings=3
+~ buses=(hvbus.1.2.3, mvbus.1.2.3.4, lvbus.1.2.3.4)
+~ conns=(delta, wye, wye) kvs=(33, 11, 0.4) kvas=(20000, 20000, 5000)
+~ xhl=10 xht=17 xlt=6 %Rs=(0.4, 0.4, 0.8) %noloadloss=0 %imag=0
+new reactor.gmv bus1=mvbus.4 bus2=mvbus.0 phases=1 r=0.0001 x=0
+new reactor.glv bus1=lvbus.4 bus2=lvbus.0 phases=1 r=0.0001 x=0
+new load.mv bus1=mvbus.1.2.3.4 phases=3 conn=wye kv=11 kw=1000 kvar=200 model=1 vminpu=0 vmaxpu=2
+new load.lv bus1=lvbus.1.2.3.4 phases=3 conn=wye kv=0.4 kw=500 kvar=100 model=1 vminpu=0 vmaxpu=2
+set voltagebases=[33,11,0.4]
+calcvoltagebases
+set tolerance=1e-9
+solve

@@ -97,7 +97,7 @@ and an independent OpenDSS comparison. The 100/101-element tests exercise the
 actual writer, not only synthetic diagnostic records. Full diagnostic records,
 including any upstream source spans, survive BMOPF JSON serialization.
 
-## Validation evidence for this update
+## Validation evidence at the 0.11 release
 
 The coordinated prerelease revisions above were checked with Julia 1.12.5.
 The full package suite, scientific-contract/JSON execution gates, generated
@@ -120,3 +120,22 @@ as well as voltage errors. Imported SWER solver agreement and DSS re-export
 coverage are different checks: the former passes while the latter still needs
 an explicit reviewed node correspondence. None of these results expands a
 scientific contract's declared domain.
+
+## Follow-up issue regressions
+
+The release table above records the 35-case baseline at PR #385. The current
+corpus adds `pf_3wdg_unequal_kva.dss`: 36 cases, five structurally clean,
+31 with recorded differences, and 264 exact path/kind differences. The new
+case passes the coarse DSS round-trip voltage check but exposes a separate
+import primitive-admittance discrepancy against OpenDSS.
+
+- **#163:** the LV1 bus and transformer terminal maps and earth-routing evidence
+  are retained through BMOPF JSON serialization.
+- **#381:** unresolved geometry is rejected with
+  `BUILD.DIST.ELECTRICAL_INCOMPLETE`, including after source IR serialization;
+  explicit four-conductor linecodes import successfully. Faithful geometry
+  import remains unsupported, as documented in the conversion guide.
+- **#356 remains open:** the issue's requested own-kVA scalar value does not
+  match OpenDSS's primitive admittance. Two unequal-rating resistance checks
+  and one primitive-admittance check document the unresolved discrepancy.
+  The equal-rating boundary and JSON preservation checks pass.
