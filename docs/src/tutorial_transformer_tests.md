@@ -445,14 +445,19 @@ units — do not "fix" it. Two `n_winding` specifics worth pinning:
 ([approximations table](transformer_models.md#Approximations)).
 
 !!! warning "Unequal winding kVAs"
-    All impedance percentages here convert on **winding 1's `s_rating`** —
-    the engine's (and OpenDSS's `XHL`-family) base convention, and the one
-    the validated equal-kVA test fixtures exercise. Factory reports for
-    units with *unequal* winding ratings often quote each winding's %R on
-    that winding's **own** kVA base — rebase such values onto `s_rating`
-    (multiply by ``S_{\text{rating}}/S_{\text{wdg}}``) before the formulas
-    above, and cross-check the result against an independent calculation as
-    in §5.
+    The example above has equal winding ratings. For a factory report quoting
+    each resistance percentage on its own winding's rating, convert with
+    ``R_k=(\%R_k/100)\,3V_{\mathrm{coil},k}^2/S_k``. Alternatively, multiply
+    the percentage by ``S_1/S_k`` before using the equal-rating formulas above.
+    The package's `r_winding` input is already in ohms; do not rebase it again.
+
+    OpenDSS input must be checked separately from a factory report's convention.
+    Its [transformer implementation](https://github.com/dss-extensions/dss_capi/blob/f5728aec36becd20c19ad2dfc98fa8cf181f8835/src/PDElements/Transformer.pas#L168)
+    places `Rpu` on winding 1's power base and uses that base in its primitive
+    admittance calculation. PowerIO 0.11 instead converts resistance using
+    each winding's own rating. `pf_3wdg_unequal_kva.dss` exposes the difference
+    against OpenDSS's `Yprim`, so #356 remains open. Equal-rating fixtures and
+    successful solves do not validate that conversion.
 
 ## 8. What you may *not* derive
 

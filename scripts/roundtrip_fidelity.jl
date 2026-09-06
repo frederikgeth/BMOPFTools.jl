@@ -7,7 +7,7 @@ three signal sources (PowerIO warnings, semantic BMOPF diff, OpenDSS power-flow
 cross-check). See test/roundtrip_helpers.jl for the machinery.
 
 Corpus tiers:
-  Tier A — all 35 test/data/pf_comparison/*.dss (one feature per case).
+  Tier A — all 36 test/data/pf_comparison/*.dss (one feature per case).
   Tier B — a curated sample of real networks (LV / SWER / meshed / ENWL / dsuite).
   Tier C — the full ~854-file corpus (opt-in via --all).
 
@@ -59,7 +59,7 @@ const OUTPUT_DIR = normpath(joinpath(@__DIR__, "..", "output", "roundtrip_fideli
 
 # ── Corpus enumeration ──────────────────────────────────────────────────────
 
-"All 35 systematic feature cases."
+"All 36 systematic feature cases."
 function tier_a_paths()
     dir = joinpath(DATA_DIR, "pf_comparison")
     [(joinpath(dir, f), :A) for f in sort(readdir(dir)) if endswith(f, ".dss")]

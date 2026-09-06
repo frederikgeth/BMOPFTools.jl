@@ -4037,6 +4037,7 @@ const IEEE13_FIXTURE = """
     # -----------------------------------------------------------------------
     include("powerio_v08_tests.jl")
     include("powerio_v09_tests.jl")
+    include("powerio_regression_tests.jl")
 
     # -----------------------------------------------------------------------
     # PowerIO conversion diagnostics lifted into Findings
@@ -4238,6 +4239,7 @@ include("mcp_execution_tests.jl")
             @test_skip "Requires JuMP, Ipopt, and OpenDSSDirect"
         else
             include("powerflow_comparison_tests.jl")
+            include("powerio_numerical_tests.jl")
         end
     end
 

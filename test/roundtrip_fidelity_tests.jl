@@ -53,7 +53,7 @@ const RT_PF_SOUND = Set([
     "pf_1ph_freeneutral", "pf_1ph_impedanceneutral", "pf_1ph_line",
     "pf_1ph_perfectneutral", "pf_1ph_xfmr", "pf_3ph_line",
     "pf_3wdg_dyn", "pf_3wdg_dyn_unbalanced", "pf_3wdg_dyn_zgnd",
-    "pf_3wdg_nwinding", "pf_3wdg_nwinding_unbalanced", "pf_4wdg_dyyn",
+    "pf_3wdg_nwinding", "pf_3wdg_nwinding_unbalanced", "pf_3wdg_unequal_kva", "pf_4wdg_dyyn",
     "pf_4wdg_nwinding", "pf_autotransformer", "pf_cap_delta", "pf_cap_wye",
     "pf_center_tap_240", "pf_center_tap_balanced_heavy", "pf_center_tap_loaded",
     "pf_center_tap_oneleg_extreme", "pf_center_tap_singleleg_pn",

@@ -681,6 +681,22 @@ sources are re-expanded by the writer as needed.
 
 ## Known limitations
 
+**Geometry-defined OpenDSS lines:** PowerIO 0.11 rejects canonical BMOPF
+conversion when conductor impedances or terminal maps remain unresolved,
+with `PowerIO.PowerIOError` code `BUILD.DIST.ELECTRICAL_INCOMPLETE`.
+`from_dss` propagates this failure; it does not return a network filled with
+OpenDSS default sequence impedances. The IEEE-13 configuration 601 fixture
+is tested through `from_dss`, including equivalent metre/kilometre line lengths
+and PowerIO IR serialization. Explicit four-conductor linecodes still import.
+
+This resolves the silent-substitution defect described in
+[issue #381](https://github.com/frederikgeth/BMOPFTools.jl/issues/381), but it does
+not implement faithful `WireData`/`LineGeometry` import. Retain the source DSS
+or PowerIO module, or supply explicitly calculated conductor impedances.
+BMOPFTools can compile its own `wire_data`/`line_geometry` representation;
+that capability does not imply that the OpenDSS importer populates it.
+
+
 - **Transformer fidelity (from `from_dss`).** BMOPFTools requires PowerIO
   v0.7 for OpenDSS import. The BMOPF export carries fixed taps, center-tap
   leakage, delta-wye leakage, neutral grounding, and the validated `n_winding`
