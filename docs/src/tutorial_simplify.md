@@ -5,8 +5,9 @@
 GIS-derived models often contain degree-2 junction buses, explicit switches,
 and unloaded stubs. Some can be eliminated exactly; others carry grounding,
 shunts, limits, or future modelling meaning. The package records reductions and
-refusals in `_simplification_log`. Series merging now refuses π shunts and
-constraints that require the intermediate voltage. Other topology passes can
+refusals in `_simplification_log`. Series merging permits same-linecode π
+approximations by default with warnings; intermediate bus constraints require
+separate permission to remove. Other topology passes can
 still be lossy, including pruning shunt-bearing stubs and collapsing rated
 switches; read their warnings and disable them when those effects matter.
 
@@ -136,8 +137,8 @@ this dataset snapshot.
 
 **[`merge_series_lines`](@ref)** fuses two lines meeting at a pass-through bus
 (exactly two line connections, nothing else) **when their linecodes match** —
-provided the chain is series-only and has no intermediate voltage, segment
-apparent-power, or segment angle limits. The merged line gets the summed length
+provided the chain has no intermediate voltage, segment apparent-power, or
+segment angle limits (intermediate bus bounds can be explicitly dropped). The merged line gets the summed length
 and the tighter effective current rating:
 
 ```@example simp
@@ -148,19 +149,31 @@ merged = sort([(id, l["_merged_from"], round(l["length"], digits=1))
               by = last, rev = true)
 println(inventory(n4), "\n")
 if isempty(merged)
-    println("No eligible series-only corridors; inspect the refusal codes below.")
+    println("No eligible corridors; inspect the refusal codes below.")
 else
     println("longest merged corridor: line ", merged[1][1], " absorbed ",
             merged[1][2], ", combined length ", merged[1][3], " m")
 end
 ```
 
-The imported linecodes may contain π shunts, so there may be no eligible
-merges. Adding section lengths would relocate the interior shunts and change
-the port admittance; `PI_SHUNT_PRESENT` records the refusal. `GROUNDED_BUS`
-protects a perfect ground, `INTERMEDIATE_CONSTRAINT` protects bounds requiring
-voltage recovery, and `LINECODE_MISMATCH` records a chain outside the supported
-same-linecode pathway. The log explains each candidate:
+The default `series_merge_policy=:allow_approximate` supports GIS cleanup by
+combining same-linecode π sections and summing their lengths. This redistributes
+interior shunts and changes terminal equations. Each such merge emits
+`SERIES_MERGE_APPROXIMATE`, recording both source lines, the removed bus, and the
+unquantified approximation risk. The tighter effective current rating is retained,
+but that does not establish equivalence of the original segment current limits.
+
+Use `merge_series_lines(net; series_merge_policy=:exact)` to refuse these merges,
+or `:off` to disable series merging. Both keywords below also work with
+`simplify_network`. Intermediate bus bounds block merging unless explicitly
+permitted with `allow_drop_bus_constraints=true` in approximate mode; their values
+are recorded in the warning. Segment apparent-power and angle limits still block
+merging, as do grounding, attached devices, and incompatible terminal maps.
+Inline shunt overrides are outside the supported approximation domain.
+
+A before/after power-flow comparison can measure the effect at the selected
+operating point; no error magnitude or global feasibility preservation is claimed
+by the merge itself. The log explains each candidate:
 
 ```@example simp
 codes = [e["code"] for e in n4["_simplification_log"]]

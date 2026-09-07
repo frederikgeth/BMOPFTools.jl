@@ -119,9 +119,27 @@ end
 
 @testset "Scientific review — series reduction refuses unsupported preservation" begin
     net = parse_bmopf(joinpath(@__DIR__, "data", "scientific_review", "pi-chain.json"))
-    reduced = merge_series_lines(net)
+    reduced = merge_series_lines(net; series_merge_policy=:exact)
     @test reduced["line"] == net["line"]
     @test any(e -> e["code"] == "PI_SHUNT_PRESENT", reduced["_simplification_log"])
+    approximate = merge_series_lines(net)
+    @test length(approximate["line"]) == 1
+    @test only(values(approximate["line"]))["length"] == 2.0
+    @test approximate["linecode"] == net["linecode"]
+    risk = only(e for e in approximate["_simplification_log"] if e["code"] == "SERIES_MERGE_APPROXIMATE")
+    @test risk["severity"] == "warning"
+    @test risk["detail"]["shunts_redistributed"]
+    @test !risk["detail"]["error_quantified"]
+    @test Set(risk["detail"]["lines"]) == Set(["AB", "BC"])
+    @test risk["detail"]["removed_bus"] == "B"
+    @test JSON3.read(JSON3.write(risk), Dict{String,Any}) == risk
+    @test length(net["line"]) == 2 # input remains unchanged
+    @test merge_series_lines(net; series_merge_policy=:off)["line"] == net["line"]
+    @test_throws ArgumentError merge_series_lines(net; series_merge_policy=:invalid)
+    @test length(simplify_network(net; dangling_lines=false)["line"]) == 1
+    @test length(simplify_network(net; dangling_lines=false, series_merge_policy=:exact)["line"]) == 2
+    grounded = deepcopy(net); grounded["bus"]["B"]["perfectly_grounded_terminals"] = ["1"]
+    @test length(merge_series_lines(grounded)["line"]) == 2
     # An independent nodal elimination shows why simply doubling length is wrong.
     Y = [1.1 -1.0 0.0; -1.0 2.2 -1.0; 0.0 -1.0 1.1]
     exact = Y[[1,3],[1,3]] - Y[[1,3],[2]] * (Y[[2],[2]] \ Y[[2],[1,3]])
@@ -129,10 +147,16 @@ end
     for key in ("G_from_1_1", "G_to_1_1")
         net["linecode"]["lc"][key] = 0.0
     end
-    @test length(merge_series_lines(net)["line"]) == 1
+    @test length(merge_series_lines(net; series_merge_policy=:exact)["line"]) == 1
+    @test !any(e -> e["code"] == "SERIES_MERGE_APPROXIMATE", merge_series_lines(net)["_simplification_log"])
     for bound in ("v_min", "vuf_max")
         bounded = deepcopy(net); bounded["bus"]["B"][bound] = bound == "v_min" ? [200.0] : 0.02
         @test length(merge_series_lines(bounded)["line"]) == 2
+        dropped = merge_series_lines(bounded; allow_drop_bus_constraints=true)
+        @test length(dropped["line"]) == 1
+        evidence = only(e["detail"] for e in dropped["_simplification_log"] if e["code"] == "SERIES_MERGE_APPROXIMATE")
+        @test evidence["dropped_bus_constraints"][bound] == bounded["bus"]["B"][bound]
+        @test length(merge_series_lines(bounded; series_merge_policy=:exact, allow_drop_bus_constraints=true)["line"]) == 2
     end
     net["line"]["AB"]["s_max"] = [1000.0]
     @test length(merge_series_lines(net)["line"]) == 2

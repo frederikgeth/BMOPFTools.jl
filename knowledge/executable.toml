@@ -748,6 +748,7 @@ source_paths = [
   "src/augmentation/voltage_bounds.jl",
   "src/augmentation/manifest.jl",
   "src/network/simplify.jl",
+  "docs/src/tutorial_simplify.md",
   "test/scientific_review_tests.jl",
   "test/solution_candidate_tests.jl",
   "test/data/scientific_review/pi-chain.json",
