@@ -73,7 +73,8 @@ using JSONSchema
         ))
         verification_payload = verified["result"]["structuredContent"]
         @test verification_payload["operation"] == "verify_solution"
-        @test verification_payload["result"]["summary"]["errors"] == 1
+        @test Set(["E.SOL.VOLT_VIOLATION", "E.SOL.REFERENCE_VIOLATION"]) ⊆
+              Set(f["code"] for f in verification_payload["result"]["findings"])
         @test JSONSchema.validate(schema,
             JSON3.read(JSON3.write(verification_payload))) === nothing
 

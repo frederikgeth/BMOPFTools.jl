@@ -2,8 +2,8 @@
     AugmentationRecipe
 
 Parameters controlling which augmentation passes run and what default values
-they inject.  Every field has a standards-grounded default; override only what
-you need.
+they inject.  Defaults are study policies and approximations; select them for the supported
+network and record the assumptions. Synthetic thermal estimation is opt-in.
 
 Construct with keyword arguments:
 
@@ -21,8 +21,9 @@ analysis is used as a last resort.
 
 The declared voltage is expressed **per conductor** (phase-to-ground ≈
 phase-to-neutral), the same basis as `v_nom`.  Phase-to-neutral bounds use it
-directly; phase-to-phase (line-to-line) bounds derive their nominal as
-`v_declared × √3`.  Set the fallbacks to the per-conductor declared voltage for
+directly; phase-pair bounds use declared nominal angles, or the supported
+three-phase (√3) / center-tapped split-phase (2) arrangement. Ambiguous pairs
+are skipped with a manifest entry.  Set the fallbacks to the per-conductor declared voltage for
 the deployment region, e.g. `v_declared_lv = 230.0` for Europe/Australia
 (230 V L-N → 400 V L-L); for an 11 kV (L-L) MV system use
 `v_declared_mv = 11000 / √3 ≈ 6350.0`.
@@ -55,17 +56,17 @@ Base.@kwdef struct AugmentationRecipe
     vpn_mv_pu :: Tuple{Float64,Float64} = (0.94, 1.06)   # DSO planning MV ±6 %
 
     # ── Phase-to-phase bounds ─────────────────────────────────────────────────
-    # vpp_nom = v_declared × √3 (line-to-line) for both four-wire and three-wire
-    # buses, since v_declared is the per-conductor phase-to-ground nominal.
+    # Pair nominals depend on the supported phasor arrangement (√3 or 2).
     # For three-wire buses this is the only phase-voltage constraint available.
     # HV (three-wire only in practice): ±5 % transmission planning band.
     vpp_lv_pu :: Tuple{Float64,Float64} = (0.90, 1.10)   # EN 50160 LV ±10 %
     vpp_mv_pu :: Tuple{Float64,Float64} = (0.94, 1.06)   # DSO planning MV ±6 %
     vpp_hv_pu :: Tuple{Float64,Float64} = (0.95, 1.05)   # transmission ±5 %
 
-    # ── Negative-sequence upper bound (EN 50160:2010 §3.5) ───────────────────
+    # ── Instantaneous negative/positive sequence ratio study limit ─────────
     # "Under normal operating conditions … the negative-sequence component
     # shall not exceed 2 % of the positive-sequence component."
+    # Legacy keyword: controls the dimensionless vuf_max ratio written to 3-phase buses.
     vneg_max_pu :: Float64 = 0.02
 
     # ── Intra-bus angle-difference window ─────────────────────────────────────
@@ -89,8 +90,8 @@ Base.@kwdef struct AugmentationRecipe
     conductor_type :: Symbol = :underground   # :underground | :overhead
 
     # Minimum provenance confidence required before inferring i_max from R₁₁.
-    # :high   — only geometry-derived (distinct) matrices
-    # :medium — geometry-derived OR near-balanced (default)
+    # :high   — only distinct matrices (an impedance-structure gate, not ampacity confidence)
+    # :medium — distinct OR near-balanced (default)
     # :low    — any linecode including sequence-derived
     thermal_min_confidence :: Symbol = :medium
 
@@ -120,7 +121,7 @@ Base.@kwdef struct AugmentationRecipe
     apply_vpp_bounds      :: Bool = true
     apply_vneg_bounds     :: Bool = true
     apply_va_diff_bounds  :: Bool = false   # opt-in: angle constraints are init-sensitive
-    apply_thermal         :: Bool = true
+    apply_thermal         :: Bool = false
     # Convert per-conductor apparent-power limits (s_max) on lines/switches that
     # lack a current limit into an equivalent i_max = s_max / v_ref. Opt-in: the
     # conversion is only exact at the reference voltage, and current is the

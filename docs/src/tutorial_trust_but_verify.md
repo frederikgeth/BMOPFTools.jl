@@ -14,8 +14,7 @@ The antidote is cheap and worth building once by hand: take a solved case and
 **independently recompute** the physics — Kirchhoff's current law, Ohm's law,
 voltage bounds, thermal loading, losses, and the objective — from the result
 dictionary alone. This tutorial does exactly that on a feeder small enough to
-have a closed-form answer, then shows that the toolkit ships the same checks so
-you do not have to repeat them by hand every time.
+have a closed-form answer, then compares those checks with the narrower coverage of the toolkit profiler.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` — see
 the [end-to-end tutorial](tutorial_end_to_end.md) first.*
@@ -123,8 +122,11 @@ that the returned point is the physical operating point.
 ## 3. The toolkit does this for you
 
 Recomputing by hand is the right way to build intuition once; in practice you
-call [`profile_solution`](@ref), which runs the same balance, loss, thermal and
-bound checks and returns a report of `Finding`s.
+call [`profile_solution`](@ref), which checks supplied-result bounds, source/ground references, load-model powers,
+and aggregate power balance and returns a report of `Finding`s. It derives bus
+magnitudes from rectangular voltages and flags inconsistent redundant fields.
+It does not independently reconstruct branch equations, terminal KCL, losses,
+or the objective. Keep the manual checks above when those dimensions matter.
 
 ```@example trustverify
 report = profile_solution(feeder(), r)
@@ -144,8 +146,8 @@ summary = solution_check(feeder(), r, f)
 
 `W.SOL.POWER_BALANCE` fires when generation minus load, shunts and losses fails
 to net to zero; `W.SOL.NEG_LOSS` when a passive branch appears to *source* active
-power; `I.SOL.BINDING_SUMMARY` counts the active and violated limits. These are
-the machine version of the five hand-checks above — see the
+power; `I.SOL.BINDING_SUMMARY` counts the active and violated limits. These complement
+the five hand-checks above; they do not replace them — see the
 [finding-code reference](findings.md#SOL-—-solution-profiling).
 
 ## 4. When the status is green but the answer is not what you want
@@ -177,7 +179,7 @@ sbad = solution_check(badfeeder(), rbad, fbad)
  flags = [x.code for x in fbad])
 ```
 
-The status is identical to the healthy case; only the independent loss check
+The status is identical to the healthy case; the reported loss fraction
 tells them apart. This is the general lesson. A `LOCALLY_SOLVED` verdict reports
 an approximate KKT point of the model you handed the solver; independent
 residual checks determine whether the returned point actually meets your
@@ -195,6 +197,7 @@ acceptance tolerance. The verdict does **not** guarantee that:
 
 !!! tip "The habit"
     After every solve, run `profile_solution` and read the findings — treat a
-    green status plus a clean solution report as the bar, not the status alone.
+    solver status, result coverage, and the independent checks required by your
+    study as separate evidence. A clean profiler report covers only its stated checks.
     For the engine-level validation (agreement with OpenDSS, projection
     triangulation, optimality tiers) see [Validating the OPF](validation.md).

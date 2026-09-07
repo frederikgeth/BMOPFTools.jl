@@ -2352,10 +2352,17 @@ function check_claimed_solution_validity(
     report = profile_solution(net, result)
     blocking_codes = Set([
         "E.SOL.NAN_IN_RESULT",
+        "E.SOL.PHASOR_INCONSISTENT",
         "E.SOL.VOLT_VIOLATION",
         "E.SOL.ANGLE_VIOLATION",
     ])
     blocking = [finding for finding in report.findings if finding.code in blocking_codes]
+    if isempty(blocking) && any(f -> f.code in ("W.SOL.VUF_UNDEFINED", "W.SOL.LIMIT_UNASSESSED"), report.findings)
+        return _claimed_solution_refusal(
+            :indeterminate, "W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE", WARNING,
+            "Claimed-solution validity is indeterminate: a declared sequence limit could not be assessed.",
+            "sequence limits require three phases and vuf_max requires nonvanishing positive-sequence voltage", termination_status)
+    end
     observed_codes = sort(unique(finding.code for finding in report.findings))
     evidence = Dict{String,Any}(
         "termination_status" => termination_status,

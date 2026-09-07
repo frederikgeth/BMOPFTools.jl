@@ -4085,6 +4085,7 @@ include("mcp_execution_tests.jl")
     # Solution profiling — no solver required
     # -----------------------------------------------------------------------
     include("solution_profiling_tests.jl")
+    include("scientific_review_tests.jl")
 
     # -----------------------------------------------------------------------
     # Coordinate side-loading & ASCII tree rendering — no solver required

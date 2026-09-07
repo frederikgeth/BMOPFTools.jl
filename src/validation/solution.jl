@@ -58,6 +58,136 @@ function _collect_nonfinite!(locs::Vector{String}, node, path::String)
     return locs
 end
 
+# Canonical bus phasors for all downstream checks. Never mutate supplied evidence.
+# Keep the same 0.2% engineering tolerance as the existing bound checks; this is
+# a consistency test, not a demand for bitwise-identical serialization.
+function _canonical_solution_voltages(net, result, findings)
+    canonical = deepcopy(result)
+    # Callers may construct nested Dict{String,Dict{String,Float64}} containers.
+    # Normalize the bus containers before replacing rows: otherwise assignment
+    # converts/copies a row back to its old type and later edits miss that copy.
+    bus_results = Dict{String,Any}()
+    raw_buses = get(canonical, "bus", nothing)
+    if raw_buses isa AbstractDict
+        for (bid, rows) in raw_buses
+            bus_results[string(bid)] = rows isa AbstractDict ?
+                Dict{String,Any}(string(t)=>v for (t,v) in rows) : rows
+        end
+    end
+    canonical["bus"] = bus_results
+    missing = String[]
+    for (bid, bus) in get(net, "bus", Dict())
+        bus isa AbstractDict || continue
+        for t in string.(get(bus, "terminal_names", String[]))
+            vals = get(get(get(canonical, "bus", Dict()), bid, Dict()), t, nothing)
+            if vals isa AbstractDict
+                vals = Dict{String,Any}(string(k)=>v for (k,v) in vals)
+                canonical["bus"][bid][t] = vals
+            end
+            for key in ("vr", "vi", "vm")
+                value = vals isa AbstractDict ? get(vals, key, nothing) : nothing
+                (value isa Real && !(value isa Bool)) || push!(missing, "bus.$bid.$t.$key")
+            end
+            vals isa AbstractDict || continue
+            vr = get(vals, "vr", nothing); vi = get(vals, "vi", nothing)
+            (vr isa Real && vi isa Real && isfinite(vr) && isfinite(vi)) || continue
+            vm = hypot(vr, vi)
+            reported = get(vals, "vm", nothing)
+            if reported isa Real && isfinite(reported) &&
+                    abs(reported - vm) > max(2e-3 * vm, 1e-6)
+                push!(findings, Finding(ERROR, "E.SOL.PHASOR_INCONSISTENT", :solution, :bus, bid,
+                    "Bus '$bid' terminal '$t': reported magnitude disagrees with the rectangular voltage.",
+                    Dict{String,Any}("terminal"=>t, "reported_vm"=>reported,
+                                     "computed_vm"=>vm, "tolerance_V"=>max(2e-3 * vm, 1e-6))))
+            end
+            vals["vm"] = vm
+            vals["va"] = atan(vi, vr)
+        end
+    end
+    # Missing components cannot be interpreted as zero injections or losses.
+    for family in ("line", "switch", "load", "generator", "ibr", "voltage_source",
+                   "capacitor", "dc_bus", "dc_branch")
+        block = get(result, family, Dict())
+        for id in keys(get(net, family, Dict()))
+            get(block, id, nothing) isa AbstractDict || push!(missing, "$family.$id")
+        end
+    end
+    for (family, fields) in (("load", ("pd", "qd")), ("generator", ("pg", "qg")),
+                             ("ibr", ("pg", "qg")), ("voltage_source", ("ps", "qs")))
+        for (id, device) in get(net, family, Dict())
+            tm = string.(get(device, "terminal_map", String[]))
+            bus = get(get(net, "bus", Dict()), get(device, "bus", ""), Dict{String,Any}())
+            nt = _neutral_terminal(bus)
+            for t in tm
+                t == nt && continue
+                vals = get(get(get(result, family, Dict()), id, Dict()), t, Dict())
+                for field in fields
+                    get(vals, field, nothing) isa Real || push!(missing, "$family.$id.$t.$field")
+                end
+            end
+        end
+    end
+    for family in ("line", "switch")
+        for (id, device) in get(net, family, Dict())
+            lc = get(get(net, "linecode", Dict()), get(device, "linecode", ""), Dict())
+            any(key -> haskey(device, key) || haskey(lc, key), ("i_max", "s_max")) || continue
+            for t in string.(get(device, "terminal_map_from", String[]))
+                vals = get(get(get(result, family, Dict()), id, Dict()), t, Dict())
+                get(vals, "cm_fr", nothing) isa Real || push!(missing, "$family.$id.$t.cm_fr")
+            end
+        end
+    end
+    for (_, devices) in get(net, "transformer", Dict()), id in keys(devices)
+        get(get(result, "transformer", Dict()), id, nothing) isa AbstractDict ||
+            push!(missing, "transformer.$id")
+    end
+    if !isempty(get(net, "line", Dict())) || !isempty(get(net, "transformer", Dict()))
+        for field in ("p_loss", "q_loss")
+            get(get(result, "losses", Dict()), field, nothing) isa Real || push!(missing, "losses.$field")
+        end
+    end
+    if !isempty(missing)
+        sort!(unique!(missing))
+        push!(findings, Finding(WARNING, "W.SOL.INCOMPLETE_RESULT", :solution, :network, nothing,
+            "Required result data are missing; skipped checks are not evidence of feasibility.",
+            Dict{String,Any}("missing_fields"=>missing)))
+    end
+    canonical, missing
+end
+
+# Native ideal-source references and explicit perfect grounds, in SI volts.
+# This deliberately does not stand in for branch/device equation or KCL checks.
+function _check_solution_references(net, result, findings)
+    buses = get(net, "bus", Dict())
+    function check_reference(bid, t, target, owner)
+        vals = get(get(get(result, "bus", Dict()), bid, Dict()), t, Dict())
+        vr = get(vals, "vr", NaN); vi = get(vals, "vi", NaN)
+        (vr isa Real && vi isa Real && isfinite(vr) && isfinite(vi)) || return
+        residual = abs(complex(vr, vi) - target)
+        tol = max(2e-3 * abs(target), 1e-6)
+        residual <= tol && return
+        push!(findings, Finding(ERROR, "E.SOL.REFERENCE_VIOLATION", :solution, :bus, bid,
+            "Bus '$bid' terminal '$t' violates its $owner voltage reference.",
+            Dict{String,Any}("terminal"=>t, "reference"=>owner,
+                             "residual_V"=>residual, "tolerance_V"=>tol)))
+    end
+    for (bid, bus) in buses
+        for t in string.(get(bus, "perfectly_grounded_terminals", String[]))
+            check_reference(bid, t, 0.0 + 0im, "perfect_ground")
+        end
+    end
+    for (sid, source) in get(net, "voltage_source", Dict())
+        get(source, "configuration", "WYE") in ("WYE", "SINGLE_PHASE") || continue
+        bid = get(source, "bus", "")
+        tm = string.(get(source, "terminal_map", String[]))
+        magnitudes = get(source, "v_magnitude", [])
+        angles = get(source, "v_angle", [])
+        for k in 1:min(length(tm), length(magnitudes), length(angles))
+            check_reference(bid, tm[k], magnitudes[k] * cis(angles[k]), "voltage_source.$sid")
+        end
+    end
+end
+
 # Complex power (P [W], Q [var]) flowing FROM the network INTO a shunt-admittance
 # element, evaluated at the solved SI bus voltages. Used to account standalone
 # shunts in the network power balance (the branch-loss ledger covers only lines
@@ -237,14 +367,26 @@ function solution_check(net::Dict{String,Any},
 
     # ── Termination ──────────────────────────────────────────────────────────
     status = get(result, "termination_status", "UNKNOWN")
-    feasible = status in ("LOCALLY_SOLVED", "OPTIMAL", "ALMOST_LOCALLY_SOLVED")
+    primal_status = get(result, "primal_status", nothing)
+    solved_status = status in ("LOCALLY_SOLVED", "OPTIMAL", "ALMOST_LOCALLY_SOLVED", "ALMOST_OPTIMAL")
+    feasible = primal_status === nothing ? solved_status :
+        primal_status in ("FEASIBLE_POINT", "NEARLY_FEASIBLE_POINT", "ALMOST_FEASIBLE_POINT")
+    has_candidate = primal_status === nothing ? solved_status :
+        primal_status in ("FEASIBLE_POINT", "NEARLY_FEASIBLE_POINT", "ALMOST_FEASIBLE_POINT", "INFEASIBLE_POINT")
     out["termination_status"] = status
+    out["solver_claimed_feasible"] = feasible
+    out["primal_status"] = primal_status
     out["feasible"] = feasible
+    out["verification_status"] = "indeterminate"
+    out["unassessed_dimensions"] = ["branch_and_device_equations", "terminal_kcl",
+        "objective_optimality", "independent_loss_reconstruction",
+        "receiving_end_branch_limits", "branch_angle_limits", "complete_limit_coverage"]
 
-    if !feasible
-        push!(findings, Finding(ERROR, "E.SOL.INFEASIBLE", :solution, :network, nothing,
-            "Solver terminated with status '$status' — all numeric results are " *
-            "unreliable (NaN). No bound or residual checks are meaningful.",
+    if !has_candidate
+        proven_infeasible = status == "INFEASIBLE"
+        push!(findings, Finding(proven_infeasible ? ERROR : WARNING,
+            proven_infeasible ? "E.SOL.INFEASIBLE" : "W.SOL.NO_CANDIDATE", :solution, :network, nothing,
+            "Solver terminated with status '$status'; no primal candidate is available for profiling.",
             Dict{String,Any}("termination_status" => status)))
         out["n_volt_violations"]    = 0
         out["n_thermal_violations"] = 0
@@ -266,6 +408,9 @@ function solution_check(net::Dict{String,Any},
             Dict{String,Any}("locations" => nan_locs)))
     end
     out["n_nan_fields"] = length(nan_locs)
+    result, missing = _canonical_solution_voltages(net, result, findings)
+    out["missing_result_fields"] = missing
+    _check_solution_references(net, result, findings)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     # Threshold for "active" (near-binding): within this fraction of the bound value.
@@ -280,9 +425,8 @@ function solution_check(net::Dict{String,Any},
     # becomes ≈1×10⁻³ relative once a binding i_max circle is unscaled back to A
     # (worst observed ≈8.5×10⁻⁴ on the STATCOM toy case); without this the checker
     # would flag every saturated generator/IBR as a violation. 2×10⁻³ relative
-    # comfortably covers that per-unit convergence slack while still catching any
-    # genuine violation, which is orders of magnitude larger (real breaches exceed
-    # the bound by tens of percent). Small absolute floor for bounds near zero.
+    # covers that observed convergence slack. Excursions smaller than this
+    # declared acceptance tolerance are not classified as violations.
     viol_frac = 2e-3
     viol_tol(bound; abs_floor::Float64=1e-6) = max(viol_frac * abs(bound), abs_floor)
 
@@ -474,8 +618,9 @@ function solution_check(net::Dict{String,Any},
         vpos_max  = get(bus, "vpos_max",  nothing)
         vneg_max  = get(bus, "vneg_max",  nothing)
         vzero_max = get(bus, "vzero_max", nothing)
+        vuf_max = get(bus, "vuf_max", nothing)
         (vpos_min === nothing && vpos_max === nothing &&
-         vneg_max === nothing && vzero_max === nothing) && continue
+         vneg_max === nothing && vzero_max === nothing && vuf_max === nothing) && continue
 
         t_res = get(bus_res, bid, nothing)
         t_res isa Dict || continue
@@ -483,7 +628,12 @@ function solution_check(net::Dict{String,Any},
         tnames = get(bus, "terminal_names", String[])
         phase_ts = [string(t) for t in tnames
                     if string(t) != nt && lowercase(string(t)) != "n"]
-        length(phase_ts) != 3 && continue  # sequence bounds only meaningful for 3-phase
+        if length(phase_ts) != 3
+            push!(findings, Finding(WARNING, "W.SOL.LIMIT_UNASSESSED", :solution, :bus, bid,
+                "Sequence limits require a complete three-phase bus.",
+                Dict{String,Any}("dimension"=>"sequence_limits", "phase_count"=>length(phase_ts))))
+            continue
+        end
 
         vr_n = nt !== nothing ? get(get(t_res, nt, Dict()), "vr", 0.0) : 0.0
         vi_n = nt !== nothing ? get(get(t_res, nt, Dict()), "vi", 0.0) : 0.0
@@ -514,6 +664,25 @@ function solution_check(net::Dict{String,Any},
         V0r = (dvr[1] + dvr[2] + dvr[3]) / 3
         V0i = (dvi[1] + dvi[2] + dvi[3]) / 3
         V0  = sqrt(V0r^2 + V0i^2)
+
+        if vuf_max !== nothing
+            if V1 <= 1e-6
+                push!(findings, Finding(WARNING, "W.SOL.VUF_UNDEFINED", :solution, :bus, bid,
+                    "Voltage-unbalance ratio is undefined at a vanishing positive-sequence voltage.",
+                    Dict{String,Any}("vpos_V"=>V1, "vneg_V"=>V2, "voltage_floor_V"=>1e-6)))
+            else
+                ratio = V2 / V1
+                viol, act = _bound_status(ratio, nothing, vuf_max)
+                if viol || act
+                    push!(findings, Finding(viol ? ERROR : WARNING,
+                        viol ? "E.SOL.VOLT_VIOLATION" : "W.SOL.VOLT_ACTIVE",
+                        :solution, :bus, bid, "Bus '$bid': voltage-unbalance ratio checked against vuf_max.",
+                        Dict{String,Any}("flavour"=>"vuf", "value"=>ratio,
+                            "bound_max"=>vuf_max, "vpos_V"=>V1, "vneg_V"=>V2)))
+                    viol ? (n_volt_viol += 1) : (n_volt_active += 1)
+                end
+            end
+        end
 
         for (label, val, lb, ub) in (
                 ("vpos", V1, vpos_min, vpos_max),
@@ -1423,7 +1592,19 @@ function solution_check(net::Dict{String,Any},
     end
 
     # ── DC network post-solve checks ──────────────────────────────────────────
-    feasible && _check_dc_solution(net, result, findings)
+    _check_dc_solution(net, result, findings)
+
+    # Residual warnings are failed assessed checks, unlike near-active bounds
+    # or informational quality diagnostics. Their historical severity is retained.
+    residual_failures = ("W.SOL.LOAD_RESIDUAL", "W.SOL.LOAD_MODEL_RESIDUAL",
+        "W.SOL.POWER_BALANCE", "W.SOL.NEG_LOSS", "W.SOL.IBR_PF_DEVIATION")
+    failed = any(f -> f.section == :solution &&
+        (f.severity == ERROR || f.code in residual_failures), findings)
+    indeterminate = !isempty(missing) || any(f -> f.code in
+        ("W.SOL.VUF_UNDEFINED", "W.SOL.LIMIT_UNASSESSED"), findings)
+    out["verification_status"] = failed ? "failed" : indeterminate ? "indeterminate" : "checks_passed"
+    # Compatibility flag: only the assessed checks, never a full physics certificate.
+    out["feasible"] = feasible && !failed && !indeterminate
 
     out
 end

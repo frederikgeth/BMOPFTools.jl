@@ -99,6 +99,7 @@ function _base_result(; vm=230.0)
                 "n" => Dict("cr_fr"=>0.0,"ci_fr"=>0.0,"cr_to"=>0.0, "ci_to"=>0.0,"cm_fr"=>0.0,"cm_to"=>0.0),
             ),
         ),
+        "voltage_source" => Dict("src"=>Dict(t=>Dict("ps"=>0.0,"qs"=>0.0) for t in ["a","b","c"])),
         "switch"  => Dict{String,Any}(),
         "load" => Dict{String,Any}(
             "ld1" => Dict{String,Any}(
@@ -126,6 +127,12 @@ end
 # ── Helper: extract finding codes ────────────────────────────────────────────
 
 codes(findings) = Set(f.code for f in findings)
+function _set_test_vm!(vals, vm)
+    angle = atan(vals["vi"], vals["vr"])
+    vals["vr"] = vm * cos(angle)
+    vals["vi"] = vm * sin(angle)
+    vals["vm"] = vm
+end
 
 # ── T1: infeasible termination status ────────────────────────────────────────
 
@@ -449,8 +456,8 @@ end
     net    = _base_net()
     result = _base_result()
     # Drop b1 phase a below v_min (200 V) and shift its neutral.
-    result["bus"]["b1"]["a"]["vm"] = 150.0
-    result["bus"]["b1"]["n"]["vm"] = 5.0
+    _set_test_vm!(result["bus"]["b1"]["a"], 150.0)
+    _set_test_vm!(result["bus"]["b1"]["n"], 5.0)
 
     vz = BMOPFTools.voltage_zone_summary(net, result)
     z  = vz["zones"][1]
@@ -637,7 +644,7 @@ end
 @testset "SOL — voltage zone per-bus drill-down" begin
     net    = _base_net()
     result = _base_result()
-    result["bus"]["b1"]["a"]["vm"] = 150.0   # b1 below v_min, worst deviation
+    _set_test_vm!(result["bus"]["b1"]["a"], 150.0)   # b1 below v_min, worst deviation
 
     vz = BMOPFTools.voltage_zone_summary(net, result)
     rows = vz["zones"][1]["bus_rows"]
@@ -885,9 +892,9 @@ end
     net["bus"]["b1"]["v_declared"]        = 240.0
     result = _base_result()
     # Drive the three phases of b1 to active-low, active-high, and violation-high.
-    result["bus"]["b1"]["a"]["vm"] = 201.0   # within 1 % of v_min 200 → active
-    result["bus"]["b1"]["b"]["vm"] = 259.0   # within 1 % of v_max 260 → active
-    result["bus"]["b1"]["c"]["vm"] = 261.0   # above v_max 260       → violation
+    _set_test_vm!(result["bus"]["b1"]["a"], 201.0)   # within 1 % of v_min 200 → active
+    _set_test_vm!(result["bus"]["b1"]["b"], 259.0)   # within 1 % of v_max 260 → active
+    _set_test_vm!(result["bus"]["b1"]["c"], 261.0)   # above v_max 260       → violation
 
     vz = BMOPFTools.voltage_zone_summary(net, result)
     zone = vz["zones"][1]

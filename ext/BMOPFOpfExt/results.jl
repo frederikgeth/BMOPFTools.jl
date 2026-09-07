@@ -7,13 +7,14 @@
     _extract_results(model, net, bus_terminals, grounded, vars) -> Dict{String,Any}
 
 Pack the JuMP solution into a plain `Dict{String,Any}`.  All quantities are in
-SI units (V, A, W, var).  When the solver did not find a feasible point every
+SI units (V, A, W, var).  When the solver returned no primal candidate every
 numeric field contains `NaN`.
 
 Returned top-level keys
 -----------------------
 - `"termination_status"` — string form of `JuMP.termination_status`
-- `"feasible"`           — `true` iff the solver reached a (locally) optimal/solved status
+- `"primal_status"`, `"result_count"` — candidate status and availability; time-limited candidates are retained
+- `"feasible"`           — solver-reported feasible/nearly-feasible primal status, independent of termination
 - `"objective"`          — objective value (currency/hour for default `solve_opf`;
                            working-coordinate slack metric for feasibility OPF;
                            caller-defined units for a custom objective)
@@ -272,10 +273,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
     # Only read primal values when the solver actually produced a result —
     # some optimizers return no candidate point on INFEASIBLE/errors, and
     # objective_value/value throw in that case rather than returning NaN.
-    feasible = JuMP.termination_status(model) in (
-        JuMP.MOI.LOCALLY_SOLVED, JuMP.MOI.OPTIMAL, JuMP.MOI.ALMOST_LOCALLY_SOLVED)
-    has_values = feasible && JuMP.result_count(model) >= 1 &&
-                 JuMP.primal_status(model) != JuMP.MOI.NO_SOLUTION
+    primal_status = JuMP.primal_status(model)
+    feasible = primal_status in (JuMP.MOI.FEASIBLE_POINT, JuMP.MOI.NEARLY_FEASIBLE_POINT)
+    has_values = JuMP.result_count(model) >= 1 && primal_status in (
+        JuMP.MOI.FEASIBLE_POINT, JuMP.MOI.NEARLY_FEASIBLE_POINT, JuMP.MOI.INFEASIBLE_POINT)
     obj = has_values ? JuMP.objective_value(model) : NaN
 
     if JuMP.termination_status(model) == JuMP.MOI.ALMOST_LOCALLY_SOLVED
@@ -384,10 +385,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         if cfg == "SINGLE_PHASE" && length(tm) == 2
             t_ph, t_ref = tm
             cr = val(crd_v[(lid, 1)]); ci = val(cid_v[(lid, 1)])
-            vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-            vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
-            vr_r = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-            vi_r = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+            vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+            vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
+            vr_r = has_values ? val(vr_v[(bus, t_ref)]) : NaN
+            vi_r = has_values ? val(vi_v[(bus, t_ref)]) : NaN
             dvr = vr_t - vr_r; dvi = vi_t - vi_r
             pd = dvr*cr + dvi*ci
             qd = dvi*cr - dvr*ci
@@ -397,16 +398,16 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             for (idx, ph) in enumerate(ph_pos)
                 t_ph = tm[ph]
                 cr = val(crd_v[(lid, idx)]); ci = val(cid_v[(lid, idx)])
-                vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-                vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
+                vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+                vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
                 # Reference: line-to-line (next phase) for DELTA, neutral for WYE.
                 if is_delta
                     t_ref = tm[(ph % n_c) + 1]
-                    vr_n  = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-                    vi_n  = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+                    vr_n  = has_values ? val(vr_v[(bus, t_ref)]) : NaN
+                    vi_n  = has_values ? val(vi_v[(bus, t_ref)]) : NaN
                 else
-                    vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-                    vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+                    vr_n = (t_n !== nothing && has_values) ? val(vr_v[(bus, t_n)]) : 0.0
+                    vi_n = (t_n !== nothing && has_values) ? val(vi_v[(bus, t_n)]) : 0.0
                 end
                 dvr = vr_t - vr_n; dvi = vi_t - vi_n
                 pd  =  dvr*cr + dvi*ci
@@ -433,16 +434,16 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         for (idx, ph) in enumerate(ph_pos)
             t_ph = tm[ph]
             cr = val(crg_v[(gid, idx)]); ci = val(cig_v[(gid, idx)])
-            vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-            vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
+            vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+            vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
             # Reference: line-to-line (next phase) for DELTA, neutral for WYE.
             if is_delta
                 t_ref = tm[(ph % n_c) + 1]
-                vr_n  = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-                vi_n  = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+                vr_n  = has_values ? val(vr_v[(bus, t_ref)]) : NaN
+                vi_n  = has_values ? val(vi_v[(bus, t_ref)]) : NaN
             else
-                vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-                vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+                vr_n = (t_n !== nothing && has_values) ? val(vr_v[(bus, t_n)]) : 0.0
+                vi_n = (t_n !== nothing && has_values) ? val(vi_v[(bus, t_n)]) : 0.0
             end
             dvr = vr_t - vr_n; dvi = vi_t - vi_n
             pg  = dvr*cr + dvi*ci
@@ -483,10 +484,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         if topo == "SINGLE_PHASE" && length(tm) >= 2
             t_ph  = tm[1]; t_ref = tm[2]
             cr = val(cri_v[(inv_id,1)]); ci = val(cii_v[(inv_id,1)])
-            vr_t  = feasible ? val(vr_v[(bus, t_ph)])  : NaN
-            vi_t  = feasible ? val(vi_v[(bus, t_ph)])  : NaN
-            vr_r  = feasible ? val(vr_v[(bus, t_ref)]) : NaN
-            vi_r  = feasible ? val(vi_v[(bus, t_ref)]) : NaN
+            vr_t  = has_values ? val(vr_v[(bus, t_ph)])  : NaN
+            vi_t  = has_values ? val(vi_v[(bus, t_ph)])  : NaN
+            vr_r  = has_values ? val(vr_v[(bus, t_ref)]) : NaN
+            vi_r  = has_values ? val(vi_v[(bus, t_ref)]) : NaN
             dvr = vr_t - vr_r; dvi = vi_t - vi_r
             pg = dvr*cr + dvi*ci
             qg = dvi*cr - dvr*ci
@@ -501,10 +502,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             for (idx, ph) in enumerate(ph_pos)
                 t_ph = tm[ph]
                 cr = val(cri_v[(inv_id,idx)]); ci = val(cii_v[(inv_id,idx)])
-                vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-                vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
-                vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-                vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+                vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+                vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
+                vr_n = (t_n !== nothing && has_values) ? val(vr_v[(bus, t_n)]) : 0.0
+                vi_n = (t_n !== nothing && has_values) ? val(vi_v[(bus, t_n)]) : 0.0
                 dvr = vr_t - vr_n; dvi = vi_t - vi_n
                 pg = dvr*cr + dvi*ci
                 qg = dvi*cr - dvr*ci
@@ -517,10 +518,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             for k in 1:n_c
                 t_pos = tm[k]; t_neg = tm[(k % n_c) + 1]
                 cr = val(cri_v[(inv_id,k)]); ci = val(cii_v[(inv_id,k)])
-                vr_p = feasible ? val(vr_v[(bus, t_pos)]) : NaN
-                vi_p = feasible ? val(vi_v[(bus, t_pos)]) : NaN
-                vr_n = feasible ? val(vr_v[(bus, t_neg)]) : NaN
-                vi_n = feasible ? val(vi_v[(bus, t_neg)]) : NaN
+                vr_p = has_values ? val(vr_v[(bus, t_pos)]) : NaN
+                vi_p = has_values ? val(vi_v[(bus, t_pos)]) : NaN
+                vr_n = has_values ? val(vr_v[(bus, t_neg)]) : NaN
+                vi_n = has_values ? val(vi_v[(bus, t_neg)]) : NaN
                 dvr = vr_p - vr_n; dvi = vi_p - vi_n
                 pg = dvr*cr + dvi*ci
                 qg = dvi*cr - dvr*ci
@@ -687,10 +688,10 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         for (idx, ph) in enumerate(ph_pos)
             t_ph = tm[ph]
             cr = val(cr_src_v[(sid, idx)]); ci = val(ci_src_v[(sid, idx)])
-            vr_t = feasible ? val(vr_v[(bus, t_ph)]) : NaN
-            vi_t = feasible ? val(vi_v[(bus, t_ph)]) : NaN
-            vr_n = (t_n !== nothing && feasible) ? val(vr_v[(bus, t_n)]) : 0.0
-            vi_n = (t_n !== nothing && feasible) ? val(vi_v[(bus, t_n)]) : 0.0
+            vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
+            vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
+            vr_n = (t_n !== nothing && has_values) ? val(vr_v[(bus, t_n)]) : 0.0
+            vi_n = (t_n !== nothing && has_values) ? val(vi_v[(bus, t_n)]) : 0.0
             dvr = vr_t - vr_n; dvi = vi_t - vi_n
             ps  = dvr*cr + dvi*ci
             qs  = dvi*cr - dvr*ci
@@ -786,7 +787,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         for k in eachindex(tm)
             term_d[tm[k]] = Dict{String,Any}(
                 "cr" => cr[k], "ci" => ci[k], "cm" => sqrt(cr[k]^2 + ci[k]^2))
-            if feasible && haskey(vr_v, (bus, tm[k]))
+            if has_values && haskey(vr_v, (bus, tm[k]))
                 vrk = val(vr_v[(bus, tm[k])]); vik = val(vi_v[(bus, tm[k])])
                 # `cr,ci` is the current leaving the bus into the bank. The
                 # reactive power the bank *delivers* to the bus is
@@ -828,6 +829,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
     Dict{String,Any}(
         "termination_status" => status,
         "feasible"           => feasible,
+        "primal_status"      => string(primal_status),
+        "result_count"       => JuMP.result_count(model),
         "objective"          => obj,
         "solve_time"         => tsolve,
         "bus"                => bus_res,

@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "9c4f9e49f5006ccba96bb44043a465e1c485bd3047808b5b694caad334935ddf"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "d634905b1cc7cdae3bb3524f69302d48f67fb9c71081f9abab2962f745e9a7f8"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -2115,7 +2115,61 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SOL",
         catalogue_section="SOL",
         section_title="solution profiling",
-        meaning="Solver termination status is not `LOCALLY_SOLVED`, `OPTIMAL`, or `ALMOST_LOCALLY_SOLVED`. All subsequent bound and residual checks are skipped.",
+        meaning="Solver reports `INFEASIBLE` with no primal candidate. A time limit or local failure without a candidate is reported separately, not as a proof of infeasibility.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.SOL.NO_CANDIDATE" => (
+        severity="WARNING",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="No primal candidate is available to profile. Termination alone does not establish network infeasibility; inspect result count and primal status.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.SOL.INCOMPLETE_RESULT" => (
+        severity="WARNING",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="Declared result data are missing. The profile is indeterminate; omitted terms must not be interpreted as zero or as checks passed. Structured detail lists missing paths.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.SOL.PHASOR_INCONSISTENT" => (
+        severity="ERROR",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="Supplied vm differs from hypot(vr, vi) beyond max(0.2% of the computed magnitude, 1 μV). All voltage-dependent checks use the rectangular phasor, without mutating the supplied result.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.SOL.REFERENCE_VIOLATION" => (
+        severity="ERROR",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="Rectangular bus voltage disagrees with an explicit perfect ground or supported ideal WYE/SINGLE_PHASE source reference beyond max(0.2% of reference magnitude, 1 μV). This checks references, not full network equations.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.SOL.LIMIT_UNASSESSED" => (
+        severity="WARNING",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="A declared sequence limit is outside the complete three-phase domain. Profiling and the bus-limit contract report indeterminate coverage.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.SOL.VUF_UNDEFINED" => (
+        severity="WARNING",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="A declared voltage-unbalance ratio cannot be assessed because the positive-sequence magnitude is at most 1 μV. The bus-limit contract returns indeterminate rather than inventing a ratio.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2133,7 +2187,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SOL",
         catalogue_section="SOL",
         section_title="solution profiling",
-        meaning="A bus terminal voltage magnitude (vm, vpn, vpp, or sequence component) lies outside its declared bound.",
+        meaning="A bus terminal voltage magnitude (vm, vpn, vpp, sequence component, or vuf ratio) lies outside its declared bound.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

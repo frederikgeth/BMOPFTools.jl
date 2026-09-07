@@ -103,7 +103,7 @@ using SHA
     @test verification["status"] == "completed"
     @test verification["result"]["result_meta"]["termination_status"] ==
           "LOCALLY_SOLVED"
-    @test verification["result"]["summary"]["errors"] == 1
+    @test "E.SOL.REFERENCE_VIOLATION" in Set(f["code"] for f in verification["result"]["findings"])
     @test "E.SOL.VOLT_VIOLATION" in
           Set(finding["code"] for finding in verification["result"]["findings"])
     @test JSONSchema.validate(schema,
@@ -277,7 +277,8 @@ using SHA
     @test verification_cli_response.status == "completed"
     @test verification_cli_response.inputs[1].role == "case"
     @test verification_cli_response.inputs[2].role == "result"
-    @test verification_cli_response.result.summary.errors == 1
+    @test Set(["E.SOL.VOLT_VIOLATION", "E.SOL.REFERENCE_VIOLATION"]) ⊆
+          Set(String(f.code) for f in verification_cli_response.result.findings)
     @test JSONSchema.validate(schema, verification_cli_response) === nothing
 
     explanation_cli_out = IOBuffer()
@@ -414,7 +415,8 @@ using SHA
     @test verification_recipe_response.status == "completed"
     @test verification_recipe_response.result.result_meta.termination_status ==
           "LOCALLY_SOLVED"
-    @test verification_recipe_response.result.summary.errors == 1
+    @test Set(["E.SOL.VOLT_VIOLATION", "E.SOL.REFERENCE_VIOLATION"]) ⊆
+          Set(String(f.code) for f in verification_recipe_response.result.findings)
     @test JSONSchema.validate(schema, verification_recipe_response) === nothing
 
     explanation_recipe = joinpath(root, "recipes", "explain_finding", "recipe.jl")

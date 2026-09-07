@@ -464,9 +464,15 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.SOL.INFEASIBLE` | E | Solver termination status is not `LOCALLY_SOLVED`, `OPTIMAL`, or `ALMOST_LOCALLY_SOLVED`. All subsequent bound and residual checks are skipped. |
+| `E.SOL.INFEASIBLE` | E | Solver reports `INFEASIBLE` with no primal candidate. A time limit or local failure without a candidate is reported separately, not as a proof of infeasibility. |
+| `W.SOL.NO_CANDIDATE` | W | No primal candidate is available to profile. Termination alone does not establish network infeasibility; inspect result count and primal status. |
+| `W.SOL.INCOMPLETE_RESULT` | W | Declared result data are missing. The profile is indeterminate; omitted terms must not be interpreted as zero or as checks passed. Structured detail lists missing paths. |
+| `E.SOL.PHASOR_INCONSISTENT` | E | Supplied vm differs from hypot(vr, vi) beyond max(0.2% of the computed magnitude, 1 μV). All voltage-dependent checks use the rectangular phasor, without mutating the supplied result. |
+| `E.SOL.REFERENCE_VIOLATION` | E | Rectangular bus voltage disagrees with an explicit perfect ground or supported ideal WYE/SINGLE_PHASE source reference beyond max(0.2% of reference magnitude, 1 μV). This checks references, not full network equations. |
+| `W.SOL.LIMIT_UNASSESSED` | W | A declared sequence limit is outside the complete three-phase domain. Profiling and the bus-limit contract report indeterminate coverage. |
+| `W.SOL.VUF_UNDEFINED` | W | A declared voltage-unbalance ratio cannot be assessed because the positive-sequence magnitude is at most 1 μV. The bus-limit contract returns indeterminate rather than inventing a ratio. |
 | `E.SOL.NAN_IN_RESULT` | E | One or more numeric fields in the result dict contain `NaN` or `Inf`. Indicates a solver failure or extraction bug even when the termination status appears feasible. |
-| `E.SOL.VOLT_VIOLATION` | E | A bus terminal voltage magnitude (vm, vpn, vpp, or sequence component) lies outside its declared bound. |
+| `E.SOL.VOLT_VIOLATION` | E | A bus terminal voltage magnitude (vm, vpn, vpp, sequence component, or vuf ratio) lies outside its declared bound. |
 | `W.SOL.VOLT_ACTIVE` | W | A voltage magnitude is within 1 % of its bound — the constraint is near-active (binding at the tolerance level). |
 | `E.SOL.ANGLE_VIOLATION` | E | A phase pair's *centered* angle difference `θⱼ − θₖ − (va_nom[j] − va_nom[k])` lies outside the bus's `va_diff_min`/`va_diff_max`. Recomputed from the primal solution via `atan2` per terminal, independent of the constraint's own bilinear expression. |
 | `W.SOL.ANGLE_ACTIVE` | W | A centered phase-pair angle difference is near a `va_diff` bound (near-active). |

@@ -11,7 +11,7 @@ Fields
 - `old_value`      — previous value (`nothing` if the field was absent)
 - `new_value`      — value written
 - `rule`           — standards citation (e.g. `"EN50160:2010§3.5"`)
-- `confidence`     — `:standard`, `:high`, `:medium`, or `:low`
+- `confidence`     — `:standard`, `:heuristic`, `:high`, `:medium`, or `:low`
 - `note`           — human-readable explanation
 """
 struct TransformEntry

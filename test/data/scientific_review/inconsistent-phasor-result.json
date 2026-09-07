@@ -1,0 +1,21 @@
+{
+  "termination_status": "LOCALLY_SOLVED",
+  "objective": 0.0,
+  "solve_time": 0.01,
+  "bus": {
+    "study_bus": {
+      "a": {
+        "vr": 1000.0,
+        "vi": 0.0,
+        "vm": 230.0,
+        "va": 0.0
+      },
+      "n": {
+        "vr": 0.0,
+        "vi": 0.0,
+        "vm": 0.0,
+        "va": 0.0
+      }
+    }
+  }
+}

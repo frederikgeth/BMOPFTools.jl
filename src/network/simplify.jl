@@ -266,6 +266,31 @@ function _merge_series_lines!(net)
             (get(l1, "bus_from", nothing) == get(l1, "bus_to", nothing) ||
              get(l2, "bus_from", nothing) == get(l2, "bus_to", nothing)) && continue
 
+            # Eliminating this bus must not relocate π shunts or discard study
+            # constraints. A minimum current rating is valid only for a series-
+            # only chain; apparent-power limits depend on the local voltage.
+            constrained_fields = [k for k in ("v_min", "v_max", "vpn_min", "vpn_max",
+                "vpp_min", "vpp_max", "vn_max", "vpos_min", "vpos_max", "vneg_max",
+                "vzero_max", "vuf_max", "va_diff_min", "va_diff_max") if haskey(bus_obj, k)]
+            lcs = get(net, "linecode", Dict())
+            has_power_or_angle_limit(l) = any(k -> haskey(l, k), ("s_max", "va_diff_min", "va_diff_max")) ||
+                haskey(get(lcs, get(l, "linecode", ""), Dict()), "s_max")
+            reason = if _line_has_shunt(net, l1) || _line_has_shunt(net, l2)
+                "PI_SHUNT_PRESENT"
+            elseif !isempty(constrained_fields) || has_power_or_angle_limit(l1) || has_power_or_angle_limit(l2)
+                "INTERMEDIATE_CONSTRAINT"
+            else
+                nothing
+            end
+            if reason !== nothing
+                bus_id in warned_buses && continue
+                push!(warned_buses, bus_id)
+                _simlog!(net, "merge_series_lines", reason, "warning", "bus", bus_id,
+                    "Series merge skipped: exact circuit and constraint preservation is not supported for this chain.",
+                    detail=Dict("lines"=>[l1_id,l2_id], "bus_fields"=>constrained_fields))
+                continue
+            end
+
             lc1 = get(l1, "linecode", nothing)
             lc2 = get(l2, "linecode", nothing)
             inline1 = _line_has_inline_z(l1)
@@ -667,7 +692,7 @@ function _collapse_closed_switches!(net)
             # two — max for lower bounds, min for upper. Previously only v_min/
             # v_max survived, so an absorbed bus's tighter scalar bound was lost.
             for (field, op) in (("vpos_min", max), ("vpos_max", min),
-                                ("vneg_max", min), ("vzero_max", min),
+                                ("vneg_max", min), ("vzero_max", min), ("vuf_max", min),
                                 ("vn_max",   min),
                                 ("va_diff_min", max), ("va_diff_max", min))
                 vf = get(bus_f, field, nothing); vt = get(bus_t, field, nothing)
@@ -754,15 +779,17 @@ A pass-through bus is blocked — and a log entry emitted — when:
 - the intermediate bus has grounded terminals (`perfectly_grounded_terminals`):
   code `GROUNDED_BUS` (warning) — the ground fixes terminal voltages and would
   be lost if the bus were deleted
+- nonzero π shunts on either representation: `PI_SHUNT_PRESENT` (warning)
+- intermediate bus bounds, segment apparent-power or angle limits:
+  `INTERMEDIATE_CONSTRAINT` (warning); recovery is not implemented
 - adjacent linecodes differ: code `LINECODE_MISMATCH` (info)
 - terminal maps at the shared bus are incompatible: code `TERMINAL_MISMATCH`
   (warning)
 
 Successful merges record `_merged_from` on the surviving line and emit
-`LINES_MERGED` (info). The merged corridor's `i_max`/`s_max` is the
+`LINES_MERGED` (info). The merged series-only corridor's `i_max` is the
 element-wise minimum of the two segments' **effective** limits (each segment's
-line-level override if present, else its linecode rating), so no thermal
-constraint is silently relaxed.
+line-level override if present, else its linecode rating), and constraints requiring intermediate voltage recovery block the merge.
 
 This is a **one-way, lossy** transformation: the intermediate bus and the
 absorbed line's per-segment impedance are removed, and the reduction is recorded

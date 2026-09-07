@@ -2,22 +2,15 @@
 
 ## From a faithful import to a meaningful benchmark
 
-A distribution network freshly imported from OpenDSS is *physically faithful but
-optimization-meaningless*. It describes conductors, transformers and loads
-exactly — but it carries nothing for an optimizer to respect or decide.
-There are no voltage bounds, so no operating point can be *infeasible*. There
-are no thermal limits, so no line can *bind*. There is no dispatchable
-generation, so the only "decision" is for the slack to import whatever the loads
-draw. Run an OPF on a raw import and the solver returns the power-flow solution:
-the optimisation is trivial because the model contains nothing to optimise
-*against*.
+An imported distribution model needs explicit study assumptions before it can
+serve as an OPF benchmark. Imports can already carry ratings, source controls,
+and limits; missing voltage bounds do not guarantee that the nonlinear power-flow
+equations have a solution. Conversion fidelity and operating feasibility must
+be assessed separately.
 
-**Case augmentation is the bridge from a valid network to a meaningful OPF
-instance.** It is the same gap that the AC transmission community closed with
-PGLib-OPF — a curated benchmark library exists precisely because raw network
-data lacks the generation limits, costs and thermal ratings an OPF needs, and
-those must be added deliberately and reproducibly rather than guessed per study
-([ref. 1](#augrefs)). BMOPFTools brings that discipline to the unbalanced
+Augmentation adds selected bounds, costs and capability assumptions reproducibly,
+following the benchmark-curation motivation of PGLib-OPF ([ref. 1](#augrefs)).
+BMOPFTools supports this in the
 four-wire distribution setting with three composable, audited operations:
 
 - **`fix_case`** — *structural repairs*. Remove inert elements, drop
@@ -27,14 +20,14 @@ four-wire distribution setting with three composable, audited operations:
   dispatchable `generator` elements (or richer inverter-interfaced `ibr`
   elements) at semantically/topologically chosen buses so the OPF has something
   to decide. Never random; every placement is explained.
-- **`augment_case`** — *standards-grounded gap-filling*. Inject voltage bounds,
-  infer thermal limits, price the slack, and derive reactive capability. Fills
+- **`augment_case`** — *audited study assumptions*. Inject voltage bounds,
+  optionally estimate synthetic thermal limits, price the slack, and derive reactive capability. Fills
   only what is missing; never overwrites.
 
 Each returns a `(net′, TransformationManifest)` pair and **never mutates its
 input**. The manifest is the heart of the contract: every value written is
 recorded with the rule that produced it and a confidence tag (standards-derived
-vs `:synthetic`), so the resulting case is self-documenting and the modeler can
+vs `:heuristic`), so the resulting case is self-documenting and the modeler can
 see at a glance exactly which numbers are defensible defaults and which are
 design choices worth revisiting (see [A starting point for fine-tuning](#starting-point)).
 
@@ -119,7 +112,7 @@ ever overwrites an existing value** — augmentation only fills gaps.
 ### Pass 1 — Voltage bounds
 
 Sets `v_min`/`v_max`, `vpn_min`/`vpn_max`, `vpp_min`/`vpp_max`, and
-`vneg_max` on buses that lack them. `vpn_*` are written as per-phase arrays and
+`vuf_max` on supported three-phase buses that lack it. `vpn_*` are written as per-phase arrays and
 `vpp_*` as per-pair arrays (see [Conventions](conventions.md)); the OPF consumes
 them in those shapes.
 
@@ -179,7 +172,7 @@ are applied to all buses regardless of voltage level.
 | `v_min` | 0.85 | Lower regularisation bound — disable with `v_min_pu = nothing` |
 | `v_max` | 1.15 | Upper regularisation bound — disable with `v_max_pu = nothing` |
 
-**Source buses** receive `v_min`/`v_max` only — `vpn`/`vpp`/`vneg` bounds
+**Source buses** receive `v_min`/`v_max` only — `vpn`/`vpp`/`vuf` bounds
 are meaningless there because the voltage source pins the terminal voltages.
 
 #### Power-quality bounds
@@ -198,17 +191,23 @@ set when ≥ 2 phase terminals are present.
 | `vpp_min`/`vpp_max` | MV | 0.94 / 1.06 | Same ±6 % band as `vpn` |
 | `vpp_min`/`vpp_max` | HV (> 35 kV) | 0.95 / 1.05 | Transmission planning ±5 % |
 
-**Three-wire buses** (no neutral terminal) receive `vpp` bounds only.
+Pair nominal voltages use `va_nom` when supplied. A center-tapped split-phase
+zone uses twice the per-leg nominal (120 V → 240 V); a full three-phase bus uses
+√3. An ambiguous two-phase bus is skipped with a manifest entry until its
+nominal angles are supplied. Sequence limits require all three phase terminals.
+
+**Three-wire buses** (no neutral terminal) receive `vpp` and, with three phases,
+`vuf_max`; phase-to-ground regularisation remains a separate study policy.
 
 **Single-phase buses** (one phase terminal + neutral) receive `vpn` but not
-`vpp` or `vneg_max`.
+`vpp` or sequence limits.
 
 **Unassigned buses** (islanded from all voltage sources) are skipped; the
 manifest records a note.
 
 | Bound | Applies to | Default | Standard |
 |---|---|---|---|
-| `vneg_max` | Four-wire, ≥ 2 phases, non-source | 0.02 × vpn_declared | EN 50160:2010 §3.5 — VUF ≤ 2 % |
+| `vuf_max` | Three-phase, non-source | 0.02 (dimensionless) | Instantaneous study limit on negative/positive sequence magnitude, not time-aggregated standards compliance |
 
 #### Intra-bus angle-difference bounds (opt-in)
 
@@ -273,20 +272,15 @@ The match uses a 15 % relative tolerance on R₁₁.  If no table row falls
 within tolerance the linecode is skipped and the manifest records
 `"R₁₁ outside lookup range"`.
 
-**Provenance confidence gating.**  The inference is only reliable when R₁₁
-comes from a first-principles geometry model (Carson/Pollaczek).  The pass
-checks the [`provenance_analysis`](@ref) verdict for each linecode:
-
-| Verdict | Confidence | Included by default? |
-|---|---|---|
-| `distinct` | `:high` | Yes |
-| `near_balanced` | `:medium` | Yes (default threshold) |
-| `exactly_balanced` | `:low` | No |
-| `decoupled` | `:low` | No |
-
-Lower the threshold with `AugmentationRecipe(thermal_min_confidence=:low)` to
-infer limits even from sequence-derived matrices, or raise it to `:high` to
-restrict to geometry-derived data only.
+**Opt-in synthetic policy.** Use `AugmentationRecipe(apply_thermal=true)` to
+request estimates. Existing ratings are never overwritten. The legacy
+`thermal_min_confidence` keyword gates impedance classifications (`distinct`:
+`:high`, `near_balanced`: `:medium`, others: `:low`); it does **not** measure
+ampacity confidence. Even a distinct matrix does not establish material,
+conductor size, or installation. Every inferred rating is marked `:heuristic`.
+`meta.provenance.thermal_estimates[linecode_id]` records the impedance classification,
+assumed construction category, equal-conductor-rating assumption, and lack of
+material/installation verification; it survives `write_bmopf`/`parse_bmopf`.
 
 **Neutral conductor rating.**  The neutral conductor is assigned the same
 `i_max` as the phase conductors.  IEC 60364-5-52:2009 §523 permits a reduced
@@ -393,7 +387,7 @@ fix_case
 FixRecipe
 ```
 
-## `augment_case` — standards-grounded gap-filling
+## `augment_case` — audited study assumptions
 
 ```@docs
 augment_case
@@ -419,7 +413,7 @@ the pair `(case.json, case_manifest.json)` is self-documenting:
 using JSON3
 
 net′, manifest = augment_case(net)
-write_bmopf("feeder_aug.json", net′)
+write_bmopf(net′, "feeder_aug.json")
 open("feeder_aug_manifest.json", "w") do io
     JSON3.write(io, manifest_to_dict(manifest))
 end
@@ -427,7 +421,7 @@ end
 
 ## Adding generators (DER placement)
 
-`augment_case` deliberately only gap-fills standards-grounded bounds; it does
+`augment_case` fills selected study bounds and policies; it does
 **not** create generation.  Without dispatchable generators the OPF is trivial
 (the slack imports everything).  [`add_generators`](@ref) is a separate, opt-in
 pass that *places* dispatchable `generator` elements using the semantic and
@@ -759,3 +753,13 @@ are cited inline at their point of use in the tables above.
 5. IEEE Std 1547-2018, *IEEE Standard for Interconnection and Interoperability
    of Distributed Energy Resources with Associated Electric Power Systems
    Interfaces*, IEEE, 2018.
+
+## Migrating existing augmentation recipes
+
+Synthetic thermal inference now defaults to off. To reproduce the old synthetic
+rating policy, request `apply_thermal=true` and retain the generated provenance.
+The legacy keywords `apply_vneg_bounds` and `vneg_max_pu` now control injection
+of the actual `vuf_max` ratio on three-phase buses. Existing absolute `vneg_max`
+values are preserved; inspect and remove an old synthetic absolute cap explicitly
+if the ratio is the intended policy. Rebuild split-phase bounds from the source
+case: augmentation never overwrites previously generated bounds.

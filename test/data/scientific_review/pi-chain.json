@@ -1,0 +1,53 @@
+{
+  "bus": {
+    "A": {
+      "terminal_names": [
+        "1"
+      ]
+    },
+    "B": {
+      "terminal_names": [
+        "1"
+      ]
+    },
+    "C": {
+      "terminal_names": [
+        "1"
+      ]
+    }
+  },
+  "linecode": {
+    "lc": {
+      "R_series_1_1": 1.0,
+      "X_series_1_1": 0.0,
+      "G_from_1_1": 0.1,
+      "G_to_1_1": 0.1
+    }
+  },
+  "line": {
+    "AB": {
+      "bus_from": "A",
+      "bus_to": "B",
+      "terminal_map_from": [
+        "1"
+      ],
+      "terminal_map_to": [
+        "1"
+      ],
+      "linecode": "lc",
+      "length": 1.0
+    },
+    "BC": {
+      "bus_from": "B",
+      "bus_to": "C",
+      "terminal_map_from": [
+        "1"
+      ],
+      "terminal_map_to": [
+        "1"
+      ],
+      "linecode": "lc",
+      "length": 1.0
+    }
+  }
+}

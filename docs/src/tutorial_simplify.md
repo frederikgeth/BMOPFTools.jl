@@ -1,18 +1,17 @@
 # [Simplifying a network before optimisation](@id tutorial-simplify)
 
-*Fewer buses, same physics — and you can verify that claim rather than assume it.*
+*Reduce a network only within the supported circuit and constraint domain.*
 
-Feeders imported from GIS-derived OpenDSS models carry **modelling artefacts**:
-degree-2 junction buses left behind by geometry points, closed switches modelled
-as separate elements, stub lines that end at a bus with nothing on it. None of
-these change the physics, but every one of them adds voltage and current
-variables to the OPF. Simplification strips them out as a *fidelity-preserving*
-transformation — the solution on the simplified network matches the original at
-every surviving bus. That guarantee is not free: it holds because each pass is
-**gated** to refuse any reduction that would move the physics (a grounded
-intermediate bus, a stub that is really a shunt-to-earth). This page runs each
-pass on a real feeder, shows those gates firing, then closes the loop by solving
-both networks and comparing.
+GIS-derived models often contain degree-2 junction buses, explicit switches,
+and unloaded stubs. Some can be eliminated exactly; others carry grounding,
+shunts, limits, or future modelling meaning. The package records reductions and
+refusals in `_simplification_log`. Series merging now refuses π shunts and
+constraints that require the intermediate voltage. Other topology passes can
+still be lossy, including pruning shunt-bearing stubs and collapsing rated
+switches; read their warnings and disable them when those effects matter.
+
+This page runs the passes on a feeder and compares a solved operating point.
+That comparison is useful evidence, not a guarantee of feasible-set preservation.
 
 !!! note "Simplification is one-way and lossy — keep the source case"
     Merging a corridor deletes the intermediate bus and each segment's
@@ -137,8 +136,9 @@ this dataset snapshot.
 
 **[`merge_series_lines`](@ref)** fuses two lines meeting at a pass-through bus
 (exactly two line connections, nothing else) **when their linecodes match** —
-the merged line simply gets the summed length and a correctly projected thermal
-rating (see below):
+provided the chain is series-only and has no intermediate voltage, segment
+apparent-power, or segment angle limits. The merged line gets the summed length
+and the tighter effective current rating:
 
 ```@example simp
 n4 = merge_series_lines(n3)
@@ -147,17 +147,20 @@ merged = sort([(id, l["_merged_from"], round(l["length"], digits=1))
                for (id, l) in n4["line"] if haskey(l, "_merged_from")];
               by = last, rev = true)
 println(inventory(n4), "\n")
-println("longest merged corridor: line ", merged[1][1], " absorbed ",
-        merged[1][2], ", combined length ", merged[1][3], " m")
+if isempty(merged)
+    println("No eligible series-only corridors; inspect the refusal codes below.")
+else
+    println("longest merged corridor: line ", merged[1][1], " absorbed ",
+            merged[1][2], ", combined length ", merged[1][3], " m")
+end
 ```
 
-Only some junctions merge: a differing linecode blocks the fuse (the series
-impedance per metre changes there, so the intermediate bus is physically
-meaningful), and so does a **grounded** intermediate bus — a modelled ground
-(`perfectly_grounded_terminals`, e.g. a multi-grounded neutral point) fixes
-terminal voltages, so deleting the bus would silently drop it. That case logs
-`GROUNDED_BUS` (warning) and leaves the corridor intact. The log says why each
-candidate was or wasn't merged:
+The imported linecodes may contain π shunts, so there may be no eligible
+merges. Adding section lengths would relocate the interior shunts and change
+the port admittance; `PI_SHUNT_PRESENT` records the refusal. `GROUNDED_BUS`
+protects a perfect ground, `INTERMEDIATE_CONSTRAINT` protects bounds requiring
+voltage recovery, and `LINECODE_MISMATCH` records a chain outside the supported
+same-linecode pathway. The log explains each candidate:
 
 ```@example simp
 codes = [e["code"] for e in n4["_simplification_log"]]
@@ -167,15 +170,14 @@ foreach(c -> println(rpad(c, 18), count(==(c), codes), "×"), unique(codes))
 Every outcome is accounted for — the log is the provenance record of the whole
 transformation, suitable for serialising alongside the case.
 
-!!! note "How the merged rating is projected — and why it stays optimal"
+!!! note "Current-rating projection for a series-only chain"
     One current flows through both segments of a series corridor, so the binding
     thermal limit is the **tighter** of the two. The OPF reads a line's limit
     from its own `i_max` if present, otherwise from its linecode
     ([precedence: line override → linecode → unconstrained](opf.md#Current-vs-apparent-power-limits)).
-    A line may also carry an `s_max` (apparent-power) limit, now enforced
-    natively with the same precedence; the merge below applies the identical
-    element-wise-minimum rule to it. Current is the preferred rating for a
-    corridor (see [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits)).
+    An `s_max` apparent-power limit depends on local voltage: taking its minimum
+    is not a general preservation rule. Such limits block merging until an
+    explicit intermediate-voltage recovery representation is available.
     The merge therefore compares each segment's
     *effective* limit (override **or** linecode) and keeps the element-wise
     minimum — not merely the minimum of the line-level overrides. That
@@ -197,8 +199,7 @@ simp = simplify_network(net)
 inventory(simp)
 ```
 
-Same result as the manual chain: a third of the buses — and their four
-terminal-voltage variables each — are gone.
+The inventory above reports the reductions actually supported for this import.
 
 ## 4. The payoff: verify, don't trust
 
@@ -225,10 +226,10 @@ println("losses      : ", round(r_orig["losses"]["p_loss"] / 1e3, digits = 3),
         " kW vs ", round(r_simp["losses"]["p_loss"] / 1e3, digits = 3), " kW")
 ```
 
-The headline number is the voltage agreement: tens of **micro**volts on a 230 V
-feeder — solver tolerance, not model error. Total losses match to the same
-precision, confirming the merged corridors carry the same impedance as the
-chains they replaced. Solve time is the bonus, not the headline:
+Inspect the measured voltage and loss differences above together with the
+transformation warnings. Agreement at this operating point does not establish
+preservation of every constraint or operating point. Timing is reported for
+this machine and dependency stack:
 
 ```@example simp
 t_orig = @elapsed solve_pf(net;  optimizer = OPT, per_unit = true)
@@ -237,15 +238,13 @@ println("re-solve: original ", round(t_orig, digits = 3), " s, simplified ",
         round(t_simp, digits = 3), " s  (this machine, at docs-build time)")
 ```
 
-On a determined power flow of this size the gap is modest — sub-100 ms either
-way, well inside run-to-run noise. The structural reduction is what compounds:
-a third fewer buses means a third fewer voltage variables **and** their bound
-constraints in the *OPF*, and the saving multiplies in Monte-Carlo or
-time-series studies where the same network is solved thousands of times.
+Repeated timing can vary across hardware, operating systems, and solver
+versions. The inventory reduction is structural; measure its benefit for the
+study and retain the applicable preservation checks.
 
 ## 5. When *not* to simplify
 
-Fidelity-preserving does not mean free of consequences. The reduction is
+Even an exact circuit reduction has modelling consequences. Reduction is
 **one-way and lossy**: deleted buses and per-segment data cannot be recovered
 from the output, and the reduction lives only in the `_simplification_log`, not
 in the exchanged data-model schema (see

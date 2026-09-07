@@ -20,8 +20,12 @@ using SHA
         JSON3.read(read(finding_registry_schema_path, String)))
     finding_registry = JSON3.read(read(finding_registry_path, String))
     @test JSONSchema.validate(finding_registry_schema, finding_registry) === nothing
-    @test finding_registry.finding_count == length(finding_registry.findings) == 354
-    @test length(unique(String(item.code) for item in finding_registry.findings)) == 354
+    documented_codes = Set(m.captures[1] for m in eachmatch(
+        r"(?m)^\| `([EWI]\.[A-Z0-9_.]+)` \|", read(joinpath(root, "docs", "src", "findings.md"), String)))
+    exported_codes = [String(item.code) for item in finding_registry.findings]
+    @test finding_registry.finding_count == length(exported_codes)
+    @test length(unique(exported_codes)) == length(exported_codes)
+    @test Set(exported_codes) == documented_codes
 
     schema = JSONSchema.Schema(JSON3.read(read(schema_path, String)))
     lines = filter(!isempty, split(read(corpus_path, String), '\n'))

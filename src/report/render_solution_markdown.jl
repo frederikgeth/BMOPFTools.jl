@@ -43,10 +43,12 @@ function _sol_md_summary(r::SolutionReport, io::IO)
     println(io, "## 1. Solution Summary\n")
 
     status = get(d, "termination_status", "UNKNOWN")
-    feasible = get(d, "feasible", false)
+    has_checks = haskey(d, "n_nan_fields")
     println(io, "| Field | Value |")
     println(io, "|-------|-------|")
     println(io, "| Status | `$status` |")
+    println(io, "| Assessed checks | ", get(d, "verification_status", "indeterminate"), " |")
+    println(io, "| Unassessed dimensions | ", join(get(d, "unassessed_dimensions", String[]), ", "), " |")
 
     p_gen  = get(d, "p_gen",  NaN)
     p_load = get(d, "p_load", NaN)
@@ -72,7 +74,7 @@ function _sol_md_summary(r::SolutionReport, io::IO)
 
     println(io)
 
-    if feasible
+    if has_checks
         n_vv = get(d, "n_volt_violations",    0)
         n_va = get(d, "n_volt_active",        0)
         n_tv = get(d, "n_thermal_violations", 0)

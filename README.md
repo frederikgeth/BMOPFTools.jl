@@ -150,8 +150,8 @@ OpenDSS .dss ──(from_dss / PowerIO.jl)──► BMOPF Dict{String,Any} ◄�
   terminal or Markdown.
 - **Case preparation**: `fix_case` (structural repairs — remove inert
   elements, convert near-zero impedance lines to switches, drop disconnected
-  islands) and `augment_case` (standards-grounded gap-filling — inject
-  voltage bounds, infer thermal limits, add slack generation) prepare a raw
+  islands) and `augment_case` (audited study assumptions — inject
+  voltage bounds, optionally estimate synthetic thermal limits, price slack imports) prepare a raw
   import for use as an OPF benchmark.  Both return a `TransformationManifest`
   audit trail.
 - **Solution profiling**: given a BMOPF network and an OPF result dict,
@@ -244,7 +244,7 @@ using BMOPFTools
 net    = from_dss("Master.dss")     # parsed in-process by PowerIO.jl
 net′,  fix_mf  = fix_case(net)
 net″,  aug_mf  = augment_case(net′)
-write_bmopf("case.json", net″)
+write_bmopf(net″, "case.json")
 ```
 
 ## Development

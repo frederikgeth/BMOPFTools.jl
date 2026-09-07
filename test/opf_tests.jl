@@ -3549,11 +3549,9 @@ end
     end
 
     # ─────────────────────────────────────────────────────────────────────────
-    # T-NANOBJ: an infeasible solve must report objective = NaN, never the
-    # stale candidate-point value the solver stopped at (regression — the
-    # objective used to be read before the feasibility check).
-    # ─────────────────────────────────────────────────────────────────────────
-    @testset "T-NANOBJ: infeasible solve reports NaN objective" begin
+    # Candidate availability is distinct from convergence: preserve a returned
+    # infeasible iterate for diagnostics; never fabricate values when none exists.
+    @testset "T-NANOBJ: failed solve preserves only available candidate values" begin
         net = parse_bmopf("""
         {"bus":{
             "src":{"terminal_names":["1","2","3","n"],"perfectly_grounded_terminals":["n"]},
@@ -3573,7 +3571,12 @@ end
         # load only drops voltage — infeasible by construction.
         res = solve_opf(net)
         @test res["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL")
-        @test isnan(res["objective"])
+        @test !res["feasible"]
+        if res["result_count"] > 0 && res["primal_status"] == "INFEASIBLE_POINT"
+            @test isfinite(res["objective"])
+        else
+            @test isnan(res["objective"])
+        end
     end
 
     # ═════════════════════════════════════════════════════════════════════════

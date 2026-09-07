@@ -32,16 +32,29 @@ Markdown file, pass a path to [`render_solution`](@ref):
 
 ## Infeasible solutions
 
-When the solver terminates without finding a feasible point
-(`termination_status` is neither `"LOCALLY_SOLVED"`, `"OPTIMAL"`, nor
-`"ALMOST_LOCALLY_SOLVED"`), every numeric field in the result is set to `NaN`.
-The `termination_status` and `solve_time` fields are always valid.
+Candidate availability is distinct from termination. `primal_status` and
+`result_count` describe whether values were returned. A `TIME_LIMIT` or
+`ITERATION_LIMIT` candidate is retained, including an `INFEASIBLE_POINT` for
+diagnostics; a dual/infeasibility certificate is not a primal operating point.
+When no candidate exists, variable-derived results are NaN. Solver-reported
+`feasible` means a feasible/nearly-feasible primal status, not independent validation.
+
+`profile_solution` reports `solver_claimed_feasible`, `verification_status`
+(`checks_passed`, `failed`, or `indeterminate`), missing paths, and unassessed
+dimensions. Its compatibility `feasible` flag additionally requires complete
+assessed data and no failing checks. None of these flags certifies all network
+physics or optimality. Bus checks derive magnitude and angle from `vr`/`vi`;
+inconsistent supplied `vm` is an error. The default bound/phasor consistency
+tolerance remains 0.2%, with the documented absolute floors.
 
 ## Top-level fields
 
 | Key | Type | Description |
 |---|---|---|
 | `termination_status` | String | JuMP termination status (e.g. `"LOCALLY_SOLVED"`, `"INFEASIBLE"`, `"TIME_LIMIT"`) |
+| `primal_status` | String | Solver status of the primal candidate |
+| `result_count` | Int | Number of available solver results |
+| `feasible` | Bool | Solver-reported primal feasibility, independent of termination |
 | `objective` | Float64 | For default `solve_opf`, cost rate (\$/h). For `solve_feasibility_opf`, the squared-slack objective in solver working coordinates (plus its transformer tie-break). Custom objectives retain caller-defined units. |
 | `solve_time` | Float64 | Solver wall-clock time (s) |
 | `bus` | Dict | Per-bus, per-terminal voltage results |

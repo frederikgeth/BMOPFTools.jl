@@ -118,7 +118,7 @@ id = "claimed_solution_validity"
 knowledge_ids = ["PSK-000003"]
 title = "Claimed-feasible solution validity"
 entrypoint = "check_claimed_solution_validity"
-scope = "Independent validation of a claimed-feasible result's complete bus-terminal numeric data and declared bus voltage-magnitude, sequence-voltage, and angle-difference limits."
+scope = "Independent validation of a claimed-feasible result's complete bus-terminal numeric data and rectangular/magnitude consistency and declared bus voltage-magnitude, sequence-voltage (including VUF), and angle-difference limits."
 applicability = [
   "The result declares LOCALLY_SOLVED, OPTIMAL, or ALMOST_LOCALLY_SOLVED.",
   "The network declares at least one bus terminal.",
@@ -149,6 +149,12 @@ fixture_ids = ["claimed-feasible-invalid-solution-001"]
 source_paths = [
   "src/knowledge/contracts.jl",
   "src/validation/solution.jl",
+  "src/report/render_solution_markdown.jl",
+  "test/scientific_review_tests.jl",
+  "test/solution_candidate_tests.jl",
+  "test/data/scientific_review/inconsistent-phasor-result.json",
+  "test/data/scientific_review/vuf-network.json",
+  "test/data/scientific_review/vuf-result.json",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
 ]
@@ -736,6 +742,15 @@ finding_codes = [
 ]
 fixture_ids = ["solved-network-feasibility-001"]
 source_paths = [
+  "src/augmentation/augment.jl",
+  "src/augmentation/recipe.jl",
+  "src/augmentation/thermal.jl",
+  "src/augmentation/voltage_bounds.jl",
+  "src/augmentation/manifest.jl",
+  "src/network/simplify.jl",
+  "test/scientific_review_tests.jl",
+  "test/solution_candidate_tests.jl",
+  "test/data/scientific_review/pi-chain.json",
   "src/io/migrate.jl",
   "src/io/nwinding.jl",
   "test/powerio_v09_tests.jl",

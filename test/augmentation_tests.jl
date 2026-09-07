@@ -97,7 +97,7 @@ end
     @test all(b1["vpp_max"] .≈ v_pp * 1.10)
 
     # vneg_max: 2% of v_pn
-    @test b1["vneg_max"] ≈ v_pn * 0.02  atol=1e-6
+    @test b1["vuf_max"] ≈ 0.02  atol=1e-6
 
     # Source bus gets v_min/v_max but NOT vpn/vpp/vneg
     src = net′["bus"]["src"]
@@ -112,7 +112,7 @@ end
     @test "v_min"    in fields_written
     @test "vpn_min"  in fields_written
     @test "vpp_min"  in fields_written
-    @test "vneg_max" in fields_written
+    @test "vuf_max" in fields_written
 end
 
 @testset "T1: Voltage bounds — physically bracket actual voltages" begin
@@ -226,7 +226,7 @@ end
          "p_nom":[1000.0,1000.0,1000.0],"q_nom":[0.0,0.0,0.0]}}}
     """; from_string=true)
 
-    net′, mf = augment_case(net)
+    net′, mf = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
 
     lc = net′["linecode"]["lc_dist"]
     @test haskey(lc, "i_max")
@@ -237,14 +237,14 @@ end
                          x.new_value !== nothing, mf.entries))
     @test e.new_value == [170.0, 170.0, 170.0]
     @test contains(e.rule, "heuristic_ampacity")
-    @test e.confidence == :high   # distinct verdict → :high
+    @test e.confidence == :heuristic   # impedance structure cannot establish ampacity
 end
 
 @testset "T2: Thermal — existing i_max not overwritten" begin
     net = _lv_net()
     net["linecode"]["lc"]["i_max"] = [99.0, 99.0, 99.0, 99.0]
 
-    net′, mf = augment_case(net)
+    net′, mf = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
 
     @test net′["linecode"]["lc"]["i_max"] == [99.0, 99.0, 99.0, 99.0]
     @test !any(e -> e.component_id == "lc" && e.field == "i_max" &&
@@ -255,7 +255,7 @@ end
     net = _lv_net()
     net["linecode"]["lc"]["R_series_1_1"] = 0.00001  # 0.01 mΩ/m — below table minimum
 
-    net′, mf = augment_case(net)
+    net′, mf = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
 
     @test !haskey(net′["linecode"]["lc"], "i_max")
     e = only(filter(x -> x.component_id == "lc" && x.field == "i_max", mf.entries))
@@ -271,7 +271,7 @@ end
      "generator":{"g":{"bus":"b","terminal_map":["1","n"],"configuration":"SINGLE_PHASE",
          "p_max":[1000.0],"i_max":[15.0]}}}
     """; from_string=true)
-    net′, mf = augment_case(net)
+    net′, mf = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
     @test net′["ibr"]["v"]["i_max"] == [20.0, 20.0]
     @test net′["generator"]["g"]["i_max"] == [15.0, 15.0]
     @test any(e -> e.component_id == "v" && e.field == "i_max" &&
@@ -310,7 +310,7 @@ end
          "p_nom":[1000.0,1000.0,1000.0],"q_nom":[0.0,0.0,0.0]}}}
     """; from_string=true)
 
-    net′, mf = augment_case(net)
+    net′, mf = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
 
     # i_max should NOT be written (confidence :low < threshold :medium)
     @test !haskey(net′["linecode"]["lc_seq"], "i_max")
@@ -318,7 +318,7 @@ end
     @test contains(e.note, "confidence")
 
     # But with thermal_min_confidence = :low it should be written
-    net2′, _ = augment_case(net; recipe=AugmentationRecipe(thermal_min_confidence=:low))
+    net2′, _ = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true, thermal_min_confidence=:low))
     @test haskey(net2′["linecode"]["lc_seq"], "i_max")
 
     # Regression: a per-call config override of [thermal].tolerance must be
@@ -329,7 +329,7 @@ end
     for k in ("R_series_1_1", "R_series_2_2", "R_series_3_3")
         net_off["linecode"]["lc_seq"][k] = 0.00045
     end
-    recipe_low = AugmentationRecipe(thermal_min_confidence=:low)
+    recipe_low = AugmentationRecipe(apply_thermal=true, thermal_min_confidence=:low)
     netd′, _ = augment_case(net_off; recipe=recipe_low)
     @test haskey(netd′["linecode"]["lc_seq"], "i_max")   # default 15 % matches
 

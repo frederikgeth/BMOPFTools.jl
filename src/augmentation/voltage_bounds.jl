@@ -1,7 +1,7 @@
 # Voltage bound injection pass.
 #
 # For each bus that is missing bounds, injects v_min/v_max (solver
-# regularisation), vpn/vpp (power-quality standards), and vneg_max.
+# regularisation), vpn/vpp (power-quality standards), and vuf_max.
 #
 # Never overwrites existing bounds.  Source buses are skipped for vpn/vpp/vneg
 # (their voltages are fixed by the voltage source, not constrained by bounds).
@@ -158,6 +158,11 @@ function _apply_voltage_bounds!(net′::Dict{String,Any},
         b isa String && push!(source_buses, b)
     end
 
+    split_phase_buses = Set{String}()
+    for zone in _classify_zones(net′)
+        zone.topology == :split_phase && union!(split_phase_buses, zone.buses)
+    end
+
     for (bid, bus) in buses
         bus isa Dict || continue
         v_nom = get(bus_voltage_map, bid, nothing)
@@ -210,39 +215,50 @@ function _apply_voltage_bounds!(net′::Dict{String,Any},
                 end
             end
 
-            # ── vneg_max (EN 50160: VUF ≤ 2 %) ──────────────────────────────
-            if r.apply_vneg_bounds && n_phase >= 2
-                if !haskey(bus, "vneg_max")
-                    val = v_pn_dec * r.vneg_max_pu
-                    bus["vneg_max"] = val
-                    push!(entries, TransformEntry(
-                        :bus, bid, "vneg_max", nothing, val,
-                        "EN50160:2010§3.5_VUF≤2%", :standard,
-                        "$(r.vneg_max_pu*100)% of vpn_declared=$(round(v_pn_dec, digits=1)) V"))
-                end
-            end
+        end
+
+        # A true instantaneous ratio constraint, not a fixed nominal-voltage cap.
+        # Legacy recipe field names are retained for keyword compatibility.
+        if r.apply_vneg_bounds && n_phase == 3 && !haskey(bus, "vuf_max")
+            bus["vuf_max"] = r.vneg_max_pu
+            push!(entries, TransformEntry(:bus, bid, "vuf_max", nothing, r.vneg_max_pu,
+                "instantaneous_voltage_unbalance_ratio", :heuristic,
+                "Study constraint |V2|/|V1| ≤ $(r.vneg_max_pu); not a time-aggregated compliance claim"))
         end
 
         # ── vpp_min / vpp_max ─────────────────────────────────────────────────
         # Per phase-pair arrays, length = n_phase*(n_phase-1)/2.
         # v_dec is the per-conductor (phase-to-ground) declared voltage, so the
-        # line-to-line (phase-to-phase) nominal is vpp_nom = v_dec × √3 for both
-        # four-wire and three-wire buses. (EN 50160 LV: 230 V L-N → 400 V L-L.)
+        # pair nominal depends on the declared angle arrangement. Balanced three-
+        # phase uses √3; center-tapped split phase uses 2.
         # Requires ≥ 2 phase terminals (spec: only meaningful if |Nᵢ| ≥ 3,
         # but we also support the single phase-pair case, length 1).
         if r.apply_vpp_bounds && n_phase >= 2
             n_pairs = n_phase * (n_phase - 1) ÷ 2
-            v_pp_dec = v_dec * sqrt(3.0)
+            angles = get(bus, "va_nom", nothing)
+            pair_nominals = if angles isa AbstractVector && length(angles) == n_phase && all(isfinite, angles)
+                [v_dec * abs(cis(angles[i]) - cis(angles[j])) for i in 1:n_phase for j in i+1:n_phase]
+            elseif bid in split_phase_buses && n_phase == 2
+                [2 * v_dec]
+            elseif n_phase == 3
+                fill(v_dec * sqrt(3.0), n_pairs)
+            else
+                # Two unspecified terminals could be 120° or 180° apart.
+                push!(entries, TransformEntry(:bus, bid, "vpp_min/vpp_max", nothing, nothing,
+                    "pair_voltage_reference_unknown", :heuristic,
+                    "skipped: nominal phase arrangement is not declared; supply va_nom"))
+                continue
+            end
             lo_pu, hi_pu = _vpp_pu(v_nom, r)
 
             for (field, pu) in (("vpp_min", lo_pu), ("vpp_max", hi_pu))
                 if !haskey(bus, field)
-                    val = fill(v_pp_dec * pu, n_pairs)
+                    val = pair_nominals .* pu
                     bus[field] = val
                     push!(entries, TransformEntry(
                         :bus, bid, field, nothing, val,
                         "EN50160:2010§3.5", :standard,
-                        "vpp_declared=$(round(v_pp_dec, digits=1)) V × $pu ($(n_pairs) pair(s))"))
+                        "pair nominal voltages=$(pair_nominals) V × $pu ($(n_pairs) pair(s))"))
                 end
             end
         end

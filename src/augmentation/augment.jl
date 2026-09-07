@@ -2,8 +2,9 @@
     augment_case(net; recipe=default_recipe(), analysis=nothing, config=_DEFAULT_CONFIG)
         -> (net′::Dict{String,Any}, manifest::TransformationManifest)
 
-Derive a benchmark-ready version of `net` by injecting standards-grounded
-default bounds and constraints for any fields that are absent.
+Derive a candidate benchmark by injecting selected study bounds and assumptions
+for absent fields. The manifest records these choices; successful augmentation
+does not establish physical feasibility or standards compliance.
 
 `net` is never mutated.  The returned `net′` is an independent deep copy.
 
@@ -32,8 +33,8 @@ A 2-tuple `(net′, manifest)` where:
    standard IEC 60038 / ANSI C84.1 level and write `v_declared`
    (`[augment.voltage_snap]` in `config`; off by default)
 1. **Voltage bounds** — `v_min`/`v_max`, `vpn_min`/`vpn_max`,
-   `vpp_min`/`vpp_max`, `vneg_max` on buses (EN 50160, DSO planning practice)
-2. **Thermal limits** — `i_max` on linecodes inferred from R₁₁ via IEC 60228
+   `vpp_min`/`vpp_max`, `vuf_max` on supported buses (instantaneous study policies)
+2. **Thermal limits** — opt-in synthetic `i_max` estimates from R₁₁; no verified ampacity claim
 3. **Generation** — slack generator at source buses; `q_min`/`q_max` on
    existing generators with `p_max` (EN 50549 / IEEE 1547)
 

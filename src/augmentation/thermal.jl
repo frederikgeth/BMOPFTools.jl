@@ -166,9 +166,21 @@ function _apply_thermal!(net′::Dict{String,Any},
         i_max_vec = fill(ampacity, n_cond)
 
         lc["i_max"] = i_max_vec
+        # Linecodes have a closed schema; persist audit data in the declared
+        # free-form provenance block instead of adding a non-schema field.
+        meta = get!(net′, "meta", Dict{String,Any}())
+        provenance = get!(meta, "provenance", Dict{String,Any}())
+        estimates = get!(provenance, "thermal_estimates", Dict{String,Any}())
+        estimates[lcid] = Dict{String,Any}(
+            "rule" => _THERMAL_RULE, "confidence" => "heuristic",
+            "impedance_classification" => cls, "r11_ohm_per_m" => Float64(r11),
+            "conductor_type_assumption" => string(r.conductor_type),
+            "equal_conductor_ratings_assumed" => true,
+            "material_and_installation_verified" => false,
+            "i_max_A" => i_max_vec)
         push!(entries, TransformEntry(
             :linecode, lcid, "i_max", nothing, i_max_vec,
-            _THERMAL_RULE, confidence, note))
+            _THERMAL_RULE, :heuristic, note))
     end
 end
 
