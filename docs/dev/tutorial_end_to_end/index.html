@@ -48,7 +48,7 @@ WARN  [W.DOM.XFMR_LOW_IMPEDANCE]  Transformer &#39;tx3170&#39; (delta_wye) has n
   BMOPF NETWORK SUMMARY REPORT
 ──────────────────────────────────────────────────────────────────────
 </span>  Case name                     lv1_14bus
-  Generated                     2026-09-06 06:32:10
+  Generated                     2026-09-07 23:46:39
   Findings                      0 errors, 10 warnings, 20 info
   Convention                    MV_6.4kV: 4-wire; LV_250V: 4-wire; 4 grounding point(s); symmetric π-only line model
 <span class="sgr1">
@@ -336,7 +336,7 @@ WARN  [W.DOM.XFMR_LOW_IMPEDANCE]  Transformer &#39;tx3170&#39; (delta_wye) has n
     <span class="sgr36">[INFO] I.BENCH.AUGMENTATION</span>
       Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.</code></pre><h2 id="3.-Fix-—-structural-repair"><a class="docs-heading-anchor" href="#3.-Fix-—-structural-repair">3. Fix — structural repair</a><a id="3.-Fix-—-structural-repair-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Fix-—-structural-repair" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.fix_case"><code>fix_case</code></a> applies idempotent structural repairs and returns the repaired network plus a <a href="../augmentation/#BMOPFTools.TransformationManifest"><code>TransformationManifest</code></a> recording every change. The default <a href="../augmentation/#BMOPFTools.FixRecipe"><code>FixRecipe</code></a> keeps the largest connected component, merges trivial series lines, drops electrically-inert zero loads, turns near-zero-impedance lines into switches, and strips redundant voltage bounds off source buses. Four passes are opt-in because they change topology inference, representation, or OPF physics: <code>apply_adjacent_current_bounds</code>, <code>apply_perfect_grounding</code>, <code>apply_shunt_to_capacitor</code>, and <code>apply_snap_transformer_impedance</code>.</p><pre><code class="language-julia hljs">net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
 
-render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-09-06T06:32:15.310
+render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-09-07T23:46:43.787
   6 change(s)  |  findings before: 1  after: 1
 
 ── BUS (2 change(s)) ──
@@ -366,7 +366,7 @@ render_manifest(fix_mf)</code></pre><pre class="documenter-example-output"><code
 
 net_der, der_mf = add_ibrs(net_fixed; recipe = ibr_recipe)
 
-render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-09-06T06:32:15.880
+render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-09-07T23:46:44.243
   14 change(s)  |  findings before: 1  after: 3
 
 ── IBR (14 change(s)) ──
@@ -401,7 +401,7 @@ render_manifest(der_mf)</code></pre><pre class="documenter-example-output"><code
     topology         —                    → SINGLE_PHASE
                      [IBR_PLACEMENT/load_following, synthetic] inferred from load terminal_map (2 terminals)</code></pre><h2 id="5.-Augment-—-standards-grounded-gap-filling"><a class="docs-heading-anchor" href="#5.-Augment-—-standards-grounded-gap-filling">5. Augment — standards-grounded gap-filling</a><a id="5.-Augment-—-standards-grounded-gap-filling-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Augment-—-standards-grounded-gap-filling" title="Permalink"></a></h2><p><a href="../augmentation/#BMOPFTools.augment_case"><code>augment_case</code></a> fills the bounds and costs an OPF needs, <strong>without overwriting any value already present</strong>. Each fill is tagged in the manifest as <code>:standard</code> (derived from a cited standard) or <code>:synthetic</code> (a design choice). The passes draw on EN 50160 (voltage bounds), a heuristic conductor-size → ampacity estimate (thermal limits, loosely IEC-60228/60364-calibrated), and EN 50549-1 / IEEE 1547 (reactive capability). See <a href="../augmentation/">Case augmentation</a> for the full pass-by-pass rationale.</p><pre><code class="language-julia hljs">net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
 
-render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-09-06T06:32:15.936
+render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Augmentation manifest — 2026-09-07T23:46:44.288
   95 change(s)  |  findings before: 1  after: 0
 
 ── BUS (86 change(s)) ──
@@ -410,91 +410,91 @@ render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b1149
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b179
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b2123
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b232
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b2327
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b2577
     v_max            —                    → [7303.480905248766, 7303.480905248766, 7303.480905248766]
                      [solver_regularisation, heuristic] MV bus; v_declared=6350.9 V × 1.15 × 3 phases
@@ -505,91 +505,91 @@ render_manifest(aug_mf)</code></pre><pre class="documenter-example-output"><code
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b2734
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b2984
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b3218
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b3230
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
   b514
     v_max            —                    → [287.49156654297417, 287.49156654297417, 287.49156654297417]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 1.15 × 3 phases
     v_min            —                    → [212.49376657524178, 212.49376657524178, 212.49376657524178]
                      [solver_regularisation, heuristic] LV bus; v_declared=250.0 V × 0.85 × 3 phases
-    vneg_max         —                    → 4.99985333118216
-                     [EN50160:2010§3.5_VUF≤2%, standard] 2.0% of vpn_declared=250.0 V
     vpn_max          —                    → [274.99193321501883, 274.99193321501883, 274.99193321501883]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 1.1 (3 phase(s))
     vpn_min          —                    → [224.9933999031972, 224.9933999031972, 224.9933999031972]
                      [EN50160:2010§3.5, standard] vpn_declared=250.0 V × 0.9 (3 phase(s))
     vpp_max          —                    → [476.3000000000001, 476.3000000000001, 476.3000000000001]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 1.1 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 1.1 (3 pair(s))
     vpp_min          —                    → [389.70000000000005, 389.70000000000005, 389.70000000000005]
-                     [EN50160:2010§3.5, standard] vpp_declared=433.0 V × 0.9 (3 pair(s))
+                     [EN50160:2010§3.5, standard] pair nominal voltages=[433.00000000000006, 433.00000000000006, 433.00000000000006] V × 0.9 (3 pair(s))
+    vuf_max          —                    → 0.02
+                     [instantaneous_voltage_unbalance_ratio, heuristic] Study constraint |V2|/|V1| ≤ 0.02; not a time-aggregated compliance claim
 
 ── IBR (8 change(s)) ──
   pv_b2656
@@ -681,14 +681,14 @@ println(&quot;Solution ERRORs   : &quot;, length(errors(sol_report)))
 println(&quot;Solution WARNINGs : &quot;, length(warnings(sol_report)))
 
 render_solution(sol_report, stdout)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Solution ERRORs   : 0
-Solution WARNINGs : 2
+Solution WARNINGs : 3
 # BMOPF Solution Profile: lv1_14bus
 
-**Generated:** 2026-09-06 06:32:21
+**Generated:** 2026-09-07 23:46:49
 **Status:** `LOCALLY_SOLVED`
 **Objective:** -48.6794
-**Solve time:** 0.029 s
-**Findings:** 0 errors · 2 warnings · 3 info
+**Solve time:** 0.026 s
+**Findings:** 0 errors · 3 warnings · 3 info
 
 ---
 
@@ -697,6 +697,8 @@ Solution WARNINGs : 2
 | Field | Value |
 |-------|-------|
 | Status | `LOCALLY_SOLVED` |
+| Assessed checks | indeterminate |
+| Unassessed dimensions | branch_and_device_equations, terminal_kcl, objective_optimality, independent_loss_reconstruction, receiving_end_branch_limits, branch_angle_limits, complete_limit_coverage |
 | Total generation | 21.17 kW |
 | Total load | 20.0 kW |
 | Total network losses (P) | 1.169 kW |
@@ -768,11 +770,13 @@ Per-unit magnitudes are relative to each zone&#39;s own voltage base; volts are 
 | Strictly complementary | true |
 | Weakly-active (degenerate) | 0 |
 | Barrier iterations | 13 |
-| Solve time (s) | 0.02936100959777832 |
+| Solve time (s) | 0.02581191062927246 |
 | Max shadow price (per_unit) | 13.01 |
 
 ## 6. All Findings
 
+- **WARN** `W.SOL.INCOMPLETE_RESULT`
+  Required result data are missing; skipped checks are not evidence of feasibility.
 - **WARN** `W.SOL.THERMAL_ACTIVE` — transformer/`tx3170`
   Transformer &#39;tx3170&#39; winding to/1: coil |S|=33.333 kVA is within 1 % of nameplate cap s_max=33.333 kVA.
 - **WARN** `W.SOL.THERMAL_ACTIVE` — transformer/`tx3170`
@@ -806,5 +810,5 @@ println(&quot;Result JSON round-trips : &quot;,
 println(&quot;Wrote case, result, report, and manifests to &quot;, out_dir)
 println(&quot;Captured &quot;, sum(length(m[&quot;entries&quot;]) for m in values(manifests)),
         &quot; transformation entries across the three manifests&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Result JSON round-trips : true
-Wrote case, result, report, and manifests to /tmp/jl_VOPK5l
-Captured 115 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF, an exported result and report, and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../execution_interface/">« JSON execution &amp; recipes</a><a class="docs-footer-nextpage" href="../choose_tutorial/">Choose your tutorial »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Sunday 6 September 2026 06:33">Sunday 6 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Wrote case, result, report, and manifests to /tmp/jl_enOr3Z
+Captured 115 transformation entries across the three manifests</code></pre><p>That is the full arc: a raw OpenDSS export is now a clean, bounded, DER-equipped BMOPF benchmark with a solved OPF, an exported result and report, and an audit trail for every transformation.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../execution_interface/">« JSON execution &amp; recipes</a><a class="docs-footer-nextpage" href="../choose_tutorial/">Choose your tutorial »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Monday 7 September 2026 23:47">Monday 7 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
