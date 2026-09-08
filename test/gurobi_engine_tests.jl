@@ -65,5 +65,37 @@ end
                   (1000.0 + sqrt(1000.0^2 - 4 * 0.5 * 100000.0)) / 2 atol=1e-3
             @test result["bus"]["bus1"]["1"]["vm"] >= 900.0
         end
+
+        @testset "smooth control curves require softplus=:swish" begin
+            # Gurobi's nonlinear interface accepts a fixed opcode set. Of the
+            # three smooth-ReLU encodings, only `:swish` lands inside it:
+            #   :user_defined -> MOI.UserDefinedFunction  (unsupported attribute)
+            #   :builtin      -> `:log1p`                 (not a Gurobi opcode)
+            #   :swish        -> `:logistic`              (GRB_OPCODE_LOGISTIC)
+            # This is why the solver guide tells Gurobi users with Volt-var /
+            # Volt-watt profiles to select `softplus=:swish` explicitly.
+            opfext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
+
+            build(op) = begin
+                model = JuMP.Model(Gurobi.Optimizer)
+                JuMP.set_silent(model)
+                x = JuMP.@variable(model, lower_bound = 0.0, upper_bound = 10.0)
+                JuMP.@constraint(model, x >= 2.0)
+                JuMP.@objective(model, Min, op(model, x))
+                model
+            end
+
+            @test_throws JuMP.MOI.UnsupportedAttribute JuMP.optimize!(build(
+                (m, x) -> opfext.relu_operator(m, 0.05; name = :relu_ud)(x)))
+            @test_throws JuMP.MOI.UnsupportedNonlinearOperator JuMP.optimize!(
+                build((_, x) -> opfext.BuiltinSoftplus(0.05)(x)))
+
+            swish_model = build((_, x) -> opfext.BuiltinSwish(0.05)(x))
+            JuMP.optimize!(swish_model)
+            @test JuMP.termination_status(swish_model) == JuMP.MOI.OPTIMAL
+            # x is pinned at its lower bound 2.0, where the swish hinge is
+            # within a hair of the exact ReLU (z/ε = 40).
+            @test JuMP.objective_value(swish_model) ≈ 2.0 atol=1e-6
+        end
     end
 end

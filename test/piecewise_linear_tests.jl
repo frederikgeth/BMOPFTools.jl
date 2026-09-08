@@ -111,8 +111,11 @@
                         arg -> contains_head(arg, head), expr.args))
             end
 
+            # `kcl_guard=false`: this context exists to inspect the emitted
+            # expression and to hand it to a backend, not to model a network,
+            # so the guard would fire before the solver is ever reached.
             swish_ctx = initialize_opf_model(
-                net; per_unit=false, softplus=:swish)
+                net; per_unit=false, softplus=:swish, kcl_guard=false)
             opfext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
             swish_input = JuMP.@variable(opf_model(swish_ctx))
             swish_expr = opf_piecewise_linear_expression(
@@ -130,6 +133,20 @@
 
             @test_throws ArgumentError initialize_opf_model(
                 net; per_unit=false, softplus=:unknown)
+
+            # The `:logistic` operator head is deliberately backend-specific:
+            # it is not one of MOI's default univariate operators, so a solver
+            # that does not advertise it must reject the model outright rather
+            # than silently solving something else. Pin that contract on the
+            # default (Ipopt) backend — Gurobi's accepting path is covered by
+            # `test/gurobi_engine_tests.jl`.
+            @test !(:logistic in JuMP.MOI.Nonlinear.DEFAULT_UNIVARIATE_OPERATORS)
+            let m = opf_model(swish_ctx)
+                JuMP.@objective(m, Min, swish_expr)
+                JuMP.set_optimizer(m, Ipopt.Optimizer)
+                JuMP.set_silent(m)
+                @test_throws JuMP.MOI.UnsupportedNonlinearOperator JuMP.optimize!(m)
+            end
 
             flat_ctx = initialize_opf_model(net; per_unit=false)
             flat_input = JuMP.@variable(opf_model(flat_ctx))

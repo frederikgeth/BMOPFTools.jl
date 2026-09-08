@@ -51,30 +51,38 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         end
     end
 
-    @testset "encoding — Swish value and derivatives" begin
-        ε = 0.7
-        for z in (-3.0, -1.0, 0.0, 1.0, 3.0)
-            h = 1e-6
-            fd1 = (_OPFEXT._swish_value(z + h, ε) -
-                   _OPFEXT._swish_value(z - h, ε)) / (2h)
-            @test _OPFEXT._swish_derivative(z, ε) ≈ fd1 atol=2e-6
+    @testset "encoding — Swish approximation error" begin
+        # Swish underestimates ReLU *everywhere* (z·σ(z/ε) ≤ max(z,0) for all
+        # z), unlike softplus which overestimates it everywhere. The extremum
+        # of the signed error is ≈ -0.2785ε and is attained on BOTH sides, at
+        # z ≈ ±1.2785ε — compare softplus's one-sided +ε·log(2) at z = 0.
+        ε = 1.0
+        relu(z) = max(z, 0.0)
+        errs = [_OPFEXT._swish_value(z, ε) - relu(z)
+                for z in range(-8.0, 8.0; length=40001)]
+        @test maximum(errs) ≤ 0.0
+        @test minimum(errs) ≈ -0.2784645 atol=1e-6
 
-            h2 = 1e-4
-            fd2 = (_OPFEXT._swish_value(z + h2, ε) -
-                   2 * _OPFEXT._swish_value(z, ε) +
-                   _OPFEXT._swish_value(z - h2, ε)) / h2^2
-            @test _OPFEXT._swish_second_derivative(z, ε) ≈ fd2 atol=2e-5
+        for peak_t in (-1.27846, 1.27846)
+            @test _OPFEXT._swish_value(peak_t, ε) - relu(peak_t) ≈
+                  -0.2784645 atol=2e-4
         end
 
-        # The Swish hinge underestimates ReLU on its negative side. The
-        # extremum is approximately 0.2785ε, unlike softplus's ε*log(2).
-        peak_t = -1.27846
-        @test _OPFEXT._swish_value(peak_t, 1.0) ≈ -0.27846 atol=2e-4
         @test _OPFEXT._swish_value(-1.0e6, 1e-9) == -0.0
         @test isfinite(_OPFEXT._swish_value(1.0e6, 1e-9))
+
+        # A hinge sum with mixed-sign slopes turns that uniform underestimate
+        # into a curve *overshoot*: the negative-slope hinge contributes
+        # -a·(negative error) > 0 just below the breakpoint.
         @test _OPFEXT.curve_value_smooth(
             1.0, ((-0.8 / 7, 253.0), (0.8 / 7, 260.0)),
-            253.0 + peak_t, 1.0; encoding=:swish) > 1.0
+            253.0 - 1.27846, 1.0; encoding=:swish) > 1.0
+
+        @test_throws ArgumentError _OPFEXT.curve_value_smooth(
+            1.0, ((-0.8 / 7, 253.0),), 253.0, 1.0; encoding=:unknown)
+        # Validation does not depend on there being any hinge to evaluate.
+        @test_throws ArgumentError _OPFEXT.curve_value_smooth(
+            1.0, (), 253.0, 1.0; encoding=:unknown)
     end
 
     # ─────────────────────────────────────────────────────────────────────────

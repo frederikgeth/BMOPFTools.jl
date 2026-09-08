@@ -262,10 +262,43 @@ The authoritative option names and supported linear-solver types are in the
 [Gurobi.jl](https://github.com/jump-dev/Gurobi.jl). In BMOPFTools it is
 appropriate for the quadratic-compatible IVR-EN subset: constant
 power/current/impedance models and other features that leave the generated
-JuMP model affine or quadratic. Voltage-dependent exponential laws and
-smooth user-defined control curves should remain on Ipopt or MadNLP unless
-you have separately verified that your exact formulation is supported by your
-Gurobi version.
+JuMP model affine or quadratic. Voltage-dependent exponential laws should
+remain on Ipopt or MadNLP unless you have separately verified that your exact
+formulation is supported by your Gurobi version. Smooth piecewise-linear
+control curves (IBR Volt-var / Volt-watt) *are* supported, but only under the
+encoding described next.
+
+!!! warning "Volt-var / Volt-watt on Gurobi requires `softplus=:swish`"
+    The engine smooths each control-curve kink with a smooth-ReLU surrogate,
+    and Gurobi's nonlinear interface accepts only a fixed opcode set. Of the
+    three available encodings, exactly one lands inside it:
+
+    | `softplus` | Emits | On Gurobi |
+    |:--|:--|:--|
+    | `:user_defined` (default) | `MOI.UserDefinedFunction` | rejected — `MOI.UnsupportedAttribute` |
+    | `:builtin` | `log1p(exp(⋅))` | rejected — `:log1p` is not a Gurobi opcode |
+    | `:swish` | `z · logistic(z / ε)` | accepted — maps to `GRB_OPCODE_LOGISTIC` |
+
+    So a case carrying a Volt-var or Volt-watt profile must select the
+    encoding explicitly, or the solve fails at `optimize!`:
+
+    ```julia
+    result = solve_opf(net;
+        optimizer = Gurobi.Optimizer,
+        softplus = :swish,
+        solver_options = ["NonConvex" => 2, "OutputFlag" => 0],
+    )
+    ```
+
+    Gurobi's nonlinear support needs **Gurobi 12.0 or newer**; older libraries
+    expose no nonlinear opcodes at all. Swish is a genuinely different
+    surrogate, not a re-implementation of softplus — it is non-monotone and
+    non-convex near each hinge, so validate the resulting droop curve against
+    the exact characteristic. See
+    [ReLU/softplus encoding](relu_softplus_encoding.md) for the error analysis.
+
+    Cases with no control profile are unaffected: `softplus` only matters once
+    a curve is actually smoothed.
 
 The engine's quadratic OPF constraints are generally nonconvex. Set Gurobi's
 `NonConvex` parameter explicitly:

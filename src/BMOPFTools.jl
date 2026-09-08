@@ -978,16 +978,15 @@ function piecewise_linear_value(input::Real,
 end
 export piecewise_linear_value
 
-function _smooth_relu(z::Float64, eps::Float64, ::Val{:softplus})
-    return eps * log1pexp(z / eps)
-end
-
-function _smooth_relu(z::Float64, eps::Float64, ::Val{:swish})
-    return z * logistic(z / eps)
-end
-
+# Smooth ReLU surrogate shared by the numeric oracle and the OPF expression
+# builders. A plain branch keeps this type-stable and allocation-free inside the
+# per-hinge sums; dispatching on `Val(encoding)` would force a dynamic dispatch
+# on every hinge and turn an unknown encoding into a `MethodError`.
 function _smooth_relu(z::Float64, eps::Float64, encoding::Symbol)
-    return _smooth_relu(z, eps, Val(encoding))
+    encoding === :softplus && return eps * log1pexp(z / eps)
+    encoding === :swish && return z * logistic(z / eps)
+    throw(ArgumentError(
+        "encoding must be :softplus or :swish, got :$encoding"))
 end
 
 """

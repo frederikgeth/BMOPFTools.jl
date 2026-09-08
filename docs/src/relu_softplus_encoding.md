@@ -86,19 +86,50 @@ relative ε scaling, and per-context operator cache are unchanged; only the
 smooth hinge operator changes. `piecewise_linear_value` selects the matching
 numeric oracle with `encoding=:swish`.
 
-Swish is not a conservative replacement for softplus. Its error is negative on
-the negative side of a hinge and has maximum magnitude approximately
-$0.2785\varepsilon$, but its derivative can dip below zero and its second
-derivative changes sign. Consequently, a signed hinge sum can overshoot a
-nominal clamp just below a breakpoint or leak a small nonzero value into a
-deadband. Existing hard device bounds remain in force, but they do not remove
-the surrogate's local curve error. The standard softplus remains the default.
+Swish is not a conservative replacement for softplus, and the two err in
+opposite directions. Softplus **over**estimates the hinge everywhere, with a
+one-sided error peaking at $\varepsilon\log 2 \approx 0.6931\varepsilon$ at
+$z = 0$. Swish **under**estimates it everywhere — $z\,\sigma(z/\varepsilon)
+\le \max(z, 0)$ for every $z$ — with a signed error that reaches
+$-0.2785\varepsilon$ on *both* sides of the hinge, at
+$z \approx \pm 1.2785\varepsilon$:
+
+| Encoding | Error sign | Extremum | Attained at |
+|:--|:--|:--|:--|
+| Softplus | $\ge 0$ everywhere | $+0.6931\varepsilon$ | $z = 0$ |
+| Swish | $\le 0$ everywhere | $-0.2785\varepsilon$ | $z \approx \pm 1.2785\varepsilon$ |
+
+So Swish is the *tighter* pointwise approximation of the two; what it gives up
+is structure, not accuracy. Its derivative dips below zero and its second
+derivative changes sign, so it is neither monotone nor convex near a hinge.
+
+A uniform underestimate of each hinge does not make the assembled curve a
+uniform underestimate: where a hinge slope $a_i$ is negative, the term
+$a_i \cdot (\text{negative error})$ is positive. A signed hinge sum can
+therefore **overshoot** a nominal clamp just below a breakpoint, or leak a
+small nonzero value into a deadband. The standard softplus remains the default.
+
+!!! note "Overshoot interacts with the apparent-power circle"
+    Under a `volt_var` profile the engine pins reactive power with the droop
+    equality $Q_k = q_{\text{base}} \cdot f^{VV}(|U_k|)$ and drops the
+    $q_{\min}/q_{\max}$ box bounds — but the apparent-power constraint
+    $\lVert (P_k, Q_k) \rVert \le s_{\max}$ still applies. A curve overshoot
+    large enough to push the pinned $Q_k$ past that circle renders the case
+    infeasible where the softplus encoding solved. The overshoot scales with
+    $\varepsilon$, so if a Swish solve reports infeasibility on a case that
+    solves under softplus, reduce `volt_var_watt_eps` before looking elsewhere.
 
 The native mode emits a JuMP nonlinear expression whose operator head is
-`:logistic`; it is therefore backend-specific. In particular, selecting
-`softplus=:swish` does not imply compatibility with Ipopt, DiffOpt, or a
-solver that does not advertise the logistic primitive. Gurobi's native
-nonlinear interface is the motivating backend.
+`:logistic`. That is not one of MathOptInterface's default univariate
+operators, so the mode is strictly backend-specific: selecting
+`softplus=:swish` does not imply compatibility with Ipopt, DiffOpt, or any
+solver that does not advertise the logistic primitive — those reject the model
+with `MOI.UnsupportedNonlinearOperator` at `optimize!` rather than solving
+something else. Gurobi (12.0 or newer) is the motivating backend, where
+`:logistic` maps to `GRB_OPCODE_LOGISTIC`; it is also the only one of the
+three encodings Gurobi accepts, so see
+[the solver guide](solvers.md#Gurobi:-the-quadratic-compatible-local-NLP-path)
+before running a control-curve case there.
 
 ## 3. Closed-form first and second derivatives
 

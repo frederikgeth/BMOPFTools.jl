@@ -54,6 +54,8 @@ end
 """Smooth evaluation of a ReLU-sum curve — mirrors the JuMP expression."""
 function curve_value_smooth(baseline::Real, triples, u::Real, ε::Real;
                             encoding::Symbol=:softplus)
+    encoding in (:softplus, :swish) || throw(ArgumentError(
+        "encoding must be :softplus or :swish, got :$encoding"))
     acc = Float64(baseline)
     for (a, x̄) in triples
         acc += a * BMOPFTools._smooth_relu(
@@ -66,24 +68,6 @@ function _swish_value(z::Float64, ε::Float64)
     t = z / ε
     isfinite(t) && return z * logistic(t)
     return t > 0 ? z : -0.0
-end
-
-function _swish_derivative(z::Float64, ε::Float64)
-    t = z / ε
-    isfinite(t) || return t > 0 ? 1.0 : 0.0
-    σ = logistic(t)
-    σ̄ = logistic(-t)
-    return σ + t * σ * σ̄
-end
-
-function _swish_second_derivative(z::Float64, ε::Float64)
-    t = z / ε
-    isfinite(t) && begin
-        σ = logistic(t)
-        σ̄ = logistic(-t)
-        return σ * σ̄ * (2.0 + t * (σ̄ - σ)) / ε
-    end
-    return 0.0
 end
 
 """
