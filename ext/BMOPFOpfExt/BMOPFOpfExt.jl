@@ -60,16 +60,22 @@ module BMOPFOpfExt
 
 using BMOPFTools
 using JuMP
-function _ipopt_module()
-    for (pkgid, mod) in Base.loaded_modules
-        pkgid.name == "Ipopt" && return mod
-    end
-    return nothing
-end
 using LinearAlgebra
 using SparseArrays
 using SHA
 using StatsFuns: log1pexp, logistic
+
+# Look up a currently loaded module by package name, without taking a hard
+# dependency on it. Used to report solver-package versions in provenance and to
+# find Ipopt for the default-optimizer fallback.
+function _loaded_module(name::AbstractString)
+    for (pkgid, mod) in Base.loaded_modules
+        pkgid.name == name && return mod
+    end
+    return nothing
+end
+
+_ipopt_module() = _loaded_module("Ipopt")
 
 include("data_utils.jl")
 include("control_curves.jl")

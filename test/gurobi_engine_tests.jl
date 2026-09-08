@@ -1,10 +1,16 @@
 # Gurobi coverage for the quadratic-compatible subset of the IVR-EN engine.
 #
-# Gurobi is optional and requires a local license, so this file is included only
-# when Gurobi.jl is available in the test environment. The fixture intentionally
-# uses constant-power physics: voltage-dependent exponential laws and smooth
-# control curves remain NLP-only features.
+# Gurobi is commercial and licence-gated, so it is not a declared test
+# dependency: this file runs only when Gurobi.jl has been added to the test
+# environment *and* a usable licence is present. The fixture intentionally uses
+# constant-power physics: voltage-dependent exponential laws and smooth control
+# curves remain NLP-only features.
 
+# Probe for a usable licence. `Gurobi.Optimizer` acquires an environment
+# eagerly, so *every* construction of a Gurobi model — including the trivial
+# solver-name check below — must sit behind this guard. Without a licence,
+# `JuMP.Model(Gurobi.Optimizer)` throws (e.g. `Gurobi Error 10009`) rather than
+# returning an unusable model.
 function _gurobi_license_available()
     try
         model = JuMP.Model(Gurobi.Optimizer)
@@ -19,15 +25,15 @@ function _gurobi_license_available()
 end
 
 @testset "Gurobi optimizer support" begin
-    @testset "JuMP can construct a Gurobi model" begin
-        model = JuMP.Model(Gurobi.Optimizer)
-        JuMP.set_silent(model)
-        @test occursin("Gurobi", JuMP.solver_name(model))
-    end
-
     if !_gurobi_license_available()
         @test_skip "Gurobi license is unavailable"
     else
+        @testset "JuMP can construct a Gurobi model" begin
+            model = JuMP.Model(Gurobi.Optimizer)
+            JuMP.set_silent(model)
+            @test occursin("Gurobi", JuMP.solver_name(model))
+        end
+
         @testset "engine solves a quadratic IVR-EN case" begin
             # The high-voltage root is selected by the explicit 900 V lower
             # bound. All engine constraints in this fixture are affine or

@@ -32,17 +32,31 @@ compatible optimizer, and make solver settings explicit when comparing runs.
 ## Install the solvers
 
 Install JuMP and whichever solver packages you intend to use in the same Julia
-environment as BMOPFTools:
+environment as BMOPFTools. None of the solvers is a hard dependency — add only
+the ones you need:
 
 ```julia
 using Pkg
-Pkg.add(["JuMP", "Ipopt", "MadNLP", "Gurobi"])
+Pkg.add(["JuMP", "Ipopt"])   # add "MadNLP" and/or "Gurobi" as needed
 ```
 
 Gurobi.jl also needs a usable Gurobi installation/license. The Julia package
 and a license are separate concerns; see the
 [Gurobi.jl installation notes](https://github.com/jump-dev/Gurobi.jl#installation)
 and the [Gurobi license documentation](https://www.gurobi.com/solutions/licensing/).
+
+!!! note "Gurobi is not a test dependency"
+    Because Gurobi is commercial and license-gated, it is deliberately absent
+    from `test/Project.toml`. The suite detects it at load time and skips
+    `test/gurobi_engine_tests.jl` when the package is missing, fails to load,
+    or has no usable license, so a Gurobi-free checkout runs green. To exercise
+    that coverage, add Gurobi to the test environment yourself:
+
+    ```julia
+    using Pkg
+    Pkg.activate("test")
+    Pkg.add("Gurobi")
+    ```
 
 Load the solver package whose optimizer you pass:
 
@@ -90,10 +104,16 @@ result = solve_opf(net;
 ```
 
 `solver_options` is an iterable of `name => value` pairs. The engine applies
-these settings after its own defaults, so user-supplied values win. Attribute
-names are solver-specific: `OutputFlag` is a Gurobi parameter, while
-`print_level` is an Ipopt or MadNLP option. Do not assume that an option with a
-similar name has the same meaning across solvers.
+these settings after its own defaults, so user-supplied values win at the point
+they are set. Attribute names are solver-specific: `OutputFlag` is a Gurobi
+parameter, while `print_level` is an Ipopt or MadNLP option. Do not assume that
+an option with a similar name has the same meaning across solvers.
+
+One caveat: `verbose = false` (the default) calls `JuMP.set_silent`, and a
+solver is free to act on that later than the raw attributes you pass. MadNLP,
+for instance, overwrites `print_level` with `MadNLP.ERROR` inside `optimize!`
+whenever the model is silent, so a `print_level` in `solver_options` only takes
+effect under `verbose = true`.
 
 Inspect the result and validate the physical solution rather than relying on a
 status string alone:
@@ -103,7 +123,7 @@ println(result["termination_status"])
 println(result["objective"])
 
 validation = profile_solution(net, result)
-render(validation, stdout)
+render_solution(validation, stdout)
 ```
 
 Ipopt and MadNLP commonly report `"LOCALLY_SOLVED"`; Gurobi may report
@@ -189,11 +209,18 @@ const MADNLP_OPT = optimizer_with_attributes(
     MadNLP.Optimizer,
     "tol" => 1e-8,
     "max_iter" => 3000,
-    "print_level" => 0,
+    "print_level" => MadNLP.ERROR,
 )
 
 result = solve_opf(net; optimizer = MADNLP_OPT)
 ```
+
+!!! warning "`print_level` does not mean the same thing to Ipopt and MadNLP"
+    Ipopt's `print_level` is an integer from `0` (silent) to `12`. MadNLP's is
+    a `MadNLP.LogLevels` enum running `TRACE` (1) through `ERROR` (6), with no
+    level `0` — passing `0` throws
+    `ArgumentError: invalid value for Enum LogLevels: 0` at solve time. Use
+    `MadNLP.ERROR` for the quietest MadNLP log.
 
 The same call can be written with `solver_options`:
 
@@ -312,9 +339,10 @@ termination, and residuals before tuning solver parameters.
 ### Use tolerances as an experiment, not a substitute for validation
 
 The engine applies solver options after its own defaults, but it cannot make a
-solver-specific option portable. A useful comparison fixes the case,
-objective, coordinate system, and stopping policy, then changes one solver or
-one solver setting at a time:
+solver-specific option portable, and it cannot stop a solver from revisiting an
+option during `optimize!` (see the `set_silent` caveat above). A useful
+comparison fixes the case, objective, coordinate system, and stopping policy,
+then changes one solver or one solver setting at a time:
 
 ```julia
 configs = [

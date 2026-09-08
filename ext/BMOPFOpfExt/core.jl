@@ -1964,8 +1964,19 @@ function BMOPFTools.opf_research_provenance(
             "julia" => string(VERSION),
             "BMOPFTools" => string(Base.pkgversion(BMOPFTools)),
             "JuMP" => string(Base.pkgversion(JuMP)),
-            "Ipopt" => let ipopt = _ipopt_module()
-                ipopt === nothing ? nothing : string(Base.pkgversion(ipopt))
+            # Version of the solver package actually in use, keyed by the
+            # solver's own name (Ipopt, MadNLP, Gurobi, ...). Reporting a
+            # fixed "Ipopt" key here attributed an Ipopt version to solves
+            # done with another backend whenever Ipopt merely happened to be
+            # loaded, and recorded nothing at all otherwise.
+            "solver_package" => let name = _safe_provenance(
+                    () -> JuMP.solver_name(model))
+                mod = name === nothing ? nothing : _loaded_module(name)
+                version = mod === nothing ? nothing :
+                    _safe_provenance(() -> Base.pkgversion(mod))
+                mod === nothing ? nothing : Dict{String,Any}(
+                    "name" => name,
+                    "version" => version === nothing ? nothing : string(version))
             end,
         ),
         "formulation" => Dict{String,Any}(
