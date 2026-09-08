@@ -28,6 +28,7 @@ Dates = "1"
 Gurobi = "1"
 Graphs = "1"
 Ipopt = "1"
+MadNLP = "0.10"
 JSON3 = "1.14.3"
 JSONSchema = "1.5.0"
 JuMP = "1"
@@ -45,8 +46,9 @@ julia = "1.10"
 
 [extras]
 Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 OpenDSSDirect = "a8b11937-1041-50f2-9818-136bb7a8fb06"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "JuMP", "Ipopt", "Gurobi", "OpenDSSDirect"]
+test = ["Test", "JuMP", "Ipopt", "Gurobi", "MadNLP", "OpenDSSDirect"]

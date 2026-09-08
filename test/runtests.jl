@@ -19,6 +19,11 @@ if _HAS_GUROBI
     @eval using Gurobi
 end
 
+const _HAS_MADNLP = !isnothing(Base.identify_package("MadNLP"))
+if _HAS_MADNLP
+    @eval using MadNLP
+end
+
 # Remove the transformer nameplate power limit (`s_rating`) from a network so a
 # physics / power-flow comparison against limit-free OpenDSS is not distorted by
 # the always-enforced nameplate cap. `s_rating` is not used by the solve for the
@@ -4141,6 +4146,14 @@ include("mcp_execution_tests.jl")
             @test_skip "Gurobi.jl and JuMP are required for Gurobi engine tests"
         else
             include("gurobi_engine_tests.jl")
+        end
+    end
+
+    @testset "MadNLP OPF extension" begin
+        if !_HAS_MADNLP || isnothing(Base.identify_package("JuMP"))
+            @test_skip "MadNLP.jl and JuMP are required for MadNLP engine tests"
+        else
+            include("madnlp_engine_tests.jl")
         end
     end
 
