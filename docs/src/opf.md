@@ -28,7 +28,7 @@ classes, not merely infrastructure for a single OPF problem definition.
 
 BMOPFTools ships a **four-wire rectangular current–voltage** optimal
 power flow engine as a Julia package extension.  It activates automatically when
-both JuMP and Ipopt are loaded:
+JuMP is loaded; Ipopt is the default optimizer when available:
 
 ```julia
 using BMOPFTools, JuMP, Ipopt

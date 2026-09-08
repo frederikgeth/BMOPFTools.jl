@@ -24,7 +24,7 @@
 # control_profile are voltage-dependent and remain determined, so they are fine.
 
 """
-    BMOPFTools.solve_pf(net; optimizer=Ipopt.Optimizer, t_index=1,
+    BMOPFTools.solve_pf(net; optimizer=_default_optimizer(), t_index=1,
                         per_unit=true, s_base=1e6,
                         softplus=:user_defined,
                         build_spec=OpfBuildSpec()) -> Dict
@@ -60,7 +60,7 @@ current DiffOpt nonlinear wrappers; the built-in expression has a narrower
 overflow-safe range.
 """
 function BMOPFTools.solve_pf(net::Dict{String,Any};
-                              optimizer=Ipopt.Optimizer,
+                              optimizer=_default_optimizer(),
                               t_index::Int=1,
                               per_unit::Bool=true,
                               s_base::Float64=1e6,

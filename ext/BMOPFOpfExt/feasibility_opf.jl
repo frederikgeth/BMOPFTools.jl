@@ -43,7 +43,7 @@ current DiffOpt nonlinear wrappers; the built-in expression has a narrower
 overflow-safe range.
 """
 function BMOPFTools.solve_feasibility_opf(net::Dict{String,Any};
-                                           optimizer=Ipopt.Optimizer,
+                                           optimizer=_default_optimizer(),
                                            t_index::Int=1,
                                            per_unit::Bool=true,
                                            s_base::Float64=1e6,

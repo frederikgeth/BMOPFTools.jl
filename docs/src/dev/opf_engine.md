@@ -3,7 +3,9 @@
 BMOPFTools ships **one reference optimizer**: a nonconvex **four-wire rectangular
 current–voltage** optimal power flow engine (see its
 [formulation principles](../opf.md#Formulation-principles)), in a package
-extension that activates when JuMP and Ipopt are loaded. It is not a general OPF framework, and
+extension that activates when JuMP is loaded. Ipopt remains the default
+optimizer when available, while other JuMP-compatible solvers can be passed
+explicitly for formulations they support. It is not a general OPF framework, and
 it is deliberately the *smaller* half of the project. As the
 [positioning page](../positioning.md) puts it, the product is the model and the
 tooling around it, not the solver; the [bounds & feasibility](../bounds/index.md)
@@ -396,11 +398,12 @@ be scaled by the matching `opf_bases(ctx)` base.
     profiling. To keep that option open:
 
     - Keep the engine behind the existing extension boundary — it lives in
-      `ext/BMOPFOpfExt/`, with `JuMP` and `Ipopt` as weak dependencies (see the
-      `[weakdeps]` / `[extensions]` blocks in `Project.toml`).
+      `ext/BMOPFOpfExt/`, with JuMP as the activation dependency and Ipopt as
+      the optional default-solver dependency (see the `[weakdeps]` /
+      `[extensions]` blocks in `Project.toml`).
     - **Do not couple core analysis to the engine.** Parsing, validation,
       analysis, reporting, conversion, and augmentation must all work without
-      JuMP/Ipopt loaded. Anything that needs the solver belongs in the extension,
+      JuMP loaded. Anything that needs the solver belongs in the extension,
       not in `src/`.
 
 ## See also

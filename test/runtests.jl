@@ -14,6 +14,11 @@ if _HAS_JUMP_IPOPT
     @eval using JuMP, Ipopt
 end
 
+const _HAS_GUROBI = !isnothing(Base.identify_package("Gurobi"))
+if _HAS_GUROBI
+    @eval using Gurobi
+end
+
 # Remove the transformer nameplate power limit (`s_rating`) from a network so a
 # physics / power-flow comparison against limit-free OpenDSS is not distorted by
 # the always-enforced nameplate cap. `s_rating` is not used by the solve for the
@@ -4125,6 +4130,17 @@ include("mcp_execution_tests.jl")
             include("kcl_guard_tests.jl")
             include("network_limit_tests.jl")
             include("dc_network_tests.jl")
+        end
+    end
+
+    # Gurobi is an optional JuMP backend. Keep its engine tests outside the
+    # Ipopt-gated block so the extension's JuMP-only activation is exercised
+    # when a Gurobi-only test environment is used.
+    @testset "Gurobi OPF extension" begin
+        if !_HAS_GUROBI || isnothing(Base.identify_package("JuMP"))
+            @test_skip "Gurobi.jl and JuMP are required for Gurobi engine tests"
+        else
+            include("gurobi_engine_tests.jl")
         end
     end
 

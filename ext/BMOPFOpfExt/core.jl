@@ -1964,7 +1964,9 @@ function BMOPFTools.opf_research_provenance(
             "julia" => string(VERSION),
             "BMOPFTools" => string(Base.pkgversion(BMOPFTools)),
             "JuMP" => string(Base.pkgversion(JuMP)),
-            "Ipopt" => string(Base.pkgversion(Ipopt)),
+            "Ipopt" => let ipopt = _ipopt_module()
+                ipopt === nothing ? nothing : string(Base.pkgversion(ipopt))
+            end,
         ),
         "formulation" => Dict{String,Any}(
             "problem" => string(manifest.problem),
@@ -2865,7 +2867,7 @@ end
 # ledger dicts, so multiple contexts coexist in one model without collision.
 
 """
-    BMOPFTools.build_opf_model(net; optimizer=Ipopt.Optimizer, t_index=1,
+    BMOPFTools.build_opf_model(net; optimizer=_default_optimizer(), t_index=1,
         per_unit=true, s_base=1e6, model=nothing, add_objective=true,
         build_spec=OpfBuildSpec(), model_hook!=nothing,
         volt_var_watt_eps=2e-3, softplus=:user_defined, kcl_guard=true,
@@ -2924,7 +2926,7 @@ Returns the snapshot's context; use `opf_model`, `opf_object`, `opf_bases`, and
 [`enforce_kcl!`](@ref) and [`extract_result`](@ref).
 """
 function BMOPFTools.build_opf_model(net::Dict{String,Any};
-                                    optimizer=Ipopt.Optimizer,
+                                    optimizer=_default_optimizer(),
                                     t_index::Int=1,
                                     per_unit::Bool=true,
                                     s_base::Float64=1e6,
@@ -2948,7 +2950,7 @@ function BMOPFTools.build_opf_model(net::Dict{String,Any};
 end
 
 function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
-                                         optimizer=Ipopt.Optimizer,
+                                         optimizer=_default_optimizer(),
                                          t_index::Int=1,
                                          per_unit::Bool=true,
                                          s_base::Float64=1e6,
