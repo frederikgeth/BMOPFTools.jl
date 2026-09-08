@@ -905,7 +905,7 @@ end
 
 # ---------------------------------------------------------------------------
 # OPF entry point — implementation lives in ext/BMOPFOpfExt (loaded when
-# JuMP and Ipopt are both available in the calling environment).
+# JuMP and a compatible optimizer are available in the calling environment).
 # ---------------------------------------------------------------------------
 
 function _piecewise_linear_hinges(breakpoints::AbstractVector{<:Real},
@@ -996,8 +996,8 @@ end
 
 Build a smooth JuMP expression for the continuous PWL function through
 `breakpoints` and `values`, clamped flat outside the breakpoint interval. The
-method is implemented by the OPF extension and requires JuMP and Ipopt to be
-loaded.
+method is implemented by the OPF extension and requires JuMP plus a compatible
+optimizer to be loaded.
 
 `input` may be a JuMP variable or scalar expression. All curve data are fixed,
 finite real numbers; `breakpoints` must be strictly increasing. The finite,
@@ -1029,8 +1029,9 @@ export opf_piecewise_linear_expression
               model_hook!=nothing, solution_hook!=nothing) -> Dict{String,Any}
 
 Solve the four-wire rectangular current-voltage (IVR-EN) optimal power flow
-on a BMOPF network dict. Requires JuMP and Ipopt to be loaded in the calling
-environment before calling this function.
+on a BMOPF network dict. Requires JuMP and a compatible optimizer to be loaded
+in the calling environment before calling this function; Ipopt is the default
+when loaded.
 
 When `per_unit=true` (the default) the model is built and solved in per-unit
 (V_base propagated from the source bus through transformers; S_base = `s_base`
@@ -1185,7 +1186,7 @@ relaxed solution paid to violate KCL; they are diagnostic evidence rather than a
 global infeasibility certificate. Use [`diagnose_infeasibility`](@ref) to
 interpret the result.
 
-Requires JuMP and Ipopt (same as `solve_opf`).
+Requires JuMP and a compatible optimizer (same as `solve_opf`).
 For cases with Volt-var/Volt-watt profiles, pass `softplus=:builtin` explicitly
 when using a DiffOpt nonlinear wrapper; its current backend rejects the stable
 default's user-defined nonlinear operator. Pass `softplus=:swish` for a native
@@ -1222,7 +1223,7 @@ non-degenerate range is rejected, since a power flow has no objective to choose 
 dispatch within the range. IBRs under a `control_profile` are voltage-
 dependent and remain determined.
 
-Requires JuMP and Ipopt (same as `solve_opf`). The result dict matches
+Requires JuMP and a compatible optimizer (same as `solve_opf`). The result dict matches
 `solve_opf`'s structure plus `"is_power_flow" => true`.
 For cases with Volt-var/Volt-watt profiles, pass `softplus=:builtin` explicitly
 when using a DiffOpt nonlinear wrapper; its current backend rejects the stable
@@ -2601,7 +2602,8 @@ a device model rather than a network loss.)
     source from an expensive nearby unit rather than transport cheap distant
     power. Combine them deliberately with explicit weights.
 
-Implemented in the `BMOPFOpfExt` extension (requires JuMP and Ipopt loaded).
+Implemented in the `BMOPFOpfExt` extension (requires JuMP and a compatible
+optimizer loaded).
 """
 function opf_element_loss end
 export opf_element_loss
@@ -2631,7 +2633,8 @@ returned expressions are affine. `re^2 + im^2` is therefore an exact smooth
 quadratic needing no smoothing; only a MAGNITUDE penalty needs
 [`smooth_norm`](@ref).
 
-Implemented in the `BMOPFOpfExt` extension (requires JuMP and Ipopt loaded).
+Implemented in the `BMOPFOpfExt` extension (requires JuMP and a compatible
+optimizer loaded).
 """
 function opf_sequence_voltage end
 export opf_sequence_voltage
@@ -2665,7 +2668,8 @@ one regime is wrong in the other:
     region, `eps` costs nothing, and it can be as small as the accuracy target
     wants.
 
-Implemented in the `BMOPFOpfExt` extension (requires JuMP and Ipopt loaded).
+Implemented in the `BMOPFOpfExt` extension (requires JuMP and a compatible
+optimizer loaded).
 See also [`register_opf_differentiability_annotation!`](@ref), which this
 records by default so the approximation is never silent.
 """
@@ -2864,7 +2868,8 @@ export extension_state!, add_terminal_injection!, register_opf_result_extractor!
     extract_result(ctx; solution_hook!=nothing) -> Dict{String,Any}
 
 Staged build/solve/extract API — the composable form of [`solve_opf`](@ref).
-Implemented in the `BMOPFOpfExt` extension (requires JuMP and Ipopt loaded).
+Implemented in the `BMOPFOpfExt` extension (requires JuMP and a compatible
+optimizer loaded).
 
 `solve_opf` fuses model construction, KCL, the solve, and result extraction into
 one call. These four functions expose the same pipeline as discrete steps so a
@@ -3043,9 +3048,9 @@ function __init__()
     Base.Experimental.register_error_hint(MethodError) do io, exc, _argtypes, _kwargs
         if exc.f in (solve_opf, solve_pf, solve_feasibility_opf)
             print(io, "\n\n`$(nameof(exc.f))` is provided by the BMOPFOpfExt " *
-                      "package extension, which activates when JuMP and Ipopt " *
-                      "are loaded. Run `import Pkg; Pkg.add([\"JuMP\", \"Ipopt\"])` " *
-                      "once, then `using JuMP, Ipopt` before calling it.")
+                      "package extension, which activates when JuMP is loaded. " *
+                      "Run `import Pkg; Pkg.add([\"JuMP\", \"Ipopt\"])` once for " *
+                      "the default, or pass another JuMP optimizer explicitly.")
         end
     end
 end

@@ -1862,6 +1862,13 @@ end
               "BMOPFTools.opf_research_provenance/v1"
         @test provenance["software"]["BMOPFTools"] ==
               string(Base.pkgversion(BMOPFTools))
+        # The solver-package record follows the solver actually in use rather
+        # than a hardcoded Ipopt key, so a Gurobi or MadNLP solve is not
+        # attributed an Ipopt version.
+        @test provenance["software"]["solver_package"]["name"] == "Ipopt"
+        @test provenance["software"]["solver_package"]["version"] ==
+              string(Base.pkgversion(Ipopt))
+        @test !haskey(provenance["software"], "Ipopt")
         @test provenance["formulation"]["formulation"] == "ivr_en"
         @test provenance["formulation"]["per_unit"] == false
         @test occursin("Ipopt", provenance["solver"]["name"])

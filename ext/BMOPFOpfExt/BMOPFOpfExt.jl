@@ -2,8 +2,9 @@
     BMOPFOpfExt
 
 Julia package extension that implements the four-wire rectangular current-voltage
-(IVR-EN) optimal power flow for BMOPF networks.  Loaded automatically when both
-`JuMP` and `Ipopt` are present in the calling environment.
+(IVR-EN) optimal power flow for BMOPF networks. Loaded automatically when
+`JuMP` is present in the calling environment. Ipopt is the default optimizer
+when available; callers may pass another JuMP-compatible optimizer explicitly.
 
 ## Formulation
 
@@ -59,11 +60,22 @@ module BMOPFOpfExt
 
 using BMOPFTools
 using JuMP
-using Ipopt
 using LinearAlgebra
 using SparseArrays
 using SHA
 using StatsFuns: log1pexp, logistic
+
+# Look up a currently loaded module by package name, without taking a hard
+# dependency on it. Used to report solver-package versions in provenance and to
+# find Ipopt for the default-optimizer fallback.
+function _loaded_module(name::AbstractString)
+    for (pkgid, mod) in Base.loaded_modules
+        pkgid.name == name && return mod
+    end
+    return nothing
+end
+
+_ipopt_module() = _loaded_module("Ipopt")
 
 include("data_utils.jl")
 include("control_curves.jl")
@@ -88,8 +100,16 @@ include("objectives.jl")   # needs OpfContext from core.jl
 include("feasibility_opf.jl")
 include("pf.jl")
 
+function _default_optimizer()
+    ipopt = _ipopt_module()
+    ipopt !== nothing && return getfield(ipopt, :Optimizer)
+    throw(ArgumentError(
+        "No default OPF optimizer is available because Ipopt is not loaded. " *
+        "Pass an explicit JuMP optimizer, for example `optimizer=Gurobi.Optimizer`."))
+end
+
 """
-    BMOPFTools.solve_opf(net; optimizer=Ipopt.Optimizer, t_index=1,
+    BMOPFTools.solve_opf(net; optimizer=_default_optimizer(), t_index=1,
         build_spec=OpfBuildSpec(), softplus=:user_defined) -> Dict
 
 Four-wire rectangular current-voltage (IVR-EN) OPF on a BMOPF network dict.
@@ -108,7 +128,7 @@ The formulation follows the PMD IVRENPowerModel convention:
   the total (series + shunt) current at both line ends.
 """
 function BMOPFTools.solve_opf(net::Dict{String,Any};
-                               optimizer=Ipopt.Optimizer,
+                               optimizer=_default_optimizer(),
                                t_index::Int=1,
                                per_unit::Bool=true,
                                s_base::Float64=1e6,

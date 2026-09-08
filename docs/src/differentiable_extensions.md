@@ -648,7 +648,10 @@ end
 
 The versioned `BMOPFTools.opf_research_provenance/v1` record includes:
 
-- Julia, BMOPFTools, JuMP, Ipopt, and solver-reported versions;
+- Julia, BMOPFTools, JuMP, and solver-reported versions. `software`
+  records the version of whichever solver package is actually in use
+  under `solver_package` (`name` plus `version`, e.g. `Ipopt`,
+  `MadNLP`, or `Gurobi`), not a fixed solver key;
 - formulation, problem recipe, SI/per-unit bases, completed stages, and device
   formulation owners;
 - termination, raw/primal/dual statuses, objective, iterations, and solve time;

@@ -8,11 +8,34 @@ if _HAS_ODS
     @eval using OpenDSSDirect
 end
 
-const _HAS_JUMP_IPOPT = !isnothing(Base.identify_package("JuMP")) &&
-                        !isnothing(Base.identify_package("Ipopt"))
-if _HAS_JUMP_IPOPT
-    @eval using JuMP, Ipopt
+# Load an optional package if it is present in the test environment. Returns
+# `false` (with a warning) when the package is installed but fails to load, so a
+# broken optional install downgrades to skipped tests instead of aborting the
+# whole suite.
+function _try_using(name::Symbol)
+    isnothing(Base.identify_package(String(name))) && return false
+    try
+        @eval using $name
+        return true
+    catch err
+        @warn "$(name).jl is installed but could not be loaded; its tests are skipped." exception =
+            (err, catch_backtrace())
+        return false
+    end
 end
+
+# JuMP alone activates the OPF extension; Ipopt is a separate, independent
+# optional dependency. Keep the two flags apart so a JuMP-plus-other-solver
+# environment (no Ipopt) still loads JuMP rather than leaving it undefined.
+const _HAS_JUMP = _try_using(:JuMP)
+const _HAS_IPOPT = _try_using(:Ipopt)
+const _HAS_JUMP_IPOPT = _HAS_JUMP && _HAS_IPOPT
+
+# Optional solver backends. Gurobi is commercial and licence-gated, so it is
+# deliberately *not* a declared test dependency: install it into the test
+# environment yourself to exercise `test/gurobi_engine_tests.jl`.
+const _HAS_GUROBI = _HAS_JUMP && _try_using(:Gurobi)
+const _HAS_MADNLP = _HAS_JUMP && _try_using(:MadNLP)
 
 # Remove the transformer nameplate power limit (`s_rating`) from a network so a
 # physics / power-flow comparison against limit-free OpenDSS is not distorted by
@@ -4125,6 +4148,26 @@ include("mcp_execution_tests.jl")
             include("kcl_guard_tests.jl")
             include("network_limit_tests.jl")
             include("dc_network_tests.jl")
+        end
+    end
+
+    # Gurobi is an optional JuMP backend. Keep its engine tests outside the
+    # Ipopt-gated block so the extension's JuMP-only activation is exercised
+    # when a Gurobi-only test environment is used. `_HAS_GUROBI` already
+    # implies JuMP was loaded successfully.
+    @testset "Gurobi OPF extension" begin
+        if !_HAS_GUROBI
+            @test_skip "Gurobi.jl and JuMP are required for Gurobi engine tests"
+        else
+            include("gurobi_engine_tests.jl")
+        end
+    end
+
+    @testset "MadNLP OPF extension" begin
+        if !_HAS_MADNLP
+            @test_skip "MadNLP.jl and JuMP are required for MadNLP engine tests"
+        else
+            include("madnlp_engine_tests.jl")
         end
     end
 

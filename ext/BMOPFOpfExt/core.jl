@@ -1967,7 +1967,20 @@ function BMOPFTools.opf_research_provenance(
             "julia" => string(VERSION),
             "BMOPFTools" => string(Base.pkgversion(BMOPFTools)),
             "JuMP" => string(Base.pkgversion(JuMP)),
-            "Ipopt" => string(Base.pkgversion(Ipopt)),
+            # Version of the solver package actually in use, keyed by the
+            # solver's own name (Ipopt, MadNLP, Gurobi, ...). Reporting a
+            # fixed "Ipopt" key here attributed an Ipopt version to solves
+            # done with another backend whenever Ipopt merely happened to be
+            # loaded, and recorded nothing at all otherwise.
+            "solver_package" => let name = _safe_provenance(
+                    () -> JuMP.solver_name(model))
+                mod = name === nothing ? nothing : _loaded_module(name)
+                version = mod === nothing ? nothing :
+                    _safe_provenance(() -> Base.pkgversion(mod))
+                mod === nothing ? nothing : Dict{String,Any}(
+                    "name" => name,
+                    "version" => version === nothing ? nothing : string(version))
+            end,
         ),
         "formulation" => Dict{String,Any}(
             "problem" => string(manifest.problem),
@@ -2870,7 +2883,7 @@ end
 # ledger dicts, so multiple contexts coexist in one model without collision.
 
 """
-    BMOPFTools.build_opf_model(net; optimizer=Ipopt.Optimizer, t_index=1,
+    BMOPFTools.build_opf_model(net; optimizer=_default_optimizer(), t_index=1,
         per_unit=true, s_base=1e6, model=nothing, add_objective=true,
         build_spec=OpfBuildSpec(), model_hook!=nothing,
         volt_var_watt_eps=2e-3, softplus=:user_defined, kcl_guard=true,
@@ -2933,7 +2946,7 @@ Returns the snapshot's context; use `opf_model`, `opf_object`, `opf_bases`, and
 [`enforce_kcl!`](@ref) and [`extract_result`](@ref).
 """
 function BMOPFTools.build_opf_model(net::Dict{String,Any};
-                                    optimizer=Ipopt.Optimizer,
+                                    optimizer=_default_optimizer(),
                                     t_index::Int=1,
                                     per_unit::Bool=true,
                                     s_base::Float64=1e6,
@@ -2957,7 +2970,7 @@ function BMOPFTools.build_opf_model(net::Dict{String,Any};
 end
 
 function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
-                                         optimizer=Ipopt.Optimizer,
+                                         optimizer=_default_optimizer(),
                                          t_index::Int=1,
                                          per_unit::Bool=true,
                                          s_base::Float64=1e6,
