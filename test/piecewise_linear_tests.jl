@@ -26,6 +26,24 @@
         @test isfinite(piecewise_linear_value(-1.0e6, xs, ys; epsilon=1e-9))
     end
 
+    @testset "Swish numeric evaluation" begin
+        for u in (250.0, 256.5, 265.0)
+            @test piecewise_linear_value(
+                u, xs, ys; epsilon=1e-6, encoding=:swish) ≈
+                piecewise_linear_value(
+                    u, xs, ys; epsilon=1e-6, encoding=:softplus) atol=2e-6
+        end
+
+        # Swish remains finite when z/epsilon is far outside the exponential
+        # range, and its signed negative tail is intentional.
+        @test isfinite(piecewise_linear_value(
+            -1.0e6, xs, ys; epsilon=1e-9, encoding=:swish))
+        @test isfinite(piecewise_linear_value(
+            1.0e6, xs, ys; epsilon=1e-9, encoding=:swish))
+        @test piecewise_linear_value(
+            251.7215, xs, ys; epsilon=1.0, encoding=:swish) > 1.0
+    end
+
     @testset "validation" begin
         @test_throws ArgumentError piecewise_linear_value(1.0, [0.0], [1.0])
         @test_throws ArgumentError piecewise_linear_value(
@@ -42,6 +60,8 @@
             1.0, [0.0, 1.0], [1.0, 2.0]; epsilon=0.0)
         @test_throws ArgumentError piecewise_linear_value(
             1.0, [0.0, 1.0], [1.0, 2.0]; epsilon=Inf)
+        @test_throws ArgumentError piecewise_linear_value(
+            1.0, [0.0, 1.0], [1.0, 2.0]; epsilon=0.1, encoding=:unknown)
     end
 
     @testset "staged OPF expression and operator cache" begin
@@ -57,11 +77,11 @@
                 ),
             )
 
+            epsilon = 0.05
             for mode in (:user_defined, :builtin)
                 ctx = initialize_opf_model(net; per_unit=false, softplus=mode)
                 model = opf_model(ctx)
                 input = JuMP.@variable(model)
-                epsilon = 0.05
 
                 expr = opf_piecewise_linear_expression(
                     ctx, input, xs, ys; epsilon=epsilon)
@@ -84,6 +104,32 @@
                 @test_throws ArgumentError opf_piecewise_linear_expression(
                     ctx, input, [1.0, 1.0], ys; epsilon=epsilon)
             end
+
+            function contains_head(expr, head::Symbol)
+                expr isa JuMP.GenericNonlinearExpr &&
+                    (expr.head == head || any(
+                        arg -> contains_head(arg, head), expr.args))
+            end
+
+            swish_ctx = initialize_opf_model(
+                net; per_unit=false, softplus=:swish)
+            opfext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
+            swish_input = JuMP.@variable(opf_model(swish_ctx))
+            swish_expr = opf_piecewise_linear_expression(
+                swish_ctx, swish_input, xs, ys; epsilon=epsilon)
+            @test contains_head(swish_expr, :logistic)
+            @test swish_ctx.relu_ops[epsilon] isa opfext.BuiltinSwish
+            swish_provenance = opf_research_provenance(swish_ctx)
+            @test swish_provenance["smoothing"]["softplus_mode"] == "swish"
+            @test swish_provenance["smoothing"]["uses_native_logistic"] == true
+            @test piecewise_linear_value(
+                256.5, xs, ys; epsilon=epsilon, encoding=:swish) ≈
+                  opfext.curve_value_smooth(
+                      1.0, ((-0.8 / 7, 253.0), (0.8 / 7, 260.0)),
+                      256.5, epsilon; encoding=:swish) rtol=1e-12
+
+            @test_throws ArgumentError initialize_opf_model(
+                net; per_unit=false, softplus=:unknown)
 
             flat_ctx = initialize_opf_model(net; per_unit=false)
             flat_input = JuMP.@variable(opf_model(flat_ctx))

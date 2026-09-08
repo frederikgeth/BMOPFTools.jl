@@ -975,7 +975,10 @@ exactly. $\varepsilon \to 0$ recovers the exact ReLU; the relative smoothing is
 the `volt_var_watt_eps` keyword of [`solve_opf`](@ref). The
 [Smooth droop encoding](relu_softplus_encoding.md) tech note derives the
 closed-form derivatives, the $\varepsilon\log 2$ error bound, and the numerically
-stable `log1pexp`/`logistic` evaluation in full.
+stable `log1pexp`/`logistic` evaluation in full. For a backend with native
+logistic support, `softplus=:swish` selects the alternative
+$z\,\sigma(z/\varepsilon)$ encoding; it is solver-specific and does not retain
+softplus's monotonicity or convexity.
 
 Breakpoint voltages are SI volts (phase-to-neutral) and are scaled into model
 units at build time, so the droop is identical in SI and per-unit mode. Droop is

@@ -50,7 +50,7 @@ struct OpfContext
     # Per-unit bases (`nothing` when the model is built in SI units), used by the
     # IBR Volt-var/Volt-watt droop to scale SI breakpoint voltages into model
     # units. `relu_eps` is the relative smoothing for the smooth-ReLU droop and
-    # `relu_ops` caches the registered operators by (model-unit) ε.
+    # `relu_ops` caches the selected smooth-ReLU operators by (model-unit) ε.
     #
     # `bases` also lets a `model_hook!` author express physical-unit constraints:
     # by default `per_unit=true`, so `ctx.model`'s variables (voltages, currents,
@@ -1712,6 +1712,9 @@ function BMOPFTools.opf_differentiability_report(
     any(op -> op isa BuiltinSoftplus, values(ctx.relu_ops)) &&
         push!(qualifications,
             "Smooth droop explicitly uses the native log1p/exp softplus encoding; verify its numerical range for the chosen scaling.")
+    any(op -> op isa BuiltinSwish, values(ctx.relu_ops)) &&
+        push!(qualifications,
+            "Smooth droop uses the native logistic/Swish encoding; it is solver-specific and does not preserve the softplus surrogate's monotonicity, convexity, or one-sided error.")
     activity_failures > 0 && push!(qualifications,
         "$activity_failures inequality constraint(s) could not be evaluated by the active-set scan.")
     any(key -> key.category == :physics &&
@@ -2011,6 +2014,8 @@ function BMOPFTools.opf_research_provenance(
             "registered_softplus_operators" => length(ctx.relu_ops),
             "uses_builtin_softplus" =>
                 any(op -> op isa BuiltinSoftplus, values(ctx.relu_ops)),
+            "uses_native_logistic" =>
+                any(op -> op isa BuiltinSwish, values(ctx.relu_ops)),
         ),
         "parameters" => parameter_records,
         "coefficient_providers" => coefficient_records,
@@ -2604,8 +2609,8 @@ function _new_context(model, working::Dict{String,Any}, bases, relu_eps::Float64
                       problem::Symbol, s_base::Float64,
                       softplus::Symbol=:user_defined,
                       build_spec::BMOPFTools.OpfBuildSpec=BMOPFTools.OpfBuildSpec())
-    softplus in (:user_defined, :builtin) || throw(ArgumentError(
-        "softplus must be :user_defined or :builtin, got :$softplus"))
+    softplus in (:user_defined, :builtin, :swish) || throw(ArgumentError(
+        "softplus must be :user_defined, :builtin, or :swish, got :$softplus"))
     bus_terminals = _bus_terminals(working)
     grounded      = _grounded_terminals(working)
 
@@ -2915,7 +2920,11 @@ step of the staged API; see the module notes above.
 - `softplus` — selects the smooth-ReLU encoding used by Volt-var/Volt-watt
   droop. The stable default is `:user_defined`. Pass `:builtin` explicitly for
   current DiffOpt nonlinear wrappers, which reject `MOI.UserDefinedFunction`;
-  the built-in expression has a narrower overflow-safe range.
+  the built-in expression has a narrower overflow-safe range. Pass `:swish` to
+  emit the native `logistic` primitive as `z * logistic(z / ε)` for solvers
+  such as Gurobi that support that operator. Swish is not a drop-in
+  mathematical replacement for softplus: its local slope can be negative and
+  its curve is not convex.
 - `model_hook!` — called as `hook!(ctx)` after the standard build, exactly as in
   `solve_opf`, to add custom devices/constraints for this snapshot.
 

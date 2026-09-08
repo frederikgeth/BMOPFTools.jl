@@ -51,6 +51,32 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         end
     end
 
+    @testset "encoding — Swish value and derivatives" begin
+        ε = 0.7
+        for z in (-3.0, -1.0, 0.0, 1.0, 3.0)
+            h = 1e-6
+            fd1 = (_OPFEXT._swish_value(z + h, ε) -
+                   _OPFEXT._swish_value(z - h, ε)) / (2h)
+            @test _OPFEXT._swish_derivative(z, ε) ≈ fd1 atol=2e-6
+
+            h2 = 1e-4
+            fd2 = (_OPFEXT._swish_value(z + h2, ε) -
+                   2 * _OPFEXT._swish_value(z, ε) +
+                   _OPFEXT._swish_value(z - h2, ε)) / h2^2
+            @test _OPFEXT._swish_second_derivative(z, ε) ≈ fd2 atol=2e-5
+        end
+
+        # The Swish hinge underestimates ReLU on its negative side. The
+        # extremum is approximately 0.2785ε, unlike softplus's ε*log(2).
+        peak_t = -1.27846
+        @test _OPFEXT._swish_value(peak_t, 1.0) ≈ -0.27846 atol=2e-4
+        @test _OPFEXT._swish_value(-1.0e6, 1e-9) == -0.0
+        @test isfinite(_OPFEXT._swish_value(1.0e6, 1e-9))
+        @test _OPFEXT.curve_value_smooth(
+            1.0, ((-0.8 / 7, 253.0), (0.8 / 7, 260.0)),
+            253.0 + peak_t, 1.0; encoding=:swish) > 1.0
+    end
+
     # ─────────────────────────────────────────────────────────────────────────
     # Volt-watt: at a stiff high terminal voltage the active-power cap curtails
     # the IBR well below p_max, binding exactly to the smooth curve.

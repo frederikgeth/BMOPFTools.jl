@@ -19,7 +19,9 @@
 #
 # evaluated with the numerically stable `log1pexp` / `logistic` from StatsFuns and
 # registered as a JuMP nonlinear operator (analytic 1st/2nd derivatives) so that
-# JuMP/Ipopt differentiate it exactly. ε → 0 recovers the exact ReLU.
+# JuMP/Ipopt differentiate it exactly. ε → 0 recovers the exact ReLU. The
+# native `softplus=:swish` mode uses `x * logistic(x / ε)` instead, preserving
+# the `:logistic` operator head for backends such as Gurobi.
 
 """
     breakpoints_to_triples(xs, ys) -> (baseline, triples)
@@ -49,13 +51,39 @@ function curve_value_exact(baseline::Real, triples, u::Real)
     return acc
 end
 
-"Smooth (softplus) evaluation of a ReLU-sum curve — mirrors the JuMP expression."
-function curve_value_smooth(baseline::Real, triples, u::Real, ε::Real)
+"""Smooth evaluation of a ReLU-sum curve — mirrors the JuMP expression."""
+function curve_value_smooth(baseline::Real, triples, u::Real, ε::Real;
+                            encoding::Symbol=:softplus)
     acc = Float64(baseline)
     for (a, x̄) in triples
-        acc += a * ε * log1pexp((Float64(u) - x̄) / ε)
+        acc += a * BMOPFTools._smooth_relu(
+            Float64(u) - Float64(x̄), Float64(ε), encoding)
     end
     return acc
+end
+
+function _swish_value(z::Float64, ε::Float64)
+    t = z / ε
+    isfinite(t) && return z * logistic(t)
+    return t > 0 ? z : -0.0
+end
+
+function _swish_derivative(z::Float64, ε::Float64)
+    t = z / ε
+    isfinite(t) || return t > 0 ? 1.0 : 0.0
+    σ = logistic(t)
+    σ̄ = logistic(-t)
+    return σ + t * σ * σ̄
+end
+
+function _swish_second_derivative(z::Float64, ε::Float64)
+    t = z / ε
+    isfinite(t) && begin
+        σ = logistic(t)
+        σ̄ = logistic(-t)
+        return σ * σ̄ * (2.0 + t * (σ̄ - σ)) / ε
+    end
+    return 0.0
 end
 
 """
@@ -83,6 +111,19 @@ end
 (op::BuiltinSoftplus)(x::Real) = op.eps * log1pexp(x / op.eps)
 (op::BuiltinSoftplus)(x) = op.eps * log1p(exp(x / op.eps))
 
+# Gurobi exposes `logistic` as a native nonlinear primitive. Construct the
+# symbolic node explicitly: calling StatsFuns.logistic on a JuMP expression
+# would either dispatch to a missing method or expand to an unsupported tree.
+struct BuiltinSwish
+    eps::Float64
+end
+(op::BuiltinSwish)(x::Real) = _swish_value(Float64(x), op.eps)
+function (op::BuiltinSwish)(x)
+    sigmoid = JuMP.GenericNonlinearExpr(
+        :logistic, x / op.eps)
+    return JuMP.GenericNonlinearExpr(:*, x, sigmoid)
+end
+
 """
     relu_operator_for!(cache, model, ε) -> op
 
@@ -93,11 +134,13 @@ while keeping each registration unique.
 """
 function relu_operator_for!(cache::Dict{Float64,Any}, model, ε::Float64;
                             mode::Symbol=:user_defined)
+    mode in (:user_defined, :builtin, :swish) || throw(ArgumentError(
+        "softplus must be :user_defined, :builtin, or :swish, got :$mode"))
     haskey(cache, ε) && return cache[ε]
-    mode in (:user_defined, :builtin) || throw(ArgumentError(
-        "softplus must be :user_defined or :builtin, got :$mode"))
     op = if mode == :builtin
         BuiltinSoftplus(ε)
+    elseif mode == :swish
+        BuiltinSwish(ε)
     else
         try
             relu_operator(model, ε;

@@ -529,7 +529,12 @@ The default `softplus=:user_defined` uses the registered, numerically stable
 operator. DiffOpt wrappers that reject user-defined nonlinear operators require
 the explicit `softplus=:builtin` build keyword. That native `log1p(exp(⋅))`
 expression is less overflow-resistant; explicit opt-in makes the numerical
-encoding part of the study configuration and provenance.
+encoding part of the study configuration and provenance. The separate
+`softplus=:swish` mode emits the native `logistic` primitive as
+`z * logistic(z / ε)` for solver backends such as Gurobi. It is not a
+softplus-equivalent approximation: its slope can become negative near a hinge,
+and it should only be selected when the backend's native logistic support is
+known.
 
 Line matrix keys address the **total line impedance after length application**,
 not a shared linecode entry. Thus two lines that reference one linecode may be
@@ -655,7 +660,8 @@ The versioned `BMOPFTools.opf_research_provenance/v1` record includes:
   regularization-declaration, and differentiability-annotation SHA-256
   fingerprints;
 - smoothing configuration and whether the explicitly selected
-  DiffOpt-compatible built-in softplus encoding was used;
+  DiffOpt-compatible built-in softplus or native-logistic Swish encoding was
+  used;
 - parameter scopes, units, scales, current values, semantic targets and owners;
 - coefficient-provider semantic keys, owners, and consumption counts;
 - explicit downstream regularization and differentiability declarations; and

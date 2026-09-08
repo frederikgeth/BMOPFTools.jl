@@ -57,7 +57,9 @@ power-flow working copy has had operational limit fields removed.
 For cases with Volt-var/Volt-watt profiles, `softplus=:user_defined` uses the
 stable registered nonlinear operator. Pass `softplus=:builtin` explicitly for
 current DiffOpt nonlinear wrappers; the built-in expression has a narrower
-overflow-safe range.
+overflow-safe range. Pass `softplus=:swish` for a native `logistic`-based
+encoding on backends that support that primitive; Swish is solver-specific and
+does not preserve softplus's monotonicity or convexity.
 """
 function BMOPFTools.solve_pf(net::Dict{String,Any};
                               optimizer=Ipopt.Optimizer,
