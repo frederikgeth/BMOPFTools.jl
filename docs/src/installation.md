@@ -90,12 +90,17 @@ Parsing, validation, analysis, reporting, and OpenDSS ingestion
 `solve_opf`, `solve_pf` and `solve_feasibility_opf` live in a **package
 extension**: optional functionality that activates automatically once its
 extra dependencies are installed. The tutorials that solve an OPF need
-**JuMP** (the optimisation modelling layer) and a solver such as **Ipopt**:
+**JuMP** (the optimisation modelling layer) and one of the supported solvers
+such as **Ipopt**, **MadNLP**, or **Gurobi**:
 
 ```julia
-Pkg.add(["JuMP", "Ipopt"])
-using BMOPFTools, JuMP, Ipopt   # extension activates on load
+Pkg.add(["JuMP", "Ipopt"])       # or MadNLP, or Gurobi
+using BMOPFTools, JuMP, Ipopt     # extension activates on load
 ```
+
+See the [solver guide](solvers.md) for solver-specific installation details,
+examples, and settings. Gurobi additionally requires a valid commercial
+license.
 
 !!! note "Tracking a moving target"
     The package is under rapid development, with breaking changes landing

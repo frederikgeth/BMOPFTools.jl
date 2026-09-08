@@ -56,6 +56,7 @@ makedocs(
         ],
         "Optimal power flow"      => [
             "Optimal power flow"       => "opf.md",
+            "Solver guide"             => "solvers.md",
             "Choosing an objective"    => "objectives.md",
             "Objectives tutorial"      => "tutorial_objectives.md",
             "Parameterized & differentiable extensions" => "differentiable_extensions.md",
