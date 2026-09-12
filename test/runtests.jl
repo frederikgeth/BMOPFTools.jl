@@ -3940,6 +3940,7 @@ include("mcp_execution_tests.jl")
     # Solution profiling — no solver required
     # -----------------------------------------------------------------------
     include("solution_profiling_tests.jl")
+    include("line_solution_verification_tests.jl")
     include("scientific_review_tests.jl")
 
     # -----------------------------------------------------------------------

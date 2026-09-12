@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "d634905b1cc7cdae3bb3524f69302d48f67fb9c71081f9abab2962f745e9a7f8"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "8fce6a30993e12cf14d8154af73846db5e6a569a7c49631a09e32b70a8a5344b"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -2160,7 +2160,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SOL",
         catalogue_section="SOL",
         section_title="solution profiling",
-        meaning="A declared sequence limit is outside the complete three-phase domain. Profiling and the bus-limit contract report indeterminate coverage.",
+        meaning="A declared limit cannot be assessed: a sequence limit outside the complete three-phase domain, or a line limit with incomplete terminal maps, unsupported angle bounds, or undefined endpoint angle. Structured detail identifies the reason; profiling reports indeterminate coverage.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2205,7 +2205,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SOL",
         catalogue_section="SOL",
         section_title="solution profiling",
-        meaning="A phase pair's *centered* angle difference `θⱼ − θₖ − (va_nom[j] − va_nom[k])` lies outside the bus's `va_diff_min`/`va_diff_max`. Recomputed from the primal solution via `atan2` per terminal, independent of the constraint's own bilinear expression.",
+        meaning="A line conductor's signed `theta_from - theta_to` angle lies outside its declared window, or a bus phase pair's *centered* angle difference `θⱼ − θₖ − (va_nom[j] − va_nom[k])` lies outside the bus's `va_diff_min`/`va_diff_max`. Recomputed from the primal solution via `atan2` per terminal, independent of the constraint's own bilinear expression.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2214,7 +2214,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SOL",
         catalogue_section="SOL",
         section_title="solution profiling",
-        meaning="A centered phase-pair angle difference is near a `va_diff` bound (near-active).",
+        meaning="A signed line angle or centered bus phase-pair angle difference is near a `va_diff` bound (near-active).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2223,7 +2223,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SOL",
         catalogue_section="SOL",
         section_title="solution profiling",
-        meaning="A thermal/loading limit is exceeded in the solved result: a **line/switch** conductor current over `i_max` or its ground-referenced apparent power `\\|S\\|=v·cm` over `s_max` (element or linecode); a **transformer** per-winding current over `i_max_from`/`i_max_to`; or a **transformer** winding coil apparent power `\\|S\\|` over its nameplate cap (`s_max`, the per-winding share of `s_rating`; recorded in the result so no coil-voltage reconstruction is needed).",
+        meaning="A thermal/loading limit is exceeded in the solved result: a **line** conductor current at either endpoint (including pi-shunts), or a **switch** conductor current, over `i_max` or its ground-referenced apparent power `\\|S\\|=v·cm` over `s_max` (element or linecode); a **transformer** per-winding current over `i_max_from`/`i_max_to`; or a **transformer** winding coil apparent power `\\|S\\|` over its nameplate cap (`s_max`, the per-winding share of `s_rating`; recorded in the result so no coil-voltage reconstruction is needed).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
