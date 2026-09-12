@@ -38,7 +38,7 @@ These hold across every subtype unless a row below says otherwise.
 | Units | SI (volts, amperes, ohms, siemens); per-unit is an internal transform |
 | Turns ratio | `N = (v_nom_from / v_nom_to) · tap`, `tap` default 1.0 |
 | Current sign (`Yprim`) | into the element (out of the bus); `Y = Yᵀ`, matches OpenDSS `Yprim` |
-| Series leakage | to-referred at nominal; the from-winding share scales with `tap²` (turns-scaled, exact for YY / regulators) |
+| Series leakage | nominal winding bases for ordinary isolating transformers; see the subtype table below |
 | **Magnetising shunt** | across **winding 2** (the to-side coil), on winding 2's coil voltage base — the OpenDSS placement, verified against its `Yprim`. Inductive, so `b_no_load < 0`. See below. |
 | **Neutral grounding** | `r/x_neutral_from`/`to` (OpenDSS `rneut`/`xneut`) is an internal branch `yₙ = 1/(Rₙ+jXₙ)` from the winding neutral terminal to earth. A stand-alone transformer property — external groundings stay on buses/shunts and are **never** merged in. |
 | Polarity / vector group | Dy uses the backward-delta (`k_prev`) coil convention; `n_winding` DELTA windings use `delta_roll = -1` for OpenDSS's standard delta |
@@ -46,7 +46,8 @@ These hold across every subtype unless a row below says otherwise.
 
 ### Magnetising-shunt placement
 
-OpenDSS places the no-load (core-loss + magnetising) branch across **winding 2**,
+For the ordinary isolating subtypes below, OpenDSS places the no-load
+(core-loss + magnetising) branch across **winding 2**,
 referred to winding 2's coil voltage — not winding 1, and not phase-to-ground.
 This was verified empirically by differencing OpenDSS's `Yprim` with and without
 `%noloadloss`/`%imag` (the shunt follows winding 2 when the winding order is
@@ -58,12 +59,49 @@ flipped). BMOPFTools matches this in both the OPF and the `Yprim` export:
 | `wye_delta` (Yd) | a delta of `Y₀/nφ` branches across the LV **delta** coils |
 | `delta_wye` (Dy) | `Y₀/nφ` phase-to-neutral on the LV **wye** |
 | `center_tap` | the **entire** `Y₀` across LV leg 1 (`t1 − tn`), not split |
-| `n_winding` | winding 2's coil (connection-aware) |
+| `n_winding` | winding 2's coil (connection-aware), per-coil legacy value |
+| `single_phase_autotransformer` | legacy shunt across the from winding |
+| `open_delta_regulator` | legacy shunt across each from-side regulator coil, per-regulator value |
 
-`from_dss` derives `g_no_load` / `b_no_load` on winding 2's coil base, and now
-**recovers `%imag`** into `b_no_load` (negative, inductive) — the across-coil
-placement carries the susceptance cleanly, which the earlier phase-to-ground
-stamp could not.
+For new exchange data, use `no_load_shunt = {winding, g, b}`: `g` and `b`
+are **per coil**, in siemens on the selected physical winding's coil voltage
+base, including that winding's tap. Normalization creates ordinary connected
+bus shunts and retains transformer ownership in
+`_meta["explicit_transformer_core_shunts"]`. The transformer primitive alone
+excludes these materialized bus shunts; include them when comparing the whole
+terminal model. Current PowerIO imports use this explicit representation.
+
+For compatibility, existing `g_no_load`/`b_no_load` values retain their subtype
+meaning: `single_phase`, Yd and Dy store a **total divided equally over coils**;
+`center_tap` stores the entire value on winding 2 (first secondary half-winding);
+`n_winding` stores a **per-coil value on winding 2**. Thus copying legacy numbers
+between subtypes is not a conversion. To express a legacy bank with `m` coils
+explicitly, divide its total by `m`; for `n_winding`, retain the value. Both forms
+on one transformer are rejected. These rules resolve the package compatibility
+choice in #279 without silently changing old data. Schema descriptions now
+match these runtime meanings. The legacy `from_dss` recovery also accounts for
+three-phase wye-bank coil voltage and winding-2 taps; PMD export uses winding
+2's voltage base.
+
+### Fixed taps and stored ohms
+
+| Subtype | Stored impedance/base | Fixed-tap treatment |
+|---|---|---|
+| `single_phase` | each winding's nominal ohms; nominal coil voltages define the ratio | primary ohms scale by `tap²`; secondary-referred equivalent is constant |
+| `center_tap` | nominal HV ohms and nominal ohms per secondary half-winding; `v_nom_to` is per leg | primary star arm scales by `tap²`; both secondary arms retain their nominal ohms |
+| Yd / Dy | nominal bus-base ohms (`V_LL²/S`); delta coil impedance is three times its bus-base value | the wye-referred equivalent scales by `tap²` for Yd and is constant for Dy |
+| Yd / Dy combined fields | already wye-referred, for both hand-authored JSON and PowerIO | normalize onto the wye winding, then apply the same rule as split fields |
+| `n_winding` | `r_winding` on each nominal coil base; `x_sc` on winding 1's coil base | only nominal winding taps are supported; non-unity winding taps are rejected |
+| `single_phase_autotransformer` / `open_delta_regulator` | supplied series ohms on the declared side, with regulator connection and type defining `n_eff` | regulator equations use `Z_from + n_eff² Z_to`; the ordinary transformer `tap²` correction does not apply |
+
+The ordinary subtype conventions are tested against independent OpenDSS
+primitives at taps 0.95, 1.0, and 1.06 with nonzero leakage and excitation,
+using both hand-authored dictionaries and imported DSS. The center-tap primary
+referral was corrected in #393; stored data continue to use nominal ohms.
+The same referral is used by its zero-arm and variable-ratio equations, with
+current coupling substituted to retain quadratic constraints. Fixed-tap tests
+do not certify control-law behavior or resolve unequal-kVA n-winding import
+(#356).
 
 ## Primitive admittance export
 

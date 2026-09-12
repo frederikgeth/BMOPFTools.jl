@@ -37,6 +37,20 @@ net    = parse_bmopf("mynetwork.json")
 result = solve_opf(net)
 ```
 
+Dictionary input to `solve_opf`, `solve_pf`, `initialize_opf_model`, and
+`build_opf_model` is copied, snapshotted when needed, and normalized before
+per-unit conversion or model construction. The same ingest operations as
+`parse_bmopf` migrate legacy fields, honor terminal roles, assign combined
+Yd/Dy leakage to the wye winding, and materialize explicit `no_load_shunt`
+records. Reusing parsed input does not duplicate shunts or losses. The caller's
+network remains unchanged.
+
+For each of resistance and reactance, supply either a combined Yd/Dy field or
+split winding fields. Competing declarations raise `ArgumentError`, as do
+competing explicit and legacy excitation fields. Normalization is not schema
+validation or proof of electrical feasibility; use the validation APIs and
+independent solution checks for those purposes.
+
 A full mathematical derivation is available in `docs/math-model.tex`.
 
 ---

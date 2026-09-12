@@ -2555,7 +2555,7 @@ function _build_and_solve(net::Dict{String,Any};
     result["opt_profile"] = _optimization_profile(
         model; per_unit=bases !== nothing)
 
-    bases !== nothing ? _from_per_unit(result, bases, net) : result
+    bases !== nothing ? _from_per_unit(result, bases, ctx.net) : result
 end
 
 # ── Shared build sub-steps ─────────────────────────────────────────────────
@@ -2566,8 +2566,9 @@ end
 """
     _prepare_working_net(net, t_index, per_unit, s_base) -> (working, bases)
 
-Snapshot a time-series net at `t_index` (or deep-copy a static net), materialise
-terminal roles, and per-unit-scale it when `per_unit=true`. `bases` is the
+Snapshot a time-series net at `t_index` (or deep-copy a static net), normalize
+exchange fields through the parser's ingest boundary, and per-unit-scale it
+when `per_unit=true`. `bases` is the
 per-unit base NamedTuple, or `nothing` in SI mode.
 """
 function _resolve_scaling_policy(per_unit::Bool, s_base::Float64,
@@ -2597,12 +2598,14 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
                               per_unit::Bool, s_base::Float64,
                               scaling_policy::Union{
                                   BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing)
-    working = BMOPFTools.is_timeseries(net) ?
-              BMOPFTools.get_snapshot(net, t_index) : deepcopy(net)
-    # Stamp per-bus neutral terminals from an explicit terminal_conventions block
-    # so bus-level neutral resolution honours non-"n" labels even for nets built
-    # programmatically (parse_bmopf already does this on load). Mutates the copy.
-    BMOPFTools._materialize_terminal_roles!(working)
+    # Preserve private ownership of non-JSON payloads (e.g. matrices) as well
+    # as converting nested typed dictionaries used by programmatic callers.
+    working = BMOPFTools._deep_convert(deepcopy(net))
+    BMOPFTools.is_timeseries(working) &&
+        (working = BMOPFTools.get_snapshot(working, t_index))
+    # Normalize before unit conversion and indexing, including combined leakage
+    # and explicit winding-connected excitation. Mutates only our private copy.
+    BMOPFTools._normalize_bmopf!(working)
 
     policy = _resolve_scaling_policy(per_unit, s_base, scaling_policy)
     bases = nothing

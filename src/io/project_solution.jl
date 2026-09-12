@@ -85,6 +85,7 @@ Pinned devices:
   operating point.
 - **Free transformer taps** — a tap that was an OPF decision variable (reported as
   `tap` / `tap_ratio` in `result`) is written back onto the transformer.
+  Ordinary transformer `tap_min`/`tap_max` bounds are removed to fix that ratio.
   Fixed-tap transformers are left untouched. For `open_delta_regulator` the tap is
   a two-element vector; only regulators that were free (non-`missing`) are updated.
 
@@ -174,7 +175,12 @@ function project_solution(net::Dict{String,Any}, result::Dict{String,Any};
             elseif haskey(rec, "tap_ratio")           # single_phase_autotransformer
                 xfmr["tap_ratio"] = rec["tap_ratio"]; push!(free_taps, tid)
             elseif haskey(rec, "tap")                 # ordinary transformers
-                xfmr["tap"] = rec["tap"]; push!(free_taps, tid)
+                xfmr["tap"] = rec["tap"]
+                # A projected operating point fixes the solved tap. Retaining
+                # its interval would let solve_pf choose another ratio.
+                delete!(xfmr, "tap_min")
+                delete!(xfmr, "tap_max")
+                push!(free_taps, tid)
             end
         end
     end

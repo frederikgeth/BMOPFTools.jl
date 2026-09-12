@@ -102,9 +102,10 @@ end
 In-place migration applied at parse time (independent of spec version) to
 normalise `wye_delta`/`delta_wye` transformers that carry a lumped
 `r_series`/`x_series` field (e.g. as emitted by `from_dss`/PowerIO, or by
-hand-written JSON that pre-dates the per-winding field names).  Migrates them to
-`r_series_from`/`x_series_from` with `r_series_to = x_series_to = 0.0`, matching
-the per-winding T convention that the OPF and Ybus builders consume.
+hand-written JSON that pre-dates the per-winding field names). Migrates each
+combined component onto the wye winding (`from` for Yd, `to` for Dy), with zero
+on the delta winding. Combined and split declarations of the same component
+are rejected; resistance and reactance can be migrated independently.
 
 Transformers are stored nested by subtype (`net["transformer"][subtype][id]`),
 so the subtype is taken from the parent key.  This runs unconditionally so that
@@ -128,11 +129,16 @@ function _migrate_one_transformer_series_fields!(net::Dict{String,Any},
                                                  xfmr::Dict, id, subtype)
     has_legacy_r = haskey(xfmr, "r_series")
     has_legacy_x = haskey(xfmr, "x_series")
-    has_new_r    = haskey(xfmr, "r_series_from")
-    has_new_x    = haskey(xfmr, "x_series_from")
-
-    # Only migrate if a lumped field is present and per-winding fields are absent.
-    (has_legacy_r || has_legacy_x) && !has_new_r && !has_new_x || return
+    (has_legacy_r || has_legacy_x) || return
+    # Validate both components before mutation so conflicts cannot partially
+    # migrate a record or overwrite an already specified to-side winding.
+    for component in ("r", "x")
+        haskey(xfmr, "$(component)_series") || continue
+        any(haskey(xfmr, "$(component)_series_$(side)") for side in ("from", "to")) &&
+            throw(ArgumentError("transformer $subtype/$id: competing combined and split " *
+                "$component leakage; supply either $(component)_series (wye-referred) " *
+                "or $(component)_series_from/$(component)_series_to, not both"))
+    end
 
     # `r_series`/`x_series` is already referred to the wye winding's base
     # (powerio-dist's `referred_resistance`/`referred_ohms` in `three_phase`

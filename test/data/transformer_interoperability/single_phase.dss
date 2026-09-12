@@ -1,0 +1,11 @@
+! Issue #393: package-owned independent percent/base fixture.
+Clear
+Set DefaultBaseFreq=50
+New Circuit.interop phases=1 bus1=f.1.0 basekv=0.24 pu=1
+New Transformer.tx phases=1 windings=2
+~ wdg=1 bus=f.1.4 conn=wye kv=0.24 kva=10 %r=1 rneut=-1 tap=1
+~ wdg=2 bus=t.1.4 conn=wye kv=0.12 kva=10 %r=1 rneut=-1 tap=1
+~ XHL=4
+~ %noloadloss=0 %imag=0 ppm_antifloat=0
+Set Tolerance=1e-10
+Solve

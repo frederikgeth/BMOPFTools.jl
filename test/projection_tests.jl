@@ -92,6 +92,9 @@ const _PROJ_RTOL = 0.02
             @test solved_tap !== nothing
             snap_free = project_solution(net, r_free)
             @test snap_free["transformer"]["delta_wye"][tid]["tap"] ≈ solved_tap
+            @test !haskey(snap_free["transformer"]["delta_wye"][tid], "tap_min")
+            @test !haskey(snap_free["transformer"]["delta_wye"][tid], "tap_max")
+            @test net["transformer"]["delta_wye"][tid]["tap_min"] == 0.9
             @test tid in snap_free["_meta"]["projection"]["free_taps"]
         end
 

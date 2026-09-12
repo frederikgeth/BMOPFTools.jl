@@ -167,7 +167,7 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "terminal_map_from", "terminal_map_to",
                            "v_nom_from", "v_nom_to",
                            "i_max_from", "i_max_to",
-                           "g_no_load", "b_no_load",
+                           "g_no_load", "b_no_load", "no_load_shunt",
                            "r_neutral_from", "x_neutral_from",
                            "r_neutral_to", "x_neutral_to",
                            "tap", "tap_min", "tap_max"]),
@@ -176,13 +176,13 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "terminal_map_from", "terminal_map_to",
                            "v_nom_from", "v_nom_to",
                            "i_max_from", "i_max_to",
-                           "g_no_load", "b_no_load",
+                           "g_no_load", "b_no_load", "no_load_shunt",
                            "tap", "tap_min", "tap_max"]),
     "wye_delta"    => Set(["s_rating",
                            "r_series_from", "x_series_from",
                            "r_series_to",   "x_series_to",
                            "r_series", "x_series",          # legacy shorthand
-                           "g_no_load", "b_no_load",
+                           "g_no_load", "b_no_load", "no_load_shunt",
                            "r_neutral_from", "x_neutral_from",
                            "r_neutral_to", "x_neutral_to",
                            "bus_from", "bus_to",
@@ -194,7 +194,7 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "r_series_from", "x_series_from",
                            "r_series_to",   "x_series_to",
                            "r_series", "x_series",          # legacy shorthand
-                           "g_no_load", "b_no_load",
+                           "g_no_load", "b_no_load", "no_load_shunt",
                            "r_neutral_from", "x_neutral_from",
                            "r_neutral_to", "x_neutral_to",
                            "bus_from", "bus_to",
@@ -211,7 +211,7 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "tap_ratio", "tap_ratio_min", "tap_ratio_max",
                            "regulator_type",
                            "i_max_from", "i_max_to",
-                           "g_no_load", "b_no_load"]),
+                           "g_no_load", "b_no_load", "no_load_shunt"]),
     # Monolithic open-delta regulator: two single-phase autotransformer windings
     # connected line-to-line across the phase pairs implied by `connection`.
     "open_delta_regulator" =>
@@ -221,12 +221,12 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "tap_ratio", "tap_ratio_min", "tap_ratio_max",
                            "regulator_type", "connection",
                            "i_max_from", "i_max_to",
-                           "g_no_load", "b_no_load"]),
+                           "g_no_load", "b_no_load", "no_load_shunt"]),
     # General n-winding transformer: winding-indexed list + pairwise short-circuit
     # reactances. The per-id top-level keys only (nested winding/x_sc dicts are not
     # walked by the unknown-field catalogue).
     "n_winding"    => Set(["windings", "x_sc", "s_rating",
-                           "g_no_load", "b_no_load"])
+                           "g_no_load", "b_no_load", "no_load_shunt"])
 )
 
 const _KNOWN_PATTERNS = Dict{String,Vector{Regex}}(

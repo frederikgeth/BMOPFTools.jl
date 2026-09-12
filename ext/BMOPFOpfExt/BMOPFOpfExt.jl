@@ -114,6 +114,13 @@ end
 
 Four-wire rectangular current-voltage (IVR-EN) OPF on a BMOPF network dict.
 
+The input is copied (and time-series data snapshotted), then normalized through
+the same ingest operations as `parse_bmopf` before unit conversion. This includes
+legacy field migration, terminal roles, combined Yd/Dy leakage, and explicit
+`no_load_shunt` materialization. Competing electrical representations raise an
+`ArgumentError`; the caller's dictionary is not mutated. Already normalized
+input is accepted without duplicating shunts or migration records.
+
 The formulation follows the PMD IVRENPowerModel convention:
 - Voltage variables vr/vi at every bus terminal including neutral.
 - Series current variables cr/ci per conductor at each branch end.

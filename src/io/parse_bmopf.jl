@@ -23,6 +23,11 @@ terminal normalization can change the representation. Explicit transformer
 and transformer ownership remain in `_meta["explicit_transformer_core_shunts"]`.
 Use PowerIO modules when source-preserving exchange is required.
 
+The OPF/PF dictionary build boundary reuses these normalization operations on
+a private copy. Combined and split Yd/Dy leakage for the same r or x component,
+or explicit and legacy excitation on one transformer, are rejected rather than
+silently selecting a representation.
+
 The returned dict is mutable — analysis functions treat it as read-only
 but callers may modify it freely.
 
@@ -85,7 +90,13 @@ Post-processing after JSON parse:
 """
 function _postprocess(raw::Dict{String,Any},
                       terminal_aliases::Dict=_DEFAULT_TERMINAL_ALIASES)::Dict{String,Any}
-    d = _deep_convert(raw)
+    _normalize_bmopf!(_deep_convert(raw), terminal_aliases)
+end
+
+# Shared ingest boundary for parsed JSON and copied/snapshotted engine input.
+# Consumes exchange fields once; safe to call again on a normalized network.
+function _normalize_bmopf!(d::Dict{String,Any},
+                           terminal_aliases::Dict=_DEFAULT_TERMINAL_ALIASES)::Dict{String,Any}
     d = migrate(d)
     # When the case declares its terminal roles explicitly, honour the labels it
     # uses verbatim: suppress the default numeric `4→"n"` rename so a declared

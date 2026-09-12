@@ -1058,7 +1058,17 @@ function _normalize_transformer_no_load_shunts!(net::Dict{String,Any}, dn)
              length(vmn) >= 2 && length(smn) >= 1) || continue
 
             s1 = Float64(smn[1]) * 1e3
-            vstamp = Float64(vmn[2]) * 1e3 / (subtype == "delta_wye" ? sqrt(3) : 1.0)
+            pairs_to = _xfmr_winding_pairs(Vector{String}(get(c, "terminal_map_to", String[])))
+            wye_bank = subtype == "delta_wye" ||
+                (subtype == "single_phase" && length(pairs_to) == 3)
+            tm = get(t, :tm_set, nothing)
+            to_taps = tm isa AbstractVector && length(tm) >= 2 ? tm[2] : [1.0]
+            to_taps isa AbstractVector || (to_taps = [to_taps])
+            isempty(to_taps) && throw(ArgumentError("transformer $tid: missing winding-2 tap for excitation base"))
+            all(==(first(to_taps)), to_taps) || throw(ArgumentError(
+                "transformer $tid: unequal winding-2 coil taps cannot use a scalar legacy excitation; supply explicit coil shunts"))
+            vstamp = Float64(vmn[2]) * 1e3 * Float64(first(to_taps)) /
+                (wye_bank ? sqrt(3) : 1.0)
             vstamp > 0 || continue
             c["g_no_load"] = Float64(get(t, :noloadloss, 0.0)) * s1 / vstamp^2
             c["b_no_load"] = -Float64(get(t, :cmag, 0.0)) * s1 / vstamp^2

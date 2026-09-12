@@ -1,0 +1,123 @@
+{
+  "meta": {
+    "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json"
+  },
+  "bus": {
+    "f": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    },
+    "t": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c"
+      ],
+      "perfectly_grounded_terminals": [
+        "c"
+      ]
+    }
+  },
+  "transformer": {
+    "wye_delta": {
+      "tx": {
+        "bus_from": "f",
+        "bus_to": "t",
+        "terminal_map_from": [
+          "a",
+          "b",
+          "c",
+          "n"
+        ],
+        "terminal_map_to": [
+          "a",
+          "b",
+          "c"
+        ],
+        "v_nom_from": 400.0,
+        "v_nom_to": 200.0,
+        "tap": 1.06,
+        "s_rating": 10000.0,
+        "r_series": 0.1,
+        "x_series": 0.08
+      }
+    }
+  },
+  "voltage_source": {
+    "s": {
+      "bus": "f",
+      "terminal_map": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ],
+      "v_magnitude": [
+        230.94010767585033,
+        230.94010767585033,
+        230.94010767585033,
+        0.0
+      ],
+      "v_angle": [
+        0.23,
+        -1.8643951023931953,
+        2.3243951023931952,
+        0.0
+      ]
+    }
+  },
+  "load": {
+    "l1": {
+      "bus": "t",
+      "terminal_map": [
+        "a",
+        "b"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "model": "constant_power",
+      "p_nom": [
+        250.0
+      ],
+      "q_nom": [
+        65.0
+      ]
+    },
+    "l2": {
+      "bus": "t",
+      "terminal_map": [
+        "b",
+        "c"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "model": "constant_power",
+      "p_nom": [
+        500.0
+      ],
+      "q_nom": [
+        130.0
+      ]
+    },
+    "l3": {
+      "bus": "t",
+      "terminal_map": [
+        "c",
+        "a"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "model": "constant_power",
+      "p_nom": [
+        750.0
+      ],
+      "q_nom": [
+        195.0
+      ]
+    }
+  }
+}

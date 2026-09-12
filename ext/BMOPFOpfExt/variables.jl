@@ -837,7 +837,7 @@ function _set_yd_dy_start_values!(
             tm_del = Vector{String}(wye_is_from ?
                 get(xfmr, "terminal_map_to",   String[]) :
                 get(xfmr, "terminal_map_from", String[]))
-            N     = Float64(get(xfmr, "v_nom_from", 1.0)) / Float64(get(xfmr, "v_nom_to", 1.0))
+            N     = BMOPFTools._xfmr_turns_ratio(xfmr) * BMOPFTools._xfmr_tap_mult(xfmr)
             n_eff = wye_is_from ? sqrt(3) / N : N * sqrt(3)
             ph_idx = BMOPFTools._phase_positions(tm_wye, nlabels)
             n_pos  = BMOPFTools._neutral_pos(tm_wye, nlabels)
@@ -878,9 +878,10 @@ function _set_yd_dy_start_values!(
             V_del[start_k] = (b_del, tm_del[start_k]) in grounded ? (0.0 + 0.0im) :
                 start_complex(vr[(b_del, tm_del[start_k])],
                               vi[(b_del, tm_del[start_k])])
+            direction = wye_is_from ? 1 : -1
             for step in 1:(n_ph - 1)
-                k      = mod1(start_k + step - 1, n_ph)
-                k_next = mod1(k, n_ph) + 1
+                k      = mod1(start_k + direction * (step - 1), n_ph)
+                k_next = mod1(k + direction, n_ph)
                 V_del[k_next] = V_del[k] - n_eff * Vw_pn[k]
             end
 
@@ -915,7 +916,7 @@ function _set_yd_dy_start_values!(
                     # Physical wye current is IN PHASE with the phase-neutral voltage
                     # (pure resistive estimate); positive = out of wye bus (load conv.)
                     Vw_hat = Vw_pn[k]
-                    I_start = abs(Vw_hat) > 0 ? I_mag * conj(Vw_hat) / abs(Vw_hat) : I_mag + 0im
+                    I_start = abs(Vw_hat) > 0 ? I_mag * Vw_hat / abs(Vw_hat) : I_mag + 0im
                     JuMP.set_start_value(cr_xf[(tid, side_wye, ph)], real(I_start))
                     JuMP.set_start_value(ci_xf[(tid, side_wye, ph)], imag(I_start))
                 end

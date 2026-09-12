@@ -417,18 +417,27 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
     end
 
     # No-load branch: BMOPF g_no_load/b_no_load (S) → PMD noloadloss/cmag
-    # (both dimensionless, relative to s_rating). Inverse of from_pmd: g_no_load is
-    # referred to the phase-to-ground stamping voltage V_LN = v_nom_from/√3 for a
-    # 3-phase winding, or v_nom_from for single-phase (selected by phase count).
+    # (both dimensionless, relative to s_rating). Legacy g/b are the total
+    # admittance across winding 2's coils, so use the TO coil voltage, not the
+    # primary voltage base. A three-phase wye bank uses V_LL/√3; delta uses V_LL.
     has_g = haskey(xfmr, "g_no_load")
     has_b = haskey(xfmr, "b_no_load")
+    # Regulator legacy shunts retain their separate FROM-winding convention.
+    regulator = subtype in ("single_phase_autotransformer", "open_delta_regulator")
+    voltage_key = regulator ? "v_nom_from" : "v_nom_to"
     if (has_g || has_b) &&
-       haskey(xfmr, "v_nom_from") && haskey(xfmr, "s_rating") &&
+       haskey(xfmr, voltage_key) && haskey(xfmr, "s_rating") &&
        Float64(xfmr["s_rating"]) > 0
-        vf    = Float64(xfmr["v_nom_from"])
+        vt    = Float64(xfmr[voltage_key])
         s     = Float64(xfmr["s_rating"])
-        n_from_ph = count(!=("n"), Vector{String}(get(xfmr, "terminal_map_from", String[])))
-        v_stamp = n_from_ph >= 3 ? vf / sqrt(3) : vf
+        to_pairs = _xfmr_winding_pairs(Vector{String}(get(xfmr, "terminal_map_to", String[])))
+        to_wye_bank = subtype == "delta_wye" ||
+            (subtype == "single_phase" && length(to_pairs) == 3)
+        v_stamp = to_wye_bank ? vt / sqrt(3) : vt
+        if regulator
+            n_from_ph = count(!=("n"), Vector{String}(get(xfmr, "terminal_map_from", String[])))
+            v_stamp = n_from_ph >= 3 ? vt / sqrt(3) : vt
+        end
         y_base = s / v_stamp^2
         G = has_g ? Float64(xfmr["g_no_load"]) : 0.0
         B = has_b ? Float64(xfmr["b_no_load"]) : 0.0
@@ -440,7 +449,7 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
         pmd["cmag"]       = abs(B) / y_base
     elseif has_g || has_b
         @warn "Transformer: cannot convert g_no_load/b_no_load to PMD — " *
-              "missing v_nom_from or s_rating. No-load branch omitted."
+              "missing $voltage_key or s_rating. No-load branch omitted."
     end
 
     # Fixed off-nominal tap: BMOPF `tap` multiplies the from-side ratio
