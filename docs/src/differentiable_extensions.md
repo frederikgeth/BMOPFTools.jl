@@ -803,3 +803,7 @@ A publication using this capability should report, at minimum:
 12. S. Talkington et al., “Differentiating Through Power Flow Solutions for
     Admittance and Topology Control,” 2025.
     [preprint](https://arxiv.org/abs/2510.17071)
+
+```@docs
+resolve_opf!
+```
