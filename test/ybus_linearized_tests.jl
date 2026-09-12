@@ -105,9 +105,8 @@
             @test_skip "Requires OpenDSSDirect"
         else
             # Decks from_dss imports faithfully (WYE / DELTA / SINGLE_PHASE, ZIP
-            # and constant-power). pf_zip_3ph (4-wire-line import quirk) and
-            # pf_exp_1ph (exponential not imported by from_dss) are excluded — a
-            # from_dss limitation, not a folding one.
+            # and constant-power), plus CVR import restored from public source IR.
+            # pf_zip_3ph remains excluded for its separate line import quirk.
             function residual(deck::String, srcbus::String; atol)
                 path = normpath(abspath(joinpath(@__DIR__, "data", "pf_comparison", deck)))
                 OpenDSSDirect.dss("Clear")
@@ -139,6 +138,7 @@
                     @test maxr < atol
                 end
             end
+            residual("pf_exp_1ph.dss", "src"; atol=1e-4)
             residual("pf_zip_1ph.dss",   "src"; atol=1e-3)   # ZIP single-phase
             residual("pf_zip_delta.dss", "src"; atol=1e-3)   # ZIP delta
             residual("pf_delta_load.dss","src"; atol=1e-3)   # const-power delta

@@ -334,6 +334,78 @@ function _powerio_pf_is_demonstrated(raw_pf, converted::AbstractDict)::Bool
     return true
 end
 
+# Reconstruct only source-declared DSS quantities from PowerIO's public IR.
+# These finite intake repairs (#333, #356) do not change BMOPF JSON semantics.
+function _restore_dss_intake_fidelity!(net, dn)
+    repairs = Dict{String,Any}[]
+    for item in dn.data.loads
+        _powerio_float(_powerio_extra(item, "model")) == 4.0 || continue
+        name = lowercase(string(item.name))
+        load = get(get(net, "load", Dict()), name, nothing)
+        load isa AbstractDict || throw(ArgumentError("DSS CVR load $name has no explicit target"))
+        curve = _powerio_extra(item, "cvrcurve")
+        (curve === nothing || lowercase(strip(string(curve))) in ("", "none")) ||
+            throw(ArgumentError("DSS CVR load $name has a time-varying CVRcurve; a static exponential import is inapplicable"))
+        exponents = Float64[]
+        for (field, default) in (("cvrwatts", 1.0), ("cvrvars", 2.0))
+            raw = _powerio_extra(item, field)
+            value = raw === nothing ? default : _powerio_float(raw)
+            value !== nothing && isfinite(value) ||
+                throw(ArgumentError("DSS CVR load $name has an invalid $field"))
+            push!(exponents, value)
+        end
+        count = length(get(load, "p_nom", []))
+        vnom = get(load, "v_nom", [])
+        count > 0 && length(get(load, "q_nom", [])) == count &&
+            vnom isa AbstractVector && length(vnom) == count &&
+            all(v -> v isa Real && isfinite(v) && v > 0, vnom) ||
+            throw(ArgumentError("DSS CVR load $name lacks aligned powers and positive nominal coil voltages"))
+        load["model"] = "exponential"
+        load["gamma_p"] = fill(exponents[1], count)
+        load["gamma_q"] = fill(exponents[2], count)
+        push!(repairs, Dict("component"=>"load.$name", "rule"=>"dss_static_cvr_exponents",
+            "gamma_p"=>exponents[1], "gamma_q"=>exponents[2],
+            "domain"=>"source load voltage thresholds retained separately; static CVR only"))
+    end
+    targets = get(get(net, "transformer", Dict()), "n_winding", Dict())
+    for item in dn.data.transformers
+        name = lowercase(string(item.name))
+        target = get(targets, name, nothing)
+        target isa AbstractDict || continue
+        source = item.windings; windings = get(target, "windings", [])
+        length(source) == length(windings) ||
+            throw(ArgumentError("DSS transformer $name winding correspondence is incomplete"))
+        phases = Int(item.phases)
+        phases in (1,3) || throw(ArgumentError("DSS transformer $name resistance recovery supports one or three phases"))
+        base = Float64(source[1].s_rating)
+        isfinite(base) && base > 0 || throw(ArgumentError("DSS transformer $name has no positive first-winding power base"))
+        for (k, (sw, tw)) in enumerate(zip(source, windings))
+            # Winding array order and bus identity are explicit source mappings.
+            lowercase(string(sw.bus)) == tw["bus"] ||
+                throw(ArgumentError("DSS transformer $name winding $k bus correspondence is ambiguous"))
+            conn = lowercase(string(sw.conn))
+            conn in ("wye", "delta") || throw(ArgumentError("Unsupported DSS winding connection $conn"))
+            voltage = Float64(sw.v_ref)
+            coil = phases == 3 && conn == "wye" ? voltage / sqrt(3) : voltage
+            percent = Float64(sw.r_pct)
+            isfinite(coil) && coil > 0 && isfinite(percent) && percent >= 0 ||
+                throw(ArgumentError("Invalid DSS winding voltage or resistance on $name winding $k"))
+            resistance = percent / 100 * phases * coil^2 / base
+            isfinite(resistance) || throw(ArgumentError("DSS winding resistance overflows on $name winding $k"))
+            old = get(tw, "r_winding", nothing)
+            if old === nothing || !isapprox(old, resistance; rtol=1e-12, atol=0)
+                tw["r_winding"] = resistance
+                push!(repairs, Dict("component"=>"transformer.n_winding.$name", "winding"=>k,
+                    "rule"=>"dss_resistance_first_winding_power_base", "source_r_pct"=>percent,
+                    "source_coil_voltage_V"=>coil, "source_power_base_VA"=>base,
+                    "emitted_ohm"=>old, "restored_ohm"=>resistance))
+            end
+        end
+    end
+    isempty(repairs) || (get!(net, "_meta", Dict{String,Any}())["powerio_intake_repairs"] = repairs)
+    net
+end
+
 """Record source fields that are demonstrably represented by BMOPF fields."""
 function _powerio_bmopf_field_mapping(dn, net; diagnostics=nothing)
     by_field = Dict{String,Any}()
@@ -399,6 +471,8 @@ function _powerio_bmopf_field_mapping(dn, net; diagnostics=nothing)
     end
     for (field, target, transform) in (
         ("model", "load.model", "opendss_load_model_to_bmopf_model"),
+        ("cvrwatts", "load.gamma_p", "dss_static_cvr_active_exponent"),
+        ("cvrvars", "load.gamma_q", "dss_static_cvr_reactive_exponent"),
         ("zipv", "load.model/alpha_z/alpha_i/alpha_p/beta_z/beta_i/beta_p",
             "opendss_zipv_to_bmopf_zip_parameters"),
     )
@@ -411,6 +485,11 @@ function _powerio_bmopf_field_mapping(dn, net; diagnostics=nothing)
             if field == "model"
                 model = lowercase(string(get(converted, "model", "")))
                 model in ("constant_power", "constant_current", "constant_impedance", "zip", "exponential") || continue
+                _powerio_float(_powerio_extra(item, "model")) == 4.0 && model != "exponential" && continue
+            elseif field in ("cvrwatts", "cvrvars")
+                get(converted, "model", "") == "exponential" || continue
+                key = field == "cvrwatts" ? "gamma_p" : "gamma_q"
+                all(==(_powerio_float(_powerio_extra(item, field))), get(converted, key, [])) || continue
             else
                 lowercase(string(get(converted, "model", ""))) == "zip" || continue
                 all(haskey(converted, key) for key in
@@ -700,6 +779,7 @@ function from_dss(path::AbstractString;
     _canonicalize_identifiers!(net)
     _remap_opendss_terminals!(net)
     _normalize_transformer_no_load_shunts!(net, dn)
+    _restore_dss_intake_fidelity!(net, dn)
 
     # Record the terminal-role convention explicitly (phases a/b/c…, neutral n;
     # no earth wire — the OpenDSS earth node is routed to neutral, ground stays

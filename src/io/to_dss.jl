@@ -71,7 +71,7 @@ function to_dss(net::Dict{String,Any};
     # fidelity loss its writer had to make.
     module_ = PowerIO.parse(IOBuffer(json); format="bmopf", name="network.bmopf.json")
     emission = PowerIO.emit(module_, "dss")
-    dss_text = emission.text
+    dss_text = _restore_dss_export_fidelity(emission.text, src)
     diagnostics = vcat(module_.diagnostics, emission.diagnostics)
     warnings_list = _powerio_diagnostic_line.(diagnostics)
 
@@ -141,4 +141,50 @@ function _materialize_inline_lines_for_export(net::Dict{String,Any})::Dict{Strin
         l["length"]   = 1.0
     end
     out
+end
+
+# PowerIO 0.11.1 drops exponential parameters and writes multi-winding %R
+# using individual ratings. Explicit DSS edits preserve the source quantities
+# restored on intake (#333/#356); caller data and PMD export are untouched.
+function _restore_dss_export_fidelity(text, net)
+    commands = String[]
+    object_name(kind,id) = begin
+        any(c -> c in ('"','\n','\r'), string(id)) && throw(ArgumentError(
+            "DSS fidelity edit cannot safely quote component identifier $id"))
+        "\"$kind.$id\""
+    end
+    for (id,load) in get(net,"load",Dict())
+        get(load,"model","") == "exponential" || continue
+        function exponent(field)
+            v=get(load,field,[0.0]); v=v isa AbstractVector ? v : [v]
+            !isempty(v) && all(x -> x isa Real && isfinite(x) && x==first(v),v) ||
+                throw(ArgumentError("DSS load $id requires one finite $field shared by its phases"))
+            Float64(first(v))
+        end
+        push!(commands,"Edit $(object_name("Load",id)) model=4 CVRwatts=$(exponent("gamma_p")) CVRvars=$(exponent("gamma_q"))")
+    end
+    for (id,t) in get(get(net,"transformer",Dict()),"n_winding",Dict())
+        windings=get(t,"windings",[]); isempty(windings) && continue
+        base=get(first(windings),"s_rating",get(t,"s_rating",nothing))
+        base isa Real && isfinite(base) && base>0 || continue
+        # BMOPF n-winding v_nom is already the physical COIL voltage.
+        for (k,w) in enumerate(windings)
+            own=get(w,"s_rating",base)
+            own==base && continue
+            voltage=get(w,"v_nom",nothing); resistance=get(w,"r_winding",nothing)
+            tm=get(w,"terminal_map",String[])
+            phases=length(_phase_positions(tm,_neutral_labels(net)))
+            phases in (1,3) && voltage isa Real && voltage>0 && resistance isa Real ||
+                throw(ArgumentError("DSS transformer $id winding $k has no supported resistance base"))
+            percent=100*resistance*base/(phases*voltage^2)
+            isfinite(percent) && percent>=0 || throw(ArgumentError("Invalid DSS winding resistance"))
+            push!(commands,"Edit $(object_name("Transformer",id)) wdg=$k %r=$percent")
+        end
+    end
+    isempty(commands) && return text
+    # PowerIO's emitted deck ends in Solve. Insert before it so no stale-law
+    # power flow is needed to obtain the corrected deck's solution.
+    pattern=r"(?im)^solve\s*$"
+    occursin(pattern,text) || throw(ArgumentError("DSS writer omitted its final Solve command"))
+    replace(text,pattern=>join(commands,"\n")*"\nSolve")
 end
