@@ -1,5 +1,12 @@
 # [Custom formulations: CVR, envelopes, and hooks](@id custom-formulations)
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 *The reference OPF is a floor, not a ceiling: conservation voltage reduction
 without writing a hook, a connection-point export cap with one constraint, a
 phase-balancing objective with three lines — and a two-period energy budget
@@ -42,10 +49,10 @@ and a hook that re-implements something the schema already says is a bug
 farm. The running network: the LV1 14-bus feeder, augmented, grid import
 priced at 0.25 \$/kWh.
 
-```@example hooks
+```julia
 using BMOPFTools, JuMP, Ipopt
 
-path = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "LV1_14bus", "Master.dss")
+path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
 base, _ = augment_case(from_dss(path); recipe = AugmentationRecipe())
 src_id  = first(keys(base["voltage_source"]))
 base["voltage_source"][src_id]["cost"] = [0.25, 0.25, 0.25]
@@ -66,7 +73,7 @@ load model**, a **controllable voltage** (free the transformer tap with
 minimising cost minimises demand). Run the 2×2 experiment — load model ×
 tap freedom:
 
-```@example hooks
+```julia
 zip = Dict{String,Any}(
     "alpha_z" => [0.4], "alpha_i" => [0.3], "alpha_p" => [0.3],
     "beta_z"  => [0.4], "beta_i"  => [0.3], "beta_p"  => [0.3])
@@ -119,7 +126,7 @@ constrains the sum. One unit rule to burn in: **the hook sees the model in
 per-unit** (the default), so a physical literal must be divided by
 `opf_bases(ctx).s_base` ([units tutorial](tutorial_units.md)).
 
-```@example hooks
+```julia
 function with_ders(net; cost = 0.10)
     n = deepcopy(net)
     n["generator"] = Dict{String,Any}()
@@ -182,7 +189,7 @@ epigraph variables bracketing the three per-phase source powers and minimises
 the spread; `solution_hook!` reads the achieved value back into the result in
 SI:
 
-```@example hooks
+```julia
 src_p(ctx) = begin
     model = opf_model(ctx)
     vs = opf_network(ctx)["voltage_source"][src_id]
@@ -236,7 +243,7 @@ replaced objective means you own the economics. The repair is composition —
 [`generation_cost`](@ref) hands you the engine's own \$/h expression to blend
 back in:
 
-```@example hooks
+```julia
 r3 = solve_opf(net; optimizer = OPT, model_hook! = ctx -> begin
     model = opf_model(ctx)
     es   = src_p(ctx)
@@ -273,7 +280,7 @@ load), one PV plant allowed at most **5 kWh across both** — a battery-like
 energy budget that forces the optimiser to *allocate* energy where it is
 worth most:
 
-```@example hooks
+```julia
 netA = with_ders(base; cost = 0.10)                 # hour 1: full load
 netB = deepcopy(netA)
 for (_, d) in netB["load"]

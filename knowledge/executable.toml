@@ -1,3 +1,5 @@
+# The analyze_case recipe uses a package-owned synthetic input. Restricted
+# CSIRO MV/LV integration data live externally; no executable contract depends on them.
 schema_version = "0.6.0"
 
 [[contract]]

@@ -21,7 +21,7 @@ changes to either transport invalidate the generated recipe source hash.
 
 Current recipes:
 
-- `analyze_case`: parses and analyzes the tutorial network, demonstrating that
+- `analyze_case`: parses and analyzes a synthetic network, demonstrating that
   a completed operation can still contain Findings that need triage;
 - `explain_finding`: looks up one stable package Finding code in the generated
   offline registry without diagnosing a case or inventing a repair;

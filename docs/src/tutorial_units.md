@@ -1,5 +1,12 @@
 # [Units, bases, scaling, and economics](@id units-and-economics)
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 *One feeder, two voltage levels: derive every base by hand, watch SI and
 per-unit agree to machine precision, then price the dispatch rigorously.*
 
@@ -43,10 +50,10 @@ The LV1 14-bus feeder has exactly the structure the per-unit method was
 invented for: an 11 kV medium-voltage source behind a 100 kVA delta-wye
 transformer feeding four-wire 400 V mains.
 
-```@example units
+```julia
 using BMOPFTools
 
-path = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "LV1_14bus", "Master.dss")
+path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
 net  = from_dss(path)
 
 src = first(values(net["voltage_source"]))
@@ -88,7 +95,7 @@ Y_B = \frac{S_B}{V_B^2}.
 
 That is four lines of arithmetic for this feeder — do it by hand:
 
-```@example units
+```julia
 s_base = 1e6                                       # VA — the solver default
 
 v_base_mv = maximum(abs, Float64.(src["v_magnitude"]))          # 11 kV / √3
@@ -118,7 +125,7 @@ Now check the arithmetic against the engine's own bookkeeping. The base
 computation lives in the OPF extension (it is internal — shown here for
 verification, not as API):
 
-```@example units
+```julia
 using JuMP, Ipopt              # loading these activates the OPF extension
 ext   = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
 bases = ext._compute_bases(net, s_base)
@@ -327,7 +334,7 @@ physics. That is a testable claim: solve the same OPF both ways and compare.
 First give the case operating bounds and an economic setting (a 15 kW
 three-phase DER competing with the grid — §6 prices it):
 
-```@example units
+```julia
 net_ready, _ = augment_case(net; recipe = AugmentationRecipe())
 
 src_id = first(keys(net_ready["voltage_source"]))
@@ -395,7 +402,7 @@ autotransformer, and open-delta relations. Zigzag needs an explicit connection
 matrix in both the model and initialization layers and is intentionally not
 claimed as supported.
 
-```@example units
+```julia
 for (name, r) in (("per-unit", res_pu), ("SI", res_si))
     p = r["opt_profile"]
     println(rpad(name, 9), ": ", lpad(p["barrier_iterations"], 3), " barrier iterations",
@@ -452,7 +459,7 @@ remainder of the 20 kW load plus losses.
 The rigorous test is that we can reconstruct the solver's objective from
 nothing but the result dictionary and the input prices:
 
-```@example units
+```julia
 p_src = [ph["ps"] for ph in values(res_pu["voltage_source"][src_id])]   # W, per phase
 p_der = [ph["pg"] for ph in values(res_pu["generator"]["der1"])]
 
@@ -497,8 +504,8 @@ in hours ([spec](spec/timeseries.md)). On the 24-hour LV1 fixture (hourly
 steps, so ``\Delta t_h = 1``), with the augmentation default of 1 \$/kWh at
 the source:
 
-```@example units
-ts_path  = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "lv1_14bus_timeseries.json")
+```julia
+ts_path  = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus_timeseries.json")
 ts_ready, _ = augment_case(parse_bmopf(ts_path); recipe = AugmentationRecipe())
 
 rates = [solve_opf(ts_ready; optimizer = optimizer, t_index = t)["objective"]

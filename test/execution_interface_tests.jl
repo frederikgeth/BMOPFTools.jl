@@ -65,10 +65,10 @@ using SHA
         "n" => 4, "mode" => "aliases")
     @test JSONSchema.validate(schema, JSON3.read(JSON3.write(normalized))) === nothing
 
-    analysis_path = joinpath(root, "examples", "lv1_14bus.json")
+    analysis_path = joinpath(root, "recipes", "analyze_case", "input.json")
     analysis_input = Dict(
         "role" => "case",
-        "path" => "examples/lv1_14bus.json",
+        "path" => "recipes/analyze_case/input.json",
         "sha256" => bytes2hex(sha256(read(analysis_path))),
     )
     analysis = execute_analysis(

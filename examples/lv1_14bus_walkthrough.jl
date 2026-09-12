@@ -1,3 +1,4 @@
+# Requires external CC BY-NC-SA data: set BMOPF_RESTRICTED_DATA to BMOPFDraftData/test/data.
 # =============================================================================
 # LV1_14bus step-by-step walkthrough
 # =============================================================================
@@ -17,7 +18,7 @@ sep(title) = println("\n", "─"^70, "\n  $title\n", "─"^70)
 # ---------------------------------------------------------------------------
 sep("1. Parse DSS and convert to BMOPF")
 
-dss_path = joinpath(@__DIR__, "..", "test", "data", "LV", "LV1_14bus", "Master.dss")
+dss_path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
 println("DSS file: ", relpath(dss_path))
 
 net = from_dss(dss_path)
@@ -259,7 +260,7 @@ render(report, stdout; color=true)
 # ---------------------------------------------------------------------------
 sep("11. Export BMOPF JSON")
 
-json_out = joinpath(@__DIR__, "lv1_14bus.json")
+json_out = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json")
 write_bmopf(net, json_out)
 println("Written: ", relpath(json_out), "  (", round(filesize(json_out) / 1024, digits=1), " kB)")
 
@@ -268,7 +269,7 @@ println("Written: ", relpath(json_out), "  (", round(filesize(json_out) / 1024, 
 # ---------------------------------------------------------------------------
 sep("12. Export Markdown summary")
 
-md_out = joinpath(@__DIR__, "lv1_14bus_report.md")
+md_out = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus_report.md")
 open(md_out, "w") do io
     BMOPFTools.render_markdown(report, io)
 end

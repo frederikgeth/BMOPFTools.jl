@@ -109,8 +109,8 @@ instead.
 - **Code** is licensed under the [BSD-3-Clause licence](LICENSE.md).
 - **Network data** retains the licence of its upstream dataset. Check the
   `License.md` or `license.md` in the relevant data directory and preserve its
-  terms and citation in derivatives. Some bundled fixtures are CC BY 4.0;
-  others, including the `LV` and `MV` datasets, are
+  terms and citation in derivatives. The `LV` and `MV` datasets are stored externally in
+  `BMOPFDraftData/test/data`; they are
   [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) and do
   not permit commercial use. The [README](README.md#licensing) has the current
   dataset-by-dataset summary.

@@ -52,7 +52,7 @@ using JSONSchema
         @test parse_payload["result"]["component_counts"]["load"] == 1
         @test JSONSchema.validate(schema, JSON3.read(JSON3.write(parse_payload))) === nothing
 
-        analysis_path = joinpath(root, "examples", "lv1_14bus.json")
+        analysis_path = joinpath(root, "recipes", "analyze_case", "input.json")
         analyzed = mcp.mcp_handle_request(tool_call(
             6, "bmopf_analyze", Dict("path" => analysis_path)))
         analysis_payload = analyzed["result"]["structuredContent"]

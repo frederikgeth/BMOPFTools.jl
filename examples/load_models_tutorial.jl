@@ -1,3 +1,4 @@
+# Requires external CC BY-NC-SA data: set BMOPF_RESTRICTED_DATA to BMOPFDraftData/test/data.
 # Choosing and identifying a load model — five models, one feeder, one weak line.
 #
 #   julia --project=test examples/load_models_tutorial.jl
@@ -32,7 +33,7 @@ MODELS = [
 
 # ── 1–2. v_nom anchor sweep on LV1_14bus ─────────────────────────────────────
 sep("1. All five models cross at v_nom (LV1 14-bus, one 10 kW customer)")
-lv1 = from_dss(joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "LV1_14bus", "Master.dss"))
+lv1 = from_dss(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss"))
 src_id = first(keys(lv1["voltage_source"]))
 vm0 = Float64.(lv1["voltage_source"][src_id]["v_magnitude"])
 

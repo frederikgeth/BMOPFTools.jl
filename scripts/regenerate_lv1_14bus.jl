@@ -1,7 +1,8 @@
+# Requires BMOPF_RESTRICTED_DATA=/path/to/BMOPFDraftData/test/data; writes derivatives there.
 # Regenerate the LV1_14bus fixtures from the authoritative OpenDSS source.
 #
-# WHY: the committed `examples/lv1_14bus.json` and
-# `test/data/LV/lv1_14bus_timeseries.json` were derived by a historical path that
+# WHY: the committed `LV/lv1_14bus.json` and
+# `LV/lv1_14bus_timeseries.json` were derived by a historical path that
 # kept OpenDSS-native phase numbering (1/2/3) but mis-mapped the delta-wye
 # transformer's wye-side terminal map (`[2,3,1,n]` instead of `[1,2,3,n]`) and
 # corrupted its series impedance. That drives the power flow onto a spurious
@@ -11,7 +12,7 @@
 #
 # The current `from_dss` import is correct (it remaps OpenDSS 1/2/3/4 → a/b/c/n
 # consistently, transformer included). This script rebuilds the fixtures from
-# `test/data/LV/LV1_14bus/Master.dss` via `from_dss`, applies a CONSISTENT,
+# `LV/LV1_14bus/Master.dss` via `from_dss`, applies a CONSISTENT,
 # transformer-aware a/b/c → 1/2/3 relabel (the piece the old derivation got
 # wrong), re-attaches the two rooftop PV IBRs and the 24 h load/solar profiles,
 # and writes the corrected fixtures. Run from the repo root:
@@ -21,7 +22,8 @@ using BMOPFTools
 using BMOPFTools: from_dss, write_bmopf, parse_bmopf
 
 const ROOT = pkgdir(BMOPFTools)
-const DSS  = joinpath(ROOT, "test", "data", "LV", "LV1_14bus", "Master.dss")
+const DATA = abspath(ENV["BMOPF_RESTRICTED_DATA"])
+const DSS  = joinpath(DATA, "LV", "LV1_14bus", "Master.dss")
 
 # ── Consistent, transformer-aware phase relabel a/b/c → 1/2/3 ──────────────────
 # Unlike the test helper `_relabel_phases!`, this also relabels transformer
@@ -107,9 +109,9 @@ end
 
 # ── Write both fixtures ───────────────────────────────────────────────────────
 base = base_network()
-write_bmopf(base, joinpath(ROOT, "examples", "lv1_14bus.json"))
-println("wrote examples/lv1_14bus.json")
+write_bmopf(base, joinpath(DATA, "LV", "lv1_14bus.json"))
+println("wrote LV/lv1_14bus.json")
 
 ts = timeseries_network()
-write_bmopf(ts, joinpath(ROOT, "test", "data", "LV", "lv1_14bus_timeseries.json"))
-println("wrote test/data/LV/lv1_14bus_timeseries.json")
+write_bmopf(ts, joinpath(DATA, "LV", "lv1_14bus_timeseries.json"))
+println("wrote LV/lv1_14bus_timeseries.json")

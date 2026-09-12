@@ -1,5 +1,0 @@
-new load.Ld275_LOAD_A phases=1 bus1=B934.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld2706_LOAD_B phases=1 bus1=B1970.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3180_LOAD_C phases=1 bus1=B1789.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3723_LOAD_A phases=1 bus1=B150.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld4569_LOAD_B phases=1 bus1=B751.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2

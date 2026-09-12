@@ -3,7 +3,7 @@ using JSON3
 using SHA
 
 root = normpath(joinpath(@__DIR__, "..", ".."))
-case_path = joinpath(root, "examples", "lv1_14bus.json")
+case_path = joinpath(root, "recipes", "analyze_case", "input.json")
 input = Dict{String,Any}(
     "role" => "case",
     "path" => relpath(case_path, root),

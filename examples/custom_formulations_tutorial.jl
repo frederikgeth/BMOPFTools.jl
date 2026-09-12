@@ -1,3 +1,4 @@
+# Requires external CC BY-NC-SA data: set BMOPF_RESTRICTED_DATA to BMOPFDraftData/test/data.
 # Custom formulations — CVR without a hook, then up the extension ladder.
 #
 #   julia --project=test examples/custom_formulations_tutorial.jl
@@ -19,7 +20,7 @@ using BMOPFTools, JuMP, Ipopt
 const OPT = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 sep(t) = println("\n" * "="^72 * "\n  " * t * "\n" * "="^72)
 
-path = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "LV1_14bus", "Master.dss")
+path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
 base, _ = augment_case(from_dss(path); recipe = AugmentationRecipe())
 src_id  = first(keys(base["voltage_source"]))
 base["voltage_source"][src_id]["cost"] = [0.25, 0.25, 0.25]

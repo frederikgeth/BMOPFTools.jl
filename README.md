@@ -91,7 +91,6 @@ the test suite runs against, under `test/data/`:
 | Fixture (`test/data/…`) | Licence | Commercial use | Source |
 |---|---|---|---|
 | `ENWL` | CC BY 4.0 | yes | CSIRO four-wire LV dataset, [10.25919/jaae-vc35](https://doi.org/10.25919/jaae-vc35) |
-| `LV`, `MV`, `Master.dss` (combined), `MVLVmeshed` | **CC BY-NC-SA 4.0** | **no** (non-commercial, share-alike) | CSIRO Australian MV/LV feeder set, [10.25919/ghnz-bk28](https://doi.org/10.25919/ghnz-bk28) |
 | `SWER`, `pf_comparison`, small fixtures | CC BY 4.0 | yes | authored for BMOPFTools |
 
 The full benchmark library and the larger source networks that feed the
@@ -103,10 +102,22 @@ same CSIRO DOI as `ENWL`) and `dsuite_networks_scaled_v1.1` (CC BY 4.0, D-Suite
 LV networks, Newcastle University,
 [10.25405/data.ncl.27175317](https://doi.org/10.25405/data.ncl.27175317)).
 
-Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0. Note that
-CC BY-NC-SA derivatives must be redistributed under the same
-non-commercial/share-alike terms — plan accordingly if you are building a
-commercial offering on these cases.
+The CC BY-NC-SA 4.0 CSIRO Australian MV/LV data (`LV`, `MV`, combined
+`Master.dss`, and `MVLVmeshed`) and the derived LV1 JSON/time-series/report
+files are stored in **BMOPFDraftData/test/data**, not bundled here. Their
+upstream licence and attribution remain unchanged. Dataset-backed tutorials
+and optional integration tests require an explicit external path:
+
+```sh
+BMOPF_RESTRICTED_DATA=/path/to/BMOPFDraftData/test/data julia --project=test --startup-file=no test/runtests.jl
+```
+
+Without that variable, the package suite runs its self-contained tests and
+reports the restricted dataset integration group as skipped. If the variable
+is set but required files are missing, the integration tests fail.
+See [`test/RESTRICTED_DATA.md`](test/RESTRICTED_DATA.md).
+
+Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0.
 
 ## What it does
 
@@ -288,7 +299,7 @@ Force draft specification.
 ## Examples
 
 - `examples/lv1_14bus_walkthrough.jl` — step-by-step tour of every analysis
-  on a real 14-bus LV feeder.
+  on a real 14-bus LV feeder (requires the external dataset above).
 
 ## Case file overview
 

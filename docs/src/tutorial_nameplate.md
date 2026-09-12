@@ -1,5 +1,12 @@
 # From nameplate data to a defensible network model
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 *What you can derive, what you must assume, and what has to stay unknown.*
 
 Real network data arrives incomplete. A cable has an impedance but no current
@@ -25,10 +32,10 @@ impedances but no ampacities, strip the current ratings. Nothing here is
 invalid — it is just *optimisation-meaningless*: with no voltage bounds nothing
 can be infeasible, and with no ratings nothing can bind.
 
-```@example nameplate
+```julia
 using BMOPFTools, Printf
 
-raw = parse_bmopf(joinpath(pkgdir(BMOPFTools), "examples", "lv1_14bus.json"))
+raw = parse_bmopf(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json"))
 for (_, lc) in raw["linecode"]; delete!(lc, "i_max"); end   # datasheets w/o ratings
 
 n_bus_no_bounds = count(b -> !haskey(b, "v_min"), values(raw["bus"]))
@@ -43,7 +50,7 @@ n_lc_no_rating  = count(lc -> !haskey(lc, "i_max"), values(raw["linecode"]))
 the augmented network together with a [`TransformationManifest`](@ref). It never
 mutates its input.
 
-```@example nameplate
+```julia
 net, mf = augment_case(raw)
 length(mf.entries)   # one entry per value written (or deliberately skipped)
 ```
@@ -51,7 +58,7 @@ length(mf.entries)   # one entry per value written (or deliberately skipped)
 Each entry carries a `confidence` tag. Grouping the written values by tag sorts
 them onto a spectrum from *fully defensible* to *your call*:
 
-```@example nameplate
+```julia
 tier(c) = c === :standard             ? "1. standards-derived" :
           c in (:high, :medium, :low) ? "2. inferred (heuristic estimate)" :
           c === :heuristic            ? "3. numerical default" :
@@ -68,7 +75,7 @@ sort(collect(byt))
 
 One representative rule from each kind, so the tags are concrete:
 
-```@example nameplate
+```julia
 seen = String[]
 for e in mf.entries
     (e.new_value === nothing || e.rule in seen) && continue
@@ -101,7 +108,7 @@ Reading those tiers back as engineering judgment:
 - **Synthetic** (`:synthetic`) — pure design choices. These appear the moment you
   place dispatchable generation, which is a *scenario*, not a fact:
 
-```@example nameplate
+```julia
 net_der, der_mf = add_generators(net)
 [(e.rule, e.confidence) for e in der_mf.entries if e.confidence === :synthetic] |> unique
 ```
@@ -127,7 +134,7 @@ The manifest serialises, so the augmented case and its provenance can ship as a
 pair — `(case.json, case_manifest.json)` — and every default stays auditable
 long after the study:
 
-```@example nameplate
+```julia
 sort(collect(keys(manifest_to_dict(mf))))
 ```
 
