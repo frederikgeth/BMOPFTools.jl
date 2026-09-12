@@ -363,7 +363,7 @@ whole-network ``\mathbf{Y}`` built by [`ybus_passive`](@ref) /
   decks are excluded because `from_dss` imports them lossily rather than for any
   Ybus reason — a 4-wire line whose neutral is dropped from the terminal map
   ([#332](https://github.com/frederikgeth/BMOPFTools.jl/issues/332)) and an
-  exponential/CVR load silently imported as constant-power
+  exponential/CVR load previously imported as constant-power; now recovered from source IR and checked against OpenDSS
   ([#333](https://github.com/frederikgeth/BMOPFTools.jl/issues/333)).
 
 The `Ybus` gates run without JuMP — they need only OpenDSSDirect.jl — so they

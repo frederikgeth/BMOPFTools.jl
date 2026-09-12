@@ -26,12 +26,12 @@ include(joinpath(@__DIR__, "roundtrip_helpers.jl"))
     @test all(!isnothing, permutation)
     reference_y = source_y[permutation, permutation]
     relative_error(y) = maximum(abs.(y .- reference_y)) / maximum(abs.(reference_y))
-    # ~0.342 relative error with PowerIO 0.11. Do not promote the issue's
-    # requested scalar value without the independent electrical check.
-    @test_broken relative_error(imported_y) < 1e-6
+    # PowerIO 0.11.1 alone gives ~0.342 relative error; intake recovery must
+    # agree with the independent primitive, not the stale issue diagnosis.
+    @test relative_error(imported_y) < 1e-6
 
-    # A diagnostic copy using winding 1's kVA base matches the oracle. This
-    # does not alter package intake or silently repair caller data. The value
+    # An explicitly reconstructed copy using winding 1's kVA base also
+    # matches the oracle, independently checking intake recovery. The value
     # comes from the declared source %R, voltage, and first-winding rating.
     reference_base = deepcopy(xf)
     reference_base["windings"][3]["r_winding"] = 0.008 * 400^2 / 20e6
@@ -43,4 +43,25 @@ include(joinpath(@__DIR__, "roundtrip_helpers.jl"))
     @test isempty(comparison.missing_nodes)
     @test comparison.n_nodes_compared >= 9
     @test pf_ok(comparison)
+end
+
+@testset "DSS CVR powers against OpenDSS across voltage scales (#333)" begin
+    source=read(joinpath(@__DIR__,"data","pf_comparison","pf_exp_1ph.dss"),String)
+    for pu in (0.8,1.0,1.2), (gp,gq) in ((1.4,2.),(.4,3.1),(0.,0.))
+        mktempdir() do dir
+            path=joinpath(dir,"cvr.dss")
+            write(path,replace(source,"pu=1.0"=>"pu=$pu",
+                "CVRwatts=1.4 CVRvars=2.0"=>"CVRwatts=$gp CVRvars=$gq"))
+            OpenDSSDirect.dss("redirect \"$path\"")
+            @test OpenDSSDirect.Solution.Converged()
+            OpenDSSDirect.Circuit.SetActiveElement("Load.ld1")
+            volts=OpenDSSDirect.CktElement.Voltages()
+            voltage=abs(volts[1]-volts[2])
+            expected=sum(OpenDSSDirect.CktElement.Powers())*1000
+            load=from_dss(path)["load"]["ld1"]
+            actual=complex(BMOPFTools._load_model_power(load,"p",1,Float64(load["p_nom"][1]),voltage^2,240.),
+                BMOPFTools._load_model_power(load,"q",1,Float64(load["q_nom"][1]),voltage^2,240.))
+            @test actual ≈ expected rtol=1e-7 atol=1e-5
+        end
+    end
 end

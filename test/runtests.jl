@@ -3940,6 +3940,7 @@ include("mcp_execution_tests.jl")
     # Solution profiling — no solver required
     # -----------------------------------------------------------------------
     include("solution_profiling_tests.jl")
+    include("line_solution_verification_tests.jl")
     include("scientific_review_tests.jl")
 
     # -----------------------------------------------------------------------
@@ -3974,6 +3975,8 @@ include("mcp_execution_tests.jl")
             include("opf_domain_tests.jl")
             include("opf_final_hardening_tests.jl")
             include("controller_compliance_tests.jl")
+            include("pf_nameplate_contract_tests.jl")
+            include("parameter_resolve_tests.jl")
             include("pmd_opf_port_tests.jl")
             include("pmd_opf_bounds_tests.jl")
             include("volt_var_watt_tests.jl")

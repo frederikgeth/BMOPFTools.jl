@@ -456,7 +456,7 @@ units — do not "fix" it. Two `n_winding` specifics worth pinning:
     places `Rpu` on winding 1's power base and uses that base in its primitive
     admittance calculation. PowerIO 0.11 instead converts resistance using
     each winding's own rating. `pf_3wdg_unequal_kva.dss` exposes the difference
-    against OpenDSS's `Yprim`, so #356 remains open. Equal-rating fixtures and
+    against OpenDSS's `Yprim`; `from_dss` now restores the source winding-1 power base (#356). Equal-rating fixtures and
     successful solves do not validate that conversion.
 
 ## 8. What you may *not* derive

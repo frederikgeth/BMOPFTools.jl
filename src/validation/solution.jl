@@ -133,7 +133,9 @@ function _canonical_solution_voltages(net, result, findings)
             any(key -> haskey(device, key) || haskey(lc, key), ("i_max", "s_max")) || continue
             for t in string.(get(device, "terminal_map_from", String[]))
                 vals = get(get(get(result, family, Dict()), id, Dict()), t, Dict())
-                get(vals, "cm_fr", nothing) isa Real || push!(missing, "$family.$id.$t.cm_fr")
+                for field in (family == "line" ? ("cm_fr", "cm_to") : ("cm_fr",))
+                    get(vals, field, nothing) isa Real || push!(missing, "$family.$id.$t.$field")
+                end
             end
         end
     end
@@ -406,7 +408,7 @@ function solution_check(net::Dict{String,Any},
     out["verification_status"] = "indeterminate"
     out["unassessed_dimensions"] = ["branch_and_device_equations", "terminal_kcl",
         "objective_optimality", "independent_loss_reconstruction",
-        "receiving_end_branch_limits", "branch_angle_limits", "complete_limit_coverage"]
+        "complete_limit_coverage"]
 
     if !has_candidate
         proven_infeasible = status == "INFEASIBLE"
@@ -784,6 +786,46 @@ function solution_check(net::Dict{String,Any},
         end
     end
 
+    # Branch angles use theta_from - theta_to (PSK-000013), without the
+    # bus-angle nominal centering or the engine's tangent inequalities.
+    for (lid, line) in get(net, "line", Dict())
+        lo = get(line, "va_diff_min", nothing); hi = get(line, "va_diff_max", nothing)
+        lo === nothing && hi === nothing && continue
+        fr = string.(get(line, "terminal_map_from", String[]))
+        to = string.(get(line, "terminal_map_to", String[]))
+        supported = lo isa Real && hi isa Real && isfinite(lo) && isfinite(hi) &&
+            -pi/2 < lo <= hi < pi/2 && !isempty(fr) && length(fr) == length(to)
+        if !supported
+            push!(findings, Finding(WARNING, "W.SOL.LIMIT_UNASSESSED", :solution, :line, lid,
+                "Line angle bounds require paired finite endpoints in (-pi/2, pi/2) and complete terminal maps.",
+                Dict{String,Any}("reason"=>"unsupported_branch_angle_domain")))
+            continue
+        end
+        for k in eachindex(fr)
+            vf = get(get(bus_res, line["bus_from"], Dict()), fr[k], Dict())
+            vt = get(get(bus_res, line["bus_to"], Dict()), to[k], Dict())
+            coords = (get(vf,"vr",NaN), get(vf,"vi",NaN), get(vt,"vr",NaN), get(vt,"vi",NaN))
+            detail = Dict{String,Any}("terminal_from"=>fr[k], "terminal_to"=>to[k],
+                "conductor"=>k, "va_diff_min"=>lo, "va_diff_max"=>hi)
+            if !all(x -> x isa Real && isfinite(x), coords) ||
+                    iszero(hypot(coords[1],coords[2])) || iszero(hypot(coords[3],coords[4]))
+                detail["reason"] = "undefined_branch_angle"
+                push!(findings, Finding(WARNING, "W.SOL.LIMIT_UNASSESSED", :solution, :line, lid,
+                    "Line angle is undefined at a zero or unavailable endpoint voltage.", detail))
+                continue
+            end
+            delta = _wrap_pi(atan(coords[2],coords[1]) - atan(coords[4],coords[3]))
+            detail["va_diff"] = delta
+            viol, act = _bound_status(Float64(delta), lo, hi)
+            if viol || act
+                n_volt_viol += viol; n_volt_active += !viol
+                push!(findings, Finding(viol ? ERROR : WARNING,
+                    viol ? "E.SOL.ANGLE_VIOLATION" : "W.SOL.ANGLE_ACTIVE", :solution, :line, lid,
+                    "Line '$lid' conductor $k: signed angle difference is $(viol ? "outside" : "near") its bounds.", detail))
+            end
+        end
+    end
+
     out["n_volt_violations"] = n_volt_viol
     out["n_volt_active"]     = n_volt_active
 
@@ -806,16 +848,23 @@ function solution_check(net::Dict{String,Any},
         cond_res = get(get(result, "line", Dict()), lid, nothing)
         cond_res isa Dict || continue
         tm_fr = string.(get(line, "terminal_map_from", String[]))
-        b_fr  = get(line, "bus_from", "")
-        # NB: a distinct name — `bus_res` (all buses) is function-scoped and reused
-        # by the generator/IBR checks; do not clobber it.
-        ln_bus_res = get(get(result, "bus", Dict()), b_fr, Dict())
-
-        for (k, t) in enumerate(tm_fr)
-            cvals = get(cond_res, t, nothing)
+        tm_to = string.(get(line, "terminal_map_to", String[]))
+        for (k, t_fr) in enumerate(tm_fr), side in ("fr", "to")
+            if side == "to" && k > length(tm_to)
+                push!(findings, Finding(WARNING, "W.SOL.LIMIT_UNASSESSED", :solution, :line, lid,
+                    "Receiving terminal mapping is missing; the line limit cannot be checked.",
+                    Dict{String,Any}("conductor"=>k, "endpoint"=>side, "reason"=>"missing_terminal_map")))
+                continue
+            end
+            t = side == "fr" ? t_fr : tm_to[k]
+            bid = get(line, side == "fr" ? "bus_from" : "bus_to", "")
+            ln_bus_res = get(get(result, "bus", Dict()), bid, Dict())
+            # Both endpoint current records are keyed by the FROM terminal.
+            # These are total currents including pi-shunts, not series currents.
+            cvals = get(cond_res, t_fr, nothing)
             cvals isa Dict || continue
-            cm_fr = get(cvals, "cm_fr", NaN)
-            isfinite(cm_fr) || continue
+            cm = get(cvals, "cm_$side", NaN)
+            isfinite(cm) || continue
 
             # i_max: line field takes precedence over linecode field. A scalar
             # rating applies to every conductor (a vector, per conductor).
@@ -823,23 +872,23 @@ function solution_check(net::Dict{String,Any},
             i_lim === nothing && (i_lim = _rating_at(i_max_lc, k))
 
             if i_lim !== nothing
-                viol, act = _bound_status(cm_fr, nothing, i_lim)
+                viol, act = _bound_status(Float64(cm), nothing, i_lim)
                 if viol
                     n_therm_viol += 1
                     push!(findings, Finding(ERROR, "E.SOL.THERMAL_VIOLATION",
                         :solution, :line, lid,
-                        "Line '$lid' conductor '$t': cm_fr=$(_fmt_a(cm_fr)) exceeds " *
+                        "Line '$lid' conductor '$t': cm_$side=$(_fmt_a(cm)) exceeds " *
                         "i_max=$(_fmt_a(i_lim)).",
                         Dict{String,Any}("line"=>lid,"terminal"=>t,
-                                         "cm_fr"=>cm_fr,"i_max"=>i_lim)))
+                                         "endpoint"=>side,"conductor"=>k,"bus"=>bid,"cm_$side"=>cm,"i_max"=>i_lim)))
                 elseif act
                     n_therm_active += 1
                     push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
                         :solution, :line, lid,
-                        "Line '$lid' conductor '$t': cm_fr=$(_fmt_a(cm_fr)) is within " *
+                        "Line '$lid' conductor '$t': cm_$side=$(_fmt_a(cm)) is within " *
                         "1 % of i_max=$(_fmt_a(i_lim)).",
                         Dict{String,Any}("line"=>lid,"terminal"=>t,
-                                         "cm_fr"=>cm_fr,"i_max"=>i_lim)))
+                                         "endpoint"=>side,"conductor"=>k,"bus"=>bid,"cm_$side"=>cm,"i_max"=>i_lim)))
                 end
             end
 
@@ -850,7 +899,7 @@ function solution_check(net::Dict{String,Any},
             if s_lim !== nothing
                 vm = get(get(ln_bus_res, t, Dict()), "vm", NaN)
                 if isfinite(vm)
-                    smag = vm * cm_fr
+                    smag = Float64(vm * cm)
                     viol, act = _bound_status(smag, nothing, s_lim)
                     if viol
                         n_therm_viol += 1
@@ -859,7 +908,7 @@ function solution_check(net::Dict{String,Any},
                             "Line '$lid' conductor '$t': |S|=$(_fmt_va(smag)) exceeds " *
                             "s_max=$(_fmt_va(s_lim)).",
                             Dict{String,Any}("line"=>lid,"terminal"=>t,
-                                             "s"=>smag,"s_max"=>s_lim)))
+                                             "endpoint"=>side,"conductor"=>k,"bus"=>bid,"s"=>smag,"s_max"=>s_lim)))
                     elseif act
                         n_therm_active += 1
                         push!(findings, Finding(WARNING, "W.SOL.THERMAL_ACTIVE",
@@ -867,7 +916,7 @@ function solution_check(net::Dict{String,Any},
                             "Line '$lid' conductor '$t': |S|=$(_fmt_va(smag)) is within " *
                             "1 % of s_max=$(_fmt_va(s_lim)).",
                             Dict{String,Any}("line"=>lid,"terminal"=>t,
-                                             "s"=>smag,"s_max"=>s_lim)))
+                                             "endpoint"=>side,"conductor"=>k,"bus"=>bid,"s"=>smag,"s_max"=>s_lim)))
                     end
                 end
             end
