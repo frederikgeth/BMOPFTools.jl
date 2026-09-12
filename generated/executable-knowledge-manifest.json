@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "52dac4e8bd2e22ae8e285c1030479d37375c0097304660b5b52f3793478a6e22",
+  "corpus_sha256": "1c92489a08b0c70f33d9d129cb65f34ba076247be6497961cfc799716df28e36",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -74,7 +74,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "d634905b1cc7cdae3bb3524f69302d48f67fb9c71081f9abab2962f745e9a7f8"
+      "sha256": "8fce6a30993e12cf14d8154af73846db5e6a569a7c49631a09e32b70a8a5344b"
     },
     {
       "path": "docs/src/objectives.md",
@@ -178,11 +178,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "db5566fe9bc1fca55c31304ae2d0259c5310e5b08290e15eaf717499779bcdf5"
+      "sha256": "e01430e92e076fcc19687900622e77623b38bbf7ddb6e88a72807251139be443"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "613458d95c03ad0f4d8ea88be34416937090473e9600a61fcfeeb6807292c933"
+      "sha256": "a99cf3ef5ad50a361b568f303e471778ef039af44a6c14fdf6c89370bac998d0"
     },
     {
       "path": "recipes/README.md",
@@ -362,7 +362,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "b4407adf219771dc5bdb38fc97b10115c2e7680d31d56f25401a3eea1023de49"
+      "sha256": "77d100f1591dfd2a429ec45125a23dcb8b437678c230b3de0ab3e7a06d96526a"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -382,7 +382,7 @@
     },
     {
       "path": "src/validation/solution.jl",
-      "sha256": "21cde3836f48702d350516696f5519877491fbced2d3d63a355b7c4d2c0d01b4"
+      "sha256": "e6653b418b1fb7b540944d46cb31966f488342d34e88aa4dff5f9307b3b2364b"
     },
     {
       "path": "test/Project.toml",
@@ -403,6 +403,10 @@
     {
       "path": "test/data/scientific_review/pi-chain.json",
       "sha256": "b4d09e49f4049276ba13ea58347af14e1d3a2a09f5fb0890033f6b46ebfa1efd"
+    },
+    {
+      "path": "test/data/scientific_review/receiving-limit-result.json",
+      "sha256": "8b2bd092e1a32c69d80c225b3907fafe391071742103e2e0db857271b8fd7b7c"
     },
     {
       "path": "test/data/scientific_review/vuf-network.json",
@@ -775,6 +779,10 @@
     {
       "path": "test/fixtures/negative/unit-base-serialization/target.json",
       "sha256": "f787b84accc51bf01b00341a48d023f8d6633c5a2d589b34b79ffac47fb1d101"
+    },
+    {
+      "path": "test/line_solution_verification_tests.jl",
+      "sha256": "d1a9cfc6d5531d1b4498559b732d1259e180c87a34fcbd09d93b7d6475051469"
     },
     {
       "path": "test/opf_device_substitution_tests.jl",
