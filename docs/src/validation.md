@@ -728,3 +728,17 @@ julia --project=. -e "using Pkg; Pkg.test()"
 4. R. C. Dugan, "A perspective on transformer modeling for distribution system analysis," 
    2003 IEEE Power Engineering Society General Meeting (IEEE Cat. No.03CH37491), Toronto, 
    ON, Canada, 2003, pp. 114-119 Vol. 1, doi: 10.1109/PES.2003.1267146.
+
+### Exact and modeled Volt-watt compliance
+
+`profile_solution` reports `controller_compliance` separately for each assessed
+IBR phase. `exact_profile_compliance` uses the network's declared piecewise-linear
+cap and retains `E.SOL.IBR_VIOLATION` for excess output. It is not relaxed to
+accommodate smoothing. `modeled_cap_feasibility` reconstructs the supplied
+`modeled_volt_watt` curve in SI using its live hinge coefficients, fixed smoothing
+width, and softplus/Swish encoding. Native solves export those coefficients.
+
+The report includes both caps and excesses, the signed approximation error,
+and `epsilon_V`. Missing or unsupported curve evidence is indeterminate. A
+modeled-cap pass concerns that declared curve only; it does not authenticate
+solver stamping or establish complete network feasibility (PSK-000013).

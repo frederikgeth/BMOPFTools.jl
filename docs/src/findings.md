@@ -466,6 +466,7 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 |---|---|---|
 | `E.SOL.INFEASIBLE` | E | Solver reports `INFEASIBLE` with no primal candidate. A time limit or local failure without a candidate is reported separately, not as a proof of infeasibility. |
 | `W.SOL.NO_CANDIDATE` | W | No primal candidate is available to profile. Termination alone does not establish network infeasibility; inspect result count and primal status. |
+| `I.SOL.CONTROLLER_COMPLIANCE` | I | Separate exact Volt-watt cap compliance and declared modeled smooth-cap feasibility in SI, with output, caps, excesses, smoothing width/mode, and approximation error. Missing or unsupported modeled-curve evidence is indeterminate; exact-cap violations retain their original errors. This does not authenticate the supplied model evidence. |
 | `W.SOL.INCOMPLETE_RESULT` | W | Declared result data are missing. The profile is indeterminate; omitted terms must not be interpreted as zero or as checks passed. Structured detail lists missing paths. |
 | `E.SOL.PHASOR_INCONSISTENT` | E | Supplied vm differs from hypot(vr, vi) beyond max(0.2% of the computed magnitude, 1 μV). All voltage-dependent checks use the rectangular phasor, without mutating the supplied result. |
 | `E.SOL.REFERENCE_VIOLATION` | E | Rectangular bus voltage disagrees with an explicit perfect ground or supported ideal WYE/SINGLE_PHASE source reference beyond max(0.2% of reference magnitude, 1 μV). This checks references, not full network equations. |

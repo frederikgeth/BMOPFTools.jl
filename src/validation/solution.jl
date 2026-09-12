@@ -308,7 +308,7 @@ end
 # case the caller keeps the static p_max box bound). `cp` is the resolved
 # control_profile dict; `pf_present` mirrors the OPF's PF-override gate.
 function _volt_watt_cap(inv, cp, pf_present::Bool, topo::String,
-                        idx::Int, t_ph, t_res, smax_arr, p_max_arr, n_phase::Int)
+                        idx::Int, t_ph, t_res, smax_arr, p_max_arr, n_phase::Int; evidence::Bool=false)
     (cp isa Dict && !pf_present && topo != "THREE_LEG") || return nothing
     vw = get(cp, "volt_watt", nothing)
     vw isa Dict || return nothing
@@ -350,7 +350,33 @@ function _volt_watt_cap(inv, cp, pf_present::Bool, topo::String,
         _ibr_monitor_vmag(t_res, t_ph, t_n, t_pp, quantity)
     end
     isfinite(U) || return nothing
-    base * _volt_watt_fraction(U, bps, pl[1], pl[2])
+    cap = base * _volt_watt_fraction(U, bps, pl[1], pl[2])
+    evidence ? (cap=cap, voltage=U) : cap
+end
+
+# Reconstruct a supplied modeled curve independently in SI. This is declared
+# model evidence, not authentication of a solver's constraint stamping.
+function _modeled_volt_watt_cap(row, voltage)
+    row isa AbstractDict && get(row,"units",nothing)=="SI" || return nothing
+    mode=get(row,"mode",nothing); eps=get(row,"epsilon_V",nothing)
+    baseline=get(row,"baseline_W",nothing); hinges=get(row,"hinges",nothing)
+    mode in ("user_defined","builtin","swish") && eps isa Real &&
+        isfinite(eps) && eps>0 && baseline isa Real && isfinite(baseline) &&
+        hinges isa AbstractVector || return nothing
+    cap=Float64(baseline)
+    for h in hinges
+        h isa AbstractDict || return nothing
+        a=get(h,"slope_W_per_V",nothing); x=get(h,"breakpoint_V",nothing)
+        a isa Real && x isa Real && isfinite(a) && isfinite(x) || return nothing
+        z=voltage-x
+        hinge = if mode=="swish"
+            z >= 0 ? z/(1+exp(-z/eps)) : z*exp(z/eps)/(1+exp(z/eps))
+        else
+            max(z,0)+eps*log1p(exp(-abs(z)/eps))
+        end
+        cap+=a*hinge
+    end
+    isfinite(cap) ? cap : nothing
 end
 
 """
@@ -365,7 +391,7 @@ Appends `Finding` objects to `findings` and returns a summary dict.
 function solution_check(net::Dict{String,Any},
                         result::Dict{String,Any},
                         findings::Vector{Finding})::Dict{String,Any}
-    out = Dict{String,Any}()
+    out = Dict{String,Any}("controller_compliance"=>Dict{String,Any}[])
 
     # ── Termination ──────────────────────────────────────────────────────────
     status = get(result, "termination_status", "UNKNOWN")
@@ -1204,10 +1230,32 @@ function solution_check(net::Dict{String,Any},
             # this IBR — i.e. hi = min(p_max, cap), mirroring the OPF.
             lo = idx <= length(p_min_arr) ? p_min_arr[idx] : nothing
             hi = idx <= length(p_max_arr) ? p_max_arr[idx] : nothing
-            vw_cap = _volt_watt_cap(inv, cp, pf_val !== nothing, topo,
-                                    idx, t_ph, t_res, smax_arr, p_max_arr, n_phase)
-            if vw_cap !== nothing
-                hi = hi === nothing ? vw_cap : min(hi, vw_cap)
+            vw = _volt_watt_cap(inv, cp, pf_val !== nothing, topo,
+                                    idx, t_ph, t_res, smax_arr, p_max_arr, n_phase; evidence=true)
+            if vw !== nothing
+                hi = hi === nothing ? vw.cap : min(hi, vw.cap)
+                row = get(get(get(result,"modeled_volt_watt",Dict()),inv_id,Dict()),string(idx),nothing)
+                cap = _modeled_volt_watt_cap(row, vw.voltage)
+                exact_viol, _ = _bound_status(Float64(pg), nothing, vw.cap; abs_floor=power_floor)
+                modeled_viol = cap === nothing ? nothing :
+                    first(_bound_status(Float64(pg),nothing,cap;abs_floor=power_floor))
+                detail = Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
+                    "voltage_V"=>vw.voltage,"output_W"=>pg,"exact_cap_W"=>vw.cap,
+                    "exact_excess_W"=>max(0.,pg-vw.cap), "exact_profile_compliance"=>exact_viol ? "failed" : "passed",
+                    "modeled_cap_W"=>cap, "modeled_excess_W"=>cap===nothing ? nothing : max(0.,pg-cap),
+                    "modeled_cap_feasibility"=>cap===nothing ? "indeterminate" : modeled_viol ? "failed" : "passed",
+                    "approximation_error_W"=>cap===nothing ? nothing : cap-vw.cap,
+                    "epsilon_V"=>row isa AbstractDict ? get(row,"epsilon_V",nothing) : nothing,
+                    "mode"=>row isa AbstractDict ? get(row,"mode",nothing) : nothing)
+                push!(out["controller_compliance"],detail)
+                push!(findings,Finding(INFO,"I.SOL.CONTROLLER_COMPLIANCE",:solution,:ibr,inv_id,
+                    "Exact Volt-watt profile compliance and declared modeled-cap feasibility are assessed separately.",detail))
+                if modeled_viol === true
+                    n_inv_viol += 1
+                    push!(findings,Finding(ERROR,"E.SOL.IBR_VIOLATION",:solution,:ibr,inv_id,
+                        "IBR output exceeds its declared modeled Volt-watt cap.",
+                        merge(detail,Dict("field"=>"modeled_volt_watt_cap"))))
+                end
             end
             if lo !== nothing || hi !== nothing
                 viol, act = _bound_status(pg, lo, hi; abs_floor=power_floor)

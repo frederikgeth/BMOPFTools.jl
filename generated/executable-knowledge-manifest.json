@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "ac776816fa88a5bdb323f61bb2eca6d1126bac6a6c1fbcc64c4b99e79a881eff",
+  "corpus_sha256": "0bf6517d1526f802b544a401debf4dff9c626c5fe5fb44c2c42fe0d00a5f0e05",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -74,7 +74,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "8fce6a30993e12cf14d8154af73846db5e6a569a7c49631a09e32b70a8a5344b"
+      "sha256": "14882d325e0398cd03ebbef41a23851712ffc5820f0e885e4f91da9e48e42b1f"
     },
     {
       "path": "docs/src/objectives.md",
@@ -138,7 +138,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/ibr.jl",
-      "sha256": "1e974ad21b8ba2510f5ea5d92a604a03f3c38349b57d1ef63f1f30eabb5719c8"
+      "sha256": "016ca02c6bf181190621ce55df6874f90a5ac98f33937a8b0451717f76250c71"
     },
     {
       "path": "ext/BMOPFOpfExt/load.jl",
@@ -166,7 +166,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/results.jl",
-      "sha256": "6c40f27eb1e4cfff02d0b327a88d43bb254b7b436e2afa15ad1c13c9e7993562"
+      "sha256": "c9a72717c78f4dd753a365642f60bd8f552b130109a1dedb2dc65000672e718e"
     },
     {
       "path": "ext/BMOPFOpfExt/source.jl",
@@ -182,11 +182,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "e01430e92e076fcc19687900622e77623b38bbf7ddb6e88a72807251139be443"
+      "sha256": "8eb02afdb67744b3eb7ce67dedc6a63e2b3c86585330d508a941f9cd2bc18ed6"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "80047af80f4268a0664fba039455ed4eba8f8c6905c5bcafc017f9d2aae15615"
+      "sha256": "8f14a9afe9b448861da7c342043eb9f2771d37e600708dc278c7f3cd296397be"
     },
     {
       "path": "recipes/README.md",
@@ -370,7 +370,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "77d100f1591dfd2a429ec45125a23dcb8b437678c230b3de0ab3e7a06d96526a"
+      "sha256": "268670f45456ee8db5207085511b384cc28c0614e535107e4e6f19ef4ab79799"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -390,11 +390,15 @@
     },
     {
       "path": "src/validation/solution.jl",
-      "sha256": "e6653b418b1fb7b540944d46cb31966f488342d34e88aa4dff5f9307b3b2364b"
+      "sha256": "dbc27b849f36f1fbaf34a8ce7def6c2e74a12da2278bcce3a4457153a9ba5ee1"
     },
     {
       "path": "test/Project.toml",
       "sha256": "f093363eed474c9211a5f055cea61898d9b909eb764aaccb2b88a616262a10ae"
+    },
+    {
+      "path": "test/controller_compliance_tests.jl",
+      "sha256": "3303a2ec4ada1d2fef5bafe3977ca4a458f8dcebc4a4606fb915e0f9ab550e5b"
     },
     {
       "path": "test/data/line_geometry/ieee13_601.dss",

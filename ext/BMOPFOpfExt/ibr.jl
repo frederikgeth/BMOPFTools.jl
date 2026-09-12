@@ -727,6 +727,9 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     if vw !== nothing
         op   = relu_operator_for!(relu_ops, model, vw.eps; mode=softplus)
         base = _droop_base(vw, idx, smax, p_max, p_avail_per)
+        # Retain live curve coefficients for auditable modeled-cap reporting.
+        evidence = get!(ctx.vars, :volt_watt_evidence, Dict{Tuple{String,Int},Any}())
+        evidence[(string(inv_id), idx)] = (curve=vw, base=base, mode=softplus)
         register_constraint(:ibr_p_volt_watt, @constraint(model,
             p_expr <= curve_expr(op, U_vw, base * vw.baseline,
                                  [(base*a, x̄) for (a, x̄) in vw.triples])))
