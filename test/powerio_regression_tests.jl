@@ -78,16 +78,3 @@ end
         @test net["line"]["l1"]["terminal_map_to"] == ["a", "b", "c", "n"]
     end
 end
-
-@testset "Earth routing and transformer terminals survive JSON (#163)" begin
-    net = from_dss(joinpath(@__DIR__, "data", "LV", "LV1_14bus", "Master.dss"))
-    xf = only(values(net["transformer"]["delta_wye"]))
-    @test xf["bus_to"] == "b179"
-    @test xf["terminal_map_to"] == ["a", "b", "c", "n"]
-    @test net["bus"]["b179"]["neutral_terminal"] == "n"
-    io = IOBuffer(); write_bmopf(net, io)
-    restored = parse_bmopf(String(take!(io)); from_string=true)
-    @test restored["bus"]["b179"] == net["bus"]["b179"]
-    @test only(values(restored["transformer"]["delta_wye"])) == xf
-    @test restored["_meta"]["earth_terminal_routing"] == net["_meta"]["earth_terminal_routing"]
-end

@@ -1,0 +1,96 @@
+{
+  "name": "analysis_synthetic",
+  "bus": {
+    "source": {
+      "terminal_names": [
+        "1",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    },
+    "load_bus": {
+      "terminal_names": [
+        "1",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    },
+    "stub": {
+      "terminal_names": [
+        "1",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    }
+  },
+  "voltage_source": {
+    "s": {
+      "bus": "source",
+      "terminal_map": [
+        "1"
+      ],
+      "v_magnitude": [
+        230.0
+      ],
+      "v_angle": [
+        0.0
+      ]
+    }
+  },
+  "linecode": {
+    "lc": {
+      "R_series_1_1": 0.1,
+      "X_series_1_1": 0.02
+    }
+  },
+  "line": {
+    "supply": {
+      "bus_from": "source",
+      "bus_to": "load_bus",
+      "terminal_map_from": [
+        "1"
+      ],
+      "terminal_map_to": [
+        "1"
+      ],
+      "linecode": "lc",
+      "length": 1.0
+    },
+    "spur": {
+      "bus_from": "source",
+      "bus_to": "stub",
+      "terminal_map_from": [
+        "1"
+      ],
+      "terminal_map_to": [
+        "1"
+      ],
+      "linecode": "lc",
+      "length": 1.0
+    }
+  },
+  "load": {
+    "l": {
+      "bus": "load_bus",
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "model": "constant_power",
+      "v_nom": 230.0,
+      "p_nom": [
+        100.0
+      ],
+      "q_nom": [
+        10.0
+      ]
+    }
+  }
+}

@@ -1,5 +1,12 @@
 # [Simplifying a network before optimisation](@id tutorial-simplify)
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 *Reduce a network only within the supported circuit and constraint domain.*
 
 GIS-derived models often contain degree-2 junction buses, explicit switches,
@@ -36,16 +43,16 @@ verifying — the passes yourself.*
 
 ## 1. A feeder with artefacts
 
-`LV10_223bus` is one of the Australian LV feeders shipped with the test suite:
+`LV10_223bus` is one of the Australian LV feeders stored in the external BMOPFDraftData repository:
 a 223-bus four-wire residential network whose data came from GIS, so it has
 exactly the artefacts described above — including ten closed switches modelled
 as explicit switch elements.
 
-```@example simp
+```julia
 using BMOPFTools
 
 const DATA = joinpath(dirname(pathof(BMOPFTools)), "..", "test", "data")
-net = from_dss(joinpath(DATA, "LV", "LV10_223bus", "Master.dss"))
+net = from_dss(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV10_223bus", "Master.dss"))
 
 inventory(n) = (buses    = length(n["bus"]),
                 lines    = length(n["line"]),
@@ -69,7 +76,7 @@ network is never mutated — and appends its outcomes to
 closed (zero-impedance) switch; the `bus_from` bus survives and everything on
 the absorbed bus is redirected to it:
 
-```@example simp
+```julia
 n1 = collapse_closed_switches(net)
 inventory(n1)
 ```
@@ -77,7 +84,7 @@ inventory(n1)
 All ten switches are gone and the bus count dropped by ten — one absorbed bus
 per collapsed switch. The log records exactly which bus survived each merge:
 
-```@example simp
+```julia
 println(n1["_simplification_log"][1]["message"])
 ```
 
@@ -97,7 +104,7 @@ println(n1["_simplification_log"][1]["message"])
 fed (cleaned up by the next pass) remains. This feeder has none, so the pass is
 a no-op here:
 
-```@example simp
+```julia
 n2 = remove_open_switches(n1)
 inventory(n2)
 ```
@@ -113,7 +120,7 @@ inventory(n2)
 line and no other element — no load, generator, shunt, transformer, or source.
 It iterates to convergence, so a dangling *chain* disappears entirely:
 
-```@example simp
+```julia
 n3 = remove_dangling_lines(n2)
 inventory(n3)
 ```
@@ -141,7 +148,7 @@ provided the chain has no intermediate voltage, segment apparent-power, or
 segment angle limits (intermediate bus bounds can be explicitly dropped). The merged line gets the summed length
 and the tighter effective current rating:
 
-```@example simp
+```julia
 n4 = merge_series_lines(n3)
 
 merged = sort([(id, l["_merged_from"], round(l["length"], digits=1))
@@ -175,7 +182,7 @@ A before/after power-flow comparison can measure the effect at the selected
 operating point; no error magnitude or global feasibility preservation is claimed
 by the merge itself. The log explains each candidate:
 
-```@example simp
+```julia
 codes = [e["code"] for e in n4["_simplification_log"]]
 foreach(c -> println(rpad(c, 18), count(==(c), codes), "×"), unique(codes))
 ```
@@ -207,7 +214,7 @@ transformation, suitable for serialising alongside the case.
 can be switched off by keyword (e.g. `closed_switches = false` if you intend to
 optimise switch states later):
 
-```@example simp
+```julia
 simp = simplify_network(net)
 inventory(simp)
 ```
@@ -219,7 +226,7 @@ The inventory above reports the reductions actually supported for this import.
 If simplification preserves fidelity, a power flow on both networks must agree
 at every bus that survives in both. Let's check that instead of asserting it:
 
-```@example simp
+```julia
 using JuMP, Ipopt
 OPT = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
@@ -244,7 +251,7 @@ transformation warnings. Agreement at this operating point does not establish
 preservation of every constraint or operating point. Timing is reported for
 this machine and dependency stack:
 
-```@example simp
+```julia
 t_orig = @elapsed solve_pf(net;  optimizer = OPT, per_unit = true)
 t_simp = @elapsed solve_pf(simp; optimizer = OPT, per_unit = true)
 println("re-solve: original ", round(t_orig, digits = 3), " s, simplified ",

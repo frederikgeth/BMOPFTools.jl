@@ -1,5 +1,5 @@
 > [!WARNING]  
-> This project is currently ongoing rapid development and may have breaking changes made directly to main. Use at your own risk until further notice. OpenDSS ingestion now goes through [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) (the earlier PowerModelsDistribution-based `from_pmd` parser has been removed).
+> The first registered release is being prepared. Development on `main` can include unreleased breaking changes; registered releases follow the documented compatibility policy. OpenDSS ingestion now goes through [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) (the earlier PowerModelsDistribution-based `from_pmd` parser has been removed).
 
 [![Documentation](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml/badge.svg)](https://frederikgeth.github.io/BMOPFTools.jl/) [![CI](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/frederikgeth/BMOPFTools.jl/graph/badge.svg)](https://codecov.io/gh/frederikgeth/BMOPFTools.jl)
 
@@ -90,8 +90,6 @@ the test suite runs against, under `test/data/`:
 
 | Fixture (`test/data/…`) | Licence | Commercial use | Source |
 |---|---|---|---|
-| `ENWL` | CC BY 4.0 | yes | CSIRO four-wire LV dataset, [10.25919/jaae-vc35](https://doi.org/10.25919/jaae-vc35) |
-| `LV`, `MV`, `Master.dss` (combined), `MVLVmeshed` | **CC BY-NC-SA 4.0** | **no** (non-commercial, share-alike) | CSIRO Australian MV/LV feeder set, [10.25919/ghnz-bk28](https://doi.org/10.25919/ghnz-bk28) |
 | `SWER`, `pf_comparison`, small fixtures | CC BY 4.0 | yes | authored for BMOPFTools |
 
 The full benchmark library and the larger source networks that feed the
@@ -103,10 +101,26 @@ same CSIRO DOI as `ENWL`) and `dsuite_networks_scaled_v1.1` (CC BY 4.0, D-Suite
 LV networks, Newcastle University,
 [10.25405/data.ncl.27175317](https://doi.org/10.25405/data.ncl.27175317)).
 
-Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0. Note that
-CC BY-NC-SA derivatives must be redistributed under the same
-non-commercial/share-alike terms — plan accordingly if you are building a
-commercial offering on these cases.
+ENWL is also stored externally in BMOPFDraftData. Its top-level CC BY notice
+and older non-commercial headers are preserved there; this package does not
+resolve that discrepancy.
+
+The CC BY-NC-SA 4.0 CSIRO Australian MV/LV data (`LV`, `MV`, combined
+`Master.dss`, and `MVLVmeshed`) and the derived LV1 JSON/time-series/report
+files are stored in **BMOPFDraftData/test/data**, not bundled here. Their
+upstream licence and attribution remain unchanged. Dataset-backed tutorials
+and optional integration tests require an explicit external path:
+
+```sh
+BMOPF_RESTRICTED_DATA=/path/to/BMOPFDraftData/test/data julia --project=test --startup-file=no test/runtests.jl
+```
+
+Without that variable, the package suite runs its self-contained tests and
+reports the restricted dataset integration group as skipped. If the variable
+is set but required files are missing, the integration tests fail.
+See [`test/RESTRICTED_DATA.md`](test/RESTRICTED_DATA.md).
+
+Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0.
 
 ## What it does
 
@@ -278,7 +292,7 @@ julia --project=docs docs/make.jl
 
 Pages: data-model conventions, the conversion guide (every deliberate
 `from_dss`/`to_pmd` decision), the analysis/report guide, the **complete
-finding-code reference** (128 codes), methodology notes with literature
+finding-code reference**, methodology notes with literature
 references, the case augmentation guide (`fix_case` + `augment_case`), the
 OPF guide, and the OPF result dictionary reference.
 
@@ -288,7 +302,7 @@ Force draft specification.
 ## Examples
 
 - `examples/lv1_14bus_walkthrough.jl` — step-by-step tour of every analysis
-  on a real 14-bus LV feeder.
+  on a real 14-bus LV feeder (requires the external dataset above).
 
 ## Case file overview
 
@@ -321,3 +335,14 @@ Mohamed Numair
 Samuel Talkington
 Sleiman Mhanna
 Tomislav Antić 
+
+## Release maintenance
+
+See [RELEASING.md](RELEASING.md) for release gates, schema provenance,
+registration steps, and outstanding first-release decisions. Julia package
+installation does not install `bin/bmopf` or `bin/bmopf-mcp` into your shell's
+PATH; those launchers are tools for an instantiated checkout.
+
+Codex has assisted with release preparation, fixture relocation, tests, and
+documentation. Maintainers review contributions and own the package's behaviour;
+this statement does not certify that the pre-registration human review is complete.

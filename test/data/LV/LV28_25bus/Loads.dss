@@ -1,3 +1,0 @@
-new load.Ld2330_LOAD_A phases=1 bus1=B1352.1.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3225_LOAD_B phases=1 bus1=B266.2.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2
-new load.Ld3531_LOAD_C phases=1 bus1=B3400.3.4 kv=0.249992666559  vminpu=0.1 vmaxpu=2

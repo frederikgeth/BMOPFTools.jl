@@ -1,5 +1,12 @@
 # [Ground, neutral, and earth return](@id grounding-tutorial)
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 *Three different things called "ground", one experiment across floating,
 impedance-grounded, and solidly-grounded neutrals — then the mathematics:
 null spaces, the Kron-reduction assumption, and what the Fortescue transform
@@ -57,10 +64,10 @@ Four data-model pieces express everything in this tutorial:
 Look at both on real cases — the LV feeder used across these tutorials, and
 the SWER feeder whose grounding *is* its return circuit:
 
-```@example gnd
+```julia
 using BMOPFTools, JuMP, Ipopt, LinearAlgebra
 
-lv1  = from_dss(joinpath(pkgdir(BMOPFTools), "test", "data", "LV",  "LV1_14bus", "Master.dss"))
+lv1  = from_dss(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss"))
 swer = from_dss(joinpath(pkgdir(BMOPFTools), "test", "data", "SWER", "Master.dss"))
 
 println("conventions (both cases): ", lv1["terminal_conventions"])
@@ -85,7 +92,7 @@ solidly grounded. Vary only the *customer-end* neutral: floating, a realistic
 voltage (NEV), the phase-to-neutral voltage the customer actually receives,
 and how the return current splits between the neutral conductor and the earth:
 
-```@example gnd
+```julia
 OPT = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
 lc4 = Dict{String,Any}()
@@ -163,7 +170,7 @@ grounded terminals collapsed onto it, and — deliberately — no contribution
 from ideal voltage sources. Whatever that matrix cannot see, something else
 must pin:
 
-```@example gnd
+```julia
 cases = [
     "no grounding anywhere" => (n = feeder(:float);
                                 delete!(n["bus"]["src"], "perfectly_grounded_terminals"); n),
@@ -202,7 +209,7 @@ whole chain: Kron-reduce our line by hand, build the three-wire equivalent
 (loads become phase-to-ground — the reduced model has no neutral to connect
 to), and compare against the four-wire truth under each grounding:
 
-```@example gnd
+```julia
 Z4  = [(i == j ? 0.5 : 0.02) + im*(i == j ? 0.2 : 0.05) for i in 1:4, j in 1:4] ./ 2 # 500 m, Ω
 Zk  = Z4[1:3,1:3] .- Z4[1:3,4:4] * (Z4[4:4,4:4] \ Matrix(transpose(Z4[1:3,4:4])))
 
@@ -265,7 +272,7 @@ in the line constants — Carson's frequency- and resistivity-dependent
 correction, applied when geometry compiles to a linecode
 ([impedance derivation](spec/impedance.md)):
 
-```@example gnd
+```julia
 report = analyze(swer)
 println("SWER zones found: ", report.results[:connectivity]["n_swer_zones"])
 for f in report.findings
@@ -295,7 +302,7 @@ when ``\mathbf{Z}`` is **circulant** — balanced, transposed construction.
 Our §5 matrix is circulant by construction (all mutuals equal); perturb the
 mutuals the way untransposed geometry does and watch the decoupling die:
 
-```@example gnd
+```julia
 a = cis(2π/3)
 F = (1/sqrt(3)) .* [1 1 1; 1 a a^2; 1 a^2 a]
 offdiag_max(M) = maximum(abs(M[i,j]) for i in 1:3, j in 1:3 if i != j)

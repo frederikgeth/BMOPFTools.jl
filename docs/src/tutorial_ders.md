@@ -1,5 +1,12 @@
 # Tutorial: Placing DERs and reading the *binding constraint*
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 Hosting-capacity and DER-coordination studies all turn on one question: *when the
 cheap distributed generation wants to run, which network constraint stops it?*
 
@@ -56,7 +63,7 @@ Instead of hand-writing each DER, we **declare** them with a recipe and let the
 library choose buses from the network's own semantics and record every field it
 writes:
 
-```@example ders
+```julia
 using BMOPFTools
 
 IBR_RECIPE = IBRRecipe(
@@ -69,7 +76,6 @@ GEN_RECIPE = GeneratorRecipe(
     strategy = :load_following,
     der_p_fraction = 0.5,         # p_max = 0.5 × local load  (≈ 5 kW)
     cost_basis = :uniform, der_cost_uniform = 0.3)   # dearer than PV, cheaper than slack
-nothing # hide
 ```
 
 !!! note "`add_ibrs` vs `add_generators`, and why both here"
@@ -92,13 +98,13 @@ at `head_pu` on a 230 V base, stretch the two service drops to a realistic 30 m
 (the raw ~6 m drops are too short to develop an LV voltage rise), and — for
 scenario C — swap the drops onto a derated 16 mm² linecode:
 
-```@example ders
+```julia
 const LV_LN_V    = 230.0                        # phase-to-neutral base we report in
 const HEAD_SCALE = LV_LN_V / (433.0 / sqrt(3))  # 433 V feeder head → 230 V base
 const DROP_LINES = ("l_3726", "l_2126")         # the two service drops
 
 function base_net(; head_pu = 1.0, drop_m = 30.0, derate = false, imax = 90.0)
-    net = parse_bmopf(joinpath(pkgdir(BMOPFTools), "examples", "lv1_14bus.json"))
+    net = parse_bmopf(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json"))
     delete!(net, "ibr"); delete!(net, "generator")   # clean slate: recipes place all DERs
 
     # Strip any source cost so augment_case prices the slack itself, and retap the head.
@@ -138,7 +144,6 @@ function set_vpn_limits!(net)
     end
     return net
 end
-nothing # hide
 ```
 
 `augment_case` then fills the standards-grounded gaps: the IBR `P²+Q²≤s_max²`
@@ -149,14 +154,13 @@ versus "network limits on" (B and C) — A skips the voltage *and* thermal
 passes, while B/C keep the thermal pass and get their voltage ceiling from
 `set_vpn_limits!` above:
 
-```@example ders
+```julia
 RECIPE_NOLIMITS = AugmentationRecipe(          # scenario A
     apply_vpn_bounds = false, apply_vpp_bounds = false,
     apply_vneg_bounds = false, apply_thermal = false)
 RECIPE_LIMITS   = AugmentationRecipe(          # scenarios B and C
     apply_vpn_bounds = false, apply_vpp_bounds = false,
     apply_vneg_bounds = false, apply_v_bounds = false)
-nothing # hide
 ```
 
 ```@setup ders
@@ -240,7 +244,7 @@ utilisation, a classifier that names the headline active constraint, and a
 loads the same definitions behind the scenes. With everything in place, the
 recipes drop one PV IBR and one thinner generator on each load bus:
 
-```@example ders
+```julia
 demo = base_net()
 for (iid, ibr) in sort(collect(demo["ibr"]); by = first)
     println("  IBR  ", rpad(iid, 11), "bus=", rpad(ibr["bus"], 8),
@@ -265,7 +269,7 @@ expensive slack import.
 The economic baseline: head at nominal, no voltage ceiling, no thermal limit
 (the `RECIPE_NOLIMITS` preset). The OPF is then a pure cost sort:
 
-```@example ders
+```julia
 A = run_scenario(base_net(), RECIPE_NOLIMITS)
 show_outcome(A)
 ```
@@ -286,7 +290,7 @@ net["bus"][b]["vpn_max"] = fill(1.10 * 230.0, 3)
 net["bus"][b]["vpn_min"] = fill(0.90 * 230.0, 3)
 ```
 
-```@example ders
+```julia
 B = run_scenario(set_vpn_limits!(base_net(head_pu = 1.05)), RECIPE_LIMITS)
 show_outcome(B)
 ```
@@ -326,7 +330,7 @@ Keep everything — head, feeder, DER fleet, the 1.10 pu ceiling — and change 
 *one* thing: give the two service drops a realistically derated 16 mm² ampacity
 (`i_max = 90 A`) instead of their healthy rating:
 
-```@example ders
+```julia
 C = run_scenario(set_vpn_limits!(base_net(head_pu = 1.05, derate = true)),
                  RECIPE_LIMITS)
 show_outcome(C)
@@ -342,7 +346,7 @@ of absorbing 21.79 kvar.
 
 ### Summary
 
-```@example ders
+```julia
 using Printf
 @printf("%-16s%10s%12s%12s%9s   %s\n",
         "scenario", "max V(pu)", "thermal(%)", "export(kW)", "ΣP(kW)", "binding")
@@ -364,7 +368,7 @@ operating envelope at once.
 If one knob can flip the binding constraint, what does sweeping it look like? Hold
 the scenario-C setup fixed and sweep only the cable ampacity:
 
-```@example ders
+```julia
 @printf("%8s%12s%13s   %s\n", "i_max(A)", "max V(pu)", "export(kW)", "binding")
 for imax in (60.0, 90.0, 120.0, 160.0, 220.0, 600.0)
     o = run_scenario(set_vpn_limits!(base_net(head_pu = 1.05, derate = true,

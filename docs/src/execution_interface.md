@@ -65,7 +65,7 @@ The first non-contract route parses one BMOPF JSON file and runs the same
 [`analyze`](@ref) battery used throughout the tutorials:
 
 ```sh
-bin/bmopf analyze-case --input examples/lv1_14bus.json --pretty
+bin/bmopf analyze-case --input recipes/analyze_case/input.json --pretty
 ```
 
 For a time-series case, add `--time-index N` to select the snapshot. The

@@ -1,3 +1,4 @@
+# Requires external CC BY-NC-SA data: set BMOPF_RESTRICTED_DATA to BMOPFDraftData/test/data.
 # Units, bases, scaling, and economics — one feeder, two voltage levels.
 #
 #   julia --project=test examples/units_tutorial.jl
@@ -21,7 +22,7 @@ sep(t) = println("\n" * "="^72 * "\n  " * t * "\n" * "="^72)
 
 # ── 1–2. Load the feeder: 11 kV source, Dyn transformer, 400 V mains ─────────
 sep("1. One feeder, two voltage levels")
-path = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "LV1_14bus", "Master.dss")
+path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
 net  = from_dss(path)
 
 src  = first(values(net["voltage_source"]))
@@ -86,7 +87,7 @@ println("objective hand / solver: ", obj_hand, " / ", res_pu["objective"], " \$/
 
 # ── 7. Rate → energy: integrate over a day ───────────────────────────────────
 sep("5. From \$/h to \$: multiply each snapshot's rate by its duration")
-ts_path  = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "lv1_14bus_timeseries.json")
+ts_path  = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus_timeseries.json")
 ts_ready, _ = augment_case(parse_bmopf(ts_path); recipe = AugmentationRecipe())
 rates = [solve_opf(ts_ready; optimizer = OPT, t_index = t)["objective"] for t in 1:24]
 Δt_h  = 1.0                                                     # hourly steps

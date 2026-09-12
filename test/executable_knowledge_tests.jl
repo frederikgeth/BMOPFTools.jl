@@ -314,8 +314,6 @@ using SHA
         end
     end
 
-    generator = joinpath(root, "scripts", "generate_executable_knowledge.py")
-    @test success(`python3 $generator --check`)
-    finding_generator = joinpath(root, "scripts", "generate_finding_registry.py")
-    @test success(`python3 $finding_generator --check`)
+    # Byte-for-byte regeneration is checked in the dedicated Python CI job.
+    # Package tests validate the shipped schema, source hashes, and records above.
 end

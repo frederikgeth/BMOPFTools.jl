@@ -133,8 +133,9 @@ const META_CSIRO_ENWL = Dict{String,Any}(
 )
 
 # ── LV: test/data/LV/<name>/Master.dss ───────────────────────────────────────
-lv_dir = joinpath(DATA_DIR, "LV")
-if isdir(lv_dir)
+restricted_dir = get(ENV, "BMOPF_RESTRICTED_DATA", "")
+lv_dir = joinpath(restricted_dir, "LV")
+if !isempty(restricted_dir) && isdir(lv_dir)
     for entry in sort(readdir(lv_dir))
         master = joinpath(lv_dir, entry, "Master.dss")
         isfile(master) || continue
@@ -143,15 +144,15 @@ if isdir(lv_dir)
 end
 
 # ── Combined MV+LV: test/data/Master.dss ────────────────────────────────────
-combined_master = joinpath(DATA_DIR, "Master.dss")
-if isfile(combined_master)
+combined_master = joinpath(restricted_dir, "Master.dss")
+if !isempty(restricted_dir) && isfile(combined_master)
     add_case!("combined", "MV_LV_combined", combined_master, "MV_LV_combined";
               meta=META_CSIRO_MVLV)
 end
 
 # ── ENWL 4-wire: test/data/ENWL/<network>/<feeder>/Master.dss ───────────────
-enwl_dir = joinpath(DATA_DIR, "ENWL")
-if isdir(enwl_dir)
+enwl_dir = joinpath(restricted_dir, "ENWL")
+if !isempty(restricted_dir) && isdir(enwl_dir)
     for (root, dirs, files) in walkdir(enwl_dir)
         "Master.dss" in files || continue
         rel   = relpath(root, enwl_dir)

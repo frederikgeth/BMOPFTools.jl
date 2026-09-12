@@ -1,0 +1,8 @@
+# Package-owned snapshot; the upstream draft URL is not immutable.
+path = "src/validation/schemas/draft_bmopf_schema.json"
+sha256 = "bad01dc145deaab0caa1fbc801df4957acba31a5a5f9f142879bed41f2706767"
+schema_version = "0.1.0"
+package_source_commit = "7937f9792babac62483203321803652bb2159271"
+upstream_url = "https://github.com/frederikgeth/bmopf-report/blob/main/draft_schema_and_networks/draft_bmopf_schema.json"
+# No identical upstream revision has been established. Do not infer one from main.
+upstream_revision_verified = false

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "a168f2be0ea0e689a651f96a9f2cedb59c0642a5b91f25018d48c86c024052ec",
+  "corpus_sha256": "df5f67c25a1fbee3fa3058762563655e4fe492ee6d5810d75b685c2fe1e3c47d",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -50,7 +50,7 @@
   "source_files": [
     {
       "path": "Project.toml",
-      "sha256": "cbe8bfbe805b030e7802a56ff526d68eefb676f080c57a58fcc884199f83c8bf"
+      "sha256": "81d4f34067344e5b29a474db98becef2090627c0893e0a8bdadbe1a7f3efdbfd"
     },
     {
       "path": "bin/bmopf",
@@ -66,7 +66,7 @@
     },
     {
       "path": "docs/src/dev/versioning.md",
-      "sha256": "abf76a75467e30941b3856fce239e6e9cb25140053be577520ee9ca8ea47e705"
+      "sha256": "d0c5337e472f2cc69e9991952d258ac26f102753b2add81a8125cfb3d9f226fc"
     },
     {
       "path": "docs/src/differentiable_extensions.md",
@@ -90,27 +90,23 @@
     },
     {
       "path": "docs/src/tutorial_custom_formulations.md",
-      "sha256": "bec957f4a49057d8c0a0f493f971d52eb0341a7243da9f9adc80c26cc430085c"
+      "sha256": "dbb143505783e32a9a88a7f4e1d1ca8e0eec11da6dadda4d1caa36169d9222e2"
     },
     {
       "path": "docs/src/tutorial_nameplate.md",
-      "sha256": "6a803287efa63123cb68c0d7a6b330f3d71688c73bcf2fc8fabb98bef6b7e020"
+      "sha256": "ee434736c4837c78dedc020aba244dfa2f836a2c6e19c78a87d0e01354194a9c"
     },
     {
       "path": "docs/src/tutorial_simplify.md",
-      "sha256": "fd0194f87cf3e0d5b95f24b49d48bc470c4209d4822f43b9ae6aadfbb5bbf737"
+      "sha256": "8f4e649e46d12026b32a90129211279489348366219c00ef834b2f84c58c3a50"
     },
     {
       "path": "docs/src/tutorial_triage.md",
-      "sha256": "1b868dec0127c97ca04d7a12291f73e65b2aff0a89126f63ebbdf89649e8f017"
+      "sha256": "4c419f4e49d2498b2ff2d8e38e2d5f29f371073c64b5b4ff92ace987aa0d632f"
     },
     {
       "path": "docs/src/tutorial_trust_but_verify.md",
       "sha256": "13451410e2637d8da38a454074cc74909950eed45f154ee838b8c6970bbc8887"
-    },
-    {
-      "path": "examples/lv1_14bus.json",
-      "sha256": "438bb573d6de282f64c2194eb3a838b12ceacd517d37fb68d3ac10557806a8ee"
     },
     {
       "path": "ext/BMOPFOpfExt/branch.jl",
@@ -174,23 +170,27 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "7742b76f1031c4da52e54b2b6bb37de2649ba9a939e45b8bf79439cb721bd112"
+      "sha256": "c45aaa9e64b40c6a2083c92d87ae44aebb6ae48770b7b0a977b75ee9ba486870"
     },
     {
       "path": "recipes/README.md",
-      "sha256": "870cd68b26fc8c88f4e0e957360f769b960af4d5fddd3987e33a64efabbc8249"
+      "sha256": "82c5a089cc75214cac960d31f724358b7cb9f6e509230519ad53aaed8b2d308e"
     },
     {
       "path": "recipes/analyze_case/README.md",
-      "sha256": "e4622e522292be53b9fc319e9789f174330c27c35c32468fcc4cadb4d7938bc5"
+      "sha256": "c7041af6186343bfc3522053f09c2c417d36df810b0579c74dad4b26953bbcd0"
+    },
+    {
+      "path": "recipes/analyze_case/input.json",
+      "sha256": "d24c1cc2e1c513fb9b6d6f4fd33a7c72ab4d840402b0c5f8a3bb87f8bcad4d9a"
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "15b2d9aba0b1c81cf6810203c9f1017833a6dfbf397f0cdfa8e7495959df8530"
+      "sha256": "773fcd9a4d3f58574bb168f0ec109f416967f0d0202af0b75b0cd9baec477971"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
-      "sha256": "cb62757f42901ca5ac63330300a2fc948ac7fcdd7abfac5d55c4d80a48a233d5"
+      "sha256": "362c64f32805002b127a83193d80f81997089ee7289dbfd0af5de82b5f65dede"
     },
     {
       "path": "recipes/explain_finding/README.md",
@@ -354,7 +354,7 @@
     },
     {
       "path": "test/Project.toml",
-      "sha256": "b4a0794535f01ea3a5d99097c555e069b64ab2f81d9f98a95c4a2e3592f8dbb5"
+      "sha256": "fcc6b49f8fe6e47274365b9822d87eba25a2f3ce95ee181e1548ba09d11e3cda"
     },
     {
       "path": "test/data/line_geometry/ieee13_601.dss",
@@ -734,7 +734,7 @@
     },
     {
       "path": "test/powerio_regression_tests.jl",
-      "sha256": "1ab0be819e5c4864df76caba182e79e116876c13edeae8fa3d6a60e33c26a822"
+      "sha256": "7bd127f58b81c12db2cfb258ffe6bea34b17ecc9f70d6f32573ca58bfee9b509"
     },
     {
       "path": "test/powerio_v09_tests.jl",

@@ -1,3 +1,0 @@
-new reactor.tx_busgrounding_B694 phases=1 bus1=B694.4 bus2=B694.0 r=0.3 x=0.0
-new reactor.loadbusgrounding_B336 phases=1 bus1=B336.4 bus2=B336.0 r=10.0 x=0.0
-new reactor.loadbusgrounding_B2664 phases=1 bus1=B2664.4 bus2=B2664.0 r=10.0 x=0.0

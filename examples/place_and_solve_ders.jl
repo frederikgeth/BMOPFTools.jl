@@ -1,3 +1,4 @@
+# Requires external CC BY-NC-SA data: set BMOPF_RESTRICTED_DATA to BMOPFDraftData/test/data.
 """
     place_and_solve_ders.jl  —  Siting DERs and reading the *binding constraint*
 
@@ -56,7 +57,7 @@ using Printf
 sep(t) = println("\n", "─"^74, "\n  ", t, "\n", "─"^74)
 
 # ── Modelling constants ───────────────────────────────────────────────────────
-const INPUT_JSON = joinpath(@__DIR__, "lv1_14bus.json")
+const INPUT_JSON = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json")
 
 const LV_LN_V    = 230.0                 # LV phase-to-neutral nominal we report in
 const HEAD_SCALE = LV_LN_V / (433.0 / sqrt(3))  # rescale the 433 V feeder head to a

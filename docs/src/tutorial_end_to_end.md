@@ -1,5 +1,12 @@
 # End-to-end tutorial: from OpenDSS to a solved OPF benchmark
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 This is the **primary use case** of BMOPFTools, start to finish, on one real
 feeder. We take a utility-style OpenDSS model and walk the whole pipeline:
 
@@ -40,10 +47,10 @@ neutral reactors.
 [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl)) and returns the BMOPF
 network as a plain `Dict{String,Any}`.
 
-```@example e2e
+```julia
 using BMOPFTools
 
-dss_path = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "LV1_14bus", "Master.dss")
+dss_path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
 net = from_dss(dss_path)
 
 for comp in ("bus", "line", "linecode", "switch", "load", "shunt", "voltage_source")
@@ -72,7 +79,7 @@ conformance, benchmark readiness, and more — and returns a
 dot-separated code; see [Analysis & reports](analysis.md) for what each pass
 computes and the [finding-code reference](findings.md) for the full catalogue.
 
-```@example e2e
+```julia
 report = analyze(net)
 
 println("ERRORs   : ", length(errors(report)))
@@ -89,7 +96,7 @@ feeder*: there is nothing for an OPF to optimise yet, which is exactly what the
 DER-placement step below is for. The missing operating bounds show up as INFO
 findings such as `I.PRE.NO_VOLT_BOUNDS`, which the augmentation step fills.
 
-```@example e2e
+```julia
 for f in warnings(report)
     println("WARN  [", f.code, "]  ", f.message)
 end
@@ -99,7 +106,7 @@ The full report renders to a terminal or a Markdown file. The one-line
 **modeling-convention statement** (wires per voltage level, grounding style,
 normalisations) makes the case's hidden assumptions explicit:
 
-```@example e2e
+```julia
 render(report, stdout)
 ```
 
@@ -115,7 +122,7 @@ representation, or OPF physics: `apply_adjacent_current_bounds`,
 `apply_perfect_grounding`, `apply_shunt_to_capacitor`, and
 `apply_snap_transformer_impedance`.
 
-```@example e2e
+```julia
 net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
 
 render_manifest(fix_mf)
@@ -132,7 +139,7 @@ network's own semantics, recording every field it writes. Here a
 See the [DER placement tutorial](tutorial_ders.md) for the full menu of
 placement strategies, sizing bases, and cost knobs.
 
-```@example e2e
+```julia
 ibr_recipe = IBRRecipe(
     strategy     = :load_following,   # one PV IBR per load bus
     s_fraction   = 5.0,               # s_max = 5 × local load
@@ -155,7 +162,7 @@ ampacity estimate (thermal limits, loosely IEC-60228/60364-calibrated), and
 EN 50549-1 / IEEE 1547 (reactive capability). See
 [Case augmentation](augmentation.md) for the full pass-by-pass rationale.
 
-```@example e2e
+```julia
 net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
 
 render_manifest(aug_mf)
@@ -166,7 +173,7 @@ per-conductor ampacity `i_max` (in A) onto each linecode that lacked one — thi
 is the line/cable thermal limit the OPF enforces, and it is tagged `:synthetic`
 in the manifest above. Read it straight off the prepared linecodes:
 
-```@example e2e
+```julia
 for (lc_id, lc) in sort(collect(net_ready["linecode"]); by = first)
     imax = get(lc, "i_max", nothing)
     println(rpad(lc_id, 16),
@@ -188,7 +195,7 @@ Re-running [`analyze`](@ref) on the prepared case shows what the pipeline
 actually changed. Raw counts are a blunt instrument — the interesting signal is
 *which* finding codes appeared and disappeared, so we diff them:
 
-```@example e2e
+```julia
 report2 = analyze(net_ready)
 
 all_codes(r) = Set(f.code for f in [errors(r); warnings(r); infos(r)])
@@ -219,7 +226,7 @@ such as **Ipopt** are present. It solves the four-wire IVR-EN model
 (see [Optimal power flow](opf.md)) and returns a result dictionary mirroring the
 network structure (see [OPF result dictionary](results.md)).
 
-```@example e2e
+```julia
 using JuMP, Ipopt
 
 optimizer = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
@@ -241,7 +248,7 @@ network: top-level keys are component types, then component id, then terminal.
 The full field reference is in [OPF result dictionary](results.md); here we read
 a few solved quantities directly:
 
-```@example e2e
+```julia
 b = "b2656"                                    # a load bus with a 1-phase customer
 println("Bus '", b, "' terminal voltages (V):")
 for (t, v) in sort(collect(result["bus"][b]); by = first)
@@ -270,7 +277,7 @@ feeder exports ≈ 69 kW of PV surplus.
 flagging violations, near-active constraints, and residuals — without access to
 solver internals, and returns a [`SolutionReport`](@ref):
 
-```@example e2e
+```julia
 sol_report = profile_solution(net_ready, result)
 
 println("Solution ERRORs   : ", length(errors(sol_report)))
@@ -298,7 +305,7 @@ The solved result and the solution report export the same way:
 [`read_result`](@ref)), and [`render_solution`](@ref) writes the human-readable
 report to a Markdown file when given a path instead of an `IO`.
 
-```@example e2e
+```julia
 out_dir = mktempdir()
 write_bmopf(net_ready, joinpath(out_dir, "LV1_14bus_ready.json"))     # the case
 write_result(result,   joinpath(out_dir, "LV1_14bus_result.json"))    # solved values

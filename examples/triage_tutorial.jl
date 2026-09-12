@@ -1,3 +1,4 @@
+# Requires external CC BY-NC-SA data: set BMOPF_RESTRICTED_DATA to BMOPFDraftData/test/data.
 # Findings triage — from raw import to defensible case (no solver needed).
 #
 #   julia --project=test examples/triage_tutorial.jl
@@ -20,7 +21,7 @@ sep(t) = println("\n" * "="^72 * "\n  " * t * "\n" * "="^72)
 
 # ── 1. The patient ────────────────────────────────────────────────────────────
 sep("1. MVLVmeshed: a combined MV+LV network with deliberate mesh ties")
-path = joinpath(pkgdir(BMOPFTools), "test", "data", "MVLVmeshed", "Master.dss")
+path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "MVLVmeshed", "Master.dss")
 net  = from_dss(path)
 println(length(get(net, "bus", Dict())), " buses, ",
         length(get(net, "line", Dict())), " lines, ",

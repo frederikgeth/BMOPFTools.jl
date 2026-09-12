@@ -8,6 +8,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 DiffOpt = "0.5, 0.6"
 Ipopt = "1"
-JuMP = "1"
+JuMP = "1.29.4"
 julia = "1.10"
 

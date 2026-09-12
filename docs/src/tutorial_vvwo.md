@@ -1,5 +1,12 @@
 # Tutorial: PV smart IBRs as distributed control
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 A fleet of rooftop PV IBRs is, whether we model it that way or not, a
 **distributed control system**. Each IBR is a self-interested local agent:
 it wants to export as much of its own active power as possible, and it reacts to
@@ -118,7 +125,7 @@ the constrained centralized optimum.
 ## The setup
 
 We use the real `LV1_14bus` feeder (11 kV / 433 V, two single-phase customers on
-phases 1 and 2), shipped with the package as `examples/lv1_14bus.json`. To create
+phases 1 and 2), stored externally as `BMOPFDraftData/test/data/LV/lv1_14bus.json`. To create
 the over-voltage that VV/VW exists to solve, we put a PV cluster at each customer
 connection and operate the feeder the way real LV networks are run at the edge of
 hosting capacity:
@@ -139,7 +146,7 @@ PV priced at zero the OPF maximises export until a constraint stops it.
 `base_net()` builds this network fresh for each scenario — parse the JSON, retap
 the head, lengthen the two service drops, and place the two PV clusters:
 
-```@example vvwo
+```julia
 using BMOPFTools
 using JuMP, Ipopt
 
@@ -156,7 +163,7 @@ pv(bus, phase) = Dict{String,Any}(
     "p_max" => [45_000.0], "p_min" => [0.0], "cost" => [0.0])
 
 function base_net()
-    net = parse_bmopf(joinpath(pkgdir(BMOPFTools), "examples", "lv1_14bus.json"))
+    net = parse_bmopf(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json"))
 
     vs = first(values(net["voltage_source"]))
     haskey(vs, "cost") || (vs["cost"] = fill(1.0, length(vs["v_magnitude"]) - 1))
@@ -170,7 +177,6 @@ function base_net()
                                   "pv_b" => pv("b2656", "2"))
     return net
 end
-nothing # hide
 ```
 
 A few helpers: the set of LV buses (the limits and the reported maximum must not
@@ -179,7 +185,7 @@ touch the 11 kV source bus), the phase-to-neutral magnitude in pu, an
 scenario adds exactly the limits it wants), and a one-line reporter for a solved
 OPF:
 
-```@example vvwo
+```julia
 using Printf
 
 lv_buses(net) = [b for b in keys(net["bus"])
@@ -210,7 +216,6 @@ function solve_and_report(aug)
             vmax, P, Q, exp)
     return (vmax=vmax, P=P, Q=Q, exp=exp)
 end
-nothing # hide
 ```
 
 ## Three scenarios
@@ -226,14 +231,13 @@ PV runs at unity power factor and no network limits are imposed. There is no
 droop in this scenario — nothing reads the voltage the export creates — so each
 IBR simply runs to nameplate. This is the uncoordinated selfish maximum:
 
-```@example vvwo
+```julia
 netA = base_net()
 for (_, inv) in netA["ibr"]
     inv["q_min"] = [0.0]; inv["q_max"] = [0.0]    # pin Q = 0: unity-PF baseline
 end
 augA, _ = augment_case(netA; recipe=manual_recipe())
 A = solve_and_report(augA)
-nothing # hide
 ```
 
 The worst phase-to-neutral voltage is **1.114 pu**, well over the 1.10 pu limit.
@@ -248,7 +252,7 @@ directly on the fixed point that the local controllers would otherwise iterate
 to — and, in the balanced case, that fixed point is the centralized optimum of
 [[1]](@ref refs-vvwo), [[2]](@ref refs-vvwo), reached here with no outer loop:
 
-```@example vvwo
+```julia
 function attach_droop!(net)
     net["control_profile"] = Dict("vvw" =>
         Dict("volt_var" => Dict{String,Any}(), "volt_watt" => Dict{String,Any}()))
@@ -266,7 +270,6 @@ augB, _ = augment_case(netB; config=cfg, recipe=manual_recipe())
 println("volt_var  : ", augB["control_profile"]["vvw"]["volt_var"])
 println("volt_watt : ", augB["control_profile"]["vvw"]["volt_watt"])
 B = solve_and_report(augB)
-nothing # hide
 ```
 
 The IBRs now **absorb reactive power** (Volt-var) and **curtail active
@@ -274,7 +277,7 @@ power** (Volt-watt), pulling the voltage down — solved in *one shot* with the
 network, no outer iteration. To see *which segment* of the Aus A curves the
 equilibrium sits on, look at each IBR's own monitored voltage:
 
-```@example vvwo
+```julia
 resB = solve_opf(augB; optimizer=OPT, per_unit=true)
 for id in sort(collect(keys(augB["ibr"])))
     ibr = augB["ibr"][id]
@@ -308,7 +311,7 @@ Keep the droop, and add the constraints that the distributed law provably cannot
 guarantee here: a 1.10 pu phase-to-neutral ceiling, a neutral-to-ground cap, and
 (via the recipe's thermal pass) thermal ratings on the LV buses:
 
-```@example vvwo
+```julia
 netC = attach_droop!(base_net())
 for b in lv_buses(netC)
     netC["bus"][b]["vpn_max"] = fill(1.10 * LV_LN_V, 3)
@@ -317,7 +320,6 @@ for b in lv_buses(netC)
 end
 augC, _ = augment_case(netC; config=cfg, recipe=manual_recipe(thermal=true))
 C = solve_and_report(augC)
-nothing # hide
 ```
 
 The OPF **co-optimises the droop and the network limits**: the voltage is held at
@@ -328,7 +330,7 @@ of an OPF.
 
 ### Summary
 
-```@example vvwo
+```julia
 @printf("%-22s %10s %13s %15s %12s\n",
         "scenario", "max V (pu)", "P_total (kW)", "Q_total (kvar)", "export (kW)")
 for (label, o) in (("A — unity PF", A), ("B — droop", B), ("C — droop + limits", C))
@@ -389,7 +391,7 @@ source, one four-wire line, 8 kW on phase 1 and 2 kW on phase 3, and a 3 × 10 k
 `FOUR_LEG` PV — whose load-bus neutral is *not* grounded, so it lifts under
 unbalance and phase-to-neutral genuinely differs from phase-to-ground:
 
-```@example vvwo
+```julia
 function aside_net(vref)
     net = parse_bmopf("""
     {"bus":{

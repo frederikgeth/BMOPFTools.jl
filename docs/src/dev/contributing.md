@@ -136,13 +136,12 @@ One-off data-migration scripts live in `scripts/oneoff/`.
 
 ## Licensing of contributions
 
-The repository carries a **dual licence** (see `LICENSE.md` and the README):
+Code is BSD-3-Clause. Network fixtures retain their upstream licences; see the
+README's dataset table and the licence files accompanying each dataset.
+Task Force feedback is CC BY 4.0. Restricted CSIRO MV/LV datasets and their
+LV1 derivatives are stored externally in `BMOPFDraftData/test/data` under
+CC BY-NC-SA 4.0. Set `BMOPF_RESTRICTED_DATA` explicitly to run those integration
+tests or dataset tutorials. Do not add restricted data back into this package.
 
-- **Code** — BSD-3-Clause.
-- **Benchmark cases and Task Force outputs** (`/output`, `/test/data`,
-  `docs/taskforce_feedback.md`) — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-  Some cases are restricted to non-commercial use (the `MV` and `LV` cases).
-
-By contributing **data** you agree to release it under CC BY 4.0; cite the
-original source in the case header. By contributing **code** you agree to the
-BSD-3-Clause licence.
+By contributing code, you agree to the BSD-3-Clause licence. For data, preserve
+upstream attribution and terms and only contribute material you may redistribute.

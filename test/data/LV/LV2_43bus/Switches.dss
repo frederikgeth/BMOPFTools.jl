@@ -1,4 +1,0 @@
-! new line.Switch_210_OPEN lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B776 bus2=B2325 length=0.00100000000000 units=km switch=y phases=4
-new line.Switch_965_CLOSED lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B278 bus2=B2341 length=0.00100000000000 units=km switch=y phases=4
-new line.Switch_1043_CLOSED lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B2252 bus2=B1982 length=0.00100000000000 units=km switch=y phases=4
-! new line.Switch_1147_OPEN lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B3117 bus2=B3291 length=0.00100000000000 units=km switch=y phases=4

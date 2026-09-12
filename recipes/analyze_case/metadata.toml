@@ -1,7 +1,7 @@
 schema_version = "0.6.0"
 recipe_id = "analyze_case"
 title = "Analyze and triage one BMOPF case"
-purpose = "Parse the small tutorial network, run the standard analysis battery, and emit the complete structured Finding report without interpreting warnings as transport failure."
+purpose = "Parse the small synthetic network, run the standard analysis battery, and emit the complete structured Finding report without interpreting warnings as transport failure."
 operation = "analyze_case"
 knowledge_ids = []
 fixture_ids = []
@@ -15,7 +15,7 @@ interface_paths = [
   "schemas/execution-response.schema.json",
   "src/execution/interface.jl",
 ]
-input_paths = ["examples/lv1_14bus.json"]
+input_paths = ["recipes/analyze_case/input.json"]
 tutorial_paths = [
   "docs/src/tutorial_triage.md",
   "docs/src/tutorial_nameplate.md",

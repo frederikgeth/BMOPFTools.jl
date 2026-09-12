@@ -125,13 +125,11 @@ using JSON3
     @testset "old-style documents are byte-stable through the new migrations" begin
         # A pre-v0.8.0 document (old URI, lowercase models, no parked extras)
         # takes none of the new paths: same parse as before this change.
-        legacy = joinpath(@__DIR__, "..", "examples", "lv1_14bus.json")
-        if isfile(legacy)
-            lnet = parse_bmopf(legacy)
-            lcodes = [n["code"] for n in
-                      get(get(lnet, "_meta", Dict()), "migration_notes", Any[])]
-            @test "W.MIGRATE.LOAD_MODEL_CASE" ∉ lcodes
-            @test "W.MIGRATE.XFMR_EXTRAS_FOLD" ∉ lcodes
-        end
+        legacy = joinpath(@__DIR__, "..", "recipes", "analyze_case", "input.json")
+        lnet = parse_bmopf(legacy)
+        lcodes = [n["code"] for n in
+                  get(get(lnet, "_meta", Dict()), "migration_notes", Any[])]
+        @test "W.MIGRATE.LOAD_MODEL_CASE" ∉ lcodes
+        @test "W.MIGRATE.XFMR_EXTRAS_FOLD" ∉ lcodes
     end
 end

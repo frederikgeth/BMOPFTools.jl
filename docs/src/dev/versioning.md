@@ -22,8 +22,10 @@ While the package is `0.x` (pre-1.0):
 - **Breaking changes bump the minor** — `0.y.z` → `0.(y+1).0`.
 - **New features and fixes bump the patch** — `0.y.z` → `0.y.(z+1)`.
 
-Breaking changes currently land directly on `main` during rapid development, so
-**pin a revision when you need reproducibility**:
+Development on `main` may contain unreleased breaking changes. Registered
+patch releases must retain the documented contracts of their minor series.
+Use a released version and commit your application's Manifest.toml for
+reproducibility; for unregistered development snapshots, pin a commit:
 
 ```julia
 Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl", rev = "<commit-sha>")
@@ -39,12 +41,12 @@ these is breaking and must bump the minor version:
   *semantics* (what triggers it). Adding a new code is additive, not breaking,
   but still needs a [`findings.md`](../findings.md) row.
 
-Some documented functions are deliberately **not exported** and must be called
-qualified (`BMOPFTools.migrate`, `BMOPFTools.render_markdown`,
-`BMOPFTools.render_terminal`, `BMOPFTools.voltage_zone_summary`): their
-*behaviour* follows the same stability rules, but their *names* are not part of
-the export surface and may move with a documented deprecation rather than a
-breaking bump.
+- **Documented qualified APIs** — including `BMOPFTools.migrate`,
+  `BMOPFTools.render_markdown`, `BMOPFTools.render_terminal`, and
+  `BMOPFTools.voltage_zone_summary` — carry the same compatibility promise.
+  A deprecation is compatible only while the old call continues to work;
+  removing it requires a breaking release. APIs explicitly marked internal
+  or experimental are excluded from this promise.
 - **Result-dict shape** — the structure of the dict returned by
   [`solve_opf`](../opf.md) / consumed by [`profile_solution`](../results.md).
 - **Report shape** — the fields of `Finding`, `SummaryReport`, `SolutionReport`.
@@ -144,5 +146,10 @@ extension field.
 
 - **Coverage must not decrease.** Codecov gates every PR
   (`.github/workflows/ci.yml`).
-- **Compat floor: Julia ≥ 1.10 (LTS).** CI runs both the LTS and the latest
-  stable (`lts` + `1`); the `[compat]` floor in `Project.toml` is the contract.
+- **Compat floor: Julia ≥ 1.10.** CI runs literal `1.10` and the latest
+  stable (`1`); the `[compat]` floor in `Project.toml` is the contract.
+
+The JSON execution envelope and OPF provenance records have their own schema
+identifiers. Package SemVer does not replace those identifiers. The first-release
+bundled validation schema is fingerprinted in `schemas/bundled-schema.toml`;
+regeneration and release gates are described in the repository's `RELEASING.md`.

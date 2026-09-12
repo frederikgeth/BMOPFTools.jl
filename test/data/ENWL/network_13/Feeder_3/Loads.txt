@@ -1,5 +1,0 @@
-! Imported from Loads.txt, with modified neutral terminal
-! ------------------------------------------------------------
-New Load.LOAD1 Phases=1 Bus1=84.1.4 kV=0.23 kW=1.968  PF=0.95
-New Load.LOAD2 Phases=1 Bus1=107.2.4 kV=0.23 kW=0.306  PF=0.95
-! ------------------------------------------------------------

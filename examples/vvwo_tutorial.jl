@@ -1,3 +1,4 @@
+# Requires external CC BY-NC-SA data: set BMOPF_RESTRICTED_DATA to BMOPFDraftData/test/data.
 """
     vvwo_tutorial.jl  —  Volt-VAr-Watt **optimisation** on a four-wire LV feeder
 
@@ -62,7 +63,7 @@ const VN_MAX_PU  = 0.10          # neutral-to-ground cap (a four-wire-only limit
 const OPT = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0,
                                       "max_iter" => 500)
 
-const INPUT = joinpath(@__DIR__, "lv1_14bus.json")
+const INPUT = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json")
 
 # ── Base network: retap the head, lengthen the service drops, place the PV ─────
 #

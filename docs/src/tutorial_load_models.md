@@ -1,5 +1,12 @@
 # [Choosing and identifying a load model](@id load-models)
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 *Five load models on the same feeder: where they agree, where they diverge,
 what happens at the edge of collapse, and what it takes to identify one from
 measurements.*
@@ -56,10 +63,10 @@ magnitude from 90 % to 110 % of nominal. A power flow —
 [`solve_pf`](@ref), which enforces **no operational limits** — reports what
 one customer actually draws:
 
-```@example loads
+```julia
 using BMOPFTools, JuMP, Ipopt
 
-path = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "LV1_14bus", "Master.dss")
+path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
 lv1  = from_dss(path)
 OPT  = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
@@ -115,7 +122,7 @@ Now hold the feeder at two operating points — nominal, and a depressed 90 %
 day — and compare what each model assumption does to the *system* quantities
 a study reports:
 
-```@example loads
+```julia
 mv_bus = "b2577"   # 11 kV source bus — excluded from the LV voltage stats
 
 function feeder_row(net)
@@ -166,7 +173,7 @@ which loses its real solutions — the nose of the PV curve — where the
 discriminant hits zero. Solve for that ``\lambda`` and compare it with where
 the engine stops converging:
 
-```@example loads
+```julia
 weak(model, extra; λ = 1.0) = Dict{String,Any}(
     "bus" => Dict{String,Any}(
         "src" => Dict{String,Any}("terminal_names" => ["1"]),
@@ -198,7 +205,7 @@ println("analytic constant-power nose: λ_max = ", round(λ_nose; digits = 3),
 Now sweep every model up the same loading ramp and record where each stops
 solving and at what voltage:
 
-```@example loads
+```julia
 println("model                 last λ    V there    P there    stopped by")
 for (m, extra) in MODELS
     lastλ, lastV, lastP = 0.0, NaN, NaN
@@ -305,7 +312,7 @@ one row per measurement. Generate the "measurement campaign" honestly — a
 true ZIP load (``\alpha = (0.4, 0.3, 0.3)``) on the weak feeder, observed
 through power-flow solves at different source settings — and fit it back:
 
-```@example loads
+```julia
 using LinearAlgebra
 
 function campaign(scales)
@@ -345,7 +352,7 @@ Both campaigns recover the true parameters exactly — the data is noiseless,
 so even an ill-conditioned system solves. Real meters are not noiseless.
 Corrupt **a single reading** by half a percent and refit:
 
-```@example loads
+```julia
 for (name, (V, Pm)) in ("wide 0.85–1.10" => wide, "narrow 0.98–1.02" => narrow)
     P2 = copy(Pm); P2[1] *= 1.005          # one meter reads 0.5 % high, once
     f = fit_zip(V, P2)

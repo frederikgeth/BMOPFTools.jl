@@ -713,7 +713,8 @@ end
     @test length(net′["line"]) == 1
     l = only(values(net′["line"]))
     @test l["length"] ≈ 200.0
-    @test l["bus_to"] == "D"
+    # Either orientation is valid; Dict iteration does not select a stable survivor.
+    @test Set((l["bus_from"], l["bus_to"])) == Set(("A", "D"))
 
     log = net′["_simplification_log"]
     codes = [e["code"] for e in log]

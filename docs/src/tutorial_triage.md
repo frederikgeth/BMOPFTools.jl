@@ -1,5 +1,12 @@
 # [Findings triage: from raw import to defensible case](@id findings-triage)
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 *A 3400-bus meshed import arrives with a hundred-plus findings. Learn to sort
 them into defects to fix, judgment calls to decide, and disclosures to keep —
 and to leave a paper trail for each.*
@@ -27,10 +34,10 @@ The `MVLVmeshed` test case is a combined MV + LV network in which
 normally-open ties and switches were deliberately re-added — a stand-in for
 the real-world case where you receive a *system*, not a tidy radial feeder:
 
-```@example triage
+```julia
 using BMOPFTools
 
-path = joinpath(pkgdir(BMOPFTools), "test", "data", "MVLVmeshed", "Master.dss")
+path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "MVLVmeshed", "Master.dss")
 net  = from_dss(path)
 println(length(get(net, "bus", Dict())), " buses, ",
         length(get(net, "line", Dict())), " lines, ",
@@ -51,7 +58,7 @@ findings report; their code namespaces tell them apart.
 or reinterpret in `net["_meta"]["powerio_warnings"]` — the import's fidelity
 ledger:
 
-```@example triage
+```julia
 pw = get(get(net, "_meta", Dict()), "powerio_warnings", String[])
 println(length(pw), " import warnings; a sample:")
 for w in first(pw, 3)
@@ -68,7 +75,7 @@ analysis can detect. Read it once, note anything electrical, and move on.
 The same losses are also [`Finding`](@ref)s, one per diagnostic class, so they
 sit in the report layer two produces rather than only on the dict:
 
-```@example triage
+```julia
 for f in powerio_findings(net)
     println("  ", f.severity, "  ", f.code, "  ×", f.detail["count"])
 end
@@ -90,7 +97,7 @@ a three-level severity contract:
 - **`I.*` infos** — disclosures: provenance, symmetry observations, benchmark
   realism notes. They are the case's honesty record, not problems.
 
-```@example triage
+```julia
 report = analyze(net)
 println("errors ", length(errors(report)),
         " / warnings ", length(warnings(report)),
@@ -116,7 +123,7 @@ a mechanical repair), **decide** (investigate, then either change the data or
 accept and document), or **disclose** (true of this network by design — keep
 the finding as part of the case's record).
 
-```@example triage
+```julia
 warns = warnings(report)
 for code in ("W.CONN.MESHED", "W.CONN.DANGLING", "W.DOM.XFMR_STEP_UP",
              "W.OPS.XFMR_OVERLOADED")
@@ -170,7 +177,7 @@ every change. Physics-*changing* repairs (promoting grounding shunts to
 perfect groundings, snapping placeholder impedances) exist but are **opt-in**
 flags on [`FixRecipe`](@ref), off by default:
 
-```@example triage
+```julia
 fixed, manifest = fix_case(net)
 
 d = manifest_to_dict(manifest)
@@ -194,7 +201,7 @@ removed stub that carried charging susceptance is called out, because
 dropping it perturbs the nodal balance — `fix_case` is honest about the
 edges of "lossless". Re-analyze to see the effect:
 
-```@example triage
+```julia
 report2 = analyze(fixed)
 println("after fix_case: errors ", length(errors(report2)),
         " / warnings ", length(warnings(report2)),
@@ -225,7 +232,7 @@ report). [`augment_case`](@ref) synthesizes the missing operating envelope,
 and its honesty mechanism is the point: *every* synthesized value is stamped
 with a provenance finding, so the info count explodes — by design:
 
-```@example triage
+```julia
 ready, aug_manifest = augment_case(fixed; recipe = AugmentationRecipe())
 report3 = analyze(ready)
 println("after augment: errors ", length(errors(report3)),
@@ -238,7 +245,7 @@ are synthetic — the [nameplate tutorial](tutorial_nameplate.md)'s confidence
 tiers, applied at scale. Two gates then say whether the result is ready for
 its intended use:
 
-```@example triage
+```julia
 pre = infeasibility_preflight(ready, report3.findings)
 rdy = benchmark_readiness_check(ready, report3.findings)
 println("preflight keys : ", sort(collect(keys(pre))))

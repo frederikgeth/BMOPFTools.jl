@@ -100,8 +100,8 @@ function build_corpus(; der_only::Bool=false)
         for (st, s) in _TAP_CASES
             push!(corpus, (s * "[free-tap]", :TAP, () -> _free_tap(st, s)))
         end
-        real = joinpath(DATA_DIR, "LV", "LV1_14bus", "Master.dss")
-        isfile(real) && push!(corpus, ("LV1_14bus", :REAL,
+        real = joinpath(get(ENV, "BMOPF_RESTRICTED_DATA", ""), "LV", "LV1_14bus", "Master.dss")
+        !isempty(get(ENV, "BMOPF_RESTRICTED_DATA", "")) && isfile(real) && push!(corpus, ("LV1_14bus", :REAL,
             () -> (n = from_dss(real); n2 = add_ibrs(n)[1];
                    isempty(get(n2, "ibr", Dict())) ? nothing : n2)))
     end

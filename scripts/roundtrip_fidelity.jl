@@ -78,13 +78,24 @@ function tier_b_paths()
         joinpath("dsuite_networks_scaled_v1.1", "spd_r", "master_scaled.dss"),
         joinpath("dsuite_networks_scaled_v1.1", "spm_u", "master_scaled.dss"),
     ]
-    [(joinpath(DATA_DIR, r), :B) for r in rel if isfile(joinpath(DATA_DIR, r))]
+    paths = Tuple{String,Symbol}[]
+    for r in rel
+        restricted = first(splitpath(r)) in ("LV", "MV", "MVLVmeshed", "ENWL")
+        dir = restricted ? get(ENV, "BMOPF_RESTRICTED_DATA", "") : DATA_DIR
+        isempty(dir) && continue
+        path = joinpath(dir, r)
+        isfile(path) && push!(paths, (path, :B))
+    end
+    paths
 end
 
 "Every Master.dss across the full corpus (Tier C, opt-in)."
 function all_real_paths()
     out = Tuple{String,Symbol}[]
-    for (root, _, files) in walkdir(DATA_DIR)
+    roots = [DATA_DIR]
+    external = get(ENV, "BMOPF_RESTRICTED_DATA", "")
+    isempty(external) || push!(roots, external)
+    for dir in roots, (root, _, files) in walkdir(dir)
         occursin(joinpath("data", "pf_comparison"), root) && continue
         for f in files
             (f == "Master.dss" || f == "master_scaled.dss") &&

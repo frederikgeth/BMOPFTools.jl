@@ -1,7 +1,0 @@
-new line.L_110 lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B1259 bus2=B2325 length=0.000562842155258 units=km phases=4
-new line.L_995 lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B1259 bus2=B3372 length=0.000354701253373 units=km phases=4
-new line.L_1536 lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B1259 bus2=B752 length=0.000354701255107 units=km phases=4
-new line.L_3060 lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B1259 bus2=B366 length=0.000255748683905 units=km phases=4
-new line.L_3457 lineCode=ugsc_16cu_xlpe/nyl/pvc_ug_4w_bundled bus1=B3179 bus2=B752 length=0.0796857269412 units=km phases=4
-new line.L_4175 lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B516 bus2=B1259 length=0.000244629175463 units=km phases=4
-new line.L_4334 lineCode=ughv_400al_triplex_ug_4w_bundled bus1=B1520 bus2=B259 length=0.000255748683198 units=km phases=4

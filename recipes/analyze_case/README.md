@@ -6,12 +6,12 @@ Run from the repository root:
 julia --startup-file=no --project=. recipes/analyze_case/recipe.jl
 ```
 
-The recipe parses `examples/lv1_14bus.json`, runs BMOPFTools' standard analysis
+The recipe parses `recipes/analyze_case/input.json`, runs BMOPFTools' standard analysis
 battery, checks three stable Finding codes, and prints a schema-valid execution
 response. The equivalent CLI call is:
 
 ```sh
-bin/bmopf analyze-case --input examples/lv1_14bus.json --pretty
+bin/bmopf analyze-case --input recipes/analyze_case/input.json --pretty
 ```
 
 This compact example is inspired by the pedagogical findings-triage and
@@ -26,3 +26,7 @@ The recipe does not run a solver, validate feasibility, or establish a
 scientific preservation claim. It intentionally carries no PSK identifier;
 the book owns scientific claims, while this package-owned example demonstrates
 ordinary analysis behavior and structured Findings.
+
+The bundled `input.json` is a hand-authored synthetic three-bus network,
+licensed under this repository's BSD-3-Clause licence. It contains no CSIRO
+MV/LV dataset data.

@@ -1,5 +1,12 @@
 # [Time series: a day on an LV feeder](@id timeseries-day)
 
+!!! note "External dataset"
+    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
+    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
+    before running it. The dataset retains its upstream licence and is not
+    bundled with BMOPFTools. These dataset examples are shown as code and
+    are not executed by the package documentation build.
+
 *Snapshot networks, daily profiles, and a 24-hour OPF sweep.*
 
 A single OPF answers a single question: *given this loading, what is the best
@@ -41,10 +48,10 @@ The test fixture `lv1_14bus_timeseries.json` is the LV1 14-bus feeder — an
 single-phase customers — plus two named 24-step profiles and two 15 kW
 single-phase rooftop PV IBRs (one per load bus, on different phases):
 
-```@example ts
+```julia
 using BMOPFTools
 
-path = joinpath(pkgdir(BMOPFTools), "test", "data", "LV", "lv1_14bus_timeseries.json")
+path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus_timeseries.json")
 net  = parse_bmopf(path)
 
 println("is_timeseries : ", is_timeseries(net))
@@ -61,7 +68,7 @@ an ordinary snapshot network. Here both loads bind `p_nom` and `q_nom` to the
 residential shape (constant power factor across the day), and both PV units
 bind `p_max` and `p_avail` to the solar shape:
 
-```@example ts
+```julia
 println("load  ld3313_load_a : ", net["load"]["ld3313_load_a"]["time_series"])
 println("ibr   pv_b3230      : ", net["ibr"]["pv_b3230"]["time_series"])
 ```
@@ -73,7 +80,7 @@ resolved multiplicatively and all the time-series bookkeeping stripped — the
 result is a plain single-period BMOPF network. Compare 03:00 (`t_index = 4`,
 1-based) with noon (`t_index = 13`):
 
-```@example ts
+```julia
 night = get_snapshot(net, 4)    # 03:00
 noon  = get_snapshot(net, 13)   # 12:00
 
@@ -100,7 +107,7 @@ on the time-series network — bounds and costs are time-invariant, and
 augmentation passes the profiles through untouched. Each `solve_opf` call then
 selects its hour with `t_index`:
 
-```@example ts
+```julia
 using JuMP, Ipopt
 
 net_ready, _ = augment_case(net; recipe = AugmentationRecipe())
@@ -123,7 +130,7 @@ record total load, dispatched PV, the net grid exchange (slack generator plus
 voltage source, positive = import), and the phase-voltage envelope on the
 230 V mains (all buses except the 11 kV source bus):
 
-```@example ts
+```julia
 mv_bus = "b2577"   # the 11 kV source bus — excluded from the LV voltage envelope
 
 function hour_row(res, snap)
@@ -148,7 +155,6 @@ for t in 1:24
             lpad(round(r.grid / 1e3; digits = 2), 10),
             lpad(round(r.vmin; digits = 1), 8), lpad(round(r.vmax; digits = 1), 8))
 end
-nothing # hide
 ```
 
 Read the table as three regimes:
@@ -165,7 +171,7 @@ Read the table as three regimes:
 - **Evening (18–21 h)** — the duck's head. The sun is gone, load peaks at
   20 kW, imports peak, and the voltage *minimum* is at the customers again.
 
-```@example ts
+```julia
 t_imp = argmax(t -> rows[t].grid, 1:24)
 t_exp = argmin(t -> rows[t].grid, 1:24)
 println("peak import : ", round(rows[t_imp].grid / 1e3; digits = 2),
