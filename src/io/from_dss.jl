@@ -668,7 +668,7 @@ Two views of the same list are recorded on the returned dict:
 
 # Example
 ```julia
-net = from_dss("test/data/ENWL/network_1/Feeder_1/Master.dss")
+net = from_dss(joinpath(pkgdir(BMOPFTools), "test", "data", "pf_comparison", "pf_1ph_line.dss"))
 report = analyze(net)
 render(report, stdout)
 ```

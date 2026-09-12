@@ -96,7 +96,7 @@ returning the vector of fidelity-loss warnings (see the two-argument
 
 # Example
 ```julia
-net = from_dss("test/data/ENWL/network_1/Feeder_1/Master.dss")
+net = from_dss(joinpath(pkgdir(BMOPFTools), "test", "data", "pf_comparison", "pf_1ph_line.dss"))
 warnings = to_dss(net, "roundtrip/Master.dss")
 ```
 """

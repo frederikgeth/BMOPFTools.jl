@@ -151,8 +151,8 @@ if !isempty(restricted_dir) && isfile(combined_master)
 end
 
 # ── ENWL 4-wire: test/data/ENWL/<network>/<feeder>/Master.dss ───────────────
-enwl_dir = joinpath(DATA_DIR, "ENWL")
-if isdir(enwl_dir)
+enwl_dir = joinpath(restricted_dir, "ENWL")
+if !isempty(restricted_dir) && isdir(enwl_dir)
     for (root, dirs, files) in walkdir(enwl_dir)
         "Master.dss" in files || continue
         rel   = relpath(root, enwl_dir)

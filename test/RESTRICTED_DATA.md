@@ -25,5 +25,7 @@ the documentation build does not execute these external-data examples.
 `scripts/regenerate_lv1_14bus.jl` writes derivatives into the external `LV/`
 directory. It requires the variable explicitly, including for output.
 
-This move does not rewrite Git history or settle the separate mismatch between
-ENWL's top-level CC BY 4.0 notice and older non-commercial headers in its files.
+ENWL is now also external in BMOPFDraftData/test/data/ENWL. Its top-level
+CC BY notice and older non-commercial headers remain unchanged and unresolved.
+The corpus scripts use the same environment variable to include it. Git history
+has not been rewritten.

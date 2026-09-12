@@ -1,5 +1,5 @@
 > [!WARNING]  
-> This project is currently ongoing rapid development and may have breaking changes made directly to main. Use at your own risk until further notice. OpenDSS ingestion now goes through [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) (the earlier PowerModelsDistribution-based `from_pmd` parser has been removed).
+> The first registered release is being prepared. Development on `main` can include unreleased breaking changes; registered releases follow the documented compatibility policy. OpenDSS ingestion now goes through [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) (the earlier PowerModelsDistribution-based `from_pmd` parser has been removed).
 
 [![Documentation](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml/badge.svg)](https://frederikgeth.github.io/BMOPFTools.jl/) [![CI](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/frederikgeth/BMOPFTools.jl/graph/badge.svg)](https://codecov.io/gh/frederikgeth/BMOPFTools.jl)
 
@@ -90,7 +90,6 @@ the test suite runs against, under `test/data/`:
 
 | Fixture (`test/data/…`) | Licence | Commercial use | Source |
 |---|---|---|---|
-| `ENWL` | CC BY 4.0 | yes | CSIRO four-wire LV dataset, [10.25919/jaae-vc35](https://doi.org/10.25919/jaae-vc35) |
 | `SWER`, `pf_comparison`, small fixtures | CC BY 4.0 | yes | authored for BMOPFTools |
 
 The full benchmark library and the larger source networks that feed the
@@ -101,6 +100,10 @@ alongside the pipeline that consumes them, including `ENWLvariants` (CC BY 4.0,
 same CSIRO DOI as `ENWL`) and `dsuite_networks_scaled_v1.1` (CC BY 4.0, D-Suite
 LV networks, Newcastle University,
 [10.25405/data.ncl.27175317](https://doi.org/10.25405/data.ncl.27175317)).
+
+ENWL is also stored externally in BMOPFDraftData. Its top-level CC BY notice
+and older non-commercial headers are preserved there; this package does not
+resolve that discrepancy.
 
 The CC BY-NC-SA 4.0 CSIRO Australian MV/LV data (`LV`, `MV`, combined
 `Master.dss`, and `MVLVmeshed`) and the derived LV1 JSON/time-series/report
@@ -289,7 +292,7 @@ julia --project=docs docs/make.jl
 
 Pages: data-model conventions, the conversion guide (every deliberate
 `from_dss`/`to_pmd` decision), the analysis/report guide, the **complete
-finding-code reference** (128 codes), methodology notes with literature
+finding-code reference**, methodology notes with literature
 references, the case augmentation guide (`fix_case` + `augment_case`), the
 OPF guide, and the OPF result dictionary reference.
 
@@ -332,3 +335,14 @@ Mohamed Numair
 Samuel Talkington
 Sleiman Mhanna
 Tomislav Antić 
+
+## Release maintenance
+
+See [RELEASING.md](RELEASING.md) for release gates, schema provenance,
+registration steps, and outstanding first-release decisions. Julia package
+installation does not install `bin/bmopf` or `bin/bmopf-mcp` into your shell's
+PATH; those launchers are tools for an instantiated checkout.
+
+Codex has assisted with release preparation, fixture relocation, tests, and
+documentation. Maintainers review contributions and own the package's behaviour;
+this statement does not certify that the pre-registration human review is complete.

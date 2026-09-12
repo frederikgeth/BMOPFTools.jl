@@ -3,39 +3,33 @@ using BMOPFTools
 using PowerIO
 using Dates
 
-const _HAS_ODS = !isnothing(Base.identify_package("OpenDSSDirect"))
-if _HAS_ODS
-    @eval using OpenDSSDirect
-end
-
-# Load an optional package if it is present in the test environment. Returns
-# `false` (with a warning) when the package is installed but fails to load, so a
-# broken optional install downgrades to skipped tests instead of aborting the
-# whole suite.
+# Release CI requires every declared test backend. Lightweight local runs may
+# omit packages, but an installed open-source backend failing to load is an error.
+const _REQUIRE_TEST_DEPS = get(ENV, "BMOPF_REQUIRE_TEST_DEPS", "false") == "true"
 function _try_using(name::Symbol)
-    isnothing(Base.identify_package(String(name))) && return false
+    if isnothing(Base.identify_package(String(name)))
+        if _REQUIRE_TEST_DEPS && name in (:JuMP, :Ipopt, :MadNLP, :OpenDSSDirect)
+            error("Required test dependency $name is missing")
+        end
+        return false
+    end
     try
         @eval using $name
         return true
     catch err
-        @warn "$(name).jl is installed but could not be loaded; its tests are skipped." exception =
-            (err, catch_backtrace())
+        name == :Gurobi || rethrow()
+        @warn "Optional Gurobi installation could not load; skipping its tests" exception=(err, catch_backtrace())
         return false
     end
 end
 
-# JuMP alone activates the OPF extension; Ipopt is a separate, independent
-# optional dependency. Keep the two flags apart so a JuMP-plus-other-solver
-# environment (no Ipopt) still loads JuMP rather than leaving it undefined.
+const _HAS_ODS = _try_using(:OpenDSSDirect)
 const _HAS_JUMP = _try_using(:JuMP)
 const _HAS_IPOPT = _try_using(:Ipopt)
 const _HAS_JUMP_IPOPT = _HAS_JUMP && _HAS_IPOPT
-
-# Optional solver backends. Gurobi is commercial and licence-gated, so it is
-# deliberately *not* a declared test dependency: install it into the test
-# environment yourself to exercise `test/gurobi_engine_tests.jl`.
 const _HAS_GUROBI = _HAS_JUMP && _try_using(:Gurobi)
 const _HAS_MADNLP = _HAS_JUMP && _try_using(:MadNLP)
+_HAS_JUMP && @assert !isnothing(Base.get_extension(BMOPFTools, :BMOPFOpfExt))
 
 # Remove the transformer nameplate power limit (`s_rating`) from a network so a
 # physics / power-flow comparison against limit-free OpenDSS is not distorted by

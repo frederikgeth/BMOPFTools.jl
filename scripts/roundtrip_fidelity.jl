@@ -80,7 +80,7 @@ function tier_b_paths()
     ]
     paths = Tuple{String,Symbol}[]
     for r in rel
-        restricted = first(splitpath(r)) in ("LV", "MV", "MVLVmeshed")
+        restricted = first(splitpath(r)) in ("LV", "MV", "MVLVmeshed", "ENWL")
         dir = restricted ? get(ENV, "BMOPF_RESTRICTED_DATA", "") : DATA_DIR
         isempty(dir) && continue
         path = joinpath(dir, r)
