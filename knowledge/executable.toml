@@ -804,6 +804,8 @@ source_paths = [
   "test/opf_device_substitution_tests.jl",
   "test/opf_domain_tests.jl",
   "test/opf_final_hardening_tests.jl",
+  "ext/BMOPFOpfExt/pf.jl",
+  "test/pf_nameplate_contract_tests.jl",
   "test/powerflow_comparison_tests.jl",
   "test/Project.toml",
   "test/opf_engine_review_tests.jl",

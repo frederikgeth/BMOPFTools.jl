@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "52dac4e8bd2e22ae8e285c1030479d37375c0097304660b5b52f3793478a6e22",
+  "corpus_sha256": "55ca56343aec023a2014d56802cdd578d2ece3b9dcb056c9ba5e38a2dfe161d6",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -157,6 +157,10 @@
       "sha256": "fe5f97c137512d234e5a5a41c6a9af4b604eb9b7aff1e77c1cbd088c5d6a328e"
     },
     {
+      "path": "ext/BMOPFOpfExt/pf.jl",
+      "sha256": "42964d3e2877e33c5e285e2c41623b55d5aeb6ac50c12d9c271df5d39e636115"
+    },
+    {
       "path": "ext/BMOPFOpfExt/profile.jl",
       "sha256": "27226b5d708ee08018dcdfe5675dc5b732a3d860c19dd6823615f788f0ccdaec"
     },
@@ -182,7 +186,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "613458d95c03ad0f4d8ea88be34416937090473e9600a61fcfeeb6807292c933"
+      "sha256": "f34644f7768f3301e2f1146806d5f40811fb46ce7e7aa83a6c3ec1a4fcfead0b"
     },
     {
       "path": "recipes/README.md",
@@ -795,6 +799,10 @@
     {
       "path": "test/opf_tests.jl",
       "sha256": "12a6d9405c39b8b3d7309672467ba7afd7e6f887acae5cb65dcc6a1122b47de4"
+    },
+    {
+      "path": "test/pf_nameplate_contract_tests.jl",
+      "sha256": "7aa307686d93e69ef3ba078af554a0022a7ac58fa5f378bec018d4b7703cdf73"
     },
     {
       "path": "test/powerflow_comparison_tests.jl",
