@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "52dac4e8bd2e22ae8e285c1030479d37375c0097304660b5b52f3793478a6e22",
+  "corpus_sha256": "1abd4406fb2c254c413b0fd26b5ee13ab99608103cb199f1f94566478ecee4b7",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -70,7 +70,7 @@
     },
     {
       "path": "docs/src/differentiable_extensions.md",
-      "sha256": "f493cdbc843fbe72c15d7597109e3c897dffdbbbe3367836d06baaa817d23f1d"
+      "sha256": "9928ee2c7561b454f1c1cdbb7d5961e2eebd65ef0cc38881ae7f0a2733145317"
     },
     {
       "path": "docs/src/findings.md",
@@ -126,7 +126,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/core.jl",
-      "sha256": "d89c1adeab9ca522358228a20d69facb0088ba24281fc84440c77e8eed9e1157"
+      "sha256": "245349b57ed389f8b5a6604a41b496b2b10ab0f72caa7730878d71cbeb01751c"
     },
     {
       "path": "ext/BMOPFOpfExt/data_utils.jl",
@@ -182,7 +182,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "613458d95c03ad0f4d8ea88be34416937090473e9600a61fcfeeb6807292c933"
+      "sha256": "df13ab67f383deacec58c488d1a9b270810d25d27b57dfa4bcdc35bcd587ef48"
     },
     {
       "path": "recipes/README.md",
@@ -391,6 +391,10 @@
     {
       "path": "test/data/line_geometry/ieee13_601.dss",
       "sha256": "eb471d3e05a791b4fbaa625d6c21fc239d3b841d69589bf45df769b1a1d268bf"
+    },
+    {
+      "path": "test/data/parameter_updates/stale_evaluation.jl",
+      "sha256": "d79c2598534935915af238fc8bab93dedb78c83acc50c153ac6555fe4a0b4276"
     },
     {
       "path": "test/data/pf_comparison/pf_3wdg_unequal_kva.dss",
@@ -790,11 +794,15 @@
     },
     {
       "path": "test/opf_final_hardening_tests.jl",
-      "sha256": "0e3f7149a1df38ff5ac132ba1b971301ab9d8cc6717b56e33ef2dde2b8a8db15"
+      "sha256": "4b7f39022b5f88378e9a629fd6611913c449e4e968e8dfac9536c402446767b9"
     },
     {
       "path": "test/opf_tests.jl",
       "sha256": "12a6d9405c39b8b3d7309672467ba7afd7e6f887acae5cb65dcc6a1122b47de4"
+    },
+    {
+      "path": "test/parameter_resolve_tests.jl",
+      "sha256": "67563906ac96eb90baf02adbb4fba8a6732edb51ad6283b2270ddfd2a4f968c6"
     },
     {
       "path": "test/powerflow_comparison_tests.jl",
