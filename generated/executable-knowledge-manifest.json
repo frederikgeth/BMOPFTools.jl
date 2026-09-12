@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "55ca56343aec023a2014d56802cdd578d2ece3b9dcb056c9ba5e38a2dfe161d6",
+  "corpus_sha256": "fe75b4f527593cab8ef2b2dc756ae9ea7b942116a45d592fa66b8359f1e4e51f",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -70,11 +70,11 @@
     },
     {
       "path": "docs/src/differentiable_extensions.md",
-      "sha256": "f493cdbc843fbe72c15d7597109e3c897dffdbbbe3367836d06baaa817d23f1d"
+      "sha256": "9c7f8b3fa8b818ddefa4836810c074e3522bb682f434f4732b186e86bb6a17c1"
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "d634905b1cc7cdae3bb3524f69302d48f67fb9c71081f9abab2962f745e9a7f8"
+      "sha256": "8fce6a30993e12cf14d8154af73846db5e6a569a7c49631a09e32b70a8a5344b"
     },
     {
       "path": "docs/src/objectives.md",
@@ -126,7 +126,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/core.jl",
-      "sha256": "d89c1adeab9ca522358228a20d69facb0088ba24281fc84440c77e8eed9e1157"
+      "sha256": "245349b57ed389f8b5a6604a41b496b2b10ab0f72caa7730878d71cbeb01751c"
     },
     {
       "path": "ext/BMOPFOpfExt/data_utils.jl",
@@ -182,11 +182,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "db5566fe9bc1fca55c31304ae2d0259c5310e5b08290e15eaf717499779bcdf5"
+      "sha256": "e01430e92e076fcc19687900622e77623b38bbf7ddb6e88a72807251139be443"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "f34644f7768f3301e2f1146806d5f40811fb46ce7e7aa83a6c3ec1a4fcfead0b"
+      "sha256": "68a0658dcffcfaec93ba8db489462006c26a8be4897295d5fb647240e771fac3"
     },
     {
       "path": "recipes/README.md",
@@ -366,7 +366,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "b4407adf219771dc5bdb38fc97b10115c2e7680d31d56f25401a3eea1023de49"
+      "sha256": "77d100f1591dfd2a429ec45125a23dcb8b437678c230b3de0ab3e7a06d96526a"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -386,7 +386,7 @@
     },
     {
       "path": "src/validation/solution.jl",
-      "sha256": "21cde3836f48702d350516696f5519877491fbced2d3d63a355b7c4d2c0d01b4"
+      "sha256": "e6653b418b1fb7b540944d46cb31966f488342d34e88aa4dff5f9307b3b2364b"
     },
     {
       "path": "test/Project.toml",
@@ -395,6 +395,10 @@
     {
       "path": "test/data/line_geometry/ieee13_601.dss",
       "sha256": "eb471d3e05a791b4fbaa625d6c21fc239d3b841d69589bf45df769b1a1d268bf"
+    },
+    {
+      "path": "test/data/parameter_updates/stale_evaluation.jl",
+      "sha256": "d79c2598534935915af238fc8bab93dedb78c83acc50c153ac6555fe4a0b4276"
     },
     {
       "path": "test/data/pf_comparison/pf_3wdg_unequal_kva.dss",
@@ -407,6 +411,10 @@
     {
       "path": "test/data/scientific_review/pi-chain.json",
       "sha256": "b4d09e49f4049276ba13ea58347af14e1d3a2a09f5fb0890033f6b46ebfa1efd"
+    },
+    {
+      "path": "test/data/scientific_review/receiving-limit-result.json",
+      "sha256": "8b2bd092e1a32c69d80c225b3907fafe391071742103e2e0db857271b8fd7b7c"
     },
     {
       "path": "test/data/scientific_review/vuf-network.json",
@@ -781,6 +789,10 @@
       "sha256": "f787b84accc51bf01b00341a48d023f8d6633c5a2d589b34b79ffac47fb1d101"
     },
     {
+      "path": "test/line_solution_verification_tests.jl",
+      "sha256": "d1a9cfc6d5531d1b4498559b732d1259e180c87a34fcbd09d93b7d6475051469"
+    },
+    {
       "path": "test/opf_device_substitution_tests.jl",
       "sha256": "2848623eb4a2240a993b3a07c08e8b4f9df64d93c876b323e22c0392e6bd1da9"
     },
@@ -794,11 +806,15 @@
     },
     {
       "path": "test/opf_final_hardening_tests.jl",
-      "sha256": "0e3f7149a1df38ff5ac132ba1b971301ab9d8cc6717b56e33ef2dde2b8a8db15"
+      "sha256": "4b7f39022b5f88378e9a629fd6611913c449e4e968e8dfac9536c402446767b9"
     },
     {
       "path": "test/opf_tests.jl",
       "sha256": "12a6d9405c39b8b3d7309672467ba7afd7e6f887acae5cb65dcc6a1122b47de4"
+    },
+    {
+      "path": "test/parameter_resolve_tests.jl",
+      "sha256": "67563906ac96eb90baf02adbb4fba8a6732edb51ad6283b2270ddfd2a4f968c6"
     },
     {
       "path": "test/pf_nameplate_contract_tests.jl",

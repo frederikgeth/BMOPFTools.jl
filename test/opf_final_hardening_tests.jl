@@ -176,7 +176,7 @@ end
         for factor in (1.0,0.0,2.0)
             JuMP.set_parameter_value(p,0.3factor); JuMP.set_parameter_value(q,0.15factor)
             # Refresh backend derivative caches after changing nonlinear parameters.
-            M.Utilities.reset_optimizer(JuMP.backend(m))
+            Base.get_extension(BMOPFTools,:BMOPFOpfExt)._refresh_parameter_optimizer!(m)
             JuMP.optimize!(m)
             @test JuMP.termination_status(m) in (M.LOCALLY_SOLVED,M.OPTIMAL)
             expected=factor*(0.3-0.15im)*ratio^gamma/(nominal*ratio)

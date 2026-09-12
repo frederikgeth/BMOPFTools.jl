@@ -428,8 +428,7 @@ For an already finalized **cached JuMP model**, the tested workaround is:
 
 ```julia
 JuMP.set_parameter_value(p, new_value)
-JuMP.MOI.Utilities.reset_optimizer(JuMP.backend(model))
-JuMP.optimize!(model)
+resolve_opf!(ctx)  # or resolve_opf!(ctx1, ctx2, ...) for one shared model
 residuals = JuMP.primal_feasibility_report(model; atol=1e-8)
 isempty(residuals) || error("Updated model has constraint violations")
 ```
@@ -441,12 +440,24 @@ residual tolerances in the model's working units and check physical currents,
 limits, and reference conditions independently as well. The scalar `atol` above
 is an example, not a universal engineering tolerance.
 
-The engine does not intercept parameter updates or automatically reset the
-backend. This workflow is for cached models; `direct_model` requires a separately
+`resolve_opf!` explicitly reloads and solves once, preserves optimize hooks,
+and refuses unfinished contexts or contexts from different models. Parameter
+updates made outside this workflow do not automatically reset the backend. This workflow is for cached models; `direct_model` requires a separately
 managed optimizer/model rebuild. It does not make structural edits safe in place:
 changes to topology, dimensions, or the physical voltage-domain certificates
 still require rebuilding. See `test/opf_final_hardening_tests.jl` for repeat-solve
 witnesses with independent analytic current checks and a range of voltage scales.
+
+A standalone two-variable reproducer is retained in
+`test/data/parameter_updates/stale_evaluation.jl`. With `x` starting at zero,
+`x = p * exp(y)`, and `y = 1`, the 1 → 0 → 2 parameter sequence returns
+`x = 0` on the last solve on the tested Ipopt and MadNLP stack, rather than
+`2exp(1)`. A nonzero start avoids this particular witness. The shared MOI
+reverse-mode evaluator caches on the primal point; changing parameters without
+invalidating that evaluation is unsafe when the point is repeated. This
+isolates the issue below BMOPF stamping; it does not establish that every
+solver has the same invalidation path. Regression checks use the reset and
+independent analytic currents, not successful status alone.
 
 ### Coefficient providers for bespoke builders
 
@@ -792,3 +803,7 @@ A publication using this capability should report, at minimum:
 12. S. Talkington et al., “Differentiating Through Power Flow Solutions for
     Admittance and Topology Control,” 2025.
     [preprint](https://arxiv.org/abs/2510.17071)
+
+```@docs
+resolve_opf!
+```
