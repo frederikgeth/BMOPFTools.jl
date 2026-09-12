@@ -3052,3 +3052,26 @@ function BMOPFTools.extract_result(ctx::OpfContext;
     result["opt_profile"] = _optimization_profile(ctx.model; per_unit=per_unit)
     per_unit ? _from_per_unit(result, ctx.bases, ctx.net) : result
 end
+
+# Reload the cached optimizer rather than reaching into a solver's private
+# nonlinear evaluator. Repeated equal primal points can otherwise reuse stale
+# evaluations after parameter changes on the tested JuMP/MOI stack (#386).
+function _refresh_parameter_optimizer!(model::JuMP.Model)
+    backend = JuMP.backend(model)
+    backend isa JuMP.MOI.Utilities.CachingOptimizer || throw(ArgumentError(
+        "parameter re-solve requires a cached JuMP model; rebuild direct_model explicitly"))
+    JuMP.MOI.Utilities.reset_optimizer(backend)
+    nothing
+end
+
+function BMOPFTools.resolve_opf!(ctx::OpfContext, others::OpfContext...; kwargs...)
+    model = ctx.model
+    all(c -> c.model === model, others) || throw(ArgumentError(
+        "resolve_opf! contexts must share one JuMP model"))
+    all(c -> :kcl in c.manifest.stages, (ctx, others...)) || throw(ArgumentError(
+        "enforce_kcl! must run on every context before resolve_opf!"))
+    _assert_kcl_enforced(model)
+    _refresh_parameter_optimizer!(model)
+    JuMP.optimize!(model; kwargs...)
+    model
+end
