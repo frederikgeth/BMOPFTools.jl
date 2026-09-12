@@ -106,10 +106,14 @@ LV-leg-2. This is a genuine **3-winding** unit (1 HV + 2 series-aiding LV legs s
 $g$). Refer all arms to the LV base:
 
 ```math
-\textcolor{brown}{y_1}=\textcolor{red}{N}^2/\textcolor{brown}{Z^{\text{fr}}_x},\qquad
+\textcolor{brown}{y_1}=\textcolor{red}{N}^2/(\textcolor{red}{t}^2\textcolor{brown}{Z^{\text{fr}}_x}),\qquad
 \textcolor{brown}{y_2}=1/\textcolor{brown}{Z^{\text{to}}_x},\qquad
 \textcolor{brown}{Y_\Sigma}=\textcolor{brown}{y_1}+2\,\textcolor{brown}{y_2}.
 ```
+
+The stored primary arm is in nominal ohms; its physical impedance scales by
+`tap²`, so the referred primary admittance is independent of the primary tap.
+This matches the non-unity-tap OpenDSS fixtures for #393.
 
 Eliminating the internal star node gives the symmetric 3-port star admittance in the
 winding-terminal ordering $[\text{HV-ref},\,\text{leg-1},\,\text{leg-2}]$, with

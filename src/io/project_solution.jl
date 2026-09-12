@@ -85,6 +85,8 @@ Pinned devices:
   operating point.
 - **Free transformer taps** — a tap that was an OPF decision variable (reported as
   `tap` / `tap_ratio` in `result`) is written back onto the transformer.
+  Ordinary transformer `tap_min`/`tap_max` bounds are removed to fix that ratio;
+  regulator `tap_ratio_min`/`tap_ratio_max` bounds are pinned per solved arm.
   Fixed-tap transformers are left untouched. For `open_delta_regulator` the tap is
   a two-element vector; only regulators that were free (non-`missing`) are updated.
 
@@ -167,14 +169,31 @@ function project_solution(net::Dict{String,Any}, result::Dict{String,Any};
                     r = ratios[k]
                     if r !== missing && r isa Number
                         k <= length(base) ? (base[k] = Float64(r)) : push!(base, Float64(r))
+                        # Keep unreported/fixed arms unchanged. Equality bounds
+                        # remove this solved arm from the free-tap variables.
+                        for key in ("tap_ratio_min", "tap_ratio_max")
+                            bounds = get(xfmr, key, nothing)
+                            if bounds isa AbstractVector && k <= length(bounds)
+                                bounds = Float64.(bounds)
+                                bounds[k] = Float64(r)
+                                xfmr[key] = bounds
+                            end
+                        end
                         applied = true
                     end
                 end
                 applied && (xfmr["tap_ratio"] = base; push!(free_taps, tid))
             elseif haskey(rec, "tap_ratio")           # single_phase_autotransformer
                 xfmr["tap_ratio"] = rec["tap_ratio"]; push!(free_taps, tid)
+                delete!(xfmr, "tap_ratio_min")
+                delete!(xfmr, "tap_ratio_max")
             elseif haskey(rec, "tap")                 # ordinary transformers
-                xfmr["tap"] = rec["tap"]; push!(free_taps, tid)
+                xfmr["tap"] = rec["tap"]
+                # A projected operating point fixes the solved tap. Retaining
+                # its interval would let solve_pf choose another ratio.
+                delete!(xfmr, "tap_min")
+                delete!(xfmr, "tap_max")
+                push!(free_taps, tid)
             end
         end
     end

@@ -35,7 +35,8 @@ Common fields (two-winding subtypes):
 | `s_rating` | number | VA | ✔ | Nameplate apparent-power rating |
 | `r_series_from`, `x_series_from` | number | Ω | | From-winding series leakage |
 | `r_series_to`, `x_series_to` | number | Ω | | To-winding series leakage |
-| `g_no_load`, `b_no_load` | number | S | | No-load (core-loss / magnetising) shunt |
+| `g_no_load`, `b_no_load` | number | S | | Legacy excitation on winding 2; bank total for single-phase/Yd/Dy, per coil for n-winding, entire first secondary half-winding for center-tap |
+| `no_load_shunt` | object | S | | Explicit `{winding, g, b}`, per coil of the selected winding; exclusive with legacy fields |
 | `r_neutral_from`/`_to`, `x_neutral_from`/`_to` | number | Ω | | Winding-neutral grounding impedance (OpenDSS `rneut`/`xneut`) |
 | `tap`, `tap_min`, `tap_max` | number | – | | From-side tap multiplier; a free OPF variable when `tap_min < tap_max` |
 | `i_max_from`, `i_max_to` | number[] | A | | Per-conductor current limits |

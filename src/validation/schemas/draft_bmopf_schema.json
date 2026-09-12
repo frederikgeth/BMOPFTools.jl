@@ -1400,13 +1400,24 @@
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Transformer power base [VA]"
                     },
+                    "no_load_shunt": {
+                        "type": "object",
+                        "description": "Explicit excitation: g and b [S] per coil of the selected physical winding, on that coil voltage base (including its tap). Mutually exclusive with g_no_load/b_no_load; materialized as bus shunts during normalization.",
+                        "properties": {
+                            "winding": { "type": "integer", "minimum": 1 },
+                            "g": { "$ref": "#/$defs/nonnegative_number" },
+                            "b": { "type": "number" }
+                        },
+                        "required": ["winding", "g", "b"],
+                        "additionalProperties": false
+                    },
                     "g_no_load": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "No-load (core-loss) shunt conductance [S], referenced at winding 1"
+                        "description": "Legacy no-load conductance [S] per coil of winding 2, at its coil voltage base; use no_load_shunt for an explicit winding selection"
                     },
                     "b_no_load": {
                         "type": "number",
-                        "description": "No-load (magnetising) shunt susceptance [S], referenced at winding 1"
+                        "description": "Legacy no-load susceptance [S] per coil of winding 2, at its coil voltage base"
                     }
                 },
                 "required": ["windings", "x_sc", "s_rating"]
@@ -1476,13 +1487,24 @@
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Nominal voltage of the 'from'-side winding [V]"
                     },
+                    "no_load_shunt": {
+                        "type": "object",
+                        "description": "Explicit excitation: g and b [S] per coil of the selected physical winding, on that coil voltage base (including its tap). Mutually exclusive with g_no_load/b_no_load; materialized as bus shunts during normalization.",
+                        "properties": {
+                            "winding": { "type": "integer", "minimum": 1 },
+                            "g": { "$ref": "#/$defs/nonnegative_number" },
+                            "b": { "type": "number" }
+                        },
+                        "required": ["winding", "g", "b"],
+                        "additionalProperties": false
+                    },
                     "g_no_load": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "No-load (core-loss) shunt conductance [S], stamped across the 'from'-side winding"
+                        "description": "Legacy total no-load conductance [S] across the to-side coils (divided equally); center_tap places the entire value across its first secondary half-winding"
                     },
                     "b_no_load": {
                         "type": "number",
-                        "description": "No-load (magnetising) shunt susceptance [S], stamped across the 'from'-side winding"
+                        "description": "Legacy total no-load susceptance [S] across the to-side coils (divided equally); center_tap places the entire value across its first secondary half-winding"
                     },
                     "tap": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -1534,11 +1556,11 @@
                     },
                     "r_series": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Legacy lumped series resistance on the wye-connected winding [Ohm]; migrated on parse to r_series_from (with r_series_to = 0)"
+                        "description": "Legacy lumped series resistance on the wye-connected winding [Ohm]; normalized onto the wye side: from for Yd, to for Dy; zero on the delta side"
                     },
                     "x_series": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Legacy lumped series reactance on the wye-connected winding [Ohm]; migrated on parse to x_series_from (with x_series_to = 0)"
+                        "description": "Legacy lumped series reactance on the wye-connected winding [Ohm]; normalized onto the wye side: from for Yd, to for Dy; zero on the delta side"
                     },
                     "r_series_from": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -1604,13 +1626,24 @@
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Nominal phase-to-phase voltage of the 'from'-side winding [V]"
                     },
+                    "no_load_shunt": {
+                        "type": "object",
+                        "description": "Explicit excitation: g and b [S] per coil of the selected physical winding, on that coil voltage base (including its tap). Mutually exclusive with g_no_load/b_no_load; materialized as bus shunts during normalization.",
+                        "properties": {
+                            "winding": { "type": "integer", "minimum": 1 },
+                            "g": { "$ref": "#/$defs/nonnegative_number" },
+                            "b": { "type": "number" }
+                        },
+                        "required": ["winding", "g", "b"],
+                        "additionalProperties": false
+                    },
                     "g_no_load": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "No-load (core-loss) shunt conductance [S], stamped across the 'from'-side (wye) winding"
+                        "description": "Legacy total no-load conductance [S], divided equally across winding 2 coils: delta for Yd, wye for Dy, on the winding-2 coil voltage base"
                     },
                     "b_no_load": {
                         "type": "number",
-                        "description": "No-load (magnetising) shunt susceptance [S], stamped across the 'from'-side (wye) winding"
+                        "description": "Legacy total no-load susceptance [S], divided equally across winding 2 coils: delta for Yd, wye for Dy, on the winding-2 coil voltage base"
                     },
                     "tap": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -1675,6 +1708,17 @@
                     "x_series_to": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Series reactance referred to the 'to' side [Ohm]"
+                    },
+                    "no_load_shunt": {
+                        "type": "object",
+                        "description": "Explicit excitation: g and b [S] per coil of the selected physical winding, on that coil voltage base (including its tap). Mutually exclusive with g_no_load/b_no_load; materialized as bus shunts during normalization.",
+                        "properties": {
+                            "winding": { "type": "integer", "minimum": 1 },
+                            "g": { "$ref": "#/$defs/nonnegative_number" },
+                            "b": { "type": "number" }
+                        },
+                        "required": ["winding", "g", "b"],
+                        "additionalProperties": false
                     },
                     "g_no_load": {
                         "$ref": "#/$defs/nonnegative_number",
@@ -1757,6 +1801,17 @@
                     "x_series_to": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Per-regulator series reactance referred to the 'to' side [Ohm]"
+                    },
+                    "no_load_shunt": {
+                        "type": "object",
+                        "description": "Explicit excitation: g and b [S] per coil of the selected physical winding, on that coil voltage base (including its tap). Mutually exclusive with g_no_load/b_no_load; materialized as bus shunts during normalization.",
+                        "properties": {
+                            "winding": { "type": "integer", "minimum": 1 },
+                            "g": { "$ref": "#/$defs/nonnegative_number" },
+                            "b": { "type": "number" }
+                        },
+                        "required": ["winding", "g", "b"],
+                        "additionalProperties": false
                     },
                     "g_no_load": {
                         "$ref": "#/$defs/nonnegative_number",

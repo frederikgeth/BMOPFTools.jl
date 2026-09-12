@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json"
+  },
+  "bus": {
+    "f": {
+      "terminal_names": [
+        "p",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    },
+    "t": {
+      "terminal_names": [
+        "p",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    }
+  },
+  "transformer": {
+    "single_phase": {
+      "tx": {
+        "bus_from": "f",
+        "bus_to": "t",
+        "terminal_map_from": [
+          "p",
+          "n"
+        ],
+        "terminal_map_to": [
+          "p",
+          "n"
+        ],
+        "v_nom_from": 240.0,
+        "v_nom_to": 120.0,
+        "tap": 1.06,
+        "s_rating": 10000.0,
+        "r_series_from": 0.1,
+        "x_series_from": 0.08,
+        "r_series_to": 0.025,
+        "x_series_to": 0.02
+      }
+    }
+  },
+  "voltage_source": {
+    "s": {
+      "bus": "f",
+      "terminal_map": [
+        "p",
+        "n"
+      ],
+      "v_magnitude": [
+        240.0,
+        0.0
+      ],
+      "v_angle": [
+        0.23,
+        0.0
+      ]
+    }
+  },
+  "load": {
+    "l1": {
+      "bus": "t",
+      "terminal_map": [
+        "p",
+        "n"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "model": "constant_power",
+      "p_nom": [
+        250.0
+      ],
+      "q_nom": [
+        65.0
+      ]
+    }
+  }
+}

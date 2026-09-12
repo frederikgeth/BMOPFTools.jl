@@ -376,6 +376,9 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
 
     N  = _xfmr_turns_ratio(xfmr) * _xfmr_tap_mult(xfmr)
     Z1 = Float64(get(xfmr, "r_series_from", 0.0)) + im*Float64(get(xfmr, "x_series_from", 0.0))
+    # Stored ohms use nominal winding bases. Changing primary turns scales its
+    # leakage by tap², as in the single-phase and OpenDSS primitives.
+    Z1 *= _xfmr_tap_mult(xfmr)^2
     Z2 = Float64(get(xfmr, "r_series_to",   0.0)) + im*Float64(get(xfmr, "x_series_to",   0.0))
     G0 = Float64(get(xfmr, "g_no_load", 0.0))
     B0 = Float64(get(xfmr, "b_no_load", 0.0))

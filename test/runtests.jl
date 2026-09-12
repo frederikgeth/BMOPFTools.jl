@@ -2482,7 +2482,7 @@ const IEEE13_FIXTURE = """
 
         net_b = mk_xfmr(""","g_no_load":2e-4,"b_no_load":-5e-4""")
         t_b = to_pmd(net_b)["transformer"]["t1"]
-        y_base = 100000.0 / (11000.0 / sqrt(3))^2
+        y_base = 100000.0 / 400.0^2  # winding 2 is delta: coil voltage = V_LL
         @test t_b["cmag"] ≈ 5e-4 / y_base
         @test t_b["noloadloss"] ≈ 2e-4 / y_base
 
@@ -3884,6 +3884,7 @@ const IEEE13_FIXTURE = """
     include("powerio_v08_tests.jl")
     include("powerio_v09_tests.jl")
     include("powerio_regression_tests.jl")
+    include("transformer_interoperability_tests.jl")
 
     # -----------------------------------------------------------------------
     # PowerIO conversion diagnostics lifted into Findings
@@ -4115,6 +4116,7 @@ include("mcp_execution_tests.jl")
         else
             include("powerflow_comparison_tests.jl")
             include("powerio_numerical_tests.jl")
+            include("transformer_opendss_tests.jl")
         end
     end
 

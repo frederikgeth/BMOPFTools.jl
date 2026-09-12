@@ -874,7 +874,8 @@ end
     _from_per_unit(result_pu, bases, net) -> result_si
 
 Scale a per-unit result dict back to SI (V, A, W, var).
-`net` is the original SI network dict, used to look up bus membership.
+`net` is the normalized working network, used to look up bus membership and
+component identities; its numerical parameter units are not used here.
 """
 function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any})
     result = deepcopy(result_pu)

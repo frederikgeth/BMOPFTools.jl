@@ -23,6 +23,11 @@ terminal normalization can change the representation. Explicit transformer
 and transformer ownership remain in `_meta["explicit_transformer_core_shunts"]`.
 Use PowerIO modules when source-preserving exchange is required.
 
+The OPF/PF dictionary build boundary reuses these normalization operations on
+a private copy. Combined and split Yd/Dy leakage for the same r or x component,
+or explicit and legacy excitation on one transformer, are rejected rather than
+silently selecting a representation.
+
 The returned dict is mutable — analysis functions treat it as read-only
 but callers may modify it freely.
 
@@ -85,7 +90,13 @@ Post-processing after JSON parse:
 """
 function _postprocess(raw::Dict{String,Any},
                       terminal_aliases::Dict=_DEFAULT_TERMINAL_ALIASES)::Dict{String,Any}
-    d = _deep_convert(raw)
+    _normalize_bmopf!(_deep_convert(raw), terminal_aliases)
+end
+
+# Shared ingest boundary for parsed JSON and copied/snapshotted engine input.
+# Consumes exchange fields once; safe to call again on a normalized network.
+function _normalize_bmopf!(d::Dict{String,Any},
+                           terminal_aliases::Dict=_DEFAULT_TERMINAL_ALIASES)::Dict{String,Any}
     d = migrate(d)
     # When the case declares its terminal roles explicitly, honour the labels it
     # uses verbatim: suppress the default numeric `4→"n"` rename so a declared
@@ -225,6 +236,19 @@ function _deep_convert(@nospecialize(x))
     end
 end
 
+# Copy programmatic input for normalization in one traversal. Canonicalize
+# dictionaries, while retaining concrete numeric/string array types and private
+# ownership of arbitrary payloads such as matrices. Only terminal arrays that
+# need string coercion are widened so _normalize_terminals! can edit them.
+function _copy_for_normalization(x::AbstractDict)
+    Dict{String,Any}(string(k) =>
+        (string(k) in _TERMINAL_ARRAY_KEYS && v isa AbstractVector &&
+         any(t -> !(t isa AbstractString), v) ? Any[deepcopy(t) for t in v] :
+         _copy_for_normalization(v)) for (k, v) in x)
+end
+_copy_for_normalization(x::AbstractVector) = map(_copy_for_normalization, x)
+_copy_for_normalization(x) = deepcopy(x)
+
 # ---------------------------------------------------------------------------
 # Time-series helpers
 # ---------------------------------------------------------------------------
@@ -317,7 +341,11 @@ multiplicatively to the static parameter value:
 - `BoundsError` if `t_index` is out of range for any referenced series.
 """
 function get_snapshot(net::Dict{String,Any}, t_index::Int)::Dict{String,Any}
-    snap = deepcopy(net)
+    _get_snapshot!(deepcopy(net), t_index)
+end
+
+# Resolve an already privately owned network without copying it again.
+function _get_snapshot!(snap::Dict{String,Any}, t_index::Int)::Dict{String,Any}
     !is_timeseries(snap) && return snap
 
     ts_root = snap["time_series"]
