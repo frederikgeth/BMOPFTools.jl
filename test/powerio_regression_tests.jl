@@ -17,13 +17,7 @@
                       0.004 * 11000^2 / ratings[2],
                       0.008 * 400^2 / ratings[1]]
         @test getindex.(xf["windings"], "s_rating") == ratings
-        if third_kva == 20000
-            @test getindex.(xf["windings"], "r_winding") ≈ expected_r
-        else
-            # OpenDSS uses winding 1's power base (confirmed by its Yprim).
-            # PowerIO 0.11 instead uses each winding's own rating: keep #356 open.
-            @test_broken getindex.(xf["windings"], "r_winding") ≈ expected_r
-        end
+        @test getindex.(xf["windings"], "r_winding") ≈ expected_r
         @test all(!haskey(w, "s_max") for w in xf["windings"])
         for (pair, percent) in (("1_2", 10), ("1_3", 17), ("2_3", 6))
             @test xf["x_sc"][pair] ≈ percent / 100 * 3 * 33000^2 / ratings[1]
@@ -77,4 +71,45 @@ end
         @test net["line"]["l1"]["terminal_map_from"] == ["a", "b", "c", "n"]
         @test net["line"]["l1"]["terminal_map_to"] == ["a", "b", "c", "n"]
     end
+end
+
+@testset "DSS static CVR import (#333)" begin
+    source=read(joinpath(@__DIR__,"data","pf_comparison","pf_exp_1ph.dss"),String)
+    for (suffix,gp,gq) in (("CVRwatts=1.4 CVRvars=2.0",1.4,2.0),
+                           ("",1.0,2.0),("CVRwatts=0 CVRvars=0",0.0,0.0),
+                           ("CVRwatts=-0.5 CVRvars=3.1",-0.5,3.1))
+        mktempdir() do dir
+            path=joinpath(dir,"case.dss")
+            write(path,replace(source,"CVRwatts=1.4 CVRvars=2.0"=>suffix))
+            net=from_dss(path); load=net["load"]["ld1"]
+            @test load["model"]=="exponential"
+            @test load["gamma_p"]==[gp] && load["gamma_q"]==[gq]
+            @test load["v_nom"]==[240.0]
+            io=IOBuffer();write_bmopf(net,io)
+            @test parse_bmopf(String(take!(io));from_string=true)["load"]==net["load"]
+            @test haskey(net["_meta"],"powerio_intake_repairs")
+        end
+    end
+    # Unsupported time-dependent exponents must not masquerade as static data.
+    for extras in (Dict("model"=>4,"cvrcurve"=>"daily"),Dict("model"=>4,"cvrwatts"=>"NaN"))
+        dn=(data=(loads=[(name="ld",extras=extras)],transformers=[]),)
+        net=Dict{String,Any}("load"=>Dict("ld"=>Dict("p_nom"=>[1.],"q_nom"=>[1.],"v_nom"=>[1.])))
+        @test_throws ArgumentError BMOPFTools._restore_dss_intake_fidelity!(net,dn)
+    end
+    # Existing non-CVR laws are not reinterpreted.
+    dn=(data=(loads=[(name="ld",extras=Dict("model"=>1))],transformers=[]),)
+    net=Dict{String,Any}("load"=>Dict("ld"=>Dict("model"=>"constant_power")))
+    before=deepcopy(net);BMOPFTools._restore_dss_intake_fidelity!(net,dn)
+    @test net==before
+end
+
+@testset "DSS export preserves repaired laws without mutating input" begin
+    net=from_dss(joinpath(@__DIR__,"data","pf_comparison","pf_exp_1ph.dss"))
+    before=deepcopy(net)
+    text,_=to_dss(net)
+    @test net==before
+    @test occursin("CVRwatts=1.4 CVRvars=2.0",text)
+    load=net["load"]["ld1"]
+    load["gamma_p"]=[1.,2.]
+    @test_throws ArgumentError BMOPFTools._restore_dss_export_fidelity("Solve",net)
 end

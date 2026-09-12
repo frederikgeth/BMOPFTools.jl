@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "52dac4e8bd2e22ae8e285c1030479d37375c0097304660b5b52f3793478a6e22",
+  "corpus_sha256": "6ac521a59c6ec1b86622aedbd5aaa663454fb30455627cf25230a69bbe64a3d5",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -50,7 +50,7 @@
   "source_files": [
     {
       "path": "Project.toml",
-      "sha256": "81d4f34067344e5b29a474db98becef2090627c0893e0a8bdadbe1a7f3efdbfd"
+      "sha256": "2e187fad69db40e70ff86963fd24ea438b8ee8d067dd6a3ec9948d8a8b8d7b7c"
     },
     {
       "path": "bin/bmopf",
@@ -182,7 +182,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "613458d95c03ad0f4d8ea88be34416937090473e9600a61fcfeeb6807292c933"
+      "sha256": "c6090c8dab28df17f2f800c2d46e5f52e989d03f1df505228ef5e316160700ef"
     },
     {
       "path": "recipes/README.md",
@@ -318,7 +318,7 @@
     },
     {
       "path": "src/io/from_dss.jl",
-      "sha256": "5a2973bb24a032056e34065f7164e8ba1459e3292e8777e7413e2f862757e270"
+      "sha256": "0ad9e73c8a288c893c9f1ac0942ba1cce734f173ed8b977635f454637ed4f915"
     },
     {
       "path": "src/io/migrate.jl",
@@ -335,6 +335,10 @@
     {
       "path": "src/io/project_solution.jl",
       "sha256": "61eae04f085809e30493a298f6808419218f759d74fda1f9996de914e5bfb558"
+    },
+    {
+      "path": "src/io/to_dss.jl",
+      "sha256": "0dc67e78f5debed2fa36c2e099945bf5c5e6c701ea59f63d303a7215fa9db356"
     },
     {
       "path": "src/io/to_pmd.jl",
@@ -386,7 +390,7 @@
     },
     {
       "path": "test/Project.toml",
-      "sha256": "fcc6b49f8fe6e47274365b9822d87eba25a2f3ce95ee181e1548ba09d11e3cda"
+      "sha256": "f093363eed474c9211a5f055cea61898d9b909eb764aaccb2b88a616262a10ae"
     },
     {
       "path": "test/data/line_geometry/ieee13_601.dss",
@@ -395,6 +399,10 @@
     {
       "path": "test/data/pf_comparison/pf_3wdg_unequal_kva.dss",
       "sha256": "576fcc7e0dd6a42093403da2c5bdd9a38c9a7ac8b8283384d999ac980431f484"
+    },
+    {
+      "path": "test/data/pf_comparison/pf_exp_1ph.dss",
+      "sha256": "5a08fa56e37d98cdfc2bc3998dde03a98f692c4d7b57f50bd7059f4c16d39d81"
     },
     {
       "path": "test/data/scientific_review/inconsistent-phasor-result.json",
@@ -802,11 +810,11 @@
     },
     {
       "path": "test/powerio_numerical_tests.jl",
-      "sha256": "8b9dadf28ceda361fc0e60a29f765facc056712eb036103803db4506a26ae9c7"
+      "sha256": "d66adf5f2eaf0fe8464a63e643e4129a10446f488b53ce555f3f8318a4586e26"
     },
     {
       "path": "test/powerio_regression_tests.jl",
-      "sha256": "7bd127f58b81c12db2cfb258ffe6bea34b17ecc9f70d6f32573ca58bfee9b509"
+      "sha256": "f137c6127db3ec3a5350ba4b3540995dc087c4774700b935c72daa1ef23d00e4"
     },
     {
       "path": "test/powerio_v09_tests.jl",
@@ -847,6 +855,10 @@
     {
       "path": "test/transformer_opendss_tests.jl",
       "sha256": "0ca7c2a7d2522aab270986bad372bb47a9b4b9b82f11637418d12d135b37e993"
+    },
+    {
+      "path": "test/ybus_linearized_tests.jl",
+      "sha256": "3b7c1a23652975c8e25a34521dd7a75f66f8d1a7fc006b4cbe1409b5cb20532f"
     }
   ]
 }

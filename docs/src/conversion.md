@@ -722,3 +722,19 @@ that capability does not imply that the OpenDSS importer populates it.
   it does not recognise OpenDSS `AutoTrans`/`RegControl` or open-delta banks as
   these objects, and `to_pmd` does not emit them. They are authored directly in
   BMOPF JSON. See [conventions](conventions.md) and the [OPF reference](opf.md).
+
+### DSS intake compatibility with PowerIO 0.11.1
+
+The minimum tested PowerIO version is 0.11.1. Two source-IR repairs remain
+necessary: static DSS model-4 CVR exponents (#333), and multi-winding `%R`
+conversion using winding 1's power base (#356). `from_dss` records these in
+`_meta.powerio_intake_repairs`; it does not alter ordinary BMOPF JSON intake.
+CVR uses explicit `CVRwatts`/`CVRvars`, defaulting to 1/2 as in OpenDSS.
+Time-varying `CVRcurve` is rejected rather than frozen silently. Source voltage
+thresholds remain separate behavior-domain metadata; importing an exponential
+law does not reproduce OpenDSS fallback behavior outside that domain.
+
+`to_dss` also emits explicit model-4/CVR parameters and first-winding-base
+multi-winding `%R` edits, preventing the repaired laws from disappearing again
+on export. Exponential exponents must be uniform across the phases of one DSS
+load; unsupported per-phase exponents are rejected. The PMD exporter is unchanged.
