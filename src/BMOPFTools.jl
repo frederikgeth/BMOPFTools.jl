@@ -1209,13 +1209,19 @@ export solve_feasibility_opf
              build_spec=OpfBuildSpec()) -> Dict{String,Any}
 
 Determined four-wire rectangular current-voltage (IVR-EN) power flow on a BMOPF
-network dict. Same device models as [`solve_opf`](@ref) but with **no operational
-bounds and no objective**: fixed source voltages, constant-power injections, and
+network dict. Same device models as [`solve_opf`](@ref), with **no objective**
+and operational bounds removed except transformer nameplate caps: fixed source voltages, constant-power injections, and
 exact KCL fully determine the nodal state.
 
-Device current/thermal limits and voltage bounds are intentionally ignored — the
-power flow reports whatever results from the physics; use `solve_opf` or a
-post-solve validation pass when limits must hold.
+Device current/thermal limits and voltage bounds are ignored **except for a
+transformer's `s_rating`**. Its per-coil apparent-power cap remains enforced;
+a lightly loaded bank can have one overloaded coil. A local infeasibility
+status is not by itself evidence of a numerical failure or voltage collapse.
+
+For a comparison with limit-free power flow, remove `s_rating` from transformer
+records in a copy of the network before calling `solve_pf`. This removes the
+nameplate constraint; it does not change the stored ohmic leakage parameters.
+Use `solve_opf` or independent post-solve checks when operational limits matter.
 
 Generators must be **fixed setpoints** (`p_min == p_max` and `q_min == q_max`); a
 non-degenerate range is rejected, since a power flow has no objective to choose a
@@ -3053,5 +3059,20 @@ function __init__()
         end
     end
 end
+
+
+"""
+    resolve_opf!(ctx, other_contexts...; kwargs...) -> JuMP.Model
+
+Reload a cached optimizer after supported parameter-value updates, then solve
+its shared model once. All supplied contexts must belong to that model and
+already have KCL enforced. Existing optimize hooks are honored. Direct models
+are unsupported: rebuild those explicitly. JuMP handles, attributes and explicit
+start values survive; solver factorizations and automatic warm-start transfer
+do not. Topology, dimensions and voltage-domain changes require rebuilding.
+Check physical residuals independently after solving (PSK-000013).
+"""
+function resolve_opf! end
+export resolve_opf!
 
 end # module BMOPFTools

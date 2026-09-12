@@ -32,16 +32,16 @@
 Determined four-wire rectangular current-voltage (IVR-EN) power flow on a BMOPF
 network dict.
 
-Same device models as [`solve_opf`](@ref) but with **no operational bounds and no
-objective** — the network's physics (fixed source voltages + constant-power
+Same device models as [`solve_opf`](@ref) with **no objective** and operational
+bounds removed except transformer nameplate caps — the network's physics (fixed source voltages + constant-power
 injections + exact KCL) fully determine the solution. Device current/thermal
-limits and voltage bounds are intentionally ignored; use `solve_opf` (or a
+limits and voltage bounds, apart from the nameplate exception below, are ignored; use `solve_opf` (or a
 post-solve validation pass) when limits must be enforced.
 
-**One exception**: a transformer's nameplate `s_rating` is a required field
-whose per-coil apparent-power cap is **always enforced**, in the power flow
-too — loading any coil beyond `s_rating / n_phase` makes the PF
-`LOCALLY_INFEASIBLE` rather than reporting an overloaded state. This is easy
+**One exception**: when a transformer declares a nameplate `s_rating`, its
+per-coil apparent-power cap is **always enforced**, in the power flow too — loading any coil beyond `s_rating / n_phase` can make the PF
+return `LOCALLY_INFEASIBLE` rather than report an overloaded state. The status
+alone is not a global infeasibility certificate. This is easy
 to misread as a numerical failure (healthy voltages, no other limits). To
 solve without the nameplate — e.g. to compare against a limit-free OpenDSS
 solve — delete `s_rating` from the transformer dicts in the input net first.

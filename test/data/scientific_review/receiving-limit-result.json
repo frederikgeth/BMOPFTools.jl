@@ -1,0 +1,67 @@
+{
+  "network": {
+    "bus": {
+      "f": {
+        "terminal_names": [
+          "a"
+        ]
+      },
+      "t": {
+        "terminal_names": [
+          "b"
+        ]
+      }
+    },
+    "line": {
+      "l": {
+        "bus_from": "f",
+        "bus_to": "t",
+        "terminal_map_from": [
+          "a"
+        ],
+        "terminal_map_to": [
+          "b"
+        ],
+        "length": 1.0,
+        "R_series_1_1": 0.1,
+        "G_to_1_1": 0.5,
+        "i_max": 1.2
+      }
+    }
+  },
+  "result": {
+    "termination_status": "LOCALLY_SOLVED",
+    "bus": {
+      "f": {
+        "a": {
+          "vr": 1.0,
+          "vi": 0.0,
+          "vm": 1.0
+        }
+      },
+      "t": {
+        "b": {
+          "vr": 1.1,
+          "vi": 0.0,
+          "vm": 1.1
+        }
+      }
+    },
+    "line": {
+      "l": {
+        "a": {
+          "cr_fr": -1.0,
+          "ci_fr": 0.0,
+          "cm_fr": 1.0,
+          "cr_to": 1.55,
+          "ci_to": 0.0,
+          "cm_to": 1.55
+        }
+      }
+    },
+    "losses": {
+      "p_loss": 0.0,
+      "q_loss": 0.0
+    }
+  }
+}
