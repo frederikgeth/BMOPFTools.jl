@@ -78,7 +78,87 @@ _interop_parse(net) = parse_bmopf(JSON3.write(net); from_string=true)
     end
 end
 
+@testset "Legacy excitation exchange respects coil count and neutral labels" begin
+    for ncoil in 1:3, numeric in (false, true), declared in (false, true)
+        phases = numeric ? string.(1:ncoil) : ["a", "b", "c"][1:ncoil]
+        neutral = numeric ? "4" : "n"
+        terminals = vcat(phases, neutral)
+        x = Dict{String,Any}("bus_from"=>"f", "bus_to"=>"t",
+            "terminal_map_from"=>copy(terminals), "terminal_map_to"=>copy(terminals),
+            "v_nom_from"=>400., "v_nom_to"=>200., "s_rating"=>10000.,
+            "g_no_load"=>.002, "b_no_load"=>-.004)
+        net = Dict{String,Any}("bus"=>Dict{String,Any}(b=>Dict{String,Any}("terminal_names"=>copy(terminals)) for b in ("f","t")),
+            "transformer"=>Dict{String,Any}("single_phase"=>Dict{String,Any}("tx"=>x)))
+        declared && (net["terminal_conventions"] = Dict("phase"=>phases, "neutral"=>[neutral], "earth"=>String[]))
+        before = deepcopy(net)
+        coil_voltage = ncoil == 1 ? 200. : 200/sqrt(3)
+        pmd = to_pmd(net)["transformer"]["tx"]
+        @test pmd["noloadloss"] ≈ .002*coil_voltage^2/10000
+        @test pmd["cmag"] ≈ .004*coil_voltage^2/10000
+        @test net == before
+
+        for taps in ([1.,1.], [1.,1.03])
+            source = Dict("transformer"=>Dict("tx"=>Dict("vm_nom"=>[.4,.2], "sm_nom"=>[10.,10.],
+                "tm_set"=>[fill(taps[1],ncoil),fill(taps[2],ncoil)], "noloadloss"=>.002, "cmag"=>.004)))
+            restored = deepcopy(net)
+            BMOPFTools._normalize_transformer_no_load_shunts_from_pmd!(restored, JSON3.read(JSON3.write(source)))
+            rx = restored["transformer"]["single_phase"]["tx"]
+            @test rx["g_no_load"] ≈ .002*10000/(coil_voltage*taps[2])^2
+            @test rx["b_no_load"] ≈ -.004*10000/(coil_voltage*taps[2])^2
+        end
+    end
+
+    # A scalar legacy shunt cannot describe unequal coil taps, but a zero shunt
+    # needs no base at all. Exercise the actual PMD recovery boundary separately
+    # from PowerIO, whose DSS writer normally repeats one tap across a winding.
+    for to_taps in (Float64[], [1.,1.03,1.]), losses in ((0.,0.), (.002,0.), (0.,.004))
+        net = _interop_case("delta_wye")
+        source = JSON3.read(JSON3.write(Dict("transformer"=>Dict("tx"=>Dict(
+            "vm_nom"=>[.4,.2], "sm_nom"=>[10.,10.], "tm_set"=>[[1.,1.,1.],to_taps],
+            "noloadloss"=>losses[1], "cmag"=>losses[2])))))
+        if all(iszero, losses)
+            BMOPFTools._normalize_transformer_no_load_shunts_from_pmd!(net, source)
+            @test iszero(_interop_tx(net,"delta_wye")["g_no_load"])
+            @test iszero(_interop_tx(net,"delta_wye")["b_no_load"])
+        else
+            @test_throws ArgumentError BMOPFTools._normalize_transformer_no_load_shunts_from_pmd!(net, source)
+        end
+    end
+end
+
 if _HAS_JUMP_IPOPT
+    @testset "Working snapshots preserve typed arrays and private ownership" begin
+        ext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
+        for timeseries in (false, true)
+            raw = _interop_case("single_phase")
+            raw["load"]["l1"]["p_nom"] = [250.0]
+            raw["load"]["l1"]["q_nom"] = [65.0]
+            raw["custom"] = Dict("matrix"=>[1. 2.; 3. 4.], "weights"=>[1.,2.])
+            raw["typed_dict"] = Dict("gain"=>2.0)
+            if timeseries
+                raw["time_series"] = Dict("shape"=>Dict("values"=>[.5,1.5]))
+                raw["load"]["l1"]["time_series"] = Dict("p_nom"=>"shape")
+            end
+            before = deepcopy(raw)
+            working, _ = ext._prepare_working_net(raw, 2, false, 1e6)
+            @test working["load"]["l1"]["p_nom"] isa Vector{Float64}
+            @test working["load"]["l1"]["q_nom"] isa Vector{Float64}
+            @test working["custom"]["weights"] isa Vector{Float64}
+            @test working["custom"]["matrix"] isa Matrix{Float64}
+            @test working["typed_dict"] isa Dict{String,Any}
+            @test working["load"]["l1"]["p_nom"] == [timeseries ? 375. : 250.]
+            @test !haskey(working,"time_series")
+            working["custom"]["matrix"][1,1] = -1.
+            working["custom"]["weights"][1] = -1.
+            working["load"]["l1"]["p_nom"][1] = -1.
+            @test raw == before
+        end
+        raw = Dict{String,Any}("bus"=>Dict("b"=>Dict("terminal_names"=>[1,4])))
+        working, _ = ext._prepare_working_net(raw, 1, false, 1e6)
+        @test working["bus"]["b"]["terminal_names"] == ["1","n"]
+        @test raw["bus"]["b"]["terminal_names"] == [1,4]
+    end
+
     @testset "Yd/Dy initialization anchors and permutations (#393, #365)" begin
         ext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         perms = (["a","b","c"], ["a","c","b"], ["b","a","c"],

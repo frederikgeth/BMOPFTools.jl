@@ -236,6 +236,19 @@ function _deep_convert(@nospecialize(x))
     end
 end
 
+# Copy programmatic input for normalization in one traversal. Canonicalize
+# dictionaries, while retaining concrete numeric/string array types and private
+# ownership of arbitrary payloads such as matrices. Only terminal arrays that
+# need string coercion are widened so _normalize_terminals! can edit them.
+function _copy_for_normalization(x::AbstractDict)
+    Dict{String,Any}(string(k) =>
+        (string(k) in _TERMINAL_ARRAY_KEYS && v isa AbstractVector &&
+         any(t -> !(t isa AbstractString), v) ? Any[deepcopy(t) for t in v] :
+         _copy_for_normalization(v)) for (k, v) in x)
+end
+_copy_for_normalization(x::AbstractVector) = map(_copy_for_normalization, x)
+_copy_for_normalization(x) = deepcopy(x)
+
 # ---------------------------------------------------------------------------
 # Time-series helpers
 # ---------------------------------------------------------------------------
@@ -328,7 +341,11 @@ multiplicatively to the static parameter value:
 - `BoundsError` if `t_index` is out of range for any referenced series.
 """
 function get_snapshot(net::Dict{String,Any}, t_index::Int)::Dict{String,Any}
-    snap = deepcopy(net)
+    _get_snapshot!(deepcopy(net), t_index)
+end
+
+# Resolve an already privately owned network without copying it again.
+function _get_snapshot!(snap::Dict{String,Any}, t_index::Int)::Dict{String,Any}
     !is_timeseries(snap) && return snap
 
     ts_root = snap["time_series"]

@@ -77,7 +77,7 @@ function to_pmd(net::Dict{String,Any};
                               for (id, sw) in net["switch"]))
 
     haskey(net, "transformer") &&
-        (eng["transformer"] = _transformers_to_pmd(net["transformer"], terminal_int_map, vscale, pscale))
+        (eng["transformer"] = _transformers_to_pmd(net["transformer"], terminal_int_map, vscale, pscale; net))
 
     # Capacitors are not mapped to PMD yet (they could become PMD shunts); skip
     # with a warning rather than emit a malformed element.
@@ -326,7 +326,7 @@ end
 
 function _transformers_to_pmd(xfmr_dict::Dict{String,Any},
                                 terminal_int_map::Dict,
-                                vscale::Real, pscale::Real)::Dict{String,Any}
+                                vscale::Real, pscale::Real; net=Dict{String,Any}())::Dict{String,Any}
     result = Dict{String,Any}()
     for (subtype, subtypes_dict) in xfmr_dict
         subtypes_dict isa Dict || continue
@@ -351,7 +351,8 @@ function _transformers_to_pmd(xfmr_dict::Dict{String,Any},
             continue
         end
         for (id, xfmr) in subtypes_dict
-            pmd_xfmr = _transformer_to_pmd(xfmr, subtype, terminal_int_map, vscale, pscale)
+            labels = _pmd_winding_neutral_labels(net, get(xfmr, "bus_to", ""))
+            pmd_xfmr = _transformer_to_pmd(xfmr, subtype, terminal_int_map, vscale, pscale; neutral_labels=labels)
             result[id] = pmd_xfmr
         end
     end
@@ -360,7 +361,8 @@ end
 
 function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
                                terminal_int_map::Dict,
-                               vscale::Real, pscale::Real)::Dict{String,Any}
+                               vscale::Real, pscale::Real;
+                               neutral_labels=Set(["n", "N", "4"]))::Dict{String,Any}
     pmd = _merge_pmd_extra(Dict{String,Any}(), xfmr)
     bus_from = get(xfmr, "bus_from", "")
     bus_to   = get(xfmr, "bus_to",   "")
@@ -430,10 +432,7 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
        Float64(xfmr["s_rating"]) > 0
         vt    = Float64(xfmr[voltage_key])
         s     = Float64(xfmr["s_rating"])
-        to_pairs = _xfmr_winding_pairs(Vector{String}(get(xfmr, "terminal_map_to", String[])))
-        to_wye_bank = subtype == "delta_wye" ||
-            (subtype == "single_phase" && length(to_pairs) == 3)
-        v_stamp = to_wye_bank ? vt / sqrt(3) : vt
+        v_stamp = vt / _legacy_excitation_voltage_divisor(xfmr, subtype, neutral_labels)
         if regulator
             n_from_ph = count(!=("n"), Vector{String}(get(xfmr, "terminal_map_from", String[])))
             v_stamp = n_from_ph >= 3 ? vt / sqrt(3) : vt

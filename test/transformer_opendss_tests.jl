@@ -16,6 +16,48 @@ function _interop_ods_primitive(nodes)
     transpose(A) * source_y * A
 end
 
+@testset "OpenDSS one-, two-, and three-coil wye excitation bases" begin
+    template = read(joinpath(@__DIR__,"data","transformer_interoperability","wye_bank.dss"),String)
+    for ncoil in 1:3
+        phases = string.(1:ncoil)
+        nodes = join(phases,'.')
+        source = replace(template, "phases=3"=>"phases=$ncoil",
+            "f.1.2.3.4"=>"f.$nodes.4", "t.1.2.3.4"=>"t.$nodes.4")
+        mktempdir() do dir
+            path = joinpath(dir,"bank.dss")
+            write(path,source)
+            OpenDSSDirect.dss("redirect \"$path\"")
+            OpenDSSDirect.Circuit.SetActiveElement("transformer.tx")
+            Y0 = reshape(OpenDSSDirect.CktElement.YPrim(),2*(ncoil+1),2*(ncoil+1))
+            excitation = "\nedit transformer.tx %noloadloss=.2 %imag=.4\nsolve\n"
+            OpenDSSDirect.dss(excitation)
+            OpenDSSDirect.Circuit.SetActiveElement("transformer.tx")
+            Y1 = reshape(OpenDSSDirect.CktElement.YPrim(),size(Y0))
+            oracle = (Y1-Y0)[ncoil+2:end,ncoil+2:end]
+            write(path,source*excitation)
+            module_ = PowerIO.parse(path)
+            for neutral in ("n","4")
+                terminals = vcat(phases,neutral)
+                x = Dict{String,Any}("bus_from"=>"f", "bus_to"=>"t",
+                    "terminal_map_from"=>copy(terminals), "terminal_map_to"=>copy(terminals),
+                    "v_nom_from"=>400., "v_nom_to"=>200., "s_rating"=>10000.)
+                net = Dict{String,Any}("bus"=>Dict{String,Any}(b=>Dict{String,Any}("terminal_names"=>copy(terminals)) for b in ("f","t")),
+                    "transformer"=>Dict{String,Any}("single_phase"=>Dict{String,Any}("tx"=>x)),
+                    "terminal_conventions"=>Dict("phase"=>phases,"neutral"=>[neutral],"earth"=>String[]))
+                BMOPFTools._normalize_transformer_no_load_shunts!(net,(;module_))
+                A = hcat(Matrix{Float64}(I,ncoil,ncoil),fill(-1.,ncoil))
+                recovered = complex(x["g_no_load"],x["b_no_load"])/ncoil * (transpose(A)*A)
+                @test recovered ≈ oracle rtol=1e-9 atol=1e-11
+                V = ComplexF64[(70+13*k)*cis(.3*k) for k in 1:ncoil+1]
+                @test sum(V.*conj.(recovered*V)) ≈ sum(V.*conj.(oracle*V)) rtol=1e-9 atol=1e-8
+                exported = to_pmd(net)["transformer"]["tx"]
+                @test exported["noloadloss"] ≈ .002
+                @test exported["cmag"] ≈ .004
+            end
+        end
+    end
+end
+
 function _interop_manual_ods(kind, tap; excitation=false)
     net = _interop_case(kind)
     x = _interop_tx(net,kind)

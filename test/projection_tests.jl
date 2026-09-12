@@ -98,6 +98,68 @@ const _PROJ_RTOL = 0.02
             @test tid in snap_free["_meta"]["projection"]["free_taps"]
         end
 
+        # Regulator ratios must remain pinned in a subsequent power-flow solve.
+        @testset "Projected regulator taps stay fixed in power flow" begin
+            for kind in ("single_phase_autotransformer", "open_delta_regulator"),
+                free_arms in ((true,true), (true,false), (false,true)), per_unit in (false,true)
+                kind == "single_phase_autotransformer" && free_arms != (true,true) && continue
+                bank = kind == "open_delta_regulator"
+                phases = bank ? ["1","2","3"] : ["1"]
+                terminals = vcat(phases,"n")
+                xf = Dict{String,Any}("bus_from"=>"src", "bus_to"=>"reg",
+                    "terminal_map_from"=>copy(terminals), "terminal_map_to"=>copy(terminals),
+                    "regulator_type"=>"B", "s_rating"=>250000.,
+                    "r_series_from"=>.35, "x_series_from"=>.15,
+                    "r_series_to"=>.05, "x_series_to"=>.02)
+                if bank
+                    xf["connection"] = "ABBC"
+                    xf["tap_ratio"] = [1.025,.99]
+                    xf["tap_ratio_min"] = [free_arms[k] ? .97 : xf["tap_ratio"][k] for k in 1:2]
+                    xf["tap_ratio_max"] = [free_arms[k] ? 1.06 : xf["tap_ratio"][k] for k in 1:2]
+                else
+                    xf["tap_ratio"] = 1.025
+                    xf["tap_ratio_min"] = .97
+                    xf["tap_ratio_max"] = 1.06
+                end
+                net = Dict{String,Any}(
+                    "bus"=>Dict{String,Any}(b=>Dict{String,Any}("terminal_names"=>copy(terminals),
+                        "perfectly_grounded_terminals"=>["n"]) for b in ("src","reg")),
+                    "voltage_source"=>Dict{String,Any}("src"=>Dict{String,Any}("bus"=>"src",
+                        "terminal_map"=>phases, "v_magnitude"=>fill(2400.,length(phases)),
+                        "v_angle"=>[.13-2pi*(k-1)/3 for k in eachindex(phases)], "cost"=>fill(.2,length(phases)))),
+                    "transformer"=>Dict{String,Any}(kind=>Dict{String,Any}("tx"=>xf)),
+                    "load"=>Dict{String,Any}("ld"=>Dict{String,Any}("bus"=>"reg", "terminal_map"=>terminals,
+                        "configuration"=>bank ? "WYE" : "SINGLE_PHASE",
+                        "p_nom"=>bank ? [30000.,20000.,25000.] : [50000.],
+                        "q_nom"=>bank ? [6000.,4000.,5000.] : [12000.])))
+                before = deepcopy(net)
+                result = solve_opf(net; optimizer=opt, per_unit)
+                @test result["termination_status"] in ("LOCALLY_SOLVED","OPTIMAL")
+                snapshot = project_solution(net,result)
+                pinned = snapshot["transformer"][kind]["tx"]
+                if bank
+                    for k in 1:2
+                        @test BMOPFTools._odr_ratio_coeff_bounds(pinned,k) === nothing
+                        if !free_arms[k]
+                            @test pinned["tap_ratio"][k] == xf["tap_ratio"][k]
+                            @test pinned["tap_ratio_min"][k] == xf["tap_ratio_min"][k]
+                            @test pinned["tap_ratio_max"][k] == xf["tap_ratio_max"][k]
+                        end
+                    end
+                else
+                    @test BMOPFTools._xfmr_ratio_coeff_bounds(kind,pinned) === nothing
+                end
+                @test net == before
+                @test "tx" in snapshot["_meta"]["projection"]["free_taps"]
+                pf = solve_pf(snapshot; optimizer=opt, per_unit)
+                @test pf["termination_status"] in ("LOCALLY_SOLVED","OPTIMAL")
+                for (bus, values) in result["bus"], (terminal, v) in values
+                    @test pf["bus"][bus][terminal]["vr"] ≈ v["vr"] atol=1e-4
+                    @test pf["bus"][bus][terminal]["vi"] ≈ v["vi"] atol=1e-4
+                end
+            end
+        end
+
         # ── Unit: dispatch_as_loads converts non-slack generation ─────────────
         @testset "dispatch_as_loads → negative loads" begin
             net = from_dss(joinpath(_PROJ_DIR, "pf_1ph_line.dss"))

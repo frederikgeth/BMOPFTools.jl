@@ -1017,6 +1017,27 @@ end
 
 const _NO_LOAD_SHUNT_SUBTYPES = ("center_tap", "single_phase", "wye_delta", "delta_wye")
 
+# PMD exchange supports numeric terminal 4 as the conventional neutral. A
+# declared case convention or per-bus neutral takes precedence over that default.
+function _pmd_winding_neutral_labels(net, bus_id)
+    bus = get(get(net, "bus", Dict()), bus_id, Dict{String,Any}())
+    neutral = get(bus, "neutral_terminal", nothing)
+    neutral isa String && return Set([neutral])
+    haskey(net, "terminal_conventions") && return _neutral_labels(net)
+    Set(["n", "N", "4"])
+end
+
+function _legacy_excitation_voltage_divisor(xfmr, subtype, neutral_labels)
+    subtype == "delta_wye" && return sqrt(3.0)
+    if subtype == "single_phase"
+        pairs = _xfmr_winding_pairs(get(xfmr, "terminal_map_to", String[]), neutral_labels)
+        # A single L-N or L-L coil uses its rated coil voltage. Multi-coil wye
+        # banks (including two coils and implicit ground returns) use V_LL/√3.
+        length(pairs) > 1 && return sqrt(3.0)
+    end
+    1.0
+end
+
 function _normalize_transformer_no_load_shunts!(net::Dict{String,Any}, dn)
     xfmr = get(net, "transformer", nothing)
     xfmr isa Dict || return net
@@ -1033,6 +1054,11 @@ function _normalize_transformer_no_load_shunts!(net::Dict{String,Any}, dn)
         return net
     end
 
+    _normalize_transformer_no_load_shunts_from_pmd!(net, pmd)
+end
+
+function _normalize_transformer_no_load_shunts_from_pmd!(net::Dict{String,Any}, pmd)
+    xfmr = get(net, "transformer", Dict())
     pmd_tr = get(pmd, :transformer, nothing)
     pmd_tr === nothing && return net
 
@@ -1052,15 +1078,22 @@ function _normalize_transformer_no_load_shunts!(net::Dict{String,Any}, dn)
             haskey(materialized, "$(lowercase(subtype))/$(lowercase(String(tid)))") && continue
             t = get(by_id, lowercase(String(tid)), nothing)
             t === nothing && continue
+            noloadloss = Float64(get(t, :noloadloss, 0.0))
+            cmag = Float64(get(t, :cmag, 0.0))
+            if iszero(noloadloss) && iszero(cmag)
+                # No voltage/tap base is needed to represent a zero shunt.
+                c["g_no_load"] = 0.0
+                c["b_no_load"] = 0.0
+                continue
+            end
             vmn = get(t, :vm_nom, nothing)
             smn = get(t, :sm_nom, nothing)
             (vmn isa AbstractVector && smn isa AbstractVector &&
              length(vmn) >= 2 && length(smn) >= 1) || continue
 
             s1 = Float64(smn[1]) * 1e3
-            pairs_to = _xfmr_winding_pairs(Vector{String}(get(c, "terminal_map_to", String[])))
-            wye_bank = subtype == "delta_wye" ||
-                (subtype == "single_phase" && length(pairs_to) == 3)
+            labels = _pmd_winding_neutral_labels(net, get(c, "bus_to", ""))
+            divisor = _legacy_excitation_voltage_divisor(c, subtype, labels)
             tm = get(t, :tm_set, nothing)
             to_taps = tm isa AbstractVector && length(tm) >= 2 ? tm[2] : [1.0]
             to_taps isa AbstractVector || (to_taps = [to_taps])
@@ -1068,10 +1101,10 @@ function _normalize_transformer_no_load_shunts!(net::Dict{String,Any}, dn)
             all(==(first(to_taps)), to_taps) || throw(ArgumentError(
                 "transformer $tid: unequal winding-2 coil taps cannot use a scalar legacy excitation; supply explicit coil shunts"))
             vstamp = Float64(vmn[2]) * 1e3 * Float64(first(to_taps)) /
-                (wye_bank ? sqrt(3) : 1.0)
+                divisor
             vstamp > 0 || continue
-            c["g_no_load"] = Float64(get(t, :noloadloss, 0.0)) * s1 / vstamp^2
-            c["b_no_load"] = -Float64(get(t, :cmag, 0.0)) * s1 / vstamp^2
+            c["g_no_load"] = noloadloss * s1 / vstamp^2
+            c["b_no_load"] = -cmag * s1 / vstamp^2
         end
     end
     return net

@@ -20,8 +20,9 @@ Status: implemented; the original investigation plan is retained below.
 - Added four JSON witnesses and five synthetic OpenDSS fixtures, with primitive,
   loaded-state, serialization, provenance, SI/per-unit, and boundary coverage in
   dedicated interoperability test files.
-- Fixed solution projection to remove ordinary transformer tap bounds after
-  writing the optimized tap, so power-flow validation holds that tap fixed.
+- Fixed solution projection to remove ordinary transformer tap bounds and pin
+  regulator bounds per solved arm, so power-flow validation holds those taps
+  fixed while preserving already fixed regulator arms.
 - Updated executable provenance and regenerated the exports. Existing scientific
   contract domains remain unchanged; regulator controls and unequal-kVA
   n-winding intake remain separate work.
@@ -35,6 +36,18 @@ contracts, executable knowledge (908 assertions), and JSON execution interface
 (158 assertions) passed. The full suite passed with 12,369 assertions and 39
 expected broken/skipped checks, plus the separate 46-assertion piecewise-linear
 API test set. OpenDSS and Ipopt coverage executed in this run.
+
+PR review corrections cover numeric/declared neutral labels, two-coil wye
+excitation bases, zero-excitation recovery with empty or unequal tap arrays,
+regulator projection, and typed-array/private-ownership preservation with one
+working-network copy. Independent OpenDSS primitive differences establish that
+one L-N/L-L coil uses its rated coil voltage, while two- and three-coil wye
+banks use the line-to-line rating divided by square root of three. Neutral
+presence alone is therefore insufficient to choose the voltage base.
+
+Review validation: all required gates passed again. The full suite passed
+12,673 assertions with the same 39 known broken/skipped checks, plus all 46
+piecewise-linear API assertions. The review adds 304 passing regressions.
 
 ## Findings from the planning baseline
 

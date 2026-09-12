@@ -27,6 +27,14 @@ remain present. Independent load-side KCL and winding/energy checks accompany
 solver-status assertions. Reconstructed internal currents are inferred, not
 independently measured.
 
+Review regressions also vary the wye bank through one, two, and three coils and
+numeric/letter neutral labels, checking recovered excitation against OpenDSS's
+primitive difference. Empty/unequal coil-tap arrays are tested at the PMD
+recovery boundary with zero and nonzero excitation. Solver preparation tests
+retain concrete numeric arrays and private matrix ownership while resolving
+time series once. Regulator projection tests cover both free arms and mixed
+fixed/free arms, followed by a power-flow solve of the pinned snapshot.
+
 Excitation tests distinguish the explicit per-coil exchange representation from
 legacy bank totals and legacy n-winding per-coil values. PowerIO tests separately
 inspect preserved source text, typed electrical parameters, parser migration,

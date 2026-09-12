@@ -80,8 +80,12 @@ explicitly, divide its total by `m`; for `n_winding`, retain the value. Both for
 on one transformer are rejected. These rules resolve the package compatibility
 choice in #279 without silently changing old data. Schema descriptions now
 match these runtime meanings. The legacy `from_dss` recovery also accounts for
-three-phase wye-bank coil voltage and winding-2 taps; PMD export uses winding
-2's voltage base.
+multi-coil wye-bank coil voltage and winding-2 taps; PMD export uses winding
+2's voltage base. For one L-N or L-L coil, the nominal voltage is the coil
+voltage; two- and three-coil wye banks use `V_LL/√3`. Neutral selection respects
+declared case/bus roles and the PMD numeric `"4"` convention. Zero excitation
+requires no tap-dependent voltage base, so empty or unequal coil-tap arrays
+do not cause the legacy zero-shunt recovery to fail.
 
 ### Fixed taps and stored ohms
 

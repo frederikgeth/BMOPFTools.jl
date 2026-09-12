@@ -2600,9 +2600,9 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
                                   BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing)
     # Preserve private ownership of non-JSON payloads (e.g. matrices) as well
     # as converting nested typed dictionaries used by programmatic callers.
-    working = BMOPFTools._deep_convert(deepcopy(net))
+    working = BMOPFTools._copy_for_normalization(net)
     BMOPFTools.is_timeseries(working) &&
-        (working = BMOPFTools.get_snapshot(working, t_index))
+        (working = BMOPFTools._get_snapshot!(working, t_index))
     # Normalize before unit conversion and indexing, including combined leakage
     # and explicit winding-connected excitation. Mutates only our private copy.
     BMOPFTools._normalize_bmopf!(working)
