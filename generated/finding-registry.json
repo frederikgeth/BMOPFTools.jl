@@ -3,9 +3,9 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "d634905b1cc7cdae3bb3524f69302d48f67fb9c71081f9abab2962f745e9a7f8"
+    "sha256": "577ba6c2c87d656a19c3e5b575d6aab6738d2023eb6a43d351e11531739c47c5"
   },
-  "finding_count": 360,
+  "finding_count": 361,
   "findings": [
     {
       "code": "E.COMP.MISSING_REQUIRED",
@@ -2364,6 +2364,16 @@
       "catalogue_section": "SOL",
       "section_title": "solution profiling",
       "meaning": "No primal candidate is available to profile. Termination alone does not establish network infeasibility; inspect result count and primal status.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "I.SOL.CONTROLLER_COMPLIANCE",
+      "severity": "INFO",
+      "namespace": "SOL",
+      "catalogue_section": "SOL",
+      "section_title": "solution profiling",
+      "meaning": "Separate exact Volt-watt cap compliance and declared modeled smooth-cap feasibility in SI, with output, caps, excesses, smoothing width/mode, and approximation error. Missing or unsupported modeled-curve evidence is indeterminate; exact-cap violations retain their original errors. This does not authenticate the supplied model evidence.",
       "contract_id": null,
       "knowledge_ids": []
     },

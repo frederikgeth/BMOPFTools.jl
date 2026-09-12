@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "d634905b1cc7cdae3bb3524f69302d48f67fb9c71081f9abab2962f745e9a7f8"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "577ba6c2c87d656a19c3e5b575d6aab6738d2023eb6a43d351e11531739c47c5"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -2125,6 +2125,15 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="SOL",
         section_title="solution profiling",
         meaning="No primal candidate is available to profile. Termination alone does not establish network infeasibility; inspect result count and primal status.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "I.SOL.CONTROLLER_COMPLIANCE" => (
+        severity="INFO",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="Separate exact Volt-watt cap compliance and declared modeled smooth-cap feasibility in SI, with output, caps, excesses, smoothing width/mode, and approximation error. Missing or unsupported modeled-curve evidence is indeterminate; exact-cap violations retain their original errors. This does not authenticate the supplied model evidence.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

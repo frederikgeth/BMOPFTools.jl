@@ -560,6 +560,20 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         inv_res[inv_id] = ph_results
     end
 
+    # Explicit SI curve evidence survives per-unit unwrapping unchanged.
+    modeled_vw = Dict{String,Any}()
+    for ((id, idx), item) in get(vars, :volt_watt_evidence, Dict())
+        bus = net["ibr"][id]["bus"]
+        vb = bases === nothing ? 1.0 : bases.v_base[bus]
+        sb = bases === nothing ? 1.0 : _ac_power_base(bases, bus)
+        curve = item.curve
+        rows = get!(modeled_vw, id, Dict{String,Any}())
+        rows[string(idx)] = Dict{String,Any}("units"=>"SI", "mode"=>string(item.mode),
+            "epsilon_V"=>curve.eps*vb, "baseline_W"=>val(item.base*curve.baseline)*sb,
+            "hinges"=>[Dict("slope_W_per_V"=>val(item.base*a)*sb/vb,
+                            "breakpoint_V"=>val(x)*vb) for (a,x) in curve.triples])
+    end
+
     # ── Transformer currents (positional: "fr"/"to" => "1","2",...) ──────────
     # Terminal maps on the two winding sides may differ in length and in naming,
     # so these are indexed by position string rather than terminal name.
@@ -840,6 +854,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         "load"               => load_res,
         "generator"          => gen_res,
         "ibr"           => inv_res,
+        "modeled_volt_watt" => modeled_vw,
         "transformer"        => xfmr_res,
         "capacitor"          => cap_res,
         "voltage_source"     => src_res,
