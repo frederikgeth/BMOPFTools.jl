@@ -50,202 +50,17 @@ end
 
 include("piecewise_linear_tests.jl")
 
-# ---------------------------------------------------------------------------
-# Minimal IEEE 13-bus inspired fixture — enough to exercise all analysis paths
-# ---------------------------------------------------------------------------
-
-const IEEE13_FIXTURE = """
-{
-  "name": "ieee13_mini",
-  "bus": {
-    "sourcebus": {
-      "terminal_names": ["1","2","3","n"],
-      "perfectly_grounded_terminals": ["n"],
-      "v_min": [2020.0, 2020.0, 2020.0],
-      "v_max": [2540.0, 2540.0, 2540.0]
-    },
-    "650": {
-      "terminal_names": ["1","2","3","n"],
-      "perfectly_grounded_terminals": ["n"],
-      "v_min": [2020.0, 2020.0, 2020.0],
-      "v_max": [2540.0, 2540.0, 2540.0]
-    },
-    "632": {
-      "terminal_names": ["1","2","3","n"],
-      "v_min": [2020.0, 2020.0, 2020.0],
-      "v_max": [2540.0, 2540.0, 2540.0]
-    },
-    "634": {
-      "terminal_names": ["1","2","3","n"],
-      "perfectly_grounded_terminals": ["n"],
-      "v_min": [100.0, 100.0, 100.0],
-      "v_max": [130.0, 130.0, 130.0]
-    },
-    "671": {
-      "terminal_names": ["1","2","3","n"],
-      "v_min": [2020.0, 2020.0, 2020.0],
-      "v_max": [2540.0, 2540.0, 2540.0]
-    },
-    "611": {
-      "terminal_names": ["3","n"],
-      "v_min": [2020.0],
-      "v_max": [2540.0]
-    },
-    "652": {
-      "terminal_names": ["1","n"]
-    }
-  },
-  "voltage_source": {
-    "source": {
-      "bus": "sourcebus",
-      "terminal_map": ["1","2","3"],
-      "v_magnitude": [2401.8, 2401.8, 2401.8],
-      "v_angle": [0.0, -2.094, 2.094]
-    }
-  },
-  "line": {
-    "l650632": {
-      "bus_from": "650",
-      "bus_to": "632",
-      "terminal_map_from": ["1","2","3"],
-      "terminal_map_to": ["1","2","3"],
-      "linecode": "lc601",
-      "length": 609.6
-    },
-    "l632671": {
-      "bus_from": "632",
-      "bus_to": "671",
-      "terminal_map_from": ["1","2","3"],
-      "terminal_map_to": ["1","2","3"],
-      "linecode": "lc601",
-      "length": 609.6
-    },
-    "l671611": {
-      "bus_from": "671",
-      "bus_to": "611",
-      "terminal_map_from": ["3"],
-      "terminal_map_to": ["3"],
-      "linecode": "lc605",
-      "length": 152.4
-    },
-    "l671652": {
-      "bus_from": "671",
-      "bus_to": "652",
-      "terminal_map_from": ["1"],
-      "terminal_map_to": ["1"],
-      "linecode": "lc607",
-      "length": 152.4
-    }
-  },
-  "linecode": {
-    "lc601": {
-      "R_series_1_1": 3.3717e-4,
-      "R_series_1_2": 1.5283e-4,
-      "R_series_1_3": 1.3425e-4,
-      "R_series_2_2": 3.0282e-4,
-      "R_series_2_3": 1.4699e-4,
-      "R_series_3_3": 3.0282e-4,
-      "X_series_1_1": 6.6791e-4,
-      "X_series_1_2": 3.2539e-4,
-      "X_series_1_3": 2.6028e-4,
-      "X_series_2_2": 6.3254e-4,
-      "X_series_2_3": 2.7967e-4,
-      "X_series_3_3": 6.3254e-4,
-      "i_max": [600.0, 600.0, 600.0]
-    },
-    "lc605": {
-      "R_series_1_1": 1.0304e-3,
-      "X_series_1_1": 7.1716e-4,
-      "i_max": [200.0]
-    },
-    "lc607": {
-      "R_series_1_1": 1.5208e-3,
-      "X_series_1_1": 5.0065e-4,
-      "i_max": [200.0]
-    }
-  },
-  "transformer": {
-    "wye_delta": {
-      "xfm1": {
-        "bus_from": "650",
-        "bus_to": "sourcebus",
-        "terminal_map_from": ["1","2","3","n"],
-        "terminal_map_to": ["1","2","3"],
-        "s_rating": 5000000.0,
-        "v_nom_from": 4160.0,
-        "v_nom_to": 4160.0
-      }
-    },
-    "single_phase": {
-      "xfm2": {
-        "bus_from": "632",
-        "bus_to": "634",
-        "terminal_map_from": ["1","2","3"],
-        "terminal_map_to": ["1","2","3"],
-        "s_rating": 500000.0,
-        "v_nom_from": 4160.0,
-        "v_nom_to": 480.0
-      }
-    }
-  },
-  "load": {
-    "load_632": {
-      "bus": "632",
-      "terminal_map": ["1","2","3","n"],
-      "configuration": "WYE",
-      "p_nom": [17000.0, 66000.0, 117000.0],
-      "q_nom": [10000.0, 38000.0, 68000.0]
-    },
-    "load_671": {
-      "bus": "671",
-      "terminal_map": ["1","2","3"],
-      "configuration": "DELTA",
-      "p_nom": [385000.0, 385000.0, 385000.0],
-      "q_nom": [220000.0, 220000.0, 220000.0]
-    },
-    "load_611": {
-      "bus": "611",
-      "terminal_map": ["3","n"],
-      "configuration": "SINGLE_PHASE",
-      "p_nom": [170000.0],
-      "q_nom": [80000.0]
-    },
-    "load_652": {
-      "bus": "652",
-      "terminal_map": ["1","n"],
-      "configuration": "SINGLE_PHASE",
-      "p_nom": [128000.0],
-      "q_nom": [86000.0]
-    },
-    "load_zero": {
-      "bus": "634",
-      "terminal_map": ["1","n"],
-      "configuration": "SINGLE_PHASE",
-      "p_nom": [0.0],
-      "q_nom": [0.0]
-    }
-  },
-  "generator": {
-    "gen_634": {
-      "bus": "634",
-      "terminal_map": ["1","2","3"],
-      "configuration": "WYE",
-      "p_max": [100000.0, 100000.0, 100000.0],
-      "p_min": [0.0, 0.0, 0.0],
-      "q_max": [50000.0, 50000.0, 50000.0],
-      "q_min": [-50000.0, -50000.0, -50000.0],
-      "cost": [0.12, 0.12, 0.12]
-    }
-  }
-}
-"""
+# Original diagnostic fixture; provenance and intentional defects are documented
+# alongside the data. Each consumer parses its own independent copy.
+const SYNTHETIC_FEEDER_FIXTURE = read(
+    joinpath(@__DIR__, "data", "analysis_network", "synthetic_feeder.json"), String)
 
 @testset "BMOPFTools" begin
 
     @testset "IO — parse_bmopf" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         @test net isa Dict{String,Any}
-        @test net["name"] == "ieee13_mini"
+        @test net["name"] == "synthetic_workshop_feeder"
         @test haskey(net, "bus")
         @test haskey(net, "line")
         @test haskey(net, "load")
@@ -256,26 +71,26 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "IO — time-series detection" begin
-        ts_net = deepcopy(parse_bmopf(IEEE13_FIXTURE; from_string=true))
+        ts_net = deepcopy(parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true))
         @test !is_timeseries(ts_net)
 
         # inject a time series reference
         ts_net["time_series"] = Dict{String,Any}(
             "ls1" => Dict{String,Any}("values" => [0.8, 1.0, 1.2])
         )
-        ts_net["load"]["load_632"]["time_series"] = Dict{String,Any}("p_nom" => "ls1")
+        ts_net["load"]["trunk_load"]["time_series"] = Dict{String,Any}("p_nom" => "ls1")
         @test is_timeseries(ts_net)
 
         snap = get_snapshot(ts_net, 1)
         @test !is_timeseries(snap)
-        # scale factor 0.8 applied to [17000, 66000, 117000]
-        @test snap["load"]["load_632"]["p_nom"] ≈ [13600.0, 52800.0, 93600.0]
-        @test !haskey(snap["load"]["load_632"], "time_series")
+        # scale factor 0.8 applied to [24000, 39000, 57000]
+        @test snap["load"]["trunk_load"]["p_nom"] ≈ [19200.0, 31200.0, 45600.0]
+        @test !haskey(snap["load"]["trunk_load"], "time_series")
         @test !haskey(snap, "time_series")
     end
 
     @testset "IO — write_bmopf round-trip" begin
-        net  = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net  = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         buf  = IOBuffer()
         write_bmopf(net, buf)
         json_str = String(take!(buf))
@@ -286,7 +101,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "IO — meta block" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
 
         # write with no caller meta: auto-fields only
         json_auto = let buf = IOBuffer(); write_bmopf(net, buf); String(take!(buf)); end
@@ -302,20 +117,20 @@ const IEEE13_FIXTURE = """
         # caller meta is merged; auto-fields fill in the rest
         json_caller = let buf = IOBuffer()
             write_bmopf(net, buf; meta=Dict(
-                "title"   => "IEEE 13-bus mini",
+                "title"   => "Synthetic workshop feeder",
                 "license" => "https://creativecommons.org/licenses/by/4.0/",
                 "authors" => [Dict("name" => "Test Author",
                                    "email" => "test@example.com",
                                    "orcid" => "0000-0001-2345-6789")],
-                "data_sources" => [Dict("name" => "IEEE 13-bus", "format" => "OpenDSS",
-                                   "doi"  => "10.1109/TPWRS.2012.2209630")],
+                "data_sources" => [Dict("name" => "Synthetic workshop feeder", "format" => "BMOPF",
+                                   "url" => "https://github.com/frederikgeth/BMOPFTools.jl")],
             ))
             String(take!(buf))
         end
         m2 = parse_bmopf(json_caller; from_string=true)["meta"]
-        @test m2["title"] == "IEEE 13-bus mini"
+        @test m2["title"] == "Synthetic workshop feeder"
         @test m2["authors"][1]["orcid"] == "0000-0001-2345-6789"
-        @test m2["data_sources"][1]["doi"] == "10.1109/TPWRS.2012.2209630"
+        @test m2["data_sources"][1]["url"] == "https://github.com/frederikgeth/BMOPFTools.jl"
         @test haskey(m2, "\$schema")      # auto-filled
         @test haskey(m2, "case_study_generator")     # auto-filled
 
@@ -358,7 +173,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Analysis — inventory" begin
-        net      = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net      = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         result   = inventory_analysis(net, findings)
 
@@ -373,7 +188,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Analysis — connectivity" begin
-        net      = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net      = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         result   = connectivity_analysis(net, findings)
 
@@ -385,20 +200,20 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Analysis — voltage levels" begin
-        net      = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net      = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         result   = voltage_level_analysis(net, findings)
 
         @test result["n_levels"] >= 2   # MV and LV present
         @test haskey(result, "levels")
-        # bus 634 is LV (480 V)
+        # bus workshop is LV (400 V line-to-line)
         vmap = result["bus_voltage_map"]
-        @test haskey(vmap, "634")
-        @test vmap["634"] < 1000.0   # LV
+        @test haskey(vmap, "workshop")
+        @test vmap["workshop"] < 1000.0   # LV
     end
 
     @testset "Analysis — diversity" begin
-        net      = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net      = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         result   = diversity_analysis(net, findings)
 
@@ -538,7 +353,7 @@ const IEEE13_FIXTURE = """
 
         # (D) plain 3-phase → neither tag
         f = Finding[]
-        r = connectivity_analysis(parse_bmopf(IEEE13_FIXTURE; from_string=true), f)
+        r = connectivity_analysis(parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true), f)
         @test r["n_split_phase_zones"] == 0
         @test r["n_swer_zones"] == 0
         @test !("I.PROV.SWER_ZONE" in codes(f))
@@ -587,7 +402,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Validation — redundancy" begin
-        net      = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net      = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         result   = redundancy_check(net, findings)
 
@@ -595,7 +410,7 @@ const IEEE13_FIXTURE = """
         @test result["zero_loads"]["n"] >= 1
         @test "load_zero" in result["zero_loads"]["ids"]
 
-        # unused linecodes: lc601, lc605, lc607 are all used, none unused
+        # unused linecodes: trunk_code, lateral_c_code, lateral_a_code are all used, none unused
         @test result["unused_linecodes"]["n"] == 0
 
         # no parallel lines in the fixture
@@ -748,7 +563,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Validation — completeness" begin
-        net      = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net      = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         result   = completeness_check(net, findings)
         # The fixture is well-formed; no missing required fields
@@ -757,11 +572,11 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Full analyze pipeline" begin
-        net    = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net    = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         report = analyze(net)
 
         @test report isa SummaryReport
-        @test report.network_name == "ieee13_mini"
+        @test report.network_name == "synthetic_workshop_feeder"
         @test report.generated_at isa DateTime
         @test haskey(report.results, :inventory)
         @test haskey(report.results, :connectivity)
@@ -778,7 +593,7 @@ const IEEE13_FIXTURE = """
         render(report, buf; color=false)
         output = String(take!(buf))
         @test !isempty(output)
-        @test occursin("ieee13_mini", output)
+        @test occursin("synthetic_workshop_feeder", output)
         @test occursin("INVENTORY", output)
 
         # render to markdown — should not error
@@ -790,7 +605,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Finding accessors" begin
-        net    = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net    = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         report = analyze(net)
 
         all_f = report.findings
@@ -802,22 +617,22 @@ const IEEE13_FIXTURE = """
     @testset "Negative fixtures — error paths" begin
         # v_min > v_max must produce E.PRE.VBOUND_CONFLICT, including when
         # only one bound is present elsewhere (regression for precedence bug)
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-        net["bus"]["632"]["v_min"] = [2600.0, 2600.0, 2600.0]   # > v_max of 2540
-        delete!(net["bus"]["671"], "v_max")    # one-bound bus must not crash
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+        net["bus"]["trunk"]["v_min"] = [3700.0, 3700.0, 3700.0]   # > v_max of 3600
+        delete!(net["bus"]["junction"], "v_max")    # one-bound bus must not crash
         report = analyze(net)
         @test any(f -> f.code == "E.PRE.VBOUND_CONFLICT", report.findings)
 
         # Missing required field must produce E.COMP.MISSING_REQUIRED
-        net2 = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-        delete!(net2["line"]["l650632"], "linecode")
+        net2 = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+        delete!(net2["line"]["primary_trunk"], "linecode")
         report2 = analyze(net2)
         @test any(f -> f.code == "E.COMP.MISSING_REQUIRED" &&
-                       f.component_id == "l650632", report2.findings)
+                       f.component_id == "primary_trunk", report2.findings)
 
         # Unknown field must be catalogued by schema_check as INFO
-        net3 = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-        net3["load"]["load_632"]["my_custom_field"] = 42
+        net3 = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+        net3["load"]["trunk_load"]["my_custom_field"] = 42
         report3 = analyze(net3)
         @test any(f -> f.code == "I.SCHEMA.UNKNOWN_FIELDS", report3.findings)
         @test haskey(report3.results[:schema]["unknown_fields_by_type"], "load")
@@ -829,21 +644,21 @@ const IEEE13_FIXTURE = """
         @test_throws ArgumentError parse_bmopf(scalar_vbound; from_string=true)
 
         # Line crossing voltage levels must produce E.VOLT.LINE_CROSSING
-        net4 = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net4 = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         net4["line"]["bad_line"] = Dict{String,Any}(
-            "bus_from" => "632", "bus_to" => "634",   # MV bus to LV bus
+            "bus_from" => "trunk", "bus_to" => "workshop",   # MV bus to LV bus
             "terminal_map_from" => ["1"], "terminal_map_to" => ["1"],
-            "linecode" => "lc605", "length" => 10.0)
+            "linecode" => "lateral_c_code", "length" => 10.0)
         report4 = analyze(net4)
         @test any(f -> f.code == "E.VOLT.LINE_CROSSING", report4.findings)
     end
 
     @testset "Time-series — missing static value errors" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         net["time_series"] = Dict{String,Any}(
             "ls1" => Dict{String,Any}("values" => [1.0]))
         # reference a parameter that has no static value on the component
-        net["load"]["load_632"]["time_series"] =
+        net["load"]["trunk_load"]["time_series"] =
             Dict{String,Any}("nonexistent_param" => "ls1")
         @test_throws ArgumentError get_snapshot(net, 1)
     end
@@ -851,24 +666,24 @@ const IEEE13_FIXTURE = """
     @testset "Terminal name validation" begin
         # Genuinely unknown terminal names must fail loudly in to_pmd,
         # not silently mis-map ("a"/"b"/"c", "L1".., "1".."4" are supported)
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-        net["bus"]["650"]["terminal_names"] = ["x", "y", "z"]
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+        net["bus"]["primary"]["terminal_names"] = ["x", "y", "z"]
         @test_throws ArgumentError to_pmd(net)
     end
 
     @testset "to_pmd — per-phase v bound reduction" begin
         # Uniform per-phase v_min/v_max reduce to scalar PMD vm_lb/vm_ub.
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         eng = to_pmd(net)
-        @test eng["bus"]["sourcebus"]["vm_lb"] ≈ 2020.0 / get(eng, "settings", Dict())["voltage_scale_factor"] rtol=1e-6
-        @test eng["bus"]["sourcebus"]["vm_ub"] ≈ 2540.0 / get(eng, "settings", Dict())["voltage_scale_factor"] rtol=1e-6
+        @test eng["bus"]["supply"]["vm_lb"] ≈ 3000.0 / get(eng, "settings", Dict())["voltage_scale_factor"] rtol=1e-6
+        @test eng["bus"]["supply"]["vm_ub"] ≈ 3600.0 / get(eng, "settings", Dict())["voltage_scale_factor"] rtol=1e-6
         # A genuinely per-phase (unequal) bound cannot be represented and errors.
-        net["bus"]["632"]["v_max"] = [2500.0, 2540.0, 2540.0]
+        net["bus"]["trunk"]["v_max"] = [3500.0, 3600.0, 3600.0]
         @test_throws ErrorException to_pmd(net)
     end
 
     @testset "Spec conformance checks" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         res = spec_conformance_check(net, findings)
         @test res["n_voltage_sources"] == 1
@@ -878,14 +693,14 @@ const IEEE13_FIXTURE = """
         # known gap: PMD WYE-WYE transformers land in single_phase with
         # 3-phase maps; the spec has no wye-wye type
         @test any(f -> f.code == "W.SPEC.XFMR_TMAP_ARITY" &&
-                       f.component_id == "xfm2", findings)
+                       f.component_id == "workshop_transformer", findings)
         # fixture linecodes are stored upper-triangular — spec wants full
         @test any(f -> f.code == "I.SPEC.MATRIX_TRIANGULAR", findings)
 
         # arity violation must be flagged
         net2 = deepcopy(net)
         net2["load"]["bad"] = Dict{String,Any}(
-            "bus" => "632", "terminal_map" => ["1","n"],
+            "bus" => "trunk", "terminal_map" => ["1","n"],
             "configuration" => "WYE",          # WYE needs 4 terminals
             "p_nom" => [1.0], "q_nom" => [0.0])
         findings2 = Finding[]
@@ -1109,45 +924,45 @@ const IEEE13_FIXTURE = """
     @testset "Generator current/apparent limit fields" begin
         # Clean per-phase i_max / s_max arrays pass every static validator.
         @testset "schema, arity, sign" begin
-            net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-            net["generator"]["gen_634"]["i_max"] = [50.0, 50.0, 50.0]
-            net["generator"]["gen_634"]["s_max"] = [60000.0, 60000.0, 60000.0]
+            net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+            net["generator"]["workshop_generator"]["i_max"] = [50.0, 50.0, 50.0]
+            net["generator"]["workshop_generator"]["s_max"] = [60000.0, 60000.0, 60000.0]
             f = Finding[]
             schema_check(net, f)
             integrity_check(net, f)
             domain_rules_check(net, f)
             @test !any(fi -> startswith(fi.code, "E.SCHEMA"), f)
             @test !any(fi -> fi.code == "W.INT.DIM_MISMATCH" &&
-                             fi.component_id == "gen_634", f)
+                             fi.component_id == "workshop_generator", f)
             @test !any(fi -> fi.code in ("E.DOM.GEN_IMAX_NONPOSITIVE",
                                          "E.DOM.GEN_SMAX_NONPOSITIVE"), f)
 
-            # Wrong length → dimension mismatch (gen_634 has 3 phases).
-            net_dim = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-            net_dim["generator"]["gen_634"]["i_max"] = [50.0, 50.0]
+            # Wrong length → dimension mismatch (workshop_generator has 3 phases).
+            net_dim = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+            net_dim["generator"]["workshop_generator"]["i_max"] = [50.0, 50.0]
             f_dim = Finding[]
             integrity_check(net_dim, f_dim)
             @test any(fi -> fi.code == "W.INT.DIM_MISMATCH" &&
-                            fi.component_id == "gen_634", f_dim)
+                            fi.component_id == "workshop_generator", f_dim)
 
             # Non-positive entries → domain errors (one per field).
-            net_neg = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-            net_neg["generator"]["gen_634"]["i_max"] = [50.0, 0.0, 50.0]
-            net_neg["generator"]["gen_634"]["s_max"] = [60000.0, -1.0, 60000.0]
+            net_neg = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+            net_neg["generator"]["workshop_generator"]["i_max"] = [50.0, 0.0, 50.0]
+            net_neg["generator"]["workshop_generator"]["s_max"] = [60000.0, -1.0, 60000.0]
             f_neg = Finding[]
             domain_rules_check(net_neg, f_neg)
             @test any(fi -> fi.code == "E.DOM.GEN_IMAX_NONPOSITIVE" &&
-                            fi.component_id == "gen_634", f_neg)
+                            fi.component_id == "workshop_generator", f_neg)
             @test any(fi -> fi.code == "E.DOM.GEN_SMAX_NONPOSITIVE" &&
-                            fi.component_id == "gen_634", f_neg)
+                            fi.component_id == "workshop_generator", f_neg)
         end
 
         # i_max / s_max are catalogued as known optional fields (no unknown-field
         # INFO) — guards the schema.jl _KNOWN_FIELDS and completeness wiring.
         @testset "known optional fields" begin
-            net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-            net["generator"]["gen_634"]["i_max"] = [50.0, 50.0, 50.0]
-            net["generator"]["gen_634"]["s_max"] = [60000.0, 60000.0, 60000.0]
+            net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+            net["generator"]["workshop_generator"]["i_max"] = [50.0, 50.0, 50.0]
+            net["generator"]["workshop_generator"]["s_max"] = [60000.0, 60000.0, 60000.0]
             f = Finding[]
             schema_check(net, f)
             @test !any(fi -> occursin("i_max", fi.message) &&
@@ -1287,7 +1102,7 @@ const IEEE13_FIXTURE = """
 
     @testset "Benchmark readiness" begin
         # fixture has a non-slack generator with cost and voltage bounds
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         res = benchmark_readiness_check(net, findings)
         @test res["objective_wellposed"] == true
@@ -1307,7 +1122,7 @@ const IEEE13_FIXTURE = """
         net3 = deepcopy(net2)
         net3["generator"] = Dict{String,Any}(
             "slack_s" => Dict{String,Any}(
-                "bus" => "sourcebus", "terminal_map" => ["1","2","3","n"],
+                "bus" => "supply", "terminal_map" => ["1","2","3","n"],
                 "configuration" => "WYE", "cost" => [1.0,1.0,1.0],
                 "_slack" => true))
         findings3 = Finding[]
@@ -1321,7 +1136,7 @@ const IEEE13_FIXTURE = """
         net4 = deepcopy(net3)
         net4["ibr"] = Dict{String,Any}(
             "pv1" => Dict{String,Any}(
-                "bus" => "634", "terminal_map" => ["1","n"],
+                "bus" => "workshop", "terminal_map" => ["1","n"],
                 "topology" => "SINGLE_PHASE", "prime_mover" => "PV",
                 "s_max" => [5.0e4], "p_max" => [4.0e4]))
         findings4 = Finding[]
@@ -1335,7 +1150,7 @@ const IEEE13_FIXTURE = """
         net5 = deepcopy(net3)
         net5["ibr"] = Dict{String,Any}(
             "st1" => Dict{String,Any}(
-                "bus" => "634", "terminal_map" => ["1","n"],
+                "bus" => "workshop", "terminal_map" => ["1","n"],
                 "topology" => "SINGLE_PHASE", "prime_mover" => "STATCOM",
                 "s_max" => [5.0e4]))
         findings5 = Finding[]
@@ -1352,11 +1167,11 @@ const IEEE13_FIXTURE = """
         net6 = deepcopy(net)
         net6["generator"] = Dict{String,Any}(
             "g_a" => Dict{String,Any}(
-                "bus" => "634", "terminal_map" => ["1","2","3","n"],
+                "bus" => "workshop", "terminal_map" => ["1","2","3","n"],
                 "configuration" => "WYE",
                 "p_min" => [0.0,0.0,0.0], "p_max" => [1e4,1e4,1e4]),
             "g_b" => Dict{String,Any}(
-                "bus" => "634", "terminal_map" => ["1","2","3","n"],
+                "bus" => "workshop", "terminal_map" => ["1","2","3","n"],
                 "configuration" => "WYE",
                 "p_min" => [0.0,0.0,0.0], "p_max" => [1e4,1e4,1e4]))
         findings6 = Finding[]
@@ -1367,7 +1182,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Sign & definiteness checks" begin
-        base = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
 
         # X diagonal non-positive → warning
         net = deepcopy(base)
@@ -1427,7 +1242,7 @@ const IEEE13_FIXTURE = """
         net5 = deepcopy(base)
         net5["shunt"] = Dict{String,Any}(
             "delta_cap" => Dict{String,Any}(
-                "bus" => "632", "terminal_map" => ["1","2","3"],
+                "bus" => "trunk", "terminal_map" => ["1","2","3"],
                 "B_1_1" => 1.0, "B_1_2" => -1.0, "B_1_3" => 0.0,
                 "B_2_1" => 0.0, "B_2_2" => 1.0, "B_2_3" => -1.0,
                 "B_3_1" => -1.0, "B_3_2" => 0.0, "B_3_3" => 1.0,
@@ -1441,7 +1256,7 @@ const IEEE13_FIXTURE = """
         net6 = deepcopy(base)
         net6["shunt"] = Dict{String,Any}(
             "active" => Dict{String,Any}(
-                "bus" => "632", "terminal_map" => ["n"],
+                "bus" => "trunk", "terminal_map" => ["n"],
                 "G_1_1" => -0.5, "B_1_1" => 0.0))
         f6 = Finding[]
         provenance_analysis(net6, f6)
@@ -1449,10 +1264,10 @@ const IEEE13_FIXTURE = """
 
         # domain rules: zero limits, zero length, degree angles, negative load
         net7 = deepcopy(base)
-        net7["linecode"]["lc601"]["i_max"] = [600.0, 0.0, 600.0]
-        net7["line"]["l650632"]["length"] = 0.0
+        net7["linecode"]["trunk_code"]["i_max"] = [600.0, 0.0, 600.0]
+        net7["line"]["primary_trunk"]["length"] = 0.0
         net7["voltage_source"]["source"]["v_angle"] = [0.0, -120.0, 120.0]
-        net7["load"]["load_652"]["p_nom"] = [-128000.0]
+        net7["load"]["lateral_a_load"]["p_nom"] = [-31000.0]
         f7 = Finding[]
         domain_rules_check(net7, f7)
         @test any(x -> x.code == "W.DOM.ZERO_LIMIT", f7)
@@ -1493,33 +1308,33 @@ const IEEE13_FIXTURE = """
 
         # combined thermal limits (i_max + s_max) on a line → redundancy warning
         net_dual = deepcopy(base)
-        net_dual["line"]["l650632"]["i_max"] = [600.0, 600.0, 600.0]
-        net_dual["line"]["l650632"]["s_max"] = [200000.0, 200000.0, 200000.0]
+        net_dual["line"]["primary_trunk"]["i_max"] = [600.0, 600.0, 600.0]
+        net_dual["line"]["primary_trunk"]["s_max"] = [200000.0, 200000.0, 200000.0]
         f_dual = Finding[]
         redundancy_check(net_dual, f_dual)
         @test any(x -> x.code == "W.RED.DUAL_THERMAL_LIMIT" &&
-                       x.component_id == "l650632", f_dual)
+                       x.component_id == "primary_trunk", f_dual)
 
         # apparent-power limit on a line's NEUTRAL conductor → degeneracy warning
         net_pn = deepcopy(base)
-        net_pn["line"]["l650632"]["terminal_map_from"] = ["1", "2", "3", "n"]
-        net_pn["line"]["l650632"]["s_max"] = [1.0e5, 1.0e5, 1.0e5, 5.0e4]
+        net_pn["line"]["primary_trunk"]["terminal_map_from"] = ["1", "2", "3", "n"]
+        net_pn["line"]["primary_trunk"]["s_max"] = [1.0e5, 1.0e5, 1.0e5, 5.0e4]
         f_pn = Finding[]
         domain_rules_check(net_pn, f_pn)
         @test any(x -> x.code == "W.DOM.POWER_LIMIT_NEUTRAL" &&
-                       x.component_id == "l650632", f_pn)
+                       x.component_id == "primary_trunk", f_pn)
 
         # preflight: vpn and q bound conflicts
         net8 = deepcopy(base)
-        net8["bus"]["632"]["vpn_min"] = [240.0, 240.0, 240.0]
-        net8["bus"]["632"]["vpn_max"] = [230.0, 230.0, 230.0]
-        net8["generator"]["gen_634"]["q_min"] = [60000.0, 60000.0, 60000.0]
+        net8["bus"]["trunk"]["vpn_min"] = [240.0, 240.0, 240.0]
+        net8["bus"]["trunk"]["vpn_max"] = [230.0, 230.0, 230.0]
+        net8["generator"]["workshop_generator"]["q_min"] = [60000.0, 60000.0, 60000.0]
         f8 = Finding[]
         infeasibility_preflight(net8, f8)
         @test any(x -> x.code == "E.PRE.VBOUND_CONFLICT" &&
-                       x.component_id == "632", f8)
+                       x.component_id == "trunk", f8)
         @test any(x -> x.code == "E.PRE.QBOUND_CONFLICT" &&
-                       x.component_id == "gen_634", f8)
+                       x.component_id == "workshop_generator", f8)
 
         # preflight: generators co-located with the voltage source
         net9 = parse_bmopf("""
@@ -1635,7 +1450,7 @@ const IEEE13_FIXTURE = """
         @test "W.PROV.ASYMMETRIC_PI" in codes
 
         # integration: wired into provenance_analysis end-to-end
-        base = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         netg = deepcopy(base)
         netg["linecode"]["lc_asym"] = Dict{String,Any}(
             "R_series_1_1"=>0.3, "X_series_1_1"=>0.9,
@@ -1664,28 +1479,28 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Integrity checks" begin
-        base = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
 
         # pristine fixture: no integrity errors, 3 galvanic islands all referenced
         f0 = Finding[]
         res0 = integrity_check(base, f0)
         @test res0["n_reference_issues"] == 0
-        @test res0["n_galvanic_islands"] == 3      # sourcebus | 650-tree | 634
+        @test res0["n_galvanic_islands"] == 3      # supply | primary-tree | workshop
         @test res0["n_without_reference"] == 0
         @test !any(x -> x.severity == ERROR, f0)
 
         # dangling references
         net = deepcopy(base)
         net["line"]["bad1"] = Dict{String,Any}(
-            "bus_from" => "nowhere", "bus_to" => "632",
+            "bus_from" => "nowhere", "bus_to" => "trunk",
             "terminal_map_from" => ["1"], "terminal_map_to" => ["1"],
-            "linecode" => "lc605", "length" => 1.0)
+            "linecode" => "lateral_c_code", "length" => 1.0)
         net["line"]["bad2"] = Dict{String,Any}(
-            "bus_from" => "650", "bus_to" => "632",
+            "bus_from" => "primary", "bus_to" => "trunk",
             "terminal_map_from" => ["1"], "terminal_map_to" => ["1"],
             "linecode" => "lc_missing", "length" => 1.0)
         net["load"]["bad3"] = Dict{String,Any}(
-            "bus" => "611", "terminal_map" => ["1","n"],   # 611 has no "1"
+            "bus" => "lateral_c", "terminal_map" => ["1","n"],   # lateral_c has no "1"
             "configuration" => "SINGLE_PHASE",
             "p_nom" => [1.0], "q_nom" => [0.0])
         f1 = Finding[]
@@ -1699,9 +1514,9 @@ const IEEE13_FIXTURE = """
         # not a warning (silent truncation drops conductors / misaligns rows)
         net2 = deepcopy(base)
         net2["line"]["dim"] = Dict{String,Any}(
-            "bus_from" => "650", "bus_to" => "632",
+            "bus_from" => "primary", "bus_to" => "trunk",
             "terminal_map_from" => ["1"], "terminal_map_to" => ["1"],
-            "linecode" => "lc601", "length" => 1.0)
+            "linecode" => "trunk_code", "length" => 1.0)
         f2 = Finding[]
         integrity_check(net2, f2)
         @test any(x -> x.code == "E.INT.LINE_DIM_MISMATCH" &&
@@ -1718,9 +1533,9 @@ const IEEE13_FIXTURE = """
         integrity_check(net3, f3)
         @test any(x -> x.code == "W.INT.PADDED_MATRIX", f3)
 
-        # galvanic island without reference: unground the 634 island
+        # galvanic island without reference: unground the workshop island
         net4 = deepcopy(base)
-        delete!(net4["bus"]["634"], "perfectly_grounded_terminals")
+        delete!(net4["bus"]["workshop"], "perfectly_grounded_terminals")
         f4 = Finding[]
         res4 = integrity_check(net4, f4)
         @test res4["n_without_reference"] == 1
@@ -1730,7 +1545,7 @@ const IEEE13_FIXTURE = """
         net5 = deepcopy(net4)
         net5["shunt"] = Dict{String,Any}(
             "cap634" => Dict{String,Any}(
-                "bus" => "634", "terminal_map" => ["1","2","3"],
+                "bus" => "workshop", "terminal_map" => ["1","2","3"],
                 "G_1_1" => 0.0,
                 "B_1_1" => 2.0,  "B_1_2" => -1.0, "B_1_3" => -1.0,
                 "B_2_1" => -1.0, "B_2_2" => 2.0,  "B_2_3" => -1.0,
@@ -1740,7 +1555,7 @@ const IEEE13_FIXTURE = """
         @test res5["n_without_reference"] == 1
         # …but a grounding shunt (nonzero row sum) does
         net5["shunt"]["gnd634"] = Dict{String,Any}(
-            "bus" => "634", "terminal_map" => ["n"],
+            "bus" => "workshop", "terminal_map" => ["n"],
             "G_1_1" => 0.1, "B_1_1" => 0.0)
         f5b = Finding[]
         res5b = integrity_check(net5, f5b)
@@ -1761,9 +1576,9 @@ const IEEE13_FIXTURE = """
         # low-impedance line: near-zero length vs the others
         net7 = deepcopy(base)
         net7["line"]["tiny"] = Dict{String,Any}(
-            "bus_from" => "632", "bus_to" => "671",
+            "bus_from" => "trunk", "bus_to" => "junction",
             "terminal_map_from" => ["1","2","3"], "terminal_map_to" => ["1","2","3"],
-            "linecode" => "lc601", "length" => 1e-9)
+            "linecode" => "trunk_code", "length" => 1e-9)
         f7 = Finding[]
         res7 = integrity_check(net7, f7)
         @test any(x -> x.code == "W.INT.LOW_IMPEDANCE_LINE", f7)
@@ -1771,7 +1586,7 @@ const IEEE13_FIXTURE = """
 
         # identical generator costs → degeneracy info
         net8 = deepcopy(base)
-        net8["generator"]["gen_b"] = deepcopy(net8["generator"]["gen_634"])
+        net8["generator"]["gen_b"] = deepcopy(net8["generator"]["workshop_generator"])
         f8 = Finding[]
         integrity_check(net8, f8)
         @test any(x -> x.code == "I.INT.UNIFORM_GEN_COST", f8)
@@ -1894,7 +1709,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "OpenDSS default fingerprints" begin
-        base = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
 
         # default line constants r1/x1/r0/z0 (Ω/kft → Ω/m, balanced matrix)
         net = deepcopy(base)
@@ -1914,9 +1729,9 @@ const IEEE13_FIXTURE = """
         @test any(x -> x.code == "W.PROV.DSS_DEFAULT_Z", f)
         @test "lc_dssdef" in res["opendss_defaults"]["default_z_linecodes"]
 
-        # normamps default (400 A); fixture's genuine 600 A must NOT flag
+        # normamps default (400 A); fixture's synthetic 280 A must NOT flag
         net2 = deepcopy(base)
-        net2["linecode"]["lc605"]["i_max"] = [400.0]
+        net2["linecode"]["lateral_c_code"]["i_max"] = [400.0]
         f2 = Finding[]
         provenance_analysis(net2, f2)
         @test any(x -> x.code == "I.PROV.DSS_DEFAULT_AMPS", f2)
@@ -1924,34 +1739,34 @@ const IEEE13_FIXTURE = """
         provenance_analysis(base, f2b)
         @test !any(x -> x.code == "I.PROV.DSS_DEFAULT_AMPS", f2b)
 
-        # xhl = 7 % on xfm2 (4160/480, 500 kVA)
+        # xhl = 7 % on workshop_transformer (5700/400, 180 kVA)
         net3 = deepcopy(base)
-        zbf = 4160.0^2 / 500_000.0
-        zbt = 480.0^2  / 500_000.0
-        net3["transformer"]["single_phase"]["xfm2"]["x_series_from"] = 0.035 * zbf
-        net3["transformer"]["single_phase"]["xfm2"]["x_series_to"]   = 0.035 * zbt
+        zbf = 5700.0^2 / 180_000.0
+        zbt = 400.0^2  / 180_000.0
+        net3["transformer"]["single_phase"]["workshop_transformer"]["x_series_from"] = 0.035 * zbf
+        net3["transformer"]["single_phase"]["workshop_transformer"]["x_series_to"]   = 0.035 * zbt
         f3 = Finding[]
         provenance_analysis(net3, f3)
         @test any(x -> x.code == "I.PROV.DSS_DEFAULT_XFMR", f3)
 
         # load pf = 0.88
         net4 = deepcopy(base)
-        net4["load"]["load_652"]["p_nom"] = [10000.0]
-        net4["load"]["load_652"]["q_nom"] = [10000.0 * tan(acos(0.88))]
+        net4["load"]["lateral_a_load"]["p_nom"] = [10000.0]
+        net4["load"]["lateral_a_load"]["q_nom"] = [10000.0 * tan(acos(0.88))]
         f4 = Finding[]
         provenance_analysis(net4, f4)
         @test any(x -> x.code == "I.PROV.DSS_DEFAULT_PF", f4)
 
         # default kv = 12.47
         net5 = deepcopy(base)
-        net5["transformer"]["single_phase"]["xfm2"]["v_nom_from"] = 12470.0
+        net5["transformer"]["single_phase"]["workshop_transformer"]["v_nom_from"] = 12470.0
         f5 = Finding[]
         provenance_analysis(net5, f5)
         @test any(x -> x.code == "I.PROV.DSS_DEFAULT_KV", f5)
 
         # scattered length 1.0 → leak; universal → convention
         net6 = deepcopy(base)
-        net6["line"]["l671652"]["length"] = 1.0
+        net6["line"]["primary_a"]["length"] = 1.0
         f6 = Finding[]
         provenance_analysis(net6, f6)
         @test any(x -> x.code == "I.PROV.DSS_DEFAULT_LENGTH", f6)
@@ -1967,7 +1782,7 @@ const IEEE13_FIXTURE = """
 
         # default source impedance (MVAsc3=2000, X1R1=4) via _pmd rs/xs
         net8 = deepcopy(base)
-        kV_LL = 2401.8 * sqrt(3)
+        kV_LL = 3300.0 * sqrt(3)
         r1d = kV_LL^2 / 2000e6 / sqrt(17)
         z1d = complex(r1d, 4r1d)
         zsd = 1.2 * z1d
@@ -2049,11 +1864,11 @@ const IEEE13_FIXTURE = """
         z3 = provenance_analysis(net3, Finding[])["earthing_zones"]
         @test startswith(z3[1]["tag"], "IT")
 
-        # MV island uses MV vocabulary: fixture sourcebus (2.4 kV LN,
+        # MV island uses MV vocabulary: fixture supply (3.3 kV LN,
         # perfectly grounded) → "solidly earthed"
-        base = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         zb = provenance_analysis(base, Finding[])["earthing_zones"]
-        src_zone = first(z for z in zb if "sourcebus" in z["buses"])
+        src_zone = first(z for z in zb if "supply" in z["buses"])
         @test src_zone["tag"] == "solidly earthed"
     end
 
@@ -2097,9 +1912,9 @@ const IEEE13_FIXTURE = """
         @test any(x -> x.code == "W.PROV.REGULATOR_PATTERN" &&
                        x.component_id == "auto1", f2)
 
-        # fixture must NOT trigger: xfm1 is 1:1 but wye-delta (phase
-        # shifter, never a regulator); xfm2 is a real step-down
-        base = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        # fixture must NOT trigger: supply_transformer is 1:1 but wye-delta (phase
+        # shifter, never a regulator); workshop_transformer is a real step-down
+        base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         fb = Finding[]
         provenance_analysis(base, fb)
         @test !any(x -> x.code == "W.PROV.REGULATOR_PATTERN", fb)
@@ -2215,13 +2030,13 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Provenance — linecode impedance classification" begin
-        # Real Carson-style data (IEEE13 lc601): distinct entries
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        # Synthetic asymmetric line data (trunk_code): distinct entries
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         res = provenance_analysis(net, findings)
         by_lc = res["linecodes"]["by_linecode"]
-        @test by_lc["lc601"]["verdict"] == "distinct"
-        @test by_lc["lc605"]["verdict"] == "not_applicable"   # single-phase
+        @test by_lc["trunk_code"]["verdict"] == "distinct"
+        @test by_lc["lateral_c_code"]["verdict"] == "not_applicable"   # single-phase
 
         # Sequence-derived: exactly balanced matrix, Z1/Z0 recovery
         net2 = deepcopy(net)
@@ -2322,9 +2137,9 @@ const IEEE13_FIXTURE = """
         @test !any(f -> occursin("FLOATING_NEUTRAL", f.code), findings3)
         @test res3["grounding"]["n_floating"] == 0
 
-        # IEEE13-style fixture: neutral terminals exist but no branch carries
+        # Synthetic diagnostic fixture: neutral terminals exist but no branch carries
         # them — implicit (Kron-style) grounding convention, made explicit
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings4 = Finding[]
         res4 = provenance_analysis(net, findings4)
         @test res4["grounding"]["convention"] == "implicit"
@@ -2428,27 +2243,27 @@ const IEEE13_FIXTURE = """
     @testset "to_pmd — impedance matrix reconstruction" begin
         # Pattern keys (R_series_1_2 …) must rebuild PMD rs/xs matrices,
         # mirroring upper-triangular storage onto the symmetric lower half.
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         eng = to_pmd(net)
 
-        rs = eng["linecode"]["lc601"]["rs"]
+        rs = eng["linecode"]["trunk_code"]["rs"]
         @test size(rs) == (3, 3)
-        @test rs[1,1] ≈ 3.3717e-4
-        @test rs[1,2] ≈ 1.5283e-4
-        @test rs[2,1] ≈ 1.5283e-4      # mirrored from upper triangle
-        @test rs[3,3] ≈ 3.0282e-4
-        xs = eng["linecode"]["lc601"]["xs"]
-        @test xs[2,3] ≈ 2.7967e-4
-        @test xs[3,2] ≈ 2.7967e-4
+        @test rs[1,1] ≈ 4.2e-4
+        @test rs[1,2] ≈ 6.0e-5
+        @test rs[2,1] ≈ 6.0e-5      # mirrored from upper triangle
+        @test rs[3,3] ≈ 4.9e-4
+        xs = eng["linecode"]["trunk_code"]["xs"]
+        @test xs[2,3] ≈ 1.1e-4
+        @test xs[3,2] ≈ 1.1e-4
 
         # single-phase linecode → 1×1 matrix
-        @test eng["linecode"]["lc605"]["rs"][1,1] ≈ 1.0304e-3
+        @test eng["linecode"]["lateral_c_code"]["rs"][1,1] ≈ 8.5e-4
 
         # shunt G/B pattern keys → gs/bs matrices
         net2 = deepcopy(net)
         net2["shunt"] = Dict{String,Any}(
             "sh1" => Dict{String,Any}(
-                "bus" => "632", "terminal_map" => ["1"],
+                "bus" => "trunk", "terminal_map" => ["1"],
                 "G_1_1" => 0.5, "B_1_1" => -0.1))
         eng2 = to_pmd(net2)
         @test eng2["shunt"]["sh1"]["gs"][1,1] ≈ 0.5
@@ -2634,7 +2449,7 @@ const IEEE13_FIXTURE = """
     @testset "IO — _meta provenance survives write/parse round trip" begin
         # Regression: write_bmopf dropped _meta entirely, so the PowerIO
         # fidelity-loss inventory and migration notes vanished on save.
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         net["_meta"] = get(net, "_meta", Dict{String,Any}())
         net["_meta"]["powerio_warnings"] = ["loadshape daily dropped"]
         net["_meta"]["migration_notes"] = Any[Dict("code" => "W.MIGRATE.TEST")]
@@ -2872,17 +2687,17 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Completeness — transformer required fields" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-        delete!(net["transformer"]["single_phase"]["xfm2"], "s_rating")
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+        delete!(net["transformer"]["single_phase"]["workshop_transformer"], "s_rating")
         report = analyze(net)
         @test any(f -> f.code == "E.COMP.MISSING_REQUIRED" &&
-                       f.component_id == "xfm2", report.findings)
+                       f.component_id == "workshop_transformer", report.findings)
     end
 
     @testset "Connectivity — parallel lines break radiality" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         # duplicate an existing line: same endpoints, parallel branch = cycle
-        net["line"]["l650632_par"] = deepcopy(net["line"]["l650632"])
+        net["line"]["primary_trunk_par"] = deepcopy(net["line"]["primary_trunk"])
         findings = Finding[]
         result = connectivity_analysis(net, findings)
         @test result["is_radial"] == false
@@ -2891,18 +2706,18 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Redundancy — switch tee blocks line merge" begin
-        # 632 is a pass-through candidate only if nothing else attaches there.
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-        delete!(net["load"], "load_632")              # remove its load
-        delete!(net["transformer"]["single_phase"], "xfm2")  # and its transformer
+        # trunk is a pass-through candidate only if nothing else attaches there.
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+        delete!(net["load"], "trunk_load")              # remove its load
+        delete!(net["transformer"]["single_phase"], "workshop_transformer")  # and its transformer
         findings = Finding[]
         result = redundancy_check(net, findings)
-        @test result["mergeable_lines"]["n_groups"] == 1   # l650632 + l632671
+        @test result["mergeable_lines"]["n_groups"] == 1   # primary_trunk + trunk_junction
 
-        # now tee a switch off 632 — merge must be blocked
+        # now tee a switch off trunk — merge must be blocked
         net["switch"] = Dict{String,Any}(
             "sw1" => Dict{String,Any}(
-                "bus_from" => "632", "bus_to" => "611",
+                "bus_from" => "trunk", "bus_to" => "lateral_c",
                 "terminal_map_from" => ["3"], "terminal_map_to" => ["3"],
                 "open_switch" => false))
         findings2 = Finding[]
@@ -2912,10 +2727,10 @@ const IEEE13_FIXTURE = """
 
     @testset "Domain rules — step-down transformer ratio not flagged" begin
         # 11kV/433V (ratio ≈ 0.039) is a standard distribution transformer
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         net["transformer"]["delta_wye"] = Dict{String,Any}(
             "tx_dist" => Dict{String,Any}(
-                "bus_from" => "650", "bus_to" => "634",
+                "bus_from" => "primary", "bus_to" => "workshop",
                 "terminal_map_from" => ["1","2","3"],
                 "terminal_map_to"   => ["1","2","3","n"],
                 "s_rating" => 100_000.0,
@@ -3195,7 +3010,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Redundancy — linecodes without impedance not duplicates" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         # two linecodes with no R/X data must not fingerprint as identical
         net["linecode"]["empty_a"] = Dict{String,Any}("i_max" => [100.0])
         net["linecode"]["empty_b"] = Dict{String,Any}("i_max" => [200.0])
@@ -3396,7 +3211,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Diversity — I.DIV.LOAD_PF_DSS_DEFAULT near 0.88" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         # Force all loads to PF=0.88 (p=0.88, q=√(1-0.88²)=0.475)
         for (_, l) in net["load"]
             n = length(get(l, "p_nom", [0.0]))
@@ -3409,15 +3224,15 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Diversity — no I.DIV.LOAD_PF_DSS_DEFAULT when PF is varied" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings = Finding[]
         diversity_analysis(net, findings)
-        # IEEE13 loads have diverse PF values — should not trigger
+        # Synthetic loads have diverse PF values — should not trigger
         @test !any(f -> f.code == "I.DIV.LOAD_PF_DSS_DEFAULT", findings)
     end
 
     @testset "Diversity — I.DIV.LOAD_UNIFORM_MODEL when all constant_power" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         for (_, l) in net["load"]; delete!(l, "model"); end   # all default constant_power
         findings = Finding[]
         diversity_analysis(net, findings)
@@ -3425,7 +3240,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Diversity — no I.DIV.LOAD_UNIFORM_MODEL when models vary" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         first(values(net["load"]))["model"] = "zip"   # introduce model diversity
         findings = Finding[]
         diversity_analysis(net, findings)
@@ -3433,7 +3248,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Diversity — I.DIV.LOAD_UNIFORM_CONFIG when all same configuration" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         for (_, l) in net["load"]; l["configuration"] = "WYE"; end
         findings = Finding[]
         diversity_analysis(net, findings)
@@ -3441,7 +3256,7 @@ const IEEE13_FIXTURE = """
     end
 
     @testset "Diversity — no I.DIV.LOAD_UNIFORM_CONFIG when configs vary" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         for (_, l) in net["load"]; l["configuration"] = "WYE"; end
         first(values(net["load"]))["configuration"] = "DELTA"
         findings = Finding[]
@@ -4243,28 +4058,28 @@ include("mcp_execution_tests.jl")
 
         # domain_rules_check honours an overridden threshold: a load whose PF is
         # below the raised pf_min is flagged, but not under the default.
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-        net["load"]["load_632"]["p_nom"] = [800.0, 800.0, 800.0]
-        net["load"]["load_632"]["q_nom"] = [600.0, 600.0, 600.0]   # PF = 0.8
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+        net["load"]["trunk_load"]["p_nom"] = [800.0, 800.0, 800.0]
+        net["load"]["trunk_load"]["q_nom"] = [600.0, 600.0, 600.0]   # PF = 0.8
         f_def = Finding[]
         domain_rules_check(net, f_def)   # default pf_min 0.70 → no flag
-        @test !any(f -> f.code == "W.DOM.LOAD_PF_LOW" && f.component_id == "load_632", f_def)
+        @test !any(f -> f.code == "W.DOM.LOAD_PF_LOW" && f.component_id == "trunk_load", f_def)
         f_strict = Finding[]
         domain_rules_check(net, f_strict; thresholds=Dict{String,Any}(
             "pf_min" => 0.90, "cost_max_per_kwh" => 10.0, "r_series_min" => 1e-9,
             "xfmr_ratio_max" => 1000.0, "z_line_min_ohm" => 1e-4,
             "z_spread_info" => 1e3, "z_spread_warn" => 1e5))
-        @test any(f -> f.code == "W.DOM.LOAD_PF_LOW" && f.component_id == "load_632", f_strict)
+        @test any(f -> f.code == "W.DOM.LOAD_PF_LOW" && f.component_id == "trunk_load", f_strict)
 
         # Regression: a negative-p (export) load with a healthy |pf| must not
         # be flagged — the check used the signed pf, so every export load read
         # as pf < 0 < pf_min.
-        net_exp = parse_bmopf(IEEE13_FIXTURE; from_string=true)
-        net_exp["load"]["load_632"]["p_nom"] = [-800.0, -800.0, -800.0]
-        net_exp["load"]["load_632"]["q_nom"] = [-100.0, -100.0, -100.0]  # |pf| ≈ 0.99
+        net_exp = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
+        net_exp["load"]["trunk_load"]["p_nom"] = [-800.0, -800.0, -800.0]
+        net_exp["load"]["trunk_load"]["q_nom"] = [-100.0, -100.0, -100.0]  # |pf| ≈ 0.99
         f_exp = Finding[]
         domain_rules_check(net_exp, f_exp)
-        @test !any(f -> f.code == "W.DOM.LOAD_PF_LOW" && f.component_id == "load_632", f_exp)
+        @test !any(f -> f.code == "W.DOM.LOAD_PF_LOW" && f.component_id == "trunk_load", f_exp)
     end
 
 end  # @testset "BMOPFTools"

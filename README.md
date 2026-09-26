@@ -92,8 +92,7 @@ the test suite runs against, under `test/data/`:
 
 The [fixture provenance inventory](test/data/README.md) records the authorization
 and the original synthetic replacements for the former IEEE/Kersting geometry
-inputs. The separate IEEE13_FIXTURE embedded in `test/runtests.jl` remains outside
-this grant and needs a replacement or attribution decision before release.
+and inline analysis inputs.
 
 The full benchmark library and the larger source networks that feed the
 output-generation pipeline are **not** bundled here — they live in the

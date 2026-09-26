@@ -74,11 +74,9 @@ book-owned; package changes must preserve the ARCHITECTURE.md boundaries.
   that statement if earlier contributions also require disclosure.
 - Review the bundled schema's differences from upstream and record the agreed
   supported snapshot. The fingerprint is evidence of identity, not approval.
-- Replace or resolve attribution for the separate IEEE13_FIXTURE embedded in
-  `test/runtests.jl`. On 2026-09-26 the copyright holder authorized CC BY 4.0
-  for the other fixtures. The three IEEE/Kersting geometry decks and their
-  inline geometry-test/tutorial copies have been replaced with original
-  synthetic cases. See `test/data/README.md` and `test/data/license.md`.
+- Review the synthetic fixture provenance and CC BY 4.0 scope in
+  `test/data/README.md` and `test/data/license.md`. Both the former IEEE/Kersting
+  geometry inputs and inline analysis fixture have been replaced.
 - Verify the Registrator app installation. The local General name/similarity
   check passed for `BMOPFTools`; the registration PR must pass it again.
 - Verify TagBot actually triggers tagged docs. A writable Documenter deploy key

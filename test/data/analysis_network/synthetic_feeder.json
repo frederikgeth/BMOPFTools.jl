@@ -1,0 +1,395 @@
+{
+  "name": "synthetic_workshop_feeder",
+  "bus": {
+    "supply": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ],
+      "v_min": [
+        3000,
+        3000,
+        3000
+      ],
+      "v_max": [
+        3600,
+        3600,
+        3600
+      ]
+    },
+    "primary": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ],
+      "v_min": [
+        3000,
+        3000,
+        3000
+      ],
+      "v_max": [
+        3600,
+        3600,
+        3600
+      ]
+    },
+    "trunk": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "v_min": [
+        3000,
+        3000,
+        3000
+      ],
+      "v_max": [
+        3600,
+        3600,
+        3600
+      ]
+    },
+    "workshop": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ],
+      "v_min": [
+        210,
+        210,
+        210
+      ],
+      "v_max": [
+        250,
+        250,
+        250
+      ]
+    },
+    "junction": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "v_min": [
+        3000,
+        3000,
+        3000
+      ],
+      "v_max": [
+        3600,
+        3600,
+        3600
+      ]
+    },
+    "lateral_c": {
+      "terminal_names": [
+        "3",
+        "n"
+      ],
+      "v_min": [
+        3000
+      ],
+      "v_max": [
+        3600
+      ]
+    },
+    "lateral_a": {
+      "terminal_names": [
+        "1",
+        "n"
+      ]
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "supply",
+      "terminal_map": [
+        "1",
+        "2",
+        "3"
+      ],
+      "v_magnitude": [
+        3300,
+        3300,
+        3300
+      ],
+      "v_angle": [
+        0,
+        -2.0943951023931953,
+        2.0943951023931953
+      ]
+    }
+  },
+  "line": {
+    "primary_trunk": {
+      "bus_from": "primary",
+      "bus_to": "trunk",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3"
+      ],
+      "linecode": "trunk_code",
+      "length": 320
+    },
+    "trunk_junction": {
+      "bus_from": "trunk",
+      "bus_to": "junction",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3"
+      ],
+      "linecode": "trunk_code",
+      "length": 180
+    },
+    "junction_c": {
+      "bus_from": "junction",
+      "bus_to": "lateral_c",
+      "terminal_map_from": [
+        "3"
+      ],
+      "terminal_map_to": [
+        "3"
+      ],
+      "linecode": "lateral_c_code",
+      "length": 75
+    },
+    "primary_a": {
+      "bus_from": "primary",
+      "bus_to": "lateral_a",
+      "terminal_map_from": [
+        "1"
+      ],
+      "terminal_map_to": [
+        "1"
+      ],
+      "linecode": "lateral_a_code",
+      "length": 125
+    }
+  },
+  "linecode": {
+    "trunk_code": {
+      "R_series_1_1": 0.00042,
+      "R_series_1_2": 6e-05,
+      "R_series_1_3": 4e-05,
+      "R_series_2_2": 0.00046,
+      "R_series_2_3": 5e-05,
+      "R_series_3_3": 0.00049,
+      "X_series_1_1": 0.00058,
+      "X_series_1_2": 0.00013,
+      "X_series_1_3": 9e-05,
+      "X_series_2_2": 0.00062,
+      "X_series_2_3": 0.00011,
+      "X_series_3_3": 0.00066,
+      "i_max": [
+        280,
+        280,
+        280
+      ]
+    },
+    "lateral_c_code": {
+      "R_series_1_1": 0.00085,
+      "X_series_1_1": 0.00044,
+      "i_max": [
+        120
+      ]
+    },
+    "lateral_a_code": {
+      "R_series_1_1": 0.00115,
+      "X_series_1_1": 0.00038,
+      "i_max": [
+        95
+      ]
+    }
+  },
+  "transformer": {
+    "wye_delta": {
+      "supply_transformer": {
+        "bus_from": "primary",
+        "bus_to": "supply",
+        "terminal_map_from": [
+          "1",
+          "2",
+          "3",
+          "n"
+        ],
+        "terminal_map_to": [
+          "1",
+          "2",
+          "3"
+        ],
+        "s_rating": 2400000,
+        "v_nom_from": 5700,
+        "v_nom_to": 5700
+      }
+    },
+    "single_phase": {
+      "workshop_transformer": {
+        "bus_from": "trunk",
+        "bus_to": "workshop",
+        "terminal_map_from": [
+          "1",
+          "2",
+          "3"
+        ],
+        "terminal_map_to": [
+          "1",
+          "2",
+          "3"
+        ],
+        "s_rating": 180000,
+        "v_nom_from": 5700,
+        "v_nom_to": 400
+      }
+    }
+  },
+  "load": {
+    "trunk_load": {
+      "bus": "trunk",
+      "terminal_map": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "configuration": "WYE",
+      "p_nom": [
+        24000,
+        39000,
+        57000
+      ],
+      "q_nom": [
+        6000,
+        14000,
+        25000
+      ]
+    },
+    "junction_load": {
+      "bus": "junction",
+      "terminal_map": [
+        "1",
+        "2",
+        "3"
+      ],
+      "configuration": "DELTA",
+      "p_nom": [
+        90000,
+        90000,
+        90000
+      ],
+      "q_nom": [
+        30000,
+        30000,
+        30000
+      ]
+    },
+    "lateral_c_load": {
+      "bus": "lateral_c",
+      "terminal_map": [
+        "3",
+        "n"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "p_nom": [
+        42000
+      ],
+      "q_nom": [
+        18000
+      ]
+    },
+    "lateral_a_load": {
+      "bus": "lateral_a",
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "p_nom": [
+        31000
+      ],
+      "q_nom": [
+        11000
+      ]
+    },
+    "load_zero": {
+      "bus": "workshop",
+      "terminal_map": [
+        "1",
+        "n"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "p_nom": [
+        0
+      ],
+      "q_nom": [
+        0
+      ]
+    }
+  },
+  "generator": {
+    "workshop_generator": {
+      "bus": "workshop",
+      "terminal_map": [
+        "1",
+        "2",
+        "3"
+      ],
+      "configuration": "WYE",
+      "p_max": [
+        45000,
+        45000,
+        45000
+      ],
+      "p_min": [
+        0,
+        0,
+        0
+      ],
+      "q_max": [
+        20000,
+        20000,
+        20000
+      ],
+      "q_min": [
+        -20000,
+        -20000,
+        -20000
+      ],
+      "cost": [
+        0.08,
+        0.08,
+        0.08
+      ]
+    }
+  }
+}

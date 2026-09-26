@@ -4,6 +4,8 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Replace the IEEE-inspired inline analysis fixture with an original CC BY 4.0
+  synthetic workshop feeder and migrate its diagnostic and serialization tests.
 - Parse, validate, analyze, and report BMOPF networks, with PowerIO ingestion.
 - Provide optional JuMP-based OPF/power-flow and structured solution validation.
 - Expose scientific contracts with explicit applicability and stable Findings.

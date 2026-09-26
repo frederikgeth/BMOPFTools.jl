@@ -13,10 +13,10 @@ https://github.com/frederikgeth/BMOPFTools.jl and the licence, and an indication
 of changes when the material is modified. Preserve existing provenance notices.
 The licence text is supplied in `CC-BY-4.0.txt`.
 
-This grant covers bundled fixture data, including synthetic geometry inputs
-and generated reference matrices. The former IEEE-13/Kersting geometry data
-were replaced, not relicensed. It does not apply to data in BMOPFDraftData,
-third-party works cited in documentation, the bundled schema, or the separate
-IEEE13_FIXTURE embedded in test/runtests.jl. Repository code outside this
-fixture data retains its existing licence. Existing BSD-3-Clause grants for
-previously published fixture data are not withdrawn by this CC BY 4.0 grant.
+This grant covers bundled fixture data, including synthetic geometry inputs,
+the synthetic analysis feeder, and generated reference matrices. The former
+IEEE-13/Kersting geometry and inline analysis data were replaced, not relicensed.
+It does not apply to data in BMOPFDraftData, third-party works cited in
+documentation, or the bundled schema. Repository code outside this fixture data
+retains its existing licence. Existing BSD-3-Clause grants for previously
+published fixture data are not withdrawn by this CC BY 4.0 grant.

@@ -791,6 +791,7 @@ source_paths = [
   "test/line_solution_verification_tests.jl",
   "test/data/scientific_review/receiving-limit-result.json",
   "test/data/pf_comparison/pf_3wdg_unequal_kva.dss",
+  "test/data/analysis_network/synthetic_feeder.json",
   "test/data/line_geometry/synthetic_overhead.dss",
   "test/data/line_geometry/synthetic_cn.dss",
   "test/data/line_geometry/synthetic_ts.dss",
