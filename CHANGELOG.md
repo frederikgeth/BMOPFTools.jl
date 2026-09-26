@@ -21,4 +21,8 @@ Initial General release candidate. Registration has not yet been requested.
   and test the power-flow nameplate exception.
 - Separate exact and modeled Volt-watt controller compliance evidence.
 
+- Record the copyright holder's CC BY 4.0 grant for bundled fixtures; replace
+  IEEE/Kersting geometry data with original synthetic overhead/CN/TS cases,
+  independently captured OpenDSS matrices, and live comparisons.
+
 Known release decisions and validation steps are tracked in `RELEASING.md`.

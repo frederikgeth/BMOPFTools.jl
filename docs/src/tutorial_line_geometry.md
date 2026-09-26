@@ -71,102 +71,73 @@ construction (as below) rather than carrying unit fields around.
   electrostatic terms; mixing GMR into capacitance is the classic implementation
   bug.
 
-## Overhead example: IEEE 13 configuration 601
+## Overhead example: original synthetic four-wire line
 
-556.5 kcmil ACSR phases with a 4/0 ACSR neutral on the standard 500-series
-pole top, at 60 Hz over 100 Ω·m earth:
+This asymmetric layout uses deliberately chosen synthetic SI parameters. It is
+not a utility feeder, a conductor catalogue entry, or an IEEE benchmark.
+The matching OpenDSS deck is `test/data/line_geometry/synthetic_overhead.dss`.
 
 ```@example geom
 using BMOPFTools
-
-ft = 0.3048; inch = 0.0254; mile = 1609.344   # SI conversions
-
 net = Dict{String,Any}(
     "wire_data" => Dict{String,Any}(
-        "acsr_556" => Dict{String,Any}(
-            "kind" => "overhead",
-            "r_ac" => 0.1859 / mile,          # Ω/m
-            "gmr" => 0.0313 * ft,             # m
-            "radius" => 0.927 / 2 * inch,     # m
-            "i_max" => 730.0),                # A
-        "acsr_4_0" => Dict{String,Any}(
-            "kind" => "overhead",
-            "r_ac" => 0.592 / mile,
-            "gmr" => 0.00814 * ft,
-            "radius" => 0.563 / 2 * inch,
-            "i_max" => 340.0)),
-    "line_geometry" => Dict{String,Any}(
-        "ieee13_601" => Dict{String,Any}(
-            "frequency" => 60.0,
-            "earth_resistivity" => 100.0,
-            "earth_model" => "modified_carson",
-            "conductors" => Any[
-                Dict{String,Any}("wire_data" => "acsr_556", "x" => 2.5ft, "y" => 29.0ft, "terminal" => "a"),
-                Dict{String,Any}("wire_data" => "acsr_556", "x" => 0.0,   "y" => 29.0ft, "terminal" => "b"),
-                Dict{String,Any}("wire_data" => "acsr_556", "x" => 7.0ft, "y" => 29.0ft, "terminal" => "c"),
-                Dict{String,Any}("wire_data" => "acsr_4_0", "x" => 4.0ft, "y" => 25.0ft, "terminal" => "n")])))
-
-compile_linecode(net, "ieee13_601")
-lc = net["linecode"]["ieee13_601"]
+        "phase" => Dict{String,Any}("kind"=>"overhead", "r_ac"=>0.00021,
+            "gmr"=>0.006, "radius"=>0.008, "i_max"=>450.0),
+        "neutral" => Dict{String,Any}("kind"=>"overhead", "r_ac"=>0.00065,
+            "gmr"=>0.003, "radius"=>0.004, "i_max"=>180.0)),
+    "line_geometry" => Dict{String,Any}("synthetic_overhead" => Dict{String,Any}(
+        "frequency"=>60.0, "earth_resistivity"=>100.0,
+        "earth_model"=>"modified_carson",
+        "conductors"=>Any[
+            Dict{String,Any}("wire_data"=>w, "x"=>x, "y"=>y, "terminal"=>t)
+            for (w,x,y,t) in (("phase",-0.9,10.5,"a"),("phase",0.2,11.1,"b"),
+                              ("phase",1.1,10.0,"c"),("neutral",0.45,8.8,"n"))])))
+compile_linecode(net, "synthetic_overhead")
+lc = net["linecode"]["synthetic_overhead"]
 lc["derivation"]
 ```
 
-The compiled linecode is the **4×4** (a, b, c, n) per-metre matrix — the IEEE
-documentation's published 3×3 is its Kron reduction, which BMOPF deliberately
-does not perform. Self impedance of phase a, back in Ω/mile for comparison
-with the textbook:
+The compiled linecode is the full **4×4** (a, b, c, n) per-metre matrix.
+Circuit neutral elimination is not performed. Phase-a self impedance in Ω/km:
 
 ```@example geom
-z_aa = (lc["R_series_1_1"] + im * lc["X_series_1_1"]) * mile
-round(z_aa, digits = 4)
+z_aa = (lc["R_series_1_1"] + im * lc["X_series_1_1"]) * 1000
+round(z_aa, digits=4)
 ```
 
-A line then uses it like any other linecode, with `terminal_map_*` matching
-the geometry's terminal labels in order:
+A line uses terminal maps in the same order as the geometry:
 
 ```@example geom
-net["line"] = Dict{String,Any}("l632_671" => Dict{String,Any}(
-    "bus_from" => "b632", "bus_to" => "b671",
-    "terminal_map_from" => ["a", "b", "c", "n"],
-    "terminal_map_to"   => ["a", "b", "c", "n"],
-    "linecode" => "ieee13_601",
-    "length"   => 2000 * ft))
-net["line"]["l632_671"]
+net["line"] = Dict{String,Any}("supply" => Dict{String,Any}(
+    "bus_from"=>"source", "bus_to"=>"receiving",
+    "terminal_map_from"=>["a","b","c","n"],
+    "terminal_map_to"=>["a","b","c","n"],
+    "linecode"=>"synthetic_overhead", "length"=>450.0))
+net["line"]["supply"]
 ```
 
-Per-conductor ratings flow from `wire_data.i_max` into the linecode
-(`i_max = [730, 730, 730, 340]` here) — the same per-conductor convention
-lines already use.
+The illustrative conductor ratings flow into the linecode as
+`i_max = [450, 450, 450, 180]`; they are test inputs, not equipment ratings.
 
-## Cable example: concentric-neutral trio (IEEE 13 config 606)
+## Cable example: original synthetic concentric-neutral trio
 
-Cables carry their layer structure on the wire type. A `cn_cable` describes
-the core plus the concentric-neutral strands; a `ts_cable` the tape shield
-(`d_shield`, `t_tape`, `tape_lap`). The strands/shield are built as internal
-subconductors and reduced into the cable equivalent — sub-terminal structure,
-not circuit conductors:
+A `cn_cable` describes its core and neutral strands; a `ts_cable` describes a
+tape shield. Shields are internal subconductors, reduced into the cable
+representation. Circuit conductors remain explicit.
 
 ```@example geom
-net["wire_data"]["cn_250"] = Dict{String,Any}(
-    "kind" => "cn_cable",
-    "r_ac" => 0.4100 / mile, "gmr" => 0.0171 * ft, "radius" => 0.567 / 2 * inch,
-    "d_cable" => 1.29 * inch,           # overall diameter
-    "n_strands" => 13,                   # concentric neutral: 13 × #14 Cu
-    "d_strand" => 0.0641 * inch,
-    "gmr_strand" => 0.00208 * ft,
-    "r_strand" => 14.8722 / mile,
-    "eps_r" => 2.3,                      # insulation, for the coaxial C
-    "d_insulation" => 1.06 * inch, "t_insulation" => 0.220 * inch)
-
-net["line_geometry"]["ieee13_606"] = Dict{String,Any}(
-    "frequency" => 60.0,
-    "conductors" => Any[
-        Dict{String,Any}("wire_data" => "cn_250", "x" => -0.5ft, "y" => -3.0ft, "terminal" => "a"),
-        Dict{String,Any}("wire_data" => "cn_250", "x" =>  0.0,   "y" => -3.0ft, "terminal" => "b"),
-        Dict{String,Any}("wire_data" => "cn_250", "x" =>  0.5ft, "y" => -3.0ft, "terminal" => "c")])
-
-compile_linecode(net, "ieee13_606")
-net["linecode"]["ieee13_606"]["derivation"]["shields_reduced"]
+net["wire_data"]["cn"] = Dict{String,Any}(
+    "kind"=>"cn_cable", "r_ac"=>0.00038, "gmr"=>0.004, "radius"=>0.006,
+    "d_cable"=>0.032, "n_strands"=>12, "d_strand"=>0.0015,
+    "gmr_strand"=>0.0006, "r_strand"=>0.012,
+    "eps_r"=>2.7, "d_insulation"=>0.026, "t_insulation"=>0.007)
+net["line_geometry"]["synthetic_cn"] = Dict{String,Any}(
+    "frequency"=>60.0,
+    "conductors"=>Any[
+        Dict{String,Any}("wire_data"=>"cn", "x"=>x, "y"=>-1.1, "terminal"=>t)
+        for (x,t) in ((-0.22,"a"),(0.03,"b"),(0.31,"c"))])
+compile_linecode(net, "synthetic_cn")
+net["linecode"]["synthetic_cn"]["derivation"]["shields_reduced"]
 ```
 
 Negative `y` is burial depth (CIM convention). At 50/60 Hz the earth-return
@@ -275,14 +246,14 @@ analyzer re-derives such linecodes and flags divergence — a stale hand-edit,
 or a geometry changed without recompiling:
 
 ```@example geom
-net["linecode"]["ieee13_601"]["R_series_1_1"] *= 1.5   # simulate a hand-edit
+net["linecode"]["synthetic_overhead"]["R_series_1_1"] *= 1.5   # simulate a hand-edit
 findings = BMOPFTools.Finding[]
 BMOPFTools.provenance_analysis(net, findings)
 [f.code for f in findings if f.code == "W.PROV.GEOMETRY_MISMATCH"]
 ```
 
 ```@example geom
-compile_linecode(net, "ieee13_601"; force = true)      # recompile to fix
+compile_linecode(net, "synthetic_overhead"; force = true)      # recompile to fix
 findings = BMOPFTools.Finding[]
 BMOPFTools.provenance_analysis(net, findings)
 any(f.code == "W.PROV.GEOMETRY_MISMATCH" for f in findings)
@@ -295,11 +266,13 @@ matrices — reviewable, re-derivable, and perturbable for sensitivity studies
 
 ## Validation status
 
-The engine is tested against the published IEEE 13-bus feeder matrices
-(overhead config 601 series **and** shunt, CN-cable config 606, tape-shield
-config 607 — Kersting's reference calculations) and analytic capacitance
-formulas; the earth models are cross-checked against each other at power
-frequency. See `test/lineconstants_tests.jl`.
+The engine is tested against frozen and live OpenDSS matrices for original
+synthetic overhead, concentric-neutral, and tape-shield geometries, plus
+analytic capacitance formulas and cross-model checks at power frequency.
+The frozen matrices are generated by OpenDSS without calling BMOPFTools and
+record engine versions and input hashes. See `test/lineconstants_tests.jl`
+and `test/data/line_geometry/README.md`. These finite regression cases do not
+establish a new scientific applicability domain.
 
 ## Deferred / future work
 

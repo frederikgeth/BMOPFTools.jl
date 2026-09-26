@@ -88,13 +88,12 @@ the test suite runs against, under `test/data/`:
 
 | Fixture (`test/data/…`) | Licence | Commercial use | Source |
 |---|---|---|---|
-| `SWER`, `pf_comparison` | CC BY 4.0 | yes | authored for BMOPFTools; directory notices |
-| `schema_alias` | CC BY 4.0 | yes | synthetic package regression; directory notice |
+| `test/data/`, scientific fixture JSON, recipe inputs | CC BY 4.0 | yes | copyright-holder authorization; [scope and attribution](test/data/license.md) |
 
-Other small regression fixtures and IEEE/Kersting-derived geometry inputs are
-listed in the [fixture provenance inventory](test/data/README.md), including
-the attribution checks still required before release. The code licence does
-not establish the licence of third-party data.
+The [fixture provenance inventory](test/data/README.md) records the authorization
+and the original synthetic replacements for the former IEEE/Kersting geometry
+inputs. The separate IEEE13_FIXTURE embedded in `test/runtests.jl` remains outside
+this grant and needs a replacement or attribution decision before release.
 
 The full benchmark library and the larger source networks that feed the
 output-generation pipeline are **not** bundled here — they live in the

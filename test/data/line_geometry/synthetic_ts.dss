@@ -1,0 +1,17 @@
+! Original synthetic BMOPFTools regression geometry; no real feeder or catalogue model.
+! Copyright Frederik Geth. CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+! Dimensions in metres, resistances in ohm/metre. reduce=no retains circuit conductors.
+clear
+new circuit.synthetic basekv=11 phases=1 bus1=sourcebus
+set defaultbasefreq=60
+set earthmodel=Carson
+
+new TSData.ts DiaShield=0.024 TapeLayer=0.00016 TapeLap=25
+~ Rac=0.00058 GmrAC=0.0036 radius=0.0048 DiaIns=0.022 InsLayer=0.0062 EpsR=2.5
+~ Runits=m GmrUnits=m radunits=m
+new WireData.return Rac=0.0009 GmrAC=0.0025 radius=0.0034 Runits=m GmrUnits=m radunits=m
+new linegeometry.ts nconds=2 nphases=1 reduce=no
+~ cond=1 tscable=ts x=0 h=-1.25 units=m
+~ cond=2 wire=return x=0.065 h=-1.25 units=m
+new line.l1 bus1=sourcebus.1 bus2=b2.1 geometry=ts length=1 units=m
+solve

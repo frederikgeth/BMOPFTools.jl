@@ -1,18 +1,23 @@
-# Bundled fixture provenance inventory
+# Bundled fixture provenance
 
-The CC BY-NC-SA MV/LV corpora and ENWL corpus are external in BMOPFDraftData.
-See `../RESTRICTED_DATA.md`. This inventory records the evidence available in
-the package; it does not assign a new licence to third-party source material.
+The copyright holder confirmed ownership of the non-IEEE/Kersting fixtures
+and authorized CC BY 4.0 on 2026-09-26. The common grant and attribution are in
+`license.md`; existing directory notices remain applicable.
 
-| Paths | Provenance evidence and remaining review |
+| Paths | Provenance |
 |---|---|
-| `SWER/`, `pf_comparison/` | Existing `license.md` files describe synthetic package fixtures under CC BY 4.0. Keep those notices. |
-| `line_geometry/ieee13_601.dss`, `ieee13_606_cn.dss`, `ieee13_607_ts.dss` | Headers identify IEEE-13 configurations and published Kersting conductor/cable data. These are not wholly original source data. Before release, record the exact upstream publication/files and applicable attribution/redistribution terms. Do not infer those terms from the package code licence. |
-| `powerio_v08_bmopf.json` | `test/powerio_v08_tests.jl` records PowerIO 0.8.0 conversion of a three-bus regression case. Retain converter provenance; confirm the original input case's provenance before release. |
-| `pmd_bounds/`, `ybus/`, `issue190_generator.dss` | Small regression inputs. Confirm authorship/source from their introducing changes before treating the repository's general fixture policy as sufficient attribution. |
-| `scientific_review/`, `transformer_interoperability/`, `powerio_duplicate_new/`, `parameter_updates/` | Minimized/package-behavior witnesses; local READMEs and consuming tests explain their purpose. Confirm attribution for each addition in the final maintainer review. Scientific-review data do not independently establish a general PSK claim. |
-| `schema_alias/` | Synthetic one-bus URI regression authored for BMOPFTools; explicit CC BY 4.0 notice in the directory. |
-| `roundtrip_*.json`, `roundtrip_expectations.md` | Test expectations and source-to-target node mappings. Referenced external cases are not themselves bundled by these files. |
+| `SWER/`, `pf_comparison/` | Synthetic package fixtures; original directory notices retained. |
+| `line_geometry/` | Original synthetic overhead, concentric-neutral, and tape-shield inputs and independently generated OpenDSS reference matrices. See its README. Replaces the former IEEE-13/Kersting configurations. |
+| `powerio_v08_bmopf.json` | PowerIO 0.8.0 output from the copyright holder's three-bus regression input; conversion provenance described in `test/powerio_v08_tests.jl`. |
+| `pmd_bounds/`, `ybus/`, `issue190_generator.dss` | Copyright-holder-authorized regression inputs. |
+| `scientific_review/`, `transformer_interoperability/`, `powerio_duplicate_new/`, `parameter_updates/` | Minimized package-behavior witnesses; consuming tests and local READMEs describe their purpose. |
+| `schema_alias/` | Original one-bus URI regression. |
+| `roundtrip_*.json`, `roundtrip_expectations.md` | Package test expectations and source-to-target mappings. References do not bundle external source cases. |
 
-This inventory was inspected on 2026-09-26. Update it when adding fixture
-families. A missing non-commercial header is not evidence of permission.
+The separate IEEE13_FIXTURE embedded in `test/runtests.jl` is not covered by
+this grant. Its replacement or attribution decision remains a release item.
+Scientific citations to Kersting and other authors are retained as references
+to methods, not relabelled as original fixture data.
+
+Restricted MV/LV and ENWL corpora remain external in BMOPFDraftData under their
+existing notices; see `../RESTRICTED_DATA.md`. No Git history was rewritten.
