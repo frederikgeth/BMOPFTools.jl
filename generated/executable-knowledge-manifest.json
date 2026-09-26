@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "0bf6517d1526f802b544a401debf4dff9c626c5fe5fb44c2c42fe0d00a5f0e05",
+  "corpus_sha256": "cb6646f78a9ec0cdd94a65b7680df83478e1f91492454dc98752afa7a38dfc87",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -186,7 +186,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "8f14a9afe9b448861da7c342043eb9f2771d37e600708dc278c7f3cd296397be"
+      "sha256": "079e06f43ed44ebd658206e1e5e68186045663387b2ae3e138e32ba710488be8"
     },
     {
       "path": "recipes/README.md",
@@ -273,6 +273,10 @@
       "sha256": "4cff373253679a2e122226da65524b1c4b3d5b44d3a0b0c02a658eef27015d5e"
     },
     {
+      "path": "schemas/bundled-schema.toml",
+      "sha256": "b4fadbdad4f1951f829bf2388c851b89d56233b9b1fe72e89a64e1198094913e"
+    },
+    {
       "path": "schemas/executable-knowledge.schema.json",
       "sha256": "b4b9f5f0467a4330a2e8129efcf07fdd202bc7a3da71ebe023be2e9d2a216002"
     },
@@ -326,7 +330,7 @@
     },
     {
       "path": "src/io/migrate.jl",
-      "sha256": "dd130809a50958f422169e05be70a59ec222d08c649549ef92329de09458d4b6"
+      "sha256": "65b030e9dcd97529abf3e59b04433ab3161bb906007f3d0079953f0b09b88c67"
     },
     {
       "path": "src/io/nwinding.jl",
@@ -394,7 +398,7 @@
     },
     {
       "path": "test/Project.toml",
-      "sha256": "f093363eed474c9211a5f055cea61898d9b909eb764aaccb2b88a616262a10ae"
+      "sha256": "af7ecdc40b91822d771c7ee690ac7c0dbdbb8ba6ffe6e133d4ba876251dfc5a0"
     },
     {
       "path": "test/controller_compliance_tests.jl",
@@ -415,6 +419,10 @@
     {
       "path": "test/data/pf_comparison/pf_exp_1ph.dss",
       "sha256": "5a08fa56e37d98cdfc2bc3998dde03a98f692c4d7b57f50bd7059f4c16d39d81"
+    },
+    {
+      "path": "test/data/schema_alias/powerio_archive.json",
+      "sha256": "627a3007c0ac399beca8a2166cf3d58724e5459c07d8a322aaae68ab8f4b8466"
     },
     {
       "path": "test/data/scientific_review/inconsistent-phasor-result.json",
@@ -863,6 +871,10 @@
     {
       "path": "test/property_based_contract_tests.jl",
       "sha256": "d98468c2531ad985190921047125af8258fb243652cb80096461e5ab610d2653"
+    },
+    {
+      "path": "test/schema_alias_tests.jl",
+      "sha256": "befe5988ae9b5a0cdba3d80794c76a46ebc386632a9b64df921b303e2ce78447"
     },
     {
       "path": "test/scientific_contract_tests.jl",

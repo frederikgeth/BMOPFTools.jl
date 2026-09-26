@@ -12,5 +12,13 @@ Initial General release candidate. Registration has not yet been requested.
   external-data integration tests and self-contained synthetic recipes.
 - Define a conservative JuMP floor, explicit Julia-floor CI, mandatory backend
   imports in release tests, and fresh-environment extension/solver smoke tests.
+- Accept PowerIO 0.11.3's exact archived BMOPF 0.1.0 schema URI; retain strict
+  rejection of unreviewed schema revisions and profiles.
+- Normalize transformer tap/excitation exchange fields and preserve DSS CVR
+  and winding resistance through PowerIO 0.11.1 and later compatible releases.
+- Refresh optimizer state after parameter updates before re-solving.
+- Verify line limits at both endpoints and signed branch-angle bounds; document
+  and test the power-flow nameplate exception.
+- Separate exact and modeled Volt-watt controller compliance evidence.
 
 Known release decisions and validation steps are tracked in `RELEASING.md`.

@@ -3882,6 +3882,7 @@ const IEEE13_FIXTURE = """
     # transformer fields relocated under extras (BMOPF schema 0.1.0).
     # -----------------------------------------------------------------------
     include("powerio_v08_tests.jl")
+    include("schema_alias_tests.jl")
     include("powerio_v09_tests.jl")
     include("powerio_regression_tests.jl")
     include("transformer_interoperability_tests.jl")
