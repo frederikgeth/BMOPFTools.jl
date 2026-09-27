@@ -11,7 +11,7 @@
                         render_ascii_tree(net, io; kw...); String(take!(io)))
 
     @testset "single-feeder network renders one tree with legend" begin
-        net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+        net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         out = rstr(net)
 
         @test occursin("# Network graph", out)
@@ -19,8 +19,8 @@
         @test occursin("├──", out) || occursin("└──", out)   # box-drawing edges
         @test occursin("Loads (", out)           # load legend printed
         @test occursin("Generators (", out)      # generator legend printed
-        @test occursin("G1", out)                # gen_634 numbered in legend
-        # IEEE13 fixture has a single level-crossing transformer (4160/480 V),
+        @test occursin("G1", out)                # workshop_generator numbered in legend
+        # Synthetic fixture has a single level-crossing transformer (5700/400 V),
         # so split mode must NOT activate — no "MV backbone" header.
         @test !occursin("MV backbone", out)
     end

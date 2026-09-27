@@ -80,17 +80,19 @@ and sensitivity algorithms.
 **Benchmark cases and task force outputs** — the licence is inherited from
 each dataset's upstream source and therefore differs **per dataset**. The
 generated benchmark cases (in [BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData))
-are derivatives and carry the same licence as their source. Every data
-directory contains a `License.md`/`license.md` with the exact terms and
-citation; the licence is also stamped into each generated case's `meta.license`
-field.
+are derivatives and carry their source's applicable licence terms. Preserve
+dataset licence notices, citations, and generated `meta.license` metadata.
 
 The only network data bundled in *this* repository is the small set of fixtures
 the test suite runs against, under `test/data/`:
 
 | Fixture (`test/data/…`) | Licence | Commercial use | Source |
 |---|---|---|---|
-| `SWER`, `pf_comparison`, small fixtures | CC BY 4.0 | yes | authored for BMOPFTools |
+| `test/data/`, scientific fixture JSON, recipe inputs | CC BY 4.0 | yes | copyright-holder authorization; [scope and attribution](test/data/license.md) |
+
+The [fixture provenance inventory](test/data/README.md) records the authorization
+and the original synthetic replacements for the former IEEE/Kersting geometry
+and inline analysis inputs.
 
 The full benchmark library and the larger source networks that feed the
 output-generation pipeline are **not** bundled here — they live in the

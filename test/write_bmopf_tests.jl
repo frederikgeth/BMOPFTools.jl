@@ -20,7 +20,7 @@ function _all_finite(v)
 end
 
 @testset "IO — write_bmopf JSON validity" begin
-    net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+    net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
 
     @testset "file output is parseable JSON" begin
         path = tempname() * ".json"

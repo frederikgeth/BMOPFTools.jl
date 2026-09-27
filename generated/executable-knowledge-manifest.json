@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "0bf6517d1526f802b544a401debf4dff9c626c5fe5fb44c2c42fe0d00a5f0e05",
+  "corpus_sha256": "3707211b65186039a39fd113022265998de5138de01c4b776aec586e834d47b3",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -186,7 +186,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "8f14a9afe9b448861da7c342043eb9f2771d37e600708dc278c7f3cd296397be"
+      "sha256": "4b768d8e3cd0b5771c9065f9fabb0e366d983cf84b25e53d89badb8786c09d67"
     },
     {
       "path": "recipes/README.md",
@@ -273,6 +273,10 @@
       "sha256": "4cff373253679a2e122226da65524b1c4b3d5b44d3a0b0c02a658eef27015d5e"
     },
     {
+      "path": "schemas/bundled-schema.toml",
+      "sha256": "b4fadbdad4f1951f829bf2388c851b89d56233b9b1fe72e89a64e1198094913e"
+    },
+    {
       "path": "schemas/executable-knowledge.schema.json",
       "sha256": "b4b9f5f0467a4330a2e8129efcf07fdd202bc7a3da71ebe023be2e9d2a216002"
     },
@@ -295,6 +299,10 @@
     {
       "path": "scripts/generate_finding_registry.py",
       "sha256": "c8d428a8c6f8fa97bff2dbd063f201bab17e8971e651fae5b49ecda0c30fc3f4"
+    },
+    {
+      "path": "scripts/regenerate_geometry_reference.jl",
+      "sha256": "50da2b97c35791e7e07556845cd27e588f9ba00a0ce1076a5870b89ae3c6013e"
     },
     {
       "path": "src/augmentation/augment.jl",
@@ -326,7 +334,7 @@
     },
     {
       "path": "src/io/migrate.jl",
-      "sha256": "dd130809a50958f422169e05be70a59ec222d08c649549ef92329de09458d4b6"
+      "sha256": "65b030e9dcd97529abf3e59b04433ab3161bb906007f3d0079953f0b09b88c67"
     },
     {
       "path": "src/io/nwinding.jl",
@@ -394,15 +402,31 @@
     },
     {
       "path": "test/Project.toml",
-      "sha256": "f093363eed474c9211a5f055cea61898d9b909eb764aaccb2b88a616262a10ae"
+      "sha256": "af7ecdc40b91822d771c7ee690ac7c0dbdbb8ba6ffe6e133d4ba876251dfc5a0"
     },
     {
       "path": "test/controller_compliance_tests.jl",
       "sha256": "3303a2ec4ada1d2fef5bafe3977ca4a458f8dcebc4a4606fb915e0f9ab550e5b"
     },
     {
-      "path": "test/data/line_geometry/ieee13_601.dss",
-      "sha256": "eb471d3e05a791b4fbaa625d6c21fc239d3b841d69589bf45df769b1a1d268bf"
+      "path": "test/data/analysis_network/synthetic_feeder.json",
+      "sha256": "37eff7326518624b732d77127808fbdecd52107d8593959ab669132e9c1a85c6"
+    },
+    {
+      "path": "test/data/line_geometry/opendss_reference.json",
+      "sha256": "5a7a5443b6cf1d55827b92f5eaff7b927cefc3baea50d84ea96079a49c8ca3f2"
+    },
+    {
+      "path": "test/data/line_geometry/synthetic_cn.dss",
+      "sha256": "72fecb11b08efeb50f8a7c6ea2cdc3f431af16852e6ee3687d22e4fa34c77889"
+    },
+    {
+      "path": "test/data/line_geometry/synthetic_overhead.dss",
+      "sha256": "2ff6fe4836fb64df226e3ce4840112f00e0a4f1ca25407f5780a7638285302e8"
+    },
+    {
+      "path": "test/data/line_geometry/synthetic_ts.dss",
+      "sha256": "48d6aa0d068484c7be7874357c808ea1a276d89c355ddefc2fe0d9c5f3fb0adb"
     },
     {
       "path": "test/data/parameter_updates/stale_evaluation.jl",
@@ -415,6 +439,10 @@
     {
       "path": "test/data/pf_comparison/pf_exp_1ph.dss",
       "sha256": "5a08fa56e37d98cdfc2bc3998dde03a98f692c4d7b57f50bd7059f4c16d39d81"
+    },
+    {
+      "path": "test/data/schema_alias/powerio_archive.json",
+      "sha256": "627a3007c0ac399beca8a2166cf3d58724e5459c07d8a322aaae68ab8f4b8466"
     },
     {
       "path": "test/data/scientific_review/inconsistent-phasor-result.json",
@@ -805,6 +833,10 @@
       "sha256": "d1a9cfc6d5531d1b4498559b732d1259e180c87a34fcbd09d93b7d6475051469"
     },
     {
+      "path": "test/lineconstants_tests.jl",
+      "sha256": "942160591680a18f55895e64fbbc7ebb7ae66c37877c5b9af3ff83a879161c3a"
+    },
+    {
       "path": "test/opf_device_substitution_tests.jl",
       "sha256": "2848623eb4a2240a993b3a07c08e8b4f9df64d93c876b323e22c0392e6bd1da9"
     },
@@ -842,7 +874,7 @@
     },
     {
       "path": "test/powerio_regression_tests.jl",
-      "sha256": "f137c6127db3ec3a5350ba4b3540995dc087c4774700b935c72daa1ef23d00e4"
+      "sha256": "0b94b098c353a460398c7d6a46ee4c4de755299fa7f3dfdb293effb724bbd296"
     },
     {
       "path": "test/powerio_v09_tests.jl",
@@ -863,6 +895,10 @@
     {
       "path": "test/property_based_contract_tests.jl",
       "sha256": "d98468c2531ad985190921047125af8258fb243652cb80096461e5ab610d2653"
+    },
+    {
+      "path": "test/schema_alias_tests.jl",
+      "sha256": "befe5988ae9b5a0cdba3d80794c76a46ebc386632a9b64df921b303e2ce78447"
     },
     {
       "path": "test/scientific_contract_tests.jl",

@@ -31,7 +31,7 @@
 end
 
 @testset "Unresolved DSS geometry is rejected, never replaced (#381)" begin
-    source = read(joinpath(@__DIR__, "data", "line_geometry", "ieee13_601.dss"), String)
+    source = read(joinpath(@__DIR__, "data", "line_geometry", "synthetic_overhead.dss"), String)
     function check_incomplete(f)
         err = try
             f()
@@ -45,10 +45,10 @@ end
         end
     end
     # One physical length in two unit encodings; neither may acquire default Z.
-    for line_definition in ("geometry=g601 length=1 units=m", "geometry=g601 length=0.001 units=km")
+    for line_definition in ("geometry=overhead length=1 units=m", "geometry=overhead length=0.001 units=km")
         mktempdir() do dir
             path = joinpath(dir, "Master.dss")
-            write(path, replace(source, "geometry=g601 length=1 units=m" => line_definition))
+            write(path, replace(source, "geometry=overhead length=1 units=m" => line_definition))
             check_incomplete(() -> from_dss(path))
             # Retaining the source IR does not make an unresolved line electrical.
             module_ = PowerIO.parse(path)
@@ -63,7 +63,7 @@ end
             "rmatrix=[0.0002 | 0.00003 0.0002 | 0.00003 0.00003 0.0002 | 0.00003 0.00003 0.00003 0.0004] " *
             "xmatrix=[0.0003 | 0.00002 0.0003 | 0.00002 0.00002 0.0003 | 0.00002 0.00002 0.00002 0.0005]\n"
         explicit = replace(source, "new line.l1" => code * "new line.l1",
-            "geometry=g601" => "linecode=explicit phases=4")
+            "geometry=overhead" => "linecode=explicit phases=4")
         write(path, explicit)
         net = from_dss(path)
         @test net["linecode"]["explicit"]["R_series_1_1"] ≈ 0.0002
