@@ -403,7 +403,7 @@ function _conductor_paths(net::Dict{String,Any}, voltage_levels::Dict{String,Any
 end
 
 function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,Any})::Dict{String,Any}
-    buses = sort!(collect(String.(keys(get(net, "bus", Dict())))))
+    buses = sort!(String[string(bus) for bus in keys(get(net, "bus", Dict()))])
     busset = Set(buses)
     edges = NamedTuple{(:kind, :id, :from, :to, :continuous),Tuple{String,String,String,String,Bool}}[]
     skipped = 0

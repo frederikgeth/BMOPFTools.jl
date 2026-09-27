@@ -47,6 +47,14 @@ end
     emitted = PowerIO.emit(module_, "bmopf-json@0.1.0")
     parsed = parse_bmopf(emitted.text; from_string=true)
     @test BMOPFTools._detect_spec_version(parsed) == BMOPFTools._CURRENT_SPEC
+    pinned_uri = "https://raw.githubusercontent.com/eigenergy/powerio/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/0.1.0/bmopf.schema.json"
+    pinned = deepcopy(parsed)
+    pinned["meta"]["\$schema"] = pinned_uri
+    @test BMOPFTools._detect_spec_version(pinned) == BMOPFTools._CURRENT_SPEC
+    @test parse_bmopf(JSON3.write(pinned); from_string=true)["meta"]["\$schema"] == pinned_uri
+    wrong_revision = deepcopy(pinned)
+    wrong_revision["meta"]["\$schema"] = replace(pinned_uri, "5234df55" => "00000000")
+    @test_throws ArgumentError BMOPFTools.migrate(wrong_revision)
     invalid = deepcopy(parsed)
     invalid["meta"]["\$schema"] = "https://example.invalid/unknown-schema"
     @test_throws ArgumentError BMOPFTools.migrate(invalid)

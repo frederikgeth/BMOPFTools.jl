@@ -23,6 +23,9 @@ const _SPEC_VERSIONS = Dict{String,Symbol}(
     # relocated under extras) are handled by the unconditional migrations
     # below, so every source maps to one tag.
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json" => :draft,
+    # PowerIO 0.11.3 stamps its pinned copy of the BMOPF 0.1.0 schema. That
+    # copy declares the distribution-system-opt URI above as its own $id.
+    "https://raw.githubusercontent.com/eigenergy/powerio/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/0.1.0/bmopf.schema.json" => :draft,
     # A path this package stamped until it was found to resolve to nothing
     # upstream; accepted on read so files carrying it still parse.
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json" => :draft,
