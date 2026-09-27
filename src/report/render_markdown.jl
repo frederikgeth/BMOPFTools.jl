@@ -198,6 +198,51 @@ function _md_connectivity(r::SummaryReport, io::IO)
             end
         end
     end
+    scenarios = get(d, "switch_scenarios", nothing)
+    if scenarios isa Dict
+        println(io, "### Switch-state bus graph\n")
+        status = scenarios["status"]
+        switches = scenarios["switch_counts"]
+        if status != "assessed"
+            println(io, "$(status): $(scenarios["assessment"]["reason"])\n")
+            if status == "indeterminate"
+                println(io, "Invalid switch IDs: $(join(scenarios["assessment"]["invalid_switch_ids"], ", ")).\n")
+            end
+        else
+            println(io, "$(switches["n_declared_open"]) open and $(switches["n_declared_closed"]) closed switches. " *
+                "These views describe bus-graph paths, not energization or feasible operations.\n")
+            println(io, "| View | Components | Physical edges | Cycle rank | Parallel excess | Components with source | Buses without source path | Loads without source path |")
+            println(io, "|---|---:|---:|---:|---:|---:|---:|---:|")
+            for (label, key) in (("Declared", "declared"), ("Fixed backbone", "fixed_backbone"),
+                                 ("All closed", "all_closed_envelope"))
+                view = scenarios[key]
+                println(io, "| $label | $(view["n_components"]) | $(view["n_physical_edges"]) | " *
+                    "$(view["cycle_rank"]) | $(view["parallel_excess"]) | " *
+                    "$(view["n_components_with_source"]) | $(view["n_buses_without_source_path"]) | " *
+                    "$(view["n_loads_without_source_path"]) |")
+            end
+            println(io)
+            transitions = scenarios["transition_counts"]
+            println(io, "One-switch transitions: " *
+                join(["$k=$(transitions["classifications"][k])" for k in
+                      sort!(collect(keys(transitions["classifications"])))], ", ") * ". " *
+                "$(transitions["n_switches_gaining_source_path"]) may add source paths; " *
+                "$(transitions["n_switches_losing_source_path"]) may remove them; " *
+                "$(transitions["n_source_component_joins"]) join source-containing components.\n")
+            if !isempty(scenarios["witnesses"])
+                println(io, "| Switch | State | Endpoints | Transition | Δ components | Δ cycle rank | Source-path buses gained/lost |")
+                println(io, "|---|---|---|---|---:|---:|---:|")
+                for witness in scenarios["witnesses"]
+                    println(io, "| $(witness["switch_id"]) | $(witness["declared_state"]) | " *
+                        "$(witness["bus_from"]) ↔ $(witness["bus_to"]) | " *
+                        "$(witness["classification"]) | $(witness["delta_components"]) | " *
+                        "$(witness["delta_cycle_rank"]) | " *
+                        "$(witness["n_buses_gaining_source_path"])/$(witness["n_buses_losing_source_path"]) |")
+                end
+                println(io)
+            end
+        end
+    end
     _md_spatial(get(d, "spatial", nothing), io)
     _md_section_findings(r, io, :connectivity)
 end

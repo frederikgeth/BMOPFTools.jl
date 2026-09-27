@@ -41,6 +41,7 @@ using JSON3
         @test structure.parallel_lines.n_groups isa Integer
         @test structure.galvanic_zones isa AbstractVector
         @test !haskey(d.results.connectivity, :spatial)
+        @test d.results.connectivity.switch_scenarios.status == "inapplicable"
 
         # findings serialized as an array of typed records
         @test d.findings isa AbstractVector
@@ -54,6 +55,27 @@ using JSON3
         end
 
         rm(path; force=true)
+    end
+
+    @testset "switch scenarios render in JSON, Markdown, and terminal" begin
+        switched = deepcopy(net)
+        switched["switch"] = Dict("tie" => Dict{String,Any}(
+            "bus_from" => "supply", "bus_to" => "primary", "open_switch" => true,
+            "terminal_map_from" => ["1", "2", "3", "n"],
+            "terminal_map_to" => ["1", "2", "3", "n"]))
+        switched_report = analyze(switched)
+        json_io = IOBuffer()
+        BMOPFTools.render_json(switched_report, json_io)
+        decoded = JSON3.read(String(take!(json_io)))
+        @test decoded.results.connectivity.switch_scenarios.status == "assessed"
+        @test decoded.results.connectivity.switch_scenarios.switch_counts.n_declared_open == 1
+        @test decoded.results.connectivity.switch_scenarios.transition_counts.classifications.parallel_closure == 1
+        md_io = IOBuffer()
+        BMOPFTools.render_markdown(switched_report, md_io)
+        @test occursin("Switch-state bus graph", String(take!(md_io)))
+        terminal_io = IOBuffer()
+        BMOPFTools.render_terminal(switched_report, terminal_io)
+        @test occursin("Switch-state bus graph: assessed", String(take!(terminal_io)))
     end
 
     @testset "sanitizes non-JSON-native values to strings" begin

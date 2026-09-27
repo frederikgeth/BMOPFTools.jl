@@ -1,6 +1,7 @@
 # Switch-state topology scenarios
 
-Status: implementation plan for `codex/switch-topology-scenarios`. Keep this as
+Status: steps 1 and 2 implemented on `codex/switch-topology-scenarios`;
+mapped-conductor consequences and case trials remain. Keep this as
 a branch planning artifact; replace its settled behavior with runtime
 documentation and remove the plan before merging the implementation.
 

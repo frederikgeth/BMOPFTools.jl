@@ -132,6 +132,21 @@ function _render_connectivity(r::SummaryReport, io::IO; color::Bool=false)
     isolated = get(d, "open_switch_isolated_buses", String[])
     !isempty(isolated) && println(io, "  Open-switch isolated buses: $(join(isolated, ", "))")
 
+    scenarios = get(d, "switch_scenarios", nothing)
+    if scenarios isa Dict
+        println(io, "\n  Switch-state bus graph: $(scenarios["status"])")
+        if scenarios["status"] == "assessed"
+            declared = scenarios["declared"]; backbone = scenarios["fixed_backbone"]
+            envelope = scenarios["all_closed_envelope"]
+            println(io, "    Components: declared $(declared["n_components"]), " *
+                "fixed backbone $(backbone["n_components"]), all closed $(envelope["n_components"])")
+            println(io, "    Cycle rank: declared $(declared["cycle_rank"]), " *
+                "all closed $(envelope["cycle_rank"])")
+        else
+            println(io, "    $(scenarios["assessment"]["reason"])")
+        end
+    end
+
     _render_section_findings(r, io, :connectivity; color)
 end
 
