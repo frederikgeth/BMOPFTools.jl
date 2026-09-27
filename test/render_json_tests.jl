@@ -70,12 +70,29 @@ using JSON3
         @test decoded.results.connectivity.switch_scenarios.status == "assessed"
         @test decoded.results.connectivity.switch_scenarios.switch_counts.n_declared_open == 1
         @test decoded.results.connectivity.switch_scenarios.transition_counts.classifications.parallel_closure == 1
+        @test decoded.results.connectivity.switch_scenarios.conductor.status == "assessed"
+        @test decoded.results.connectivity.switch_scenarios.conductor.transition_counts.classifications.path_merge == 1
         md_io = IOBuffer()
         BMOPFTools.render_markdown(switched_report, md_io)
-        @test occursin("Switch-state bus graph", String(take!(md_io)))
+        md = String(take!(md_io))
+        @test occursin("Switch-state bus graph", md)
+        @test occursin("Switch-state mapped conductor paths", md)
         terminal_io = IOBuffer()
         BMOPFTools.render_terminal(switched_report, terminal_io)
-        @test occursin("Switch-state bus graph: assessed", String(take!(terminal_io)))
+        terminal_text = String(take!(terminal_io))
+        @test occursin("Switch-state bus graph: assessed", terminal_text)
+        @test occursin("Switch-state conductor paths: assessed", terminal_text)
+
+        incomplete = deepcopy(switched)
+        delete!(incomplete["switch"]["tie"], "terminal_map_to")
+        incomplete_report = analyze(incomplete)
+        @test incomplete_report.results[:connectivity]["switch_scenarios"]["status"] == "assessed"
+        @test incomplete_report.results[:connectivity]["switch_scenarios"]["conductor"]["status"] ==
+            "inapplicable"
+        incomplete_md = IOBuffer()
+        BMOPFTools.render_markdown(incomplete_report, incomplete_md)
+        @test occursin("Incomplete branch maps: switch:tie",
+                       String(take!(incomplete_md)))
     end
 
     @testset "sanitizes non-JSON-native values to strings" begin

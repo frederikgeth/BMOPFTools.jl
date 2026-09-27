@@ -1,7 +1,7 @@
 # Switch-state topology scenarios
 
-Status: steps 1 and 2 implemented on `codex/switch-topology-scenarios`;
-mapped-conductor consequences and case trials remain. Keep this as
+Status: steps 1–3 and an initial eight-case SAPN sensitivity trial completed
+on `codex/switch-topology-scenarios`; broader switch-rich trials remain. Keep this as
 a branch planning artifact; replace its settled behavior with runtime
 documentation and remove the plan before merging the implementation.
 

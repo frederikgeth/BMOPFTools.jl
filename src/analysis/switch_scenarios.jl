@@ -1,6 +1,9 @@
 # Shared physical bus-branch inventory. Parallel records retain distinct IDs.
 const _PhysicalBranch = NamedTuple{(:kind, :id, :from, :to, :continuous),
     Tuple{String,String,String,String,Bool}}
+const _ConductorNode = Tuple{String,String}
+const _ConductorEdge = NamedTuple{(:kind, :id, :from, :to),
+    Tuple{String,String,_ConductorNode,_ConductorNode}}
 
 function _physical_branch_inventory(net::Dict{String,Any})
     buses = sort!(String[string(bus) for bus in keys(get(net, "bus", Dict()))])
@@ -66,6 +69,153 @@ function _physical_branch_inventory(net::Dict{String,Any})
     sort!(skipped_ids)
     (buses=buses, fixed=fixed, declared=declared, switches=switches,
      invalid_switches=invalid_switches, skipped=skipped, skipped_ids=skipped_ids)
+end
+
+# The declared conductor-path pass and switch counterfactuals use the same
+# terminal-map validity rule. A switch record maps a group of terminal edges;
+# the whole group changes state together.
+function _mapped_conductor_inventory(net::Dict{String,Any})
+    buses = get(net, "bus", Dict())
+    nodes = _ConductorNode[]
+    invalid_bus_ids = String[]
+    for bus in sort!(collect(String.(keys(buses))))
+        record = buses[bus]
+        if !(record isa AbstractDict)
+            push!(invalid_bus_ids, bus)
+            continue
+        end
+        terms = get(record, "terminal_names", nothing)
+        if !(terms isa AbstractVector && !isempty(terms))
+            push!(invalid_bus_ids, bus)
+            continue
+        end
+        for term in sort!(unique(string.(terms)))
+            push!(nodes, (bus, term))
+        end
+    end
+    index = Dict(node => i for (i, node) in enumerate(nodes))
+    fixed = _ConductorEdge[]
+    declared = _ConductorEdge[]
+    switch_edges = Dict{String,Vector{_ConductorEdge}}()
+    invalid_map_ids = String[]
+    skipped_declared = 0
+    function mapped_edges(kind, id, branch)
+        a = get(branch, "bus_from", nothing); b = get(branch, "bus_to", nothing)
+        from = get(branch, "terminal_map_from", nothing)
+        to = get(branch, "terminal_map_to", nothing)
+        if !(a isa AbstractString && b isa AbstractString &&
+             from isa AbstractVector && to isa AbstractVector &&
+             !isempty(from) && length(from) == length(to) &&
+             all(i -> haskey(index, (String(a), string(from[i]))) &&
+                      haskey(index, (String(b), string(to[i]))), eachindex(from)))
+            push!(invalid_map_ids, "$kind:$(string(id))")
+            return nothing
+        end
+        _ConductorEdge[(kind=kind, id=string(id),
+                        from=(String(a), string(from[i])),
+                        to=(String(b), string(to[i]))) for i in eachindex(from)]
+    end
+    for (id, line) in get(net, "line", Dict())
+        if !(line isa AbstractDict)
+            push!(invalid_map_ids, "line:$(string(id))")
+            continue
+        end
+        edges = mapped_edges("line", id, line)
+        if edges === nothing
+            skipped_declared += 1
+        else
+            append!(fixed, edges); append!(declared, edges)
+        end
+    end
+    for (id, sw) in get(net, "switch", Dict())
+        if !(sw isa AbstractDict)
+            push!(invalid_map_ids, "switch:$(string(id))")
+            continue
+        end
+        open = get(sw, "open_switch", false) === true
+        edges = mapped_edges("switch", id, sw)
+        if edges === nothing
+            open || (skipped_declared += 1)
+        else
+            switch_edges[string(id)] = edges
+            open || append!(declared, edges)
+        end
+    end
+    boundary_nodes = Set{_ConductorNode}()
+    invalid_boundary_ids = String[]
+    function mark_port(label, bus, terminals)
+        valid = bus isa AbstractString && terminals isa AbstractVector &&
+            !isempty(terminals) &&
+            all(term -> haskey(index, (String(bus), string(term))), terminals)
+        if !valid
+            push!(invalid_boundary_ids, label)
+        end
+        (bus isa AbstractString && terminals isa AbstractVector) || return
+        for term in terminals
+            node = (String(bus), string(term))
+            haskey(index, node) && push!(boundary_nodes, node)
+        end
+    end
+    for (id, source) in get(net, "voltage_source", Dict())
+        if !(source isa AbstractDict)
+            push!(invalid_boundary_ids, "voltage_source:$(string(id))")
+            continue
+        end
+        mark_port("voltage_source:$(string(id))", get(source, "bus", nothing),
+                  get(source, "terminal_map", nothing))
+    end
+    transformers = get(net, "transformer", Dict())
+    for subtype in TRANSFORMER_SUBTYPES
+        sub = get(transformers, subtype, nothing)
+        sub isa AbstractDict || continue
+        for (id, transformer) in sub
+            if !(transformer isa AbstractDict)
+                push!(invalid_boundary_ids, "transformer:$subtype:$(string(id))")
+                continue
+            end
+            if subtype in WINDING_LIST_SUBTYPES
+                windings = _nw_windings(transformer)
+                isempty(windings) && push!(invalid_boundary_ids, "transformer:$subtype:$(string(id))")
+                for (j, winding) in enumerate(windings)
+                    mark_port("transformer:$subtype:$(string(id)):$j",
+                              winding.bus, winding.terminal_map)
+                end
+            else
+                mark_port("transformer:$subtype:$(string(id)):from",
+                          get(transformer, "bus_from", nothing),
+                          get(transformer, "terminal_map_from", nothing))
+                mark_port("transformer:$subtype:$(string(id)):to",
+                          get(transformer, "bus_to", nothing),
+                          get(transformer, "terminal_map_to", nothing))
+            end
+        end
+    end
+    load_at = zeros(Int, length(nodes))
+    invalid_load_ids = String[]
+    for (id, load) in get(net, "load", Dict())
+        if !(load isa AbstractDict)
+            push!(invalid_load_ids, string(id))
+            continue
+        end
+        bus = get(load, "bus", nothing)
+        terms = get(load, "terminal_map", nothing)
+        if !(bus isa AbstractString && terms isa AbstractVector &&
+             !isempty(terms) && all(term -> haskey(index, (String(bus), string(term))), terms))
+            push!(invalid_load_ids, string(id))
+            continue
+        end
+        for term in terms
+            load_at[index[(String(bus), string(term))]] += 1
+        end
+    end
+    sort!(invalid_bus_ids); sort!(invalid_map_ids)
+    sort!(invalid_load_ids); sort!(invalid_boundary_ids)
+    (nodes=nodes, index=index, fixed=fixed, declared=declared,
+     switch_edges=switch_edges, boundary_nodes=boundary_nodes, load_at=load_at,
+     invalid_bus_ids=invalid_bus_ids, invalid_map_ids=invalid_map_ids,
+     invalid_load_ids=invalid_load_ids,
+     invalid_boundary_ids=invalid_boundary_ids,
+     skipped_declared=skipped_declared)
 end
 
 function _scenario_graph_stats(buses, edges, source_at, load_at)
@@ -144,6 +294,165 @@ function _scenario_bridges(buses, edges, index, source_at, load_at)
      loads=subtree_loads)
 end
 
+function _conductor_view_counts(stats, mapped_edges)
+    counts = stats.counts
+    Dict{String,Any}(
+        "n_bus_terminals" => counts["n_buses"],
+        "n_mapped_conductor_edges" => length(mapped_edges),
+        "n_path_components" => counts["n_components"],
+        "n_boundary_components" => counts["n_components_with_source"],
+        "n_bus_terminals_without_boundary" => counts["n_buses_without_source_path"],
+        "n_load_terminals_without_boundary" => counts["n_loads_without_source_path"])
+end
+
+function _conductor_switch_scenarios(net::Dict{String,Any}, physical_inventory,
+                                     bus_class_by_switch)
+    inv = _mapped_conductor_inventory(net)
+    evidence = Dict{String,Any}(
+        "scope" => "mapped_line_and_switch_terminal_paths_with_source_and_transformer_ports_as_boundaries",
+        "invalid_bus_ids" => inv.invalid_bus_ids,
+        "invalid_branch_map_ids" => inv.invalid_map_ids,
+        "invalid_load_ids" => inv.invalid_load_ids,
+        "invalid_boundary_port_ids" => inv.invalid_boundary_ids)
+    result = Dict{String,Any}("assessment" => evidence)
+    if isempty(inv.nodes)
+        result["status"] = "inapplicable"
+        evidence["reason"] = "No bus terminal_names are declared."
+        return result
+    elseif !isempty(inv.invalid_bus_ids) || !isempty(inv.invalid_map_ids) ||
+           !isempty(inv.invalid_load_ids) ||
+           !isempty(inv.invalid_boundary_ids)
+        result["status"] = "inapplicable"
+        evidence["reason"] = "Complete bus terminal names, line/switch maps, load terminal maps, and boundary port maps are required."
+        return result
+    elseif isempty(inv.boundary_nodes)
+        result["status"] = "indeterminate"
+        evidence["reason"] = "No declared source or transformer boundary port is available."
+        return result
+    end
+    boundary_at = [node in inv.boundary_nodes ? 1 : 0 for node in inv.nodes]
+    envelope = copy(inv.fixed)
+    for sw in physical_inventory.switches
+        append!(envelope, inv.switch_edges[sw.id])
+    end
+    declared = _scenario_graph_stats(inv.nodes, inv.declared, boundary_at, inv.load_at)
+    backbone = _scenario_graph_stats(inv.nodes, inv.fixed, boundary_at, inv.load_at)
+    all_closed = _scenario_graph_stats(inv.nodes, envelope, boundary_at, inv.load_at)
+    result["status"] = "assessed"
+    evidence["reason"] = "Boundary paths are graph incidence only; transformer conversion and energization are unassessed."
+    result["declared"] = _conductor_view_counts(declared, inv.declared)
+    result["fixed_backbone"] = _conductor_view_counts(backbone, inv.fixed)
+    result["all_closed_envelope"] = _conductor_view_counts(all_closed, envelope)
+
+    bridges = _scenario_bridges(inv.nodes, inv.declared, declared.index,
+                                 boundary_at, inv.load_at)
+    switch_eids = Dict{String,Vector{Int}}()
+    for (eid, edge) in enumerate(inv.declared)
+        edge.kind == "switch" || continue
+        push!(get!(switch_eids, edge.id, Int[]), eid)
+    end
+    classes = Dict(k => 0 for k in ("path_merge", "path_split", "no_path_change"))
+    cross_layer = Dict{String,Int}()
+    n_gain = 0; n_loss = 0; n_group_fallbacks = 0
+    witnesses = Dict{String,Any}[]
+    witnessed = Dict{String,Int}()
+    for sw in physical_inventory.switches
+        edges = inv.switch_edges[sw.id]
+        gained = 0; lost = 0
+        if sw.open
+            affected = Set{Int}()
+            for edge in edges
+                push!(affected, declared.component_of[declared.index[edge.from]])
+                push!(affected, declared.component_of[declared.index[edge.to]])
+            end
+            parent = Dict(cid => cid for cid in affected)
+            function root(cid)
+                while parent[cid] != cid
+                    cid = parent[cid]
+                end
+                cid
+            end
+            merges = 0
+            for edge in edges
+                a = root(declared.component_of[declared.index[edge.from]])
+                b = root(declared.component_of[declared.index[edge.to]])
+                if a != b
+                    parent[b] = a
+                    merges += 1
+                end
+            end
+            groups = Dict{Int,Vector{Int}}()
+            for cid in affected
+                push!(get!(groups, root(cid), Int[]), cid)
+            end
+            for members in values(groups)
+                any(cid -> declared.sources[cid] > 0, members) || continue
+                gained += sum((declared.loads[cid] for cid in members
+                               if declared.sources[cid] == 0); init=0)
+            end
+            delta = -merges
+            class = delta < 0 ? "path_merge" : "no_path_change"
+        else
+            eids = switch_eids[sw.id]
+            component_ids = [declared.component_of[declared.index[inv.declared[eid].from]]
+                             for eid in eids]
+            if length(unique(component_ids)) == length(eids)
+                delta = 0
+                for (eid, cid) in zip(eids, component_ids)
+                    haskey(bridges.child, eid) || continue
+                    delta += 1
+                    child = bridges.child[eid]
+                    side_boundary = bridges.sources[child]
+                    other_boundary = declared.sources[cid] - side_boundary
+                    if side_boundary == 0 && other_boundary > 0
+                        lost += bridges.loads[child]
+                    elseif other_boundary == 0 && side_boundary > 0
+                        lost += declared.loads[cid] - bridges.loads[child]
+                    end
+                end
+            else
+                # Multiple mapped pairs in one path component can form a
+                # group cut even if no individual edge is a bridge.
+                n_group_fallbacks += 1
+                remaining = [edge for edge in inv.declared
+                             if !(edge.kind == "switch" && edge.id == sw.id)]
+                after = _scenario_graph_stats(inv.nodes, remaining,
+                                               boundary_at, inv.load_at)
+                delta = after.counts["n_components"] - declared.counts["n_components"]
+                lost = after.counts["n_loads_without_source_path"] -
+                       declared.counts["n_loads_without_source_path"]
+            end
+            class = delta > 0 ? "path_split" : "no_path_change"
+        end
+        classes[class] += 1
+        pair = "$(bus_class_by_switch[sw.id])|$class"
+        cross_layer[pair] = get(cross_layer, pair, 0) + 1
+        gained > 0 && (n_gain += 1)
+        lost > 0 && (n_loss += 1)
+        if get(witnessed, class, 0) < 5
+            push!(witnesses, Dict{String,Any}(
+                "switch_id" => sw.id, "declared_state" => sw.open ? "open" : "closed",
+                "bus_from" => sw.from, "bus_to" => sw.to,
+                "classification" => class,
+                "bus_graph_classification" => bus_class_by_switch[sw.id],
+                "n_mapped_terminal_pairs" => length(edges),
+                "delta_path_components" => delta,
+                "n_load_terminals_gaining_boundary_path" => gained,
+                "n_load_terminals_losing_boundary_path" => lost))
+            witnessed[class] = get(witnessed, class, 0) + 1
+        end
+    end
+    result["transition_counts"] = Dict{String,Any}(
+        "classifications" => classes,
+        "n_switches_gaining_load_boundary_path" => n_gain,
+        "n_switches_losing_load_boundary_path" => n_loss)
+    result["cross_layer_counts"] = cross_layer
+    result["witnesses"] = witnesses
+    result["witnesses_per_class_limit"] = 5
+    result["assessment"]["n_group_cut_fallbacks"] = n_group_fallbacks
+    result
+end
+
 function _switch_scenarios(net::Dict{String,Any}, inventory=_physical_branch_inventory(net))::Dict{String,Any}
     all_switches = get(net, "switch", Dict())
     counts = Dict{String,Any}(
@@ -156,17 +465,24 @@ function _switch_scenarios(net::Dict{String,Any}, inventory=_physical_branch_inv
     assessment = Dict{String,Any}(
         "scope" => "physical_bus_graph_with_declared_sources_and_loads",
         "conductor_status" => "inapplicable",
-        "conductor_reason" => "Switch-state conductor paths are not assessed in this increment.",
+        "conductor_reason" => "",
         "invalid_switch_ids" => inventory.invalid_switches,
         "skipped_branch_ids" => inventory.skipped_ids)
     result = Dict{String,Any}("switch_counts" => counts, "assessment" => assessment)
     if isempty(all_switches)
         result["status"] = "inapplicable"
         assessment["reason"] = "No switch records."
+        assessment["conductor_reason"] = "No switch records."
+        result["conductor"] = Dict{String,Any}(
+            "status" => "inapplicable", "reason" => "No switch records.")
         return result
     elseif !isempty(inventory.invalid_switches)
         result["status"] = "indeterminate"
         assessment["reason"] = "Every switch needs a Boolean open_switch and two distinct declared bus endpoints."
+        assessment["conductor_status"] = "indeterminate"
+        assessment["conductor_reason"] = "Switch state or bus endpoints are invalid."
+        result["conductor"] = Dict{String,Any}(
+            "status" => "indeterminate", "reason" => assessment["conductor_reason"])
         return result
     end
     buses = inventory.buses
@@ -207,6 +523,7 @@ function _switch_scenarios(net::Dict{String,Any}, inventory=_physical_branch_inv
     n_source_path_gain = 0; n_source_path_loss = 0; n_source_component_joins = 0
     witnesses = Dict{String,Any}[]
     witnessed = Dict{String,Int}()
+    bus_class_by_switch = Dict{String,String}()
     for sw in inventory.switches
         a = index[sw.from]; b = index[sw.to]
         cid_a = declared.component_of[a]; cid_b = declared.component_of[b]
@@ -248,6 +565,7 @@ function _switch_scenarios(net::Dict{String,Any}, inventory=_physical_branch_inv
             end
         end
         classes[class] += 1
+        bus_class_by_switch[sw.id] = class
         gain_buses > 0 && (n_source_path_gain += 1)
         lost_buses > 0 && (n_source_path_loss += 1)
         joins_sources && (n_source_component_joins += 1)
@@ -271,5 +589,8 @@ function _switch_scenarios(net::Dict{String,Any}, inventory=_physical_branch_inv
         "n_source_component_joins" => n_source_component_joins)
     result["witnesses"] = witnesses
     result["witnesses_per_class_limit"] = 5
+    result["conductor"] = _conductor_switch_scenarios(net, inventory, bus_class_by_switch)
+    assessment["conductor_status"] = result["conductor"]["status"]
+    assessment["conductor_reason"] = result["conductor"]["assessment"]["reason"]
     result
 end

@@ -145,6 +145,22 @@ function _render_connectivity(r::SummaryReport, io::IO; color::Bool=false)
         else
             println(io, "    $(scenarios["assessment"]["reason"])")
         end
+        conductor = get(scenarios, "conductor", nothing)
+        if conductor isa Dict
+            println(io, "  Switch-state conductor paths: $(conductor["status"])")
+            if conductor["status"] == "assessed"
+                declared_paths = conductor["declared"]
+                envelope_paths = conductor["all_closed_envelope"]
+                println(io, "    Terminal paths: declared $(declared_paths["n_path_components"]), " *
+                    "all closed $(envelope_paths["n_path_components"])")
+                println(io, "    Load terminals without boundary: declared " *
+                    "$(declared_paths["n_load_terminals_without_boundary"]), " *
+                    "all closed $(envelope_paths["n_load_terminals_without_boundary"])")
+            else
+                println(io, "    $(get(get(conductor, "assessment", Dict{String,Any}()),
+                                   "reason", get(conductor, "reason", "")))")
+            end
+        end
     end
 
     _render_section_findings(r, io, :connectivity; color)

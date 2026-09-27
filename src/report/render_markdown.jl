@@ -197,6 +197,7 @@ function _md_connectivity(r::SummaryReport, io::IO)
                 isempty(paths["load_terminal_witnesses"]) || println(io)
             end
         end
+
     end
     scenarios = get(d, "switch_scenarios", nothing)
     if scenarios isa Dict
@@ -240,6 +241,68 @@ function _md_connectivity(r::SummaryReport, io::IO)
                         "$(witness["n_buses_gaining_source_path"])/$(witness["n_buses_losing_source_path"]) |")
                 end
                 println(io)
+            end
+        end
+        conductor = get(scenarios, "conductor", nothing)
+        if conductor isa Dict
+            println(io, "### Switch-state mapped conductor paths\n")
+            if conductor["status"] != "assessed"
+                reason = get(get(conductor, "assessment", Dict{String,Any}()),
+                             "reason", get(conductor, "reason", ""))
+                println(io, "$(conductor["status"]): $reason\n")
+                if haskey(conductor, "assessment")
+                    invalid = conductor["assessment"]
+                    for (label, key) in (("Incomplete bus terminals", "invalid_bus_ids"),
+                                         ("Incomplete branch maps", "invalid_branch_map_ids"),
+                                         ("Incomplete load maps", "invalid_load_ids"),
+                                         ("Incomplete boundary ports", "invalid_boundary_port_ids"))
+                        isempty(invalid[key]) || println(io, "$label: $(join(invalid[key], ", ")).")
+                    end
+                    any(!isempty(invalid[key]) for key in
+                        ("invalid_bus_ids", "invalid_branch_map_ids",
+                         "invalid_load_ids", "invalid_boundary_port_ids")) &&
+                        println(io)
+                end
+            else
+                println(io, "Source and transformer ports are path boundaries; winding conversion and " *
+                    "energization are unassessed.\n")
+                println(io, "| View | Terminal paths | Boundary paths | Load terminals without boundary |")
+                println(io, "|---|---:|---:|---:|")
+                for (label, key) in (("Declared", "declared"),
+                                     ("Fixed backbone", "fixed_backbone"),
+                                     ("All closed", "all_closed_envelope"))
+                    view = conductor[key]
+                    println(io, "| $label | $(view["n_path_components"]) | " *
+                        "$(view["n_boundary_components"]) | " *
+                        "$(view["n_load_terminals_without_boundary"]) |")
+                end
+                println(io)
+                transitions = conductor["transition_counts"]
+                println(io, "One-switch path changes: " *
+                    join(["$k=$(transitions["classifications"][k])" for k in
+                          sort!(collect(keys(transitions["classifications"])))], ", ") * ". " *
+                    "$(transitions["n_switches_gaining_load_boundary_path"]) may add load-terminal boundary paths; " *
+                    "$(transitions["n_switches_losing_load_boundary_path"]) may remove them.\n")
+                println(io, "Bus/conductor transition pairs: " *
+                    join(["$k=$(conductor["cross_layer_counts"][k])" for k in
+                          sort!(collect(keys(conductor["cross_layer_counts"])))], ", ") * ".\n")
+                impact = filter(w -> w["delta_path_components"] != 0 ||
+                                   w["n_load_terminals_gaining_boundary_path"] != 0 ||
+                                   w["n_load_terminals_losing_boundary_path"] != 0,
+                                conductor["witnesses"])
+                if !isempty(impact)
+                    println(io, "| Switch | State | Bus graph | Conductor | Mapped pairs | Δ paths | Load terminals gaining/losing boundary path |")
+                    println(io, "|---|---|---|---|---:|---:|---:|")
+                    for witness in Iterators.take(impact, 10)
+                        println(io, "| $(witness["switch_id"]) | $(witness["declared_state"]) | " *
+                            "$(witness["bus_graph_classification"]) | " *
+                            "$(witness["classification"]) | " *
+                            "$(witness["n_mapped_terminal_pairs"]) | " *
+                            "$(witness["delta_path_components"]) | " *
+                            "$(witness["n_load_terminals_gaining_boundary_path"])/$(witness["n_load_terminals_losing_boundary_path"]) |")
+                    end
+                    println(io)
+                end
             end
         end
     end

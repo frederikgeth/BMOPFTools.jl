@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "a390ac47cef7dcd5d202b570d84778d2cf10cd4857556d61fdac22783998d1d0",
+  "corpus_sha256": "04d256af8f58261426beffaad7180d8c36e029853ad9ed35f2606a33b6b00e89",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -62,7 +62,7 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "cc6cbd8d69a82c5c94806c059843335ff2c1545cbdcd84514dabc42f1f6f5c13"
+      "sha256": "5e89288a560dcbb2c30512e574e35860efb1dac821f6f805bed8a212a686600e"
     },
     {
       "path": "docs/src/dev/opf_engine.md",
@@ -190,7 +190,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "e8c0e0f102d35388cadd5b40057fd38aba0239ceef85f78a66a274ed23876a54"
+      "sha256": "439ca48dcebc18c8b96e1706aeacf541dcfdf15eccb9aa8b33ed6be0d0d48954"
     },
     {
       "path": "recipes/README.md",
@@ -310,7 +310,7 @@
     },
     {
       "path": "src/analysis/connectivity.jl",
-      "sha256": "0d1a77512efba64f01ece843ca0fae6442571457c5a2202d9cce0134f91986e8"
+      "sha256": "8bf408f2a9d513317e613a155fc49909b15d1ce55eb1bd00fb19a99f98bbd9d7"
     },
     {
       "path": "src/analysis/operational.jl",
@@ -326,7 +326,7 @@
     },
     {
       "path": "src/analysis/switch_scenarios.jl",
-      "sha256": "c228e0302b596d3f1ba827c7b200f036e00ea1ecad0862dc65e1a919f695fc54"
+      "sha256": "b2e793a56d0454569941d0098a254a19955cf57dc6bb1b3a56a64813efbf8066"
     },
     {
       "path": "src/analysis/voltage_levels.jl",
@@ -418,7 +418,7 @@
     },
     {
       "path": "src/report/render_markdown.jl",
-      "sha256": "8f112080a7448a1313abba7f822f2857b68d2e2d2f1b8f1c3b06dbf289f2aaf9"
+      "sha256": "5ae110d664b58b4b9de30dab4f29a8dd6cf51cbdba00abdda83eb6968b2a64e2"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -426,7 +426,7 @@
     },
     {
       "path": "src/report/render_terminal.jl",
-      "sha256": "c608da3b61a146873c059ac1657f837e90b78fe1fa8fd0044de7ee3b6016502d"
+      "sha256": "99b450ad1ac74b56913ecf0ed96688cadc6ef03e32e4eabcf66ac634a675dff3"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -974,7 +974,7 @@
     },
     {
       "path": "test/switch_scenario_tests.jl",
-      "sha256": "1edf79a8b4bbddc2d201f4fd0a8b67e9fea8692d6a71fc1cda14e2b98d6d3c27"
+      "sha256": "c61aa0212ed661eabfafb70fb26a294b5b930d2ce5d300298dbf561dddfc0c15"
     },
     {
       "path": "test/topology_structure_tests.jl",

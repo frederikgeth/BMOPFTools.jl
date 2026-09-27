@@ -11,7 +11,7 @@ the snapshot at `t_index` is materialised first.
 |---|---|---|
 | `:inventory` | [`inventory_analysis`](@ref) | component counts, totals (load P/Q, generation capacity), per-type breakdowns |
 | `:voltage_levels` | [`voltage_level_analysis`](@ref) | BFS voltage propagation from sources through transformer ratios; level clustering; transformer transitions; level-crossing violations |
-| `:connectivity` | [`connectivity_analysis`](@ref) | connected components, radial/meshed (physical branch count, parallel-aware), degree statistics, tree depth, dangling buses, galvanic-zone phase topology (split-phase / SWER tagging), voltage-tier and zone cycle-rank decomposition, parallel-line declarations, switch-state bus-graph scenarios |
+| `:connectivity` | [`connectivity_analysis`](@ref) | connected components, radial/meshed (physical branch count, parallel-aware), degree statistics, tree depth, dangling buses, galvanic-zone phase topology (split-phase / SWER tagging), voltage-tier and zone cycle-rank decomposition, parallel-line declarations, switch-state bus and mapped-conductor scenarios |
 | `:diversity` | [`diversity_analysis`](@ref) | parameter spread per category (CV, duplicate tuples), phase imbalance, symmetry score |
 | `:operational` | [`operational_analysis`](@ref) | total load/generation, transformer utilisation at nominal load (downstream BFS), line thermal-limit coverage |
 | `:load_models` | [`load_model_analysis`](@ref) | load model breakdown by type, voltage-dependent load count, exponential loads that are ZIP-equivalent (integer exponents), nonlinear loads on buses without a lower voltage bound |
@@ -101,8 +101,32 @@ in that case. Incomplete terminal maps do not prevent a bus-graph assessment.
 `assessment.skipped_branch_ids` lists invalid or self-loop declared branches
 excluded from graph counts; `switch_counts.n_assessed` is zero when switch
 state comparison is indeterminate.
-`assessment.conductor_status` is `inapplicable` in this increment: switch
-effects on mapped conductor paths have not been assessed.
+
+`switch_scenarios["conductor"]` separately compares mapped terminal paths
+for the declared, fixed-backbone, and all-closed views. Its counts include
+mapped conductor edges, path components, components containing a declared
+voltage-source or transformer winding port, and bus/load terminals without a
+path to such a boundary. Each switch transition reports its change in path
+components and the number of load terminals gaining or losing a boundary path.
+This can expose a missing phase or neutral path even when the bus graph stays
+connected. The `path_merge`, `path_split`, and `no_path_change` class
+counts cover every assessed switch; JSON carries up to five sorted witnesses
+per class. A multi-conductor switch changes all mapped terminal pairs
+together. `cross_layer_counts` counts combinations such as
+`cycle_closure|path_merge`, which show when the bus and mapped-conductor
+graphs respond differently to the same switch. The implementation uses
+bridge precomputation when pairs occupy
+different path components and an exact group-removal calculation otherwise.
+`assessment.n_group_cut_fallbacks` reports how many switches needed that
+calculation.
+
+The conductor layer is `inapplicable` if bus terminal names or any required
+line/switch, load, or boundary-port map is incomplete; its assessment lists
+the affected record IDs. It is `indeterminate` if no source or transformer
+boundary port exists. These statuses do not discard an applicable bus-graph
+result. Transformer ports mark path boundaries on each winding side; the
+analysis does not infer electrical continuity or phase conversion through
+the transformer.
 
 Source-path counts use only declared voltage-source and load bus incidence.
 A graph path does not prove energization, switch operability, protection
