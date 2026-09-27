@@ -36,7 +36,6 @@ input_paths = ["recipes/analyze_case/input.json"]
 tutorial_paths = [
   "docs/src/tutorial_triage.md",
   "docs/src/tutorial_nameplate.md",
-  "docs/src/dev/voltage-topology-analytics-brainstorm.md",
 ]
 command = "julia --startup-file=no --project=. recipes/analyze_case/recipe.jl"
 expected_status = "completed"

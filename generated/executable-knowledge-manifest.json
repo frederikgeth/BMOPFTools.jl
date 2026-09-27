@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "f16d19e31c4ceedbfcfede24705eb131fccf22c3993d5f1fc184c134eefd5046",
+  "corpus_sha256": "20cc02e6ca816ad079c4893f188eb7ea0e24056546001ecbf5f1b3e8353f89bd",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -71,10 +71,6 @@
     {
       "path": "docs/src/dev/versioning.md",
       "sha256": "d0c5337e472f2cc69e9991952d258ac26f102753b2add81a8125cfb3d9f226fc"
-    },
-    {
-      "path": "docs/src/dev/voltage-topology-analytics-brainstorm.md",
-      "sha256": "9b072d5737b7bebefb7e4ed9c5c07a550b78d00a1e85c6fa3fcd048d8fb35bbf"
     },
     {
       "path": "docs/src/differentiable_extensions.md",
@@ -210,7 +206,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "4fcc8b5f3ccafc8cccd56d5d111fdc59678baf8af45df6c91c641e0968240d24"
+      "sha256": "951c93a3a5a276bbff1b0138e923c73d79def124a70edb7247265b0c680dcedb"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
