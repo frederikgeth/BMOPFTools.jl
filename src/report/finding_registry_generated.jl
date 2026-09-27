@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "14882d325e0398cd03ebbef41a23851712ffc5820f0e885e4f91da9e48e42b1f"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "8d59777196dc0701180e6a8252967774ce9648afd717e027e08e20f2102b63c1"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -198,7 +198,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="CONN",
         catalogue_section="CONN",
         section_title="connectivity & topology",
-        meaning="Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Not an error (the spec supports meshes) but radial-only methods will fail.",
+        meaning="Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -208,6 +208,33 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="CONN",
         section_title="connectivity & topology",
         meaning="Degree-1 buses with no load, generator or shunt attached — dead ends that contribute variables and constraints but no physics; often conversion artifacts (e.g. switch far-ends).",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.GEO.WGS84_RANGE" => (
+        severity="WARNING",
+        namespace="GEO",
+        catalogue_section="GEO",
+        section_title="declared geographic coordinates",
+        meaning="A finite bus coordinate is outside the longitude ±180° or latitude ±90° range despite an explicit network WGS84 declaration. This suggests a coordinate or CRS metadata error.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.GEO.LINE_SHORTER_THAN_CHORD" => (
+        severity="WARNING",
+        namespace="GEO",
+        catalogue_section="GEO",
+        section_title="declared geographic coordinates",
+        meaning="A line's declared section length is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its WGS84 bus coordinates. Physical routes cannot be shorter than their endpoint chord; inspect coordinates, units, and whether `length` is an equivalent electrical length.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.GEO.ROUTE_ENDPOINT_GAP" => (
+        severity="WARNING",
+        namespace="GEO",
+        catalogue_section="GEO",
+        section_title="declared geographic coordinates",
+        meaning="A declared WGS84 route polyline's endpoints differ from the connected bus positions by more than `max(20 m, 10% of chord)`, with reversed route direction allowed. Inspect the bus reference, route provenance, and snapping assumptions.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -351,7 +378,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="OPS",
         catalogue_section="OPS",
         section_title="operational loading",
-        meaning="Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints — little OPF headroom, or a rating entered on the wrong base (see the regulator/autotransformer discussion in [methodology](methodology.md)).",
+        meaning="Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning. On an applicable radial component the result suggests little OPF headroom or a rating entered on the wrong base (see the regulator/autotransformer discussion in [methodology](methodology.md)).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -585,7 +612,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="DOM",
         catalogue_section="DOM",
         section_title="domain plausibility",
-        meaning="An isolating two-bus transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`) has its `bus_from`/`bus_to` terminals wired toward the source: `bus_to` is strictly closer (in hops) to a voltage source than `bus_from`. Orientation is measured by multi-source BFS over lines, closed switches and transformers; `bus_from` should be the source-side terminal. Almost always swapped `bus_*` (and usually `v_nom_*`) fields. Endpoints that are equidistant (a loop/mesh) or unreachable from any source are skipped, so the check is safe on non-radial parts. Requires at least one `voltage_source`.",
+        meaning="An isolating two-bus transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`) has `bus_to` strictly closer (in hops) to a voltage source than `bus_from` **and** no alternate path joins its endpoints when the transformer is removed. On that graph bridge, `bus_from` should be the source-side terminal; inspect swapped `bus_*` and `v_nom_*` fields. Equal-distance, unreachable, and non-bridge cases are unassessed. Requires at least one `voltage_source`.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -594,7 +621,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="DOM",
         catalogue_section="DOM",
         section_title="domain plausibility",
-        meaning="An isolating two-bus transformer boosts voltage *away* from the source: its upstream-side `v_nom` is strictly below its downstream-side `v_nom` (upstream/downstream determined by the same source-distance BFS as `W.DOM.XFMR_REVERSED`, so it is correct even when the terminals are reversed). Distribution step transformers normally step down toward the load; this is usually swapped `v_nom_from`/`v_nom_to`, or a genuine boost transformer if intended. Regulators/autotransformers and `n_winding` are excluded.",
+        meaning="An isolating two-bus transformer boosts voltage *away* from the source: its upstream-side `v_nom` is strictly below its downstream-side `v_nom` (using source-distance BFS). The transformer must be a graph bridge; alternate paths make the direction ambiguous. Distribution step transformers normally step down toward the load; inspect swapped `v_nom_from`/`v_nom_to` or a genuine boost transformer. Regulators/autotransformers and `n_winding` are excluded.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -612,7 +639,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="DOM",
         catalogue_section="DOM",
         section_title="domain plausibility",
-        meaning="A two-winding transformer has a **tiny non-zero** series impedance — `|Z| < xfmr_z_min_pu` (default 0.1 %) on the from-side rating base, where real units are 1–15 %. Almost always a small placeholder for zero carried over from an admittance-based tool (which forbids exact zero). In this IVR engine a tiny leakage ill-conditions the winding voltage-drop equation, whereas **exact zero is better conditioned** (collapses to `V_fr = N·V_to`). The transformer analogue of `W.DOM.LINE_LOW_IMPEDANCE`. Fix: set it to exactly zero (`FixRecipe(apply_snap_transformer_impedance = true)`) or to a realistic %Z.",
+        meaning="A two-winding transformer has a **tiny non-zero** series impedance — `|Z| < xfmr_z_min_pu` (default 0.1 %) on its winding-local rating bases, where real units are 1–15 %. Delta–wye `r_series`/`x_series` is wye-side (to-side) ohms, so its secondary base must be used. Almost always a small placeholder for zero carried over from an admittance-based tool (which forbids exact zero). In this IVR engine a tiny leakage ill-conditions the winding voltage-drop equation, whereas **exact zero is better conditioned** (collapses to `V_fr = N·V_to`). The transformer analogue of `W.DOM.LINE_LOW_IMPEDANCE`. Fix: set it to exactly zero (`FixRecipe(apply_snap_transformer_impedance = true)`) or to a realistic %Z.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

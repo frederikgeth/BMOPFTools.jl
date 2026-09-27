@@ -1,5 +1,12 @@
 # The analyze_case recipe uses a package-owned synthetic input. Restricted
 # CSIRO MV/LV integration data live externally; no executable contract depends on them.
+# Voltage-tier, galvanic-zone, mapped-conductor, and conditional geographic
+# analytics are discoverable through the analyze_case recipe and runtime docs.
+# The package-local W.GEO data-quality heuristics require declared WGS84;
+# neither the recipe nor these heuristics assert a PSK preservation claim.
+# Transformer leakage and downstream-load applicability use winding-local
+# rating bases and explicit graph-bridge evidence; their minimized witnesses
+# remain package validation tests, not preservation contracts.
 schema_version = "0.6.0"
 
 [[contract]]

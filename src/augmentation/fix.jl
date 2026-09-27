@@ -672,7 +672,7 @@ end
 # non-zero series impedance (typically carried over from an admittance-based tool
 # that forbids exact zero) ill-conditions the IVR winding voltage-drop equation,
 # whereas exact zero collapses to the well-posed ideal constraint V_fr = N·V_to.
-# Only acts when the per-unit |Z| on the from-side rating base is non-zero and
+# Only acts when the per-unit |Z| on winding-local rating bases is non-zero and
 # below `z_min_pu` (real units are 1–15 %, so genuine values are never touched),
 # and only on the two-winding subtypes where the rating base is well-defined.
 const _XFMR_2WINDING_SUBTYPES = ("single_phase", "center_tap", "wye_delta", "delta_wye")
@@ -689,11 +689,7 @@ function _fix_snap_transformer_impedance!(net′, entries, z_min_pu)
             xvals = Float64[Float64(t[k]) for k in
                             ("x_series_from", "x_series_to", "x_series") if haskey(t, k)]
             isempty(xvals) && continue
-            rvals = Float64[Float64(t[k]) for k in
-                            ("r_series_from", "r_series_to", "r_series") if haskey(t, k)]
-            X = sum(abs, xvals)
-            R = isempty(rvals) ? 0.0 : sum(abs, rvals)
-            zpu = _xfmr_z_pu(t, R, X)
+            zpu = _xfmr_z_pu(t, subtype)
             (zpu !== nothing && 0 < zpu < z_min_pu) || continue
 
             old = Dict{String,Any}(k => t[k] for k in zkeys if haskey(t, k))

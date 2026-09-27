@@ -3765,6 +3765,10 @@ include("mcp_execution_tests.jl")
     include("sideload_coordinates_tests.jl")
     include("render_ascii_tree_tests.jl")
     include("render_json_tests.jl")
+    include("topology_structure_tests.jl")
+    include("spatial_analysis_tests.jl")
+    include("transformer_impedance_basis_tests.jl")
+    include("operational_mesh_applicability_tests.jl")
 
     # -----------------------------------------------------------------------
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve

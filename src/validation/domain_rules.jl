@@ -1125,11 +1125,9 @@ const _XFMR_ORIENTED_SUBTYPES = ("single_phase", "center_tap", "wye_delta",
 #     reversed relative to power flow → W.DOM.XFMR_REVERSED;
 #   • if the upstream-side `v_nom` is strictly below the downstream-side `v_nom`,
 #     the transformer boosts voltage away from the source → W.DOM.XFMR_STEP_UP.
-# Both are almost always data-entry slips (swapped `bus_*` or swapped `v_nom_*`),
-# but genuine boost transformers and meshed/multi-source feeds exist, so both are
-# warnings. Ambiguous endpoints — equal distance (a loop/mesh) or unreachable
-# from any source — are skipped, which makes the check safe on non-radial parts
-# without a separate radiality gate.
+# Both are warnings. Equal-distance or unreachable endpoints are skipped.
+# A strictly ordered hop distance is still misleading when another path joins
+# the transformer endpoints, so the transformer must also be a graph bridge.
 function _check_transformer_orientation(net, findings, n_checks)
     xfmr = get(net, "transformer", Dict())
     any(get(xfmr, st, nothing) isa Dict for st in _XFMR_ORIENTED_SUBTYPES) || return
@@ -1196,6 +1194,10 @@ function _check_transformer_orientation(net, findings, n_checks)
             df = get(dist, fb, nothing); dt = get(dist, tb, nothing)
             # Unreachable from any source, or equidistant (loop/mesh) → ambiguous.
             (df === nothing || dt === nothing || df == dt) && continue
+            # Another path can make the to side look closer to a source even
+            # when this transformer's direction and nameplate are correct.
+            _, alternate_path = _downstream_load(net, string(id), [fb], [tb])
+            alternate_path && continue
             n_checks[] += 1
 
             reversed = dt < df                       # bus_to is the upstream side
@@ -1232,13 +1234,16 @@ function _check_transformer_orientation(net, findings, n_checks)
     end
 end
 
-# Per-unit total series impedance of a transformer on its from-side rating base
-# (Z_base = v_nom_from²/s_rating). Returns `nothing` when the base is undefined.
-function _xfmr_z_pu(t::Dict, R::Real, X::Real)
-    sbase = Float64(get(t, "s_rating",   0.0))
-    vref  = Float64(get(t, "v_nom_from", 0.0))
-    (sbase > 0 && vref > 0) || return nothing
-    hypot(Float64(R), Float64(X)) / (vref^2 / sbase)
+# Total leakage on the transformer's winding-local rating bases. A delta-wye
+# `r_series`/`x_series` pair is wye-side (to-side) ohms; dividing it by the
+# delta primary's base gives a false near-zero result. Reuse the same
+# subtype-aware conversion used by the provenance checks.
+function _xfmr_z_pu(t::Dict{String,Any}, subtype::String)
+    pu = _xfmr_pu(t, subtype)
+    pu === nothing && return nothing
+    r, x = pu
+    x === nothing && return nothing
+    hypot(something(r, 0.0), x)
 end
 
 # Flag transformers carrying zero / near-zero placeholder leakage. The OPF uses
@@ -1296,7 +1301,7 @@ function _check_transformer_ideal(net, findings, thresh, n_checks)
 
             # Small non-zero placeholder? (per-unit; n_winding bases differ — skip)
             subtype == "n_winding" && continue
-            zpu = _xfmr_z_pu(t, R, X)
+            zpu = _xfmr_z_pu(t, subtype)
             (zpu !== nothing && 0 < zpu < zpu_min) || continue
             push!(findings, Finding(WARNING, "W.DOM.XFMR_LOW_IMPEDANCE", :domain_rules,
                 :transformer, id,

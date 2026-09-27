@@ -10,7 +10,10 @@ synthetic slack buses are the usual cause).
 
 The CSV x column is treated as longitude and y as latitude — the convention
 used by OpenDSS `Buscoords` files.  No coordinate-system transformation is
-performed; values are stored as-is.
+performed; values are stored as-is. The field names do not prove WGS84: an
+input may contain projected or arbitrary x/y. Spatial analysis reports an
+unspecified coordinate reference unless case metadata or matching route
+geometry supplies WGS84 evidence.
 """
 function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString)
     isfile(csv_path) || throw(ArgumentError("Coordinate CSV not found: $csv_path"))

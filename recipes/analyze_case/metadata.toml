@@ -14,6 +14,23 @@ interface_paths = [
   "scripts/bmopf_cli.jl",
   "schemas/execution-response.schema.json",
   "src/execution/interface.jl",
+  "src/analysis/connectivity.jl",
+  "src/analysis/operational.jl",
+  "src/analysis/provenance/data_quality.jl",
+  "src/analysis/voltage_levels.jl",
+  "src/analysis/spatial.jl",
+  "src/validation/domain_rules.jl",
+  "src/augmentation/fix.jl",
+  "src/io/sideload_coordinates.jl",
+  "src/report/render_markdown.jl",
+  "docs/src/analysis.md",
+  "docs/src/findings.md",
+  "test/topology_structure_tests.jl",
+  "test/spatial_analysis_tests.jl",
+  "test/transformer_impedance_basis_tests.jl",
+  "test/operational_mesh_applicability_tests.jl",
+  "test/fixtures/delta_wye_secondary_leakage.json",
+  "test/fixtures/parallel_transformer_load.json",
 ]
 input_paths = ["recipes/analyze_case/input.json"]
 tutorial_paths = [
