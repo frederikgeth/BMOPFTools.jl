@@ -12,6 +12,7 @@ PowerIO = "05ed8b54-f668-4096-9d0d-e8c3dd9dc169"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
 PowerIO = "0.11.1"

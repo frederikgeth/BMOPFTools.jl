@@ -55,6 +55,10 @@ revision has not been established, so the manifest explicitly does not claim
 one. Review the bundled differences with the specification owner before the
 first release. Do not replace the runtime schema just to match upstream main.
 
+`schemas/README.md` records the PowerIO 0.11.3 archive comparison and the
+remaining differences from a pinned upstream draft. The accepted archive URI
+is a reviewed intake alias, not a replacement runtime schema.
+
 Public contracts include exported APIs and supported qualified APIs, Finding
 codes and meanings, result/report shapes, execution envelopes, and documented
 OPF extension records. Deprecations retain working old entry points until a
@@ -70,8 +74,9 @@ book-owned; package changes must preserve the ARCHITECTURE.md boundaries.
   that statement if earlier contributions also require disclosure.
 - Review the bundled schema's differences from upstream and record the agreed
   supported snapshot. The fingerprint is evidence of identity, not approval.
-- Review the remaining bundled fixtures' provenance and licences. Moving the
-  two large datasets is not a legal certification of every remaining fixture.
+- Review the synthetic fixture provenance and CC BY 4.0 scope in
+  `test/data/README.md` and `test/data/license.md`. Both the former IEEE/Kersting
+  geometry inputs and inline analysis fixture have been replaced.
 - Verify the Registrator app installation. The local General name/similarity
   check passed for `BMOPFTools`; the registration PR must pass it again.
 - Verify TagBot actually triggers tagged docs. A writable Documenter deploy key
@@ -79,7 +84,7 @@ book-owned; package changes must preserve the ARCHITECTURE.md boundaries.
   still need an end-to-end check.
 - Require green CI for the exact release commit and review coverage changes.
 
-## Local preparation evidence (2026-09-12)
+## Historical preparation evidence (2026-09-12)
 
 - Clean-source `Pkg.test` passed on macOS ARM64 with Julia 1.10.11 and pinned
   JuMP 1.29.4, and Julia 1.13.0 with latest resolved JuMP: each reported 9,170
@@ -94,6 +99,31 @@ book-owned; package changes must preserve the ARCHITECTURE.md boundaries.
   upstream issue is not treated as permission to skip a failed backend import.
 
 These local results do not replace Linux CI on the final release commit.
+
+## Compatibility cleanup evidence (2026-09-26)
+
+Scheduled CI on September 23 resolved PowerIO 0.11.3 and exposed a rejected
+archived schema URI. The fix accepts that exact, reviewed historical-baseline
+alias; schema validation and rejection of unreviewed revisions remain enabled.
+
+- Clean-source `Pkg.test` with PowerIO pinned to 0.11.3 passed on Julia 1.10.11
+  with JuMP pinned to 1.29.4, and Julia 1.13.0 with JuMP 1.31.2. Each reported
+  12,938 passes and 36 skipped/broken checks, with no failures or errors.
+- Fresh installation on Julia 1.13 passed core-only loading, both JuMP load
+  orders, and an Ipopt solve (29 assertions).
+- The documentation build and all four Python metadata gates passed.
+
+Use clean checkouts for cross-version release testing: recipe subprocesses
+activate the package root, so an ignored developer manifest from a newer Julia
+can invalidate a direct run against the older compatibility floor. These local
+results supplement, rather than replace, CI on the final release commit.
+
+The subsequent fixture-licensing update replaced the three IEEE/Kersting
+geometry decks and their inline geometry examples. The new synthetic inputs
+passed 108 focused geometry assertions on Julia 1.10 (including 20 live
+OpenDSS comparisons), the conversion regressions, and a clean-source full
+suite on Julia 1.13: 12,946 passes, 36 skipped/broken checks, no failures/errors.
+The rewritten tutorial/documentation build and all metadata gates also passed.
 
 ## Registering the approved release
 

@@ -6,3 +6,13 @@ package_source_commit = "6406bf0bb47c3b94ead24c8093e6b43bf7808d8c"
 upstream_url = "https://github.com/frederikgeth/bmopf-report/blob/main/draft_schema_and_networks/draft_bmopf_schema.json"
 # No identical upstream revision has been established. Do not infer one from main.
 upstream_revision_verified = false
+
+# Reviewed intake alias, not the identity of the package's extended schema.
+[[accepted_archive]]
+uri = "https://raw.githubusercontent.com/eigenergy/powerio/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/0.1.0/bmopf.schema.json"
+sha256 = "221cfd98cdea69636ba236a5a5e39a75b482736aeb7579045387eb5e5f2a5567"
+upstream_repository = "distribution-system-opt/dsopt-schema"
+upstream_commit = "b75d0d6669c670dca37ae3ec778b3ac405c361ba"
+upstream_path = "schema/bmopf/0.1.0/bmopf.schema.json"
+runtime_spec = "draft"
+review = "schemas/README.md"

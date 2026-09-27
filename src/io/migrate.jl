@@ -16,16 +16,18 @@
 # Map canonical $schema URIs (as written into meta.$schema by write_bmopf) to
 # internal version tag symbols. Entries should be added in chronological order.
 const _SPEC_VERSIONS = Dict{String,Symbol}(
+    # PowerIO 0.11.3 archives the historical 0.1.0 baseline at this immutable
+    # revision. Its schema matches the already-supported historical fixture
+    # except for $id (see schemas/README.md). Accept this exact alias only;
+    # arbitrary PowerIO revisions and the 0.2.0 proposal are not implied.
+    "https://raw.githubusercontent.com/eigenergy/powerio/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/0.1.0/bmopf.schema.json" => :draft,
     "https://raw.githubusercontent.com/distribution-system-opt/dsopt-schema/main/schema/bmopf/0.1.0/bmopf.schema.json" => :draft,
-    # The published schema's own $id, stamped by `write_bmopf` and by powerio
-    # v0.8.0 and later. Same draft data model as the two spellings below; the
+    # The published schema's own $id, stamped by `write_bmopf` and historical
+    # PowerIO exports. Same draft data model as the two spellings below; the
     # shapes that moved with it (uppercase load models, transformer fields
     # relocated under extras) are handled by the unconditional migrations
     # below, so every source maps to one tag.
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json" => :draft,
-    # PowerIO 0.11.3 stamps its pinned copy of the BMOPF 0.1.0 schema. That
-    # copy declares the distribution-system-opt URI above as its own $id.
-    "https://raw.githubusercontent.com/eigenergy/powerio/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/0.1.0/bmopf.schema.json" => :draft,
     # A path this package stamped until it was found to resolve to nothing
     # upstream; accepted on read so files carrying it still parse.
     "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/schema/bmopf.json" => :draft,

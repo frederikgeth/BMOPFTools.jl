@@ -8,7 +8,7 @@
 # run when JuMP/Ipopt are available.
 
 @testset "diagnose_infeasibility" begin
-    net = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+    net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
 
     @testset "rejects results that are not from solve_feasibility_opf" begin
         @test_throws ErrorException diagnose_infeasibility(
@@ -37,27 +37,27 @@
             "feasible"                 => true,
             "total_slack_magnitude_A"  => 100.0,
             "slack_injections" => Dict{String,Any}(
-                "671" => Dict{String,Any}(
+                "junction" => Dict{String,Any}(
                     "1" => Dict{String,Any}("cs_mag" => 60.0),
                     "2" => Dict{String,Any}("cs_mag" => 80.0)),   # √(60²+80²)=100
-                "632" => Dict{String,Any}(
+                "trunk" => Dict{String,Any}(
                     "1" => Dict{String,Any}("cs_mag" => 30.0)),
             ),
             "bus" => Dict{String,Any}(
-                "671" => Dict{String,Any}(
-                    "1" => Dict{String,Any}("vm" => 2300.0),
-                    "2" => Dict{String,Any}("vm" => 2300.0),
-                    "3" => Dict{String,Any}("vm" => 2300.0)),
-                "632" => Dict{String,Any}(
-                    "1" => Dict{String,Any}("vm" => 2300.0),
-                    "2" => Dict{String,Any}("vm" => 2300.0),
-                    "3" => Dict{String,Any}("vm" => 2300.0)),
+                "junction" => Dict{String,Any}(
+                    "1" => Dict{String,Any}("vm" => 3300.0),
+                    "2" => Dict{String,Any}("vm" => 3300.0),
+                    "3" => Dict{String,Any}("vm" => 3300.0)),
+                "trunk" => Dict{String,Any}(
+                    "1" => Dict{String,Any}("vm" => 3300.0),
+                    "2" => Dict{String,Any}("vm" => 3300.0),
+                    "3" => Dict{String,Any}("vm" => 3300.0)),
             ),
         )
         d = diagnose_infeasibility(res, net)
         @test d["is_feasible"] == false
         @test d["n_infeasible_buses"] == 2
-        @test d["top_buses"][1]["bus"] == "671"          # largest slack first
+        @test d["top_buses"][1]["bus"] == "junction"          # largest slack first
         @test d["top_buses"][1]["slack_A"] ≈ 100.0 rtol=1e-6
         @test d["top_buses"][1]["fraction_of_total"] ≈ 1.0 rtol=1e-6
         @test d["top_buses"][1]["failure_mode"] == "power_balance"
@@ -65,7 +65,7 @@
         @test d["failure_mode_summary"]["voltage_bound"] == 0
         @test d["n_voltage_violations"] == 0
         # load/gen accounting on the ranked bus
-        @test d["top_buses"][1]["n_loads"] == 1          # load_671
+        @test d["top_buses"][1]["n_loads"] == 1          # junction_load
         @test d["top_buses"][1]["total_load_kW"] > 0.0
     end
 
@@ -75,14 +75,14 @@
             "feasible"                 => true,
             "total_slack_magnitude_A"  => 50.0,
             "slack_injections" => Dict{String,Any}(
-                "671" => Dict{String,Any}(
+                "junction" => Dict{String,Any}(
                     "1" => Dict{String,Any}("cs_mag" => 50.0)),
             ),
             "bus" => Dict{String,Any}(
-                "671" => Dict{String,Any}(
-                    "1" => Dict{String,Any}("vm" => 1500.0),   # < v_min 2020 → under
-                    "2" => Dict{String,Any}("vm" => 2700.0),   # > v_max 2540 → over
-                    "3" => Dict{String,Any}("vm" => 2300.0)),
+                "junction" => Dict{String,Any}(
+                    "1" => Dict{String,Any}("vm" => 2900.0),   # < v_min 3000 → under
+                    "2" => Dict{String,Any}("vm" => 3700.0),   # > v_max 3600 → over
+                    "3" => Dict{String,Any}("vm" => 3300.0)),
             ),
         )
         d = diagnose_infeasibility(res, net)
@@ -107,10 +107,10 @@
             "total_slack_magnitude_A"  => 1e-6,            # below threshold
             "slack_injections"         => Dict{String,Any}(),
             "bus" => Dict{String,Any}(
-                "671" => Dict{String,Any}(
-                    "1" => Dict{String,Any}("vm" => 2300.0),
-                    "2" => Dict{String,Any}("vm" => 2300.0),
-                    "3" => Dict{String,Any}("vm" => 2300.0)),
+                "junction" => Dict{String,Any}(
+                    "1" => Dict{String,Any}("vm" => 3300.0),
+                    "2" => Dict{String,Any}("vm" => 3300.0),
+                    "3" => Dict{String,Any}("vm" => 3300.0)),
             ),
         )
         d = diagnose_infeasibility(res, net)
@@ -125,9 +125,9 @@
             "feasible"                 => true,
             "total_slack_magnitude_A"  => 10.0,
             "slack_injections" => Dict{String,Any}(
-                "671" => Dict{String,Any}("1" => Dict{String,Any}("cs_mag" => 9.0)),
-                "632" => Dict{String,Any}("1" => Dict{String,Any}("cs_mag" => 5.0)),
-                "611" => Dict{String,Any}("3" => Dict{String,Any}("cs_mag" => 0.5)),
+                "junction" => Dict{String,Any}("1" => Dict{String,Any}("cs_mag" => 9.0)),
+                "trunk" => Dict{String,Any}("1" => Dict{String,Any}("cs_mag" => 5.0)),
+                "lateral_c" => Dict{String,Any}("3" => Dict{String,Any}("cs_mag" => 0.5)),
             ),
             "bus" => Dict{String,Any}(),
         )

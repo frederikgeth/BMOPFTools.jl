@@ -685,7 +685,7 @@ sources are re-expanded by the writer as needed.
 conversion when conductor impedances or terminal maps remain unresolved,
 with `PowerIO.PowerIOError` code `BUILD.DIST.ELECTRICAL_INCOMPLETE`.
 `from_dss` propagates this failure; it does not return a network filled with
-OpenDSS default sequence impedances. The IEEE-13 configuration 601 fixture
+OpenDSS default sequence impedances. The synthetic overhead geometry fixture
 is tested through `from_dss`, including equivalent metre/kilometre line lengths
 and PowerIO IR serialization. Explicit four-conductor linecodes still import.
 

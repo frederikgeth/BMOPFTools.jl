@@ -9,7 +9,7 @@ using JSON3
 
 @testset "render_json" begin
 
-    net    = parse_bmopf(IEEE13_FIXTURE; from_string=true)
+    net    = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
     report = analyze(net)
 
     @testset "round-trips to valid JSON with the documented shape" begin
@@ -63,7 +63,7 @@ using JSON3
         BMOPFTools.render_json(report, io)
         s = String(take!(io))
         d = JSON3.read(s)                       # must not throw
-        @test d.network_name == "ieee13_mini"
+        @test d.network_name == "synthetic_workshop_feeder"
         # a connectivity zone topology is a stringified Symbol
         if haskey(d.results.connectivity, :zones) && !isempty(d.results.connectivity.zones)
             @test d.results.connectivity.zones[1].topology isa AbstractString

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "fd14d6ee3f2eb25c7644a1d779c4cf597f9395a55666e245ba71ffa645921634",
+  "corpus_sha256": "f16d19e31c4ceedbfcfede24705eb131fccf22c3993d5f1fc184c134eefd5046",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -194,7 +194,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "d3c57e988ebfb68cf89b7189ca6d232278aaab87f45327a7345a228f16c32219"
+      "sha256": "d63a39283ece2007a9a5db24d398710f53733c221beddc02941ccb45dfad23a6"
     },
     {
       "path": "recipes/README.md",
@@ -281,6 +281,10 @@
       "sha256": "4cff373253679a2e122226da65524b1c4b3d5b44d3a0b0c02a658eef27015d5e"
     },
     {
+      "path": "schemas/bundled-schema.toml",
+      "sha256": "b4fadbdad4f1951f829bf2388c851b89d56233b9b1fe72e89a64e1198094913e"
+    },
+    {
       "path": "schemas/executable-knowledge.schema.json",
       "sha256": "b4b9f5f0467a4330a2e8129efcf07fdd202bc7a3da71ebe023be2e9d2a216002"
     },
@@ -303,6 +307,10 @@
     {
       "path": "scripts/generate_finding_registry.py",
       "sha256": "c8d428a8c6f8fa97bff2dbd063f201bab17e8971e651fae5b49ecda0c30fc3f4"
+    },
+    {
+      "path": "scripts/regenerate_geometry_reference.jl",
+      "sha256": "50da2b97c35791e7e07556845cd27e588f9ba00a0ce1076a5870b89ae3c6013e"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -358,7 +366,7 @@
     },
     {
       "path": "src/io/migrate.jl",
-      "sha256": "a3401264e356b1b4f5a1fc8cb57b901d5488fa3fb91be04960ea5588d56cb442"
+      "sha256": "65b030e9dcd97529abf3e59b04433ab3161bb906007f3d0079953f0b09b88c67"
     },
     {
       "path": "src/io/nwinding.jl",
@@ -434,15 +442,31 @@
     },
     {
       "path": "test/Project.toml",
-      "sha256": "f093363eed474c9211a5f055cea61898d9b909eb764aaccb2b88a616262a10ae"
+      "sha256": "af7ecdc40b91822d771c7ee690ac7c0dbdbb8ba6ffe6e133d4ba876251dfc5a0"
     },
     {
       "path": "test/controller_compliance_tests.jl",
       "sha256": "3303a2ec4ada1d2fef5bafe3977ca4a458f8dcebc4a4606fb915e0f9ab550e5b"
     },
     {
-      "path": "test/data/line_geometry/ieee13_601.dss",
-      "sha256": "eb471d3e05a791b4fbaa625d6c21fc239d3b841d69589bf45df769b1a1d268bf"
+      "path": "test/data/analysis_network/synthetic_feeder.json",
+      "sha256": "37eff7326518624b732d77127808fbdecd52107d8593959ab669132e9c1a85c6"
+    },
+    {
+      "path": "test/data/line_geometry/opendss_reference.json",
+      "sha256": "5a7a5443b6cf1d55827b92f5eaff7b927cefc3baea50d84ea96079a49c8ca3f2"
+    },
+    {
+      "path": "test/data/line_geometry/synthetic_cn.dss",
+      "sha256": "72fecb11b08efeb50f8a7c6ea2cdc3f431af16852e6ee3687d22e4fa34c77889"
+    },
+    {
+      "path": "test/data/line_geometry/synthetic_overhead.dss",
+      "sha256": "2ff6fe4836fb64df226e3ce4840112f00e0a4f1ca25407f5780a7638285302e8"
+    },
+    {
+      "path": "test/data/line_geometry/synthetic_ts.dss",
+      "sha256": "48d6aa0d068484c7be7874357c808ea1a276d89c355ddefc2fe0d9c5f3fb0adb"
     },
     {
       "path": "test/data/parameter_updates/stale_evaluation.jl",
@@ -455,6 +479,10 @@
     {
       "path": "test/data/pf_comparison/pf_exp_1ph.dss",
       "sha256": "5a08fa56e37d98cdfc2bc3998dde03a98f692c4d7b57f50bd7059f4c16d39d81"
+    },
+    {
+      "path": "test/data/schema_alias/powerio_archive.json",
+      "sha256": "627a3007c0ac399beca8a2166cf3d58724e5459c07d8a322aaae68ab8f4b8466"
     },
     {
       "path": "test/data/scientific_review/inconsistent-phasor-result.json",
@@ -853,6 +881,10 @@
       "sha256": "d1a9cfc6d5531d1b4498559b732d1259e180c87a34fcbd09d93b7d6475051469"
     },
     {
+      "path": "test/lineconstants_tests.jl",
+      "sha256": "942160591680a18f55895e64fbbc7ebb7ae66c37877c5b9af3ff83a879161c3a"
+    },
+    {
       "path": "test/operational_mesh_applicability_tests.jl",
       "sha256": "ea61c63e1d20420603a3ebc9d3b1b87ee626145b1d84920c6d69ffb41f592db0"
     },
@@ -894,11 +926,11 @@
     },
     {
       "path": "test/powerio_regression_tests.jl",
-      "sha256": "f137c6127db3ec3a5350ba4b3540995dc087c4774700b935c72daa1ef23d00e4"
+      "sha256": "0b94b098c353a460398c7d6a46ee4c4de755299fa7f3dfdb293effb724bbd296"
     },
     {
       "path": "test/powerio_v09_tests.jl",
-      "sha256": "13c475b7ff6da9f83b0a7f660fab9821feeb319ab59d96894e149cdc8c73962c"
+      "sha256": "30b09a3b759efa1ab6170d8d1849868ee5c5b50def0ffa35d83d3a5e3265f9f4"
     },
     {
       "path": "test/projection_tests.jl",
@@ -915,6 +947,10 @@
     {
       "path": "test/property_based_contract_tests.jl",
       "sha256": "d98468c2531ad985190921047125af8258fb243652cb80096461e5ab610d2653"
+    },
+    {
+      "path": "test/schema_alias_tests.jl",
+      "sha256": "befe5988ae9b5a0cdba3d80794c76a46ebc386632a9b64df921b303e2ce78447"
     },
     {
       "path": "test/scientific_contract_tests.jl",

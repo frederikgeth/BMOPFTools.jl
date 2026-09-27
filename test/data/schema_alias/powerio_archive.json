@@ -1,0 +1,15 @@
+{
+  "name": "powerio_archive_uri_regression",
+  "meta": {
+    "$schema": "https://raw.githubusercontent.com/eigenergy/powerio/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/0.1.0/bmopf.schema.json",
+    "license": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "bus": {"b": {"terminal_names": ["a", "n"]}},
+  "voltage_source": {
+    "s": {"bus": "b", "terminal_map": ["a"], "v_magnitude": [230.0], "v_angle": [0.0]}
+  },
+  "load": {
+    "l": {"bus": "b", "terminal_map": ["a", "n"], "configuration": "SINGLE_PHASE",
+          "model": "CONSTANT_POWER", "p_nom": [100.0], "q_nom": [10.0]}
+  }
+}
