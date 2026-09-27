@@ -206,7 +206,8 @@ function _render_operational(r::SummaryReport, io::IO; color::Bool=false)
     if !isempty(xutil)
         println(io, "\n  Transformer utilisation (nominal load estimate):")
         for u in xutil
-            bar = u["utilisation_pct"] > 90 ? " ⚠" : ""
+            bar = get(u, "estimate_status", "radial_component") == "upper_bound" ?
+                " (upper bound)" : u["utilisation_pct"] > 90 ? " ⚠" : ""
             println(io, "    $(rpad(u["id"], 16)) $(rpad(_fmt_mva(u["s_rating_va"]) * " rating", 18)) " *
                         "$(_fmt_pct(u["utilisation_pct"]))$bar")
         end

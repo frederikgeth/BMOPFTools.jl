@@ -116,7 +116,156 @@ function _md_connectivity(r::SummaryReport, io::IO)
     println(io, "| Degree-1 buses | $(get(d,"n_degree_1","?")) |")
     println(io, "| Tree depth (max hops) | $(get(d,"tree_depth_max","?")) |")
     println(io)
+    structure = get(d, "structure", nothing)
+    if structure isa Dict
+        whole = structure["whole_network"]
+        println(io, "### Physical branch structure\n")
+        println(io, "| Scope | Buses | Components | Branches | Simple cycles | Parallel excess | Total cycle rank |")
+        println(io, "|---|---:|---:|---:|---:|---:|---:|")
+        function row(label, counts)
+            println(io, "| $label | $(counts["n_buses"]) | $(counts["n_components"]) | " *
+                "$(counts["n_physical_edges"]) | $(counts["simple_cycle_rank"]) | " *
+                "$(counts["parallel_excess"]) | $(counts["cycle_rank"]) |")
+        end
+        row("Whole network", whole)
+        for tier in structure["voltage_tiers"]
+            row("Tier $(tier["level"])", tier)
+        end
+        println(io, "\nTransformer-mediated cycle rank: $(whole["transformer_mediated_cycle_rank"]); " *
+            "cross-tier branches: $(structure["n_cross_tier_edges"]); " *
+            "skipped invalid branches: $(structure["n_skipped_branches"]).\n")
+        zones = structure["galvanic_zones"]
+        println(io, "Galvanic zones: $(length(zones)); zones with simple cycles: " *
+            "$(count(z -> z["simple_cycle_rank"] > 0, zones)); " *
+            "zones incident to multiple isolating transformers: " *
+            "$(count(z -> z["n_incident_isolating_transformers"] > 1, zones)).\n")
+        interesting = sort!(filter(z -> z["cycle_rank"] > 0 ||
+                            z["n_incident_isolating_transformers"] > 1, zones),
+                            by=z -> (-z["cycle_rank"], -z["n_incident_isolating_transformers"], z["anchor"]))
+        if !isempty(interesting)
+            println(io, "| Galvanic zone anchor | Levels | Buses | Cycle rank | Parallel excess | Incident transformers |")
+            println(io, "|---|---|---:|---:|---:|---:|")
+            for zone in Iterators.take(interesting, 10)
+                println(io, "| $(zone["anchor"]) | $(join(zone["voltage_levels"], ", ")) | " *
+                    "$(zone["n_buses"]) | $(zone["cycle_rank"]) | " *
+                    "$(zone["parallel_excess"]) | $(zone["n_incident_isolating_transformers"]) |")
+            end
+            println(io)
+        end
+        parallel = structure["parallel_lines"]
+        println(io, "Parallel line groups: $(parallel["n_groups"]). " *
+            "Classification counts: " *
+            join(["$k=$(parallel["classification_counts"][k])" for k in
+                  sort!(collect(keys(parallel["classification_counts"])))], ", ") * ".\n")
+        if !isempty(parallel["witnesses"])
+            println(io, "| Bus pair | Line IDs | Declared-field class |")
+            println(io, "|---|---|---|")
+            for witness in parallel["witnesses"]
+                println(io, "| $(join(witness["bus_pair"], " ↔ ")) | " *
+                    "$(join(witness["line_ids"], ", ")) | $(witness["classification"]) |")
+            end
+            println(io)
+        end
+        closing = structure["cycle_closing_branches"]
+        if !isempty(closing)
+            println(io, "First $(length(closing)) spanning-forest closing branches " *
+                "(graph witnesses, not defect assignments):")
+            for witness in closing
+                println(io, "- `$(witness["kind"]):$(witness["component_id"])`: " *
+                    "$(witness["bus_from"]) ↔ $(witness["bus_to"])")
+            end
+            println(io)
+        end
+        paths = structure["conductor_paths"]
+        println(io, "### Mapped conductor paths\n")
+        if paths["status"] == "inapplicable"
+            println(io, "$(paths["reason"])\n")
+        else
+            println(io, "$(paths["n_bus_terminals"]) declared bus terminals; " *
+                "$(paths["n_mapped_conductor_edges"]) mapped line/closed-switch conductor edges; " *
+                "$(paths["n_path_components"]) terminal-path components; " *
+                "$(paths["n_skipped_branches"]) incomplete branch maps. " *
+                "Transformer winding ports bound these paths; winding conversion is unassessed.\n")
+            if paths["n_load_terminals_without_boundary"] !== nothing
+                println(io, "Load terminals in paths without a source or transformer port: " *
+                    "$(paths["n_load_terminals_without_boundary"]).\n")
+                for witness in paths["load_terminal_witnesses"]
+                    println(io, "- `$(witness["load_id"])` at " *
+                        "$(witness["bus"]):$(witness["terminal"]) " *
+                        "(path $(witness["path_component"]))")
+                end
+                isempty(paths["load_terminal_witnesses"]) || println(io)
+            end
+        end
+    end
+    _md_spatial(get(d, "spatial", nothing), io)
     _md_section_findings(r, io, :connectivity)
+end
+
+function _md_spatial(spatial, io::IO)
+    spatial isa Dict || return
+    coverage = spatial["coordinate_coverage"]
+    reference = spatial["coordinate_reference"]
+    routes = spatial["routes"]
+    lines = spatial["lines"]
+    transformers = spatial["transformers"]
+    println(io, "### Geographic evidence\n")
+    println(io, "Bus coordinates: $(coverage["n_complete_lonlat"])/$(coverage["n_buses"]) " *
+        "complete longitude/latitude pairs; $(coverage["n_with_xy_fields"]) buses with x/y fields; " *
+        "$(coverage["n_partial"]) partial, $(coverage["n_invalid"]) invalid, " *
+        "$(coverage["n_outside_wgs84_range"]) outside WGS84 numeric ranges.\n")
+    println(io, "**Coordinate reference:** $(reference["status"]). " *
+        "$(reference["caution"])\n")
+    println(io, "Line routes: $(routes["n_with_route"])/$(routes["n_lines"]); " *
+        "$(reference["n_matching_wgs84_routes"]) WGS84 routes match their bus endpoints.\n")
+    println(io, "| Voltage tier | Lines with length | Median length (m) | 99th percentile (m) | Maximum (m) |")
+    println(io, "|---|---:|---:|---:|---:|")
+    for (tier, stats) in sort!(collect(lines["length_by_tier_m"]), by=first)
+        println(io, "| $tier | $(stats["n"]) | $(round(stats["p50"], digits=1)) | " *
+            "$(round(stats["p99"], digits=1)) | $(round(stats["max"], digits=1)) |")
+    end
+    println(io)
+    if !isempty(lines["relative_length_witnesses"])
+        println(io, "Longest lines relative to their voltage-tier 99th percentile:")
+        for witness in Iterators.take(lines["relative_length_witnesses"], 5)
+            println(io, "- `$(witness["line_id"])` ($(witness["tier"])): " *
+                "$(round(witness["length_m"], digits=1)) m " *
+                "($(round(witness["relative_to_tier_p99"], digits=1))× tier p99)")
+        end
+        println(io)
+    end
+    if reference["geodesic_distances_applicable"]
+        xf = transformers["separation_m"]
+        println(io, "Geodesic comparisons: $(lines["n_with_chord_comparison"]) lines with endpoint distances; " *
+            "$(something(lines["n_shorter_than_chord_beyond_tolerance"], "unassessed")) declared lengths below their " *
+            "endpoint chord by more than max(5 m, 10% of chord). " *
+            "Route endpoint gaps over 5 m: " *
+            "$(something(routes["n_endpoint_gaps_over_5m"], "unassessed")) " *
+            "of $(routes["n_endpoint_comparisons"]) compared; " *
+            "route/declaration length mismatches: " *
+            "$(something(routes["n_length_mismatches"], "unassessed")) " *
+            "of $(routes["n_length_comparisons"]) compared.\n")
+        if xf["n"] > 0
+            println(io, "Transformer bus separation: median $(round(xf["p50"], digits=1)) m, " *
+                "99th percentile $(round(xf["p99"], digits=1)) m, " *
+                "maximum $(round(xf["max"], digits=1)) m.\n")
+            println(io, "Farthest transformer bus pairs:")
+            for witness in Iterators.take(transformers["farthest_witnesses"], 5)
+                println(io, "- `$(witness["transformer_id"])`: " *
+                    "$(round(witness["distance_m"], digits=1)) m")
+            end
+            println(io)
+        end
+        if !isempty(lines["shorter_than_chord_witnesses"])
+            println(io, "**Line length/chord candidates:**")
+            for witness in lines["shorter_than_chord_witnesses"]
+                println(io, "- `$(witness["line_id"])`: declared " *
+                    "$(round(witness["length_m"], digits=1)) m, " *
+                    "endpoint chord $(round(witness["chord_m"], digits=1)) m")
+            end
+            println(io)
+        end
+    end
 end
 
 function _md_diversity(r::SummaryReport, io::IO)
@@ -168,7 +317,8 @@ function _md_operational(r::SummaryReport, io::IO)
         println(io, "| ID | Rating | Loading (est.) |")
         println(io, "|----|--------|---------------:|")
         for u in xutil
-            flag = u["utilisation_pct"] > 90 ? " ⚠" : ""
+            flag = get(u, "estimate_status", "radial_component") == "upper_bound" ?
+                " (upper bound)" : u["utilisation_pct"] > 90 ? " ⚠" : ""
             println(io, "| $(u["id"]) | $(_fmt_mva(u["s_rating_va"])) | $(_fmt_pct(u["utilisation_pct"]))$flag |")
         end
         println(io)

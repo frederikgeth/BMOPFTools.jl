@@ -34,6 +34,13 @@ using JSON3
             @test haskey(d.results, sec)
         end
         @test d.results.inventory.bus.total == length(net["bus"])
+        structure = d.results.connectivity.structure
+        @test structure.whole_network.cycle_rank == d.results.connectivity.n_extra_edges
+        @test structure.whole_network.cycle_rank ==
+              structure.whole_network.simple_cycle_rank + structure.whole_network.parallel_excess
+        @test structure.parallel_lines.n_groups isa Integer
+        @test structure.galvanic_zones isa AbstractVector
+        @test !haskey(d.results.connectivity, :spatial)
 
         # findings serialized as an array of typed records
         @test d.findings isa AbstractVector
@@ -61,6 +68,30 @@ using JSON3
         if haskey(d.results.connectivity, :zones) && !isempty(d.results.connectivity.zones)
             @test d.results.connectivity.zones[1].topology isa AbstractString
         end
+    end
+
+    @testset "conditional spatial result survives report rendering" begin
+        located = deepcopy(net)
+        get!(located, "meta", Dict{String,Any}())["crs"] = "EPSG:4326"
+        for (i, bus_id) in enumerate(sort!(collect(keys(located["bus"]))))
+            located["bus"][bus_id]["longitude"] = 153.0 + i * 0.0001
+            located["bus"][bus_id]["latitude"] = -27.0
+        end
+        first(values(located["line"]))["length"] = 0.01
+        located_report = analyze(located)
+        io = IOBuffer()
+        BMOPFTools.render_json(located_report, io)
+        decoded = JSON3.read(String(take!(io)))
+        spatial = decoded.results.connectivity.spatial
+        @test spatial.coordinate_reference.status == "declared_wgs84"
+        @test spatial.coordinate_coverage.n_complete_lonlat == length(located["bus"])
+        @test decoded.results.connectivity.structure.conductor_paths.n_path_components isa Integer
+        geo = filter(f -> f.code == "W.GEO.LINE_SHORTER_THAN_CHORD", decoded.findings)
+        @test !isempty(geo)
+        @test first(geo).detail.chord_m > first(geo).detail.length_m
+        md = IOBuffer()
+        BMOPFTools.render_markdown(located_report, md)
+        @test occursin("Geographic evidence", String(take!(md)))
     end
 
     @testset "extension dispatch: .json vs .md vs plain differ" begin

@@ -735,6 +735,7 @@ include("lineconstants/compile.jl")
 
 include("analysis/inventory.jl")
 include("analysis/voltage_levels.jl")
+include("analysis/spatial.jl")
 include("analysis/connectivity.jl")
 include("analysis/diversity.jl")
 include("analysis/operational.jl")
@@ -789,7 +790,8 @@ function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CO
     # Analysis passes — each appends to findings and returns a results dict
     results[:inventory]      = inventory_analysis(working, findings)
     results[:voltage_levels] = voltage_level_analysis(working, findings)
-    results[:connectivity]   = connectivity_analysis(working, findings)
+    results[:connectivity]   = connectivity_analysis(working, findings;
+        voltage_levels=results[:voltage_levels])
     results[:diversity]      = diversity_analysis(working, findings)
     results[:operational]    = operational_analysis(working, findings; config=config)
     results[:load_models]    = load_model_analysis(working, findings)

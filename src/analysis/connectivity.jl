@@ -9,13 +9,14 @@ Build an undirected graph of the network and compute:
 - Open-switch isolated sections
 """
 function connectivity_analysis(net::Dict{String,Any},
-                                findings::Vector{Finding})::Dict{String,Any}
+                                findings::Vector{Finding}; voltage_levels=nothing)::Dict{String,Any}
     result = Dict{String,Any}()
 
     buses = get(net, "bus", Dict())
     n     = length(buses)
     if n == 0
         result["n_components"] = 0
+        result["structure"] = _topology_structure(net, Dict{String,Any}())
         return result
     end
 
@@ -142,12 +143,6 @@ function connectivity_analysis(net::Dict{String,Any},
     result["is_radial"]       = is_radial
     result["n_extra_edges"]   = n_edges - tree_edge_count  # 0 for radial
 
-    if !is_radial
-        push!(findings, Finding(WARNING, "W.CONN.MESHED", :connectivity, :network, nothing,
-            "Network contains $(n_edges - tree_edge_count) extra edge(s) forming cycles — not purely radial.",
-            Dict{String,Any}("extra_edges" => n_edges - tree_edge_count)))
-    end
-
     # Tree depth from each voltage source bus
     if !isempty(vsrc_buses)
         result["source_buses"] = vsrc_buses
@@ -248,8 +243,328 @@ function connectivity_analysis(net::Dict{String,Any},
     end
 
     result["supply_phase_consistency"] = _check_supply_phase_consistency(net, findings, zone_class)
+    levels = voltage_levels === nothing ? voltage_level_analysis(net, Finding[]) : voltage_levels
+    result["structure"] = _topology_structure(net, levels)
+    structure = result["structure"]
+    if !is_radial
+        whole = structure["whole_network"]
+        push!(findings, Finding(WARNING, "W.CONN.MESHED", :connectivity, :network, nothing,
+            "Network contains $(n_edges - tree_edge_count) extra edge(s) forming cycles — not purely radial.",
+            Dict{String,Any}(
+                "extra_edges" => n_edges - tree_edge_count,
+                "simple_cycle_rank" => whole["simple_cycle_rank"],
+                "parallel_excess" => whole["parallel_excess"],
+                "transformer_mediated_cycle_rank" => whole["transformer_mediated_cycle_rank"],
+                "cycle_closing_branches" => structure["cycle_closing_branches"])))
+    end
+    spatial = _spatial_analysis(net, levels, findings)
+    spatial === nothing || (result["spatial"] = spatial)
 
     result
+end
+
+# Physical cycle rank is E - V + C. Replacing each bus pair with one edge
+# separates the rank into simple-graph cycles and excess parallel branches.
+function _topology_counts(nodes::Vector{String}, edges)::Dict{String,Any}
+    indices = Dict(b => i for (i, b) in enumerate(nodes))
+    graph = SimpleGraph(length(nodes))
+    physical = 0
+    for edge in edges
+        a = get(indices, edge.from, 0); b = get(indices, edge.to, 0)
+        (a == 0 || b == 0 || a == b) && continue
+        physical += 1
+        add_edge!(graph, a, b)
+    end
+    components = length(connected_components(graph))
+    simple = ne(graph)
+    Dict{String,Any}(
+        "n_buses" => length(nodes), "n_components" => components,
+        "n_physical_edges" => physical, "n_simple_edges" => simple,
+        "cycle_rank" => physical - length(nodes) + components,
+        "simple_cycle_rank" => simple - length(nodes) + components,
+        "parallel_excess" => physical - simple)
+end
+
+# Line/switch conductor paths are independent of bus-level graph paths. This
+# deliberately treats every transformer winding as a boundary port: winding
+# coupling and phase conversion cannot be inferred from matching terminal names.
+function _conductor_paths(net::Dict{String,Any}, voltage_levels::Dict{String,Any})::Dict{String,Any}
+    buses = get(net, "bus", Dict())
+    nodes = Tuple{String,String}[]
+    for bus in sort!(collect(String.(keys(buses))))
+        record = buses[bus]
+        record isa AbstractDict || continue
+        terms = get(record, "terminal_names", nothing)
+        terms isa AbstractVector || continue
+        for term in sort!(unique(string.(terms)))
+            push!(nodes, (bus, term))
+        end
+    end
+    isempty(nodes) && return Dict{String,Any}("status" => "inapplicable",
+        "reason" => "No bus terminal_names are declared.", "n_bus_terminals" => 0)
+    index = Dict(node => i for (i, node) in enumerate(nodes))
+    graph = SimpleGraph(length(nodes))
+    mapped = 0; skipped = 0
+    for kind in ("line", "switch")
+        for (_, branch) in get(net, kind, Dict())
+            branch isa AbstractDict || continue
+            kind == "switch" && get(branch, "open_switch", false) && continue
+            a = get(branch, "bus_from", nothing); b = get(branch, "bus_to", nothing)
+            from = get(branch, "terminal_map_from", nothing)
+            to = get(branch, "terminal_map_to", nothing)
+            if !(a isa AbstractString && b isa AbstractString &&
+                 from isa AbstractVector && to isa AbstractVector &&
+                 !isempty(from) && length(from) == length(to) &&
+                 all(i -> haskey(index, (String(a), string(from[i]))) &&
+                          haskey(index, (String(b), string(to[i]))), eachindex(from)))
+                skipped += 1
+                continue
+            end
+            for i in eachindex(from)
+                add_edge!(graph, index[(String(a), string(from[i]))],
+                           index[(String(b), string(to[i]))])
+                mapped += 1
+            end
+        end
+    end
+    components = connected_components(graph)
+    component_of = zeros(Int, length(nodes))
+    for (ci, component) in enumerate(components), node in component
+        component_of[node] = ci
+    end
+    boundary = Set{Int}()
+    function mark_port(bus, terminals)
+        (bus isa AbstractString && terminals isa AbstractVector) || return
+        for term in terminals
+            i = get(index, (String(bus), string(term)), 0)
+            i == 0 || push!(boundary, component_of[i])
+        end
+    end
+    for source in values(get(net, "voltage_source", Dict()))
+        source isa AbstractDict || continue
+        mark_port(get(source, "bus", nothing), get(source, "terminal_map", nothing))
+    end
+    transformers = get(net, "transformer", Dict())
+    for subtype in TRANSFORMER_SUBTYPES
+        sub = get(transformers, subtype, nothing)
+        sub isa AbstractDict || continue
+        for transformer in values(sub)
+            transformer isa AbstractDict || continue
+            if subtype in WINDING_LIST_SUBTYPES
+                for winding in _nw_windings(transformer)
+                    mark_port(winding.bus, winding.terminal_map)
+                end
+            else
+                mark_port(get(transformer, "bus_from", nothing),
+                          get(transformer, "terminal_map_from", nothing))
+                mark_port(get(transformer, "bus_to", nothing),
+                          get(transformer, "terminal_map_to", nothing))
+            end
+        end
+    end
+    level_by_bus = Dict{String,String}()
+    for (label, level) in get(voltage_levels, "levels", Dict())
+        for bus in get(level, "buses", String[])
+            level_by_bus[string(bus)] = string(label)
+        end
+    end
+    per_tier = Dict{String,Set{Int}}()
+    for (i, (bus, _)) in enumerate(nodes)
+        push!(get!(per_tier, get(level_by_bus, bus, "unassigned"), Set{Int}()),
+              component_of[i])
+    end
+    load_candidates = Dict{String,Any}[]
+    n_load_terminals_without_boundary = 0
+    for (id, load) in sort!(collect(get(net, "load", Dict())); by=x -> string(first(x)))
+        load isa AbstractDict || continue
+        bus = string(get(load, "bus", ""))
+        terms = get(load, "terminal_map", nothing)
+        terms isa AbstractVector || continue
+        for term in terms
+            i = get(index, (bus, string(term)), 0)
+            i == 0 && continue
+            component_of[i] in boundary && continue
+            n_load_terminals_without_boundary += 1
+            length(load_candidates) < 10 && push!(load_candidates, Dict{String,Any}(
+                "load_id" => string(id), "bus" => bus, "terminal" => string(term),
+                "path_component" => component_of[i]))
+        end
+    end
+    Dict{String,Any}(
+        "status" => isempty(boundary) ? "indeterminate" : "assessed",
+        "scope" => "mapped_line_and_closed_switch_conductors_with_transformer_ports_as_boundaries",
+        "n_bus_terminals" => length(nodes), "n_mapped_conductor_edges" => mapped,
+        "n_skipped_branches" => skipped, "n_path_components" => length(components),
+        "n_boundary_components" => length(boundary),
+        "path_components_by_voltage_tier" => Dict(k => length(v) for (k, v) in per_tier),
+        "n_load_terminals_without_boundary" => isempty(boundary) ? nothing :
+            n_load_terminals_without_boundary,
+        "load_terminal_witnesses" => isempty(boundary) ? Dict{String,Any}[] : load_candidates)
+end
+
+function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,Any})::Dict{String,Any}
+    buses = sort!(collect(String.(keys(get(net, "bus", Dict())))))
+    busset = Set(buses)
+    edges = NamedTuple{(:kind, :id, :from, :to, :continuous),Tuple{String,String,String,String,Bool}}[]
+    skipped = 0
+    function add_branch(kind, id, from, to, continuous)
+        if !(from isa AbstractString && to isa AbstractString && from != to &&
+             from in busset && to in busset)
+            skipped += 1
+            return
+        end
+        push!(edges, (kind=kind, id=string(id), from=String(from), to=String(to),
+                      continuous=continuous))
+    end
+    for (id, line) in get(net, "line", Dict())
+        add_branch("line", id, get(line, "bus_from", nothing), get(line, "bus_to", nothing), true)
+    end
+    for (id, sw) in get(net, "switch", Dict())
+        get(sw, "open_switch", false) && continue
+        add_branch("switch", id, get(sw, "bus_from", nothing), get(sw, "bus_to", nothing), true)
+    end
+    transformers = get(net, "transformer", Dict())
+    for subtype in TRANSFORMER_SUBTYPES
+        subtype in WINDING_LIST_SUBTYPES && continue
+        sub = get(transformers, subtype, nothing)
+        sub isa Dict || continue
+        for (id, t) in sub
+            add_branch("transformer:$subtype", id, get(t, "bus_from", nothing),
+                       get(t, "bus_to", nothing), subtype in GALVANIC_CONTINUOUS_SUBTYPES)
+        end
+    end
+    for (id, t) in get(transformers, "n_winding", Dict())
+        windings = _nw_windings(t)
+        isempty(windings) && continue
+        for j in 2:length(windings)
+            add_branch("transformer:n_winding", "$id:$j", windings[1].bus,
+                       windings[j].bus, false)
+        end
+    end
+
+    level_by_bus = Dict{String,String}()
+    for (label, level) in get(voltage_levels, "levels", Dict())
+        for bus in get(level, "buses", String[])
+            bus in busset && (level_by_bus[bus] = string(label))
+        end
+    end
+    level_nodes = Dict{String,Vector{String}}()
+    for bus in buses
+        push!(get!(level_nodes, get(level_by_bus, bus, "unassigned"), String[]), bus)
+    end
+    level_edges = Dict(label => typeof(edges)() for label in keys(level_nodes))
+    cross_level = 0
+    for edge in edges
+        a = get(level_by_bus, edge.from, "unassigned")
+        b = get(level_by_bus, edge.to, "unassigned")
+        if a == b
+            push!(level_edges[a], edge)
+        else
+            cross_level += 1
+        end
+    end
+    tiers = [merge(Dict{String,Any}("level" => label),
+                   _topology_counts(level_nodes[label], level_edges[label]))
+             for label in sort!(collect(keys(level_nodes)))]
+
+    zone_sets = sort!(_galvanic_zones(net), by=minimum)
+    zone_by_bus = Dict(bus => i for (i, zone) in enumerate(zone_sets) for bus in zone)
+    zone_edges = [typeof(edges)() for _ in zone_sets]
+    incident = [Set{String}() for _ in zone_sets]
+    for edge in edges
+        a = zone_by_bus[edge.from]; b = zone_by_bus[edge.to]
+        if a == b
+            push!(zone_edges[a], edge)
+        else
+            edge.continuous && continue  # zone construction must keep these together
+            transformer_id = edge.kind == "transformer:n_winding" ? first(rsplit(edge.id, ":"; limit=2)) : edge.id
+            push!(incident[a], "$(edge.kind):$transformer_id")
+            push!(incident[b], "$(edge.kind):$transformer_id")
+        end
+    end
+    zones = Dict{String,Any}[]
+    for (i, zone) in enumerate(zone_sets)
+        labels = sort!(unique(get(level_by_bus, b, "unassigned") for b in zone))
+        push!(zones, merge(Dict{String,Any}(
+            "anchor" => minimum(zone), "voltage_levels" => labels,
+            "n_incident_isolating_transformers" => length(incident[i])),
+            _topology_counts(sort!(collect(zone)), zone_edges[i])))
+    end
+    whole = _topology_counts(buses, edges)
+    zone_rank = sum(z["cycle_rank"] for z in zones; init=0)
+    whole["transformer_mediated_cycle_rank"] = whole["cycle_rank"] - zone_rank
+
+    # A deterministic spanning forest localizes each excess physical branch.
+    # A closing branch is only a graph witness; its record is not necessarily
+    # defective and may be an intentional parallel circuit or tie.
+    parent = collect(1:length(buses))
+    index = Dict(bus => i for (i, bus) in enumerate(buses))
+    function root(i)
+        while parent[i] != i
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        end
+        i
+    end
+    closing = Dict{String,Any}[]
+    for edge in sort(edges, by=e -> (e.kind, e.id, e.from, e.to))
+        a = root(index[edge.from]); b = root(index[edge.to])
+        if a == b
+            length(closing) < 10 && push!(closing, Dict{String,Any}(
+                "kind" => edge.kind, "component_id" => edge.id,
+                "bus_from" => edge.from, "bus_to" => edge.to))
+        else
+            parent[b] = a
+        end
+    end
+
+    # This compares declarations only. Identical fields do not establish that
+    # two parallel records refer to the same physical asset.
+    line_groups = Dict{Tuple{String,String},Vector{Tuple{String,Any,Bool}}}()
+    for (id, line) in get(net, "line", Dict())
+        a = get(line, "bus_from", nothing); b = get(line, "bus_to", nothing)
+        (a isa AbstractString && b isa AbstractString && a != b && a in busset && b in busset) || continue
+        pair = minmax(String(a), String(b))
+        push!(get!(line_groups, pair, Tuple{String,Any,Bool}[]), (string(id), line, a == pair[1]))
+    end
+    classes = Dict(k => 0 for k in ("incomplete_terminal_map", "terminal_map_disagreement",
+                                      "same_declared_fields", "different_declared_fields"))
+    witnesses = Dict{String,Any}[]
+    n_groups = 0
+    for pair in sort!(collect(keys(line_groups)))
+        members = line_groups[pair]
+        length(members) < 2 && continue
+        n_groups += 1
+        sort!(members, by=first)
+        maps = Any[]; fields = Any[]
+        for (_, line, forward) in members
+            from_map = get(line, forward ? "terminal_map_from" : "terminal_map_to", nothing)
+            to_map = get(line, forward ? "terminal_map_to" : "terminal_map_from", nothing)
+            push!(maps, (from_map, to_map))
+            push!(fields, Dict(k => v for (k, v) in line if
+                               !(k in ("bus_from", "bus_to", "terminal_map_from", "terminal_map_to", "meta"))))
+        end
+        class = any(m -> !(m[1] isa AbstractVector && m[2] isa AbstractVector) ||
+                         isempty(m[1]) || isempty(m[2]), maps) ? "incomplete_terminal_map" :
+                !all(m -> isequal(m, maps[1]), maps) ? "terminal_map_disagreement" :
+                all(f -> isequal(f, fields[1]), fields) ? "same_declared_fields" :
+                "different_declared_fields"
+        classes[class] += 1
+        if count(w -> w["classification"] == class, witnesses) < 5
+            push!(witnesses, Dict{String,Any}(
+                "bus_pair" => collect(pair), "line_ids" => [m[1] for m in members],
+                "classification" => class,
+                "voltage_level" => get(level_by_bus, pair[1], "unassigned")))
+        end
+    end
+    Dict{String,Any}(
+        "whole_network" => whole, "voltage_tiers" => tiers, "galvanic_zones" => zones,
+        "cycle_closing_branches" => closing,
+        "conductor_paths" => _conductor_paths(net, voltage_levels),
+        "n_cross_tier_edges" => cross_level, "n_skipped_branches" => skipped,
+        "parallel_lines" => Dict{String,Any}(
+            "n_groups" => n_groups, "classification_counts" => classes,
+            "witnesses" => witnesses, "witnesses_per_class_limit" => 5))
 end
 
 """

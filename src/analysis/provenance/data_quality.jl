@@ -508,7 +508,10 @@ function _xfmr_pu(t::Dict{String,Any}, subtype::String)
     (s === nothing || vf === nothing || vt === nothing) && return nothing
     s, vf, vt = Float64(s), Float64(vf), Float64(vt)
     (s > 0 && vf > 0 && vt > 0) || return nothing
-    if subtype in ("wye_delta", "delta_wye")
+    if subtype in ("wye_delta", "delta_wye") &&
+            (haskey(t, "r_series") || haskey(t, "x_series"))
+        # Legacy lumped leakage is stated on the wye winding. Parsed current
+        # models migrate it to explicit winding-local from/to fields below.
         v_wye = subtype == "wye_delta" ? vf : vt
         zb = v_wye^2 / s
         r = haskey(t, "r_series") ? Float64(t["r_series"]) / zb : nothing

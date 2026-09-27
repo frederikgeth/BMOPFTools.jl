@@ -1,0 +1,39 @@
+{
+  "name": "parallel_transformer_load_witness",
+  "bus": {
+    "mv": {"terminal_names": ["1", "n"]},
+    "lv": {"terminal_names": ["1", "n"]}
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "mv", "terminal_map": ["1"],
+      "v_magnitude": [1000.0], "v_angle": [0.0]
+    }
+  },
+  "transformer": {
+    "single_phase": {
+      "t1": {
+        "bus_from": "mv", "bus_to": "lv",
+        "terminal_map_from": ["1", "n"],
+        "terminal_map_to": ["1", "n"],
+        "v_nom_from": 1000.0, "v_nom_to": 230.0,
+        "s_rating": 100.0, "r_series_from": 1.0, "x_series_from": 1.0,
+        "r_series_to": 0.1, "x_series_to": 0.1
+      },
+      "t2": {
+        "bus_from": "mv", "bus_to": "lv",
+        "terminal_map_from": ["1", "n"],
+        "terminal_map_to": ["1", "n"],
+        "v_nom_from": 1000.0, "v_nom_to": 230.0,
+        "s_rating": 100.0, "r_series_from": 1.0, "x_series_from": 1.0,
+        "r_series_to": 0.1, "x_series_to": 0.1
+      }
+    }
+  },
+  "load": {
+    "load": {
+      "bus": "lv", "terminal_map": ["1", "n"],
+      "configuration": "SINGLE_PHASE", "p_nom": [100.0], "q_nom": [0.0]
+    }
+  }
+}

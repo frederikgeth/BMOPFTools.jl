@@ -11,7 +11,7 @@ the snapshot at `t_index` is materialised first.
 |---|---|---|
 | `:inventory` | [`inventory_analysis`](@ref) | component counts, totals (load P/Q, generation capacity), per-type breakdowns |
 | `:voltage_levels` | [`voltage_level_analysis`](@ref) | BFS voltage propagation from sources through transformer ratios; level clustering; transformer transitions; level-crossing violations |
-| `:connectivity` | [`connectivity_analysis`](@ref) | connected components, radial/meshed (physical branch count, parallel-aware), degree statistics, tree depth, dangling buses, galvanic-zone phase topology (split-phase / SWER tagging) |
+| `:connectivity` | [`connectivity_analysis`](@ref) | connected components, radial/meshed (physical branch count, parallel-aware), degree statistics, tree depth, dangling buses, galvanic-zone phase topology (split-phase / SWER tagging), voltage-tier and zone cycle-rank decomposition, parallel-line declarations |
 | `:diversity` | [`diversity_analysis`](@ref) | parameter spread per category (CV, duplicate tuples), phase imbalance, symmetry score |
 | `:operational` | [`operational_analysis`](@ref) | total load/generation, transformer utilisation at nominal load (downstream BFS), line thermal-limit coverage |
 | `:load_models` | [`load_model_analysis`](@ref) | load model breakdown by type, voltage-dependent load count, exponential loads that are ZIP-equivalent (integer exponents), nonlinear loads on buses without a lower voltage bound |
@@ -25,10 +25,97 @@ the snapshot at `t_index` is materialised first.
 | `:spec` | [`spec_conformance_check`](@ref) | TF-spec rules the JSON Schema cannot express: single source, configuration/arity, transformer map arities, terminal types, matrix storage |
 | `:benchmark` | [`benchmark_readiness_check`](@ref) | objective well-posedness, slack-only detection, bound/limit coverage, **augmentation suggestions** |
 
-Note on transformer utilisation: the downstream-load estimate excludes only
-the transformer under analysis; per-phase-banked units (parallel siblings on
-the same bus pair) defeat the radial assumption and the figure becomes an
-upper bound.
+Note on transformer utilisation: the downstream-load estimate excludes the
+transformer under analysis. If its from side remains reachable from its to
+side, the figure is labeled `upper_bound` and does not raise
+`W.OPS.XFMR_OVERLOADED`; parallel siblings and other alternate paths defeat
+the radial attribution. Otherwise `estimate_status` is `radial_component`.
+
+### Topology structure
+
+`report.results[:connectivity]["structure"]` has `whole_network`,
+`voltage_tiers`, `galvanic_zones`, and `parallel_lines`. Every graph count
+includes declared buses, including isolated buses. Closed switches, lines,
+and transformer winding branches are physical edges; open switches are absent.
+Invalid or self-loop branches are excluded and counted in
+`n_skipped_branches`. A zone is a connected component formed by lines, closed
+switches, and galvanically continuous transformers; isolating transformers
+connect zones.
+
+For each graph, `cycle_rank = n_physical_edges - n_buses + n_components` and
+`cycle_rank = simple_cycle_rank + parallel_excess`. The simple graph retains
+one edge per bus pair. `transformer_mediated_cycle_rank` is the whole-network
+cycle rank less the sum of within-zone cycle ranks. A tier contains only edges
+whose endpoints have the same source-propagated voltage-level label;
+`n_cross_tier_edges` counts the excluded branches. Unassigned buses form an
+explicit `unassigned` tier.
+
+Parallel-line groups compare endpoint-normalized terminal maps first, then
+the remaining declared line model fields (`meta` is excluded). Classes are
+`incomplete_terminal_map`, `terminal_map_disagreement`,
+`same_declared_fields`, and `different_declared_fields`. The JSON result has
+all tier and zone counts and up to five deterministic witnesses per class. Matching
+fields do not establish duplicate physical assets; cycles and parallel lines
+are descriptive evidence, not automatic data-quality Findings.
+
+The structure result uses these stable groups:
+
+| Key | Contents |
+|---|---|
+| `whole_network` | Bus/component/edge counts; physical and simple cycle ranks, parallel excess, and transformer-mediated cycle rank. |
+| `voltage_tiers` | One count record per source-propagated voltage label, including `unassigned` where needed. |
+| `galvanic_zones` | One record per zone with its minimum-bus `anchor`, voltage labels, cycle counts, and number of incident isolating transformers. |
+| `parallel_lines` | Group count, classification counts, and up to five sorted bus-pair/member-ID witnesses per class. |
+| `cycle_closing_branches` | Up to ten deterministic spanning-forest closing branches, with member IDs and endpoints; these are graph witnesses, not defect assignments. |
+| `conductor_paths` | Terminal-level components through mapped lines and closed switches, with voltage-tier counts and bounded load-terminal witnesses. Transformer winding terminals and voltage-source terminals act as boundary ports; transformer conversion is not inferred. |
+| `n_cross_tier_edges`, `n_skipped_branches` | Edges omitted from within-tier graphs and invalid/self-loop branches omitted from graph counts. |
+
+### Conditional geographic evidence
+
+`results[:connectivity]["spatial"]` appears only when at least one bus has
+`longitude`, `latitude`, `x`, or `y`. It reports coordinate and route coverage,
+line-length distributions by voltage tier, and bounded long-line witnesses.
+The long-line ranking compares each section with its own tier's 99th-percentile
+declared length; a high rank is an inspection cue, not an error threshold.
+Metre-based line chord, route endpoint, and transformer separation measurements
+are computed only when network metadata declares WGS84 (`crs`,
+`coordinate_system`, or `coordinate_reference_system`) or a matching
+`WGS84_geodesic_polyline` route provides coordinate-frame evidence. The latter
+is explicitly labeled as route evidence, not a network-wide CRS declaration.
+Out-of-range and incomplete coordinate pairs are counted but excluded from
+geodesic calculations.
+
+The coordinate loader copies OpenDSS `x,y` into fields named
+`longitude,latitude` without transforming or verifying them. Plausible numeric
+values therefore do not establish a geographic CRS. When the frame remains
+unspecified or is declared as another CRS, spatial distances are marked
+inapplicable; line-length statistics remain available. The result makes no
+automatic asset-error claim when the CRS is unspecified. With a network-level
+WGS84 declaration, out-of-range bus coordinates and sufficiently large line
+chord or route-endpoint contradictions raise `W.GEO.*` Findings. A line's
+equivalent electrical length can differ from its physical route, so these
+warnings call for source-data review rather than automatic repair.
+Route `length_m` and declared line `length` may come from the same upstream
+geometry calculation, so their agreement is an internal-consistency check,
+not independent confirmation of the physical route.
+
+The spatial result groups fields as follows:
+
+| Key | Contents |
+|---|---|
+| `coordinate_reference` | `status`, declared CRS if any, caution text, matching WGS84 route count, and whether geodesic distances apply. Status is `declared_wgs84`, `wgs84_route_evidence`, `declared_other`, or `unspecified`. |
+| `coordinate_coverage` | Counts of complete longitude/latitude pairs, x/y fields, partial and invalid pairs, and pairs outside WGS84 numeric ranges. |
+| `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
+| `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
+| `transformers` | Bus separation quantiles and bounded farthest-pair witnesses. |
+
+Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
+Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length
+differences use `max(5 m, 10% of declared length)`; the line/chord lower-bound
+check uses `max(5 m, 10% of chord)`. A mismatch count is JSON `null` when no
+eligible comparison was made, rather than zero. Geographic Findings require
+an explicit WGS84 declaration; matching route evidence alone supports
+measurements but does not assert the CRS of every bus.
 
 ## The report
 

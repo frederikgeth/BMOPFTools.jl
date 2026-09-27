@@ -1,0 +1,22 @@
+{
+  "name": "delta_wye_secondary_leakage_witness",
+  "bus": {
+    "mv": {"terminal_names": ["1", "2", "3"]},
+    "lv": {"terminal_names": ["1", "2", "3", "n"]}
+  },
+  "transformer": {
+    "delta_wye": {
+      "tx": {
+        "bus_from": "mv",
+        "bus_to": "lv",
+        "terminal_map_from": ["1", "2", "3"],
+        "terminal_map_to": ["1", "2", "3", "n"],
+        "v_nom_from": 11000.0,
+        "v_nom_to": 400.0,
+        "s_rating": 100000.0,
+        "r_series": 0.016,
+        "x_series": 0.06196773353931867
+      }
+    }
+  }
+}
