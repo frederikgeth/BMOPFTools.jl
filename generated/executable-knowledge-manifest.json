@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "20cc02e6ca816ad079c4893f188eb7ea0e24056546001ecbf5f1b3e8353f89bd",
+  "corpus_sha256": "04d256af8f58261426beffaad7180d8c36e029853ad9ed35f2606a33b6b00e89",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -62,7 +62,7 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "07aeb956fab006b28f7d01422962dc4fd12f7565f15edf2612ad891ff9224f24"
+      "sha256": "5e89288a560dcbb2c30512e574e35860efb1dac821f6f805bed8a212a686600e"
     },
     {
       "path": "docs/src/dev/opf_engine.md",
@@ -190,7 +190,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "d63a39283ece2007a9a5db24d398710f53733c221beddc02941ccb45dfad23a6"
+      "sha256": "439ca48dcebc18c8b96e1706aeacf541dcfdf15eccb9aa8b33ed6be0d0d48954"
     },
     {
       "path": "recipes/README.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "951c93a3a5a276bbff1b0138e923c73d79def124a70edb7247265b0c680dcedb"
+      "sha256": "4ce675a12430f59ef2f566e795931273e615fbca43de6354f2da093974f4df83"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -310,7 +310,7 @@
     },
     {
       "path": "src/analysis/connectivity.jl",
-      "sha256": "4b8d7428d47f6e300c544df79aa509de97bb827b8f5c338011be97ecf2f446e3"
+      "sha256": "8bf408f2a9d513317e613a155fc49909b15d1ce55eb1bd00fb19a99f98bbd9d7"
     },
     {
       "path": "src/analysis/operational.jl",
@@ -323,6 +323,10 @@
     {
       "path": "src/analysis/spatial.jl",
       "sha256": "babf6ebde3a3d6f0ece42db8140a0c36fecd5e80febca42951de7e923672514f"
+    },
+    {
+      "path": "src/analysis/switch_scenarios.jl",
+      "sha256": "b2e793a56d0454569941d0098a254a19955cf57dc6bb1b3a56a64813efbf8066"
     },
     {
       "path": "src/analysis/voltage_levels.jl",
@@ -414,11 +418,15 @@
     },
     {
       "path": "src/report/render_markdown.jl",
-      "sha256": "2dfcdecb1994c1b9eefc416a5fecd0880d90faa7b05dd710defc6ebc4e73dec7"
+      "sha256": "5ae110d664b58b4b9de30dab4f29a8dd6cf51cbdba00abdda83eb6968b2a64e2"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
       "sha256": "efdb670a1c21fd97b7f6baaefce9b431bf4bd8bf4071809f17f3e111c1faba49"
+    },
+    {
+      "path": "src/report/render_terminal.jl",
+      "sha256": "99b450ad1ac74b56913ecf0ed96688cadc6ef03e32e4eabcf66ac634a675dff3"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -963,6 +971,10 @@
     {
       "path": "test/spatial_analysis_tests.jl",
       "sha256": "ed542f22ff84d77b157a63b5d9d3713c7f87bb9a0502df2c216fd6164a033267"
+    },
+    {
+      "path": "test/switch_scenario_tests.jl",
+      "sha256": "c61aa0212ed661eabfafb70fb26a294b5b930d2ce5d300298dbf561dddfc0c15"
     },
     {
       "path": "test/topology_structure_tests.jl",

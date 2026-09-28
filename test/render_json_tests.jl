@@ -41,6 +41,7 @@ using JSON3
         @test structure.parallel_lines.n_groups isa Integer
         @test structure.galvanic_zones isa AbstractVector
         @test !haskey(d.results.connectivity, :spatial)
+        @test d.results.connectivity.switch_scenarios.status == "inapplicable"
 
         # findings serialized as an array of typed records
         @test d.findings isa AbstractVector
@@ -54,6 +55,44 @@ using JSON3
         end
 
         rm(path; force=true)
+    end
+
+    @testset "switch scenarios render in JSON, Markdown, and terminal" begin
+        switched = deepcopy(net)
+        switched["switch"] = Dict("tie" => Dict{String,Any}(
+            "bus_from" => "supply", "bus_to" => "primary", "open_switch" => true,
+            "terminal_map_from" => ["1", "2", "3", "n"],
+            "terminal_map_to" => ["1", "2", "3", "n"]))
+        switched_report = analyze(switched)
+        json_io = IOBuffer()
+        BMOPFTools.render_json(switched_report, json_io)
+        decoded = JSON3.read(String(take!(json_io)))
+        @test decoded.results.connectivity.switch_scenarios.status == "assessed"
+        @test decoded.results.connectivity.switch_scenarios.switch_counts.n_declared_open == 1
+        @test decoded.results.connectivity.switch_scenarios.transition_counts.classifications.parallel_closure == 1
+        @test decoded.results.connectivity.switch_scenarios.conductor.status == "assessed"
+        @test decoded.results.connectivity.switch_scenarios.conductor.transition_counts.classifications.path_merge == 1
+        md_io = IOBuffer()
+        BMOPFTools.render_markdown(switched_report, md_io)
+        md = String(take!(md_io))
+        @test occursin("Switch-state bus graph", md)
+        @test occursin("Switch-state mapped conductor paths", md)
+        terminal_io = IOBuffer()
+        BMOPFTools.render_terminal(switched_report, terminal_io)
+        terminal_text = String(take!(terminal_io))
+        @test occursin("Switch-state bus graph: assessed", terminal_text)
+        @test occursin("Switch-state conductor paths: assessed", terminal_text)
+
+        incomplete = deepcopy(switched)
+        delete!(incomplete["switch"]["tie"], "terminal_map_to")
+        incomplete_report = analyze(incomplete)
+        @test incomplete_report.results[:connectivity]["switch_scenarios"]["status"] == "assessed"
+        @test incomplete_report.results[:connectivity]["switch_scenarios"]["conductor"]["status"] ==
+            "inapplicable"
+        incomplete_md = IOBuffer()
+        BMOPFTools.render_markdown(incomplete_report, incomplete_md)
+        @test occursin("Incomplete branch maps: switch:tie",
+                       String(take!(incomplete_md)))
     end
 
     @testset "sanitizes non-JSON-native values to strings" begin

@@ -15,8 +15,10 @@ function connectivity_analysis(net::Dict{String,Any},
     buses = get(net, "bus", Dict())
     n     = length(buses)
     if n == 0
+        inventory = _physical_branch_inventory(net)
         result["n_components"] = 0
-        result["structure"] = _topology_structure(net, Dict{String,Any}())
+        result["structure"] = _topology_structure(net, Dict{String,Any}(), inventory)
+        result["switch_scenarios"] = _switch_scenarios(net, inventory)
         return result
     end
 
@@ -244,7 +246,9 @@ function connectivity_analysis(net::Dict{String,Any},
 
     result["supply_phase_consistency"] = _check_supply_phase_consistency(net, findings, zone_class)
     levels = voltage_levels === nothing ? voltage_level_analysis(net, Finding[]) : voltage_levels
-    result["structure"] = _topology_structure(net, levels)
+    inventory = _physical_branch_inventory(net)
+    result["structure"] = _topology_structure(net, levels, inventory)
+    result["switch_scenarios"] = _switch_scenarios(net, inventory)
     structure = result["structure"]
     if !is_radial
         whole = structure["whole_network"]
@@ -265,7 +269,7 @@ end
 
 # Physical cycle rank is E - V + C. Replacing each bus pair with one edge
 # separates the rank into simple-graph cycles and excess parallel branches.
-function _topology_counts(nodes::Vector{String}, edges)::Dict{String,Any}
+function _topology_counts(nodes::Vector, edges)::Dict{String,Any}
     indices = Dict(b => i for (i, b) in enumerate(nodes))
     graph = SimpleGraph(length(nodes))
     physical = 0
@@ -289,79 +293,21 @@ end
 # deliberately treats every transformer winding as a boundary port: winding
 # coupling and phase conversion cannot be inferred from matching terminal names.
 function _conductor_paths(net::Dict{String,Any}, voltage_levels::Dict{String,Any})::Dict{String,Any}
-    buses = get(net, "bus", Dict())
-    nodes = Tuple{String,String}[]
-    for bus in sort!(collect(String.(keys(buses))))
-        record = buses[bus]
-        record isa AbstractDict || continue
-        terms = get(record, "terminal_names", nothing)
-        terms isa AbstractVector || continue
-        for term in sort!(unique(string.(terms)))
-            push!(nodes, (bus, term))
-        end
-    end
+    inventory = _mapped_conductor_inventory(net)
+    nodes = inventory.nodes
     isempty(nodes) && return Dict{String,Any}("status" => "inapplicable",
         "reason" => "No bus terminal_names are declared.", "n_bus_terminals" => 0)
-    index = Dict(node => i for (i, node) in enumerate(nodes))
+    index = inventory.index
     graph = SimpleGraph(length(nodes))
-    mapped = 0; skipped = 0
-    for kind in ("line", "switch")
-        for (_, branch) in get(net, kind, Dict())
-            branch isa AbstractDict || continue
-            kind == "switch" && get(branch, "open_switch", false) && continue
-            a = get(branch, "bus_from", nothing); b = get(branch, "bus_to", nothing)
-            from = get(branch, "terminal_map_from", nothing)
-            to = get(branch, "terminal_map_to", nothing)
-            if !(a isa AbstractString && b isa AbstractString &&
-                 from isa AbstractVector && to isa AbstractVector &&
-                 !isempty(from) && length(from) == length(to) &&
-                 all(i -> haskey(index, (String(a), string(from[i]))) &&
-                          haskey(index, (String(b), string(to[i]))), eachindex(from)))
-                skipped += 1
-                continue
-            end
-            for i in eachindex(from)
-                add_edge!(graph, index[(String(a), string(from[i]))],
-                           index[(String(b), string(to[i]))])
-                mapped += 1
-            end
-        end
+    for edge in inventory.declared
+        add_edge!(graph, index[edge.from], index[edge.to])
     end
     components = connected_components(graph)
     component_of = zeros(Int, length(nodes))
     for (ci, component) in enumerate(components), node in component
         component_of[node] = ci
     end
-    boundary = Set{Int}()
-    function mark_port(bus, terminals)
-        (bus isa AbstractString && terminals isa AbstractVector) || return
-        for term in terminals
-            i = get(index, (String(bus), string(term)), 0)
-            i == 0 || push!(boundary, component_of[i])
-        end
-    end
-    for source in values(get(net, "voltage_source", Dict()))
-        source isa AbstractDict || continue
-        mark_port(get(source, "bus", nothing), get(source, "terminal_map", nothing))
-    end
-    transformers = get(net, "transformer", Dict())
-    for subtype in TRANSFORMER_SUBTYPES
-        sub = get(transformers, subtype, nothing)
-        sub isa AbstractDict || continue
-        for transformer in values(sub)
-            transformer isa AbstractDict || continue
-            if subtype in WINDING_LIST_SUBTYPES
-                for winding in _nw_windings(transformer)
-                    mark_port(winding.bus, winding.terminal_map)
-                end
-            else
-                mark_port(get(transformer, "bus_from", nothing),
-                          get(transformer, "terminal_map_from", nothing))
-                mark_port(get(transformer, "bus_to", nothing),
-                          get(transformer, "terminal_map_to", nothing))
-            end
-        end
-    end
+    boundary = Set(component_of[index[node]] for node in inventory.boundary_nodes)
     level_by_bus = Dict{String,String}()
     for (label, level) in get(voltage_levels, "levels", Dict())
         for bus in get(level, "buses", String[])
@@ -393,8 +339,10 @@ function _conductor_paths(net::Dict{String,Any}, voltage_levels::Dict{String,Any
     Dict{String,Any}(
         "status" => isempty(boundary) ? "indeterminate" : "assessed",
         "scope" => "mapped_line_and_closed_switch_conductors_with_transformer_ports_as_boundaries",
-        "n_bus_terminals" => length(nodes), "n_mapped_conductor_edges" => mapped,
-        "n_skipped_branches" => skipped, "n_path_components" => length(components),
+        "n_bus_terminals" => length(nodes),
+        "n_mapped_conductor_edges" => length(inventory.declared),
+        "n_skipped_branches" => inventory.skipped_declared,
+        "n_path_components" => length(components),
         "n_boundary_components" => length(boundary),
         "path_components_by_voltage_tier" => Dict(k => length(v) for (k, v) in per_tier),
         "n_load_terminals_without_boundary" => isempty(boundary) ? nothing :
@@ -402,45 +350,12 @@ function _conductor_paths(net::Dict{String,Any}, voltage_levels::Dict{String,Any
         "load_terminal_witnesses" => isempty(boundary) ? Dict{String,Any}[] : load_candidates)
 end
 
-function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,Any})::Dict{String,Any}
-    buses = sort!(String[string(bus) for bus in keys(get(net, "bus", Dict()))])
+function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,Any},
+                             inventory=_physical_branch_inventory(net))::Dict{String,Any}
+    buses = inventory.buses
     busset = Set(buses)
-    edges = NamedTuple{(:kind, :id, :from, :to, :continuous),Tuple{String,String,String,String,Bool}}[]
-    skipped = 0
-    function add_branch(kind, id, from, to, continuous)
-        if !(from isa AbstractString && to isa AbstractString && from != to &&
-             from in busset && to in busset)
-            skipped += 1
-            return
-        end
-        push!(edges, (kind=kind, id=string(id), from=String(from), to=String(to),
-                      continuous=continuous))
-    end
-    for (id, line) in get(net, "line", Dict())
-        add_branch("line", id, get(line, "bus_from", nothing), get(line, "bus_to", nothing), true)
-    end
-    for (id, sw) in get(net, "switch", Dict())
-        get(sw, "open_switch", false) && continue
-        add_branch("switch", id, get(sw, "bus_from", nothing), get(sw, "bus_to", nothing), true)
-    end
-    transformers = get(net, "transformer", Dict())
-    for subtype in TRANSFORMER_SUBTYPES
-        subtype in WINDING_LIST_SUBTYPES && continue
-        sub = get(transformers, subtype, nothing)
-        sub isa Dict || continue
-        for (id, t) in sub
-            add_branch("transformer:$subtype", id, get(t, "bus_from", nothing),
-                       get(t, "bus_to", nothing), subtype in GALVANIC_CONTINUOUS_SUBTYPES)
-        end
-    end
-    for (id, t) in get(transformers, "n_winding", Dict())
-        windings = _nw_windings(t)
-        isempty(windings) && continue
-        for j in 2:length(windings)
-            add_branch("transformer:n_winding", "$id:$j", windings[1].bus,
-                       windings[j].bus, false)
-        end
-    end
+    edges = inventory.declared
+    skipped = inventory.skipped
 
     level_by_bus = Dict{String,String}()
     for (label, level) in get(voltage_levels, "levels", Dict())
