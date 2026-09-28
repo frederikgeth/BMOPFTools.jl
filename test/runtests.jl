@@ -29,6 +29,8 @@ const _HAS_IPOPT = _try_using(:Ipopt)
 const _HAS_JUMP_IPOPT = _HAS_JUMP && _HAS_IPOPT
 const _HAS_GUROBI = _HAS_JUMP && _try_using(:Gurobi)
 const _HAS_MADNLP = _HAS_JUMP && _try_using(:MadNLP)
+const _HAS_EXAMODELS = _HAS_JUMP && _try_using(:ExaModels) &&
+                       _try_using(:NLPModelsIpopt)
 _HAS_JUMP && @assert !isnothing(Base.get_extension(BMOPFTools, :BMOPFOpfExt))
 
 # Remove the transformer nameplate power limit (`s_rating`) from a network so a
@@ -3825,6 +3827,16 @@ include("mcp_execution_tests.jl")
             @test_skip "MadNLP.jl and JuMP are required for MadNLP engine tests"
         else
             include("madnlp_engine_tests.jl")
+        end
+    end
+
+    # ExaModels is an optional JuMP backend. Its NLPModels-compatible solver
+    # is likewise opt-in; neither package is a declared BMOPFTools dependency.
+    @testset "ExaModels OPF extension" begin
+        if !_HAS_EXAMODELS
+            @test_skip "ExaModels.jl, NLPModelsIpopt.jl, and JuMP are required for ExaModels engine tests"
+        else
+            include("examodels_engine_tests.jl")
         end
     end
 

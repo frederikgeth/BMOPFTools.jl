@@ -1,0 +1,12 @@
+[deps]
+BMOPFTools = "5f9a3b62-8f63-4a39-b67b-af9b51e6a7c3"
+ExaModels = "1037b233-b668-4ce9-9b63-f9f681f55dd2"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+NLPModelsIpopt = "f4238b75-b362-5c4c-b852-0801c9a21d71"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+ExaModels = "0.12"
+JuMP = "1.29.4"
+NLPModelsIpopt = "0.11"
+julia = "1.10"

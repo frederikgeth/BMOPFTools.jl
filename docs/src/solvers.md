@@ -7,17 +7,20 @@ optimizer to [`solve_opf`](@ref), [`solve_pf`](@ref), or
 network physics, objective, units, or result schema; it changes how the
 mathematical program is searched and what solver status is reported.
 
-This page covers the three solver paths currently supported and tested with
-the engine:
+This page covers three direct solver paths and one JuMP-to-NLPModels path
+currently tested with the engine:
 
-| Solver | Julia package | Best first use | Important qualification |
+| Path | Julia package | Best first use | Important qualification |
 |:--|:--|:--|:--|
 | Ipopt | [`Ipopt.jl`](https://github.com/jump-dev/Ipopt.jl) | The reference solve and the broadest nonlinear model coverage | Local nonlinear optimization; a successful solve is a local result. |
 | MadNLP | [`MadNLP.jl`](https://github.com/MadNLP/MadNLP.jl) | An alternative local NLP implementation, especially when experimenting with sparse linear algebra or accelerator-backed extensions | Local nonlinear optimization; solver options and defaults differ from Ipopt. |
+| ExaModels with NLPModelsIpopt | [`ExaModels.jl`](https://github.com/madsuite-org/ExaModels.jl), [`NLPModelsIpopt.jl`](https://github.com/JuliaSmoothOptimizers/NLPModelsIpopt.jl) | Check the engine through ExaModels' JuMP-to-ExaModel interface | ExaModels is a modelling/derivative path; NLPModelsIpopt still runs Ipopt. Only the focused IVR-EN engine case described below is verified here. |
 | Gurobi | [`Gurobi.jl`](https://github.com/jump-dev/Gurobi.jl) | Cross-checks and workflows that need Gurobi, for the quadratic-compatible IVR-EN subset | Commercial software and license required; not every BMOPFTools nonlinear feature is Gurobi-compatible. |
 
 Ipopt and MadNLP are local nonlinear-programming solvers in the same broad
-family of interior-point methods. Gurobi should be thought of here as the
+family of interior-point methods. ExaModels translates a JuMP model to an
+ExaModel and passes it to an NLPModels-compatible solver; using NLPModelsIpopt
+does not give an independent numerical solver from Ipopt. Gurobi is the
 quadratic/nonconvex path through the engine: it is useful for the part of the
 IVR-EN model that JuMP can represent as affine and quadratic expressions, but
 it is not a drop-in replacement for every smooth nonlinear load or control
@@ -37,7 +40,8 @@ the ones you need:
 
 ```julia
 using Pkg
-Pkg.add(["JuMP", "Ipopt"])   # add "MadNLP" and/or "Gurobi" as needed
+Pkg.add(["JuMP", "Ipopt"])   # add "MadNLP" or "Gurobi" as needed
+# For the optional ExaModels path, add both "ExaModels" and "NLPModelsIpopt".
 ```
 
 Gurobi.jl also needs a usable Gurobi installation/license. The Julia package
@@ -58,11 +62,23 @@ and the [Gurobi license documentation](https://www.gurobi.com/solutions/licensin
     Pkg.add("Gurobi")
     ```
 
+!!! note "ExaModels is not a declared test dependency"
+    Neither ExaModels nor NLPModelsIpopt is in BMOPFTools' `Project.toml` or
+    `test/Project.toml`. The main suite skips `test/examodels_engine_tests.jl`
+    unless both are available. An isolated CI job runs the engine test with
+    dependencies declared in `test/examodels/Project.toml`. From a clone, run:
+
+    ```sh
+    julia --project=test/examodels -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+    julia --project=test/examodels test/examodels/runtests.jl
+    ```
+
 Load the solver package whose optimizer you pass:
 
 ```julia
 using BMOPFTools, JuMP, Ipopt
 # or: using BMOPFTools, JuMP, MadNLP
+# or: using BMOPFTools, JuMP; import ExaModels, NLPModelsIpopt
 # or: using BMOPFTools, JuMP, Gurobi
 ```
 
@@ -109,8 +125,10 @@ they are set. Attribute names are solver-specific: `OutputFlag` is a Gurobi
 parameter, while `print_level` is an Ipopt or MadNLP option. Do not assume that
 an option with a similar name has the same meaning across solvers.
 
-One caveat: `verbose = false` (the default) calls `JuMP.set_silent`, and a
-solver is free to act on that later than the raw attributes you pass. MadNLP,
+One caveat: `verbose = false` (the default) calls `JuMP.set_silent` only when
+the optimizer supports MOI's `Silent` attribute. ExaModels 0.12 does not, so
+its underlying solver can still print output. A solver that does support
+`Silent` is free to act on it later than the raw attributes you pass. MadNLP,
 for instance, overwrites `print_level` with `MadNLP.ERROR` inside `optimize!`
 whenever the model is silent, so a `print_level` in `solver_options` only takes
 effect under `verbose = true`.
@@ -126,7 +144,8 @@ validation = profile_solution(net, result)
 render_solution(validation, stdout)
 ```
 
-Ipopt and MadNLP commonly report `"LOCALLY_SOLVED"`; Gurobi may report
+Ipopt, MadNLP, and ExaModels with NLPModelsIpopt commonly report
+`"LOCALLY_SOLVED"`; Gurobi may report
 `"OPTIMAL"` for a supported quadratic model. These statuses are not
 interchangeable claims about global optimality. Read the solver status together
 with residuals, bounds, and the independent checks in
@@ -255,6 +274,32 @@ result = solve_opf(net;
 
 The authoritative option names and supported linear-solver types are in the
 [MadNLP options reference](https://madsuite.org/MadNLP.jl/stable/options/).
+
+## ExaModels: a JuMP-to-NLPModels path
+
+[`ExaModels.Optimizer`](https://github.com/madsuite-org/ExaModels.jl) accepts
+an NLPModels-compatible solver as its first argument. Pass an optimizer
+factory to BMOPFTools so JuMP can construct a fresh model for each solve:
+
+```julia
+using BMOPFTools, JuMP
+import ExaModels, NLPModelsIpopt
+
+exa_optimizer = () -> ExaModels.Optimizer(NLPModelsIpopt.ipopt)
+result = solve_opf(net; optimizer = exa_optimizer)
+```
+
+The optional engine test exercises a nonlinear constant-power IVR-EN case
+through this path at ExaModels 0.12.0 and NLPModelsIpopt 0.11.3, checking the
+termination status and a known bus-voltage solution. It also exercises the
+staged `build_opf_model` path. This is a focused compatibility check, not a
+claim that every BMOPFTools device, control curve, or ExaModels backend has
+been verified. The underlying numerical solver in this example is Ipopt; use
+the direct MadNLP path for an independent solver implementation comparison.
+
+ExaModels 0.12 does not support MOI's `Silent` attribute. BMOPFTools leaves
+the optimizer's output setting alone when that attribute is unavailable, so
+`verbose=false` may still produce Ipopt output through this path.
 
 ## Gurobi: the quadratic-compatible local-NLP path
 
@@ -398,9 +443,11 @@ and MadNLP, while Gurobi uses `OutputFlag`.
 1. Start with Ipopt in per-unit coordinates and validate the solution.
 2. Run MadNLP on the same case when you want an independent local-NLP result
    or want to investigate linear-solver performance.
-3. Try Gurobi when the model is in the quadratic-compatible subset and a
+3. Try ExaModels with NLPModelsIpopt when you want to check the alternate
+   JuMP-to-ExaModel modelling and derivative path on a compatible case.
+4. Try Gurobi when the model is in the quadratic-compatible subset and a
    Gurobi solve is useful as a cross-check or part of your deployment stack.
-4. Compare objective, termination status, physical residuals, bound activity,
+5. Compare objective, termination status, physical residuals, bound activity,
    and runtime. Keep the solver name, package versions, options, coordinate
    system, and result validation with the benchmark record.
 
