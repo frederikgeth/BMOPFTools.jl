@@ -294,6 +294,16 @@ with the explicit optimizer-cache reset. These are numerical correctness
 tests, not performance measurements. Solver-specific options remain separate;
 see [MadNLP options](https://madsuite.org/MadNLP.jl/stable/options/).
 
+Gurobi and ExaModels are opt-in engine checks, not declared package or main-test
+dependencies. `test/runtests.jl` skips their focused files when the packages
+are absent. ExaModels has an isolated test environment and CI job with
+NLPModelsIpopt; its checks exercise both a public OPF solve and the staged
+build/solve path. See the
+[solver guide](../solvers.md) for the
+optimizer factory and the temporary-environment test command. The engine
+requests quiet output only when the chosen optimizer supports MOI's `Silent`
+attribute.
+
 ## Extending the engine without forking it
 
 The "not a model zoo" stance above is only tenable because the engine is

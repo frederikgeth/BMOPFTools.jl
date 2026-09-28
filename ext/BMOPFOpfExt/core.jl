@@ -2475,6 +2475,14 @@ function _add_voltage_and_bus_bounds!(ctx::OpfContext)
                                 constraint_context=ctx)
 end
 
+function _silence_if_supported!(model, verbose::Bool)
+    # JuMP-compatible optimizers need not implement MOI.Silent.
+    if !verbose && JuMP.MOI.supports(JuMP.backend(model), JuMP.MOI.Silent())
+        JuMP.set_silent(model)
+    end
+    return model
+end
+
 """
     _build_and_solve(net; optimizer, t_index, per_unit, s_base, build!, extract!,
                      configure!, verbose, solver_options, model_hook!,
@@ -2486,7 +2494,8 @@ optional post-solve hook to append problem-specific result keys. `configure!`
 is an optional hook to set solver attributes on the freshly created model.
 
 User-facing knobs threaded through from the public solve entry points:
-- `verbose`        — when `false` (default) the solver output is silenced.
+- `verbose`        — when `false` (default), request silence if the optimizer
+  supports MOI's `Silent` attribute; otherwise leave its output unchanged.
 - `solver_options` — iterable of `name => value` pairs applied as raw solver
   attributes *after* the problem's own `configure!`, so user options win.
 - `model_hook!`    — optional `hook!(ctx)` called after the standard `build!`
@@ -2522,7 +2531,7 @@ function _build_and_solve(net::Dict{String,Any};
         net, t_index, per_unit, s_base, scaling_policy)
 
     model = JuMP.Model(optimizer)
-    verbose || JuMP.set_silent(model)
+    _silence_if_supported!(model, verbose)
     configure! === nothing || configure!(model)
     for (name, value) in solver_options
         JuMP.set_attribute(model, string(name), value)
@@ -2989,7 +2998,7 @@ function BMOPFTools.initialize_opf_model(net::Dict{String,Any};
         net, t_index, per_unit, s_base, scaling_policy)
     if model === nothing
         model = JuMP.Model(optimizer)
-        verbose || JuMP.set_silent(model)
+        _silence_if_supported!(model, verbose)
     end
     effective_s_base = bases === nothing ? s_base : bases.s_base
     ctx = _new_context(model, working, bases, volt_var_watt_eps;
