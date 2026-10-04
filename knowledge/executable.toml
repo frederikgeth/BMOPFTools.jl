@@ -97,6 +97,9 @@ source_paths = [
   "src/knowledge/contracts.jl",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
+  "src/validation/spec_conformance.jl",
+  "test/neutral_only_terminal_map_tests.jl",
+  "test/data/neutral_only_link.json",
 ]
 
 [[finding]]

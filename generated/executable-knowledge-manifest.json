@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "486e8ebda8e3d415ef825a7abacd864e0fc5f18f61e5c863c315f86b80d172b1",
+  "corpus_sha256": "0edec598f4a0dcc279908d07c5d798f34d3071cd30333eef7ce20613988b6ba7",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "8d59777196dc0701180e6a8252967774ce9648afd717e027e08e20f2102b63c1"
+      "sha256": "df17c5fd72bf036a1f29c4c97fee68ee1ce69441585006f3ba557f0996007771"
     },
     {
       "path": "docs/src/objectives.md",
@@ -186,11 +186,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "83ae52e39f5e23c1f1cd48683e304438c3a015f49b1ffb824357d09348bbd263"
+      "sha256": "defc9d776b9cd2eae6ae51912db39ebc5cc3a2281334d8d03f8b4f8ee07092da"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "439ca48dcebc18c8b96e1706aeacf541dcfdf15eccb9aa8b33ed6be0d0d48954"
+      "sha256": "39804067c88c1129b96a42b3ea96c19f15079bc1f6e108aa68f40cbf8de60bb4"
     },
     {
       "path": "recipes/README.md",
@@ -414,7 +414,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "71b65eb23c4c14366e32ab9c45df6699efc68edb46801f66e0d1e3c17d03480c"
+      "sha256": "ca7cfc0e6f8b27ed6a69044b5e25946f47b170cd7d1a165397bce33d590ccf59"
     },
     {
       "path": "src/report/render_markdown.jl",
@@ -445,6 +445,10 @@
       "sha256": "dbc27b849f36f1fbaf34a8ce7def6c2e74a12da2278bcce3a4457153a9ba5ee1"
     },
     {
+      "path": "src/validation/spec_conformance.jl",
+      "sha256": "16a9faae5ebdfc5751b6ffab61f7785abd12d921193a57949b761d17d3630915"
+    },
+    {
       "path": "test/Project.toml",
       "sha256": "af7ecdc40b91822d771c7ee690ac7c0dbdbb8ba6ffe6e133d4ba876251dfc5a0"
     },
@@ -471,6 +475,10 @@
     {
       "path": "test/data/line_geometry/synthetic_ts.dss",
       "sha256": "48d6aa0d068484c7be7874357c808ea1a276d89c355ddefc2fe0d9c5f3fb0adb"
+    },
+    {
+      "path": "test/data/neutral_only_link.json",
+      "sha256": "0581f8a125cdf5da6ec1e869294692556705e6614512b4d723a309931d6957b0"
     },
     {
       "path": "test/data/parameter_updates/stale_evaluation.jl",
@@ -887,6 +895,10 @@
     {
       "path": "test/lineconstants_tests.jl",
       "sha256": "942160591680a18f55895e64fbbc7ebb7ae66c37877c5b9af3ff83a879161c3a"
+    },
+    {
+      "path": "test/neutral_only_terminal_map_tests.jl",
+      "sha256": "7d297db583ddf8eb4843a15d376bba2bc006e9663c7d513230311d7d0b76e2c0"
     },
     {
       "path": "test/operational_mesh_applicability_tests.jl",

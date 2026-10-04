@@ -22,6 +22,8 @@ Initial General release candidate. Registration has not yet been requested.
 - Verify line limits at both endpoints and signed branch-angle bounds; document
   and test the power-flow nameplate exception.
 - Separate exact and modeled Volt-watt controller compliance evidence.
+- Accept single-conductor metallic neutral-to-neutral lines and switches; retain
+  rejection of asymmetric neutral maps and neutral-only nodal devices.
 
 - Record the copyright holder's CC BY 4.0 grant for bundled fixtures; replace
   IEEE/Kersting geometry data with original synthetic overhead/CN/TS cases,

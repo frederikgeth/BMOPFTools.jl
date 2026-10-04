@@ -3782,6 +3782,7 @@ include("mcp_execution_tests.jl")
     # Phase relabeling — static TMAP detection (no solver) + gated OPF invariance
     # -----------------------------------------------------------------------
     include("phase_relabel_tests.jl")
+    include("neutral_only_terminal_map_tests.jl")
 
     # -----------------------------------------------------------------------
     # OPF extension — requires JuMP and Ipopt

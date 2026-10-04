@@ -1,0 +1,111 @@
+{
+  "name": "minimal explicit metallic neutral branch witness",
+  "bus": {
+    "a": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "perfectly_grounded_terminals": [
+        "4"
+      ]
+    },
+    "b": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "perfectly_grounded_terminals": []
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "a",
+      "terminal_map": [
+        "1",
+        "2",
+        "3"
+      ],
+      "v_magnitude": [
+        230.0,
+        230.0,
+        230.0
+      ],
+      "v_angle": [
+        0.0,
+        -2.0943951023931953,
+        2.0943951023931953
+      ]
+    }
+  },
+  "linecode": {
+    "phase": {
+      "R_series_1_1": 0.001,
+      "R_series_1_2": 0.0,
+      "R_series_2_1": 0.0,
+      "R_series_2_2": 0.001
+    },
+    "neutral": {
+      "R_series_1_1": 0.0005,
+      "X_series_1_1": 0.0003
+    }
+  },
+  "line": {
+    "phase": {
+      "bus_from": "a",
+      "bus_to": "b",
+      "terminal_map_from": [
+        "1",
+        "4"
+      ],
+      "terminal_map_to": [
+        "1",
+        "4"
+      ],
+      "linecode": "phase",
+      "length": 10.0
+    },
+    "neutral_link": {
+      "bus_from": "a",
+      "bus_to": "b",
+      "terminal_map_from": [
+        "4"
+      ],
+      "terminal_map_to": [
+        "4"
+      ],
+      "linecode": "neutral",
+      "length": 10.0
+    }
+  },
+  "load": {
+    "customer": {
+      "bus": "b",
+      "terminal_map": [
+        "1",
+        "4"
+      ],
+      "configuration": "SINGLE_PHASE",
+      "p_nom": [
+        1000.0
+      ],
+      "q_nom": [
+        100.0
+      ]
+    }
+  },
+  "terminal_conventions": {
+    "phase": [
+      "1",
+      "2",
+      "3"
+    ],
+    "neutral": [
+      "4"
+    ]
+  }
+}

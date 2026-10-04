@@ -440,7 +440,7 @@ Checks on how component `terminal_map`s reference bus terminals.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.TMAP.PHASE_TO_NEUTRAL` | E | A component's `terminal_map` contains no phase terminal (e.g. `["n"]`) — it connects only to neutral, leaving no phase to inject into or draw from. |
+| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device maps a phase slot to neutral, or a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Symmetric metallic N-only lines and switches preserve explicit neutral continuity (PSK-000002) and are accepted. |
 | `I.TMAP.CROSS_PHASE_LINE` | I | A line or switch has different from/to terminal maps — the conductors are cross-connected between phases across the branch. Valid (e.g. an intentional phase swap) but flagged as context. |
 | `I.TMAP.PERMUTED_ORDER` | I | A component's `terminal_map` is a permutation of the bus's nodal terminal order — non-canonical ordering; verify the swap is deliberate rather than a data-entry slip. |
 

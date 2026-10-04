@@ -444,8 +444,8 @@ end
 #    a phase position but resolves to the bus neutral. "Phase position" is any
 #    slot that is not the expected neutral slot: for nodal WYE/SINGLE_PHASE
 #    components the neutral slot is the last entry; for DELTA components and
-#    lines/switches there is no neutral slot at all. Transformer maps are
-#    exempt (non-trivial neutral involvement is expected).
+#    lines/switches may carry a single identified neutral at both ends.
+#    Transformer maps are exempt (non-trivial neutral involvement is expected).
 #
 #  I.TMAP.CROSS_PHASE_LINE — terminal_map_from != terminal_map_to on a line
 #    or switch, implying cross-phase / transposed wiring.
@@ -570,6 +570,14 @@ function _check_terminal_map_conventions!(net, findings, result)
                                      "terminal_map_to"   => tmt)))
             end
 
+            # Preserve explicit metallic neutral continuity (PSK-000002).
+            # A single conductor connecting the identified neutral at both
+            # ends is a valid metallic neutral branch. Keep rejecting maps
+            # that are all-neutral on only one end or repeat neutral entries.
+            neutral_only_link = length(tmf) == 1 && length(tmt) == 1 &&
+                bus_neutral(get(c, "bus_from", nothing)) == only(tmf) &&
+                bus_neutral(get(c, "bus_to", nothing)) == only(tmt)
+
             # Phase-to-neutral check on each end
             for (side, tm, bus_key) in (("from", tmf, "bus_from"),
                                          ("to",   tmt, "bus_to"))
@@ -583,8 +591,9 @@ function _check_terminal_map_conventions!(net, findings, result)
                 # the other end's map at the same position (symmetric neutral
                 # return is fine). Asymmetric neutral involvement is flagged
                 # via the cross-phase rule already. Here we catch the case
-                # where ALL entries are the neutral (degenerate map).
-                if all(string(t) == nn for t in tm)
+                # where ALL entries are neutral without a valid one-conductor
+                # neutral-to-neutral branch.
+                if all(string(t) == nn for t in tm) && !neutral_only_link
                     n_phase_neutral += 1
                     push!(findings, Finding(ERROR, "E.TMAP.PHASE_TO_NEUTRAL", :spec,
                         Symbol(comp_type), id,

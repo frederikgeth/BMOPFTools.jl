@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "8d59777196dc0701180e6a8252967774ce9648afd717e027e08e20f2102b63c1"
+    "sha256": "df17c5fd72bf036a1f29c4c97fee68ee1ce69441585006f3ba557f0996007771"
   },
   "finding_count": 364,
   "findings": [
@@ -2163,7 +2163,7 @@
       "namespace": "TMAP",
       "catalogue_section": "TMAP",
       "section_title": "terminal-map conventions",
-      "meaning": "A component's `terminal_map` contains no phase terminal (e.g. `[\"n\"]`) — it connects only to neutral, leaving no phase to inject into or draw from.",
+      "meaning": "A nodal device maps a phase slot to neutral, or a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Symmetric metallic N-only lines and switches preserve explicit neutral continuity (PSK-000002) and are accepted.",
       "contract_id": null,
       "knowledge_ids": []
     },

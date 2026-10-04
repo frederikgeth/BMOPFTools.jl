@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "8d59777196dc0701180e6a8252967774ce9648afd717e027e08e20f2102b63c1"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "df17c5fd72bf036a1f29c4c97fee68ee1ce69441585006f3ba557f0996007771"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -1944,7 +1944,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="TMAP",
         catalogue_section="TMAP",
         section_title="terminal-map conventions",
-        meaning="A component's `terminal_map` contains no phase terminal (e.g. `[\"n\"]`) — it connects only to neutral, leaving no phase to inject into or draw from.",
+        meaning="A nodal device maps a phase slot to neutral, or a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Symmetric metallic N-only lines and switches preserve explicit neutral continuity (PSK-000002) and are accepted.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
