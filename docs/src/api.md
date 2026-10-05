@@ -17,6 +17,8 @@ the whole sequence on one feeder.
 | Produce a stable JSON solution-verification response | [`execute_solution_verification`](@ref) | [JSON execution interface and recipes](execution_interface.md) |
 | Explain one stable Finding code offline | [`explain_finding`](@ref), [`execute_finding_explanation`](@ref) | [Findings](findings.md), [JSON execution interface and recipes](execution_interface.md) |
 | Repair structure | [`fix_case`](@ref) ([`FixRecipe`](@ref)) | [Case augmentation](augmentation.md) |
+| Develop operating scenarios | [`CaseScenario`](@ref), [`materialize_scenario`](@ref), [`run_case_sweep`](@ref) | [Case development](tutorial_case_development.md) |
+| Save an optional author log | [`write_case_log`](@ref) | [Case development](tutorial_case_development.md) |
 | Place DERs | [`add_generators`](@ref), [`add_ibrs`](@ref) | [DER placement](tutorial_ders.md) |
 | Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
 | Audit every change | [`render_manifest`](@ref), [`manifest_to_dict`](@ref) | [Case augmentation](augmentation.md) |

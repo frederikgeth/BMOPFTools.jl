@@ -175,26 +175,24 @@ libraries such as PGLib-OPF [13]; the readiness check exists to bring the
 same discipline to distribution cases. The readiness check
 encodes the augmentation recipe of the PSCC study [3] — explicit slack
 generation (loss-minimisation objective), dispatchable DERs with diverse
-costs (cost symmetry creates dispatch degeneracy, `I.INT.UNIFORM_GEN_COST`),
+costs (`I.INT.UNIFORM_GEN_COST` screens uniform costs without establishing degeneracy),
 voltage envelopes including the sequence/phase-to-neutral bounds whose
 presence measurably improves NLP robustness [3], and cross-section-derived
 current ratings.
 
 Beyond the structural augmentation check (`I.BENCH.AUGMENTATION`), four
-per-network degeneracy flags catch subtler problems that survive augmentation:
+per-network screens describe features worth inspecting after augmentation:
 
 - **`W.BENCH.GEN_NO_DOF`** — generators with `p_min ≈ p_max` on every phase
-  are fixed injections, not decision variables.  They add model size without
-  contributing to benchmark difficulty.
+  have fixed active power; reactive dispatch may still be controllable.
 - **`W.BENCH.GEN_ZERO_COST`** — dispatchable generators with a zero cost
-  vector make the objective flat in their dispatch direction; the optimal
-  solution is primal non-unique and solver-dependent.
+  vector have no direct active-generation cost. Network losses, upstream
+  costs and constraints can still determine their dispatch.
 - **`W.BENCH.GEN_DEGENERATE_COST`** — pairs of dispatchable generators on the
-  same bus or one hop apart with identical cost coefficients allow free
-  power redistribution between them.  Benchmarks with this property have
-  multiple optima and produce inconsistent comparisons across solvers.
+  same bus or one hop apart with equal representative costs warrant checking
+  for interchangeable controls. The screen does not establish non-uniqueness.
 - **`I.BENCH.LOAD_ZERO_PNOM`** — loads with zero real-power setpoint are
-  electrically inert and likely represent missing or placeholder data.
+  zero in active power; reactive demand may remain. Inspect both P and Q.
 
 ## [References](@id refs)
 

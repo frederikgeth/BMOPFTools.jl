@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "df17c5fd72bf036a1f29c4c97fee68ee1ce69441585006f3ba557f0996007771"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "367de8221c06d444170d5a4935b4c38a5e24c721d03a4be6f0592330a3e5aeab"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -315,7 +315,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="DIV",
         catalogue_section="DIV",
         section_title="diversity & symmetry",
-        meaning="Aggregate load across all phase terminals in a galvanic zone is balanced within 2 % (max − min spread relative to max). The network is effectively balanced and a single-phase equivalent model would suffice; the unbalanced OPF formulation adds no value here.",
+        meaning="Aggregate active load is balanced within 2% across the observed phase labels in a galvanic zone. Spatial loading, impedances, connections and grounding remain unassessed; this does not establish single-phase-equivalent applicability (PSK-000009).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2493,7 +2493,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="BENCH",
         catalogue_section="BENCH",
         section_title="benchmark readiness",
-        meaning="One or more dispatchable generators (`p_max > p_min` on at least one phase) have a cost vector of all zeros — the objective is flat in their dispatch direction, making the optimal solution primal non-unique. Assign a non-zero cost to each dispatchable unit.",
+        meaning="Dispatchable generators have zero direct cost. This is a screening signal: network losses, upstream cost and constraints can still determine dispatch. Do not add arbitrary costs solely to silence it.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2502,7 +2502,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="BENCH",
         catalogue_section="BENCH",
         section_title="benchmark readiness",
-        meaning="Two or more dispatchable generators on the same bus or one line/switch hop apart share an identical cost coefficient. The solver can redistribute power between them freely without changing the objective, producing primal non-uniqueness and benchmarks that are sensitive to solver tolerances.",
+        meaning="Dispatchable generators on the same bus or one hop apart share a representative cost coefficient. Check control interchangeability; equal costs alone do not establish primal non-uniqueness.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

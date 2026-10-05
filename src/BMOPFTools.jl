@@ -28,6 +28,7 @@ using Logging
 using Statistics
 using Graphs
 using JSON3
+import SHA
 using StatsFuns: log1pexp, logistic
 import PowerIO
 
@@ -3035,6 +3036,7 @@ export add_generators, GeneratorRecipe, default_generator_recipe
 export add_ibrs, IBRRecipe, default_ibr_recipe
 export add_statcom!
 export TransformationManifest, TransformEntry, manifest_to_dict, render_manifest
+export CaseScenario, materialize_scenario, run_case_sweep, write_case_log
 export diagnose_infeasibility
 export merge_series_lines, remove_dangling_lines
 export remove_open_switches, collapse_closed_switches

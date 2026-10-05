@@ -767,7 +767,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
             Dict{String,Any}("generators" => sort(no_dof))))
     end
 
-    # (2) Generators with cost = 0 (flat objective direction)
+    # (2) Zero direct cost is a screening signal, not a feasible flat direction.
     zero_cost = String[]
     for (id, g) in gens
         g isa Dict || continue
@@ -782,13 +782,13 @@ function benchmark_readiness_check(net::Dict{String,Any},
         push!(findings, Finding(WARNING, "W.BENCH.GEN_ZERO_COST", :benchmark,
             :generator, nothing,
             "$(length(zero_cost)) dispatchable generator(s) have cost = 0 — " *
-            "their dispatch is underdetermined (flat objective direction): " *
+            "check dispatch sensitivity; zero direct cost alone does not establish non-uniqueness: " *
             "$(join(sort(zero_cost), ", ")).",
             Dict{String,Any}("generators" => sort(zero_cost))))
     end
 
     # (3) Same-cost dispatchable generators on the same bus or one hop away
-    #     (primal non-uniqueness: solver can exchange power between them freely)
+    #     (screening only: network losses and constraints can distinguish dispatch)
     bus_adj = Dict{String,Set{String}}()
     for (_, l) in lines
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
@@ -827,7 +827,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
             :generator, nothing,
             "$(length(same_cost_pairs)) pair(s) of dispatchable generators share " *
             "the same cost and are electrically close (same bus or one hop) — " *
-            "optimal dispatch is primal non-unique: $(join(pair_strs, ", ")).",
+            "check for interchangeable controls; non-uniqueness is not established: $(join(pair_strs, ", ")).",
             Dict{String,Any}("pairs" => [[a, b] for (a, b, _) in same_cost_pairs])))
     end
 

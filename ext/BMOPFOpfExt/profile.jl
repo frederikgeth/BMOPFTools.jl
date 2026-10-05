@@ -1,9 +1,8 @@
 # ext/BMOPFOpfExt/profile.jl
 #
 # Optimization profile of the best-known solution — the "fingerprint" that
-# distinguishes a well-behaved OPF benchmark from a degenerate one:
-# degrees of freedom, how many constraints bind at the optimum, and whether
-# complementarity is strict (non-degenerate). Computed while the JuMP model is
+# describes solver-side counts and numerical activity:
+# a dimension count proxy, binding inequalities, and a complementarity screen. Computed while the JuMP model is
 # still live (inside _build_and_solve), since the model is discarded afterwards.
 #
 # Everything is best-effort and guarded: a solver that does not expose duals or
@@ -44,6 +43,9 @@ function _optimization_profile(model::JuMP.Model;
         "has_duals" => false, "n_active" => nothing, "n_weakly_active" => nothing,
         "strict_complementarity" => nothing, "min_active_multiplier" => nothing,
         "max_shadow_price" => nothing, "median_shadow_price" => nothing,
+        "dimension_method" => "variable_minus_equality_count",
+        "n_unassessed_inequalities" => 0, "n_missing_active_duals" => 0,
+        "tol_active" => tol_active, "tol_primal" => tol_primal,
     )
 
     # --- counts / DOF (always available) ---
@@ -83,8 +85,8 @@ function _optimization_profile(model::JuMP.Model;
     # "Active" is judged from the PRIMAL slack (the constraint binds), not by
     # dual-thresholding — an interior-point solver returns tiny-but-nonzero duals
     # for inactive bounds too, which would grossly overcount. The dual is then used
-    # only to certify complementarity: a binding constraint with a ~0 multiplier is
-    # weakly active (a degeneracy — the "easily solvable degeneracy" we want to flag).
+    # to screen for weak activity: a binding constraint with a near-zero multiplier.
+    # This numerical screen does not establish uniqueness or solver difficulty.
     hd = false
     try
         hd = JuMP.has_duals(model)
@@ -95,6 +97,8 @@ function _optimization_profile(model::JuMP.Model;
     active_mults = Float64[]   # multipliers of primal-binding constraints
     n_active = 0
     n_weak = 0
+    n_unassessed = 0
+    n_missing_duals = 0
     try
         for (F, S) in JuMP.list_of_constraint_types(model)
             _set_kind(_proto(S)) === :ineq || continue
@@ -104,9 +108,13 @@ function _optimization_profile(model::JuMP.Model;
                     v = JuMP.value(con)
                     sl = _slack(v, JuMP.constraint_object(con).set)
                 catch
+                    n_unassessed += 1
                     continue
                 end
-                sl === nothing && continue
+                if sl === nothing || !isfinite(sl)
+                    n_unassessed += 1
+                    continue
+                end
                 # binding ⟺ slack within tol of the bound (relative to the
                 # constraint's own magnitude, so it scales across units)
                 binding = abs(sl) <= tol_primal * (1.0 + abs(v))
@@ -115,15 +123,18 @@ function _optimization_profile(model::JuMP.Model;
                 if hd
                     d = NaN
                     try; d = abs(JuMP.dual(con)); catch; end
-                    isnan(d) ? nothing :
+                    !isfinite(d) ? (n_missing_duals += 1) :
                         (d > tol_active ? push!(active_mults, d) : (n_weak += 1))
                 end
             end
         end
         prof["n_active"] = n_active
+        prof["n_unassessed_inequalities"] = n_unassessed
+        prof["n_missing_active_duals"] = n_missing_duals
         if hd
             prof["n_weakly_active"] = n_weak
-            prof["strict_complementarity"] = (n_weak == 0)
+            prof["strict_complementarity"] =
+                n_unassessed == 0 && n_missing_duals == 0 ? (n_weak == 0) : nothing
             if !isempty(active_mults)
                 prof["min_active_multiplier"] = minimum(active_mults)
                 prof["max_shadow_price"] = maximum(active_mults)

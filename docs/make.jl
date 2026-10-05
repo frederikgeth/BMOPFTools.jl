@@ -70,6 +70,7 @@ makedocs(
             "MVDC/LVDC converter stations" => "tutorial_mvdc.md",
             "Transformer tap optimisation" => "tutorial_tap.md",
             "Time series: a day on an LV feeder" => "tutorial_timeseries.md",
+            "Developing OPF case families" => "tutorial_case_development.md",
             "Custom formulations: CVR, envelopes & hooks" => "tutorial_custom_formulations.md",
         ],
         "Bounds & feasibility"    => [

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "0edec598f4a0dcc279908d07c5d798f34d3071cd30333eef7ce20613988b6ba7",
+  "corpus_sha256": "0d634136ee6e6b0f0053290cdb6a1e7af261e8532cf410b3b1d2483cacc5ee1e",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "df17c5fd72bf036a1f29c4c97fee68ee1ce69441585006f3ba557f0996007771"
+      "sha256": "367de8221c06d444170d5a4935b4c38a5e24c721d03a4be6f0592330a3e5aeab"
     },
     {
       "path": "docs/src/objectives.md",
@@ -95,6 +95,10 @@
     {
       "path": "docs/src/transformer_models.md",
       "sha256": "89baf96867ed0d9c3e741414e44efb8f6ccc515cb80ce6e5b797604b9176bf36"
+    },
+    {
+      "path": "docs/src/tutorial_case_development.md",
+      "sha256": "d22a2a67fa0dc95c70674627f053d0240badae136f3f62898068308d2ce79722"
     },
     {
       "path": "docs/src/tutorial_custom_formulations.md",
@@ -115,6 +119,10 @@
     {
       "path": "docs/src/tutorial_trust_but_verify.md",
       "sha256": "13451410e2637d8da38a454074cc74909950eed45f154ee838b8c6970bbc8887"
+    },
+    {
+      "path": "examples/case_development.jl",
+      "sha256": "02662b247da86ab1f54fabfe5b82df3d9573c73bd65732e1b35f5f074a92f514"
     },
     {
       "path": "ext/BMOPFOpfExt/BMOPFOpfExt.jl",
@@ -166,7 +174,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/profile.jl",
-      "sha256": "27226b5d708ee08018dcdfe5675dc5b732a3d860c19dd6823615f788f0ccdaec"
+      "sha256": "40fb7a556910e2d09e55ecb7659a1c3401ccf8ac3bdd5c1d6d38b93ccea5d3c7"
     },
     {
       "path": "ext/BMOPFOpfExt/results.jl",
@@ -186,11 +194,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "defc9d776b9cd2eae6ae51912db39ebc5cc3a2281334d8d03f8b4f8ee07092da"
+      "sha256": "bde6cf2f1a3ce4e42abd4aef78a3c25bb9c4fba2cb787c824bdda2574c3bb5bc"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "39804067c88c1129b96a42b3ea96c19f15079bc1f6e108aa68f40cbf8de60bb4"
+      "sha256": "dad43da04ec2f7ad85b8d6c18e3610b94cca1303d4dc7d87a5e30e5a687194fd"
     },
     {
       "path": "recipes/README.md",
@@ -206,7 +214,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "4ce675a12430f59ef2f566e795931273e615fbca43de6354f2da093974f4df83"
+      "sha256": "85128d2564e11690de1b54d5fef1ff68bedb6fd2fc9b3bc06afd87b6e1fb1951"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -313,6 +321,10 @@
       "sha256": "8bf408f2a9d513317e613a155fc49909b15d1ce55eb1bd00fb19a99f98bbd9d7"
     },
     {
+      "path": "src/analysis/diversity.jl",
+      "sha256": "b5912f8395ab03bb87b4935654cf9e87a9f68ad6bddbf6c57bcb99af6a03a78e"
+    },
+    {
       "path": "src/analysis/operational.jl",
       "sha256": "26b1f4a13b115fe275ec6273dced6e6c1f6541de128547c9d79fcc956b862d96"
     },
@@ -337,16 +349,28 @@
       "sha256": "9d5ad69bd81f6c283feed13ebfe5ddbce7622c95cdc46cc77831216319f72712"
     },
     {
+      "path": "src/augmentation/der_placement.jl",
+      "sha256": "ddb196463e734473c02b756f09f9e89ddfece1a11cd093abc9796b37faa44041"
+    },
+    {
       "path": "src/augmentation/fix.jl",
-      "sha256": "e4a4616ad69a3570d9db26e71a55b811a4cca6ee2634148490ce08c03c1b09a1"
+      "sha256": "db8750c2d261b5313edfd1d04049c8df0709eacf07524bc4bb7e1d266aa924fe"
+    },
+    {
+      "path": "src/augmentation/ibr_placement.jl",
+      "sha256": "86ec6c31cf854df5420dce2cc34344b729dd665c1d75ef58908e0cf750407766"
     },
     {
       "path": "src/augmentation/manifest.jl",
-      "sha256": "b734c477f112198e9bb3d94f800a247d882f5121803c26a00b26f7999f01ab26"
+      "sha256": "1f11a9144a6403e7642b491351228a9fe7257d025320bda2966d476747066261"
     },
     {
       "path": "src/augmentation/recipe.jl",
       "sha256": "a3978cfa91e31d80a2f81ce82e85d64c7ef98dc6391855c6a792e2294f483bb0"
+    },
+    {
+      "path": "src/augmentation/scenarios.jl",
+      "sha256": "caa82dc5cb04bc377f88266d0ea4f28f01bdeaa65e26006852a422efd0139d7b"
     },
     {
       "path": "src/augmentation/thermal.jl",
@@ -414,7 +438,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "ca7cfc0e6f8b27ed6a69044b5e25946f47b170cd7d1a165397bce33d590ccf59"
+      "sha256": "352250a37b347b954de463e8890c98b60334ac23522ff17824f355c7906bb1ac"
     },
     {
       "path": "src/report/render_markdown.jl",
@@ -422,7 +446,7 @@
     },
     {
       "path": "src/report/render_solution_markdown.jl",
-      "sha256": "efdb670a1c21fd97b7f6baaefce9b431bf4bd8bf4071809f17f3e111c1faba49"
+      "sha256": "a494b756656830fe84fcff9038f7efc8630551c2753349b740e5d4bccf974863"
     },
     {
       "path": "src/report/render_terminal.jl",
@@ -442,15 +466,23 @@
     },
     {
       "path": "src/validation/solution.jl",
-      "sha256": "dbc27b849f36f1fbaf34a8ce7def6c2e74a12da2278bcce3a4457153a9ba5ee1"
+      "sha256": "4635d808a8c23dc39205640db9e318c97804b369e4b202819a9ac7e99a74d58e"
     },
     {
       "path": "src/validation/spec_conformance.jl",
-      "sha256": "16a9faae5ebdfc5751b6ffab61f7785abd12d921193a57949b761d17d3630915"
+      "sha256": "df61f52dd0d9e1ce4776db845185743b7f6ce6f0d0ae0a5b0c7e8f0c0dbf4b57"
     },
     {
       "path": "test/Project.toml",
       "sha256": "af7ecdc40b91822d771c7ee690ac7c0dbdbb8ba6ffe6e133d4ba876251dfc5a0"
+    },
+    {
+      "path": "test/case_development_opf_tests.jl",
+      "sha256": "109abc7ad9721a53962c539cb9b8996a0a4a738efe5a12aa3c49adb9121a62e0"
+    },
+    {
+      "path": "test/case_development_tests.jl",
+      "sha256": "e39d4c8e607d2ab77294716ee50146786b8909834c59308729af3599a85f0231"
     },
     {
       "path": "test/controller_compliance_tests.jl",
@@ -459,6 +491,14 @@
     {
       "path": "test/data/analysis_network/synthetic_feeder.json",
       "sha256": "37eff7326518624b732d77127808fbdecd52107d8593959ab669132e9c1a85c6"
+    },
+    {
+      "path": "test/data/case_development/README.md",
+      "sha256": "2807b1bc11e05c35c3230043dd436dc359b83dcc3913e99085b132862aa1db54"
+    },
+    {
+      "path": "test/data/case_development/feeder.json",
+      "sha256": "2794ca1513b098f0858fe54d3e6e96933970bffcb1281498071a46c0a779d13f"
     },
     {
       "path": "test/data/line_geometry/opendss_reference.json",

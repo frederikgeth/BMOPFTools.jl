@@ -25,6 +25,12 @@ Placement strategy
   (DERs sized to a fraction of the feeding transformer rating), or
   `:topology_targeted` (DERs at feeder leaves / near the source).
 - `topology_mode` — `:leaves` or `:near_source` (only for `:topology_targeted`).
+- `bus_ids` — explicit candidate buses; filters still apply and rejected explicit
+  selections raise an error. `nothing` uses the strategy.
+- `phase_by_bus` — bus-to-phase labels for explicit single-phase placement; the
+  bus must declare that phase and a neutral. Other buses retain inferred phasing.
+- `capacity_budget` — optional total W of active capacity across the new devices.
+  Existing sizing supplies relative weights; zero places no devices.
 
 Filters (composable over any strategy)
 -------------------------------------
@@ -41,7 +47,7 @@ Sizing
 - `fixed_tier_w` — voltage-level-family → fixed DER size (W) for `:fixed_tiers`.
 - `p_min_fraction` — `p_min = p_min_fraction × p_max` (0 = curtailable).
 
-Cost (makes the OPF dispatch non-trivial)
+Cost (declares the dispatch incentive)
 ----------------------------------------
 - `cost_basis` — `:cheaper_than_slack`, `:uniform`, or `:tiered_by_level`.
 - `slack_cost`, `der_cost_factor` — `cost = der_cost_factor × slack_cost`.
@@ -63,6 +69,10 @@ Base.@kwdef struct GeneratorRecipe
     voltage_levels    :: Union{Vector{Symbol},Nothing} = [:LV]
     min_local_load_va :: Float64 = 0.0
     skip_source_buses :: Bool    = true
+    # optional explicit selection; budget is W for generators, VA for IBRs
+    bus_ids           :: Union{Vector{String},Nothing} = nothing
+    phase_by_bus      :: Dict{String,String} = Dict{String,String}()
+    capacity_budget   :: Union{Float64,Nothing} = nothing
     # sizing
     size_basis        :: Symbol  = :fraction_of_local_load
     der_p_fraction    :: Float64 = 0.8
@@ -166,6 +176,9 @@ function _apply_der_placement!(net′::Dict{String,Any},
     # 1. strategy-specific candidate bus set
     candidate_buses = _strategy_buses(recipe, conn, loads)
 
+    _validate_placement_selection(net′, loads, recipe)
+    recipe.bus_ids !== nothing && (candidate_buses = copy(recipe.bus_ids))
+
     # 2. shared filters
     src_buses     = _source_buses(net′)
     dangling      = Set(get(conn, "dangling_buses", String[]))
@@ -189,6 +202,19 @@ function _apply_der_placement!(net′::Dict{String,Any},
         push!(selected, bus)
     end
     sort!(unique!(selected))
+    if recipe.bus_ids !== nothing && Set(selected) != Set(recipe.bus_ids)
+        throw(ArgumentError("explicit bus_ids did not pass placement filters; check level, source, load and existing devices"))
+    end
+    all(b -> b in selected, keys(recipe.phase_by_bus)) ||
+        throw(ArgumentError("phase_by_bus contains an unselected bus"))
+    for bus in selected
+        loads[bus] = _placement_phasing(net′, bus, loads[bus], recipe)
+    end
+
+    sizes = Dict(bus => _size_der(recipe, loads[bus].p_nom,
+        first(_basis_total(recipe, bus, loads[bus], xfmr)),
+        something(_voltage_family(get(bus_v, bus, NaN)), :LV)) for bus in selected)
+    _apply_capacity_budget!(sizes, recipe.capacity_budget)
 
     # 3. build, size, cost, and write each generator
     gens = get!(net′, "generator", Dict{String,Any}())
@@ -198,25 +224,28 @@ function _apply_der_placement!(net′::Dict{String,Any},
         agg = loads[bus]
         lvl = something(_voltage_family(get(bus_v, bus, NaN)), :LV)
         basis, note_basis = _basis_total(recipe, bus, agg, xfmr)
-        p_max = _size_der(recipe, agg.p_nom, basis, lvl)
+        p_max = sizes[bus]
         all(iszero, p_max) && continue
         p_min = recipe.p_min_fraction .* p_max
         cost  = _cost_der(recipe, length(p_max), lvl)
-        config = recipe.configuration === nothing ? agg.configuration : recipe.configuration
+        config = haskey(recipe.phase_by_bus, bus) ? "SINGLE_PHASE" :
+            recipe.configuration === nothing ? agg.configuration : recipe.configuration
 
         gid = string(recipe.id_prefix, bus)
         rule = string("DER_PLACEMENT/", recipe.strategy)
+        haskey(gens, gid) && !recipe.overwrite_existing &&
+            throw(ArgumentError("generator ID '$gid' already exists"))
         gens[gid] = Dict{String,Any}(
             "bus" => bus, "terminal_map" => copy(agg.terminal_map),
             "configuration" => config,
             "p_min" => p_min, "p_max" => p_max, "cost" => cost)
 
-        note = "DER at bus '$bus' (level $lvl); $note_basis; phasing inherited from load"
+        note = "DER at bus '$bus' (level $lvl); $note_basis; phasing from load or explicit phase_by_bus; capacity_budget=$(recipe.capacity_budget)"
         push!(entries, TransformEntry(:generator, gid, "bus", nothing, bus, rule, :synthetic, note))
         push!(entries, TransformEntry(:generator, gid, "terminal_map", nothing,
-            agg.terminal_map, rule, :synthetic, "inherited from load at '$bus'"))
+            agg.terminal_map, rule, :synthetic, "load terminals or explicit phase_by_bus at '$bus'"))
         push!(entries, TransformEntry(:generator, gid, "configuration", nothing,
-            config, rule, :synthetic, "inherited from load at '$bus'"))
+            config, rule, :synthetic, "load terminals or explicit phase_by_bus at '$bus'"))
         push!(entries, TransformEntry(:generator, gid, "p_min", nothing, p_min, rule, :synthetic,
             "p_min = $(recipe.p_min_fraction) × p_max (curtailable)"))
         push!(entries, TransformEntry(:generator, gid, "p_max", nothing, p_max, rule, :synthetic, note))
@@ -487,4 +516,48 @@ function _downstream_buses(net, xfmr_id::String, to_buses::Vector{String})::Set{
         end
     end
     seen
+end
+
+# Shared by generator and IBR recipes. Explicit requests fail rather than
+# silently substituting another location or an unsupported connection.
+function _validate_placement_selection(net, loads, recipe)
+    if recipe.bus_ids !== nothing
+        length(unique(recipe.bus_ids)) == length(recipe.bus_ids) ||
+            throw(ArgumentError("duplicate bus_ids"))
+        all(b -> haskey(loads, b), recipe.bus_ids) ||
+            throw(ArgumentError("bus_ids must identify load buses"))
+    end
+    budget = recipe.capacity_budget
+    budget === nothing || (isfinite(budget) && budget >= 0) ||
+        throw(ArgumentError("capacity_budget must be finite and nonnegative"))
+end
+
+function _placement_phasing(net, bus, agg, recipe)
+    haskey(recipe.phase_by_bus, bus) || return agg
+    phase = recipe.phase_by_bus[bus]
+    b = net["bus"][bus]
+    nt = _neutral_terminal(b)
+    nt !== nothing && phase != nt && phase in get(b, "terminal_names", []) ||
+        throw(ArgumentError("phase override at '$bus' requires a declared phase and explicit neutral"))
+    if recipe isa GeneratorRecipe
+        recipe.configuration in (nothing, "SINGLE_PHASE") ||
+            throw(ArgumentError("phase override requires SINGLE_PHASE generator configuration"))
+    else
+        recipe.inverter_topology in (:infer, :SINGLE_PHASE, :single_phase) ||
+            throw(ArgumentError("phase override requires SINGLE_PHASE inverter topology"))
+    end
+    (terminal_map=[phase, nt], configuration="SINGLE_PHASE",
+     p_nom=[sum(abs, agg.p_nom)], q_nom=[sum(agg.q_nom)])
+end
+
+function _apply_capacity_budget!(sizes, budget)
+    budget === nothing && return
+    all(v -> all(x -> isfinite(x) && x >= 0, v), values(sizes)) ||
+        throw(ArgumentError("capacity_budget requires finite nonnegative sizing weights"))
+    total = sum(sum(v) for v in values(sizes); init=0.0)
+    isfinite(total) || throw(ArgumentError("placement sizing weights overflowed"))
+    total > 0 || (budget == 0 ? (return) : throw(ArgumentError(
+        "positive capacity_budget requires eligible candidates with positive sizing weights")))
+    total == 0 && return
+    for v in values(sizes); v .= (v ./ total) .* budget; end
 end

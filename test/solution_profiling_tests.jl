@@ -903,3 +903,18 @@ end
     b1row = first(r for r in zone["bus_rows"] if r["bus"] == "b1")
     @test b1row["status"] == "violation"
 end
+
+@testset "Optimization screen preserves unknowns" begin
+    net = _base_net(); result = _base_result()
+    result["opt_profile"] = Dict{String,Any}("n_active"=>nothing, "has_duals"=>false)
+    o = profile_solution(net, result).results[:optimization]
+    @test o["has_active_inequalities"] === nothing
+    @test o["has_weakly_active_inequalities"] === nothing
+    @test o["is_opf"] === nothing
+    @test o["dimension_method"] == "variable_minus_equality_count"
+    result["opt_profile"]["n_active"] = 0
+    result["opt_profile"]["n_unassessed_inequalities"] = 1
+    @test profile_solution(net, result).results[:optimization]["has_active_inequalities"] === nothing
+    result["opt_profile"]["n_active"] = 1
+    @test profile_solution(net, result).results[:optimization]["has_active_inequalities"] === true
+end

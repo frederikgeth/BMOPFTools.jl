@@ -51,6 +51,8 @@ function _strip_xfmr_ratings!(net)
 end
 
 include("piecewise_linear_tests.jl")
+include("case_development_tests.jl")
+_HAS_JUMP_IPOPT && include("case_development_opf_tests.jl")
 
 # Original diagnostic fixture; provenance and intentional defects are documented
 # alongside the data. Each consumer parses its own independent copy.

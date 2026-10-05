@@ -77,3 +77,6 @@ each demonstrating live how that choice *writes the answer*:
     with `BMOPFTools`, `JuMP` and `Ipopt`. The data-model and conversion pages
     need only `BMOPFTools`. [Installation & first steps](installation.md)
     covers setting all of this up, starting from installing Julia itself.
+
+To build and compare operating scenarios on a small self-contained feeder, start
+with [Developing OPF case families](tutorial_case_development.md).

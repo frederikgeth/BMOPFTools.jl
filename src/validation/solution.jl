@@ -2015,11 +2015,12 @@ end
 Surface the optimization fingerprint attached to an OPF `result` by the solver
 (`result["opt_profile"]`, from the BMOPFOpfExt profiler) and derive two flags:
 
-- `is_opf` — at least one operational constraint binds at the best-known solution
-  (`n_active > 0`); if false the instance is effectively a feasibility/power-flow
-  problem, not a discriminating OPF.
-- `degenerate` — duals available but complementarity is not strict (a binding
-  constraint has a ~zero multiplier).
+- `has_active_inequalities` — at least one assessed inequality binds.
+- `has_weakly_active_inequalities` — a binding inequality has a small multiplier.
+
+Legacy `is_opf` and `degenerate` fields retain these same descriptive meanings.
+They do not classify the task, establish non-uniqueness, or certify optimality.
+`degrees_of_freedom` is a variable-minus-equality count, not a rank calculation.
 
 Returns `{"available": false}` when no profile is present (e.g. a third-party
 solver result), so downstream consumers can branch cleanly.
@@ -2030,9 +2031,15 @@ function _optimization_summary(result::Dict{String,Any})::Dict{String,Any}
     out = Dict{String,Any}(p)
     out["available"] = true
     n_active = get(p, "n_active", nothing)
-    out["is_opf"] = n_active isa Number && n_active > 0
+    unassessed = get(p, "n_unassessed_inequalities", 0)
+    out["has_active_inequalities"] = !(n_active isa Number) ? nothing :
+        n_active > 0 ? true : unassessed === 0 ? false : nothing
+    out["is_opf"] = out["has_active_inequalities"]  # legacy alias
+    out["dimension_method"] = "variable_minus_equality_count"
     sc = get(p, "strict_complementarity", nothing)
-    out["degenerate"] = get(p, "has_duals", false) === true && sc === false
+    out["has_weakly_active_inequalities"] =
+        get(p, "has_duals", false) === true && sc isa Bool ? !sc : nothing
+    out["degenerate"] = out["has_weakly_active_inequalities"]  # legacy alias
     out
 end
 

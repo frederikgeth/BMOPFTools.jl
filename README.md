@@ -175,6 +175,8 @@ OpenDSS .dss ──(from_dss / PowerIO.jl)──► BMOPF Dict{String,Any} ◄�
   constraint residuals, and solution-quality issues without access to solver
   internals.
 
+For practical scenario construction, see [Developing OPF case families](docs/src/tutorial_case_development.md): independent demand/PV sweeps, explicit DER placement and phase choices, control comparisons, and optional author logs.
+
 ## Installation
 
 ### Prerequisites

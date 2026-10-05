@@ -4,6 +4,15 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Add independent demand/PV scenarios, callback-based sweeps retaining failures,
+  explicit DER bus/phase selections and new-capacity budgets, and optional
+  JSON/Markdown author logs with resolved recipes and structured Findings.
+- Add self-contained, tested case-development examples and a progressive tutorial.
+- Correct diagnostic overclaims about phase balance, costs, active constraints
+  and dimension counts; retain legacy profile keys as descriptive aliases.
+- Change low-impedance switch replacement to opt-in; retain shunts/additional
+  branch limits and inconsistent or unassessed source-voltage bounds.
+
 - Replace the IEEE-inspired inline analysis fixture with an original CC BY 4.0
   synthetic workshop feeder and migrate its diagnostic and serialization tests.
 - Parse, validate, analyze, and report BMOPF networks, with PowerIO ingestion.

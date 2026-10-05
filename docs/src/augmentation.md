@@ -357,17 +357,17 @@ each placed nameplate into a full dispatch box.
 ## [`fix_case` — structural repairs](@id fix)
 
 Nine passes run in order.  Each is independently controlled by the
-corresponding `apply_*` flag in [`FixRecipe`](@ref).  All passes default to
-`true` except the four that change power-system semantics or representation,
-which default to `false` and must be opted into explicitly.
+corresponding `apply_*` flag in [`FixRecipe`](@ref). Review the manifest against
+your study: removing disconnected assets changes its scope. Finite-impedance
+idealization and grounding changes are opt-in approximations.
 
 | # | Pass | Default | Notes |
 |---|---|---|---|
 | 1 | Largest connected component | `true` | Drops buses, lines, loads, generators, and shunts that have no path to a voltage source. |
 | 2 | Simplify network | `true` | Merges consecutive same-linecode series lines; removes dangling stub lines (wraps [`simplify_network`](@ref)). |
 | 3 | Remove zero loads | `true` | Deletes loads with `p_nom = q_nom = 0` on all phases — electrically inert. |
-| 4 | Low-impedance lines → switches | `true` | Replaces lines with total series impedance `\|Z\| < threshold` (default 10⁻⁴ Ω) with closed switches. |
-| 5 | Source bus bounds | `true` | Strips all voltage bounds from source buses — redundant because the voltage source pins the terminal voltages exactly. |
+| 4 | Low-impedance lines → switches | `false` | Opt-in idealization below 10⁻⁴ Ω. Retains current ratings; skips shunted lines and unsupported extra branch limits. Small finite impedance is still an approximation to zero. |
+| 5 | Source bus bounds | `true` | Removes satisfied `v_*`, `vpn_*`, and `vpp_*` magnitude bounds only when the required terminal voltages are explicitly fixed. Retains inconsistent, unknown, sequence and angle bounds; preserves `va_nom`. |
 | 6 | Adjacent current bounds | `false` | Infers `i_max` for lines/switches that lack it from directly adjacent elements (one hop). Transformers contribute `s_rating / (√3 × V_ref)`; lines and switches propagate their own `i_max`. Takes the minimum over all adjacent bounds. |
 | 7 | Perfect grounding | `false` | Promotes grounding shunts whose `1/\|Y₁₁\| < threshold` (default 0.1 Ω) to `perfectly_grounded_terminals` and removes the shunt. **Changes OPF physics** (forces `V_n = 0`). |
 | 8 | Capacitive shunts → capacitors | `false` | Re-represents a purely capacitive shunt (G ≈ 0; flagged by `I.PROV.SHUNT_LIKELY_CAPACITOR`) as a first-class `capacitor`. The susceptance matrix `B` is **fingerprinted** by sign pattern + sparsity + row sums into `SINGLE_PHASE`, `WYE`, or `DELTA` (or a phase-to-ground bank → WYE/SINGLE_PHASE on a grounded neutral), and the nameplate `q_rated = B·v_nom²` is recovered (`v_nom` = bus P-N nominal, or √3·P-N = L-L for DELTA). The conversion is committed **only when the emitted capacitor's susceptance reproduces `B` exactly** (round-trip guard), so it is faithful by construction; anything ambiguous or unsupported (mixed return paths, `n>3` cyclic banks, a star with no name-resolvable neutral, no grounded return for a phase-to-ground bank, or no resolvable nominal) is left untouched. |
@@ -406,8 +406,10 @@ render_manifest
 
 ## Serialising the manifest
 
-The manifest is intended to travel alongside the augmented case file so
-the pair `(case.json, case_manifest.json)` is self-documenting:
+Authors may optionally release the manifest alongside a case. It includes the
+resolved recipe and structured Findings; no Task Force submission requires it.
+For settings, assumptions, source hashes and experiment summaries together, see
+[the case-development log](tutorial_case_development.md). A minimal export is:
 
 ```julia
 using JSON3
@@ -763,3 +765,12 @@ of the actual `vuf_max` ratio on three-phase buses. Existing absolute `vneg_max`
 values are preserved; inspect and remove an old synthetic absolute cap explicitly
 if the ratio is the intended policy. Rebuild split-phase bounds from the source
 case: augmentation never overwrites previously generated bounds.
+
+## Explicit placement and comparable scenarios
+
+Both placement recipes accept `bus_ids`, `phase_by_bus` and `capacity_budget`.
+The budget is W for new generators and VA for new IBRs, apportioned using the
+existing sizing weights. Explicit selections that fail filters raise errors.
+Phase overrides support a single declared phase with an explicit neutral only.
+See [Developing OPF case families](tutorial_case_development.md) for worked
+placement, availability, control and reduction comparisons.

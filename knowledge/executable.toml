@@ -9,6 +9,10 @@
 # Transformer leakage and downstream-load applicability use winding-local
 # rating bases and explicit graph-bridge evidence; their minimized witnesses
 # remain package validation tests, not preservation contracts.
+# Case-preparation diagnostics are descriptive screens, not admission gates.
+# Aggregate phase balance links to PSK-000009 without certifying collapse.
+# Case-development Julia examples illustrate independent verification (PSK-000013);
+# they do not extend its contract or expose solver callbacks through JSON execution.
 schema_version = "0.6.0"
 
 [[contract]]
@@ -523,6 +527,8 @@ finding_codes = [
 ]
 fixture_ids = ["positive-sequence-collapse-001"]
 source_paths = [
+  "src/analysis/diversity.jl",
+  "test/case_development_tests.jl",
   "src/knowledge/contracts.jl",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
@@ -756,6 +762,15 @@ finding_codes = [
 ]
 fixture_ids = ["solved-network-feasibility-001"]
 source_paths = [
+  "examples/case_development.jl",
+  "src/augmentation/scenarios.jl",
+  "src/augmentation/der_placement.jl",
+  "src/augmentation/ibr_placement.jl",
+  "test/case_development_tests.jl",
+  "test/case_development_opf_tests.jl",
+  "test/data/case_development/feeder.json",
+  "test/data/case_development/README.md",
+  "docs/src/tutorial_case_development.md",
   "src/validation/schema.jl",
   "ext/BMOPFOpfExt/BMOPFOpfExt.jl",
   "ext/BMOPFOpfExt/per_unit.jl",

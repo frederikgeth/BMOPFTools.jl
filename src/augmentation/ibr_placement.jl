@@ -40,6 +40,12 @@ Placement strategy
   `:hosting_capacity` (sized to a fraction of the feeding transformer rating),
   or `:topology_targeted` (IBRs at feeder leaves / near the source).
 - `topology_mode` — `:leaves` or `:near_source` (only for `:topology_targeted`).
+- `bus_ids` — explicit candidate buses; filters still apply and rejected explicit
+  selections raise an error. `nothing` uses the strategy.
+- `phase_by_bus` — bus-to-phase labels for explicit single-phase placement; the
+  bus must declare that phase and a neutral. Other buses retain inferred phasing.
+- `capacity_budget` — optional total VA of apparent capacity across the new devices.
+  Existing sizing supplies relative weights; zero places no devices.
 
 Filters (composable over any strategy)
 -------------------------------------
@@ -64,7 +70,7 @@ IBR model
   terminal, else SINGLE_PHASE), or a forced `:FOUR_LEG` / `:THREE_LEG` /
   `:SINGLE_PHASE`.
 
-Cost (makes the OPF dispatch non-trivial)
+Cost (declares the dispatch incentive)
 ----------------------------------------
 - `cost_basis` — `:cheaper_than_slack`, `:uniform`, or `:tiered_by_level`.
 - `slack_cost`, `der_cost_factor` — `cost = der_cost_factor × slack_cost`.
@@ -85,6 +91,10 @@ Base.@kwdef struct IBRRecipe
     voltage_levels    :: Union{Vector{Symbol},Nothing} = [:LV]
     min_local_load_va :: Float64 = 0.0
     skip_source_buses :: Bool    = true
+    # optional explicit selection; budget is W for generators, VA for IBRs
+    bus_ids           :: Union{Vector{String},Nothing} = nothing
+    phase_by_bus      :: Dict{String,String} = Dict{String,String}()
+    capacity_budget   :: Union{Float64,Nothing} = nothing
     # sizing (apparent power)
     size_basis        :: Symbol  = :fraction_of_local_load
     s_fraction        :: Float64 = 0.8
@@ -281,6 +291,9 @@ function _apply_ibr_placement!(net′::Dict{String,Any},
     # 1. strategy-specific candidate bus set (shared with generator placement)
     candidate_buses = _ibr_strategy_buses(recipe, conn, loads)
 
+    _validate_placement_selection(net′, loads, recipe)
+    recipe.bus_ids !== nothing && (candidate_buses = copy(recipe.bus_ids))
+
     # 2. shared filters
     src_buses = _source_buses(net′)
     dangling  = Set(get(conn, "dangling_buses", String[]))
@@ -303,6 +316,19 @@ function _apply_ibr_placement!(net′::Dict{String,Any},
         push!(selected, bus)
     end
     sort!(unique!(selected))
+    if recipe.bus_ids !== nothing && Set(selected) != Set(recipe.bus_ids)
+        throw(ArgumentError("explicit bus_ids did not pass placement filters; check level, source, load and existing devices"))
+    end
+    all(b -> b in selected, keys(recipe.phase_by_bus)) ||
+        throw(ArgumentError("phase_by_bus contains an unselected bus"))
+    for bus in selected
+        loads[bus] = _placement_phasing(net′, bus, loads[bus], recipe)
+    end
+
+    sizes = Dict(bus => _size_ibr(recipe, loads[bus].p_nom,
+        first(_ibr_basis_total(recipe, bus, loads[bus], xfmr)),
+        something(_voltage_family(get(bus_v, bus, NaN)), :LV)) for bus in selected)
+    _apply_capacity_budget!(sizes, recipe.capacity_budget)
 
     # 3. build, size, cost, and write each IBR
     invs = get!(net′, "ibr", Dict{String,Any}())
@@ -312,24 +338,27 @@ function _apply_ibr_placement!(net′::Dict{String,Any},
         agg = loads[bus]
         lvl = something(_voltage_family(get(bus_v, bus, NaN)), :LV)
         basis, note_basis = _ibr_basis_total(recipe, bus, agg, xfmr)
-        s_max = _size_ibr(recipe, agg.p_nom, basis, lvl)
+        s_max = sizes[bus]
         all(iszero, s_max) && continue
         p_avail = recipe.s_to_p_ratio * sum(s_max)
         cost  = _cost_ibr(recipe, length(s_max), lvl)
-        topo  = _resolve_topology(recipe, agg.terminal_map)
+        topo  = haskey(recipe.phase_by_bus, bus) ? "SINGLE_PHASE" :
+            _resolve_topology(recipe, agg.terminal_map)
 
         iid  = string(recipe.id_prefix, bus)
         rule = string("IBR_PLACEMENT/", recipe.strategy)
+        haskey(invs, iid) && !recipe.overwrite_existing &&
+            throw(ArgumentError("IBR ID '$iid' already exists"))
         invs[iid] = Dict{String,Any}(
             "bus" => bus, "terminal_map" => copy(agg.terminal_map),
             "topology" => topo, "prime_mover" => string(recipe.prime_mover),
             "s_max" => s_max, "p_avail" => p_avail, "cost" => cost)
 
         note = "IBR at bus '$bus' (level $lvl); $note_basis; topology $topo; " *
-               "phasing inherited from load"
+               "phasing from load or explicit phase_by_bus; capacity_budget=$(recipe.capacity_budget)"
         push!(entries, TransformEntry(:ibr, iid, "bus", nothing, bus, rule, :synthetic, note))
         push!(entries, TransformEntry(:ibr, iid, "terminal_map", nothing,
-            agg.terminal_map, rule, :synthetic, "inherited from load at '$bus'"))
+            agg.terminal_map, rule, :synthetic, "load terminals or explicit phase_by_bus at '$bus'"))
         push!(entries, TransformEntry(:ibr, iid, "topology", nothing,
             topo, rule, :synthetic,
             recipe.inverter_topology === :infer ?

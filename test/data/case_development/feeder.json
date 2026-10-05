@@ -1,0 +1,235 @@
+{
+  "name": "case_development_example",
+  "bus": {
+    "source": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "v_declared": 230.0,
+      "vpn_min": [
+        207.0,
+        207.0,
+        207.0
+      ],
+      "vpn_max": [
+        253.0,
+        253.0,
+        253.0
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    },
+    "near": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "v_declared": 230.0,
+      "vpn_min": [
+        207.0,
+        207.0,
+        207.0
+      ],
+      "vpn_max": [
+        253.0,
+        253.0,
+        253.0
+      ]
+    },
+    "joint": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "v_declared": 230.0
+    },
+    "far": {
+      "terminal_names": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "v_declared": 230.0,
+      "vpn_min": [
+        207.0,
+        207.0,
+        207.0
+      ],
+      "vpn_max": [
+        253.0,
+        253.0,
+        253.0
+      ]
+    }
+  },
+  "voltage_source": {
+    "grid": {
+      "bus": "source",
+      "terminal_map": [
+        "1",
+        "2",
+        "3"
+      ],
+      "v_magnitude": [
+        230.0,
+        230.0,
+        230.0
+      ],
+      "v_angle": [
+        0,
+        -2.0943951023931953,
+        2.0943951023931953
+      ],
+      "cost": [
+        0.25,
+        0.25,
+        0.25
+      ]
+    }
+  },
+  "linecode": {
+    "cable": {
+      "i_max": [
+        90.0,
+        90.0,
+        90.0,
+        60.0
+      ],
+      "R_series_1_1": 0.0006,
+      "X_series_1_1": 0.00015,
+      "R_series_1_2": 4e-05,
+      "X_series_1_2": 5e-05,
+      "R_series_1_3": 4e-05,
+      "X_series_1_3": 5e-05,
+      "R_series_1_4": 4e-05,
+      "X_series_1_4": 5e-05,
+      "R_series_2_2": 0.0006,
+      "X_series_2_2": 0.00015,
+      "R_series_2_3": 4e-05,
+      "X_series_2_3": 5e-05,
+      "R_series_2_4": 4e-05,
+      "X_series_2_4": 5e-05,
+      "R_series_3_3": 0.0006,
+      "X_series_3_3": 0.00015,
+      "R_series_3_4": 4e-05,
+      "X_series_3_4": 5e-05,
+      "R_series_4_4": 0.0006,
+      "X_series_4_4": 0.00015
+    }
+  },
+  "line": {
+    "l1": {
+      "bus_from": "source",
+      "bus_to": "near",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "cable",
+      "length": 80.0
+    },
+    "l2": {
+      "bus_from": "near",
+      "bus_to": "joint",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "cable",
+      "length": 60.0
+    },
+    "l3": {
+      "bus_from": "joint",
+      "bus_to": "far",
+      "terminal_map_from": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "terminal_map_to": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "linecode": "cable",
+      "length": 60.0
+    }
+  },
+  "load": {
+    "near": {
+      "bus": "near",
+      "terminal_map": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "configuration": "WYE",
+      "model": "constant_power",
+      "p_nom": [
+        1800.0,
+        1200.0,
+        900.0
+      ],
+      "q_nom": [
+        360.0,
+        240.0,
+        180.0
+      ],
+      "v_nom": 230.0
+    },
+    "far": {
+      "bus": "far",
+      "terminal_map": [
+        "1",
+        "2",
+        "3",
+        "n"
+      ],
+      "configuration": "WYE",
+      "model": "constant_power",
+      "p_nom": [
+        900.0,
+        1800.0,
+        1200.0
+      ],
+      "q_nom": [
+        180.0,
+        360.0,
+        240.0
+      ],
+      "v_nom": 230.0
+    }
+  },
+  "meta": {
+    "source": "Original synthetic teaching fixture; not calibrated to a utility population",
+    "license": "CC-BY-4.0"
+  }
+}
