@@ -133,7 +133,7 @@ function _canonical_solution_voltages(net, result, findings)
             any(key -> haskey(device, key) || haskey(lc, key), ("i_max", "s_max")) || continue
             for t in string.(get(device, "terminal_map_from", String[]))
                 vals = get(get(get(result, family, Dict()), id, Dict()), t, Dict())
-                for field in (family == "line" ? ("cm_fr", "cm_to") : ("cm_fr",))
+                for field in (family == "line" ? ("cm_fr", "cm_to") : ("cm",))
                     get(vals, field, nothing) isa Real || push!(missing, "$family.$id.$t.$field")
                 end
             end
@@ -464,12 +464,15 @@ function solution_check(net::Dict{String,Any},
     # power; a 1e-6 W floor would false-flag it. 1 W is negligible against any real
     # device rating (kW–MW) while absorbing that round-trip noise.
     power_floor = 1.0
+    # Apparent-power circles retain their existing 1e-6 relative tolerance,
+    # with a 1 micro-VA floor so zero-rated phases tolerate round-off.
+    apparent_tol(bound) = max(1e-6 * abs(bound), 1e-6)
 
     # Returns (violated, active) given value v, lower lb, upper ub (either may be nothing).
     # Uses an absolute fallback of 0.01 × |bound| for bounds near zero. `abs_floor`
     # sets the absolute violation slack for quantities whose bound can be exactly
     # zero (powers), where a relative tolerance vanishes.
-    function _bound_status(v::Float64, lb, ub; abs_floor::Float64=1e-6)
+    function _bound_status(v::Real, lb, ub; abs_floor::Float64=1e-6)
         violated = false
         active   = false
         if lb !== nothing
@@ -1131,15 +1134,16 @@ function solution_check(net::Dict{String,Any},
             # Apparent-power circle (optional): √(pg²+qg²) ≤ s_max[k].
             if idx <= length(smax_arr) && isfinite(pg) && isfinite(qg)
                 sm = smax_arr[idx]
-                apparent = sqrt(pg^2 + qg^2)
-                if apparent > sm * (1 + 1e-6)
+                apparent = hypot(pg, qg)
+                if apparent > sm + apparent_tol(sm)
                     n_gen_viol += 1
                     push!(findings, Finding(ERROR, "E.SOL.GEN_VIOLATION",
                         :solution, :generator, gid,
-                        "Generator '$gid' phase '$t_ph': |S|=$(_fmt_mw(apparent)) " *
-                        "exceeds s_max=$(_fmt_mw(sm)) (apparent-power circle violated).",
+                        "Generator '$gid' phase '$t_ph': |S|=$(_fmt_va(apparent)) " *
+                        "exceeds s_max=$(_fmt_va(sm)) (apparent-power circle violated).",
                         Dict{String,Any}("generator"=>gid,"terminal"=>t_ph,
-                                         "pg"=>pg,"qg"=>qg,"s"=>apparent,"s_max"=>sm)))
+                                         "pg"=>pg,"qg"=>qg,"s"=>apparent,"s_max"=>sm,
+                                         "tolerance_VA"=>apparent_tol(sm), "excess_VA"=>apparent-sm)))
                 end
             end
 
@@ -1278,14 +1282,15 @@ function solution_check(net::Dict{String,Any},
             # s_max circle
             if idx <= length(smax_arr)
                 sm = smax_arr[idx]
-                apparent = sqrt(pg^2 + qg^2)
-                if apparent > sm * (1 + 1e-6)
+                apparent = hypot(pg, qg)
+                if apparent > sm + apparent_tol(sm)
                     n_inv_viol += 1
                     push!(findings, Finding(ERROR, "E.SOL.IBR_VIOLATION", :solution, :ibr, inv_id,
-                        "IBR '$inv_id' phase '$t_ph': |S|=$(_fmt_mw(apparent)) " *
-                        "exceeds s_max=$(_fmt_mw(sm)) (apparent-power circle violated).",
+                        "IBR '$inv_id' phase '$t_ph': |S|=$(_fmt_va(apparent)) " *
+                        "exceeds s_max=$(_fmt_va(sm)) (apparent-power circle violated).",
                         Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
-                                         "pg"=>pg,"qg"=>qg,"sm"=>apparent,"s_max"=>sm)))
+                                         "pg"=>pg,"qg"=>qg,"sm"=>apparent,"s_max"=>sm,
+                                         "tolerance_VA"=>apparent_tol(sm), "excess_VA"=>apparent-sm)))
                 end
             end
 

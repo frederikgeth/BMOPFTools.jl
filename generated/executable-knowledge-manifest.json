@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "0d634136ee6e6b0f0053290cdb6a1e7af261e8532cf410b3b1d2483cacc5ee1e",
+  "corpus_sha256": "3092924ac40a562e0e3786e07c871d60ec7b4507121128f3bc0102203daedfc8",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "367de8221c06d444170d5a4935b4c38a5e24c721d03a4be6f0592330a3e5aeab"
+      "sha256": "e304ee275acf246324b4cf06614aa76b5542ae5ce91366c0638bbb9cd69d6b05"
     },
     {
       "path": "docs/src/objectives.md",
@@ -194,11 +194,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "bde6cf2f1a3ce4e42abd4aef78a3c25bb9c4fba2cb787c824bdda2574c3bb5bc"
+      "sha256": "d4447b36afaeb4cd7e2eeec5137aff19ddf2aaba4d55dc096ec22bfb56d299a4"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "dad43da04ec2f7ad85b8d6c18e3610b94cca1303d4dc7d87a5e30e5a687194fd"
+      "sha256": "d0b853cdaba2facef89d7f2c2c1e316eea3ea6c2e92c40e75a9f09c9cabc8cd7"
     },
     {
       "path": "recipes/README.md",
@@ -438,7 +438,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "352250a37b347b954de463e8890c98b60334ac23522ff17824f355c7906bb1ac"
+      "sha256": "cae58f042d364fba6b19db55f711671e7ca3872555466aa682bdbea91562bf39"
     },
     {
       "path": "src/report/render_markdown.jl",
@@ -466,7 +466,7 @@
     },
     {
       "path": "src/validation/solution.jl",
-      "sha256": "4635d808a8c23dc39205640db9e318c97804b369e4b202819a9ac7e99a74d58e"
+      "sha256": "a082de7ffa10eb02c01bf8153cc27f2fc4ebd572dc4df106191ac5a2d90829f8"
     },
     {
       "path": "src/validation/spec_conformance.jl",
@@ -555,6 +555,10 @@
     {
       "path": "test/data/scientific_review/vuf-result.json",
       "sha256": "55bfe95d40f522d1a155c67f71de0463f64314b27c5139c3d299cbce636f70fb"
+    },
+    {
+      "path": "test/data/scientific_review/zero-rated-device-result.json",
+      "sha256": "8c0ab4f112d84849707d54cff2cf49b6b3d921267cafaf232d6b74cb94685980"
     },
     {
       "path": "test/data/transformer_interoperability/README.md",
@@ -1019,6 +1023,10 @@
     {
       "path": "test/solution_candidate_tests.jl",
       "sha256": "5bf5e7c203cf0e01cf6254d26449e21f6b12cf0d4f608bc544fd8b8aa43c904f"
+    },
+    {
+      "path": "test/solution_profiling_tests.jl",
+      "sha256": "36da3bce1a29f3e6527ea29f6ccb0a01911ff6d22796cf0f34127c80eb19c2ed"
     },
     {
       "path": "test/spatial_analysis_tests.jl",

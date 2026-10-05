@@ -4,6 +4,8 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Fix pilot-discovered verification false positives for zero-rated generator/IBR
+  phases and native switch current fields; accept integer-valued JSON powers.
 - Add independent demand/PV scenarios, callback-based sweeps retaining failures,
   explicit DER bus/phase selections and new-capacity budgets, and optional
   JSON/Markdown author logs with resolved recipes and structured Findings.

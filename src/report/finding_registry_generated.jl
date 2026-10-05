@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "367de8221c06d444170d5a4935b4c38a5e24c721d03a4be6f0592330a3e5aeab"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "e304ee275acf246324b4cf06614aa76b5542ae5ce91366c0638bbb9cd69d6b05"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -2277,7 +2277,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SOL",
         catalogue_section="SOL",
         section_title="solution profiling",
-        meaning="A generator's solved operating point (per terminal) violates a declared limit: `pg`/`qg` outside `p_min`/`p_max`/`q_min`/`q_max`, the optional `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle.",
+        meaning="A generator's solved operating point (per terminal) violates a declared limit: `pg`/`qg` outside `p_min`/`p_max`/`q_min`/`q_max`, the optional `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. Apparent-power checks use `max(1e-6 × abs(s_max), 1e-6 VA)` tolerance, recorded with the excess in structured evidence.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2295,7 +2295,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SOL",
         catalogue_section="SOL",
         section_title="solution profiling",
-        meaning="An IBR's solved operating point (per phase) violates a declared limit: `pg` outside `p_min`/`p_max`, the `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle.",
+        meaning="An IBR's solved operating point (per phase) violates a declared limit: `pg` outside `p_min`/`p_max`, the `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. Apparent-power checks use `max(1e-6 × abs(s_max), 1e-6 VA)` tolerance, recorded with the excess in structured evidence.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

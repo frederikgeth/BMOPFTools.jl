@@ -426,3 +426,16 @@ an equality-Jacobian rank computation.
 thresholds. Missing active duals or unassessed inequalities leave it unknown.
 It does not establish local uniqueness, second-order sufficiency or global
 optimality. The profile records its thresholds and coverage counts.
+
+### Zero ratings and numerical tolerance
+
+A phase with `s_max = 0` can return a tiny nonzero P/Q value after a numerical
+solve. Generator and IBR apparent-power checks use a relative tolerance of
+`1e-6` with an absolute floor of `1e-6 VA`; excess above that tolerance remains
+an ERROR. The Finding records `tolerance_VA` and `excess_VA`. This is a stated
+verification tolerance, not an increase in the equipment rating. JSON numeric
+zeros are accepted whether decoded as integers or floating-point values.
+
+Switch current magnitudes use `cm` in native results; line endpoint magnitudes
+use `cm_fr` and `cm_to`. Missing switch `cm` remains unassessed, while a supplied
+current exceeding its rating is checked normally.
