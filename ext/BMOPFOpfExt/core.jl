@@ -558,8 +558,8 @@ const _OPF_STAGE_ORDER = Dict{Symbol,Int}(
     :kcl => 6,
 )
 
-function _run_opf_stage!(ctx::OpfContext, stage::Symbol, action::Function;
-                         required::Tuple=())
+function _validate_opf_stage(ctx::OpfContext, stage::Symbol;
+                             required::Tuple=())
     ctx.lifecycle[] == :building || throw(ArgumentError(
         "cannot run OPF construction stage '$stage' after KCL finalization"))
     stage in ctx.manifest.stages && throw(ArgumentError(
@@ -574,6 +574,12 @@ function _run_opf_stage!(ctx::OpfContext, stage::Symbol, action::Function;
     maximum(completed_ranks; init=0) < rank || throw(ArgumentError(
         "OPF construction stage '$stage' is out of order; completed stages are " *
         "$(ctx.manifest.stages)"))
+    return nothing
+end
+
+function _run_opf_stage!(ctx::OpfContext, stage::Symbol, action::Function;
+                         required::Tuple=())
+    _validate_opf_stage(ctx, stage; required)
     action()
     push!(ctx.manifest.stages, stage)
     return ctx
@@ -2955,7 +2961,8 @@ step of the staged API; see the module notes above.
 
 Returns the snapshot's context; use `opf_model`, `opf_object`, `opf_bases`, and
 `add_terminal_injection!` to couple snapshots without relying on its layout. Pass it to
-[`enforce_kcl!`](@ref) and [`extract_result`](@ref).
+[`optimize_opf!`](@ref) to finalize KCL and solve once, then [`extract_result`](@ref).
+The manual [`enforce_kcl!`](@ref) plus `JuMP.optimize!` sequence remains supported.
 """
 function BMOPFTools.build_opf_model(net::Dict{String,Any};
                                     optimizer=_default_optimizer(),
@@ -3017,6 +3024,50 @@ that snapshot has been added, and before optimising. In a multi-period build cal
 it once per snapshot `ctx`.
 """
 BMOPFTools.enforce_kcl!(ctx::OpfContext) = _enforce_kcl!(ctx)
+
+BMOPFTools.optimize_opf!(; kwargs...) = throw(ArgumentError(
+    "optimize_opf! requires at least one OPF context"))
+
+function BMOPFTools.optimize_opf!(ctx::OpfContext, others::OpfContext...;
+                                  kwargs...)
+    haskey(kwargs, :ignore_optimize_hook) && throw(ArgumentError(
+        "optimize_opf! does not accept ignore_optimize_hook; the existing " *
+        "model optimize-hook chain must run"))
+    contexts = (ctx, others...)
+    model = ctx.model
+    all(c -> c.model === model, contexts) || throw(ArgumentError(
+        "optimize_opf! contexts must share one JuMP model"))
+    # Stage vectors are the live identity also used by the model-wide guard.
+    # Keep only those vectors in the registry: retaining a context there would
+    # retain its model through the weak registry key.
+    supplied = Base.IdSet{Vector{Symbol}}()
+    for c in contexts
+        stages = c.manifest.stages
+        stages in supplied && throw(ArgumentError(
+            "optimize_opf! does not accept duplicate contexts"))
+        push!(supplied, stages)
+        if :kcl in stages
+            c.lifecycle[] == :kcl_finalized || throw(ArgumentError(
+                "optimize_opf! found inconsistent KCL lifecycle state"))
+        else
+            _validate_opf_stage(c, :kcl; required=(:device_physics,))
+        end
+    end
+    omitted = lock(_KCL_GUARD_LOCK) do
+        entries = get(_KCL_GUARD_REGISTRY, model, Vector{Symbol}[])
+        count(stages -> !(:kcl in stages) && !(stages in supplied), entries)
+    end
+    omitted == 0 || throw(ArgumentError(
+        "optimize_opf! omitted $omitted unfinished registered context(s); " *
+        "supply them or finalize them with enforce_kcl! before this call"))
+    # All known lifecycle failures have been checked before the first mutation.
+    for c in contexts
+        :kcl in c.manifest.stages || BMOPFTools.enforce_kcl!(c)
+    end
+    _assert_kcl_enforced(model)
+    JuMP.optimize!(model; kwargs...)
+    return model
+end
 
 """
     BMOPFTools.generation_cost(ctx) -> JuMP.QuadExpr

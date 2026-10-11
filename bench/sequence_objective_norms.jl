@@ -15,8 +15,9 @@
 #
 # NOTE `build_opf_model` deliberately defers KCL so a `model_hook!` can
 # contribute to the accumulators; a caller assembling its own objective MUST
-# call `BMOPFTools.enforce_kcl!(ctx)` before solving. Without it the model is
-# silently unconstrained and every formulation "converges" to |V2| = 0.
+# call `BMOPFTools.optimize_opf!(ctx)` after completing contributions and
+# configuring the solver. It finalizes KCL and solves once; the ordinary
+# optimize-time guard rejects an unfinished model.
 using BMOPFTools, JuMP, Ipopt, Printf, InteractiveUtils, Pkg
 
 netdef(smax) = parse_bmopf("""
@@ -63,10 +64,10 @@ function solve1(mode, net, pu, eps_rel)
     elseif mode == :epigraph; t=@variable(m,lower_bound=0.0); @constraint(m, r^2+i^2<=t^2)
                               set_start_value(t,0.05*vscale); @objective(m,Min,t)
     else                      @objective(m, Min, r^2+i^2) end
-    BMOPFTools.enforce_kcl!(ctx)
+    set_attribute(m,"print_level",5)
     tmp = tempname()
     tt = @elapsed (open(tmp,"w") do io; redirect_stdout(io) do
-        set_attribute(m,"print_level",5); optimize!(m) end; end)
+        BMOPFTools.optimize_opf!(ctx) end; end)
     out = read(tmp,String); rm(tmp,force=true)
     mm = match(r"Number of Iterations\.*:\s*(\d+)", out)
     (it = mm===nothing ? -1 : parse(Int,mm.captures[1]),

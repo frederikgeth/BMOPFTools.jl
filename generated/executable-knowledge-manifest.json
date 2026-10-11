@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "13bdffb52439f060bba4436c837aa525e71d358d8c0192dbffd1649bdee968aa",
+  "corpus_sha256": "383b4f9fe1fa5aaccef9261fb95d1dd98c2f89d5a7fab764adb8c16888590858",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -61,6 +61,10 @@
       "sha256": "953390ba2ac0566dd952dd842306f96f555cdcf32957980410e7dfad1389b0de"
     },
     {
+      "path": "bench/sequence_objective_norms.jl",
+      "sha256": "326c74309a793d1597a4856e809acdf1128146de19d93dc25e9d9834a5879e38"
+    },
+    {
       "path": "bin/bmopf",
       "sha256": "011865b6109c680a958120a46670bf1430029e4fab6821e020295a0094492020"
     },
@@ -74,7 +78,7 @@
     },
     {
       "path": "docs/src/dev/opf_engine.md",
-      "sha256": "a366c6d2ec715d95c3f6d344d6e44811dc258dd1ce3592a1f9ce78a6a1f46730"
+      "sha256": "741fec2cb7e318fe626cd25b3fd70f5686403601eec08b9b0aeb4ad1eb940f04"
     },
     {
       "path": "docs/src/dev/versioning.md",
@@ -90,11 +94,11 @@
     },
     {
       "path": "docs/src/objectives.md",
-      "sha256": "895ee7f0b6e0998f46fda8207d733beaa68035581e1aa4974e3f684c826dfa06"
+      "sha256": "900a0051f7445ad86f5b723886f028f42ca1e3158be646f5404f42676f93034b"
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "a1e610bce82b54ea81561e02b49a4cad4200b8681186d9818ed54c59fe819133"
+      "sha256": "74c4563c7cbd88bc4414a9239fd23a90e776731e3942e4d98d383fa3423da9cd"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -119,6 +123,10 @@
     {
       "path": "docs/src/tutorial_nameplate.md",
       "sha256": "ee434736c4837c78dedc020aba244dfa2f836a2c6e19c78a87d0e01354194a9c"
+    },
+    {
+      "path": "docs/src/tutorial_objectives.md",
+      "sha256": "61272b5a024cf367d284ffed29ba869fa4b2a16fc753d1aed0839a55d8253d25"
     },
     {
       "path": "docs/src/tutorial_simplify.md",
@@ -154,7 +162,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/core.jl",
-      "sha256": "5cb2f0be18b94e02cb491350d988887931b998086de524b4be98a2405ef78ce3"
+      "sha256": "16ee710c01d9d90676bc660c0de030fa4e6dfa646fd23ddd4d0866d6fdf7af39"
     },
     {
       "path": "ext/BMOPFOpfExt/data_utils.jl",
@@ -214,7 +222,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "f61b3922cf156cd308f58bbf44e2bf08eda11f2311f1b76c1da2fb62c70390ee"
+      "sha256": "66210233d951a32fdc9228fd433eb0ee4a02875ea38fdbe2fd869c0c63af1f55"
     },
     {
       "path": "recipes/README.md",
@@ -953,6 +961,10 @@
       "sha256": "6ccef6092cbb4bcc7e50c1a75e2612837b7d02aa600f148a33f2366b38616b96"
     },
     {
+      "path": "test/kcl_guard_tests.jl",
+      "sha256": "9a751baeb415bcf7569a2cd8fc9f5545129f9929f65e1561e269207575a1cb04"
+    },
+    {
       "path": "test/line_solution_verification_tests.jl",
       "sha256": "d1a9cfc6d5531d1b4498559b732d1259e180c87a34fcbd09d93b7d6475051469"
     },
@@ -983,6 +995,10 @@
     {
       "path": "test/opf_final_hardening_tests.jl",
       "sha256": "4b7f39022b5f88378e9a629fd6611913c449e4e968e8dfac9536c402446767b9"
+    },
+    {
+      "path": "test/opf_optimize_tests.jl",
+      "sha256": "df5e6ae0610957205619ae48fe45ed4061e79a26e21391e8fd4fd61f5d4eea43"
     },
     {
       "path": "test/opf_tests.jl",

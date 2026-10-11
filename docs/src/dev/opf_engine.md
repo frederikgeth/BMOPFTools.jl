@@ -321,7 +321,7 @@ reach (full detail under
   check in [`profile_solution`](../validation.md) stays honest. This is how a
   battery, EV charger, or bespoke limit is added **without touching the JSON
   spec**.
-- **The staged API** ([`build_opf_model`](@ref) → [`enforce_kcl!`](@ref) →
+- **The staged API** ([`build_opf_model`](@ref) → [`optimize_opf!`](@ref) →
   [`extract_result`](@ref), with [`generation_cost`](@ref) for the objective) —
   unfuses build/solve/extract so several snapshots share one JuMP model. This is
   what makes **inter-temporal** coupling (battery state of charge across a

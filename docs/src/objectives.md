@@ -24,12 +24,11 @@ terms = [
 ]
 set_opf_objective!(ctx, terms)
 
-enforce_kcl!(ctx)          # REQUIRED — see the warning below
-JuMP.optimize!(opf_model(ctx))
+optimize_opf!(ctx)        # finalize KCL and solve once
 result = extract_result(ctx)
 ```
 
-!!! danger "`enforce_kcl!` is not optional"
+!!! danger "Finalize KCL before solving"
     `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
     nodal accumulators. Until [`enforce_kcl!`](@ref) runs, **the network is
     electrically disconnected**: bus voltages are free variables and your
@@ -42,6 +41,15 @@ result = extract_result(ctx)
     unstamped context, and [`extract_result`](@ref) refuses an unstamped
     context. Pass `kcl_guard=false` to `build_opf_model` if you deliberately
     want the optimise-time check off.
+
+    [`optimize_opf!`](@ref) checks all supplied contexts, finalizes missing KCL,
+    and solves their shared model once. Call it after custom injections,
+    objectives, and solver attributes are configured. For several snapshots use
+    `optimize_opf!(ctxs...)`; duplicate arguments and omitted unfinished
+    registered contexts are errors. Already-finalized KCL is left intact.
+    The manual `enforce_kcl!` followed by `JuMP.optimize!` workflow remains
+    available. After supported parameter-value updates, use [`resolve_opf!`](@ref)
+    to refresh the cached optimizer; structural changes require rebuilding.
 
 ## The catalogue
 

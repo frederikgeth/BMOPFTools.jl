@@ -3809,6 +3809,7 @@ include("mcp_execution_tests.jl")
             include("volt_var_watt_tests.jl")
             include("objective_tests.jl")
             include("kcl_guard_tests.jl")
+            include("opf_optimize_tests.jl")
             include("network_limit_tests.jl")
             include("dc_network_tests.jl")
         end

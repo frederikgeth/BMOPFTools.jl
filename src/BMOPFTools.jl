@@ -2873,6 +2873,7 @@ export extension_state!, add_terminal_injection!, register_opf_result_extractor!
 """
     build_opf_model(net; kwargs...) -> ctx
     enforce_kcl!(ctx) -> ctx
+    optimize_opf!(ctx, other_contexts...; kwargs...) -> JuMP.Model
     generation_cost(ctx) -> JuMP.QuadExpr
     extract_result(ctx; solution_hook!=nothing) -> Dict{String,Any}
 
@@ -2881,10 +2882,10 @@ Implemented in the `BMOPFOpfExt` extension (requires JuMP and a compatible
 optimizer loaded).
 
 `solve_opf` fuses model construction, KCL, the solve, and result extraction into
-one call. These four functions expose the same pipeline as discrete steps so a
+one call. The staged functions expose the same pipeline as discrete steps so a
 caller can build **several OPF snapshots into one JuMP model**, couple them with
 its own cross-snapshot constraints (e.g. battery state-of-charge dynamics linking
-period `t` to `t+1`), set a single combined objective, `JuMP.optimize!` once, and
+period `t` to `t+1`), set a single combined objective, [`optimize_opf!`](@ref) once, and
 extract each snapshot's result. This is the supported path for multi-period /
 storage formulations that the single-snapshot `solve_opf` cannot express.
 
@@ -2900,8 +2901,7 @@ ctxs  = [build_opf_model(net; t_index=t, model=model, add_objective=false,
 link_soc!(model, ctxs)
 JuMP.@objective(model, Min,
     sum(duration_hours[t] * generation_cost(ctxs[t]) for t in 1:T) + storage_cost)
-foreach(enforce_kcl!, ctxs)
-JuMP.optimize!(model)
+optimize_opf!(ctxs...)
 results = [extract_result(c) for c in ctxs]
 ```
 
@@ -2911,8 +2911,9 @@ results = [extract_result(c) for c in ctxs]
     the network is electrically disconnected and bus voltages are free
     variables, so any objective over them is minimised without physics — the
     solve can return a successful-looking status and a physically meaningless
-    answer. `solve_opf` handles this for you; a staged caller must not omit the
-    `foreach(enforce_kcl!, ctxs)` line above.
+    answer. `solve_opf` handles this for you; [`optimize_opf!`](@ref) explicitly
+    finalizes all supplied ready contexts before solving. The manual alternative
+    is `foreach(enforce_kcl!, ctxs)` followed by `JuMP.optimize!(model)`.
 
     This is guarded by default. `JuMP.optimize!` raises on a model holding any
     context whose KCL stage never ran, and `extract_result` raises on such a
@@ -2940,6 +2941,42 @@ Implemented in the `BMOPFOpfExt` extension.
 """
 function enforce_kcl! end
 export enforce_kcl!
+
+"""
+    optimize_opf!(ctx, other_contexts...; kwargs...) -> JuMP.Model
+
+Finalize the supplied staged OPF contexts and optimize their shared JuMP model
+once. Call after all device/extension contributions, coupling constraints,
+objective choices, and optimizer configuration are complete. Returns the same
+model; extract each snapshot with [`extract_result`](@ref).
+
+Preflight rejects empty input, duplicate contexts, mixed models, invalid KCL
+stage/lifecycle state, and omitted unfinished contexts registered with the
+model's KCL guard before constructing any KCL. Supplied contexts are checked
+even if they were built with `kcl_guard=false`; omitted unregistered contexts
+cannot be discovered by the helper. KCL requires the existing device-physics
+stage, not a default objective or every optional construction stage. Callers
+must finish their custom contributions before requesting finalization.
+
+Already-finalized contexts retain their KCL constraints and handles. Repeated
+calls request another solve but never stamp KCL twice. The helper runs the
+model-wide KCL check and preserves the existing optimize-hook chain, including
+copied-model safeguards. Arbitrary hook or optimizer failures do not roll back
+successful finalization.
+
+Keywords are forwarded to `JuMP.optimize!` and its installed hook; acceptance
+of hook-specific keywords belongs to that hook. `ignore_optimize_hook` is
+rejected whenever supplied, including `false`. Set solver attributes on the
+model before calling. Cached and direct JuMP models are supported subject to
+their optimizer's formulation support.
+
+This is an initial-build finalization convenience, not a parameter refresh.
+After supported parameter-value changes use [`resolve_opf!`](@ref), which
+refreshes a cached optimizer. Structural/domain changes require rebuilding.
+Implemented in the `BMOPFOpfExt` extension.
+"""
+function optimize_opf! end
+export optimize_opf!
 
 """
     generation_cost(ctx) -> JuMP.QuadExpr

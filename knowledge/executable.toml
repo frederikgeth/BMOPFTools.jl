@@ -859,6 +859,8 @@ source_paths = [
   "ext/BMOPFOpfExt/pf.jl",
   "test/pf_nameplate_contract_tests.jl",
   "test/parameter_resolve_tests.jl",
+  "test/kcl_guard_tests.jl",
+  "test/opf_optimize_tests.jl",
   "test/data/parameter_updates/stale_evaluation.jl",
   "test/powerflow_comparison_tests.jl",
   "test/Project.toml",
@@ -867,6 +869,8 @@ source_paths = [
   "docs/src/opf.md",
   "docs/src/differentiable_extensions.md",
   "docs/src/objectives.md",
+  "docs/src/tutorial_objectives.md",
+  "bench/sequence_objective_norms.jl",
   "docs/src/relu_softplus_encoding.md",
   "docs/src/tutorial_custom_formulations.md",
 ]

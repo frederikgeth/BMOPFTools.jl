@@ -1603,6 +1603,7 @@ add your own inter-temporal constraints, solve once, and extract each snapshot:
 | `build_opf_model(net; model, add_objective, model_hook!, …)` | build one snapshot's devices/bounds into a (shared) model; no KCL, no solve |
 | `generation_cost(ctx)` | that snapshot's cost-rate expression (\$/h), unset — duration-weight and sum across snapshots for one monetary objective |
 | `enforce_kcl!(ctx)` | pin KCL for one snapshot (call once per snapshot before solving) |
+| `optimize_opf!(ctxs...; kwargs...)` | validate supplied contexts, finalize missing KCL, and solve their shared model once |
 | `extract_result(ctx; solution_hook!)` | extract one snapshot's SI result after the shared solve |
 
 Pass the same `model` to every `build_opf_model` call and `add_objective=false`
@@ -1626,8 +1627,7 @@ end
 
 @objective(model, Min,
     sum(duration_hours[t] * generation_cost(ctxs[t]) for t in 1:T))
-foreach(enforce_kcl!, ctxs)
-JuMP.optimize!(model)
+optimize_opf!(ctxs...)
 results = [extract_result(c) for c in ctxs]
 ```
 
@@ -1682,6 +1682,7 @@ solve_feasibility_opf
 diagnose_infeasibility
 build_opf_model
 enforce_kcl!
+optimize_opf!
 generation_cost
 extract_result
 ```
