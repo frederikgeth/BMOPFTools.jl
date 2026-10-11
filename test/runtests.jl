@@ -3711,6 +3711,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # PowerIO conversion diagnostics lifted into Findings
     # -----------------------------------------------------------------------
     include("powerio_findings_tests.jl")
+    include("dss_conversion_error_tests.jl")
 
     # -----------------------------------------------------------------------
     # write_bmopf JSON validity

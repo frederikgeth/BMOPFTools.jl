@@ -724,7 +724,11 @@ is set to `"n"` on every affected bus.
 
 - `findings`: optional `Vector{Finding}` to append the conversion's findings to
   (the same pattern the analysis passes follow). The findings are recorded on
-  the network regardless; this is for a caller that wants them in hand at ingest.
+  the network on success. A wrapped PowerIO failure appends available reader
+  and failure diagnostic classes once before throwing, preserving existing
+  entries. Failure Findings include the source path, conversion stage, and
+  ungrouped upstream evidence; missing component targets are not inferred from
+  message text. No entries are fabricated when PowerIO supplies no diagnostics.
 
 # Conversion findings
 PowerIO reports every piece of information that cannot be represented in BMOPF
@@ -739,11 +743,16 @@ Two views of the same list are recorded on the returned dict:
   [`analyze`](@ref) reports alongside every other finding.
 
 # Errors
-- `PowerIO.PowerIOError` with code `BUILD.DIST.ELECTRICAL_INCOMPLETE` if a
-  geometry-defined line lacks calculated conductor impedances or a resolved
-  terminal map. No substituted-impedance network is returned.
+- [`DSSConversionError`](@ref) if PowerIO raises `PowerIOError` during parsing
+  or BMOPF emission. The original exception is `err.cause`; its stable code,
+  message and failure diagnostics are unchanged. Reader diagnostics captured
+  before emission are retained separately. For unresolved geometry,
+  `err.cause.code == "BUILD.DIST.ELECTRICAL_INCOMPLETE"`. No partial or
+  substituted-impedance network is returned.
 - `ArgumentError` if the DSS file does not exist.
 - `ErrorException` if PowerIO produces no output (parse failure or schema error).
+Other exceptions, including package audit/normalization errors, propagate
+unchanged; the wrapper is limited to the named PowerIO parse/emit boundaries.
 
 # Example
 ```julia
@@ -762,11 +771,14 @@ function from_dss(path::AbstractString;
 
     # PowerIO parses to a MulticonductorNetwork handle, then emits BMOPF JSON
     # plus a list of fidelity-loss warnings.
-    module_ = PowerIO.parse(abspath_dss)
+    module_ = _with_dss_conversion_evidence(
+        () -> PowerIO.parse(abspath_dss), abspath_dss, :parse; findings)
     module_ isa PowerIO.PioModule{PowerIO.MulticonductorNetwork} ||
         throw(ArgumentError("OpenDSS input must contain a multiconductor network"))
     dn = _powerio_audit_input(module_)
-    emission = PowerIO.emit(module_, "bmopf-json@0.1.0")
+    emission = _with_dss_conversion_evidence(
+        () -> PowerIO.emit(module_, "bmopf-json@0.1.0"), abspath_dss, :emit,
+        module_.diagnostics; findings)
     json_raw = emission.text
     diagnostics = vcat(module_.diagnostics, emission.diagnostics)
     warnings_list = _powerio_diagnostic_line.(diagnostics)
@@ -800,14 +812,8 @@ function from_dss(path::AbstractString;
     # name their components the way the rest of the dict does.
     net["_meta"] = get(net, "_meta", Dict{String,Any}())
     net["_meta"]["powerio_warnings"] = collect(String, warnings_list)
-    net["_meta"]["powerio_diagnostic_details"] = [Dict{String,Any}(
-        "code" => d.code, "severity" => string(d.severity),
-        "message" => d.message, "target" => d.target, "details" => d.details,
-        "id" => d.id, "suggested_action" => d.suggested_action,
-        "related" => d.related,
-        "spans" => [Dict("source" => span.source, "byte_start" => span.byte_start,
-                         "byte_end" => span.byte_end) for span in d.spans],
-    ) for d in diagnostics]
+    net["_meta"]["powerio_diagnostic_details"] =
+        _powerio_diagnostic_to_dict.(diagnostics)
     net["_meta"]["powerio_diagnostics"] =
         _powerio_diagnostic_records(diagnostics; fold_ids=true)
     net["_meta"]["powerio_source"]   = abspath_dss

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "91fa9a034b9b9dcdc8d87f61058402b677677ee4a6920fdd4d88dcb675c3f08c",
+  "corpus_sha256": "242d3c798e51154d7fbf513145a4584a2b90231b67468fb31a7bd2d7d51dd541",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -75,6 +75,14 @@
     {
       "path": "docs/src/analysis.md",
       "sha256": "5e89288a560dcbb2c30512e574e35860efb1dac821f6f805bed8a212a686600e"
+    },
+    {
+      "path": "docs/src/api.md",
+      "sha256": "0631ebd5eaab4307e93f078ceb7fe0722acad56a5fa0dfc0e4bdeacf878ddb65"
+    },
+    {
+      "path": "docs/src/conversion.md",
+      "sha256": "9ea9075593780875bc239b833263382ca996cd8ab7a09cd87e8e604a6de5cd3f"
     },
     {
       "path": "docs/src/dev/opf_engine.md",
@@ -222,7 +230,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "66210233d951a32fdc9228fd433eb0ee4a02875ea38fdbe2fd869c0c63af1f55"
+      "sha256": "7105b49e63b8105c73642ae7d60f3f857fc99600043948842752baf69b89f4c0"
     },
     {
       "path": "recipes/README.md",
@@ -409,8 +417,12 @@
       "sha256": "285f88633dc6a8aa2bebf3c8e561fa748a89da342ada403651903567e780957f"
     },
     {
+      "path": "src/io/dss_conversion_error.jl",
+      "sha256": "48fbf6570e9442f82b874d2284ad4bc5dd42464e7c57deb8180857aa91c59615"
+    },
+    {
       "path": "src/io/from_dss.jl",
-      "sha256": "0ad9e73c8a288c893c9f1ac0942ba1cce734f173ed8b977635f454637ed4f915"
+      "sha256": "ba993f9133813db3c0738486a7384d1d5d17a8ee4ee8e3efd1ed5d9cfdc7855d"
     },
     {
       "path": "src/io/migrate.jl",
@@ -423,6 +435,10 @@
     {
       "path": "src/io/parse_bmopf.jl",
       "sha256": "201e31d0fd98f8ddead1cadd9d9f5393344d42d3c8841aa7eeda06be5cc8256f"
+    },
+    {
+      "path": "src/io/powerio_findings.jl",
+      "sha256": "97c53be4398504f14db496fbe3ce00c78899ff8295f88554891617fdffc452a1"
     },
     {
       "path": "src/io/project_solution.jl",
@@ -623,6 +639,10 @@
     {
       "path": "test/data/transformer_interoperability/wye_delta.json",
       "sha256": "17dc7f76b36ed547083acf9ea188f66af744bfe6b990cd13d8f6fcd5b1f20994"
+    },
+    {
+      "path": "test/dss_conversion_error_tests.jl",
+      "sha256": "deef678c40efda959ac4731e2317c88e964773ba7d0b424f90db76d557794fa3"
     },
     {
       "path": "test/fixtures/delta_wye_secondary_leakage.json",
@@ -1017,12 +1037,16 @@
       "sha256": "3b0432e915a420ce57786ffcc9cc9083d38704cb6e336423abf5e8c084144633"
     },
     {
+      "path": "test/powerio_findings_tests.jl",
+      "sha256": "16195b868347331afd6180a6f4894f010d87865e5fd6dc9bd7efc6fee05da114"
+    },
+    {
       "path": "test/powerio_numerical_tests.jl",
       "sha256": "d66adf5f2eaf0fe8464a63e643e4129a10446f488b53ce555f3f8318a4586e26"
     },
     {
       "path": "test/powerio_regression_tests.jl",
-      "sha256": "0b94b098c353a460398c7d6a46ee4c4de755299fa7f3dfdb293effb724bbd296"
+      "sha256": "f8ad3b4d0e364f2ad6343a47b7b07eb6551dbc41a58db78920d157c0102af833"
     },
     {
       "path": "test/powerio_v09_tests.jl",
