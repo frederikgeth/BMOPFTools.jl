@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "3092924ac40a562e0e3786e07c871d60ec7b4507121128f3bc0102203daedfc8",
+  "corpus_sha256": "9e75fbe0a5a9ff82103087fda3a6bd46961d13c0c2d154383399d8711c27aaa5",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -51,6 +51,14 @@
     {
       "path": "Project.toml",
       "sha256": "2e187fad69db40e70ff86963fd24ea438b8ee8d067dd6a3ec9948d8a8b8d7b7c"
+    },
+    {
+      "path": "bench/ipopt_barrier.jl",
+      "sha256": "0786808f48f14734367da86013feb7a4b71ba6ddc99d94383f89db472624bfab"
+    },
+    {
+      "path": "bench/ipopt_barrier.md",
+      "sha256": "953390ba2ac0566dd952dd842306f96f555cdcf32957980410e7dfad1389b0de"
     },
     {
       "path": "bin/bmopf",
@@ -93,6 +101,10 @@
       "sha256": "cebad4675e77975c4839a09d9f08b6941dcb5a475a92064f61a9261877de79a8"
     },
     {
+      "path": "docs/src/solvers.md",
+      "sha256": "130178796ace92ced9af3539870e078c4f9ec63944152d965eeb8a56e6854d55"
+    },
+    {
       "path": "docs/src/transformer_models.md",
       "sha256": "89baf96867ed0d9c3e741414e44efb8f6ccc515cb80ce6e5b797604b9176bf36"
     },
@@ -119,6 +131,10 @@
     {
       "path": "docs/src/tutorial_trust_but_verify.md",
       "sha256": "13451410e2637d8da38a454074cc74909950eed45f154ee838b8c6970bbc8887"
+    },
+    {
+      "path": "docs/src/tutorial_units.md",
+      "sha256": "e5aa29e9acaf9a6ab2ee251d1785d7ef3dd6dbb8964646afcc6d3c2703210fdc"
     },
     {
       "path": "examples/case_development.jl",
@@ -198,7 +214,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "d0b853cdaba2facef89d7f2c2c1e316eea3ea6c2e92c40e75a9f09c9cabc8cd7"
+      "sha256": "f61b3922cf156cd308f58bbf44e2bf08eda11f2311f1b76c1da2fb62c70390ee"
     },
     {
       "path": "recipes/README.md",
@@ -931,6 +947,10 @@
     {
       "path": "test/fixtures/parallel_transformer_load.json",
       "sha256": "22e5ab831a3da8c99028200c69f2ff0cb0fb63e96d964268bb2ebc2518f8508b"
+    },
+    {
+      "path": "test/ipopt_barrier_benchmark_tests.jl",
+      "sha256": "6ccef6092cbb4bcc7e50c1a75e2612837b7d02aa600f148a33f2366b38616b96"
     },
     {
       "path": "test/line_solution_verification_tests.jl",

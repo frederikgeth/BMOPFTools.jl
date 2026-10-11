@@ -53,6 +53,7 @@ end
 include("piecewise_linear_tests.jl")
 include("case_development_tests.jl")
 _HAS_JUMP_IPOPT && include("case_development_opf_tests.jl")
+_HAS_JUMP_IPOPT && include("ipopt_barrier_benchmark_tests.jl")
 
 # Original diagnostic fixture; provenance and intentional defects are documented
 # alongside the data. Each consumer parses its own independent copy.

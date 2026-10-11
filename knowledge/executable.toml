@@ -13,6 +13,8 @@
 # Aggregate phase balance links to PSK-000009 without certifying collapse.
 # Case-development Julia examples illustrate independent verification (PSK-000013);
 # they do not extend its contract or expose solver callbacks through JSON execution.
+# The issue-429 benchmark reuses PSK-000013-linked solution verification and keeps
+# its unassessed dimensions explicit; timing observations do not widen that claim.
 schema_version = "0.6.0"
 
 [[contract]]
@@ -763,6 +765,11 @@ finding_codes = [
 fixture_ids = ["solved-network-feasibility-001"]
 source_paths = [
   "examples/case_development.jl",
+  "bench/ipopt_barrier.jl",
+  "bench/ipopt_barrier.md",
+  "test/ipopt_barrier_benchmark_tests.jl",
+  "docs/src/solvers.md",
+  "docs/src/tutorial_units.md",
   "src/augmentation/scenarios.jl",
   "src/augmentation/der_placement.jl",
   "src/augmentation/ibr_placement.jl",

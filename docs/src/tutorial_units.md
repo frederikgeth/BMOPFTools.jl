@@ -434,6 +434,25 @@ quantity at one level — flagged as
 [`W.DOM.LINE_IMPEDANCE_SPREAD`](findings.md) — survives normalization and is a
 property of the network itself.
 
+### Power-base sensitivity
+
+Keep the power base explicit when comparing solver settings. In
+[issue #429](https://github.com/frederikgeth/BMOPFTools.jl/issues/429), the default
+`s_base=1e6` performed well on the measured French MV/LV feeders; reducing it to
+`1e4` increased iterations from 35 to 97 on the reported 995-bus example.
+These observations do not establish a universal best base. A base derived from
+total load or the largest transformer rating has not been validated by that
+comparison, and BMOPFTools retains its existing 1 MVA default.
+
+`ZonePerUnitScaling` is an existing experimental coordinate policy with explicit
+per-zone power bases and a qualified device domain. Seeding those bases from
+transformer ratings is a separate experiment, not an automatic recommendation.
+Compare physical results and the same initialization policy as well as numerical
+effort; do not infer a scaling defect solely because a chosen base differs from
+1 MVA. The [adaptive-barrier comparison](solvers.md#Trying-adaptive-barrier-updates-with-Ipopt)
+holds the base fixed; separate runs with different `--s-base` values can explore
+sensitivity without combining it with an unrecorded solver-option change.
+
 ## 6. Economics: pricing the dispatch
 
 Now the third unit system. Every dispatchable element — generators, IBRs,
