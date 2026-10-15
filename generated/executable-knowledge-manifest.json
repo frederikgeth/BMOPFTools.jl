@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "91fa9a034b9b9dcdc8d87f61058402b677677ee4a6920fdd4d88dcb675c3f08c",
+  "corpus_sha256": "c31b97bbfac962786a4ef3c202a6ef67f8bb01c5b5e17131d243dbd80fde7f31",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -210,7 +210,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/transformer.jl",
-      "sha256": "036b134e7527afe656b690a662b80f83355e83567c7b524ec86cd634923562b8"
+      "sha256": "219e626ca66247bdd7385e4b6a60d275a44866e78d5d767486faa7b8084ecfbe"
     },
     {
       "path": "ext/BMOPFOpfExt/variables.jl",
@@ -222,7 +222,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "66210233d951a32fdc9228fd433eb0ee4a02875ea38fdbe2fd869c0c63af1f55"
+      "sha256": "ebb03afe5577ead53427d8fc39e5e33aa5075d64f4f5a60e243f225d1bc62ba5"
     },
     {
       "path": "recipes/README.md",
@@ -446,7 +446,7 @@
     },
     {
       "path": "src/io/ybus.jl",
-      "sha256": "377715e4b77f97b74042849b0d3caad20784a469733d3f516957febe7b960084"
+      "sha256": "eaa90bae004b7ed3ef97e7eb02426df9e489b6ef4b0a9c2b04c1f7ca53f47e1a"
     },
     {
       "path": "src/knowledge/contracts.jl",
@@ -543,6 +543,10 @@
     {
       "path": "test/data/neutral_only_link.json",
       "sha256": "0581f8a125cdf5da6ec1e869294692556705e6614512b4d723a309931d6957b0"
+    },
+    {
+      "path": "test/data/open_delta_shared_bond.json",
+      "sha256": "8e21ebccd5df3e3487f44494edc84562ac2968cc84574c39d40a0b93872d95ef"
     },
     {
       "path": "test/data/parameter_updates/stale_evaluation.jl",
@@ -975,6 +979,10 @@
     {
       "path": "test/neutral_only_terminal_map_tests.jl",
       "sha256": "7d297db583ddf8eb4843a15d376bba2bc006e9663c7d513230311d7d0b76e2c0"
+    },
+    {
+      "path": "test/open_delta_bond_tests.jl",
+      "sha256": "a344d3974eab18b07243aa8c39ba1d44aec991a1c238761f1fcbbe7ba1cd6c96"
     },
     {
       "path": "test/operational_mesh_applicability_tests.jl",

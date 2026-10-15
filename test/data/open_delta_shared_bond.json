@@ -1,0 +1,49 @@
+{
+  "bus": {
+    "h": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    },
+    "l": {
+      "terminal_names": [
+        "a",
+        "b",
+        "c",
+        "n"
+      ]
+    }
+  },
+  "transformer": {
+    "open_delta_regulator": {
+      "t": {
+        "bus_from": "h",
+        "bus_to": "l",
+        "terminal_map_from": [
+          "a",
+          "b",
+          "c",
+          "n"
+        ],
+        "terminal_map_to": [
+          "a",
+          "b",
+          "c",
+          "n"
+        ],
+        "connection": "ABBC",
+        "regulator_type": "B",
+        "tap_ratio": [
+          0.99,
+          1.02
+        ],
+        "r_series_from": 0.1,
+        "x_series_from": 0.2,
+        "r_series_to": 0.1
+      }
+    }
+  }
+}

@@ -3982,6 +3982,7 @@ include("mcp_execution_tests.jl")
     # OpenDSS getYsparse cross-check self-gates on _HAS_ODS.
     # -----------------------------------------------------------------------
     include("ybus_tests.jl")
+    include("open_delta_bond_tests.jl")
 
     # -----------------------------------------------------------------------
     # Linearized nodal admittance (ybus_linearized): load-folding analytic
