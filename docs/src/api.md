@@ -135,6 +135,8 @@ compile_linecodes!
 ```@docs
 to_pmd
 from_dss
+DSSConversionError
+dss_conversion_error_to_dict
 powerio_source_behavior_contract
 to_dss
 powerio_findings

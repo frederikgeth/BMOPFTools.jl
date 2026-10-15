@@ -715,6 +715,7 @@ include("io/write_bmopf.jl")
 include("io/result_io.jl")
 include("io/to_pmd.jl")
 include("io/powerio_findings.jl")
+include("io/dss_conversion_error.jl")
 include("io/from_dss.jl")
 include("io/to_dss.jl")
 include("io/project_solution.jl")
@@ -3036,6 +3037,7 @@ export write_result, read_result
 export to_pmd
 export from_dss, to_dss, powerio_source_behavior_contract
 export powerio_findings
+export DSSConversionError, dss_conversion_error_to_dict
 export project_solution, dispatch_as_loads
 export sideload_coordinates!
 export analyze, render

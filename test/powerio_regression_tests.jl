@@ -32,15 +32,18 @@ end
 
 @testset "Unresolved DSS geometry is rejected, never replaced (#381)" begin
     source = read(joinpath(@__DIR__, "data", "line_geometry", "synthetic_overhead.dss"), String)
-    function check_incomplete(f)
+    function check_incomplete(f; wrapped=false)
         err = try
             f()
             nothing
         catch e
             e
         end
-        @test err isa PowerIO.PowerIOError
-        if err isa PowerIO.PowerIOError
+        @test err isa (wrapped ? DSSConversionError : PowerIO.PowerIOError)
+        if err isa DSSConversionError
+            @test err.stage == :emit
+            @test err.cause.code == "BUILD.DIST.ELECTRICAL_INCOMPLETE"
+        elseif err isa PowerIO.PowerIOError
             @test err.code == "BUILD.DIST.ELECTRICAL_INCOMPLETE"
         end
     end
@@ -49,7 +52,7 @@ end
         mktempdir() do dir
             path = joinpath(dir, "Master.dss")
             write(path, replace(source, "geometry=overhead length=1 units=m" => line_definition))
-            check_incomplete(() -> from_dss(path))
+            check_incomplete(() -> from_dss(path); wrapped=true)
             # Retaining the source IR does not make an unresolved line electrical.
             module_ = PowerIO.parse(path)
             restored = PowerIO.deserialize(IOBuffer(PowerIO.serialize(module_).text))
