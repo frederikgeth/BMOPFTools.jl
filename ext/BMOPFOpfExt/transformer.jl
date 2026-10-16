@@ -1614,9 +1614,7 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
     (p1, q1), (p2, q2) = pairs
     shared = intersect((p1, q1), (p2, q2))
     if length(shared) == 1
-        sp = first(shared)
-        t_fr_s = tmfr[ph_fr[sp]]
-        t_to_s = tmto[ph_to[sp]]
+        (_,t_fr_s),(_,t_to_s)=BMOPFTools._open_delta_bond(xfmr;neutral_labels=nlabels)
         # Straight-through: equal voltage on both sides of the shared phase.
         register(:transformer_galvanic_bond_real, (tid, :shared),
             @constraint(model, vr[(b_fr, t_fr_s)] == vr[(b_to, t_to_s)]))

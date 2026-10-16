@@ -243,6 +243,13 @@ function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
         end
     end
 
+    # The common phase of a finite open-delta bank is a copper through-wire,
+    # independently of its taps/leakage. The native OPF imposes this same bond.
+    for x in values(get(get(net,"transformer",Dict()),"open_delta_regulator",Dict()))
+        a,b=_open_delta_bond(x;neutral_labels=_neutral_labels(net))
+        _uf_union!(uf,a,b)
+    end
+
     # 5. collapse grounded terminals onto the earth reference. Grounding is a
     #    property of the whole aliased GROUP: a terminal fused (via a closed
     #    switch / negligible-Z line / 1:1 ideal transformer) with a perfectly
@@ -271,6 +278,19 @@ function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
         of[n] = idx
     end
     _YbusIndex(ordered, of)
+end
+
+# Exact galvanic bond shared by native equations and passive node assembly.
+function _open_delta_bond(x; neutral_labels=nothing)
+    pairs=get(Dict("ABBC"=>((1,2),(2,3)),"BCAC"=>((2,3),(1,3)),
+                   "CABA"=>((3,1),(2,1))),uppercase(strip(string(get(x,"connection","")))),nothing)
+    pairs===nothing && throw(ArgumentError("invalid open-delta connection"))
+    shared=only(intersect(pairs[1],pairs[2]))
+    a=string.(x["terminal_map_from"]);b=string.(x["terminal_map_to"])
+    pa=neutral_labels===nothing ? _phase_positions(a) : _phase_positions(a,neutral_labels)
+    pb=neutral_labels===nothing ? _phase_positions(b) : _phase_positions(b,neutral_labels)
+    length(pa)==3 && length(pb)==3 || throw(ArgumentError("open-delta requires three phases on both sides"))
+    ((string(x["bus_from"]),a[pa[shared]]),(string(x["bus_to"]),b[pb[shared]]))
 end
 
 # ── transformer aliasing (1:1 zero-leakage → node fusion) ────────────────────
