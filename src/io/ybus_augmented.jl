@@ -130,7 +130,9 @@ Keywords:
   terminals into shared nodes exactly like `ybus_passive`; `:constrain` keeps
   them distinct and ties them per conductor with `V_from − V_to = 0` rows, so
   each switch-conductor current is a solution unknown. Both modes yield
-  identical node voltages.
+  identical node voltages. A switch is closed unless its `open_switch` field
+  is `true`, as in `ybus_passive`; an open switch is neither fused nor
+  constrained in either mode.
 - `ideal_xfmrs = :constrain | :stamp` — `:constrain` (default) models every
   zero-leakage, NON-unity-ratio two-winding transformer (`single_phase`,
   `wye_delta`, `delta_wye`) exactly, as ideal winding-core constraints
@@ -195,7 +197,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
         sws = get(net, "switch", Dict())
         for sid in sort!(collect(String.(keys(sws))))
             sw = sws[sid]
-            get(sw, "status", "closed") == "open" && continue
+            _ybus_switch_is_open(sid, sw) && continue
             bfr = get(sw, "bus_from", ""); bto = get(sw, "bus_to", "")
             tmf = string.(get(sw, "terminal_map_from", String[]))
             tmt = string.(get(sw, "terminal_map_to", String[]))

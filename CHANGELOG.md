@@ -4,6 +4,10 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Fix `ybus_passive`, `ybus_linearized` and `ybus_augmented` modelling switches
+  with `open_switch = true` as closed; read the schema field instead of a
+  non-schema `status` key and reject a non-boolean `open_switch`.
+
 - Fix pilot-discovered verification false positives for zero-rated generator/IBR
   phases and native switch current fields; accept integer-valued JSON powers.
 - Add independent demand/PV scenarios, callback-based sweeps retaining failures,
