@@ -46,7 +46,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite and CI pass; 9,604 focused assertions |
 | P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); local gates/full suite and all 11 CI checks pass |
-| P9 | #413 | `codex/413-coil-headroom-preflight` | Stacked on #444 (`f83c1d661`); explicit mapping domain | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); 203 focused assertions and scientific/execution gates pass; full suite/CI running |
+| P9 | #413 | `codex/413-coil-headroom-preflight` | Stacked on #444 (`f83c1d661`); explicit mapping domain | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); local gates/full suite pass; 203 focused assertions; CI running |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
 the feature portions of their issues. P6 and P8 can be brought forward as focused
@@ -188,13 +188,13 @@ parallel agent work are assumed by this plan.
 
 ## P9 — Qualified per-coil preflight estimates
 
-- [ ] Start with explicitly mapped radial single-supply cases; inventory assumptions
+- [x] Start with explicitly mapped radial single-supply cases; inventory assumptions
   for voltage dependence, losses, Q, local generation and phase coupling.
-- [ ] Return estimate provenance, scope, applicable cap and unassessed reasons;
+- [x] Return estimate provenance, scope, applicable cap and unassessed reasons;
   unsupported meshes/multiple sources/ambiguous coil mappings receive no guess.
-- [ ] Test deterministic mapping, below/on/above nominal headroom and ambiguous
+- [x] Test deterministic mapping, below/on/above nominal headroom and ambiguous
   controls; preserve input and distinguish estimates from solved/supplied loading.
-- [ ] Document that positive headroom does not prove feasibility and negative
+- [x] Document that positive headroom does not prove feasibility and negative
   headroom does not prove infeasibility. Complete #413 only after both evidence paths.
 
 ## Test-change ledger and shared acceptance gates
@@ -484,3 +484,20 @@ For each runtime slice:
   and emitted example. The P8 fixture is reused unchanged, network only.
   No solver/constraint/rating behavior changed. #445 and #444 remain open drafts
   with auto-merge disabled; neither #413 nor any PR is closed or merged.
+
+- 2026-10-18: P9 final validation at `081f2e73f` passes all required local
+  gates and the full suite: **14,281 pass, 37 existing broken/skipped, zero
+  failures**, exit 0 (main testset 2m41.5s). The increase over P8 is 203 new
+  preflight assertions plus 13 executable-metadata path/hash checks. Scientific
+  contracts pass; executable knowledge has 1,025 passing assertions and JSON
+  execution has 158. The updated curated analysis recipe is exercised by those
+  gates. Finding registry, reproducible executable export/schema, llms and
+  release metadata checks pass. No existing assertions, fixtures, tolerances
+  or skips changed; the only existing test-source edit is one suite include.
+  Existing recipe assertions remain intact. OpenDSSDirect Julia 1.12 diagnostic
+  noise is nonfatal. GitHub metadata passes; remaining CI jobs run at handoff.
+  P9 checkboxes mean implemented and locally validated in draft #445, not
+  merged or issue-closed. #413 now has both supplied-result (#444) and qualified
+  nominal-screen (#445) paths available for review in the declared domains.
+  #445 targets #444; both remain open drafts with auto-merge disabled. No PR
+  has been merged. P2 (#89 minimum PF) is the remaining planned feature slice.
