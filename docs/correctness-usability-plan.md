@@ -45,7 +45,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite pass; 9,604 focused assertions; CI running |
-| P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
+| P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | In development: supplied-result coil loading; P9 estimates remain separate |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
@@ -416,3 +416,13 @@ For each runtime slice:
   P7 checkboxes mean implemented and tested in draft #443, not merged or
   issue-closed. #443 targets #438; both are open drafts with auto-merge disabled.
   No PR has been merged. Next planned slice is P8 (#413 coil-loading reports).
+
+- 2026-10-18: P8 (#413) started independently from main at `df6bc42bf`.
+  Extend `profile_solution` and its Markdown/JSON evidence with native
+  constrained-side coil rows and per-side aggregate sums. Reuse existing
+  thermal Findings; supplied values/caps do not authenticate stamping or case
+  provenance. Preserve failed-candidate and missing-data evidence. No ratings,
+  solver equations or retry behavior change. P9 preflight estimation remains
+  outstanding, so this draft will reference rather than close #413.
+  Existing-test plan: add suite wiring only; retain the nameplate witness and
+  all existing numerical expectations.
