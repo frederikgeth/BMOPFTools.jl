@@ -279,82 +279,8 @@ function spec_conformance_check(net::Dict{String,Any},
         end
     end
 
-    # --- duplicate terminals in lines and switches ---
-    for comp_type in ("line", "switch")
-        for (id, c) in get(net, comp_type, Dict())
-            c isa Dict || continue
-            for side in ("terminal_map_from", "terminal_map_to")
-                tm = Vector{String}(string.(get(c, side, String[])))
-                if length(unique(tm)) < length(tm)
-                    dups = [t for t in unique(tm) if count(==(t), tm) > 1]
-                    n_issues += 1
-                    push!(findings, Finding(ERROR, "E.SPEC.DUPLICATE_TERMINAL", :spec,
-                        Symbol(comp_type), id,
-                        "$comp_type '$id' $side has duplicate terminal(s): " *
-                        join(dups, ", ") * ".",
-                        Dict{String,Any}("side" => side, "terminal_map" => tm,
-                                         "duplicates" => dups)))
-                end
-            end
-        end
-    end
-
-    # --- transformer terminal-map arities ---
-    xfmr = get(net, "transformer", Dict())
-    for (subtype, (a_from, a_to)) in _XFMR_ARITY
-        sub = get(xfmr, subtype, nothing)
-        sub isa Dict || continue
-        for (id, t) in sub
-            nf = length(get(t, "terminal_map_from", String[]))
-            nt = length(get(t, "terminal_map_to",   String[]))
-            if nf != a_from || nt != a_to
-                n_issues += 1
-                push!(findings, Finding(WARNING, "W.SPEC.XFMR_TMAP_ARITY", :spec,
-                    :transformer, id,
-                    "transformer $subtype '$id': spec requires terminal maps " *
-                    "of length $a_from/$a_to; found $nf/$nt.",
-                    Dict{String,Any}("subtype" => subtype,
-                                     "from" => nf, "to" => nt)))
-            end
-        end
-    end
-
-    # --- n_winding transformers: per-winding arity, duplicates, DELTA scope ---
-    for (id, t) in get(xfmr, "n_winding", Dict())
-        t isa Dict || continue
-        ws = _nw_windings(t)
-        for (k, w) in enumerate(ws)
-            tm = w.terminal_map
-            if length(unique(tm)) < length(tm)
-                dups = [x for x in unique(tm) if count(==(x), tm) > 1]
-                n_issues += 1
-                push!(findings, Finding(ERROR, "E.SPEC.DUPLICATE_TERMINAL", :spec,
-                    :transformer, id,
-                    "transformer n_winding '$id' winding $k has duplicate " *
-                    "terminal(s): " * join(dups, ", ") * ".",
-                    Dict{String,Any}("winding" => k, "terminal_map" => tm,
-                                     "duplicates" => dups)))
-            end
-            phases, neutral = _nw_phase_terminals(tm)
-            if w.connection == "WYE" && (isempty(phases) || neutral === nothing)
-                n_issues += 1
-                push!(findings, Finding(WARNING, "W.SPEC.XFMR_TMAP_ARITY", :spec,
-                    :transformer, id,
-                    "transformer n_winding '$id' winding $k (WYE): terminal map " *
-                    "should carry at least one phase and a neutral; found " *
-                    "$(tm).",
-                    Dict{String,Any}("winding" => k, "terminal_map" => tm)))
-            end
-            if w.connection == "DELTA" && length(phases) < 2
-                n_issues += 1
-                push!(findings, Finding(WARNING, "W.SPEC.XFMR_TMAP_ARITY", :spec,
-                    :transformer, id,
-                    "transformer n_winding '$id' winding $k (DELTA): terminal map " *
-                    "should carry at least two phase conductors; found $(tm).",
-                    Dict{String,Any}("winding" => k, "terminal_map" => tm)))
-            end
-        end
-    end
+    # Raw branch/winding traversal: shape/reference ownership stays in integrity.
+    n_issues += _check_connection_maps!(net, findings)
 
     # --- IBR topology / prime-mover / arity (IBR extension §3.6') ---
     n_inv_issues = 0
@@ -463,7 +389,8 @@ end
 # position. THREE_LEG cannot carry neutral, and FOUR_LEG needs a neutral return.
 # E.TMAP.PHASE_TO_NEUTRAL retains the all-neutral/repeated-neutral misuse class.
 # E.TMAP.DEVICE_ROLES covers unsupported earth conductors or a missing IBR return.
-# Branch endpoint rules below are unchanged; their extension belongs to #409.
+# Branch/winding role rules live in connection_maps.jl; informational order
+# diagnostics below are retained independently of semantic validity.
 #
 #  I.TMAP.CROSS_PHASE_LINE — terminal_map_from != terminal_map_to on a line
 #    or switch, implying cross-phase / transposed wiring.
@@ -563,8 +490,8 @@ function _check_terminal_map_conventions!(net, findings, result)
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
 
-            tmf = Vector{String}(get(c, "terminal_map_from", String[]))
-            tmt = Vector{String}(get(c, "terminal_map_to",   String[]))
+            tmf=get(c,"terminal_map_from",nothing); tmt=get(c,"terminal_map_to",nothing)
+            (_index_strings(tmf) && _index_strings(tmt)) || continue
 
             # Cross-phase check
             if !isempty(tmf) && !isempty(tmt) && tmf != tmt
@@ -578,47 +505,14 @@ function _check_terminal_map_conventions!(net, findings, result)
                                      "terminal_map_to"   => tmt)))
             end
 
-            # Preserve explicit metallic neutral continuity (PSK-000002).
-            # A single conductor connecting the identified neutral at both
-            # ends is a valid metallic neutral branch. Keep rejecting maps
-            # that are all-neutral on only one end or repeat neutral entries.
-            neutral_only_link = length(tmf) == 1 && length(tmt) == 1 &&
-                bus_neutral(get(c, "bus_from", nothing)) == only(tmf) &&
-                bus_neutral(get(c, "bus_to", nothing)) == only(tmt)
-
-            # Phase-to-neutral check on each end
-            for (side, tm, bus_key) in (("from", tmf, "bus_from"),
-                                         ("to",   tmt, "bus_to"))
-                bid = get(c, bus_key, nothing)
-                bid isa AbstractString || continue
-                nn  = bus_neutral(bid)
-                nn === nothing && continue
-                isempty(tm) && continue
-                # For lines/switches there is no "expected" neutral slot — any
-                # neutral in the map is flagged only when it also appears in
-                # the other end's map at the same position (symmetric neutral
-                # return is fine). Asymmetric neutral involvement is flagged
-                # via the cross-phase rule already. Here we catch the case
-                # where ALL entries are neutral without a valid one-conductor
-                # neutral-to-neutral branch.
-                if all(string(t) == nn for t in tm) && !neutral_only_link
-                    n_phase_neutral += 1
-                    push!(findings, Finding(ERROR, "E.TMAP.PHASE_TO_NEUTRAL", :spec,
-                        Symbol(comp_type), id,
-                        "$comp_type '$id' $side terminal map $tm consists " *
-                        "entirely of neutral '$nn' at bus '$bid'.",
-                        Dict{String,Any}("bus" => bid, "neutral" => nn,
-                                         "side" => side, "terminal_map" => tm)))
-                end
-            end
-
             # Ordering check on each end against bus terminal_names
             for (tm, bus_key) in ((tmf, "bus_from"), (tmt, "bus_to"))
                 bid = get(c, bus_key, nothing)
                 bid isa AbstractString || continue
                 b = get(buses, bid, nothing)
                 b isa Dict || continue
-                tn = Vector{String}(get(b, "terminal_names", String[]))
+                tn = get(b, "terminal_names", String[])
+                _index_strings(tn) || continue
                 (isempty(tn) || isempty(tm)) && continue
                 if !_ordered_subsequence(tm, tn)
                     n_permuted += 1
@@ -633,7 +527,7 @@ function _check_terminal_map_conventions!(net, findings, result)
         end
     end
 
-    result["n_phase_to_neutral"] = n_phase_neutral
+    result["n_phase_to_neutral"] = count(f -> f.code=="E.TMAP.PHASE_TO_NEUTRAL" && f.section==:spec, findings)
     result["n_cross_phase_lines"] = n_cross_phase
     result["n_permuted_terminal_maps"] = n_permuted
 end

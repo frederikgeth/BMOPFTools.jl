@@ -32,6 +32,7 @@ makedocs(
             "Ground, neutral & earth return" => "tutorial_grounding.md",
             "Data model conventions"   => "conventions.md",
             "Device parameter indexing" => "device_indexing.md",
+            "Branch and winding maps" => "connection_maps.md",
             "Units, bases & economics" => "tutorial_units.md",
             "Object identity"          => "semantic_modeling.md",
             "Line geometry & impedances" => "tutorial_line_geometry.md",

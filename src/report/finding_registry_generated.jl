@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "ea5e4a9917a69e9f19483dc8b71d912270cc9f4931b4ab95f78ecdd8a876566f"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "0c1faa0e09f4c37e707761f000423203b7217b971ec2ad6f311a34ffb5bf0378"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -1683,7 +1683,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="INT",
         catalogue_section="INT",
         section_title="structural integrity",
-        meaning="A component references a bus id that does not exist.",
+        meaning="A component references a bus id that does not exist. Branch and transformer evidence identifies the endpoint or original winding index.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1737,7 +1737,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="INT",
         catalogue_section="INT",
         section_title="structural integrity",
-        meaning="A terminal-map entry is not a terminal of the referenced bus — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10).",
+        meaning="A terminal-map entry is not a terminal of the referenced bus (branch/winding evidence identifies endpoint, original winding index and invalid map positions) — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1953,7 +1953,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="TMAP",
         catalogue_section="TMAP",
         section_title="terminal-map conventions",
-        meaning="A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002).",
+        meaning="A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a line/switch position connects phase to neutral, or a branch repeats an all-neutral endpoint. Position comparisons require equal-length, distinct, resolved phase/neutral maps; different phase labels are valid. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2106,7 +2106,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SPEC",
         catalogue_section="SPEC",
         section_title="TF-spec conformance",
-        meaning="Transformer terminal-map lengths off the per-subtype spec values — also the deliberate tripwire for unconverted wye-wye units.",
+        meaning="Transformer map lengths differ from the subtype data-model arity, a winding list has fewer than two entries, or an n-winding WYE lacks explicit neutral / DELTA lacks two terminals. Native boundary arities may retain this warning. See [connection-map rules](connection_maps.md).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -3315,5 +3315,41 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         meaning="Required unit/base or canonical semantic-hash metadata is missing or malformed.",
         contract_id="unit_base_serialization_invariance",
         knowledge_ids=String["PSK-000014"],
+    ),
+    "E.INT.CONNECTION_SHAPE" => (
+        severity="ERROR",
+        namespace="INT",
+        catalogue_section="CONTRACT",
+        section_title="executable scientific contracts",
+        meaning="A branch/transformer component or winding is not an object, a winding list is not an array, a bus identifier is missing/non-string, or an endpoint map is not a nonempty string array. Raw traversal preserves the original winding index and never converts numeric winding fields.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.INT.SWITCH_DIM_MISMATCH" => (
+        severity="ERROR",
+        namespace="INT",
+        catalogue_section="CONTRACT",
+        section_title="executable scientific contracts",
+        meaning="Switch endpoint maps have unequal lengths. Each position denotes one through conductor; no truncation or inferred mapping is allowed. Evidence includes both endpoints.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.TMAP.WINDING_ROLES" => (
+        severity="ERROR",
+        namespace="TMAP",
+        catalogue_section="CONTRACT",
+        section_title="executable scientific contracts",
+        meaning="A transformer winding map violates the represented subtype's phase/neutral or positional rule, or coupled winding coil counts differ. This does not impose line continuity across independent windings. Evidence identifies the rule, side/winding and resolved roles; see [coverage table](connection_maps.md).",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.TMAP.CONNECTION_UNASSESSED" => (
+        severity="WARNING",
+        namespace="TMAP",
+        catalogue_section="CONTRACT",
+        section_title="executable scientific contracts",
+        meaning="Branch/winding role comparison is indeterminate because role declarations are malformed, roles are ambiguous/unclassified, bus neutrals are multiple, or earth conductors are outside this supported domain. References and structural errors retain their integrity owners. No role count is guessed.",
+        contract_id=nothing,
+        knowledge_ids=String[],
     ),
 )
