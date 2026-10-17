@@ -41,8 +41,8 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
-| P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite pass; CI running |
-| P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Implementing; focused checks running |
+| P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
+| P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); focused checks pass; gates/full suite running |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | None; coordinate P4/P5 role helpers | Planned |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
@@ -306,3 +306,17 @@ For each runtime slice:
   retains original winding indices, and preserves isolated/grounding cases.
   Existing-test plan: add one suite include; no existing expectations changed.
   Native n-winding label support remains a separate runtime boundary.
+
+- 2026-10-18: P4 CI passed all 11 checks; #440 remains an unmerged draft.
+- 2026-10-18: P5 draft #441 opened at `eb267ea24`, targeting #440's branch.
+  New static tests pass 2,360 assertions; existing neutral-link suite passes 13.
+  Registry/provenance checks pass (370 documented Finding codes). Required
+  scientific/execution gates and full suite are running against this commit.
+  The existing n-winding checks run through the full-suite harness; an earlier
+  ad hoc include reached its solver section without the harness availability
+  flag, after its static assertions passed. No test source change was needed.
+  Existing-test ledger: one include added to `test/runtests.jl`; no existing
+  assertions, fixtures, tolerances, skips or independent oracles changed.
+  Autotransformer shared-reference roles are checked specifically; no continuity
+  rule is imposed across isolated transformer windings. No PR has been merged
+  or enabled for auto-merge.
