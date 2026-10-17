@@ -20,14 +20,19 @@ validation. #404 and other objective features, #410 declaration hygiene, #176
 loop diagnostics, backend/performance experiments and broader physics extensions
 are deferred.
 
-Use independent branches from reviewed main for unrelated changes. If a later
-slice requires an unmerged predecessor, explicitly stack it on that branch and
-target that predecessor in GitHub; list the dependency and incremental diff in
-the PR body. Do not merge a predecessor merely to start its dependent work.
-Retarget/rebase only when a human has merged the prerequisite. Do not mix unrelated
-fixes into these branches. Each PR body must record its exact base, issue scope,
-behavior/compatibility changes, test edits and reasons, commands/results,
-remaining limitations, and the no-merge instruction.
+The 2026-10-18 cross-branch review found 35 conflicting branch pairs, mostly in
+generated metadata, plus test includes and documentation. The feature PRs now
+form one integration/review stack: **#438 → #439 → #440 → #441 → #442 → #443 →
+#444 → #445 → #446**. Tracker #437 remains based on main. This ordering makes the
+combined behavior CI-testable before any human merge; it does not imply every
+slice has a runtime dependency on its predecessor. Review each incremental PR
+diff. Both sides' test includes and documentation are retained, and generated
+records are rebuilt from the combined source. No PR is merged or auto-merged.
+
+The user's cross-branch conflict-fix request authorizes this restacking, replacing
+the original independent-branch/retarget-after-merge plan. Preserve exact old-head
+leases when publishing rewritten branches. Each PR body records its current
+base, compatibility changes, test edits, validation and remaining limitations.
 
 ## Delivery tracker
 
@@ -38,15 +43,15 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | Slice | Issue | Planned branch | Dependency | Status / PR |
 |---|---|---|---|---|
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
-| P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
-| P2 | #89 | `codex/89-minimum-power-factor` | Stacked on #438 (`1ecbb6731`); package-owned extras representation | Draft [#446](https://github.com/frederikgeth/BMOPFTools.jl/pull/446); local gates/full suite pass; 353 focused assertions; CI running |
-| P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
-| P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
-| P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
-| P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
-| P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite and CI pass; 9,604 focused assertions |
-| P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); local gates/full suite and all 11 CI checks pass |
-| P9 | #413 | `codex/413-coil-headroom-preflight` | Stacked on #444 (`f83c1d661`); explicit mapping domain | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); local gates/full suite and all 11 CI checks pass; 203 focused assertions |
+| P1 | #89 | `codex/89-reactive-capability-limits` | None; base main | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); combined local gates/full suite pass; fresh CI pending |
+| P2 | #89 | `codex/89-minimum-power-factor` | Review stack on #445; see review record below | Draft [#446](https://github.com/frederikgeth/BMOPFTools.jl/pull/446); combined local gates/full suite pass; fresh CI pending |
+| P3 | #116 | `codex/116-transformer-current-ratings` | Review stack on #438; see review record below | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); combined local gates/full suite pass; fresh CI pending |
+| P4 | #408 | `codex/408-device-index-validation` | Review stack on #439; see review record below | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); combined local gates/full suite pass; fresh CI pending |
+| P5 | #409 | `codex/409-connection-map-validation` | Review stack on #440; see review record below | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); combined local gates/full suite pass; fresh CI pending |
+| P6 | #268 | `codex/268-transformer-phase-evidence` | Review stack on #441; see review record below | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); combined local gates/full suite pass; fresh CI pending |
+| P7 | #95 | `codex/95-three-leg-physics-evidence` | Review stack on #442; see review record below | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); combined local gates/full suite pass; fresh CI pending |
+| P8 | #413 | `codex/413-coil-loading-reports` | Review stack on #443; see review record below | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); combined local gates/full suite pass; fresh CI pending |
+| P9 | #413 | `codex/413-coil-headroom-preflight` | Review stack on #444; see review record below | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); combined local gates/full suite pass; fresh CI pending |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
 the feature portions of their issues. P6 and P8 can be brought forward as focused
@@ -55,26 +60,26 @@ parallel agent work are assumed by this plan.
 
 ## P1 — Declared reactive capability under PF and Volt-var control
 
-- [ ] Audit engine, augmentation, solution verification, coefficient providers,
+- [x] Audit engine, augmentation, solution verification, coefficient providers,
   and docs for the meaning of `q_min`/`q_max` with each supported control/topology.
-- [ ] Explicitly propose that authored reactive bounds remain hard constraints
+- [x] Explicitly propose that authored reactive bounds remain hard constraints
   alongside a constant-PF or supported Volt-var equality. This changes the
   currently documented alternatives. Keep apparent-power/current/active-power
   limits, control precedence, and unsupported THREE_LEG droop behavior explicit.
-- [ ] Do not clip a control curve or relax a capability limit to restore feasibility.
+- [x] Do not clip a control curve or relax a capability limit to restore feasibility.
   Incompatible requirements may remove feasible points; do not treat a local
   solver failure as proof of global infeasibility.
-- [ ] Add a minimized prescribed-voltage fixture with independently calculated
+- [x] Add a minimized prescribed-voltage fixture with independently calculated
   P/Q/current. Cover both PF signs, unity PF, zero P, absent/one-sided/two-sided Q
   bounds, inside/on/outside limits, and an objective-driven binding bound.
-- [ ] Exercise SINGLE_PHASE, FOUR_LEG, THREE_LEG constant PF and supported droop,
+- [x] Exercise SINGLE_PHASE, FOUR_LEG, THREE_LEG constant PF and supported droop,
   SI/per-unit coordinates, constraint registration, live coefficients, and JSON
   result evidence. Test conflicts with analytic/model-row witnesses independently
   of solver termination.
-- [ ] Document compatibility and migration: remove an unwanted Q bound explicitly;
+- [x] Document compatibility and migration: remove an unwanted Q bound explicitly;
   do not rely on the control law making it disappear. Audit augmentation-generated
   boxes so authored and derived restrictions are not silently conflated.
-- [ ] Record every existing-test change in the PR's test-change ledger. Keep #89
+- [x] Record every existing-test change in the PR's test-change ledger. Keep #89
   open for minimum-PF semantics and any acceptance criteria not completed here.
 
 ## P2 — Minimum PF and remaining PF semantics
@@ -553,3 +558,75 @@ For each runtime slice:
   within their declared domains. All planned feature slices now have draft
   PRs. #446 targets #438; both remain open drafts with auto-merge disabled.
   No PR has been merged and no issue was closed by this work.
+
+## Cross-branch correctness review — 2026-10-18
+
+Scope: draft #437–#446 only, as confirmed by the user. Older draft #383 is excluded.
+Initial CI: all 11 checks passed on every scoped PR. All original worktrees were
+clean; original heads are retained in local `refs/codex-review-backup/pr-N` refs.
+The feature stack was rebased, never merged. Original incremental source/test
+changes are retained, with the explicit corrections below. No book or schema
+ownership change is introduced.
+
+| PR | Review coverage / correction | Validation status |
+|---|---|---|
+| #437 | Goal, dependencies, test-change ledger and review evidence | Updating this tracker |
+| #438 | Hard Q boxes with PF/droop; supplied Q checks and live bounds | Original head unchanged; 11 CI checks green |
+| #439 | Center-tap terminal versus series currents, excitation, neutral rating and safe bounds | Restacked; regenerated metadata checks pass |
+| #440 | Device role/index shapes, load coefficient checks, retained DELTA diagnostics | Restacked; regenerated metadata checks pass |
+| #441 | Raw winding indices, endpoint roles, duplicate/reference checks and coupled coil counts | Restacked; regenerated metadata checks pass |
+| #442 | Directed phase incidence, correspondence, unsupported clock states and consumers | Restacked; regenerated metadata checks pass |
+| #443 | Independent cyclic-pair/conductor current oracle, scaling and zero-current warm starts | Restacked; regenerated metadata checks pass |
+| #444 | Supplied candidate/coil/group evidence; fix finite-input sum/ratio overflow so JSON retains null/incomplete derived metrics | Existing 153 + 8 new focused assertions pass |
+| #445 | Nominal-demand allocation/domain limits; reject malformed terminal declarations with #440's validated resolver instead of inferring roles | 211 focused assertions pass (203 existing + 8 new) |
+| #446 | Minimum-PF composition and dispatch evidence; bounded constant-PF coefficients preserve tiny accepted PF; reject malformed roles consistently | Existing 353 minimum-PF + 319 Q-capability, 20 new tiny-PF and 18 malformed-role assertions pass; combined local gates/full suite pass |
+
+### Test-change disclosure for this review
+
+- No existing assertion, tolerance, fixture, skip or independent physical oracle
+  is weakened. Conflict resolution retains every suite include exactly once.
+- `test/transformer_loading_tests.jl`: eight additional finite-input overflow
+  assertions cover null ratios, incomplete sums and JSON round trips. The old
+  reporting assertions are unchanged.
+- `test/transformer_headroom_tests.jl`: two additional malformed-declaration
+  cases, four assertions each. They require no guessed coil allocation, the
+  stable unassessed Finding, and non-mutation.
+- `test/ibr_minimum_pf_tests.jl`: 20 additional tiny constant-PF assertions use
+  independent P/hypot(P,Q), inspect bounded model coefficients, verify finite
+  starts and JSON diagnostic serialization, and reject Float64 underflow.
+  This does not promise solver relative accuracy below absolute tolerances.
+  Eighteen additional malformed-role assertions verify invalid-policy evidence,
+  strict rejection, JSON round trips and non-mutation.
+- Retained earlier edits: #440 changes one nominally clean fixture's scalar Q
+  bounds into three-element per-coil arrays because native IBR capability is
+  vector-indexed. #442 changes the unsupported center-tap `Ii0` expectation to
+  `Ii?` plus explicit unsupported status; source-angle/voltage/inventory invariance
+  remains tested. #446 adds recipe assertions without changing its original
+  example or assertions. Their earlier detailed ledger entries remain above.
+
+### Combined validation
+
+Final combined head `5dcec6204`:
+
+- Full `test/runtests.jl`: exit 0, **37,348 pass**, **37 existing broken/skipped**,
+  no failures (main testset 2m52.4s). The review adds 54 assertions: eight overflow,
+  eight preflight role guards, 20 tiny-PF and 18 minimum-PF role guards.
+- Required scientific contracts pass; executable knowledge **1,074 pass**;
+  JSON execution interface **158 pass**. Finding registry **378 codes**, executable
+  schema/stale-output, llms entry point, release metadata and whitespace checks pass.
+- All **45 PR pairs are conflict-free** under read-only integration checks;
+  every one of the **12 new suite includes occurs exactly once**.
+- Incremental authored deltas were compared before/after restacking. #439–#443
+  retain their deltas; #444/#446 contain the documented fixes; #445 additionally
+  retains both formerly conflicting documentation sections and its role guard.
+- Environment: Julia 1.12.6, JuMP 1.31.2, MOI 1.53.0, Ipopt.jl 1.15.0,
+  PowerIO 0.11.3. Existing optional skips and nonfatal OpenDSSDirect diagnostics
+  remain visible. The original checkout is clean and unchanged.
+- Fresh GitHub CI is queued/running on the restacked heads. Initial scoped heads
+  had all 11 checks green. Duplicate/superseded runs were cancelled, preserving
+  current-head validation. Pending checks are not recorded as passes.
+
+No additional correctness gap was found within this review's supported-domain
+checks. This is bounded regression evidence, not a general feasibility proof or
+an exhaustive verification of optional backends. All PRs remain draft; nothing
+is merged and auto-merge is disabled.
