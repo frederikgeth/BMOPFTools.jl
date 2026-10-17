@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "9dcf85b61867a02033dc2c3ca7505f700673407105532780155e565603e82e91"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "23ed947c2cdc2dbca99c543871967036e37a842241425712644abe296f491ce4"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -1827,7 +1827,16 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="INT",
         catalogue_section="INT",
         section_title="structural integrity",
-        meaning="Per-component vector-length mismatches that are recoverable/ambiguous rather than corrupting: generator/IBR per-phase `p_*`/`q_*`/`cost`/filter vectors vs phase count, `i_max` length vs conductor count, load setpoint length vs configuration, source `vm`/`va` vs map length. (The line-impedance-matrix-vs-terminal-count case is the stricter `E.INT.LINE_DIM_MISMATCH`.)",
+        meaning="An indexed field has an incompatible shape for its device topology: powers/capabilities/costs, current limits, load setpoints, source reference prefixes, or bus phase/pair bounds. Device evidence identifies roles, map positions, indexing domain, allowed lengths and observed shape; see [device parameter indexing](device_indexing.md). No universal conductor-count rule applies. The line-matrix case remains the stricter `E.INT.LINE_DIM_MISMATCH`.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.INT.DEVICE_INDEXING_UNASSESSED" => (
+        severity="WARNING",
+        namespace="INT",
+        catalogue_section="INT",
+        section_title="structural integrity",
+        meaning="Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status=\"indeterminate\"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners (PSK-000002).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1944,7 +1953,16 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="TMAP",
         catalogue_section="TMAP",
         section_title="terminal-map conventions",
-        meaning="A nodal device maps a phase slot to neutral, or a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Symmetric metallic N-only lines and switches preserve explicit neutral continuity (PSK-000002) and are accepted.",
+        meaning="A nodal device has all-neutral/repeated-neutral misuse or a THREE_LEG IBR includes neutral; a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002).",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.TMAP.DEVICE_ROLES" => (
+        severity="ERROR",
+        namespace="TMAP",
+        catalogue_section="TMAP",
+        section_title="terminal-map conventions",
+        meaning="A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model (PSK-000002).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1980,7 +1998,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SPEC",
         catalogue_section="SPEC",
         section_title="TF-spec conformance",
-        meaning="A configuration string outside `SINGLE_PHASE`/`WYE`/`DELTA`.",
+        meaning="A configuration outside `SINGLE_PHASE`/`WYE`/`DELTA` for a load/generator/capacitor, or outside `SINGLE_PHASE`/`WYE` for native voltage-source references.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2016,7 +2034,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="SPEC",
         catalogue_section="SPEC",
         section_title="TF-spec conformance",
-        meaning="A `WYE` load/generator whose last terminal is not the neutral of its bus — the return path is not the neutral conductor, which violates the spec's WYE connection semantics.",
+        meaning="A `WYE` load/generator omits the identified neutral of its bus. The neutral may appear anywhere in the map; phase-indexed fields follow map order with neutral removed.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

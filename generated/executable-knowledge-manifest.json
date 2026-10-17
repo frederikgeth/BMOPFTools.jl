@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "7fe7c6316e800717239c160e93d9bd2cbadc60cfc8ab5c30d56730183d445c70",
+  "corpus_sha256": "3e63bda0de7c654af8717b7deec724aec9df1b79225b74b49aa7a7dece39e60f",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -81,6 +81,10 @@
       "sha256": "0631ebd5eaab4307e93f078ceb7fe0722acad56a5fa0dfc0e4bdeacf878ddb65"
     },
     {
+      "path": "docs/src/conventions.md",
+      "sha256": "e1ec6b874ab2d6d64d82a4a6431dbf516f6ebdfe848ebc7ab4008dbdab84c21d"
+    },
+    {
       "path": "docs/src/conversion.md",
       "sha256": "9ea9075593780875bc239b833263382ca996cd8ab7a09cd87e8e604a6de5cd3f"
     },
@@ -93,12 +97,16 @@
       "sha256": "d0c5337e472f2cc69e9991952d258ac26f102753b2add81a8125cfb3d9f226fc"
     },
     {
+      "path": "docs/src/device_indexing.md",
+      "sha256": "6ebc1275a22d94ef05bbb25a9b37d80be9c233d13ac8256d545bede6cf42b6f8"
+    },
+    {
       "path": "docs/src/differentiable_extensions.md",
       "sha256": "9c7f8b3fa8b818ddefa4836810c074e3522bb682f434f4732b186e86bb6a17c1"
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "9dcf85b61867a02033dc2c3ca7505f700673407105532780155e565603e82e91"
+      "sha256": "23ed947c2cdc2dbca99c543871967036e37a842241425712644abe296f491ce4"
     },
     {
       "path": "docs/src/objectives.md",
@@ -226,11 +234,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "5dec6c8b117447bc9dc22f15d757bb67a81a6548b8dae3273a028a107a458b03"
+      "sha256": "51bf989c6c5851eae92379123f630989c27a2a5f646f55b6162ebdacc539698a"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "129c7a869c21869d90510bb82247d0bd58a3d108815b82c52f5fda688268549d"
+      "sha256": "17c7cfdacc82c57c3ccb2b52142849991791cfeade4a26d7567761ffd6fc5d9e"
     },
     {
       "path": "recipes/README.md",
@@ -478,7 +486,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "f448a7da018606dc86d544f96111a101d7b432a2f640b51679aee95000a9be66"
+      "sha256": "0c59653d6695430abfdece818159724d7b0c87a984b3642b3a34edc382c5f9bf"
     },
     {
       "path": "src/report/render_markdown.jl",
@@ -493,8 +501,16 @@
       "sha256": "99b450ad1ac74b56913ecf0ed96688cadc6ef03e32e4eabcf66ac634a675dff3"
     },
     {
+      "path": "src/validation/device_indexing.jl",
+      "sha256": "f9283ebaae75b411f1f7773719cc05a4e44f94d7badd43ff1437039eb9e517ae"
+    },
+    {
       "path": "src/validation/domain_rules.jl",
-      "sha256": "6611ab68a098c6da2a010e508254fe72657eeb506a34e581a4b5d649d7a1aa11"
+      "sha256": "8e91da65d5b7d93638c3611f0c56954a6bdd94ddb0289441207dc679f282c8f6"
+    },
+    {
+      "path": "src/validation/integrity.jl",
+      "sha256": "655a576143edf057eeefc0ae49ba38df468bef9c671023db1bd5dfba9d5e71d7"
     },
     {
       "path": "src/validation/schema.jl",
@@ -510,7 +526,7 @@
     },
     {
       "path": "src/validation/spec_conformance.jl",
-      "sha256": "df61f52dd0d9e1ce4776db845185743b7f6ce6f0d0ae0a5b0c7e8f0c0dbf4b57"
+      "sha256": "087d225138d54e7329e0b828c87b477e4d38a21d9c622c3ea2ab061aae55cfef"
     },
     {
       "path": "test/Project.toml",
@@ -539,6 +555,14 @@
     {
       "path": "test/data/case_development/feeder.json",
       "sha256": "2794ca1513b098f0858fe54d3e6e96933970bffcb1281498071a46c0a779d13f"
+    },
+    {
+      "path": "test/data/device_indexing/README.md",
+      "sha256": "a6c5562cf4a6f1900c8e0a72d499624d55196131cb86713fa1780c665aee3255"
+    },
+    {
+      "path": "test/data/device_indexing/roles.json",
+      "sha256": "4c077261a8d2275f08657dd2c0a09e6d00af7c5a756d031ccacdae7ea4267018"
     },
     {
       "path": "test/data/ibr_reactive_limits/README.md",
@@ -659,6 +683,14 @@
     {
       "path": "test/data/transformer_interoperability/wye_delta.json",
       "sha256": "17dc7f76b36ed547083acf9ea188f66af744bfe6b990cd13d8f6fcd5b1f20994"
+    },
+    {
+      "path": "test/device_indexing_opf_tests.jl",
+      "sha256": "76999551b1f9ed8132674d9cc4e95f0cc205b4190f786123c2e1573f5a8d5ec2"
+    },
+    {
+      "path": "test/device_indexing_tests.jl",
+      "sha256": "d83f4f7c9c565e2df3658c06a2a42fb29929c0849fe864c93ba62c786106a997"
     },
     {
       "path": "test/dss_conversion_error_tests.jl",

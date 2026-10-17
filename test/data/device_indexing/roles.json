@@ -1,0 +1,11 @@
+{
+  "terminal_conventions": {"phase": ["a", "b", "c"], "neutral": ["return"], "earth": []},
+  "bus": {"b": {"terminal_names": ["a", "b", "c", "return"], "perfectly_grounded_terminals": ["return"]}},
+  "voltage_source": {"s": {"bus": "b", "terminal_map": ["a", "b", "c", "return"], "v_magnitude": [230, 230, 230], "v_angle": [0, -2.0943951023931953, 2.0943951023931953]}},
+  "generator": {
+    "star": {"bus": "b", "configuration": "WYE", "terminal_map": ["a", "b", "c", "return"], "p_max": [100, 100, 100], "i_max": [10, 10, 10, 10]},
+    "pair": {"bus": "b", "configuration": "SINGLE_PHASE", "terminal_map": ["a", "b"], "p_max": [100], "i_max": [10, 10]}
+  },
+  "ibr": {"inv": {"bus": "b", "topology": "FOUR_LEG", "terminal_map": ["a", "b", "c", "return"], "q_max": [1, 2]}},
+  "load": {"l": {"bus": "b", "configuration": "SINGLE_PHASE", "terminal_map": ["a", "b"], "p_nom": [100], "q_nom": [20]}}
+}

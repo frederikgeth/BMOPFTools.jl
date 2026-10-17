@@ -3723,6 +3723,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # validation findings, export; OPF solve gated on JuMP/Ipopt internally.
     # -----------------------------------------------------------------------
     include("terminal_conventions_tests.jl")
+    include("device_indexing_tests.jl")
 
     # -----------------------------------------------------------------------
     # Time-series support — snapshot semantics plus a gated OPF sweep
@@ -3797,6 +3798,7 @@ include("mcp_execution_tests.jl")
         else
             include("scaling_policy_tests.jl")
             include("transformer_current_rating_tests.jl")
+            include("device_indexing_opf_tests.jl")
             include("semantic_block_tests.jl")
             include("opf_tests.jl")
             include("opf_engine_review_tests.jl")

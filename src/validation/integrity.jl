@@ -10,48 +10,6 @@
 #   §3     symmetry/degeneracy       → identical generator costs
 # plus referential integrity (dangling bus/linecode/terminal references).
 
-# Validate a per-CONDUCTOR `i_max` vector for a star/single-phase/delta device
-# (generator or IBR). Returns the number of hard dimension issues (0/1) and may
-# also append a soft `W.INT.IMAX_NO_NEUTRAL` recommendation. Rules:
-#   • no neutral (delta / phase-to-phase)  → exactly `n_phase` (one per conductor);
-#   • single-phase (`n_phase == 1`)        → 1 or 2 (phase ≡ return, one current);
-#   • ≥2-phase star                        → `n_phase+1` (standard, phases+neutral),
-#                                            or `n_phase` (warns: neutral unrated).
-function _check_conductor_imax!(findings::Vector{Finding}, ctype::Symbol,
-                                label::AbstractString, id, v,
-                                n_phase::Int, has_neutral::Bool)::Int
-    v isa AbstractVector || return 0
-    L = length(v)
-    if !has_neutral
-        L == n_phase && return 0
-        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
-            "$label '$id': i_max has $L entries; expected $n_phase (one per conductor).",
-            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
-        return 1
-    elseif n_phase == 1
-        L in (1, 2) && return 0
-        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
-            "$label '$id': single-phase i_max has $L entries; expected 1 or 2.",
-            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
-        return 1
-    else
-        L == n_phase + 1 && return 0
-        if L == n_phase
-            push!(findings, Finding(WARNING, "W.INT.IMAX_NO_NEUTRAL", :integrity, ctype, id,
-                "$label '$id': i_max has $n_phase entries (phases only); add a " *
-                "$(n_phase + 1)-th entry to rate the neutral conductor, which can carry " *
-                "more current than the phases under unbalance compensation.",
-                Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
-            return 0
-        end
-        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
-            "$label '$id': i_max has $L entries; expected $n_phase (phases) or " *
-            "$(n_phase + 1) (phases + neutral).",
-            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
-        return 1
-    end
-end
-
 """
     integrity_check(net, findings) -> Dict{String,Any}
 
@@ -98,6 +56,7 @@ function integrity_check(net::Dict{String,Any},
     end
 
     check_tmap(comp_type, id, bus, tm) = begin
+        _index_strings(tm) || return
         bad = [t for t in string.(tm) if !(t in terminal_set(bus))]
         if !isempty(bad)
             n_ref_issues += 1
@@ -352,57 +311,7 @@ function integrity_check(net::Dict{String,Any},
 
     n_dim_issues = 0
 
-    # ibr per-phase filter/cost vectors must match phase count = |terminal_map| - 1
-    for (id, inv) in get(net, "ibr", Dict())
-        inv isa Dict || continue
-        tm_i = Vector{String}(get(inv, "terminal_map", String[]))
-        # Phase count is set by the topology, not length(tm) - 1 (which assumes a
-        # neutral): a THREE_LEG (delta) IBR carries |tm| phase currents, so
-        # correct 3-entry per-phase vectors must NOT be flagged as mismatched.
-        n_phase, has_n = _ibr_phase_count(get(inv, "topology", "FOUR_LEG"), tm_i)
-        n_phase < 1 && continue
-        for field in ("r_filter", "x_filter", "cost", "s_max")
-            v = get(inv, field, nothing)
-            if v isa AbstractVector && length(v) != n_phase
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :ibr, id,
-                    "IBR '$id': $field has $(length(v)) entries but the " *
-                    "topology implies $n_phase phase(s).",
-                    Dict{String,Any}("field" => field, "n_phase" => n_phase)))
-            end
-        end
-        # i_max is per CONDUCTOR; topology sets phase count and neutral presence.
-        n_dim_issues += _check_conductor_imax!(findings, :ibr, "IBR", id,
-            get(inv, "i_max", nothing), n_phase, has_n)
-    end
-
-    # generator per-phase vectors must match the phase-conductor count, which is
-    # configuration-dependent: DELTA carries one current per conductor (|tm|),
-    # WYE/SINGLE_PHASE one per non-neutral phase (|tm| minus the neutral).
-    for (id, gen) in get(net, "generator", Dict())
-        gen isa Dict || continue
-        tm = get(gen, "terminal_map", String[])
-        is_delta = get(gen, "configuration", "WYE") == "DELTA"
-        n_phase = is_delta ? length(tm) : length(_phase_positions(tm))
-        n_phase < 1 && continue
-        for field in ("p_min", "p_max", "q_min", "q_max", "cost", "s_max")
-            v = get(gen, field, nothing)
-            if v isa AbstractVector && length(v) != n_phase
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :generator, id,
-                    "Generator '$id': $field has $(length(v)) entries but the " *
-                    "terminal map implies $n_phase phase(s).",
-                    Dict{String,Any}("field" => field, "n_phase" => n_phase)))
-            end
-        end
-        # i_max is per CONDUCTOR; a star generator may rate its neutral too.
-        let has_neutral = !is_delta && _neutral_pos(tm) !== nothing
-            n_dim_issues += _check_conductor_imax!(findings, :generator, "Generator",
-                id, get(gen, "i_max", nothing), n_phase, has_neutral)
-        end
-    end
+    n_dim_issues += _check_device_dimensions!(net, findings)
 
     z_tot = Dict{String,Float64}()   # per-line total series impedance proxy
     for (id, l) in get(net, "line", Dict())
@@ -536,40 +445,6 @@ function integrity_check(net::Dict{String,Any},
             Dict{String,Any}("linecodes" => sort(padded))))
     end
 
-    # load setpoint length vs configuration; source vm/va lengths
-    for (id, l) in get(net, "load", Dict())
-        l isa Dict || continue
-        cfg = get(l, "configuration", nothing)
-        expected = cfg == "SINGLE_PHASE" ? 1 :
-                   cfg in ("WYE", "DELTA") ? 3 : nothing
-        expected === nothing && continue
-        for field in ("p_nom", "q_nom")
-            v = get(l, field, nothing)
-            if v isa AbstractVector && length(v) != expected
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :load, id,
-                    "Load '$id' ($cfg): $field has $(length(v)) entries, " *
-                    "expected $expected.", nothing))
-            end
-        end
-    end
-    for (id, vs) in get(net, "voltage_source", Dict())
-        vs isa Dict || continue
-        ntm = length(get(vs, "terminal_map", String[]))
-        ntm == 0 && continue
-        for field in ("v_magnitude", "v_angle")
-            v = get(vs, field, nothing)
-            if v isa AbstractVector && length(v) != ntm
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :voltage_source, id,
-                    "Voltage source '$id': $field has $(length(v)) entries " *
-                    "but the terminal map has $ntm.", nothing))
-            end
-        end
-    end
-
     # --- galvanic islands: voltage reference required per island ---
     src_buses = Set(get(vs, "bus", "") for (_, vs) in get(net, "voltage_source", Dict()))
     grounded_buses = Set{String}()
@@ -650,7 +525,8 @@ function integrity_check(net::Dict{String,Any},
     end
 
     # --- wye without neutral ---
-    neutral_of = _bus_neutral_map(buses)
+    case_roles = _index_roles(net)
+    neutral_of = Dict(id => _index_bus_neutral(net,id,case_roles) for id in keys(buses))
     for comp_type in ("load", "generator")
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
@@ -732,10 +608,11 @@ function integrity_check(net::Dict{String,Any},
             b in source_buses && continue
             neutral = get(neutral_of, b, nothing)
             wired   = get(branch_terminals, b, Set{String}())
-            tm = string.(get(c, "terminal_map", String[]))
+            raw_tm = get(c, "terminal_map", String[])
+            _index_strings(raw_tm) || continue
+            tm = string.(raw_tm)
             floating = [t for t in tm
                         if t != neutral &&
-                           lowercase(t) != "n" &&
                            !(t in wired)]
             isempty(floating) && continue
             n_floating += 1
@@ -817,6 +694,7 @@ function integrity_check(net::Dict{String,Any},
         g isa Dict || continue
         haskey(g, "cost") || continue
         c = g["cost"]
+        _index_numbers(c) || continue # shape finding above owns malformed costs
         key = c isa AbstractVector ? join(Float64.(c), ",") : string(Float64(c))
         push!(get!(cost_groups, key, String[]), id)
     end
