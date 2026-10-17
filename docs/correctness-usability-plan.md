@@ -43,15 +43,15 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | Slice | Issue | Planned branch | Dependency | Status / PR |
 |---|---|---|---|---|
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
-| P1 | #89 | `codex/89-reactive-capability-limits` | None; base main | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); combined local gates/full suite pass; fresh CI pending |
-| P2 | #89 | `codex/89-minimum-power-factor` | Review stack on #445; see review record below | Draft [#446](https://github.com/frederikgeth/BMOPFTools.jl/pull/446); combined local gates/full suite pass; fresh CI pending |
-| P3 | #116 | `codex/116-transformer-current-ratings` | Review stack on #438; see review record below | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); combined local gates/full suite pass; fresh CI pending |
-| P4 | #408 | `codex/408-device-index-validation` | Review stack on #439; see review record below | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); combined local gates/full suite pass; fresh CI pending |
-| P5 | #409 | `codex/409-connection-map-validation` | Review stack on #440; see review record below | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); combined local gates/full suite pass; fresh CI pending |
-| P6 | #268 | `codex/268-transformer-phase-evidence` | Review stack on #441; see review record below | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); combined local gates/full suite pass; fresh CI pending |
-| P7 | #95 | `codex/95-three-leg-physics-evidence` | Review stack on #442; see review record below | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); combined local gates/full suite pass; fresh CI pending |
-| P8 | #413 | `codex/413-coil-loading-reports` | Review stack on #443; see review record below | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); combined local gates/full suite pass; fresh CI pending |
-| P9 | #413 | `codex/413-coil-headroom-preflight` | Review stack on #444; see review record below | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); combined local gates/full suite pass; fresh CI pending |
+| P1 | #89 | `codex/89-reactive-capability-limits` | None; base main | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); combined local gates/full suite pass; exact-head CI in #437 review record |
+| P2 | #89 | `codex/89-minimum-power-factor` | Review stack on #445; see review record below | Draft [#446](https://github.com/frederikgeth/BMOPFTools.jl/pull/446); combined local gates/full suite pass; exact-head CI in #437 review record |
+| P3 | #116 | `codex/116-transformer-current-ratings` | Review stack on #438; see review record below | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); combined local gates/full suite pass; exact-head CI in #437 review record |
+| P4 | #408 | `codex/408-device-index-validation` | Review stack on #439; see review record below | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); combined local gates/full suite pass; exact-head CI in #437 review record |
+| P5 | #409 | `codex/409-connection-map-validation` | Review stack on #440; see review record below | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); combined local gates/full suite pass; exact-head CI in #437 review record |
+| P6 | #268 | `codex/268-transformer-phase-evidence` | Review stack on #441; see review record below | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); combined local gates/full suite pass; exact-head CI in #437 review record |
+| P7 | #95 | `codex/95-three-leg-physics-evidence` | Review stack on #442; see review record below | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); combined local gates/full suite pass; exact-head CI in #437 review record |
+| P8 | #413 | `codex/413-coil-loading-reports` | Review stack on #443; see review record below | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); combined local gates/full suite pass; exact-head CI in #437 review record |
+| P9 | #413 | `codex/413-coil-headroom-preflight` | Review stack on #444; see review record below | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); combined local gates/full suite pass; exact-head CI in #437 review record |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
 the feature portions of their issues. P6 and P8 can be brought forward as focused
@@ -622,9 +622,11 @@ Final combined head `5dcec6204`:
 - Environment: Julia 1.12.6, JuMP 1.31.2, MOI 1.53.0, Ipopt.jl 1.15.0,
   PowerIO 0.11.3. Existing optional skips and nonfatal OpenDSSDirect diagnostics
   remain visible. The original checkout is clean and unchanged.
-- Fresh GitHub CI is queued/running on the restacked heads. Initial scoped heads
+- Exact-head GitHub CI results are maintained in the [#437 review record](https://github.com/frederikgeth/BMOPFTools.jl/pull/437),
+  including this tracker PR. Keeping live CI state in the PR body avoids changing
+  a commit merely to report that commit's successful checks. Initial scoped heads
   had all 11 checks green. Duplicate/superseded runs were cancelled, preserving
-  current-head validation. Pending checks are not recorded as passes.
+  current-head validation. Pending checks are never recorded as passes.
 
 No additional correctness gap was found within this review's supported-domain
 checks. This is bounded regression evidence, not a general feasibility proof or
