@@ -44,7 +44,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite pass; CI running |
-| P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
+| P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | In development: independent pair/terminal physics, capability and coordinate evidence |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
 
@@ -374,3 +374,14 @@ For each runtime slice:
   implemented and tested in draft #442, not merged or issue-closed. The draft
   targets #441's branch; all drafts remain unmerged with auto-merge disabled.
   Next planned slice is P7 (#95).
+
+- 2026-10-18: P7 (#95) started on `codex/95-three-leg-physics-evidence`,
+  stacked on #438 at `1ecbb6731` to exercise hard reactive capability. No merge
+  is needed. The existing model constrains/reports cyclic pair currents, while
+  the OPF guide incorrectly describes all IBR current limits as per-conductor.
+  Correct that documentation explicitly; retain runtime pair semantics. Add
+  self-contained prescribed-phasor tests with independently reconstructed
+  terminal currents and source KCL/power evidence, boundary/covariance/scaling
+  checks, and JSON round trips. PowerOptLab patterns were inspected at
+  `4f417d470c8bff78bd0941658f97030e5ddb7692`; advanced-device physics is excluded.
+  Existing-test plan: one suite include, with no existing assertions changed.
