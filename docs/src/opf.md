@@ -882,10 +882,11 @@ length-3 vector warns (`W.INT.IMAX_NO_NEUTRAL`). A `SINGLE_PHASE` IBR has a sing
 current, so its `i_max` is length 1 or 2 and collapses to one circle at the tighter
 limit. `THREE_LEG` (delta) has no neutral.
 
-Reactive power is governed in one of two mutually exclusive ways:
+Declared `q_min` and `q_max` are hard reactive-power bounds in every control mode.
+Within those bounds, reactive power is governed as follows:
 
-- **Box bounds** (default): $Q^{\min}_{n,k} \leq Q_{n,k} \leq Q^{\max}_{n,k}$.
-  These are normally filled by the augmentation pass before the OPF runs.
+- **Dispatchable Q** (default): Q can vary within its declared bounds and other
+  capability constraints. Augmentation can populate missing bounds.
 - **Constant power factor**: when the IBR references a `control_profile`
   with a signed `power_factor.pf`, $Q$ is coupled to $P$ by the exact equality
 
@@ -901,6 +902,27 @@ Reactive power is governed in one of two mutually exclusive ways:
   voltage magnitude** $U_{n,k}$,
   $Q_{n,k} = Q^{\text{base}}_{n,k}\, f^{\mathrm{VV}}(U_{n,k})$ (an equality — the
   IBR follows the curve).
+
+The PF/Volt-var equality and all declared P/Q/S/current limits apply together.
+An incompatible control request can make the model infeasible; the engine does
+not clip the controller or discard a bound. Existing PF-versus-droop precedence
+and the unsupported THREE_LEG droop fallback remain unchanged.
+
+!!! warning "Reactive capability compatibility change (#89)"
+    Previously, the engine omitted Q-box constraints under PF or supported
+    Volt-var control. It now enforces both, so dispatch and feasibility can change
+    for cases containing those fields. If a Q restriction is not intended, remove
+    that field explicitly before building the model. Review bounds introduced by
+    augmentation as well as authored bounds: both constrain the resulting case.
+    PF augmentation still avoids synthesizing missing Q boxes and preserves
+    explicit ones. A local solver failure alone does not certify global infeasibility.
+
+`solution_check` checks supplied Q values against the case's declared Q bounds
+using `E.SOL.IBR_Q_VIOLATION` and `W.SOL.IBR_Q_ACTIVE`. These use the existing
+power-bound tolerance with a 1 var absolute floor; they do not authenticate the
+supplied result or substitute live coefficient-provider values for case data.
+The existing P-only near-active Finding retains its meaning. The aggregate
+`n_inv_violations` and `n_inv_active` counts now include Q-bound Findings.
 
 Active power follows either the box upper bound above or, when the
 `control_profile` declares a `volt_watt` sub-object, a **Volt-watt** curtailment
