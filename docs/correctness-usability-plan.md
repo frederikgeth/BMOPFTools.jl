@@ -39,7 +39,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 |---|---|---|---|---|
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
 | P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
-| P2 | #89 | `codex/89-minimum-power-factor` | Stacked on #438 (`1ecbb6731`); package-owned extras representation | Draft [#446](https://github.com/frederikgeth/BMOPFTools.jl/pull/446); final local gates/full suite and CI running |
+| P2 | #89 | `codex/89-minimum-power-factor` | Stacked on #438 (`1ecbb6731`); package-owned extras representation | Draft [#446](https://github.com/frederikgeth/BMOPFTools.jl/pull/446); local gates/full suite pass; 353 focused assertions; CI running |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
@@ -79,17 +79,17 @@ parallel agent work are assumed by this plan.
 
 ## P2 — Minimum PF and remaining PF semantics
 
-- [ ] Settle a package/API representation compatible with official data-model
+- [x] Settle a package/API representation compatible with official data-model
   ownership before adding schema fields. Specify injection signs, per-coil versus
   aggregate scope, finite PF range, zero-power behavior and supported directions.
-- [ ] Start with a declared nonnegative-generation domain and dispatched-P envelope
+- [x] Start with a declared nonnegative-generation domain and dispatched-P envelope
   `-k*P <= Q <= k*P`; require explicit handling of consumption/bidirectional cases.
   Never substitute nameplate/available power for dispatched power.
-- [ ] Compose or reject combinations with constant PF, droop, curtailment and
+- [x] Compose or reject combinations with constant PF, droop, curtailment and
   existing limits. Reject unsupported requests instead of ignoring them.
-- [ ] Verify curtailed and unbalanced examples, both reactive signs, unity/boundary
+- [x] Verify curtailed and unbalanced examples, both reactive signs, unity/boundary
   PF, zero-P policy, invalid inputs and supplied-result violations independently.
-- [ ] Document and test units, serialization, diagnostics and SI/per-unit behavior;
+- [x] Document and test units, serialization, diagnostics and SI/per-unit behavior;
   close #89 only after both slices and the full issue checklist are satisfied.
 
 ## P3 — Transformer current-rating semantics and safe bounds
@@ -532,3 +532,24 @@ For each runtime slice:
   the unsupported encoding remains as an explicit rejection regression.
   #446 remains an open draft with auto-merge disabled. No PR has been merged.
 - 2026-10-18: P9 #445 now passes all 11 GitHub CI checks and remains an open draft.
+
+- 2026-10-18: P2 final validation at `802490305` passes all required local
+  gates and the full suite: **14,331 pass, 37 existing broken/skipped, zero
+  failures**, exit 0 (main testset 2m42.6s). New minimum-PF coverage passes 353
+  assertions; the existing reactive-capability (319), Volt-var/Volt-watt (89)
+  and controller-compliance (112) suites pass unchanged. Scientific contracts,
+  executable knowledge (1,017 assertions) and JSON execution (158 assertions)
+  pass, including the expanded curated verification recipe. Registry (370
+  codes), executable schema/stale-output, llms, release metadata and diff checks
+  pass. The 364-assertion increase over #438 is 353 new regressions plus 11
+  generated-metadata path/hash checks. Existing-test changes remain one suite
+  include only; no previous assertions, fixtures, tolerances, skips or oracles
+  changed. The new suite retains unsupported-control and ambiguous-map cases
+  as explicit rejections, not skipped tests. The final fresh-process run covers
+  all source changes; OpenDSSDirect Julia 1.12 diagnostics remain nonfatal.
+  GitHub metadata passes; remaining CI jobs are running at handoff.
+  P2 checkboxes mean implemented and locally validated in draft #446, not
+  merged or issue-closed. #89 has P1 (#438) and P2 (#446) available for review
+  within their declared domains. All planned feature slices now have draft
+  PRs. #446 targets #438; both remain open drafts with auto-merge disabled.
+  No PR has been merged and no issue was closed by this work.
