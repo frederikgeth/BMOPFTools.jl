@@ -579,7 +579,7 @@ ownership change is introduced.
 | #443 | Independent cyclic-pair/conductor current oracle, scaling and zero-current warm starts | Restacked; regenerated metadata checks pass |
 | #444 | Supplied candidate/coil/group evidence; fix finite-input sum/ratio overflow so JSON retains null/incomplete derived metrics | Existing 153 + 8 new focused assertions pass |
 | #445 | Nominal-demand allocation/domain limits; reject malformed terminal declarations with #440's validated resolver instead of inferring roles | 211 focused assertions pass (203 existing + 8 new) |
-| #446 | Minimum-PF composition and dispatch evidence; bounded constant-PF coefficients preserve tiny accepted PF; reject malformed roles consistently | Existing 353 minimum-PF + 319 Q-capability, 20 new tiny-PF and 18 malformed-role assertions pass; combined local gates/full suite pass |
+| #446 | Minimum-PF composition and dispatch evidence; bounded constant-PF coefficients preserve tiny accepted PF; reject malformed roles consistently | Existing 353 minimum-PF + 319 Q-capability, 20 new tiny-PF and 24 malformed-role and three snapshot assertions pass; combined local gates/full suite pass |
 
 ### Test-change disclosure for this review
 
@@ -595,8 +595,10 @@ ownership change is introduced.
   independent P/hypot(P,Q), inspect bounded model coefficients, verify finite
   starts and JSON diagnostic serialization, and reject Float64 underflow.
   This does not promise solver relative accuracy below absolute tolerances.
-  Eighteen additional malformed-role assertions verify invalid-policy evidence,
-  strict rejection, JSON round trips and non-mutation.
+  Twenty-four malformed-role assertions verify invalid-policy evidence,
+  rejection through both public model constructors, JSON round trips and
+  non-mutation. Three snapshot-selection assertions ensure the early entry guard
+  validates the selected snapshot before normalization, not unsliced inputs.
 - Retained earlier edits: #440 changes one nominally clean fixture's scalar Q
   bounds into three-element per-coil arrays because native IBR capability is
   vector-indexed. #442 changes the unsupported center-tap `Ii0` expectation to
@@ -606,11 +608,11 @@ ownership change is introduced.
 
 ### Combined validation
 
-Final combined head `5dcec6204`:
+Final combined head `7bfe32720`:
 
-- Full `test/runtests.jl`: exit 0, **37,348 pass**, **37 existing broken/skipped**,
-  no failures (main testset 2m52.4s). The review adds 54 assertions: eight overflow,
-  eight preflight role guards, 20 tiny-PF and 18 minimum-PF role guards.
+- Full `test/runtests.jl`: exit 0, **37,357 pass**, **37 existing broken/skipped**,
+  no failures (main testset 2m44.9s). The review adds 63 assertions: eight overflow,
+  eight preflight role guards, 20 tiny-PF, 24 minimum-PF role/public-entry guards, and three snapshot-selection assertions.
 - Required scientific contracts pass; executable knowledge **1,074 pass**;
   JSON execution interface **158 pass**. Finding registry **378 codes**, executable
   schema/stale-output, llms entry point, release metadata and whitespace checks pass.
