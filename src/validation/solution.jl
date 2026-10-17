@@ -410,6 +410,9 @@ function solution_check(net::Dict{String,Any},
         "objective_optimality", "independent_loss_reconstruction",
         "complete_limit_coverage"]
 
+    out["minimum_power_factor"] = _minimum_pf_solution_check(net,result,findings;
+        has_candidate=has_candidate && get(result,"result_count",1)!=0)
+
     if !has_candidate
         proven_infeasible = status == "INFEASIBLE"
         push!(findings, Finding(proven_infeasible ? ERROR : WARNING,
@@ -1174,7 +1177,7 @@ function solution_check(net::Dict{String,Any},
     out["n_gen_active"]     = n_gen_active
 
     # ── IBR dispatch bounds and constant-PF residual ────────────────────
-    n_inv_viol   = 0
+    n_inv_viol   = count(r -> r["status"]=="failed", out["minimum_power_factor"]["coils"])
     n_inv_active = 0
     pf_resid_tol = 1e-3   # relative tolerance on |sign(pf)·Q + tan_phi·P| / s_max
 
@@ -1196,12 +1199,11 @@ function solution_check(net::Dict{String,Any},
         if cp_id isa String
             cp = get(profiles_net, cp_id, nothing)
             if cp isa Dict
-                pf_obj = get(cp, "power_factor", nothing)
-                if pf_obj isa Dict
-                    raw = get(pf_obj, "pf", nothing)
-                    if raw isa Number && abs(Float64(raw)) > 1e-9
-                        pf_val = Float64(raw)
-                    end
+                pf_val = try
+                    _constant_pf_value(cp)
+                catch e
+                    e isa ArgumentError || rethrow()
+                    nothing # configuration Finding was already emitted
                 end
             end
         end

@@ -28,3 +28,8 @@ coverage of every equation and device. The book's `PSK-000003` owns the broader
 scientific invalid-inference statement; this package recipe demonstrates one
 ordinary verification operation and therefore does not claim that PSK identity
 in executable metadata.
+
+The recipe also checks a package minimum-PF policy against a supplied curtailed
+400 W / 900 var operating point. It requires a stable minimum-PF violation and
+failed compliance evidence without running a solver. Its original example,
+assertions and emitted response remain unchanged.

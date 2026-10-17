@@ -395,6 +395,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
     softplus = ctx.softplus
     vr  = vars[:vr];  vi  = vars[:vi]
     cri = vars[:cri]; cii = vars[:cii]
+    minimum_pf, _ = BMOPFTools._power_factor_config_check!(net, BMOPFTools.Finding[]; strict=true)
     profiles = get(net, "control_profile", Dict())
     nlabels = BMOPFTools._neutral_labels(net)
     curve_cache = Dict{Tuple{String,Float64},Tuple{Any,Any}}()
@@ -432,13 +433,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         if cp_id isa String
             cp = get(profiles, cp_id, nothing)
             if cp isa Dict
-                pf_obj = get(cp, "power_factor", nothing)
-                if pf_obj isa Dict
-                    raw = get(pf_obj, "pf", nothing)
-                    if raw isa Number && abs(Float64(raw)) > 1e-9
-                        pf_val = Float64(raw)
-                    end
-                end
+                pf_val = BMOPFTools._constant_pf_value(cp)
                 vv_obj = get(cp, "volt_var",  nothing)
                 vw_obj = get(cp, "volt_watt", nothing)
             end
@@ -493,6 +488,8 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 (bases === nothing ? 1.0 : _ac_power_base(bases, bus)) : 0.0
         end
 
+        policy = get(minimum_pf, inv_id, nothing)
+        min_pf = policy === nothing ? nothing : policy.pf_min
         tan_phi  = pf_val !== nothing ? tan(acos(abs(pf_val))) : nothing
         # sign(pf) > 0 (lagging): Q = -tan_phi*P  →  +1*Q + tan_phi*P = 0
         # sign(pf) < 0 (leading): Q = +tan_phi*P  →  -1*Q + tan_phi*P = 0
@@ -566,7 +563,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             single_U(c) = c === nothing ? nothing : (c.quantity == :PG ? U_pg : U_diff)
             _apply_ibr_phase!(ctx, inv_id, 1, p_expr, q_expr, single_U(vv), single_U(vw),
                 p_min_model, p_max_model, q_min_model, q_max_model,
-                smax, tan_phi, pf_sign,
+                smax, tan_phi, pf_sign, min_pf,
                 vv, vw, p_avail_per, relu_ops, softplus)
 
             _kcl_add!(kcl_r, kcl_i, bus, t_ph,   cri[(inv_id,1)],  cii[(inv_id,1)])
@@ -632,7 +629,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                     U_vv === nothing ? nothing : U_vv[p.idx],
                     U_vw === nothing ? nothing : U_vw[p.idx],
                     p_min_model, p_max_model, q_min_model, q_max_model,
-                    smax, tan_phi, pf_sign,
+                    smax, tan_phi, pf_sign, min_pf,
                     vv, vw, p_avail_per, relu_ops, softplus)
             end
 
@@ -659,7 +656,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
                 _apply_ibr_phase!(ctx, inv_id, k, p_expr, q_expr, nothing, nothing,
                     p_min_model, p_max_model, q_min_model, q_max_model,
-                    smax, tan_phi, pf_sign,
+                    smax, tan_phi, pf_sign, min_pf,
                     nothing, nothing, p_avail_per, relu_ops, softplus)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos,  cri[(inv_id,k)],  cii[(inv_id,k)])
@@ -706,7 +703,7 @@ end
 # caller chooses it per the IBR's `voltage_aggregation` field: the per-phase magnitude
 # √(dvr²+dvi²) for PER_PHASE, or the mean of the phase magnitudes for AVERAGE.
 function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
-                                p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
+                                p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign, min_pf,
                                 vv, vw, p_avail_per, relu_ops, softplus)
     model = ctx.model
     register_constraint(family, cref) = BMOPFTools.register_opf_object!(ctx,
@@ -734,6 +731,15 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         register_constraint(:ibr_p_volt_watt, @constraint(model,
             p_expr <= curve_expr(op, U_vw, base * vw.baseline,
                                  [(base*a, x̄) for (a, x̄) in vw.triples])))
+    end
+
+    # Minimum PF is a separate operating envelope, composed with all controls.
+    # Coefficients are bounded even for PF close to zero; P>=0 is explicit at unity.
+    if min_pf !== nothing
+        sine = sqrt((1-min_pf)*(1+min_pf))
+        register_constraint(:ibr_minimum_pf_generation, @constraint(model, p_expr >= 0))
+        register_constraint(:ibr_minimum_pf_upper, @constraint(model, min_pf*q_expr <= sine*p_expr))
+        register_constraint(:ibr_minimum_pf_lower, @constraint(model, -min_pf*q_expr <= sine*p_expr))
     end
 
     # Reactive capability remains hard under every control mode. Keep the live

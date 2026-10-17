@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "e6456b841a2f1808a38031ff8a4d782d5b8235229d54e8c5362037aabf9aaad6"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "e0f1afae3dd4c208adbcd97d30ebd2a0b552da2c9e8ffa8665f98616d71238df"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -1777,6 +1777,24 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         contract_id=nothing,
         knowledge_ids=String[],
     ),
+    "E.INT.CONSTANT_PF_INVALID" => (
+        severity="ERROR",
+        namespace="INT",
+        catalogue_section="INT",
+        section_title="structural integrity",
+        meaning="A declared constant `power_factor.pf` is missing, nonnumeric, Boolean, nonfinite, zero or outside −1…1. Native model construction rejects it instead of silently dropping the control or failing in trigonometry.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.INT.MINIMUM_PF_INVALID" => (
+        severity="ERROR",
+        namespace="INT",
+        catalogue_section="INT",
+        section_title="structural integrity",
+        meaning="A versioned package minimum-PF request has invalid values, unknown IBRs, ambiguous mappings, unsupported directions/scope or unsupported control combinations. Structured reason codes explain the rejected request; no constraint is silently omitted.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
     "E.INT.CONTROL_PROFILE_CONFLICT" => (
         severity="ERROR",
         namespace="INT",
@@ -2359,6 +2377,24 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="SOL",
         section_title="solution profiling",
         meaning="An IBR's supplied `qg` is within 1 % of a declared reactive-power bound without violating it at the power-bound tolerance. Evidence records output identity, value and bounds in var.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.SOL.IBR_MINIMUM_PF" => (
+        severity="ERROR",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="Supplied per-coil P/Q violates the declared generation minimum-PF envelope, including negative P or reactive-only operation at P=0. Uses dispatched P, a bounded-coefficient residual and an explicit VA tolerance; does not authenticate the solver or case provenance.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "I.SOL.IBR_MINIMUM_PF_UNASSESSED" => (
+        severity="INFO",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="Minimum-PF compliance cannot be assessed because no candidate is available, dispatch is absent/nonfinite, or the policy is invalid. Missing data are never treated as zero or a passing check.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

@@ -677,6 +677,7 @@ function integrity_check(net::Dict{String,Any},
             Dict{String,Any}("groups" => dup_groups)))
     end
 
+    _power_factor_config_check!(net, findings)
     result["n_reference_issues"] = n_ref_issues
     result["n_dimension_issues"] = n_dim_issues
     result
