@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "b9523e6e84c3b224c6f4b7bb63bbff91a3799b8b1ef71c2bf87ccffdaa48e050",
+  "corpus_sha256": "9e62e5f2bf2cec5025606b41c89be88a510642008d50c54d8e77306ea1578023",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -126,7 +126,7 @@
     },
     {
       "path": "docs/src/results.md",
-      "sha256": "2ae85bb5647be96841f4da1d676052e96f7dfdd3825a50534c08bfaf6643e2ed"
+      "sha256": "99c018938821de136009c543f4902a5711ab2ca99b0096e4f1cf245f7cdb0055"
     },
     {
       "path": "docs/src/solvers.md",
@@ -406,7 +406,7 @@
     },
     {
       "path": "src/analysis/transformer_loading.jl",
-      "sha256": "dea53e4997136259d45d05bbfc347771d2bfdf3b16de308bc55ea492c85f5b58"
+      "sha256": "4be5f3af6d86c9a39f1ebff13b2d35270ff4c9aabea5514fbb25585116dcc0e2"
     },
     {
       "path": "src/analysis/transformer_phase.jl",
@@ -1270,7 +1270,7 @@
     },
     {
       "path": "test/transformer_loading_tests.jl",
-      "sha256": "227600dc9bccc24f6db2dca3cd78b652ca53ee1aa420a63bf4c7f8a98405635c"
+      "sha256": "0e813ca32830f01de412294f5da35ded2ff47e6358ea7bcdc9d47c0886ae4f33"
     },
     {
       "path": "test/transformer_opendss_tests.jl",

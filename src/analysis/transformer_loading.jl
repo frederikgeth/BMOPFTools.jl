@@ -1,6 +1,8 @@
 # Supplied-result diagnostics (PSK-000013). No solver, rating inference, or
 # independent electrical reconstruction is performed here.
-_coil_number(x) = x isa Real && !(x isa Bool) && isfinite(x) && x >= 0 ? Float64(x) : nothing
+_coil_number(x) = x isa Real && !(x isa Bool) && isfinite(x) && x >= 0 && isfinite(Float64(x)) ? Float64(x) : nothing
+
+_coil_derived(x) = x !== nothing && isfinite(x) ? x : nothing
 
 # Enumerate native nameplate result slots, not every conductor-current slot.
 # Caps themselves always come from supplied s_max; never divide a bank rating.
@@ -138,7 +140,7 @@ function _transformer_loading_summary(net, result, solution, findings)
                     "side"=>slot.side,"coil"=>slot.coil,"bus"=>slot.bus,"terminals"=>slot.terminals,
                     "evidence"=>"supplied_s_and_s_max","candidate_status"=>evidence,
                     "s_VA"=>s,"cap_VA"=>cap,
-                    "utilization"=>s !== nothing && cap !== nothing && cap > 0 ? s/cap : nothing,
+                    "utilization"=>s !== nothing && cap !== nothing && cap > 0 ? _coil_derived(s/cap) : nothing,
                     "headroom_VA"=>s !== nothing && cap !== nothing ? cap-s : nothing,
                     "comparison_status"=>comparison,"finding_codes"=>codes,
                     "missing_or_invalid_fields"=>missing,
@@ -151,13 +153,14 @@ function _transformer_loading_summary(net, result, solution, findings)
             for side in sort!(unique([r["side"] for r in local_rows]))
                 rs = filter(r -> r["side"] == side,local_rows)
                 complete = all(r -> isempty(r["missing_or_invalid_fields"]),rs)
-                total = complete ? sum(r["s_VA"] for r in rs) : nothing
-                cap = complete ? sum(r["cap_VA"] for r in rs) : nothing
+                total = complete ? _coil_derived(sum(r["s_VA"] for r in rs)) : nothing
+                cap = complete ? _coil_derived(sum(r["cap_VA"] for r in rs)) : nothing
+                complete = complete && total !== nothing && cap !== nothing
                 utils = [r["utilization"] for r in rs if r["utilization"] !== nothing]
                 push!(groups,Dict{String,Any}("transformer"=>tid,"subtype"=>subtype,"side"=>side,
                     "candidate_status"=>evidence,"complete"=>complete,"expected_coils"=>length(rs),
                     "s_sum_VA"=>total,"cap_sum_VA"=>cap,
-                    "utilization"=>complete && cap > 0 ? total/cap : nothing,
+                    "utilization"=>complete && cap > 0 ? _coil_derived(total/cap) : nothing,
                     "headroom_VA"=>complete ? cap-total : nothing,
                     "max_coil_utilization"=>complete && length(utils)==length(rs) ? maximum(utils) : nothing))
             end

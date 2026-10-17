@@ -159,3 +159,25 @@ end
         @test Set(u["reason"] for u in loading["unassessed"])==Set(["unrecognized_result_slot","transformer_absent_from_case"])
     end
 end
+
+@testset "Finite supplied coil data never emit overflowing JSON metrics" begin
+    net,r=coil413_fixture()
+    for row in values(r["transformer"]["tx"]["fr"])
+        row["s"]=floatmax(Float64);row["s_max"]=nextfloat(0.0)
+    end
+    report=profile_solution(net,r)
+    loading=report.results[:transformer_loading]
+    @test all(c->c["utilization"]===nothing,loading["coils"])
+    group=only(loading["groups"])
+    @test group["s_sum_VA"]===nothing
+    @test !group["complete"]
+    @test group["utilization"]===nothing
+    @test JSON3.read(JSON3.write(loading),Dict{String,Any})==loading
+    for row in values(r["transformer"]["tx"]["fr"])
+        row["s"]=1.;row["s_max"]=floatmax(Float64)
+    end
+    loading=profile_solution(net,r).results[:transformer_loading]
+    @test only(loading["groups"])["cap_sum_VA"]===nothing
+    @test only(loading["groups"])["headroom_VA"]===nothing
+    @test JSON3.read(JSON3.write(loading),Dict{String,Any})==loading
+end

@@ -57,7 +57,9 @@ the report does not introduce a second bound checker or change its tolerances.
 
 Each `coils` row identifies transformer/subtype, constrained `side`, positional
 `coil`, bus and terminal pair, supplied `s_VA` and `cap_VA`, utilization `s/cap`,
-headroom `cap-s`, comparison status and Finding codes. A null second terminal
+headroom `cap-s`, comparison status and Finding codes. Derived ratios or sums
+that overflow Float64 are null; an overflowing group sum is incomplete, preserving
+JSON serialization without inventing a finite total. A null second terminal
 denotes the ground reference. Caps are taken from result `s_max`, never inferred
 by dividing the case's nameplate. Missing or invalid values remain null with
 explicit field paths; a zero cap is retained, with null utilization and finite
