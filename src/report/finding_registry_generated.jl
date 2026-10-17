@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "e304ee275acf246324b4cf06614aa76b5542ae5ce91366c0638bbb9cd69d6b05"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "9dcf85b61867a02033dc2c3ca7505f700673407105532780155e565603e82e91"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -2305,6 +2305,24 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="SOL",
         section_title="solution profiling",
         meaning="An IBR dispatch is within 1 % of a P bound — the bound is near-active.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.SOL.IBR_Q_VIOLATION" => (
+        severity="ERROR",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="An IBR's supplied `qg` violates a declared `q_min` or `q_max`, including under constant-PF or supported Volt-var control. Bounds index the modeled phase or pair according to topology. Evidence records the output index, terminal, topology, value and bounds in var. Uses the existing power-bound tolerance (1 var absolute floor).",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.SOL.IBR_Q_ACTIVE" => (
+        severity="WARNING",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="An IBR's supplied `qg` is within 1 % of a declared reactive-power bound without violating it at the power-bound tolerance. Evidence records output identity, value and bounds in var.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
