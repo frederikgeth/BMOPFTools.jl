@@ -46,7 +46,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite and CI pass; 9,604 focused assertions |
 | P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); local gates/full suite and all 11 CI checks pass |
-| P9 | #413 | `codex/413-coil-headroom-preflight` | Stacked on #444 (`f83c1d661`); explicit mapping domain | In progress: bounded nominal-demand screen |
+| P9 | #413 | `codex/413-coil-headroom-preflight` | Stacked on #444 (`f83c1d661`); explicit mapping domain | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); 203 focused assertions and scientific/execution gates pass; full suite/CI running |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
 the feature portions of their issues. P6 and P8 can be brought forward as focused
@@ -470,3 +470,17 @@ For each runtime slice:
   per coil with explicit voltage/loss/coupling omissions; no feasibility claim,
   rating mutation, solver invocation or change to the existing 90% aggregate
   warning. Existing-test plan: one suite include; preserve all expectations.
+
+- 2026-10-18: P9 draft #445 opened at `081f2e73f`, targeting draft #444.
+  The unchanged baseline reports 40% aggregate loading and no coil preflight
+  block; the new estimate exposes the 120% coil / −6.667 kVA nominal headroom.
+  Focused regression suite passes 203 assertions. Finding registry (366 codes),
+  executable export/schema/stale-output, llms and release metadata checks pass;
+  scientific contracts, executable knowledge (1,025 assertions), and JSON
+  execution (158 assertions) pass. Full suite and CI are running.
+  Existing-test ledger: one include in `test/runtests.jl`; no existing assertions,
+  fixtures, tolerances or skips changed. The existing analysis recipe gains
+  assertions through its same curated operation and retains its old assertions
+  and emitted example. The P8 fixture is reused unchanged, network only.
+  No solver/constraint/rating behavior changed. #445 and #444 remain open drafts
+  with auto-merge disabled; neither #413 nor any PR is closed or merged.
