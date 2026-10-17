@@ -44,7 +44,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
-| P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); 9,604 focused assertions and scientific/execution gates pass; full suite/CI running |
+| P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite pass; 9,604 focused assertions; CI running |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
 
@@ -159,17 +159,17 @@ parallel agent work are assumed by this plan.
 
 ## P7 — Independent THREE_LEG physics and result evidence
 
-- [ ] Create balanced and genuinely unbalanced prescribed-phasor fixtures with
+- [x] Create balanced and genuinely unbalanced prescribed-phasor fixtures with
   independent pair currents `J_k = conj(S_k / (V_k - V_next))` and terminal
   injections `I_k = J_k - J_previous`.
-- [ ] Check complex signs/phasors, external terminal KCL and power balance against
+- [x] Check complex signs/phasors, external terminal KCL and power balance against
   independent source/branch evidence. A built-in zero-sum identity alone is weak.
-- [ ] Cover unequal pair ratings and active/reactive/current capability below,
+- [x] Cover unequal pair ratings and active/reactive/current capability below,
   on and beyond boundaries; make pair versus conductor meaning explicit in
   runtime docs/results without silently reinterpreting `i_max`.
-- [ ] Check SI/per-unit/base changes, angle rotation, cyclic relabeling and JSON
+- [x] Check SI/per-unit/base changes, angle rotation, cyclic relabeling and JSON
   result identities. Preserve unsupported-droop and malformed-topology tests.
-- [ ] Record provenance for any adapted PowerOptLab oracle; keep tests self-contained.
+- [x] Record provenance for any adapted PowerOptLab oracle; keep tests self-contained.
   Isolate newly discovered runtime defects with minimized witnesses and disclose
   them, rather than changing expected values to match the engine.
 
@@ -401,3 +401,18 @@ For each runtime slice:
   one include only; no existing assertions, fixtures, tolerances, skips or
   oracles changed. Exact commands, domain and provenance are in #443.
   No PR has been merged or enabled for auto-merge.
+
+- 2026-10-18: P7 final validation at `6bb9044cc` passes all required local
+  gates: Finding registry (366 codes, unchanged from #438), reproducible
+  executable output, scientific contracts, executable knowledge (1,011
+  assertions), and JSON execution (158 assertions). Full suite exits 0: main
+  testset 23,576 pass, 37 existing broken/skipped, zero failures. Focused
+  THREE_LEG suite passes 9,604 assertions. Existing malformed-topology and
+  unsupported-droop tests remain enabled and pass. No existing assertions,
+  fixtures, tolerances or skips changed; `test/runtests.jl` adds one include.
+  The Julia/dependency environment matches P1; exact commands and limitations
+  are in #443. OpenDSSDirect's Julia 1.12 precompile/deprecation diagnostics
+  remain nonfatal. GitHub metadata passes; remaining CI runs at handoff.
+  P7 checkboxes mean implemented and tested in draft #443, not merged or
+  issue-closed. #443 targets #438; both are open drafts with auto-merge disabled.
+  No PR has been merged. Next planned slice is P8 (#413 coil-loading reports).
