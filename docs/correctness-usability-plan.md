@@ -42,7 +42,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
-| P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); focused checks pass; gates/full suite running |
+| P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite pass; CI running |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | None; coordinate P4/P5 role helpers | Planned |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
@@ -128,15 +128,15 @@ parallel agent work are assumed by this plan.
 
 ## P5 — Branch and winding connection-map validation
 
-- [ ] Audit existing traversal, including nested n-winding and center-tap layouts.
+- [x] Audit existing traversal, including nested n-winding and center-tap layouts.
   Extend existing integrity checks only where coverage is absent.
-- [ ] Validate actual position-to-position role correspondence for lines/switches
+- [x] Validate actual position-to-position role correspondence for lines/switches
   and keep map/matrix dimensions strict. Accept legitimate phase permutations.
-- [ ] Apply subtype-specific transformer connection contracts; never apply line
+- [x] Apply subtype-specific transformer connection contracts; never apply line
   continuity rules across all windings or reject valid neutral-only ground shunts.
-- [ ] Test identity/permuted/subset maps, transformer connection changes, center-tap
+- [x] Test identity/permuted/subset maps, transformer connection changes, center-tap
   polarity and nested windings, unknown references, dimensions and role transitions.
-- [ ] Findings identify component, side/winding, positions, roles and rule, with
+- [x] Findings identify component, side/winding, positions, roles and rule, with
   deterministic nonduplicated evidence. Verify label covariance, non-mutation,
   malformed input handling and JSON round trips.
 
@@ -320,3 +320,17 @@ For each runtime slice:
   Autotransformer shared-reference roles are checked specifically; no continuity
   rule is imposed across isolated transformer windings. No PR has been merged
   or enabled for auto-merge.
+
+- 2026-10-18: P5 final validation at `eb267ea24` passes all required local
+  gates: Finding registry (370 codes), reproducible executable export, scientific
+  contracts, executable knowledge (1,018 assertions), and JSON execution
+  interface (158 assertions). Full suite exits 0: main testset 20,760 pass,
+  37 existing broken/skipped, zero failures. The focused suite passes 2,360 new
+  and 13 existing neutral-link assertions. Commands and environment are in #441;
+  the same Julia/dependency environment as P4 was used. OpenDSSDirect's Julia
+  1.12 precompile/deprecation diagnostics remain nonfatal. GitHub metadata has
+  passed; remaining CI runs at handoff. No existing assertions, fixtures,
+  tolerances, skips or independent oracles changed relative to #440.
+  P5 checkboxes mean implemented and tested in draft #441, not merged or
+  issue-closed. #441 targets #440's branch; both remain drafts with auto-merge
+  disabled. Next planned slice is P6 (#268).
