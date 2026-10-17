@@ -524,9 +524,12 @@ function _check_terminal_map_conventions!(net, findings, result)
                 end
                 # A two-terminal single-phase coil accepts either orientation.
                 # WYE/FOUR_LEG phase arrays follow map order with neutral removed.
-                # DELTA's existing E.SPEC.DELTA_HAS_NEUTRAL owns its misuse.
-                bad = if comp_type=="shunt" || cfg=="DELTA"
+                # Retain DELTA's historical TMAP finding as well as its existing
+                # configuration-specific finding for stable-code consumers.
+                bad = if comp_type=="shunt"
                     Int[]
+                elseif cfg=="DELTA"
+                    neutral_positions
                 elseif all(==("neutral"),roles)
                     neutral_positions
                 elseif comp_type=="ibr" && topo=="THREE_LEG"

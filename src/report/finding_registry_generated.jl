@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "23ed947c2cdc2dbca99c543871967036e37a842241425712644abe296f491ce4"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "ea5e4a9917a69e9f19483dc8b71d912270cc9f4931b4ab95f78ecdd8a876566f"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -1953,7 +1953,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="TMAP",
         catalogue_section="TMAP",
         section_title="terminal-map conventions",
-        meaning="A nodal device has all-neutral/repeated-neutral misuse or a THREE_LEG IBR includes neutral; a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002).",
+        meaning="A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

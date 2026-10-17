@@ -38,6 +38,20 @@ _idx_dim(f,kind,id,field)=[x for x in f if x.code=="W.INT.DIM_MISMATCH" &&
         roundtrip=JSON3.read(JSON3.write(net),Dict{String,Any})
         @test roundtrip["terminal_conventions"]==net["terminal_conventions"]
         @test [(x.code,x.detail) for x in _idx_findings(roundtrip)]==[(x.code,x.detail) for x in _idx_findings(net)]
+        # Preserve the old "clean IBR" fixture's scalar-Q form as a negative
+        # witness. Ingestion retains the scalar; neither that shape nor a
+        # one-entry vector broadcasts to all three phases in the native model.
+        legacy=_idx_net(); inv=_idx_device!(legacy,"ibr","FOUR_LEG",["a","b","c","n"])
+        inv["q_min"]=-3000.; inv["q_max"]=3000.
+        parsed=parse_bmopf(JSON3.write(legacy);from_string=true)
+        @test parsed["ibr"]["d"]["q_min"]==-3000.
+        for field in ("q_min","q_max")
+            d=only(_idx_dim(_idx_findings(parsed),"ibr","d",field)).detail
+            @test d["expected_lengths"]==[0,3]
+            @test d["observed_shape"]["kind"]=="scalar"
+            parsed["ibr"]["d"][field]=[parsed["ibr"]["d"][field]]
+            @test only(_idx_dim(_idx_findings(parsed),"ibr","d",field)).detail["observed_shape"]["length"]==1
+        end
     end
 
     @testset "field by topology matrix and neutral-label covariance" begin

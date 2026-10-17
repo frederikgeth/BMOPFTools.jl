@@ -750,7 +750,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             "pv1": {"bus":"b1","terminal_map":["1","2","3","n"],
                     "topology":"FOUR_LEG","prime_mover":"PV",
                     "s_max":[5000.0,5000.0,5000.0],"p_avail":4000.0,
-                    "q_min":-3000.0,"q_max":3000.0,
+                    "q_min":[-3000.0,-3000.0,-3000.0],"q_max":[3000.0,3000.0,3000.0],
                     "control_profile":"vv1"}
           },
           "control_profile": {
