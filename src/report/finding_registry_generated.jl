@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "0c1faa0e09f4c37e707761f000423203b7217b971ec2ad6f311a34ffb5bf0378"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "e6456b841a2f1808a38031ff8a4d782d5b8235229d54e8c5362037aabf9aaad6"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -415,6 +415,24 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="OPS",
         section_title="operational loading",
         meaning="A galvanic zone's electrical reach is below the typical minimum for its voltage band — electrically it is a stub, service drop, or substation interconnect rather than a feeder. Off by default for HV/EHV. Observational.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.PRE.XFMR_COIL_HEADROOM" => (
+        severity="WARNING",
+        namespace="PRE",
+        catalogue_section="PRE",
+        section_title="infeasibility pre-flight",
+        meaning="A supported radial, single-source, single-phase-bank nominal-demand estimate exceeds one coil’s nameplate VA share. Signed nominal P/Q are summed by explicit terminal mapping, without losses or voltage/coupling effects. Negative headroom is a screening warning, not an infeasibility certificate.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "I.PRE.XFMR_COIL_UNASSESSED" => (
+        severity="INFO",
+        namespace="PRE",
+        catalogue_section="PRE",
+        section_title="infeasibility pre-flight",
+        meaning="Nominal per-coil transformer headroom is outside the declared domain or lacks required finite data/mapping. Structured status, reason and component context explain why no allocation was estimated.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

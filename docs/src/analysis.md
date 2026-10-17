@@ -229,3 +229,60 @@ Inventory and voltage transitions retain string labels and add structured status
 phase correspondence, orientation and coil evidence. A `?` suffix never means
 clock zero. Use `transformer_phase_relation` for a directed winding pair or pass
 `phase_order` to the standalone inventory/voltage passes for custom labels.
+
+## Qualified nominal transformer coil headroom
+
+`analyze(net).results[:preflight]["transformer_coil_headroom"]` exposes a
+**nominal-demand estimate**, separate from the supplied-result
+`profile_solution(net, result).results[:transformer_loading]` report.
+The same block is carried by `execute_analysis`, JSON analysis reports and the
+existing `analyze_case` recipe. Markdown includes the coil table and unassessed
+reasons; terminal reports show the stable preflight Findings.
+
+The initial domain is one `single_phase` transformer bank in a connected radial
+network with exactly one upstream voltage source, explicit ordered branch maps,
+and phase-neutral `SINGLE_PHASE` or `WYE` loads. A case may use its documented
+`n`/`N` neutral naming convention or declared terminal roles; the report records
+which was used. Endpoint labels are never matched as a substitute for an absent
+map. Lines may be oriented either way and may explicitly permute phase labels.
+Fixed open switches are omitted from the supply graph; isolated buses make this
+initial whole-network screen inapplicable. Reverse-fed transformers, multiple
+banks or supplies, meshes (including parallel paths), phase-to-phase/delta loads,
+ZIP/exponential models, local generation, IBRs, separate shunts/capacitors,
+DC devices, control profiles and authored tap bounds/decisions are unassessed.
+This deliberately bounded first domain does not allocate the unsupported cases
+by phase count or bank totals.
+
+For each mapped downstream coil, sum signed `p_nom` and `q_nom` and calculate
+`S_nom = hypot(sum(P_nom), sum(Q_nom))`. P must be nonnegative; signed Q permits
+nominal reactive cancellation. Constant-power, constant-current and
+constant-impedance loads are evaluated at their own nominal voltages; the latter
+two require finite positive `v_nom`. This assumes nominal voltage everywhere,
+without calculating voltage drops, neutral displacement or mutual coupling.
+Line/transformer losses, charging and magnetizing demand are omitted. Upstream
+loads are outside the transformer sum. Local sources and compensation are
+excluded rather than credited against demand. Source, voltage and current
+limits are unassessed. A fixed positive tap does not change this ideal nominal
+power accounting; tap bounds or control declarations receive no estimate.
+
+Only this native `single_phase` phase-neutral bank uses
+`s_rating / mapped_coil_count` as the from-side nameplate cap. Missing, zero,
+negative or nonfinite ratings give an indeterminate result, never a zero cap.
+The estimator does not infer other subtypes' caps or touch solver constraints.
+Each estimated row records from/to terminals, source terminal, nominal P/Q/S,
+cap, utilization, headroom and individual load contributions with ordered
+source paths. The bank summary sums coil apparent magnitudes. Missing or
+ambiguous data yield no partial numeric allocation and a stable reason.
+
+For the 100 kVA, three-coil / 40 kW single-coil witness, nominal bank utilization
+is 40%, but coil 1 is 120% with headroom −6.667 kVA.
+`W.PRE.XFMR_COIL_HEADROOM` flags negative nominal headroom;
+`I.PRE.XFMR_COIL_UNASSESSED` explains unsupported or incomplete cases.
+`W.OPS.XFMR_OVERLOADED` remains the existing aggregate nominal-load warning
+above 90%; its threshold and meaning are unchanged.
+
+Positive headroom **does not prove feasibility** and negative headroom **does
+not prove infeasibility**. The result records both limitations, its assumptions
+and `solver_run = false`. It neither retries a solve nor edits the network.
+This screening evidence is linked to **PSK-000013** to distinguish it from a
+solved-network feasibility witness; it does not extend that scientific claim.

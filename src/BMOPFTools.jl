@@ -745,6 +745,7 @@ include("analysis/diversity.jl")
 include("analysis/operational.jl")
 include("analysis/load_models.jl")
 include("analysis/provenance.jl")
+include("infeasibility/transformer_headroom.jl")
 include("infeasibility/preflight.jl")
 
 include("validation/schema.jl")

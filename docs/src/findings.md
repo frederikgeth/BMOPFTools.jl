@@ -126,6 +126,8 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
+| `W.PRE.XFMR_COIL_HEADROOM` | W | A supported radial, single-source, single-phase-bank nominal-demand estimate exceeds one coil’s nameplate VA share. Signed nominal P/Q are summed by explicit terminal mapping, without losses or voltage/coupling effects. Negative headroom is a screening warning, not an infeasibility certificate. |
+| `I.PRE.XFMR_COIL_UNASSESSED` | I | Nominal per-coil transformer headroom is outside the declared domain or lacks required finite data/mapping. Structured status, reason and component context explain why no allocation was estimated. |
 | `E.PRE.VBOUND_CONFLICT` | E | A bus voltage bound pair with lower > upper (checked elementwise for all four flavours: `v`, `vpn`, `vpp`, `vpos`). The feasible set is empty before the solver starts. |
 | `E.PRE.PBOUND_CONFLICT` | E | Generator `p_min > p_max` — infeasible by construction. |
 | `E.PRE.QBOUND_CONFLICT` | E | Generator `q_min > q_max` — same. |
