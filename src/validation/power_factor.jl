@@ -77,8 +77,8 @@ function _minimum_pf_configuration(net)
             bad(id,"dc_coupling_not_supported"); continue
         end
         tm=get(inv,"terminal_map",nothing); topo=get(inv,"topology","FOUR_LEG")
-        roles=_terminal_roles(net); bus=get(get(net,"bus",Dict()),get(inv,"bus",nothing),Dict())
-        if !(tm isa AbstractVector) || !all(t->t isa AbstractString,tm) ||
+        roles=_index_roles(net); bus=get(get(net,"bus",Dict()),get(inv,"bus",nothing),Dict())
+        if roles===nothing || !(tm isa AbstractVector) || !all(t->t isa AbstractString,tm) ||
            length(unique(tm))!=length(tm) || !all(t->t in get(bus,"terminal_names",[]),tm) ||
            !isempty(intersect(roles.phase,roles.neutral)) ||
            !isempty(intersect(union(roles.phase,roles.neutral),roles.earth)) ||

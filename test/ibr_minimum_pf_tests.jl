@@ -245,3 +245,17 @@ end
     cp=Dict("power_factor"=>Dict("pf"=>big"1e-1000"))
     @test_throws ArgumentError BMOPFTools._constant_pf_value(cp)
 end
+
+@testset "Minimum PF never infers through a malformed role declaration" begin
+    for declaration in (42, Dict("phase"=>"a","neutral"=>["n"]), Dict("phase"=>nothing))
+        n=minimum_pf_net();n["terminal_conventions"]=declaration;before=deepcopy(n)
+        fs=Finding[]
+        evidence=BMOPFTools._minimum_pf_solution_check(n,supplied_minpf(n,400.,300.),fs;has_candidate=true)
+        @test isempty(evidence["coils"])
+        @test only(evidence["configuration_errors"])["reason"]=="ambiguous_coil_mapping"
+        @test any(f->f.code=="E.INT.MINIMUM_PF_INVALID",fs)
+        @test_throws ArgumentError BMOPFTools._power_factor_config_check!(n,Finding[];strict=true)
+        @test JSON3.read(JSON3.write(evidence),Dict{String,Any})==evidence
+        @test n==before
+    end
+end
