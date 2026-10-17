@@ -42,7 +42,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite pass; CI running |
-| P5 | #409 | `codex/409-connection-map-validation` | Shared role/index contracts from P4 | Planned |
+| P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Implementing; focused checks running |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | None; coordinate P4/P5 role helpers | Planned |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
@@ -297,3 +297,12 @@ For each runtime slice:
   ExaModels and downstream-extension checks pass; remaining jobs are running
   at handoff. P4 checkboxes mean implemented and tested in a draft, not merged
   or issue-closed. #437 and #440 remain open drafts with auto-merge disabled.
+
+- 2026-10-18: P5 (#409) started on `codex/409-connection-map-validation`,
+  stacked on #440 at `0efa4ad56`. The draft will target P4's branch; no merge
+  is needed. Baseline: equal-length mixed phase/neutral switch maps produced
+  no error, while a malformed nested winding raised `MethodError`. The patch
+  checks positional role correspondence and subtype-specific winding maps,
+  retains original winding indices, and preserves isolated/grounding cases.
+  Existing-test plan: add one suite include; no existing expectations changed.
+  Native n-winding label support remains a separate runtime boundary.
