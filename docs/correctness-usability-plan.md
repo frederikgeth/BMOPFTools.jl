@@ -39,14 +39,14 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 |---|---|---|---|---|
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
 | P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
-| P2 | #89 | `codex/89-minimum-power-factor` | Stacked on #438 (`1ecbb6731`); package-owned extras representation | In progress |
+| P2 | #89 | `codex/89-minimum-power-factor` | Stacked on #438 (`1ecbb6731`); package-owned extras representation | Draft [#446](https://github.com/frederikgeth/BMOPFTools.jl/pull/446); final local gates/full suite and CI running |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite and CI pass; 9,604 focused assertions |
 | P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); local gates/full suite and all 11 CI checks pass |
-| P9 | #413 | `codex/413-coil-headroom-preflight` | Stacked on #444 (`f83c1d661`); explicit mapping domain | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); local gates/full suite pass; 203 focused assertions; CI running |
+| P9 | #413 | `codex/413-coil-headroom-preflight` | Stacked on #444 (`f83c1d661`); explicit mapping domain | Draft [#445](https://github.com/frederikgeth/BMOPFTools.jl/pull/445); local gates/full suite and all 11 CI checks pass; 203 focused assertions |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
 the feature portions of their issues. P6 and P8 can be brought forward as focused
@@ -512,3 +512,23 @@ For each runtime slice:
   existing constant-PF signs and reject invalid PF declarations explicitly.
   Existing-test plan: add suite wiring and retain all established expectations;
   any additional change will be explained with its reason and retained oracle.
+
+- 2026-10-18: P2 draft #446 opened at `802490305`, targeting #438. Native
+  per-coil generation envelopes use dispatched P and bounded PF coefficients;
+  supported controls and all existing capability limits remain active. The
+  versioned policy uses the schema's existing `extras` escape hatch; the
+  Task Force schema and fingerprint are unchanged. The independent unknown-field
+  scanner now recognizes the already-supported top-level extras field.
+  Baseline on #438 returns P=400 W / Q≈900 var; the minimum-PF 0.8 witness now
+  returns Q=300 var. Existing constant-PF zero/invalid values are explicitly
+  rejected; docs explain removing the sub-object to disable constant PF.
+  Initial focused run passed 344 assertions plus 319 reactive-capability and
+  89 Volt-var/Volt-watt assertions unchanged. Final mapping/zero/candidate
+  boundary coverage and full gates are running on the committed revision.
+  Existing-test ledger: one include only; no existing assertions, fixtures,
+  tolerances or skips changed. The curated verification recipe adds assertions
+  while retaining its old assertions/output. A new test initially used an
+  unsupported absolute-VAr droop; the positive case now uses VA_FRACTION and
+  the unsupported encoding remains as an explicit rejection regression.
+  #446 remains an open draft with auto-merge disabled. No PR has been merged.
+- 2026-10-18: P9 #445 now passes all 11 GitHub CI checks and remains an open draft.
