@@ -1207,7 +1207,7 @@ function solution_check(net::Dict{String,Any},
                 end
             end
         end
-        tan_phi = pf_val !== nothing ? tan(acos(abs(pf_val))) : nothing
+        pf_sine = pf_val === nothing ? nothing : sqrt((1-abs(pf_val))*(1+abs(pf_val)))
         pf_sign = pf_val !== nothing ? sign(pf_val) : 0.0
 
         ph_res = get(get(result, "ibr", Dict()), inv_id, nothing)
@@ -1341,17 +1341,20 @@ function solution_check(net::Dict{String,Any},
                 end
             end
 
-            # Constant-PF residual: sign(pf)*Q + tan_phi*P should be ~0
-            if tan_phi !== nothing
+            # Bounded constant-PF residual; scale the tolerance as well to
+            # preserve the existing Q-equivalent relative acceptance threshold.
+            if pf_sine !== nothing
                 s_ref = idx <= length(smax_arr) ? smax_arr[idx] : max(abs(pg), abs(qg), 1.0)
-                resid = abs(pf_sign * qg + tan_phi * pg) / s_ref
-                if resid > pf_resid_tol
+                resid = abs(pf_val * qg + pf_sine * pg) / max(s_ref, 1e-6)
+                if resid > pf_resid_tol * abs(pf_val)
                     push!(findings, Finding(WARNING, "W.SOL.IBR_PF_DEVIATION", :solution, :ibr, inv_id,
                         "IBR '$inv_id' phase '$t_ph': constant-PF residual " *
                         "$(round(resid*100; digits=3)) % of s_max — solver may not have " *
                         "enforced the PF coupling tightly (pf=$(round(pf_val; digits=4))).",
                         Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
-                                         "pg"=>pg,"qg"=>qg,"pf"=>pf_val,"residual"=>resid)))
+                                         "pg"=>pg,"qg"=>qg,"pf"=>pf_val,"residual"=>resid,
+                                         "residual_definition"=>"abs(pf*Q + sqrt(1-pf^2)*P)/max(s_ref,1e-6)",
+                                         "residual_tolerance"=>pf_resid_tol*abs(pf_val))))
                 end
             end
         end

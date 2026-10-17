@@ -5,7 +5,7 @@ function _constant_pf_value(cp)
     cp isa AbstractDict && haskey(cp,"power_factor") || return nothing
     obj=cp["power_factor"]
     raw=obj isa AbstractDict ? get(obj,"pf",nothing) : nothing
-    _pf_finite(raw) && 0 < abs(raw) <= 1 ||
+    _pf_finite(raw) && 0 < abs(raw) <= 1 && Float64(abs(raw)) > 0 ||
         throw(ArgumentError("constant power_factor.pf must be finite with 0 < abs(pf) <= 1"))
     Float64(raw)
 end

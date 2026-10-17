@@ -220,3 +220,28 @@ end
         @test n==before
     end
 end
+
+@testset "Constant PF remains defined near zero (#89 review)" begin
+    for pf in (1e-20, -1e-20, nextfloat(0.0))
+        n=minimum_pf_net(;pf=abs(pf))
+        n["control_profile"]=Dict("cp"=>Dict("power_factor"=>Dict("pf"=>pf)))
+        n["ibr"]["pv"]["control_profile"]="cp"
+        ctx=build_opf_model(n;per_unit=false)
+        f=constraint_object(opf_object(ctx,OpfModelKey(:constraint,:ibr_power_factor,("pv",1)))).func
+        coefficients=[abs(c) for (c,_,_) in JuMP.quad_terms(f)]
+        @test maximum(coefficients)==1.0
+        @test minimum(coefficients)==abs(pf)
+        @test all(v->start_value(v)===nothing || isfinite(start_value(v)),all_variables(ctx.model))
+        abs(pf)==nextfloat(0.0) && continue # arithmetic underflow is not a solver accuracy claim
+        # Independent P/hypot(P,Q) oracle, beyond acos's representable angle.
+        p=abs(pf)*1000; q=-sign(pf)*1000
+        @test p/hypot(p,q)≈abs(pf) rtol=1e-14
+        for (reactive,deviates) in ((q,false),(q/2,true))
+            fs=Finding[];solution_check(n,supplied_minpf(n,p,reactive),fs)
+            @test any(f->f.code=="W.SOL.IBR_PF_DEVIATION",fs)==deviates
+            @test JSON3.read(JSON3.write([f.detail for f in fs]))!==nothing
+        end
+    end
+    cp=Dict("power_factor"=>Dict("pf"=>big"1e-1000"))
+    @test_throws ArgumentError BMOPFTools._constant_pf_value(cp)
+end

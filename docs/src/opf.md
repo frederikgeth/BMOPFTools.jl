@@ -1826,3 +1826,11 @@ rejected with `E.INT.CONSTANT_PF_INVALID`, rather than silently dropping PF or
 throwing later inside trigonometry. Remove the `power_factor` sub-object to
 request freely dispatchable Q. The accepted numeric range in the bundled
 Task Force schema is unchanged; this is stricter executable applicability.
+
+Constant-PF equations use bounded coefficients `pf*Q + sqrt((1-|pf|)*(1+|pf|))*P = 0`,
+including very small positive PF magnitudes where `tan(acos(|pf|))` loses the
+requested ratio. This avoids an unbounded model coefficient; it does not promise
+relative solver accuracy for dispatch below the solver's absolute tolerances.
+The supplied-result constant-PF diagnostic records its scaled residual definition
+and threshold explicitly, retaining the existing Q-equivalent relative tolerance.
+Values that underflow to zero in Float64 are rejected.
