@@ -37,8 +37,8 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 
 | Slice | Issue | Planned branch | Dependency | Status / PR |
 |---|---|---|---|---|
-| P0 | All | `codex/correctness-usability-plan` | None | Plan drafted |
-| P1 | #89 | `codex/89-reactive-capability-limits` | None | Next |
+| P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
+| P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); focused tests pass; full validation in progress |
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Planned |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Planned |
@@ -239,3 +239,10 @@ For each runtime slice:
 - 2026-10-18: plan created from the six accepted priorities. Latest main fetched;
   unrelated existing checkout retained. No runtime behavior or test expectations
   changed by the planning PR.
+- 2026-10-18: P1 draft #438 published. Baseline witness reports success at
+  1200 W / -900 var despite Q >= -300 var. New hard-bound behavior gives
+  400 W / -300 var; supplied-result verification gains distinct Q-bound codes.
+  Focused suites: 319 new assertions plus 201 existing controller assertions pass.
+  Existing-test ledger: only the new include in `test/runtests.jl`; no existing
+  expectations, fixtures or tolerances changed. Full gate results and limitations
+  are recorded in the implementation PR. Both drafts remain unmerged.
