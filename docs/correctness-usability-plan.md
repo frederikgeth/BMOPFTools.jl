@@ -40,7 +40,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
 | P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
-| P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); scientific/execution gates pass; full suite and CI running |
+| P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite pass; CI running |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Planned |
 | P5 | #409 | `codex/409-connection-map-validation` | Shared role/index contracts from P4 | Planned |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | None; coordinate P4/P5 role helpers | Planned |
@@ -264,6 +264,11 @@ For each runtime slice:
   Zero-current coverage checks a known feasible point against every row/bound
   because Ipopt can reject the redundant all-zero-cap equality count.
   Python gates, scientific contracts, executable knowledge (1,006 assertions)
-  and JSON execution interface (158 assertions) pass. Full suite and CI are
-  running; final results will be recorded here before handoff. P3 implementation
-  checkboxes mean implemented/tested in the draft, not merged or issue-closed.
+  and JSON execution interface (158 assertions) pass. Full suite at `d96e5bf4f`
+  exits 0: main testset 16,693 pass, 37 existing broken/skipped; this includes the
+  final reported-loss and bond-current assertions. The same Julia/dependency
+  environment as P1 was used. OpenDSSDirect's Julia 1.12 precompile/deprecation
+  diagnostics are nonfatal; optional test skips remain visible. CI is running
+  at handoff, with metadata passed. P3 implementation checkboxes mean implemented
+  and tested in the draft, not merged or issue-closed. #437/#438/#439 remain
+  draft and unmerged, with auto-merge disabled.
