@@ -44,8 +44,8 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
-| P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite pass; 9,604 focused assertions; CI running |
-| P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | In development: supplied-result coil loading; P9 estimates remain separate |
+| P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite and CI pass; 9,604 focused assertions |
+| P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); focused/scientific/execution gates pass; full suite/CI running |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
@@ -426,3 +426,19 @@ For each runtime slice:
   outstanding, so this draft will reference rather than close #413.
   Existing-test plan: add suite wiring only; retain the nameplate witness and
   all existing numerical expectations.
+
+- 2026-10-18: P7 CI passed all 11 checks; #443 remains an unmerged draft.
+- 2026-10-18: P8 draft #444 opened at `f83c1d661`, targeting main. Focused
+  suites pass 153 reporting and 258 independent electrical assertions. Both
+  Python gates, scientific contracts, executable knowledge (1,012 assertions)
+  and JSON execution (158 assertions) pass. Full suite and CI are running.
+  Baseline reporting emits the coil Finding but has no per-coil summary; the
+  new block surfaces 40% aggregate / 120% coil loading without duplicating
+  Findings. JSON round trips exposed an existing integer squared-voltage
+  dispatch error in load verification; a minimized witness reproduces it on
+  unchanged source, and conversion before squaring fixes it without changing
+  physics/tolerances. Existing-test ledger: two suite includes only; no existing
+  assertions, fixtures, tolerances, skips or oracles changed. Existing native
+  subtype fixtures are read unchanged by the new SI/PU tests. The report never
+  edits ratings or retries solves. P9 remains planned; #444 references #413
+  without closing it. No PR has been merged or enabled for auto-merge.
