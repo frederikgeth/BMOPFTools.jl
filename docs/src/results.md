@@ -47,6 +47,61 @@ physics or optimality. Bus checks derive magnitude and angle from `vr`/`vi`;
 inconsistent supplied `vm` is an error. The default bound/phasor consistency
 tolerance remains 0.2%, with the documented absolute floors.
 
+## Supplied transformer coil loading
+
+`profile_solution(net, result).results[:transformer_loading]` exposes per-coil
+loading alongside aggregates in `render_solution` Markdown and in the existing
+`execute_solution_verification` JSON response. It reuses the existing
+`E.SOL.THERMAL_VIOLATION` and `W.SOL.THERMAL_ACTIVE` Findings from `solution_check`;
+the report does not introduce a second bound checker or change its tolerances.
+
+Each `coils` row identifies transformer/subtype, constrained `side`, positional
+`coil`, bus and terminal pair, supplied `s_VA` and `cap_VA`, utilization `s/cap`,
+headroom `cap-s`, comparison status and Finding codes. A null second terminal
+denotes the ground reference. Caps are taken from result `s_max`, never inferred
+by dividing the case's nameplate. Missing or invalid values remain null with
+explicit field paths; a zero cap is retained, with null utilization and finite
+headroom. `within_reported_cap` describes only the supplied comparison.
+
+`groups` contains sums of apparent-power magnitudes and caps for each constrained
+side/winding, with aggregate and worst-coil utilization. It does not sum opposite
+sides, and `sum(|S_coil|)` is not `|sum(S_coil)|`. Aggregate sums require every
+expected coil's finite S/cap; incomplete data never becomes zero loading.
+Worst utilization is null when any coil has an undefined zero-cap ratio.
+A 100 kVA three-coil bank can show 40% aggregate loading while one coil is at
+120%; the per-coil row retains its negative headroom and violation Finding.
+
+| Native subtype | Result slots represented | Native nameplate meaning (context only) |
+|---|---|---|
+| `single_phase` | `fr`, one index per from-side winding pair | Total nameplate shared over coils |
+| `center_tap` | `fr/1`, HV coil | Whole nameplate on the HV coil |
+| `wye_delta` | `fr`, wye phase positions | Total shared over wye coils |
+| `delta_wye` | `to`, wye phase positions | Total shared over wye coils |
+| `single_phase_autotransformer` | `fr/1`, through-power winding | Whole regulator nameplate |
+| `open_delta_regulator` | `fr/1`, `fr/2`, oriented regulating pairs | Whole per-regulator nameplate on each pair |
+| `n_winding` | `w1`…`wN`, phase-leg indices | Each winding's own `s_max` shared over its legs |
+
+Slot interpretation follows the native model's declared terminal maps and neutral
+resolution; n-winding currently recognizes a/b/c/n as its native reader does.
+Unsupported subtypes, malformed mappings and unrecognized supplied S/cap slots
+are listed in `unassessed`, with no inferred physical allocation. This covers
+apparent-power records, not a reinterpretation of conductor-current limits.
+
+All rows are **supplied-result evidence**, not independent reconstruction or
+authentication of solver stamping or case-to-result provenance. Candidate state
+is explicit: `supplied_feasible_candidate` is a solver claim (including a feasible
+time-limit candidate), `diagnostic_candidate` retains failed/infeasible candidate
+values, and `no_candidate` cannot establish an operating point. The latter two
+have unassessed comparisons even if finite diagnostic values are supplied.
+Termination/primal status and result count are retained. These labels do not
+override whole-network `verification_status` or certify physical feasibility.
+
+The report neither changes ratings nor retries solves. It is separate from
+`W.OPS.XFMR_OVERLOADED`, the existing **90% downstream nominal-load estimate**.
+Qualified per-coil preflight demand/headroom estimation remains separate work
+under #413. The independent voltage/current regression for the ideal bank is
+case-specific PSK-000013 evidence, not a universal transformer validation claim.
+
 ## Top-level fields
 
 | Key | Type | Description |
