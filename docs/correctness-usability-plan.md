@@ -38,9 +38,9 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | Slice | Issue | Planned branch | Dependency | Status / PR |
 |---|---|---|---|---|
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
-| P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite pass; CI pending |
+| P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
-| P3 | #116 | `codex/116-transformer-current-ratings` | None | Planned |
+| P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); scientific/execution gates pass; full suite and CI running |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Planned |
 | P5 | #409 | `codex/409-connection-map-validation` | Shared role/index contracts from P4 | Planned |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | None; coordinate P4/P5 role helpers | Planned |
@@ -94,19 +94,19 @@ parallel agent work are assumed by this plan.
 
 ## P3 — Transformer current-rating semantics and safe bounds
 
-- [ ] Publish a subtype/side coverage matrix: actual current variable/expression,
+- [x] Publish a subtype/side coverage matrix: actual current variable/expression,
   rating index, phase/neutral meaning and whether a component box is valid.
-- [ ] Resolve center-tap fixed-admittance versus T-model LV rating semantics with
+- [x] Resolve center-tap fixed-admittance versus T-model LV rating semantics with
   legacy excitation. Compare physically identical cases at a fixed tap using
   independent total-terminal and internal-current calculations.
-- [ ] Add missing fixed-path Cartesian bounds only where the same current already
+- [x] Add missing fixed-path Cartesian bounds only where the same current already
   has a magnitude cap. Preserve tighter bounds and zero-cap equality semantics.
-- [ ] Retain an excitation-cancellation witness demonstrating why a terminal cap
+- [x] Retain an excitation-cancellation witness demonstrating why a terminal cap
   cannot simply be copied onto an internal series current.
-- [ ] Cover fixed/free taps, zero/nonzero leakage arms, excitation present/absent,
+- [x] Cover fixed/free taps, zero/nonzero leakage arms, excitation present/absent,
   both sides/neutral handling, finite/zero/missing/infinite/invalid caps, SI and
   supported per-unit policies. Verify feasible physical points remain admissible.
-- [ ] Report any change in rating interpretation as a compatibility change. Missing
+- [x] Report any change in rating interpretation as a compatibility change. Missing
   redundant boxes alone must not be described as missing thermal protection.
 
 ## P4 — Device topology and parameter-array alignment
@@ -250,3 +250,20 @@ For each runtime slice:
   JuMP 1.31.2, Ipopt.jl 1.15.0, MOI 1.53.0, PowerIO 0.11.3. Full commands and
   limitations are recorded in the implementation PR. CI was still running at
   handoff; neither draft has been merged or enabled for auto-merge.
+- 2026-10-18: P1 CI subsequently passed all 11 reported checks; #438 remains draft.
+- 2026-10-18: P3 draft #439 published from independent main base `df6bc42bf`.
+  Center-tap T-model currents/caps now include legacy excitation like the fixed
+  primitive path; internal core equations subtract it. Both paths expose safe
+  boxes and enforce a supplied HV-neutral rating. The docs and PR explicitly
+  describe the changed native/serialized LV current meaning and rating boundary.
+  Baseline fixture: fixed tap 1 solves at 2.163185 A under the 3 A LV leg-1 cap;
+  the same-tap old T-model returns LOCALLY_INFEASIBLE. Independent power/drop/loss
+  equations and excitation cancellation provide the physical evidence.
+  Existing-test ledger: one new suite include in `test/runtests.jl`; no existing
+  assertions, fixtures, tolerances, skips or independent oracles changed.
+  Zero-current coverage checks a known feasible point against every row/bound
+  because Ipopt can reject the redundant all-zero-cap equality count.
+  Python gates, scientific contracts, executable knowledge (1,006 assertions)
+  and JSON execution interface (158 assertions) pass. Full suite and CI are
+  running; final results will be recorded here before handoff. P3 implementation
+  checkboxes mean implemented/tested in the draft, not merged or issue-closed.
