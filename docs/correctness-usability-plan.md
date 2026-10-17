@@ -43,7 +43,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite pass; CI running |
-| P6 | #268 | `codex/268-transformer-phase-evidence` | None; coordinate P4/P5 role helpers | Planned |
+| P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Implementing; static primitive checks pass |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
@@ -334,3 +334,14 @@ For each runtime slice:
   P5 checkboxes mean implemented and tested in draft #441, not merged or
   issue-closed. #441 targets #440's branch; both remain drafts with auto-merge
   disabled. Next planned slice is P6 (#268).
+
+- 2026-10-18: P6 (#268) started on `codex/268-transformer-phase-evidence`,
+  stacked on #441 at `eb267ea24`. The baseline reproduces Dyn1/Dyn0/Dy1 for
+  equivalent numeric/letter/renamed-neutral inputs. New structured evidence
+  separates connection, declared nameplate, explicit phase correspondence and
+  derived ideal displacement; failed inference never becomes clock zero.
+  Static regression suite passes 2,147 assertions, including independent
+  primitive checks across full permutations/taps/source rotations. Native SI/PU
+  checks are running. Existing-test change planned: the source-angle tagging
+  test will assert center-tap unsupported/Ii? instead of an unjustified Ii0,
+  retaining the invariance assertions and adding a status assertion.
