@@ -3796,6 +3796,7 @@ include("mcp_execution_tests.jl")
             @test_skip "JuMP/Ipopt not in load path — skipping OPF tests"
         else
             include("scaling_policy_tests.jl")
+            include("transformer_current_rating_tests.jl")
             include("semantic_block_tests.jl")
             include("opf_tests.jl")
             include("opf_engine_review_tests.jl")

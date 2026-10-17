@@ -1,0 +1,28 @@
+{
+  "bus": {
+    "f": {"terminal_names": ["p", "n"], "perfectly_grounded_terminals": ["n"]},
+    "t": {"terminal_names": ["x1", "n", "x2"], "perfectly_grounded_terminals": ["n"]}
+  },
+  "voltage_source": {
+    "s": {"bus": "f", "terminal_map": ["p"], "v_magnitude": [240.0], "v_angle": [0.23]}
+  },
+  "transformer": {
+    "center_tap": {
+      "tx": {
+        "bus_from": "f", "bus_to": "t",
+        "terminal_map_from": ["p", "n"], "terminal_map_to": ["x1", "n", "x2"],
+        "v_nom_from": 240.0, "v_nom_to": 120.0, "s_rating": 10000.0,
+        "r_series_from": 0.1, "x_series_from": 0.08,
+        "r_series_to": 0.025, "x_series_to": 0.02,
+        "g_no_load": 0.04, "b_no_load": -0.02,
+        "i_max_from": [20.0, 20.0], "i_max_to": [3.0, 10.0, 10.0]
+      }
+    }
+  },
+  "load": {
+    "l1": {"bus": "t", "terminal_map": ["x1", "n"], "configuration": "SINGLE_PHASE",
+           "p_nom": [250.0], "q_nom": [65.0]},
+    "l2": {"bus": "t", "terminal_map": ["x2", "n"], "configuration": "SINGLE_PHASE",
+           "p_nom": [500.0], "q_nom": [130.0]}
+  }
+}

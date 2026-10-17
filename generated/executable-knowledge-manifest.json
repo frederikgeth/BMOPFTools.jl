@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "dfcafa0601f234d00390979b949332ed8b5b716c13b7bb12cc7e598f8ffdd498",
+  "corpus_sha256": "7fe7c6316e800717239c160e93d9bd2cbadc60cfc8ab5c30d56730183d445c70",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -86,7 +86,7 @@
     },
     {
       "path": "docs/src/dev/opf_engine.md",
-      "sha256": "741fec2cb7e318fe626cd25b3fd70f5686403601eec08b9b0aeb4ad1eb940f04"
+      "sha256": "f8597a2f7af269902ea03a48f6e7bcb06d68922b39fe9e2167846221ee4fc411"
     },
     {
       "path": "docs/src/dev/versioning.md",
@@ -218,7 +218,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/transformer.jl",
-      "sha256": "219e626ca66247bdd7385e4b6a60d275a44866e78d5d767486faa7b8084ecfbe"
+      "sha256": "64929dfaef1947ddb749d0b48aec286eff84ede797d3f1f1eb360ab15085d85a"
     },
     {
       "path": "ext/BMOPFOpfExt/variables.jl",
@@ -230,7 +230,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "e6668779efc6f6d1e86db6ab4852b668466be550a6199d1717f6ed52f6ca36f9"
+      "sha256": "129c7a869c21869d90510bb82247d0bd58a3d108815b82c52f5fda688268549d"
     },
     {
       "path": "recipes/README.md",
@@ -611,6 +611,14 @@
     {
       "path": "test/data/scientific_review/zero-rated-device-result.json",
       "sha256": "8c0ab4f112d84849707d54cff2cf49b6b3d921267cafaf232d6b74cb94685980"
+    },
+    {
+      "path": "test/data/transformer_current_ratings/README.md",
+      "sha256": "4f6e3039e55b7e922ea16d1c759e76b5b94a03db78464402d40841c00f7730fd"
+    },
+    {
+      "path": "test/data/transformer_current_ratings/center_tap.json",
+      "sha256": "01fcebca0ed07b76f404cc68bf19bbaa788bc97f03523d8bc899e661ad3997e9"
     },
     {
       "path": "test/data/transformer_interoperability/README.md",
@@ -1119,6 +1127,10 @@
     {
       "path": "test/topology_structure_tests.jl",
       "sha256": "43426418423c659ceaad825c73551547c07b44f15d00e537338c1330d0a831b7"
+    },
+    {
+      "path": "test/transformer_current_rating_tests.jl",
+      "sha256": "40129e1bbc227e93792075321b4d2a916cbf55d4eaef2edf43640f6343beffbe"
     },
     {
       "path": "test/transformer_impedance_basis_tests.jl",

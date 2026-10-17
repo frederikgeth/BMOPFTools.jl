@@ -21,12 +21,12 @@
 #     (V_fr[1]−V_fr[n]) − N·(V_lv[n]−V_lv[2]) = R1·I_s − X1·jI_s + N·(R2·I_leg2 − X2·jI_leg2)
 #
 #   Current (power conservation, normalized coordinates):
-#     N·(S_from/S_to)·I_s + I_leg1 − I_leg2 = 0
+#     N·(S_from/S_to)·I_s + I_leg1_series − I_leg2 = 0
 #
 #   Center-tap KCL (n terminal, not a floating node):
 #     I_n + I_leg1 + I_leg2 = 0
 #
-#   KCL contributions: bus_fr -= I_fr (series + shunt), bus_lv -= I_lv_k
+#   KCL uses total winding-terminal currents; leg 1 includes legacy excitation.
 #
 # ── wye_delta (Yd) ─────────────────────────────────────────────────────────
 #   Wye side (from) : n_ph phase terminals + 1 neutral
@@ -443,15 +443,16 @@ Terminal conventions (from the BMOPF spec arity (2,3)):
 
 Variable index mapping:
   `cr_xf[(tid,"fr",1)]` — HV series current (into phase terminal)
-  `cr_xf[(tid,"to",1)]` — LV leg-1 current  (flows through winding-2 resistance)
+  `cr_xf[(tid,"fr",2)]` — HV mirrored neutral return (minus HV phase current)
+  `cr_xf[(tid,"to",1)]` — LV leg-1 terminal current (includes legacy excitation)
   `cr_xf[(tid,"to",2)]` — LV center-tap current I_n (KCL balance at neutral)
   `cr_xf[(tid,"to",3)]` — LV leg-2 current  (flows through winding-3 resistance)
 
 Physics (coupled-coil / primitive-admittance model):
 
   The split-phase transformer is a genuine 3-winding transformer — winding 1 is
-  the HV coil (t_ph→t_n); windings 2 and 3 are the two LV half-windings, BOTH
-  dotted at the centre tap (winding 2: t1→tn, winding 3: tn→t2). The two
+  the HV coil (t_ph→t_n); windings 2 and 3 are the two LV half-windings with
+  opposite terminal polarity (winding 2: t1→tn, winding 3: tn→t2). The two
   half-windings are tightly coupled on the shared core, so a per-leg decoupled
   voltage drop (which omits the mutual term) lets the legs spread apart under
   load. Instead we impose the OpenDSS-consistent 5×5 primitive admittance
@@ -476,7 +477,7 @@ Physics (coupled-coil / primitive-admittance model):
   The element current into each of the 5 nodes is I = Yp·V; the per-winding
   current variables are pinned to those injections so `i_max` limits and the
   result/loss writer see physical currents. The implied relations are the
-  ampere-turn N·I_s + I_leg1 − I_leg2 = 0 and the centre-tap KCL
+  ampere-turn N·I_s + I_leg1_series − I_leg2 = 0 and the centre-tap KCL
   I_n + I_leg1 + I_leg2 = 0.
 
   With distinct zone power bases, the primitive is assembled in a common
@@ -488,7 +489,10 @@ Physics (coupled-coil / primitive-admittance model):
   pinned directly to V_hv/N (winding 3 dotted at the centre tap) and the
   ampere-turn / centre-tap KCL route the currents.
 
-  No-load shunt (G+jB) at HV terminals (placed on winding-1 from side).
+  Legacy no-load shunt (G+jB) across LV leg 1. Both formulations expose total
+  winding-terminal currents including this shunt. Internal leakage/core equations
+  subtract excitation to recover series currents. Separate neutral-to-earth
+  branches are not included in the winding-current ratings.
 
   Winding neutral grounding (OpenDSS rneut/xneut): `r/x_neutral_from` grounds the HV
   neutral through y_n = 1/(R_n+jX_n); `r/x_neutral_to` grounds the LV centre-tap
@@ -542,7 +546,6 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # Legacy no-load admittance across winding 2 (the first LV half-winding).
     G = Float64(get(xfmr, "g_no_load", 0.0))
     B = Float64(get(xfmr, "b_no_load", 0.0))
-    has_shunt = (G != 0.0 || B != 0.0)
 
     # HV series current: index 1 on the "fr" side.
     Isr = cr_xf[(tid,"fr",1)];  Isi = ci_xf[(tid,"fr",1)]
@@ -550,6 +553,20 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     Il1r = cr_xf[(tid,"to",1)]; Il1i = ci_xf[(tid,"to",1)]
     Il2r = cr_xf[(tid,"to",3)]; Il2i = ci_xf[(tid,"to",3)]
     Inr  = cr_xf[(tid,"to",2)]; Ini  = ci_xf[(tid,"to",2)]
+
+    # Both formulations expose the same rated winding-terminal currents.
+    # Each supplied entry caps its own variable, including the HV neutral return.
+    # Separate earth branches and normalized external shunts retain their own
+    # identities and are not included in these winding-current variables.
+    for (side, label, caps, count) in
+            (("fr", "from", i_max_fr, 2), ("to", "to", i_max_to_v, 3))
+        for k in 1:min(length(caps), count)
+            cr = cr_xf[(tid, side, k)]; ci = ci_xf[(tid, side, k)]
+            register(:transformer_current_thermal, (tid, label, k),
+                _soc_norm!(model, cr, ci, caps[k]))
+            _limit_current_box!(cr, ci, caps[k])
+        end
+    end
 
     # ── Winding neutral grounding (OpenDSS rneut/xneut) ───────────────────────
     # An internal grounding branch y_n = 1/(R_n + jX_n) from a shared neutral
@@ -666,17 +683,6 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         kadd(b_to, t_lv_1,  -Il1r, -Il1i)
         kadd(b_to, t_lv_n,  -Inr,  -Ini)
         kadd(b_to, t_lv_2,  -Il2r, -Il2i)
-        # Current-magnitude limits on the pinned winding-current variables.
-        length(i_max_fr) >= 1 && register(:transformer_current_thermal,
-            (tid, "from", 1),
-            _soc_norm!(model, Isr, Isi, i_max_fr[1]))
-        length(i_max_to_v) >= 1 && register(:transformer_current_thermal,
-            (tid, "to", 1), _soc_norm!(model, Il1r, Il1i, i_max_to_v[1]))
-        length(i_max_to_v) >= 2 && register(:transformer_current_thermal,
-            (tid, "to", 2),
-            _soc_norm!(model, Inr, Ini, i_max_to_v[2]))
-        length(i_max_to_v) >= 3 && register(:transformer_current_thermal,
-            (tid, "to", 3), _soc_norm!(model, Il2r, Il2i, i_max_to_v[3]))
         # Nameplate cap on the HV coil (V_frph − V_frn) · conj(I_s).
         if s_per > 0.0
             _apparent_power_limit!(model,
@@ -706,67 +712,36 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     vi_l1 = @expression(model, vi[(b_to, t_lv_1)] - vi[(b_to, t_lv_n)])
     vr_l2 = @expression(model, vr[(b_to, t_lv_n)] - vr[(b_to, t_lv_2)])
     vi_l2 = @expression(model, vi[(b_to, t_lv_n)] - vi[(b_to, t_lv_2)])
+    # Subtract the winding-2 excitation for the series/core equations only.
+    # At the neutral it has the opposite sign, leaving total LV KCL unchanged.
+    Il1sr = @expression(model, Il1r - (G * vr_l1 - B * vi_l1))
+    Il1si = @expression(model, Il1i - (G * vi_l1 + B * vr_l1))
     # Primary leakage uses nominal ohms, so the physical drop is
-    # (N/N0)² Z1 Is. Substitute N*f*Is = Il2-Il1 to retain degree two even
+    # (N/N0)² Z1 Is. Substitute N*f*Is = Il2-Il1_series to retain degree two even
     # for a free ratio; this is also exact when either star arm is zero.
     z1r_Is = @expression(model, N / (N0^2 * current_from_factor) *
-        (R1 * (Il2r - Il1r) - X1 * (Il2i - Il1i)))
+        (R1 * (Il2r - Il1sr) - X1 * (Il2i - Il1si)))
     z1i_Is = @expression(model, N / (N0^2 * current_from_factor) *
-        (R1 * (Il2i - Il1i) + X1 * (Il2r - Il1r)))
+        (R1 * (Il2i - Il1si) + X1 * (Il2r - Il1sr)))
     register(:transformer_voltage_real, (tid, "to", 1),
-        @constraint(model, vr_hv - N * vr_l1 == z1r_Is - N * (R2 * Il1r - X2 * Il1i)))
+        @constraint(model, vr_hv - N * vr_l1 == z1r_Is - N * (R2 * Il1sr - X2 * Il1si)))
     register(:transformer_voltage_imag, (tid, "to", 1),
-        @constraint(model, vi_hv - N * vi_l1 == z1i_Is - N * (R2 * Il1i + X2 * Il1r)))
+        @constraint(model, vi_hv - N * vi_l1 == z1i_Is - N * (R2 * Il1si + X2 * Il1sr)))
     register(:transformer_voltage_real, (tid, "to", 2),
         @constraint(model, vr_hv - N * vr_l2 == z1r_Is + N * (R2 * Il2r - X2 * Il2i)))
     register(:transformer_voltage_imag, (tid, "to", 2),
         @constraint(model, vi_hv - N * vi_l2 == z1i_Is + N * (R2 * Il2i + X2 * Il2r)))
 
-    # ── Current coupling (power conservation) ────────────────────────────────
-    # Power balance at ideal core: V_hv·conj(I_s) + (V_leg1·conj(−Il1) + V_leg2·conj(−Il2)) = 0
-    # The ideal-core coupling for a 3-winding T with both secondaries in the same
-    # polarity convention (current into terminal = positive) is: N·I_s = Il1 + Il2
-    # i.e. N·I_s − Il1 − Il2 = 0 (primary delivers, secondaries receive)
-    # BUT: in the BMOPF variable convention, I_s is defined flowing INTO hv.1
-    # (into the transformer), while Il1 and Il2 flow INTO lv.1 and lv.2
-    # (also into the transformer from their respective buses).
-    # Power balance: V_hv·I_s* = V_leg1·Il1* + V_leg2·Il2*  (complex power into primary = sum out)
-    # Actually all currents are INTO the transformer, so power conservation:
-    # V_hv·I_s* + V_leg1·Il1* + V_leg2·Il2* = 0  (three ports, all into element)
-    # With V_hv/N = V_leg1 (ideal, no losses) and winding-3 wound in REVERSE
-    # (its leg-2 voltage equation uses V_to[tn] − V_to[t2]), power conservation
-    # requires the leg-2 current to enter the coupling with a MINUS sign. In
-    # normalized coordinates the primary current is first converted to the
-    # secondary power coordinate:
-    #   N·(S_from/S_to)·I_s + Il1 − Il2 = 0
-    # Using +Il2 instead violates the ideal-core power balance by 2·Re[(V_hv/N)·conj(Il2)]
-    # — a spurious source/sink proportional to the leg-2 current (latent on stiff
-    # short test feeders, first-order on long high-impedance SWER lines).
+    # Winding 3 has reversed polarity. Refer primary current to the secondary
+    # power coordinate and use bare leg-1 current in the ideal-core balance:
+    # N * (S_from/S_to) * Is + Il1_series - Il2 = 0.
     register(:transformer_current_coupling_real, (tid, 1),
-        @constraint(model, N * current_from_factor * Isr + Il1r - Il2r == 0))
+        @constraint(model, N * current_from_factor * Isr + Il1sr - Il2r == 0))
     register(:transformer_current_coupling_imag, (tid, 1),
-        @constraint(model, N * current_from_factor * Isi + Il1i - Il2i == 0))
+        @constraint(model, N * current_from_factor * Isi + Il1si - Il2i == 0))
 
-    # ── Center-tap KCL: I_n balances the two leg currents at the center-tap ──
-    # At lv.n: current entering = I_n (from wdg neutral tap) − Il1 (leaving to leg-1 bus)
-    #   + Il2 (entering from leg-2 bus, since leg-2 draws from neutral).
-    # Wait — both Il1 and Il2 are currents INTO the transformer FROM their buses.
-    # Il1 leaves bus lv.1 → it's extracted from bus (negative KCL contribution to bus).
-    # Il2 leaves bus lv.2 → it's extracted from bus (negative KCL contribution to bus).
-    # At the center-tap node (lv.n): current in from lv.n bus = I_n (also leaves bus lv.n).
-    # Center-tap node internal: the winding junction sees Il1 + I_n − Il2 = 0
-    # (Il1 flows into the t1→tn winding at the tn end, I_n into the neutral terminal,
-    #  and Il2 flows out of the tn→t2 winding at the tn end)
-    # Actually: at tn node: current from wdg2's tn-end (= Il1 arrives here after flowing from t1)
-    # + current from wdg3's tn-end (= Il2 arrives here going toward t2)
-    # + I_n (from bus) = 0 at ideal no-leakage node
-    # In our BMOPF variables, Inr = cr_xf[(tid,"to",2)] = current extracted from bus lv.n.
-    # KCL at internal tn node: Il1 + Inr + Il2 = 0  (all flowing through the winding, sign from bus into element)
-    # This matches the power coupling: if coupling is N·Is + Il1 + Il2 = 0,
-    # then the center-tap sees the sum Il1 + Il2 = −N·Is, and I_n = −Il1 − Il2 = N·Is.
-    # The neutral carries the leg UNBALANCE (Il1 + Il2), which is small for a
-    # balanced split-phase load — so this KCL keeps the "+Il2" sum (unlike the
-    # current-coupling above, which needs −Il2 for the reversed winding's MMF).
+    # All reported LV currents point into the transformer. The excitation
+    # branch returns through the center tap, so the total currents sum to zero.
     register(:transformer_neutral_balance_real, (tid, 1),
         @constraint(model, Inr + Il1r + Il2r == 0))
     register(:transformer_neutral_balance_imag, (tid, 1),
@@ -786,11 +761,6 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
 
     # ── HV side KCL (pure series current; the exciting branch is on winding 2) ──
     kadd(b_fr, t_fr_ph, -Isr, -Isi)
-    if length(i_max_fr) >= 1
-        register(:transformer_current_thermal, (tid, "from", 1),
-            _soc_norm!(model, Isr, Isi, i_max_fr[1]))
-        _limit_current_box!(Isr, Isi, i_max_fr[1])  # bare HV series-current variable
-    end
     # Nameplate cap on the HV coil (vr_hv = V_frph − V_frn, computed above).
     if s_per > 0.0
         _apparent_power_limit!(model, vr_hv, vi_hv, Isr, Isi, s_per;
@@ -802,42 +772,10 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     end
     kadd(b_fr, t_fr_n, Isr, Isi)   # HV neutral: series return
 
-    # ── LV side KCL contributions ─────────────────────────────────────────────
-    # The no-load (magnetising) branch sits across winding 2 = LV leg 1
-    # (V_lv1 − V_lvn), the entire Y0 at the per-leg voltage — OpenDSS places the
-    # exciting branch on winding 2 (verified against its Yprim). Injected −I_mag
-    # at t_lv_1 and +I_mag at t_lv_n on top of the winding currents.
-    if has_shunt
-        vr_leg1 = @expression(model, vr[(b_to, t_lv_1)] - vr[(b_to, t_lv_n)])
-        vi_leg1 = @expression(model, vi[(b_to, t_lv_1)] - vi[(b_to, t_lv_n)])
-        imr = @expression(model, G * vr_leg1 - B * vi_leg1)
-        imi = @expression(model, G * vi_leg1 + B * vr_leg1)
-        il1r_t = @expression(model, Il1r + imr); il1i_t = @expression(model, Il1i + imi)
-        kadd(b_to, t_lv_1, -il1r_t, -il1i_t)
-        kadd(b_to, t_lv_n, -Inr + imr, -Ini + imi)
-    else
-        kadd(b_to, t_lv_1, -Il1r, -Il1i)
-        kadd(b_to, t_lv_n, -Inr,  -Ini)
-    end
+    # Excitation is already included in the LV terminal-current variables.
+    kadd(b_to, t_lv_1, -Il1r, -Il1i)
+    kadd(b_to, t_lv_n, -Inr, -Ini)
     kadd(b_to, t_lv_2, -Il2r, -Il2i)
-
-    # ── Current magnitude limits (Il1/In/Il2 are bare LV winding-current
-    #    variables, so the limit also tightens each component's box bound) ───────
-    if length(i_max_to_v) >= 1
-        register(:transformer_current_thermal, (tid, "to", 1),
-            _soc_norm!(model, Il1r, Il1i, i_max_to_v[1]))
-        _limit_current_box!(Il1r, Il1i, i_max_to_v[1])
-    end
-    if length(i_max_to_v) >= 2
-        register(:transformer_current_thermal, (tid, "to", 2),
-            _soc_norm!(model, Inr, Ini, i_max_to_v[2]))
-        _limit_current_box!(Inr, Ini, i_max_to_v[2])
-    end
-    if length(i_max_to_v) >= 3
-        register(:transformer_current_thermal, (tid, "to", 3),
-            _soc_norm!(model, Il2r, Il2i, i_max_to_v[3]))
-        _limit_current_box!(Il2r, Il2i, i_max_to_v[3])
-    end
 end
 
 # ── YD / DY ─────────────────────────────────────────────────────────────────
