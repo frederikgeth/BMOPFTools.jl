@@ -43,8 +43,8 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
-| P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite pass; CI running |
-| P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | In development: independent pair/terminal physics, capability and coordinate evidence |
+| P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
+| P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); 9,604 focused assertions and scientific/execution gates pass; full suite/CI running |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
 
@@ -385,3 +385,19 @@ For each runtime slice:
   checks, and JSON round trips. PowerOptLab patterns were inspected at
   `4f417d470c8bff78bd0941658f97030e5ddb7692`; advanced-device physics is excluded.
   Existing-test plan: one suite include, with no existing assertions changed.
+
+- 2026-10-18: P6 CI passed all 11 checks; #442 remains an unmerged draft.
+- 2026-10-18: P7 draft #443 opened at `6bb9044cc`, targeting #438's branch.
+  Independent physics suite passes 9,604 assertions. Both Python gates,
+  scientific contracts, executable knowledge (1,011 assertions) and JSON
+  execution (158 assertions) pass. Full suite/CI run against this commit.
+  A minimized zero-current witness reproduces `UnsupportedAttribute` from
+  MOI's `ZerosBridge` on the unchanged base. The shared zero-magnitude helper
+  now uses affine expressions in its exact vector equality, preserving the
+  variables and warm starts without changing the feasible region. The OPF guide
+  corrects the blanket per-conductor description to explain THREE_LEG pair caps
+  and pair-result indexing. New boundary tests tighten solver convergence at the
+  1 MVA base instead of relaxing physical tolerances. Existing-test ledger:
+  one include only; no existing assertions, fixtures, tolerances, skips or
+  oracles changed. Exact commands, domain and provenance are in #443.
+  No PR has been merged or enabled for auto-merge.
