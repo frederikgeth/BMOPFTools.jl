@@ -38,7 +38,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | Slice | Issue | Planned branch | Dependency | Status / PR |
 |---|---|---|---|---|
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
-| P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); focused tests pass; full validation in progress |
+| P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite pass; CI pending |
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Planned |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Planned |
@@ -244,5 +244,9 @@ For each runtime slice:
   400 W / -300 var; supplied-result verification gains distinct Q-bound codes.
   Focused suites: 319 new assertions plus 201 existing controller assertions pass.
   Existing-test ledger: only the new include in `test/runtests.jl`; no existing
-  expectations, fixtures or tolerances changed. Full gate results and limitations
-  are recorded in the implementation PR. Both drafts remain unmerged.
+  expectations, fixtures or tolerances changed. Scientific gates pass; executable
+  knowledge: 1,006 assertions; execution interface: 158 assertions. Full suite exits
+  0 (main testset: 13,967 pass, 37 existing broken/skipped). Julia 1.12.6,
+  JuMP 1.31.2, Ipopt.jl 1.15.0, MOI 1.53.0, PowerIO 0.11.3. Full commands and
+  limitations are recorded in the implementation PR. CI was still running at
+  handoff; neither draft has been merged or enabled for auto-merge.
