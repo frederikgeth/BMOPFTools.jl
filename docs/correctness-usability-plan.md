@@ -45,8 +45,8 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite and CI pass; 9,604 focused assertions |
-| P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); local gates/full suite pass; CI running; P9 remains planned |
-| P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
+| P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); local gates/full suite and all 11 CI checks pass |
+| P9 | #413 | `codex/413-coil-headroom-preflight` | Stacked on #444 (`f83c1d661`); explicit mapping domain | In progress: bounded nominal-demand screen |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
 the feature portions of their issues. P6 and P8 can be brought forward as focused
@@ -460,3 +460,13 @@ For each runtime slice:
   #444 targets main and remains a draft with auto-merge disabled. No PR has
   been merged. P9 (#413 qualified preflight estimates) and P2 (#89 minimum PF)
   remain outstanding.
+
+- 2026-10-18: P9 started on `codex/413-coil-headroom-preflight`, stacked on
+  #444 at `f83c1d661`; P8 now passes all 11 CI checks. Initial domain is one
+  single-phase transformer bank in a connected radial single-source network,
+  with explicit phase/neutral terminal maps and phase-neutral nominal loads.
+  Meshes, multiple sources/banks, local generation/compensation, coupled loads
+  and tap decisions receive unassessed reasons. Estimate signed nominal P/Q
+  per coil with explicit voltage/loss/coupling omissions; no feasibility claim,
+  rating mutation, solver invocation or change to the existing 90% aggregate
+  warning. Existing-test plan: one suite include; preserve all expectations.
