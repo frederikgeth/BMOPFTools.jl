@@ -39,7 +39,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 |---|---|---|---|---|
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
 | P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
-| P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
+| P2 | #89 | `codex/89-minimum-power-factor` | Stacked on #438 (`1ecbb6731`); package-owned extras representation | In progress |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
@@ -501,3 +501,14 @@ For each runtime slice:
   nominal-screen (#445) paths available for review in the declared domains.
   #445 targets #444; both remain open drafts with auto-merge disabled. No PR
   has been merged. P2 (#89 minimum PF) is the remaining planned feature slice.
+
+- 2026-10-18: P2 (#89 minimum PF) started on `codex/89-minimum-power-factor`,
+  stacked on #438 at `1ecbb6731`. Use the existing free-form `extras` escape
+  hatch for a versioned BMOPFTools policy; do not change the Task Force-owned
+  schema/control-profile fields. Require explicit generation/per-coil scope and
+  nonnegative P bounds. Enforce dispatched-P envelopes (including P=0 => Q=0),
+  intersect Q/P/S/current limits and compatible controls, reject unsupported
+  directions/combinations, and independently verify supplied P/Q. Retain
+  existing constant-PF signs and reject invalid PF declarations explicitly.
+  Existing-test plan: add suite wiring and retain all established expectations;
+  any additional change will be explained with its reason and retained oracle.
