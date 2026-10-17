@@ -99,6 +99,8 @@ end
             ("invalid_branch_map", n->delete!(n["transformer"]["single_phase"]["tx"],"terminal_map_to")),
             ("invalid_branch_map", n->(n["transformer"]["single_phase"]["tx"]["terminal_map_to"]=["a","a","c","n"])),
             ("invalid_branch_map", n->(n["transformer"]["single_phase"]["tx"]["terminal_map_to"]=["a","b","n","c"])),
+            ("invalid_terminal_role_declaration", n->(n["terminal_conventions"]=42)),
+            ("invalid_terminal_role_declaration", n->(n["terminal_conventions"]=Dict("phase"=>"abc","neutral"=>["n"]))),
             ("ambiguous_terminal_roles", n->(n["terminal_conventions"]=Dict("phase"=>["a","b","c","n"],"neutral"=>["n"]))),
             ("terminal_not_supplied", n->(n["voltage_source"]["s"]["terminal_map"]= ["a"];n["voltage_source"]["s"]["v_magnitude"]=[230];n["voltage_source"]["s"]["v_angle"]=[0])),
             ("invalid_load_nominal_voltage", n->delete!(n["load"]["d"],"v_nom")),

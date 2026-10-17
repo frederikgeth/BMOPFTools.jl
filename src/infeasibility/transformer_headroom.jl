@@ -20,7 +20,8 @@ function _coil_preflight_estimate(net, tid, xf)
     _preflight_finite(tap) && tap>0 || return reject("invalid_fixed_tap";status="indeterminate")
     cap = get(xf,"s_rating",nothing)
     _preflight_finite(cap) && cap>0 || return reject("missing_or_invalid_positive_rating";status="indeterminate")
-    roles = _terminal_roles(net)
+    roles = _index_roles(net)
+    roles === nothing && return reject("invalid_terminal_role_declaration";status="indeterminate")
     isempty(intersect(roles.phase,roles.neutral)) &&
         isempty(intersect(union(roles.phase,roles.neutral),roles.earth)) ||
         return reject("ambiguous_terminal_roles";status="indeterminate")

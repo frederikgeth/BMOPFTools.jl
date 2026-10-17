@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "01416f9599411dad67cf03bb9cf7e04ac916de1d2e52f2ae10d04d8029a8d8c5",
+  "corpus_sha256": "8a2e35581e8384049db8bbf2528e1e40328a9b1b00de68a3509627a9c94a4dda",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -462,7 +462,7 @@
     },
     {
       "path": "src/infeasibility/transformer_headroom.jl",
-      "sha256": "b0ca05c7f9717943594b89e0b9267ef9b27dda37d67e0f3181672020d528bde3"
+      "sha256": "4a28d7f53e4f08b25d70cbcea4416c3645bccd1d89dca40f70bd65f8748e250f"
     },
     {
       "path": "src/io/dss_conversion_error.jl",
@@ -1266,7 +1266,7 @@
     },
     {
       "path": "test/transformer_headroom_tests.jl",
-      "sha256": "0c01e066e2793843fddd76ed97b6b44bc55b2071b72d7235b336cf0f5710e314"
+      "sha256": "ae371e29b9fd16fd3f3a0aa9c872eb279ee6dbaaac1a15db27b7c38e7d66eaa6"
     },
     {
       "path": "test/transformer_impedance_basis_tests.jl",
