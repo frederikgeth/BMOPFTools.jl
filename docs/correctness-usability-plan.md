@@ -41,7 +41,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
-| P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); final local gates/full suite and CI running |
+| P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite pass; CI running |
 | P5 | #409 | `codex/409-connection-map-validation` | Shared role/index contracts from P4 | Planned |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | None; coordinate P4/P5 role helpers | Planned |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
@@ -284,9 +284,16 @@ For each runtime slice:
   the clean FOUR_LEG IBR fixture's scalar `q_min/q_max` to three-entry arrays.
   The old scalars do not broadcast to three phases in the native model;
   both the original scalar form and one-entry vectors are retained as negative
-  regressions. Existing
-  assertions, tolerances and skips are unchanged, including the established
+  regressions. Existing assertions, tolerances and skips are unchanged, including the established
   DELTA phase-to-neutral Finding-code expectations.
-  Focused matrix/native-row checks pass before the final fixture regression;
-  final local gates and full suite are running against the completed patch.
-  P4 checkboxes mean implemented in a draft, not merged or issue-closed.
+  At final commit `0efa4ad56`, focused indexing tests pass 4,278 assertions,
+  native model-row tests pass 462, and existing neutral-only map tests pass 13.
+  Both Python registry/provenance gates and scientific contracts pass;
+  executable knowledge passes 1,012 assertions and JSON execution passes 158.
+  The full suite exits 0: main testset 18,394 pass, 37 existing broken/skipped,
+  zero failures. Commands and environment are recorded in #440; the same
+  Julia/dependency environment as P1/P3 was used. OpenDSSDirect's Julia 1.12
+  precompile/deprecation diagnostics remain nonfatal. CI metadata, DiffOpt,
+  ExaModels and downstream-extension checks pass; remaining jobs are running
+  at handoff. P4 checkboxes mean implemented and tested in a draft, not merged
+  or issue-closed. #437 and #440 remain open drafts with auto-merge disabled.
