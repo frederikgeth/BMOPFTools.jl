@@ -45,7 +45,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite and CI pass |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | Stacked on #438 (`1ecbb6731`); no P4 runtime dependency | Draft [#443](https://github.com/frederikgeth/BMOPFTools.jl/pull/443); local gates/full suite and CI pass; 9,604 focused assertions |
-| P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); focused/scientific/execution gates pass; full suite/CI running |
+| P8 | #413 | `codex/413-coil-loading-reports` | Independent main (`df6bc42bf`); preserve P3 rating semantics | Draft [#444](https://github.com/frederikgeth/BMOPFTools.jl/pull/444); local gates/full suite pass; CI running; P9 remains planned |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
 
 Implementation order: P1, P3, P4, P5, P6, P7, P8; then P2 and P9 complete
@@ -175,15 +175,15 @@ parallel agent work are assumed by this plan.
 
 ## P8 — Supplied-result per-coil transformer reporting
 
-- [ ] Reuse existing thermal Findings; report winding/coil/side, S, applicable cap,
+- [x] Reuse existing thermal Findings; report winding/coil/side, S, applicable cap,
   utilization/headroom and candidate status next to bank totals.
-- [ ] Distinguish supplied values from independent reconstruction, absent data from
+- [x] Distinguish supplied values from independent reconstruction, absent data from
   zero, and failed-solve output from a valid operating candidate. Declare subtype
   coverage and actual constrained side; avoid universal nameplate division rules.
-- [ ] Reuse the 100 kVA / 40 kW single-coil witness. Add below/on/above cap,
+- [x] Reuse the 100 kVA / 40 kW single-coil witness. Add below/on/above cap,
   missing-data and failed-candidate cases, plus independent voltage/current
   reconstruction, SI/per-unit consistency and JSON/report rendering checks.
-- [ ] Explain measured-versus-supplied evidence and the current nominal-load warning.
+- [x] Explain measured-versus-supplied evidence and the current nominal-load warning.
   Do not change ratings, relax constraints, retry solves or duplicate solution checks.
 
 ## P9 — Qualified per-coil preflight estimates
@@ -442,3 +442,21 @@ For each runtime slice:
   subtype fixtures are read unchanged by the new SI/PU tests. The report never
   edits ratings or retries solves. P9 remains planned; #444 references #413
   without closing it. No PR has been merged or enabled for auto-merge.
+
+- 2026-10-18: P8 final validation at `f83c1d661` passes all required local
+  gates: Finding registry (364 codes, unchanged from main), reproducible
+  executable metadata, scientific contracts, executable knowledge (1,012
+  assertions), and JSON execution (158 assertions). Full suite exits 0: main
+  testset 14,065 pass, 37 existing broken/skipped, zero failures. Focused suites
+  pass 153 reporting and 258 native electrical assertions. Existing nameplate
+  and solution-profiling suites remain enabled and pass. Only two includes
+  changed in existing test source; no existing expectations, fixtures,
+  tolerances or skips changed. New subtype tests tighten solver convergence
+  rather than relax physical SI/PU comparisons. The same Julia/dependency
+  environment as prior drafts was used; exact commands and limits are in #444.
+  OpenDSSDirect's Julia 1.12 precompile/deprecation diagnostics remain nonfatal.
+  GitHub metadata and DiffOpt pass; remaining CI runs at handoff. P8 checkboxes
+  mean implemented and tested in draft #444, not merged or issue-closed.
+  #444 targets main and remains a draft with auto-merge disabled. No PR has
+  been merged. P9 (#413 qualified preflight estimates) and P2 (#89 minimum PF)
+  remain outstanding.
