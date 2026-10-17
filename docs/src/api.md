@@ -308,6 +308,7 @@ collapse_closed_switches
 ## Analysis passes
 
 ```@docs
+transformer_phase_relation
 inventory_analysis
 voltage_level_analysis
 connectivity_analysis

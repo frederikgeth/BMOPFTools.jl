@@ -3725,6 +3725,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     include("terminal_conventions_tests.jl")
     include("device_indexing_tests.jl")
     include("connection_map_tests.jl")
+    include("transformer_phase_tests.jl")
 
     # -----------------------------------------------------------------------
     # Time-series support — snapshot semantics plus a gated OPF sweep
@@ -3800,6 +3801,7 @@ include("mcp_execution_tests.jl")
             include("scaling_policy_tests.jl")
             include("transformer_current_rating_tests.jl")
             include("device_indexing_opf_tests.jl")
+            include("transformer_phase_opf_tests.jl")
             include("semantic_block_tests.jl")
             include("opf_tests.jl")
             include("opf_engine_review_tests.jl")

@@ -33,6 +33,7 @@ makedocs(
             "Data model conventions"   => "conventions.md",
             "Device parameter indexing" => "device_indexing.md",
             "Branch and winding maps" => "connection_maps.md",
+            "Transformer phase reporting" => "transformer_phase.md",
             "Units, bases & economics" => "tutorial_units.md",
             "Object identity"          => "semantic_modeling.md",
             "Line geometry & impedances" => "tutorial_line_geometry.md",

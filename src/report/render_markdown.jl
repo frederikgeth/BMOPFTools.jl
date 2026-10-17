@@ -91,7 +91,7 @@ function _md_voltage_levels(r::SummaryReport, io::IO)
         println(io, "**Transformer transitions:**\n")
         for tr in transitions
             vg = get(tr, "vector_group", "")
-            vg_str = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), $vg"
+            vg_str = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), effective $vg"
             println(io, "- `$(tr["id"])`: $(tr["level_from"]) → $(tr["level_to"]) ($vg_str)")
         end
         println(io)
