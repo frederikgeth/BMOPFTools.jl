@@ -42,8 +42,8 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
-| P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite pass; CI running |
-| P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Implementing; static primitive checks pass |
+| P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
+| P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); focused/gates pass; full suite running |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
@@ -345,3 +345,17 @@ For each runtime slice:
   checks are running. Existing-test change planned: the source-angle tagging
   test will assert center-tap unsupported/Ii? instead of an unjustified Ii0,
   retaining the invariance assertions and adding a status assertion.
+
+- 2026-10-18: P5 CI passed all 11 checks; #441 remains an unmerged draft.
+- 2026-10-18: P6 draft #442 opened at `dded4ce79`, targeting #441's branch.
+  Focused suites pass 2,158 static/primitive/report and 384 native-coordinate
+  assertions. Both Python gates, scientific contracts, executable knowledge
+  (1,030 assertions), and JSON execution (158 assertions) pass. Full suite runs
+  against this commit. The native checks prescribe exact source phasors and
+  subtract delta common mode; generic warm-start perturbations are not an ideal
+  phase oracle. No tolerances were relaxed. Existing-test ledger: two suite
+  includes plus the source-angle tagging test's context-aware helper calls and
+  documented Ii0→Ii?/unsupported correction. Source-angle, inventory and
+  voltage-level invariance checks remain. No fixtures or skips changed.
+  Full orientation/status/compatibility conventions and commands are in #442.
+  No PR has been merged or enabled for auto-merge.
