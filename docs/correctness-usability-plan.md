@@ -40,8 +40,8 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P0 | All | `codex/correctness-usability-plan` | None | Draft [#437](https://github.com/frederikgeth/BMOPFTools.jl/pull/437) |
 | P1 | #89 | `codex/89-reactive-capability-limits` | None | Draft [#438](https://github.com/frederikgeth/BMOPFTools.jl/pull/438); local gates/full suite and CI pass |
 | P2 | #89 | `codex/89-minimum-power-factor` | P1 semantics; representation review | Planned |
-| P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite pass; CI running |
-| P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Planned |
+| P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
+| P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); final local gates/full suite and CI running |
 | P5 | #409 | `codex/409-connection-map-validation` | Shared role/index contracts from P4 | Planned |
 | P6 | #268 | `codex/268-transformer-phase-evidence` | None; coordinate P4/P5 role helpers | Planned |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
@@ -111,17 +111,17 @@ parallel agent work are assumed by this plan.
 
 ## P4 — Device topology and parameter-array alignment
 
-- [ ] Inventory each supported load, generator, IBR and source field, including
+- [x] Inventory each supported load, generator, IBR and source field, including
   powers, ZIP/exponents/reference voltages, capability/cost/current arrays, source
   magnitudes/angles and bus `v_*`, `vpn_*`, `vpp_*` bounds.
-- [ ] Record conductor/phase/coil/pair indexing, scalar/broadcast allowances and
+- [x] Record conductor/phase/coil/pair indexing, scalar/broadcast allowances and
   supported arity. Audit actual runtime behavior rather than inventing a uniform
   vector rule. Share declared-role resolution across checkers.
-- [ ] Add precise stable Findings/evidence for invalid shapes and neutral placement;
+- [x] Add precise stable Findings/evidence for invalid shapes and neutral placement;
   avoid duplicate existing integrity/configuration Findings.
-- [ ] Positive controls: phase-neutral/phase-phase single-phase, wye/delta,
+- [x] Positive controls: phase-neutral/phase-phase single-phase, wye/delta,
   THREE_LEG/FOUR_LEG, sources, allowed broadcasts and terminal permutations.
-- [ ] Negative/boundary controls: missing/extra entries, ambiguous roles, malformed
+- [x] Negative/boundary controls: missing/extra entries, ambiguous roles, malformed
   inputs, absent optional fields and supported boundary arities; no crashes,
   truncation or validation mutation. Rename neutrals to `n`, `4`, `return` and
   retain equivalent semantic outcomes; serialize codes and structured evidence.
@@ -272,3 +272,21 @@ For each runtime slice:
   at handoff, with metadata passed. P3 implementation checkboxes mean implemented
   and tested in the draft, not merged or issue-closed. #437/#438/#439 remain
   draft and unmerged, with auto-merge disabled.
+- 2026-10-18: P3 CI subsequently passed all 11 reported checks; #439 remains draft.
+- 2026-10-18: P4 draft #440 published from independent main base `df6bc42bf`.
+  Shared role-aware indexing replaces literal-neutral and generic phase-count
+  assumptions. The new coverage table distinguishes pairs, cyclic coils,
+  phase arrays, source reference prefixes and bus voltage pairs. Ambiguous
+  roles produce explicit unassessed evidence; missing IBR/source/bus field checks
+  are added. Valid reversed pairs, neutral permutations and grounded source
+  prefixes are retained; native physics and external schema are unchanged.
+  Existing-test ledger: `test/runtests.jl` includes two new suites and changes
+  the clean FOUR_LEG IBR fixture's scalar `q_min/q_max` to three-entry arrays.
+  The old scalars do not broadcast to three phases in the native model;
+  both the original scalar form and one-entry vectors are retained as negative
+  regressions. Existing
+  assertions, tolerances and skips are unchanged, including the established
+  DELTA phase-to-neutral Finding-code expectations.
+  Focused matrix/native-row checks pass before the final fixture regression;
+  final local gates and full suite are running against the completed patch.
+  P4 checkboxes mean implemented in a draft, not merged or issue-closed.
