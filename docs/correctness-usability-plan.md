@@ -43,7 +43,7 @@ requires all its acceptance criteria; partial PRs use `Refs`, not `Closes`.
 | P3 | #116 | `codex/116-transformer-current-ratings` | None | Draft [#439](https://github.com/frederikgeth/BMOPFTools.jl/pull/439); local gates/full suite and CI pass |
 | P4 | #408 | `codex/408-device-index-validation` | None; coordinate P1/P6 | Draft [#440](https://github.com/frederikgeth/BMOPFTools.jl/pull/440); local gates/full suite and CI pass |
 | P5 | #409 | `codex/409-connection-map-validation` | Stacked on #440 (`0efa4ad56`) | Draft [#441](https://github.com/frederikgeth/BMOPFTools.jl/pull/441); local gates/full suite and CI pass |
-| P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); focused/gates pass; full suite running |
+| P6 | #268 | `codex/268-transformer-phase-evidence` | Stacked on #441 (`eb267ea24`) for shared role/endpoint helpers | Draft [#442](https://github.com/frederikgeth/BMOPFTools.jl/pull/442); local gates/full suite pass; CI running |
 | P7 | #95 | `codex/95-three-leg-physics-evidence` | P1 behavior; P4 indexing where changed | Planned |
 | P8 | #413 | `codex/413-coil-loading-reports` | None; coordinate P3 rating semantics | Planned |
 | P9 | #413 | `codex/413-coil-headroom-preflight` | P8 evidence shape; explicit mapping domain | Planned |
@@ -142,19 +142,19 @@ parallel agent work are assumed by this plan.
 
 ## P6 — Truthful transformer phase-relation reporting
 
-- [ ] Separate authored connection/maps, declared nameplate group, derived effective
+- [x] Separate authored connection/maps, declared nameplate group, derived effective
   relation and display label. Define orientation/reference conventions and known,
   partial, unknown and unsupported states.
-- [ ] Eliminate failed-inference-as-clock-zero behavior. Resolve neutrals through
+- [x] Eliminate failed-inference-as-clock-zero behavior. Resolve neutrals through
   declared roles; arbitrary phase labels require actual phase correspondence,
   not guesses from role membership. Preserve authored maps.
-- [ ] Update inventory, voltage-level and text/Markdown consumers compatibly,
+- [x] Update inventory, voltage-level and text/Markdown consumers compatibly,
   documenting any output-shape/string changes.
-- [ ] Independent prescribed-phasor tests cover numeric/letter/custom labels,
+- [x] Independent prescribed-phasor tests cover numeric/letter/custom labels,
   renamed neutrals, cyclic/reversed order, partial maps, traversal reversal,
   supported Yy/Yd/Dy and n-winding `delta_roll` domains. Keep unsupported clock
   interpretations explicit; verify source-angle and SI/per-unit invariance.
-- [ ] Add serialized evidence and non-mutation controls. #176 remains separate;
+- [x] Add serialized evidence and non-mutation controls. #176 remains separate;
   do not expand reporting into a general loop-feasibility certificate.
 
 ## P7 — Independent THREE_LEG physics and result evidence
@@ -359,3 +359,18 @@ For each runtime slice:
   voltage-level invariance checks remain. No fixtures or skips changed.
   Full orientation/status/compatibility conventions and commands are in #442.
   No PR has been merged or enabled for auto-merge.
+
+- 2026-10-18: P6 final validation at `dded4ce79` passes all required local
+  gates: Finding registry (370 codes, unchanged), reproducible executable
+  export, scientific contracts, executable knowledge (1,030 assertions), and
+  JSON execution (158 assertions). Full suite exits 0: main testset 23,315 pass,
+  37 existing broken/skipped, zero failures. Focused suites pass 2,158
+  static/primitive/report plus 384 native-coordinate assertions. The existing
+  source-angle tagging suite passes with the documented Ii0→Ii?/unsupported
+  change; no other existing expectations, fixtures, tolerances or skips changed.
+  The Julia/dependency environment matches P5; commands and limits are in #442.
+  OpenDSSDirect's Julia 1.12 precompile/deprecation diagnostics remain nonfatal.
+  GitHub metadata passes; remaining CI runs at handoff. P6 checkboxes mean
+  implemented and tested in draft #442, not merged or issue-closed. The draft
+  targets #441's branch; all drafts remain unmerged with auto-merge disabled.
+  Next planned slice is P7 (#95).
