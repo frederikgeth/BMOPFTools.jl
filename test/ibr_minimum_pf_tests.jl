@@ -255,7 +255,19 @@ end
         @test only(evidence["configuration_errors"])["reason"]=="ambiguous_coil_mapping"
         @test any(f->f.code=="E.INT.MINIMUM_PF_INVALID",fs)
         @test_throws ArgumentError BMOPFTools._power_factor_config_check!(n,Finding[];strict=true)
+        @test_throws ArgumentError build_opf_model(n)
+        @test_throws ArgumentError initialize_opf_model(n)
         @test JSON3.read(JSON3.write(evidence),Dict{String,Any})==evidence
         @test n==before
     end
+end
+
+@testset "Minimum-PF entry guard validates the selected snapshot" begin
+    n=minimum_pf_net(); n["ibr"]["pv"]["p_min"]=[-1.]
+    n["time_series"]=Dict("direction"=>Dict("values"=>[-1.,1.]))
+    n["ibr"]["pv"]["time_series"]=Dict("p_min"=>"direction")
+    before=deepcopy(n)
+    @test build_opf_model(n;t_index=1)!==nothing # resolved lower bound +1 W
+    @test_throws ArgumentError build_opf_model(n;t_index=2) # resolved -1 W
+    @test n==before
 end
