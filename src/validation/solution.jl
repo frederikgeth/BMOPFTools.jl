@@ -1184,6 +1184,8 @@ function solution_check(net::Dict{String,Any},
         inv isa Dict || continue
         p_min_arr = Float64.(get(inv, "p_min", Float64[]))
         p_max_arr = Float64.(get(inv, "p_max", Float64[]))
+        q_min_arr = Float64.(get(inv, "q_min", Float64[]))
+        q_max_arr = Float64.(get(inv, "q_max", Float64[]))
         smax_arr  = Float64.(get(inv, "s_max", Float64[]))
         imax_arr  = Float64.(get(inv, "i_max", Float64[]))
 
@@ -1276,6 +1278,30 @@ function solution_check(net::Dict{String,Any},
                     push!(findings, Finding(WARNING, "W.SOL.IBR_ACTIVE", :solution, :ibr, inv_id,
                         "IBR '$inv_id' phase '$t_ph': pg=$(_fmt_mw(pg)) is within 1 % of its P bound.",
                         Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,"pg"=>pg,"lo"=>lo,"hi"=>hi)))
+                end
+            end
+
+            # Declared Q capability applies independently of the control law.
+            # Separate codes retain the documented P-only near-active code.
+            qlo = idx <= length(q_min_arr) ? q_min_arr[idx] : nothing
+            qhi = idx <= length(q_max_arr) ? q_max_arr[idx] : nothing
+            if qlo !== nothing || qhi !== nothing
+                viol, act = _bound_status(qg, qlo, qhi; abs_floor=power_floor)
+                detail = Dict{String,Any}("ibr"=>inv_id, "terminal"=>t_ph,
+                    "index"=>idx, "topology"=>topo, "field"=>"qg", "units"=>"var",
+                    "value"=>qg, "lo"=>qlo, "hi"=>qhi)
+                if viol
+                    n_inv_viol += 1
+                    push!(findings, Finding(ERROR, "E.SOL.IBR_Q_VIOLATION",
+                        :solution, :ibr, inv_id,
+                        "IBR '$inv_id' output '$t_ph' violates its declared reactive-power bounds.",
+                        detail))
+                elseif act
+                    n_inv_active += 1
+                    push!(findings, Finding(WARNING, "W.SOL.IBR_Q_ACTIVE",
+                        :solution, :ibr, inv_id,
+                        "IBR '$inv_id' output '$t_ph' is near a declared reactive-power bound.",
+                        detail))
                 end
             end
 

@@ -1,0 +1,17 @@
+{
+  "bus": {
+    "b": {"terminal_names": ["a", "n"], "perfectly_grounded_terminals": ["n"]}
+  },
+  "voltage_source": {
+    "source": {"bus": "b", "terminal_map": ["a"], "v_magnitude": [230.0], "v_angle": [0.0]}
+  },
+  "ibr": {
+    "pv": {
+      "bus": "b", "terminal_map": ["a", "n"], "topology": "SINGLE_PHASE",
+      "prime_mover": "PV", "p_min": [0.0], "p_max": [1200.0],
+      "q_min": [-300.0], "q_max": [300.0], "s_max": [5000.0],
+      "control_profile": "pf"
+    }
+  },
+  "control_profile": {"pf": {"power_factor": {"pf": 0.8}}}
+}

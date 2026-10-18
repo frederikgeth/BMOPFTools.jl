@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "11f7fd9027c021134693c5a893eabd5996b9e5404ba0087b55173b5c215a2920",
+  "corpus_sha256": "dfcafa0601f234d00390979b949332ed8b5b716c13b7bb12cc7e598f8ffdd498",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -98,7 +98,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "e304ee275acf246324b4cf06614aa76b5542ae5ce91366c0638bbb9cd69d6b05"
+      "sha256": "9dcf85b61867a02033dc2c3ca7505f700673407105532780155e565603e82e91"
     },
     {
       "path": "docs/src/objectives.md",
@@ -106,7 +106,7 @@
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "74c4563c7cbd88bc4414a9239fd23a90e776731e3942e4d98d383fa3423da9cd"
+      "sha256": "694570bd044fbc11fa4ba2cdcae9c9a89287b293eea200e7b3a1ab54c78f6ce1"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -182,7 +182,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/ibr.jl",
-      "sha256": "016ca02c6bf181190621ce55df6874f90a5ac98f33937a8b0451717f76250c71"
+      "sha256": "b666b52e28ec27147a6a285257d78d27d41b21edb3fad2b5afae7cb0ec60c6a8"
     },
     {
       "path": "ext/BMOPFOpfExt/load.jl",
@@ -226,11 +226,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "d4447b36afaeb4cd7e2eeec5137aff19ddf2aaba4d55dc096ec22bfb56d299a4"
+      "sha256": "5dec6c8b117447bc9dc22f15d757bb67a81a6548b8dae3273a028a107a458b03"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "39c5825514c7bc698417ceb2b806379be6240945853d75e01148f2ae13fee2b1"
+      "sha256": "e6668779efc6f6d1e86db6ab4852b668466be550a6199d1717f6ed52f6ca36f9"
     },
     {
       "path": "recipes/README.md",
@@ -478,7 +478,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "cae58f042d364fba6b19db55f711671e7ca3872555466aa682bdbea91562bf39"
+      "sha256": "f448a7da018606dc86d544f96111a101d7b432a2f640b51679aee95000a9be66"
     },
     {
       "path": "src/report/render_markdown.jl",
@@ -506,7 +506,7 @@
     },
     {
       "path": "src/validation/solution.jl",
-      "sha256": "a082de7ffa10eb02c01bf8153cc27f2fc4ebd572dc4df106191ac5a2d90829f8"
+      "sha256": "7ff8863388c9679129cb6ebe50611a50af6582987fee8203e5323f40618d03c0"
     },
     {
       "path": "src/validation/spec_conformance.jl",
@@ -539,6 +539,14 @@
     {
       "path": "test/data/case_development/feeder.json",
       "sha256": "2794ca1513b098f0858fe54d3e6e96933970bffcb1281498071a46c0a779d13f"
+    },
+    {
+      "path": "test/data/ibr_reactive_limits/README.md",
+      "sha256": "01baca6c7cd00caed9c44bf4b3af86110ca77770cc3b82bf15f8a178e2eed50b"
+    },
+    {
+      "path": "test/data/ibr_reactive_limits/pf_capability.json",
+      "sha256": "5f81ed9a446621eaef61c38cf889434ac927ec2b820c61960ffac862298eea1e"
     },
     {
       "path": "test/data/line_geometry/opendss_reference.json",
@@ -979,6 +987,10 @@
     {
       "path": "test/fixtures/parallel_transformer_load.json",
       "sha256": "22e5ab831a3da8c99028200c69f2ff0cb0fb63e96d964268bb2ebc2518f8508b"
+    },
+    {
+      "path": "test/ibr_reactive_limits_tests.jl",
+      "sha256": "daa70aac4f70853557fff2131b19bc535c21063d58faaa13f0cf2d1e207cd448"
     },
     {
       "path": "test/ipopt_barrier_benchmark_tests.jl",

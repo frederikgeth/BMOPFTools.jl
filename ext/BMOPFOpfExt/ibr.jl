@@ -19,8 +19,8 @@
 #
 # which Ipopt handles exactly — no relaxation or bound approximation.
 #
-# Without a PF control profile, q_min/q_max box bounds are used; these are
-# normally filled by _apply_ibr_augmentation! before the OPF is called.
+# Declared q_min/q_max bounds always apply, including with PF or Volt-var.
+# A control law adds an equality; it does not replace reactive capability.
 
 "Declare `cri`/`cii` IBR current variables (one per phase conductor)."
 function _add_ibr_variables!(model, net)
@@ -374,9 +374,10 @@ Constraints applied per phase:
 - `cri[k]² + cii[k]² ≤ i_max[k]²`  (optional converter current-magnitude limit;
   only stamped when `i_max` is present, so `Q_k` rolls off ≈ linearly with voltage
   rather than staying flat at `s_max`)
-- Reactive power: constant-PF equality `sign(pf)·Q_k + tan_phi·P_k = 0`, or —
+- Reactive bounds `q_min[k] ≤ Q_k ≤ q_max[k]` apply whenever declared.
+- Reactive control additionally imposes constant-PF `sign(pf)·Q_k + tan_phi·P_k = 0`, or —
   under a `volt_var` profile — the droop equality `Q_k = q_base · f^VV(|U_k|)`,
-  otherwise the box bounds `q_min[k] ≤ Q_k ≤ q_max[k]`.
+  otherwise Q remains dispatchable within its declared limits.
 
 Volt-var/Volt-watt droop is applied for SINGLE_PHASE and FOUR_LEG IBRs only;
 for THREE_LEG (delta) there are too few degrees of freedom for a per-phase droop,
@@ -735,7 +736,15 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
                                  [(base*a, x̄) for (a, x̄) in vw.triples])))
     end
 
-    # Reactive power: constant-PF equality, Volt-var droop equality, or box.
+    # Reactive capability remains hard under every control mode. Keep the live
+    # coefficient expressions, and do not clip a controller to fit these bounds.
+    if length(q_min) >= idx
+        register_constraint(:ibr_q_lower, @constraint(model, q_expr >= q_min[idx]))
+    end
+    if length(q_max) >= idx
+        register_constraint(:ibr_q_upper, @constraint(model, q_expr <= q_max[idx]))
+    end
+    # Reactive control: constant-PF or Volt-var equality, in addition to capability.
     if tan_phi !== nothing
         register_constraint(:ibr_power_factor, @constraint(model,
             pf_sign * q_expr + tan_phi * p_expr == 0))
@@ -745,13 +754,6 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         register_constraint(:ibr_q_volt_var, @constraint(model,
             q_expr == curve_expr(op, U_vv, base * vv.baseline,
                                  [(base*a, x̄) for (a, x̄) in vv.triples])))
-    else
-        if length(q_min) >= idx
-            register_constraint(:ibr_q_lower, @constraint(model, q_expr >= q_min[idx]))
-        end
-        if length(q_max) >= idx
-            register_constraint(:ibr_q_upper, @constraint(model, q_expr <= q_max[idx]))
-        end
     end
 
     # Register the native active/reactive power auxiliaries uniformly, even
