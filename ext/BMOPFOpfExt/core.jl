@@ -2618,6 +2618,11 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
     working = BMOPFTools._copy_for_normalization(net)
     BMOPFTools.is_timeseries(working) &&
         (working = BMOPFTools._get_snapshot!(working, t_index))
+    # Validate the selected snapshot's package policy before normalization can
+    # consume malformed role declarations. Do not validate unsliced time arrays.
+    _, pf_errors = BMOPFTools._minimum_pf_configuration(working)
+    isempty(pf_errors) || throw(ArgumentError(
+        "invalid minimum-power-factor policy: " * join((e["reason"] for e in pf_errors), ", ")))
     # Normalize before unit conversion and indexing, including combined leakage
     # and explicit winding-connected excitation. Mutates only our private copy.
     BMOPFTools._normalize_bmopf!(working)

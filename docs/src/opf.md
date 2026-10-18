@@ -1734,3 +1734,103 @@ optimize_opf!
 generation_cost
 extract_result
 ```
+
+
+## Minimum power factor for generation
+
+The native JuMP OPF builder accepts a versioned **BMOPFTools policy** under the
+existing schema's free-form `extras` escape hatch. This is a package extension,
+not an official Task Force field or a change to the bundled schema:
+
+```julia
+net["extras"] = Dict("bmopftools" => Dict("minimum_power_factor" => Dict(
+    "schema" => "bmopftools.minimum_power_factor/v1",
+    "ibr" => Dict("pv" => Dict(
+        "pf_min" => 0.8, "direction" => "generation", "scope" => "per_coil")))))
+result = solve_opf(net)
+report = profile_solution(net, result)
+```
+
+When a case already has extras, insert this policy into its existing dictionaries
+to retain other metadata. Normal JSON parsing/serialization preserves the policy.
+Other engines/consumers must explicitly implement this package policy; do not
+assume they enforce it merely because they accept the case JSON. The existing
+`domain_rules.pf_min` setting remains only a load-validation warning threshold.
+
+Each request needs exactly `pf_min`, `direction="generation"` and
+`scope="per_coil"`; PF must be finite and satisfy `0 < pf_min <= 1`. The request
+must reference an existing IBR with explicit nonnegative `p_min` for every coil;
+any declared `p_max` must also be finite, nonnegative and cover every coil.
+Consumption, bidirectional operation, aggregate PF and DC-coupled converters
+are outside this initial domain and rejected. There is no implicit conversion
+to an absolute-P envelope. Unknown policy versions/fields, unresolved profiles,
+ambiguous terminal maps and unsupported topologies are rejected too.
+
+For `m = pf_min` the native model enforces per coil:
+
+```math
+P \ge 0, \qquad m Q \le \sqrt{1-m^2}\,P, \qquad -m Q \le \sqrt{1-m^2}\,P.
+```
+
+These bounded-coefficient rows are equivalent to `-k*P <= Q <= k*P` with
+`k = tan(acos(m))`, but avoid forming a huge tangent near m=0. They use **actual
+dispatched P**, including after curtailment or live availability updates. At
+P=0 they force Q=0; PF itself remains undefined at zero apparent power.
+At m=1 they force Q=0 while retaining the explicit generation constraint.
+P and Q are positive injections. Both reactive directions are permitted;
+a one-sided `q_min`/`q_max` can restrict the direction further.
+
+For SINGLE_PHASE the requirement applies to its two-terminal coil; for FOUR_LEG
+it applies to each phase-neutral coil; for THREE_LEG it applies to each cyclic
+delta pair, not to conductor power or an aggregate ratio. An unbalanced device
+can satisfy aggregate PF while violating one of these per-coil requirements.
+The equations are affine in P/Q, but those powers contain V–I products in IVR,
+so the complete model remains nonlinear.
+
+P/Q boxes, apparent-power circles and conductor-current limits stay enforced.
+Compatible signed constant PF may be combined with the envelope when
+`abs(pf) >= pf_min`; a lower constant PF is rejected explicitly. The usual sign
+convention is retained: positive constant PF absorbs Q for P>0; negative injects
+Q. Constant PF plus droop is rejected when this minimum-PF policy is enabled;
+without the policy the existing PF-over-droop warning/precedence is retained.
+
+SINGLE_PHASE and FOUR_LEG may combine minimum PF with supported Volt-var and/or
+Volt-watt curves: `VA_FRACTION`, Volt-var `VAR_MAX`, and Volt-watt `S_MAX`, `P_MAX`
+or scalar `P_AVAILABLE`, with finite ordered breakpoints, valid limits and
+complete normalization bases. Optional control options that the native resolver
+would otherwise ignore (including Volt-var low-P thresholds) are rejected in
+this combined policy. THREE_LEG droop remains unsupported and is rejected here.
+A control equality is never clipped to fit the envelope. Conflicting Q bounds
+or droop targets can make the intersection infeasible.
+
+Constraint keys use families `ibr_minimum_pf_generation`,
+`ibr_minimum_pf_lower`, and `ibr_minimum_pf_upper`, indexed by `(ibr_id, coil)`.
+The policy itself is fixed at model construction, not a live coefficient knob;
+rebuild to change it. Existing live P/Q/capability coefficients remain live.
+
+`profile_solution` and the existing `execute_solution_verification` operation
+report `results["solution"]["minimum_power_factor"]`, containing policy provenance,
+configuration errors and per-coil `passed`/`failed`/`indeterminate` evidence.
+The independent check uses supplied P/Q, not solver termination as an oracle:
+`max(-P, m*abs(Q)-sqrt(1-m^2)*P)` must be at most
+`max(1e-6, 1e-6*max(abs(P),abs(Q)))` VA. Missing/nonfinite dispatch or no candidate
+is unassessed. At exactly P=0, the checker uses `abs(Q)` directly so tiny PF
+coefficients cannot hide reactive-only dispatch. Diagnostic infeasible candidates
+can still expose violations.
+This checks the case-authored policy, not live coefficient overrides or solver
+stamping/provenance; passing it is not a complete feasibility certificate
+(PSK-000013). The curated `verify_solution` recipe exercises the JSON path.
+
+Compatibility change: malformed, zero or out-of-range constant PF is now
+rejected with `E.INT.CONSTANT_PF_INVALID`, rather than silently dropping PF or
+throwing later inside trigonometry. Remove the `power_factor` sub-object to
+request freely dispatchable Q. The accepted numeric range in the bundled
+Task Force schema is unchanged; this is stricter executable applicability.
+
+Constant-PF equations use bounded coefficients `pf*Q + sqrt((1-|pf|)*(1+|pf|))*P = 0`,
+including very small positive PF magnitudes where `tan(acos(|pf|))` loses the
+requested ratio. This avoids an unbounded model coefficient; it does not promise
+relative solver accuracy for dispatch below the solver's absolute tolerances.
+The supplied-result constant-PF diagnostic records its scaled residual definition
+and threshold explicitly, retaining the existing Q-equivalent relative tolerance.
+Values that underflow to zero in Float64 are rejected.

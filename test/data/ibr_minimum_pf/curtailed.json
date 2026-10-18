@@ -1,0 +1,67 @@
+{
+  "bus": {
+    "b": {
+      "terminal_names": [
+        "a",
+        "n"
+      ],
+      "perfectly_grounded_terminals": [
+        "n"
+      ]
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "b",
+      "terminal_map": [
+        "a"
+      ],
+      "v_magnitude": [
+        230.0
+      ],
+      "v_angle": [
+        0.0
+      ]
+    }
+  },
+  "ibr": {
+    "pv": {
+      "bus": "b",
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "topology": "SINGLE_PHASE",
+      "prime_mover": "PV",
+      "p_min": [
+        0.0
+      ],
+      "p_max": [
+        1200.0
+      ],
+      "q_min": [
+        -900.0
+      ],
+      "q_max": [
+        900.0
+      ],
+      "s_max": [
+        5000.0
+      ]
+    }
+  },
+  "extras": {
+    "bmopftools": {
+      "minimum_power_factor": {
+        "schema": "bmopftools.minimum_power_factor/v1",
+        "ibr": {
+          "pv": {
+            "pf_min": 0.8,
+            "direction": "generation",
+            "scope": "per_coil"
+          }
+        }
+      }
+    }
+  }
+}

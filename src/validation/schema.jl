@@ -283,7 +283,7 @@ function _catalogue_unknown_fields(net::Dict{String,Any},
         end
     end
 
-    known_top = Set(["name", "meta", "bus", "line", "linecode", "voltage_source",
+    known_top = Set(["name", "meta", "extras", "bus", "line", "linecode", "voltage_source",
                      "load", "generator", "shunt", "capacitor", "switch",
                      "transformer", "ibr", "control_profile",
                      "wire_data", "line_geometry",

@@ -410,6 +410,9 @@ function solution_check(net::Dict{String,Any},
         "objective_optimality", "independent_loss_reconstruction",
         "complete_limit_coverage"]
 
+    out["minimum_power_factor"] = _minimum_pf_solution_check(net,result,findings;
+        has_candidate=has_candidate && get(result,"result_count",1)!=0)
+
     if !has_candidate
         proven_infeasible = status == "INFEASIBLE"
         push!(findings, Finding(proven_infeasible ? ERROR : WARNING,
@@ -1174,7 +1177,7 @@ function solution_check(net::Dict{String,Any},
     out["n_gen_active"]     = n_gen_active
 
     # ── IBR dispatch bounds and constant-PF residual ────────────────────
-    n_inv_viol   = 0
+    n_inv_viol   = count(r -> r["status"]=="failed", out["minimum_power_factor"]["coils"])
     n_inv_active = 0
     pf_resid_tol = 1e-3   # relative tolerance on |sign(pf)·Q + tan_phi·P| / s_max
 
@@ -1196,16 +1199,15 @@ function solution_check(net::Dict{String,Any},
         if cp_id isa String
             cp = get(profiles_net, cp_id, nothing)
             if cp isa Dict
-                pf_obj = get(cp, "power_factor", nothing)
-                if pf_obj isa Dict
-                    raw = get(pf_obj, "pf", nothing)
-                    if raw isa Number && abs(Float64(raw)) > 1e-9
-                        pf_val = Float64(raw)
-                    end
+                pf_val = try
+                    _constant_pf_value(cp)
+                catch e
+                    e isa ArgumentError || rethrow()
+                    nothing # configuration Finding was already emitted
                 end
             end
         end
-        tan_phi = pf_val !== nothing ? tan(acos(abs(pf_val))) : nothing
+        pf_sine = pf_val === nothing ? nothing : sqrt((1-abs(pf_val))*(1+abs(pf_val)))
         pf_sign = pf_val !== nothing ? sign(pf_val) : 0.0
 
         ph_res = get(get(result, "ibr", Dict()), inv_id, nothing)
@@ -1339,17 +1341,20 @@ function solution_check(net::Dict{String,Any},
                 end
             end
 
-            # Constant-PF residual: sign(pf)*Q + tan_phi*P should be ~0
-            if tan_phi !== nothing
+            # Bounded constant-PF residual; scale the tolerance as well to
+            # preserve the existing Q-equivalent relative acceptance threshold.
+            if pf_sine !== nothing
                 s_ref = idx <= length(smax_arr) ? smax_arr[idx] : max(abs(pg), abs(qg), 1.0)
-                resid = abs(pf_sign * qg + tan_phi * pg) / s_ref
-                if resid > pf_resid_tol
+                resid = abs(pf_val * qg + pf_sine * pg) / max(s_ref, 1e-6)
+                if resid > pf_resid_tol * abs(pf_val)
                     push!(findings, Finding(WARNING, "W.SOL.IBR_PF_DEVIATION", :solution, :ibr, inv_id,
                         "IBR '$inv_id' phase '$t_ph': constant-PF residual " *
                         "$(round(resid*100; digits=3)) % of s_max — solver may not have " *
                         "enforced the PF coupling tightly (pf=$(round(pf_val; digits=4))).",
                         Dict{String,Any}("ibr"=>inv_id,"terminal"=>t_ph,
-                                         "pg"=>pg,"qg"=>qg,"pf"=>pf_val,"residual"=>resid)))
+                                         "pg"=>pg,"qg"=>qg,"pf"=>pf_val,"residual"=>resid,
+                                         "residual_definition"=>"abs(pf*Q + sqrt(1-pf^2)*P)/max(s_ref,1e-6)",
+                                         "residual_tolerance"=>pf_resid_tol*abs(pf_val))))
                 end
             end
         end
