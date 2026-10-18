@@ -711,6 +711,7 @@ end
 # Constant-power loads (no `model`, or model="constant_power") are unaffected.
 function _check_load_models(net, findings, n_checks)
     bus_vnom = _assign_nominal_voltages(net)   # phase-to-neutral V, BFS from sources
+    case_roles = _index_roles(net)
 
     for (id, l) in get(net, "load", Dict())
         l isa Dict || continue
@@ -733,7 +734,9 @@ function _check_load_models(net, findings, n_checks)
         end
 
         n_checks[] += 1
-        n_sub = _n_subloads(l)
+        ctx = _device_index_context(net,"load",id,l; roles=case_roles)
+        _check_load_index_fields!(net,id,l,findings;ctx) || continue
+        n_sub = ctx.n
 
         # All voltage-dependent models require v_nom.
         vnom = get(l, "v_nom", nothing)
@@ -742,11 +745,6 @@ function _check_load_models(net, findings, n_checks)
                 :load, id,
                 "Load '$id' has model=$model but no v_nom; the reference voltage " *
                 "for the load model is undefined.", nothing))
-        elseif vnom isa AbstractVector && !(length(vnom) in (1, n_sub))
-            push!(findings, Finding(ERROR, "E.LOAD.VNOM_ARITY", :domain_rules,
-                :load, id,
-                "Load '$id' v_nom has length $(length(vnom)); expected 1 or " *
-                "$n_sub (one per sub-load).", nothing))
         elseif any(<=(0.0), vnom isa AbstractVector ? Float64.(vnom) : [Float64(vnom)])
             # Covers both the scalar (`v_nom: 0.0`) and vector cases: any
             # non-positive entry makes the model's v_nom / v_nom² division
@@ -823,13 +821,6 @@ function _check_zip_coeffs(id, l, n_sub, findings)
                            ("beta_z","beta_i","beta_p","reactive"))
         cz = get(l, z, nothing); ci = get(l, i, nothing); cp = get(l, p, nothing)
         all(x -> x === nothing, (cz, ci, cp)) && continue
-        for (name, c) in ((z,cz),(i,ci),(p,cp))
-            c isa AbstractVector && !(length(c) in (1, n_sub)) &&
-                push!(findings, Finding(ERROR, "E.LOAD.ZIP_ARITY", :domain_rules,
-                    :load, id,
-                    "Load '$id' $name has length $(length(c)); expected 1 or $n_sub.",
-                    nothing))
-        end
         # element-wise sum over the broadcast coefficients
         vz = _as_vec(cz, n_sub); vi = _as_vec(ci, n_sub); vp = _as_vec(cp, n_sub)
         (vz === nothing || vi === nothing || vp === nothing) && continue
@@ -852,11 +843,6 @@ function _check_exp_coeffs(id, l, n_sub, findings)
     for (g, lbl) in (("gamma_p","active"), ("gamma_q","reactive"))
         c = get(l, g, nothing)
         c === nothing && continue
-        c isa AbstractVector && !(length(c) in (1, n_sub)) &&
-            push!(findings, Finding(ERROR, "E.LOAD.EXP_ARITY", :domain_rules,
-                :load, id,
-                "Load '$id' $g has length $(length(c)); expected 1 or $n_sub.",
-                nothing))
         vals = c isa AbstractVector ? Float64.(c) : [Float64(c)]
         any(<(0.0), vals) && push!(findings, Finding(WARNING,
             "W.LOAD.GAMMA_NEGATIVE", :domain_rules, :load, id,

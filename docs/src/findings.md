@@ -411,7 +411,8 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 | `E.INT.VOLT_WATT_SHAPE` | E | A `volt_watt` droop does not have exactly 2 breakpoints and 2 `p_limits` — the curtailment curve is malformed and cannot be stamped. |
 | `E.INT.VOLT_WATT_BREAKPOINTS` | E | A `volt_watt` droop's voltage breakpoints are not strictly increasing — the curtailment curve is non-monotone and ill-defined. |
 | `E.INT.DROOP_UNSUPPORTED` | E | A Volt-var/Volt-watt droop uses an option the engine does not yet implement — a `voltage_reference` other than `PN_PER_PHASE`, or a `q_unit`/`p_unit`/`q_ref`/`p_ref` outside the supported set. |
-| `W.INT.DIM_MISMATCH` | W | Per-component vector-length mismatches that are recoverable/ambiguous rather than corrupting: generator/IBR per-phase `p_*`/`q_*`/`cost`/filter vectors vs phase count, `i_max` length vs conductor count, load setpoint length vs configuration, source `vm`/`va` vs map length. (The line-impedance-matrix-vs-terminal-count case is the stricter `E.INT.LINE_DIM_MISMATCH`.) |
+| `W.INT.DIM_MISMATCH` | W | An indexed field has an incompatible shape for its device topology: powers/capabilities/costs, current limits, load setpoints, source reference prefixes, or bus phase/pair bounds. Device evidence identifies roles, map positions, indexing domain, allowed lengths and observed shape; see [device parameter indexing](device_indexing.md). No universal conductor-count rule applies. The line-matrix case remains the stricter `E.INT.LINE_DIM_MISMATCH`. |
+| `W.INT.DEVICE_INDEXING_UNASSESSED` | W | Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status="indeterminate"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners (PSK-000002). |
 | `W.INT.IMAX_NO_NEUTRAL` | W | A star generator/IBR with ≥2 phases rates only its phase conductors (`i_max` length = phases); add a trailing entry for the neutral conductor, which can carry more current than the phases under unbalance compensation. |
 | `W.INT.PADDED_MATRIX` | W | All-zero row/column pairs in linecode impedances — padded conductors demonstrably wreck NLP performance (22 → 590 Ipopt iterations in ([ref. 2](methodology.md#refs)) Table 3); shrink the matrix and use terminal maps. |
 | `E.INT.NO_VOLTAGE_REFERENCE` | E | A galvanic island (transformer windings are separations) with no source, perfect grounding, or grounding shunt — voltages there are defined only up to a shift (the IEEE-123 "bus 610" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. |
@@ -440,7 +441,8 @@ Checks on how component `terminal_map`s reference bus terminals.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device maps a phase slot to neutral, or a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Symmetric metallic N-only lines and switches preserve explicit neutral continuity (PSK-000002) and are accepted. |
+| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002). |
+| `E.TMAP.DEVICE_ROLES` | E | A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model (PSK-000002). |
 | `I.TMAP.CROSS_PHASE_LINE` | I | A line or switch has different from/to terminal maps — the conductors are cross-connected between phases across the branch. Valid (e.g. an intentional phase swap) but flagged as context. |
 | `I.TMAP.PERMUTED_ORDER` | I | A component's `terminal_map` is a permutation of the bus's nodal terminal order — non-canonical ordering; verify the swap is deliberate rather than a data-entry slip. |
 
@@ -451,11 +453,11 @@ Rules the JSON Schema cannot express.
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `W.SPEC.N_SOURCES` | W | Voltage-source count ≠ 1 (spec Eq. 17 requires exactly one in this version). |
-| `W.SPEC.BAD_CONFIG` | W | A configuration string outside `SINGLE_PHASE`/`WYE`/`DELTA`. |
+| `W.SPEC.BAD_CONFIG` | W | A configuration outside `SINGLE_PHASE`/`WYE`/`DELTA` for a load/generator/capacitor, or outside `SINGLE_PHASE`/`WYE` for native voltage-source references. |
 | `W.SPEC.CONFIG_ARITY` | W | Terminal-map arity inconsistent with the configuration (SINGLE_PHASE = 2, WYE = 4, DELTA = 3). |
 | `E.SPEC.DUPLICATE_TERMINAL` | E | A component's `terminal_map` (or `terminal_map_from`/`terminal_map_to` for lines/switches) contains the same terminal label more than once — a degenerate connection that collapses two distinct conductors onto one. |
 | `I.SPEC.LOAD_PHASE_TO_PHASE` | I | A `SINGLE_PHASE` load/generator whose two terminals are both phase conductors (neither is the bus neutral) — a phase-to-phase (delta-connected) single-phase element. Valid per spec; flagged as context because the modelling is distinct from the more common phase-to-neutral case. |
-| `E.SPEC.WYE_MISSING_NEUTRAL` | E | A `WYE` load/generator whose last terminal is not the neutral of its bus — the return path is not the neutral conductor, which violates the spec's WYE connection semantics. |
+| `E.SPEC.WYE_MISSING_NEUTRAL` | E | A `WYE` load/generator omits the identified neutral of its bus. The neutral may appear anywhere in the map; phase-indexed fields follow map order with neutral removed. |
 | `E.SPEC.WYE_DUPLICATE_PHASE` | E | A `WYE` load/generator has duplicate phase terminals in the non-neutral slots. |
 | `E.SPEC.DELTA_HAS_NEUTRAL` | E | A `DELTA` load/generator includes the bus neutral in its terminal map — delta elements must be phase-to-phase only. |
 | `E.SPEC.DELTA_DUPLICATE_PHASE` | E | A `DELTA` load/generator has duplicate phase terminals. |

@@ -106,6 +106,15 @@ source_paths = [
   "src/validation/spec_conformance.jl",
   "test/neutral_only_terminal_map_tests.jl",
   "test/data/neutral_only_link.json",
+  "src/validation/device_indexing.jl",
+  "src/validation/integrity.jl",
+  "src/validation/domain_rules.jl",
+  "docs/src/device_indexing.md",
+  "docs/src/conventions.md",
+  "test/device_indexing_tests.jl",
+  "test/device_indexing_opf_tests.jl",
+  "test/data/device_indexing/roles.json",
+  "test/data/device_indexing/README.md",
 ]
 
 [[finding]]

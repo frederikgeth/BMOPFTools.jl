@@ -110,8 +110,9 @@ Every connected device — `load`, `generator`, `ibr`, `voltage_source`,
 wye/four-leg wiring, **one neutral terminal** — classified by the same
 `terminal_conventions`. This has a concrete consequence for the data:
 
-> A device's **per-phase parameter arrays line up with the phase terminals of
-> its `terminal_map`, in map order, with the neutral excluded.**
+> WYE/FOUR_LEG **phase-indexed arrays line up with the phase terminals of
+> `terminal_map`, in map order, with the identified neutral excluded.** Other
+> fields use their own [device indexing contracts](device_indexing.md).
 
 So a WYE load on `terminal_map = ["a","b","c","n"]` has **three** phase
 conductors, and `p_nom`/`q_nom` are length-3 vectors whose entries correspond
@@ -123,15 +124,18 @@ element. Concretely:
 | `load` | `p_nom`, `q_nom` | # phase terminals | — (return only) |
 | `generator` | `p_min/p_max`, `q_min/q_max`, `s_max`, `cost` | # phase terminals | `i_max` may carry a trailing neutral entry (phases+1) |
 | `ibr` | `p_min/p_max`, `q_min/q_max`, `s_max`, `cost` | # phase terminals (`THREE_LEG`: all terminals; `SINGLE_PHASE`: 1) | `i_max` may carry a trailing neutral entry |
-| `voltage_source` | `v_magnitude`, `v_angle` | # phase terminals in the map | — |
+| `voltage_source` | `p_min/p_max`, `q_min/q_max`, `cost` | # phase terminals in the map | Return only; voltage reference arrays instead index the full terminal map, with an already-grounded trailing suffix optionally omitted |
 
 The neutral is singled out because currents on the phase conductors return
 through it: the OPF writes each phase quantity across the phase-to-neutral
 terminal pair, and (where rated) the neutral return current is bounded by the
 extra trailing `i_max` entry. A `DELTA` map has no neutral — its arrays are
-per phase-pair. Mismatches between an array's length and the phase-terminal
-count are reported as `W.SPEC.CONFIG_ARITY` (see
-[Validation findings](findings.md)); making the phase/neutral split explicit
+per phase-pair. A two-terminal `SINGLE_PHASE` device has one pair even when both
+terminals are phases, and its orientation may be reversed. An identified WYE
+neutral need not occupy the last map slot. Indexed-field shape mismatches use
+`W.INT.DIM_MISMATCH`; `W.SPEC.CONFIG_ARITY` instead compares the terminal-map
+length with the data-model configuration arity (see
+[Validation findings](findings.md)). Making the phase/neutral split explicit
 via `terminal_conventions` is what lets these checks be exact rather than
 heuristic.
 
