@@ -779,8 +779,9 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         BMOPFTools.opf_ibr_power_key(string(inv_id), idx; component = :reactive), q_aux)
     register_constraint(:ibr_power_link_p, @constraint(model, p_aux == p_expr))
     register_constraint(:ibr_power_link_q, @constraint(model, q_aux == q_expr))
-    # Apparent-power circle.
-    if length(smax) >= idx
+    # PF keeps the rating for droop normalization but omits this operational
+    # capability constraint. OPF/feasibility OPF continue to enforce the circle.
+    if ctx.manifest.problem != :power_flow && length(smax) >= idx
         register_constraint(:ibr_power_circle,
             _soc_norm!(model, p_aux, q_aux, smax[idx]))
     end
