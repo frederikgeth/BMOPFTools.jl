@@ -1583,6 +1583,21 @@ println(diag["is_feasible"])            # local classification from status/slack
 println(diag["total_infeasibility_A"])  # L2 norm of all slacks (A)
 ```
 
+## Power-flow inverter controls
+
+`solve_pf` retains an inverter's `s_max` as the per-phase normalization base
+for `S_MAX` Volt-watt and `VAR_MAX` Volt-var controls, while omitting its
+apparent-power constraint. Inverter current limits are also ignored by the
+power-flow recipe. Preserving the rating therefore preserves the controller
+response without enforcing its operational capability circle.
+
+Volt-var specifies a reactive-power equality. Volt-watt specifies an
+active-power upper bound; a control profile alone does not select a unique
+active-power dispatch under the zero objective of `solve_pf`. Supply fixed
+active-power setpoints for a determined witness, or use `solve_opf` with an
+explicit dispatch objective. A fixed setpoint above the Volt-watt cap remains
+incompatible with the controller; power flow does not disable that cap.
+
 ## [Solver control and extending the formulation](@id extending-the-formulation)
 
 All three entry points (`solve_opf`, `solve_pf`, `solve_feasibility_opf`)

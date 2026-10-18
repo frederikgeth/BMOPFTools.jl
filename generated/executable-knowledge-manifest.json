@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "7c55e5ae08bf3abf348dfbc80872709b6ae140148fd47c4686615ff2762dffbf",
+  "corpus_sha256": "fdf905f36454cb142b9dd9c69fa0c69a4fa60139e380f87fb076c37afca6897c",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -118,7 +118,7 @@
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "535f08cb70c7622503b5b023623960eef0f9632e396c1ab3f1051e809d3e111c"
+      "sha256": "2829c0740d963f1d01c173587f6b6ee3bd3233b18754193099ded762860bc361"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/ibr.jl",
-      "sha256": "a17e2d45955016c994e966a77b97b3a35b64d5e14316a9fda05b474bbf58aead"
+      "sha256": "6064446233e1ed3c99b30ea67a8ae7d6aeb70b41c390fda049f61b5521269c15"
     },
     {
       "path": "ext/BMOPFOpfExt/load.jl",
@@ -226,7 +226,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/pf.jl",
-      "sha256": "42964d3e2877e33c5e285e2c41623b55d5aeb6ac50c12d9c271df5d39e636115"
+      "sha256": "fc4da5ca7422bacbfb4f098044622835fe70a2a6c415f5b2f6f68b99bed8b4fa"
     },
     {
       "path": "ext/BMOPFOpfExt/profile.jl",
@@ -254,7 +254,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "15f415bf682aea92a9e6dae6f317d4a862a9ed9a2b5ea6d08700f4132d4d323f"
+      "sha256": "55242a776d1d8d0d0f564577e8a02cde36dcf6e2de520721a9d060429b10851c"
     },
     {
       "path": "recipes/README.md",
@@ -683,6 +683,14 @@
     {
       "path": "test/data/pf_comparison/pf_exp_1ph.dss",
       "sha256": "5a08fa56e37d98cdfc2bc3998dde03a98f692c4d7b57f50bd7059f4c16d39d81"
+    },
+    {
+      "path": "test/data/pf_ibr_droop/README.md",
+      "sha256": "4145ff2305a15b65ea3e342d110dc8e765865dfa2e84ccb47ff8e4007733be8c"
+    },
+    {
+      "path": "test/data/pf_ibr_droop/rating_base.json",
+      "sha256": "bc21248292176ce833655de2924c4cf26187144cf0a5b1d15338882f521b8ded"
     },
     {
       "path": "test/data/schema_alias/powerio_archive.json",
@@ -1203,6 +1211,10 @@
     {
       "path": "test/parameter_resolve_tests.jl",
       "sha256": "67563906ac96eb90baf02adbb4fba8a6732edb51ad6283b2270ddfd2a4f968c6"
+    },
+    {
+      "path": "test/pf_ibr_droop_tests.jl",
+      "sha256": "b5bc824f39fe18ef4ab2d9a9f9d2fcba1ccb631be0aefd951ea75969ad29003f"
     },
     {
       "path": "test/pf_nameplate_contract_tests.jl",

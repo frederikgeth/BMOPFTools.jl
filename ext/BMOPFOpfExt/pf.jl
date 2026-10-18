@@ -20,8 +20,9 @@
 # Because generators in this model are P/Q *ranges* (p_min..p_max), they would
 # leave the system underdetermined under no objective. A power flow therefore
 # requires every generator to be a fixed setpoint (p_min==p_max, q_min==q_max);
-# a non-degenerate range is rejected with a clear error. IBRs governed by a
-# control_profile are voltage-dependent and remain determined, so they are fine.
+# a non-degenerate range is rejected with a clear error. Volt-var controls fix Q
+# as a function of voltage, but Volt-watt only caps P; a profile alone does not
+# determine active dispatch under the zero objective.
 
 """
     BMOPFTools.solve_pf(net; optimizer=_default_optimizer(), t_index=1,
@@ -49,6 +50,13 @@ solve — delete `s_rating` from the transformer dicts in the input net first.
 Generators must be specified as **fixed setpoints** (`p_min == p_max` and
 `q_min == q_max`); a non-degenerate P/Q range is rejected, since a power flow has
 no objective to select a dispatch within the range.
+
+IBR `s_max` ratings are retained as the per-phase base of `S_MAX`/`VAR_MAX`
+controller curves, but their apparent-power constraints are omitted. Volt-var
+still imposes its reactive-power equality, and Volt-watt still imposes its
+active-power cap. A Volt-watt cap alone does not determine active dispatch;
+provide fixed active-power setpoints for a determined case, or use `solve_opf`
+with an explicit dispatch objective.
 
 The result dict has the same structure as `solve_opf` (`bus`, `line`, `load`,
 `generator`, `transformer`, `voltage_source`, …) plus `is_power_flow == true`.
@@ -108,18 +116,20 @@ function build_pf!(ctx::OpfContext)
         required=(:device_physics,))
 end
 
-# Limit fields removed for a pure power flow. Each device helper guards on the
-# field being present, so deleting them is sufficient to omit every operational
-# current/thermal/apparent-power limit while leaving all KVL/KCL physics intact.
+# Limit fields removed for a pure power flow. IBR s_max also parameterizes
+# controller curves, so it is retained and its constraint is skipped by the
+# IBR builder for the power-flow recipe.
 const _PF_LIMIT_FIELDS = ("i_max", "i_max_from", "i_max_to", "s_max")
 
 """
     _strip_operational_limits!(net)
 
-Delete current/thermal/apparent-power limit fields from every component and
+Delete current/thermal/apparent-power limit fields from components and
 linecode in the (private working) network — including inline `line` limits
 (which override the linecode's) and `dc_branch` `i_max`/`p_max` — so the power
-flow imposes no operational limits. Voltage bounds are never added by
+flow omits those operational limits. IBR `s_max` is retained as a controller
+normalization parameter; the IBR builder skips its apparent-power constraint.
+Voltage bounds are never added by
 `build_pf!`, so they need no stripping. Transformer `s_rating` is deliberately
 NOT stripped: it is a required field with a documented always-enforced
 contract (see transformer_models.md); remove it from the input net to compare
@@ -135,13 +145,22 @@ function _strip_operational_limits!(net::Dict{String,Any})
     end
 
     # flat component collections: line (inline limits override the linecode's),
-    # switch, generator, ibr
-    for coll in ("line", "switch", "generator", "ibr")
+    # switch, generator
+    for coll in ("line", "switch", "generator")
         for (_, comp) in get(net, coll, Dict())
             comp isa Dict || continue
             for f in _PF_LIMIT_FIELDS
                 delete!(comp, f)
             end
+        end
+    end
+
+    # Keep IBR s_max: S_MAX/VAR_MAX droop laws use it as a rating base even
+    # when the apparent-power constraint is disabled. Only strip current caps.
+    for (_, inv) in get(net, "ibr", Dict())
+        inv isa Dict || continue
+        for f in ("i_max", "i_max_from", "i_max_to")
+            delete!(inv, f)
         end
     end
 
