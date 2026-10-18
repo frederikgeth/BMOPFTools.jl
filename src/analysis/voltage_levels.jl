@@ -10,7 +10,7 @@ Returns identified voltage levels, bus assignments, and any consistency
 violations.
 """
 function voltage_level_analysis(net::Dict{String,Any},
-                                 findings::Vector{Finding})::Dict{String,Any}
+                                 findings::Vector{Finding}; phase_order=Dict())::Dict{String,Any}
     result = Dict{String,Any}()
     buses  = get(net, "bus", Dict())
     isempty(buses) && return result
@@ -111,7 +111,7 @@ function voltage_level_analysis(net::Dict{String,Any},
     result["unassigned_buses"]    = unassigned
 
     # Transformer transition summary
-    transitions = _transformer_transitions(net, assigned_level)
+    transitions = _transformer_transitions(net, assigned_level; phase_order)
     result["transformer_transitions"] = transitions
 
     # Check: non-transformer edges crossing voltage levels
@@ -127,11 +127,13 @@ end
 
 # A 1-phase winding is connected phase-to-phase when its terminal map spans two
 # phase conductors with no neutral — so its v_nom is a line-to-line voltage.
-function _winding_phase_to_phase(t::Dict{String,Any}, key::String)::Bool
+function _winding_phase_to_phase(net, t::Dict{String,Any}, key::String)::Bool
     tm = get(t, key, nothing)
     tm isa AbstractVector || return false
-    s = String.(string.(tm))
-    length(s) == 2 && !("n" in s)
+    bid=get(t,key=="terminal_map_from" ? "bus_from" : "bus_to",nothing)
+    c=Dict{String,Any}("bus"=>bid,"terminal_map"=>tm)
+    ctx=_device_index_context(net,"transformer","",c)
+    ctx.evidence["reason"]===nothing && ctx.evidence["resolved_roles"]==["phase","phase"]
 end
 
 function _build_voltage_adjacency(net::Dict{String,Any})
@@ -165,8 +167,8 @@ function _build_voltage_adjacency(net::Dict{String,Any})
             # so the phase-to-ground nominal propagates consistently. Scoped to
             # single_phase/center_tap — wye/delta subtypes carry their own √3.
             if subtype in ("single_phase", "center_tap")
-                bf = _winding_phase_to_phase(t, "terminal_map_from") ? sqrt(3.0) : 1.0
-                bt = _winding_phase_to_phase(t, "terminal_map_to")   ? sqrt(3.0) : 1.0
+                bf = _winding_phase_to_phase(net, t, "terminal_map_from") ? sqrt(3.0) : 1.0
+                bt = _winding_phase_to_phase(net, t, "terminal_map_to")   ? sqrt(3.0) : 1.0
                 ratio *= bf / bt
             end
             add_adj!(f, b, :transformer, id, ratio)
@@ -241,7 +243,7 @@ function _voltage_level_label(v_volts::Float64)::String
 end
 
 function _transformer_transitions(net::Dict{String,Any},
-                                   assigned::Dict{String,Float64})
+                                   assigned::Dict{String,Float64}; phase_order=Dict())
     transitions = Dict{String,Any}[]
     xfmr = get(net, "transformer", Dict())
     for subtype in TRANSFORMER_SUBTYPES
@@ -256,7 +258,8 @@ function _transformer_transitions(net::Dict{String,Any},
             push!(transitions, Dict{String,Any}(
                 "id"           => id,
                 "subtype"      => subtype,
-                "vector_group" => _derive_vector_group(subtype, t),
+                "vector_group" => _derive_vector_group(net, subtype, t;phase_order),
+                "phase_relation" => transformer_phase_relation(net,subtype,t;phase_order),
                 "bus_from"     => f,
                 "bus_to"       => b,
                 "v_from"       => vf,
@@ -271,7 +274,6 @@ function _transformer_transitions(net::Dict{String,Any},
     for (id, t) in get(xfmr, "n_winding", Dict())
         ws = _nw_windings(t)
         isempty(ws) && continue
-        vg = _derive_vector_group("n_winding", t)
         f  = ws[1].bus
         vf = get(assigned, f, nothing)
         for j in 2:length(ws)
@@ -280,7 +282,8 @@ function _transformer_transitions(net::Dict{String,Any},
             push!(transitions, Dict{String,Any}(
                 "id"           => "$(id) (w1→w$j)",
                 "subtype"      => "n_winding",
-                "vector_group" => vg,
+                "vector_group" => _derive_vector_group(net,"n_winding",t;phase_order,to_winding=j),
+                "phase_relation" => transformer_phase_relation(net,"n_winding",t;phase_order,to_winding=j),
                 "bus_from"     => f,
                 "bus_to"       => b,
                 "v_from"       => vf,
@@ -332,8 +335,8 @@ function _check_transformer_ratio_consistency(net::Dict{String,Any},
             # transformer's raw line-to-line v_nom is not compared against the
             # phase-to-ground bus ratio — that mismatch was a false XFMR_RATIO.
             if subtype in ("single_phase", "center_tap")
-                bf = _winding_phase_to_phase(t, "terminal_map_from") ? sqrt(3.0) : 1.0
-                bt = _winding_phase_to_phase(t, "terminal_map_to")   ? sqrt(3.0) : 1.0
+                bf = _winding_phase_to_phase(net, t, "terminal_map_from") ? sqrt(3.0) : 1.0
+                bt = _winding_phase_to_phase(net, t, "terminal_map_to")   ? sqrt(3.0) : 1.0
                 expected_ratio *= bf / bt
             end
             actual_ratio   = vt_bus / vf_bus

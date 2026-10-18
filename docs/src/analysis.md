@@ -220,3 +220,12 @@ section, component type/id, a human message and an optional machine-readable
 Filter with [`errors`](@ref) / [`warnings`](@ref) / [`infos`](@ref), and
 match on `f.code` — message text is not stable. The complete catalogue with
 triggers and rationale is in the [finding-code reference](findings.md).
+
+## Transformer phase evidence
+
+[Transformer phase reporting](transformer_phase.md) separates authored winding
+connections and nameplate declarations from the derived ideal effective relation.
+Inventory and voltage transitions retain string labels and add structured status,
+phase correspondence, orientation and coil evidence. A `?` suffix never means
+clock zero. Use `transformer_phase_relation` for a directed winding pair or pass
+`phase_order` to the standalone inventory/voltage passes for custom labels.

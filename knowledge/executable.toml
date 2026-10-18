@@ -1,3 +1,5 @@
+# Transformer phase reporting is descriptive PSK-000006-linked evidence; it does
+# not widen the transformer preservation contract or add a JSON adapter.
 # The analyze_case recipe uses a package-owned synthetic input. Restricted
 # CSIRO MV/LV integration data live externally; no executable contract depends on them.
 # Voltage-tier, galvanic-zone, mapped-conductor, and conditional geographic
@@ -356,6 +358,18 @@ fixture_ids = ["transformer-winding-role-swap-001"]
 source_paths = [
   "src/knowledge/contracts.jl",
   "src/io/to_ybus.jl",
+  "src/analysis/transformer_phase.jl",
+  "src/analysis/inventory.jl",
+  "src/analysis/voltage_levels.jl",
+  "src/report/render_ascii_tree.jl",
+  "src/report/render_terminal.jl",
+  "src/report/render_markdown.jl",
+  "docs/src/transformer_phase.md",
+  "docs/src/analysis.md",
+  "test/transformer_phase_tests.jl",
+  "test/transformer_phase_opf_tests.jl",
+  "test/data/transformer_phase/letters.json",
+  "test/data/transformer_phase/README.md",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
 ]

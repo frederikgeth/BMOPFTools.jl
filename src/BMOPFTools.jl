@@ -735,6 +735,7 @@ include("lineconstants/kron.jl")
 include("lineconstants/overhead.jl")
 include("lineconstants/compile.jl")
 
+include("analysis/transformer_phase.jl")
 include("analysis/inventory.jl")
 include("analysis/voltage_levels.jl")
 include("analysis/spatial.jl")
@@ -3055,6 +3056,7 @@ export is_timeseries, get_snapshot      # useful for interactive use
 # API (documented in analysis.md and toured by the walkthrough example):
 # each pass is callable standalone for targeted checks, and its finding codes
 # are covered by the stability contract in dev/versioning.md.
+export transformer_phase_relation
 export inventory_analysis
 export voltage_level_analysis
 export connectivity_analysis

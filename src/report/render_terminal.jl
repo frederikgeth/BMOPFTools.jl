@@ -98,7 +98,7 @@ function _render_voltage_levels(r::SummaryReport, io::IO; color::Bool=false)
         println(io, "\n  Transformer transitions:")
         for tr in transitions
             vg = get(tr, "vector_group", "")
-            tag = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), $vg"
+            tag = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), effective $vg"
             println(io, "    $(tr["id"])  $(tr["level_from"]) → $(tr["level_to"])  [$tag]")
         end
     end

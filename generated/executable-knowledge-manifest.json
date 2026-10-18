@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "89d86f4f22c8c9222456ff842b9e483d9c6b362341b683dd254cffbe02f189ea",
+  "corpus_sha256": "a8a02d8116b4413f98d9381c18f9d44c56dc74dc5624fd4b505b9832c2c93001",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -74,11 +74,11 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "5e89288a560dcbb2c30512e574e35860efb1dac821f6f805bed8a212a686600e"
+      "sha256": "a2877c98a6dcd6c5d6dc4672b36e21a5c2a6dcfa937566f38b5bcfaef68c71c9"
     },
     {
       "path": "docs/src/api.md",
-      "sha256": "0631ebd5eaab4307e93f078ceb7fe0722acad56a5fa0dfc0e4bdeacf878ddb65"
+      "sha256": "367ff6c52fcda15bf94ca5eafd1a65483105ed377341b0eb15bc7e547074bef9"
     },
     {
       "path": "docs/src/connection_maps.md",
@@ -131,6 +131,10 @@
     {
       "path": "docs/src/transformer_models.md",
       "sha256": "89baf96867ed0d9c3e741414e44efb8f6ccc515cb80ce6e5b797604b9176bf36"
+    },
+    {
+      "path": "docs/src/transformer_phase.md",
+      "sha256": "3597d1ea6204e83f10bff0dfe8adb2e090d925eca1866d5e3a816676a61b617c"
     },
     {
       "path": "docs/src/tutorial_case_development.md",
@@ -242,7 +246,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "211a17854da3ecd12310afc5ce54a5f695bc42b0378d7459684fb9f003b7e1a1"
+      "sha256": "640d59e994c98696dc820195c5eb3daa46bb03522c2d8ad94ab2b6b6434c884e"
     },
     {
       "path": "recipes/README.md",
@@ -369,6 +373,10 @@
       "sha256": "b5912f8395ab03bb87b4935654cf9e87a9f68ad6bddbf6c57bcb99af6a03a78e"
     },
     {
+      "path": "src/analysis/inventory.jl",
+      "sha256": "457aa1a9932736ab3ca2d5ef426fca46875849d7a7fd1b32de3a4b652d989042"
+    },
+    {
       "path": "src/analysis/operational.jl",
       "sha256": "26b1f4a13b115fe275ec6273dced6e6c1f6541de128547c9d79fcc956b862d96"
     },
@@ -389,8 +397,12 @@
       "sha256": "b2e793a56d0454569941d0098a254a19955cf57dc6bb1b3a56a64813efbf8066"
     },
     {
+      "path": "src/analysis/transformer_phase.jl",
+      "sha256": "19148cccda3885b4fd58d41033391c4c6f3cde02247d00787b88718ea1e5f983"
+    },
+    {
       "path": "src/analysis/voltage_levels.jl",
-      "sha256": "6d38bcabb498e5ff7fa0ccc596ee01e4613a5f174e014bc854a2bb439a55a38f"
+      "sha256": "2c78857d7a6766b4614505184d0db141433c2cfb048af431a33edb500a10c413"
     },
     {
       "path": "src/augmentation/augment.jl",
@@ -497,8 +509,12 @@
       "sha256": "383f4ec16bab887828722bc0f3acbae7a298bc46fd16f5bd30a0ff1b1784a9ae"
     },
     {
+      "path": "src/report/render_ascii_tree.jl",
+      "sha256": "8903ffb8745046234a9ead596c3ab9c647eb6eb4d8d19399357644190715672e"
+    },
+    {
       "path": "src/report/render_markdown.jl",
-      "sha256": "5ae110d664b58b4b9de30dab4f29a8dd6cf51cbdba00abdda83eb6968b2a64e2"
+      "sha256": "1f29ff6bc3ceb8cb4c47a904f53a3f07407300b32150c8b11ffbed19fabaefa2"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -506,7 +522,7 @@
     },
     {
       "path": "src/report/render_terminal.jl",
-      "sha256": "99b450ad1ac74b56913ecf0ed96688cadc6ef03e32e4eabcf66ac634a675dff3"
+      "sha256": "274d00ca389fd6c4ccc814af97a017b0dd285da213b00cd405d9a66fa9b5b10c"
     },
     {
       "path": "src/validation/connection_maps.jl",
@@ -707,6 +723,14 @@
     {
       "path": "test/data/transformer_interoperability/wye_delta.json",
       "sha256": "17dc7f76b36ed547083acf9ea188f66af744bfe6b990cd13d8f6fcd5b1f20994"
+    },
+    {
+      "path": "test/data/transformer_phase/README.md",
+      "sha256": "c24bb75e64a8176f6a3d5b8b22701db60164b663ae7dc83c1682aeb3606bd50e"
+    },
+    {
+      "path": "test/data/transformer_phase/letters.json",
+      "sha256": "6e70e3469f6980a36a720f8ee4051d05cf8c04b414613a0e5285f7b4dfd0d029"
     },
     {
       "path": "test/device_indexing_opf_tests.jl",
@@ -1118,7 +1142,7 @@
     },
     {
       "path": "test/powerflow_comparison_tests.jl",
-      "sha256": "3b0432e915a420ce57786ffcc9cc9083d38704cb6e336423abf5e8c084144633"
+      "sha256": "13d0d3b238bb81574942ee6e0f558257302d5f31adde31c75a0a58a5ccce03c5"
     },
     {
       "path": "test/powerio_findings_tests.jl",
@@ -1199,6 +1223,14 @@
     {
       "path": "test/transformer_opendss_tests.jl",
       "sha256": "0ca7c2a7d2522aab270986bad372bb47a9b4b9b82f11637418d12d135b37e993"
+    },
+    {
+      "path": "test/transformer_phase_opf_tests.jl",
+      "sha256": "d4fc528dd8818a55971f4599bae7a18972fb0aa5d90d18b0aa0653e323d1b614"
+    },
+    {
+      "path": "test/transformer_phase_tests.jl",
+      "sha256": "768fa26136b3940bb160d8d572c62abd8d601401049d5090471d2976871f5396"
     },
     {
       "path": "test/ybus_linearized_tests.jl",
