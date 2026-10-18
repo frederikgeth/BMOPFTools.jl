@@ -209,6 +209,60 @@ can oppose the series current. `_terminal_vmax_to_ground` and
 voltage bounds exist. They do not supply missing physical limits. The zero-cap
 box is skipped because the component equalities already enforce it.
 
+### Transformer current-rating coverage
+
+The table describes native OPF current ratings, including legacy
+`g_no_load`/`b_no_load`. A direct box is added only for a finite positive cap on
+the represented variable. The magnitude row remains in place. Existing tighter
+component bounds are preserved; absent/+Inf caps add neither row nor box, zero
+caps use component equalities without fixed-variable bounds, and negative, NaN,
+or -Inf caps are rejected. Ratings are converted into the side's working current
+units before either constraint is stamped.
+
+| Subtype / side | Rated quantity and index | Direct box |
+|:--|:--|:--|
+| `single_phase`, from | `i_max_from[k]`: bare series current for winding pair `k` | Yes |
+| `single_phase`, to | `i_max_to[k]`: winding-pair current plus legacy excitation | Only without legacy excitation; otherwise the cap is on an expression |
+| `center_tap`, from | `i_max_from[1:2]`: HV phase and mirrored neutral return, respectively | Yes, for each supplied entry |
+| `center_tap`, to | `i_max_to[1:3]`: LV leg 1, center-tap neutral, LV leg 2; total winding-terminal currents including legacy excitation | Yes, in fixed-primitive and T-model paths |
+| `wye_delta` / `delta_wye`, wye side | Side rating indexed by terminal-map position: bare phase winding current and, when present, summed neutral return | Yes |
+| `wye_delta` / `delta_wye`, delta side | Side rating indexed by terminal-map position: bare delta **line** current, not individual delta-coil current | Yes |
+| `single_phase_autotransformer`, from | `i_max_from[1]`: regulator input current plus legacy excitation | Only without legacy excitation |
+| `single_phase_autotransformer`, to | `i_max_to[1]`: regulator output winding current | Yes |
+| `open_delta_regulator`, both | `i_max_from[j]` / `i_max_to[j]`, `j=1,2`: bare currents of the two regulator pairs selected by `connection` | Yes |
+| `n_winding`, each winding | Scalar `windings[k].i_max` caps each `cr_nw`/`ci_nw` coil current; WYE phase coil or DELTA pair coil | Yes |
+
+For `single_phase`, the index enumerates winding pairs rather than every map
+terminal. A return terminal does not acquire a separate rating from a trailing
+array entry. Autotransformer and open-delta shared-bond currents
+likewise have no independent cap from trailing entries. N-winding neutral return
+is a sum, without an independently rated neutral variable. Center-tap HV return
+is constrained to minus the phase current: either provided cap restricts that
+physical current, but a missing entry does not create a second row or box.
+
+Yd/Dy and open-delta legacy excitation is added separately in KCL and is outside
+their bare-current ratings. Separate neutral-to-earth branches are outside the
+winding-current ratings. Normalized `no_load_shunt` records become explicit shunt
+objects, also outside these variables and caps, even when their reporting ledger
+associates them with a transformer. Equivalent bus voltages and source powers
+therefore do not imply identical rated currents for legacy and explicit shunts.
+
+**Center-tap compatibility:** the T-model (free tap or either zero leakage arm)
+now uses the same total winding-terminal current boundary as the fixed primitive
+path. With legacy excitation, its LV leg-1 and neutral native variables and
+serialized currents change meaning from bare series/return currents to total
+terminal currents. The internal equations subtract excitation to recover the
+series current; model hooks requiring that current must do the same. The second
+HV rating is now enforced in both paths. The previously missing fixed-path boxes
+were redundant bounds; magnitude protection already existed for the other four
+entries. No ratings are inferred from nameplates, voltages or turns ratios.
+
+`test/transformer_current_rating_tests.jl` checks this matrix, same-tap physical
+solutions, zero arms, SI/classic/side-local scaling, exact cap rows, and a
+minimized excitation-cancellation witness. Its package evidence is linked to
+PSK-000013 through `knowledge/executable.toml`; it does not establish solver
+speedup or global infeasibility from a local solver failure.
+
 `_neutral_current_limit!` applies the cap to the sum of phase currents of a
 supported star-connected device. It represents that device's neutral return,
 not every current that may share a network neutral or earth path.
