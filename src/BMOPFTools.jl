@@ -320,11 +320,20 @@ earth) and the returned value is flagged `inferred=true` — which
 
 `dc_bus` terminals are out of scope (DC carries its own pole roles) and are not
 scanned.
+Malformed explicit blocks or non-string-array role lists throw `ArgumentError`;
+they are not an invitation to infer a different declaration. Read-only domain
+validation reports `E.CONV.DECLARATION_INVALID` on the original input instead.
 """
 function _terminal_roles(net::Dict{String,Any})::TerminalRoles
     tc = get(net, "terminal_conventions", nothing)
-    if tc isa Dict
-        strs(k) = Set{String}(string(x) for x in get(tc, k, String[]))
+    if haskey(net,"terminal_conventions")
+        tc isa AbstractDict || throw(ArgumentError("terminal_conventions must be an object"))
+        for role in ("phase","neutral","earth")
+            labels = get(tc,role,String[])
+            labels isa AbstractVector && all(t -> t isa AbstractString,labels) ||
+                throw(ArgumentError("terminal_conventions.$role must be an array of strings"))
+        end
+        strs(k) = Set{String}(get(tc, k, String[]))
         return TerminalRoles(strs("phase"), strs("neutral"), strs("earth"), false)
     end
     phase = Set{String}()
@@ -752,6 +761,7 @@ include("validation/schema.jl")
 include("validation/completeness.jl")
 include("validation/device_indexing.jl")
 include("validation/connection_maps.jl")
+include("validation/terminal_conventions.jl")
 include("validation/domain_rules.jl")
 include("validation/wire_geometry.jl")
 include("validation/redundancy.jl")

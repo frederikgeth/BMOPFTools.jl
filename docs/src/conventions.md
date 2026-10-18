@@ -91,6 +91,50 @@ classification explicit. Inconsistent declarations raise `E.CONV.ROLE_OVERLAP`
 (a label in two role lists), `W.CONV.TERMINAL_UNCLASSIFIED` (a bus terminal in
 none — treated as a phase), or `W.CONV.MULTIPLE_NEUTRALS`.
 
+`domain_rules_check(net, findings)["terminal_conventions"]` exposes a
+deterministic inventory of declarations and authored AC terminal usage. It
+covers bus `terminal_names`, `perfectly_grounded_terminals` and in-memory
+`neutral_terminal` metadata; nodal load/generator/IBR/shunt/source/capacitor maps;
+line/switch endpoints; and supported transformer endpoints and winding lists.
+DC terminals and equipment catalogues are outside this inventory. `path` fields
+are escaped JSON Pointers with zero-based array indices; semantic
+`map_position` and `winding` fields use the package's one-based indices.
+
+Each usage records its reference status. Unclassified terminals that exist on
+a bus have one combined `W.CONV.TERMINAL_UNCLASSIFIED` Finding with their bus,
+component and winding paths. Map-only labels are still inventoried, but an
+unknown bus/terminal is owned by the integrity checks rather than generating a
+second role warning. Grounding references use the same
+`E.INT.UNKNOWN_TERMINAL` owner. Topology-specific role rules remain with the
+[device](device_indexing.md) and [connection-map](connection_maps.md) checks;
+label spelling and map permutations alone do not establish a role conflict.
+
+`E.CONV.DECLARATION_INVALID` reports malformed explicit role lists without
+substituting inferred roles. `E.CONV.BUS_ROLE_CONFLICT` reports an inconsistent
+in-memory `neutral_terminal` assertion. Runtime role resolution, including
+ingestion and writing, rejects malformed explicit declarations with
+`ArgumentError` rather than guessing. Validation neither edits that metadata
+nor changes the existing writer policy: `neutral_terminal` is stripped on write
+and derived again from the exported conventions on read.
+
+`I.CONV.UNUSED_LABEL` identifies declared labels with no authored usage anywhere
+in the supported inventory. A label in `terminal_names` counts as used even if
+the conductor is intentionally spare and has no connected device. Raw map
+references also count as authored usage even when integrity rejects them. If
+malformed/unsupported usage prevents a complete inventory, the report records
+`unassessed_paths`, sets `status="indeterminate"`, and suppresses unused-label
+conclusions (`unused_labels=null` rather than a false empty result).
+`status="assessed"` means bookkeeping completed, not that the case
+passed validation or has a sufficient electrical reference. `role_source`
+distinguishes `declared`, `inferred`, and `invalid` declarations.
+`resolved_roles` retains the shared resolver's classification, or is `null`
+when the declaration/terminal shapes prevent resolution.
+Valid explicit role lists can still be resolved when an unrelated bus is
+malformed: declaration overlap and conflicts on valid buses remain reportable,
+while inventory coverage stays indeterminate. Unknown-terminal errors require
+a valid target bus terminal list; malformed target lists retain their schema
+and unassessed-indexing diagnostics instead of speculative reference errors.
+
 **Ingest normalisation**: JSON files with non-string terminal entries (e.g.
 `[1,2,3,4]`) are coerced by [`parse_bmopf`](@ref). If every numeric token is
 covered by the alias table (default `1→"1", 2→"2", 3→"3", 4→"n"`,

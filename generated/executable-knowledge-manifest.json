@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "fdf905f36454cb142b9dd9c69fa0c69a4fa60139e380f87fb076c37afca6897c",
+  "corpus_sha256": "72a82d20b2976c56b97c1386de62ec3060dc1d890c76a2c7fe3e577615d1e0a5",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -86,7 +86,7 @@
     },
     {
       "path": "docs/src/conventions.md",
-      "sha256": "46c958405984281a7348571e0b74544f603995fad17c6109e2512d5c00504e6f"
+      "sha256": "e487d32c28e83f470d05c4ad95d1e31c5a4de9c23b3187882df21a8d6c20e4cb"
     },
     {
       "path": "docs/src/conversion.md",
@@ -110,7 +110,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "e0f1afae3dd4c208adbcd97d30ebd2a0b552da2c9e8ffa8665f98616d71238df"
+      "sha256": "82c7f609c41903d1aba26e6feaa13a447c3b43ab107b17b0cc2067ce51ac661a"
     },
     {
       "path": "docs/src/objectives.md",
@@ -250,11 +250,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "9bffb368a969e104c675bf0955b26d9577d923fc29c1f8889a87fd22bef35e8d"
+      "sha256": "485c0721c7a157de2472b8396c44efed682ecd94b0869c98731ae324a9ace37e"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "55242a776d1d8d0d0f564577e8a02cde36dcf6e2de520721a9d060429b10851c"
+      "sha256": "265da53c5178a33de93e568d47f945449f6ad6a842e8524c34c930b5ee4da619"
     },
     {
       "path": "recipes/README.md",
@@ -374,7 +374,7 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "b6f8fad42fcba4f902784d2daa2bceb97afe77e0c9927c4a7d8f34fb7ab4fa3b"
+      "sha256": "1ea4d79e84e6350c89962c225bc3104d84b9f0ba53b3dd7b5ad3b6fc4f73dc79"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -530,7 +530,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "f72348dd22743c92c243d48e1870fc8e3523539feee88a63f32638e147c94d1a"
+      "sha256": "a23da1f69c6c2bfd7a958a963a33be749e2a6ed0c61b27d84cc6b7f0747927a2"
     },
     {
       "path": "src/report/render_ascii_tree.jl",
@@ -554,15 +554,15 @@
     },
     {
       "path": "src/validation/device_indexing.jl",
-      "sha256": "f9283ebaae75b411f1f7773719cc05a4e44f94d7badd43ff1437039eb9e517ae"
+      "sha256": "92ec72beb5c7d1ee1a7fe6747310aae7069a14713a38157524a08e00e58918d8"
     },
     {
       "path": "src/validation/domain_rules.jl",
-      "sha256": "8e91da65d5b7d93638c3611f0c56954a6bdd94ddb0289441207dc679f282c8f6"
+      "sha256": "790564b43bc32952dc4d45bc95a88c8e548a0ec2a085f2a7224cc035ae6df347"
     },
     {
       "path": "src/validation/integrity.jl",
-      "sha256": "4cf9fabf1d8c1a1ee19bf142ca8d8f35ec1f2840f5a4b53efea1b46e1653e73a"
+      "sha256": "8ae1eab4509e2a0874b0e5893d4e80cc4d8ab38920f91701f1098619284d577d"
     },
     {
       "path": "src/validation/power_factor.jl",
@@ -583,6 +583,10 @@
     {
       "path": "src/validation/spec_conformance.jl",
       "sha256": "b652f9f02d5a5bdf9d4d99ead5b2be0804b661124d77de23974f4a1e56738ac3"
+    },
+    {
+      "path": "src/validation/terminal_conventions.jl",
+      "sha256": "9436f13b1eabc7893e085c2027263ca9c44fe2e2522f6751153f9519f41408a5"
     },
     {
       "path": "test/Project.toml",
@@ -719,6 +723,18 @@
     {
       "path": "test/data/scientific_review/zero-rated-device-result.json",
       "sha256": "8c0ab4f112d84849707d54cff2cf49b6b3d921267cafaf232d6b74cb94685980"
+    },
+    {
+      "path": "test/data/terminal_usage/README.md",
+      "sha256": "03c703fac449a7d2b0428a32f431da128db41df7dc04e638b51f04ddbccac461"
+    },
+    {
+      "path": "test/data/terminal_usage/malformed_bus.json",
+      "sha256": "e57695ffe1418bd1955fc936000cc950d28229d89df11dde526c67dafa8a6e11"
+    },
+    {
+      "path": "test/data/terminal_usage/usage.json",
+      "sha256": "865293ef8da2b09194c49d3fdd8e0efd07682a7489ef0e8bba421727afcc723e"
     },
     {
       "path": "test/data/three_leg_physics/README.md",
@@ -1283,6 +1299,14 @@
     {
       "path": "test/switch_scenario_tests.jl",
       "sha256": "c61aa0212ed661eabfafb70fb26a294b5b930d2ce5d300298dbf561dddfc0c15"
+    },
+    {
+      "path": "test/terminal_conventions_tests.jl",
+      "sha256": "9219dff2793b4cc371f457047b0a1c6c7c89d9ad7a2716c4c1a0ec469adabd77"
+    },
+    {
+      "path": "test/terminal_usage_tests.jl",
+      "sha256": "4f792a60ef38fb388418d306275487857b7e21a005b9eb028ae1abd4bce2c55b"
     },
     {
       "path": "test/three_leg_physics_tests.jl",

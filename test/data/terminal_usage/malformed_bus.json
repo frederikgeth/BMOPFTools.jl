@@ -1,0 +1,7 @@
+{
+  "terminal_conventions": {"phase": ["a", "return"], "neutral": ["return"], "earth": []},
+  "bus": {
+    "b": {"terminal_names": null},
+    "c": {"terminal_names": ["a", "return", "other"], "neutral_terminal": "a"}
+  }
+}
