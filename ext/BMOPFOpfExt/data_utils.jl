@@ -283,6 +283,11 @@ function _zero_components!(model, components...)
     terms = [x for x in components if !_is_structural_zero(x)]
     isempty(terms) && return nothing
     length(terms) == 1 && return @constraint(model, terms[1] == 0)
+    # Keep existing variables in an affine equality. A VectorOfVariables in
+    # Zeros can select MOI's variable-elimination bridge, which cannot accept
+    # their warm starts (e.g. THREE_LEG with i_max == 0). The affine form has
+    # identical zero-component semantics and preserves the variables/starts.
+    terms = [x isa JuMP.VariableRef ? 1.0 * x : x for x in terms]
     return @constraint(model, terms in MOI.Zeros(length(terms)))
 end
 

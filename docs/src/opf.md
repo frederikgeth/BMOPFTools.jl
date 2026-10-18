@@ -874,13 +874,39 @@ $S^{\max}$ — the constant-MVA idealization the apparent-power circle alone
 implies. `i_max` is **optional and opt-in**: omit it and the model is unchanged;
 supply it to model the low-voltage var rolloff of a real converter.
 
-Like the generator, `i_max` is **per conductor**: a `FOUR_LEG` IBR carries a
+For a `FOUR_LEG` IBR, `i_max` is **per conductor**, with a
 trailing entry capping the **neutral conductor** ($\sum_k c^{r,n}_{n,k}$,
 $\sum_k c^{i,n}_{n,k}$) — recommended, since a four-wire converter doing unbalance
 compensation can drive a neutral current *larger* than any phase. A phases-only
 length-3 vector warns (`W.INT.IMAX_NO_NEUTRAL`). A `SINGLE_PHASE` IBR has a single
 current, so its `i_max` is length 1 or 2 and collapses to one circle at the tighter
-limit. `THREE_LEG` (delta) has no neutral.
+limit.
+
+For **`THREE_LEG`**, `i_max[k]` instead caps the **cyclic pair current**
+`J[k]` between `terminal_map[k]` and the next terminal (wrapping last to first).
+Its `p_min`, `p_max`, `q_min`, `q_max`, and `s_max` entries also apply to each
+pair, not to the three-pair aggregate. There is no neutral. With positive
+injection powers `S[k] = P[k] + im*Q[k]`,
+`J[k] = conj(S[k] / (V[k] - V[next]))`; the external conductor injection is
+`I[k] = J[k] - J[previous]`. Thus a conductor current can exceed a pair cap
+without violating this model. The earlier blanket description of IBR `i_max`
+as per-conductor was incorrect for THREE_LEG; the runtime meaning is unchanged.
+
+The `result["ibr"][id][terminal_map[k]]` fields `cri`/`cii` are the real/imaginary
+parts of **J[k]**, not I[k]; `pg`/`qg` are the same pair's injection powers.
+The first terminal identifies the oriented pair only in conjunction with the
+authored cyclic `terminal_map`. Result JSON retains this representation. These
+fields are returned in A, W and var after either SI or per-unit solves. Reconstruct
+I from adjacent pair records before comparing with source/branch conductor
+currents. No conductor-current rating is inferred from `i_max`.
+
+Independent regressions in `test/three_leg_physics_tests.jl` use balanced and
+unbalanced prescribed phasors, source-current KCL, complex power balance,
+unequal pair limits, zero/missing limits, source-angle/cyclic covariance,
+SI/classic/consistent/zone scaling with changed bases, and JSON round trips.
+Their domain is the lossless fundamental-frequency cyclic-pair model with
+nonzero pair voltages; they do not establish advanced inverter filter, DC-link,
+switching, controller or feasible-region equivalence with other packages.
 
 Declared `q_min` and `q_max` are hard reactive-power bounds in every control mode.
 Within those bounds, reactive power is governed as follows:

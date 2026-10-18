@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "a8a02d8116b4413f98d9381c18f9d44c56dc74dc5624fd4b505b9832c2c93001",
+  "corpus_sha256": "01e4d74db472714431375ecb9ccb02964fc2d9aa46acb6c5d6135a22026d0a11",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -118,7 +118,7 @@
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "694570bd044fbc11fa4ba2cdcae9c9a89287b293eea200e7b3a1ab54c78f6ce1"
+      "sha256": "f3390db94eeb7e92608548b30c90c510cae0eaad152f0c69ad8ec1dfc48e7159"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -190,7 +190,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/data_utils.jl",
-      "sha256": "75c23db0c70c05eeaa8ad0fb30840e993d858e43a337ba82654c92294ee07a30"
+      "sha256": "a4d74059cc4994ea45e8294341714ed7e78f2c172c60deeb195584673512526e"
     },
     {
       "path": "ext/BMOPFOpfExt/generator.jl",
@@ -246,7 +246,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "640d59e994c98696dc820195c5eb3daa46bb03522c2d8ad94ab2b6b6434c884e"
+      "sha256": "ad4fd0b4015de68b9154162fa1bfb83664aa6d8467f1bacc6a84e88dd6c20654"
     },
     {
       "path": "recipes/README.md",
@@ -675,6 +675,22 @@
     {
       "path": "test/data/scientific_review/zero-rated-device-result.json",
       "sha256": "8c0ab4f112d84849707d54cff2cf49b6b3d921267cafaf232d6b74cb94685980"
+    },
+    {
+      "path": "test/data/three_leg_physics/README.md",
+      "sha256": "6580c980cea7f513fcd86a65cddd5c0adad57d1af6f8eba838ae9fcb55acc0fa"
+    },
+    {
+      "path": "test/data/three_leg_physics/balanced.json",
+      "sha256": "7694f06a6e3693938611e8927eacab9bbe30d3c0a010a731b21b55763ad28c6c"
+    },
+    {
+      "path": "test/data/three_leg_physics/unbalanced.json",
+      "sha256": "e2fcdd89987242582c6d0d473ebaa90b3735f35656c16bbae40c41a9af9e9396"
+    },
+    {
+      "path": "test/data/three_leg_physics/zero_current.json",
+      "sha256": "a10576222e9de0e86563fa77249f7c4bfdc4420d848e67f04edff2cb15a23b95"
     },
     {
       "path": "test/data/transformer_current_ratings/README.md",
@@ -1203,6 +1219,10 @@
     {
       "path": "test/switch_scenario_tests.jl",
       "sha256": "c61aa0212ed661eabfafb70fb26a294b5b930d2ce5d300298dbf561dddfc0c15"
+    },
+    {
+      "path": "test/three_leg_physics_tests.jl",
+      "sha256": "4f95f1e16d3b4f3402d10afb229231fbc23292cb9a6e8fa090bb134d0ac5ebe6"
     },
     {
       "path": "test/topology_structure_tests.jl",
