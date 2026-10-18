@@ -17,6 +17,9 @@
 # they do not extend its contract or expose solver callbacks through JSON execution.
 # The issue-429 benchmark reuses PSK-000013-linked solution verification and keeps
 # its unassessed dimensions explicit; timing observations do not widen that claim.
+# Qualified nominal coil headroom is descriptive PSK-000013-related screening,
+# not an additional feasibility contract. Its source paths and analyze_case recipe
+# preserve the explicit nominal-demand versus supplied-result distinction.
 schema_version = "0.6.0"
 
 [[contract]]
@@ -911,6 +914,11 @@ source_paths = [
   "src/report/render_solution_markdown.jl",
   "docs/src/results.md",
   "test/transformer_loading_tests.jl",
+  "src/infeasibility/transformer_headroom.jl",
+  "src/infeasibility/preflight.jl",
+  "src/report/render_markdown.jl",
+  "test/transformer_headroom_tests.jl",
+  "docs/src/analysis.md",
   "test/transformer_loading_opf_tests.jl",
   "test/data/transformer_loading/overloaded_coil.json",
   "test/data/transformer_loading/integer_voltage_candidate.json",

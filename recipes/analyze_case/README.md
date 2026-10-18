@@ -30,3 +30,9 @@ ordinary analysis behavior and structured Findings.
 The bundled `input.json` is a hand-authored synthetic three-bus network,
 licensed under this repository's BSD-3-Clause licence. It contains no CSIRO
 MV/LV dataset data.
+
+The recipe also checks the minimized 100 kVA / 40 kW single-coil witness through
+`execute_analysis`. It asserts nominal-demand provenance, negative coil headroom
+and the screening Finding without interpreting that estimate as an infeasibility
+certificate. Only the fixture's network is used; its supplied solution is not
+input to this screen. The emitted example remains the original triage response.

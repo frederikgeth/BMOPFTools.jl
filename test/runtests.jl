@@ -3766,6 +3766,7 @@ include("mcp_execution_tests.jl")
     # -----------------------------------------------------------------------
     include("solution_profiling_tests.jl")
     include("transformer_loading_tests.jl")
+    include("transformer_headroom_tests.jl")
     include("line_solution_verification_tests.jl")
     include("scientific_review_tests.jl")
 

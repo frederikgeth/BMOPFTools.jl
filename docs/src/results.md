@@ -100,8 +100,8 @@ override whole-network `verification_status` or certify physical feasibility.
 
 The report neither changes ratings nor retries solves. It is separate from
 `W.OPS.XFMR_OVERLOADED`, the existing **90% downstream nominal-load estimate**.
-Qualified per-coil preflight demand/headroom estimation remains separate work
-under #413. The independent voltage/current regression for the ideal bank is
+Qualified per-coil preflight demand/headroom estimates are documented in
+[Qualified nominal transformer coil headroom](@ref) and remain separate from supplied results. The independent voltage/current regression for the ideal bank is
 case-specific PSK-000013 evidence, not a universal transformer validation claim.
 
 ## Top-level fields
@@ -496,3 +496,9 @@ zeros are accepted whether decoded as integers or floating-point values.
 Switch current magnitudes use `cm` in native results; line endpoint magnitudes
 use `cm_fr` and `cm_to`. Missing switch `cm` remains unassessed, while a supplied
 current exceeding its rating is checked normally.
+
+
+For nominal-demand screening before a solve, see
+[Qualified nominal transformer coil headroom](@ref) in the analysis guide.
+`analyze` stores that estimate under `preflight.transformer_coil_headroom`;
+it is never substituted for this page's supplied-result coil loading.

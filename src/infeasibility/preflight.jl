@@ -14,6 +14,7 @@ function infeasibility_preflight(net::Dict{String,Any},
                                   findings::Vector{Finding})::Dict{String,Any}
     result = Dict{String,Any}()
 
+    result["transformer_coil_headroom"] = _transformer_headroom_preflight(net, findings)
     result["generation_adequacy"]     = _check_generation_adequacy(net, findings)
     result["voltage_bound_tightness"] = _check_voltage_bounds(net, findings)
     result["constraint_conflicts"]    = _check_constraint_conflicts(net, findings)

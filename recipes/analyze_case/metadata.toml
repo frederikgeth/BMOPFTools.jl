@@ -17,6 +17,9 @@ interface_paths = [
   "src/analysis/connectivity.jl",
   "src/analysis/switch_scenarios.jl",
   "src/analysis/operational.jl",
+  "src/infeasibility/transformer_headroom.jl",
+  "src/infeasibility/preflight.jl",
+  "test/transformer_headroom_tests.jl",
   "src/analysis/provenance/data_quality.jl",
   "src/analysis/voltage_levels.jl",
   "src/analysis/spatial.jl",
@@ -35,7 +38,7 @@ interface_paths = [
   "test/fixtures/delta_wye_secondary_leakage.json",
   "test/fixtures/parallel_transformer_load.json",
 ]
-input_paths = ["recipes/analyze_case/input.json"]
+input_paths = ["recipes/analyze_case/input.json", "test/data/transformer_loading/overloaded_coil.json"]
 tutorial_paths = [
   "docs/src/tutorial_triage.md",
   "docs/src/tutorial_nameplate.md",
