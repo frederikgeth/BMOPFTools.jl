@@ -40,9 +40,6 @@ function integrity_check(net::Dict{String,Any},
     busset = Set(keys(buses))
     n_ref_issues = 0
 
-    terminal_set(b) = Set(string.(get(get(buses, b, Dict()),
-                                      "terminal_names", String[])))
-
     check_bus_ref(comp_type, id, bus) = begin
         if !(bus in busset)
             n_ref_issues += 1
@@ -57,7 +54,14 @@ function integrity_check(net::Dict{String,Any},
 
     check_tmap(comp_type, id, bus, tm; field="terminal_map") = begin
         _index_strings(tm) || return
-        bad = [t for t in string.(tm) if !(t in terminal_set(bus))]
+        b = get(buses,bus,nothing)
+        b isa AbstractDict || return
+        names = get(b,"terminal_names",nothing)
+        # Schema/indexing evidence owns malformed terminal declarations. A
+        # reference cannot be declared missing when the target set is unknown.
+        _index_strings(names) || return
+        declared = Set(names)
+        bad = [t for t in tm if !(t in declared)]
         if !isempty(bad)
             n_ref_issues += 1
             push!(findings, Finding(ERROR, "E.INT.UNKNOWN_TERMINAL", :integrity,
@@ -74,7 +78,8 @@ function integrity_check(net::Dict{String,Any},
 
     # Grounding references are bus-terminal references too. Keep their errors
     # under the integrity owner rather than duplicating them as role warnings.
-    for (id, bus) in buses
+    for id in sort!(collect(keys(buses)))
+        bus = buses[id]
         bus isa AbstractDict || continue
         check_tmap("bus", id, id, get(bus,"perfectly_grounded_terminals",String[]);
             field="perfectly_grounded_terminals")

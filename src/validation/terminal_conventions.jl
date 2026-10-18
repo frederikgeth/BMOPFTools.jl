@@ -150,7 +150,15 @@ function _check_terminal_conventions(net, findings, n_checks)
         return result
     end
 
-    roles = get(net,"bus",Dict()) isa AbstractDict ? _index_roles(net) : nothing
+    if !explicit && haskey(net,"bus")
+        push!(findings,Finding(WARNING,"W.CONV.TERMINAL_ROLES_INFERRED",:domain_rules,:network,nothing,
+            "No terminal_conventions block: legacy bus-name inference is used where terminal names can be assessed.",
+            Dict{String,Any}("role_source"=>"inferred", "rule"=>"n_or_N_is_neutral")))
+    end
+    # Explicit declaration facts do not depend on whether every bus is valid.
+    # _index_roles also checks bus shapes, so reserve it for legacy inference.
+    roles = explicit ? _terminal_roles(net) :
+        get(net,"bus",Dict()) isa AbstractDict ? _index_roles(net) : nothing
     if roles === nothing
         result["status"] = "indeterminate"
         return result
@@ -158,11 +166,6 @@ function _check_terminal_conventions(net, findings, n_checks)
     result["resolved_roles"] = Dict{String,Any}(role=>sort!(collect(labels)) for (role,labels) in
         zip(_CONVENTION_ROLES,(roles.phase,roles.neutral,roles.earth)))
     if !explicit
-        if haskey(net,"bus")
-            push!(findings,Finding(WARNING,"W.CONV.TERMINAL_ROLES_INFERRED",:domain_rules,:network,nothing,
-                "No terminal_conventions block: phase/neutral/earth roles were inferred from bus terminal names.",
-                Dict{String,Any}("role_source"=>"inferred", "rule"=>"n_or_N_is_neutral")))
-        end
         isempty(inventory.unassessed_paths) || (result["status"]="indeterminate")
         return result
     end
@@ -177,7 +180,8 @@ function _check_terminal_conventions(net, findings, n_checks)
             Dict{String,Any}("labels"=>labels,"roles"=>names,
                 "declarations"=>[d for d in declarations if d["label"] in labels && d["role"] in names])))
     end
-    buses = get(net,"bus",Dict())
+    raw_buses = get(net,"bus",Dict())
+    buses = raw_buses isa AbstractDict ? raw_buses : Dict()
     for id in sort!(collect(keys(buses)))
         b = buses[id]
         b isa AbstractDict || continue

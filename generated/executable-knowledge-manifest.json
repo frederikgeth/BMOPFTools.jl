@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "490d655b56614b09447035657cdf59ad77d5ce700ae42af061e4a3c80acf1585",
+  "corpus_sha256": "72a82d20b2976c56b97c1386de62ec3060dc1d890c76a2c7fe3e577615d1e0a5",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -86,7 +86,7 @@
     },
     {
       "path": "docs/src/conventions.md",
-      "sha256": "f94062f78de9f974be2f0e413e4cec08a8cc180ae2ef5c782ab23050218bdff3"
+      "sha256": "e487d32c28e83f470d05c4ad95d1e31c5a4de9c23b3187882df21a8d6c20e4cb"
     },
     {
       "path": "docs/src/conversion.md",
@@ -254,7 +254,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "747fcd8c026976e314534b920781523094e5e0fc70c130cbc0831213f0bdfac0"
+      "sha256": "265da53c5178a33de93e568d47f945449f6ad6a842e8524c34c930b5ee4da619"
     },
     {
       "path": "recipes/README.md",
@@ -562,7 +562,7 @@
     },
     {
       "path": "src/validation/integrity.jl",
-      "sha256": "5833bbfecdf5bcd9e75392cd34df24a5a995476728db881b9fdcc651c2044489"
+      "sha256": "8ae1eab4509e2a0874b0e5893d4e80cc4d8ab38920f91701f1098619284d577d"
     },
     {
       "path": "src/validation/power_factor.jl",
@@ -586,7 +586,7 @@
     },
     {
       "path": "src/validation/terminal_conventions.jl",
-      "sha256": "97514b1e3cd3a3e229321317aefc6a1e1cd12676e811210e8f5fcfc3813c63ab"
+      "sha256": "9436f13b1eabc7893e085c2027263ca9c44fe2e2522f6751153f9519f41408a5"
     },
     {
       "path": "test/Project.toml",
@@ -726,7 +726,11 @@
     },
     {
       "path": "test/data/terminal_usage/README.md",
-      "sha256": "09997d5d22cbaa21d9e186c69b07585721d8c69e2679229dd15481e4981eccb0"
+      "sha256": "03c703fac449a7d2b0428a32f431da128db41df7dc04e638b51f04ddbccac461"
+    },
+    {
+      "path": "test/data/terminal_usage/malformed_bus.json",
+      "sha256": "e57695ffe1418bd1955fc936000cc950d28229d89df11dde526c67dafa8a6e11"
     },
     {
       "path": "test/data/terminal_usage/usage.json",
@@ -1302,7 +1306,7 @@
     },
     {
       "path": "test/terminal_usage_tests.jl",
-      "sha256": "4099efab57800f1ac7283a388c4a002cec7b29c0e435e3896927cba5072cfaa9"
+      "sha256": "4f792a60ef38fb388418d306275487857b7e21a005b9eb028ae1abd4bce2c55b"
     },
     {
       "path": "test/three_leg_physics_tests.jl",

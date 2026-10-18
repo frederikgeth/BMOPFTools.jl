@@ -129,6 +129,11 @@ passed validation or has a sufficient electrical reference. `role_source`
 distinguishes `declared`, `inferred`, and `invalid` declarations.
 `resolved_roles` retains the shared resolver's classification, or is `null`
 when the declaration/terminal shapes prevent resolution.
+Valid explicit role lists can still be resolved when an unrelated bus is
+malformed: declaration overlap and conflicts on valid buses remain reportable,
+while inventory coverage stays indeterminate. Unknown-terminal errors require
+a valid target bus terminal list; malformed target lists retain their schema
+and unassessed-indexing diagnostics instead of speculative reference errors.
 
 **Ingest normalisation**: JSON files with non-string terminal entries (e.g.
 `[1,2,3,4]`) are coerced by [`parse_bmopf`](@ref). If every numeric token is

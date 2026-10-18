@@ -163,6 +163,13 @@ _tu_winding(net) = net["transformer"]["n_winding"]["t"]["windings"][1]
             @test_throws ArgumentError BMOPFTools._terminal_roles(net)
             @test_throws ArgumentError parse_bmopf(JSON3.write(net); from_string=true)
             @test_throws ArgumentError write_bmopf(net,IOBuffer())
+            # The public read-only analysis/report path must still diagnose
+            # malformed declarations rather than invoking runtime resolution.
+            analyzed = analyze(net)
+            @test length(_tu_code(analyzed.findings,"E.CONV.DECLARATION_INVALID")) == 1
+            output = IOBuffer(); BMOPFTools.render_json(analyzed,output)
+            serialized = JSON3.read(String(take!(output)),Dict{String,Any})
+            @test serialized["results"]["domain_rules"]["terminal_conventions"]["role_source"] == "invalid"
             @test net == original
         end
         for bad in (nothing, "a", ["a",4])
@@ -190,6 +197,58 @@ _tu_winding(net) = net["transformer"]["n_winding"]["t"]["windings"][1]
         report, fs = _tu_check(net)
         @test report["unclassified_labels"] == ["a","extra","return","spare"]
         @test isempty(_tu_code(fs,"W.CONV.TERMINAL_ROLES_INFERRED"))
+    end
+
+    @testset "unrelated malformed buses do not hide declaration evidence" begin
+        net = JSON3.read(read(joinpath(@__DIR__,"data","terminal_usage","malformed_bus.json"),String),Dict{String,Any})
+        original = deepcopy(net)
+        report, fs = _tu_check(net)
+        @test report["status"] == "indeterminate"
+        @test report["unused_labels"] === nothing
+        @test report["resolved_roles"] !== nothing
+        @test only(_tu_code(fs,"E.CONV.ROLE_OVERLAP")).detail["labels"] == ["return"]
+        @test only(_tu_code(fs,"E.CONV.BUS_ROLE_CONFLICT")).component_id == "c"
+        @test only(_tu_code(fs,"W.CONV.TERMINAL_UNCLASSIFIED")).detail["labels"] == ["other"]
+        @test net == original
+        # Even a malformed whole bus table does not invalidate the independently
+        # known role lists. Inventory-dependent conclusions stay unavailable.
+        net["bus"] = nothing
+        report, fs = _tu_check(net)
+        @test report["status"] == "indeterminate"
+        @test report["resolved_roles"] !== nothing
+        @test length(_tu_code(fs,"E.CONV.ROLE_OVERLAP")) == 1
+        @test isempty(_tu_code(fs,"I.CONV.UNUSED_LABEL"))
+        # Absence of an explicit block still has its existing diagnostic, even
+        # when malformed bus names prevent complete legacy role inference.
+        net = _tu_net(); delete!(net,"terminal_conventions")
+        net["bus"]["b"]["terminal_names"] = nothing
+        report, fs = _tu_check(net)
+        @test report["status"] == "indeterminate"
+        @test report["resolved_roles"] === nothing
+        @test length(_tu_code(fs,"W.CONV.TERMINAL_ROLES_INFERRED")) == 1
+    end
+
+    @testset "reference errors require a valid bus terminal list" begin
+        for bad in (nothing,"a",["a",4])
+            net = _tu_net(); net["bus"]["b"]["terminal_names"] = bad
+            original = deepcopy(net)
+            fs = Finding[]; integrity_check(net,fs)
+            @test isempty(_tu_code(fs,"E.INT.UNKNOWN_TERMINAL"))
+            @test net == original
+        end
+        # The new grounding diagnostics have stable bus order, independent of
+        # dictionary insertion. Keep the genuine missing-terminal errors.
+        net = Dict{String,Any}("terminal_conventions"=>Dict("phase"=>["a"]),
+            "bus"=>Dict{String,Any}(id=>Dict("terminal_names"=>["a"],
+                "perfectly_grounded_terminals"=>["missing"]) for id in ("z","a","q","b")))
+        fs = Finding[]; integrity_check(net,fs)
+        refs = _tu_code(fs,"E.INT.UNKNOWN_TERMINAL")
+        @test [f.component_id for f in refs] == ["a","b","q","z"]
+        @test all(f.detail["field"]=="perfectly_grounded_terminals" for f in refs)
+        reordered = deepcopy(net)
+        reordered["bus"] = Dict(k=>net["bus"][k] for k in reverse(sort!(collect(keys(net["bus"])))))
+        other = Finding[]; integrity_check(reordered,other)
+        @test _tu_signature(_tu_code(other,"E.INT.UNKNOWN_TERMINAL")) == _tu_signature(refs)
     end
 
     @testset "determinism, escaping, round trips and legacy writer behavior" begin

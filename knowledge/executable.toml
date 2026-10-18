@@ -117,6 +117,7 @@ source_paths = [
   "test/terminal_usage_tests.jl",
   "test/terminal_conventions_tests.jl",
   "test/data/terminal_usage/usage.json",
+  "test/data/terminal_usage/malformed_bus.json",
   "test/data/terminal_usage/README.md",
   "src/analysis/provenance/wires_grounding.jl",
   "docs/src/connection_maps.md",
