@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "30487de662fe4bb151d140398b19df3ab81eb3f11b6e1d1d37d74bd20d5a9218",
+  "corpus_sha256": "89d86f4f22c8c9222456ff842b9e483d9c6b362341b683dd254cffbe02f189ea",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -81,8 +81,12 @@
       "sha256": "0631ebd5eaab4307e93f078ceb7fe0722acad56a5fa0dfc0e4bdeacf878ddb65"
     },
     {
+      "path": "docs/src/connection_maps.md",
+      "sha256": "4b3a9dc9ed13a84c397814e941e62df7ebc4f459c5a963e6046cd1c0c8cf83de"
+    },
+    {
       "path": "docs/src/conventions.md",
-      "sha256": "e1ec6b874ab2d6d64d82a4a6431dbf516f6ebdfe848ebc7ab4008dbdab84c21d"
+      "sha256": "46c958405984281a7348571e0b74544f603995fad17c6109e2512d5c00504e6f"
     },
     {
       "path": "docs/src/conversion.md",
@@ -106,7 +110,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "ea5e4a9917a69e9f19483dc8b71d912270cc9f4931b4ab95f78ecdd8a876566f"
+      "sha256": "0c1faa0e09f4c37e707761f000423203b7217b971ec2ad6f311a34ffb5bf0378"
     },
     {
       "path": "docs/src/objectives.md",
@@ -234,11 +238,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "84bc20dc87ddcf7ad204112ffc2603cfd5865c7b252e20ba0b3b709508a779e0"
+      "sha256": "800da4016536c568d5942e884ccc2daa3840b72cce47ae9a7c86d0e609ac5685"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "17c7cfdacc82c57c3ccb2b52142849991791cfeade4a26d7567761ffd6fc5d9e"
+      "sha256": "211a17854da3ecd12310afc5ce54a5f695bc42b0378d7459684fb9f003b7e1a1"
     },
     {
       "path": "recipes/README.md",
@@ -373,6 +377,10 @@
       "sha256": "0ccbb2e708bdb147754cd2b387d69bdd4b20301f88a83e80bd3b3ba9c1e65c4b"
     },
     {
+      "path": "src/analysis/provenance/wires_grounding.jl",
+      "sha256": "db3f33688c2fcbc4799e40bc419ce7f1f1ce92d4785dfde0a9393f0e8cabe123"
+    },
+    {
       "path": "src/analysis/spatial.jl",
       "sha256": "babf6ebde3a3d6f0ece42db8140a0c36fecd5e80febca42951de7e923672514f"
     },
@@ -486,7 +494,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "a991288fa3a06ff08ac3df8a8d8cdb9138ae7fd3a90a7240c5777ebd97a1f1c3"
+      "sha256": "383f4ec16bab887828722bc0f3acbae7a298bc46fd16f5bd30a0ff1b1784a9ae"
     },
     {
       "path": "src/report/render_markdown.jl",
@@ -501,6 +509,10 @@
       "sha256": "99b450ad1ac74b56913ecf0ed96688cadc6ef03e32e4eabcf66ac634a675dff3"
     },
     {
+      "path": "src/validation/connection_maps.jl",
+      "sha256": "186be5fa9320298b9a50245b6ee901f7fd894216efc9f4a54843b5ae1e8d6e00"
+    },
+    {
       "path": "src/validation/device_indexing.jl",
       "sha256": "f9283ebaae75b411f1f7773719cc05a4e44f94d7badd43ff1437039eb9e517ae"
     },
@@ -510,7 +522,7 @@
     },
     {
       "path": "src/validation/integrity.jl",
-      "sha256": "655a576143edf057eeefc0ae49ba38df468bef9c671023db1bd5dfba9d5e71d7"
+      "sha256": "eb9d720791c5cb2845c33e7af04392916321ab3ff65012b6b3e833bcf469dfec"
     },
     {
       "path": "src/validation/schema.jl",
@@ -526,7 +538,7 @@
     },
     {
       "path": "src/validation/spec_conformance.jl",
-      "sha256": "4c4c3a7a96f0d6e421018e865b50020b8ae6c709290f7f1e9904b668df6a26a7"
+      "sha256": "b652f9f02d5a5bdf9d4d99ead5b2be0804b661124d77de23974f4a1e56738ac3"
     },
     {
       "path": "test/Project.toml",
@@ -539,6 +551,10 @@
     {
       "path": "test/case_development_tests.jl",
       "sha256": "e39d4c8e607d2ab77294716ee50146786b8909834c59308729af3599a85f0231"
+    },
+    {
+      "path": "test/connection_map_tests.jl",
+      "sha256": "945aaf32e1d749bff27aee204e69f4bd5b89c8462a8dab5eb5470392fe9664ab"
     },
     {
       "path": "test/controller_compliance_tests.jl",
@@ -555,6 +571,14 @@
     {
       "path": "test/data/case_development/feeder.json",
       "sha256": "2794ca1513b098f0858fe54d3e6e96933970bffcb1281498071a46c0a779d13f"
+    },
+    {
+      "path": "test/data/connection_maps/README.md",
+      "sha256": "0714c5ac4e181a7d78a029aca6ed61025312e743781fd88346f5057d49c4ec8a"
+    },
+    {
+      "path": "test/data/connection_maps/role_swap.json",
+      "sha256": "3937670877e0f5ed6689573be92254cc001c90ec9f940854b6fba90a3dc1f254"
     },
     {
       "path": "test/data/device_indexing/README.md",

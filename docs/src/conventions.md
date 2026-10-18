@@ -687,3 +687,11 @@ dicts follow the PMD convention (values are multiplicative scale factors on
 the static value). This is a BMOPFTools extension beyond the static-only TF
 spec; [`get_snapshot`](@ref) materialises a snapshot at a given index and
 [`analyze`](@ref) does this automatically.
+
+## Branch and winding map validation
+
+[Connection-map rules](connection_maps.md) document position-wise phase/neutral
+continuity for lines/switches and subtype-specific transformer winding domains.
+Phase permutations and neutral-only metallic links remain valid. Winding maps
+are checked independently of grounding/reference requirements; there is no
+universal through-neutral rule across transformers.

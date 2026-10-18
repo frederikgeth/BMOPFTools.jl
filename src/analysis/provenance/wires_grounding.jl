@@ -306,6 +306,7 @@ function _galvanic_islands(net::Dict{String,Any})::Vector{Vector{String}}
     adj = Dict{String,Vector{String}}()
     for comp_type in ("line", "switch")
         for (_, c) in get(net, comp_type, Dict())
+            c isa AbstractDict || continue
             comp_type == "switch" && get(c, "open_switch", false) && continue
             f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
             (f isa AbstractString && t isa AbstractString &&
@@ -321,6 +322,7 @@ function _galvanic_islands(net::Dict{String,Any})::Vector{Vector{String}}
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (_, c) in sub
+            c isa AbstractDict || continue
             f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
             (f isa AbstractString && t isa AbstractString &&
              f in busset && t in busset) || continue

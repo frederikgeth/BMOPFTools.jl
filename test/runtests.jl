@@ -3724,6 +3724,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # -----------------------------------------------------------------------
     include("terminal_conventions_tests.jl")
     include("device_indexing_tests.jl")
+    include("connection_map_tests.jl")
 
     # -----------------------------------------------------------------------
     # Time-series support — snapshot semantics plus a gated OPF sweep

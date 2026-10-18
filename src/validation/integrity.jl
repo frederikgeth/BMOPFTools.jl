@@ -68,42 +68,9 @@ function integrity_check(net::Dict{String,Any},
         end
     end
 
-    # --- referential integrity: branch elements ---
-    for comp_type in ("line", "switch")
-        for (id, c) in get(net, comp_type, Dict())
-            c isa Dict || continue
-            f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
-            f isa AbstractString && check_bus_ref(comp_type, id, f) &&
-                check_tmap(comp_type, id, f, get(c, "terminal_map_from", String[]))
-            t isa AbstractString && check_bus_ref(comp_type, id, t) &&
-                check_tmap(comp_type, id, t, get(c, "terminal_map_to", String[]))
-        end
-    end
-    xfmr = get(net, "transformer", Dict())
-    for subtype in TRANSFORMER_SUBTYPES
-        sub = get(xfmr, subtype, nothing)
-        sub isa Dict || continue
-        for (id, c) in sub
-            c isa Dict || continue
-            if subtype in WINDING_LIST_SUBTYPES
-                # Winding-list buses/terminal_maps live in windings[]; a fixed
-                # bus_from/bus_to check skips them, so dangling references were
-                # never caught for n_winding.
-                for w in get(c, "windings", Any[])
-                    w isa AbstractDict || continue
-                    b = get(w, "bus", nothing)
-                    b isa AbstractString && check_bus_ref("transformer", id, b) &&
-                        check_tmap("transformer", id, b, get(w, "terminal_map", String[]))
-                end
-                continue
-            end
-            f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
-            f isa AbstractString && check_bus_ref("transformer", id, f) &&
-                check_tmap("transformer", id, f, get(c, "terminal_map_from", String[]))
-            t isa AbstractString && check_bus_ref("transformer", id, t) &&
-                check_tmap("transformer", id, t, get(c, "terminal_map_to", String[]))
-        end
-    end
+    # Shared raw endpoint traversal retains original winding indices and handles
+    # malformed maps without invoking numeric transformer conversion helpers.
+    n_ref_issues += _check_connection_references!(net, findings)
 
     # --- referential integrity: nodal elements ---
     for comp_type in ("load", "generator", "shunt", "voltage_source", "ibr")
@@ -341,8 +308,9 @@ function integrity_check(net::Dict{String,Any},
             X = _pattern_keys_to_matrix(l, "X_series_")
             R isa AbstractMatrix || continue
             n = size(R, 1)
-            nf = length(get(l, "terminal_map_from", String[]))
-            nt = length(get(l, "terminal_map_to",   String[]))
+            tmf=get(l,"terminal_map_from",nothing); tmt=get(l,"terminal_map_to",nothing)
+            (_index_strings(tmf) && _index_strings(tmt)) || continue
+            nf=length(tmf); nt=length(tmt)
             if nf != n || nt != n
                 n_ref_issues += 1
                 push!(findings, Finding(ERROR, "E.INT.LINE_DIM_MISMATCH", :integrity,
@@ -351,7 +319,7 @@ function integrity_check(net::Dict{String,Any},
                     "inline impedance matrix is $n×$n. Matrix row k is the " *
                     "impedance seen by terminal-map entry k, so the counts must " *
                     "match exactly; there is no meaningful truncation.",
-                    Dict{String,Any}("n" => n, "from" => nf, "to" => nt)))
+                    merge(_line_connection_evidence(net,id,l),Dict{String,Any}("n" => n, "from" => nf, "to" => nt))))
             end
             z_tot[id] = maximum(hypot(R[i, i],
                                 X isa AbstractMatrix && size(X) == size(R) ?
@@ -370,8 +338,9 @@ function integrity_check(net::Dict{String,Any},
         end
         haskey(lc_dims, lcid) || continue
         n = lc_dims[lcid]
-        nf = length(get(l, "terminal_map_from", String[]))
-        nt = length(get(l, "terminal_map_to",   String[]))
+        tmf=get(l,"terminal_map_from",nothing); tmt=get(l,"terminal_map_to",nothing)
+        (_index_strings(tmf) && _index_strings(tmt)) || continue
+        nf=length(tmf); nt=length(tmt)
         if nf != n || nt != n
             n_ref_issues += 1
             push!(findings, Finding(ERROR, "E.INT.LINE_DIM_MISMATCH", :integrity,
@@ -383,8 +352,8 @@ function integrity_check(net::Dict{String,Any},
                 "truncating to the shorter length (as some tools do) drops " *
                 "conductors and mutual coupling, or misaligns matrix rows with " *
                 "terminal roles, producing plausible-but-wrong results.",
-                Dict{String,Any}("linecode" => lcid, "n" => n,
-                                 "from" => nf, "to" => nt)))
+                merge(_line_connection_evidence(net,id,l),Dict{String,Any}("linecode" => lcid, "n" => n,
+                                 "from" => nf, "to" => nt))))
         end
         # total series impedance proxy: max self-resistance+reactance × length
         lc = linecodes[lcid]
@@ -578,7 +547,7 @@ function integrity_check(net::Dict{String,Any},
             if subtype in WINDING_LIST_SUBTYPES
                 # Winding terminals wire their buses too; omitting them made
                 # n-winding-fed buses look like they had floating/unused terminals.
-                for w in get(c, "windings", Any[])
+                for w in (get(c, "windings", nothing) isa AbstractVector ? c["windings"] : Any[])
                     w isa AbstractDict || continue
                     b  = get(w, "bus", nothing)
                     tm = get(w, "terminal_map", nothing)

@@ -1,0 +1,8 @@
+{
+  "terminal_conventions": {"phase": ["a", "b", "c"], "neutral": ["return"], "earth": []},
+  "bus": {
+    "f": {"terminal_names": ["a", "b", "c", "return"], "perfectly_grounded_terminals": ["return"]},
+    "t": {"terminal_names": ["a", "b", "c", "return"], "perfectly_grounded_terminals": ["return"]}
+  },
+  "switch": {"s": {"bus_from": "f", "bus_to": "t", "terminal_map_from": ["a", "return"], "terminal_map_to": ["return", "a"]}}
+}

@@ -395,13 +395,13 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.INT.UNKNOWN_BUS` | E | A component references a bus id that does not exist. |
+| `E.INT.UNKNOWN_BUS` | E | A component references a bus id that does not exist. Branch and transformer evidence identifies the endpoint or original winding index. |
 | `E.INT.UNKNOWN_LINECODE` | E | A line references a linecode that does not exist (distinct from *unused* linecodes). |
 | `E.INT.UNKNOWN_WIRE_DATA` | E | A `line_geometry` conductor references a `wire_data` id that does not exist. |
 | `E.INT.UNKNOWN_LINE_GEOMETRY` | E | A linecode's `line_geometry` back-reference points at a geometry that does not exist. |
 | `E.INT.LINE_IMPEDANCE_SOURCE` | E | A line has both a `linecode` reference and inline absolute `R_series_`/`X_series_` matrices (ambiguous), or neither (no impedance). A line carries **exactly one** impedance source; units are unambiguous by location — linecode matrices are Ω/m and scale with `length`, inline line matrices are section totals in Ω and never scale. |
 | `E.INT.LINE_DIM_MISMATCH` | E | A line's `terminal_map_from`/`terminal_map_to` length does not equal its impedance matrix dimension (from the referenced linecode, the compiled geometry, or its inline matrices). Matrix row *k* is the impedance seen by terminal-map entry *k*, so the counts must match exactly: an *n*-conductor linecode/geometry belongs on an *n*-terminal line. This is an **error, not a warning** — some tools (e.g. OpenDSS) silently map/truncate to the shorter length, which drops conductors and their mutual coupling, or misaligns matrix rows with terminal roles (e.g. applying the phase-*c* row to a neutral terminal), and solves to a plausible-but-wrong answer. `solve_opf`/`solve_pf` likewise refuse rather than truncate. |
-| `E.INT.UNKNOWN_TERMINAL` | E | A terminal-map entry is not a terminal of the referenced bus — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10). |
+| `E.INT.UNKNOWN_TERMINAL` | E | A terminal-map entry is not a terminal of the referenced bus (branch/winding evidence identifies endpoint, original winding index and invalid map positions) — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10). |
 | `E.INT.UNKNOWN_CONTROL_PROFILE` | E | An IBR references a `control_profile` id that does not exist in the network's `control_profile` table. |
 | `E.INT.VOLTAGE_AGGREGATION_INVALID` | E | An IBR's `voltage_aggregation` is neither `PER_PHASE` nor `AVERAGE` — the engine cannot resolve which voltage the droop/limits reference. |
 | `E.INT.CONTROL_PROFILE_CONFLICT` | E | A `control_profile` declares both `power_factor` and a Volt-var/Volt-watt droop. These are mutually exclusive reactive-control modes; only one may be active. |
@@ -441,7 +441,7 @@ Checks on how component `terminal_map`s reference bus terminals.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002). |
+| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a line/switch position connects phase to neutral, or a branch repeats an all-neutral endpoint. Position comparisons require equal-length, distinct, resolved phase/neutral maps; different phase labels are valid. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002). |
 | `E.TMAP.DEVICE_ROLES` | E | A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model (PSK-000002). |
 | `I.TMAP.CROSS_PHASE_LINE` | I | A line or switch has different from/to terminal maps — the conductors are cross-connected between phases across the branch. Valid (e.g. an intentional phase swap) but flagged as context. |
 | `I.TMAP.PERMUTED_ORDER` | I | A component's `terminal_map` is a permutation of the bus's nodal terminal order — non-canonical ordering; verify the swap is deliberate rather than a data-entry slip. |
@@ -465,7 +465,7 @@ Rules the JSON Schema cannot express.
 | `E.SPEC.CAP_VRATED` | E | A capacitor has non-positive `v_nom` — the susceptance `B = q_rated/v_nom²` is undefined. |
 | `E.SPEC.CAP_NEGATIVE_Q` | E | A capacitor has negative `q_rated` entries. A capacitor bank has non-negative susceptance (`Q = B·V²`, `B ≥ 0`); a negative value is an inductor/reactor and must be modelled as a `shunt` with negative `B`, not a capacitor. |
 | `W.SPEC.CAP_WYE_NO_NEUTRAL` | W | A `WYE` capacitor has no resolvable neutral terminal in its `terminal_map`. Each phase is stamped against the neutral, so without one the bank assembles an all-zero susceptance and is **silently ignored** by the OPF. Name the return terminal `n`, or use `SINGLE_PHASE`/`DELTA`. |
-| `W.SPEC.XFMR_TMAP_ARITY` | W | Transformer terminal-map lengths off the per-subtype spec values — also the deliberate tripwire for unconverted wye-wye units. |
+| `W.SPEC.XFMR_TMAP_ARITY` | W | Transformer map lengths differ from the subtype data-model arity, a winding list has fewer than two entries, or an n-winding WYE lacks explicit neutral / DELTA lacks two terminals. Native boundary arities may retain this warning. See [connection-map rules](connection_maps.md). |
 | `W.SPEC.INV_TOPOLOGY` | W | An IBR `topology` outside the spec-allowed set (`FOUR_LEG`/`THREE_LEG`/`SINGLE_PHASE`). |
 | `W.SPEC.INV_TMAP_ARITY` | W | An IBR's `terminal_map` length does not match the arity its `topology` requires. |
 | `W.SPEC.INV_PRIME_MOVER` | W | An IBR `prime_mover` is outside the spec-allowed set (`PV`, `BATTERY`, `GENERIC`, `STATCOM`, `DSTATCOM`). |
@@ -641,3 +641,12 @@ analysis never emits them.
 | `E.CONTRACT.BASE_MAP_MISMATCH` | E | Target serialization does not preserve the declared unit/base map. |
 | `E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH` | E | Target serialization has a different canonical semantic payload hash. |
 | `W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE` | W | Required unit/base or canonical semantic-hash metadata is missing or malformed. |
+
+## Connection-map structure and supported winding roles
+
+| Code | Severity | Meaning |
+|:--|:--|:--|
+| `E.INT.CONNECTION_SHAPE` | E | A branch/transformer component or winding is not an object, a winding list is not an array, a bus identifier is missing/non-string, or an endpoint map is not a nonempty string array. Raw traversal preserves the original winding index and never converts numeric winding fields. |
+| `E.INT.SWITCH_DIM_MISMATCH` | E | Switch endpoint maps have unequal lengths. Each position denotes one through conductor; no truncation or inferred mapping is allowed. Evidence includes both endpoints. |
+| `E.TMAP.WINDING_ROLES` | E | A transformer winding map violates the represented subtype's phase/neutral or positional rule, or coupled winding coil counts differ. This does not impose line continuity across independent windings. Evidence identifies the rule, side/winding and resolved roles; see [coverage table](connection_maps.md). |
+| `W.TMAP.CONNECTION_UNASSESSED` | W | Branch/winding role comparison is indeterminate because role declarations are malformed, roles are ambiguous/unclassified, bus neutrals are multiple, or earth conductors are outside this supported domain. References and structural errors retain their integrity owners. No role count is guessed. |
