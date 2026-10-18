@@ -55,22 +55,30 @@ function integrity_check(net::Dict{String,Any},
         true
     end
 
-    check_tmap(comp_type, id, bus, tm) = begin
+    check_tmap(comp_type, id, bus, tm; field="terminal_map") = begin
         _index_strings(tm) || return
         bad = [t for t in string.(tm) if !(t in terminal_set(bus))]
         if !isempty(bad)
             n_ref_issues += 1
             push!(findings, Finding(ERROR, "E.INT.UNKNOWN_TERMINAL", :integrity,
                 Symbol(comp_type), id,
-                "$comp_type '$id' terminal map references terminal(s) " *
+                "$comp_type '$id' $field references terminal(s) " *
                 "$(bad) not defined at bus '$bus'.",
-                Dict{String,Any}("bus" => bus, "terminals" => bad)))
+                Dict{String,Any}("bus" => bus, "terminals" => bad, "field" => field)))
         end
     end
 
     # Shared raw endpoint traversal retains original winding indices and handles
     # malformed maps without invoking numeric transformer conversion helpers.
     n_ref_issues += _check_connection_references!(net, findings)
+
+    # Grounding references are bus-terminal references too. Keep their errors
+    # under the integrity owner rather than duplicating them as role warnings.
+    for (id, bus) in buses
+        bus isa AbstractDict || continue
+        check_tmap("bus", id, id, get(bus,"perfectly_grounded_terminals",String[]);
+            field="perfectly_grounded_terminals")
+    end
 
     # --- referential integrity: nodal elements ---
     for comp_type in ("load", "generator", "shunt", "voltage_source", "ibr")

@@ -11,7 +11,7 @@ function _index_roles(net)
     tc = get(net, "terminal_conventions", nothing)
     if tc isa AbstractDict
         all(k -> _index_strings(get(tc,k,String[])), ("phase","neutral","earth")) || return nothing
-    elseif tc !== nothing
+    elseif haskey(net,"terminal_conventions")
         return nothing
     end
     buses = get(net,"bus",Dict())

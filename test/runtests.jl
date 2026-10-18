@@ -3723,6 +3723,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # validation findings, export; OPF solve gated on JuMP/Ipopt internally.
     # -----------------------------------------------------------------------
     include("terminal_conventions_tests.jl")
+    include("terminal_usage_tests.jl")
     include("device_indexing_tests.jl")
     include("connection_map_tests.jl")
     include("transformer_phase_tests.jl")

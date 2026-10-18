@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "e0f1afae3dd4c208adbcd97d30ebd2a0b552da2c9e8ffa8665f98616d71238df"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "82c7f609c41903d1aba26e6feaa13a447c3b43ab107b17b0cc2067ce51ac661a"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -1755,7 +1755,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="INT",
         catalogue_section="INT",
         section_title="structural integrity",
-        meaning="A terminal-map entry is not a terminal of the referenced bus (branch/winding evidence identifies endpoint, original winding index and invalid map positions) — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10).",
+        meaning="An AC terminal-map entry or `perfectly_grounded_terminals` reference is not a terminal of its bus. Evidence identifies the field; branch/winding evidence also identifies endpoint, original winding index and invalid map positions. This includes typos and attempts to connect nodal elements directly to ground (forbidden by spec Table 10).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1971,7 +1971,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="CONV",
         catalogue_section="CONV",
         section_title="terminal-role conventions",
-        meaning="A bus terminal is in none of the declared role lists. It is treated as a phase conductor downstream; add it to the appropriate list (a common cause is a split-phase secondary leg not listed under `phase`).",
+        meaning="An existing AC bus terminal is in none of the declared role lists. Legacy consumers treat it as a phase; the Finding includes bus declarations and resolved component/winding/grounding usage paths together. Unknown bus/terminal references retain their integrity owner and do not add a role warning.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1981,6 +1981,33 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="CONV",
         section_title="terminal-role conventions",
         meaning="A single bus carries more than one terminal classified as neutral — a bus is expected to have at most one neutral conductor.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.CONV.DECLARATION_INVALID" => (
+        severity="ERROR",
+        namespace="CONV",
+        catalogue_section="CONV",
+        section_title="terminal-role conventions",
+        meaning="An explicit `terminal_conventions` block is not an object, or a role list is not an array of strings. Role classification is indeterminate; invalid declarations are not replaced by inferred roles. Evidence identifies the declaration path and expected shape.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.CONV.BUS_ROLE_CONFLICT" => (
+        severity="ERROR",
+        namespace="CONV",
+        catalogue_section="CONV",
+        section_title="terminal-role conventions",
+        meaning="With explicit case-wide roles, a bus's in-memory `neutral_terminal` metadata is malformed, names a nonexistent bus terminal, or disagrees with those roles. Evidence identifies the metadata path, matching role declarations, and expected neutral labels. Validation leaves the metadata unchanged; role overlap keeps its separate owner.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "I.CONV.UNUSED_LABEL" => (
+        severity="INFO",
+        namespace="CONV",
+        catalogue_section="CONV",
+        section_title="terminal-role conventions",
+        meaning="A role label is declared but unused anywhere in the inventoried AC bus terminals, component maps, grounding references, or neutral metadata. This is informational hygiene, distinct from an unwired spare bus conductor. The Finding is suppressed when supported usage cannot be completely inventoried.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
