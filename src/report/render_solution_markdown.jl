@@ -29,6 +29,7 @@ function render_solution_markdown(report::SolutionReport, io::IO; verbose::Bool=
     _sol_md_voltage_zones(report, io; verbose)
     _sol_md_voltage(report, io)
     _sol_md_thermal(report, io)
+    _sol_md_transformer_loading(report, io)
     _sol_md_generator(report, io)
     _sol_md_residuals(report, io)
     _sol_md_optimization(report, io)
@@ -208,6 +209,11 @@ end
 function _sol_md_thermal(r::SolutionReport, io::IO)
     therm_findings = filter(f -> f.code in ("E.SOL.THERMAL_VIOLATION", "W.SOL.THERMAL_ACTIVE"),
                             r.findings)
+    if haskey(r.results,:transformer_loading)
+        # VA coil evidence has its own table; do not render it as unknown amps.
+        filter!(f -> !(f.component_type == :transformer && haskey(f.detail,"s") &&
+                      haskey(f.detail,"s_max")),therm_findings)
+    end
     isempty(therm_findings) && return
     println(io, "## 3. Thermal Limits\n")
     println(io, "| Sev | Component | ID | Terminal | cm (A) | i\\_max (A) |")
@@ -227,6 +233,35 @@ function _sol_md_thermal(r::SolutionReport, io::IO)
 end
 
 # ── 4. Generator dispatch findings ────────────────────────────────────────────
+
+function _sol_md_transformer_loading(r::SolutionReport, io::IO)
+    loading = get(r.results,:transformer_loading,nothing)
+    loading isa Dict || return
+    isempty(loading["coils"]) && isempty(loading["unassessed"]) && return
+    println(io,"## Transformer Coil Loading\n")
+    println(io,"Supplied result evidence: **$(loading["candidate_status"])** ",
+        "(termination: `$(loading["termination_status"])`). ",
+        "Diagnostic candidates are not physical operating solutions. ",
+        "Values and caps are supplied, not independently reconstructed or authenticated.\n")
+    fmt(x) = x === nothing ? "unassessed" : string(round(x;digits=3))
+    cell(x) = replace(string(x),'|'=>"\\|",'\n'=>" ")
+    println(io,"| Transformer | Subtype | Side | Coil | Terminals | S (VA) | Cap (VA) | Utilization | Headroom (VA) | Comparison |")
+    println(io,"|---|---|---|---|---|---:|---:|---:|---:|---|")
+    for c in loading["coils"]
+        terminals = join([t === nothing ? "ground" : string(t) for t in c["terminals"]]," → ")
+        println(io,"| $(cell(c["transformer"])) | $(cell(c["subtype"])) | $(cell(c["side"])) | $(cell(c["coil"])) | $(cell(terminals)) | $(fmt(c["s_VA"])) | $(fmt(c["cap_VA"])) | $(fmt(c["utilization"])) | $(fmt(c["headroom_VA"])) | $(c["comparison_status"]) |")
+    end
+    println(io,"\nAggregate sums of coil |S| by constrained side (not net complex power; sides are not added together):\n")
+    println(io,"| Transformer | Side | S sum (VA) | Cap sum (VA) | Utilization | Worst coil utilization | Complete |")
+    println(io,"|---|---|---:|---:|---:|---:|---|")
+    for g in loading["groups"]
+        println(io,"| $(cell(g["transformer"])) | $(cell(g["side"])) | $(fmt(g["s_sum_VA"])) | $(fmt(g["cap_sum_VA"])) | $(fmt(g["utilization"])) | $(fmt(g["max_coil_utilization"])) | $(g["complete"]) |")
+    end
+    for u in loading["unassessed"]
+        println(io,"\n- Unassessed transformer $(cell(u["transformer"])): $(u["reason"]).")
+    end
+    println(io,"\nThis is separate from the 90% downstream nominal-demand screening warning `W.OPS.XFMR_OVERLOADED`.\n")
+end
 
 function _sol_md_generator(r::SolutionReport, io::IO)
     gen_findings = filter(f -> f.code in ("E.SOL.GEN_VIOLATION", "W.SOL.GEN_ACTIVE"),

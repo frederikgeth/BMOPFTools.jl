@@ -757,6 +757,7 @@ include("validation/redundancy.jl")
 include("validation/integrity.jl")
 include("validation/spec_conformance.jl")
 include("validation/solution.jl")
+include("analysis/transformer_loading.jl")
 
 include("knowledge/contracts.jl")
 
@@ -870,6 +871,11 @@ Checks bound satisfaction (voltage, thermal, generator dispatch), constraint
 residuals, power balance, and produces informational summaries (loss fraction,
 neutral shift).
 
+`results[:transformer_loading]` reports supplied per-coil apparent powers/caps
+and per-constrained-side aggregates, reusing the thermal Findings. It preserves
+candidate and missing-data status; it does not authenticate case provenance,
+reconstruct electrical loading, or estimate preflight demand.
+
 `net` may be a snapshot or time-series network dict; `t_index` selects the
 snapshot when time-series data is present. `result` is the dict returned by
 [`solve_opf`](@ref) or any compatible solver.
@@ -883,6 +889,7 @@ function profile_solution(net::Dict{String,Any}, result::Dict{String,Any};
     findings = Finding[]
     results  = Dict{Symbol,Dict{String,Any}}()
     results[:solution] = solution_check(working, result, findings)
+    results[:transformer_loading] = _transformer_loading_summary(working, result, results[:solution], findings)
     results[:voltage_zones] = voltage_zone_summary(working, result)
     results[:optimization] = _optimization_summary(result)
     meta = Dict{String,Any}(

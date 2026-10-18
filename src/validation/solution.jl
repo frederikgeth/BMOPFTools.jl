@@ -1415,7 +1415,10 @@ function solution_check(net::Dict{String,Any},
                 vi_n  = t_n !== nothing ? get(get(b_res, t_n, Dict()), "vi", 0.0) : 0.0
                 isfinite(vr_ph) && isfinite(vi_ph) || continue
                 dvr = vr_ph - vr_n; dvi = vi_ph - vi_n
-                W = dvr^2 + dvi^2
+                # JSON may restore exact phasors as integers. Work in physical
+                # floating-point coordinates before squaring (also avoids
+                # integer overflow), as _load_model_power expects.
+                W = Float64(dvr)^2 + Float64(dvi)^2
 
                 Vnom = let vv = get(load, "v_nom", nothing)
                     vv === nothing ? nothing :

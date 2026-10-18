@@ -1,0 +1,114 @@
+{
+  "net": {
+    "bus": {
+      "f": {
+        "terminal_names": [
+          "a",
+          "b",
+          "c",
+          "n"
+        ],
+        "perfectly_grounded_terminals": [
+          "n"
+        ]
+      },
+      "t": {
+        "terminal_names": [
+          "a",
+          "b",
+          "c",
+          "n"
+        ],
+        "perfectly_grounded_terminals": [
+          "n"
+        ]
+      }
+    },
+    "voltage_source": {
+      "s": {
+        "bus": "f",
+        "terminal_map": [
+          "a",
+          "b",
+          "c"
+        ],
+        "v_magnitude": [
+          230,
+          230,
+          230
+        ],
+        "v_angle": [
+          0,
+          -2.0943951023931953,
+          2.0943951023931953
+        ]
+      }
+    },
+    "transformer": {
+      "single_phase": {
+        "tx": {
+          "bus_from": "f",
+          "bus_to": "t",
+          "terminal_map_from": [
+            "a",
+            "b",
+            "c",
+            "n"
+          ],
+          "terminal_map_to": [
+            "a",
+            "b",
+            "c",
+            "n"
+          ],
+          "v_nom_from": 230,
+          "v_nom_to": 230,
+          "s_rating": 100000
+        }
+      }
+    },
+    "load": {
+      "d": {
+        "bus": "t",
+        "terminal_map": [
+          "a",
+          "n"
+        ],
+        "configuration": "SINGLE_PHASE",
+        "model": "constant_impedance",
+        "v_nom": [
+          230
+        ],
+        "p_nom": [
+          40000
+        ],
+        "q_nom": [
+          0
+        ]
+      }
+    }
+  },
+  "result": {
+    "termination_status": "LOCALLY_SOLVED",
+    "primal_status": "FEASIBLE_POINT",
+    "result_count": 1,
+    "transformer": {
+      "tx": {
+        "fr": {
+          "1": {
+            "s": 40000,
+            "s_max": 33333.333333333336
+          },
+          "2": {
+            "s": 0,
+            "s_max": 33333.333333333336
+          },
+          "3": {
+            "s": 0,
+            "s_max": 33333.333333333336
+          }
+        }
+      }
+    }
+  }
+}
