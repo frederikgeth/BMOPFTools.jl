@@ -1,0 +1,59 @@
+Tellegen distribution screenshot
+================================
+
+Captured from https://tellegen.dev/ on 20 October 2026.
+No deployed build identifier was exposed in the inspected interface.
+
+Input: BMOPFDraftData/output/SAPN/harrow--equal-territory-p95-state-01.bmopf.json
+SHA-256: dcba4042158923842f368ab7fc25c1cf4dc93f3958f45258cb584da1249147cf
+Source and accompanying notices:
+https://github.com/frederikgeth/BMOPFDraftData/tree/main/output/SAPN
+
+The original BMOPF file was opened unchanged through Tellegen's local file
+chooser. Its 9,373 buses carry latitude/longitude. The viewer reported 9,649
+branches, matching 9,532 lines plus 117 transformers in the source. The image
+shows the geographic network view; no power-flow solve was run for this image.
+The source model is provisional and is not an as-operated asset register or
+an individually qualified customer/equipment reconstruction. Import notes
+included READ.BMOPF.SCHEMA_ABSENT and READ.BMOPF.RETAINED_SOURCE_ONLY for
+non-schema component metadata retained in extras. Display does not establish
+schema conformance, electrical fidelity, or calculation support.
+
+Network model and geometry attribution
+-------------------------------------
+
+Electrical-model derivation and authored assumptions:
+Copyright 2026 Energex Network Model contributors. Project-authored model
+contributions are under CC BY-SA 4.0, subject to upstream rights:
+https://creativecommons.org/licenses/by-sa/4.0/
+https://github.com/frederikgeth/BMOPFDraftData/blob/main/output/SAPN/PROJECT-LICENSE-DATA.md
+
+Upstream electricity geometry: SA Power Networks; supplied by the Government
+of South Australia through Location SA / Department of Primary Industries
+and Regions. Works: SAPN Substations; SAPN Low Voltage Overhead Line; SAPN
+Subtransmission & High Voltage Overhead Line; SAPN Low Voltage Underground
+Cable; SAPN Subtransmission & High Voltage Underground Cable.
+
+The Government of South Australia, SAPN distribution-network geometry and
+substations, sourced on 2026-10-05 at 03:08:58Z, 03:09:05Z, 03:09:06Z and
+03:10:15Z from:
+https://agsplus.geodata.sa.gov.au/arcgis/rest/services/Infrastructure_Utilities/MapServer
+Data authority: SA Power Networks. No endorsement is implied.
+
+Source records were selected, noded/split and transformed into a provisional
+electrical model. Transformer roots, winding/conductor/phase/MEN parameters
+and demand placement are authored study assumptions. The screenshot renders
+that model without changing its data and does not redistribute the model JSON.
+Dataset metadata declares CC BY attribution; the dataset licence version is
+not specified there. Preserve the source-specific notices when using the model:
+https://github.com/frederikgeth/BMOPFDraftData/blob/main/output/SAPN/ATTRIBUTION.md
+https://github.com/frederikgeth/BMOPFDraftData/blob/main/output/SAPN/LICENSING.md
+
+Tellegen and basemap
+-------------------
+
+Tellegen: https://github.com/eigenergy/tellegen (MIT-licensed software).
+Map attribution remains visible in the screenshot:
+Copyright CARTO, copyright OpenStreetMap contributors.
+https://carto.com/about-carto/
+https://www.openstreetmap.org/copyright
