@@ -4,6 +4,10 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Preserve bus `longitude`/`latitude` in `write_bmopf` by default for Tellegen
+  visualization; use `include_coordinates=false` to retain the previous
+  omission behavior for strict BMOPF schema consumers. Add a drag-and-drop guide.
+
 - Fix `ybus_passive`, `ybus_linearized` and `ybus_augmented` modelling switches
   with `open_switch = true` as closed; read the schema field instead of a
   non-schema `status` key and reject a non-boolean `open_switch`.

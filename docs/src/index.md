@@ -134,6 +134,12 @@ analyze(net) |> r -> render(r, "case_report.md")
 
 ## The pipeline
 
+**Explore a case visually:** drag and drop its BMOPF JSON file onto
+[Tellegen](https://tellegen.dev/) to inspect the distribution network in your
+browser. Bus `latitude`/`longitude` fields supply geographic positions and are
+preserved by `write_bmopf` by default; cases without coordinates can use the
+viewer's topology layout. See [Visualizing a case with Tellegen](visualization.md).
+
 ```
 OpenDSS .dss ──(from_dss / PowerIO.jl)──► BMOPF Dict{String,Any} ◄── parse_bmopf ◄── BMOPF JSON
                                                  │               └──── write_bmopf

@@ -126,6 +126,13 @@ Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0.
 
 ## What it does
 
+**Visual exploration:** drag and drop a BMOPF JSON file onto
+[Tellegen](https://tellegen.dev/) to explore the distribution network in your
+browser. Bus `latitude`/`longitude` fields provide geographic placement;
+`write_bmopf` preserves them by default (`include_coordinates=false` omits them
+for strict schema consumers). Coordinates are optional. See the
+[visualization guide](docs/src/visualization.md).
+
 ```
 OpenDSS .dss ──(from_dss / PowerIO.jl)──► BMOPF Dict{String,Any} ◄── parse_bmopf ◄── BMOPF JSON
                                                  │               └──── write_bmopf

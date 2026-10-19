@@ -55,7 +55,7 @@ function to_dss(net::Dict{String,Any};
                 )::Tuple{String,Vector{String}}
 
     # Serialise to BMOPF JSON without mutating the caller's dict. write_bmopf
-    # drops the tool-private `_meta` block and emits schema-valid JSON.
+    # persists tool provenance and retains optional bus coordinate extensions.
     src = net
     if !isnothing(name)
         src = copy(net)          # shallow copy: we only replace the top-level name

@@ -1,5 +1,5 @@
 """
-    write_bmopf(net::Dict{String,Any}, dest; meta=nothing, indent=2)
+    write_bmopf(net::Dict{String,Any}, dest; meta=nothing, indent=2, include_coordinates=true)
 
 Serialise a BMOPF network dict to JSON.
 
@@ -12,11 +12,12 @@ defaults (`\$schema`, `case_study_generator`, `created`). Caller-supplied values
 are never overwritten by auto-generation.
 
 The input `net` is never mutated. Tool-private state is not serialised verbatim:
-the `"_meta"` key is persisted under `meta.provenance`, and non-spec bus fields
-(`neutral_terminal`, plus the `longitude`/`latitude` attached by
-`sideload_coordinates!`) are stripped so the output satisfies the schema's
-`additionalProperties: false` on bus objects. Dropping the coordinates is lossy
-by design: they are not recoverable on read.
+the `"_meta"` key is persisted under `meta.provenance`, and the derived bus
+`neutral_terminal` is stripped (it is recomputed on read). Bus `longitude` and
+`latitude` fields are preserved by default for viewers such as Tellegen.
+These coordinate fields are a non-spec extension: pass
+`include_coordinates=false` to omit them for strict BMOPF schema consumers.
+Omitted coordinates are not recoverable from the written file.
 
 Output is newline-terminated in both modes, so files round-trip through `diff`
 and shell pipelines without a "\\ No newline at end of file" marker.
@@ -29,6 +30,10 @@ and shell pipelines without a "\\ No newline at end of file" marker.
 - `indent`: number of spaces for pretty-printing (default `2`). Pass
   `indent=nothing` for compact single-line output — one line of JSON plus the
   trailing newline.
+- `include_coordinates`: preserve existing bus `longitude`/`latitude` fields
+  (default `true`). Values are copied unchanged, including partial pairs;
+  this does not validate a coordinate reference system, transform coordinates,
+  or invent missing positions. Nonfinite numbers are rejected by the JSON writer.
 
 # Example
 ```julia
@@ -44,7 +49,8 @@ write_bmopf(net, "output.json";
 """
 function write_bmopf(net::Dict{String,Any}, io::IO;
                      meta::Union{Dict,Nothing}=nothing,
-                     indent::Union{Int,Nothing}=2)
+                     indent::Union{Int,Nothing}=2,
+                     include_coordinates::Bool=true)
     base     = get(net, "meta", Dict{String,Any}())
     out_meta = _build_meta(base, meta)
 
@@ -67,7 +73,7 @@ function write_bmopf(net::Dict{String,Any}, io::IO;
     out = Dict{String,Any}(k => v for (k, v) in net
                            if k != "meta" && k != "_meta")
     buses = get(net, "bus", nothing)
-    buses isa Dict && (out["bus"] = _strip_derived_bus_fields(buses))
+    buses isa Dict && (out["bus"] = _strip_derived_bus_fields(buses; include_coordinates))
     # Always export the terminal-role convention. If the case never declared one,
     # promote the inferred classification to an explicit block so the written
     # file is self-documenting and reloads without W.CONV.TERMINAL_ROLES_INFERRED.
@@ -83,9 +89,10 @@ end
 
 function write_bmopf(net::Dict{String,Any}, path::AbstractString;
                      meta::Union{Dict,Nothing}=nothing,
-                     indent::Union{Int,Nothing}=2)
+                     indent::Union{Int,Nothing}=2,
+                     include_coordinates::Bool=true)
     open(path, "w") do io
-        write_bmopf(net, io; meta, indent)
+        write_bmopf(net, io; meta, indent, include_coordinates)
     end
 end
 
@@ -96,45 +103,42 @@ end
 """
     _DERIVED_BUS_FIELDS
 
-Bus fields the tool attaches in memory that must not be serialised: bus objects
-declare `additionalProperties: false` in the BMOPF schema, so any of these that
-survives a write makes the file schema-invalid and provokes spurious
-`I.SCHEMA.UNKNOWN_FIELDS` findings when it is read back.
+Known non-spec bus fields excluded by core schema validation. Bus objects
+declare `additionalProperties: false` in the BMOPF schema. The writer always
+omits `neutral_terminal`, but preserves coordinates unless explicitly disabled.
 
-They are stripped for the same reason but recovered differently:
+Their persistence and recovery differ:
 
 - `neutral_terminal` — *derived*. Recomputed from `terminal_names` on read (see
   `_neutral_terminal`), so dropping it loses nothing.
 - `longitude`, `latitude` — *sideloaded*. Attached by [`sideload_coordinates!`](@ref)
-  from an external Buscoords CSV, and **not** recoverable from anything else in
-  the file. Dropping them is lossy by design: the BMOPF schema has nowhere to put
-  bus coordinates, so they live in memory only and are re-attached from the CSV
-  on each load.
+  or supplied in input JSON. Preserved by default; omission is lossy because
+  they cannot be recomputed from the electrical model.
 
-See [`_strip_derived_bus_fields`](@ref), which is the only consumer.
+See [`_strip_derived_bus_fields`](@ref), shared by writing and schema validation.
 """
 const _DERIVED_BUS_FIELDS = ("neutral_terminal", "longitude", "latitude")
 
 """
-    _strip_derived_bus_fields(buses) -> Dict{String,Any}
+    _strip_derived_bus_fields(buses; include_coordinates=false) -> Dict{String,Any}
 
-Return a shallow copy of the bus collection with every field in
-[`_DERIVED_BUS_FIELDS`](@ref) removed from each bus object, so the written JSON
-satisfies the schema's `additionalProperties: false` on buses.
+Return a shallow copy of the bus collection without the derived neutral field.
+With `include_coordinates=false` (the schema-validation default), also remove
+bus longitude/latitude. The writer passes its explicit coordinate policy.
 
 Does not mutate the input: the caller's in-memory network keeps its coordinates
 and neutral terminals. Buses carrying none of these fields are passed through by
 reference rather than copied.
 
-Note this is lossy for sideloaded coordinates — see [`_DERIVED_BUS_FIELDS`](@ref)
-for which fields are recoverable on read and which are not.
+Omitting coordinates is lossy — see [`_DERIVED_BUS_FIELDS`](@ref).
 """
-function _strip_derived_bus_fields(buses::Dict)::Dict{String,Any}
+function _strip_derived_bus_fields(buses::Dict; include_coordinates::Bool=false)::Dict{String,Any}
+    fields = include_coordinates ? ("neutral_terminal",) : _DERIVED_BUS_FIELDS
     out = Dict{String,Any}()
     for (id, bus) in buses
-        if bus isa Dict && any(haskey(bus, k) for k in _DERIVED_BUS_FIELDS)
+        if bus isa Dict && any(haskey(bus, k) for k in fields)
             out[id] = Dict{String,Any}(k => v for (k, v) in bus
-                                       if k ∉ _DERIVED_BUS_FIELDS)
+                                       if k ∉ fields)
         else
             out[id] = bus
         end

@@ -325,6 +325,11 @@ section regardless of whether layer 1 ran.
 Layer 1 is skipped (with an `INFO` finding) when the spec version in
 `meta.\$schema` is not recognised — the hand-rolled catalogue still runs as
 a fallback.
+
+Both layers exclude the derived bus `neutral_terminal` and the known
+`longitude`/`latitude` extensions. A passing core schema check therefore does
+not certify those coordinate values or strict schema validity of JSON retaining
+them. Use `write_bmopf(...; include_coordinates=false)` to omit the extensions.
 """
 function schema_check(net::Dict{String,Any},
                       findings::Vector{Finding})::Dict{String,Any}
@@ -332,8 +337,9 @@ function schema_check(net::Dict{String,Any},
 
     # Drop tool-derived, non-spec bus fields (e.g. the materialised
     # `neutral_terminal`, re-derivable from `terminal_conventions`) before both
-    # validation layers — they are stripped on write and must not read as
-    # schema violations here. `_meta`/`_pmd` etc. are handled by `_strip_internal`.
+    # validation layers. Coordinates are preserved by default on write, but
+    # remain known extensions rather than core schema fields.
+    # `_meta`/`_pmd` etc. are handled by `_strip_internal`.
     buses = get(net, "bus", nothing)
     if buses isa Dict && any(b isa Dict && any(haskey(b, k) for k in _DERIVED_BUS_FIELDS)
                              for b in values(buses))
