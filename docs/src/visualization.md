@@ -5,12 +5,21 @@ explore the distribution network in your browser.** Tellegen provides the
 interactive viewer; BMOPFTools prepares, writes, and checks the case.
 You do not need to install Tellegen or run a Julia solver to inspect a file.
 
-![Tellegen showing a four-conductor distribution network and the load bus's terminal voltages, angles and currents.](assets/tellegen-distribution.jpg)
+![Tellegen displaying the SAPN Harrow BMOPF network over a geographic map, with 9,373 buses and 9,649 branches.](assets/tellegen-distribution.jpg)
 
 *The live [Tellegen](https://tellegen.dev/) viewer, captured on 20 October 2026.
-Its built-in `pf_3ph_line` example shows terminal-to-ground results at bus `lb`
-after an AC power-flow solve. This is a different case from the downloadable
-four-bus example below.*
+The SAPN Harrow BMOPF case from
+[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData/tree/main/output/SAPN)
+opens directly using its bus latitude/longitude fields: 9,373 buses, 9,532 lines
+and 117 transformers. This is a provisional model shown for visual inspection,
+not a validated operating network or a solved power-flow result. It is separate
+from the downloadable four-bus example below.*
+
+Network-model contributions: © 2026 Energex Network Model contributors
+([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)). Geometry:
+SA Power Networks, supplied by the Government of South Australia through
+Location SA; no endorsement is implied. Basemap: CARTO / OpenStreetMap
+contributors. See the [screenshot source and attribution](assets/tellegen-distribution-attribution.txt).
 
 ## What Tellegen offers
 
