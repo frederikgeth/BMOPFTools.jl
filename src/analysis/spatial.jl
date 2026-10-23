@@ -71,6 +71,168 @@ function _spatial_route_matches(a, b, ends)
     (near(a, p) && near(b, q)) || (near(a, q) && near(b, p))
 end
 
+# Read endpoint declarations without decoding electrical transformer parameters.
+# Preserve winding order and missing entries so partial geometry is never passed
+# off as the extent of the entire device.
+function _spatial_transformer_buses(t, subtype)
+    t isa AbstractDict || return Any[]
+    if subtype in WINDING_LIST_SUBTYPES
+        ws = get(t, "windings", nothing)
+        ws isa AbstractVector || return Any[]
+        return Any[w isa AbstractDict ? get(w, "bus", nothing) : nothing for w in ws]
+    end
+    Any[get(t, "bus_from", nothing), get(t, "bus_to", nothing)]
+end
+
+function _spatial_coincidence(net, coords, level_by_bus, crs_status)
+    # Equality is descriptive even without a metric CRS. Never mix x/y and
+    # longitude/latitude field families or silently snap almost-equal positions.
+    groups = Dict{Tuple{String,Float64,Float64},Vector{String}}()
+    for (id, p) in coords
+        crs_status == "declared_wgs84" && !_wgs84_point(p) && continue
+        push!(get!(groups, ("longitude_latitude", p...), String[]), id)
+    end
+    for (id, bus) in get(net, "bus", Dict())
+        bus isa AbstractDict || continue
+        # A bus with lon/lat fields uses that family, including invalid pairs.
+        any(k -> haskey(bus, k), ("longitude", "latitude")) && continue
+        p = _spatial_point(get(bus, "x", nothing), get(bus, "y", nothing))
+        p === nothing && continue
+        push!(get!(groups, ("xy", p...), String[]), string(id))
+    end
+    eligible = sum(length, values(groups); init=0)
+    filter!(kv -> length(last(kv)) > 1, groups)
+    members = sort!([sort!(ids) for ids in values(groups)], by=first)
+    group_of = Dict(id => i for (i, ids) in enumerate(members) for id in ids)
+    point_of = Dict(first(sort(ids)) => key for (key, ids) in groups)
+    contexts = [Set{String}() for _ in members]
+    references = [Dict{String,Any}[] for _ in members]
+    reference_counts = zeros(Int, length(members))
+    function record!(kind, id, buses, ports; state=nothing)
+        ids = unique(String[b for b in buses if b isa AbstractString])
+        by_group = Dict{Int,Int}()
+        for bus in ids
+            i = get(group_of, bus, 0)
+            i == 0 || (by_group[i] = get(by_group, i, 0) + 1)
+        end
+        for (i, count) in by_group
+            count >= 2 || continue
+            context = startswith(kind, "transformer:") ? "transformer_ports" :
+                kind == "switch" ? (state === true ? "open_switch" :
+                    state === false ? "closed_switch" : "unknown_switch_state") : "line_connected"
+            push!(contexts[i], context)
+            reference_counts[i] += 1
+            # Input traversal is sorted, so the bounded selection is stable.
+            length(references[i]) >= 20 && continue
+            push!(references[i], Dict{String,Any}("kind" => kind,
+                "component_id" => string(id), "ports" => ports, "open_switch" => state))
+        end
+    end
+    for kind in ("line", "switch")
+        for (id, component) in sort!(collect(get(net, kind, Dict())), by=first)
+            component isa AbstractDict || continue
+            buses = Any[get(component, "bus_from", nothing), get(component, "bus_to", nothing)]
+            ports = [Dict("bus" => buses[i], "terminal_map" => get(component, "terminal_map_$side", nothing))
+                     for (i, side) in enumerate(("from", "to"))]
+            record!(kind, id, buses, ports; state=kind == "switch" ? get(component, "open_switch", nothing) : nothing)
+        end
+    end
+    for subtype in TRANSFORMER_SUBTYPES
+        sub = get(get(net, "transformer", Dict()), subtype, nothing)
+        sub isa AbstractDict || continue
+        for (id, t) in sort!(collect(sub), by=first)
+            t isa AbstractDict || continue
+            buses = _spatial_transformer_buses(t, subtype)
+            ports = if subtype in WINDING_LIST_SUBTYPES
+                [Dict("winding" => i, "bus" => buses[i], "terminal_map" =>
+                    w isa AbstractDict ? get(w, "terminal_map", nothing) : nothing)
+                 for (i, w) in enumerate(get(t, "windings", Any[]) isa AbstractVector ? t["windings"] : Any[])]
+            else
+                [Dict("winding" => i, "bus" => buses[i], "terminal_map" => get(t, "terminal_map_$side", nothing))
+                 for (i, side) in enumerate(("from", "to"))]
+            end
+            record!("transformer:$subtype", id, buses, ports)
+        end
+    end
+    counts = Dict{String,Int}()
+    for tags in contexts
+        isempty(tags) && push!(tags, "no_direct_branch")
+        for tag in tags
+            counts[tag] = get(counts, tag, 0) + 1
+        end
+    end
+    # Retain examples per context, so plentiful transformer ports cannot hide
+    # groups with no direct branch. These tags explain declarations, not intent.
+    witnesses = Dict{String,Any}[]
+    selected = Dict{String,Int}()
+    for (i, ids) in enumerate(members)
+        tags = sort!(collect(contexts[i]))
+        any(tag -> get(selected, tag, 0) < 5, tags) || continue
+        for tag in tags
+            selected[tag] = get(selected, tag, 0) + 1
+        end
+        family, x, y = point_of[first(ids)]
+        bus_rows = [Dict{String,Any}("bus_id" => id,
+            "voltage_tier" => get(level_by_bus, id, "unassigned"),
+            "terminal_names" => get(net["bus"][id], "terminal_names", nothing))
+            for id in Iterators.take(ids, 20)]
+        push!(witnesses, Dict{String,Any}("anchor_bus" => first(ids),
+            "coordinate_fields" => family, "coordinate" => [x, y],
+            "n_buses" => length(ids), "buses" => bus_rows,
+            "contexts" => tags, "n_internal_components" => reference_counts[i],
+            "internal_components" => references[i],
+            "members_truncated" => length(ids) > 20,
+            "components_truncated" => reference_counts[i] > 20))
+    end
+    Dict{String,Any}("status" => eligible > 0 ? "assessed" : "indeterminate",
+        "basis" => "exact_coordinate_equality_within_field_family",
+        "n_eligible_buses" => eligible, "n_groups" => length(members),
+        "n_buses_in_groups" => sum(length, members; init=0),
+        "context_counts" => counts, "witnesses" => witnesses,
+        "witnesses_per_context_limit" => 5, "members_per_witness_limit" => 20,
+        "components_per_witness_limit" => 20,
+        "caution" => "Coordinate equality does not establish electrical connectivity, duplicate assets, or a need to merge buses. Context tags describe direct branch declarations only.")
+end
+
+function _spatial_transformer_extent(net, coords, eligible)
+    rows = Dict{String,Any}[]
+    incomplete = Dict{String,Any}[]
+    n_total = 0
+    for subtype in TRANSFORMER_SUBTYPES
+        sub = get(get(net, "transformer", Dict()), subtype, nothing)
+        sub isa AbstractDict || continue
+        for (id, t) in sort!(collect(sub), by=first)
+            n_total += 1
+            buses = _spatial_transformer_buses(t, subtype)
+            if length(buses) < 2 || !all(b -> b isa AbstractString && b in eligible, buses)
+                push!(incomplete, Dict{String,Any}("transformer_id" => string(id),
+                    "subtype" => subtype, "status" => "indeterminate", "winding_buses" => buses))
+                continue
+            end
+            distance = 0.0
+            farthest = [buses[1], buses[2]]
+            for i in eachindex(buses), j in (i+1):length(buses)
+                d = _spatial_haversine(coords[buses[i]], coords[buses[j]])
+                if d > distance
+                    distance = d
+                    farthest = [buses[i], buses[j]]
+                end
+            end
+            push!(rows, Dict{String,Any}("transformer_id" => string(id),
+                "subtype" => subtype, "distance_m" => distance,
+                "winding_buses" => buses, "farthest_bus_pair" => farthest))
+        end
+    end
+    sort!(rows, by=r -> (-r["distance_m"], r["subtype"], r["transformer_id"]))
+    Dict{String,Any}("n_transformers" => n_total, "n_assessed" => length(rows),
+        "n_indeterminate" => length(incomplete),
+        "n_zero_extent" => count(r -> r["distance_m"] == 0, rows),
+        "separation_m" => _spatial_quantiles(Float64[r["distance_m"] for r in rows]),
+        "farthest_witnesses" => collect(Iterators.take(rows, 10)),
+        "indeterminate_witnesses" => collect(Iterators.take(incomplete, 10)),
+        "caution" => "Extent is the maximum separation of all winding buses. Coincident ports can represent equipment at one location; zero extent alone is not an anomaly.")
+end
+
 """
     _spatial_analysis(net, voltage_levels) -> Union{Nothing,Dict{String,Any}}
 
@@ -225,30 +387,14 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         end
     end
 
-    transformer_rows = NamedTuple[]
-    if geodesic
-        transformers = get(net, "transformer", Dict())
-        for subtype in TRANSFORMER_SUBTYPES
-            subtype in WINDING_LIST_SUBTYPES && continue
-            sub = get(transformers, subtype, nothing)
-            sub isa AbstractDict || continue
-            for (id, transformer) in sub
-                a = get(coords, string(get(transformer, "bus_from", "")), nothing)
-                b = get(coords, string(get(transformer, "bus_to", "")), nothing)
-                if a !== nothing && b !== nothing && _wgs84_point(a) && _wgs84_point(b)
-                    push!(transformer_rows, (id=string(id), subtype=subtype,
-                                             distance=_spatial_haversine(a, b)))
-                end
-            end
-        end
-    end
+    eligible = Set(id for (id, p) in coords if geodesic && _wgs84_point(p))
+    transformers = _spatial_transformer_extent(net, coords, eligible)
 
     sort!(length_rows, by=r -> (-r.length, r.id))
     sort!(chord_rows, by=r -> (r.length - r.chord, r.id))
     short_chord_rows = filter(r -> r.length + max(5.0, 0.1 * r.chord) < r.chord,
                               chord_rows)
     sort!(route_gap_rows, by=r -> (-r.gap, r.id))
-    sort!(transformer_rows, by=r -> (-r.distance, r.id))
     length_stats = Dict(k => _spatial_quantiles(v) for (k, v) in lengths_by_level)
     relative_length_rows = [(id=r.id, tier=r.tier, length=r.length,
                              relative_to_p99=r.length / max(length_stats[r.tier]["p99"], eps()))
@@ -264,6 +410,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
             "n_complete_lonlat" => n_complete, "n_with_xy_fields" => n_xy,
             "n_partial" => n_partial, "n_invalid" => n_invalid,
             "n_outside_wgs84_range" => n_outside),
+        "coincidence" => _spatial_coincidence(net, coords, level_by_bus, crs_status),
         "routes" => Dict{String,Any}(
             "n_lines" => length(lines), "n_with_route" => n_routes,
             "basis_counts" => route_basis,
@@ -288,10 +435,5 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
             "shorter_than_chord_witnesses" => [Dict("line_id" => r.id, "tier" => r.tier,
                 "length_m" => r.length, "chord_m" => r.chord, "length_to_chord" => r.ratio)
                 for r in Iterators.take(short_chord_rows, 10)]),
-        "transformers" => Dict{String,Any}(
-            "separation_m" => _spatial_quantiles(Float64[r.distance for r in transformer_rows]),
-            "farthest_witnesses" => [Dict("transformer_id" => r.id,
-                                          "subtype" => r.subtype,
-                                          "distance_m" => r.distance)
-                                     for r in Iterators.take(transformer_rows, 10)]))
+        "transformers" => transformers)
 end

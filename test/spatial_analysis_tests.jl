@@ -132,3 +132,82 @@ using Test, BMOPFTools, JSON3
     finding_roundtrip = JSON3.read(JSON3.write(BMOPFTools._jsonable(short_finding.detail)))
     @test finding_roundtrip.chord_m > finding_roundtrip.length_m
 end
+
+@testset "contextual exact coincidence and transformer extent" begin
+    net = JSON3.read(read(joinpath(@__DIR__, "data", "spatial_context.json"), String), Dict{String,Any})
+    original = deepcopy(net)
+    levels = Dict{String,Any}("levels" => Dict(
+        "MV" => Dict("buses" => ["hv", "tertiary"]), "LV" => Dict("buses" => ["lv"])))
+    fs = Finding[]
+    spatial = BMOPFTools._spatial_analysis(net, levels, fs)
+    c = spatial["coincidence"]
+    @test c["n_groups"] == 3
+    @test c["n_buses_in_groups"] == 6
+    @test c["context_counts"] == Dict("transformer_ports" => 1, "open_switch" => 1, "no_direct_branch" => 1)
+    onsite = only(filter(w -> w["anchor_bus"] == "hv", c["witnesses"]))
+    @test onsite["n_internal_components"] == 2
+    @test [b["voltage_tier"] for b in onsite["buses"]] == ["MV", "LV"]
+    @test onsite["buses"][2]["terminal_names"] == ["1", "2", "3", "4"]
+    @test onsite["internal_components"][1]["ports"][2]["terminal_map"] == ["1", "2", "3", "4"]
+    @test isempty(fs) # Coincidence itself never warns, including unlinked buses.
+    @test net == original
+    xf = spatial["transformers"]
+    @test xf["n_assessed"] == 2
+    @test xf["n_zero_extent"] == 1
+    @test xf["separation_m"]["max"] > 90
+    @test first(xf["farthest_witnesses"])["winding_buses"] == ["hv", "lv", "tertiary"]
+
+    # Greatest separation need not include winding 1.
+    net["bus"]["lv"]["longitude"] = 152.999
+    spread = BMOPFTools._spatial_analysis(net, levels)["transformers"]
+    @test first(spread["farthest_witnesses"])["farthest_bus_pair"] == ["lv", "tertiary"]
+    delete!(net["bus"]["tertiary"], "latitude")
+    partial = BMOPFTools._spatial_analysis(net, levels)["transformers"]
+    @test partial["n_assessed"] == 1
+    @test partial["n_indeterminate"] == 1
+    @test only(partial["indeterminate_witnesses"])["status"] == "indeterminate"
+
+    # Almost equal coordinates are deliberately not snapped.
+    net = deepcopy(original)
+    net["bus"]["unlinked_b"]["longitude"] = nextfloat(net["bus"]["unlinked_a"]["longitude"])
+    @test BMOPFTools._spatial_analysis(net, levels)["coincidence"]["n_groups"] == 2
+    net = deepcopy(original)
+    delete!(net, "meta")
+    unknown = BMOPFTools._spatial_analysis(net, levels)
+    @test unknown["coincidence"]["n_groups"] == 3
+    @test unknown["transformers"]["n_assessed"] == 0
+    @test unknown["transformers"]["n_indeterminate"] == 2
+    net["switch"]["tie"]["open_switch"] = false
+    @test BMOPFTools._spatial_analysis(net, levels)["coincidence"]["context_counts"]["closed_switch"] == 1
+    delete!(net["switch"]["tie"], "open_switch")
+    @test BMOPFTools._spatial_analysis(net, levels)["coincidence"]["context_counts"]["unknown_switch_state"] == 1
+
+    # x/y equality is available without a metric interpretation, and stays in
+    # a separate field family even if the numeric tuples equal lon/lat tuples.
+    xy = Dict{String,Any}("bus" => Dict(
+        "a" => Dict("x" => 1.0, "y" => 2.0), "b" => Dict("x" => 1.0, "y" => 2.0),
+        "c" => Dict("longitude" => 1.0, "latitude" => 2.0),
+        "invalid" => Dict("longitude" => true, "latitude" => 2.0)))
+    xy_c = BMOPFTools._spatial_analysis(xy, levels)["coincidence"]
+    @test xy_c["n_groups"] == 1
+    @test xy_c["n_eligible_buses"] == 3
+    @test only(xy_c["witnesses"])["coordinate_fields"] == "xy"
+
+    # Bound member output and retain exact totals, independently of input order.
+    many = Dict{String,Any}("bus" => Dict(string(i) => Dict("longitude" => 1.0, "latitude" => 2.0) for i in 1:30))
+    many_c = BMOPFTools._spatial_analysis(many, levels)["coincidence"]
+    @test many_c["n_buses_in_groups"] == 30
+    @test length(only(many_c["witnesses"])["buses"]) == 20
+    @test only(many_c["witnesses"])["members_truncated"]
+    many["bus"] = Dict(reverse(collect(many["bus"])))
+    @test BMOPFTools._spatial_analysis(many, levels)["coincidence"] == many_c
+    rt = JSON3.read(JSON3.write(BMOPFTools._jsonable(spatial)))
+    @test rt.coincidence.context_counts.open_switch == 1
+    @test rt.transformers.n_zero_extent == 1
+    io = IOBuffer()
+    BMOPFTools._md_spatial(spatial, io)
+    md = String(take!(io))
+    @test occursin("Exact coordinate coincidence: 3 groups", md)
+    @test occursin("open_switch", md)
+    @test occursin("2/2 assessed", md)
+end

@@ -11,6 +11,9 @@
 # inapplicable/indeterminate status and no new Finding or PSK claim.
 # The package-local W.GEO data-quality heuristics require declared WGS84;
 # neither the recipe nor these heuristics assert a PSK preservation claim.
+# Exact-coordinate coincidence and all-winding transformer extents are descriptive
+# cleanup context, with bounded witnesses and explicit missing-evidence counts;
+# they add no preservation contract, PSK claim, or transport operation.
 # Transformer leakage and downstream-load applicability use winding-local
 # rating bases and explicit graph-bridge evidence; their minimized witnesses
 # remain package validation tests, not preservation contracts.

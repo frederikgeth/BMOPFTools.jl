@@ -326,6 +326,17 @@ function _md_spatial(spatial, io::IO)
         "$(reference["caution"])\n")
     println(io, "Line routes: $(routes["n_with_route"])/$(routes["n_lines"]); " *
         "$(reference["n_matching_wgs84_routes"]) WGS84 routes match their bus endpoints.\n")
+    coincidence = get(spatial, "coincidence", nothing)
+    if coincidence !== nothing
+        println(io, "Exact coordinate coincidence: $(coincidence["n_groups"]) groups " *
+            "containing $(coincidence["n_buses_in_groups"]) buses. $(coincidence["caution"])\n")
+        for witness in coincidence["witnesses"]
+            ids = join(["`$(b["bus_id"])`" for b in witness["buses"]], ", ")
+            suffix = witness["members_truncated"] ? " (member list truncated)" : ""
+            println(io, "- $ids$suffix: $(join(witness["contexts"], ", "))")
+        end
+        isempty(coincidence["witnesses"]) || println(io)
+    end
     println(io, "| Voltage tier | Lines with length | Median length (m) | 99th percentile (m) | Maximum (m) |")
     println(io, "|---|---:|---:|---:|---:|")
     for (tier, stats) in sort!(collect(lines["length_by_tier_m"]), by=first)
@@ -354,7 +365,7 @@ function _md_spatial(spatial, io::IO)
             "$(something(routes["n_length_mismatches"], "unassessed")) " *
             "of $(routes["n_length_comparisons"]) compared.\n")
         if xf["n"] > 0
-            println(io, "Transformer bus separation: median $(round(xf["p50"], digits=1)) m, " *
+            println(io, "Transformer extent across all winding buses: median $(round(xf["p50"], digits=1)) m, " *
                 "99th percentile $(round(xf["p99"], digits=1)) m, " *
                 "maximum $(round(xf["max"], digits=1)) m.\n")
             println(io, "Farthest transformer bus pairs:")
@@ -373,6 +384,11 @@ function _md_spatial(spatial, io::IO)
             end
             println(io)
         end
+    end
+    if haskey(transformers, "n_indeterminate")
+        println(io, "Transformer extents: $(transformers["n_assessed"])/$(transformers["n_transformers"]) assessed; " *
+            "$(transformers["n_indeterminate"]) indeterminate; " *
+            "$(transformers["n_zero_extent"]) with zero extent. $(transformers["caution"])\n")
     end
 end
 

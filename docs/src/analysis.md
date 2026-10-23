@@ -171,7 +171,31 @@ The spatial result groups fields as follows:
 | `coordinate_coverage` | Counts of complete longitude/latitude pairs, x/y fields, partial and invalid pairs, and pairs outside WGS84 numeric ranges. |
 | `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
 | `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
-| `transformers` | Bus separation quantiles and bounded farthest-pair witnesses. |
+| `coincidence` | Exact-coordinate groups, counts by direct branch context, and bounded bus/terminal/component witnesses. |
+| `transformers` | Maximum all-winding bus separation per transformer, quantiles, zero-extent counts, and bounded assessed/indeterminate witnesses. |
+
+Exact coincidence is descriptive equality within a coordinate field family,
+including `x/y` buses when they have no longitude/latitude fields. It needs no
+metric CRS and does not snap almost-equal coordinates. Invalid pairs and points
+outside an explicitly declared WGS84 range are excluded. A group may carry
+multiple context tags: `transformer_ports`, `line_connected`, `open_switch`,
+`closed_switch`, or `unknown_switch_state`. `no_direct_branch` means no line,
+switch, or transformer directly relates two distinct members; it says nothing
+about paths through other buses. None of these tags proves intent, duplication,
+or a need to merge buses. No Finding is emitted solely for coincidence.
+
+Witnesses retain bus voltage tiers and terminal names, plus declared component
+ports and terminal maps. Selection is deterministic and keeps examples for each
+context (five per context admission limit), with at most 20 member buses and 20
+internal components per group. Exact totals and truncation flags accompany
+bounded lists. Many legitimate transformer ports therefore cannot hide all
+groups without direct branch context.
+
+Transformer extent uses the maximum pairwise separation across **all** winding
+buses, including `n_winding`, rather than only distances from winding 1. Every
+winding must have eligible coordinates; missing or unsupported evidence yields
+an indeterminate witness instead of a partial extent. Zero extent is counted
+as descriptive context and is not an anomaly by itself.
 
 Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
 Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length
