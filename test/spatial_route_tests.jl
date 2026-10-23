@@ -100,4 +100,50 @@ using Test, BMOPFTools, JSON3
     reordered = deepcopy(fixture)
     reordered["line"] = Dict(reverse(collect(reordered["line"])))
     @test checks(reordered) == checks(fixture)
+    # Arrangement labels explain repeated identities without implying duplicates.
+    @test overlap["declared_arrangement"] == "series_chain"
+    @test any(w -> w["declared_arrangement"] == "parallel_bus_pair", witnesses)
+    group = BMOPFTools._spatial_line_group(fixture, ["ab","bc"], 1)
+    @test group["declared_arrangement"] == "series_chain"
+    @test group["lines_truncated"]
+    @test BMOPFTools._spatial_line_group(fixture, ["ab","bc","direct"], 20)["declared_arrangement"] == "branched_or_cyclic"
+    disconnected = deepcopy(fixture)
+    disconnected["line"]["bc"]["bus_from"] = "c"
+    disconnected["line"]["bc"]["bus_to"] = "offset"
+    @test BMOPFTools._spatial_line_group(disconnected, ["ab","bc"], 20)["declared_arrangement"] == "disconnected"
+    # Budget exhaustion in an alternative-bus query keeps later totals null.
+    crowded = deepcopy(fixture)
+    for i in 1:5
+        crowded["bus"]["alternative_$i"] = deepcopy(crowded["bus"]["c"])
+    end
+    cutoff = checks(crowded; max_topology_pairs=1)["route_endpoints"]
+    @test cutoff["status"] == "indeterminate"
+    @test cutoff["n_candidates"] === nothing
+    @test cutoff["n_candidates_observed"] == 1
+    @test only(only(cutoff["witnesses"])["endpoints"])["nearby_alternative_buses"]["n_buses"] === nothing
+    # Public analysis and the existing JSON adapter retain the new evidence.
+    sample = parse_bmopf(joinpath(@__DIR__, "..", "recipes", "analyze_case", "input.json"))
+    sample["meta"] = Dict("crs" => "WGS84")
+    for bus in values(sample["bus"])
+        bus["longitude"] = 153.; bus["latitude"] = -27.
+    end
+    response = execute_analysis(sample)
+    serialized = JSON3.read(JSON3.write(BMOPFTools._jsonable(response)))
+    @test serialized.status == "completed"
+    @test serialized.result.results.connectivity.spatial.discrepancy_candidates.checks.nearby_topology.n_candidates > 0
+
+    # Alternative-bus radius queries share the geographic seam and exact-boundary
+    # semantics of proximity, rather than treating longitude as a flat coordinate.
+    seam = Dict{String,Any}("meta" => Dict("crs" => "WGS84"), "bus" => Dict(
+        "a" => Dict("longitude"=>179.99,"latitude"=>0.),
+        "b" => Dict("longitude"=>-179.9999,"latitude"=>0.),
+        "alternative" => Dict("longitude"=>-179.999997,"latitude"=>0.)),
+        "line" => Dict("ab" => Dict("bus_from"=>"a","bus_to"=>"b", "meta"=>Dict("route_geometry"=>Dict(
+            "basis"=>"WGS84_geodesic_polyline", "coordinates"=>[[179.99,0.],[179.999997,0.]])))))
+    radius = BMOPFTools._spatial_haversine((179.999997,0.),(-179.999997,0.))
+    query(n, tolerance) = only(only(checks(n; route_endpoint_tolerance_m=tolerance)["route_endpoints"]["witnesses"])["endpoints"])["nearby_alternative_buses"]
+    @test query(seam,radius)["n_buses"] == 1
+    @test query(seam,prevfloat(radius))["n_buses"] == 0
+    @test only(query(seam,radius)["buses"])["bus"]["bus_id"] == "alternative"
+
 end

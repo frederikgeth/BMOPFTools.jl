@@ -74,8 +74,39 @@ using Test, BMOPFTools, JSON3
     tnet["transformer"] = Dict("n_winding" => Dict("t" => Dict("windings" => [Dict("bus"=>b) for b in ("a","b","c")])))
     @test candidates(tnet)["checks"]["nearby_topology"]["n_candidates"] == 0
     @test only(candidates(tnet; long_span_threshold_m=.4)["checks"]["branch_spans"]["witnesses"])["branch"]["kind"] == "transformer:n_winding"
+    # Witness limits do not truncate observed classifications or totals.
+    small = candidates(original; witness_limit=1)["checks"]["nearby_topology"]
+    @test length(small["witnesses"]) == 1
+    @test small["component_relation_counts_observed"] == Dict("separate_bus_components" => 3)
+    @test small["voltage_tier_relation_counts_observed"] == Dict("unknown" => 3)
+    @test small["n_endpoint_like_pairs_observed"] == 3
+    unavailable = deepcopy(original)
+    unavailable["line"]["ad"] = edge("a", "d")
+    delete!(unavailable["bus"]["d"], "x")
+    @test candidates(unavailable)["checks"]["branch_spans"]["status"] == "indeterminate"
+    @test candidates(unavailable)["checks"]["series_paths"]["status"] == "indeterminate"
+    @test candidates(unavailable)["checks"]["branch_spans"]["n_components_with_unavailable_distance"] == 1
+    badconfig = load_config(); badconfig["spatial"] = false
+    @test all(c -> c["reason"] == "invalid_configuration", values(BMOPFTools._spatial_analysis(original, Dict{String,Any}(); config=badconfig)["discrepancy_candidates"]["checks"]))
+    tiers = Dict{String,Any}("levels" => Dict("MV" => Dict("buses"=>["a"]), "LV" => Dict("buses"=>["b","c"])))
+    classified = BMOPFTools._spatial_analysis(original, tiers)["discrepancy_candidates"]["checks"]["nearby_topology"]
+    @test classified["voltage_tier_relation_counts_observed"] == Dict("same"=>1, "different"=>2)
+    # Numeric overflow never yields a partially measured all-port span.
+    overflow = local_net(Dict("a" => (-1e308,0.), "b" => (1e308,0.)))
+    overflow["line"]["ab"] = edge("a","b")
+    @test candidates(overflow)["checks"]["branch_spans"]["status"] == "indeterminate"
     # Stable ordering, including when input dictionary insertion order changes.
     reordered = deepcopy(original)
     reordered["bus"] = Dict(reverse(collect(reordered["bus"])))
     @test candidates(reordered) == candidates(original)
+    boundary = local_net(Dict("a"=>(0.,0.),"b"=>(10.,7.5),"c"=>(20.,0.)))
+    boundary["line"] = Dict("ab"=>edge("a","b"),"bc"=>edge("b","c"),"ac"=>edge("a","c"))
+    @test candidates(boundary)["checks"]["series_paths"]["n_candidates"] == 1
+    boundary["bus"]["b"]["y"] = 7.500001
+    @test candidates(boundary)["checks"]["series_paths"]["n_candidates"] == 0
+    longchain = local_net(Dict("a"=>(0.,0.),"b"=>(10.,0.),"c"=>(20.,0.),"d"=>(30.,0.)))
+    longchain["line"] = Dict("ab"=>edge("a","b"),"bc"=>edge("b","c"),"cd"=>edge("c","d"),"ad"=>edge("a","d"))
+    @test candidates(longchain; max_series_hops=2)["checks"]["series_paths"]["n_candidates"] == 0
+    @test candidates(longchain; max_series_hops=3)["checks"]["series_paths"]["n_candidates"] == 1
+
 end

@@ -362,6 +362,10 @@ function _md_spatial(spatial, io::IO)
             total = something(check["n_candidates"], "unavailable")
             println(io, "- **$name:** $(check["status"]) ($(check["reason"])); $total candidates; " *
                 "$(check["n_candidates_observed"]) observed.")
+            if haskey(check, "component_relation_counts_observed")
+                counts = join(["$k=$v" for (k,v) in sort!(collect(check["component_relation_counts_observed"]), by=first)], ", ")
+                println(io, "  - Observed component relations: $counts; $(check["n_endpoint_like_pairs_observed"]) endpoint-like pairs.")
+            end
             for witness in check["witnesses"]
                 code = witness["code"]
                 detail = if code == "S.NEARBY_WITHOUT_DIRECT_BRANCH"
@@ -376,7 +380,7 @@ function _md_spatial(spatial, io::IO)
                     "$(witness["branch"]["kind"]) $(witness["branch"]["component_id"]): $(round(witness["span_m"], digits=2)) m"
                 elseif code in ("S.SHARED_ROUTE_SEGMENT", "S.REPEATED_SOURCE_INTERVAL")
                     ids = [l["line_id"] for l in witness["lines"]]
-                    "$(join(ids, ", ")); $(witness["n_lines"]) lines; same bus pair $(witness["same_bus_pair"]); " *
+                    "$(join(ids, ", ")); $(witness["n_lines"]) lines; $(witness["declared_arrangement"]); " *
                         witness["terminal_map_relation"]
                 elseif code == "S.ROUTE_ENDPOINT_DISAGREEMENT"
                     parts = ["$(e["side"]) bus $(e["connected_bus"]["bus_id"]): $(round(e["gap_m"], digits=2)) m gap; " *

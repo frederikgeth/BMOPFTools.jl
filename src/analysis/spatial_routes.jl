@@ -3,12 +3,17 @@
 function _spatial_line_group(net, ids, limit)
     lines = get(net, "line", Dict())
     pairs = Set{Any}(); maps = Any[]; rows = Dict{String,Any}[]
+    adjacency = Dict{String,Vector{String}}()
     for id in ids
         line = lines[id]
         a, b = get(line, "bus_from", nothing), get(line, "bus_to", nothing)
         valid = a isa AbstractString && b isa AbstractString
         pair = valid ? _spatial_pair(a, b) : nothing
         push!(pairs, pair)
+        if valid
+            push!(get!(adjacency, a, String[]), b)
+            push!(get!(adjacency, b, String[]), a)
+        end
         from_map, to_map = get(line, "terminal_map_from", nothing), get(line, "terminal_map_to", nothing)
         map_valid = valid && all(m -> m isa AbstractVector && !isempty(m) && all(t -> t isa AbstractString, m), (from_map, to_map))
         push!(maps, map_valid ? (a == first(pair) ? (from_map, to_map) : (to_map, from_map)) : nothing)
@@ -19,10 +24,26 @@ function _spatial_line_group(net, ids, limit)
             "linecode" => get(line, "linecode", nothing), "feeder_id" => get(meta, "feeder_id", nothing)))
     end
     same_pair = !(nothing in pairs) && length(pairs) == 1
+    visited = Set{String}()
+    if !isempty(adjacency)
+        stack = [minimum(keys(adjacency))]
+        while !isempty(stack)
+            b = pop!(stack)
+            b in visited && continue
+            push!(visited, b)
+            append!(stack, (x for x in adjacency[b] if !(x in visited)))
+        end
+    end
+    connected = length(visited) == length(adjacency)
+    arrangement = nothing in pairs ? "indeterminate" : same_pair ? "parallel_bus_pair" :
+        connected && length(adjacency) == length(ids)+1 &&
+        count(v -> length(v) == 1, values(adjacency)) == 2 &&
+        all(v -> length(v) in (1, 2), values(adjacency)) ? "series_chain" :
+        connected ? "branched_or_cyclic" : "disconnected"
     map_relation = !same_pair || any(isnothing, maps) ? "unassessed" :
         all(m -> isequal(m, first(maps)), maps) ? "equal_declared_maps" : "different_declared_maps"
     Dict{String,Any}("n_lines" => length(ids), "lines" => rows, "lines_truncated" => length(ids) > limit,
-        "same_bus_pair" => same_pair, "terminal_map_relation" => map_relation)
+        "same_bus_pair" => same_pair, "declared_arrangement" => arrangement, "terminal_map_relation" => map_relation)
 end
 
 # Index only the already eligible bus coordinates; a route never grants an
@@ -202,7 +223,8 @@ function _spatial_route_candidates!(checks, net, topology, coordinates, frame, b
             _spatial_incomplete!(check, "no_routes"; status="inapplicable")
         end
     else
-        compared == 0 && _spatial_incomplete!(endpoints, "no_comparable_route_endpoints")
+        compared == 0 && _spatial_incomplete!(endpoints, "no_comparable_route_endpoints";
+            status=unsupported == route_count ? "inapplicable" : "indeterminate")
         valid_routes == 0 && _spatial_incomplete!(overlaps, "no_supported_valid_routes";
             status=invalid == 0 ? "inapplicable" : "indeterminate")
         valid_routes == 0 && invalid == 0 && _spatial_incomplete!(defects, "unsupported_route_basis"; status="inapplicable")

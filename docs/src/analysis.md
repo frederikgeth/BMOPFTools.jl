@@ -470,7 +470,12 @@ and never establish a valid series reduction: an interior bus can carry loads or
 other attachments, which are reported. The geometry test uses bus chords; it does
 not assert route coincidence. Shared-segment and repeated-source groups retain
 line identities, feeder labels, bus pairs and orientation-aligned terminal maps;
-separate circuits can legitimately share these attributes. Generic `raw_key`
+separate circuits can legitimately share these attributes. Groups additionally label
+the declared endpoint arrangement as a series chain, parallel bus pair, branched
+or cyclic graph, or disconnected graph. These labels do not infer electrical
+equivalence. Nearby-pair component and voltage-tier counts carry an `_observed`
+suffix and cover the whole scanned subset, independently of witness limits.
+Generic `raw_key`
 parent IDs are not interpreted as source intervals. Routes with different
 segmentation, partial collinear overlaps, geometric crossings, self-intersections
 without a repeated segment, arbitrary alternate paths and inferred source-to-target

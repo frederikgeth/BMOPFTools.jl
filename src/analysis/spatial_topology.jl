@@ -104,12 +104,15 @@ function _spatial_topology(net, levels, limit)
             "incident_branches" => [components[i] for i in Iterators.take(incident, limit)],
             "incident_branches_truncated" => length(incident) > limit)
     end
-    (components=components, incidence=incidence, line_adj=line_adj,
+    (components=components, incidence=incidence, incidence_sets=Dict(b => Set(v) for (b,v) in incidence), line_adj=line_adj,
      certain=certain_id, possible=possible_id, invalid=invalid, bus_context=bus_context)
 end
 
 function _spatial_nearby_callback(check, topology, coordinates, levels, budget, limit)
     checked = Ref(0); exhausted = Ref(false)
+    check["component_relation_counts_observed"] = Dict{String,Int}()
+    check["voltage_tier_relation_counts_observed"] = Dict{String,Int}()
+    check["n_endpoint_like_pairs_observed"] = 0
     function observe(as, bs, distance)
         exhausted[] && return
         for (i, a) in enumerate(as), (j, b) in enumerate(bs)
@@ -120,21 +123,27 @@ function _spatial_nearby_callback(check, topology, coordinates, levels, budget, 
             end
             checked[] += 1
             # Direct declarations explain co-location (including open switches).
-            isempty(intersect(topology.incidence[a], topology.incidence[b])) || continue
+            isdisjoint(topology.incidence_sets[a], topology.incidence_sets[b]) || continue
             connection = topology.certain[a] == topology.certain[b] ? "same_bus_component" :
                 topology.possible[a] == topology.possible[b] ? "unknown_switch_state" :
                 topology.invalid > 0 ? "indeterminate_graph" : "separate_bus_components"
+            ta, tb = get(levels, a, "unassigned"), get(levels, b, "unassigned")
+            tiers = "unassigned" in (ta, tb) ? "unknown" : ta == tb ? "same" : "different"
+            endpoint_like = min(length(topology.incidence[a]), length(topology.incidence[b])) <= 1
+            check["n_endpoint_like_pairs_observed"] += endpoint_like
+            for (key, label) in (("component_relation_counts_observed", connection), ("voltage_tier_relation_counts_observed", tiers))
+                counts = check[key]
+                counts[label] = get(counts, label, 0) + 1
+            end
             if length(check["witnesses"]) >= limit
                 check["n_candidates_observed"] += 1
                 check["counts_complete"] && (check["n_candidates"] = check["n_candidates_observed"])
                 continue
             end
-            ta, tb = get(levels, a, "unassigned"), get(levels, b, "unassigned")
-            tiers = "unassigned" in (ta, tb) ? "unknown" : ta == tb ? "same" : "different"
             evidence = Dict{String,Any}("buses" => [topology.bus_context(a), topology.bus_context(b)],
                 "distance_m" => distance, "component_relation" => connection,
                 "voltage_tier_relation" => tiers,
-                "endpoint_like" => min(length(topology.incidence[a]), length(topology.incidence[b])) <= 1,
+                "endpoint_like" => endpoint_like,
                 "coordinate_evidence" => [coordinates.evidence[a], coordinates.evidence[b]])
             _spatial_candidate!(check, "S.NEARBY_WITHOUT_DIRECT_BRANCH", evidence, limit)
         end
@@ -143,17 +152,30 @@ function _spatial_nearby_callback(check, topology, coordinates, levels, budget, 
 end
 
 function _spatial_series_candidates!(check, topology, coordinates, frame, budget, hops, tolerance, limit)
-    checked = 0
+    checked = 0; eligible = 0; missing = 0
+    check["n_eligible_direct_lines"] = 0
+    check["n_lines_with_unavailable_distance"] = 0
     for (direct_index, direct) in enumerate(topology.components)
         direct["kind"] == "line" || continue
         a, b = [p["bus"] for p in direct["ports"]]
-        all(id -> haskey(coordinates.points, id), (a, b)) || continue
+        if !all(id -> haskey(coordinates.points, id), (a, b))
+            missing += 1
+            check["n_lines_with_unavailable_distance"] = missing
+            continue
+        end
         chord = _coordinate_distance(coordinates.points[a], coordinates.points[b], frame.kind)
-        (chord === nothing || chord == 0) && continue
+        if chord === nothing
+            missing += 1
+            check["n_lines_with_unavailable_distance"] = missing
+            continue
+        end
+        chord == 0 && continue
+        eligible += 1
+        check["n_eligible_direct_lines"] = eligible
         for (next, edge) in topology.line_adj[a]
             edge == direct_index && continue
             path = [a, next]; edges = [edge]
-            previous, current = a, next
+            current = next
             while true
                 if checked >= budget
                     check["path_steps_checked"] = checked
@@ -169,7 +191,7 @@ function _spatial_series_candidates!(check, topology, coordinates, frame, budget
                 following, next_edge = only(choices)
                 (next_edge == direct_index || following in path) && break
                 push!(edges, next_edge); push!(path, following)
-                previous, current = current, following
+                current = following
             end
             (current == b && length(edges) >= 2) || continue
             all(id -> haskey(coordinates.points, id), path) || continue
@@ -187,14 +209,18 @@ function _spatial_series_candidates!(check, topology, coordinates, frame, budget
         end
     end
     check["path_steps_checked"] = checked
+    eligible == 0 && missing > 0 && _spatial_incomplete!(check, "no_comparable_line_endpoints")
 end
 
 function _spatial_branch_spans!(check, topology, coordinates, frame, threshold, budget, limit)
-    checked = 0; missing = 0
+    checked = 0; missing = 0; assessed = 0
+    check["n_assessed_components"] = 0
+    check["n_components_with_unavailable_distance"] = 0
     for component in topology.components
         bs = unique([p["bus"] for p in component["ports"]])
         if !all(b -> haskey(coordinates.points, b), bs)
             missing += 1
+            check["n_components_with_unavailable_distance"] = missing
             continue
         end
         longest = 0.0; pair = nothing; unavailable = false
@@ -215,6 +241,8 @@ function _spatial_branch_spans!(check, topology, coordinates, frame, threshold, 
             missing += 1
             continue
         end
+        assessed += 1
+        check["n_assessed_components"] = assessed
         longest > threshold || continue
         _spatial_candidate!(check, "S.LONG_BRANCH_SPAN", Dict{String,Any}(
             "branch" => component, "farthest_buses" => pair, "span_m" => longest,
@@ -222,11 +250,13 @@ function _spatial_branch_spans!(check, topology, coordinates, frame, threshold, 
     end
     check["distance_pairs_checked"] = checked
     check["n_components_with_unavailable_distance"] = missing
+    assessed == 0 && missing > 0 && _spatial_incomplete!(check, "no_comparable_branch_coordinates")
 end
 
 function _spatial_discrepancies(net, coordinates, frame, levels, config)
     options = get(config, "spatial", Dict())
-    options = options isa AbstractDict ? options : Dict()
+    options_valid = options isa AbstractDict
+    options = options_valid ? options : Dict()
     enabled = get(options, "discrepancy_enabled", true)
     budget = get(options, "max_topology_pairs", 100_000)
     limit = get(options, "witness_limit", 20)
@@ -234,7 +264,7 @@ function _spatial_discrepancies(net, coordinates, frame, levels, config)
     tolerance = _spatial_length(get(options, "route_endpoint_tolerance_m", 5.0))
     span = _spatial_length(get(options, "long_span_threshold_m", 10_000.0))
     validint(x) = x isa Integer && !(x isa Bool) && 1 <= x <= typemax(Int)
-    valid = enabled isa Bool && validint(budget) && validint(limit) && validint(hops) &&
+    valid = options_valid && enabled isa Bool && validint(budget) && validint(limit) && validint(hops) &&
         2 <= hops <= 64 && tolerance !== nothing && tolerance > 0 && span !== nothing && span > 0
     checks = Dict{String,Any}(
         "nearby_topology" => _spatial_candidate_check("Metric-eligible bus pairs within the proximity radius, including zero distance, without any direct branch declaration."),
