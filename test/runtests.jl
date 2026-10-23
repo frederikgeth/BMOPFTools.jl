@@ -4015,6 +4015,7 @@ include("mcp_execution_tests.jl")
     include("ideal_transformer_shunt_tests.jl")
     include("transformer_leakage_policy_tests.jl")
     include("ideal_regulator_tests.jl")
+    include("ideal_center_tap_tests.jl")
 
     # -----------------------------------------------------------------------
     # General n-winding (3+) transformers — accessors, validation, Yprim, and

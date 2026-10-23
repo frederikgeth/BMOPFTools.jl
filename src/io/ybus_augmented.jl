@@ -12,7 +12,7 @@
     IdealCoupling
 
 One coupling (per conductor / winding core) in an [`AugYbusResult`](@ref):
-a port equation `Σ coeffs[k]·V[nodes[k]] = Z·i` with an auxiliary current
+a port equation `Σ coeffs[k]·V[nodes[k]] = (Z*i)[j]` with an auxiliary current
 unknown occupying one bordered row/column of `K`.
 
 Fields:
@@ -114,7 +114,7 @@ Keywords:
   constrained in either mode.
 - `ideal_xfmrs = :constrain | :stamp` — `:constrain` (default) uses bordered
   equations for `single_phase`, `wye_delta`, `delta_wye`,
-  `single_phase_autotransformer` and `open_delta_regulator` at/below
+  `single_phase_autotransformer`, `open_delta_regulator` and `center_tap` at/below
   `config["domain_rules"]["xfmr_z_min_ohm"]`. Leakage is retained in the
   lower-right block `-scale²*Z`; it is not approximated as zero. Ratios of one
   also use winding equations: isolated neutral references are not fused.
@@ -148,7 +148,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
     if ideal_xfmrs === :constrain
         xfmrs = get(net, "transformer", Dict())
         if xfmrs isa Dict
-            for subtype in ("single_phase", "wye_delta", "delta_wye", "single_phase_autotransformer", "open_delta_regulator")
+            for subtype in ("single_phase", "wye_delta", "delta_wye", "single_phase_autotransformer", "open_delta_regulator", "center_tap")
                 sub = get(xfmrs, subtype, Dict())
                 sub isa Dict || continue
                 for xid in sort!(collect(String.(keys(sub))))

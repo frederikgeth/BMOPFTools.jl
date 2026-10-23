@@ -82,7 +82,7 @@ of the winding-1 coil-base `ZB`, including partly singular matrices.
 
 `ybus_augmented` currently supports small/zero leakage for `single_phase`,
 `wye_delta`, `delta_wye`, `single_phase_autotransformer`, and
-`open_delta_regulator`. Other subtypes requiring a border raise
+`open_delta_regulator`, and `center_tap`. Other subtypes requiring a border raise
 `ArgumentError` until their port domains are supported. `ybus_passive`,
 `ybus_linearized`, standalone primitives and `ideal_xfmrs=:stamp` reject such
 couplings rather than omit them or stamp a large inverse. Set a lower threshold
@@ -187,3 +187,21 @@ Each regulator core uses its own positive finite fixed tap and Type A/B ratio.
 If one core needs a border, both core equations are retained, including all
 finite leakage and one no-load shunt per core. Terminal current and absorbed
 power tests cover shifted references, unbalanced excitation and mixed cutoffs.
+
+### Center-tap ports
+
+A center-tap transformer's terminal order is `[HV phase, HV neutral]` and
+`[LV leg1, LV neutral, LV leg2]`. Its two auxiliary currents use the LV coil
+base. Write `uH=(V_Hp-V_Hn)/N`, `u1=V_leg1-V_Ln`, `u2=V_Ln-V_leg2`,
+`zH=Z_from*tap²/N²`, and `zL=Z_to`. The port rows are `[uH-u1,uH-u2]` and
+the impedance block is `[zH+zL zH; zH zH+zL]`. This preserves the opposite
+polarity of leg2 and every finite arm, including when another arm is zero.
+No arm is inverted. Fully ideal units have two independent zero-voltage-drop
+relations; partly ideal units generally have a nonzero lower-right block.
+Magnetising current remains on LV leg1 and both internal neutral grounding
+branches remain in the passive block (PSK-000002).
+
+`couplings[j]` describes auxiliary unknown `w[j]` at row/column
+`length(nodes)+j`; its physical port current is `couplings[j].scale*w[j]`.
+For coupled ports the lower-right block defines mutual impedances, so a single
+auxiliary row cannot be interpreted as an independent ideal constraint.

@@ -118,6 +118,8 @@ source_paths = [
   "src/io/ybus_augmented.jl",
   "docs/src/spec/nodal-admittance.md",
   "test/ideal_transformer_shunt_tests.jl",
+  "test/ideal_center_tap_tests.jl",
+  "test/data/ideal_center_tap.json",
   "src/io/transformer_leakage.jl",
   "test/transformer_leakage_policy_tests.jl",
   "test/data/ideal_transformer_shunts.json",
