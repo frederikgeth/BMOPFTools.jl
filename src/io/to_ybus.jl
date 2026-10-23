@@ -23,7 +23,7 @@
 #   center_tap    — 3-winding star-equivalent T-model (§4)
 
 """
-    transformer_yprim(xfmr, subtype) -> (nodes, Y)
+    transformer_yprim(xfmr, subtype; config=_DEFAULT_CONFIG, shunt_only=false) -> (nodes, Y)
 
 Return the nodal admittance block for a single transformer data dict.
 
@@ -42,10 +42,16 @@ The regulator subtypes `"single_phase_autotransformer"` and
 `"open_delta_regulator"` use the fixed-tap effective ratio `n_eff`
 (`BMOPFTools._autotransformer_ratio`) in place of the nameplate turns ratio.
 
-Raises an `ArgumentError` for unknown subtypes. Returns `([], zeros(0,0))` when
-the transformer is degenerate (zero `v_nom_to`, missing terminal maps).
+Raises `ArgumentError` for unknown subtypes, invalid ratios, or leakage at/below
+`xfmr_z_min_ohm` on the effective coil reference basis. Use `ybus_augmented`
+for supported small/zero-leakage couplings. `shunt_only=true` explicitly returns
+only finite shunts for inspection (ordinary two-winding and center-tap subtypes);
+that block alone is not a complete network element.
 """
-function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString)
+function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString;
+                           config=_DEFAULT_CONFIG, shunt_only::Bool=false)
+    shunt_only && return _transformer_shunt_yprim(xfmr, subtype)
+    _require_finite_xfmr_primitive(xfmr, subtype, config)
     subtype == "single_phase" && return _yprim_single_phase(xfmr)
     subtype == "center_tap"   && return _yprim_center_tap(xfmr)
     subtype == "wye_delta"    && return _yprim_yd(xfmr; wye_is_from=true)
@@ -62,6 +68,7 @@ function _transformer_shunt_yprim(xfmr, subtype)
     subtype == "single_phase" && return _yprim_single_phase(xfmr; series=false)
     subtype == "wye_delta" && return _yprim_yd(xfmr; wye_is_from=true, series=false)
     subtype == "delta_wye" && return _yprim_yd(xfmr; wye_is_from=false, series=false)
+    subtype == "center_tap" && return _yprim_center_tap(xfmr; series=false)
     throw(ArgumentError("shunt-only primitive is not supported for $subtype"))
 end
 
@@ -372,7 +379,7 @@ end
 
 # ── center_tap ──────────────────────────────────────────────────────────────
 
-function _yprim_center_tap(xfmr::Dict{String,Any})
+function _yprim_center_tap(xfmr::Dict{String,Any}; series::Bool=true)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tm_fr = Vector{String}(get(xfmr, "terminal_map_from", String[]))
@@ -412,11 +419,11 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
     # 3-port star admittance (all referred to LV).
     # Arms: HV (impedance Z1/N², admitted y1=N²/Z1), LV1 (Z2, y2), LV2 (Z2, y2).
     # LV-leg-2 winding spans V_c→V_g (same direction as leg-1 V_a→V_g).
-    if iszero(Z1) || iszero(Z2)
+    if !series || iszero(Z1) || iszero(Z2)
         # A zero star arm makes the coupling (partly) ideal, which has no
         # admittance form: the series block is singular. Still stamp the no-load
         # shunt (previously dropped) so a zero-leakage unit keeps its core loss.
-        @warn "center_tap transformer has a zero series star arm; the ideal " *
+        series && @warn "center_tap transformer has a zero series star arm; the ideal " *
               "coupling has no admittance form — exporting the (singular) shunt-only Yprim."
         Y_deg = zeros(ComplexF64, 5, 5)
         Y0 = G0 + im*B0                    # across winding 2 (LV leg 1: nodes 3-4)
@@ -787,7 +794,8 @@ end
 # stamped per leg via the connection-aware coil incidence P: a WYE coil maps to
 # its phase-neutral pair, a DELTA coil to its phase-phase pair (so delta windings
 # couple phase nodes). The optional no-load shunt is stamped across winding 2 (OpenDSS convention).
-function nwinding_yprim(xfmr::Dict{String,Any})
+function nwinding_yprim(xfmr::Dict{String,Any}; config=_DEFAULT_CONFIG)
+    _require_finite_xfmr_primitive(xfmr, "n_winding", config)
     ws = _nw_windings(xfmr)
     nW = length(ws)
     nW < 2 && return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))

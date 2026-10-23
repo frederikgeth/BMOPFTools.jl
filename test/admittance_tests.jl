@@ -122,7 +122,8 @@ end
             "v_nom_to"          => 400.0,
         )
         N = 11000.0 / 400.0
-        nodes, Y = transformer_yprim(xfmr, "single_phase")
+        @test_throws ArgumentError transformer_yprim(xfmr, "single_phase")
+        nodes, Y = transformer_yprim(xfmr, "single_phase"; shunt_only=true)
         # With Z=0: series terms drop out; Y should be zero (shunt also zero).
         @test all(iszero, Y)
         check_symmetry(Y)
@@ -656,7 +657,7 @@ end
         # off-diag −y, with y = Y0/3.
         yd = merge(base, Dict{String,Any}(
             "terminal_map_from" => ["1","2","3","n"], "terminal_map_to" => ["1","2","3"]))
-        _, Y_yd = transformer_yprim(yd, "wye_delta")
+        _, Y_yd = transformer_yprim(yd, "wye_delta"; shunt_only=true)
         for k in 5:7
             @test Y_yd[k, k] ≈ 2 * Y0 / 3
             @test Y_yd[k, 5 + (k - 5 + 1) % 3] ≈ -Y0 / 3
@@ -665,7 +666,7 @@ end
         # center_tap: shunt across winding 2 = LV leg 1 (nodes 3-4).
         ct = merge(base, Dict{String,Any}(
             "terminal_map_from" => ["ph","n"], "terminal_map_to" => ["1","n","2"]))
-        _, Y_ct = transformer_yprim(ct, "center_tap")
+        _, Y_ct = transformer_yprim(ct, "center_tap"; shunt_only=true)
         @test Y_ct[3, 3] ≈ Y0 && Y_ct[4, 4] ≈ Y0
         @test Y_ct[3, 4] ≈ -Y0 && Y_ct[4, 3] ≈ -Y0
         @test all(iszero, Y_ct[1:2, 1:2])   # HV side carries no shunt

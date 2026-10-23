@@ -38,20 +38,14 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
             end
             grounded && (net["bus"][side=="from" ? "hv" : "lv"]["perfectly_grounded_terminals"]=["n"])
             before=deepcopy(net)
-            r=ybus_augmented(net)
+            r=ybus_augmented(net;config=Dict("domain_rules"=>Dict("xfmr_z_min_ohm"=>1e-5)))
             @test passive(r) ≈ expected_shunts(net,subtype,r) atol=1e-13
             @test net==before
-            if ratio==1.
-                for builder in (ybus_passive,ybus_linearized)
-                    p=builder(net)
-                    @test passive(p) ≈ expected_shunts(net,subtype,p) atol=1e-13
-                end
+            for builder in (ybus_passive,ybus_linearized)
+                @test_throws ArgumentError builder(net;config=Dict("domain_rules"=>Dict("xfmr_z_min_ohm"=>1e-5)))
             end
-            # Exact-zero :stamp still retains precisely the shunt contribution.
-            if z==0.
-                p=ybus_augmented(net;ideal_xfmrs=:stamp)
-                @test passive(p) ≈ expected_shunts(net,subtype,p) atol=1e-13
-            end
+            @test_throws ArgumentError ybus_augmented(net;ideal_xfmrs=:stamp,
+                config=Dict("domain_rules"=>Dict("xfmr_z_min_ohm"=>1e-5)))
             # Ordinary finite stamps must not receive an extra copy of shunts.
             x["r_series_to"]=0.01
             p=ybus_passive(net); nd,Y=transformer_yprim(x,subtype)
@@ -64,16 +58,21 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
         end
     end
     @testset "Only earth path and missing/doubled counterfactuals" begin
-        net=base(); r=ybus_passive(net); rhs=zeros(ComplexF64,length(r.nodes))
+        net=base(); net["bus"]["hv"]["perfectly_grounded_terminals"]=["n"]
+        r=ybus_augmented(net); rhs=zeros(ComplexF64,size(r.K,1))
+        # Inject on the isolated secondary: its finite grounding branch must
+        # carry the net injection; no primary-neutral bond is permitted.
         rhs[r.index[("lv","a")]]=1.
-        v=Matrix(r.Y)\rhs
+        fixed=r.index[("hv","a")]; free=setdiff(axes(r.K,1),[fixed])
+        v=zeros(ComplexF64,size(r.K,1)); v[fixed]=230.
+        v[free]=r.K[free,free]\(rhs[free]-r.K[free,[fixed]]*v[[fixed]])
         @test v[r.index[("lv","n")]] ≈ 2.
-        @test v[r.index[("lv","a")]] ≈ 1002.
+        @test v[r.index[("lv","a")]] ≈ 232.
         @test v[r.index[("lv","n")]]/2 ≈ sum(rhs)
-        @test norm(2Matrix(r.Y)*v-rhs)>0.9
-        @test norm(zeros(size(r.Y))*v-rhs)>0.9
+        @test norm((2Matrix(r.K)*v-rhs)[free])>0.9
+        @test norm((zeros(size(r.K))*v-rhs)[free])>0.9
         rt=JSON3.read(JSON3.write(net),Dict{String,Any})
-        @test Matrix(ybus_passive(rt).Y)==Matrix(r.Y)
+        @test Matrix(ybus_augmented(rt).K)==Matrix(r.K)
     end
     @testset "Promoted transformer agrees with finite leakage limit" begin
         net=base(); x=net["transformer"]["single_phase"]["t"]

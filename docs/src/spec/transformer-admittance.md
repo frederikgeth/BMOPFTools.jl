@@ -65,8 +65,9 @@ so is the result:
     $\textcolor{brown}{\mathbf{Y}_x}$ is finite only for **nonzero leakage**. An ideal
     ($\textcolor{brown}{Z}\to 0$) winding has infinite primitive admittance and a
     singular block; OpenDSS always carries a small leakage, and so must any exported
-    case. A zero-leakage unit that still has core loss exports its (singular)
-    shunt-only block rather than zeros.
+    case. The public primitive API rejects leakage at/below the configured
+    threshold. Use `ybus_augmented` for supported couplings or request
+    `shunt_only=true` explicitly to inspect the finite no-load contribution.
 
 ## 2. `single_phase` (wye–wye, Γ-model)
 
