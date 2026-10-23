@@ -34,6 +34,7 @@ interface_paths = [
   "test/switch_scenario_tests.jl",
   "test/spatial_analysis_tests.jl",
   "test/data/spatial_context.json",
+  "test/data/spatial_split_lengths.json",
   "test/transformer_impedance_basis_tests.jl",
   "test/operational_mesh_applicability_tests.jl",
   "test/fixtures/delta_wye_secondary_leakage.json",

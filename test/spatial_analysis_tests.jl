@@ -133,6 +133,144 @@ using Test, BMOPFTools, JSON3
     @test finding_roundtrip.chord_m > finding_roundtrip.length_m
 end
 
+@testset "physical and electrical length evidence" begin
+    bus(x) = Dict{String,Any}("longitude" => x, "latitude" => -27.0)
+    a, b = [153.0, -27.0], [153.001, -27.0]
+    chord = BMOPFTools._spatial_haversine(a, b)
+    net = Dict{String,Any}("meta" => Dict("crs" => "WGS84"),
+        "bus" => Dict("a" => bus(a[1]), "b" => bus(b[1])),
+        "line" => Dict("section" => Dict{String,Any}(
+            "bus_from" => "a", "bus_to" => "b", "length" => 1.0,
+            "linecode" => "cable", "meta" => Dict{String,Any}(
+                "electrical_length_regularized" => true, "physical_length_m" => chord,
+                "raw_key" => "synthetic:section",
+                "route_geometry" => Dict{String,Any}("basis" => "WGS84_geodesic_polyline",
+                    "coordinates" => [a, b], "length_m" => chord)))))
+    levels = Dict{String,Any}()
+    function report(net)
+        fs = Finding[]
+        r = BMOPFTools._spatial_analysis(net, levels, fs)
+        r, fs
+    end
+    r, fs = report(net)
+    ctx = r["length_context"]
+    row = only(ctx["witnesses"])
+    @test isempty(fs)
+    @test row["comparison_basis"] == "physical_length_m"
+    @test row["comparison_length_m"] ≈ chord
+    @test row["declared_length_m"] == 1.0
+    @test row["route_length_check"]["status"] == "passed"
+    @test row["physical_route_check"]["status"] == "passed"
+    @test row["declared_physical_check"]["status"] == "failed"
+    @test row["source_references"]["raw_key"] == "synthetic:section"
+    @test ctx["comparison_status_counts"]["chord_check"]["passed"] == 1
+    @test row["length_scales_impedance"]
+    @test ctx["context_counts"]["regularized_electrical_length"] == 1
+
+    # A valid physical length is checked even when declared electrical length
+    # is long enough, and invalid explicit metadata never silently falls back.
+    short = deepcopy(net)
+    short["line"]["section"]["length"] = 200.0
+    short["line"]["section"]["meta"]["physical_length_m"] = 1.0
+    r, fs = report(short)
+    finding = only(filter(f -> f.code == "W.GEO.LINE_SHORTER_THAN_CHORD", fs))
+    @test finding.detail["comparison_basis"] == "physical_length_m"
+    @test finding.detail["comparison_length_m"] == 1.0
+    @test finding.detail["length_m"] == 200.0
+    @test JSON3.read(JSON3.write(BMOPFTools._jsonable(finding.detail))).physical_length_m == 1.0
+    for invalid in (true, -1.0, Inf, "100 metres")
+        bad = deepcopy(net)
+        bad["line"]["section"]["meta"]["physical_length_m"] = invalid
+        r, fs = report(bad)
+        @test isempty(fs)
+        @test r["length_context"]["comparison_status_counts"]["chord_check"]["indeterminate"] == 1
+        @test r["length_context"]["context_counts"]["invalid_length_declaration"] == 1
+        @test JSON3.read(JSON3.write(BMOPFTools._jsonable(r))).length_context.witnesses[1].physical_length_m === nothing
+    end
+    missing = deepcopy(net)
+    delete!(missing["line"]["section"]["meta"], "physical_length_m")
+    r, fs = report(missing)
+    @test isempty(fs)
+    @test only(r["length_context"]["witnesses"])["comparison_basis"] == "unavailable"
+    @test r["length_context"]["comparison_status_counts"]["chord_check"]["indeterminate"] == 1
+
+    # Strict lower-bound and symmetric-comparison boundaries.
+    tolerance = max(5.0, 0.1 * chord)
+    boundary = deepcopy(net)
+    boundary["line"]["section"]["meta"]["physical_length_m"] = chord - tolerance
+    @test isempty(last(report(boundary)))
+    boundary["line"]["section"]["meta"]["physical_length_m"] -= 1e-6
+    @test any(f -> f.code == "W.GEO.LINE_SHORTER_THAN_CHORD", last(report(boundary)))
+    @test BMOPFTools._spatial_length_comparison(105.0, 100.0)["status"] == "passed"
+    @test BMOPFTools._spatial_length_comparison(110.0, 100.0)["status"] == "passed"
+    @test BMOPFTools._spatial_length_comparison(nextfloat(110.0), 100.0)["status"] == "failed"
+
+    reversed = deepcopy(net)
+    reverse!(reversed["line"]["section"]["meta"]["route_geometry"]["coordinates"])
+    @test first(report(reversed))["length_context"] == first(report(net))["length_context"]
+    route_bad = deepcopy(net)
+    route_bad["line"]["section"]["meta"]["route_geometry"]["coordinates"] = [a, [NaN, -27.0], b]
+    r, fs = report(route_bad)
+    @test r["length_context"]["context_counts"]["invalid_route_geometry"] == 1
+    @test only(r["length_context"]["witnesses"])["route_length_check"]["status"] == "indeterminate"
+    @test JSON3.read(JSON3.write(BMOPFTools._jsonable(r))).length_context.witnesses[1].recomputed_route_length_m === nothing
+    malformed = deepcopy(net)
+    malformed["line"]["section"]["meta"]["route_geometry"] = "not a route object"
+    @test first(report(malformed))["length_context"]["context_counts"]["invalid_route_geometry"] == 1
+    for invalid in (true, -10.0, Inf)
+        bad = deepcopy(net)
+        bad["line"]["section"]["meta"]["route_geometry"]["length_m"] = invalid
+        r, _ = report(bad)
+        @test r["routes"]["n_length_comparisons"] == 0
+        @test only(r["length_context"]["witnesses"])["route_length_check"]["status"] == "indeterminate"
+        @test r["length_context"]["context_counts"]["invalid_route_length"] == 1
+    end
+    mismatch = deepcopy(net)
+    mismatch["line"]["section"]["meta"]["route_geometry"]["length_m"] = 200.0
+    @test first(report(mismatch))["length_context"]["context_counts"]["stored_route_length_mismatch"] == 1
+
+    # Route evidence has endpoint scope, including transformer extent. It does
+    # not establish the frame of a distant, unrelated coordinate pair.
+    scoped = deepcopy(net)
+    delete!(scoped, "meta")
+    scoped["bus"]["c"] = bus(154.0)
+    scoped["bus"]["d"] = bus(154.001)
+    scoped["line"]["unrelated"] = Dict{String,Any}("bus_from" => "c", "bus_to" => "d", "length" => 1.0)
+    scoped["transformer"] = Dict("delta_wye" => Dict("unrelated" => Dict("bus_from" => "c", "bus_to" => "d")))
+    r, fs = report(scoped)
+    @test isempty(fs)
+    @test r["coordinate_reference"]["n_metric_eligible_buses"] == 2
+    @test r["coordinate_reference"]["distance_scope"] == "matched_route_endpoints_only"
+    @test r["lines"]["n_with_chord_comparison"] == 1
+    @test r["transformers"]["n_indeterminate"] == 1
+    @test r["length_context"]["comparison_status_counts"]["chord_check"]["indeterminate"] == 1
+    scoped["meta"] = Dict("crs" => "EPSG:28356")
+    r, _ = report(scoped)
+    @test r["length_context"]["comparison_status_counts"]["chord_check"]["inapplicable"] == 2
+    # A separately labelled WGS84 route can still be internally measured.
+    @test r["length_context"]["comparison_status_counts"]["route_length_check"]["passed"] == 1
+
+    # An invalid interior vertex must not establish route-derived bus evidence.
+    delete!(route_bad, "meta")
+    @test first(report(route_bad))["coordinate_reference"]["n_metric_eligible_buses"] == 0
+    @test first(report(route_bad))["coordinate_reference"]["status"] == "unspecified"
+    @test BMOPFTools._spatial_point(-0.0, 0.0) === BMOPFTools._spatial_point(0.0, -0.0)
+    io = IOBuffer()
+    BMOPFTools._md_spatial(first(report(net)), io)
+    @test occursin("comparison basis `physical_length_m`", String(take!(io)))
+
+    # Minimized synthetic witness for parent metadata retained after splitting:
+    # report the discrepancy, but do not label the section lengths as defective
+    # or infer a source-to-target transformation from their shared raw key.
+    split = JSON3.read(read(joinpath(@__DIR__, "data", "spatial_split_lengths.json"), String), Dict{String,Any})
+    split_before = deepcopy(split)
+    split_report, split_findings = report(split)
+    @test split_report["length_context"]["context_counts"]["declared_physical_length_mismatch"] == 2
+    @test length(split_report["length_context"]["witnesses"]) == 2
+    @test isempty(split_findings)
+    @test split == split_before
+end
+
 @testset "contextual exact coincidence and transformer extent" begin
     net = JSON3.read(read(joinpath(@__DIR__, "data", "spatial_context.json"), String), Dict{String,Any})
     original = deepcopy(net)
@@ -177,6 +315,17 @@ end
     @test unknown["coincidence"]["n_groups"] == 3
     @test unknown["transformers"]["n_assessed"] == 0
     @test unknown["transformers"]["n_indeterminate"] == 2
+    linked = deepcopy(original)
+    linked["line"] = Dict("coincident_line" => Dict("bus_from" => "unlinked_b", "bus_to" => "unlinked_a",
+        "length" => 1.0, "terminal_map_from" => ["2"], "terminal_map_to" => ["1"]))
+    linked_c = BMOPFTools._spatial_analysis(linked, levels)["coincidence"]
+    @test linked_c["context_counts"]["line_connected"] == 1
+    link = only(filter(w -> w["anchor_bus"] == "unlinked_a", linked_c["witnesses"]))
+    @test only(link["internal_components"])["ports"][1]["terminal_map"] == ["2"]
+    @test only(link["internal_components"])["ports"][1]["bus"] == "unlinked_b"
+    malformed = deepcopy(original)
+    malformed["transformer"]["n_winding"]["three_ports"]["windings"] = [Dict("bus" => "hv"), nothing, Dict("bus" => "lv")]
+    @test BMOPFTools._spatial_analysis(malformed, levels)["transformers"]["n_indeterminate"] == 1
     net["switch"]["tie"]["open_switch"] = false
     @test BMOPFTools._spatial_analysis(net, levels)["coincidence"]["context_counts"]["closed_switch"] == 1
     delete!(net["switch"]["tie"], "open_switch")
@@ -201,6 +350,10 @@ end
     @test only(many_c["witnesses"])["members_truncated"]
     many["bus"] = Dict(reverse(collect(many["bus"])))
     @test BMOPFTools._spatial_analysis(many, levels)["coincidence"] == many_c
+    groups = Dict{String,Any}("bus" => Dict("$(i)_$(j)" => Dict("x" => i, "y" => 0) for i in 1:30 for j in 1:2))
+    groups_c = BMOPFTools._spatial_analysis(groups, levels)["coincidence"]
+    @test groups_c["n_groups"] == 30
+    @test length(groups_c["witnesses"]) == 5
     rt = JSON3.read(JSON3.write(BMOPFTools._jsonable(spatial)))
     @test rt.coincidence.context_counts.open_switch == 1
     @test rt.transformers.n_zero_extent == 1

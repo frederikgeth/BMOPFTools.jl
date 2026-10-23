@@ -145,20 +145,27 @@ Metre-based line chord, route endpoint, and transformer separation measurements
 are computed only when network metadata declares WGS84 (`crs`,
 `coordinate_system`, or `coordinate_reference_system`) or a matching
 `WGS84_geodesic_polyline` route provides coordinate-frame evidence. The latter
-is explicitly labeled as route evidence, not a network-wide CRS declaration.
+is explicitly labeled as route evidence and applies only to bus endpoints
+matched to a fully valid route; it does not establish the frame of other buses.
+`n_metric_eligible_buses` and `distance_scope` expose this coverage.
 Out-of-range and incomplete coordinate pairs are counted but excluded from
 geodesic calculations.
 
 The coordinate loader copies OpenDSS `x,y` into fields named
 `longitude,latitude` without transforming or verifying them. Plausible numeric
 values therefore do not establish a geographic CRS. When the frame remains
-unspecified or is declared as another CRS, spatial distances are marked
-inapplicable; line-length statistics remain available. The result makes no
+unspecified, spatial distances remain indeterminate; a declared unsupported CRS
+makes bus geodesic comparisons inapplicable. Line-length statistics remain available. The result makes no
 automatic asset-error claim when the CRS is unspecified. With a network-level
 WGS84 declaration, out-of-range bus coordinates and sufficiently large line
-chord or route-endpoint contradictions raise `W.GEO.*` Findings. A line's
-equivalent electrical length can differ from its physical route, so these
-warnings call for source-data review rather than automatic repair.
+chord or route-endpoint contradictions raise `W.GEO.*` Findings. For the chord
+Finding, `line.meta.physical_length_m` takes precedence over `line.length`.
+If `electrical_length_regularized = true` and no physical length is supplied,
+the physical chord check is indeterminate and emits no length Finding.
+Invalid explicit physical metadata also prevents fallback to declared length.
+Without these metadata fields the declared length remains the comparison basis.
+A line's equivalent electrical length can differ from its physical route, so
+these warnings call for source-data review rather than automatic repair.
 Route `length_m` and declared line `length` may come from the same upstream
 geometry calculation, so their agreement is an internal-consistency check,
 not independent confirmation of the physical route.
@@ -172,6 +179,7 @@ The spatial result groups fields as follows:
 | `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
 | `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
 | `coincidence` | Exact-coordinate groups, counts by direct branch context, and bounded bus/terminal/component witnesses. |
+| `length_context` | Separate declared, physical, endpoint, stored-route and recomputed-route lengths; per-comparison status counts and bounded contextual witnesses. |
 | `transformers` | Maximum all-winding bus separation per transformer, quantiles, zero-extent counts, and bounded assessed/indeterminate witnesses. |
 
 Exact coincidence is descriptive equality within a coordinate field family,
@@ -196,6 +204,30 @@ buses, including `n_winding`, rather than only distances from winding 1. Every
 winding must have eligible coordinates; missing or unsupported evidence yields
 an indeterminate witness instead of a partial extent. Zero extent is counted
 as descriptive context and is not an anomaly by itself.
+
+`length_context` compares the physical length (or eligible declared-length
+fallback) against the endpoint distance, recomputes WGS84 route lengths from
+all vertices, compares stored versus recomputed route length, and separately
+compares declared versus physical length. Each comparison reports `passed`,
+`failed`, `indeterminate`, or `inapplicable`; these are data-consistency statuses,
+not scientific preservation or feasibility claims. Unknown bus frames and
+missing measurements are indeterminate; explicitly unsupported bus frames or
+route bases are inapplicable. A separately labelled WGS84 route can be measured
+internally without establishing the coordinate frame of its buses.
+
+Each comparison uses `max(5 m, 10% of reference distance)`; the endpoint test is
+one-sided and the other comparisons are symmetric. Witnesses preserve the basis,
+threshold, regularization flag, source references, and whether declared length
+scales impedance. Invalid route vertices or lengths never enter a calculation.
+Five examples per context admission limit keep output bounded while retaining
+exact counts. No new Finding codes are emitted by these contextual comparisons.
+The older `lines` and `routes` counters still compare **declared** lengths; they
+are descriptive and may differ from the physically qualified Finding count.
+For example, splitting a line may leave parent-level `physical_length_m` on
+each child section. The declared/physical comparison exposes that discrepancy
+without identifying which value should change or inferring a transformation
+mapping from shared source IDs. `test/data/spatial_split_lengths.json` is a
+package-owned synthetic witness of this metadata pattern.
 
 Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
 Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length

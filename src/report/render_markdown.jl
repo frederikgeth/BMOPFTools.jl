@@ -376,7 +376,7 @@ function _md_spatial(spatial, io::IO)
             println(io)
         end
         if !isempty(lines["shorter_than_chord_witnesses"])
-            println(io, "**Line length/chord candidates:**")
+            println(io, "**Declared lengths below endpoint distance** (descriptive; see physical/electrical context below):")
             for witness in lines["shorter_than_chord_witnesses"]
                 println(io, "- `$(witness["line_id"])`: declared " *
                     "$(round(witness["length_m"], digits=1)) m, " *
@@ -389,6 +389,26 @@ function _md_spatial(spatial, io::IO)
         println(io, "Transformer extents: $(transformers["n_assessed"])/$(transformers["n_transformers"]) assessed; " *
             "$(transformers["n_indeterminate"]) indeterminate; " *
             "$(transformers["n_zero_extent"]) with zero extent. $(transformers["caution"])\n")
+    end
+    context = get(spatial, "length_context", nothing)
+    if context !== nothing
+        println(io, "**Physical and electrical length context.** $(context["caution"])\n")
+        println(io, "| Comparison | Passed | Failed | Indeterminate | Inapplicable |")
+        println(io, "|---|---:|---:|---:|---:|")
+        for (name, counts) in sort!(collect(context["comparison_status_counts"]), by=first)
+            println(io, "| $name | $(counts["passed"]) | $(counts["failed"]) | " *
+                "$(counts["indeterminate"]) | $(counts["inapplicable"]) |")
+        end
+        println(io)
+        metres(v) = v === nothing ? "unavailable" : "$(round(v, digits=2)) m"
+        for row in context["witnesses"]
+            println(io, "- `$(row["line_id"])`: $(join(row["contexts"], ", ")); " *
+                "declared $(metres(row["declared_length_m"])), physical $(metres(row["physical_length_m"])), " *
+                "endpoint distance $(metres(row["chord_m"])), stored route $(metres(row["stored_route_length_m"])), " *
+                "recomputed route $(metres(row["recomputed_route_length_m"])); " *
+                "comparison basis `$(row["comparison_basis"])`.")
+        end
+        isempty(context["witnesses"]) || println(io)
     end
 end
 

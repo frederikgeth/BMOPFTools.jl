@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "82c7f609c41903d1aba26e6feaa13a447c3b43ab107b17b0cc2067ce51ac661a"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "4b996de1cba8f990b9fec55e8937466f322632700936bf26294cc89e4a693d42"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -225,7 +225,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="GEO",
         catalogue_section="GEO",
         section_title="declared geographic coordinates",
-        meaning="A line's declared section length is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its WGS84 bus coordinates. Physical routes cannot be shorter than their endpoint chord; inspect coordinates, units, and whether `length` is an equivalent electrical length.",
+        meaning="A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its explicitly declared WGS84 bus coordinates. An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

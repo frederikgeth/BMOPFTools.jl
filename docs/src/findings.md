@@ -81,7 +81,7 @@ values, threshold, and CRS evidence.
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `W.GEO.WGS84_RANGE` | W | A finite bus coordinate is outside the longitude ±180° or latitude ±90° range despite an explicit network WGS84 declaration. This suggests a coordinate or CRS metadata error. |
-| `W.GEO.LINE_SHORTER_THAN_CHORD` | W | A line's declared section length is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its WGS84 bus coordinates. Physical routes cannot be shorter than their endpoint chord; inspect coordinates, units, and whether `length` is an equivalent electrical length. |
+| `W.GEO.LINE_SHORTER_THAN_CHORD` | W | A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its explicitly declared WGS84 bus coordinates. An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance. |
 | `W.GEO.ROUTE_ENDPOINT_GAP` | W | A declared WGS84 route polyline's endpoints differ from the connected bus positions by more than `max(20 m, 10% of chord)`, with reversed route direction allowed. Inspect the bus reference, route provenance, and snapping assumptions. |
 
 ## VOLT — voltage levels

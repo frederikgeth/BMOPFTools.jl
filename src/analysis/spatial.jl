@@ -4,8 +4,126 @@
 function _spatial_point(x, y)
     (x isa Real && y isa Real && !(x isa Bool) && !(y isa Bool) &&
      isfinite(x) && isfinite(y)) || return nothing
-    point = (Float64(x), Float64(y))
+    # Signed zero denotes the same position and must hash into the same group.
+    point = (iszero(x) ? 0.0 : Float64(x), iszero(y) ? 0.0 : Float64(y))
     all(isfinite, point) ? point : nothing
+end
+
+function _spatial_length(value)
+    value isa Real && !(value isa Bool) && isfinite(value) && value >= 0 || return nothing
+    converted = Float64(value)
+    isfinite(converted) ? converted : nothing
+end
+
+function _spatial_route_length(route)
+    route === nothing && return (status="inapplicable", reason="no_route", length=nothing)
+    get(route, "basis", nothing) == "WGS84_geodesic_polyline" ||
+        return (status="inapplicable", reason="unsupported_route_basis", length=nothing)
+    raw = get(route, "coordinates", nothing)
+    raw isa AbstractVector && length(raw) >= 2 ||
+        return (status="indeterminate", reason="invalid_route_coordinates", length=nothing)
+    points = Tuple{Float64,Float64}[]
+    for vertex in raw
+        vertex isa AbstractVector && length(vertex) >= 2 ||
+            return (status="indeterminate", reason="invalid_route_vertex", length=nothing)
+        p = _spatial_point(vertex[1], vertex[2])
+        _wgs84_point(p) || return (status="indeterminate", reason="invalid_route_vertex", length=nothing)
+        push!(points, p)
+    end
+    distance = sum(_spatial_haversine(points[i-1], points[i]) for i in 2:length(points))
+    (status="passed", reason="valid_wgs84_polyline", length=distance)
+end
+
+function _spatial_length_comparison(a, b; lower_bound=false, unavailable="indeterminate")
+    if a === nothing || b === nothing
+        return Dict{String,Any}("status" => unavailable, "tolerance_m" => nothing,
+                               "difference_m" => nothing)
+    end
+    tolerance = max(5.0, 0.1 * b)
+    failed = lower_bound ? a + tolerance < b : abs(a - b) > tolerance
+    Dict{String,Any}("status" => failed ? "failed" : "passed",
+        "tolerance_m" => tolerance, "difference_m" => a - b)
+end
+
+function _spatial_line_context(id, line, chord, metric_status)
+    meta = get(line, "meta", nothing)
+    meta = meta isa AbstractDict ? meta : Dict()
+    declared = _spatial_length(get(line, "length", nothing))
+    physical = _spatial_length(get(meta, "physical_length_m", nothing))
+    regularized = get(meta, "electrical_length_regularized", false)
+    # An invalid explicit physical length or regularization flag must not fall
+    # back to a physical interpretation of the electrical declaration.
+    basis = haskey(meta, "physical_length_m") ? "physical_length_m" :
+        regularized === false ? "declared_length" : "unavailable"
+    comparison = basis == "physical_length_m" ? physical :
+        basis == "declared_length" ? declared : nothing
+    route = _spatial_route(line)
+    geometry = haskey(meta, "route_geometry") && route === nothing ?
+        (status="indeterminate", reason="invalid_route_object", length=nothing) : _spatial_route_length(route)
+    stored_route = route === nothing ? nothing : _spatial_length(get(route, "length_m", nothing))
+    chord_check = _spatial_length_comparison(comparison, chord; lower_bound=true, unavailable=metric_status)
+    chord_check["basis"] = basis
+    route_check = _spatial_length_comparison(stored_route, geometry.length;
+        unavailable=geometry.status == "inapplicable" ? "inapplicable" : "indeterminate")
+    physical_route_check = _spatial_length_comparison(comparison, geometry.length;
+        unavailable=geometry.status == "inapplicable" ? "inapplicable" : "indeterminate")
+    declared_physical_check = _spatial_length_comparison(declared, physical;
+        unavailable=haskey(meta, "physical_length_m") ? "indeterminate" : "inapplicable")
+    tags = String[]
+    for (tag, check) in (("shorter_than_chord", chord_check),
+                         ("stored_route_length_mismatch", route_check),
+                         ("physical_route_length_mismatch", physical_route_check),
+                         ("declared_physical_length_mismatch", declared_physical_check))
+        check["status"] == "failed" && push!(tags, tag)
+    end
+    regularized === true && push!(tags, "regularized_electrical_length")
+    geometry.status == "indeterminate" && push!(tags, "invalid_route_geometry")
+    route !== nothing && haskey(route, "length_m") && stored_route === nothing &&
+        push!(tags, "invalid_route_length")
+    (declared === nothing || (haskey(meta, "physical_length_m") && physical === nothing) ||
+        !(regularized isa Bool)) && push!(tags, "invalid_length_declaration")
+    Dict{String,Any}("line_id" => string(id),
+        "bus_from" => get(line, "bus_from", nothing), "bus_to" => get(line, "bus_to", nothing),
+        "declared_length_m" => declared, "physical_length_m" => physical,
+        "comparison_length_m" => comparison, "comparison_basis" => basis,
+        "electrical_length_regularized" => regularized isa Bool ? regularized : nothing,
+        "length_scales_impedance" => haskey(line, "linecode") || haskey(line, "geometry"),
+        "chord_m" => chord, "stored_route_length_m" => stored_route,
+        "recomputed_route_length_m" => geometry.length,
+        "route_geometry_status" => geometry.status, "route_geometry_reason" => geometry.reason,
+        "chord_check" => chord_check, "route_length_check" => route_check,
+        "physical_route_check" => physical_route_check, "declared_physical_check" => declared_physical_check,
+        "contexts" => tags,
+        "source_references" => Dict(k => meta[k] for k in ("raw_key", "raw_layer", "source_entity_id") if haskey(meta, k)))
+end
+
+function _spatial_length_summary(rows)
+    status_counts = Dict{String,Any}()
+    for key in ("chord_check", "route_length_check", "physical_route_check", "declared_physical_check")
+        counts = Dict(status => 0 for status in ("passed", "failed", "indeterminate", "inapplicable"))
+        for row in rows
+            counts[row[key]["status"]] += 1
+        end
+        status_counts[key] = counts
+    end
+    counts = Dict{String,Int}()
+    witnesses = Dict{String,Any}[]
+    selected = Dict{String,Int}()
+    for row in sort(rows, by=r -> r["line_id"])
+        tags = row["contexts"]
+        for tag in tags
+            counts[tag] = get(counts, tag, 0) + 1
+        end
+        any(tag -> get(selected, tag, 0) < 5, tags) || continue
+        push!(witnesses, row)
+        for tag in tags
+            selected[tag] = get(selected, tag, 0) + 1
+        end
+    end
+    Dict{String,Any}("n_lines" => length(rows), "comparison_status_counts" => status_counts,
+        "context_counts" => counts, "witnesses" => witnesses, "witnesses_per_context_limit" => 5,
+        "tolerance" => "max(5 m, 10% of reference distance)",
+        "caution" => "Physical length metadata takes precedence over declared electrical length. Regularized electrical length alone has no physical interpretation. Route agreement is internal consistency, not independent confirmation of surveyed geometry.")
 end
 
 _wgs84_point(p) = p !== nothing && -180 <= p[1] <= 180 && -90 <= p[2] <= 90
@@ -273,6 +391,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
     lines = get(net, "line", Dict())
     route_basis = Dict{String,Int}()
     route_matched = 0
+    route_supported_buses = Set{String}()
     n_routes = 0
     for line in values(lines)
         line isa AbstractDict || continue
@@ -285,8 +404,10 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         a = get(coords, string(get(line, "bus_from", "")), nothing)
         b = get(coords, string(get(line, "bus_to", "")), nothing)
         if a !== nothing && b !== nothing && _wgs84_point(a) && _wgs84_point(b) &&
-           _spatial_route_matches(a, b, _spatial_route_ends(route))
+           _spatial_route_matches(a, b, _spatial_route_ends(route)) &&
+           _spatial_route_length(route).status == "passed"
             route_matched += 1
+            push!(route_supported_buses, string(line["bus_from"]), string(line["bus_to"]))
         end
     end
     declared_crs = _spatial_crs_declaration(net)
@@ -296,6 +417,9 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         (route_supports_wgs84 ? "wgs84_route_evidence" : "unspecified") :
         (_spatial_is_wgs84(declared_crs) ? "declared_wgs84" : "declared_other")
     geodesic = crs_status in ("declared_wgs84", "wgs84_route_evidence")
+    eligible = Set(id for (id, p) in coords if _wgs84_point(p) &&
+        (crs_status == "declared_wgs84" ||
+         (crs_status == "wgs84_route_evidence" && id in route_supported_buses)))
     if crs_status == "declared_wgs84"
         for id in sort!(collect(keys(coords)))
             point = coords[id]
@@ -309,8 +433,10 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
     caution = crs_status == "declared_wgs84" ?
         "Network metadata declares WGS84; metre distances use valid longitude/latitude pairs only." :
         crs_status == "wgs84_route_evidence" ?
-        "No network CRS is declared. Matching WGS84 route polylines support a geographic interpretation; verify that other bus coordinates share that frame. Fields named longitude/latitude may otherwise be arbitrary x/y." :
-        "Coordinate system is not confirmed as WGS84. Longitude/latitude fields may contain arbitrary x/y; geodesic distances and spatial mismatch checks are inapplicable."
+        "No network CRS is declared. Only bus endpoints matched to valid WGS84 route polylines support metre distances; the coordinate frame of other buses remains indeterminate." :
+        crs_status == "declared_other" ?
+        "The declared coordinate system is outside the supported WGS84 metric domain; bus geodesic comparisons are inapplicable. Exact coordinate equality remains descriptive." :
+        "Coordinate system is not confirmed as WGS84. Longitude/latitude fields may contain arbitrary x/y; bus metre distances remain indeterminate."
 
     level_by_bus = Dict{String,String}()
     for (label, level) in get(voltage_levels, "levels", Dict())
@@ -322,38 +448,43 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
     length_rows = NamedTuple[]
     chord_rows = NamedTuple[]
     route_gap_rows = NamedTuple[]
+    context_rows = Dict{String,Any}[]
     n_route_length_mismatch = 0
     n_route_endpoint_comparisons = 0; n_route_length_comparisons = 0
-    for (id, line) in lines
+    for (id, line) in sort!(collect(lines), by=first)
         line isa AbstractDict || continue
         from = string(get(line, "bus_from", "")); to = string(get(line, "bus_to", ""))
         a = get(coords, from, nothing); b = get(coords, to, nothing)
         tier_a = get(level_by_bus, from, "unassigned")
         tier_b = get(level_by_bus, to, "unassigned")
         tier = tier_a == tier_b ? tier_a : "cross_tier"
-        raw_length = get(line, "length", nothing)
-        length_m = raw_length isa Real && !(raw_length isa Bool) && isfinite(raw_length) && raw_length >= 0 ?
-            Float64(raw_length) : nothing
+        length_m = _spatial_length(get(line, "length", nothing))
+        chord = from in eligible && to in eligible ? _spatial_haversine(a, b) : nothing
+        metric_status = crs_status == "declared_other" ? "inapplicable" : "indeterminate"
+        context = _spatial_line_context(id, line, chord, metric_status)
+        push!(context_rows, context)
         if length_m !== nothing
             push!(get!(lengths_by_level, tier, Float64[]), length_m)
             push!(length_rows, (id=string(id), tier=tier, length=length_m))
         end
-        if geodesic && a !== nothing && b !== nothing && _wgs84_point(a) && _wgs84_point(b)
-            chord = _spatial_haversine(a, b)
+        if chord !== nothing
             if length_m !== nothing
                 push!(chord_rows, (id=string(id), tier=tier, length=length_m,
                                    chord=chord, ratio=chord > 0 ? length_m / chord : nothing))
-                tolerance = max(5.0, 0.1 * chord)
-                if crs_status == "declared_wgs84" && length_m + tolerance < chord
-                    push!(findings, Finding(WARNING, "W.GEO.LINE_SHORTER_THAN_CHORD",
-                        :connectivity, :line, string(id),
-                        "Line '$id' is shorter than the geographic distance between its buses.",
-                        Dict{String,Any}("bus_from" => from, "bus_to" => to,
-                            "from_lonlat" => collect(a), "to_lonlat" => collect(b),
-                            "length_m" => length_m, "chord_m" => chord,
-                            "tolerance_m" => tolerance, "declared_crs" => declared_crs,
-                            "length_scales_impedance" => haskey(line, "linecode") || haskey(line, "geometry"))))
-                end
+            end
+            if crs_status == "declared_wgs84" && context["chord_check"]["status"] == "failed"
+                push!(findings, Finding(WARNING, "W.GEO.LINE_SHORTER_THAN_CHORD",
+                    :connectivity, :line, string(id),
+                    "Line '$id' has a length below the geographic distance between its buses; inspect its physical/electrical length basis.",
+                    Dict{String,Any}("bus_from" => from, "bus_to" => to,
+                        "from_lonlat" => collect(a), "to_lonlat" => collect(b),
+                        "length_m" => length_m, "chord_m" => chord,
+                        "comparison_length_m" => context["comparison_length_m"],
+                        "comparison_basis" => context["comparison_basis"],
+                        "physical_length_m" => context["physical_length_m"],
+                        "electrical_length_regularized" => context["electrical_length_regularized"],
+                        "tolerance_m" => context["chord_check"]["tolerance_m"], "declared_crs" => declared_crs,
+                        "length_scales_impedance" => context["length_scales_impedance"])))
             end
             route = _spatial_route(line)
             if route !== nothing && get(route, "basis", nothing) == "WGS84_geodesic_polyline"
@@ -377,8 +508,8 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                                 "route_basis" => "WGS84_geodesic_polyline")))
                     end
                 end
-                route_length = get(route, "length_m", nothing)
-                if length_m !== nothing && route_length isa Real && isfinite(route_length)
+                route_length = _spatial_length(get(route, "length_m", nothing))
+                if length_m !== nothing && route_length !== nothing
                     n_route_length_comparisons += 1
                     abs(length_m - route_length) > max(5.0, 0.1 * length_m) &&
                         (n_route_length_mismatch += 1)
@@ -387,7 +518,6 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         end
     end
 
-    eligible = Set(id for (id, p) in coords if geodesic && _wgs84_point(p))
     transformers = _spatial_transformer_extent(net, coords, eligible)
 
     sort!(length_rows, by=r -> (-r.length, r.id))
@@ -404,6 +534,9 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         "coordinate_reference" => Dict{String,Any}(
             "status" => crs_status, "declared_crs" => declared_crs,
             "caution" => caution, "n_matching_wgs84_routes" => route_matched,
+            "n_metric_eligible_buses" => length(eligible),
+            "distance_scope" => crs_status == "declared_wgs84" ? "declared_network_frame" :
+                crs_status == "wgs84_route_evidence" ? "matched_route_endpoints_only" : "unavailable",
             "geodesic_distances_applicable" => geodesic),
         "coordinate_coverage" => Dict{String,Any}(
             "n_buses" => length(buses), "n_with_any_coordinate" => n_any,
@@ -411,6 +544,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
             "n_partial" => n_partial, "n_invalid" => n_invalid,
             "n_outside_wgs84_range" => n_outside),
         "coincidence" => _spatial_coincidence(net, coords, level_by_bus, crs_status),
+        "length_context" => _spatial_length_summary(context_rows),
         "routes" => Dict{String,Any}(
             "n_lines" => length(lines), "n_with_route" => n_routes,
             "basis_counts" => route_basis,

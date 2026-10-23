@@ -14,6 +14,10 @@
 # Exact-coordinate coincidence and all-winding transformer extents are descriptive
 # cleanup context, with bounded witnesses and explicit missing-evidence counts;
 # they add no preservation contract, PSK claim, or transport operation.
+# Length context distinguishes physical/electrical declarations and recomputed
+# route geometry. W.GEO.LINE_SHORTER_THAN_CHORD uses an explicit physical length
+# when supplied and abstains on regularized-only or invalid physical evidence.
+# Route-derived coordinate frames are limited to matched valid-route endpoints.
 # Transformer leakage and downstream-load applicability use winding-local
 # rating bases and explicit graph-bridge evidence; their minimized witnesses
 # remain package validation tests, not preservation contracts.
