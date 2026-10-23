@@ -11,7 +11,7 @@
 # Q bounds
 # ────────
 # If an IBR references a control_profile with a "power_factor" sub-object,
-# q_min/q_max are left absent — the OPF engine enforces the exact PF coupling
+# missing q_min/q_max are left absent — the OPF engine enforces the exact PF coupling
 # as a bilinear equality constraint (Q = f(P)).
 #
 # For all other ibrs that lack explicit q_min/q_max, symmetric bounds are

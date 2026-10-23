@@ -42,7 +42,8 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
                             max_depth::Int       = 8,
                             fold_chains::Bool    = true,
                             legend_limit::Int    = 50,
-                            split_by_level::Bool = true)
+                            split_by_level::Bool = true,
+                            phase_order=Dict())
 
     buses     = get(net, "bus",             Dict())
     lines     = get(net, "line",            Dict())
@@ -59,10 +60,10 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
     adj = Dict{String, Vector{NTuple{5,Any}}}()
     for bid in keys(buses); adj[bid] = NTuple{5,Any}[] end
 
-    function add_edge!(a, b, etype, eid, is_open, label)
+    function add_edge!(a, b, etype, eid, is_open, label; reverse_label=label)
         (haskey(adj, a) && haskey(adj, b)) || return
         push!(adj[a], (b, etype, eid, is_open, label))
-        push!(adj[b], (a, etype, eid, is_open, label))
+        push!(adj[b], (a, etype, eid, is_open, reverse_label))
     end
 
     for (lid, l) in lines
@@ -74,13 +75,20 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
     end
     for subtype in TRANSFORMER_SUBTYPES
         for (tid, tx) in get(xfmr_dict, subtype, Dict())
-            vg    = _derive_vector_group(subtype, tx)
-            vf    = get(tx, "v_nom_from", nothing)
-            vt    = get(tx, "v_nom_to",   nothing)
-            ratio = (vf !== nothing && vt !== nothing) ?
-                    " $(round(Float64(vf)/1000, digits=1))kV/$(round(Int, Float64(vt)))V" : ""
-            add_edge!(get(tx,"bus_from",""), get(tx,"bus_to",""),
-                      :transformer, tid, false, "$(tid): $vg$ratio")
+            tx isa Dict || continue
+            ws=_phase_windings(net,subtype,tx)
+            isempty(ws) && continue
+            for k in 2:length(ws)
+                label=_derive_vector_group(net,subtype,tx;phase_order,to_winding=k)
+                reverse_label=_derive_vector_group(net,subtype,tx;phase_order,from_winding=k,to_winding=1)
+                f=ws[1]["bus"]; t=ws[k]["bus"]
+                vf=ws[1]["v_nom"]; vt=ws[k]["v_nom"]
+                valid_nominals=all(v -> v isa Real && isfinite(v),(vf,vt))
+                ratio=valid_nominals ? " $(round(vf/1000,digits=1))kV/$(round(Int,vt))V" : ""
+                reverse_ratio=valid_nominals ? " $(round(vt/1000,digits=1))kV/$(round(Int,vf))V" : ""
+                add_edge!(f,t,:transformer,tid,false,"$(tid): $label$ratio ($f→$t)";
+                    reverse_label="$(tid): $reverse_label$reverse_ratio ($t→$f)")
+            end
         end
     end
 

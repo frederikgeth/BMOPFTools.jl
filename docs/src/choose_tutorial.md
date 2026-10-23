@@ -11,6 +11,7 @@ first — it is the one-sitting overview every path below assumes.
 
 | I want to… | Start here | Then |
 |---|---|---|
+| **Explore a network visually** in the browser | [Visualizing a case with Tellegen](visualization.md) | [Analysis & reports](analysis.md), [Buses & terminals primer](terminals_primer.md) |
 | **Convert** OpenDSS / nameplate data into a BMOPF case | [From nameplate data to a defensible model](tutorial_nameplate.md) | [Conversion guide](conversion.md), [Case augmentation](augmentation.md) |
 | **Triage a messy import** (warnings, provenance, repairs) | [Findings triage](tutorial_triage.md) | [Finding-code reference](findings.md), [Analysis & reports](analysis.md) |
 | **Turn transformer test data into model fields** | [From test report to transformer model](tutorial_transformer_tests.md) | [Transformer models](transformer_models.md), [Transformer spec](spec/transformer.md) |
@@ -77,3 +78,6 @@ each demonstrating live how that choice *writes the answer*:
     with `BMOPFTools`, `JuMP` and `Ipopt`. The data-model and conversion pages
     need only `BMOPFTools`. [Installation & first steps](installation.md)
     covers setting all of this up, starting from installing Julia itself.
+
+To build and compare operating scenarios on a small self-contained feeder, start
+with [Developing OPF case families](tutorial_case_development.md).

@@ -129,11 +129,16 @@ function _powerio_fields(d)
 end
 
 """
-    _powerio_diagnostic_records(diagnostics; fold_ids=false) -> Vector{Dict{String,Any}}
+    _powerio_diagnostic_records(diagnostics; fold_ids=false,
+        infer_message_elements=true) -> Vector{Dict{String,Any}}
 
 Fold a conversion's diagnostics into one JSON-serialisable record per
 `(code, severity, component type)` class, ordered by that key. The powerio code
 is kept verbatim.
+
+Set `infer_message_elements=false` for failure evidence: only explicit
+structured targets/element lists supply component locators. Successful intake
+retains its existing legacy message-attribution behavior by default.
 
 Structured aggregates retain their bounded element lists and field associations.
 `count` counts source diagnostics contributing to a class; `source_records`
@@ -142,7 +147,8 @@ than one class, so summary totals must deduplicate those references. Omitted
 upstream elements remain explicitly unattributed, never guessed.
 """
 function _powerio_diagnostic_records(diagnostics;
-                                     fold_ids::Bool=false)::Vector{Dict{String,Any}}
+                                     fold_ids::Bool=false,
+                                     infer_message_elements::Bool=true)::Vector{Dict{String,Any}}
     isempty(diagnostics) && return Dict{String,Any}[]
 
     grouped = Dict{Tuple{String,String,String},Dict{String,Any}}()
@@ -158,7 +164,7 @@ function _powerio_diagnostic_records(diagnostics;
         by_class = Dict{String,Vector{Tuple{Union{String,Nothing},Union{String,Nothing}}}}()
         for locator in locators
             ctype, cid = _powerio_element(locator, fold_ids)
-            if cid === nothing
+            if cid === nothing && (infer_message_elements || locator !== nothing)
                 ctype, cid = _powerio_message_element(
                     locator === nothing ? msg : locator * ": " * msg, fold_ids)
             end
@@ -213,6 +219,19 @@ function _powerio_diagnostic_records(diagnostics;
         push!(records, g)
     end
     return records
+end
+
+# The ungrouped upstream record, with owned JSON-safe containers. Shared by
+# successful intake provenance and failure evidence; no locators are inferred.
+function _powerio_diagnostic_to_dict(d::PowerIO.Diagnostic)
+    return Dict{String,Any}(
+        "code" => d.code, "severity" => string(d.severity),
+        "message" => d.message, "target" => d.target,
+        "details" => deepcopy(d.details), "id" => d.id,
+        "suggested_action" => d.suggested_action, "related" => copy(d.related),
+        "spans" => [Dict("source" => s.source, "byte_start" => s.byte_start,
+                         "byte_end" => s.byte_end) for s in d.spans],
+    )
 end
 
 """

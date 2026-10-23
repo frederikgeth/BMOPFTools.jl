@@ -77,8 +77,9 @@ they are directly comparable across objectives.
 function study(label, maketerms)
     ctx = build_opf_model(feeder(); add_objective = false)
     set_opf_objective!(ctx, maketerms(ctx))
-    enforce_kcl!(ctx)                      # REQUIRED — see the note below
-    m = opf_model(ctx); set_attribute(m, "print_level", 0); optimize!(m)
+    m = opf_model(ctx)
+    set_attribute(m, "print_level", 0)
+    optimize_opf!(ctx)                     # finalize KCL and solve once
     res = extract_result(ctx)
     v2(b) = hypot(value.(opf_sequence_voltage(ctx, b; component = :negative))...) *
             opf_physical_scale(ctx, :V; bus = b)
@@ -140,7 +141,7 @@ where you want *few devices moving* rather than *all devices moving slightly*.
 On a single controllable axis, prefer `:squared`: it is exact, cheaper, and has
 no ε to size.
 
-!!! danger "`enforce_kcl!` is not optional"
+!!! danger "Finalize KCL before solving"
     `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
     nodal accumulators. Until [`enforce_kcl!`](@ref) runs the network is
     **electrically disconnected** — bus voltages are free variables and your
@@ -150,6 +151,12 @@ no ε to size.
     Skipping it is now an error rather than a wrong number: `JuMP.optimize!`
     refuses a model holding any unstamped context, and `extract_result` refuses
     an unstamped context.
+
+    The harness uses [`optimize_opf!`](@ref) to validate readiness and finalize
+    KCL explicitly before its single solve. Configure the objective and solver
+    attributes first. In a shared-model study pass every unfinished snapshot as
+    `optimize_opf!(ctxs...)`. After supported parameter-value changes use
+    [`resolve_opf!`](@ref), which refreshes the cached optimizer.
 
 ## What you combined is recorded
 

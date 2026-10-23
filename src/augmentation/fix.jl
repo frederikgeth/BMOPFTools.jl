@@ -2,16 +2,16 @@
     FixRecipe
 
 Parameters controlling which repair passes `fix_case` runs and their
-thresholds.  Lossless, semantics-preserving passes default to `true`;
-the one pass that changes power-system physics (`apply_perfect_grounding`)
-defaults to `false` and must be opted into explicitly.
+thresholds.  Defaults perform structural preparation, which can remove disconnected assets.
+Finite-impedance idealization and grounding changes are opt-in approximations.
+Review the returned manifest against the intended study domain.
 """
 Base.@kwdef struct FixRecipe
     # ── Pass enable flags (in execution order) ───────────────────────────────
     apply_largest_component       :: Bool    = true
     apply_simplify_network        :: Bool    = true
     apply_remove_zero_loads       :: Bool    = true
-    apply_low_impedance_to_switch :: Bool    = true
+    apply_low_impedance_to_switch :: Bool    = false
     apply_source_bus_bounds       :: Bool    = true
     apply_adjacent_current_bounds :: Bool    = false  # opt-in: topology inference
     apply_perfect_grounding       :: Bool    = false  # opt-in: changes OPF physics
@@ -52,12 +52,12 @@ controlled by the corresponding `apply_*` flag in `recipe`.
 2. **Simplify network** — merge consecutive same-linecode series lines and
    remove dangling stub lines (wraps [`simplify_network`](@ref)).
 3. **Remove zero loads** — delete loads with `p_nom = q_nom = 0` on all phases.
-4. **Low-impedance lines → switches** — replace lines whose total per-conductor
+4. **Low-impedance lines → switches** *(opt-in, default off)* — replace lines whose total per-conductor
    series impedance is below `recipe.low_impedance_threshold_ohm` with closed
    switches.
-5. **Source bus bounds** — remove all voltage bounds (`v_min/v_max`,
-   `vpn_*`, `vpp_*`, `vneg_max`, etc.) from source buses; they are
-   redundant because the voltage source fixes the terminal voltages exactly.
+5. **Source bus bounds** — remove only satisfied magnitude bounds whose
+   terminal voltages are explicitly fixed. Inconsistent or unassessed bounds
+   are retained; sequence and angle bounds are not simplified.
 6. **Adjacent current bounds** *(opt-in, default off)* — for each line or
    switch lacking `i_max`, infer an upper bound from directly adjacent
    elements (lines, switches, transformers) at either endpoint bus.
@@ -294,6 +294,20 @@ function _fix_low_impedance!(net′, entries, threshold_ohm)
         z_max === nothing && continue
         z_max >= threshold_ohm && continue
 
+        # An ideal series switch cannot represent shunt admittance or extra
+        # branch constraints. Retain unsupported cases, even when Z is tiny.
+        shunted = any(obj -> obj isa Dict && any(k ->
+            (startswith(k, "G_") || startswith(k, "B_")) &&
+            (!(obj[k] isa Number) || !iszero(obj[k])), keys(obj)), (line, lc))
+        extra_limits = any(obj -> obj isa Dict && any(k -> haskey(obj, k),
+            ("s_max", "va_diff_min", "va_diff_max")), (line, lc))
+        if shunted || extra_limits
+            push!(entries, TransformEntry(:line, id, "(retained)", nothing, nothing,
+                "low_impedance_unsupported", :low,
+                "retained: ideal switch cannot preserve shunts or additional branch limits"))
+            continue
+        end
+
         # Build a switch from the line's topology, carrying the effective
         # current rating (line override, else linecode) so the thermal
         # constraint is not lost in the conversion.
@@ -315,9 +329,9 @@ function _fix_low_impedance!(net′, entries, threshold_ohm)
             :line, id, "(converted_to_switch)",
             Dict("z_max_ohm" => z_max, "threshold_ohm" => threshold_ohm),
             sw_id,
-            "W.INT.LOW_IMPEDANCE_LINE", :standard,
+            "W.INT.LOW_IMPEDANCE_LINE", :heuristic,
             "total |Z|=$(round(z_max, sigdigits=3)) Ω < threshold " *
-            "$(threshold_ohm) Ω — replaced by closed switch '$(sw_id)'"))
+            "$(threshold_ohm) Ω — approximated by ideal closed switch '$(sw_id)'"))
     end
 end
 
@@ -336,38 +350,57 @@ function _line_z_max(lc, length_m::Float64)
     z_max
 end
 
-# Pass 5: strip all voltage bounds from source buses
-const _ALL_VOLTAGE_BOUND_KEYS = [
-    "v_min", "v_max",
-    "vpn_min", "vpn_max",
-    "vpp_min", "vpp_max",
-    "vpos_min", "vpos_max",
-    "vneg_max", "vzero_max",
-    "vn_max",
-    "va_diff_min", "va_diff_max", "va_nom",
-]
-
+# Pass 5: remove only bounds satisfied by explicit fixed source voltages.
 function _fix_source_bus_bounds!(net′, entries)
-    buses = get(net′, "bus", Dict())
-    source_buses = Set{String}()
-    for (_, vs) in get(net′, "voltage_source", Dict())
-        b = get(vs, "bus", nothing)
-        b isa String && push!(source_buses, b)
-    end
-
-    for bid in source_buses
-        bus = get(buses, bid, nothing)
-        bus isa Dict || continue
-        for field in _ALL_VOLTAGE_BOUND_KEYS
-            haskey(bus, field) || continue
-            old_val = bus[field]
-            delete!(bus, field)
-            push!(entries, TransformEntry(
-                :bus, bid, field,
-                old_val, nothing,
-                "voltage_source_fixes_terminal_voltages", :standard,
-                "source bus — voltage bounds are redundant; " *
-                "voltage source pins terminals exactly"))
+    for (bid, bus) in get(net′, "bus", Dict())
+        sources = [vs for vs in values(get(net′, "voltage_source", Dict()))
+                   if get(vs, "bus", nothing) == bid]
+        length(sources) == 1 || continue  # conflicting references need validation
+        vs = only(sources)
+        get(vs, "configuration", "WYE") in ("WYE", "SINGLE_PHASE") || continue
+        tm = string.(get(vs, "terminal_map", String[]))
+        length(unique(tm)) == length(tm) || continue
+        all(t -> t in get(bus, "terminal_names", String[]), tm) || continue
+        mags = get(vs, "v_magnitude", [])
+        angles = get(vs, "v_angle", [])
+        length(mags) == length(angles) <= length(tm) || continue
+        all(x -> x isa Real && isfinite(x), vcat(mags, angles)) || continue
+        all(>=(0), mags) || continue
+        fixed = Dict{String,ComplexF64}(string(t) => 0im
+            for t in get(bus, "perfectly_grounded_terminals", String[]))
+        conflict = false
+        for k in eachindex(mags)
+            v = mags[k] * cis(angles[k])
+            haskey(fixed, tm[k]) && fixed[tm[k]] != v && (conflict = true)
+            fixed[tm[k]] = v
+        end
+        conflict && continue
+        nt = _neutral_terminal(bus)
+        phases = [string(t) for t in get(bus, "terminal_names", String[]) if t != nt]
+        isempty(phases) && continue
+        all(t -> haskey(fixed, t), phases) || continue
+        values_by_family = Dict("v" => abs.([fixed[t] for t in phases]))
+        if nt !== nothing && haskey(fixed, nt)
+            values_by_family["vpn"] = [abs(fixed[t] - fixed[nt]) for t in phases]
+        end
+        values_by_family["vpp"] = [abs(fixed[phases[i]] - fixed[phases[j]])
+            for i in eachindex(phases) for j in i+1:length(phases)]
+        for (family, vals) in values_by_family, suffix in ("min", "max")
+            field = family * "_" * suffix
+            haskey(bus, field) && !isempty(vals) || continue
+            bound = bus[field]
+            bounds = bound isa AbstractVector ? bound : fill(bound, length(vals))
+            length(bounds) == length(vals) || continue
+            all(x -> x isa Real && isfinite(x), bounds) || continue
+            satisfied = all(suffix == "min" ? vals .>= bounds : vals .<= bounds)
+            if satisfied
+                delete!(bus, field)
+            end
+            push!(entries, TransformEntry(:bus, bid, field, deepcopy(bound),
+                satisfied ? nothing : deepcopy(bound),
+                "source_bound_evaluation", :standard,
+                satisfied ? "removed: explicit fixed voltages satisfy this bound" :
+                            "retained: explicit fixed voltages violate this bound"))
         end
     end
 end

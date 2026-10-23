@@ -1,0 +1,93 @@
+{
+  "description": "Original minimized synthetic witness: round-off at a zero apparent-power rating. PSK-000013 supplied-result limit evidence only.",
+  "network": {
+    "name": "zero-rated-device-roundoff",
+    "bus": {
+      "b": {
+        "terminal_names": [
+          "a",
+          "n"
+        ],
+        "perfectly_grounded_terminals": [
+          "n"
+        ]
+      }
+    },
+    "voltage_source": {
+      "src": {
+        "bus": "b",
+        "terminal_map": [
+          "a",
+          "n"
+        ],
+        "v_magnitude": [
+          230,
+          0
+        ],
+        "v_angle": [
+          0,
+          0
+        ]
+      }
+    },
+    "ibr": {
+      "inv": {
+        "bus": "b",
+        "terminal_map": [
+          "a",
+          "n"
+        ],
+        "topology": "SINGLE_PHASE",
+        "prime_mover": "PV",
+        "s_max": [
+          0.0
+        ],
+        "p_min": [
+          0.0
+        ],
+        "p_max": [
+          0.0
+        ],
+        "q_min": [
+          0.0
+        ],
+        "q_max": [
+          0.0
+        ]
+      }
+    }
+  },
+  "result": {
+    "termination_status": "LOCALLY_SOLVED",
+    "bus": {
+      "b": {
+        "a": {
+          "vr": 230.0,
+          "vi": 0.0,
+          "vm": 230.0
+        },
+        "n": {
+          "vr": 0.0,
+          "vi": 0.0,
+          "vm": 0.0
+        }
+      }
+    },
+    "voltage_source": {
+      "src": {
+        "a": {
+          "ps": 0.0,
+          "qs": 0.0
+        }
+      }
+    },
+    "ibr": {
+      "inv": {
+        "a": {
+          "pg": 0.0,
+          "qg": 1e-25
+        }
+      }
+    }
+  }
+}

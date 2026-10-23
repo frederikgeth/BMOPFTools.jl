@@ -1,0 +1,14 @@
+{
+  "net": {
+    "bus": {"b": {"terminal_names": ["a", "n"]}},
+    "load": {"d": {"bus": "b", "terminal_map": ["a", "n"],
+      "configuration": "SINGLE_PHASE", "model": "constant_impedance",
+      "v_nom": [230], "p_nom": [40000], "q_nom": [0]}}
+  },
+  "result": {
+    "termination_status": "LOCALLY_SOLVED",
+    "bus": {"b": {"a": {"vr": 230, "vi": 0, "vm": 230},
+                  "n": {"vr": 0, "vi": 0, "vm": 0}}},
+    "load": {"d": {"a": {"pd": 40000, "qd": 0}}}
+  }
+}

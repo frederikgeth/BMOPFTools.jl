@@ -1,3 +1,8 @@
+# Transformer phase reporting is descriptive PSK-000006-linked evidence; it does
+# not widen the transformer preservation contract or add a JSON adapter.
+# write_bmopf retains longitude/latitude by default, with include_coordinates=false
+# for strict coordinate omission. This viewer-oriented serialization policy and
+# docs/src/visualization.md add no scientific contract, PSK claim, or JSON adapter.
 # The analyze_case recipe uses a package-owned synthetic input. Restricted
 # CSIRO MV/LV integration data live externally; no executable contract depends on them.
 # Voltage-tier, galvanic-zone, mapped-conductor, and conditional geographic
@@ -9,6 +14,15 @@
 # Transformer leakage and downstream-load applicability use winding-local
 # rating bases and explicit graph-bridge evidence; their minimized witnesses
 # remain package validation tests, not preservation contracts.
+# Case-preparation diagnostics are descriptive screens, not admission gates.
+# Aggregate phase balance links to PSK-000009 without certifying collapse.
+# Case-development Julia examples illustrate independent verification (PSK-000013);
+# they do not extend its contract or expose solver callbacks through JSON execution.
+# The issue-429 benchmark reuses PSK-000013-linked solution verification and keeps
+# its unassessed dimensions explicit; timing observations do not widen that claim.
+# Qualified nominal coil headroom is descriptive PSK-000013-related screening,
+# not an additional feasibility contract. Its source paths and analyze_case recipe
+# preserve the explicit nominal-demand versus supplied-result distinction.
 schema_version = "0.6.0"
 
 [[contract]]
@@ -100,6 +114,27 @@ source_paths = [
   "src/validation/spec_conformance.jl",
   "test/neutral_only_terminal_map_tests.jl",
   "test/data/neutral_only_link.json",
+  "src/validation/device_indexing.jl",
+  "src/validation/connection_maps.jl",
+  "src/validation/terminal_conventions.jl",
+  "test/terminal_usage_tests.jl",
+  "test/terminal_conventions_tests.jl",
+  "test/data/terminal_usage/usage.json",
+  "test/data/terminal_usage/malformed_bus.json",
+  "test/data/terminal_usage/README.md",
+  "src/analysis/provenance/wires_grounding.jl",
+  "docs/src/connection_maps.md",
+  "test/connection_map_tests.jl",
+  "test/data/connection_maps/role_swap.json",
+  "test/data/connection_maps/README.md",
+  "src/validation/integrity.jl",
+  "src/validation/domain_rules.jl",
+  "docs/src/device_indexing.md",
+  "docs/src/conventions.md",
+  "test/device_indexing_tests.jl",
+  "test/device_indexing_opf_tests.jl",
+  "test/data/device_indexing/roles.json",
+  "test/data/device_indexing/README.md",
 ]
 
 [[finding]]
@@ -335,6 +370,18 @@ fixture_ids = ["transformer-winding-role-swap-001"]
 source_paths = [
   "src/knowledge/contracts.jl",
   "src/io/to_ybus.jl",
+  "src/analysis/transformer_phase.jl",
+  "src/analysis/inventory.jl",
+  "src/analysis/voltage_levels.jl",
+  "src/report/render_ascii_tree.jl",
+  "src/report/render_terminal.jl",
+  "src/report/render_markdown.jl",
+  "docs/src/transformer_phase.md",
+  "docs/src/analysis.md",
+  "test/transformer_phase_tests.jl",
+  "test/transformer_phase_opf_tests.jl",
+  "test/data/transformer_phase/letters.json",
+  "test/data/transformer_phase/README.md",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
 ]
@@ -523,6 +570,8 @@ finding_codes = [
 ]
 fixture_ids = ["positive-sequence-collapse-001"]
 source_paths = [
+  "src/analysis/diversity.jl",
+  "test/case_development_tests.jl",
   "src/knowledge/contracts.jl",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
@@ -756,6 +805,20 @@ finding_codes = [
 ]
 fixture_ids = ["solved-network-feasibility-001"]
 source_paths = [
+  "examples/case_development.jl",
+  "bench/ipopt_barrier.jl",
+  "bench/ipopt_barrier.md",
+  "test/ipopt_barrier_benchmark_tests.jl",
+  "docs/src/solvers.md",
+  "docs/src/tutorial_units.md",
+  "src/augmentation/scenarios.jl",
+  "src/augmentation/der_placement.jl",
+  "src/augmentation/ibr_placement.jl",
+  "test/case_development_tests.jl",
+  "test/case_development_opf_tests.jl",
+  "test/data/case_development/feeder.json",
+  "test/data/case_development/README.md",
+  "docs/src/tutorial_case_development.md",
   "src/validation/schema.jl",
   "ext/BMOPFOpfExt/BMOPFOpfExt.jl",
   "ext/BMOPFOpfExt/per_unit.jl",
@@ -764,7 +827,12 @@ source_paths = [
   "test/projection_tests.jl",
   "test/data/transformer_interoperability/README.md",
   "test/transformer_interoperability_tests.jl",
+  "test/transformer_current_rating_tests.jl",
+  "test/data/transformer_current_ratings/center_tap.json",
+  "test/data/transformer_current_ratings/README.md",
   "test/transformer_opendss_tests.jl",
+  "test/open_delta_bond_tests.jl",
+  "test/data/open_delta_shared_bond.json",
   "docs/src/transformer_models.md",
   "src/io/parse_bmopf.jl",
   "src/io/from_dss.jl",
@@ -795,6 +863,12 @@ source_paths = [
   "src/io/nwinding.jl",
   "test/powerio_v09_tests.jl",
   "test/powerio_regression_tests.jl",
+  "src/io/powerio_findings.jl",
+  "src/io/dss_conversion_error.jl",
+  "test/powerio_findings_tests.jl",
+  "test/dss_conversion_error_tests.jl",
+  "docs/src/conversion.md",
+  "docs/src/api.md",
   "test/powerio_numerical_tests.jl",
   "src/io/to_dss.jl",
   "test/ybus_linearized_tests.jl",
@@ -802,6 +876,8 @@ source_paths = [
   "src/validation/solution.jl",
   "test/line_solution_verification_tests.jl",
   "test/data/scientific_review/receiving-limit-result.json",
+  "test/data/scientific_review/zero-rated-device-result.json",
+  "test/solution_profiling_tests.jl",
   "test/data/pf_comparison/pf_3wdg_unequal_kva.dss",
   "test/data/analysis_network/synthetic_feeder.json",
   "test/data/line_geometry/synthetic_overhead.dss",
@@ -832,9 +908,41 @@ source_paths = [
   "test/opf_domain_tests.jl",
   "test/opf_final_hardening_tests.jl",
   "test/controller_compliance_tests.jl",
+  "test/ibr_reactive_limits_tests.jl",
+  "src/validation/power_factor.jl",
+  "test/ibr_minimum_pf_tests.jl",
+  "test/data/ibr_minimum_pf/curtailed.json",
+  "test/data/ibr_minimum_pf/README.md",
+  "docs/src/spec/control-profile.md",
+  "test/data/ibr_reactive_limits/pf_capability.json",
+  "test/data/ibr_reactive_limits/README.md",
+  "test/three_leg_physics_tests.jl",
+  "test/data/three_leg_physics/balanced.json",
+  "test/data/three_leg_physics/unbalanced.json",
+  "test/data/three_leg_physics/zero_current.json",
+  "test/data/three_leg_physics/README.md",
   "ext/BMOPFOpfExt/pf.jl",
   "test/pf_nameplate_contract_tests.jl",
+  "test/pf_ibr_droop_tests.jl",
+  "test/data/pf_ibr_droop/rating_base.json",
+  "test/data/pf_ibr_droop/README.md",
+  "src/analysis/transformer_loading.jl",
+  "src/BMOPFTools.jl",
+  "src/report/render_solution_markdown.jl",
+  "docs/src/results.md",
+  "test/transformer_loading_tests.jl",
+  "src/infeasibility/transformer_headroom.jl",
+  "src/infeasibility/preflight.jl",
+  "src/report/render_markdown.jl",
+  "test/transformer_headroom_tests.jl",
+  "docs/src/analysis.md",
+  "test/transformer_loading_opf_tests.jl",
+  "test/data/transformer_loading/overloaded_coil.json",
+  "test/data/transformer_loading/integer_voltage_candidate.json",
+  "test/data/transformer_loading/README.md",
   "test/parameter_resolve_tests.jl",
+  "test/kcl_guard_tests.jl",
+  "test/opf_optimize_tests.jl",
   "test/data/parameter_updates/stale_evaluation.jl",
   "test/powerflow_comparison_tests.jl",
   "test/Project.toml",
@@ -843,6 +951,8 @@ source_paths = [
   "docs/src/opf.md",
   "docs/src/differentiable_extensions.md",
   "docs/src/objectives.md",
+  "docs/src/tutorial_objectives.md",
+  "bench/sequence_objective_norms.jl",
   "docs/src/relu_softplus_encoding.md",
   "docs/src/tutorial_custom_formulations.md",
 ]

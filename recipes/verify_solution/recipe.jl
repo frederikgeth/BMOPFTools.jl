@@ -30,5 +30,15 @@ observed = Set(String(finding["code"]) for finding in response["result"]["findin
 "E.SOL.VOLT_VIOLATION" in observed || error(
     "solution verification omitted E.SOL.VOLT_VIOLATION")
 
+# Minimum-PF policy is checked against supplied dispatched P/Q, with no solve.
+minpf_case = JSON3.read(read(joinpath(root,"test","data","ibr_minimum_pf","curtailed.json"),String),Dict{String,Any})
+minpf_result = Dict{String,Any}("termination_status"=>"LOCALLY_SOLVED",
+    "ibr"=>Dict("pv"=>Dict("a"=>Dict("pg"=>400.0,"qg"=>900.0))))
+minpf_response = execute_solution_verification(minpf_case,minpf_result)
+any(f->f["code"]=="E.SOL.IBR_MINIMUM_PF",minpf_response["result"]["findings"]) ||
+    error("minimum-PF verification omitted the curtailed-dispatch violation")
+only(minpf_response["result"]["results"]["solution"]["minimum_power_factor"]["coils"])["status"]=="failed" ||
+    error("minimum-PF evidence did not record failed compliance")
+
 JSON3.pretty(stdout, response, JSON3.AlignmentContext(; indent=UInt16(2)))
 println()

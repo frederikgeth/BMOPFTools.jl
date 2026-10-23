@@ -91,6 +91,42 @@
         @test lin.i0 !== nothing && all(iszero, lin.i0)
     end
 
+    @testset "open switch keeps the load on its own node (both fold modes)" begin
+        V = 240.0
+        mk(open) = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "s" => Dict{String,Any}("terminal_names" => ["a", "n"],
+                                        "perfectly_grounded_terminals" => ["n"]),
+                "b" => Dict{String,Any}("terminal_names" => ["a", "n"],
+                                        "perfectly_grounded_terminals" => ["n"]),
+            ),
+            "switch" => Dict{String,Any}(
+                "sw" => Dict{String,Any}("bus_from" => "s", "bus_to" => "b",
+                    "terminal_map_from" => ["a"], "terminal_map_to" => ["a"],
+                    "open_switch" => open),
+            ),
+            "load" => Dict{String,Any}(
+                "ld" => Dict{String,Any}(
+                    "bus" => "b", "terminal_map" => ["a", "n"],
+                    "configuration" => "WYE", "model" => "constant_impedance",
+                    "p_nom" => [15_000.0], "q_nom" => [5_000.0], "v_nom" => [V]),
+            ),
+        )
+        yz = (15_000.0 - 5_000.0im) / V^2
+        v0 = Dict(("s", "a") => V + 0im, ("b", "a") => V + 0im)
+        for kw in ((; fold=:constant_z), (; fold=:all, v0))
+            lo = ybus_linearized(mk(true); kw...)
+            @test length(lo.nodes) == 2
+            is, ib = lo.index[("s", "a")], lo.index[("b", "a")]
+            @test is != ib
+            @test Matrix(lo.Y)[ib, ib] ≈ yz
+            @test iszero(Matrix(lo.Y)[is, :])         # nothing reaches the source side
+            lc = ybus_linearized(mk(false); kw...)
+            @test length(lc.nodes) == 1               # closed: s.a ≡ b.a
+            @test Matrix(lc.Y)[1, 1] ≈ yz
+        end
+    end
+
     @testset "argument validation" begin
         @test_throws ArgumentError ybus_linearized(_wye_net(model="constant_power"); fold=:bogus)
         @test_throws ArgumentError ybus_linearized(_wye_net(model="constant_power"); fold=:all)

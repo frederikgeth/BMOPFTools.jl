@@ -63,9 +63,10 @@ positive at the phase terminal, return at the neutral for `FOUR_LEG`).
 
 ### Reactive-power control law
 
-Reactive power is set one of three ways (mutually exclusive):
+Reactive power can be freely dispatched or set by one of the following control
+equalities. Declared reactive capability bounds apply in every mode:
 
-- **Box** (default): the inequality of part 5.
+- **Dispatchable Q** (default): no additional control equality.
 - **Constant power factor** (from a control profile's `power_factor.pf`), a bilinear
   equality coupling $Q$ to $P$:
 
@@ -99,6 +100,19 @@ Optional per-conductor current box on the converter-current components, from `i_
 ```math
 \textcolor{red}{P^{\min}_{r,k}} \le P_{r,k} \le \textcolor{red}{P^{\max}_{r,k}}.
 ```
+
+**Reactive-power capability**, for each declared bound:
+
+```math
+\textcolor{red}{Q^{\min}_{r,k}} \le Q_{r,k} \le \textcolor{red}{Q^{\max}_{r,k}}.
+```
+
+BMOPFTools enforces these bounds alongside PF or supported Volt-VAr control,
+without clipping the equality or dropping the bounds. A conflicting requirement
+can leave no feasible point. This changes the older implementation's replacement
+of Q boxes by control equalities; see the [compatibility note](../opf.md).
+For THREE_LEG, the implemented P/Q quantities index cyclic conductor pairs;
+these bounds do not constrain independently dispatched external-conductor powers.
 
 A **Volt-Watt droop** (from `volt_watt`) adds a voltage-dependent curtailment cap
 $P_{r,k}\le\textcolor{red}{P^{\text{base}}_{r,k}}\,f^{\text{VW}}(U_k)$ on top, so the

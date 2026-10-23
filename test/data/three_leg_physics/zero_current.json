@@ -1,0 +1,13 @@
+{
+  "bus": {"b": {"terminal_names": ["a", "b", "c"]}},
+  "voltage_source": {
+    "source": {"bus": "b", "terminal_map": ["a", "b", "c"],
+      "v_magnitude": [230.0, 230.0, 230.0],
+      "v_angle": [0.0, -2.0943951023931953, 2.0943951023931953]}
+  },
+  "ibr": {
+    "inv": {"bus": "b", "terminal_map": ["a", "b", "c"],
+      "topology": "THREE_LEG", "prime_mover": "PV", "i_max": [0.0, 0.0, 0.0]}
+  },
+  "_test_targets": {"pair_p_W": [0.0, 0.0, 0.0], "pair_q_var": [0.0, 0.0, 0.0]}
+}

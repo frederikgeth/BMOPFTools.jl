@@ -8,6 +8,7 @@ claims, evidence status, misconceptions, and stable PSK identities.
 ## Primary documentation
 
 - Documentation index: docs/src/index.md
+- Visualizing BMOPF cases with Tellegen: docs/src/visualization.md
 - Data-model conventions: docs/src/conventions.md
 - API reference: docs/src/api.md
 - Finding codes: docs/src/findings.md

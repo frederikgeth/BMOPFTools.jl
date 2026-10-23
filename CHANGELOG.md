@@ -4,6 +4,25 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Preserve bus `longitude`/`latitude` in `write_bmopf` by default for Tellegen
+  visualization; use `include_coordinates=false` to retain the previous
+  omission behavior for strict BMOPF schema consumers. Add a drag-and-drop guide.
+
+- Fix `ybus_passive`, `ybus_linearized` and `ybus_augmented` modelling switches
+  with `open_switch = true` as closed; read the schema field instead of a
+  non-schema `status` key and reject a non-boolean `open_switch`.
+
+- Fix pilot-discovered verification false positives for zero-rated generator/IBR
+  phases and native switch current fields; accept integer-valued JSON powers.
+- Add independent demand/PV scenarios, callback-based sweeps retaining failures,
+  explicit DER bus/phase selections and new-capacity budgets, and optional
+  JSON/Markdown author logs with resolved recipes and structured Findings.
+- Add self-contained, tested case-development examples and a progressive tutorial.
+- Correct diagnostic overclaims about phase balance, costs, active constraints
+  and dimension counts; retain legacy profile keys as descriptive aliases.
+- Change low-impedance switch replacement to opt-in; retain shunts/additional
+  branch limits and inconsistent or unassessed source-voltage bounds.
+
 - Replace the IEEE-inspired inline analysis fixture with an original CC BY 4.0
   synthetic workshop feeder and migrate its diagnostic and serialization tests.
 - Parse, validate, analyze, and report BMOPF networks, with PowerIO ingestion.

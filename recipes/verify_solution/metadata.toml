@@ -14,8 +14,11 @@ interface_paths = [
   "scripts/bmopf_cli.jl",
   "schemas/execution-response.schema.json",
   "src/execution/interface.jl",
+  "src/validation/power_factor.jl",
+  "test/ibr_minimum_pf_tests.jl",
 ]
 input_paths = [
+  "test/data/ibr_minimum_pf/curtailed.json",
   "test/fixtures/negative/claimed-feasible-invalid-solution/network.json",
   "test/fixtures/negative/claimed-feasible-invalid-solution/claimed-solved-result.json",
 ]

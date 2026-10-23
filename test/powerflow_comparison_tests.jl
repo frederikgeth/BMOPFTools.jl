@@ -3000,13 +3000,14 @@ end
     dyθ = first(values(netθ["transformer"]["delta_wye"]))
     ctθ = first(values(netθ["transformer"]["center_tap"]))
 
-    # Vector group: a non-trivial Dyn clock for the 3φ unit, Ii0 for the split-phase.
-    vg_dy0 = BMOPFTools._derive_vector_group("delta_wye", dy0)
-    vg_ct0 = BMOPFTools._derive_vector_group("center_tap", ct0)
+    # Context-aware effective relation; center-tap has no supported three-phase clock.
+    vg_dy0 = BMOPFTools._derive_vector_group(net0, "delta_wye", dy0)
+    vg_ct0 = BMOPFTools._derive_vector_group(net0, "center_tap", ct0)
     @test startswith(vg_dy0, "D")                # delta primary → "Dyn…"
-    @test vg_ct0 == "Ii0"
-    @test BMOPFTools._derive_vector_group("delta_wye", dyθ) == vg_dy0   # invariant
-    @test BMOPFTools._derive_vector_group("center_tap", ctθ) == vg_ct0  # invariant
+    @test vg_ct0 == "Ii?"
+    @test transformer_phase_relation(net0,"center_tap",ct0)["status"] == "unsupported"
+    @test BMOPFTools._derive_vector_group(netθ, "delta_wye", dyθ) == vg_dy0   # invariant
+    @test BMOPFTools._derive_vector_group(netθ, "center_tap", ctθ) == vg_ct0  # invariant
 
     # Inventory vector-group tallies unchanged across the offset.
     inv0 = inventory_analysis(net0, Finding[])

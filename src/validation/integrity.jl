@@ -10,48 +10,6 @@
 #   §3     symmetry/degeneracy       → identical generator costs
 # plus referential integrity (dangling bus/linecode/terminal references).
 
-# Validate a per-CONDUCTOR `i_max` vector for a star/single-phase/delta device
-# (generator or IBR). Returns the number of hard dimension issues (0/1) and may
-# also append a soft `W.INT.IMAX_NO_NEUTRAL` recommendation. Rules:
-#   • no neutral (delta / phase-to-phase)  → exactly `n_phase` (one per conductor);
-#   • single-phase (`n_phase == 1`)        → 1 or 2 (phase ≡ return, one current);
-#   • ≥2-phase star                        → `n_phase+1` (standard, phases+neutral),
-#                                            or `n_phase` (warns: neutral unrated).
-function _check_conductor_imax!(findings::Vector{Finding}, ctype::Symbol,
-                                label::AbstractString, id, v,
-                                n_phase::Int, has_neutral::Bool)::Int
-    v isa AbstractVector || return 0
-    L = length(v)
-    if !has_neutral
-        L == n_phase && return 0
-        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
-            "$label '$id': i_max has $L entries; expected $n_phase (one per conductor).",
-            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
-        return 1
-    elseif n_phase == 1
-        L in (1, 2) && return 0
-        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
-            "$label '$id': single-phase i_max has $L entries; expected 1 or 2.",
-            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
-        return 1
-    else
-        L == n_phase + 1 && return 0
-        if L == n_phase
-            push!(findings, Finding(WARNING, "W.INT.IMAX_NO_NEUTRAL", :integrity, ctype, id,
-                "$label '$id': i_max has $n_phase entries (phases only); add a " *
-                "$(n_phase + 1)-th entry to rate the neutral conductor, which can carry " *
-                "more current than the phases under unbalance compensation.",
-                Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
-            return 0
-        end
-        push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity, ctype, id,
-            "$label '$id': i_max has $L entries; expected $n_phase (phases) or " *
-            "$(n_phase + 1) (phases + neutral).",
-            Dict{String,Any}("field" => "i_max", "n_phase" => n_phase)))
-        return 1
-    end
-end
-
 """
     integrity_check(net, findings) -> Dict{String,Any}
 
@@ -82,9 +40,6 @@ function integrity_check(net::Dict{String,Any},
     busset = Set(keys(buses))
     n_ref_issues = 0
 
-    terminal_set(b) = Set(string.(get(get(buses, b, Dict()),
-                                      "terminal_names", String[])))
-
     check_bus_ref(comp_type, id, bus) = begin
         if !(bus in busset)
             n_ref_issues += 1
@@ -97,53 +52,37 @@ function integrity_check(net::Dict{String,Any},
         true
     end
 
-    check_tmap(comp_type, id, bus, tm) = begin
-        bad = [t for t in string.(tm) if !(t in terminal_set(bus))]
+    check_tmap(comp_type, id, bus, tm; field="terminal_map") = begin
+        _index_strings(tm) || return
+        b = get(buses,bus,nothing)
+        b isa AbstractDict || return
+        names = get(b,"terminal_names",nothing)
+        # Schema/indexing evidence owns malformed terminal declarations. A
+        # reference cannot be declared missing when the target set is unknown.
+        _index_strings(names) || return
+        declared = Set(names)
+        bad = [t for t in tm if !(t in declared)]
         if !isempty(bad)
             n_ref_issues += 1
             push!(findings, Finding(ERROR, "E.INT.UNKNOWN_TERMINAL", :integrity,
                 Symbol(comp_type), id,
-                "$comp_type '$id' terminal map references terminal(s) " *
+                "$comp_type '$id' $field references terminal(s) " *
                 "$(bad) not defined at bus '$bus'.",
-                Dict{String,Any}("bus" => bus, "terminals" => bad)))
+                Dict{String,Any}("bus" => bus, "terminals" => bad, "field" => field)))
         end
     end
 
-    # --- referential integrity: branch elements ---
-    for comp_type in ("line", "switch")
-        for (id, c) in get(net, comp_type, Dict())
-            c isa Dict || continue
-            f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
-            f isa AbstractString && check_bus_ref(comp_type, id, f) &&
-                check_tmap(comp_type, id, f, get(c, "terminal_map_from", String[]))
-            t isa AbstractString && check_bus_ref(comp_type, id, t) &&
-                check_tmap(comp_type, id, t, get(c, "terminal_map_to", String[]))
-        end
-    end
-    xfmr = get(net, "transformer", Dict())
-    for subtype in TRANSFORMER_SUBTYPES
-        sub = get(xfmr, subtype, nothing)
-        sub isa Dict || continue
-        for (id, c) in sub
-            c isa Dict || continue
-            if subtype in WINDING_LIST_SUBTYPES
-                # Winding-list buses/terminal_maps live in windings[]; a fixed
-                # bus_from/bus_to check skips them, so dangling references were
-                # never caught for n_winding.
-                for w in get(c, "windings", Any[])
-                    w isa AbstractDict || continue
-                    b = get(w, "bus", nothing)
-                    b isa AbstractString && check_bus_ref("transformer", id, b) &&
-                        check_tmap("transformer", id, b, get(w, "terminal_map", String[]))
-                end
-                continue
-            end
-            f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
-            f isa AbstractString && check_bus_ref("transformer", id, f) &&
-                check_tmap("transformer", id, f, get(c, "terminal_map_from", String[]))
-            t isa AbstractString && check_bus_ref("transformer", id, t) &&
-                check_tmap("transformer", id, t, get(c, "terminal_map_to", String[]))
-        end
+    # Shared raw endpoint traversal retains original winding indices and handles
+    # malformed maps without invoking numeric transformer conversion helpers.
+    n_ref_issues += _check_connection_references!(net, findings)
+
+    # Grounding references are bus-terminal references too. Keep their errors
+    # under the integrity owner rather than duplicating them as role warnings.
+    for id in sort!(collect(keys(buses)))
+        bus = buses[id]
+        bus isa AbstractDict || continue
+        check_tmap("bus", id, id, get(bus,"perfectly_grounded_terminals",String[]);
+            field="perfectly_grounded_terminals")
     end
 
     # --- referential integrity: nodal elements ---
@@ -352,57 +291,7 @@ function integrity_check(net::Dict{String,Any},
 
     n_dim_issues = 0
 
-    # ibr per-phase filter/cost vectors must match phase count = |terminal_map| - 1
-    for (id, inv) in get(net, "ibr", Dict())
-        inv isa Dict || continue
-        tm_i = Vector{String}(get(inv, "terminal_map", String[]))
-        # Phase count is set by the topology, not length(tm) - 1 (which assumes a
-        # neutral): a THREE_LEG (delta) IBR carries |tm| phase currents, so
-        # correct 3-entry per-phase vectors must NOT be flagged as mismatched.
-        n_phase, has_n = _ibr_phase_count(get(inv, "topology", "FOUR_LEG"), tm_i)
-        n_phase < 1 && continue
-        for field in ("r_filter", "x_filter", "cost", "s_max")
-            v = get(inv, field, nothing)
-            if v isa AbstractVector && length(v) != n_phase
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :ibr, id,
-                    "IBR '$id': $field has $(length(v)) entries but the " *
-                    "topology implies $n_phase phase(s).",
-                    Dict{String,Any}("field" => field, "n_phase" => n_phase)))
-            end
-        end
-        # i_max is per CONDUCTOR; topology sets phase count and neutral presence.
-        n_dim_issues += _check_conductor_imax!(findings, :ibr, "IBR", id,
-            get(inv, "i_max", nothing), n_phase, has_n)
-    end
-
-    # generator per-phase vectors must match the phase-conductor count, which is
-    # configuration-dependent: DELTA carries one current per conductor (|tm|),
-    # WYE/SINGLE_PHASE one per non-neutral phase (|tm| minus the neutral).
-    for (id, gen) in get(net, "generator", Dict())
-        gen isa Dict || continue
-        tm = get(gen, "terminal_map", String[])
-        is_delta = get(gen, "configuration", "WYE") == "DELTA"
-        n_phase = is_delta ? length(tm) : length(_phase_positions(tm))
-        n_phase < 1 && continue
-        for field in ("p_min", "p_max", "q_min", "q_max", "cost", "s_max")
-            v = get(gen, field, nothing)
-            if v isa AbstractVector && length(v) != n_phase
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :generator, id,
-                    "Generator '$id': $field has $(length(v)) entries but the " *
-                    "terminal map implies $n_phase phase(s).",
-                    Dict{String,Any}("field" => field, "n_phase" => n_phase)))
-            end
-        end
-        # i_max is per CONDUCTOR; a star generator may rate its neutral too.
-        let has_neutral = !is_delta && _neutral_pos(tm) !== nothing
-            n_dim_issues += _check_conductor_imax!(findings, :generator, "Generator",
-                id, get(gen, "i_max", nothing), n_phase, has_neutral)
-        end
-    end
+    n_dim_issues += _check_device_dimensions!(net, findings)
 
     z_tot = Dict{String,Float64}()   # per-line total series impedance proxy
     for (id, l) in get(net, "line", Dict())
@@ -432,8 +321,9 @@ function integrity_check(net::Dict{String,Any},
             X = _pattern_keys_to_matrix(l, "X_series_")
             R isa AbstractMatrix || continue
             n = size(R, 1)
-            nf = length(get(l, "terminal_map_from", String[]))
-            nt = length(get(l, "terminal_map_to",   String[]))
+            tmf=get(l,"terminal_map_from",nothing); tmt=get(l,"terminal_map_to",nothing)
+            (_index_strings(tmf) && _index_strings(tmt)) || continue
+            nf=length(tmf); nt=length(tmt)
             if nf != n || nt != n
                 n_ref_issues += 1
                 push!(findings, Finding(ERROR, "E.INT.LINE_DIM_MISMATCH", :integrity,
@@ -442,7 +332,7 @@ function integrity_check(net::Dict{String,Any},
                     "inline impedance matrix is $n×$n. Matrix row k is the " *
                     "impedance seen by terminal-map entry k, so the counts must " *
                     "match exactly; there is no meaningful truncation.",
-                    Dict{String,Any}("n" => n, "from" => nf, "to" => nt)))
+                    merge(_line_connection_evidence(net,id,l),Dict{String,Any}("n" => n, "from" => nf, "to" => nt))))
             end
             z_tot[id] = maximum(hypot(R[i, i],
                                 X isa AbstractMatrix && size(X) == size(R) ?
@@ -461,8 +351,9 @@ function integrity_check(net::Dict{String,Any},
         end
         haskey(lc_dims, lcid) || continue
         n = lc_dims[lcid]
-        nf = length(get(l, "terminal_map_from", String[]))
-        nt = length(get(l, "terminal_map_to",   String[]))
+        tmf=get(l,"terminal_map_from",nothing); tmt=get(l,"terminal_map_to",nothing)
+        (_index_strings(tmf) && _index_strings(tmt)) || continue
+        nf=length(tmf); nt=length(tmt)
         if nf != n || nt != n
             n_ref_issues += 1
             push!(findings, Finding(ERROR, "E.INT.LINE_DIM_MISMATCH", :integrity,
@@ -474,8 +365,8 @@ function integrity_check(net::Dict{String,Any},
                 "truncating to the shorter length (as some tools do) drops " *
                 "conductors and mutual coupling, or misaligns matrix rows with " *
                 "terminal roles, producing plausible-but-wrong results.",
-                Dict{String,Any}("linecode" => lcid, "n" => n,
-                                 "from" => nf, "to" => nt)))
+                merge(_line_connection_evidence(net,id,l),Dict{String,Any}("linecode" => lcid, "n" => n,
+                                 "from" => nf, "to" => nt))))
         end
         # total series impedance proxy: max self-resistance+reactance × length
         lc = linecodes[lcid]
@@ -534,40 +425,6 @@ function integrity_check(net::Dict{String,Any},
             "— padded conductors slow NLP solvers substantially; shrink the " *
             "matrix and use terminal maps: $(join(sort(padded), ", ")).",
             Dict{String,Any}("linecodes" => sort(padded))))
-    end
-
-    # load setpoint length vs configuration; source vm/va lengths
-    for (id, l) in get(net, "load", Dict())
-        l isa Dict || continue
-        cfg = get(l, "configuration", nothing)
-        expected = cfg == "SINGLE_PHASE" ? 1 :
-                   cfg in ("WYE", "DELTA") ? 3 : nothing
-        expected === nothing && continue
-        for field in ("p_nom", "q_nom")
-            v = get(l, field, nothing)
-            if v isa AbstractVector && length(v) != expected
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :load, id,
-                    "Load '$id' ($cfg): $field has $(length(v)) entries, " *
-                    "expected $expected.", nothing))
-            end
-        end
-    end
-    for (id, vs) in get(net, "voltage_source", Dict())
-        vs isa Dict || continue
-        ntm = length(get(vs, "terminal_map", String[]))
-        ntm == 0 && continue
-        for field in ("v_magnitude", "v_angle")
-            v = get(vs, field, nothing)
-            if v isa AbstractVector && length(v) != ntm
-                n_dim_issues += 1
-                push!(findings, Finding(WARNING, "W.INT.DIM_MISMATCH", :integrity,
-                    :voltage_source, id,
-                    "Voltage source '$id': $field has $(length(v)) entries " *
-                    "but the terminal map has $ntm.", nothing))
-            end
-        end
     end
 
     # --- galvanic islands: voltage reference required per island ---
@@ -650,7 +507,8 @@ function integrity_check(net::Dict{String,Any},
     end
 
     # --- wye without neutral ---
-    neutral_of = _bus_neutral_map(buses)
+    case_roles = _index_roles(net)
+    neutral_of = Dict(id => _index_bus_neutral(net,id,case_roles) for id in keys(buses))
     for comp_type in ("load", "generator")
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
@@ -702,7 +560,7 @@ function integrity_check(net::Dict{String,Any},
             if subtype in WINDING_LIST_SUBTYPES
                 # Winding terminals wire their buses too; omitting them made
                 # n-winding-fed buses look like they had floating/unused terminals.
-                for w in get(c, "windings", Any[])
+                for w in (get(c, "windings", nothing) isa AbstractVector ? c["windings"] : Any[])
                     w isa AbstractDict || continue
                     b  = get(w, "bus", nothing)
                     tm = get(w, "terminal_map", nothing)
@@ -732,10 +590,11 @@ function integrity_check(net::Dict{String,Any},
             b in source_buses && continue
             neutral = get(neutral_of, b, nothing)
             wired   = get(branch_terminals, b, Set{String}())
-            tm = string.(get(c, "terminal_map", String[]))
+            raw_tm = get(c, "terminal_map", String[])
+            _index_strings(raw_tm) || continue
+            tm = string.(raw_tm)
             floating = [t for t in tm
                         if t != neutral &&
-                           lowercase(t) != "n" &&
                            !(t in wired)]
             isempty(floating) && continue
             n_floating += 1
@@ -817,6 +676,7 @@ function integrity_check(net::Dict{String,Any},
         g isa Dict || continue
         haskey(g, "cost") || continue
         c = g["cost"]
+        _index_numbers(c) || continue # shape finding above owns malformed costs
         key = c isa AbstractVector ? join(Float64.(c), ",") : string(Float64(c))
         push!(get!(cost_groups, key, String[]), id)
     end
@@ -830,6 +690,7 @@ function integrity_check(net::Dict{String,Any},
             Dict{String,Any}("groups" => dup_groups)))
     end
 
+    _power_factor_config_check!(net, findings)
     result["n_reference_issues"] = n_ref_issues
     result["n_dimension_issues"] = n_dim_issues
     result

@@ -151,7 +151,7 @@ function _load_diversity(net::Dict{String,Any},
 
     # Per-galvanic-zone phase balance: sum p_nom by phase terminal label.
     # Flag zones where the phase totals are within 2% of each other — the
-    # network is secretly balanced and a simpler per-phase model would suffice.
+    # aggregate load is balanced; this does not establish electrical symmetry.
     # Skip split-phase and SWER zones: their legs are intrinsically anti-phase /
     # single-wire, so "balanced ⇒ single-phase equivalent" does not apply.
     buses = get(net, "bus", Dict())
@@ -191,11 +191,13 @@ function _load_diversity(net::Dict{String,Any},
         push!(findings, Finding(INFO, "I.DIV.LOAD_PHASE_BALANCED", :diversity, :load, nothing,
             "Galvanic zone anchored at '$zone_label' has balanced aggregate load across " *
             "$(length(phase_power)) phase(s) (max spread $(round(spread*100, digits=2))%) — " *
-            "the network is effectively balanced and a single-phase equivalent would suffice.",
+            "aggregate balance alone does not establish single-phase model applicability.",
             Dict{String,Any}(
                 "zone_anchor"    => zone_label,
                 "phase_totals_W" => phase_power,
-                "spread_pct"     => round(spread * 100, digits=2))))
+                "spread_pct"     => round(spread * 100, digits=2),
+                "knowledge_ids" => ["PSK-000009"],
+                "single_phase_applicability" => "unassessed")))
         flag = true
     end
     r["n_balanced_zones"] = n_balanced_zones

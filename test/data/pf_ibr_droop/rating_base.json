@@ -1,0 +1,29 @@
+{
+  "bus": {
+    "b": {"terminal_names": ["a", "n"], "perfectly_grounded_terminals": ["n"]}
+  },
+  "voltage_source": {
+    "source": {"bus": "b", "terminal_map": ["a"], "v_magnitude": [250.0], "v_angle": [0.0]}
+  },
+  "control_profile": {
+    "aus_a": {
+      "volt_var": {
+        "voltage_reference": "PN_PER_PHASE",
+        "breakpoints": [207.0, 220.0, 240.0, 258.0],
+        "q_limits": [-0.6, 0.44], "q_unit": "VA_FRACTION", "q_ref": "VAR_MAX"
+      },
+      "volt_watt": {
+        "voltage_reference": "PN_PER_PHASE",
+        "breakpoints": [253.0, 260.0],
+        "p_limits": [0.2, 1.0], "p_unit": "VA_FRACTION", "p_ref": "S_MAX"
+      }
+    }
+  },
+  "ibr": {
+    "pv": {
+      "bus": "b", "terminal_map": ["a", "n"], "topology": "SINGLE_PHASE",
+      "prime_mover": "PV", "s_max": [6000.0], "i_max": [0.01],
+      "p_min": [0.0], "p_max": [0.0], "control_profile": "aus_a"
+    }
+  }
+}

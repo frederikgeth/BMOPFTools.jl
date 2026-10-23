@@ -295,6 +295,12 @@ render_solution(sol_report, stdout)
 
 ## 8. Export
 
+To inspect the exported network interactively, drag and drop the BMOPF case JSON
+onto [Tellegen](https://tellegen.dev/). Bus `latitude`/`longitude` fields are
+preserved by default; coordinates are optional. See
+[Visualizing a case with Tellegen](visualization.md) for the steps and the
+`include_coordinates=false` option for strict BMOPF schema consumers.
+
 [`write_bmopf`](@ref) serialises the benchmark-ready case.
 [`manifest_to_dict`](@ref) turns each manifest into a JSON-serialisable `Dict`,
 giving every downstream consumer a complete, auditable record of what was

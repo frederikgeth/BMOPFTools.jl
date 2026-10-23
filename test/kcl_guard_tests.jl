@@ -202,8 +202,10 @@ end
 @testset "KCL guard — the fused solve_opf path is untouched" begin
     # `_build_and_solve` stamps KCL itself and never registers, so the fused
     # recipe must neither install a hook nor be affected by the guard.
-    before = length(_KCLEXT._KCL_GUARD_REGISTRY)
+    # Keep the existing model keys alive across the solve: otherwise GC can
+    # legitimately remove unrelated weak entries and change the registry count.
+    before = Set(keys(_KCLEXT._KCL_GUARD_REGISTRY))
     res = solve_opf(_kg_net())
     @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-    @test length(_KCLEXT._KCL_GUARD_REGISTRY) == before
+    @test Set(keys(_KCLEXT._KCL_GUARD_REGISTRY)) == before
 end

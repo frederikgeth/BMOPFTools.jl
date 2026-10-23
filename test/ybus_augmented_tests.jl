@@ -25,7 +25,7 @@
             ),
             "switch" => Dict{String,Any}(
                 "s1" => Dict{String,Any}(
-                    "bus_from" => "b1", "bus_to" => "b2", "status" => "closed",
+                    "bus_from" => "b1", "bus_to" => "b2", "open_switch" => false,
                     "terminal_map_from" => ["a"], "terminal_map_to" => ["a"]),
             ),
             "shunt" => Dict{String,Any}(
@@ -63,7 +63,7 @@
         @test c.scale * w * c.coeffs[k1] ≈ Iinj atol=1e-12
     end
 
-    @testset "open switch stays open in :constrain mode" begin
+    @testset "open switch stays open in both switch modes" begin
         net = Dict{String,Any}(
             "bus" => Dict{String,Any}(
                 "b1" => Dict{String,Any}("terminal_names" => ["a"]),
@@ -71,13 +71,67 @@
             ),
             "switch" => Dict{String,Any}(
                 "s1" => Dict{String,Any}(
-                    "bus_from" => "b1", "bus_to" => "b2", "status" => "open",
+                    "bus_from" => "b1", "bus_to" => "b2", "open_switch" => true,
                     "terminal_map_from" => ["a"], "terminal_map_to" => ["a"]),
             ),
         )
         r = ybus_augmented(net; switches=:constrain)
         @test length(r.nodes) == 2
         @test isempty(r.couplings)
+        ra = ybus_augmented(net)                      # switches=:alias
+        @test length(ra.nodes) == 2                   # not fused
+        @test isempty(ra.couplings)
+    end
+
+    @testset "network opening in a loop: alias ≡ constrain ≡ switch removed" begin
+        # b1 —l12— b2 —s23 (closed)— b3, and the open switch s13 from b3 back to
+        # b1 (a network opening). Two conductors, inline Z, shunts at b1 and b3
+        # so Y is nonsingular.
+        line = Dict{String,Any}("bus_from" => "b1", "bus_to" => "b2",
+            "terminal_map_from" => ["a", "b"], "terminal_map_to" => ["a", "b"],
+            "R_series_1_1" => 0.2, "R_series_1_2" => 0.05,
+            "R_series_2_1" => 0.05, "R_series_2_2" => 0.2,
+            "X_series_1_1" => 0.4, "X_series_1_2" => 0.1,
+            "X_series_2_1" => 0.1, "X_series_2_2" => 0.4)
+        sw(bfr, bto, open) = Dict{String,Any}("bus_from" => bfr, "bus_to" => bto,
+            "terminal_map_from" => ["a", "b"], "terminal_map_to" => ["a", "b"],
+            "open_switch" => open)
+        sh(bus, g) = Dict{String,Any}("bus" => bus, "terminal_map" => ["a", "b"],
+            "G_1_1" => g, "G_2_2" => g, "B_1_1" => 0.0, "B_2_2" => 0.0)
+        mknet(s13_open) = Dict{String,Any}(
+            "bus" => Dict{String,Any}(b => Dict{String,Any}("terminal_names" => ["a", "b"])
+                                      for b in ("b1", "b2", "b3")),
+            "line" => Dict{String,Any}("l12" => deepcopy(line)),
+            "switch" => Dict{String,Any}("s23" => sw("b2", "b3", false),
+                                         "s13" => sw("b3", "b1", s13_open)),
+            "shunt" => Dict{String,Any}("sh1" => sh("b1", 0.1), "sh3" => sh("b3", 0.5)),
+        )
+        terms = [(b, t) for b in ("b1", "b2", "b3") for t in ("a", "b")]
+        inj(r) = (v = zeros(ComplexF64, length(r.nodes));
+                  v[r.index[("b1", "a")]] = 1.0; v[r.index[("b1", "b")]] = 0.5im; v)
+        volts(r, x) = [x[r.index[n]] for n in terms]
+
+        net = mknet(true)
+        ra = ybus_augmented(net)                          # :alias
+        rc = ybus_augmented(net; switches=:constrain)
+        ref = ybus_passive(remove_open_switches(net))     # s13 deleted outright
+        @test length(ra.nodes) == 4 && isempty(ra.couplings)
+        @test length(rc.nodes) == 6
+        @test [(c.id, c.conductor) for c in rc.couplings] == [("s23", 1), ("s23", 2)]
+
+        Va = volts(ra, solveK(ra, inj(ra)))
+        Vc = volts(rc, solveK(rc, inj(rc)))
+        Vr = volts(ref, Matrix(ref.Y) \ inj(ref))
+        @test maximum(abs.(Va .- Vr)) < 1e-12
+        @test maximum(abs.(Vc .- Vr)) < 1e-12
+        @test abs(Va[1] - Va[3]) > 0.01      # the line carries current: b1 ≠ b2
+
+        # Closing s13 shorts the line, so the answer with s13 open is not the
+        # all-closed one.
+        rclosed = ybus_augmented(mknet(false))
+        @test length(rclosed.nodes) == 2
+        Vclosed = volts(rclosed, solveK(rclosed, inj(rclosed)))
+        @test abs(Vclosed[1] - Vclosed[3]) < 1e-12
     end
 
     # ── dedupe: switch in parallel with an aliased negligible-Z line ─────────
@@ -90,7 +144,7 @@
             ),
             "switch" => Dict{String,Any}(
                 "s1" => Dict{String,Any}(
-                    "bus_from" => "b1", "bus_to" => "b2", "status" => "closed",
+                    "bus_from" => "b1", "bus_to" => "b2", "open_switch" => false,
                     "terminal_map_from" => ["a"], "terminal_map_to" => ["a"]),
             ),
             # ‖Z‖ far below z_line_min_ohm → node-aliased unconditionally.

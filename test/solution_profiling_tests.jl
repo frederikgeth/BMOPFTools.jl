@@ -903,3 +903,60 @@ end
     b1row = first(r for r in zone["bus_rows"] if r["bus"] == "b1")
     @test b1row["status"] == "violation"
 end
+
+@testset "Optimization screen preserves unknowns" begin
+    net = _base_net(); result = _base_result()
+    result["opt_profile"] = Dict{String,Any}("n_active"=>nothing, "has_duals"=>false)
+    o = profile_solution(net, result).results[:optimization]
+    @test o["has_active_inequalities"] === nothing
+    @test o["has_weakly_active_inequalities"] === nothing
+    @test o["is_opf"] === nothing
+    @test o["dimension_method"] == "variable_minus_equality_count"
+    result["opt_profile"]["n_active"] = 0
+    result["opt_profile"]["n_unassessed_inequalities"] = 1
+    @test profile_solution(net, result).results[:optimization]["has_active_inequalities"] === nothing
+    result["opt_profile"]["n_active"] = 1
+    @test profile_solution(net, result).results[:optimization]["has_active_inequalities"] === true
+end
+
+@testset "Pilot regressions: zero ratings and switch result fields (PSK-000013)" begin
+    witness = JSON3.read(read(joinpath(@__DIR__, "data", "scientific_review",
+        "zero-rated-device-result.json"), String), Dict{String,Any})
+    for (family, id, code) in (("ibr", "inv", "E.SOL.IBR_VIOLATION"),
+                               ("generator", "inv", "E.SOL.GEN_VIOLATION"))
+        net = deepcopy(witness["network"]); result = deepcopy(witness["result"])
+        if family == "generator"
+            net[family] = pop!(net, "ibr"); net[family][id]["configuration"] = "SINGLE_PHASE"
+            result[family] = pop!(result, "ibr")
+        end
+        for (q, violates) in ((0.0,false),(1e-25,false),(1e-6,false),(2e-6,true))
+            result[family][id]["a"]["qg"] = q
+            fs = Finding[]; solution_check(net, result, fs)
+            matches = filter(f -> f.code == code && haskey(f.detail, "s_max"), fs)
+            @test !isempty(matches) == violates
+            if violates
+                @test only(matches).detail["tolerance_VA"] == 1e-6
+                serialized = BMOPFTools._finding_to_json(only(matches))
+                @test JSON3.read(JSON3.write(serialized)).detail.excess_VA == q
+            end
+        end
+        net[family][id]["s_max"] = [100.0]
+        result[family][id]["a"]["qg"] = 100.01
+        fs = Finding[]; solution_check(net, result, fs)
+        @test any(f -> f.code == code && haskey(f.detail, "s_max"), fs)
+    end
+    net = _base_net(); result = _base_result()
+    net["switch"] = Dict{String,Any}("sw"=>Dict{String,Any}(
+        "bus_from"=>"sourcebus", "bus_to"=>"b1", "terminal_map_from"=>["a"],
+        "terminal_map_to"=>["a"], "open_switch"=>false, "i_max"=>[10.0]))
+    result["switch"] = Dict{String,Any}("sw"=>Dict{String,Any}("a"=>Dict{String,Any}("cm"=>5.0)))
+    fs = Finding[]; summary = solution_check(net,result,fs)
+    @test !any(startswith("switch.sw"), get(summary,"missing_result_fields",String[]))
+    result["switch"]["sw"]["a"]["cm"] = 11.0
+    fs = Finding[]; solution_check(net,result,fs)
+    @test any(f->f.code=="E.SOL.THERMAL_VIOLATION" && f.component_id=="sw",fs)
+    delete!(result["switch"]["sw"]["a"],"cm")
+    result["switch"]["sw"]["a"]["cm_fr"] = 5.0
+    fs = Finding[]; summary = solution_check(net,result,fs)
+    @test "switch.sw.a.cm" in summary["missing_result_fields"]
+end

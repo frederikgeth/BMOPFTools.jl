@@ -5,13 +5,13 @@ A single field change made by an augmentation pass.
 
 Fields
 ------
-- `component_type` — `:bus`, `:linecode`, `:generator`, `:ibr`, or `:transformer`
+- `component_type` — `:bus`, `:linecode`, `:generator`, `:ibr`, `:load`, or `:transformer`
 - `component_id`   — the dict key of the modified component
 - `field`          — the field name written (e.g. `"vpn_min"`, `"i_max"`)
 - `old_value`      — previous value (`nothing` if the field was absent)
 - `new_value`      — value written
-- `rule`           — standards citation (e.g. `"EN50160:2010§3.5"`)
-- `confidence`     — `:standard`, `:heuristic`, `:high`, `:medium`, or `:low`
+- `rule`           — transformation rule or standards citation (e.g. `"EN50160:2010§3.5"`)
+- `confidence`     — `:standard`, `:heuristic`, `:high`, `:medium`, `:low`, or `:synthetic`
 - `note`           — human-readable explanation
 """
 struct TransformEntry
@@ -28,13 +28,14 @@ end
 """
     TransformationManifest
 
-Complete audit trail for one call to [`augment_case`](@ref).
+Transformation record for one preparation or scenario call.
 
 Fields
 ------
 - `created_at`      — ISO-8601 timestamp of the augmentation run
-- `recipe`          — the recipe used (`AugmentationRecipe`, `FixRecipe`, or
-                      `GeneratorRecipe`); the change detail is also captured in `entries`
+- `recipe`          — the recipe used (`AugmentationRecipe`, `FixRecipe`,
+                      `GeneratorRecipe`, `IBRRecipe`, or `CaseScenario`);
+                      individual changes are captured in `entries`
 - `entries`         — ordered list of [`TransformEntry`](@ref) records
 - `findings_before` — [`benchmark_readiness_check`](@ref) findings on the
                       input case (snapshot)
@@ -63,13 +64,12 @@ function _entry_to_dict(e::TransformEntry)::Dict{String,Any}
     )
 end
 
-function _finding_to_dict(f::Finding)::Dict{String,Any}
-    Dict{String,Any}(
-        "severity" => string(f.severity),
-        "code"     => f.code,
-        "message"  => f.message,
-    )
-end
+_finding_to_dict(f::Finding) = _finding_to_json(f)
+
+_recipe_to_dict(r) = Dict{String,Any}(
+    "type" => string(nameof(typeof(r))),
+    "parameters" => Dict(string(k) => _jsonable(getfield(r, k)) for k in fieldnames(typeof(r))),
+)
 
 """
     manifest_to_dict(m::TransformationManifest) -> Dict{String,Any}
@@ -80,6 +80,7 @@ Convert a manifest to a plain dict suitable for JSON serialisation via
 function manifest_to_dict(m::TransformationManifest)::Dict{String,Any}
     Dict{String,Any}(
         "created_at"      => m.created_at,
+        "recipe"          => _recipe_to_dict(m.recipe),
         "entries"         => _entry_to_dict.(m.entries),
         "findings_before" => _finding_to_dict.(m.findings_before),
         "findings_after"  => _finding_to_dict.(m.findings_after),

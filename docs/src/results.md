@@ -47,6 +47,63 @@ physics or optimality. Bus checks derive magnitude and angle from `vr`/`vi`;
 inconsistent supplied `vm` is an error. The default bound/phasor consistency
 tolerance remains 0.2%, with the documented absolute floors.
 
+## Supplied transformer coil loading
+
+`profile_solution(net, result).results[:transformer_loading]` exposes per-coil
+loading alongside aggregates in `render_solution` Markdown and in the existing
+`execute_solution_verification` JSON response. It reuses the existing
+`E.SOL.THERMAL_VIOLATION` and `W.SOL.THERMAL_ACTIVE` Findings from `solution_check`;
+the report does not introduce a second bound checker or change its tolerances.
+
+Each `coils` row identifies transformer/subtype, constrained `side`, positional
+`coil`, bus and terminal pair, supplied `s_VA` and `cap_VA`, utilization `s/cap`,
+headroom `cap-s`, comparison status and Finding codes. Derived ratios or sums
+that overflow Float64 are null; an overflowing group sum is incomplete, preserving
+JSON serialization without inventing a finite total. A null second terminal
+denotes the ground reference. Caps are taken from result `s_max`, never inferred
+by dividing the case's nameplate. Missing or invalid values remain null with
+explicit field paths; a zero cap is retained, with null utilization and finite
+headroom. `within_reported_cap` describes only the supplied comparison.
+
+`groups` contains sums of apparent-power magnitudes and caps for each constrained
+side/winding, with aggregate and worst-coil utilization. It does not sum opposite
+sides, and `sum(|S_coil|)` is not `|sum(S_coil)|`. Aggregate sums require every
+expected coil's finite S/cap; incomplete data never becomes zero loading.
+Worst utilization is null when any coil has an undefined zero-cap ratio.
+A 100 kVA three-coil bank can show 40% aggregate loading while one coil is at
+120%; the per-coil row retains its negative headroom and violation Finding.
+
+| Native subtype | Result slots represented | Native nameplate meaning (context only) |
+|---|---|---|
+| `single_phase` | `fr`, one index per from-side winding pair | Total nameplate shared over coils |
+| `center_tap` | `fr/1`, HV coil | Whole nameplate on the HV coil |
+| `wye_delta` | `fr`, wye phase positions | Total shared over wye coils |
+| `delta_wye` | `to`, wye phase positions | Total shared over wye coils |
+| `single_phase_autotransformer` | `fr/1`, through-power winding | Whole regulator nameplate |
+| `open_delta_regulator` | `fr/1`, `fr/2`, oriented regulating pairs | Whole per-regulator nameplate on each pair |
+| `n_winding` | `w1`…`wN`, phase-leg indices | Each winding's own `s_max` shared over its legs |
+
+Slot interpretation follows the native model's declared terminal maps and neutral
+resolution; n-winding currently recognizes a/b/c/n as its native reader does.
+Unsupported subtypes, malformed mappings and unrecognized supplied S/cap slots
+are listed in `unassessed`, with no inferred physical allocation. This covers
+apparent-power records, not a reinterpretation of conductor-current limits.
+
+All rows are **supplied-result evidence**, not independent reconstruction or
+authentication of solver stamping or case-to-result provenance. Candidate state
+is explicit: `supplied_feasible_candidate` is a solver claim (including a feasible
+time-limit candidate), `diagnostic_candidate` retains failed/infeasible candidate
+values, and `no_candidate` cannot establish an operating point. The latter two
+have unassessed comparisons even if finite diagnostic values are supplied.
+Termination/primal status and result count are retained. These labels do not
+override whole-network `verification_status` or certify physical feasibility.
+
+The report neither changes ratings nor retries solves. It is separate from
+`W.OPS.XFMR_OVERLOADED`, the existing **90% downstream nominal-load estimate**.
+Qualified per-coil preflight demand/headroom estimates are documented in
+[Qualified nominal transformer coil headroom](@ref) and remain separate from supplied results. The independent voltage/current regression for the ideal bank is
+case-specific PSK-000013 evidence, not a universal transformer validation claim.
+
 ## Top-level fields
 
 | Key | Type | Description |
@@ -411,3 +468,37 @@ reference for 4-wire networks where the neutral is not perfectly grounded.
 When `solve_opf` is called with `per_unit=true` the result is automatically
 converted back to SI before being returned. The caller always receives SI units
 regardless of the internal solver representation.
+
+## Interpreting optimization-profile screens
+
+`has_active_inequalities` reports whether any assessed inequality binds;
+`has_weakly_active_inequalities` reports small multipliers at binding inequalities.
+The legacy `is_opf` and `degenerate` keys are aliases for those screens, not task
+classifications or proofs of non-uniqueness. Unavailable evidence is `nothing`.
+`degrees_of_freedom` remains the count `n_variables - n_eq_constraints` for
+compatibility; `dimension_method` explicitly labels it as a count proxy, not
+an equality-Jacobian rank computation.
+
+`strict_complementarity` is a numerical screen in the solver's scaling and
+thresholds. Missing active duals or unassessed inequalities leave it unknown.
+It does not establish local uniqueness, second-order sufficiency or global
+optimality. The profile records its thresholds and coverage counts.
+
+### Zero ratings and numerical tolerance
+
+A phase with `s_max = 0` can return a tiny nonzero P/Q value after a numerical
+solve. Generator and IBR apparent-power checks use a relative tolerance of
+`1e-6` with an absolute floor of `1e-6 VA`; excess above that tolerance remains
+an ERROR. The Finding records `tolerance_VA` and `excess_VA`. This is a stated
+verification tolerance, not an increase in the equipment rating. JSON numeric
+zeros are accepted whether decoded as integers or floating-point values.
+
+Switch current magnitudes use `cm` in native results; line endpoint magnitudes
+use `cm_fr` and `cm_to`. Missing switch `cm` remains unassessed, while a supplied
+current exceeding its rating is checked normally.
+
+
+For nominal-demand screening before a solve, see
+[Qualified nominal transformer coil headroom](@ref) in the analysis guide.
+`analyze` stores that estimate under `preflight.transformer_coil_headroom`;
+it is never substituted for this page's supplied-result coil loading.

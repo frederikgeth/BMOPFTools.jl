@@ -15,12 +15,12 @@
 #   pf < 0  (leading,  injecting VAr): Q_k = +tan(arccos(|pf|))· P_k
 #
 # Implemented as the bilinear equality:
-#   sign(pf) · Q_k + tan_phi · P_k = 0
+#   pf · Q_k + sqrt((1-abs(pf))*(1+abs(pf))) · P_k = 0
 #
 # which Ipopt handles exactly — no relaxation or bound approximation.
 #
-# Without a PF control profile, q_min/q_max box bounds are used; these are
-# normally filled by _apply_ibr_augmentation! before the OPF is called.
+# Declared q_min/q_max bounds always apply, including with PF or Volt-var.
+# A control law adds an equality; it does not replace reactive capability.
 
 "Declare `cri`/`cii` IBR current variables (one per phase conductor)."
 function _add_ibr_variables!(model, net)
@@ -84,7 +84,7 @@ end
 # reactive box midpoint. A missing active box falls back to ~90 % of s_max (a
 # sensible non-degenerate seed). Only used to steer Ipopt onto the physical root;
 # the true operating point is decided by the constraints, so a rough seed suffices.
-function _ibr_phase_target(idx, p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign)
+function _ibr_phase_target(idx, p_min, p_max, q_min, q_max, smax, pf_coeffs, pf_sign)
     pmid(lo, hi, i) = length(hi) >= i ?
         (length(lo) >= i ? 0.5*(lo[i] + hi[i]) : hi[i]) :
         (length(lo) >= i ? lo[i] : nothing)
@@ -92,9 +92,15 @@ function _ibr_phase_target(idx, p_min, p_max, q_min, q_max, smax, tan_phi, pf_si
     if pt === nothing
         pt = length(smax) >= idx && isfinite(smax[idx]) ? 0.9*smax[idx] : 0.0
     end
-    if tan_phi !== nothing
-        # sign(pf)>0 (lagging): Q = −tan_phi·P; sign(pf)<0 (leading): Q = +tan_phi·P.
-        qt = -pf_sign * tan_phi * pt
+    if pf_coeffs !== nothing
+        # Bounded cosine/sine coefficients preserve the signed PF convention.
+        cosine, sine = pf_coeffs
+        qt = -pf_sign * (sine * pt / cosine)
+        # An extreme valid PF may have no finite seed at the midpoint P.
+        # Zero is a finite seed on the same PF ray; constraints still own bounds.
+        if !isfinite(qt)
+            pt = 0.0; qt = 0.0
+        end
     else
         qt = pmid(q_min, q_max, idx)
         qt === nothing && (qt = 0.0)
@@ -374,9 +380,10 @@ Constraints applied per phase:
 - `cri[k]² + cii[k]² ≤ i_max[k]²`  (optional converter current-magnitude limit;
   only stamped when `i_max` is present, so `Q_k` rolls off ≈ linearly with voltage
   rather than staying flat at `s_max`)
-- Reactive power: constant-PF equality `sign(pf)·Q_k + tan_phi·P_k = 0`, or —
+- Reactive bounds `q_min[k] ≤ Q_k ≤ q_max[k]` apply whenever declared.
+- Reactive control additionally imposes constant-PF `pf·Q_k + sqrt(1-pf²)·P_k = 0`, or —
   under a `volt_var` profile — the droop equality `Q_k = q_base · f^VV(|U_k|)`,
-  otherwise the box bounds `q_min[k] ≤ Q_k ≤ q_max[k]`.
+  otherwise Q remains dispatchable within its declared limits.
 
 Volt-var/Volt-watt droop is applied for SINGLE_PHASE and FOUR_LEG IBRs only;
 for THREE_LEG (delta) there are too few degrees of freedom for a per-phase droop,
@@ -394,6 +401,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
     softplus = ctx.softplus
     vr  = vars[:vr];  vi  = vars[:vi]
     cri = vars[:cri]; cii = vars[:cii]
+    minimum_pf, _ = BMOPFTools._power_factor_config_check!(net, BMOPFTools.Finding[]; strict=true)
     profiles = get(net, "control_profile", Dict())
     nlabels = BMOPFTools._neutral_labels(net)
     curve_cache = Dict{Tuple{String,Float64},Tuple{Any,Any}}()
@@ -431,13 +439,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         if cp_id isa String
             cp = get(profiles, cp_id, nothing)
             if cp isa Dict
-                pf_obj = get(cp, "power_factor", nothing)
-                if pf_obj isa Dict
-                    raw = get(pf_obj, "pf", nothing)
-                    if raw isa Number && abs(Float64(raw)) > 1e-9
-                        pf_val = Float64(raw)
-                    end
-                end
+                pf_val = BMOPFTools._constant_pf_value(cp)
                 vv_obj = get(cp, "volt_var",  nothing)
                 vw_obj = get(cp, "volt_watt", nothing)
             end
@@ -492,9 +494,11 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 (bases === nothing ? 1.0 : _ac_power_base(bases, bus)) : 0.0
         end
 
-        tan_phi  = pf_val !== nothing ? tan(acos(abs(pf_val))) : nothing
-        # sign(pf) > 0 (lagging): Q = -tan_phi*P  →  +1*Q + tan_phi*P = 0
-        # sign(pf) < 0 (leading): Q = +tan_phi*P  →  -1*Q + tan_phi*P = 0
+        policy = get(minimum_pf, inv_id, nothing)
+        min_pf = policy === nothing ? nothing : policy.pf_min
+        pf_coeffs = pf_val === nothing ? nothing : (abs(pf_val), sqrt((1-abs(pf_val))*(1+abs(pf_val))))
+        # Use bounded coefficients: acos rounds tiny PF to pi/2 and its
+        # tangent cannot represent the requested ratio accurately.
         pf_sign  = pf_val !== nothing ? sign(pf_val) : 0.0
 
         # Aggregation across phases is normally taken from each curve's
@@ -527,7 +531,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             q_expr = @expression(model, dvi*cri[(inv_id,1)] - dvr*cii[(inv_id,1)])
             collect_p && push!(p_exprs, p_expr)
 
-            let (pt, qt) = _ibr_phase_target(1, p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign)
+            let (pt, qt) = _ibr_phase_target(1, p_min, p_max, q_min, q_max, smax, pf_coeffs, pf_sign)
                 _warmstart_ibr_current!(cri[(inv_id,1)], cii[(inv_id,1)], dvr, dvi, pt, qt)
             end
 
@@ -565,7 +569,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             single_U(c) = c === nothing ? nothing : (c.quantity == :PG ? U_pg : U_diff)
             _apply_ibr_phase!(ctx, inv_id, 1, p_expr, q_expr, single_U(vv), single_U(vw),
                 p_min_model, p_max_model, q_min_model, q_max_model,
-                smax, tan_phi, pf_sign,
+                smax, pf_coeffs, pf_sign, min_pf,
                 vv, vw, p_avail_per, relu_ops, softplus)
 
             _kcl_add!(kcl_r, kcl_i, bus, t_ph,   cri[(inv_id,1)],  cii[(inv_id,1)])
@@ -592,7 +596,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 p_expr = @expression(model, dvr*cri[(inv_id,idx)] + dvi*cii[(inv_id,idx)])
                 q_expr = @expression(model, dvi*cri[(inv_id,idx)] - dvr*cii[(inv_id,idx)])
 
-                pt, qt = _ibr_phase_target(idx, p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign)
+                pt, qt = _ibr_phase_target(idx, p_min, p_max, q_min, q_max, smax, pf_coeffs, pf_sign)
                 _warmstart_ibr_current!(cri[(inv_id,idx)], cii[(inv_id,idx)], dvr, dvi, pt, qt)
 
                 push!(phase, (idx=idx, p_expr=p_expr, q_expr=q_expr))
@@ -631,7 +635,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                     U_vv === nothing ? nothing : U_vv[p.idx],
                     U_vw === nothing ? nothing : U_vw[p.idx],
                     p_min_model, p_max_model, q_min_model, q_max_model,
-                    smax, tan_phi, pf_sign,
+                    smax, pf_coeffs, pf_sign, min_pf,
                     vv, vw, p_avail_per, relu_ops, softplus)
             end
 
@@ -647,7 +651,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 q_expr = @expression(model, dvi*cri[(inv_id,k)] - dvr*cii[(inv_id,k)])
                 collect_p && push!(p_exprs, p_expr)
 
-                let (pt, qt) = _ibr_phase_target(k, p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign)
+                let (pt, qt) = _ibr_phase_target(k, p_min, p_max, q_min, q_max, smax, pf_coeffs, pf_sign)
                     _warmstart_ibr_current!(cri[(inv_id,k)], cii[(inv_id,k)], dvr, dvi, pt, qt)
                 end
 
@@ -658,7 +662,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
                 # THREE_LEG never carries droop (vv = vw = nothing); U is unused.
                 _apply_ibr_phase!(ctx, inv_id, k, p_expr, q_expr, nothing, nothing,
                     p_min_model, p_max_model, q_min_model, q_max_model,
-                    smax, tan_phi, pf_sign,
+                    smax, pf_coeffs, pf_sign, min_pf,
                     nothing, nothing, p_avail_per, relu_ops, softplus)
 
                 _kcl_add!(kcl_r, kcl_i, bus, t_pos,  cri[(inv_id,k)],  cii[(inv_id,k)])
@@ -705,7 +709,7 @@ end
 # caller chooses it per the IBR's `voltage_aggregation` field: the per-phase magnitude
 # √(dvr²+dvi²) for PER_PHASE, or the mean of the phase magnitudes for AVERAGE.
 function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
-                                p_min, p_max, q_min, q_max, smax, tan_phi, pf_sign,
+                                p_min, p_max, q_min, q_max, smax, pf_coeffs, pf_sign, min_pf,
                                 vv, vw, p_avail_per, relu_ops, softplus)
     model = ctx.model
     register_constraint(family, cref) = BMOPFTools.register_opf_object!(ctx,
@@ -735,23 +739,33 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
                                  [(base*a, x̄) for (a, x̄) in vw.triples])))
     end
 
-    # Reactive power: constant-PF equality, Volt-var droop equality, or box.
-    if tan_phi !== nothing
+    # Minimum PF is a separate operating envelope, composed with all controls.
+    # Coefficients are bounded even for PF close to zero; P>=0 is explicit at unity.
+    if min_pf !== nothing
+        sine = sqrt((1-min_pf)*(1+min_pf))
+        register_constraint(:ibr_minimum_pf_generation, @constraint(model, p_expr >= 0))
+        register_constraint(:ibr_minimum_pf_upper, @constraint(model, min_pf*q_expr <= sine*p_expr))
+        register_constraint(:ibr_minimum_pf_lower, @constraint(model, -min_pf*q_expr <= sine*p_expr))
+    end
+
+    # Reactive capability remains hard under every control mode. Keep the live
+    # coefficient expressions, and do not clip a controller to fit these bounds.
+    if length(q_min) >= idx
+        register_constraint(:ibr_q_lower, @constraint(model, q_expr >= q_min[idx]))
+    end
+    if length(q_max) >= idx
+        register_constraint(:ibr_q_upper, @constraint(model, q_expr <= q_max[idx]))
+    end
+    # Reactive control: constant-PF or Volt-var equality, in addition to capability.
+    if pf_coeffs !== nothing
         register_constraint(:ibr_power_factor, @constraint(model,
-            pf_sign * q_expr + tan_phi * p_expr == 0))
+            pf_sign * pf_coeffs[1] * q_expr + pf_coeffs[2] * p_expr == 0))
     elseif vv !== nothing
         op   = relu_operator_for!(relu_ops, model, vv.eps; mode=softplus)
         base = _droop_base(vv, idx, smax, p_max, p_avail_per)
         register_constraint(:ibr_q_volt_var, @constraint(model,
             q_expr == curve_expr(op, U_vv, base * vv.baseline,
                                  [(base*a, x̄) for (a, x̄) in vv.triples])))
-    else
-        if length(q_min) >= idx
-            register_constraint(:ibr_q_lower, @constraint(model, q_expr >= q_min[idx]))
-        end
-        if length(q_max) >= idx
-            register_constraint(:ibr_q_upper, @constraint(model, q_expr <= q_max[idx]))
-        end
     end
 
     # Register the native active/reactive power auxiliaries uniformly, even
@@ -765,8 +779,9 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
         BMOPFTools.opf_ibr_power_key(string(inv_id), idx; component = :reactive), q_aux)
     register_constraint(:ibr_power_link_p, @constraint(model, p_aux == p_expr))
     register_constraint(:ibr_power_link_q, @constraint(model, q_aux == q_expr))
-    # Apparent-power circle.
-    if length(smax) >= idx
+    # PF keeps the rating for droop normalization but omits this operational
+    # capability constraint. OPF/feasibility OPF continue to enforce the circle.
+    if ctx.manifest.problem != :power_flow && length(smax) >= idx
         register_constraint(:ibr_power_circle,
             _soc_norm!(model, p_aux, q_aux, smax[idx]))
     end

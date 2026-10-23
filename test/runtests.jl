@@ -51,6 +51,9 @@ function _strip_xfmr_ratings!(net)
 end
 
 include("piecewise_linear_tests.jl")
+include("case_development_tests.jl")
+_HAS_JUMP_IPOPT && include("case_development_opf_tests.jl")
+_HAS_JUMP_IPOPT && include("ipopt_barrier_benchmark_tests.jl")
 
 # Original diagnostic fixture; provenance and intentional defects are documented
 # alongside the data. Each consumer parses its own independent copy.
@@ -747,7 +750,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             "pv1": {"bus":"b1","terminal_map":["1","2","3","n"],
                     "topology":"FOUR_LEG","prime_mover":"PV",
                     "s_max":[5000.0,5000.0,5000.0],"p_avail":4000.0,
-                    "q_min":-3000.0,"q_max":3000.0,
+                    "q_min":[-3000.0,-3000.0,-3000.0],"q_max":[3000.0,3000.0,3000.0],
                     "control_profile":"vv1"}
           },
           "control_profile": {
@@ -3708,6 +3711,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # PowerIO conversion diagnostics lifted into Findings
     # -----------------------------------------------------------------------
     include("powerio_findings_tests.jl")
+    include("dss_conversion_error_tests.jl")
 
     # -----------------------------------------------------------------------
     # write_bmopf JSON validity
@@ -3719,6 +3723,10 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # validation findings, export; OPF solve gated on JuMP/Ipopt internally.
     # -----------------------------------------------------------------------
     include("terminal_conventions_tests.jl")
+    include("terminal_usage_tests.jl")
+    include("device_indexing_tests.jl")
+    include("connection_map_tests.jl")
+    include("transformer_phase_tests.jl")
 
     # -----------------------------------------------------------------------
     # Time-series support — snapshot semantics plus a gated OPF sweep
@@ -3758,6 +3766,8 @@ include("mcp_execution_tests.jl")
     # Solution profiling — no solver required
     # -----------------------------------------------------------------------
     include("solution_profiling_tests.jl")
+    include("transformer_loading_tests.jl")
+    include("transformer_headroom_tests.jl")
     include("line_solution_verification_tests.jl")
     include("scientific_review_tests.jl")
 
@@ -3792,6 +3802,9 @@ include("mcp_execution_tests.jl")
             @test_skip "JuMP/Ipopt not in load path — skipping OPF tests"
         else
             include("scaling_policy_tests.jl")
+            include("transformer_current_rating_tests.jl")
+            include("device_indexing_opf_tests.jl")
+            include("transformer_phase_opf_tests.jl")
             include("semantic_block_tests.jl")
             include("opf_tests.jl")
             include("opf_engine_review_tests.jl")
@@ -3799,13 +3812,19 @@ include("mcp_execution_tests.jl")
             include("opf_domain_tests.jl")
             include("opf_final_hardening_tests.jl")
             include("controller_compliance_tests.jl")
+            include("ibr_reactive_limits_tests.jl")
+            include("three_leg_physics_tests.jl")
+            include("ibr_minimum_pf_tests.jl")
             include("pf_nameplate_contract_tests.jl")
+            include("pf_ibr_droop_tests.jl")
+            include("transformer_loading_opf_tests.jl")
             include("parameter_resolve_tests.jl")
             include("pmd_opf_port_tests.jl")
             include("pmd_opf_bounds_tests.jl")
             include("volt_var_watt_tests.jl")
             include("objective_tests.jl")
             include("kcl_guard_tests.jl")
+            include("opf_optimize_tests.jl")
             include("network_limit_tests.jl")
             include("dc_network_tests.jl")
         end
@@ -3978,6 +3997,7 @@ include("mcp_execution_tests.jl")
     # OpenDSS getYsparse cross-check self-gates on _HAS_ODS.
     # -----------------------------------------------------------------------
     include("ybus_tests.jl")
+    include("open_delta_bond_tests.jl")
 
     # -----------------------------------------------------------------------
     # Linearized nodal admittance (ybus_linearized): load-folding analytic

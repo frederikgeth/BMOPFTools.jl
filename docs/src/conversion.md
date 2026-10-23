@@ -679,12 +679,60 @@ sources are re-expanded by the writer as needed.
     fidelity). Every `test/data/pf_comparison` fixture is round-tripped
     (DSS → BMOPF → DSS) and the output re-parsed to guard validity.
 
+### Conversion failures with source evidence
+
+`from_dss` wraps a `PowerIO.PowerIOError` raised during parsing or BMOPF
+emission in [`DSSConversionError`](@ref). The absolute input path and stage
+are attached to the wrapper. The original exception remains available unchanged
+as `err.cause`, and reader diagnostics captured before emission are retained
+separately from its failure diagnostics.
+
+```julia
+using BMOPFTools, JSON3
+
+findings = Finding[]
+path = joinpath(pkgdir(BMOPFTools), "test", "data", "line_geometry",
+                "synthetic_overhead.dss")
+try
+    from_dss(path; findings)
+catch err
+    err isa DSSConversionError || rethrow()
+    @show err.source_path err.stage err.cause.code
+    println(JSON3.write(dss_conversion_error_to_dict(err)))
+end
+```
+
+This changes the exception type at those two boundaries: callers previously
+catching `PowerIO.PowerIOError` should catch `DSSConversionError` and inspect
+`err.cause.code`. Direct PowerIO calls retain their upstream behavior.
+Missing files and unrelated package/audit errors propagate unchanged.
+
+[`dss_conversion_error_to_dict`](@ref) provides JSON-safe copies of
+`source_path`, `stage`, `reader_diagnostics`, and `upstream_error`.
+Diagnostic codes, severities, details, targets, spans and related records are
+preserved. Absent targets/spans stay absent; a component named only in a message
+is not promoted to structured identity. The serializer includes no foreign
+module handle, backtrace, partial network or scientific-contract status.
+
+On a wrapped failure the optional `findings` vector receives the available
+diagnostic classes once for that call, preserving prior entries. Their detail
+includes `source_path`, `conversion_stage`, and `diagnostic_details` with
+`reader`/`failure` origins. Grouping can put multiple upstream observations
+in one Finding; the raw per-stage arrays remain intact in the serialized error.
+No Finding is fabricated if neither stage supplies diagnostic records. Catch
+the wrapper to inspect the failure code even in that case.
+
+Successful conversions retain their existing warning/Findings views and
+message-attribution conventions. Unresolved geometry still rejects the entire
+conversion.
+
 ## Known limitations
 
 **Geometry-defined OpenDSS lines:** PowerIO 0.11 rejects canonical BMOPF
 conversion when conductor impedances or terminal maps remain unresolved,
 with `PowerIO.PowerIOError` code `BUILD.DIST.ELECTRICAL_INCOMPLETE`.
-`from_dss` propagates this failure; it does not return a network filled with
+`from_dss` wraps this failure in `DSSConversionError`, preserving it as
+`err.cause`; it does not return a network filled with
 OpenDSS default sequence impedances. The synthetic overhead geometry fixture
 is tested through `from_dss`, including equivalent metre/kilometre line lengths
 and PowerIO IR serialization. Explicit four-conductor linecodes still import.

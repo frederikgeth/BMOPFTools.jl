@@ -104,7 +104,7 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | `I.DIV.LOAD_CV_LOW` | I | Load `p_nom` coefficient of variation < 0.05 across ≥3 loads — essentially uniform loading. |
 | `I.DIV.LOAD_PF_DSS_DEFAULT` | I | Load power factor mean is within 1 % of 0.88 with CV < 0.05 — strongly suggests reactive power was never explicitly set and the OpenDSS default PF was inherited throughout. Compare with `I.PROV.DSS_DEFAULT_PF`, which detects the exact 0.88 value per load; this finding detects the statistical signature across all loads. |
 | `I.DIV.LOAD_IMBALANCE` | I | A multi-phase load with >20 % spread between its phase setpoints — noteworthy unbalance (often intended; this is context, not criticism). |
-| `I.DIV.LOAD_PHASE_BALANCED` | I | Aggregate load across all phase terminals in a galvanic zone is balanced within 2 % (max − min spread relative to max). The network is effectively balanced and a single-phase equivalent model would suffice; the unbalanced OPF formulation adds no value here. |
+| `I.DIV.LOAD_PHASE_BALANCED` | I | Aggregate active load is balanced within 2% across the observed phase labels in a galvanic zone. Spatial loading, impedances, connections and grounding remain unassessed; this does not establish single-phase-equivalent applicability (PSK-000009). |
 | `I.DIV.LOAD_UNIFORM_MODEL` | I | Across ≥3 loads, every load uses the *same* load model. When that model is `constant_power` (the default), no load exercises voltage dependence (ZIP/exponential) — the case does not test voltage-dependent load behaviour. Observational coverage signal, not a defect. |
 | `I.DIV.LOAD_UNIFORM_CONFIG` | I | Across ≥3 loads, every load shares the *same* `configuration` (e.g. all WYE) — no connection diversity. Observational; uniform connection is common and often legitimate. |
 | `I.DIV.LINE_SYMMETRIC` | I | ≥80 % of the lines sharing a linecode have lengths within ±10 % of the median — electrically near-identical sections. |
@@ -126,6 +126,8 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
+| `W.PRE.XFMR_COIL_HEADROOM` | W | A supported radial, single-source, single-phase-bank nominal-demand estimate exceeds one coil’s nameplate VA share. Signed nominal P/Q are summed by explicit terminal mapping, without losses or voltage/coupling effects. Negative headroom is a screening warning, not an infeasibility certificate. |
+| `I.PRE.XFMR_COIL_UNASSESSED` | I | Nominal per-coil transformer headroom is outside the declared domain or lacks required finite data/mapping. Structured status, reason and component context explain why no allocation was estimated. |
 | `E.PRE.VBOUND_CONFLICT` | E | A bus voltage bound pair with lower > upper (checked elementwise for all four flavours: `v`, `vpn`, `vpp`, `vpos`). The feasible set is empty before the solver starts. |
 | `E.PRE.PBOUND_CONFLICT` | E | Generator `p_min > p_max` — infeasible by construction. |
 | `E.PRE.QBOUND_CONFLICT` | E | Generator `q_min > q_max` — same. |
@@ -395,15 +397,17 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.INT.UNKNOWN_BUS` | E | A component references a bus id that does not exist. |
+| `E.INT.UNKNOWN_BUS` | E | A component references a bus id that does not exist. Branch and transformer evidence identifies the endpoint or original winding index. |
 | `E.INT.UNKNOWN_LINECODE` | E | A line references a linecode that does not exist (distinct from *unused* linecodes). |
 | `E.INT.UNKNOWN_WIRE_DATA` | E | A `line_geometry` conductor references a `wire_data` id that does not exist. |
 | `E.INT.UNKNOWN_LINE_GEOMETRY` | E | A linecode's `line_geometry` back-reference points at a geometry that does not exist. |
 | `E.INT.LINE_IMPEDANCE_SOURCE` | E | A line has both a `linecode` reference and inline absolute `R_series_`/`X_series_` matrices (ambiguous), or neither (no impedance). A line carries **exactly one** impedance source; units are unambiguous by location — linecode matrices are Ω/m and scale with `length`, inline line matrices are section totals in Ω and never scale. |
 | `E.INT.LINE_DIM_MISMATCH` | E | A line's `terminal_map_from`/`terminal_map_to` length does not equal its impedance matrix dimension (from the referenced linecode, the compiled geometry, or its inline matrices). Matrix row *k* is the impedance seen by terminal-map entry *k*, so the counts must match exactly: an *n*-conductor linecode/geometry belongs on an *n*-terminal line. This is an **error, not a warning** — some tools (e.g. OpenDSS) silently map/truncate to the shorter length, which drops conductors and their mutual coupling, or misaligns matrix rows with terminal roles (e.g. applying the phase-*c* row to a neutral terminal), and solves to a plausible-but-wrong answer. `solve_opf`/`solve_pf` likewise refuse rather than truncate. |
-| `E.INT.UNKNOWN_TERMINAL` | E | A terminal-map entry is not a terminal of the referenced bus — typos, or attempts to connect nodal elements directly to ground (forbidden by spec Table 10). |
+| `E.INT.UNKNOWN_TERMINAL` | E | An AC terminal-map entry or `perfectly_grounded_terminals` reference is not a terminal of its bus. Evidence identifies the field; branch/winding evidence also identifies endpoint, original winding index and invalid map positions. This includes typos and attempts to connect nodal elements directly to ground (forbidden by spec Table 10). |
 | `E.INT.UNKNOWN_CONTROL_PROFILE` | E | An IBR references a `control_profile` id that does not exist in the network's `control_profile` table. |
 | `E.INT.VOLTAGE_AGGREGATION_INVALID` | E | An IBR's `voltage_aggregation` is neither `PER_PHASE` nor `AVERAGE` — the engine cannot resolve which voltage the droop/limits reference. |
+| `E.INT.CONSTANT_PF_INVALID` | E | A declared constant `power_factor.pf` is missing, nonnumeric, Boolean, nonfinite, zero or outside −1…1. Native model construction rejects it instead of silently dropping the control or failing in trigonometry. |
+| `E.INT.MINIMUM_PF_INVALID` | E | A versioned package minimum-PF request has invalid values, unknown IBRs, ambiguous mappings, unsupported directions/scope or unsupported control combinations. Structured reason codes explain the rejected request; no constraint is silently omitted. |
 | `E.INT.CONTROL_PROFILE_CONFLICT` | E | A `control_profile` declares both `power_factor` and a Volt-var/Volt-watt droop. These are mutually exclusive reactive-control modes; only one may be active. |
 | `E.INT.VOLT_VAR_SHAPE` | E | A `volt_var` droop does not have exactly 4 breakpoints and 2 `q_limits` — the piecewise curve is malformed and cannot be stamped. |
 | `E.INT.VOLT_VAR_BREAKPOINTS` | E | A `volt_var` droop's voltage breakpoints are not strictly increasing — the piecewise-linear curve is non-monotone and ill-defined. |
@@ -411,7 +415,8 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 | `E.INT.VOLT_WATT_SHAPE` | E | A `volt_watt` droop does not have exactly 2 breakpoints and 2 `p_limits` — the curtailment curve is malformed and cannot be stamped. |
 | `E.INT.VOLT_WATT_BREAKPOINTS` | E | A `volt_watt` droop's voltage breakpoints are not strictly increasing — the curtailment curve is non-monotone and ill-defined. |
 | `E.INT.DROOP_UNSUPPORTED` | E | A Volt-var/Volt-watt droop uses an option the engine does not yet implement — a `voltage_reference` other than `PN_PER_PHASE`, or a `q_unit`/`p_unit`/`q_ref`/`p_ref` outside the supported set. |
-| `W.INT.DIM_MISMATCH` | W | Per-component vector-length mismatches that are recoverable/ambiguous rather than corrupting: generator/IBR per-phase `p_*`/`q_*`/`cost`/filter vectors vs phase count, `i_max` length vs conductor count, load setpoint length vs configuration, source `vm`/`va` vs map length. (The line-impedance-matrix-vs-terminal-count case is the stricter `E.INT.LINE_DIM_MISMATCH`.) |
+| `W.INT.DIM_MISMATCH` | W | An indexed field has an incompatible shape for its device topology: powers/capabilities/costs, current limits, load setpoints, source reference prefixes, or bus phase/pair bounds. Device evidence identifies roles, map positions, indexing domain, allowed lengths and observed shape; see [device parameter indexing](device_indexing.md). No universal conductor-count rule applies. The line-matrix case remains the stricter `E.INT.LINE_DIM_MISMATCH`. |
+| `W.INT.DEVICE_INDEXING_UNASSESSED` | W | Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status="indeterminate"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners (PSK-000002). |
 | `W.INT.IMAX_NO_NEUTRAL` | W | A star generator/IBR with ≥2 phases rates only its phase conductors (`i_max` length = phases); add a trailing entry for the neutral conductor, which can carry more current than the phases under unbalance compensation. |
 | `W.INT.PADDED_MATRIX` | W | All-zero row/column pairs in linecode impedances — padded conductors demonstrably wreck NLP performance (22 → 590 Ipopt iterations in ([ref. 2](methodology.md#refs)) Table 3); shrink the matrix and use terminal maps. |
 | `E.INT.NO_VOLTAGE_REFERENCE` | E | A galvanic island (transformer windings are separations) with no source, perfect grounding, or grounding shunt — voltages there are defined only up to a shift (the IEEE-123 "bus 610" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. |
@@ -431,8 +436,11 @@ labels into phase/neutral/earth roles (see
 |---|---|---|
 | `W.CONV.TERMINAL_ROLES_INFERRED` | W | The case declares no `terminal_conventions` block, so phase/neutral/earth roles were inferred from the naming convention (a terminal `n`/`N` is neutral, all others phase). Declare the block to make the classification explicit and self-documenting; it is written for you on the next [`write_bmopf`](@ref). |
 | `E.CONV.ROLE_OVERLAP` | E | A terminal label appears in more than one of the `phase`/`neutral`/`earth` role lists. Each label must have a single role. |
-| `W.CONV.TERMINAL_UNCLASSIFIED` | W | A bus terminal is in none of the declared role lists. It is treated as a phase conductor downstream; add it to the appropriate list (a common cause is a split-phase secondary leg not listed under `phase`). |
+| `W.CONV.TERMINAL_UNCLASSIFIED` | W | An existing AC bus terminal is in none of the declared role lists. Legacy consumers treat it as a phase; the Finding includes bus declarations and resolved component/winding/grounding usage paths together. Unknown bus/terminal references retain their integrity owner and do not add a role warning. |
 | `W.CONV.MULTIPLE_NEUTRALS` | W | A single bus carries more than one terminal classified as neutral — a bus is expected to have at most one neutral conductor. |
+| `E.CONV.DECLARATION_INVALID` | E | An explicit `terminal_conventions` block is not an object, or a role list is not an array of strings. Role classification is indeterminate; invalid declarations are not replaced by inferred roles. Evidence identifies the declaration path and expected shape. |
+| `E.CONV.BUS_ROLE_CONFLICT` | E | With explicit case-wide roles, a bus's in-memory `neutral_terminal` metadata is malformed, names a nonexistent bus terminal, or disagrees with those roles. Evidence identifies the metadata path, matching role declarations, and expected neutral labels. Validation leaves the metadata unchanged; role overlap keeps its separate owner. |
+| `I.CONV.UNUSED_LABEL` | I | A role label is declared but unused anywhere in the inventoried AC bus terminals, component maps, grounding references, or neutral metadata. This is informational hygiene, distinct from an unwired spare bus conductor. The Finding is suppressed when supported usage cannot be completely inventoried. |
 
 ## TMAP — terminal-map conventions
 
@@ -440,7 +448,8 @@ Checks on how component `terminal_map`s reference bus terminals.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device maps a phase slot to neutral, or a branch has an all-neutral endpoint without a valid single-conductor neutral-to-neutral map. Symmetric metallic N-only lines and switches preserve explicit neutral continuity (PSK-000002) and are accepted. |
+| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a line/switch position connects phase to neutral, or a branch repeats an all-neutral endpoint. Position comparisons require equal-length, distinct, resolved phase/neutral maps; different phase labels are valid. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002). |
+| `E.TMAP.DEVICE_ROLES` | E | A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model (PSK-000002). |
 | `I.TMAP.CROSS_PHASE_LINE` | I | A line or switch has different from/to terminal maps — the conductors are cross-connected between phases across the branch. Valid (e.g. an intentional phase swap) but flagged as context. |
 | `I.TMAP.PERMUTED_ORDER` | I | A component's `terminal_map` is a permutation of the bus's nodal terminal order — non-canonical ordering; verify the swap is deliberate rather than a data-entry slip. |
 
@@ -451,11 +460,11 @@ Rules the JSON Schema cannot express.
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `W.SPEC.N_SOURCES` | W | Voltage-source count ≠ 1 (spec Eq. 17 requires exactly one in this version). |
-| `W.SPEC.BAD_CONFIG` | W | A configuration string outside `SINGLE_PHASE`/`WYE`/`DELTA`. |
+| `W.SPEC.BAD_CONFIG` | W | A configuration outside `SINGLE_PHASE`/`WYE`/`DELTA` for a load/generator/capacitor, or outside `SINGLE_PHASE`/`WYE` for native voltage-source references. |
 | `W.SPEC.CONFIG_ARITY` | W | Terminal-map arity inconsistent with the configuration (SINGLE_PHASE = 2, WYE = 4, DELTA = 3). |
 | `E.SPEC.DUPLICATE_TERMINAL` | E | A component's `terminal_map` (or `terminal_map_from`/`terminal_map_to` for lines/switches) contains the same terminal label more than once — a degenerate connection that collapses two distinct conductors onto one. |
 | `I.SPEC.LOAD_PHASE_TO_PHASE` | I | A `SINGLE_PHASE` load/generator whose two terminals are both phase conductors (neither is the bus neutral) — a phase-to-phase (delta-connected) single-phase element. Valid per spec; flagged as context because the modelling is distinct from the more common phase-to-neutral case. |
-| `E.SPEC.WYE_MISSING_NEUTRAL` | E | A `WYE` load/generator whose last terminal is not the neutral of its bus — the return path is not the neutral conductor, which violates the spec's WYE connection semantics. |
+| `E.SPEC.WYE_MISSING_NEUTRAL` | E | A `WYE` load/generator omits the identified neutral of its bus. The neutral may appear anywhere in the map; phase-indexed fields follow map order with neutral removed. |
 | `E.SPEC.WYE_DUPLICATE_PHASE` | E | A `WYE` load/generator has duplicate phase terminals in the non-neutral slots. |
 | `E.SPEC.DELTA_HAS_NEUTRAL` | E | A `DELTA` load/generator includes the bus neutral in its terminal map — delta elements must be phase-to-phase only. |
 | `E.SPEC.DELTA_DUPLICATE_PHASE` | E | A `DELTA` load/generator has duplicate phase terminals. |
@@ -463,7 +472,7 @@ Rules the JSON Schema cannot express.
 | `E.SPEC.CAP_VRATED` | E | A capacitor has non-positive `v_nom` — the susceptance `B = q_rated/v_nom²` is undefined. |
 | `E.SPEC.CAP_NEGATIVE_Q` | E | A capacitor has negative `q_rated` entries. A capacitor bank has non-negative susceptance (`Q = B·V²`, `B ≥ 0`); a negative value is an inductor/reactor and must be modelled as a `shunt` with negative `B`, not a capacitor. |
 | `W.SPEC.CAP_WYE_NO_NEUTRAL` | W | A `WYE` capacitor has no resolvable neutral terminal in its `terminal_map`. Each phase is stamped against the neutral, so without one the bank assembles an all-zero susceptance and is **silently ignored** by the OPF. Name the return terminal `n`, or use `SINGLE_PHASE`/`DELTA`. |
-| `W.SPEC.XFMR_TMAP_ARITY` | W | Transformer terminal-map lengths off the per-subtype spec values — also the deliberate tripwire for unconverted wye-wye units. |
+| `W.SPEC.XFMR_TMAP_ARITY` | W | Transformer map lengths differ from the subtype data-model arity, a winding list has fewer than two entries, or an n-winding WYE lacks explicit neutral / DELTA lacks two terminals. Native boundary arities may retain this warning. See [connection-map rules](connection_maps.md). |
 | `W.SPEC.INV_TOPOLOGY` | W | An IBR `topology` outside the spec-allowed set (`FOUR_LEG`/`THREE_LEG`/`SINGLE_PHASE`). |
 | `W.SPEC.INV_TMAP_ARITY` | W | An IBR's `terminal_map` length does not match the arity its `topology` requires. |
 | `W.SPEC.INV_PRIME_MOVER` | W | An IBR `prime_mover` is outside the spec-allowed set (`PV`, `BATTERY`, `GENERIC`, `STATCOM`, `DSTATCOM`). |
@@ -492,10 +501,14 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `W.SOL.ANGLE_ACTIVE` | W | A signed line angle or centered bus phase-pair angle difference is near a `va_diff` bound (near-active). |
 | `E.SOL.THERMAL_VIOLATION` | E | A thermal/loading limit is exceeded in the solved result: a **line** conductor current at either endpoint (including pi-shunts), or a **switch** conductor current, over `i_max` or its ground-referenced apparent power `\|S\|=v·cm` over `s_max` (element or linecode); a **transformer** per-winding current over `i_max_from`/`i_max_to`; or a **transformer** winding coil apparent power `\|S\|` over its nameplate cap (`s_max`, the per-winding share of `s_rating`; recorded in the result so no coil-voltage reconstruction is needed). |
 | `W.SOL.THERMAL_ACTIVE` | W | The same current or apparent-power quantity is within 1 % of its limit — the thermal limit is near-active. |
-| `E.SOL.GEN_VIOLATION` | E | A generator's solved operating point (per terminal) violates a declared limit: `pg`/`qg` outside `p_min`/`p_max`/`q_min`/`q_max`, the optional `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. |
+| `E.SOL.GEN_VIOLATION` | E | A generator's solved operating point (per terminal) violates a declared limit: `pg`/`qg` outside `p_min`/`p_max`/`q_min`/`q_max`, the optional `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. Apparent-power checks use `max(1e-6 × abs(s_max), 1e-6 VA)` tolerance, recorded with the excess in structured evidence. |
 | `W.SOL.GEN_ACTIVE` | W | Generator dispatch is within 1 % of a bound — the bound is near-active. |
-| `E.SOL.IBR_VIOLATION` | E | An IBR's solved operating point (per phase) violates a declared limit: `pg` outside `p_min`/`p_max`, the `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. |
+| `E.SOL.IBR_VIOLATION` | E | An IBR's solved operating point (per phase) violates a declared limit: `pg` outside `p_min`/`p_max`, the `s_max` apparent-power circle, or the optional `i_max` current-magnitude circle. Apparent-power checks use `max(1e-6 × abs(s_max), 1e-6 VA)` tolerance, recorded with the excess in structured evidence. |
 | `W.SOL.IBR_ACTIVE` | W | An IBR dispatch is within 1 % of a P bound — the bound is near-active. |
+| `E.SOL.IBR_Q_VIOLATION` | E | An IBR's supplied `qg` violates a declared `q_min` or `q_max`, including under constant-PF or supported Volt-var control. Bounds index the modeled phase or pair according to topology. Evidence records the output index, terminal, topology, value and bounds in var. Uses the existing power-bound tolerance (1 var absolute floor). |
+| `W.SOL.IBR_Q_ACTIVE` | W | An IBR's supplied `qg` is within 1 % of a declared reactive-power bound without violating it at the power-bound tolerance. Evidence records output identity, value and bounds in var. |
+| `E.SOL.IBR_MINIMUM_PF` | E | Supplied per-coil P/Q violates the declared generation minimum-PF envelope, including negative P or reactive-only operation at P=0. Uses dispatched P, a bounded-coefficient residual and an explicit VA tolerance; does not authenticate the solver or case provenance. |
+| `I.SOL.IBR_MINIMUM_PF_UNASSESSED` | I | Minimum-PF compliance cannot be assessed because no candidate is available, dispatch is absent/nonfinite, or the policy is invalid. Missing data are never treated as zero or a passing check. |
 | `W.SOL.IBR_PF_DEVIATION` | W | A constant-power-factor IBR's solved operating point deviates from its commanded PF beyond tolerance — the PF-coupling constraint residual is non-trivial. |
 | `W.SOL.LOAD_RESIDUAL` | W | For a `constant_power` load, solved `pd`/`qd` differs from `p_nom`/`q_nom` by more than 1 W / 1 var — the bilinear constant-power constraint has a non-trivial residual; the solver may not have converged tightly. Not emitted for voltage-dependent models (where `pd ≠ p_nom` is expected). |
 | `W.SOL.LOAD_MODEL_RESIDUAL` | W | For a voltage-dependent load, the realised `pd`/`qd` is inconsistent with what the load model predicts at the solved terminal voltage by more than 1 W / 1 var. Indicates the load model constraint was not satisfied — a solver convergence or result extraction issue. |
@@ -531,8 +544,8 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 |---|---|---|
 | `I.BENCH.AUGMENTATION` | I | The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](methodology.md#refs))), missing thermal limits. |
 | `W.BENCH.GEN_NO_DOF` | W | One or more generators have `p_min ≈ p_max` on every phase — fixed output, not dispatchable. These generators consume variables and constraints but cannot move in the optimal solution, and may mask the true binding constraints. |
-| `W.BENCH.GEN_ZERO_COST` | W | One or more dispatchable generators (`p_max > p_min` on at least one phase) have a cost vector of all zeros — the objective is flat in their dispatch direction, making the optimal solution primal non-unique. Assign a non-zero cost to each dispatchable unit. |
-| `W.BENCH.GEN_DEGENERATE_COST` | W | Two or more dispatchable generators on the same bus or one line/switch hop apart share an identical cost coefficient. The solver can redistribute power between them freely without changing the objective, producing primal non-uniqueness and benchmarks that are sensitive to solver tolerances. |
+| `W.BENCH.GEN_ZERO_COST` | W | Dispatchable generators have zero direct cost. This is a screening signal: network losses, upstream cost and constraints can still determine dispatch. Do not add arbitrary costs solely to silence it. |
+| `W.BENCH.GEN_DEGENERATE_COST` | W | Dispatchable generators on the same bus or one hop apart share a representative cost coefficient. Check control interchangeability; equal costs alone do not establish primal non-uniqueness. |
 | `I.BENCH.LOAD_ZERO_PNOM` | I | One or more loads have `p_nom = 0` on all phases — they impose no real power demand and are electrically inert. These loads may indicate missing data or placeholder entries that should be populated before benchmark use. |
 
 ## DC — MVDC/LVDC network
@@ -637,3 +650,12 @@ analysis never emits them.
 | `E.CONTRACT.BASE_MAP_MISMATCH` | E | Target serialization does not preserve the declared unit/base map. |
 | `E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH` | E | Target serialization has a different canonical semantic payload hash. |
 | `W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE` | W | Required unit/base or canonical semantic-hash metadata is missing or malformed. |
+
+## Connection-map structure and supported winding roles
+
+| Code | Severity | Meaning |
+|:--|:--|:--|
+| `E.INT.CONNECTION_SHAPE` | E | A branch/transformer component or winding is not an object, a winding list is not an array, a bus identifier is missing/non-string, or an endpoint map is not a nonempty string array. Raw traversal preserves the original winding index and never converts numeric winding fields. |
+| `E.INT.SWITCH_DIM_MISMATCH` | E | Switch endpoint maps have unequal lengths. Each position denotes one through conductor; no truncation or inferred mapping is allowed. Evidence includes both endpoints. |
+| `E.TMAP.WINDING_ROLES` | E | A transformer winding map violates the represented subtype's phase/neutral or positional rule, or coupled winding coil counts differ. This does not impose line continuity across independent windings. Evidence identifies the rule, side/winding and resolved roles; see [coverage table](connection_maps.md). |
+| `W.TMAP.CONNECTION_UNASSESSED` | W | Branch/winding role comparison is indeterminate because role declarations are malformed, roles are ambiguous/unclassified, bus neutrals are multiple, or earth conductors are outside this supported domain. References and structural errors retain their integrity owners. No role count is guessed. |

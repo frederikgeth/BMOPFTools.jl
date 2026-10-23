@@ -58,6 +58,15 @@ stamped with a large ``1/z`` penalty admittance. This mirrors what the OPF and
 V_{\text{to}}`` / merge the nodes — so the Ybus agrees with the model it
 represents and avoids a conditioning artifact.
 
+A switch is closed unless its [`open_switch`](switch.md) field is `true`; an
+absent field means closed, as in the OPF, and a value that is not a boolean
+raises an `ArgumentError`. An open switch is neither aliased nor constrained, so
+the nodes on its two sides stay separate. A retained terminal with no remaining
+stamped admittance has an all-zero row (a singular `Y`). Local shunts can give an
+isolated terminal a nonzero row, so isolation alone does not imply a singular
+`Y`. [`connectivity_analysis`](@ref) reports open-switch endpoints without a
+closed path to a source as `open_switch_isolated_buses`.
+
 !!! note "Ideal transformers with a non-unity ratio"
     A zero-leakage transformer with ``N \neq 1`` cannot be node-aliased (the two
     sides are not identical) and has no finite ``Y_{\text{prim}}``. In

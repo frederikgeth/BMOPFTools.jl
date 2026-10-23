@@ -874,18 +874,45 @@ $S^{\max}$ — the constant-MVA idealization the apparent-power circle alone
 implies. `i_max` is **optional and opt-in**: omit it and the model is unchanged;
 supply it to model the low-voltage var rolloff of a real converter.
 
-Like the generator, `i_max` is **per conductor**: a `FOUR_LEG` IBR carries a
+For a `FOUR_LEG` IBR, `i_max` is **per conductor**, with a
 trailing entry capping the **neutral conductor** ($\sum_k c^{r,n}_{n,k}$,
 $\sum_k c^{i,n}_{n,k}$) — recommended, since a four-wire converter doing unbalance
 compensation can drive a neutral current *larger* than any phase. A phases-only
 length-3 vector warns (`W.INT.IMAX_NO_NEUTRAL`). A `SINGLE_PHASE` IBR has a single
 current, so its `i_max` is length 1 or 2 and collapses to one circle at the tighter
-limit. `THREE_LEG` (delta) has no neutral.
+limit.
 
-Reactive power is governed in one of two mutually exclusive ways:
+For **`THREE_LEG`**, `i_max[k]` instead caps the **cyclic pair current**
+`J[k]` between `terminal_map[k]` and the next terminal (wrapping last to first).
+Its `p_min`, `p_max`, `q_min`, `q_max`, and `s_max` entries also apply to each
+pair, not to the three-pair aggregate. There is no neutral. With positive
+injection powers `S[k] = P[k] + im*Q[k]`,
+`J[k] = conj(S[k] / (V[k] - V[next]))`; the external conductor injection is
+`I[k] = J[k] - J[previous]`. Thus a conductor current can exceed a pair cap
+without violating this model. The earlier blanket description of IBR `i_max`
+as per-conductor was incorrect for THREE_LEG; the runtime meaning is unchanged.
 
-- **Box bounds** (default): $Q^{\min}_{n,k} \leq Q_{n,k} \leq Q^{\max}_{n,k}$.
-  These are normally filled by the augmentation pass before the OPF runs.
+The `result["ibr"][id][terminal_map[k]]` fields `cri`/`cii` are the real/imaginary
+parts of **J[k]**, not I[k]; `pg`/`qg` are the same pair's injection powers.
+The first terminal identifies the oriented pair only in conjunction with the
+authored cyclic `terminal_map`. Result JSON retains this representation. These
+fields are returned in A, W and var after either SI or per-unit solves. Reconstruct
+I from adjacent pair records before comparing with source/branch conductor
+currents. No conductor-current rating is inferred from `i_max`.
+
+Independent regressions in `test/three_leg_physics_tests.jl` use balanced and
+unbalanced prescribed phasors, source-current KCL, complex power balance,
+unequal pair limits, zero/missing limits, source-angle/cyclic covariance,
+SI/classic/consistent/zone scaling with changed bases, and JSON round trips.
+Their domain is the lossless fundamental-frequency cyclic-pair model with
+nonzero pair voltages; they do not establish advanced inverter filter, DC-link,
+switching, controller or feasible-region equivalence with other packages.
+
+Declared `q_min` and `q_max` are hard reactive-power bounds in every control mode.
+Within those bounds, reactive power is governed as follows:
+
+- **Dispatchable Q** (default): Q can vary within its declared bounds and other
+  capability constraints. Augmentation can populate missing bounds.
 - **Constant power factor**: when the IBR references a `control_profile`
   with a signed `power_factor.pf`, $Q$ is coupled to $P$ by the exact equality
 
@@ -901,6 +928,27 @@ Reactive power is governed in one of two mutually exclusive ways:
   voltage magnitude** $U_{n,k}$,
   $Q_{n,k} = Q^{\text{base}}_{n,k}\, f^{\mathrm{VV}}(U_{n,k})$ (an equality — the
   IBR follows the curve).
+
+The PF/Volt-var equality and all declared P/Q/S/current limits apply together.
+An incompatible control request can make the model infeasible; the engine does
+not clip the controller or discard a bound. Existing PF-versus-droop precedence
+and the unsupported THREE_LEG droop fallback remain unchanged.
+
+!!! warning "Reactive capability compatibility change (#89)"
+    Previously, the engine omitted Q-box constraints under PF or supported
+    Volt-var control. It now enforces both, so dispatch and feasibility can change
+    for cases containing those fields. If a Q restriction is not intended, remove
+    that field explicitly before building the model. Review bounds introduced by
+    augmentation as well as authored bounds: both constrain the resulting case.
+    PF augmentation still avoids synthesizing missing Q boxes and preserves
+    explicit ones. A local solver failure alone does not certify global infeasibility.
+
+`solution_check` checks supplied Q values against the case's declared Q bounds
+using `E.SOL.IBR_Q_VIOLATION` and `W.SOL.IBR_Q_ACTIVE`. These use the existing
+power-bound tolerance with a 1 var absolute floor; they do not authenticate the
+supplied result or substitute live coefficient-provider values for case data.
+The existing P-only near-active Finding retains its meaning. The aggregate
+`n_inv_violations` and `n_inv_active` counts now include Q-bound Findings.
 
 Active power follows either the box upper bound above or, when the
 `control_profile` declares a `volt_watt` sub-object, a **Volt-watt** curtailment
@@ -1535,6 +1583,21 @@ println(diag["is_feasible"])            # local classification from status/slack
 println(diag["total_infeasibility_A"])  # L2 norm of all slacks (A)
 ```
 
+## Power-flow inverter controls
+
+`solve_pf` retains an inverter's `s_max` as the per-phase normalization base
+for `S_MAX` Volt-watt and `VAR_MAX` Volt-var controls, while omitting its
+apparent-power constraint. Inverter current limits are also ignored by the
+power-flow recipe. Preserving the rating therefore preserves the controller
+response without enforcing its operational capability circle.
+
+Volt-var specifies a reactive-power equality. Volt-watt specifies an
+active-power upper bound; a control profile alone does not select a unique
+active-power dispatch under the zero objective of `solve_pf`. Supply fixed
+active-power setpoints for a determined witness, or use `solve_opf` with an
+explicit dispatch objective. A fixed setpoint above the Volt-watt cap remains
+incompatible with the controller; power flow does not disable that cap.
+
 ## [Solver control and extending the formulation](@id extending-the-formulation)
 
 All three entry points (`solve_opf`, `solve_pf`, `solve_feasibility_opf`)
@@ -1603,6 +1666,7 @@ add your own inter-temporal constraints, solve once, and extract each snapshot:
 | `build_opf_model(net; model, add_objective, model_hook!, …)` | build one snapshot's devices/bounds into a (shared) model; no KCL, no solve |
 | `generation_cost(ctx)` | that snapshot's cost-rate expression (\$/h), unset — duration-weight and sum across snapshots for one monetary objective |
 | `enforce_kcl!(ctx)` | pin KCL for one snapshot (call once per snapshot before solving) |
+| `optimize_opf!(ctxs...; kwargs...)` | validate supplied contexts, finalize missing KCL, and solve their shared model once |
 | `extract_result(ctx; solution_hook!)` | extract one snapshot's SI result after the shared solve |
 
 Pass the same `model` to every `build_opf_model` call and `add_objective=false`
@@ -1626,8 +1690,7 @@ end
 
 @objective(model, Min,
     sum(duration_hours[t] * generation_cost(ctxs[t]) for t in 1:T))
-foreach(enforce_kcl!, ctxs)
-JuMP.optimize!(model)
+optimize_opf!(ctxs...)
 results = [extract_result(c) for c in ctxs]
 ```
 
@@ -1682,6 +1745,107 @@ solve_feasibility_opf
 diagnose_infeasibility
 build_opf_model
 enforce_kcl!
+optimize_opf!
 generation_cost
 extract_result
 ```
+
+
+## Minimum power factor for generation
+
+The native JuMP OPF builder accepts a versioned **BMOPFTools policy** under the
+existing schema's free-form `extras` escape hatch. This is a package extension,
+not an official Task Force field or a change to the bundled schema:
+
+```julia
+net["extras"] = Dict("bmopftools" => Dict("minimum_power_factor" => Dict(
+    "schema" => "bmopftools.minimum_power_factor/v1",
+    "ibr" => Dict("pv" => Dict(
+        "pf_min" => 0.8, "direction" => "generation", "scope" => "per_coil")))))
+result = solve_opf(net)
+report = profile_solution(net, result)
+```
+
+When a case already has extras, insert this policy into its existing dictionaries
+to retain other metadata. Normal JSON parsing/serialization preserves the policy.
+Other engines/consumers must explicitly implement this package policy; do not
+assume they enforce it merely because they accept the case JSON. The existing
+`domain_rules.pf_min` setting remains only a load-validation warning threshold.
+
+Each request needs exactly `pf_min`, `direction="generation"` and
+`scope="per_coil"`; PF must be finite and satisfy `0 < pf_min <= 1`. The request
+must reference an existing IBR with explicit nonnegative `p_min` for every coil;
+any declared `p_max` must also be finite, nonnegative and cover every coil.
+Consumption, bidirectional operation, aggregate PF and DC-coupled converters
+are outside this initial domain and rejected. There is no implicit conversion
+to an absolute-P envelope. Unknown policy versions/fields, unresolved profiles,
+ambiguous terminal maps and unsupported topologies are rejected too.
+
+For `m = pf_min` the native model enforces per coil:
+
+```math
+P \ge 0, \qquad m Q \le \sqrt{1-m^2}\,P, \qquad -m Q \le \sqrt{1-m^2}\,P.
+```
+
+These bounded-coefficient rows are equivalent to `-k*P <= Q <= k*P` with
+`k = tan(acos(m))`, but avoid forming a huge tangent near m=0. They use **actual
+dispatched P**, including after curtailment or live availability updates. At
+P=0 they force Q=0; PF itself remains undefined at zero apparent power.
+At m=1 they force Q=0 while retaining the explicit generation constraint.
+P and Q are positive injections. Both reactive directions are permitted;
+a one-sided `q_min`/`q_max` can restrict the direction further.
+
+For SINGLE_PHASE the requirement applies to its two-terminal coil; for FOUR_LEG
+it applies to each phase-neutral coil; for THREE_LEG it applies to each cyclic
+delta pair, not to conductor power or an aggregate ratio. An unbalanced device
+can satisfy aggregate PF while violating one of these per-coil requirements.
+The equations are affine in P/Q, but those powers contain V–I products in IVR,
+so the complete model remains nonlinear.
+
+P/Q boxes, apparent-power circles and conductor-current limits stay enforced.
+Compatible signed constant PF may be combined with the envelope when
+`abs(pf) >= pf_min`; a lower constant PF is rejected explicitly. The usual sign
+convention is retained: positive constant PF absorbs Q for P>0; negative injects
+Q. Constant PF plus droop is rejected when this minimum-PF policy is enabled;
+without the policy the existing PF-over-droop warning/precedence is retained.
+
+SINGLE_PHASE and FOUR_LEG may combine minimum PF with supported Volt-var and/or
+Volt-watt curves: `VA_FRACTION`, Volt-var `VAR_MAX`, and Volt-watt `S_MAX`, `P_MAX`
+or scalar `P_AVAILABLE`, with finite ordered breakpoints, valid limits and
+complete normalization bases. Optional control options that the native resolver
+would otherwise ignore (including Volt-var low-P thresholds) are rejected in
+this combined policy. THREE_LEG droop remains unsupported and is rejected here.
+A control equality is never clipped to fit the envelope. Conflicting Q bounds
+or droop targets can make the intersection infeasible.
+
+Constraint keys use families `ibr_minimum_pf_generation`,
+`ibr_minimum_pf_lower`, and `ibr_minimum_pf_upper`, indexed by `(ibr_id, coil)`.
+The policy itself is fixed at model construction, not a live coefficient knob;
+rebuild to change it. Existing live P/Q/capability coefficients remain live.
+
+`profile_solution` and the existing `execute_solution_verification` operation
+report `results["solution"]["minimum_power_factor"]`, containing policy provenance,
+configuration errors and per-coil `passed`/`failed`/`indeterminate` evidence.
+The independent check uses supplied P/Q, not solver termination as an oracle:
+`max(-P, m*abs(Q)-sqrt(1-m^2)*P)` must be at most
+`max(1e-6, 1e-6*max(abs(P),abs(Q)))` VA. Missing/nonfinite dispatch or no candidate
+is unassessed. At exactly P=0, the checker uses `abs(Q)` directly so tiny PF
+coefficients cannot hide reactive-only dispatch. Diagnostic infeasible candidates
+can still expose violations.
+This checks the case-authored policy, not live coefficient overrides or solver
+stamping/provenance; passing it is not a complete feasibility certificate
+(PSK-000013). The curated `verify_solution` recipe exercises the JSON path.
+
+Compatibility change: malformed, zero or out-of-range constant PF is now
+rejected with `E.INT.CONSTANT_PF_INVALID`, rather than silently dropping PF or
+throwing later inside trigonometry. Remove the `power_factor` sub-object to
+request freely dispatchable Q. The accepted numeric range in the bundled
+Task Force schema is unchanged; this is stricter executable applicability.
+
+Constant-PF equations use bounded coefficients `pf*Q + sqrt((1-|pf|)*(1+|pf|))*P = 0`,
+including very small positive PF magnitudes where `tan(acos(|pf|))` loses the
+requested ratio. This avoids an unbounded model coefficient; it does not promise
+relative solver accuracy for dispatch below the solver's absolute tolerances.
+The supplied-result constant-PF diagnostic records its scaled residual definition
+and threshold explicitly, retaining the existing Q-equivalent relative tolerance.
+Values that underflow to zero in Float64 are rejected.

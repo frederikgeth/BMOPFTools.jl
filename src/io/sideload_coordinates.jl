@@ -14,6 +14,9 @@ performed; values are stored as-is. The field names do not prove WGS84: an
 input may contain projected or arbitrary x/y. Spatial analysis reports an
 unspecified coordinate reference unless case metadata or matching route
 geometry supplies WGS84 evidence.
+
+[`write_bmopf`](@ref) preserves these fields by default. Pass
+`include_coordinates=false` when writing for strict BMOPF schema consumers.
 """
 function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString)
     isfile(csv_path) || throw(ArgumentError("Coordinate CSV not found: $csv_path"))

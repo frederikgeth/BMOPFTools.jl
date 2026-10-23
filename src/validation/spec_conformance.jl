@@ -75,9 +75,21 @@ function spec_conformance_check(net::Dict{String,Any},
 
     # --- nodal element configuration / arity / semantic terminal checks ---
     buses = get(net, "bus", Dict())
+    case_roles = _index_roles(net)
     bus_neutral(bid) = begin
         b = get(buses, bid, nothing)
-        b isa Dict ? _neutral_terminal(b) : nothing
+        b isa Dict ? _index_bus_neutral(net,bid,case_roles) : nothing
+    end
+
+    for (id,c) in get(net,"voltage_source",Dict())
+        c isa Dict || continue
+        cfg=get(c,"configuration","WYE")
+        if !(cfg in ("WYE","SINGLE_PHASE"))
+            n_issues+=1
+            push!(findings,Finding(WARNING,"W.SPEC.BAD_CONFIG",:spec,:voltage_source,id,
+                "Voltage source '$id': native references support WYE or SINGLE_PHASE.",
+                _device_index_context(net,"voltage_source",id,c;roles=case_roles).evidence))
+        end
     end
 
     for comp_type in ("load", "generator")
@@ -94,15 +106,18 @@ function spec_conformance_check(net::Dict{String,Any},
                 continue
             end
             arity = _CONFIG_ARITY[cfg]
-            tm = Vector{String}(string.(get(c, "terminal_map", String[])))
+            raw_tm = get(c, "terminal_map", String[])
+            tm = _index_strings(raw_tm) ? string.(raw_tm) : String[]
             if length(tm) != arity
                 n_issues += 1
                 push!(findings, Finding(WARNING, "W.SPEC.CONFIG_ARITY", :spec,
                     Symbol(comp_type), id,
                     "$comp_type '$id': configuration $cfg requires $arity " *
                     "terminal(s), terminal_map has $(length(tm)).",
-                    Dict{String,Any}("configuration" => cfg,
-                                     "arity" => length(tm))))
+                    merge(_device_index_context(net,comp_type,id,c;roles=case_roles).evidence,
+                        Dict{String,Any}("configuration"=>cfg,"arity"=>length(tm),
+                            "field"=>"terminal_map","expected_lengths"=>[arity],
+                            "indexing_domain"=>"connection_terminals","observed_shape"=>_index_shape(raw_tm)))))
                 continue   # semantic checks below assume correct arity
             end
 
@@ -117,6 +132,8 @@ function spec_conformance_check(net::Dict{String,Any},
                     Dict{String,Any}("terminal_map" => tm, "duplicates" => dups)))
             end
 
+            ctx = _device_index_context(net,comp_type,id,c;roles=case_roles)
+            ctx.evidence["reason"] === nothing || continue
             bid = get(c, "bus", nothing)
             nn  = bid isa AbstractString ? bus_neutral(bid) : nothing
 
@@ -134,20 +151,19 @@ function spec_conformance_check(net::Dict{String,Any},
                         Dict{String,Any}("bus" => bid, "terminals" => tm,
                                          "neutral" => nn)))
                 end
-                # t1==nn && t2!=nn is already caught by E.TMAP.PHASE_TO_NEUTRAL
+                # Reversing the two terminals reverses the current convention;
+                # it does not turn the return into an extra indexed coil.
             end
 
             if cfg == "WYE" && nn !== nothing
-                phase_tms = tm[1:end-1]
+                phase_tms = filter(!=(nn),tm)
                 neutral_tm = tm[end]
-                if neutral_tm != nn
+                if !(nn in tm)
                     n_issues += 1
                     push!(findings, Finding(ERROR, "E.SPEC.WYE_MISSING_NEUTRAL", :spec,
                         Symbol(comp_type), id,
-                        "$comp_type '$id' (WYE) last terminal '$neutral_tm' is not " *
-                        "the neutral '$nn' of bus '$bid' -- return path is not the neutral.",
-                        Dict{String,Any}("bus" => bid, "terminal_map" => tm,
-                                         "neutral" => nn, "last_terminal" => neutral_tm)))
+                        "$comp_type '$id' (WYE) omits neutral '$nn' of bus '$bid'.",
+                        merge(ctx.evidence,Dict{String,Any}("neutral"=>nn,"last_terminal"=>neutral_tm))))
                 end
                 dups_phase = [t for t in unique(phase_tms) if count(==(t), phase_tms) > 1]
                 if !isempty(dups_phase)
@@ -169,8 +185,7 @@ function spec_conformance_check(net::Dict{String,Any},
                         Symbol(comp_type), id,
                         "$comp_type '$id' (DELTA) has neutral terminal '$nn' in " *
                         "terminal_map $(tm) -- delta elements must connect phase-to-phase only.",
-                        Dict{String,Any}("bus" => bid, "terminal_map" => tm,
-                                         "neutral" => nn)))
+                        merge(ctx.evidence,Dict{String,Any}("neutral"=>nn))))
                 end
                 phase_tms = filter(t -> t != nn, tm)
                 dups_phase = [t for t in unique(phase_tms) if count(==(t), phase_tms) > 1]
@@ -264,82 +279,8 @@ function spec_conformance_check(net::Dict{String,Any},
         end
     end
 
-    # --- duplicate terminals in lines and switches ---
-    for comp_type in ("line", "switch")
-        for (id, c) in get(net, comp_type, Dict())
-            c isa Dict || continue
-            for side in ("terminal_map_from", "terminal_map_to")
-                tm = Vector{String}(string.(get(c, side, String[])))
-                if length(unique(tm)) < length(tm)
-                    dups = [t for t in unique(tm) if count(==(t), tm) > 1]
-                    n_issues += 1
-                    push!(findings, Finding(ERROR, "E.SPEC.DUPLICATE_TERMINAL", :spec,
-                        Symbol(comp_type), id,
-                        "$comp_type '$id' $side has duplicate terminal(s): " *
-                        join(dups, ", ") * ".",
-                        Dict{String,Any}("side" => side, "terminal_map" => tm,
-                                         "duplicates" => dups)))
-                end
-            end
-        end
-    end
-
-    # --- transformer terminal-map arities ---
-    xfmr = get(net, "transformer", Dict())
-    for (subtype, (a_from, a_to)) in _XFMR_ARITY
-        sub = get(xfmr, subtype, nothing)
-        sub isa Dict || continue
-        for (id, t) in sub
-            nf = length(get(t, "terminal_map_from", String[]))
-            nt = length(get(t, "terminal_map_to",   String[]))
-            if nf != a_from || nt != a_to
-                n_issues += 1
-                push!(findings, Finding(WARNING, "W.SPEC.XFMR_TMAP_ARITY", :spec,
-                    :transformer, id,
-                    "transformer $subtype '$id': spec requires terminal maps " *
-                    "of length $a_from/$a_to; found $nf/$nt.",
-                    Dict{String,Any}("subtype" => subtype,
-                                     "from" => nf, "to" => nt)))
-            end
-        end
-    end
-
-    # --- n_winding transformers: per-winding arity, duplicates, DELTA scope ---
-    for (id, t) in get(xfmr, "n_winding", Dict())
-        t isa Dict || continue
-        ws = _nw_windings(t)
-        for (k, w) in enumerate(ws)
-            tm = w.terminal_map
-            if length(unique(tm)) < length(tm)
-                dups = [x for x in unique(tm) if count(==(x), tm) > 1]
-                n_issues += 1
-                push!(findings, Finding(ERROR, "E.SPEC.DUPLICATE_TERMINAL", :spec,
-                    :transformer, id,
-                    "transformer n_winding '$id' winding $k has duplicate " *
-                    "terminal(s): " * join(dups, ", ") * ".",
-                    Dict{String,Any}("winding" => k, "terminal_map" => tm,
-                                     "duplicates" => dups)))
-            end
-            phases, neutral = _nw_phase_terminals(tm)
-            if w.connection == "WYE" && (isempty(phases) || neutral === nothing)
-                n_issues += 1
-                push!(findings, Finding(WARNING, "W.SPEC.XFMR_TMAP_ARITY", :spec,
-                    :transformer, id,
-                    "transformer n_winding '$id' winding $k (WYE): terminal map " *
-                    "should carry at least one phase and a neutral; found " *
-                    "$(tm).",
-                    Dict{String,Any}("winding" => k, "terminal_map" => tm)))
-            end
-            if w.connection == "DELTA" && length(phases) < 2
-                n_issues += 1
-                push!(findings, Finding(WARNING, "W.SPEC.XFMR_TMAP_ARITY", :spec,
-                    :transformer, id,
-                    "transformer n_winding '$id' winding $k (DELTA): terminal map " *
-                    "should carry at least two phase conductors; found $(tm).",
-                    Dict{String,Any}("winding" => k, "terminal_map" => tm)))
-            end
-        end
-    end
+    # Raw branch/winding traversal: shape/reference ownership stays in integrity.
+    n_issues += _check_connection_maps!(net, findings)
 
     # --- IBR topology / prime-mover / arity (IBR extension §3.6') ---
     n_inv_issues = 0
@@ -366,14 +307,18 @@ function spec_conformance_check(net::Dict{String,Any},
         end
 
         arity = _IBR_ARITY[topo]
-        tm = Vector{String}(string.(get(c, "terminal_map", String[])))
+        raw_tm = get(c, "terminal_map", String[])
+        tm = _index_strings(raw_tm) ? string.(raw_tm) : String[]
         if length(tm) != arity
             n_inv_issues += 1
             push!(findings, Finding(WARNING, "W.SPEC.INV_TMAP_ARITY", :spec,
                 :ibr, id,
                 "IBR '$id': topology $topo requires $arity terminal(s), " *
                 "terminal_map has $(length(tm)).",
-                Dict{String,Any}("topology" => topo, "arity" => length(tm))))
+                merge(_device_index_context(net,"ibr",id,c;roles=case_roles).evidence,
+                    Dict{String,Any}("arity"=>length(tm),"field"=>"terminal_map",
+                        "expected_lengths"=>[arity],"indexing_domain"=>"connection_terminals",
+                        "observed_shape"=>_index_shape(raw_tm)))))
         end
         if length(unique(tm)) < length(tm)
             dups = [t for t in unique(tm) if count(==(t), tm) > 1]
@@ -439,13 +384,13 @@ end
 # Terminal map convention checks
 # ---------------------------------------------------------------------------
 #
-# Three rules:
-#  E.TMAP.PHASE_TO_NEUTRAL — any terminal in a component's map that occupies
-#    a phase position but resolves to the bus neutral. "Phase position" is any
-#    slot that is not the expected neutral slot: for nodal WYE/SINGLE_PHASE
-#    components the neutral slot is the last entry; for DELTA components and
-#    lines/switches may carry a single identified neutral at both ends.
-#    Transformer maps are exempt (non-trivial neutral involvement is expected).
+# Nodal role checks use the same context as the dimension checks. Single-phase
+# pairs may be reversed; WYE/FOUR_LEG resolve their neutral independently of map
+# position. THREE_LEG cannot carry neutral, and FOUR_LEG needs a neutral return.
+# E.TMAP.PHASE_TO_NEUTRAL retains the all-neutral/repeated-neutral misuse class.
+# E.TMAP.DEVICE_ROLES covers unsupported earth conductors or a missing IBR return.
+# Branch/winding role rules live in connection_maps.jl; informational order
+# diagnostics below are retained independently of semantic validity.
 #
 #  I.TMAP.CROSS_PHASE_LINE — terminal_map_from != terminal_map_to on a line
 #    or switch, implying cross-phase / transposed wiring.
@@ -457,11 +402,12 @@ end
 
 function _check_terminal_map_conventions!(net, findings, result)
     buses = get(net, "bus", Dict())
+    case_roles = _index_roles(net)
 
     # Helper: neutral terminal name for a bus (nothing if not identified)
     bus_neutral(bid) = begin
         b = get(buses, bid, nothing)
-        b isa Dict ? _neutral_terminal(b) : nothing
+        b isa Dict ? _index_bus_neutral(net,bid,case_roles) : nothing
     end
 
     # Helper: relative order of terminals as they appear in terminal_names
@@ -483,69 +429,58 @@ function _check_terminal_map_conventions!(net, findings, result)
     # Shunts are exempt from the "all entries neutral" check: a shunt whose
     # terminal_map is purely ["n"] is a neutral-to-ground admittance (NER/
     # grounding impedance), which is a standard and legitimate earthing model.
-    for comp_type in ("load", "generator", "shunt", "voltage_source")
-        for (id, c) in get(net, comp_type, Dict())
+    for comp_type in ("load", "generator", "shunt", "voltage_source", "ibr")
+        for (id,c) in get(net,comp_type,Dict())
             c isa Dict || continue
-            bid = get(c, "bus", nothing)
-            bid isa AbstractString || continue
-            nn  = bus_neutral(bid)
-            nn === nothing && continue   # bus has no identified neutral
-
-            tm  = Vector{String}(get(c, "terminal_map", String[]))
+            bid=get(c,"bus",nothing); bid isa AbstractString || continue
+            tm=get(c,"terminal_map",String[]); _index_strings(tm) || continue
             isempty(tm) && continue
-            cfg = get(c, "configuration", nothing)
-
-            # Determine the expected neutral slot: last position for WYE and
-            # SINGLE_PHASE; none for DELTA.
-            neutral_slot = if cfg == "DELTA"
-                nothing
-            else
-                length(tm)   # last position is the expected return/neutral
-            end
-
-            # Flag when the map contains no phase conductors at all (every
-            # entry is the neutral). Shunts are exempt: terminal_map=["n"] is
-            # a valid neutral-to-ground earthing admittance.
-            if comp_type != "shunt" && all(string(t) == nn for t in tm)
-                n_phase_neutral += 1
-                push!(findings, Finding(ERROR, "E.TMAP.PHASE_TO_NEUTRAL", :spec,
-                    Symbol(comp_type), id,
-                    "$comp_type '$id': terminal_map $tm contains no phase " *
-                    "conductors — all entries resolve to neutral '$nn' of bus '$bid'.",
-                    Dict{String,Any}("bus" => bid, "neutral" => nn,
-                                     "terminal_map" => tm)))
-            else
-                for (pos, t) in enumerate(tm)
-                    string(t) == nn || continue
-                    # This entry is the neutral terminal — flag only if it
-                    # occupies a phase slot (not the expected trailing slot).
-                    if neutral_slot === nothing || pos != neutral_slot
-                        n_phase_neutral += 1
-                        push!(findings, Finding(ERROR, "E.TMAP.PHASE_TO_NEUTRAL", :spec,
-                            Symbol(comp_type), id,
-                            "$comp_type '$id': terminal at position $pos is wired " *
-                            "to neutral '$nn' of bus '$bid', which is a phase " *
-                            "position$(neutral_slot === nothing ? " (DELTA has no neutral slot)" :
-                                       " (expected neutral at position $neutral_slot)").",
-                            Dict{String,Any}("bus" => bid, "neutral" => nn,
-                                             "position" => pos, "terminal_map" => tm)))
-                    end
+            ctx=_device_index_context(net,comp_type,id,c;roles=case_roles)
+            roles=ctx.evidence["resolved_roles"]
+            if ctx.evidence["reason"]=="unsupported_earth_conductor" && comp_type!="shunt"
+                push!(findings,Finding(ERROR,"E.TMAP.DEVICE_ROLES",:spec,Symbol(comp_type),id,
+                    "$comp_type '$id': this device model does not support an earth conductor.",ctx.evidence))
+            elseif ctx.evidence["reason"]===nothing
+                nn=bus_neutral(bid); cfg=get(c,"configuration",nothing)
+                topo=get(c,"topology",nothing)
+                neutral_positions=findall(==("neutral"),roles)
+                if comp_type=="ibr" && topo=="FOUR_LEG" && length(neutral_positions)!=1
+                    push!(findings,Finding(ERROR,"E.TMAP.DEVICE_ROLES",:spec,:ibr,id,
+                        "IBR '$id': FOUR_LEG requires one identified neutral return.",
+                        merge(ctx.evidence,Dict{String,Any}("reason"=>"four_leg_neutral_required"))))
+                end
+                # A two-terminal single-phase coil accepts either orientation.
+                # WYE/FOUR_LEG phase arrays follow map order with neutral removed.
+                # Retain DELTA's historical TMAP finding as well as its existing
+                # configuration-specific finding for stable-code consumers.
+                bad = if comp_type=="shunt"
+                    Int[]
+                elseif cfg=="DELTA"
+                    neutral_positions
+                elseif all(==("neutral"),roles)
+                    neutral_positions
+                elseif comp_type=="ibr" && topo=="THREE_LEG"
+                    neutral_positions
+                elseif length(neutral_positions)>1
+                    neutral_positions[1:end-1]
+                else
+                    Int[]
+                end
+                if !isempty(bad)
+                    n_phase_neutral+=1
+                    push!(findings,Finding(ERROR,"E.TMAP.PHASE_TO_NEUTRAL",:spec,Symbol(comp_type),id,
+                        "$comp_type '$id': neutral occupies an unsupported device position.",
+                        merge(ctx.evidence,Dict{String,Any}("neutral"=>nn,"positions"=>bad,
+                            "indexing_domain"=>"connection_terminals"))))
                 end
             end
-
-            # Ordering check against bus terminal_names
-            b = buses[bid]
-            tn = Vector{String}(get(b, "terminal_names", String[]))
-            isempty(tn) && continue
-            if !_ordered_subsequence(tm, tn)
-                n_permuted += 1
-                push!(findings, Finding(INFO, "I.TMAP.PERMUTED_ORDER", :spec,
-                    Symbol(comp_type), id,
-                    "$comp_type '$id' terminal_map $tm is a permutation of the " *
-                    "expected order from bus '$bid' terminal_names $tn — check " *
-                    "whether phases are wired in the intended order.",
-                    Dict{String,Any}("bus" => bid, "terminal_map" => tm,
-                                     "terminal_names" => tn)))
+            b=get(buses,bid,nothing); b isa Dict || continue
+            tn=get(b,"terminal_names",String[]); _index_strings(tn) || continue
+            if !_ordered_subsequence(tm,tn)
+                n_permuted+=1
+                push!(findings,Finding(INFO,"I.TMAP.PERMUTED_ORDER",:spec,Symbol(comp_type),id,
+                    "$comp_type '$id': terminal_map order differs from bus '$bid'.",
+                    merge(ctx.evidence,Dict{String,Any}("terminal_names"=>tn))))
             end
         end
     end
@@ -555,8 +490,8 @@ function _check_terminal_map_conventions!(net, findings, result)
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
 
-            tmf = Vector{String}(get(c, "terminal_map_from", String[]))
-            tmt = Vector{String}(get(c, "terminal_map_to",   String[]))
+            tmf=get(c,"terminal_map_from",nothing); tmt=get(c,"terminal_map_to",nothing)
+            (_index_strings(tmf) && _index_strings(tmt)) || continue
 
             # Cross-phase check
             if !isempty(tmf) && !isempty(tmt) && tmf != tmt
@@ -570,47 +505,14 @@ function _check_terminal_map_conventions!(net, findings, result)
                                      "terminal_map_to"   => tmt)))
             end
 
-            # Preserve explicit metallic neutral continuity (PSK-000002).
-            # A single conductor connecting the identified neutral at both
-            # ends is a valid metallic neutral branch. Keep rejecting maps
-            # that are all-neutral on only one end or repeat neutral entries.
-            neutral_only_link = length(tmf) == 1 && length(tmt) == 1 &&
-                bus_neutral(get(c, "bus_from", nothing)) == only(tmf) &&
-                bus_neutral(get(c, "bus_to", nothing)) == only(tmt)
-
-            # Phase-to-neutral check on each end
-            for (side, tm, bus_key) in (("from", tmf, "bus_from"),
-                                         ("to",   tmt, "bus_to"))
-                bid = get(c, bus_key, nothing)
-                bid isa AbstractString || continue
-                nn  = bus_neutral(bid)
-                nn === nothing && continue
-                isempty(tm) && continue
-                # For lines/switches there is no "expected" neutral slot — any
-                # neutral in the map is flagged only when it also appears in
-                # the other end's map at the same position (symmetric neutral
-                # return is fine). Asymmetric neutral involvement is flagged
-                # via the cross-phase rule already. Here we catch the case
-                # where ALL entries are neutral without a valid one-conductor
-                # neutral-to-neutral branch.
-                if all(string(t) == nn for t in tm) && !neutral_only_link
-                    n_phase_neutral += 1
-                    push!(findings, Finding(ERROR, "E.TMAP.PHASE_TO_NEUTRAL", :spec,
-                        Symbol(comp_type), id,
-                        "$comp_type '$id' $side terminal map $tm consists " *
-                        "entirely of neutral '$nn' at bus '$bid'.",
-                        Dict{String,Any}("bus" => bid, "neutral" => nn,
-                                         "side" => side, "terminal_map" => tm)))
-                end
-            end
-
             # Ordering check on each end against bus terminal_names
             for (tm, bus_key) in ((tmf, "bus_from"), (tmt, "bus_to"))
                 bid = get(c, bus_key, nothing)
                 bid isa AbstractString || continue
                 b = get(buses, bid, nothing)
                 b isa Dict || continue
-                tn = Vector{String}(get(b, "terminal_names", String[]))
+                tn = get(b, "terminal_names", String[])
+                _index_strings(tn) || continue
                 (isempty(tn) || isempty(tm)) && continue
                 if !_ordered_subsequence(tm, tn)
                     n_permuted += 1
@@ -625,7 +527,7 @@ function _check_terminal_map_conventions!(net, findings, result)
         end
     end
 
-    result["n_phase_to_neutral"] = n_phase_neutral
+    result["n_phase_to_neutral"] = count(f -> f.code=="E.TMAP.PHASE_TO_NEUTRAL" && f.section==:spec, findings)
     result["n_cross_phase_lines"] = n_cross_phase
     result["n_permuted_terminal_maps"] = n_permuted
 end
@@ -687,6 +589,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
 
     # --- voltage bound coverage, incl. the spec's richer bound types ---
     buses = get(net, "bus", Dict())
+    case_roles = _index_roles(net)
     n_buses = length(buses)
     n_vb   = count(b -> haskey(b, "v_min")    || haskey(b, "v_max"),    values(buses))
     n_vpn  = count(b -> haskey(b, "vpn_min")  || haskey(b, "vpn_max"),  values(buses))
@@ -767,7 +670,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
             Dict{String,Any}("generators" => sort(no_dof))))
     end
 
-    # (2) Generators with cost = 0 (flat objective direction)
+    # (2) Zero direct cost is a screening signal, not a feasible flat direction.
     zero_cost = String[]
     for (id, g) in gens
         g isa Dict || continue
@@ -782,13 +685,13 @@ function benchmark_readiness_check(net::Dict{String,Any},
         push!(findings, Finding(WARNING, "W.BENCH.GEN_ZERO_COST", :benchmark,
             :generator, nothing,
             "$(length(zero_cost)) dispatchable generator(s) have cost = 0 — " *
-            "their dispatch is underdetermined (flat objective direction): " *
+            "check dispatch sensitivity; zero direct cost alone does not establish non-uniqueness: " *
             "$(join(sort(zero_cost), ", ")).",
             Dict{String,Any}("generators" => sort(zero_cost))))
     end
 
     # (3) Same-cost dispatchable generators on the same bus or one hop away
-    #     (primal non-uniqueness: solver can exchange power between them freely)
+    #     (screening only: network losses and constraints can distinguish dispatch)
     bus_adj = Dict{String,Set{String}}()
     for (_, l) in lines
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
@@ -827,7 +730,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
             :generator, nothing,
             "$(length(same_cost_pairs)) pair(s) of dispatchable generators share " *
             "the same cost and are electrically close (same bus or one hop) — " *
-            "optimal dispatch is primal non-unique: $(join(pair_strs, ", ")).",
+            "check for interchangeable controls; non-uniqueness is not established: $(join(pair_strs, ", ")).",
             Dict{String,Any}("pairs" => [[a, b] for (a, b, _) in same_cost_pairs])))
     end
 

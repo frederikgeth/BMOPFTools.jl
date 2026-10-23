@@ -60,6 +60,7 @@ of the below, not a replacement for any.
 
 | Project / tool | Focus | Relationship to BMOPFTools |
 |---|---|---|
+| [Tellegen](https://tellegen.dev/) | Browser-based network visualization and supported power-flow studies | Drag and drop BMOPF JSON to explore a case; see [Visualizing a case](visualization.md) |
 | MATPOWER | Transmission OPF conventions & benchmarks | Inspiration — BMOPFTools aims to bring comparable reproducibility to *distribution* |
 | PowerModels.jl | Optimization formulations (transmission) | Complementary formulation layer; BMOPFTools supplies the network model |
 | PowerModelsDistribution.jl | Distribution OPF formulations & solution methods | Complementary and interoperable (`to_pmd` export); BMOPFTools supplies benchmark cases |

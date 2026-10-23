@@ -91,7 +91,7 @@ function _md_voltage_levels(r::SummaryReport, io::IO)
         println(io, "**Transformer transitions:**\n")
         for tr in transitions
             vg = get(tr, "vector_group", "")
-            vg_str = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), $vg"
+            vg_str = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), effective $vg"
             println(io, "- `$(tr["id"])`: $(tr["level_from"]) → $(tr["level_to"]) ($vg_str)")
         end
         println(io)
@@ -453,6 +453,23 @@ function _md_preflight(r::SummaryReport, io::IO)
     !isempty(tr) && println(io, "| Single point of failure | $(get(tr,"single_point_of_failure","?")) |")
     println(io, "| TPIA status | $(get(d,"tpia_status","not_run")) |")
     println(io)
+    headroom = get(d, "transformer_coil_headroom", Dict())
+    estimates = get(headroom, "transformers", Any[])
+    if !isempty(estimates)
+        println(io, "**Nominal transformer coil headroom (estimate):**\n")
+        println(io, "At each load's nominal voltage; losses, mutual coupling and neutral displacement omitted. Signed P/Q are summed per coil. This is not a feasibility or infeasibility certificate.\n")
+        println(io, "| Transformer | Coil (from) | Nominal S (VA) | Cap (VA) | Headroom (VA) |")
+        println(io, "|---|---|---:|---:|---:|")
+        for estimate in estimates
+            for coil in estimate["coils"]
+                println(io, "| $(estimate["transformer"]) | $(coil["coil"]) | $(round(coil["s_nom_VA"];digits=3)) | $(round(coil["cap_VA"];digits=3)) | $(round(coil["headroom_VA"];digits=3)) |")
+            end
+            if estimate["status"] != "estimated"
+                println(io, "| $(estimate["transformer"]) | unassessed: $(estimate["reason"]) | — | — | — |")
+            end
+        end
+        println(io)
+    end
     _md_section_findings(r, io, :preflight)
 end
 

@@ -19,11 +19,20 @@ Constant power-factor operation.
 
 | Field | Type | Range | Description |
 |-------|------|:-----:|-------------|
-| `pf` | number | $[-1, 1]$ | Power factor; **positive = lagging** (absorbing VAr), **negative = leading** (injecting VAr) |
+| `pf` | number | $0 < \lvert\mathrm{pf}\rvert \le 1$ | Power factor; **positive = lagging** (absorbing VAr), **negative = leading** (injecting VAr) |
 
 Induces the bilinear equality
 $\operatorname{sign}(\textcolor{red}{\mathrm{pf}})\,Q + \tan(\arccos|\textcolor{red}{\mathrm{pf}}|)\,P = 0$
-per phase.
+per phase. Values must be finite real numbers (not Booleans); zero is rejected,
+not interpreted as disabling the law. For positive generation, positive PF
+means Q absorption and negative PF means Q injection. At P=0 the equality
+forces Q=0, although the numerical PF ratio itself is undefined at zero S.
+The same signed equality is retained for existing consumption cases; minimum-PF
+support below is restricted to generation.
+
+Minimum PF is a separate operating envelope, not another constant-PF value.
+See [Minimum power factor for generation](@ref) for the versioned package policy
+in `extras`; it does not add a Task Force-owned profile field.
 
 ## `volt_var`
 

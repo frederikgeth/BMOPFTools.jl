@@ -1,0 +1,19 @@
+{
+  "name": "synthetic_terminal_usage",
+  "terminal_conventions": {"phase": ["a", "spare", "unused"], "neutral": ["return"], "earth": []},
+  "bus": {
+    "b": {"terminal_names": ["a", "return", "spare", "extra"], "perfectly_grounded_terminals": ["return"]},
+    "c": {"terminal_names": ["a", "return"], "perfectly_grounded_terminals": ["return"]}
+  },
+  "voltage_source": {
+    "s": {"bus": "b", "terminal_map": ["a"], "v_magnitude": [230.0], "v_angle": [0.0]}
+  },
+  "transformer": {
+    "n_winding": {
+      "t": {"s_rating": 12000.0, "windings": [
+        {"bus": "b", "terminal_map": ["extra", "return"], "configuration": "WYE", "v_nom": 230.0},
+        {"bus": "c", "terminal_map": ["a", "return"], "configuration": "WYE", "v_nom": 230.0}
+      ]}
+    }
+  }
+}

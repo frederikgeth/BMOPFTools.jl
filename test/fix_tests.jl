@@ -291,6 +291,7 @@ end
                            apply_simplify_network=false,
                            apply_remove_zero_loads=false,
                            apply_source_bus_bounds=false,
+                           apply_low_impedance_to_switch=true,
                            low_impedance_threshold_ohm=1e-4)
         net′, mf = fix_case(net; recipe=recipe)
 
@@ -316,6 +317,7 @@ end
                            apply_simplify_network=false,
                            apply_remove_zero_loads=false,
                            apply_source_bus_bounds=false,
+                           apply_low_impedance_to_switch=true,
                            low_impedance_threshold_ohm=1e-4)
         net′, _ = fix_case(net; recipe=recipe)
         @test net′["switch"]["_sw_l1"]["i_max"] == [120.0, 120.0, 120.0]
@@ -334,6 +336,7 @@ end
                            apply_simplify_network=false,
                            apply_remove_zero_loads=false,
                            apply_source_bus_bounds=false,
+                           apply_low_impedance_to_switch=true,
                            low_impedance_threshold_ohm=1e-4)
         net′, _ = fix_case(net; recipe=recipe)
         @test haskey(net′["line"], "l1")
@@ -752,7 +755,7 @@ end
                 "open_switch"=>false,"terminal_map_from"=>["1","n"],"terminal_map_to"=>["1","n"])),
             "load" => Dict{String,Any}("ld"=>Dict{String,Any}("bus"=>"b2","terminal_map"=>["1","n"],
                 "configuration"=>"SINGLE_PHASE","p_nom"=>[1e3],"q_nom"=>[0.0])))
-        n2, _ = fix_case(net2; recipe=FixRecipe(apply_largest_component=false,
+        n2, _ = fix_case(net2; recipe=FixRecipe(apply_low_impedance_to_switch=true, apply_largest_component=false,
             apply_simplify_network=false, apply_remove_zero_loads=false,
             apply_source_bus_bounds=false))
         @test haskey(n2["switch"], "_sw_l1")          # existing switch preserved
@@ -793,3 +796,33 @@ end
     end
 
 end  # @testset "Fix case"
+
+@testset "Preparation preserves unassessed and inconsistent data" begin
+    net = _source_bounds_net()
+    net["bus"]["src"]["v_max"] = [229.0, 300.0, 300.0]
+    net["bus"]["src"]["vuf_max"] = 0.02
+    net["bus"]["src"]["va_nom"] = [0.0, -2pi/3, 2pi/3]
+    net["bus"]["src"]["vpn_min"] = 230.0
+    fixed, mf = fix_case(net; recipe=FixRecipe(apply_simplify_network=false))
+    @test fixed["bus"]["src"]["v_max"] == net["bus"]["src"]["v_max"]
+    @test !haskey(fixed["bus"]["src"], "vpn_min")  # exactly satisfied boundary
+    @test fixed["bus"]["src"]["vuf_max"] == 0.02
+    @test fixed["bus"]["src"]["va_nom"] == net["bus"]["src"]["va_nom"]
+    @test any(e -> e.field == "v_max" && e.old_value == e.new_value, mf.entries)
+    net["voltage_source"]["vs"]["terminal_map"] = ["1"]
+    net["voltage_source"]["vs"]["v_magnitude"] = [230.0]
+    net["voltage_source"]["vs"]["v_angle"] = [0.0]
+    fixed, _ = fix_case(net; recipe=FixRecipe(apply_simplify_network=false))
+    @test fixed["bus"]["src"]["v_min"] == net["bus"]["src"]["v_min"]
+
+    net = _low_z_net()
+    @test !FixRecipe().apply_low_impedance_to_switch
+    for (object, field) in (("linecode", "B_from_1_1"), ("line", "s_max"))
+        candidate = deepcopy(net)
+        candidate[object][object == "line" ? "l1" : "lc_zero"][field] = 1.0
+        fixed, mf = fix_case(candidate; recipe=FixRecipe(
+            apply_simplify_network=false, apply_low_impedance_to_switch=true))
+        @test haskey(fixed["line"], "l1")
+        @test any(e -> e.rule == "low_impedance_unsupported", mf.entries)
+    end
+end

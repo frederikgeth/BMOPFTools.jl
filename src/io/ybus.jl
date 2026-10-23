@@ -24,6 +24,8 @@
 #   • terminals joined by a zero-impedance UNITY coupling (a closed switch, a
 #     line whose series impedance is below `z_line_min_ohm`, or a 1:1
 #     zero-leakage transformer) are fused into a single node by union-find.
+#     A switch is closed unless its `open_switch` field is `true`; an open
+#     switch couples nothing, so the nodes on its two sides stay separate.
 # This mirrors what the OPF and `simplify_network` already do — neither invents a
 # small penalty impedance for a short; they impose `V_from == V_to` / merge the
 # nodes. Assembling a large finite `1/z` admittance instead would disagree with
@@ -95,6 +97,17 @@ function _ybus_grounded_terminals(net::Dict{String,Any})
         end
     end
     grounded
+end
+
+# Switch state from the BMOPF field `open_switch`, the field the OPF,
+# `simplify_network` and `connectivity_analysis` read. An absent field means
+# closed (their default too). A value other than `true`/`false` is rejected
+# rather than read as closed, so a malformed state cannot silently fuse nodes.
+function _ybus_switch_is_open(sid, sw)
+    v = get(sw, "open_switch", false)
+    v isa Bool || throw(ArgumentError(
+        "switch $(repr(sid)): open_switch must be true or false, got $(repr(v))"))
+    return v
 end
 
 # ── node index ───────────────────────────────────────────────────────────────
@@ -173,7 +186,8 @@ end
 Assign the deterministic integer node ordering for `net`'s Ybus. Grounded
 terminals map to the earth reference (index `0`); closed switches, negligible-Z
 lines, and unity-ratio zero-leakage transformers alias their terminal pairs onto
-a shared node.
+a shared node. A switch is closed unless its `open_switch` field is `true`; open
+switches alias nothing.
 
 `alias_switches=false` keeps closed-switch terminals as distinct nodes — used by
 `ybus_augmented(...; switches=:constrain)`, which ties them with explicit
@@ -199,8 +213,8 @@ function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
 
     # 2. alias closed switches (skipped when they become constraint rows)
     if alias_switches
-        for (_, sw) in get(net, "switch", Dict())
-            get(sw, "status", "closed") == "open" && continue
+        for (sid, sw) in get(net, "switch", Dict())
+            _ybus_switch_is_open(sid, sw) && continue
             bfr = get(sw, "bus_from", ""); bto = get(sw, "bus_to", "")
             tmf = string.(get(sw, "terminal_map_from", String[]))
             tmt = string.(get(sw, "terminal_map_to", String[]))
@@ -227,6 +241,13 @@ function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
         for k in 1:min(length(tmf), length(tmt))
             _uf_union!(uf, (bfr, tmf[k]), (bto, tmt[k]))
         end
+    end
+
+    # The common phase of a finite open-delta bank is a copper through-wire,
+    # independently of its taps/leakage. The native OPF imposes this same bond.
+    for x in values(get(get(net,"transformer",Dict()),"open_delta_regulator",Dict()))
+        a,b=_open_delta_bond(x;neutral_labels=_neutral_labels(net))
+        _uf_union!(uf,a,b)
     end
 
     # 5. collapse grounded terminals onto the earth reference. Grounding is a
@@ -257,6 +278,19 @@ function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
         of[n] = idx
     end
     _YbusIndex(ordered, of)
+end
+
+# Exact galvanic bond shared by native equations and passive node assembly.
+function _open_delta_bond(x; neutral_labels=nothing)
+    pairs=get(Dict("ABBC"=>((1,2),(2,3)),"BCAC"=>((2,3),(1,3)),
+                   "CABA"=>((3,1),(2,1))),uppercase(strip(string(get(x,"connection","")))),nothing)
+    pairs===nothing && throw(ArgumentError("invalid open-delta connection"))
+    shared=only(intersect(pairs[1],pairs[2]))
+    a=string.(x["terminal_map_from"]);b=string.(x["terminal_map_to"])
+    pa=neutral_labels===nothing ? _phase_positions(a) : _phase_positions(a,neutral_labels)
+    pb=neutral_labels===nothing ? _phase_positions(b) : _phase_positions(b,neutral_labels)
+    length(pa)==3 && length(pb)==3 || throw(ArgumentError("open-delta requires three phases on both sides"))
+    ((string(x["bus_from"]),a[pa[shared]]),(string(x["bus_to"]),b[pb[shared]]))
 end
 
 # ── transformer aliasing (1:1 zero-leakage → node fusion) ────────────────────
@@ -418,6 +452,15 @@ ideal in the BMOPF model) and set the boundary, not the matrix.
 SI siemens, full multiphase, referenced to earth. Closed switches, negligible-Z
 lines, and 1:1 zero-leakage transformers are node-aliased (not stamped). See the
 module header for the sign/symmetry convention.
+
+A switch is closed unless its `open_switch` field is `true` (an absent field
+means closed); an `open_switch` that is not a `Bool` raises an `ArgumentError`.
+An open switch is neither aliased nor stamped, so the nodes on its two sides
+stay separate. A retained terminal with no remaining stamped admittance has an
+all-zero row (a singular `Y`). Local shunts can give an isolated terminal a
+nonzero row, so isolation alone does not imply a singular `Y`.
+[`connectivity_analysis`](@ref) reports open-switch
+endpoints without a closed path to a source as `open_switch_isolated_buses`.
 
 A zero-leakage transformer with a non-unity ratio has no finite admittance form;
 here it is stamped via `transformer_yprim` as the (singular, shunt-only) block
