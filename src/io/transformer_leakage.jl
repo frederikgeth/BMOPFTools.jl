@@ -19,6 +19,18 @@ function _xfmr_checked_ratio(r)
     r
 end
 
+function _ybus_regulator_ratios(x, subtype)
+    rt = uppercase(strip(string(get(x, "regulator_type", "B"))))
+    rt in ("A", "B") || throw(ArgumentError("regulator_type must be A or B"))
+    taps = subtype == "open_delta_regulator" ? get(x,"tap_ratio",[1.,1.]) : [get(x,"tap_ratio",1.)]
+    taps isa AbstractVector && length(taps) in (1,2) ||
+        throw(ArgumentError("regulator requires one or two fixed taps"))
+    all(t -> t isa Real && !(t isa Bool) && isfinite(t) && t > 0, taps) ||
+        throw(ArgumentError("regulator taps must be positive finite real numbers"))
+    n = subtype == "open_delta_regulator" ? 2 : 1
+    [_xfmr_checked_ratio(_autotransformer_neff(taps[min(k,end)],rt)) for k in 1:n]
+end
+
 # Effective impedances use the SAME reference as the associated primitive row.
 function _xfmr_leakage_values(x, subtype)
     if subtype == "n_winding"
@@ -44,13 +56,10 @@ function _xfmr_leakage_values(x, subtype)
         n0 = yd ? sqrt(3.0)/n : sqrt(3.0)*n
         return ComplexF64[(yd ? t^2 : 1.0) * ((yd ? zf : zt) + np/n0^2 * (yd ? zt : zf))]
     elseif subtype == "single_phase_autotransformer"
-        n = _xfmr_checked_ratio(_autotransformer_ratio(x))
+        n = only(_ybus_regulator_ratios(x, subtype))
         return ComplexF64[zf + n^2 * zt]
     elseif subtype == "open_delta_regulator"
-        taps = get(x, "tap_ratio", [1.0, 1.0])
-        length(taps) in (1, 2) || throw(ArgumentError("open-delta requires one or two taps"))
-        rt = string(get(x, "regulator_type", "B"))
-        return ComplexF64[zf + _xfmr_checked_ratio(_autotransformer_neff(taps[min(k,end)], rt))^2 * zt for k in 1:2]
+        return ComplexF64[zf + n^2 * zt for n in _ybus_regulator_ratios(x, subtype)]
     end
     throw(ArgumentError("unknown transformer subtype: $subtype"))
 end
