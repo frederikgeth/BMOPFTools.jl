@@ -47,7 +47,8 @@ Fields:
 - `K`         — `SparseMatrixCSC{ComplexF64,Int}`, `(n+m)×(n+m)` with `n`
                 nodes and `m` couplings, `K = transpose(K)`. The leading `n×n`
                 block is the passive Ybus (SI siemens, node-to-earth voltages);
-                row/column `n+j` is coupling `j`'s scaled constraint.
+                row/column `n+j` is coupling `j`'s scaled port equation. The
+                lower-right block is `-scale²*Z` and may be nonzero and coupled.
 - `nodes`     — `Vector{Tuple{String,String}}`, node order of the leading block
                 (same rules as [`YbusResult`](@ref)).
 - `index`     — `Dict{Tuple{String,String},Int}` from any `(bus, terminal)` to
@@ -114,11 +115,12 @@ Keywords:
   constrained in either mode.
 - `ideal_xfmrs = :constrain | :stamp` — `:constrain` (default) uses bordered
   equations for `single_phase`, `wye_delta`, `delta_wye`,
-  `single_phase_autotransformer`, `open_delta_regulator` and `center_tap` at/below
+  `single_phase_autotransformer`, `open_delta_regulator`, `center_tap` and
+  `n_winding` at/below
   `config["domain_rules"]["xfmr_z_min_ohm"]`. Leakage is retained in the
   lower-right block `-scale²*Z`; it is not approximated as zero. Ratios of one
   also use winding equations: isolated neutral references are not fused.
-  Other subtypes requiring a border currently raise `ArgumentError`.
+  Unsupported winding configurations raise `ArgumentError`.
   `:stamp` requires every transformer to have a finite primitive above the
   threshold; it raises instead of silently returning a shunt-only device.
 
@@ -148,7 +150,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
     if ideal_xfmrs === :constrain
         xfmrs = get(net, "transformer", Dict())
         if xfmrs isa Dict
-            for subtype in ("single_phase", "wye_delta", "delta_wye", "single_phase_autotransformer", "open_delta_regulator", "center_tap")
+            for subtype in ("single_phase", "wye_delta", "delta_wye", "single_phase_autotransformer", "open_delta_regulator", "center_tap", "n_winding")
                 sub = get(xfmrs, subtype, Dict())
                 sub isa Dict || continue
                 for xid in sort!(collect(String.(keys(sub))))

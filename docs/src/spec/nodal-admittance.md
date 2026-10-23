@@ -81,16 +81,16 @@ against the effective turns ratio). N-winding uses the smallest singular value
 of the winding-1 coil-base `ZB`, including partly singular matrices.
 
 `ybus_augmented` currently supports small/zero leakage for `single_phase`,
-`wye_delta`, `delta_wye`, `single_phase_autotransformer`, and
-`open_delta_regulator`, and `center_tap`. Other subtypes requiring a border raise
-`ArgumentError` until their port domains are supported. `ybus_passive`,
+`wye_delta`, `delta_wye`, `single_phase_autotransformer`,
+`open_delta_regulator`, `center_tap`, and `n_winding` within the domains below.
+Unsupported winding configurations raise `ArgumentError`. `ybus_passive`,
 `ybus_linearized`, standalone primitives and `ideal_xfmrs=:stamp` reject such
 couplings rather than omit them or stamp a large inverse. Set a lower threshold
 explicitly to request a finite primitive for a nonzero impedance.
 `transformer_yprim(...; shunt_only=true)` is an explicit inspection operation,
 not a complete transformer model.
 
-The bordered system is ``K=[Y\; A^T;\ A\; -D]`` in block notation, with
+The bordered system is ``K=\begin{bmatrix}Y&A^T\\A&-D\end{bmatrix}``, with
 ``A=y_0 C``, ``D=y_0^2 Z``, and physical port current ``i=y_0 w``. Its lower
 rows express ``CV=Zi``. Only exactly zero leakage yields ideal constraints.
 There is no universal bound of `1/xfmr_z_min_ohm` on matrix entries: ratios,
@@ -205,3 +205,27 @@ branches remain in the passive block (PSK-000002).
 `length(nodes)+j`; its physical port current is `couplings[j].scale*w[j]`.
 For coupled ports the lower-right block defines mutual impedances, so a single
 auxiliary row cannot be interpreted as an independent ideal constraint.
+
+### N-winding ports
+
+N-winding ports retain the existing winding-1 coil-base `ZB` matrix. For each
+phase, port `k-1` has voltage `u1-uk/Nk`, where `Nk=v_nom[k]/v_nom[1]` and each
+`uk` is the explicitly connected WYE or DELTA coil voltage. The lower block
+is `-scale²*ZB`, including all finite and singular modes. Neither inversion,
+mode truncation nor an artificial impedance is used for bordered units.
+At a zero configured cutoff, a roundoff-rank-deficient `ZB` still selects the
+border; this preserves the supplied matrix rather than declaring its small
+singular values exactly zero.
+
+The supported domain is two or more windings with positive finite coil
+voltages, matching phase counts, explicit finite pairwise `x_sc` values and
+finite winding resistances. Terminal labels are `a`, `b`, `c`, and optional
+`n` (case insensitive). WYE supports one to three phases with explicit neutral
+or implicit earth; DELTA requires three phases, no neutral and `delta_roll`
+of +1 or -1. Unknown configurations, malformed maps and missing pairs are
+rejected rather than inferred. The no-load branch remains across each coil
+of winding 2. Internal neutral-grounding fields are not supported by the
+n-winding model; represent grounding as explicit network shunts (PSK-000002).
+Floating winding references and ideal delta cycles can leave free voltages or
+circulating currents; callers must supply valid references and handle rank
+limitations. A border does not assert solvability or physical realizability.

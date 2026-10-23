@@ -1,0 +1,66 @@
+{
+  "bus": {
+    "w1": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    },
+    "w2": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    },
+    "w3": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    }
+  },
+  "transformer": {
+    "n_winding": {
+      "x": {
+        "windings": [
+          {
+            "bus": "w1",
+            "terminal_map": [
+              "a",
+              "n"
+            ],
+            "v_nom": 460.0,
+            "configuration": "WYE",
+            "r_winding": 0.01
+          },
+          {
+            "bus": "w2",
+            "terminal_map": [
+              "a",
+              "n"
+            ],
+            "v_nom": 230.0,
+            "configuration": "WYE",
+            "r_winding": 0.0
+          },
+          {
+            "bus": "w3",
+            "terminal_map": [
+              "a",
+              "n"
+            ],
+            "v_nom": 115.0,
+            "configuration": "WYE",
+            "r_winding": 0.0
+          }
+        ],
+        "x_sc": {
+          "1_2": 0.02,
+          "1_3": 0.02,
+          "2_3": 0.0
+        },
+        "g_no_load": 0.003
+      }
+    }
+  }
+}
