@@ -433,3 +433,73 @@ not prove infeasibility**. The result records both limitations, its assumptions
 and `solver_run = false`. It neither retries a solve nor edits the network.
 This screening evidence is linked to **PSK-000013** to distinguish it from a
 solved-network feasibility witness; it does not extend that scientific claim.
+
+### Geometry and topology review candidates
+
+`discrepancy_candidates.checks` adds descriptive review categories to the spatial
+report. These `S.*` candidate codes are stable package-local categories, **not
+Finding codes**, electrical-equivalence claims or repair instructions. They add
+no PSK preservation claim. JSON retains terminal maps, voltage tiers, coordinate
+provenance, switch states and branch references; Markdown summarizes bounded
+witnesses. The synthetic `test/data/spatial_discrepancies.json` demonstrates a
+direct line alongside a series path, shared geometry, a repeated explicit source
+interval and a route ending near a different bus.
+
+| Check | Candidate code | Supported evidence |
+|---|---|---|
+| `nearby_topology` | `S.NEARBY_WITHOUT_DIRECT_BRANCH` | Metric-eligible bus pairs within the proximity radius, including exact co-location, with no direct line, switch or supported transformer declaration. |
+| `series_paths` | `S.DIRECT_ALONGSIDE_SERIES_PATH` | A direct line and a line-only path with degree-two interior buses; path chord sum is within `max(route_endpoint_tolerance_m, 10% of endpoint distance)` of the direct chord. |
+| `branch_spans` | `S.LONG_BRANCH_SPAN` | A line, switch or all-winding transformer span exceeds the configured absolute review distance. |
+| `route_endpoints` | `S.ROUTE_ENDPOINT_DISAGREEMENT` | A valid WGS84 route disagrees with its eligible WGS84 bus coordinates under the better of forward/reversed endpoint assignments. Nearby alternative buses are listed without assigning them. |
+| `route_overlaps` | `S.SHARED_ROUTE_SEGMENT` | Two or more lines contain exactly the same nonzero WGS84 vertex-to-vertex segment, allowing reversal. |
+| `source_intervals` | `S.REPEATED_SOURCE_INTERVAL` | An explicit nonempty string ID repeats within `meta.source_interval` or within `meta.backbone_extension.source_interval`. The two namespaces are kept separate. |
+| `route_defects` | `S.INVALID_ROUTE_GEOMETRY`, `S.ROUTE_SEGMENT_DEFECT` | Malformed route data, zero or repeated undirected WGS84 segments, or individual segments above the configured long-span threshold. |
+
+The bus graph is descriptive: lines and all ports of supported transformers join
+bus components regardless of galvanic isolation or terminal mappings. Closed
+switches join the certain graph; switches with missing/non-Boolean state join
+only the possible graph. Known open switches join neither graph but remain
+visible as direct declarations and incident branches. Nearby pairs distinguish
+same components, separate components, and uncertain separation due to unknown
+switch state or invalid branch declarations. This is **not** conductor reachability,
+energization or evidence that buses should be merged. `endpoint_like` means at
+least one bus has at most one incident branch declaration, including open switches.
+
+Series-path searches stop at a branch, switch or transformer port in the interior,
+and never establish a valid series reduction: an interior bus can carry loads or
+other attachments, which are reported. The geometry test uses bus chords; it does
+not assert route coincidence. Shared-segment and repeated-source groups retain
+line identities, feeder labels, bus pairs and orientation-aligned terminal maps;
+separate circuits can legitimately share these attributes. Generic `raw_key`
+parent IDs are not interpreted as source intervals. Routes with different
+segmentation, partial collinear overlaps, geometric crossings, self-intersections
+without a repeated segment, arbitrary alternate paths and inferred source-to-target
+mappings remain unassessed.
+
+```toml
+[spatial]
+discrepancy_enabled = true
+max_topology_pairs = 100000
+max_series_hops = 8
+route_endpoint_tolerance_m = 5.0
+long_span_threshold_m = 10000.0
+```
+
+The proximity radius, location-pair budget and `witness_limit` from the previous
+section also apply. `max_topology_pairs` independently caps nearby bus-pair
+expansion, series path steps, branch-span distance pairs, route-segment processing
+and route-endpoint bus queries. It is a positive integer. `max_series_hops` is an
+integer from 2 through 64. Both distance settings must be finite and positive.
+The 10 km long-span default is an absolute review setting, not a voltage-specific
+engineering limit or statistical outlier test. All counts are within each check's
+stated domain; explicit coverage fields report excluded or unsupported evidence.
+A scan with no eligible geometry is not a zero-candidate success. Disabled passes
+are `inapplicable`; invalid settings and truncated scans are `indeterminate`.
+Incomplete scans retain `n_candidates_observed` as a lower bound and leave
+`n_candidates` null. Witness truncation alone does not invalidate aggregate counts.
+
+WGS84 route-shape evidence is independent of the bus coordinate frame. Unknown or
+conflicting bus frames suppress endpoint distances and alternative-bus searches,
+but an explicitly WGS84 route can still contribute shared-segment or route-defect
+evidence. All algorithms are read-only and make no snapping, rewiring, merging or
+circuit-deletion decisions.

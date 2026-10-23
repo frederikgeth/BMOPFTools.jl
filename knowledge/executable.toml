@@ -36,6 +36,10 @@
 # Qualified nominal coil headroom is descriptive PSK-000013-related screening,
 # not an additional feasibility contract. Its source paths and analyze_case recipe
 # preserve the explicit nominal-demand versus supplied-result distinction.
+# Spatial discrepancy candidates describe bus-level declarations and geometry;
+# candidate codes are package-local review categories, not Findings or PSK claims.
+# Exact shared route segments and explicit source intervals retain circuit identity;
+# bounded path/query scans expose partial counts rather than inferred repairs.
 schema_version = "0.6.0"
 
 [[contract]]

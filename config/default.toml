@@ -226,3 +226,10 @@ proximity_enabled = true
 proximity_radius_m = 1.0
 max_candidate_pairs = 1000000
 witness_limit = 20
+
+# Review candidates only; spans are absolute review thresholds, not defects.
+discrepancy_enabled = true
+max_topology_pairs = 100000
+max_series_hops = 8
+route_endpoint_tolerance_m = 5.0
+long_span_threshold_m = 10000.0

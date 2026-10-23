@@ -559,6 +559,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                              relative_to_p99=r.length / max(length_stats[r.tier]["p99"], eps()))
                             for r in length_rows]
     sort!(relative_length_rows, by=r -> (-r.relative_to_p99, r.id))
+    discrepancies = _spatial_discrepancies(net, coordinates, frame, level_by_bus, config)
     Dict{String,Any}(
         "coordinate_reference" => Dict{String,Any}(
             "status" => crs_status, "declared_crs" => declared_crs,
@@ -569,7 +570,8 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
             "metric_distances_applicable" => metric,
             "geodesic_distances_applicable" => geodesic),
         "coordinate_semantics" => coordinates.report,
-        "proximity" => _spatial_proximity(net, coordinates, frame, level_by_bus, config),
+        "proximity" => discrepancies.proximity,
+        "discrepancy_candidates" => discrepancies.report,
         "coordinate_coverage" => Dict{String,Any}(
             "n_buses" => length(buses), "n_with_any_coordinate" => n_any,
             "n_complete_lonlat" => n_complete, "n_with_xy_fields" => n_xy,

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "8240ceabd9bf2081ba4fb9752053bf18784488254622e97a12db7958daf3f3a1",
+  "corpus_sha256": "12bba7e43ab39e87f44ba7dba9366e1dacf3b9f31930151798fd8af996b0cf46",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -74,11 +74,11 @@
     },
     {
       "path": "config/default.toml",
-      "sha256": "691867bef1df7ddeca44148dcbf69c93a5f0a4cc5310ab4753e96d49d012c5d7"
+      "sha256": "817b45fe0542f6ae90932cf5affc3a71af6682228e37d4517082cccb6f660292"
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "118f9be6583c248b7160c9f87a0fb1d41c6512531312c39baba833c8023715f7"
+      "sha256": "1ef6b9e3de4b77cb161565d59d21d66ea0c4e14363a7f292edf52f05064f54e1"
     },
     {
       "path": "docs/src/api.md",
@@ -262,7 +262,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "3256b7ba656c3ceb6f9afcaa449231382a37c4419ec12138983c50f17b62f7fd"
+      "sha256": "50cbd8f8daeda9920b4bc3c37b50acb33c97e81c68927e0528517a466d89e0e1"
     },
     {
       "path": "recipes/README.md",
@@ -278,7 +278,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "74ab7dd047ddb98029fa282232e8c3cef8c1dbb32a509de43af9ef2e7043c2f8"
+      "sha256": "513d60e51aa95b49a6acac026314f3c4406c8b2e4a850e0f7c753c73be6deedc"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -382,7 +382,7 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "4c3e60ab75cb7dc5fe60b2d2b8eca419270da0055a1863ed015ce70d85d1024e"
+      "sha256": "e5e7d0f4216fd358c5c077bbd69acd48265eadeded3a77e67ae5792845346c8d"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -414,11 +414,19 @@
     },
     {
       "path": "src/analysis/spatial.jl",
-      "sha256": "eddfa91fcccdee1b62abe3714329d8fbb8920e7439e2f9520426ab338c794f32"
+      "sha256": "b5e3abed8a435841f2e8ab8029daf34440b04c3b514d8ea6fac0c51ebf8fa973"
     },
     {
       "path": "src/analysis/spatial_proximity.jl",
-      "sha256": "40258ffb4afea3ea1a6e42e4ab8da77db99a1e930ecc0bd1edbea1d2bc801e24"
+      "sha256": "d5c57df6244d01305bd2bcfc7c5ecc21560685e100c62cbb88a702f860c5ca04"
+    },
+    {
+      "path": "src/analysis/spatial_routes.jl",
+      "sha256": "dda6ac01871b74a8eaf3a93e3ff2aba8eeb240eb1d168bf102fdb86e9fbff53f"
+    },
+    {
+      "path": "src/analysis/spatial_topology.jl",
+      "sha256": "49baaf0212157950cbef117eca23c69aed79522493d881978fc0f8c81d5c8f35"
     },
     {
       "path": "src/analysis/switch_scenarios.jl",
@@ -570,7 +578,7 @@
     },
     {
       "path": "src/report/render_markdown.jl",
-      "sha256": "424331fbbba8876bbcf8622298fafff42abe60d67d6a30e012eeea72db35a520"
+      "sha256": "e8ec986e3bbb5a7f2de48597f6ecb7ace98e01fa04533acdd1fede508feb5715"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -787,6 +795,10 @@
     {
       "path": "test/data/spatial_context.json",
       "sha256": "b54938b5830ddb7b4d68745a534a6efb512f70caa777aebe3e95e6172ae840de"
+    },
+    {
+      "path": "test/data/spatial_discrepancies.json",
+      "sha256": "12b5ae5457655b4d4249054ea16ac671b6ca2527cfac9baac37dfcf8e097af2d"
     },
     {
       "path": "test/data/spatial_split_lengths.json",
@@ -1382,11 +1394,19 @@
     },
     {
       "path": "test/spatial_analysis_tests.jl",
-      "sha256": "05dcf9e5dc7e0ff8e43a47b757d2b1aba6d535d8c467add8338ad7ad3caabe1f"
+      "sha256": "0feff65874856a8a69a8cfadeb7d38bc09e6bd1593829e6791ff073ee4b3d9fd"
     },
     {
       "path": "test/spatial_proximity_tests.jl",
       "sha256": "1f1196b331604063419693db961c9d867dfed51052d2d5547a842bc7d5d1ce6a"
+    },
+    {
+      "path": "test/spatial_route_tests.jl",
+      "sha256": "b7b364bca8ea486b6937fee581989fd8ec2ffb6480286fc3a2ce36d7518a915e"
+    },
+    {
+      "path": "test/spatial_topology_tests.jl",
+      "sha256": "77eab352a0bd96a82b856bad41d5b5632affd36433e9d4b88a0a35ba293c48e4"
     },
     {
       "path": "test/switch_scenario_tests.jl",

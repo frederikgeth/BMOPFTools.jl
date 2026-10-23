@@ -355,6 +355,45 @@ function _md_spatial(spatial, io::IO)
         end
         isempty(proximity["pair_witnesses"]) || println(io)
     end
+    discrepancies = get(spatial, "discrepancy_candidates", nothing)
+    if discrepancies !== nothing
+        println(io, "**Geometry–topology review candidates.** $(discrepancies["caution"])\n")
+        for (name, check) in sort!(collect(discrepancies["checks"]), by=first)
+            total = something(check["n_candidates"], "unavailable")
+            println(io, "- **$name:** $(check["status"]) ($(check["reason"])); $total candidates; " *
+                "$(check["n_candidates_observed"]) observed.")
+            for witness in check["witnesses"]
+                code = witness["code"]
+                detail = if code == "S.NEARBY_WITHOUT_DIRECT_BRANCH"
+                    ids = [b["bus_id"] for b in witness["buses"]]
+                    "$(join(ids, " ↔ ")): $(round(witness["distance_m"], digits=3)) m; " *
+                        "$(witness["component_relation"]); voltage tiers $(witness["voltage_tier_relation"])"
+                elseif code == "S.DIRECT_ALONGSIDE_SERIES_PATH"
+                    ids = [b["component_id"] for b in witness["series_branches"]]
+                    "$(witness["direct_branch"]["component_id"]) alongside $(join(ids, " → ")); " *
+                        "endpoint-chord detour $(round(witness["detour_ratio"], digits=3))"
+                elseif code == "S.LONG_BRANCH_SPAN"
+                    "$(witness["branch"]["kind"]) $(witness["branch"]["component_id"]): $(round(witness["span_m"], digits=2)) m"
+                elseif code in ("S.SHARED_ROUTE_SEGMENT", "S.REPEATED_SOURCE_INTERVAL")
+                    ids = [l["line_id"] for l in witness["lines"]]
+                    "$(join(ids, ", ")); $(witness["n_lines"]) lines; same bus pair $(witness["same_bus_pair"]); " *
+                        witness["terminal_map_relation"]
+                elseif code == "S.ROUTE_ENDPOINT_DISAGREEMENT"
+                    parts = ["$(e["side"]) bus $(e["connected_bus"]["bus_id"]): $(round(e["gap_m"], digits=2)) m gap; " *
+                        "nearby alternatives $(something(e["nearby_alternative_buses"]["n_buses"], "indeterminate"))" for e in witness["endpoints"]]
+                    "$(witness["line_id"]) ($(witness["orientation"])) — $(join(parts, "; "))"
+                elseif code == "S.ROUTE_SEGMENT_DEFECT"
+                    "$(witness["line_id"]): $(witness["n_zero_segments"]) zero segments, " *
+                        "$(witness["n_repeated_segments"]) repeated segments, $(witness["n_long_segments"]) long segments"
+                else
+                    "$(witness["line_id"]): $(witness["reason"])"
+                end
+                println(io, "  - `$code`: $detail")
+            end
+        end
+        println(io, "\nFull terminal, switch, coordinate and branch evidence is retained in the JSON report. " *
+            "Unassessed: $(join(discrepancies["unassessed"], ", ")).\n")
+    end
     println(io, "Line routes: $(routes["n_with_route"])/$(routes["n_lines"]); " *
         "$(reference["n_matching_wgs84_routes"]) WGS84 routes match their bus endpoints.\n")
     coincidence = get(spatial, "coincidence", nothing)

@@ -367,3 +367,6 @@ end
 
 include("coordinate_semantics_tests.jl")
 include("spatial_proximity_tests.jl")
+
+include("spatial_topology_tests.jl")
+include("spatial_route_tests.jl")

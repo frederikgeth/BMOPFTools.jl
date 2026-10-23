@@ -15,7 +15,7 @@ function _proximity_index_point(point, kind)
     (r * cos(lat) * cos(lon), r * cos(lat) * sin(lon), r * sin(lat))
 end
 
-function _spatial_proximity(net, coordinates, frame, level_by_bus, config)
+function _spatial_proximity(net, coordinates, frame, level_by_bus, config; observe=nothing)
     options = get(config, "spatial", Dict())
     options isa AbstractDict || (options = Dict("proximity_enabled" => nothing))
     enabled = get(options, "proximity_enabled", true)
@@ -51,6 +51,11 @@ function _spatial_proximity(net, coordinates, frame, level_by_bus, config)
         push!(get!(positions, _proximity_location(point, frame.kind), String[]), id)
     end
     locations = sort!([(point=p, buses=sort!(ids)) for (p, ids) in positions], by=l -> first(l.buses))
+    if observe !== nothing
+        for l in locations
+            length(l.buses) > 1 && observe(l.buses, l.buses, 0.0)
+        end
+    end
     n = length(locations)
     index_points = [_proximity_index_point(l.point, frame.kind) for l in locations]
     # Pad candidate cells for floating-point coordinate/trigonometric rounding.
@@ -106,6 +111,7 @@ function _spatial_proximity(net, coordinates, frame, level_by_bus, config)
                     distance = _coordinate_distance(location.point, other.point, frame.kind)
                     distance === nothing && continue
                     distance <= radius || continue
+                    observe === nothing || observe(location.buses, other.buses, distance)
                     multiplicity = length(location.buses) * length(other.buses)
                     if distance == 0
                         zero_pairs += multiplicity
