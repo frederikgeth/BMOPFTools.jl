@@ -18,6 +18,9 @@
 # route geometry. W.GEO.LINE_SHORTER_THAN_CHORD uses an explicit physical length
 # when supplied and abstains on regularized-only or invalid physical evidence.
 # Route-derived coordinate frames are limited to matched valid-route endpoints.
+# Coordinate semantics explicitly support WGS84 and declared local Cartesian
+# x/y frames with units. Conflicts suppress metrics; provenance and accuracy
+# remain descriptive metadata, without new scientific claims or Finding codes.
 # Transformer leakage and downstream-load applicability use winding-local
 # rating bases and explicit graph-bridge evidence; their minimized witnesses
 # remain package validation tests, not preservation contracts.

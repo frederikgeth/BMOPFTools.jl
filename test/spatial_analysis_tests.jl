@@ -364,3 +364,5 @@ end
     @test occursin("open_switch", md)
     @test occursin("2/2 assessed", md)
 end
+
+include("coordinate_semantics_tests.jl")

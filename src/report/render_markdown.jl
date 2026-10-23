@@ -324,6 +324,19 @@ function _md_spatial(spatial, io::IO)
         "$(coverage["n_outside_wgs84_range"]) outside WGS84 numeric ranges.\n")
     println(io, "**Coordinate reference:** $(reference["status"]). " *
         "$(reference["caution"])\n")
+    semantics = get(spatial, "coordinate_semantics", nothing)
+    if semantics !== nothing
+        println(io, "Coordinate semantics: frame `$(semantics["frame"])`, units `$(semantics["units"])`; " *
+            "$(semantics["n_metric_eligible_buses"]) metric-eligible buses; " *
+            "$(semantics["n_with_reported_accuracy"]) with reported accuracy.\n")
+        for issue in semantics["issues"]
+            println(io, "- Coordinate declaration: `$issue`")
+        end
+        for (issue, count) in sort!(collect(semantics["bus_issue_counts"]), by=first)
+            println(io, "- `$issue`: $count buses")
+        end
+        println(io)
+    end
     println(io, "Line routes: $(routes["n_with_route"])/$(routes["n_lines"]); " *
         "$(reference["n_matching_wgs84_routes"]) WGS84 routes match their bus endpoints.\n")
     coincidence = get(spatial, "coincidence", nothing)
@@ -353,9 +366,9 @@ function _md_spatial(spatial, io::IO)
         end
         println(io)
     end
-    if reference["geodesic_distances_applicable"]
+    if get(reference, "metric_distances_applicable", reference["geodesic_distances_applicable"])
         xf = transformers["separation_m"]
-        println(io, "Geodesic comparisons: $(lines["n_with_chord_comparison"]) lines with endpoint distances; " *
+        println(io, "Metric comparisons: $(lines["n_with_chord_comparison"]) lines with endpoint distances; " *
             "$(something(lines["n_shorter_than_chord_beyond_tolerance"], "unassessed")) declared lengths below their " *
             "endpoint chord by more than max(5 m, 10% of chord). " *
             "Route endpoint gaps over 5 m: " *

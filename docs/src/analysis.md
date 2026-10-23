@@ -141,7 +141,7 @@ describe only the declared snapshot; switch scenarios introduce no Findings.
 line-length distributions by voltage tier, and bounded long-line witnesses.
 The long-line ranking compares each section with its own tier's 99th-percentile
 declared length; a high rank is an inspection cue, not an error threshold.
-Metre-based line chord, route endpoint, and transformer separation measurements
+Geographic line chord, route endpoint, and transformer separation measurements
 are computed only when network metadata declares WGS84 (`crs`,
 `coordinate_system`, or `coordinate_reference_system`) or a matching
 `WGS84_geodesic_polyline` route provides coordinate-frame evidence. The latter
@@ -179,6 +179,7 @@ The spatial result groups fields as follows:
 | `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
 | `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
 | `coincidence` | Exact-coordinate groups, counts by direct branch context, and bounded bus/terminal/component witnesses. |
+| `coordinate_semantics` | Resolved frame, units, axis order, declarations, conflict reasons, provenance/accuracy coverage and bounded bus issue witnesses. |
 | `length_context` | Separate declared, physical, endpoint, stored-route and recomputed-route lengths; per-comparison status counts and bounded contextual witnesses. |
 | `transformers` | Maximum all-winding bus separation per transformer, quantiles, zero-extent counts, and bounded assessed/indeterminate witnesses. |
 
@@ -228,6 +229,48 @@ each child section. The declared/physical comparison exposes that discrepancy
 without identifying which value should change or inferring a transformation
 mapping from shared source IDs. `test/data/spatial_split_lengths.json` is a
 package-owned synthetic witness of this metadata pattern.
+
+Coordinate declarations are resolved across the root and `meta` fields
+`coordinate_reference_system`, `crs`, and `coordinate_system`. Equivalent WGS84
+aliases agree; conflicting or malformed declarations yield `ambiguous` and
+suppress metric comparisons. Named `longitude`/`latitude` fields always mean
+those axes. A conflicting `coordinate_axis_order` is reported, never used to
+silently swap values. WGS84 defaults to degrees; a conflicting explicit
+`coordinate_units` suppresses its metric interpretation.
+
+Local Cartesian frames must be declared explicitly, for example:
+
+```json
+{"meta": {"coordinate_reference_system": {
+  "type": "cartesian", "name": "site_grid", "units": "m",
+  "axis_order": ["x", "y"]
+}}}
+```
+
+These frames use named bus `x`/`y` fields, with `m`, `km`, or international `ft`
+units (scales 1, 1000, and 0.3048 metres). Axis/unit declarations may also use
+`coordinate_axis_order`/`coordinate_units` on the root or in `meta`; multiple
+declarations must agree. A Cartesian frame without units is indeterminate.
+Projected EPSG codes are unsupported; no projection or map-scale assumption is
+inferred. Cartesian distances feed the descriptive length and transformer
+extent reports; existing `W.GEO.*` Findings retain their WGS84 domain.
+
+Bus-level CRS, axis, or unit declarations must agree with the network frame
+(or the WGS84 route evidence supporting that bus); they cannot silently define
+a transformation. Conflicting buses are excluded from metric and exact-group
+comparisons. Network-level ambiguity also suppresses exact groups, rather than
+combining positions from unresolved frames. Unknown undeclared frames still
+permit descriptive raw coordinate equality as in milestone 1.
+
+`coordinate_provenance` (a string) and `coordinate_accuracy_m` (a finite
+nonnegative number) may appear on a bus or its `meta`, with network-level
+defaults in the same locations. Conflicting declarations within one scope are
+reported; explicit bus values override network defaults. `schematic` and
+`displaced` coordinates are excluded from metric checks. Other provenance
+labels are retained without upgrading them to surveyed evidence. Invalid
+accuracy is reported as unknown while a valid coordinate remains usable.
+Accuracy values describe reported data quality; they do not certify error
+bounds or independent measurement.
 
 Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
 Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length

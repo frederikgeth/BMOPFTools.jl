@@ -202,15 +202,17 @@ function _spatial_transformer_buses(t, subtype)
     Any[get(t, "bus_from", nothing), get(t, "bus_to", nothing)]
 end
 
-function _spatial_coincidence(net, coords, level_by_bus, crs_status)
+function _spatial_coincidence(net, coords, level_by_bus, crs_status; excluded=Set{String}())
     # Equality is descriptive even without a metric CRS. Never mix x/y and
     # longitude/latitude field families or silently snap almost-equal positions.
     groups = Dict{Tuple{String,Float64,Float64},Vector{String}}()
     for (id, p) in coords
+        id in excluded && continue
         crs_status == "declared_wgs84" && !_wgs84_point(p) && continue
         push!(get!(groups, ("longitude_latitude", p...), String[]), id)
     end
     for (id, bus) in get(net, "bus", Dict())
+        string(id) in excluded && continue
         bus isa AbstractDict || continue
         # A bus with lon/lat fields uses that family, including invalid pairs.
         any(k -> haskey(bus, k), ("longitude", "latitude")) && continue
@@ -312,7 +314,7 @@ function _spatial_coincidence(net, coords, level_by_bus, crs_status)
         "caution" => "Coordinate equality does not establish electrical connectivity, duplicate assets, or a need to merge buses. Context tags describe direct branch declarations only.")
 end
 
-function _spatial_transformer_extent(net, coords, eligible)
+function _spatial_transformer_extent(net, coords, eligible; distance_kind="wgs84")
     rows = Dict{String,Any}[]
     incomplete = Dict{String,Any}[]
     n_total = 0
@@ -328,13 +330,24 @@ function _spatial_transformer_extent(net, coords, eligible)
                 continue
             end
             distance = 0.0
+            distance_valid = true
             farthest = [buses[1], buses[2]]
             for i in eachindex(buses), j in (i+1):length(buses)
-                d = _spatial_haversine(coords[buses[i]], coords[buses[j]])
+                d = _coordinate_distance(coords[buses[i]], coords[buses[j]], distance_kind)
+                if d === nothing
+                    distance_valid = false
+                    break
+                end
                 if d > distance
                     distance = d
                     farthest = [buses[i], buses[j]]
                 end
+            end
+            if !distance_valid
+                push!(incomplete, Dict{String,Any}("transformer_id" => string(id),
+                    "subtype" => subtype, "status" => "indeterminate", "winding_buses" => buses,
+                    "reason" => "distance_overflow"))
+                continue
             end
             push!(rows, Dict{String,Any}("transformer_id" => string(id),
                 "subtype" => subtype, "distance_m" => distance,
@@ -354,9 +367,9 @@ end
 """
     _spatial_analysis(net, voltage_levels) -> Union{Nothing,Dict{String,Any}}
 
-Return nothing unless buses contain coordinate fields. Distances in metres are
-computed only with an explicit WGS84 declaration or matching WGS84 route
-evidence, and only for endpoints inside the geographic coordinate range.
+Return nothing unless buses contain coordinate fields. Distances in metres use
+unambiguous WGS84 or explicit local Cartesian declarations, or endpoint-scoped
+WGS84 route evidence. Unsupported/conflicting declarations suppress distances.
 Ranked examples are descriptive. Findings require an explicit WGS84 declaration.
 """
 function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,Any},
@@ -413,13 +426,22 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
     declared_crs = _spatial_crs_declaration(net)
     route_supports_wgs84 = route_matched > 0 &&
         all(==("WGS84_geodesic_polyline"), keys(route_basis))
-    crs_status = declared_crs === nothing ?
-        (route_supports_wgs84 ? "wgs84_route_evidence" : "unspecified") :
-        (_spatial_is_wgs84(declared_crs) ? "declared_wgs84" : "declared_other")
+    frame = _coordinate_frame(net)
+    if frame.status == "unspecified" && route_supports_wgs84
+        if frame.unit === nothing || first(frame.unit) == "degrees"
+            frame = merge(frame, (status="wgs84_route_evidence", kind="wgs84", token="WGS84", unit=("degrees", 1.0),
+                report=merge(frame.report, Dict("status" => "wgs84_route_evidence", "frame" => "WGS84", "units" => "degrees"))))
+        else
+            frame = merge(frame, (status="ambiguous", report=merge(frame.report,
+                Dict("status" => "ambiguous", "issues" => ["coordinate_unit_domain_conflict"]))))
+        end
+    end
+    crs_status = frame.status
+    coordinates = _coordinate_inventory(net, frame, route_supported_buses)
     geodesic = crs_status in ("declared_wgs84", "wgs84_route_evidence")
-    eligible = Set(id for (id, p) in coords if _wgs84_point(p) &&
-        (crs_status == "declared_wgs84" ||
-         (crs_status == "wgs84_route_evidence" && id in route_supported_buses)))
+    metric_coords = coordinates.points
+    eligible = Set(keys(metric_coords))
+    metric = geodesic || crs_status == "declared_cartesian"
     if crs_status == "declared_wgs84"
         for id in sort!(collect(keys(coords)))
             point = coords[id]
@@ -432,6 +454,10 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
     end
     caution = crs_status == "declared_wgs84" ?
         "Network metadata declares WGS84; metre distances use valid longitude/latitude pairs only." :
+        crs_status == "declared_cartesian" ?
+        "Explicit local Cartesian x/y coordinates are converted to metres using declared units; no map projection is inferred." :
+        crs_status == "ambiguous" ?
+        "Conflicting or incomplete coordinate declarations prevent metric comparisons; inspect coordinate_semantics issues." :
         crs_status == "wgs84_route_evidence" ?
         "No network CRS is declared. Only bus endpoints matched to valid WGS84 route polylines support metre distances; the coordinate frame of other buses remains indeterminate." :
         crs_status == "declared_other" ?
@@ -459,7 +485,8 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         tier_b = get(level_by_bus, to, "unassigned")
         tier = tier_a == tier_b ? tier_a : "cross_tier"
         length_m = _spatial_length(get(line, "length", nothing))
-        chord = from in eligible && to in eligible ? _spatial_haversine(a, b) : nothing
+        chord = from in eligible && to in eligible ?
+            _coordinate_distance(metric_coords[from], metric_coords[to], frame.kind) : nothing
         metric_status = crs_status == "declared_other" ? "inapplicable" : "indeterminate"
         context = _spatial_line_context(id, line, chord, metric_status)
         push!(context_rows, context)
@@ -487,7 +514,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                         "length_scales_impedance" => context["length_scales_impedance"])))
             end
             route = _spatial_route(line)
-            if route !== nothing && get(route, "basis", nothing) == "WGS84_geodesic_polyline"
+            if geodesic && route !== nothing && get(route, "basis", nothing) == "WGS84_geodesic_polyline"
                 ends = _spatial_route_ends(route)
                 if ends !== nothing && _wgs84_point(ends[1]) && _wgs84_point(ends[2])
                     p, q = ends
@@ -518,7 +545,9 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         end
     end
 
-    transformers = _spatial_transformer_extent(net, coords, eligible)
+    transformers = _spatial_transformer_extent(net, metric_coords, eligible; distance_kind=frame.kind)
+    excluded = Set(id for (id, ev) in coordinates.evidence if crs_status == "ambiguous" ||
+        any(r -> r in ("bus_crs_conflict", "bus_units_conflict", "bus_axis_order_conflict"), ev["issues"]))
 
     sort!(length_rows, by=r -> (-r.length, r.id))
     sort!(chord_rows, by=r -> (r.length - r.chord, r.id))
@@ -535,15 +564,17 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
             "status" => crs_status, "declared_crs" => declared_crs,
             "caution" => caution, "n_matching_wgs84_routes" => route_matched,
             "n_metric_eligible_buses" => length(eligible),
-            "distance_scope" => crs_status == "declared_wgs84" ? "declared_network_frame" :
+            "distance_scope" => crs_status in ("declared_wgs84", "declared_cartesian") ? "declared_network_frame" :
                 crs_status == "wgs84_route_evidence" ? "matched_route_endpoints_only" : "unavailable",
+            "metric_distances_applicable" => metric,
             "geodesic_distances_applicable" => geodesic),
+        "coordinate_semantics" => coordinates.report,
         "coordinate_coverage" => Dict{String,Any}(
             "n_buses" => length(buses), "n_with_any_coordinate" => n_any,
             "n_complete_lonlat" => n_complete, "n_with_xy_fields" => n_xy,
             "n_partial" => n_partial, "n_invalid" => n_invalid,
             "n_outside_wgs84_range" => n_outside),
-        "coincidence" => _spatial_coincidence(net, coords, level_by_bus, crs_status),
+        "coincidence" => _spatial_coincidence(net, coords, level_by_bus, crs_status; excluded=excluded),
         "length_context" => _spatial_length_summary(context_rows),
         "routes" => Dict{String,Any}(
             "n_lines" => length(lines), "n_with_route" => n_routes,
