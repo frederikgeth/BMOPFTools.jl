@@ -87,6 +87,17 @@ using Test, BMOPFTools, JSON3
             end
             @test inj ≈ expected
             @test sum(v.*conj.(-inj)) ≈ sum(l["p_nom"])+200n*im
+            if isdefined(Main,:_HAS_JUMP_IPOPT) && _HAS_JUMP_IPOPT
+                for pu in (false,true)
+                    result=solve_pf(net;per_unit=pu)
+                    @test result["termination_status"] in ("LOCALLY_SOLVED","OPTIMAL")
+                    @test length(result["load"]["l"])==n
+                    @test sum(x["pd"] for x in values(result["load"]["l"])) ≈ sum(l["p_nom"]) atol=1e-5
+                    @test sum(x["qd"] for x in values(result["load"]["l"])) ≈ 200n atol=1e-5
+                    roundtrip=JSON3.read(JSON3.write(result),Dict{String,Any})
+                    @test length(roundtrip["load"]["l"])==n
+                end
+            end
         end
     end
 end

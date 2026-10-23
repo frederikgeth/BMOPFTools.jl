@@ -124,6 +124,7 @@ source_paths = [
   "ext/BMOPFOpfExt/core.jl",
   "ext/BMOPFOpfExt/load.jl",
   "ext/BMOPFOpfExt/variables.jl",
+  "ext/BMOPFOpfExt/results.jl",
   "test/delta_load_geometry_tests.jl",
   "test/data/delta_load_geometry.json",
   "test/data/neutral_only_link.json",

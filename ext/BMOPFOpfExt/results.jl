@@ -377,7 +377,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         cfg = get(load, "configuration", "WYE")
         is_delta  = cfg == "DELTA"
         n_c       = length(tm)
-        ph_pos    = is_delta ? collect(eachindex(tm)) : _phase_positions(tm, nlabels)
+        delta_coils = is_delta ? BMOPFTools._delta_load_coils(load, net; id=lid) : nothing
+        ph_pos    = is_delta ? collect(eachindex(delta_coils)) : _phase_positions(tm, nlabels)
         n_pos_idx = is_delta ? nothing : _neutral_pos(tm, nlabels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
@@ -396,13 +397,13 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                 "crd" => cr, "cid" => ci, "pd" => pd, "qd" => qd)
         else
             for (idx, ph) in enumerate(ph_pos)
-                t_ph = tm[ph]
+                t_ph = is_delta ? delta_coils[idx][1] : tm[ph]
                 cr = val(crd_v[(lid, idx)]); ci = val(cid_v[(lid, idx)])
                 vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
                 vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
                 # Reference: line-to-line (next phase) for DELTA, neutral for WYE.
                 if is_delta
-                    t_ref = tm[(ph % n_c) + 1]
+                    t_ref = delta_coils[idx][2]
                     vr_n  = has_values ? val(vr_v[(bus, t_ref)]) : NaN
                     vi_n  = has_values ? val(vi_v[(bus, t_ref)]) : NaN
                 else
