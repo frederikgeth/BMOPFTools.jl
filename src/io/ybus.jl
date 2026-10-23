@@ -509,9 +509,8 @@ function _stamp_passive!(I, J, V, net::Dict{String,Any}, idx::_YbusIndex, config
     return
 end
 
-# Stamp every transformer's Yprim, except the 1:1 zero-leakage ones handled by
-# node aliasing in the index (those would produce a spurious singular block) and
-# any `(subtype, id)` in `skip` (units ybus_augmented promotes to constraint rows).
+# Stamp every transformer's finite contribution. Aliased and promoted units
+# omit only the series part; their magnetising and grounding branches remain.
 function _scatter_transformers!(I, J, V, net, idx::_YbusIndex, config;
                                 skip::Set{Tuple{String,String}}=Set{Tuple{String,String}}())
     thresh = _domain_thresholds(config)
@@ -521,14 +520,13 @@ function _scatter_transformers!(I, J, V, net, idx::_YbusIndex, config;
     for (subtype, sub) in xfmrs
         sub isa Dict && !isempty(sub) || continue
         for (xid, x) in sub
-            (string(subtype), string(xid)) in skip && continue
-            # 1:1 zero-leakage two-winding transformers are aliased, not stamped.
-            if subtype in ("single_phase", "wye_delta", "delta_wye") &&
+            promoted = (string(subtype), string(xid)) in skip
+            aliased = subtype in ("single_phase", "wye_delta", "delta_wye") &&
                _xfmr_is_ideal(x, zmin) &&
                isapprox(_xfmr_turns_ratio(x), 1.0; atol=1e-9)
-                continue
-            end
-            nodes, Y = if subtype == "n_winding"
+            nodes, Y = if promoted || aliased
+                _transformer_shunt_yprim(x, subtype)
+            elseif subtype == "n_winding"
                 nwinding_yprim(x)
             else
                 transformer_yprim(x, subtype)

@@ -55,6 +55,16 @@ function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString)
     throw(ArgumentError("unknown transformer subtype: $(repr(subtype))"))
 end
 
+# Finite part retained when the series relation is represented by aliases or
+# constraint rows. Do not zero or mutate input impedances: the primitive itself
+# owns the shunt placement and can omit only its series contribution.
+function _transformer_shunt_yprim(xfmr, subtype)
+    subtype == "single_phase" && return _yprim_single_phase(xfmr; series=false)
+    subtype == "wye_delta" && return _yprim_yd(xfmr; wye_is_from=true, series=false)
+    subtype == "delta_wye" && return _yprim_yd(xfmr; wye_is_from=false, series=false)
+    throw(ArgumentError("shunt-only primitive is not supported for $subtype"))
+end
+
 """
     export_yprim(net) -> Dict
 
@@ -266,7 +276,7 @@ end
 
 # ── single_phase ────────────────────────────────────────────────────────────
 
-function _yprim_single_phase(xfmr::Dict{String,Any})
+function _yprim_single_phase(xfmr::Dict{String,Any}; series::Bool=true)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tm_fr = Vector{String}(get(xfmr, "terminal_map_from", String[]))
@@ -338,7 +348,7 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
             C[2, nidx!(nd...)] = cf
         end
 
-        if !iszero(Z)
+        if series && !iszero(Z)
             Y .+= transpose(C) * ((1.0/Z) * [1.0 -N; -N N^2]) * C
         end
         # No-load (magnetising) shunt across the TO coil (p_to − q_to). OpenDSS
@@ -454,7 +464,7 @@ end
 
 # ── wye_delta / delta_wye ───────────────────────────────────────────────────
 
-function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
+function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool, series::Bool=true)
     if wye_is_from
         b_wye  = get(xfmr, "bus_from", "")
         b_del  = get(xfmr, "bus_to",   "")
@@ -529,7 +539,9 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
         [(b_del, t) for t in tm_del],
     )
 
-    if iszero(Z_total)
+    if !series
+        # The caller represents the series relation through aliases/constraints.
+    elseif iszero(Z_total)
         @warn "wye_delta/delta_wye transformer has zero effective series impedance; " *
               "the ideal coupling has no admittance form — exporting the (singular) shunt-only Yprim."
     else
