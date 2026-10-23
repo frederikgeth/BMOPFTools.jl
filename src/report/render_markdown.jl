@@ -337,6 +337,24 @@ function _md_spatial(spatial, io::IO)
         end
         println(io)
     end
+    proximity = get(spatial, "proximity", nothing)
+    if proximity !== nothing
+        println(io, "**Proximity:** $(proximity["status"]) ($(proximity["reason"])); " *
+            "radius $(proximity["radius_m"]) m; " *
+            "$(something(proximity["n_near_bus_pairs"], "unassessed")) near bus pairs; " *
+            "$(something(proximity["n_clusters"], "unassessed")) clusters. $(proximity["caution"])\n")
+        if !proximity["counts_complete"]
+            println(io, "Partial observations: $(proximity["n_near_bus_pairs_observed"]) near pairs; " *
+                "$(proximity["candidate_pairs_checked"]) candidate location pairs checked. Totals are unavailable.\n")
+        end
+        for pair in proximity["pair_witnesses"]
+            buses = pair["representative_bus_pair"]
+            println(io, "- `$(buses[1]["bus_id"])` ↔ `$(buses[2]["bus_id"])`: " *
+                "$(round(pair["distance_m"], digits=4)) m; $(pair["accuracy_context"]) " *
+                "for these representatives; $(pair["n_bus_pairs_at_these_locations"]) bus pairs at these locations.")
+        end
+        isempty(proximity["pair_witnesses"]) || println(io)
+    end
     println(io, "Line routes: $(routes["n_with_route"])/$(routes["n_lines"]); " *
         "$(reference["n_matching_wgs84_routes"]) WGS84 routes match their bus endpoints.\n")
     coincidence = get(spatial, "coincidence", nothing)

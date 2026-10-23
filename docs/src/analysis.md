@@ -180,6 +180,7 @@ The spatial result groups fields as follows:
 | `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
 | `coincidence` | Exact-coordinate groups, counts by direct branch context, and bounded bus/terminal/component witnesses. |
 | `coordinate_semantics` | Resolved frame, units, axis order, declarations, conflict reasons, provenance/accuracy coverage and bounded bus issue witnesses. |
+| `proximity` | Radius-neighbor counts, exact metric-location counts, single-linkage clusters, bounded evidence, and explicit search-budget/coverage status. |
 | `length_context` | Separate declared, physical, endpoint, stored-route and recomputed-route lengths; per-comparison status counts and bounded contextual witnesses. |
 | `transformers` | Maximum all-winding bus separation per transformer, quantiles, zero-extent counts, and bounded assessed/indeterminate witnesses. |
 
@@ -271,6 +272,53 @@ labels are retained without upgrading them to surveyed evidence. Invalid
 accuracy is reported as unknown while a valid coordinate remains usable.
 Accuracy values describe reported data quality; they do not certify error
 bounds or independent measurement.
+
+Proximity inventory runs on metric-eligible coordinates only. Configure it
+through `load_config` and pass `config=...` to `analyze` or
+`connectivity_analysis`:
+
+```toml
+[spatial]
+proximity_enabled = true
+proximity_radius_m = 1.0
+max_candidate_pairs = 1000000
+witness_limit = 20
+```
+
+The radius must be finite and positive; the candidate and witness limits must
+be positive integers. Invalid settings return `indeterminate` with
+`invalid_configuration`; disabling the pass returns `inapplicable`. The default
+one-metre radius is a review setting, not a survey-accuracy or electrical-rule
+threshold. Coordinate accuracy never expands it implicitly.
+
+A spatial hash indexes unique locations, avoiding all-pairs searches for sparse
+networks. Cartesian points are indexed in metres; WGS84 points are indexed on
+the sphere in three dimensions and then filtered by the same spherical
+geodesic used elsewhere in this report. This handles the antimeridian and
+poles without assuming a local projection. Equivalent positions at ±180° and
+the poles are canonicalized for metric-location counting. Raw exact-coordinate
+groups remain a separate observation.
+
+`n_near_bus_pairs` counts unordered bus pairs at **different** metric locations
+whose separation is at most the radius. Repeated locations are indexed once
+and pair counts use their multiplicity; `n_zero_distance_bus_pairs` reports
+coincident metric positions separately. Clusters use single linkage: A near B
+and B near C may form one cluster even when A is farther than the radius from C.
+They do not imply a common electrical node or a cluster diameter below the
+radius. Pair witnesses identify representative bus pairs and their voltage
+tiers, coordinate provenance, reported accuracy sum, and location multiplicity.
+Accuracy labels apply to the named representatives only, and are descriptive,
+not certified uncertainty bounds.
+
+`max_candidate_pairs` caps work on dense unique locations. If exhausted, or if
+coordinates/radius exceed the index's numerical range, the result is
+`indeterminate`, `counts_complete` is false, and final pair/cluster totals are
+JSON `null`. `n_near_bus_pairs_observed` is a lower bound; observed components
+are partial and may later merge, so their count is **not** a lower bound on
+final cluster count. Cluster witnesses explicitly mark completeness. The
+witness limit bounds pair examples, cluster examples, and members per cluster.
+No coordinates or network connections are changed, and proximity alone emits
+no Finding.
 
 Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
 Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length

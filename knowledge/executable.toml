@@ -21,6 +21,9 @@
 # Coordinate semantics explicitly support WGS84 and declared local Cartesian
 # x/y frames with units. Conflicts suppress metrics; provenance and accuracy
 # remain descriptive metadata, without new scientific claims or Finding codes.
+# Configurable indexed proximity groups unique metric locations and reports
+# single-linkage clusters. Budget/numerical-range truncation leaves totals null;
+# representative accuracy context does not expand the radius or imply connectivity.
 # Transformer leakage and downstream-load applicability use winding-local
 # rating bases and explicit graph-bridge evidence; their minimized witnesses
 # remain package validation tests, not preservation contracts.

@@ -220,3 +220,9 @@ breakpoints = [242.0, 250.0]
 p_limits    = [0.20, 1.00]
 p_unit      = "VA_FRACTION"
 p_ref       = "S_MAX"
+[spatial]
+# Descriptive inventory only: no automatic snapping, merging or rewiring.
+proximity_enabled = true
+proximity_radius_m = 1.0
+max_candidate_pairs = 1000000
+witness_limit = 20

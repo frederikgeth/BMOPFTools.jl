@@ -53,6 +53,13 @@ using Test, BMOPFTools, JSON3
     @test q["coordinate_semantics"]["n_metric_eligible_buses"] == 2
     n["bus"]["a"]["coordinate_accuracy_m"] = 0.2
     @test spatial(n)["coordinate_semantics"]["bus_issue_counts"]["conflicting_coordinate_accuracy"] == 1
+    for (key, value, code) in (("coordinate_axis_order", ["y", "x"], "bus_axis_order_conflict"),
+                               ("coordinate_units", "m", "bus_units_conflict"))
+        n = deepcopy(cart)
+        n["bus"]["a"]["meta"] = Dict(key => value)
+        @test spatial(n)["coordinate_semantics"]["bus_issue_counts"][code] == 1
+        @test spatial(n)["coordinate_semantics"]["n_metric_eligible_buses"] == 1
+    end
 
     geo = Dict{String,Any}("crs" => "EPSG:4326", "meta" => Dict{String,Any}("crs" => "WGS84"),
         "bus" => Dict("a" => Dict("longitude" => 153.0, "latitude" => -27.0),
@@ -77,4 +84,12 @@ using Test, BMOPFTools, JSON3
     huge["bus"]["b"]["x"] = 1e308
     @test spatial(huge)["transformers"]["n_indeterminate"] == 1
     @test spatial(huge)["length_context"]["comparison_status_counts"]["chord_check"]["indeterminate"] == 1
+    route_only = Dict{String,Any}("coordinate_units" => "m",
+        "bus" => Dict("a" => Dict("longitude" => 153., "latitude" => -27.),
+                      "b" => Dict("longitude" => 153.001, "latitude" => -27.)),
+        "line" => Dict("ab" => Dict("bus_from" => "a", "bus_to" => "b", "length" => 100.,
+            "meta" => Dict("route_geometry" => Dict("basis" => "WGS84_geodesic_polyline",
+                "coordinates" => [[153., -27.], [153.001, -27.]])))))
+    @test spatial(route_only)["coordinate_reference"]["status"] == "ambiguous"
+    @test spatial(route_only)["coordinate_semantics"]["n_metric_eligible_buses"] == 0
 end

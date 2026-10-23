@@ -373,7 +373,7 @@ WGS84 route evidence. Unsupported/conflicting declarations suppress distances.
 Ranked examples are descriptive. Findings require an explicit WGS84 declaration.
 """
 function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,Any},
-                           findings::Vector{Finding}=Finding[])
+                           findings::Vector{Finding}=Finding[]; config::Dict=_DEFAULT_CONFIG)
     buses = get(net, "bus", Dict())
     any(bus -> bus isa AbstractDict && any(k -> haskey(bus, k),
         ("longitude", "latitude", "x", "y")), values(buses)) || return nothing
@@ -569,6 +569,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
             "metric_distances_applicable" => metric,
             "geodesic_distances_applicable" => geodesic),
         "coordinate_semantics" => coordinates.report,
+        "proximity" => _spatial_proximity(net, coordinates, frame, level_by_bus, config),
         "coordinate_coverage" => Dict{String,Any}(
             "n_buses" => length(buses), "n_with_any_coordinate" => n_any,
             "n_complete_lonlat" => n_complete, "n_with_xy_fields" => n_xy,
