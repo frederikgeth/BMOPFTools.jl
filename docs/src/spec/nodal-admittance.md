@@ -83,6 +83,12 @@ grounding adequacy or equipment safety (PSK-000002).
 
 ## Folding nonlinear loads
 
+DELTA load geometry is shared with the OPF builder: two distinct phase
+terminals define one coil; three define the ordered cyclic coils. Both paths
+require exactly one `p_nom` and `q_nom` entry per coil and reject neutral/earth
+endpoints, unresolved roles, duplicates and nonfinite powers. Invalid inputs
+raise `ArgumentError`; terminals are never silently removed from the map.
+
 [`ybus_linearized`](@ref) folds the [load](load.md) elements. On each sub-load
 connection ``(t_{\text{pos}}, t_{\text{neg}})`` with drop ``\Delta v = V_{\text{pos}}
 - V_{\text{neg}}``, a ZIP load draws (matching the OPF load model exactly)

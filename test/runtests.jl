@@ -4004,6 +4004,7 @@ include("mcp_execution_tests.jl")
     # checks always run; the OpenDSS power-flow-residual cross-check self-gates.
     # -----------------------------------------------------------------------
     include("ybus_linearized_tests.jl")
+    include("delta_load_geometry_tests.jl")
 
     # -----------------------------------------------------------------------
     # Augmented nodal admittance (ybus_augmented): ideal switch/transformer

@@ -258,14 +258,15 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
         bus = get(load, "bus", "")
         tm  = Vector{String}(get(load, "terminal_map", String[]))
         cfg = get(load, "configuration", "WYE")
+        delta_coils = cfg == "DELTA" ? BMOPFTools._delta_load_coils(load, net; id=lid) : nothing
         p_nom = Float64.(get(load, "p_nom", Float64[]))
         q_nom = Float64.(get(load, "q_nom", Float64[]))
 
         load_model = get(load, "model", "constant_power")
         load_model in ("constant_power", "constant_impedance", "constant_current", "zip", "exponential") ||
             throw(ArgumentError("Load '$lid': unsupported model '$load_model'."))
-        ncoils = cfg in ("SINGLE_PHASE", "DELTA") && length(tm) == 2 ? 1 :
-                 cfg == "DELTA" ? length(tm) : length(_phase_positions(tm, nlabels))
+        ncoils = cfg == "DELTA" ? length(delta_coils) :
+                 cfg == "SINGLE_PHASE" && length(tm) == 2 ? 1 : length(_phase_positions(tm, nlabels))
         length(p_nom) == length(q_nom) == ncoils && ncoils > 0 ||
             throw(ArgumentError("Load '$lid': p_nom and q_nom must cover all $ncoils coils."))
         all(isfinite, p_nom) && all(isfinite, q_nom) ||
@@ -338,11 +339,7 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
             end
 
         elseif cfg == "DELTA"
-            n_c = length(tm)
-            for k in 1:n_c
-                length(p_nom) >= k || continue
-                t_pos = tm[k]
-                t_neg = tm[(k % n_c) + 1]
+            for (k, (t_pos, t_neg)) in enumerate(delta_coils)
                 dvr = @expression(model, vr[(bus, t_pos)] - vr[(bus, t_neg)])
                 dvi = @expression(model, vi[(bus, t_pos)] - vi[(bus, t_neg)])
 
