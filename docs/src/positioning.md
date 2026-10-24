@@ -65,7 +65,9 @@ of the below, not a replacement for any.
 | PowerModels.jl | Optimization formulations (transmission) | Complementary formulation layer; BMOPFTools supplies the network model |
 | PowerModelsDistribution.jl | Distribution OPF formulations & solution methods | Complementary and interoperable (`to_pmd` export); BMOPFTools supplies benchmark cases |
 | ppOPF, Open-DSOPF | Distribution OPF implementations | Complementary; BMOPFTools provides shared representations & benchmark feeders for comparison |
-| OpenDSS, GridLAB-D, Power Grid Model, PowerFactory, PSS®SINCAL, CYME, Synergi Electric | Simulation & engineering analysis | Data sources; BMOPFTools ingests their models and produces an optimization-ready representation |
+| [PowerIO](https://powerio.dev/) | Grid-data parsing and conversion in [Rust](https://github.com/eigenergy/powerio), with a [Julia wrapper](https://github.com/eigenergy/PowerIO.jl) | Supplies the OpenDSS reader behind `from_dss`; additional distribution readers and their limits are described in the [conversion guide](@ref powerio-readers) |
+| OpenDSS | Distribution simulation | Direct intake through `from_dss`, with normalization and conversion diagnostics |
+| GridLAB-D, Power Grid Model, PowerFactory, PSS®SINCAL, CYME, Synergi Electric | Simulation & engineering analysis | Potential data sources through supported exchange formats; native reader coverage and conversion fidelity vary. See the [PowerIO reader overview](@ref powerio-readers) for the separate SINCAL profiles and current limits |
 
 ## The benchmarking gap, and the opportunity
 

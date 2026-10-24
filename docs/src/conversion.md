@@ -11,6 +11,66 @@ This page documents both directions of format conversion:
 Each section records the deliberate decisions in those converters — the things
 you would otherwise have to discover by diffing data.
 
+## [PowerIO readers and distribution-tool data](@id powerio-readers)
+
+[PowerIO](https://powerio.dev/) is a
+[Rust project](https://github.com/eigenergy/powerio) for grid-data parsing and
+conversion. BMOPFTools uses its
+[Julia wrapper, PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), which calls
+the native Rust library in-process, and requires **0.11.6 or later within the
+0.11 series**.
+PowerIO reads several distribution formats into a typed
+`PioModule{MulticonductorNetwork}`. BMOPFTools' tested import wrapper is
+[`from_dss`](@ref) for OpenDSS; [`parse_bmopf`](@ref) reads BMOPF JSON.
+Other PowerIO readers are available through PowerIO directly and do not gain
+BMOPFTools' DSS-specific normalization and provenance audit automatically.
+
+| Source data | PowerIO format token | Coverage and limits |
+|---|---|---|
+| OpenDSS circuit files | `dss` | Static circuit equipment and electrical data; load shapes, solve commands, and monitors remain source instructions with diagnostics. Use `from_dss` for the BMOPFTools intake path below. |
+| PowerModelsDistribution ENGINEERING JSON | `pmd` | A multiconductor reader in PowerIO. BMOPFTools' `to_pmd` is an export API; the former `from_pmd` import API has been removed. |
+| BMOPF JSON | `bmopf-json` | PowerIO supports explicit 0.1.0 and draft 0.2.0 output profiles. BMOPFTools selects 0.1.0 and restores supported extensions from `extras`; a PowerIO release does not ratify a schema proposal. |
+| Distribution CIM RDF/XML (GridAPPS-D / CIMHub profile) | `cim-dist` | Per-phase connectivity, impedances, loads, shunts, switches, transformers, and sources. Transformer tanks, DER, controls, geometry, and other unmapped classes produce diagnostics; unresolved line impedances block conversion. The writer has no independent CIMHub or profile-schema validation yet. |
+| PSS®SINCAL distribution projects | `sincal-multiconductor` | Selected native SQLite/`.sinx` profiles and acquired Access tables paired with the original MDB, with explicit variant/snapshot selection. Unsupported required components reject parsing. Source echo, IR restoration, and PF preparation are supported; native SINCAL execution remains unverified. |
+
+For the exact reader profiles and current limits, see PowerIO's
+[distribution guide](https://eigenergy.github.io/powerio/guide/distribution.html),
+[SINCAL guide](https://eigenergy.github.io/powerio/guide/sincal.html), and
+[0.11.6 Julia release notes](https://github.com/eigenergy/PowerIO.jl/releases/tag/v0.11.6).
+GridLAB-D, PowerFactory, CYME, and Synergi Electric are potential sources through
+an appropriate supported exchange format; this is not a claim of direct native
+readers for those tools.
+
+PowerIO also reads pandapower JSON and several transmission exchange formats
+into a **`BalancedNetwork`**. SINCAL has a separate `sincal-balanced` profile.
+Those readers do not supply a conductor-level BMOPFTools model or reconstruct
+missing phase and neutral data. The two network families remain distinct.
+
+For example, inspect a distribution CIM input and its BMOPF emission directly:
+
+```julia
+import PowerIO
+
+module_ = PowerIO.parse("feeder.xml"; format="cim-dist")
+module_.diagnostics                      # source-reader evidence
+emission = PowerIO.emit(module_, "bmopf-json@0.1.0")
+emission.diagnostics                     # target conversion losses
+```
+
+Review both diagnostic lists before using the emitted data. A successful
+PowerIO parse or emission does not establish BMOPFTools schema validity,
+equipment applicability, or numerical agreement. Feeding an intermediate
+OpenDSS export to `from_dss` also cannot recover information lost in that export.
+
+SINCAL Access intake additionally requires explicitly acquired companion tables;
+PowerIO does not run acquisition tools. It checks the original MDB's length and
+hash, without independently attesting the companion table cells. Active daily
+profiles require a snapshot. The distribution reader is strict by default;
+`assume_inactive_source_controls=true` opts into an experimental schema-11.5
+NULL-control assumption with diagnostics and provenance. Referenced voltage
+sources currently block ordinary DSS/PMD/BMOPF emission, so a parsed SINCAL
+network is not necessarily convertible to BMOPFTools.
+
 ## [Design philosophy: ingestion is a semantic projection](@id ingest-philosophy)
 
 !!! note "This is one instance of a model-wide principle"
@@ -139,8 +199,13 @@ BMOPF conventions:
   transformers (`W.MIGRATE.XFMR_EXTRAS_FOLD`) and folds the whole-table classes
   the root schema dropped — `ibr`, `control_profile`, the DC tables,
   `time_series` — back to the top level (`W.MIGRATE.TOP_LEVEL_EXTRAS_FOLD`).
-  BMOPFTools still normalizes the no-load shunt sign and placement to its OPF
-  convention.
+  Conversion explicitly selects `bmopf-json@0.1.0`; this does not imply support
+  for every field in the draft 0.2.0 schema. An explicit
+  `no_load_shunt = {winding, g, b}` becomes an ordinary shunt on its declared
+  winding, with provenance in `_meta.explicit_transformer_core_shunts`, and
+  suppresses duplicate percentage-based core branches. Its losses stay assigned
+  to the owning transformer and enter the network balance once. See
+  [Transformer models](transformer_models.md) for the shunt conventions.
 - **System frequency capture** — the OpenDSS base frequency (`Set
   DefaultBaseFreq`, itself defaulting to 60 Hz; European decks set it to 50)
   is otherwise absent from BMOPF impedance data, so `from_dss` reads
@@ -161,8 +226,8 @@ BMOPF conventions:
 What is **faithful**: connectivity, phasing, linecode matrices, load models,
 transformer neutral grounding, native 3-winding transformer data, and SI
 impedances pass through unchanged. What is **lossy or not yet supported** —
-earth terminal grounding through the bus neutral and the OpenDSS
-regulator/auto-transformer families — is catalogued under
+earth terminal grounding through the bus neutral, dynamic regulator control,
+and unsupported auto-transformer representations — is catalogued under
 [Known limitations](#Known-limitations); most are tracked as upstream PowerIO.jl
 issues.
 
@@ -745,8 +810,7 @@ BMOPFTools can compile its own `wire_data`/`line_geometry` representation;
 that capability does not imply that the OpenDSS importer populates it.
 
 
-- **Transformer fidelity (from `from_dss`).** BMOPFTools requires PowerIO
-  v0.7 for OpenDSS import. The BMOPF export carries fixed taps, center-tap
+- **Transformer fidelity (from `from_dss`).** The BMOPF export carries fixed taps, center-tap
   leakage, delta-wye leakage, neutral grounding, and the validated `n_winding`
   cases directly. BMOPFTools normalizes no-load shunts to its OPF convention.
 - **Grounding reactors need `phases=1` (gotcha).** PowerIO silently drops a
@@ -763,17 +827,18 @@ that capability does not imply that the OpenDSS importer populates it.
   in `single_phase` with 3-phase terminal maps and flagged
   (`W.SPEC.XFMR_TMAP_ARITY`); the faithful decomposition into three
   single-phase units is future work.
-- **RegControl / tap controllers** do not convert; see the
-  regulator-pattern detection in the [methodology notes](methodology.md).
-- **Regulator subtypes** (`single_phase_autotransformer`, `open_delta_regulator`)
-  are OPF-native data-model objects but are **not produced by `from_dss`** —
-  it does not recognise OpenDSS `AutoTrans`/`RegControl` or open-delta banks as
-  these objects, and `to_pmd` does not emit them. They are authored directly in
-  BMOPF JSON. See [conventions](conventions.md) and the [OPF reference](opf.md).
+- **RegControl / tap controllers:** PowerIO retains the written static taps
+  and reports ignored voltage regulation; it does not reproduce the control loop.
+  Pairable single-phase regulator legs marked by `RegControl` can be emitted as
+  one `open_delta_regulator`. The writer regression checks that `from_dss`
+  restores its connection and both taps from the 0.1.0 `extras` representation.
+  This recognition does not establish general `AutoTrans`/`RegControl` support.
+  `to_pmd` does not emit the regulator subtypes. See [conventions](conventions.md)
+  and the [OPF reference](opf.md) for the numerical models and their domains.
 
-### DSS intake compatibility with PowerIO 0.11.1
+### DSS intake compatibility
 
-The minimum tested PowerIO version is 0.11.1. Two source-IR repairs remain
+The minimum supported PowerIO version is 0.11.6. Two source-IR repairs remain
 necessary: static DSS model-4 CVR exponents (#333), and multi-winding `%R`
 conversion using winding 1's power base (#356). `from_dss` records these in
 `_meta.powerio_intake_repairs`; it does not alter ordinary BMOPF JSON intake.
