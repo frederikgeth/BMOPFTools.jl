@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 450" role="img" aria-labelledby="title desc"><title id="title">Direct versus series: inspect what the geometry cannot tell you</title><desc id="desc">A direct four-terminal line and a two-terminal series path share endpoints. The intermediate bus has a shunt and load.</desc>
+<style>text{font-family:system-ui,-apple-system,Arial,sans-serif;fill:#203348;font-size:16px}.title{font-size:24px;font-weight:650}.label{font-size:18px;font-weight:600}.small{font-size:14px}.muted{fill:#526477}</style>
+<rect width="1000" height="450" rx="14" fill="#f5f8fc"/>
+<text x="30" y="40" class="title">Direct versus series: inspect what the geometry cannot tell you</text>
+<polyline points="100,210 100,125 800,125 800,210" fill="none" stroke="#215a91" stroke-width="3"/>
+<text x="290" y="105" class="label">Direct line: terminal sets [1, 2, 3, 4]</text>
+<line x1="100" y1="210" x2="450" y2="210" stroke="#b3622a" stroke-width="3"/>
+<line x1="450" y1="210" x2="800" y2="210" stroke="#b3622a" stroke-width="3"/>
+<text x="210" y="190" class="">Series: [1, 4]</text>
+<text x="580" y="190" class="">Series: [1, 4]</text>
+<circle cx="100" cy="210" r="7" fill="white" stroke="#377cad" stroke-width="3"/>
+<text x="90" y="240" class="label">A</text>
+<circle cx="450" cy="210" r="7" fill="white" stroke="#377cad" stroke-width="3"/>
+<text x="440" y="240" class="label">J</text>
+<circle cx="800" cy="210" r="7" fill="white" stroke="#377cad" stroke-width="3"/>
+<text x="790" y="240" class="label">B</text>
+<line x1="450" y1="219" x2="450" y2="280" stroke="#526477" stroke-width="3"/>
+<rect x="355" y="280" width="190" height="62" rx="8" fill="#fff" stroke="#d6e0ec"/>
+<text x="372" y="305" class="">Shunt / earth path</text>
+<text x="372" y="328" class="small">and possible load</text>
+<text x="600" y="288" class="">Inspect declared terminal maps.</text>
+<text x="600" y="314" class="">Retain intermediate attachments.</text>
+<text x="600" y="340" class="">Check source and operating state.</text>
+<rect x="30" y="373" width="940" height="52" rx="8" fill="#fff" stroke="#d6e0ec"/>
+<text x="48" y="405" class="label">Close endpoint chords identify a review candidate; they do not justify deleting either path.</text>
+</svg>
