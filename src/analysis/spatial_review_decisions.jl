@@ -66,7 +66,7 @@ geometry, ranking and the input network are unchanged.
 """
 function apply_spatial_review(review::AbstractDict, decisions::AbstractVector)
     get(review, "schema_version", nothing) == _SPATIAL_REVIEW_VERSION || throw(ArgumentError("unsupported spatial review schema"))
-    out = deepcopy(review)
+    out = _jsonable(review)
     items = Dict(i["item_id"] => i for i in out["items"])
     grouped = Dict{String,Vector{Any}}()
     invalid = Dict{String,Any}[]; orphan = Any[]
@@ -115,7 +115,7 @@ function apply_spatial_review(review::AbstractDict, decisions::AbstractVector)
         item["review"]["status"] = "recorded"
         item["review"]["disposition"] = record["disposition"]
     end
-    out["decision_audit"] = Dict{String,Any}("records" => deepcopy(decisions),
+    out["decision_audit"] = Dict{String,Any}("records" => _jsonable(decisions),
         "invalid_records" => invalid, "unmatched_records" => orphan,
         "n_invalid_records" => length(invalid), "n_unmatched_records" => length(orphan),
         "policy" => "Latest UTC timestamp, strict case/config/evidence binding; ties conflict. Unmatched does not mean resolved.")

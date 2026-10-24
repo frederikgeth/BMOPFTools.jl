@@ -526,7 +526,11 @@ max_review_candidates = 5000
 The cap is a positive integer up to 100000. Each check independently captures up
 to that many candidates, regardless of `witness_limit`; the combined ranked queue
 is capped again. `coverage` reports observed/captured counts, scan status and
-capture completeness by check. `queue_complete=false` means that scans, capture,
+capture completeness by check. Each check's `domain_counts` retain exclusions
+such as unavailable branch distances; `coordinate_context` states the frame and
+metric bus coverage, and `analysis_settings` records the spatial configuration.
+Completeness refers to candidates in the declared domain, not to every bus or
+branch having usable geometry. `queue_complete=false` means that scans, capture,
 or the final queue are incomplete. Disabled discrepancy scans also prevent a
 complete queue. Unsupported/inapplicable domains are disclosed, never upgraded
 into validated cases. The queue is ordered **within the captured subset**; a cap
@@ -548,6 +552,10 @@ Location groups use the first sorted evidence point in a supported frame, with
 exact equality only. Unlocated items group by a typed primary asset. Grouping
 organizes inspection; it does not establish physical co-location of all members
 or authorize merging buses. There is no spatial snapping or transitive clustering.
+Group summaries deduplicate identified buses/components and retain evidence classes.
+Their ordering uses maximum item priority, maximum item direct-load count (not a
+sum), unique component count, then location ID; it does not inflate priority from
+multiple diagnostics derived from the same geometry.
 
 Inspection priority is ordinal and has a versioned, visible rule:
 
@@ -584,6 +592,7 @@ record = spatial_review_decision(review, item["item_id"];
     evidence_refs=["survey:example-record"])
 # Append record to your saved ledger; replay the entire ledger on a fresh queue.
 reviewed = apply_spatial_review(review, [record])
+report.results[:connectivity]["spatial"]["cleanup_review"] = reviewed  # for report rendering
 geojson = spatial_review_geojson(reviewed)
 ```
 
@@ -607,7 +616,7 @@ suppressed, and no network changes are proposed or applied by these functions.
 #### Map and report bundle
 
 `spatial_review_geojson` returns a GeoJSON FeatureCollection containing WGS84
-**MultiPoint evidence**, with item IDs, priorities, impact counts, dispositions
+**MultiPoint evidence**, with item IDs, bus/component references, priorities, impact counts, dispositions
 and fingerprint provenance. `geometry_coverage` reports how many identified buses
 have eligible locations and whether the subject list is complete; a mapped item
 can still have partial bus-coordinate coverage. It never invents routed lines from bus chords or draws

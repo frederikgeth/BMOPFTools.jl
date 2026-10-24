@@ -129,17 +129,29 @@ function _spatial_review_groups!(review)
         group = get!(groups, key) do
             Dict{String,Any}("location_id" => key, "location" => item["location"],
                 "item_ids" => String[], "codes" => String[], "priority" => 0,
-                "disposition_counts" => Dict{String,Int}())
+                "disposition_counts" => Dict{String,Int}(), "bus_ids" => Set{String}(),
+                "component_refs" => Set{Tuple{String,String}}(), "evidence_classes" => Set{String}(),
+                "max_item_directly_attached_loads" => 0)
         end
         push!(group["item_ids"], item["item_id"]); push!(group["codes"], item["code"])
+        union!(group["bus_ids"], item["bus_ids"])
+        union!(group["component_refs"], ((c["kind"], c["id"]) for c in item["components"]))
+        push!(group["evidence_classes"], item["evidence_class"])
+        group["max_item_directly_attached_loads"] = max(group["max_item_directly_attached_loads"], item["impact"]["n_directly_attached_loads"])
         group["priority"] = max(group["priority"], item["priority"])
         state = item["review"]["disposition"]
         group["disposition_counts"][state] = get(group["disposition_counts"], state, 0) + 1
     end
     for group in values(groups)
         sort!(group["item_ids"]); group["codes"] = sort!(unique(group["codes"]))
+        group["bus_ids"] = sort!(collect(group["bus_ids"]))
+        group["components"] = [Dict("kind"=>k,"id"=>id) for (k,id) in sort!(collect(group["component_refs"]))]
+        delete!(group, "component_refs")
+        group["evidence_classes"] = sort!(collect(group["evidence_classes"]))
+        group["n_identified_buses"] = length(group["bus_ids"])
+        group["n_identified_components"] = length(group["components"])
     end
-    review["locations"] = sort!(collect(values(groups)), by=g -> (-g["priority"], g["location_id"]))
+    review["locations"] = sort!(collect(values(groups)), by=g -> (-g["priority"], -g["max_item_directly_attached_loads"], -g["n_identified_components"], g["location_id"]))
     counts = Dict(s => 0 for s in _SPATIAL_DISPOSITIONS)
     for item in review["items"]; counts[item["review"]["disposition"]] += 1; end
     review["disposition_counts"] = counts
@@ -157,6 +169,8 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
     result = Dict{String,Any}("schema_version" => _SPATIAL_REVIEW_VERSION,
         "status" => "indeterminate", "reason" => "invalid_configuration", "items" => Dict{String,Any}[],
         "locations" => Dict{String,Any}[], "coverage" => Dict{String,Any}(), "queue_complete" => false,
+        "coordinate_context" => merge(_jsonable(coordinates.report), Dict("n_buses" => length(get(net, "bus", Dict())))),
+        "analysis_settings" => _jsonable(get(config, "spatial", Dict())),
         "scope" => "M3 discrepancy candidates and non-regularization-only M1 length contexts; coordinate and coincidence inventories remain in the spatial report.",
         "ranking_policy" => "spatial-review-priority/v1",
         "ranking_scope" => "Captured candidates only. Ordinal priority, directly attached load count, identified component count, then stable item ID; not an error probability or electrical impact estimate.",
@@ -178,7 +192,8 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
         captured = length(rows)
         result["coverage"][name] = Dict("status" => check["status"], "reason" => check["reason"],
             "n_observed" => observed, "n_captured" => captured,
-            "scan_complete" => check["counts_complete"], "capture_complete" => captured == observed)
+            "scan_complete" => check["counts_complete"], "capture_complete" => captured == observed,
+            "scope" => check["scope"], "domain_counts" => Dict(k => v for (k,v) in check if startswith(k, "n_") && k != "n_candidates_observed" && k != "n_candidates"))
         append!(captures, [(name, w) for w in rows])
     end
     nlength = 0; captured_length = 0
@@ -272,7 +287,7 @@ function spatial_review_geojson(review::AbstractDict)
     features = Dict{String,Any}[]
     for item in review["items"]
         item["geometry"] === nothing && continue
-        properties = Dict(k => deepcopy(item[k]) for k in ("code", "location_id", "priority", "ranking_reason", "impact", "review", "geometry_basis", "geometry_coverage", "evidence_fingerprint"))
+        properties = Dict(k => deepcopy(item[k]) for k in ("code", "location_id", "priority", "ranking_reason", "impact", "bus_ids", "components", "review", "geometry_basis", "geometry_coverage", "evidence_fingerprint"))
         properties["case_fingerprint"] = review["case_fingerprint"]
         properties["analysis_fingerprint"] = review["analysis_fingerprint"]
         push!(features, Dict("type" => "Feature", "id" => item["item_id"],
@@ -280,6 +295,7 @@ function spatial_review_geojson(review::AbstractDict)
     end
     Dict{String,Any}("type" => "FeatureCollection", "features" => features,
         "review_schema_version" => _SPATIAL_REVIEW_VERSION, "queue_complete" => review["queue_complete"],
+        "scope" => review["scope"], "coordinate_context" => deepcopy(review["coordinate_context"]),
         "n_items_without_wgs84_geometry" => length(review["items"]) - length(features))
 end
 

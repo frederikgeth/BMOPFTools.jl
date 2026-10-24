@@ -178,4 +178,24 @@ using Test, BMOPFTools, JSON3
     persisted["meta"]["provenance"] = Dict("parsed_at"=>"later")
     @test review(persisted)["case_fingerprint"] == r1["case_fingerprint"]
 
+    # Default JSON3 object views are supported as well as mutable dictionaries.
+    object_review = JSON3.read(JSON3.write(r))
+    object_decisions = JSON3.read(JSON3.write([d]))
+    @test apply_spatial_review(object_review, object_decisions)["disposition_counts"]["accepted_modeling"] == 1
+    @test spatial_review_decision(object_review, item["item_id"]; disposition="deferred", reviewer="synthetic-reviewer",
+        recorded_at="2026-10-24T01:00:00Z", rationale="Object-view replay")["case_fingerprint"] == r["case_fingerprint"]
+    for group in r["locations"]
+        members = filter(i -> i["location_id"] == group["location_id"], r["items"])
+        @test group["n_identified_buses"] == length(Set(b for i in members for b in i["bus_ids"]))
+        @test group["n_identified_components"] == length(Set((c["kind"],c["id"]) for i in members for c in i["components"]))
+        @test group["max_item_directly_attached_loads"] == maximum(i["impact"]["n_directly_attached_loads"] for i in members)
+    end
+    @test all(f -> haskey(f["properties"], "components") && haskey(f["properties"], "bus_ids"), spatial_review_geojson(r)["features"])
+
+    @test r["coordinate_context"]["n_buses"] == length(fixture["bus"])
+    @test r["coordinate_context"]["n_metric_eligible_buses"] == length(fixture["bus"])
+    @test r["analysis_settings"]["max_review_candidates"] == 5000
+    @test haskey(r["coverage"]["branch_spans"]["domain_counts"], "n_components_with_unavailable_distance")
+    @test spatial_review_geojson(r)["coordinate_context"] == r["coordinate_context"]
+
 end

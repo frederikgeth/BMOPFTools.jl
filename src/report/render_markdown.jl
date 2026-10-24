@@ -764,6 +764,10 @@ function _md_spatial_cleanup_review(review, io::IO)
         "$(length(review["items"])) captured items in $(length(review["locations"])) exact review locations. " *
         "Queue complete within scope: $(review["queue_complete"]).\n")
     println(io, "$(review["caution"])\n")
+    coordinates = review["coordinate_context"]
+    println(io, "Coordinate frame: $(coordinates["status"]); " *
+        "$(coordinates["n_metric_eligible_buses"])/$(coordinates["n_buses"]) buses eligible for metric checks. " *
+        "Completeness is scoped to applicable checks; unavailable geometry is not an all-clear.\n")
     for (name, coverage) in sort!(collect(review["coverage"]), by=first)
         if !coverage["capture_complete"] || !coverage["scan_complete"]
             println(io, "- Coverage `$name`: $(coverage["status"]) ($(coverage["reason"])); " *
