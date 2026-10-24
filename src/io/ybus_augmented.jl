@@ -113,7 +113,8 @@ Keywords:
   is `true`, as in `ybus_passive`; an open switch is neither fused nor
   constrained in either mode.
 - `ideal_xfmrs = :constrain | :stamp` — `:constrain` (default) uses bordered
-  equations for `single_phase`, `wye_delta` and `delta_wye` at/below
+  equations for `single_phase`, `wye_delta`, `delta_wye`,
+  `single_phase_autotransformer` and `open_delta_regulator` at/below
   `config["domain_rules"]["xfmr_z_min_ohm"]`. Leakage is retained in the
   lower-right block `-scale²*Z`; it is not approximated as zero. Ratios of one
   also use winding equations: isolated neutral references are not fused.
@@ -147,7 +148,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
     if ideal_xfmrs === :constrain
         xfmrs = get(net, "transformer", Dict())
         if xfmrs isa Dict
-            for subtype in ("single_phase", "wye_delta", "delta_wye")
+            for subtype in ("single_phase", "wye_delta", "delta_wye", "single_phase_autotransformer", "open_delta_regulator")
                 sub = get(xfmrs, subtype, Dict())
                 sub isa Dict || continue
                 for xid in sort!(collect(String.(keys(sub))))
@@ -189,21 +190,25 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
 
     # Winding ports: u_w1 − ratio·u_w2 = Z*i, including finite small Z.
     for (subtype, xid, x) in promoted
-        ids = Int[]
-        z = only(_xfmr_leakage_values(x, subtype))
-        for (k, ent) in enumerate(_xfmr_winding_incidence(x, subtype))
-            r = ent.ratio
-            (isfinite(r) && !iszero(r)) || throw(ArgumentError(
-                "ideal transformer $subtype/$xid has a degenerate coil ratio $r " *
-                "(check v_nom_from/v_nom_to and tap)"))
-            nds = vcat(ent.w1_nodes, ent.w2_nodes)
-            cfs = vcat(ent.w1_coeffs, -r .* ent.w2_coeffs)
-            rn, rc = _aug_row(idx, nds, cfs)
-            isempty(rn) && continue
-            push!(couplings, IdealCoupling(iszero(z) ? :ideal_xfmr : :xfmr_port, "$subtype/$xid", k, rn, rc, y0))
-            push!(ids, length(couplings))
+        conductor = 0
+        for (inc, Z) in _xfmr_port_blocks(x, subtype)
+            ids = Int[]; kept = Int[]
+            for (k, ent) in enumerate(inc)
+                conductor += 1
+                r = _xfmr_checked_ratio(ent.ratio)
+                nds = vcat(ent.w1_nodes, ent.w2_nodes)
+                cfs = vcat(ent.w1_coeffs, -r .* ent.w2_coeffs)
+                rn, rc = _aug_row(idx, nds, cfs)
+                # A cancelled ideal equation is redundant. A finite/coupled
+                # port still has an impedance equation and must be retained.
+                ideal = all(iszero, Z[k,:]) && all(iszero, Z[:,k])
+                isempty(rn) && ideal && continue
+                push!(couplings, IdealCoupling(ideal ? :ideal_xfmr : :xfmr_port,
+                    "$subtype/$xid", conductor, rn, rc, y0))
+                push!(ids,length(couplings)); push!(kept,k)
+            end
+            push!(impedance_blocks,(ids,Z[kept,kept]))
         end
-        push!(impedance_blocks, (ids, Matrix{ComplexF64}(LinearAlgebra.I, length(ids), length(ids)) .* z))
     end
 
     for (ids, Z) in impedance_blocks

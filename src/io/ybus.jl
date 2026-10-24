@@ -232,6 +232,12 @@ function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
         end
     end
 
+    # Autotransformers have a shared reference bushing, unlike isolated YY.
+    for x in values(get(get(net,"transformer",Dict()),"single_phase_autotransformer",Dict()))
+        bond = _autotransformer_bond(x)
+        bond === nothing || _uf_union!(uf,bond...)
+    end
+
     # The common phase of a finite open-delta bank is a copper through-wire,
     # independently of its taps/leakage. The native OPF imposes this same bond.
     for x in values(get(get(net,"transformer",Dict()),"open_delta_regulator",Dict()))

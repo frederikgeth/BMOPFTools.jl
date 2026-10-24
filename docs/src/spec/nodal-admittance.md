@@ -87,7 +87,8 @@ against the effective turns ratio). N-winding uses the smallest singular value
 of the winding-1 coil-base `ZB`, including partly singular matrices.
 
 `ybus_augmented` currently supports small/zero leakage for `single_phase`,
-`wye_delta`, and `delta_wye`. Other subtypes requiring a border raise
+`wye_delta`, `delta_wye`, `single_phase_autotransformer`, and
+`open_delta_regulator`. Other subtypes requiring a border raise
 `ArgumentError` until their port domains are supported. `ybus_passive`,
 `ybus_linearized`, standalone primitives and `ideal_xfmrs=:stamp` reject such
 couplings rather than omit them or stamp a large inverse. Set a lower threshold
@@ -178,3 +179,17 @@ power flow, and the first iterate is the standard linear approximation.
   ``\lVert \mathbf{Y}\,\mathbf{v}_0 - \mathbf{i}_{\text{comp}}(\mathbf{v}_0)\rVert
   \approx 0`` at OpenDSS's converged voltage across WYE / DELTA / SINGLE\_PHASE +
   ZIP / constant-power cases.
+
+### Regulator ports and shared bushings
+
+The single-phase regulator ties its reference bushing between from/to sides;
+it can be a neutral or the second phase of a line-to-line coil. An omitted
+reference is allowed only on both sides (implicit earth). Open-delta ties the
+common phase of its two cores (ABBC: b, BCAC: c, CABA: a). These galvanic bonds
+apply to finite and ideal leakage alike and are distinct from isolated winding
+voltage relations (PSK-000013, PSK-000002).
+
+Each regulator core uses its own positive finite fixed tap and Type A/B ratio.
+If one core needs a border, both core equations are retained, including all
+finite leakage and one no-load shunt per core. Terminal current and absorbed
+power tests cover shifted references, unbalanced excitation and mixed cutoffs.

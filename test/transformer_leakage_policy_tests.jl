@@ -82,10 +82,10 @@ end
                 @test_throws ArgumentError ybus_passive(net)
                 @test_throws ArgumentError ybus_linearized(net)
                 @test_throws ArgumentError ybus_augmented(net;ideal_xfmrs=:stamp)
-                if kind in ("single_phase","wye_delta","delta_wye")
+                if kind in ("single_phase","wye_delta","delta_wye","single_phase_autotransformer","open_delta_regulator")
                     r=ybus_augmented(net); n=length(r.nodes)
-                    @test length(r.couplings)==(kind=="single_phase" ? 1 : 3)
-                    @test Matrix(r.K[n+1:end,n+1:end]) ≈ -only(p.impedances)*I
+                    @test length(r.couplings)==(kind in ("single_phase","single_phase_autotransformer") ? 1 : kind=="open_delta_regulator" ? 2 : 3)
+                    @test Matrix(r.K[n+1:end,n+1:end]) ≈ -Diagonal([p.impedances[min(k,end)] for k in 1:length(r.couplings)])
                     @test r.index[("f","a")] != r.index[("t","a")]
                 else
                     @test_throws ArgumentError ybus_augmented(net)

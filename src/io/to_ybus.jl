@@ -45,7 +45,7 @@ The regulator subtypes `"single_phase_autotransformer"` and
 Raises `ArgumentError` for unknown subtypes, invalid ratios, or leakage at/below
 `xfmr_z_min_ohm` on the effective coil reference basis. Use `ybus_augmented`
 for supported small/zero-leakage couplings. `shunt_only=true` explicitly returns
-only finite shunts for inspection (ordinary two-winding and center-tap subtypes);
+only finite shunts for inspection (ordinary two-winding, center-tap and regulator subtypes);
 that block alone is not a complete network element.
 """
 function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString;
@@ -71,6 +71,8 @@ function _transformer_shunt_yprim(xfmr, subtype)
     subtype == "wye_delta" && return _yprim_yd(xfmr; wye_is_from=true, series=false)
     subtype == "delta_wye" && return _yprim_yd(xfmr; wye_is_from=false, series=false)
     subtype == "center_tap" && return _yprim_center_tap(xfmr; series=false)
+    subtype == "single_phase_autotransformer" && return _yprim_autotransformer(xfmr; series=false)
+    subtype == "open_delta_regulator" && return _yprim_open_delta(xfmr; series=false)
     throw(ArgumentError("shunt-only primitive is not supported for $subtype"))
 end
 
@@ -208,7 +210,53 @@ function _xfmr_winding_incidence(xfmr::Dict{String,Any},
     subtype == "single_phase" && return _winding_incidence_single_phase(xfmr)
     subtype == "wye_delta"    && return _winding_incidence_yd(xfmr; wye_is_from=true)
     subtype == "delta_wye"    && return _winding_incidence_yd(xfmr; wye_is_from=false)
+    subtype in ("single_phase_autotransformer", "open_delta_regulator") &&
+        return _winding_incidence_regulator(xfmr, subtype)
     throw(ArgumentError("no winding incidence for transformer subtype: $(repr(subtype))"))
+end
+
+function _winding_incidence_regulator(x, subtype)
+    ratios = _ybus_regulator_ratios(x, subtype)
+    if subtype == "single_phase_autotransformer"
+        inc = _winding_incidence_single_phase(x)
+        length(inc) == 1 || throw(ArgumentError("single-phase regulator requires exactly one coil per side"))
+        _autotransformer_bond(x) # validate the shared reference domain
+        return _WindingIncidence[merge(only(inc),(ratio=only(ratios),))]
+    end
+    _open_delta_bond(x) # validates connection and phase counts
+    tmf=string.(x["terminal_map_from"]); tmt=string.(x["terminal_map_to"])
+    pf=_phase_positions(tmf); pt=_phase_positions(tmt)
+    pairs=_OPEN_DELTA_YPRIM_PAIRS[uppercase(strip(string(x["connection"])))]
+    _WindingIncidence[(w1_nodes=[(x["bus_from"],tmf[pf[p]]),(x["bus_from"],tmf[pf[q]])],
+        w1_coeffs=[1.,-1.], w2_nodes=[(x["bus_to"],tmt[pt[p]]),(x["bus_to"],tmt[pt[q]])],
+        w2_coeffs=[1.,-1.], ratio=ratios[k]) for (k,(p,q)) in enumerate(pairs)]
+end
+
+function _autotransformer_bond(x)
+    tmf=string.(get(x,"terminal_map_from",String[])); tmt=string.(get(x,"terminal_map_to",String[]))
+    pf=_xfmr_winding_pairs(tmf); pt=_xfmr_winding_pairs(tmt)
+    length(pf)==length(pt)==1 || throw(ArgumentError("single-phase regulator requires one coil per side"))
+    qf=only(pf)[2]; qt=only(pt)[2]
+    (qf===nothing)==(qt===nothing) || throw(ArgumentError("regulator shared reference must exist on both sides"))
+    qf===nothing && return nothing # both references are implicit earth
+    ((string(x["bus_from"]),tmf[qf]),(string(x["bus_to"]),tmt[qt]))
+end
+
+# Primitive and augmented paths consume identical voltage coefficients.
+function _xfmr_core_row(nodes, ent)
+    c=zeros(Float64,length(nodes))
+    for (nd,cf) in zip(vcat(ent.w1_nodes,ent.w2_nodes),vcat(ent.w1_coeffs,-ent.ratio.*ent.w2_coeffs))
+        c[findfirst(==(nd),nodes)] += cf
+    end
+    c
+end
+
+# Each block supplies coil incidence and the corresponding impedance matrix.
+# Ordinary/regulator cores are independent; multiport subtypes extend this seam.
+function _xfmr_port_blocks(x, subtype)
+    inc=_xfmr_winding_incidence(x,subtype)
+    zs=_xfmr_leakage_values(x,subtype)
+    [(_WindingIncidence[ent],fill(ComplexF64(zs[min(k,end)]),1,1)) for (k,ent) in enumerate(inc)]
 end
 
 function _winding_incidence_single_phase(xfmr::Dict{String,Any})
@@ -641,8 +689,8 @@ end
 # Nodes: [fr_ph, to_ph, (fr_q), (to_q)]. One core spanning (V_fr_ph − V_fr_q)
 # and (V_to_ph − V_to_q), primitive yt·[1 −n_eff; −n_eff n_eff²] via Y = Cᵀ·yprim·C.
 # The winding reference q is the neutral (line-to-neutral SVR) or the second phase
-# (line-to-line SVR); the shared bushing tie is an OPF topological constraint.
-function _yprim_autotransformer(xfmr::Dict{String,Any})
+# (line-to-line SVR); both OPF and network Ybus impose the shared bushing bond.
+function _yprim_autotransformer(xfmr::Dict{String,Any}; series::Bool=true)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tm_fr = Vector{String}(get(xfmr, "terminal_map_from", String[]))
@@ -653,7 +701,8 @@ function _yprim_autotransformer(xfmr::Dict{String,Any})
         @warn "single_phase_autotransformer: needs a phase conductor on each side."
         return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
     end
-    n_eff = _autotransformer_ratio(xfmr)
+    ent = only(_xfmr_winding_incidence(xfmr, "single_phase_autotransformer"))
+    n_eff = ent.ratio
 
     r1 = Float64(get(xfmr, "r_series_from", 0.0))
     x1 = Float64(get(xfmr, "x_series_from", 0.0))
@@ -675,19 +724,9 @@ function _yprim_autotransformer(xfmr::Dict{String,Any})
     n_tot = length(nodes)
 
     Y = zeros(ComplexF64, n_tot, n_tot)
-    if iszero(Z)
-        # Ideal regulator: the series block is singular; only the shunt is finite.
-        iszero(G0) && iszero(B0) &&
-            @warn "single_phase_autotransformer has zero series impedance; Yprim is singular."
-    else
-        yt = 1.0 / Z
-        # C (2 winding-voltage rows × n_tot): row 1 = from coil (ph_fr − n_fr),
-        # row 2 = to coil (ph_to − n_to).
-        C = zeros(ComplexF64, 2, n_tot)
-        C[1, 1] = 1.0;  idx_fr_n != 0 && (C[1, idx_fr_n] = -1.0)
-        C[2, 2] = 1.0;  idx_to_n != 0 && (C[2, idx_to_n] = -1.0)
-        prim = yt * [1.0 -n_eff; -n_eff n_eff^2]
-        Y .= transpose(C) * prim * C
+    if series
+        c = _xfmr_core_row(nodes, ent)
+        Y .= (c * transpose(c)) / Z
     end
 
     # No-load shunt ACROSS the from winding (ph_fr − ref_fr), matching the OPF
@@ -716,7 +755,7 @@ const _OPEN_DELTA_YPRIM_PAIRS = Dict{String,Tuple{Tuple{Int,Int},Tuple{Int,Int}}
 # Monolithic open-delta regulator: two line-to-line regulating cores across the
 # phase pairs implied by `connection`, each with its own tap. No neutral winding
 # path. Nodes: [fr_1,fr_2,fr_3,(fr_n), to_1,to_2,to_3,(to_n)].
-function _yprim_open_delta(xfmr::Dict{String,Any})
+function _yprim_open_delta(xfmr::Dict{String,Any}; series::Bool=true)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tm_fr = Vector{String}(get(xfmr, "terminal_map_from", String[]))
@@ -730,11 +769,8 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
         return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
     end
 
-    taps = Float64.(get(xfmr, "tap_ratio", Float64[]))
-    rt   = string(get(xfmr, "regulator_type", "B"))
-    a1 = length(taps) >= 1 ? taps[1] : 1.0
-    a2 = length(taps) >= 2 ? taps[2] : a1
-    n_eff = (_autotransformer_neff(a1, rt), _autotransformer_neff(a2, rt))
+    inc = _xfmr_winding_incidence(xfmr, "open_delta_regulator")
+    n_eff = [e.ratio for e in inc]
 
     r1 = Float64(get(xfmr, "r_series_from", 0.0))
     x1 = Float64(get(xfmr, "x_series_from", 0.0))
@@ -756,13 +792,9 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
     for (j, (p, q)) in enumerate(pairs)
         ne = n_eff[j]
         Z  = (r1 + ne^2 * r2) + im*(x1 + ne^2 * x2)
-        if !iszero(Z)
-            yt = 1.0 / Z
-            C = zeros(ComplexF64, 2, n_tot)
-            C[1, fr_pos(p)] = 1.0;  C[1, fr_pos(q)] = -1.0
-            C[2, to_pos(p)] = 1.0;  C[2, to_pos(q)] = -1.0
-            prim = yt * [1.0 -ne; -ne ne^2]
-            Y .+= transpose(C) * prim * C
+        if series
+            c = _xfmr_core_row(nodes, inc[j])
+            Y .+= (c * transpose(c)) / Z
         end
         # No-load shunt across the from-side line-to-line pair (p − q).
         if !iszero(Y0)
