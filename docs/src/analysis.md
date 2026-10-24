@@ -136,8 +136,45 @@ describe only the declared snapshot; switch scenarios introduce no Findings.
 
 ### Conditional geographic evidence
 
-`results[:connectivity]["spatial"]` appears only when at least one bus has
-`longitude`, `latitude`, `x`, or `y`. It reports coordinate and route coverage,
+Geospatial analysis is **enabled by default** within the connectivity pass. With
+normal settings, `results[:connectivity]["spatial"]` appears when at least one bus
+has `longitude`, `latitude`, `x`, or `y`. Coordinate fields trigger inspection;
+valid coordinates and supported frame declarations still determine which metrics
+are applicable. Cases without bus coordinate fields skip spatial analysis.
+
+To suppress the entire spatial pass while keeping the other analyses:
+
+```julia
+config = load_config()
+config["spatial"]["enabled"] = false
+report = analyze("NetworkModel.bmopf.json"; config=config)
+render(report, "report.md")
+```
+
+Alternatively, save the override in a TOML file and pass
+`config=load_config("analysis-config.toml")`:
+
+```toml
+[spatial]
+enabled = false
+```
+
+The same configuration works with `connectivity_analysis`. Suppression happens
+before coordinate inventory, route processing, proximity searches, topology
+candidates and cleanup capture. It produces no `W.GEO.*` Findings. JSON retains
+only an `inapplicable` / `disabled` spatial record with `analysis_performed=false`;
+Markdown explains that geographic checks were not run. This explicit disabled
+record is present even for a coordinate-free case. Other analysis and validation
+results are unaffected. A non-boolean `enabled` or non-object spatial section
+returns `indeterminate` / `invalid_configuration`, rather than silently enabling
+the pass. Omitted settings retain the enabled default.
+
+The existing `proximity_enabled`, `discrepancy_enabled` and `review_enabled`
+settings control individual parts when the whole pass is enabled. The standalone
+cleanup bundle requires an available cleanup report and reports an error when the
+entire spatial pass is disabled.
+
+When enabled and coordinates exist, the report includes coordinate and route coverage,
 line-length distributions by voltage tier, and bounded long-line witnesses.
 The long-line ranking compares each section with its own tier's 99th-percentile
 declared length; a high rank is an inspection cue, not an error threshold.

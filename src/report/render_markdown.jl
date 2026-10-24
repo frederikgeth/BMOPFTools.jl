@@ -312,6 +312,11 @@ end
 
 function _md_spatial(spatial, io::IO)
     spatial isa Dict || return
+    if get(spatial, "analysis_performed", true) === false
+        println(io, "### Geographic evidence\n")
+        println(io, "**Geospatial analysis:** $(spatial["status"]) ($(spatial["reason"])). $(spatial["caution"])\n")
+        return
+    end
     coverage = spatial["coordinate_coverage"]
     reference = spatial["coordinate_reference"]
     routes = spatial["routes"]

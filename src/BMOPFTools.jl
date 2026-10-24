@@ -801,10 +801,14 @@ include("augmentation.jl")
 # ---------------------------------------------------------------------------
 
 """
-    analyze(net::Dict{String,Any}; t_index::Int=1) -> SummaryReport
+    analyze(net::Dict{String,Any}; t_index::Int=1, config=load_config()) -> SummaryReport
 
 Run all analysis and validation passes on a BMOPF network dict and return
 a [`SummaryReport`](@ref).
+
+Geospatial analysis runs automatically when buses contain coordinate fields.
+Pass a configuration with `config["spatial"]["enabled"] = false` to skip the
+entire spatial pass while retaining the other analysis and validation passes.
 
 For snapshot networks, `t_index` is ignored. For networks with a
 `"time_series"` key, the snapshot at `t_index` is materialised first.

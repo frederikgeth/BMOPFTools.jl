@@ -367,13 +367,25 @@ end
 """
     _spatial_analysis(net, voltage_levels) -> Union{Nothing,Dict{String,Any}}
 
-Return nothing unless buses contain coordinate fields. Distances in metres use
+Run by default when buses contain coordinate fields; otherwise return nothing.
+`config["spatial"]["enabled"] = false` skips all spatial work and returns an
+explicit inapplicable/disabled record. Invalid enable settings are indeterminate.
+Distances in metres use
 unambiguous WGS84 or explicit local Cartesian declarations, or endpoint-scoped
 WGS84 route evidence. Unsupported/conflicting declarations suppress distances.
 Ranked examples are descriptive. Findings require an explicit WGS84 declaration.
 """
 function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,Any},
                            findings::Vector{Finding}=Finding[]; config::Dict=_DEFAULT_CONFIG)
+    options = get(config, "spatial", Dict())
+    enabled = options isa AbstractDict ? get(options, "enabled", true) : nothing
+    if !(enabled isa Bool) || !enabled
+        return Dict{String,Any}("status" => enabled === false ? "inapplicable" : "indeterminate",
+            "reason" => enabled === false ? "disabled" : "invalid_configuration",
+            "analysis_performed" => false,
+            "caution" => enabled === false ? "Geospatial analysis was disabled by configuration; no geographic checks were run." :
+                "The spatial section must be an object and spatial.enabled must be boolean; no geographic checks were run.")
+    end
     buses = get(net, "bus", Dict())
     any(bus -> bus isa AbstractDict && any(k -> haskey(bus, k),
         ("longitude", "latitude", "x", "y")), values(buses)) || return nothing

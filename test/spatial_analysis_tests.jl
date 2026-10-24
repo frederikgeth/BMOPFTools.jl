@@ -373,3 +373,77 @@ include("spatial_route_tests.jl")
 include("spatial_review_tests.jl")
 
 include("spatial_shared_infrastructure_tests.jl")
+
+@testset "spatial analysis enabled by default with whole-pass suppression" begin
+    net = Dict{String,Any}("meta"=>Dict("crs"=>"WGS84"),
+        "bus"=>Dict("a"=>Dict{String,Any}("longitude"=>153., "latitude"=>-27.),
+                    "b"=>Dict{String,Any}("longitude"=>153.001, "latitude"=>-27.)),
+        "line"=>Dict("short"=>Dict("bus_from"=>"a", "bus_to"=>"b", "length"=>1.)))
+    cfg = load_config()
+    @test cfg["spatial"]["enabled"] === true
+    default_findings = Finding[]
+    enabled = connectivity_analysis(net, default_findings)
+    @test haskey(enabled["spatial"], "cleanup_review")
+    @test any(f -> f.code == "W.GEO.LINE_SHORTER_THAN_CHORD", default_findings)
+    legacy = deepcopy(cfg); delete!(legacy["spatial"], "enabled")
+    @test connectivity_analysis(net, Finding[]; config=legacy)["spatial"]["cleanup_review"]["items"] == enabled["spatial"]["cleanup_review"]["items"]
+    older = deepcopy(cfg); delete!(older, "spatial")
+    @test connectivity_analysis(net, Finding[]; config=older)["spatial"]["cleanup_review"]["items"] == enabled["spatial"]["cleanup_review"]["items"]
+    cfg["spatial"]["enabled"] = false
+    @test connectivity_analysis(Dict{String,Any}(), Finding[]; config=cfg)["spatial"]["reason"] == "disabled"
+    original = deepcopy(net); config_before = deepcopy(cfg)
+    fs = Finding[]
+    disabled = connectivity_analysis(net, fs; config=cfg)
+    @test net == original && cfg == config_before
+    @test disabled["spatial"]["status"] == "inapplicable"
+    @test disabled["spatial"]["reason"] == "disabled"
+    @test disabled["spatial"]["analysis_performed"] === false
+    @test !haskey(disabled["spatial"], "cleanup_review")
+    @test !any(f -> startswith(f.code, "W.GEO."), fs)
+    @test sort([f.code for f in fs]) == sort([f.code for f in default_findings if !startswith(f.code,"W.GEO.")])
+    @test Dict(k=>v for (k,v) in disabled if k != "spatial") == Dict(k=>v for (k,v) in enabled if k != "spatial")
+    @test JSON3.read(JSON3.write(disabled)).spatial.reason == "disabled"
+    @test load_config()["spatial"]["enabled"] === true
+    # Off means no traversal, even when subordinate settings or geometry cannot be read.
+    cfg["spatial"]["max_topology_pairs"] = "invalid but unused"
+    uninspectable = Dict{String,Any}("bus"=>true, "line"=>true)
+    @test BMOPFTools._spatial_analysis(uninspectable, Dict{String,Any}(); config=cfg)["reason"] == "disabled"
+    empty = Dict{String,Any}("bus"=>Dict("a"=>Dict()))
+    @test BMOPFTools._spatial_analysis(empty, Dict{String,Any}()) === nothing
+    @test BMOPFTools._spatial_analysis(empty, Dict{String,Any}(); config=cfg)["reason"] == "disabled"
+    partial = Dict{String,Any}("bus"=>Dict("a"=>Dict("longitude"=>153.)))
+    @test BMOPFTools._spatial_analysis(partial, Dict{String,Any}())["coordinate_coverage"]["n_partial"] == 1
+    for value in ("false", 0, 1, nothing)
+        invalid = load_config(); invalid["spatial"]["enabled"] = value
+        result = BMOPFTools._spatial_analysis(net, Dict{String,Any}(); config=invalid)
+        @test result["status"] == "indeterminate"
+        @test result["reason"] == "invalid_configuration"
+        @test result["analysis_performed"] === false
+        @test occursin("invalid_configuration", sprint(io -> BMOPFTools._md_spatial(result, io)))
+    end
+    invalid = load_config(); invalid["spatial"] = false
+    @test BMOPFTools._spatial_analysis(net, Dict{String,Any}(); config=invalid)["reason"] == "invalid_configuration"
+    mktempdir() do dir
+        config_path = joinpath(dir, "analysis-config.toml")
+        write(config_path, "[spatial]\nenabled = false\n")
+        override = load_config(config_path)
+        sample = parse_bmopf(joinpath(@__DIR__, "..", "recipes", "analyze_case", "input.json"))
+        sample["meta"] = Dict("crs"=>"WGS84")
+        for (i,bus) in enumerate(values(sample["bus"]))
+            bus["longitude"] = 153. + i*.001; bus["latitude"] = -27.
+        end
+        report = analyze(sample; config=override)
+        @test report.results[:connectivity]["spatial"]["reason"] == "disabled"
+        @test haskey(report.results, :voltage_levels) && haskey(report.results, :integrity)
+        @test !any(f -> startswith(f.code,"W.GEO."), report.findings)
+        for ext in ("md", "json")
+            render(report, joinpath(dir,"report.$ext"))
+        end
+        md = read(joinpath(dir,"report.md"), String)
+        @test occursin("disabled", md) && occursin("no geographic checks were run", md)
+        @test !occursin("Cleanup review:", md)
+        @test JSON3.read(read(joinpath(dir,"report.json"),String)).results.connectivity.spatial.analysis_performed === false
+        @test_throws ArgumentError write_spatial_cleanup_bundle(sample, joinpath(dir,"bundle"); config=override)
+        @test !isdir(joinpath(dir,"bundle"))
+    end
+end

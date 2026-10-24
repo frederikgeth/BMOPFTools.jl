@@ -20,6 +20,8 @@ function connectivity_analysis(net::Dict{String,Any},
         result["n_components"] = 0
         result["structure"] = _topology_structure(net, Dict{String,Any}(), inventory)
         result["switch_scenarios"] = _switch_scenarios(net, inventory)
+        spatial = _spatial_analysis(net, Dict{String,Any}(), findings; config=config)
+        spatial === nothing || (result["spatial"] = spatial)
         return result
     end
 

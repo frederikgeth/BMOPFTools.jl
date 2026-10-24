@@ -87,7 +87,7 @@ using Test, BMOPFTools, JSON3
     @test candidates(unavailable)["checks"]["series_paths"]["status"] == "indeterminate"
     @test candidates(unavailable)["checks"]["branch_spans"]["n_components_with_unavailable_distance"] == 1
     badconfig = load_config(); badconfig["spatial"] = false
-    @test all(c -> c["reason"] == "invalid_configuration", values(BMOPFTools._spatial_analysis(original, Dict{String,Any}(); config=badconfig)["discrepancy_candidates"]["checks"]))
+    @test BMOPFTools._spatial_analysis(original, Dict{String,Any}(); config=badconfig)["reason"] == "invalid_configuration"
     tiers = Dict{String,Any}("levels" => Dict("MV" => Dict("buses"=>["a"]), "LV" => Dict("buses"=>["b","c"])))
     classified = BMOPFTools._spatial_analysis(original, tiers)["discrepancy_candidates"]["checks"]["nearby_topology"]
     @test classified["voltage_tier_relation_counts_observed"] == Dict("same"=>1, "different"=>2)

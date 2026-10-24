@@ -5,6 +5,7 @@ function write_spatial_cleanup_bundle(net, outdir; decisions=Any[], config=load_
     report = analyze(net; config=config)
     spatial = get(report.results[:connectivity], "spatial", nothing)
     spatial === nothing && throw(ArgumentError("case has no spatial report"))
+    haskey(spatial, "cleanup_review") || throw(ArgumentError("spatial cleanup review unavailable: $(spatial["reason"])"))
     review = apply_spatial_review(spatial["cleanup_review"], decisions)
     spatial["cleanup_review"] = review
     mkpath(outdir)
