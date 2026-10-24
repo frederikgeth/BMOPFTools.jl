@@ -70,6 +70,7 @@ function _transformer_shunt_yprim(xfmr, subtype)
     subtype == "single_phase" && return _yprim_single_phase(xfmr; series=false)
     subtype == "wye_delta" && return _yprim_yd(xfmr; wye_is_from=true, series=false)
     subtype == "delta_wye" && return _yprim_yd(xfmr; wye_is_from=false, series=false)
+    subtype == "n_winding" && return nwinding_yprim(xfmr; shunt_only=true)
     subtype == "center_tap" && return _yprim_center_tap(xfmr; series=false)
     subtype == "single_phase_autotransformer" && return _yprim_autotransformer(xfmr; series=false)
     subtype == "open_delta_regulator" && return _yprim_open_delta(xfmr; series=false)
@@ -254,6 +255,7 @@ end
 # Each block supplies coil incidence and the corresponding impedance matrix.
 # Ordinary/regulator cores are independent; multiport subtypes extend this seam.
 function _xfmr_port_blocks(x, subtype)
+    subtype == "n_winding" && return _nwinding_port_blocks(x)
     subtype == "center_tap" && return _center_tap_port_blocks(x)
     inc=_xfmr_winding_incidence(x,subtype)
     zs=_xfmr_leakage_values(x,subtype)
@@ -829,21 +831,20 @@ end
 # stamped per leg via the connection-aware coil incidence P: a WYE coil maps to
 # its phase-neutral pair, a DELTA coil to its phase-phase pair (so delta windings
 # couple phase nodes). The optional no-load shunt is stamped across winding 2 (OpenDSS convention).
-function nwinding_yprim(xfmr::Dict{String,Any}; config=_DEFAULT_CONFIG)
-    _require_finite_xfmr_primitive(xfmr, "n_winding", config)
+function nwinding_yprim(xfmr::Dict{String,Any}; config=_DEFAULT_CONFIG, shunt_only::Bool=false)
+    _validate_nw_ybus_domain(xfmr)
+    shunt_only || _require_finite_xfmr_primitive(xfmr, "n_winding", config)
+    _nwinding_yprim(xfmr;series=!shunt_only)
+end
+
+function _nwinding_yprim(xfmr::Dict{String,Any}; series::Bool=true)
     ws = _nw_windings(xfmr)
     nW = length(ws)
     nW < 2 && return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
 
     N  = _nw_turns_ratios(xfmr)
     ZB = _nw_zb_matrix(xfmr)                         # (n-1)×(n-1), referred to wdg 1
-    local YB
-    try
-        YB = inv(ZB)
-    catch
-        @warn "n_winding transformer ZB is singular; Yprim skipped."
-        return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
-    end
+    YB = series ? inv(ZB) : zeros(ComplexF64,size(ZB))
 
     # Referred n-port admittance with winding 1 as reference: Yref = Cᵀ YB C,
     # C[i, :] = e_1 − e_{i+1}. Then de-refer by the turns ratios.
@@ -925,4 +926,96 @@ function _center_tap_port_blocks(x)
         (w1_nodes=h,w1_coeffs=[1/n,-1/n],w2_nodes=[(t,tt[2]),(t,tt[3])],w2_coeffs=[1.,-1.],ratio=1.)]
     z=_xfmr_leakage_values(x,"center_tap"); zh=z[1]; zl=z[2]
     [(inc,ComplexF64[zh+zl zh; zh zh+zl])]
+end
+
+# Validate the geometry actually interpreted by the n-winding Ybus seam.
+# Do not silently reinterpret unknown connections as WYE or ignore terminals.
+function _validate_nw_ybus_domain(x)
+    raw=get(x,"windings",nothing)
+    raw isa AbstractVector && length(raw)>=2 || throw(ArgumentError("n_winding requires at least two windings"))
+    finite_real(v)=v isa Real && !(v isa Bool) && isfinite(v)
+    phase_count=nothing
+    for w in raw
+        w isa AbstractDict || throw(ArgumentError("n_winding winding must be an object"))
+        v=get(w,"v_nom",nothing)
+        finite_real(v) && v>0 || throw(ArgumentError("n_winding requires positive finite coil voltages"))
+        finite_real(get(w,"r_winding",0.)) || throw(ArgumentError("n_winding resistance must be finite"))
+        bus=get(w,"bus",nothing)
+        bus isa AbstractString && !isempty(bus) || throw(ArgumentError("n_winding requires a bus per winding"))
+        tm=get(w,"terminal_map",nothing)
+        tm isa AbstractVector && all(t->t isa AbstractString,tm) || throw(ArgumentError("invalid n_winding terminal map"))
+        labels=lowercase.(tm)
+        allunique(labels) && all(t->t in ("a","b","c","n"),labels) ||
+            throw(ArgumentError("n_winding terminal labels must be distinct a/b/c/n"))
+        ph=count(!=("n"),labels)
+        1<=ph<=3 || throw(ArgumentError("n_winding requires one to three phases"))
+        if phase_count===nothing
+            phase_count=ph
+        elseif ph!=phase_count
+            throw(ArgumentError("n_winding phase counts must agree"))
+        end
+        connection=uppercase(string(get(w,"configuration","WYE")))
+        connection in ("WYE","DELTA") || throw(ArgumentError("n_winding supports WYE and DELTA only"))
+        if connection=="DELTA"
+            ph==3 && !("n" in labels) || throw(ArgumentError("n_winding DELTA requires three phases and no neutral"))
+            roll=get(w,"delta_roll",1)
+            roll isa Integer && !(roll isa Bool) && roll in (-1,1) ||
+                throw(ArgumentError("n_winding delta_roll must be +1 or -1"))
+        end
+        any(k->haskey(w,k),("r_neutral","x_neutral")) &&
+            throw(ArgumentError("n_winding grounding must be an explicit network shunt"))
+    end
+    any(k->haskey(x,k),("r_neutral_from","x_neutral_from","r_neutral_to","x_neutral_to")) &&
+        throw(ArgumentError("n_winding grounding must be an explicit network shunt"))
+    pairs=get(x,"x_sc",nothing)
+    pairs isa AbstractDict || throw(ArgumentError("n_winding requires explicit pairwise x_sc"))
+    expected=Set("$(i)_$(j)" for i in 1:length(raw) for j in i+1:length(raw))
+    Set(keys(pairs))==expected && all(finite_real,values(pairs)) ||
+        throw(ArgumentError("n_winding x_sc must contain every explicit finite pair"))
+    all(k->finite_real(get(x,k,0.)),("g_no_load","b_no_load")) ||
+        throw(ArgumentError("n_winding no-load admittance must be finite"))
+    nothing
+end
+
+function _nwinding_port_blocks(x)
+    _validate_nw_ybus_domain(x)
+    ws=_nw_windings(x); N=_nw_turns_ratios(x); Z=_nw_zb_matrix(x)
+    nph=length(first(_nw_phase_terminals(ws[1].terminal_map)))
+    blocks=Tuple{Vector{_WindingIncidence},Matrix{ComplexF64}}[]
+    for p in 1:nph
+        coils=Tuple{Vector{Tuple{String,String}},Vector{Float64}}[]
+        for w in ws
+            ph,neu=_nw_phase_terminals(w.terminal_map)
+            nd=[(w.bus,ph[p])]; cf=[1.]
+            if w.connection=="DELTA"
+                push!(nd,(w.bus,ph[_nw_delta_other(p,nph,w.delta_roll)])); push!(cf,-1.)
+            elseif neu!==nothing
+                push!(nd,(w.bus,neu)); push!(cf,-1.)
+            end
+            push!(coils,(nd,cf))
+        end
+        inc=_WindingIncidence[(w1_nodes=coils[1][1],w1_coeffs=coils[1][2],
+            w2_nodes=coils[k][1],w2_coeffs=coils[k][2],ratio=1/N[k]) for k in 2:length(ws)]
+        push!(blocks,(inc,Z))
+    end
+    blocks
+end
+
+# Validate network references before aliases or stamps can turn an absent node
+# into earth (PSK-000002). Implicit WYE earth is represented by omitting the
+# neutral from the winding map, never by naming an undeclared terminal.
+function _validate_nw_ybus_references(net)
+    buses = get(net, "bus", Dict())
+    for (id, x) in get(get(net, "transformer", Dict()), "n_winding", Dict())
+        _validate_nw_ybus_domain(x)
+        for (k, w) in enumerate(x["windings"])
+            bus = get(buses, w["bus"], nothing)
+            bus isa AbstractDict || throw(ArgumentError(
+                "n_winding '$id' winding $k references an undeclared bus"))
+            terminals = get(bus, "terminal_names", nothing)
+            terminals isa AbstractVector && all(t -> t in terminals, w["terminal_map"]) ||
+                throw(ArgumentError("n_winding '$id' winding $k references an undeclared terminal"))
+        end
+    end
+    nothing
 end

@@ -25,6 +25,8 @@
 # preserve the explicit nominal-demand versus supplied-result distinction.
 # Transformer Ybus nominal voltages are explicit positive finite declarations;
 # invalid or missing values never inherit the legacy unity-ratio fallback.
+# N-winding assembly validates declared network buses and terminals before
+# aliasing; a missing reference never substitutes for explicit or implicit earth.
 schema_version = "0.6.0"
 
 [[contract]]
@@ -121,6 +123,8 @@ source_paths = [
   "docs/src/spec/nodal-admittance.md",
   "test/ideal_transformer_shunt_tests.jl",
   "test/ideal_center_tap_tests.jl",
+  "test/ideal_nwinding_tests.jl",
+  "test/data/ideal_nwinding.json",
   "test/data/ideal_center_tap.json",
   "src/io/transformer_leakage.jl",
   "test/transformer_leakage_policy_tests.jl",

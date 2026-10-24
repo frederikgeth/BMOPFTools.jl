@@ -92,7 +92,9 @@ end
                     @test length(r.couplings)==2
                     @test r.K ≈ transpose(r.K)
                 else
-                    @test_throws ArgumentError ybus_augmented(net)
+                    r=ybus_augmented(net)
+                    @test length(r.couplings)==1
+                    @test r.K ≈ transpose(r.K)
                 end
             else
                 r=ybus_passive(net)

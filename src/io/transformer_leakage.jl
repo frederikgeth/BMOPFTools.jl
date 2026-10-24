@@ -50,6 +50,7 @@ end
 # Effective impedances use the SAME reference as the associated primitive row.
 function _xfmr_leakage_values(x, subtype)
     if subtype == "n_winding"
+        _validate_nw_ybus_domain(x)
         ws = _nw_windings(x)
         length(ws) >= 2 || throw(ArgumentError("n_winding requires at least two windings"))
         all(w -> isfinite(w.v_nom) && w.v_nom > 0, ws) ||
@@ -83,7 +84,10 @@ end
 function _xfmr_leakage_policy(x, subtype, zmin)
     z = _xfmr_leakage_values(x, subtype)
     all(isfinite, z) || throw(ArgumentError("nonfinite effective transformer leakage"))
-    (exact_zero=all(iszero, z), needs_border=any(v -> abs(v) <= zmin, z), impedances=z)
+    # A roundoff-rank-deficient ZB also requires a border when the configured
+    # cutoff is zero. This chooses a representation; no mode is truncated.
+    cutoff = subtype == "n_winding" ? max(zmin, eps(Float64)*length(z)*maximum(abs,z)) : zmin
+    (exact_zero=all(iszero, z), needs_border=any(v -> abs(v) <= cutoff, z), impedances=z)
 end
 
 function _require_finite_xfmr_primitive(x, subtype, config)
