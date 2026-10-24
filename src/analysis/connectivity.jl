@@ -9,7 +9,8 @@ Build an undirected graph of the network and compute:
 - Open-switch isolated sections
 """
 function connectivity_analysis(net::Dict{String,Any},
-                                findings::Vector{Finding}; voltage_levels=nothing)::Dict{String,Any}
+                                findings::Vector{Finding}; voltage_levels=nothing,
+                                config::Dict=_DEFAULT_CONFIG)::Dict{String,Any}
     result = Dict{String,Any}()
 
     buses = get(net, "bus", Dict())
@@ -19,6 +20,8 @@ function connectivity_analysis(net::Dict{String,Any},
         result["n_components"] = 0
         result["structure"] = _topology_structure(net, Dict{String,Any}(), inventory)
         result["switch_scenarios"] = _switch_scenarios(net, inventory)
+        spatial = _spatial_analysis(net, Dict{String,Any}(), findings; config=config)
+        spatial === nothing || (result["spatial"] = spatial)
         return result
     end
 
@@ -261,7 +264,7 @@ function connectivity_analysis(net::Dict{String,Any},
                 "transformer_mediated_cycle_rank" => whole["transformer_mediated_cycle_rank"],
                 "cycle_closing_branches" => structure["cycle_closing_branches"])))
     end
-    spatial = _spatial_analysis(net, levels, findings)
+    spatial = _spatial_analysis(net, levels, findings; config=config)
     spatial === nothing || (result["spatial"] = spatial)
 
     result

@@ -136,50 +136,11 @@ describe only the declared snapshot; switch scenarios introduce no Findings.
 
 ### Conditional geographic evidence
 
-`results[:connectivity]["spatial"]` appears only when at least one bus has
-`longitude`, `latitude`, `x`, or `y`. It reports coordinate and route coverage,
-line-length distributions by voltage tier, and bounded long-line witnesses.
-The long-line ranking compares each section with its own tier's 99th-percentile
-declared length; a high rank is an inspection cue, not an error threshold.
-Metre-based line chord, route endpoint, and transformer separation measurements
-are computed only when network metadata declares WGS84 (`crs`,
-`coordinate_system`, or `coordinate_reference_system`) or a matching
-`WGS84_geodesic_polyline` route provides coordinate-frame evidence. The latter
-is explicitly labeled as route evidence, not a network-wide CRS declaration.
-Out-of-range and incomplete coordinate pairs are counted but excluded from
-geodesic calculations.
-
-The coordinate loader copies OpenDSS `x,y` into fields named
-`longitude,latitude` without transforming or verifying them. Plausible numeric
-values therefore do not establish a geographic CRS. When the frame remains
-unspecified or is declared as another CRS, spatial distances are marked
-inapplicable; line-length statistics remain available. The result makes no
-automatic asset-error claim when the CRS is unspecified. With a network-level
-WGS84 declaration, out-of-range bus coordinates and sufficiently large line
-chord or route-endpoint contradictions raise `W.GEO.*` Findings. A line's
-equivalent electrical length can differ from its physical route, so these
-warnings call for source-data review rather than automatic repair.
-Route `length_m` and declared line `length` may come from the same upstream
-geometry calculation, so their agreement is an internal-consistency check,
-not independent confirmation of the physical route.
-
-The spatial result groups fields as follows:
-
-| Key | Contents |
-|---|---|
-| `coordinate_reference` | `status`, declared CRS if any, caution text, matching WGS84 route count, and whether geodesic distances apply. Status is `declared_wgs84`, `wgs84_route_evidence`, `declared_other`, or `unspecified`. |
-| `coordinate_coverage` | Counts of complete longitude/latitude pairs, x/y fields, partial and invalid pairs, and pairs outside WGS84 numeric ranges. |
-| `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
-| `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
-| `transformers` | Bus separation quantiles and bounded farthest-pair witnesses. |
-
-Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
-Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length
-differences use `max(5 m, 10% of declared length)`; the line/chord lower-bound
-check uses `max(5 m, 10% of chord)`. A mismatch count is JSON `null` when no
-eligible comparison was made, rather than zero. Geographic Findings require
-an explicit WGS84 declaration; matching route evidence alone supports
-measurements but does not assert the CRS of every bus.
+Spatial analysis runs automatically when bus coordinate fields are present.
+It describes coordinate quality, shared infrastructure, geometry/topology
+candidates and an evidence-bound cleanup queue. Coincidence alone is not an error.
+See [Spatial diagnostics and cleanup review](spatial_diagnostics.md) for coordinate
+semantics, suppression, candidate codes, illustrated examples and exports.
 
 ## The report
 
@@ -286,3 +247,13 @@ not prove infeasibility**. The result records both limitations, its assumptions
 and `solver_run = false`. It neither retries a solve nor edits the network.
 This screening evidence is linked to **PSK-000013** to distinguish it from a
 solved-network feasibility witness; it does not extend that scientific claim.
+
+### Geometry and topology review candidates
+
+See the [spatial candidate catalogue](spatial_diagnostics.md#Geometry-and-topology-review-candidates).
+Candidate codes are advisory categories, distinct from registered Findings.
+
+### Cleanup review workflow
+
+See the [cleanup review workflow](spatial_diagnostics.md#Cleanup-review-workflow)
+for evidence categories, review decisions, coverage and Markdown/JSON/GeoJSON exports.

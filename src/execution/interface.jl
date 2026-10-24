@@ -226,7 +226,7 @@ function execute_contract(
 end
 
 """
-    execute_analysis(net; t_index=1, inputs=[])
+    execute_analysis(net; t_index=1, spatial_enabled=true, inputs=[])
 
 Run BMOPFTools' standard case analysis through the stable, JSON-ready execution
 interface. A completed operation has status `completed` even when the report
@@ -234,15 +234,19 @@ contains ERROR or WARNING Findings: Finding severity describes the case, while
 the envelope status describes whether the requested operation ran.
 
 `t_index` selects a snapshot for time-series inputs and is ignored for snapshot
-networks. Optional input records bind the response to caller-supplied file
+networks. `spatial_enabled=false` skips all geospatial analysis with an explicit
+disabled status; other diagnostics still run. Optional input records bind the response to caller-supplied file
 hashes in the same way as [`execute_contract`](@ref).
 """
 function execute_analysis(
         net::Dict{String,Any};
         t_index::Int=1,
+        spatial_enabled::Bool=true,
         inputs::AbstractVector=Dict{String,Any}[])::Dict{String,Any}
     t_index >= 1 || throw(ArgumentError("t_index must be at least 1"))
-    report = analyze(net; t_index=t_index)
+    config = load_config()
+    config["spatial"]["enabled"] = spatial_enabled
+    report = analyze(net; t_index=t_index, config=config)
     Dict{String,Any}(
         "schema_version" => _EXECUTION_RESPONSE_SCHEMA_VERSION,
         "operation" => "analyze_case",
@@ -250,7 +254,7 @@ function execute_analysis(
         "package" => _execution_package_identity(),
         "request" => Dict{String,Any}(
             "contract_id" => nothing,
-            "parameters" => Dict{String,Any}("t_index" => t_index),
+            "parameters" => Dict{String,Any}("t_index" => t_index, "spatial_enabled" => spatial_enabled),
         ),
         "inputs" => _execution_inputs(inputs),
         "result" => _report_to_json(report),

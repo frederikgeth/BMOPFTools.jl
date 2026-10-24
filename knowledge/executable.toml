@@ -1,3 +1,14 @@
+# Spatial cleanup includes capacitor attachments, explicit coverage banners and
+# linked attention indexes. These are evidence/presentation changes, not new Findings.
+# Standalone spatial review exports and path-oriented decision evidence are
+# package-local presentation APIs; source declarations do not certify provenance.
+# The curated analysis API, CLI and MCP expose a Boolean spatial opt-out; the
+# analyze_case recipe tests the disabled status without arbitrary config dispatch.
+# Spatial analysis is automatic with bus coordinates; spatial.enabled=false skips
+# all spatial work and emits explicit inapplicable/disabled report status.
+# Shared-infrastructure context uses voltage labels without inferring poles or circuit identity.
+# Review categories and location-based Markdown separate contextual observations from
+# discrepancies and reviewer decisions; no new Finding, PSK claim or adapter.
 # Transformer phase reporting is descriptive PSK-000006-linked evidence; it does
 # not widen the transformer preservation contract or add a JSON adapter.
 # write_bmopf retains longitude/latitude by default, with include_coordinates=false
@@ -11,6 +22,19 @@
 # inapplicable/indeterminate status and no new Finding or PSK claim.
 # The package-local W.GEO data-quality heuristics require declared WGS84;
 # neither the recipe nor these heuristics assert a PSK preservation claim.
+# Exact-coordinate coincidence and all-winding transformer extents are descriptive
+# cleanup context, with bounded witnesses and explicit missing-evidence counts;
+# they add no preservation contract, PSK claim, or transport operation.
+# Length context distinguishes physical/electrical declarations and recomputed
+# route geometry. W.GEO.LINE_SHORTER_THAN_CHORD uses an explicit physical length
+# when supplied and abstains on regularized-only or invalid physical evidence.
+# Route-derived coordinate frames are limited to matched valid-route endpoints.
+# Coordinate semantics explicitly support WGS84 and declared local Cartesian
+# x/y frames with units. Conflicts suppress metrics; provenance and accuracy
+# remain descriptive metadata, without new scientific claims or Finding codes.
+# Configurable indexed proximity groups unique metric locations and reports
+# single-linkage clusters. Budget/numerical-range truncation leaves totals null;
+# representative accuracy context does not expand the radius or imply connectivity.
 # Transformer leakage and downstream-load applicability use winding-local
 # rating bases and explicit graph-bridge evidence; their minimized witnesses
 # remain package validation tests, not preservation contracts.
@@ -23,6 +47,15 @@
 # Qualified nominal coil headroom is descriptive PSK-000013-related screening,
 # not an additional feasibility contract. Its source paths and analyze_case recipe
 # preserve the explicit nominal-demand versus supplied-result distinction.
+# Spatial discrepancy candidates describe bus-level declarations and geometry;
+# candidate codes are package-local review categories, not Findings or PSK claims.
+# Exact shared route segments and explicit source intervals retain circuit identity;
+# bounded path/query scans expose partial counts rather than inferred repairs.
+# Cleanup review adds bounded capture, exact-location groups, ordinal inspection
+# priorities, evidence-bound sidecar decisions and WGS84 point exports.
+# Reviewer dispositions never modify networks or certify repairs; no new adapter.
+# Direct/series review identity retains branch roles and canonical path order;
+# duplicate legacy IDs require regeneration rather than ambiguous ledger replay.
 # Transformer Ybus nominal voltages are explicit positive finite declarations;
 # invalid or missing values never inherit the legacy unity-ratio fallback.
 # N-winding assembly validates declared network buses and terminals before

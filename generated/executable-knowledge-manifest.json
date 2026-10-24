@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "042d5179ebb235945a60cee744270f9043e157db425ba5aff49a4daf39780fc4",
+  "corpus_sha256": "eaa766ee604c5c9887272110734d8af6d72662538ec55a0e632b442943036a76",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -73,12 +73,32 @@
       "sha256": "51ee85df44b0de0fcde84db4673a08aecfc8ffb7dbf38c02fa1f7750d88144a7"
     },
     {
+      "path": "config/default.toml",
+      "sha256": "a5dea3028b11f3be3ec980f285785a48434cf836d6af54f3754e5a9caeea148c"
+    },
+    {
       "path": "docs/src/analysis.md",
-      "sha256": "862e5b20e9eb3c49a292dc7598920bfb07db1bb8f1c1ec6e146724cd90587c88"
+      "sha256": "676331dd7bafbb056c8d2f9b04da796cea842508269589d6e5f1384448a50965"
     },
     {
       "path": "docs/src/api.md",
-      "sha256": "367ff6c52fcda15bf94ca5eafd1a65483105ed377341b0eb15bc7e547074bef9"
+      "sha256": "80619711c9d88bdbf15777001ece5e56053712b3ee7922a5131ee68bdc0ec20e"
+    },
+    {
+      "path": "docs/src/assets/spatial/direct-series.svg",
+      "sha256": "00ea8c76ed46da613533f887baef0616424607c543027852f9f4a701ef822a8c"
+    },
+    {
+      "path": "docs/src/assets/spatial/length-evidence.svg",
+      "sha256": "d972f93cdb1068aa2fd99b9fc41f54a1f220fa8c94c209c5ec26ccd8fd600781"
+    },
+    {
+      "path": "docs/src/assets/spatial/review-workflow.svg",
+      "sha256": "c2ef785214789cc2760dce231d7e1f5056f03a592113c68079a54f6b2dc9dea0"
+    },
+    {
+      "path": "docs/src/assets/spatial/shared-infrastructure.svg",
+      "sha256": "4f423c709ab472aa0e475a0a56efed2ff7af902f1b0223f411ebaae4532334bf"
     },
     {
       "path": "docs/src/connection_maps.md",
@@ -110,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "82c7f609c41903d1aba26e6feaa13a447c3b43ab107b17b0cc2067ce51ac661a"
+      "sha256": "c2753647b329530476cf074ffbccc7c43574d26b2d86ba0b654d7548efbe966e"
     },
     {
       "path": "docs/src/objectives.md",
@@ -131,6 +151,10 @@
     {
       "path": "docs/src/solvers.md",
       "sha256": "130178796ace92ced9af3539870e078c4f9ec63944152d965eeb8a56e6854d55"
+    },
+    {
+      "path": "docs/src/spatial_diagnostics.md",
+      "sha256": "b6410f32dc92811c036fa98072385cd1238fa32ce8357634a4a1a7711b03d3b4"
     },
     {
       "path": "docs/src/spec/control-profile.md",
@@ -183,6 +207,10 @@
     {
       "path": "examples/case_development.jl",
       "sha256": "02662b247da86ab1f54fabfe5b82df3d9573c73bd65732e1b35f5f074a92f514"
+    },
+    {
+      "path": "examples/spatial_cleanup_review.jl",
+      "sha256": "48772ca88cf8aa5fc824dae41b1ea06394b21c39ed0b3fe9d0a760cd1a43fab0"
     },
     {
       "path": "ext/BMOPFOpfExt/BMOPFOpfExt.jl",
@@ -254,11 +282,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "485c0721c7a157de2472b8396c44efed682ecd94b0869c98731ae324a9ace37e"
+      "sha256": "52db7414e7f2bef158d32988c196d6d038320e30efda64a7501ddf1872d44519"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "a1ce9b510d94e25daa0da126de2734e59f2f2a0e2bd5a8ef0845c5160b3545cd"
+      "sha256": "676213ee31d86d4f638434a6091ac733017a7690e94c3ceac7673107303e8b66"
     },
     {
       "path": "recipes/README.md",
@@ -266,7 +294,7 @@
     },
     {
       "path": "recipes/analyze_case/README.md",
-      "sha256": "7159a81c123f168b43e1113430dce812eb94a9663c75547588537f414c5f4db2"
+      "sha256": "7676c5a0892983865d6564fe9f3624b1a92564a246573c8eb189613b32654038"
     },
     {
       "path": "recipes/analyze_case/input.json",
@@ -274,11 +302,11 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "6f93f6a234e2f911c13750e347123b59a24c6a7a7fa7bc42a94d91e2a5f1e1b6"
+      "sha256": "1235f56eaa6bc425190adbea19b82516ba7e8152c07feb91db6330327f7704d2"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
-      "sha256": "405baeef9ff54206d8d9166d379dfd142233fcbec6161fe70e15dd99fabb9a4b"
+      "sha256": "75c0f7d26017720c764ab5e43628f00efd23863a1a8950d0d31a2bee17b43d85"
     },
     {
       "path": "recipes/explain_finding/README.md",
@@ -362,11 +390,11 @@
     },
     {
       "path": "scripts/bmopf_cli.jl",
-      "sha256": "9359642632538f310535e9869584065d911af391108bb8236cbc3b038f17adbe"
+      "sha256": "4ba834c89a7f2f63de9f7ffac55b663929b814493dac7a66ef114b8d899edf69"
     },
     {
       "path": "scripts/bmopf_mcp.jl",
-      "sha256": "3ece803eb21284ac56a378edd20992efa709b9091157c34f3470f27024530923"
+      "sha256": "4b89028c1486855fa0c8d07bc2ef6fd49659cc260318953f0d961c7888f506cd"
     },
     {
       "path": "scripts/generate_finding_registry.py",
@@ -378,11 +406,15 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "f8aa5737eb451b4d7c1d087d7c5cd605e682316971b89ff7f32a2a09fd900a90"
+      "sha256": "95613b834a75205968559c8f460a935230a6a180dff8e3a6300d20097297af10"
     },
     {
       "path": "src/analysis/connectivity.jl",
-      "sha256": "8bf408f2a9d513317e613a155fc49909b15d1ce55eb1bd00fb19a99f98bbd9d7"
+      "sha256": "ecba556d1c55d4d157a42343337e8e15b28f0e76b1193576cbe88559bebc6fee"
+    },
+    {
+      "path": "src/analysis/coordinate_semantics.jl",
+      "sha256": "ffb8ec238ca9af2465bee5889569bd676b1db7f1739f7391b90aee9f91bc289a"
     },
     {
       "path": "src/analysis/diversity.jl",
@@ -406,7 +438,31 @@
     },
     {
       "path": "src/analysis/spatial.jl",
-      "sha256": "babf6ebde3a3d6f0ece42db8140a0c36fecd5e80febca42951de7e923672514f"
+      "sha256": "e2f153d87481dc166a9c0b4271e17f08cc8cd0a3c875b10f650b9756e585f4e3"
+    },
+    {
+      "path": "src/analysis/spatial_proximity.jl",
+      "sha256": "d5c57df6244d01305bd2bcfc7c5ecc21560685e100c62cbb88a702f860c5ca04"
+    },
+    {
+      "path": "src/analysis/spatial_review.jl",
+      "sha256": "762e3694ed03566956eea861ae7ed6cd7dcf460ab31d83c9d3063f3223abcc2a"
+    },
+    {
+      "path": "src/analysis/spatial_review_decisions.jl",
+      "sha256": "dad4fa8426c58bf6ecacabb2d9f86644162601281d572c19fcd4fda7236a668a"
+    },
+    {
+      "path": "src/analysis/spatial_review_evidence.jl",
+      "sha256": "edf2e95c8be960f07f240a54637e72ce19406ed1ec003a444d5111f29e6958ce"
+    },
+    {
+      "path": "src/analysis/spatial_routes.jl",
+      "sha256": "ae62b9012b93361a87c9b786e6a3cc65b3ef284905e8f52697b6fe4d4c76d55b"
+    },
+    {
+      "path": "src/analysis/spatial_topology.jl",
+      "sha256": "e2bbd405f1359b8fb5e91f650918ae9b43ee0fdd83f16411b2dccb3ac834f9a4"
     },
     {
       "path": "src/analysis/switch_scenarios.jl",
@@ -462,7 +518,7 @@
     },
     {
       "path": "src/execution/interface.jl",
-      "sha256": "285f88633dc6a8aa2bebf3c8e561fa748a89da342ada403651903567e780957f"
+      "sha256": "444696605028977fb87e6cdcec26b7b2857c69ecbf9210187045a76c269d38d9"
     },
     {
       "path": "src/infeasibility/preflight.jl",
@@ -550,7 +606,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "a23da1f69c6c2bfd7a958a963a33be749e2a6ed0c61b27d84cc6b7f0747927a2"
+      "sha256": "4fbfde28321c937d2e51fcbd743e80b909ad4c17fb257d067865f5ecc1e41fa5"
     },
     {
       "path": "src/report/render_ascii_tree.jl",
@@ -558,7 +614,7 @@
     },
     {
       "path": "src/report/render_markdown.jl",
-      "sha256": "144d779a2014fc0a8389b44a7da86782b5b4f91e3127a53da00933e15681dd34"
+      "sha256": "cee6b7eca48b2089651d4c5605bc7309bc0662ddcad48bdaa46704067ec69a20"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -567,6 +623,10 @@
     {
       "path": "src/report/render_terminal.jl",
       "sha256": "274d00ca389fd6c4ccc814af97a017b0dd285da213b00cd405d9a66fa9b5b10c"
+    },
+    {
+      "path": "src/report/spatial_review_export.jl",
+      "sha256": "9d9d004a0e27b02beeab9d41b52e79dc3af6da949cffbc8fee5e03cd8a9ef7e3"
     },
     {
       "path": "src/validation/connection_maps.jl",
@@ -631,6 +691,10 @@
     {
       "path": "test/controller_compliance_tests.jl",
       "sha256": "3303a2ec4ada1d2fef5bafe3977ca4a458f8dcebc4a4606fb915e0f9ab550e5b"
+    },
+    {
+      "path": "test/coordinate_semantics_tests.jl",
+      "sha256": "303ee7dff3e872dbd16a493e19bd36391a925314d14e39b01cd740f19dfa5e67"
     },
     {
       "path": "test/data/analysis_network/synthetic_feeder.json",
@@ -773,6 +837,38 @@
       "sha256": "8c0ab4f112d84849707d54cff2cf49b6b3d921267cafaf232d6b74cb94685980"
     },
     {
+      "path": "test/data/spatial_capacitor_attachment.json",
+      "sha256": "8bed18d428ad61242413c87269960a27008f8e4e65ce8caad7669f346660253c"
+    },
+    {
+      "path": "test/data/spatial_cartesian.json",
+      "sha256": "c70ec37a431ae961602b7fa88aa6b884f0baf824298035d99bc53b767164c395"
+    },
+    {
+      "path": "test/data/spatial_context.json",
+      "sha256": "b54938b5830ddb7b4d68745a534a6efb512f70caa777aebe3e95e6172ae840de"
+    },
+    {
+      "path": "test/data/spatial_discrepancies.json",
+      "sha256": "12b5ae5457655b4d4249054ea16ac671b6ca2527cfac9baac37dfcf8e097af2d"
+    },
+    {
+      "path": "test/data/spatial_review_calibration.json",
+      "sha256": "d21998692e2820de7acd720733367c1987d40b2cc84793acdf9e5f66013421a9"
+    },
+    {
+      "path": "test/data/spatial_review_identity_triangle.json",
+      "sha256": "82ca4ac0648510e4004ea95841e07246f521ab0f473164897ab79d8e7456eef8"
+    },
+    {
+      "path": "test/data/spatial_shared_infrastructure.json",
+      "sha256": "0433bf218c6cd2d90d9f13b97be6ade2f3fff6122236ba82d4d513b7e445bf94"
+    },
+    {
+      "path": "test/data/spatial_split_lengths.json",
+      "sha256": "70875433df0010d87b86a2fd088741b276b24792d1c30ee0a24b3967406ad6d4"
+    },
+    {
       "path": "test/data/terminal_usage/README.md",
       "sha256": "03c703fac449a7d2b0428a32f431da128db41df7dc04e638b51f04ddbccac461"
     },
@@ -883,6 +979,10 @@
     {
       "path": "test/dss_conversion_error_tests.jl",
       "sha256": "deef678c40efda959ac4731e2317c88e964773ba7d0b424f90db76d557794fa3"
+    },
+    {
+      "path": "test/execution_interface_tests.jl",
+      "sha256": "745a0fe2e5fcbc2841c7f3c0f857006c1288f63b8eadf463dca6c14fd5309fac"
     },
     {
       "path": "test/fixtures/delta_wye_secondary_leakage.json",
@@ -1257,6 +1357,10 @@
       "sha256": "942160591680a18f55895e64fbbc7ebb7ae66c37877c5b9af3ff83a879161c3a"
     },
     {
+      "path": "test/mcp_execution_tests.jl",
+      "sha256": "bcf5c9a2e3dbba84361a5c0cadd33356b07b0b68bad1246584fe9287df98b69a"
+    },
+    {
       "path": "test/neutral_only_terminal_map_tests.jl",
       "sha256": "7d297db583ddf8eb4843a15d376bba2bc006e9663c7d513230311d7d0b76e2c0"
     },
@@ -1362,7 +1466,31 @@
     },
     {
       "path": "test/spatial_analysis_tests.jl",
-      "sha256": "ed542f22ff84d77b157a63b5d9d3713c7f87bb9a0502df2c216fd6164a033267"
+      "sha256": "98a2f2736a1f57eeaa239982519434a95ef7ea0ceefb163bd4b9744568e96177"
+    },
+    {
+      "path": "test/spatial_proximity_tests.jl",
+      "sha256": "1f1196b331604063419693db961c9d867dfed51052d2d5547a842bc7d5d1ce6a"
+    },
+    {
+      "path": "test/spatial_review_export_tests.jl",
+      "sha256": "cfda5cfe308dfdfa19002967e3caad9da8752146a55c4109c3de8a72c66ad3c9"
+    },
+    {
+      "path": "test/spatial_review_tests.jl",
+      "sha256": "12d8d8752a9e5666911fca44688ec458d1a20c4fe315d66cf5c4c1367c0b42f9"
+    },
+    {
+      "path": "test/spatial_route_tests.jl",
+      "sha256": "4afe4d3e418052cabf377008b35a0ac3fe21f07530c5ac0132637021b51f09c6"
+    },
+    {
+      "path": "test/spatial_shared_infrastructure_tests.jl",
+      "sha256": "50cd2214719729fbc22b92de32bdcb1d962ed84d76432a511ea42a0e66a1ec02"
+    },
+    {
+      "path": "test/spatial_topology_tests.jl",
+      "sha256": "b39a453e4d2c26258f2ea22137844377cd5212e7f8a849779e958b0e39c3535e"
     },
     {
       "path": "test/switch_scenario_tests.jl",

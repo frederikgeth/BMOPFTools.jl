@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "82c7f609c41903d1aba26e6feaa13a447c3b43ab107b17b0cc2067ce51ac661a"
+    "sha256": "c2753647b329530476cf074ffbccc7c43574d26b2d86ba0b654d7548efbe966e"
   },
   "finding_count": 381,
   "findings": [
@@ -253,7 +253,7 @@
       "namespace": "GEO",
       "catalogue_section": "GEO",
       "section_title": "declared geographic coordinates",
-      "meaning": "A line's declared section length is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its WGS84 bus coordinates. Physical routes cannot be shorter than their endpoint chord; inspect coordinates, units, and whether `length` is an equivalent electrical length.",
+      "meaning": "A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its explicitly declared WGS84 bus coordinates. An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance.",
       "contract_id": null,
       "knowledge_ids": []
     },

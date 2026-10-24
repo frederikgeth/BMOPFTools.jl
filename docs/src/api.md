@@ -155,6 +155,19 @@ BMOPFTools.render_json
 render_ascii_tree
 ```
 
+## Spatial cleanup review
+
+See the [illustrated spatial guide](spatial_diagnostics.md) for evidence interpretation,
+applicability, review-ledger semantics and export examples.
+
+```@docs
+spatial_review_decision
+apply_spatial_review
+spatial_review_geojson
+render_spatial_review
+export_spatial_review
+```
+
 ## Solution profiling
 
 ```@docs

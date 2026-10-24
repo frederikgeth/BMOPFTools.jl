@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" role="img" aria-labelledby="title desc"><title id="title">Length and endpoint evidence have different meanings</title><desc id="desc">The straight bus chord differs from a routed line whose endpoint is offset from its declared bus. Physical and electrical lengths are separate declarations.</desc>
+<style>text{font-family:system-ui,-apple-system,Arial,sans-serif;fill:#203348;font-size:16px}.title{font-size:24px;font-weight:650}.label{font-size:18px;font-weight:600}.small{font-size:14px}.muted{fill:#526477}</style>
+<rect width="1000" height="470" rx="14" fill="#f5f8fc"/>
+<text x="30" y="40" class="title">Length and endpoint evidence have different meanings</text>
+<line x1="90" y1="190" x2="730" y2="190" stroke="#77899b" stroke-width="3" stroke-dasharray="7 6"/>
+<text x="280" y="217" class="small">Straight bus-to-bus chord</text>
+<polyline points="90,190 210,95 520,95 650,150" fill="none" stroke="#215a91" stroke-width="3"/>
+<text x="235" y="80" class="label">Route vertices → recomputed route length</text>
+<circle cx="90" cy="190" r="7" fill="white" stroke="#377cad" stroke-width="3"/>
+<text x="80" y="232" class="label">Bus A</text>
+<circle cx="730" cy="190" r="7" fill="white" stroke="#377cad" stroke-width="3"/>
+<text x="720" y="232" class="label">Bus B</text>
+<circle cx="650" cy="150" r="7" fill="white" stroke="#215a91" stroke-width="3"/>
+<text x="640" y="134" class="label">Route end</text>
+<line x1="650" y1="150" x2="730" y2="190" stroke="#b3622a" stroke-width="3" stroke-dasharray="7 6"/>
+<text x="762" y="160" class="label">Endpoint gap</text>
+<text x="762" y="184" class="small">inspect CRS, accuracy</text>
+<text x="762" y="205" class="small">and source records</text>
+<rect x="40" y="275" width="445" height="95" rx="8" fill="#fff" stroke="#d6e0ec"/>
+<text x="58" y="303" class="label">Physical evidence</text>
+<text x="58" y="331" class="">Declared physical length; stored route length.</text>
+<text x="58" y="353" class="small">Compare with chord / recomputed route.</text>
+<rect x="510" y="275" width="450" height="95" rx="8" fill="#fff" stroke="#d6e0ec"/>
+<text x="528" y="303" class="label">Electrical modelling length</text>
+<text x="528" y="331" class="">May scale impedance or be regularized.</text>
+<text x="528" y="353" class="small">Do not automatically interpret it as distance.</text>
+<text x="40" y="408" class="small">Default endpoint candidate: gap &gt; 5 m. Registered Finding: gap &gt; max(20 m, 10% of chord).</text>
+<text x="40" y="437" class="label">A nearby alternative bus is evidence to inspect, not a replacement assignment.</text>
+</svg>
