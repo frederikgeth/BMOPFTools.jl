@@ -73,6 +73,10 @@ that the migrated model preserves every intended scientific meaning.
 
 ## GEO — declared geographic coordinates
 
+See the [spatial diagnostics guide](spatial_diagnostics.md) for illustrated
+interpretation and the separate `S.*` candidate / `R.*` review catalogue.
+Coincident buses, shared routes and zero transformer extent alone emit no Finding.
+
 These checks require a network-level WGS84 declaration. An absent or different
 CRS leaves geodesic comparisons unassessed; field names alone do not establish
 a geographic frame. The component's structured detail records the measured

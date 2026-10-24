@@ -336,6 +336,8 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
         b = get(load, "bus", nothing); b isa AbstractString || continue
         loads[b] = get(loads, b, 0) + 1
     end
+    length_contexts = Dict(row["line_id"] => row for row in length_rows)
+    attachment_index = _spatial_review_attachment_index(net)
     for (check_name, w) in captures
         subjects = _spatial_review_subjects(w)
         # Recover line endpoints for route-only and length records, without a
@@ -381,6 +383,9 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
             "location_id" => location_id, "location" => location,
             "geometry" => geom, "local_geometry" => local_geom, "geometry_basis" => geometry.basis, "geometry_coverage" => geometry_coverage,
             "evidence" => _jsonable(w), "review" => Dict("status" => "unreviewed", "disposition" => "unreviewed"))
+        if w["code"] == "S.DIRECT_ALONGSIDE_SERIES_PATH"
+            row["interpretation_evidence"] = _spatial_series_review_evidence(net, w, length_contexts, attachment_index)
+        end
         row["evidence_fingerprint"] = _spatial_review_item_fingerprint(row)
         push!(result["items"], row)
     end
@@ -412,7 +417,7 @@ function spatial_review_geojson(review::AbstractDict)
     for item in review["items"]
         item["geometry"] === nothing && continue
         properties = Dict(k => deepcopy(item[k]) for k in ("code", "location_id", "priority", "ranking_reason", "impact", "bus_ids", "components", "review", "geometry_basis", "geometry_coverage", "evidence_fingerprint"))
-        for key in ("assessment", "coordinate_evidence")
+        for key in ("assessment", "coordinate_evidence", "interpretation_evidence")
             haskey(item, key) && (properties[key] = deepcopy(item[key]))
         end
         properties["case_fingerprint"] = review["case_fingerprint"]
@@ -429,7 +434,7 @@ end
 function _spatial_review_item_fingerprint(item)
     payload = Dict(k => item[k] for k in ("item_id", "code", "check", "evidence", "location_id", "location", "geometry",
         "local_geometry", "geometry_basis", "geometry_coverage", "impact", "priority", "ranking_reason", "evidence_class", "bus_ids", "components"))
-    for key in ("assessment", "coordinate_evidence")
+    for key in ("assessment", "coordinate_evidence", "interpretation_evidence")
         haskey(item, key) && (payload[key] = item[key])
     end
     _spatial_review_hash(payload)

@@ -754,6 +754,7 @@ include("analysis/coordinate_semantics.jl")
 include("analysis/spatial_proximity.jl")
 include("analysis/spatial_topology.jl")
 include("analysis/spatial_routes.jl")
+include("analysis/spatial_review_evidence.jl")
 include("analysis/spatial_review.jl")
 include("analysis/spatial_review_decisions.jl")
 include("analysis/switch_scenarios.jl")
@@ -786,6 +787,7 @@ include("network/simplify.jl")
 include("report/formatting.jl")
 include("report/render_terminal.jl")
 include("report/render_markdown.jl")
+include("report/spatial_review_export.jl")
 include("report/render_ascii_tree.jl")
 include("report/render_solution_markdown.jl")
 include("report/render_json.jl")
@@ -3104,6 +3106,7 @@ export integrity_check
 export spec_conformance_check
 export benchmark_readiness_check
 export spatial_review_decision, apply_spatial_review, spatial_review_geojson
+export render_spatial_review, export_spatial_review
 export render_ascii_tree
 export augment_case, AugmentationRecipe, default_recipe
 export fix_case, FixRecipe

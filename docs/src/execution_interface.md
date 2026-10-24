@@ -303,3 +303,13 @@ Julia evaluation, or contact the companion book. The book remains the authority
 for what a PSK statement establishes. This interface reports what BMOPFTools
 checked on the supplied models. The MCP adapter exposes exactly this curated
 surface and response schema; it does not introduce another execution model.
+
+### Suppressing geospatial analysis
+
+Spatial analysis runs by default when bus coordinate fields are present. Use
+`execute_analysis(net; spatial_enabled=false)`, CLI `analyze-case --no-spatial`,
+or the MCP `bmopf_analyze` argument `"spatial_enabled": false` to skip it.
+The Boolean defaults to `true` and is recorded in response request parameters.
+Suppression leaves other analyses active and returns an explicit spatial
+`inapplicable` / `disabled` record, with `analysis_performed=false`.
+The analysis recipe exercises this opt-out on a synthetic case with coordinates.

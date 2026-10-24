@@ -36,5 +36,13 @@ coil_screen["proves_infeasibility"] == false || error("screen was promoted to a 
 any(f -> f["code"] == "W.PRE.XFMR_COIL_HEADROOM", coil_response["result"]["findings"]) ||
     error("missing nominal headroom warning")
 
+# The curated opt-out suppresses the whole spatial pass even with coordinates.
+spatial_path = joinpath(root, "test", "data", "spatial_shared_infrastructure.json")
+spatial_case = parse_bmopf(spatial_path)
+suppressed = execute_analysis(spatial_case; spatial_enabled=false)
+suppressed["request"]["parameters"]["spatial_enabled"] === false || error("opt-out not recorded")
+skipped = suppressed["result"]["results"]["connectivity"]["spatial"]
+skipped["reason"] == "disabled" && skipped["analysis_performed"] === false || error("spatial analysis was not skipped")
+
 JSON3.pretty(stdout, response, JSON3.AlignmentContext(; indent=UInt16(2)))
 println()

@@ -14,6 +14,8 @@ interface_paths = [
   "scripts/bmopf_cli.jl",
   "schemas/execution-response.schema.json",
   "src/execution/interface.jl",
+  "test/execution_interface_tests.jl",
+  "test/mcp_execution_tests.jl",
   "src/analysis/connectivity.jl",
   "src/analysis/switch_scenarios.jl",
   "src/analysis/operational.jl",
@@ -28,6 +30,8 @@ interface_paths = [
   "src/analysis/spatial_topology.jl",
   "src/analysis/spatial_routes.jl",
   "src/analysis/spatial_review.jl",
+  "src/analysis/spatial_review_evidence.jl",
+  "src/report/spatial_review_export.jl",
   "src/analysis/spatial_review_decisions.jl",
   "examples/spatial_cleanup_review.jl",
   "config/default.toml",
@@ -37,6 +41,12 @@ interface_paths = [
   "src/report/render_markdown.jl",
   "src/report/render_terminal.jl",
   "docs/src/analysis.md",
+  "docs/src/spatial_diagnostics.md",
+  "docs/src/assets/spatial/shared-infrastructure.svg",
+  "docs/src/assets/spatial/direct-series.svg",
+  "docs/src/assets/spatial/length-evidence.svg",
+  "docs/src/assets/spatial/review-workflow.svg",
+  "docs/src/api.md",
   "docs/src/findings.md",
   "test/topology_structure_tests.jl",
   "test/switch_scenario_tests.jl",
@@ -46,6 +56,7 @@ interface_paths = [
   "test/spatial_topology_tests.jl",
   "test/spatial_route_tests.jl",
   "test/spatial_review_tests.jl",
+  "test/spatial_review_export_tests.jl",
   "test/spatial_shared_infrastructure_tests.jl",
   "test/data/spatial_shared_infrastructure.json",
   "test/data/spatial_review_calibration.json",
@@ -58,7 +69,7 @@ interface_paths = [
   "test/fixtures/delta_wye_secondary_leakage.json",
   "test/fixtures/parallel_transformer_load.json",
 ]
-input_paths = ["recipes/analyze_case/input.json", "test/data/transformer_loading/overloaded_coil.json"]
+input_paths = ["recipes/analyze_case/input.json", "test/data/transformer_loading/overloaded_coil.json", "test/data/spatial_shared_infrastructure.json"]
 tutorial_paths = [
   "docs/src/tutorial_triage.md",
   "docs/src/tutorial_nameplate.md",

@@ -766,7 +766,7 @@ function _md_section_findings(r::SummaryReport, io::IO, section::Symbol)
     println(io)
 end
 
-function _md_spatial_cleanup_review(review, io::IO)
+function _md_spatial_cleanup_review(review, io::IO; item_limit=20)
     review isa AbstractDict || return
     println(io, "**Cleanup review:** $(review["status"]) ($(review["reason"])); " *
         "$(length(review["items"])) captured items in $(length(review["locations"])) exact review locations. " *
@@ -808,13 +808,13 @@ function _md_spatial_cleanup_review(review, io::IO)
     println(io, "\nThese are observation counts, not error counts. Confirmed issues are recorded separately as reviewer dispositions. " *
         "Context alone does not imply a required correction.\n")
     println(io, "**Needs inspection or information**\n")
-    _md_spatial_review_items(review, io, "attention")
+    _md_spatial_review_items(review, io, "attention"; limit=item_limit)
     println(io, "<details>\n<summary>Contextual observations — overlap alone is not an issue</summary>\n")
-    _md_spatial_review_items(review, io, "context")
+    _md_spatial_review_items(review, io, "context"; limit=item_limit)
     println(io, "</details>\n")
     if any(i -> _spatial_review_bucket(i) == "reviewed", review["items"])
         println(io, "<details>\n<summary>Accepted or resolved by a reviewer</summary>\n")
-        _md_spatial_review_items(review, io, "reviewed")
+        _md_spatial_review_items(review, io, "reviewed"; limit=item_limit)
         println(io, "</details>\n")
     end
 end
@@ -873,6 +873,7 @@ function _md_spatial_review_items(review, io, bucket; limit=20)
                 println(io, "\n  Uncertainty: $(_spatial_md_text(assessment["uncertainty"]))")
                 println(io, "\n  Inspect: $(_spatial_md_text(assessment["inspect"]))")
             end
+            _md_spatial_interpretation_evidence(get(item, "interpretation_evidence", nothing), io)
             println(io, "\n  Geometry basis: $(_spatial_md_text(item["geometry_basis"])); " *
                 "$(item["geometry_coverage"]["n_buses_with_eligible_coordinates"])/$(item["geometry_coverage"]["n_identified_buses"]) identified buses located; " *
                 "subject list complete: $(item["geometry_coverage"]["subject_list_complete"]).")
@@ -893,4 +894,38 @@ function _md_spatial_review_items(review, io, bucket; limit=20)
         end
     end
     println(io, "\nShowing $(length(shown)) of $(length(selected)) $bucket observations; JSON retains all captured items.\n")
+end
+
+function _md_spatial_interpretation_evidence(evidence, io)
+    evidence isa AbstractDict || return
+    println(io, "\n  **Direct / series decision evidence**\n")
+    for (role, branch) in [("direct", evidence["direct"]); [("series", b) for b in evidence["series"]]]
+        label = "$role line $(branch["line_id"]): $(branch["path_from"]) $(branch["terminal_map_from"]) → $(branch["path_to"]) $(branch["terminal_map_to"])"
+        println(io, "  - $(_spatial_md_text(label))")
+        lengths = branch["length_context"]
+        if lengths !== nothing
+            values = ["$(replace(key, "_"=>" ")): $(something(lengths[key], "unavailable"))" for key in
+                ("declared_length_m", "physical_length_m", "chord_m", "recomputed_route_length_m")]
+            println(io, "    Length evidence: $(_spatial_md_text(join(values, "; "))). Comparison basis: $(_spatial_md_text(lengths["comparison_basis"])).")
+        end
+        declarations = branch["model_declarations"]
+        isempty(declarations) && println(io, "    Model provenance: unavailable within the supported metadata fields.")
+        for record in declarations
+            println(io, "    Source declaration `$(_spatial_md_text(join(record["path"], ".")))`: $(_spatial_md_text(record["value"]))")
+        end
+    end
+    for comparison in evidence["terminal_comparisons"]
+        println(io, "\n  Terminal sets at $(_spatial_md_text(comparison["bus_id"])): $(_spatial_md_text(comparison["relation"])).")
+    end
+    for bus in evidence["intermediate_buses"]
+        attachments = bus["attachments"]
+        counts = ["$kind=$(count(a -> a["kind"] == kind, attachments))" for kind in sort!(unique([a["kind"] for a in attachments]))]
+        println(io, "\n  Intermediate bus $(_spatial_md_text(bus["bus_id"])): $(isempty(counts) ? "no listed attachments" : _spatial_md_text(join(counts, ", "))). " *
+            "Explicit perfectly grounded terminals: $(_spatial_md_text(something(bus["perfectly_grounded_terminals"], "not declared"))).")
+        for attachment in Iterators.take(attachments, 8)
+            println(io, "  - $(_spatial_md_text(attachment["kind"])):$(_spatial_md_text(attachment["component_id"])); terminal map $(_spatial_md_text(attachment["terminal_map"]))")
+        end
+        length(attachments) > 8 && println(io, "  Additional attachment identities are retained in JSON.")
+    end
+    println(io, "\n  $(_spatial_md_text(evidence["scope"]))\n")
 end

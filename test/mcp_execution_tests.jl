@@ -61,6 +61,20 @@ using JSONSchema
         @test !isempty(analysis_payload["result"]["findings"])
         @test JSONSchema.validate(schema, JSON3.read(JSON3.write(analysis_payload))) === nothing
 
+        @test analysis_payload["request"]["parameters"]["spatial_enabled"] === true
+        analysis_tool = only(filter(t -> t["name"] == "bmopf_analyze", tools["result"]["tools"]))
+        @test analysis_tool["inputSchema"]["properties"]["spatial_enabled"]["type"] == "boolean"
+        spatial_path = joinpath(root, "test", "data", "spatial_shared_infrastructure.json")
+        disabled = mcp.mcp_handle_request(tool_call(60, "bmopf_analyze",
+            Dict("path" => spatial_path, "spatial_enabled" => false)))["result"]["structuredContent"]
+        @test disabled["request"]["parameters"]["spatial_enabled"] === false
+        @test disabled["result"]["results"]["connectivity"]["spatial"]["reason"] == "disabled"
+        @test JSONSchema.validate(schema, JSON3.read(JSON3.write(disabled))) === nothing
+        for invalid in ("false", 0, nothing)
+            @test_throws ArgumentError mcp.mcp_execute_tool("bmopf_analyze",
+                Dict("path" => spatial_path, "spatial_enabled" => invalid))
+        end
+
         solution_root = joinpath(root, "test", "fixtures", "negative",
                                  "claimed-feasible-invalid-solution")
         verified = mcp.mcp_handle_request(tool_call(

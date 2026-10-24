@@ -43,6 +43,7 @@ makedocs(
         ],
         "Analysis & diagnostics"  => [
             "Analysis & reports"       => "analysis.md",
+            "Spatial diagnostics & cleanup review" => "spatial_diagnostics.md",
             "Scientific contracts"     => "scientific_contracts.md",
             "Finding-code reference"   => "findings.md",
             "Findings triage tutorial" => "tutorial_triage.md",

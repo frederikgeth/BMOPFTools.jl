@@ -1,3 +1,7 @@
+# Standalone spatial review exports and path-oriented decision evidence are
+# package-local presentation APIs; source declarations do not certify provenance.
+# The curated analysis API, CLI and MCP expose a Boolean spatial opt-out; the
+# analyze_case recipe tests the disabled status without arbitrary config dispatch.
 # Spatial analysis is automatic with bus coordinates; spatial.enabled=false skips
 # all spatial work and emits explicit inapplicable/disabled report status.
 # Shared-infrastructure context uses voltage labels without inferring poles or circuit identity.

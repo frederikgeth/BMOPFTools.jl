@@ -8,18 +8,7 @@ function write_spatial_cleanup_bundle(net, outdir; decisions=Any[], config=load_
     haskey(spatial, "cleanup_review") || throw(ArgumentError("spatial cleanup review unavailable: $(spatial["reason"])"))
     review = apply_spatial_review(spatial["cleanup_review"], decisions)
     spatial["cleanup_review"] = review
-    mkpath(outdir)
-    for (filename, data) in (("review.json", review), ("review.geojson", spatial_review_geojson(review)),
-            ("decisions-template.json", Dict("schema_version" => "spatial-cleanup-review/v1", "decisions" => Any[])))
-        # Never replace a user's existing decision ledger/template.
-        filename == "decisions-template.json" && isfile(joinpath(outdir, filename)) && continue
-        open(joinpath(outdir, filename), "w") do io
-            JSON3.pretty(io, BMOPFTools._jsonable(data))
-        end
-    end
-    open(joinpath(outdir, "review.md"), "w") do io
-        BMOPFTools._md_spatial_cleanup_review(review, io)
-    end
+    export_spatial_review(review, outdir)
     review
 end
 
