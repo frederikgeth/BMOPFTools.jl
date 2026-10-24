@@ -12,6 +12,43 @@
 #   - diagonal or resistive-only linecodes to enable closed-form derivations
 #   - grounded neutral where not under test
 
+@testset "IBR current starts preserve complex power (PSK-000013)" begin
+    ext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
+    # Check the physical identity, independently of the rectangular expansion.
+    # Rotated phases and a displaced reference catch both reactive-power signs.
+    for (vbase, sbase) in ((1.0, 1.0), (240.0, 100_000.0)),
+        angle in (0.0, -2pi/3, 2pi/3), q in (-3000.0, 0.0, 3000.0),
+        affine in (false, true)
+        model = JuMP.Model()
+        voltage = 240.0 * cis(angle) / vbase
+        reference = affine ? (7.0 - 4.0im) / vbase : 0.0im
+        vr = @variable(model, start=real(voltage + reference))
+        vi = @variable(model, start=imag(voltage + reference))
+        nr = @variable(model, start=real(reference))
+        ni = @variable(model, start=imag(reference))
+        ir = @variable(model)
+        ii = @variable(model)
+        target = complex(10_000.0, q) / sbase
+        ext._warmstart_ibr_current!(ir, ii,
+            affine ? vr - nr : vr, affine ? vi - ni : vi,
+            real(target), imag(target))
+        current = complex(JuMP.start_value(ir), JuMP.start_value(ii))
+        @test voltage * conj(current) ≈ target rtol=1e-12
+    end
+    # A zero/missing voltage start must not cause division by zero or overwrite
+    # an existing current seed. A zero-power target at nonzero voltage is valid.
+    model = JuMP.Model()
+    vr = @variable(model)
+    vi = @variable(model)
+    ir = @variable(model, start=2.0)
+    ii = @variable(model, start=-3.0)
+    ext._warmstart_ibr_current!(ir, ii, vr, vi, 1.0, 1.0)
+    @test (JuMP.start_value(ir), JuMP.start_value(ii)) == (2.0, -3.0)
+    JuMP.set_start_value(vr, 240.0)
+    ext._warmstart_ibr_current!(ir, ii, vr, vi, 0.0, 0.0)
+    @test (JuMP.start_value(ir), JuMP.start_value(ii)) == (0.0, 0.0)
+end
+
 include(joinpath(@__DIR__, "fixtures", "MockOpfExtension", "src",
                  "MockOpfExtension.jl"))
 using .MockOpfExtension

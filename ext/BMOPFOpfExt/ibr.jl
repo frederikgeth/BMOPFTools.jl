@@ -43,24 +43,19 @@ function _add_ibr_variables!(model, net)
     cri, cii
 end
 
-# Warm-start an IBR phase current variable near the *physical* (high-voltage,
-# low-current) root of the bilinear power equations. The pinned-/box-power
-# problem P_k = dvr·cri + dvi·cii also admits a spurious low-voltage/high-current
-# root; from the default cri=cii=0 start Ipopt can slide into it, and per-unit
-# scaling (tiny currents/powers) makes that far more likely — collapsing FOUR_LEG
-# phase voltages. Seeding I ≈ conj(S)/conj(V) at the terminals' nominal voltage
-# start (already set by `_set_voltage_start_values!`, in whatever unit system the
-# model is built) puts the initial guess on the physical branch in BOTH SI and
-# per-unit modes, since S = V·conj(I) ⇒ I = conj(S/V) = conj(S)/conj(V).
+# Seed an IBR phase current consistently with its target complex power and the
+# transported voltage start, in SI or per-unit coordinates. This guides the
+# nonlinear solve near the voltage start; it does not certify which root Ipopt
+# will find (PSK-000013). S = V·conj(I) implies I = conj(S/V).
 function _warmstart_ibr_current!(cri_var, cii_var, dvr, dvi, p_tgt, q_tgt)
     # dvr/dvi are the phase-to-reference voltage-difference expressions; read their
     # value at the current variable starts (the voltage vars are already seeded).
     vr0 = _safe_start_value(dvr); vi0 = _safe_start_value(dvi)
     v2  = vr0^2 + vi0^2
-    v2 > 1e-12 || return                       # degenerate start — leave at 0
-    # I = conj(S)/conj(V): cri = (P·vr − Q·vi)/|V|², cii = (P·vi + Q·vr)/|V|²
-    JuMP.set_start_value(cri_var, (p_tgt*vr0 - q_tgt*vi0) / v2)
-    JuMP.set_start_value(cii_var, (p_tgt*vi0 + q_tgt*vr0) / v2)
+    v2 > 1e-12 || return                       # degenerate voltage — retain existing seed
+    # I = conj(S/V): cri = (P·vr + Q·vi)/|V|², cii = (P·vi − Q·vr)/|V|²
+    JuMP.set_start_value(cri_var, (p_tgt*vr0 + q_tgt*vi0) / v2)
+    JuMP.set_start_value(cii_var, (p_tgt*vi0 - q_tgt*vr0) / v2)
     return
 end
 
