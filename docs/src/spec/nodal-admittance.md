@@ -67,6 +67,13 @@ isolated terminal a nonzero row, so isolation alone does not imply a singular
 `Y`. [`connectivity_analysis`](@ref) reports open-switch endpoints without a
 closed path to a source as `open_switch_isolated_buses`.
 
+Aliasing and ideal-transformer constraint rows replace only the **series**
+coupling. Finite magnetising and internal neutral-grounding branches remain
+in the passive block, scattered through the same alias/earth-reference map.
+They are stamped exactly once, including when `ideal_xfmrs=:stamp` is used.
+This preserves the represented grounding branch; it does not establish
+grounding adequacy or equipment safety (PSK-000002).
+
 !!! note "Ideal transformers with a non-unity ratio"
     A zero-leakage transformer with ``N \neq 1`` cannot be node-aliased (the two
     sides are not identical) and has no finite ``Y_{\text{prim}}``. In

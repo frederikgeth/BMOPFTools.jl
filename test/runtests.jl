@@ -4011,6 +4011,7 @@ include("mcp_execution_tests.jl")
     # always runs.
     # -----------------------------------------------------------------------
     include("ybus_augmented_tests.jl")
+    include("ideal_transformer_shunt_tests.jl")
 
     # -----------------------------------------------------------------------
     # General n-winding (3+) transformers — accessors, validation, Yprim, and

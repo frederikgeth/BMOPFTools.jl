@@ -183,7 +183,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
     end
     skip = Set{Tuple{String,String}}((s, i) for (s, i, _) in promoted)
 
-    # Passive block (promoted units bypass the singular Yprim stamp entirely).
+    # Passive block (promoted units retain their finite shunts, not series stamps).
     I = Int[]; J = Int[]; V = ComplexF64[]
     _stamp_passive!(I, J, V, net, idx, config; skip_transformers=skip)
     n = length(idx.nodes)

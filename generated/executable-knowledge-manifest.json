@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "fe30c25b94c23ad863106293035845f072caedb012081423a8b2bbbe02a37a61",
+  "corpus_sha256": "49a89cb37850474ca4aece21d310847e45e2c35a0037fd23097e4346237f95aa",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -137,6 +137,10 @@
       "sha256": "fa03664ec601fdb35369cd654f52d38489a755e3a41bdec51f19296289df61e5"
     },
     {
+      "path": "docs/src/spec/nodal-admittance.md",
+      "sha256": "0ca9acadeeadb077783d6b676513ab575d6b66ed25855c638ace7938c49fbe3e"
+    },
+    {
       "path": "docs/src/transformer_models.md",
       "sha256": "89baf96867ed0d9c3e741414e44efb8f6ccc515cb80ce6e5b797604b9176bf36"
     },
@@ -254,7 +258,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "2cdf7d231d70cf2836154156619036e909f51c83cf08608a6e65ae9c271f8602"
+      "sha256": "94bdb091344dc388484f1874c1376dc23001917815db38d56443faf69a88297a"
     },
     {
       "path": "recipes/README.md",
@@ -510,11 +514,15 @@
     },
     {
       "path": "src/io/to_ybus.jl",
-      "sha256": "d5cebd6a5af709d2bebc9c89cdc976abc2948855d356ccfbc7a8b3aa20e729f9"
+      "sha256": "42263c5271c1a81ed3bb93aa43a2c9bba3b489666c32eddcc2230e833423236b"
     },
     {
       "path": "src/io/ybus.jl",
-      "sha256": "d6daffabed40b6b1b6c1fd8f3dd71b13a0ca721e3dda77cb086f8ce546acc225"
+      "sha256": "bfdcdaae8ca859db0894552d0625b98b0d365279b9ea2bc08ac1a7c51dc2275b"
+    },
+    {
+      "path": "src/io/ybus_augmented.jl",
+      "sha256": "f2e5be7f7580cf5e67ca0978bd12bb5a882904fda1fbb2b4a6d1b06a1bc6350f"
     },
     {
       "path": "src/knowledge/contracts.jl",
@@ -651,6 +659,10 @@
     {
       "path": "test/data/ibr_reactive_limits/pf_capability.json",
       "sha256": "5f81ed9a446621eaef61c38cf889434ac927ec2b820c61960ffac862298eea1e"
+    },
+    {
+      "path": "test/data/ideal_transformer_shunts.json",
+      "sha256": "5e5848a88016ea18ee5ca2cfaa8291be020482090486675e4947a5051077cc3d"
     },
     {
       "path": "test/data/line_geometry/opendss_reference.json",
@@ -1171,6 +1183,10 @@
     {
       "path": "test/ibr_reactive_limits_tests.jl",
       "sha256": "daa70aac4f70853557fff2131b19bc535c21063d58faaa13f0cf2d1e207cd448"
+    },
+    {
+      "path": "test/ideal_transformer_shunt_tests.jl",
+      "sha256": "ad6ec255269d17dbafe3cb9db6b435901f4c0868c2f67be857a181963aedf72c"
     },
     {
       "path": "test/ipopt_barrier_benchmark_tests.jl",
