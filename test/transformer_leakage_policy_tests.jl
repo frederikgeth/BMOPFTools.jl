@@ -28,6 +28,41 @@ function _leakage_net(kind; z=0.0, ratio=2.0, tap=1.0)
 end
 _leakage_config(z) = Dict("domain_rules"=>Dict("xfmr_z_min_ohm"=>z))
 
+@testset "Ybus nominal-voltage domain (PSK-000002)" begin
+    for kind in ("single_phase", "center_tap", "wye_delta", "delta_wye"),
+        z in (0., 1e-9, .01), key in ("v_nom_from", "v_nom_to"),
+        value in (nothing, 0., -230., true, "230", Inf, NaN)
+        net, x = _leakage_net(kind; z)
+        value === nothing ? delete!(x, key) : (x[key] = value)
+        before = deepcopy(net)
+        for builder in (ybus_passive, ybus_linearized, ybus_augmented)
+            @test_throws ArgumentError builder(net)
+        end
+        @test_throws ArgumentError ybus_augmented(net; ideal_xfmrs=:stamp)
+        @test_throws ArgumentError transformer_yprim(x, kind)
+        @test_throws ArgumentError transformer_yprim(x, kind; shunt_only=true)
+        @test isequal(net, before)
+        if value !== Inf && !isequal(value, NaN)
+            rt = JSON3.read(JSON3.write(net), Dict{String,Any})
+            @test_throws ArgumentError ybus_augmented(rt)
+        end
+    end
+    # Positive boundaries may be tiny, but an unrepresentable ratio is refused.
+    net, x = _leakage_net("single_phase")
+    for v in (nextfloat(0.), 230., floatmax(Float64))
+        x["v_nom_from"] = x["v_nom_to"] = v
+        @test length(ybus_augmented(net).couplings) == 1
+    end
+    for (a, b) in ((nextfloat(0.), floatmax(Float64)), (floatmax(Float64), nextfloat(0.)))
+        x["v_nom_from"] = a; x["v_nom_to"] = b
+        @test_throws ArgumentError ybus_augmented(net)
+    end
+    # The minimized shunt witness formerly acquired a fictitious unity ratio.
+    witness = JSON3.read(read(joinpath(@__DIR__, "data", "ideal_transformer_shunts.json"), String), Dict{String,Any})
+    witness["transformer"]["single_phase"]["t"]["v_nom_to"] = 0.
+    @test_throws ArgumentError ybus_augmented(witness)
+end
+
 @testset "Transformer leakage representation policy (#453)" begin
     for kind in ("single_phase","wye_delta","delta_wye","center_tap",
                  "single_phase_autotransformer","open_delta_regulator","n_winding")
