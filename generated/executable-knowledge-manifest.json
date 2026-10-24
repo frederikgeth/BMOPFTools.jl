@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "4d74e8340e5e62c95d277af7213aeaa78a1cfe942b53d32a427bffdcef0431ed",
+  "corpus_sha256": "bd82f63ed50cfe632644adbf48bf8b283ea614ce8235f6894d5a608c9668ec42",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -258,7 +258,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "4e25ca83d75987f221447bf02571a4e70d13f91104644b55c7337487d2ef9619"
+      "sha256": "a4c0b756f2a365ef46dd9eb0dcc5fa1a08580aecc968bc9fe2ba3583a538a7d5"
     },
     {
       "path": "recipes/README.md",
@@ -611,6 +611,10 @@
     {
       "path": "test/Project.toml",
       "sha256": "9a71d52e3362a29b5cf0262fe709b5465c0ca4530610415909cdf9f293e6eab1"
+    },
+    {
+      "path": "test/admittance_tests.jl",
+      "sha256": "832a9d6b565b3dd92c661e41dc63a4beeb5086644b56c9b09b0f777b57c16dfd"
     },
     {
       "path": "test/case_development_opf_tests.jl",

@@ -964,6 +964,7 @@ source_paths = [
   "test/data/parameter_updates/stale_evaluation.jl",
   "test/powerflow_comparison_tests.jl",
   "test/data/pf_comparison/pf_pv_4leg.dss",
+  "test/admittance_tests.jl",
   "test/Project.toml",
   "test/opf_engine_review_tests.jl",
   "docs/src/dev/opf_engine.md",
