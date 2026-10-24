@@ -1,0 +1,40 @@
+{
+  "bus": {
+    "f": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    },
+    "t": {
+      "terminal_names": [
+        "a",
+        "n",
+        "b"
+      ]
+    }
+  },
+  "transformer": {
+    "center_tap": {
+      "x": {
+        "bus_from": "f",
+        "bus_to": "t",
+        "terminal_map_from": [
+          "a",
+          "n"
+        ],
+        "terminal_map_to": [
+          "a",
+          "n",
+          "b"
+        ],
+        "v_nom_from": 460.0,
+        "v_nom_to": 230.0,
+        "r_series_from": 0.02,
+        "r_series_to": 0.0,
+        "g_no_load": 0.003,
+        "r_neutral_to": 2.0
+      }
+    }
+  }
+}

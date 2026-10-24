@@ -87,6 +87,10 @@ end
                     @test length(r.couplings)==(kind in ("single_phase","single_phase_autotransformer") ? 1 : kind=="open_delta_regulator" ? 2 : 3)
                     @test Matrix(r.K[n+1:end,n+1:end]) ≈ -Diagonal([p.impedances[min(k,end)] for k in 1:length(r.couplings)])
                     @test r.index[("f","a")] != r.index[("t","a")]
+                elseif kind=="center_tap"
+                    r=ybus_augmented(net)
+                    @test length(r.couplings)==2
+                    @test r.K ≈ transpose(r.K)
                 else
                     @test_throws ArgumentError ybus_augmented(net)
                 end

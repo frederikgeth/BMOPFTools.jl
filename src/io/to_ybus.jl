@@ -254,6 +254,7 @@ end
 # Each block supplies coil incidence and the corresponding impedance matrix.
 # Ordinary/regulator cores are independent; multiport subtypes extend this seam.
 function _xfmr_port_blocks(x, subtype)
+    subtype == "center_tap" && return _center_tap_port_blocks(x)
     inc=_xfmr_winding_incidence(x,subtype)
     zs=_xfmr_leakage_values(x,subtype)
     [(_WindingIncidence[ent],fill(ComplexF64(zs[min(k,end)]),1,1)) for (k,ent) in enumerate(inc)]
@@ -906,4 +907,22 @@ function nwinding_yprim(xfmr::Dict{String,Any}; config=_DEFAULT_CONFIG)
     end
 
     nodes, Y
+end
+
+
+# Two LV-referred ports eliminate the inaccessible star potential without
+# inverting any arm: uH-uL1=zH*(i1+i2)+zL*i1 and
+# uH-uL2=zH*(i1+i2)+zL*i2. The second LV coil is dotted at the centre tap.
+function _center_tap_port_blocks(x)
+    tf=string.(get(x,"terminal_map_from",String[])); tt=string.(get(x,"terminal_map_to",String[]))
+    length(tf)==2 && length(tt)==3 && allunique(tf) && allunique(tt) ||
+        throw(ArgumentError("center_tap requires distinct [phase,neutral] and [leg1,neutral,leg2] terminals"))
+    n=_xfmr_checked_ratio(_xfmr_turns_ratio(x)*_xfmr_tap_mult(x))
+    f=string(x["bus_from"]); t=string(x["bus_to"])
+    h=[(f,tf[1]),(f,tf[2])]
+    inc=_WindingIncidence[
+        (w1_nodes=h,w1_coeffs=[1/n,-1/n],w2_nodes=[(t,tt[1]),(t,tt[2])],w2_coeffs=[1.,-1.],ratio=1.),
+        (w1_nodes=h,w1_coeffs=[1/n,-1/n],w2_nodes=[(t,tt[2]),(t,tt[3])],w2_coeffs=[1.,-1.],ratio=1.)]
+    z=_xfmr_leakage_values(x,"center_tap"); zh=z[1]; zl=z[2]
+    [(inc,ComplexF64[zh+zl zh; zh zh+zl])]
 end
