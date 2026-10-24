@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "5d84e1fd217880f701988820156c49640a9bdc34e4e107d6938f2c9a23217868",
+  "corpus_sha256": "bae0d5e5e100bfc4066251203068e74ecf4de5611b3a1fdf7941a13f311ec48b",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -138,7 +138,7 @@
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",
-      "sha256": "0393fd3e280e4b475ecb7b38f769206f7b82b2e5a915d15a7811ba0d3c4ffff0"
+      "sha256": "af4e5fb94cb69f3a40228e3a33d1d9c81faab1d34788f66b99d3a80f62c65594"
     },
     {
       "path": "docs/src/transformer_models.md",
@@ -258,7 +258,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "1efa9f6adffedb458b5c19bef1126cfdda911fa0ebcb3daff598d51f9813f8bd"
+      "sha256": "79d985fb58db213590f9c0eecc6cbd076d1b178b53ca886505aa970fd1382b0b"
     },
     {
       "path": "recipes/README.md",
@@ -518,7 +518,7 @@
     },
     {
       "path": "src/io/to_ybus.jl",
-      "sha256": "922489ca6bfcc901c5f27f16d94ea9d0f405f8bbb06d710c44c16ebc3c0061ef"
+      "sha256": "e0d8bf927ad269013b6db2171b3a187083a00c1bc5c27401bed2042923f0fb72"
     },
     {
       "path": "src/io/transformer_leakage.jl",
@@ -526,11 +526,11 @@
     },
     {
       "path": "src/io/ybus.jl",
-      "sha256": "ad1329f812f15fbabcfced325a53ef0b7a35e5e6e4826d019a607ee180e8e1a2"
+      "sha256": "83b7b58fb6ebcddffaab759f3d49f87c1b25a1d6a05faa6de02d8a0986c282fb"
     },
     {
       "path": "src/io/ybus_augmented.jl",
-      "sha256": "1fd5b86234f8f0beb22ed1057e84de2ec4d06e26caa755e2b8a6219d3d922942"
+      "sha256": "be6ccd2e06b28e289e5bc7e22829a7343bb92e04a3c5810e16a5d6181c35d6fb"
     },
     {
       "path": "src/io/ybus_linearized.jl",
@@ -1222,7 +1222,7 @@
     },
     {
       "path": "test/ideal_nwinding_tests.jl",
-      "sha256": "7045fecedb4d0500c9ae2289da4e0074494bb06f7a24d95d63de56b11eb07980"
+      "sha256": "052660144acc73d7f03b8be1247ea5836794320a5affd34cdd5770b1f7bf8613"
     },
     {
       "path": "test/ideal_regulator_tests.jl",

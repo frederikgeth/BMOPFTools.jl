@@ -1000,3 +1000,22 @@ function _nwinding_port_blocks(x)
     end
     blocks
 end
+
+# Validate network references before aliases or stamps can turn an absent node
+# into earth (PSK-000002). Implicit WYE earth is represented by omitting the
+# neutral from the winding map, never by naming an undeclared terminal.
+function _validate_nw_ybus_references(net)
+    buses = get(net, "bus", Dict())
+    for (id, x) in get(get(net, "transformer", Dict()), "n_winding", Dict())
+        _validate_nw_ybus_domain(x)
+        for (k, w) in enumerate(x["windings"])
+            bus = get(buses, w["bus"], nothing)
+            bus isa AbstractDict || throw(ArgumentError(
+                "n_winding '$id' winding $k references an undeclared bus"))
+            terminals = get(bus, "terminal_names", nothing)
+            terminals isa AbstractVector && all(t -> t in terminals, w["terminal_map"]) ||
+                throw(ArgumentError("n_winding '$id' winding $k references an undeclared terminal"))
+        end
+    end
+    nothing
+end

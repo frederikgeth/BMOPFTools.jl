@@ -191,6 +191,7 @@ constraint rows instead (yielding the switch currents as solution unknowns).
 """
 function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
                      alias_switches::Bool=true)
+    _validate_nw_ybus_references(net)
     thresh = _domain_thresholds(config)
     linecodes = get(net, "linecode", Dict())
 

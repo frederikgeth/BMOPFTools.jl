@@ -25,6 +25,8 @@
 # preserve the explicit nominal-demand versus supplied-result distinction.
 # Transformer Ybus nominal voltages are explicit positive finite declarations;
 # invalid or missing values never inherit the legacy unity-ratio fallback.
+# N-winding assembly validates declared network buses and terminals before
+# aliasing; a missing reference never substitutes for explicit or implicit earth.
 schema_version = "0.6.0"
 
 [[contract]]
