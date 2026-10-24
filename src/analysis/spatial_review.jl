@@ -217,7 +217,7 @@ function _spatial_review_assessment(w, rule, evidence_class)
         "voltage_context" => voltage, "error_probability" => nothing)
 end
 
-_spatial_review_category(item) = get(get(item, "assessment", Dict()), "category", "review_candidate")
+_spatial_review_category(item) = get(get(item, "assessment", Dict()), "category", "needs_information")
 function _spatial_review_bucket(item)
     disposition = item["review"]["disposition"]
     disposition in ("accepted_modeling", "resolved") && return "reviewed"

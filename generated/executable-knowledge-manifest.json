@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "dd39dda2c11e6b36061df7b66c26d02bbc2243958e19bcb65a60554e9852baf6",
+  "corpus_sha256": "16c14a39b4016b2ca9fe8e17d78b899f273b4b97d2a4b39248b5a4faf1fecd34",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -426,7 +426,7 @@
     },
     {
       "path": "src/analysis/spatial_review.jl",
-      "sha256": "433fa1dda14f34ec068b5ba957d2dbec8eaecb7fff315e3f7a23416f2d5957a0"
+      "sha256": "4f1fc0559bddffab27cb07e077832ba40560d59a08489a15dbef8e95b74b00d1"
     },
     {
       "path": "src/analysis/spatial_review_decisions.jl",
@@ -590,7 +590,7 @@
     },
     {
       "path": "src/report/render_markdown.jl",
-      "sha256": "e3cbd300933a006dd50d4df817877e267ba99fbd99d993a2609cf1b1e76de053"
+      "sha256": "8def761f87e9e6df85f248807550e34010714547816de6410f0794a0d9d89f5c"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -1430,7 +1430,7 @@
     },
     {
       "path": "test/spatial_shared_infrastructure_tests.jl",
-      "sha256": "c8631572c454503acc024d6870f043e3acc95d693bb2007ab218454b923f12e4"
+      "sha256": "50cd2214719729fbc22b92de32bdcb1d962ed84d76432a511ea42a0e66a1ec02"
     },
     {
       "path": "test/spatial_topology_tests.jl",

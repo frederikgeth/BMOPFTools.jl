@@ -133,4 +133,35 @@ using Test, BMOPFTools, JSON3
     @test !review(; max_review_candidates=1)["queue_complete"]
     @test sum(values(r["category_counts"])) == r["n_items"]
     @test sum(sum(values(g["category_counts"])) for g in r["locations"]) == r["n_items"]
+    # Existing v1 payloads remain readable without inventing new category totals.
+    legacy = deepcopy(r)
+    for item in legacy["items"]
+        delete!(item, "assessment"); delete!(item, "coordinate_evidence")
+        item["evidence_fingerprint"] = BMOPFTools._spatial_review_item_fingerprint(item)
+    end
+    delete!(legacy, "category_counts")
+    legacy_md = sprint(io -> BMOPFTools._md_spatial_cleanup_review(legacy, io))
+    @test occursin("Classification unavailable for legacy", legacy_md)
+    @test !occursin("| context only | 0 |", legacy_md)
+    @test occursin("Showing 3 of 3 attention observations", legacy_md)
+    @test apply_spatial_review(legacy, Any[])["presentation_counts"]["attention"] == 3
+    confirmed_md = sprint(io -> BMOPFTools._md_spatial_cleanup_review(confirmed, io))
+    @test occursin("Reviewer: synthetic", confirmed_md)
+    @test occursin("Rationale:", confirmed_md)
+    @test occursin("\n\n  Interpretation:", md)
+    @test occursin("reported accuracy", md)
+    # The public renderer and JSON adapter carry the new assessment end to end.
+    sample = parse_bmopf(joinpath(@__DIR__, "..", "recipes", "analyze_case", "input.json"))
+    sample["meta"] = Dict("crs"=>"WGS84")
+    for bus in values(sample["bus"]); bus["longitude"] = 153.; bus["latitude"] = -27.; end
+    response = execute_analysis(sample)
+    public_review = response["result"]["results"]["connectivity"]["spatial"]["cleanup_review"]
+    @test all(i -> haskey(i, "assessment"), public_review["items"])
+    mktempdir() do dir
+        file = joinpath(dir, "report.md")
+        render(analyze(sample), file)
+        @test occursin("Automated evidence category", read(file, String))
+        @test occursin("Contextual observations", read(file, String))
+    end
+
 end
