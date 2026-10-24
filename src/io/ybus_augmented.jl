@@ -85,7 +85,8 @@ end
 function _aug_row(idx::_YbusIndex, nds::Vector{_Node}, cfs::Vector{Float64})
     acc = Dict{Int,ComplexF64}()
     for (nd, cf) in zip(nds, cfs)
-        gi = get(idx.of, nd, 0)
+        haskey(idx.of, nd) || throw(ArgumentError("coupling references undeclared node $(repr(nd))"))
+        gi = idx.of[nd]
         gi == 0 && continue
         acc[gi] = get(acc, gi, 0.0 + 0.0im) + cf
     end

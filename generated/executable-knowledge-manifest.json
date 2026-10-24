@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "7a4ee7e00dc3bdbbb5c0b0479eb5f10d54e98014dab7d47d8508f91e156044ed",
+  "corpus_sha256": "3510f727b2b8c5f5d0aceb5b68745448fb50780401a5f04b1ad37ad3299713a7",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -162,7 +162,7 @@
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",
-      "sha256": "9477393457a79f65c05aaae4fedbbc37790f33d772f400ad6195fe17fac2994f"
+      "sha256": "af4e5fb94cb69f3a40228e3a33d1d9c81faab1d34788f66b99d3a80f62c65594"
     },
     {
       "path": "docs/src/transformer_models.md",
@@ -286,7 +286,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "df9ba1a3dc5a3ead8a49f9c97b351cb5883ad591a810e7cde1be07829994d49e"
+      "sha256": "86f0e08f05c8615390726a5f93915c01c9d0e2eb25d1ad69d54833fa84328956"
     },
     {
       "path": "recipes/README.md",
@@ -574,19 +574,19 @@
     },
     {
       "path": "src/io/to_ybus.jl",
-      "sha256": "fc949abc94516973bf83b4a75a082785521e08f5880bd8a0f91b546b6092c0a0"
+      "sha256": "e0d8bf927ad269013b6db2171b3a187083a00c1bc5c27401bed2042923f0fb72"
     },
     {
       "path": "src/io/transformer_leakage.jl",
-      "sha256": "10ec04ad132433d6d40bd1e28bf6338c0f36d88c7d20a8e24b128695ec6aa0a7"
+      "sha256": "a66084c9ca975b7fe33334c6b9175b91c900fae5188666f86e5fb36d0f8a17b8"
     },
     {
       "path": "src/io/ybus.jl",
-      "sha256": "ad1329f812f15fbabcfced325a53ef0b7a35e5e6e4826d019a607ee180e8e1a2"
+      "sha256": "83b7b58fb6ebcddffaab759f3d49f87c1b25a1d6a05faa6de02d8a0986c282fb"
     },
     {
       "path": "src/io/ybus_augmented.jl",
-      "sha256": "1fd5b86234f8f0beb22ed1057e84de2ec4d06e26caa755e2b8a6219d3d922942"
+      "sha256": "be6ccd2e06b28e289e5bc7e22829a7343bb92e04a3c5810e16a5d6181c35d6fb"
     },
     {
       "path": "src/io/ybus_linearized.jl",
@@ -1318,7 +1318,7 @@
     },
     {
       "path": "test/ideal_nwinding_tests.jl",
-      "sha256": "7045fecedb4d0500c9ae2289da4e0074494bb06f7a24d95d63de56b11eb07980"
+      "sha256": "052660144acc73d7f03b8be1247ea5836794320a5affd34cdd5770b1f7bf8613"
     },
     {
       "path": "test/ideal_regulator_tests.jl",
@@ -1518,7 +1518,7 @@
     },
     {
       "path": "test/transformer_leakage_policy_tests.jl",
-      "sha256": "e97bb78e772a3e5fd90a32aaba624b12fd64d7a82af80a04df51a150c4aea827"
+      "sha256": "2cf3c2799f56c653a64d8abf41f8e5809d9fca7f65208c99bfc196a6d3203016"
     },
     {
       "path": "test/transformer_loading_opf_tests.jl",

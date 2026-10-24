@@ -71,6 +71,12 @@ not establish grounding adequacy or equipment safety (PSK-000002).
 
 ### Transformer leakage policy
 
+Ordinary two-winding and center-tap Ybus inputs require explicit positive finite
+`v_nom_from` and `v_nom_to`, including shunt-only primitive inspection. Missing,
+zero, negative, Boolean or nonfinite declarations raise `ArgumentError`; they
+never imply a unity turns ratio. Ratios must also remain finite and nonzero in
+Float64 arithmetic (PSK-000002).
+
 `xfmr_z_min_ohm` must be finite and nonnegative. An effective impedance at or
 below it selects a bordered representation, **not an approximation to zero**.
 For ordinary two-winding units, the test uses the primitive's effective series
@@ -226,6 +232,10 @@ of +1 or -1. Unknown configurations, malformed maps and missing pairs are
 rejected rather than inferred. The no-load branch remains across each coil
 of winding 2. Internal neutral-grounding fields are not supported by the
 n-winding model; represent grounding as explicit network shunts (PSK-000002).
+Network assembly also requires every referenced winding bus and terminal to
+exist. A named but undeclared neutral is an error, not implicit earth. Omit the
+neutral from a WYE winding map to request the documented implicit-earth domain;
+declared perfectly grounded terminals continue to map to earth explicitly.
 Floating winding references and ideal delta cycles can leave free voltages or
 circulating currents; callers must supply valid references and handle rank
 limitations. A border does not assert solvability or physical realizability.

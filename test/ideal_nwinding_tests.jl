@@ -23,6 +23,48 @@ function _nwi_net(nw,mode;style=:wye,roll=1,nph=3)
     net,x,N,zs
 end
 
+@testset "N-winding references distinguish missing nodes from earth (PSK-000002)" begin
+    for mode in (:ideal, :partial, :near, :finite), mutation in (
+            (net, x) -> (x["windings"][2]["bus"] = "missing"),
+            (net, x) -> filter!(!=("a"), net["bus"]["w2"]["terminal_names"]),
+            (net, x) -> filter!(!=("n"), net["bus"]["w2"]["terminal_names"]))
+        net, x, _, _ = _nwi_net(3, mode; nph=1)
+        mutation(net, x)
+        before = deepcopy(net)
+        for builder in (ybus_passive, ybus_linearized, ybus_augmented)
+            @test_throws ArgumentError builder(net)
+        end
+        @test_throws ArgumentError ybus_augmented(net; ideal_xfmrs=:stamp)
+        @test net == before
+        rt = JSON3.read(JSON3.write(net), Dict{String,Any})
+        @test_throws ArgumentError ybus_augmented(rt)
+    end
+    for mode in (:ideal, :partial, :near, :finite)
+        grounded, _, _, _ = _nwi_net(3, mode; nph=1)
+        for bus in values(grounded["bus"])
+            bus["perfectly_grounded_terminals"] = ["n"]
+        end
+        explicit = ybus_augmented(grounded)
+        @test all(explicit.index[("w$k", "n")] == 0 for k in 1:3)
+        implicit = deepcopy(grounded)
+        for bus in values(implicit["bus"])
+            filter!(!=("n"), bus["terminal_names"])
+            delete!(bus, "perfectly_grounded_terminals")
+        end
+        for w in implicit["transformer"]["n_winding"]["x"]["windings"]
+            filter!(!=("n"), w["terminal_map"])
+        end
+        earth = ybus_augmented(implicit)
+        @test earth.nodes == explicit.nodes
+        @test earth.K ≈ explicit.K
+        rt = JSON3.read(JSON3.write(implicit), Dict{String,Any})
+        @test ybus_augmented(rt).K ≈ earth.K
+    end
+    witness = JSON3.read(read(joinpath(@__DIR__, "data", "ideal_nwinding.json"), String), Dict{String,Any})
+    witness["transformer"]["n_winding"]["x"]["windings"][2]["bus"] = "missing"
+    @test_throws ArgumentError ybus_augmented(witness)
+end
+
 @testset "N-winding singular and finite port modes (#452, PSK-000002)" begin
     for nw in 2:4, mode in (:ideal,:partial,:near,:finite),style in (:wye,:mixed,:delta),roll in (-1,1)
         net,x,N,zs=_nwi_net(nw,mode;style,roll); before=deepcopy(net)
