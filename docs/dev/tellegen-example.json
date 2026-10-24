@@ -188,7 +188,7 @@
       "version": "0.1.0",
       "tool": "BMOPFTools.jl"
     },
-    "created": "2026-10-24T03:34:18Z",
+    "created": "2026-10-24T03:48:06Z",
     "license": "CC-BY-4.0",
     "$schema": "https://raw.githubusercontent.com/frederikgeth/bmopf-report/main/draft_schema_and_networks/draft_bmopf_schema.json"
   },
