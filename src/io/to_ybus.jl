@@ -50,6 +50,8 @@ that block alone is not a complete network element.
 """
 function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString;
                            config=_DEFAULT_CONFIG, shunt_only::Bool=false)
+    subtype in ("single_phase", "center_tap", "wye_delta", "delta_wye") &&
+        _ybus_xfmr_turns_ratio(xfmr)
     shunt_only && return _transformer_shunt_yprim(xfmr, subtype)
     _require_finite_xfmr_primitive(xfmr, subtype, config)
     subtype == "single_phase" && return _yprim_single_phase(xfmr)
