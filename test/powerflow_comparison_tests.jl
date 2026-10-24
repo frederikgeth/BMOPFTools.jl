@@ -33,6 +33,7 @@
 using OpenDSSDirect
 using BMOPFTools
 using Ipopt
+using JSON3
 
 const _PF_CMP_DIR = joinpath(@__DIR__, "data", "pf_comparison")
 
@@ -248,8 +249,8 @@ Like `_bmopf_volts` but via `solve_opf` rather than `solve_feasibility_opf`,
 because the IBR constraints are only built by `solve_opf`. Buses carry no
 voltage bounds, so this is a pure power flow with the voltage source as slack.
 """
-function _bmopf_volts_opf(net::Dict{String,Any})
-    res = solve_opf(net; optimizer=Ipopt.Optimizer)
+function _bmopf_volts_opf(net::Dict{String,Any}; per_unit=true)
+    res = solve_opf(net; optimizer=Ipopt.Optimizer, per_unit)
     volts = Dict{String,ComplexF64}()
     for (bid, t_dict) in res["bus"]
         for (t, tv) in t_dict
@@ -1754,19 +1755,21 @@ end
     @test P ≈ 10_000.0 atol=50.0    # Pmpp 30 kW / 3 phases — clean operating point
     @test Q > 0                     # pf=0.95 in OpenDSS injects vars
 
-    # (a) pinned to the read-back P and Q
-    Vp, rp = _bmopf_volts_opf(_net_pv_4leg(P, Q, nothing))
-    @test rp["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-    _cmp_volts(V_ods, Vp; label="pv-4leg-pin: ")
-    @test rp["ibr"]["pv"]["1"]["pg"] ≈ P  atol=1.0
-    @test rp["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
-
-    # (b) P-pinned, Q from a power_factor profile. OpenDSS pf=+0.95 injects vars,
-    # so the equivalent BMOPF profile is pf = -0.95.
-    Vf, rf = _bmopf_volts_opf(_net_pv_4leg(P, nothing, -0.95))
-    @test rf["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-    _cmp_volts(V_ods, Vf; label="pv-4leg-pf: ")
-    @test rf["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0   # PF path reproduces OpenDSS Q
+    # Pinned P/Q and the equivalent PF profile, in both coordinate systems.
+    # OpenDSS pf=+0.95 injects vars, so the BMOPF profile is pf=-0.95.
+    for pu in (false, true), pf in (nothing, -0.95)
+        net = _net_pv_4leg(P, pf === nothing ? Q : nothing, pf)
+        # The regression also exercises serialized input and result records.
+        restored = JSON3.read(JSON3.write(net), Dict{String,Any})
+        volts, raw = _bmopf_volts_opf(restored; per_unit=pu)
+        result = JSON3.read(JSON3.write(raw), Dict{String,Any})
+        @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        _cmp_volts(V_ods, volts; label="pv-4leg pf=$pf pu=$pu: ")
+        for phase in ("1", "2", "3")
+            @test result["ibr"]["pv"][phase]["pg"] ≈ P atol=1.0
+            @test result["ibr"]["pv"][phase]["qg"] ≈ Q atol=1.0
+        end
+    end
 end
 
 @testset "PF comparison — PVSystem IBR, SINGLE_PHASE (pinned & PF profile)" begin

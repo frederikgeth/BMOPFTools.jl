@@ -22,11 +22,31 @@ end
         @test maximum(abs.(Y .- transpose(Y))) < atol
     end
 
-    # Power balance: Re[conj(V)ᵀ I] should equal resistive loss = Σ |Iw|² R.
-    # For a passive element we test Re[conj(V)ᵀ Y V] ≥ 0.
+    # Terminal power uses exactly one conjugation: S = Σ V * conj(I).
+    # Julia's adjoint (') already conjugates; conj(V)' would instead give Vᵀ.
+    # This is a finite passivity witness, not a complete certificate (PSK-000013).
+    terminal_power(Y, V) = sum(V .* conj.(Y * V))
     function check_power_balance(Y, V; rtol=1e-6)
-        S = conj(V)' * (Y * V)
-        @test real(S) >= -rtol * abs(S)   # non-negative real part
+        S = terminal_power(Y, V)
+        @test real(S) >= -rtol * abs(S)
+        for angle in (pi/2, -2pi/3)
+            rotated = terminal_power(Y, cis(angle) .* V)
+            @test rotated ≈ S rtol=1e-10 atol=1e-12
+            @test real(rotated) >= -rtol * abs(rotated)
+        end
+    end
+
+    @testset "complex-power oracle is invariant to phase rotation" begin
+        # A two-terminal admittance y=2+3i and |ΔV|²=10 draws 20-30i VA.
+        # An active negative conductance must remain distinguishable.
+        Y = (2.0 + 3.0im) .* [1.0 -1.0; -1.0 1.0]
+        for angle in (0.0, pi/2, -2pi/3)
+            V = cis(angle) .* [2.0 + 1.0im, -1.0 + 2.0im]
+            @test terminal_power(Y, V) ≈ 20.0 - 30.0im atol=1e-12
+            @test real(terminal_power(-Y, V)) ≈ -20.0 atol=1e-12
+        end
+        @test terminal_power(Y, [0.0im, 0.0im]) == 0.0im
+        @test terminal_power(Y, [1.0 + 2.0im, 1.0 + 2.0im]) == 0.0im
     end
 
     # ─── single_phase ─────────────────────────────────────────────────────────
