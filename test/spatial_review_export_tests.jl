@@ -56,8 +56,10 @@ using Test, BMOPFTools, JSON3
     @test series(apply_spatial_review(tampered, [record]))["review"]["status"] != "recorded"
     md = sprint(io -> render_spatial_review(er, io))
     @test occursin("Direct / series decision evidence", md)
-    @test occursin("different\\_declared\\_terminal\\_sets", md)
+    @test occursin("different declared terminal sets", md)
     @test occursin("shunt=1", md)
+    @test !occursin("Any", md)
+    @test !occursin("Source declaration `", md)
     @test occursin("&lt;placeholder&gt; &amp; unverified", md)
     @test !occursin("<placeholder>", md)
     @test occursin("Showing 0 of", sprint(io -> render_spatial_review(er, io; item_limit=0)))

@@ -896,34 +896,37 @@ function _md_spatial_review_items(review, io, bucket; limit=20)
     println(io, "\nShowing $(length(shown)) of $(length(selected)) $bucket observations; JSON retains all captured items.\n")
 end
 
+# JSON-style lists avoid leaking Julia display types (for example Any[]) into reports.
+_spatial_md_list(value) = value === nothing ? "unavailable" : JSON3.write(_jsonable(value))
+_spatial_md_distance(value) = value === nothing ? "unavailable" : string(round(value; digits=3))
 function _md_spatial_interpretation_evidence(evidence, io)
     evidence isa AbstractDict || return
     println(io, "\n  **Direct / series decision evidence**\n")
     for (role, branch) in [("direct", evidence["direct"]); [("series", b) for b in evidence["series"]]]
-        label = "$role line $(branch["line_id"]): $(branch["path_from"]) $(branch["terminal_map_from"]) → $(branch["path_to"]) $(branch["terminal_map_to"])"
+        label = "$role line $(branch["line_id"]): $(branch["path_from"]) $(_spatial_md_list(branch["terminal_map_from"])) → $(branch["path_to"]) $(_spatial_md_list(branch["terminal_map_to"]))"
         println(io, "  - $(_spatial_md_text(label))")
         lengths = branch["length_context"]
         if lengths !== nothing
-            values = ["$(replace(key, "_"=>" ")): $(something(lengths[key], "unavailable"))" for key in
+            values = ["$(replace(key, "_"=>" ")): $(_spatial_md_distance(lengths[key]))" for key in
                 ("declared_length_m", "physical_length_m", "chord_m", "recomputed_route_length_m")]
-            println(io, "    Length evidence: $(_spatial_md_text(join(values, "; "))). Comparison basis: $(_spatial_md_text(lengths["comparison_basis"])).")
+            println(io, "\n    Length evidence: $(_spatial_md_text(join(values, "; "))). Comparison basis: $(_spatial_md_text(lengths["comparison_basis"])).")
         end
         declarations = branch["model_declarations"]
-        isempty(declarations) && println(io, "    Model provenance: unavailable within the supported metadata fields.")
+        isempty(declarations) && println(io, "\n    Model provenance: unavailable within the supported metadata fields.")
         for record in declarations
-            println(io, "    Source declaration `$(_spatial_md_text(join(record["path"], ".")))`: $(_spatial_md_text(record["value"]))")
+            println(io, "\n    Source declaration $(_spatial_md_text(join(record["path"], "."))): $(_spatial_md_text(record["value"]))")
         end
     end
     for comparison in evidence["terminal_comparisons"]
-        println(io, "\n  Terminal sets at $(_spatial_md_text(comparison["bus_id"])): $(_spatial_md_text(comparison["relation"])).")
+        println(io, "\n  Terminal sets at $(_spatial_md_text(comparison["bus_id"])): $(_spatial_md_text(replace(comparison["relation"], "_"=>" "))).")
     end
     for bus in evidence["intermediate_buses"]
         attachments = bus["attachments"]
         counts = ["$kind=$(count(a -> a["kind"] == kind, attachments))" for kind in sort!(unique([a["kind"] for a in attachments]))]
         println(io, "\n  Intermediate bus $(_spatial_md_text(bus["bus_id"])): $(isempty(counts) ? "no listed attachments" : _spatial_md_text(join(counts, ", "))). " *
-            "Explicit perfectly grounded terminals: $(_spatial_md_text(something(bus["perfectly_grounded_terminals"], "not declared"))).")
+            "Explicit perfectly grounded terminals: $(_spatial_md_text(bus["perfectly_grounded_terminals"] === nothing ? "not declared" : _spatial_md_list(bus["perfectly_grounded_terminals"]))).")
         for attachment in Iterators.take(attachments, 8)
-            println(io, "  - $(_spatial_md_text(attachment["kind"])):$(_spatial_md_text(attachment["component_id"])); terminal map $(_spatial_md_text(attachment["terminal_map"]))")
+            println(io, "  - $(_spatial_md_text(attachment["kind"])):$(_spatial_md_text(attachment["component_id"])); terminal map $(_spatial_md_text(_spatial_md_list(attachment["terminal_map"])))")
         end
         length(attachments) > 8 && println(io, "  Additional attachment identities are retained in JSON.")
     end
