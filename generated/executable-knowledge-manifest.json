@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "3510f727b2b8c5f5d0aceb5b68745448fb50780401a5f04b1ad37ad3299713a7",
+  "corpus_sha256": "fa1b0e9a86932004f5f3adecbaec6b0886a9aefbcde320cdf5c3787ba4521657",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -154,7 +154,7 @@
     },
     {
       "path": "docs/src/spatial_diagnostics.md",
-      "sha256": "21757a93fb20a12c50b8837d734155dbe9eef34dcc236292fa20ea8751f07e5e"
+      "sha256": "b6410f32dc92811c036fa98072385cd1238fa32ce8357634a4a1a7711b03d3b4"
     },
     {
       "path": "docs/src/spec/control-profile.md",
@@ -286,7 +286,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "86f0e08f05c8615390726a5f93915c01c9d0e2eb25d1ad69d54833fa84328956"
+      "sha256": "6afa5e3db68d9d5a23e92c877f177b36c7ee21fa8bdf1c897863b3a13faf6e7d"
     },
     {
       "path": "recipes/README.md",
@@ -302,7 +302,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "e2a697300a7512c0e48e27d6b61faed32dda59c6ddbb9f8b68ec92f8f82ceb2a"
+      "sha256": "1235f56eaa6bc425190adbea19b82516ba7e8152c07feb91db6330327f7704d2"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -446,11 +446,11 @@
     },
     {
       "path": "src/analysis/spatial_review.jl",
-      "sha256": "ad7bce83976d4ad949350b15062034134d642e5e377c79a01131bb24541c9e06"
+      "sha256": "762e3694ed03566956eea861ae7ed6cd7dcf460ab31d83c9d3063f3223abcc2a"
     },
     {
       "path": "src/analysis/spatial_review_decisions.jl",
-      "sha256": "4baacb6de41e18fab52104fd5f139a5e51f15f409894e86bdc96f2623abf218a"
+      "sha256": "dad4fa8426c58bf6ecacabb2d9f86644162601281d572c19fcd4fda7236a668a"
     },
     {
       "path": "src/analysis/spatial_review_evidence.jl",
@@ -847,6 +847,10 @@
     {
       "path": "test/data/spatial_review_calibration.json",
       "sha256": "d21998692e2820de7acd720733367c1987d40b2cc84793acdf9e5f66013421a9"
+    },
+    {
+      "path": "test/data/spatial_review_identity_triangle.json",
+      "sha256": "82ca4ac0648510e4004ea95841e07246f521ab0f473164897ab79d8e7456eef8"
     },
     {
       "path": "test/data/spatial_shared_infrastructure.json",
@@ -1466,7 +1470,7 @@
     },
     {
       "path": "test/spatial_review_tests.jl",
-      "sha256": "82607b7f8d61ae5f0f087b8d25b843b7396f5d078fb4711fa1043fb1c6df9621"
+      "sha256": "12d8d8752a9e5666911fca44688ec458d1a20c4fe315d66cf5c4c1367c0b42f9"
     },
     {
       "path": "test/spatial_route_tests.jl",

@@ -60,6 +60,7 @@ interface_paths = [
   "test/spatial_shared_infrastructure_tests.jl",
   "test/data/spatial_shared_infrastructure.json",
   "test/data/spatial_review_calibration.json",
+  "test/data/spatial_review_identity_triangle.json",
   "test/data/spatial_discrepancies.json",
   "test/data/spatial_capacitor_attachment.json",
   "test/data/spatial_cartesian.json",

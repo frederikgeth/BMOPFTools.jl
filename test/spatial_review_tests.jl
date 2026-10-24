@@ -1,5 +1,62 @@
 using Test, BMOPFTools, JSON3
 
+@testset "direct/series review identities retain candidate roles" begin
+    net = JSON3.read(read(joinpath(@__DIR__, "data", "spatial_review_identity_triangle.json"), String), Dict{String,Any})
+    review(n) = BMOPFTools._spatial_analysis(n, Dict{String,Any}())["cleanup_review"]
+    candidates(r) = filter(i -> i["code"] == "S.DIRECT_ALONGSIDE_SERIES_PATH", r["items"])
+    ids(r) = Dict(i["evidence"]["direct_branch"]["component_id"] => i["item_id"] for i in candidates(r))
+    before = deepcopy(net)
+    r = review(net)
+    @test length(candidates(r)) == 3
+    @test length(unique(values(ids(r)))) == 3
+    @test length(unique(i["item_id"] for i in r["items"])) == r["n_items"]
+    @test net == before
+    reordered = deepcopy(net)
+    for key in ("bus", "line"); reordered[key] = Dict(reverse(collect(reordered[key]))); end
+    @test review(reordered) == r
+    reversed = deepcopy(reordered)
+    for line in values(reversed["line"])
+        line["bus_from"], line["bus_to"] = line["bus_to"], line["bus_from"]
+        line["terminal_map_from"], line["terminal_map_to"] = line["terminal_map_to"], line["terminal_map_from"]
+    end
+    @test ids(review(reversed)) == ids(r)
+    @test ids(review(JSON3.read(JSON3.write(net), Dict{String,Any}))) == ids(r)
+
+    dispositions = Dict("ab" => "accepted_modeling", "bc" => "deferred", "ac" => "confirmed_issue")
+    decisions = [spatial_review_decision(r, id; disposition=dispositions[branch],
+        reviewer="synthetic-reviewer", recorded_at="2026-10-24T01:00:00Z",
+        rationale="Independent candidate on the same synthetic cycle") for (branch, id) in ids(r)]
+    reviewed = apply_spatial_review(r, decisions)
+    for item in candidates(reviewed)
+        branch = item["evidence"]["direct_branch"]["component_id"]
+        @test item["review"]["status"] == "recorded"
+        @test item["review"]["disposition"] == dispositions[branch]
+    end
+    for record in decisions
+        single = apply_spatial_review(r, [record])
+        @test count(i -> i["review"]["status"] == "recorded", candidates(single)) == 1
+        @test count(i -> i["review"]["disposition"] == "unreviewed", candidates(single)) == 2
+    end
+    @test apply_spatial_review(JSON3.read(JSON3.write(r)), JSON3.read(JSON3.write(decisions))) == reviewed
+    @test apply_spatial_review(r, reverse(decisions))["items"] == reviewed["items"]
+    @test review(net) == r
+
+    # The former set-based identity cannot be safely mapped to any one of these.
+    item = first(candidates(r))
+    subjects = BMOPFTools._spatial_review_subjects(item["evidence"])
+    old_id = "review-" * BMOPFTools._spatial_review_hash([item["code"], sort!(collect(subjects.components)), nothing])
+    legacy = deepcopy(first(decisions)); legacy["item_id"] = old_id
+    unmatched = apply_spatial_review(r, [legacy])
+    @test unmatched["decision_audit"]["n_unmatched_records"] == 1
+    @test all(i -> i["review"]["disposition"] == "unreviewed", candidates(unmatched))
+    duplicate = deepcopy(r)
+    for i in candidates(duplicate); i["item_id"] = old_id; end
+    @test_throws ArgumentError apply_spatial_review(duplicate, [legacy])
+    @test_throws ArgumentError apply_spatial_review(duplicate, Any[])
+    @test_throws ArgumentError spatial_review_decision(duplicate, old_id;
+        disposition="deferred", reviewer="synthetic-reviewer", recorded_at="2026-10-24T01:00:00Z", rationale="Ambiguous legacy queue")
+end
+
 @testset "spatial cleanup review workflow" begin
     fixture = JSON3.read(read(joinpath(@__DIR__, "data", "spatial_discrepancies.json"), String), Dict{String,Any})
     calibration = JSON3.read(read(joinpath(@__DIR__, "data", "spatial_review_calibration.json"), String), Dict{String,Any})

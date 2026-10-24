@@ -54,6 +54,8 @@
 # Cleanup review adds bounded capture, exact-location groups, ordinal inspection
 # priorities, evidence-bound sidecar decisions and WGS84 point exports.
 # Reviewer dispositions never modify networks or certify repairs; no new adapter.
+# Direct/series review identity retains branch roles and canonical path order;
+# duplicate legacy IDs require regeneration rather than ambiguous ledger replay.
 # Transformer Ybus nominal voltages are explicit positive finite declarations;
 # invalid or missing values never inherit the legacy unity-ratio fallback.
 # N-winding assembly validates declared network buses and terminals before

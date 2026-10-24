@@ -76,6 +76,15 @@ function _spatial_review_identity(w, subjects)
         return [code, w["segment_lonlat"], w["line_ids_digest"]]
     elseif code == "S.REPEATED_SOURCE_INTERVAL"
         return [code, w["namespace"], w["source_interval"]]
+    elseif code == "S.DIRECT_ALONGSIDE_SERIES_PATH"
+        direct = w["direct_branch"]
+        buses = Tuple(b["bus_id"] for b in w["path_buses"])
+        branches = Tuple((b["kind"], b["component_id"]) for b in w["series_branches"])
+        # Preserve direct/series roles and path order, with either traversal
+        # direction representing the same candidate. A component set loses
+        # these distinctions when a short cycle yields several candidates.
+        path = min((buses, branches), (reverse(buses), reverse(branches)))
+        return [code, (direct["kind"], direct["component_id"]), path]
     end
     [code, sort!(collect(subjects.components)), code == "S.NEARBY_WITHOUT_DIRECT_BRANCH" ? sort!(collect(subjects.buses)) : nothing]
 end

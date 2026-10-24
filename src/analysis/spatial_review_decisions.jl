@@ -63,11 +63,14 @@ wins; contradictory simultaneous records, invalid records and stale bindings
 leave the item unreviewed with an explicit review status. Orphan decisions are
 retained without treating an absent/truncated candidate as resolved. Diagnostics,
 geometry, ranking and the input network are unchanged.
+Reviews containing duplicate item IDs must be regenerated before replay.
 """
 function apply_spatial_review(review::AbstractDict, decisions::AbstractVector)
     get(review, "schema_version", nothing) == _SPATIAL_REVIEW_VERSION || throw(ArgumentError("unsupported spatial review schema"))
     out = _jsonable(review)
     items = Dict(i["item_id"] => i for i in out["items"])
+    length(items) == length(out["items"]) || throw(ArgumentError(
+        "spatial review contains duplicate item IDs; regenerate the review before applying decisions"))
     grouped = Dict{String,Vector{Any}}()
     invalid = Dict{String,Any}[]; orphan = Any[]
     blocked = Set{String}()

@@ -450,7 +450,11 @@ before treating the queue as exhaustive within its stated scope.
 Each item has a stable logical `item_id`, its evidence fingerprint, typed bus and
 component references, geometry basis, direct-subject impact counts, and a recorded
 or unreviewed disposition. IDs distinguish shared segments and transformer types;
-a moved segment may have a new identity. Records bind to canonical SHA-256
+a moved segment may have a new identity. Direct/series candidate IDs preserve
+the direct branch role and ordered series path, independent of traversal direction.
+Separate candidates on the same cycle therefore have distinct IDs. Regenerate
+older queues with duplicate IDs before replay; old direct/series IDs remain
+unmatched rather than being assigned to a new candidate. Records bind to canonical SHA-256
 fingerprints of the entire network snapshot, spatial configuration, workflow and
 ranking-policy versions, and item evidence. Only ingestion bookkeeping timestamps
 `_meta.parsed_at` and `meta.provenance.parsed_at` are excluded from the case hash;
