@@ -541,8 +541,8 @@ Each item has a stable logical `item_id`, its evidence fingerprint, typed bus an
 component references, geometry basis, direct-subject impact counts, and a recorded
 or unreviewed disposition. IDs distinguish shared segments and transformer types;
 a moved segment may have a new identity. Records bind to canonical SHA-256
-fingerprints of the entire network snapshot, spatial configuration and workflow
-version, and item evidence. Only ingestion bookkeeping timestamps
+fingerprints of the entire network snapshot, spatial configuration, workflow and
+ranking-policy versions, and item evidence. Only ingestion bookkeeping timestamps
 `_meta.parsed_at` and `meta.provenance.parsed_at` are excluded from the case hash;
 other provenance remains binding. Object key order and equivalent integral JSON number
 spellings do not affect fingerprints. Even an unrelated network edit invalidates
@@ -557,25 +557,69 @@ Their ordering uses maximum item priority, maximum item direct-load count (not a
 sum), unique component count, then location ID; it does not inflate priority from
 multiple diagnostics derived from the same geometry.
 
-Inspection priority is ordinal and has a versioned, visible rule:
+#### Evidence categories and shared infrastructure
+
+Each item has an `assessment` with a category, observation, interpretation,
+uncertainty, suggested source inspection, and voltage context where available.
+Categories describe evidence, independently of inspection priority and reviewer
+disposition:
+
+| Category | Interpretation |
+| --- | --- |
+| `context_only` | An observation without sufficient conflicting evidence to warrant correction. |
+| `needs_information` | Missing voltage or topology evidence prevents interpretation. |
+| `review_candidate` | Additional declaration evidence warrants inspection; legitimate arrangements remain possible. |
+| `data_inconsistency` | Malformed data or conflicting supported declarations; the responsible field and electrical consequences remain unresolved. |
+
+No automated category means **confirmed issue**. That remains an explicit reviewer
+disposition. `category_counts` count captured observations, not defects;
+`presentation_counts` distinguish `attention`, `context` and `reviewed` items.
+Context alone is excluded from the attention view. Reviewer dispositions
+`confirmed_issue`, `needs_information` and `deferred` put an item in that view even
+when its automated evidence is contextual; `accepted_modeling` and `resolved`
+move it to the reviewed view without deleting it. Category counts remain unchanged
+by decisions. Location groups also retain category counts.
+
+Shared-route and source-interval groups carry each captured line's endpoint
+voltage labels and an aggregate `voltage_context` evaluated over **all members**,
+including members omitted by the witness cap. Labels come from the existing
+source-propagated voltage analysis, never from coordinates. Different known
+voltage systems with matching labels at both ends of each line are compatible
+with shared infrastructure. This does not verify shared poles, independent
+circuits or correctness of voltage propagation. Matching voltage labels and
+parallel bus pairs also do not turn overlap alone into a duplicate-asset claim.
+Unknown labels remain `needs_information` unless an independent series-chain or
+different-terminal-map explanation supplies representation context. A line whose
+endpoint labels differ remains a separate review candidate, even in a mixed-tier
+group. Independent endpoint and length discrepancies are never suppressed by a
+contextual overlap classification.
+
+Inspection priority uses `spatial-review-priority/v2`:
 
 - **P3:** malformed geometry/length declarations, a length below its applicable
   endpoint bound, or route endpoints disagreeing with connected bus coordinates.
 - **P2:** direct/series declarations, nearby separate same-tier components,
-  incomplete topology evidence, non-regularized length discrepancies, and shared
-  representations needing further review.
-- **P1:** contextual evidence such as same-component proximity, repeated source
-  IDs in a declared series chain, shared geometry with different terminal maps,
-  regularized length interpretation, and absolute long-span thresholds.
+  missing voltage/topology information, non-regularized length discrepancies,
+  grouped lines crossing voltage labels, unexplained repeated source identities,
+  and degenerate or retraced route segments.
+- **P1:** contextual proximity or shared infrastructure, legitimate parallel-route
+  possibilities, series segmentation, distinct terminal maps, regularization
+  interpretation, and absolute long-span thresholds.
 
 Within a priority, directly attached load count and identified component count
 order inspection, followed by item ID. Counts cover directly referenced subjects,
 can be lower bounds when member lists are truncated, and never estimate downstream
 load, electrical severity, independent evidence strength or error probability.
-Different terminal maps and series arrangements are reasons to retain context,
-not automatically dismiss candidates. Synthetic expectations are executable in
-`test/data/spatial_review_calibration.json`; supplied SAPN and Springfield cases
-provide structural calibration only. No field precision/recall is claimed.
+`assessment.error_probability` is null; no probability has been calibrated.
+The policy version is bound into the analysis fingerprint, and assessments and
+coordinate evidence into item fingerprints. Pre-milestone-5 decisions do not
+silently apply to newly classified reports. Existing v1 report payloads remain
+readable, but regeneration is required for the new classifications.
+
+Synthetic expectations are executable in `test/data/spatial_review_calibration.json`
+and `test/data/spatial_shared_infrastructure.json` with its companion tests;
+supplied SAPN and Springfield cases provide structural calibration only. No field
+precision/recall is claimed.
 
 #### Sidecar dispositions
 
@@ -625,6 +669,18 @@ mapped even if bus frames are unknown. Local Cartesian geometry is kept in each
 item's `local_geometry`, with its frame and metre units, and omitted from GeoJSON
 along with unknown coordinates; the omission count is explicit. GeoJSON alone is
 not the complete review queue.
+
+Markdown export is available through `render(report, "report.md")`. The cleanup
+section presents separate category and disposition counts, coverage limitations,
+and up to 20 attention items grouped by exact review location. Each entry gives
+subjects, measurements where applicable, voltage context, interpretation,
+uncertainty, source inspection guidance, coordinate provenance/accuracy and stable
+IDs. Contextual observations and accepted/resolved items have separate expandable
+inventories, each with its own 20-item display cap and explicit shown/total counts.
+These display caps do not change the captured JSON queue. A group is an inspection
+anchor, not proof that every subject occupies that point. Underlying proximity
+and geometry/topology witnesses are expandable too. Raw Markdown readers still
+see the retained inventories.
 
 The runnable example writes `review.json`, `review.geojson`, `review.md` and an
 empty `decisions-template.json` (preserving an existing template):

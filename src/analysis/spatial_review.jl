@@ -1,6 +1,8 @@
 # A package-local review workflow. Priorities order inspection, not probability
 # of error; ledger decisions never modify networks or suppress diagnostics.
 const _SPATIAL_REVIEW_VERSION = "spatial-cleanup-review/v1"
+const _SPATIAL_REVIEW_POLICY = "spatial-review-priority/v2"
+const _SPATIAL_QUALITY_CATEGORIES = ("context_only", "needs_information", "review_candidate", "data_inconsistency")
 const _SPATIAL_DISPOSITIONS = ("unreviewed", "needs_information", "confirmed_issue", "accepted_modeling", "deferred", "resolved")
 
 function _spatial_review_canonical(io, x)
@@ -91,21 +93,136 @@ function _spatial_review_priority(w)
     elseif code == "S.ROUTE_ENDPOINT_DISAGREEMENT"
         return (3, "route_and_bus_coordinates_disagree", "geometric_discrepancy")
     elseif code == "S.NEARBY_WITHOUT_DIRECT_BRANCH"
+        w["voltage_tier_relation"] == "unknown" &&
+            return (2, "voltage_context_unavailable", "needs_information")
         w["component_relation"] == "separate_bus_components" && w["voltage_tier_relation"] == "same" &&
             return (2, "nearby_separate_components_same_tier", "topology_candidate")
         w["component_relation"] in ("unknown_switch_state", "indeterminate_graph") &&
             return (2, "topology_evidence_incomplete", "needs_information")
+        w["voltage_tier_relation"] == "different" &&
+            return (1, "different_voltage_systems_share_location", "representation_context")
         return (1, "proximity_without_connectivity_claim", "representation_context")
     elseif code == "S.DIRECT_ALONGSIDE_SERIES_PATH"
         return (2, "direct_and_series_declarations", "topology_candidate")
     elseif code in ("S.SHARED_ROUTE_SEGMENT", "S.REPEATED_SOURCE_INTERVAL")
+        relation = get(get(w, "voltage_context", Dict()), "relation", "unknown")
+        relation == "crossing_endpoint_tiers" && return (2, "line_endpoints_cross_voltage_tiers", "topology_candidate")
+        relation == "different" && return (1, "different_voltage_systems_share_route", "representation_context")
         get(w, "declared_arrangement", "") == "series_chain" && return (1, "shared_representation_in_series_chain", "representation_context")
         get(w, "terminal_map_relation", "") == "different_declared_maps" && return (1, "distinct_terminal_maps", "representation_context")
-        return (2, "shared_representation_requires_review", "representation_context")
+        relation == "unknown" && return (2, "voltage_context_unavailable", "needs_information")
+        code == "S.SHARED_ROUTE_SEGMENT" && return (1, "shared_route_without_conflicting_evidence", "representation_context")
+        return (2, "repeated_source_identity_requires_review", "topology_candidate")
     elseif code == "S.ROUTE_SEGMENT_DEFECT" && w["n_zero_segments"] + w["n_repeated_segments"] > 0
         return (2, "degenerate_or_retraced_segments", "geometric_discrepancy")
     end
     (1, "absolute_span_review_threshold", "representation_context")
+end
+
+# These categories describe evidence, not defect probability or electrical severity.
+# Reviewer confirmation is a separate disposition and is never inferred here.
+function _spatial_review_assessment(w, rule, evidence_class)
+    category = evidence_class == "representation_context" ? "context_only" :
+        evidence_class == "needs_information" ? "needs_information" :
+        evidence_class == "declaration_inconsistency" || w["code"] == "S.ROUTE_ENDPOINT_DISAGREEMENT" ?
+            "data_inconsistency" : "review_candidate"
+    explanations = Dict(
+        "different_voltage_systems_share_location" => ("Different voltage systems occupy nearby locations.",
+            "Compatible with MV/LV sharing infrastructure; proximity does not require an electrical connection.",
+            "Shared poles are not verified by coordinates or voltage labels.",
+            "No correction is indicated by proximity alone."),
+        "different_voltage_systems_share_route" => ("Lines in different voltage systems share spatial or source representation.",
+            "Compatible with shared infrastructure; each line has matching endpoint voltage labels.",
+            "Shared poles and independent circuit identities are not verified.",
+            "No correction is indicated by overlap alone; retain any separate endpoint or length discrepancy."),
+        "shared_route_without_conflicting_evidence" => ("Lines share an exact route segment.",
+            "Same-voltage circuits and legitimate parallel lines can share a route. Overlap alone is contextual.",
+            "Neither independent circuits nor duplicate electrical assets are established.",
+            "No correction is indicated by overlap alone."),
+        "shared_representation_in_series_chain" => ("Lines share representation and form a declared series chain.",
+            "Segmentation or inherited source geometry can explain this representation.",
+            "The source segmentation and physical routing have not been independently verified.",
+            "Compare source segmentation if a separate discrepancy requires review."),
+        "distinct_terminal_maps" => ("Lines share representation but have different declared terminal maps.",
+            "The declarations distinguish conductor participation; shared geometry does not establish duplication.",
+            "Terminal maps alone do not verify independent physical circuits.",
+            "Retain the map differences when reviewing any separate discrepancy."),
+        "proximity_without_connectivity_claim" => ("Nearby buses have no direct branch between them.",
+            "They belong to the same declared bus component; proximity alone does not require another connection.",
+            "Bus-level connectivity does not establish conductor continuity or shared poles.",
+            "No connection or bus merge is indicated by proximity alone."),
+        "voltage_context_unavailable" => ("Nearby buses or shared line representation lack complete voltage context.",
+            "The available labels cannot distinguish voltage systems reliably.",
+            "Missing voltage labels are not evidence of duplication or a missing connection.",
+            "Inspect source voltage declarations and voltage propagation results."),
+        "topology_evidence_incomplete" => ("Nearby buses have incomplete connectivity evidence.",
+            "Unknown switch state or invalid graph declarations prevent a definite component comparison.",
+            "Proximity does not resolve the electrical state.",
+            "Check switch states and invalid branch references before assessing connectivity."),
+        "nearby_separate_components_same_tier" => ("Nearby same-tier buses are in separate declared bus components.",
+            "Separation plus proximity warrants inspection, but intentional boundaries remain possible.",
+            "The bus graph does not establish a missing conductor connection.",
+            "Compare source connection records and intentional isolation boundaries."),
+        "line_endpoints_cross_voltage_tiers" => ("At least one grouped line has different endpoint voltage labels.",
+            "This separate declaration concern must not be hidden by shared-route context.",
+            "Voltage propagation or connection declarations may be responsible; geometry cannot decide which.",
+            "Check endpoint bus references, source voltage declarations and transformer boundaries."),
+        "repeated_source_identity_requires_review" => ("Multiple lines use the same explicit source interval identity.",
+            "The identity reuse needs interpretation beyond simple geometric overlap.",
+            "A source interval may intentionally cover several circuits; duplication is not established.",
+            "Compare source interval ownership, circuit identifiers and segmentation."),
+        "direct_and_series_declarations" => ("A direct line lies alongside a bounded series path in endpoint geometry.",
+            "The model contains both declarations, which may represent legitimate parallel paths.",
+            "Chord alignment does not establish physical routes or electrical equivalence.",
+            "Compare circuit identifiers and source segmentation; retain attachments on intermediate buses."),
+        "route_and_bus_coordinates_disagree" => ("A supported route endpoint disagrees with its connected bus location beyond the configured tolerance.",
+            "The spatial declarations disagree; this does not identify which declaration is wrong.",
+            "Survey accuracy, displaced coordinates or stale routes may explain the discrepancy.",
+            "Compare route and bus coordinate provenance and accuracy before editing either."),
+        "invalid_geometry" => ("A route geometry declaration is invalid for the supported geometry check.",
+            "The route cannot be used as declared.",
+            "This identifies a data declaration problem, not its electrical consequences.",
+            "Inspect the route declaration and the recorded validation reason."),
+        "invalid_or_inconsistent_length" => ("A length declaration is invalid or below its applicable endpoint bound.",
+            "The declared values conflict with supported length semantics or geometry.",
+            "The responsible field is unresolved; accuracy and provenance still matter.",
+            "Compare physical versus electrical length, units, coordinate accuracy and source records."),
+        "length_declarations_disagree" => ("Length declarations disagree under the configured comparisons.",
+            "Physical, electrical or stored route lengths may describe different source representations.",
+            "A disagreement does not establish which length should be changed.",
+            "Check inherited parent lengths, segment lengths, units and source provenance."),
+        "regularized_length_requires_interpretation" => ("Length context includes an explicitly regularized electrical length.",
+            "Electrical regularization can intentionally differ from physical distance.",
+            "Geometry does not determine the intended electrical parameterization.",
+            "Compare regularization provenance before changing electrical length."),
+        "degenerate_or_retraced_segments" => ("A route contains zero-length or repeated segments.",
+            "Repeated vertices or retracing may reflect export artifacts or intentional routing.",
+            "A geometric pattern alone does not establish an electrical error.",
+            "Inspect the recorded segment indices against the source route."),
+        "absolute_span_review_threshold" => ("A span exceeds the configured absolute review threshold.",
+            "The threshold provides context; it is not an engineering limit.",
+            "A long span alone is not evidence of incorrect length or connectivity.",
+            "Compare geographic extent and source routing if unexpected for this case."))
+    observed, explanation, uncertainty, inspect = explanations[rule]
+    voltage = if haskey(w, "voltage_context")
+        deepcopy(w["voltage_context"])
+    elseif haskey(w, "voltage_tier_relation")
+        Dict("relation" => w["voltage_tier_relation"], "basis" => "source_propagated_bus_voltage_labels",
+            "buses" => [Dict("bus_id"=>b["bus_id"], "voltage_tier"=>b["voltage_tier"]) for b in w["buses"]])
+    else
+        nothing
+    end
+    Dict{String,Any}("category" => category, "observation" => observed,
+        "explanation" => explanation, "uncertainty" => uncertainty, "inspect" => inspect,
+        "voltage_context" => voltage, "error_probability" => nothing)
+end
+
+_spatial_review_category(item) = get(get(item, "assessment", Dict()), "category", "review_candidate")
+function _spatial_review_bucket(item)
+    disposition = item["review"]["disposition"]
+    disposition in ("accepted_modeling", "resolved") && return "reviewed"
+    disposition in ("confirmed_issue", "needs_information", "deferred") && return "attention"
+    _spatial_review_category(item) == "context_only" ? "context" : "attention"
 end
 
 function _spatial_review_geometry(w, subjects, coordinates, frame)
@@ -129,6 +246,7 @@ function _spatial_review_groups!(review)
         group = get!(groups, key) do
             Dict{String,Any}("location_id" => key, "location" => item["location"],
                 "item_ids" => String[], "codes" => String[], "priority" => 0,
+                "category_counts" => Dict(c => 0 for c in _SPATIAL_QUALITY_CATEGORIES),
                 "disposition_counts" => Dict{String,Int}(), "bus_ids" => Set{String}(),
                 "component_refs" => Set{Tuple{String,String}}(), "evidence_classes" => Set{String}(),
                 "max_item_directly_attached_loads" => 0)
@@ -137,6 +255,7 @@ function _spatial_review_groups!(review)
         union!(group["bus_ids"], item["bus_ids"])
         union!(group["component_refs"], ((c["kind"], c["id"]) for c in item["components"]))
         push!(group["evidence_classes"], item["evidence_class"])
+        group["category_counts"][_spatial_review_category(item)] += 1
         group["max_item_directly_attached_loads"] = max(group["max_item_directly_attached_loads"], item["impact"]["n_directly_attached_loads"])
         group["priority"] = max(group["priority"], item["priority"])
         state = item["review"]["disposition"]
@@ -155,6 +274,9 @@ function _spatial_review_groups!(review)
     counts = Dict(s => 0 for s in _SPATIAL_DISPOSITIONS)
     for item in review["items"]; counts[item["review"]["disposition"]] += 1; end
     review["disposition_counts"] = counts
+    review["category_counts"] = Dict(c => count(i -> _spatial_review_category(i) == c, review["items"]) for c in _SPATIAL_QUALITY_CATEGORIES)
+    review["presentation_counts"] = Dict(b => count(i -> _spatial_review_bucket(i) == b, review["items"]) for b in ("attention", "context", "reviewed"))
+    review["count_scope"] = "Captured observations only; context is not an issue count. Categories describe automated evidence; confirmation requires a separate reviewer disposition."
     statuses = Dict{String,Int}()
     for item in review["items"]
         state = item["review"]["status"]
@@ -172,7 +294,7 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
         "coordinate_context" => merge(_jsonable(coordinates.report), Dict("n_buses" => length(get(net, "bus", Dict())))),
         "analysis_settings" => _jsonable(get(config, "spatial", Dict())),
         "scope" => "M3 discrepancy candidates and non-regularization-only M1 length contexts; coordinate and coincidence inventories remain in the spatial report.",
-        "ranking_policy" => "spatial-review-priority/v1",
+        "ranking_policy" => _SPATIAL_REVIEW_POLICY,
         "ranking_scope" => "Captured candidates only. Ordinal priority, directly attached load count, identified component count, then stable item ID; not an error probability or electrical impact estimate.",
         "grouping_policy" => "Exact first sorted evidence location within a declared frame; missing geometry groups by primary asset identity. No snapping, bus merging or transitive proximity clustering.",
         "calibration" => "Supplied networks and labelled synthetic expectations; no human-adjudicated real-world precision or recall.",
@@ -184,7 +306,7 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
     end
     result["max_review_candidates"] = options.limit
     result["case_fingerprint"] = _spatial_review_case_hash(net)
-    result["analysis_fingerprint"] = _spatial_review_hash([_SPATIAL_REVIEW_VERSION, get(config, "spatial", Dict())])
+    result["analysis_fingerprint"] = _spatial_review_hash([_SPATIAL_REVIEW_VERSION, _SPATIAL_REVIEW_POLICY, get(config, "spatial", Dict())])
     captures = Tuple{String,Dict{String,Any}}[]
     for (name, check) in sort!(collect(checks), by=first)
         rows = get(check, "_review_candidates", Dict{String,Any}[])
@@ -252,6 +374,8 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
             "subject_list_complete" => impact["subjects_complete"])
         row = Dict{String,Any}("item_id" => item_id, "code" => w["code"], "check" => check_name,
             "priority" => priority, "ranking_reason" => rule, "evidence_class" => evidence_class,
+            "assessment" => _spatial_review_assessment(w, rule, evidence_class),
+            "coordinate_evidence" => Dict(b => deepcopy(coordinates.evidence[b]) for b in sort!(collect(subjects.buses)) if haskey(coordinates.evidence, b)),
             "impact" => impact, "bus_ids" => sort!(collect(subjects.buses)),
             "components" => [Dict("kind"=>k,"id"=>id) for (k,id) in sort!(collect(subjects.components))],
             "location_id" => location_id, "location" => location,
@@ -288,6 +412,9 @@ function spatial_review_geojson(review::AbstractDict)
     for item in review["items"]
         item["geometry"] === nothing && continue
         properties = Dict(k => deepcopy(item[k]) for k in ("code", "location_id", "priority", "ranking_reason", "impact", "bus_ids", "components", "review", "geometry_basis", "geometry_coverage", "evidence_fingerprint"))
+        for key in ("assessment", "coordinate_evidence")
+            haskey(item, key) && (properties[key] = deepcopy(item[key]))
+        end
         properties["case_fingerprint"] = review["case_fingerprint"]
         properties["analysis_fingerprint"] = review["analysis_fingerprint"]
         push!(features, Dict("type" => "Feature", "id" => item["item_id"],
@@ -300,8 +427,12 @@ function spatial_review_geojson(review::AbstractDict)
 end
 
 function _spatial_review_item_fingerprint(item)
-    _spatial_review_hash(Dict(k => item[k] for k in ("item_id", "code", "check", "evidence", "location_id", "location", "geometry",
-        "local_geometry", "geometry_basis", "geometry_coverage", "impact", "priority", "ranking_reason", "evidence_class", "bus_ids", "components")))
+    payload = Dict(k => item[k] for k in ("item_id", "code", "check", "evidence", "location_id", "location", "geometry",
+        "local_geometry", "geometry_basis", "geometry_coverage", "impact", "priority", "ranking_reason", "evidence_class", "bus_ids", "components"))
+    for key in ("assessment", "coordinate_evidence")
+        haskey(item, key) && (payload[key] = item[key])
+    end
+    _spatial_review_hash(payload)
 end
 
 function _spatial_review_case_hash(net)

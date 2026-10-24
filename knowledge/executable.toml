@@ -1,3 +1,6 @@
+# Shared-infrastructure context uses voltage labels without inferring poles or circuit identity.
+# Review categories and location-based Markdown separate contextual observations from
+# discrepancies and reviewer decisions; no new Finding, PSK claim or adapter.
 # Transformer phase reporting is descriptive PSK-000006-linked evidence; it does
 # not widen the transformer preservation contract or add a JSON adapter.
 # write_bmopf retains longitude/latitude by default, with include_coordinates=false

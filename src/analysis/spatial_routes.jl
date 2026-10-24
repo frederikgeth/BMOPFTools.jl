@@ -1,12 +1,21 @@
 # Exact shared segments and explicit source identities are evidence of shared
 # representation, never proof that two electrical circuits are duplicates.
-function _spatial_line_group(net, ids, limit)
+function _spatial_line_group(net, ids, limit; levels=Dict())
     lines = get(net, "line", Dict())
     pairs = Set{Any}(); maps = Any[]; rows = Dict{String,Any}[]
     adjacency = Dict{String,Vector{String}}()
+    tiers = Set{String}(); unknown_tiers = 0; crossing_tiers = 0
     for id in ids
         line = lines[id]
         a, b = get(line, "bus_from", nothing), get(line, "bus_to", nothing)
+        ta, tb = get(levels, a, "unassigned"), get(levels, b, "unassigned")
+        known = all(t -> t isa AbstractString && !isempty(t) && t != "unassigned", (ta, tb))
+        if known
+            union!(tiers, (ta, tb))
+            crossing_tiers += ta != tb
+        else
+            unknown_tiers += 1
+        end
         valid = a isa AbstractString && b isa AbstractString
         pair = valid ? _spatial_pair(a, b) : nothing
         push!(pairs, pair)
@@ -20,6 +29,7 @@ function _spatial_line_group(net, ids, limit)
         length(rows) >= limit && continue
         meta = get(line, "meta", Dict()); meta = meta isa AbstractDict ? meta : Dict()
         push!(rows, Dict{String,Any}("line_id" => id, "bus_from" => a, "bus_to" => b,
+            "voltage_tier_from" => ta, "voltage_tier_to" => tb,
             "terminal_map_from" => from_map, "terminal_map_to" => to_map,
             "linecode" => get(line, "linecode", nothing), "feeder_id" => get(meta, "feeder_id", nothing)))
     end
@@ -43,6 +53,11 @@ function _spatial_line_group(net, ids, limit)
     map_relation = !same_pair || any(isnothing, maps) ? "unassessed" :
         all(m -> isequal(m, first(maps)), maps) ? "equal_declared_maps" : "different_declared_maps"
     Dict{String,Any}("n_lines" => length(ids), "lines" => rows, "lines_truncated" => length(ids) > limit,
+        "voltage_context" => Dict("basis" => "source_propagated_bus_voltage_labels",
+            "tiers" => sort!(collect(tiers)), "n_lines_with_unknown_tiers" => unknown_tiers,
+            "n_lines_crossing_tiers" => crossing_tiers, "all_members_assessed" => true,
+            "relation" => crossing_tiers > 0 ? "crossing_endpoint_tiers" : unknown_tiers > 0 ? "unknown" :
+                length(tiers) > 1 ? "different" : "same"),
         "line_ids_digest" => _spatial_review_hash(sort!(collect(ids))),
         "same_bus_pair" => same_pair, "declared_arrangement" => arrangement, "terminal_map_relation" => map_relation)
 end
@@ -194,14 +209,14 @@ function _spatial_route_candidates!(checks, net, topology, coordinates, frame, b
     end
     for ((namespace, source), ids) in sort!(collect(intervals), by=first)
         length(ids) > 1 || continue
-        _spatial_candidate!(sources, "S.REPEATED_SOURCE_INTERVAL", merge(_spatial_line_group(net, ids, limit),
+        _spatial_candidate!(sources, "S.REPEATED_SOURCE_INTERVAL", merge(_spatial_line_group(net, ids, limit; levels=topology.levels),
             Dict{String,Any}("namespace" => namespace, "source_interval" => source)), limit)
     end
     sources["n_invalid_interval_declarations"] = source_invalid
     sources["n_declared_intervals"] = length(intervals)
     for (segment, ids) in sort!(collect(segments), by=first)
         length(ids) > 1 || continue
-        _spatial_candidate!(overlaps, "S.SHARED_ROUTE_SEGMENT", merge(_spatial_line_group(net, sort!(collect(ids)), limit),
+        _spatial_candidate!(overlaps, "S.SHARED_ROUTE_SEGMENT", merge(_spatial_line_group(net, sort!(collect(ids)), limit; levels=topology.levels),
             Dict{String,Any}("segment_lonlat" => [collect(p) for p in segment],
                 "segment_length_m" => _spatial_haversine(segment...))), limit)
     end

@@ -347,22 +347,24 @@ function _md_spatial(spatial, io::IO)
             println(io, "Partial observations: $(proximity["n_near_bus_pairs_observed"]) near pairs; " *
                 "$(proximity["candidate_pairs_checked"]) candidate location pairs checked. Totals are unavailable.\n")
         end
+        println(io, "<details>\n<summary>Proximity inventory — no connectivity claim</summary>\n")
         for pair in proximity["pair_witnesses"]
             buses = pair["representative_bus_pair"]
             println(io, "- `$(buses[1]["bus_id"])` ↔ `$(buses[2]["bus_id"])`: " *
                 "$(round(pair["distance_m"], digits=4)) m; $(pair["accuracy_context"]) " *
                 "for these representatives; $(pair["n_bus_pairs_at_these_locations"]) bus pairs at these locations.")
         end
-        isempty(proximity["pair_witnesses"]) || println(io)
+        println(io, "\n</details>\n")
     end
     _md_spatial_cleanup_review(get(spatial, "cleanup_review", nothing), io)
     discrepancies = get(spatial, "discrepancy_candidates", nothing)
     if discrepancies !== nothing
-        println(io, "**Geometry–topology review candidates.** $(discrepancies["caution"])\n")
+        println(io, "<details>\n<summary>Underlying geometry and topology observations</summary>\n")
+        println(io, "$(discrepancies["caution"])\n")
         for (name, check) in sort!(collect(discrepancies["checks"]), by=first)
             total = something(check["n_candidates"], "unavailable")
             println(io, "- **$name:** $(check["status"]) ($(check["reason"])); $total candidates; " *
-                "$(check["n_candidates_observed"]) observed.")
+                "$(check["n_candidates_observed"]) observed; counts include contextual evidence.")
             if haskey(check, "component_relation_counts_observed")
                 counts = join(["$k=$v" for (k,v) in sort!(collect(check["component_relation_counts_observed"]), by=first)], ", ")
                 println(io, "  - Observed component relations: $counts; $(check["n_endpoint_like_pairs_observed"]) endpoint-like pairs.")
@@ -398,6 +400,7 @@ function _md_spatial(spatial, io::IO)
         end
         println(io, "\nFull terminal, switch, coordinate and branch evidence is retained in the JSON report. " *
             "Unassessed: $(join(discrepancies["unassessed"], ", ")).\n")
+        println(io, "</details>\n")
     end
     println(io, "Line routes: $(routes["n_with_route"])/$(routes["n_lines"]); " *
         "$(reference["n_matching_wgs84_routes"]) WGS84 routes match their bus endpoints.\n")
@@ -787,11 +790,92 @@ function _md_spatial_cleanup_review(review, io::IO)
             "Unmatched candidates are not assumed resolved.")
     end
     println(io, "\nPriority is an inspection order, not error probability. Impact counts refer only to identified subjects and directly attached loads.\n")
-    for item in Iterators.take(review["items"], 20)
-        println(io, "- **P$(item["priority"]) $(item["code"])** — $(item["ranking_reason"]); " *
-            "$(item["impact"]["n_identified_components"]) components, $(item["impact"]["n_directly_attached_loads"]) directly attached loads; " *
-            "$(item["review"]["disposition"]) ($(item["review"]["status"])). ID: `$(item["item_id"])`.")
+    categories = get(review, "category_counts", Dict())
+    println(io, "| Automated evidence category | Captured observations |\n| --- | ---: |")
+    for category in _SPATIAL_QUALITY_CATEGORIES
+        println(io, "| $(replace(category, "_"=>" ")) | $(get(categories, category, 0)) |")
     end
-    length(review["items"]) > 20 && println(io, "\nShowing 20 items; the JSON queue retains $(length(review["items"])) captured items.")
-    println(io)
+    println(io, "\nThese are observation counts, not error counts. Confirmed issues are recorded separately as reviewer dispositions. " *
+        "Context alone does not imply a required correction.\n")
+    println(io, "**Needs inspection or information**\n")
+    _md_spatial_review_items(review, io, "attention")
+    println(io, "<details>\n<summary>Contextual observations — overlap alone is not an issue</summary>\n")
+    _md_spatial_review_items(review, io, "context")
+    println(io, "</details>\n")
+    if any(i -> _spatial_review_bucket(i) == "reviewed", review["items"])
+        println(io, "<details>\n<summary>Accepted or resolved by a reviewer</summary>\n")
+        _md_spatial_review_items(review, io, "reviewed")
+        println(io, "</details>\n")
+    end
+end
+
+# Escape model-supplied text before placing it in Markdown or HTML details blocks.
+_spatial_md_text(x) = replace(string(x), '&'=>"&amp;", '<'=>"&lt;", '>'=>"&gt;",
+    '\n'=>" ", '\r'=>" ", '\\'=>"\\\\", '`'=>"\\`", '*'=>"\\*", '_'=>"\\_",
+    '['=>"\\[", ']'=>"\\]", '|'=>"\\|")
+function _md_spatial_review_items(review, io, bucket; limit=20)
+    selected = filter(i -> _spatial_review_bucket(i) == bucket, review["items"])
+    shown = collect(Iterators.take(selected, limit))
+    groups = Dict{String,Vector{Any}}(); order = String[]
+    for item in shown
+        id = item["location_id"]
+        if !haskey(groups, id)
+            groups[id] = Any[]; push!(order, id)
+        end
+        push!(groups[id], item)
+    end
+    for id in order
+        members = groups[id]; location = first(members)["location"]
+        label = location["status"] == "located" ?
+            "$(join(location["coordinate"], ", ")) $(location["units"]) in $(location["frame"])" :
+            "Location unavailable; asset $(join(location["primary_asset"], ":"))"
+        println(io, "\n**Review location: $(_spatial_md_text(label))**\n")
+        for item in members
+            assessment = get(item, "assessment", nothing)
+            title = assessment === nothing ? item["ranking_reason"] : assessment["observation"]
+            category = replace(_spatial_review_category(item), "_"=>" ")
+            println(io, "- **$(_spatial_md_text(category)) · P$(item["priority"])** — $(_spatial_md_text(title))")
+            refs = vcat(["$(c["kind"]):$(c["id"])" for c in item["components"]], ["bus:$b" for b in item["bus_ids"]])
+            println(io, "  Subjects: $(_spatial_md_text(join(Iterators.take(refs, 8), ", ")))$(length(refs) > 8 ? " (more in JSON)" : "").")
+            evidence = item["evidence"]
+            details = String[]
+            haskey(evidence, "distance_m") && push!(details, "separation $(round(evidence["distance_m"], digits=4)) m")
+            haskey(evidence, "segment_length_m") && push!(details, "shared segment $(round(evidence["segment_length_m"], digits=4)) m")
+            if item["code"] == "S.ROUTE_ENDPOINT_DISAGREEMENT"
+                append!(details, ["$(e["side"]) endpoint gap $(round(e["gap_m"], digits=4)) m" for e in evidence["endpoints"]])
+                push!(details, "tolerance $(evidence["tolerance_m"]) m; orientation $(evidence["orientation"])")
+            elseif item["code"] == "R.LINE_LENGTH_CONTEXT"
+                for key in ("declared_length_m", "physical_length_m", "chord_m", "stored_route_length_m", "recomputed_route_length_m")
+                    push!(details, "$(replace(key, "_"=>" ")): $(something(evidence[key], "unavailable"))")
+                end
+            elseif item["code"] == "S.INVALID_ROUTE_GEOMETRY"
+                push!(details, "validation reason: $(evidence["reason"])")
+            end
+            if assessment !== nothing
+                voltage = assessment["voltage_context"]
+                if voltage !== nothing
+                    push!(details, "voltage relation: $(voltage["relation"])")
+                    haskey(voltage, "tiers") && push!(details, "tiers: $(join(voltage["tiers"], ", "))")
+                    haskey(voltage, "buses") && push!(details, join(["$(b["bus_id"]): $(b["voltage_tier"])" for b in voltage["buses"]], ", "))
+                end
+                isempty(details) || println(io, "  Evidence: $(_spatial_md_text(join(details, "; "))).")
+                println(io, "  Interpretation: $(_spatial_md_text(assessment["explanation"]))")
+                println(io, "  Uncertainty: $(_spatial_md_text(assessment["uncertainty"]))")
+                println(io, "  Inspect: $(_spatial_md_text(assessment["inspect"]))")
+            end
+            println(io, "  Geometry basis: $(_spatial_md_text(item["geometry_basis"])); " *
+                "$(item["geometry_coverage"]["n_buses_with_eligible_coordinates"])/$(item["geometry_coverage"]["n_identified_buses"]) identified buses located; " *
+                "subject list complete: $(item["geometry_coverage"]["subject_list_complete"]).")
+            coordinate_evidence = get(item, "coordinate_evidence", Dict())
+            for (bus, record) in Iterators.take(sort!(collect(coordinate_evidence), by=first), 4)
+                println(io, "  Coordinates for $(_spatial_md_text(bus)): provenance $(_spatial_md_text(record["coordinate_provenance"])); " *
+                    "reported accuracy $(_spatial_md_text(something(record["coordinate_accuracy_m"], "unavailable"))) m.")
+            end
+            length(coordinate_evidence) > 4 && println(io, "  Additional coordinate provenance is retained in JSON.")
+            println(io, "  Review: $(_spatial_md_text(item["review"]["disposition"])) ($(_spatial_md_text(item["review"]["status"]))). " *
+                "Directly attached loads: $(item["impact"]["n_directly_attached_loads"]). " *
+                "Code: `$(item["code"])`. ID: `$(item["item_id"])`.\n")
+        end
+    end
+    println(io, "\nShowing $(length(shown)) of $(length(selected)) $bucket observations; JSON retains all captured items.\n")
 end

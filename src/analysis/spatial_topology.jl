@@ -108,7 +108,7 @@ function _spatial_topology(net, levels, limit)
             "incident_branches_truncated" => length(incident) > limit)
     end
     (components=components, incidence=incidence, incidence_sets=Dict(b => Set(v) for (b,v) in incidence), line_adj=line_adj,
-     certain=certain_id, possible=possible_id, invalid=invalid, bus_context=bus_context)
+     certain=certain_id, possible=possible_id, invalid=invalid, bus_context=bus_context, levels=levels)
 end
 
 function _spatial_nearby_callback(check, topology, coordinates, levels, budget, limit)
