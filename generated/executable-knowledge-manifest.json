@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "747c8be7c89dc64b03d0270d1997863d147d55767bdba2c9216dbf6cf78795bf",
+  "corpus_sha256": "09297f5a87c1fafc1927f82a6a1a2ee8c6fa922be17769ff0c9a34ff68ec69e9",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -138,7 +138,7 @@
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",
-      "sha256": "f0799c0652da7cc7f2d69a9e17d698654ce264b268412ca57a6fe28dc90d37d0"
+      "sha256": "10712fac4e3f1c49dac42ecf599b4d4646c99b4899b6a1ede23b512701efd31a"
     },
     {
       "path": "docs/src/transformer_models.md",
@@ -258,7 +258,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "41542ba358778286247706d0878dfd6a1750938266807d289763cc5be4afda8e"
+      "sha256": "ce9d73c1483271778889649c78c618be0fb6f99b9cbc89ad1f30a2a454cae455"
     },
     {
       "path": "recipes/README.md",
@@ -518,11 +518,11 @@
     },
     {
       "path": "src/io/to_ybus.jl",
-      "sha256": "4d05f291af4a11cc5c417567bc5177a1d52e5035696109dccf410965d27ea49d"
+      "sha256": "1588c5bdf312614cdadb21738d7f299d5ee0d4384659db972b120b94b945b245"
     },
     {
       "path": "src/io/transformer_leakage.jl",
-      "sha256": "4f66228aa9236499c7bfe87142b01531df15798819ad8afac5e9b127ee40800f"
+      "sha256": "a6a1e5e4cc9caa4413a59ef764dc898752320a766441fc7c80b497e05c3f0229"
     },
     {
       "path": "src/io/ybus.jl",
@@ -1386,7 +1386,7 @@
     },
     {
       "path": "test/transformer_leakage_policy_tests.jl",
-      "sha256": "0f378da5f9b265bb08f2c315c2d56aab3485c6f68e58657ac3e6977892d420a5"
+      "sha256": "46b1480337d486ace44c439b49ec3573fa603db0657ef7eda8b6d95efba60a94"
     },
     {
       "path": "test/transformer_loading_opf_tests.jl",
