@@ -22,11 +22,31 @@ end
         @test maximum(abs.(Y .- transpose(Y))) < atol
     end
 
-    # Power balance: Re[conj(V)ᵀ I] should equal resistive loss = Σ |Iw|² R.
-    # For a passive element we test Re[conj(V)ᵀ Y V] ≥ 0.
+    # Terminal power uses exactly one conjugation: S = Σ V * conj(I).
+    # Julia's adjoint (') already conjugates; conj(V)' would instead give Vᵀ.
+    # This is a finite passivity witness, not a complete certificate (PSK-000013).
+    terminal_power(Y, V) = sum(V .* conj.(Y * V))
     function check_power_balance(Y, V; rtol=1e-6)
-        S = conj(V)' * (Y * V)
-        @test real(S) >= -rtol * abs(S)   # non-negative real part
+        S = terminal_power(Y, V)
+        @test real(S) >= -rtol * abs(S)
+        for angle in (pi/2, -2pi/3)
+            rotated = terminal_power(Y, cis(angle) .* V)
+            @test rotated ≈ S rtol=1e-10 atol=1e-12
+            @test real(rotated) >= -rtol * abs(rotated)
+        end
+    end
+
+    @testset "complex-power oracle is invariant to phase rotation" begin
+        # A two-terminal admittance y=2+3i and |ΔV|²=10 draws 20-30i VA.
+        # An active negative conductance must remain distinguishable.
+        Y = (2.0 + 3.0im) .* [1.0 -1.0; -1.0 1.0]
+        for angle in (0.0, pi/2, -2pi/3)
+            V = cis(angle) .* [2.0 + 1.0im, -1.0 + 2.0im]
+            @test terminal_power(Y, V) ≈ 20.0 - 30.0im atol=1e-12
+            @test real(terminal_power(-Y, V)) ≈ -20.0 atol=1e-12
+        end
+        @test terminal_power(Y, [0.0im, 0.0im]) == 0.0im
+        @test terminal_power(Y, [1.0 + 2.0im, 1.0 + 2.0im]) == 0.0im
     end
 
     # ─── single_phase ─────────────────────────────────────────────────────────
@@ -122,7 +142,8 @@ end
             "v_nom_to"          => 400.0,
         )
         N = 11000.0 / 400.0
-        nodes, Y = transformer_yprim(xfmr, "single_phase")
+        @test_throws ArgumentError transformer_yprim(xfmr, "single_phase")
+        nodes, Y = transformer_yprim(xfmr, "single_phase"; shunt_only=true)
         # With Z=0: series terms drop out; Y should be zero (shunt also zero).
         @test all(iszero, Y)
         check_symmetry(Y)
@@ -656,7 +677,7 @@ end
         # off-diag −y, with y = Y0/3.
         yd = merge(base, Dict{String,Any}(
             "terminal_map_from" => ["1","2","3","n"], "terminal_map_to" => ["1","2","3"]))
-        _, Y_yd = transformer_yprim(yd, "wye_delta")
+        _, Y_yd = transformer_yprim(yd, "wye_delta"; shunt_only=true)
         for k in 5:7
             @test Y_yd[k, k] ≈ 2 * Y0 / 3
             @test Y_yd[k, 5 + (k - 5 + 1) % 3] ≈ -Y0 / 3
@@ -665,7 +686,7 @@ end
         # center_tap: shunt across winding 2 = LV leg 1 (nodes 3-4).
         ct = merge(base, Dict{String,Any}(
             "terminal_map_from" => ["ph","n"], "terminal_map_to" => ["1","n","2"]))
-        _, Y_ct = transformer_yprim(ct, "center_tap")
+        _, Y_ct = transformer_yprim(ct, "center_tap"; shunt_only=true)
         @test Y_ct[3, 3] ≈ Y0 && Y_ct[4, 4] ≈ Y0
         @test Y_ct[3, 4] ≈ -Y0 && Y_ct[4, 3] ≈ -Y0
         @test all(iszero, Y_ct[1:2, 1:2])   # HV side carries no shunt

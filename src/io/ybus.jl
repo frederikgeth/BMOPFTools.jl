@@ -22,8 +22,8 @@
 #     neutrals) collapse onto the earth reference — their admittance
 #     contributions become diagonal self-terms;
 #   • terminals joined by a zero-impedance UNITY coupling (a closed switch, a
-#     line whose series impedance is below `z_line_min_ohm`, or a 1:1
-#     zero-leakage transformer) are fused into a single node by union-find.
+#     line whose series impedance is below `z_line_min_ohm`) are fused into
+#     a single node by union-find. Transformer windings are never fused.
 #     A switch is closed unless its `open_switch` field is `true`; an open
 #     switch couples nothing, so the nodes on its two sides stay separate.
 # This mirrors what the OPF and `simplify_network` already do — neither invents a
@@ -44,10 +44,6 @@ using SparseArrays
 # coupling (aliased) rather than stamped — the same `z_line_min_ohm` the
 # `W.DOM.LINE_LOW_IMPEDANCE` check uses.
 _ybus_line_z_min(thresh) = Float64(get(thresh, "z_line_min_ohm", 1e-4))
-# Leakage |X| (Ω, referred) at/below which a transformer is treated as exactly
-# ideal — the same `xfmr_z_min_ohm` as `I.DOM.XFMR_IDEAL`.
-_ybus_xfmr_z_min(thresh) = Float64(get(thresh, "xfmr_z_min_ohm", 1e-6))
-
 # ── union-find over terminals (node aliasing) ────────────────────────────────
 
 const _Node = Tuple{String,String}
@@ -185,7 +181,7 @@ end
 
 Assign the deterministic integer node ordering for `net`'s Ybus. Grounded
 terminals map to the earth reference (index `0`); closed switches, negligible-Z
-lines, and unity-ratio zero-leakage transformers alias their terminal pairs onto
+lines alias their terminal pairs onto
 a shared node. A switch is closed unless its `open_switch` field is `true`; open
 switches alias nothing.
 
@@ -231,13 +227,6 @@ function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
         bfr = get(ln, "bus_from", ""); bto = get(ln, "bus_to", "")
         tmf = string.(get(ln, "terminal_map_from", String[]))
         tmt = string.(get(ln, "terminal_map_to", String[]))
-        for k in 1:min(length(tmf), length(tmt))
-            _uf_union!(uf, (bfr, tmf[k]), (bto, tmt[k]))
-        end
-    end
-
-    # 4. alias 1:1 zero-leakage transformers (see _xfmr_alias_pairs)
-    for (bfr, tmf, bto, tmt) in _xfmr_alias_pairs(net, config)
         for k in 1:min(length(tmf), length(tmt))
             _uf_union!(uf, (bfr, tmf[k]), (bto, tmt[k]))
         end
@@ -291,43 +280,6 @@ function _open_delta_bond(x; neutral_labels=nothing)
     pb=neutral_labels===nothing ? _phase_positions(b) : _phase_positions(b,neutral_labels)
     length(pa)==3 && length(pb)==3 || throw(ArgumentError("open-delta requires three phases on both sides"))
     ((string(x["bus_from"]),a[pa[shared]]),(string(x["bus_to"]),b[pb[shared]]))
-end
-
-# ── transformer aliasing (1:1 zero-leakage → node fusion) ────────────────────
-
-# Yield (bus_from, terminal_map_from, bus_to, terminal_map_to) for every
-# two-winding transformer that is BOTH unity-ratio and zero-leakage — an exact
-# node identity that must be aliased rather than stamped (a 1:1 ideal coupling
-# has Yprim = [[y,-y],[-y,y]] with y→∞, i.e. no finite admittance form).
-function _xfmr_alias_pairs(net::Dict{String,Any}, config)
-    thresh = _domain_thresholds(config)
-    zmin = _ybus_xfmr_z_min(thresh)
-    out = Tuple{String,Vector{String},String,Vector{String}}[]
-    xfmrs = get(net, "transformer", Dict())
-    for subtype in ("single_phase", "wye_delta", "delta_wye")
-        sub = get(xfmrs, subtype, Dict())
-        sub isa Dict || continue
-        for (_, x) in sub
-            _xfmr_is_ideal(x, zmin) || continue
-            # unity ratio only: a ratio ≠ 1 is a genuine voltage transform and
-            # cannot be node-aliased (handled by the regularizing stamp instead).
-            isapprox(_xfmr_turns_ratio(x), 1.0; atol=1e-9) || continue
-            bfr = get(x, "bus_from", ""); bto = get(x, "bus_to", "")
-            tmf = string.(get(x, "terminal_map_from", String[]))
-            tmt = string.(get(x, "terminal_map_to", String[]))
-            push!(out, (bfr, tmf, bto, tmt))
-        end
-    end
-    out
-end
-
-# Zero-leakage test: all series leakage terms at/below the ideal threshold.
-function _xfmr_is_ideal(x::Dict{String,Any}, zmin::Float64)
-    r_fr = abs(Float64(get(x, "r_series_from", 0.0)))
-    x_fr = abs(Float64(get(x, "x_series_from", 0.0)))
-    r_to = abs(Float64(get(x, "r_series_to", 0.0)))
-    x_to = abs(Float64(get(x, "x_series_to", 0.0)))
-    max(r_fr, x_fr, r_to, x_to) <= zmin
 end
 
 # ── primitive blocks ─────────────────────────────────────────────────────────
@@ -450,7 +402,7 @@ voltage-invariant network. Voltage sources contribute no admittance (they are
 ideal in the BMOPF model) and set the boundary, not the matrix.
 
 SI siemens, full multiphase, referenced to earth. Closed switches, negligible-Z
-lines, and 1:1 zero-leakage transformers are node-aliased (not stamped). See the
+lines are node-aliased (not stamped). See the
 module header for the sign/symmetry convention.
 
 A switch is closed unless its `open_switch` field is `true` (an absent field
@@ -462,10 +414,9 @@ nonzero row, so isolation alone does not imply a singular `Y`.
 [`connectivity_analysis`](@ref) reports open-switch
 endpoints without a closed path to a source as `open_switch_isolated_buses`.
 
-A zero-leakage transformer with a non-unity ratio has no finite admittance form;
-here it is stamped via `transformer_yprim` as the (singular, shunt-only) block
-with that function's warning. [`ybus_augmented`](@ref) models it exactly instead,
-as an ideal-coupling constraint row.
+Transformers requiring a border (effective leakage at/below `xfmr_z_min_ohm`)
+raise `ArgumentError`. Use `ybus_augmented` for the supported winding domains;
+a shunt-only primitive is not a complete network element.
 """
 function ybus_passive(net::Dict{String,Any}; config=_DEFAULT_CONFIG)::YbusResult
     idx = _ybus_nodes(net; config)
@@ -504,12 +455,12 @@ function _stamp_passive!(I, J, V, net::Dict{String,Any}, idx::_YbusIndex, config
         isempty(nodes) || _scatter!(I, J, V, nodes, Y, idx)
     end
 
-    # transformers (reuse the per-element Yprim; 1:1 ideal ones already aliased)
+    # transformers (finite primitives, or shunts for explicitly bordered units)
     _scatter_transformers!(I, J, V, net, idx, config; skip=skip_transformers)
     return
 end
 
-# Stamp every transformer's finite contribution. Aliased and promoted units
+# Stamp every transformer's finite contribution. Promoted units
 # omit only the series part; their magnetising and grounding branches remain.
 function _scatter_transformers!(I, J, V, net, idx::_YbusIndex, config;
                                 skip::Set{Tuple{String,String}}=Set{Tuple{String,String}}())
@@ -521,15 +472,12 @@ function _scatter_transformers!(I, J, V, net, idx::_YbusIndex, config;
         sub isa Dict && !isempty(sub) || continue
         for (xid, x) in sub
             promoted = (string(subtype), string(xid)) in skip
-            aliased = subtype in ("single_phase", "wye_delta", "delta_wye") &&
-               _xfmr_is_ideal(x, zmin) &&
-               isapprox(_xfmr_turns_ratio(x), 1.0; atol=1e-9)
-            nodes, Y = if promoted || aliased
+            nodes, Y = if promoted
                 _transformer_shunt_yprim(x, subtype)
             elseif subtype == "n_winding"
-                nwinding_yprim(x)
+                nwinding_yprim(x; config)
             else
-                transformer_yprim(x, subtype)
+                transformer_yprim(x, subtype; config)
             end
             isempty(nodes) || _scatter!(I, J, V, nodes, Y, idx)
         end

@@ -2,43 +2,22 @@
 #
 # Augmented (bordered, MNA-style) system nodal admittance matrix.
 #
-# Extends the passive Ybus with linear constraint rows for IDEAL couplings —
-# elements with no finite admittance form: closed switches (optionally) and
-# zero-leakage transformers with a non-unity ratio (which `ybus_passive` can
-# only stamp as a singular shunt-only block). Each coupling contributes one
-# auxiliary current unknown `w` and one constraint row `a·V = 0`, giving the
-# bordered system
-#
-#     K = [ Y   Aᵀ ]      K · [V; w] = [I_inj; 0]
-#         [ A   0  ],
-#
-# where `Y` is the passive Ybus over the surviving nodes and `A` stacks the
-# per-conductor constraint rows. The same (real-coefficient) vector is stamped
-# as row AND column, so `K = transpose(K)` — the module-wide reciprocity
-# convention (see ybus.jl: plain transpose, never the adjoint) is preserved,
-# and the ideal element is exact: the constraint holds identically, with no
-# penalty-admittance conditioning error, and the coupling current comes out as
-# a first-class solution unknown.
-#
-# Constraint rows are scaled by a nominal admittance `y0` (the median passive
-# diagonal magnitude) so the voltage-dimension rows are commensurate with the
-# siemens-dimension KCL rows; the physical coupling current is `scale·w`.
-#
-# Ideal-transformer constraint rows are built from `_xfmr_winding_incidence`,
-# the SAME seam the Yprim builders use — the constraint c·V = 0 with
-# c = C_w1 − ratio·C_w2 is exactly the zero-leakage limit of the rank-1 series
-# block yt·transpose(c)·c, so the admittance and constraint paths cannot drift.
+# Bordering represents winding voltage/current equations without inverting
+# small leakage: K = [Y Aᵀ; A -D]. With current i = y0*w, A = y0*C
+# and D = y0²*Z. Exact-zero Z gives an ideal constraint; finite leakage is
+# preserved, including values at/below the representation threshold.
+# Reciprocity uses plain transpose, never adjoint.
 
 """
     IdealCoupling
 
-One ideal coupling (per conductor / winding core) in an [`AugYbusResult`](@ref):
-a linear constraint `Σ coeffs[k]·V[nodes[k]] = 0` with an auxiliary current
+One coupling (per conductor / winding core) in an [`AugYbusResult`](@ref):
+a port equation `Σ coeffs[k]·V[nodes[k]] = Z·i` with an auxiliary current
 unknown occupying one bordered row/column of `K`.
 
 Fields:
 - `kind`      — `:switch` (closed switch conductor) or `:ideal_xfmr`
-                (zero-leakage winding core).
+                (zero-leakage winding core), or `:xfmr_port` (finite leakage).
 - `id`        — element id; `"subtype/id"` for transformers.
 - `conductor` — conductor / winding-core index within the element.
 - `nodes`     — system node indices (earth-referenced entries already dropped;
@@ -111,7 +90,7 @@ function _aug_row(idx::_YbusIndex, nds::Vector{_Node}, cfs::Vector{Float64})
     end
     rn = Int[]; rc = ComplexF64[]
     for k in sort!(collect(keys(acc)))
-        abs(acc[k]) <= 1e-12 && continue
+        iszero(acc[k]) && continue
         push!(rn, k); push!(rc, acc[k])
     end
     (rn, rc)
@@ -133,22 +112,22 @@ Keywords:
   identical node voltages. A switch is closed unless its `open_switch` field
   is `true`, as in `ybus_passive`; an open switch is neither fused nor
   constrained in either mode.
-- `ideal_xfmrs = :constrain | :stamp` — `:constrain` (default) models every
-  zero-leakage, NON-unity-ratio two-winding transformer (`single_phase`,
-  `wye_delta`, `delta_wye`) exactly, as ideal winding-core constraints
-  `u_w1 − ratio·u_w2 = 0` from `_xfmr_winding_incidence`; `:stamp`
-  falls back to `ybus_passive`'s singular shunt-only block (with its warning).
-  Unity-ratio zero-leakage transformers stay node-aliased in either mode
-  (an exact identity — strictly better than a constraint).
+- `ideal_xfmrs = :constrain | :stamp` — `:constrain` (default) uses bordered
+  equations for `single_phase`, `wye_delta` and `delta_wye` at/below
+  `config["domain_rules"]["xfmr_z_min_ohm"]`. Leakage is retained in the
+  lower-right block `-scale²*Z`; it is not approximated as zero. Ratios of one
+  also use winding equations: isolated neutral references are not fused.
+  Other subtypes requiring a border currently raise `ArgumentError`.
+  `:stamp` requires every transformer to have a finite primitive above the
+  threshold; it raises instead of silently returning a shunt-only device.
 
 The constraint coefficients must be real (they are, for all supported
 subtypes — ratios are `v_nom` quotients times a real tap); this keeps
 `K = transpose(K)`. A degenerate coil ratio (zero/non-finite, e.g. `tap = 0`)
 raises an `ArgumentError`.
 
-Non-source shunt-only networks aside, `K` is nonsingular whenever every node
-group has a path to a voltage reference; islands and floating ideal deltas
-surface as singular factorizations in the consuming solver, not here.
+Floating references, islands, and redundant ideal coupling cycles can make `K`
+singular; singularity is left to the consuming solver.
 """
 function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
                         switches::Symbol=:alias,
@@ -163,8 +142,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
 
     idx = _ybus_nodes(net; config, alias_switches=(switches === :alias))
 
-    # Transformers promoted to ideal couplings: zero-leakage AND non-unity ratio
-    # (the unity ones are node-aliased by `_ybus_nodes`), ideal-capable subtypes.
+    # Promote small leakage using the same reference and threshold as primitives.
     promoted = Tuple{String,String,Dict{String,Any}}[]   # (subtype, id, xfmr)
     if ideal_xfmrs === :constrain
         xfmrs = get(net, "transformer", Dict())
@@ -174,8 +152,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
                 sub isa Dict || continue
                 for xid in sort!(collect(String.(keys(sub))))
                     x = sub[xid]
-                    _xfmr_is_ideal(x, zmin) || continue
-                    isapprox(_xfmr_turns_ratio(x), 1.0; atol=1e-9) && continue
+                    _xfmr_leakage_policy(x, subtype, zmin).needs_border || continue
                     push!(promoted, (subtype, xid, x))
                 end
             end
@@ -191,6 +168,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
     y0 = _aug_scale(Ypass)
 
     couplings = IdealCoupling[]
+    impedance_blocks = Tuple{Vector{Int},Matrix{ComplexF64}}[]
 
     # Closed switches → V_from − V_to = 0 per conductor.
     if switches === :constrain
@@ -209,8 +187,10 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
         end
     end
 
-    # Ideal transformers → u_w1 − ratio·u_w2 = 0 per winding core.
+    # Winding ports: u_w1 − ratio·u_w2 = Z*i, including finite small Z.
     for (subtype, xid, x) in promoted
+        ids = Int[]
+        z = only(_xfmr_leakage_values(x, subtype))
         for (k, ent) in enumerate(_xfmr_winding_incidence(x, subtype))
             r = ent.ratio
             (isfinite(r) && !iszero(r)) || throw(ArgumentError(
@@ -220,7 +200,15 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
             cfs = vcat(ent.w1_coeffs, -r .* ent.w2_coeffs)
             rn, rc = _aug_row(idx, nds, cfs)
             isempty(rn) && continue
-            push!(couplings, IdealCoupling(:ideal_xfmr, "$subtype/$xid", k, rn, rc, y0))
+            push!(couplings, IdealCoupling(iszero(z) ? :ideal_xfmr : :xfmr_port, "$subtype/$xid", k, rn, rc, y0))
+            push!(ids, length(couplings))
+        end
+        push!(impedance_blocks, (ids, Matrix{ComplexF64}(LinearAlgebra.I, length(ids), length(ids)) .* z))
+    end
+
+    for (ids, Z) in impedance_blocks
+        for a in eachindex(ids), b in eachindex(ids)
+            push!(I, n+ids[a]); push!(J, n+ids[b]); push!(V, -y0^2*Z[a,b])
         end
     end
 

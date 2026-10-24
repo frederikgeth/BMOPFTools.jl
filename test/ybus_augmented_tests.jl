@@ -312,15 +312,16 @@
         @test errs[end] < 1e-6 * maximum(abs.(V0))
     end
 
-    # ── unity-ratio zero-leakage transformers stay aliased ───────────────────
+    # ── unity-ratio isolated windings retain their voltage equation ───────────────────
 
-    @testset "unity-ratio ideal transformer stays node-aliased" begin
+    @testset "unity-ratio ideal transformer has a winding equation" begin
         net = _sp_xfmr_net()
         x1 = net["transformer"]["single_phase"]["t1"]
-        x1["v_nom_from"] = 400.0     # ratio 1:1 → exact node identity
+        x1["v_nom_from"] = 400.0     # ratio 1:1 → equal coil voltage
         r = ybus_augmented(net)
-        @test isempty(r.couplings)
-        @test r.index[("hv", "a")] == r.index[("lv", "a")]
+        @test length(r.couplings) == 1
+        @test r.index[("hv", "a")] != r.index[("lv", "a")]
+        @test r.couplings[1].coeffs == [1., -1.]
     end
 
     # ── validation ────────────────────────────────────────────────────────────

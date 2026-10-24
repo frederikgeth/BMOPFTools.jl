@@ -50,13 +50,10 @@ perfect ground), and the explicit-neutral convention keeps every
 non-perfectly-grounded neutral as its own node. A voltage source is ideal in the
 BMOPF model — it contributes no admittance and sets only the boundary.
 
-**Zero-impedance aliasing.** A closed switch, a line whose series impedance is
-below `z_line_min_ohm`, and a 1:1 zero-leakage transformer are all exact shorts:
-their terminal pairs are **fused into a single node** by union-find rather than
-stamped with a large ``1/z`` penalty admittance. This mirrors what the OPF and
-[`simplify_network`](@ref) already do — they impose ``V_{\text{from}} =
-V_{\text{to}}`` / merge the nodes — so the Ybus agrees with the model it
-represents and avoids a conditioning artifact.
+**Zero-impedance aliasing.** Closed switches and negligible-impedance lines
+fuse their terminal pairs. Transformer windings use voltage/current equations:
+a unity nameplate ratio does not identify their terminal-to-earth voltages or
+bond isolated neutrals (PSK-000002).
 
 A switch is closed unless its [`open_switch`](switch.md) field is `true`; an
 absent field means closed, as in the OPF, and a value that is not a boolean
@@ -67,19 +64,43 @@ isolated terminal a nonzero row, so isolation alone does not imply a singular
 `Y`. [`connectivity_analysis`](@ref) reports open-switch endpoints without a
 closed path to a source as `open_switch_isolated_buses`.
 
-Aliasing and ideal-transformer constraint rows replace only the **series**
-coupling. Finite magnetising and internal neutral-grounding branches remain
-in the passive block, scattered through the same alias/earth-reference map.
-They are stamped exactly once, including when `ideal_xfmrs=:stamp` is used.
-This preserves the represented grounding branch; it does not establish
-grounding adequacy or equipment safety (PSK-000002).
+Transformer borders replace only the **series** contribution. Finite
+magnetising and internal neutral-grounding branches remain in the passive block,
+stamped exactly once. This preserves the represented grounding branch; it does
+not establish grounding adequacy or equipment safety (PSK-000002).
 
-!!! note "Ideal transformers with a non-unity ratio"
-    A zero-leakage transformer with ``N \neq 1`` cannot be node-aliased (the two
-    sides are not identical) and has no finite ``Y_{\text{prim}}``. In
-    `ybus_passive` it stamps the singular, shunt-only block with a warning;
-    [`ybus_augmented`](@ref) models it **exactly** instead, as an ideal-coupling
-    constraint row.
+### Transformer leakage policy
+
+Ordinary two-winding and center-tap Ybus inputs require explicit positive finite
+`v_nom_from` and `v_nom_to`, including shunt-only primitive inspection. Missing,
+zero, negative, Boolean or nonfinite declarations raise `ArgumentError`; they
+never imply a unity turns ratio. Ratios must also remain finite and nonzero in
+Float64 arithmetic (PSK-000002).
+
+`xfmr_z_min_ohm` must be finite and nonnegative. An effective impedance at or
+below it selects a bordered representation, **not an approximation to zero**.
+For ordinary two-winding units, the test uses the primitive's effective series
+impedance: tapped from-coil base for single-phase, wye-coil base for Yd/Dy with
+the existing delta-base and tap referral. Regulators use each from-referred core
+impedance. Center-tap uses each LV-referred star arm (primary tap scaling cancels
+against the effective turns ratio). N-winding uses the smallest singular value
+of the winding-1 coil-base `ZB`, including partly singular matrices.
+
+`ybus_augmented` currently supports small/zero leakage for `single_phase`,
+`wye_delta`, and `delta_wye`. Other subtypes requiring a border raise
+`ArgumentError` until their port domains are supported. `ybus_passive`,
+`ybus_linearized`, standalone primitives and `ideal_xfmrs=:stamp` reject such
+couplings rather than omit them or stamp a large inverse. Set a lower threshold
+explicitly to request a finite primitive for a nonzero impedance.
+`transformer_yprim(...; shunt_only=true)` is an explicit inspection operation,
+not a complete transformer model.
+
+The bordered system is ``K=[Y\; A^T;\ A\; -D]`` in block notation, with
+``A=y_0 C``, ``D=y_0^2 Z``, and physical port current ``i=y_0 w``. Its lower
+rows express ``CV=Zi``. Only exactly zero leakage yields ideal constraints.
+There is no universal bound of `1/xfmr_z_min_ohm` on matrix entries: ratios,
+incidence and superposed contributions also enter. Network islands and
+redundant ideal cycles may still make the system singular.
 
 ## Folding nonlinear loads
 
