@@ -43,6 +43,7 @@ function _spatial_line_group(net, ids, limit)
     map_relation = !same_pair || any(isnothing, maps) ? "unassessed" :
         all(m -> isequal(m, first(maps)), maps) ? "equal_declared_maps" : "different_declared_maps"
     Dict{String,Any}("n_lines" => length(ids), "lines" => rows, "lines_truncated" => length(ids) > limit,
+        "line_ids_digest" => _spatial_review_hash(sort!(collect(ids))),
         "same_bus_pair" => same_pair, "declared_arrangement" => arrangement, "terminal_map_relation" => map_relation)
 end
 

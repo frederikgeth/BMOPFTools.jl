@@ -233,3 +233,7 @@ max_topology_pairs = 100000
 max_series_hops = 8
 route_endpoint_tolerance_m = 5.0
 long_span_threshold_m = 10000.0
+
+# Separate review capture from the short diagnostic witness lists.
+review_enabled = true
+max_review_candidates = 5000

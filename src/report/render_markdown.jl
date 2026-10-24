@@ -355,6 +355,7 @@ function _md_spatial(spatial, io::IO)
         end
         isempty(proximity["pair_witnesses"]) || println(io)
     end
+    _md_spatial_cleanup_review(get(spatial, "cleanup_review", nothing), io)
     discrepancies = get(spatial, "discrepancy_candidates", nothing)
     if discrepancies !== nothing
         println(io, "**Geometry–topology review candidates.** $(discrepancies["caution"])\n")
@@ -754,5 +755,39 @@ function _md_section_findings(r::SummaryReport, io::IO, section::Symbol)
         icon = f.severity == ERROR ? "🔴" : f.severity == WARNING ? "🟡" : "🔵"
         println(io, "> $icon **[$(f.code)]** $(f.message)")
     end
+    println(io)
+end
+
+function _md_spatial_cleanup_review(review, io::IO)
+    review isa AbstractDict || return
+    println(io, "**Cleanup review:** $(review["status"]) ($(review["reason"])); " *
+        "$(length(review["items"])) captured items in $(length(review["locations"])) exact review locations. " *
+        "Queue complete within scope: $(review["queue_complete"]).\n")
+    println(io, "$(review["caution"])\n")
+    for (name, coverage) in sort!(collect(review["coverage"]), by=first)
+        if !coverage["capture_complete"] || !coverage["scan_complete"]
+            println(io, "- Coverage `$name`: $(coverage["status"]) ($(coverage["reason"])); " *
+                "$(coverage["n_captured"])/$(coverage["n_observed"]) observed candidates captured.")
+        end
+    end
+    isempty(review["coverage"]) || println(io)
+    for (state, count) in sort!(collect(get(review, "disposition_counts", Dict())), by=first)
+        count > 0 && println(io, "- Disposition `$state`: $count")
+    end
+    for (state, count) in sort!(collect(get(review, "review_status_counts", Dict())), by=first)
+        state in ("unreviewed", "recorded") || println(io, "- Decision status `$state`: $count")
+    end
+    audit = get(review, "decision_audit", nothing)
+    if audit !== nothing
+        println(io, "\nDecision ledger: $(audit["n_invalid_records"]) invalid records; $(audit["n_unmatched_records"]) unmatched records. " *
+            "Unmatched candidates are not assumed resolved.")
+    end
+    println(io, "\nPriority is an inspection order, not error probability. Impact counts refer only to identified subjects and directly attached loads.\n")
+    for item in Iterators.take(review["items"], 20)
+        println(io, "- **P$(item["priority"]) $(item["code"])** — $(item["ranking_reason"]); " *
+            "$(item["impact"]["n_identified_components"]) components, $(item["impact"]["n_directly_attached_loads"]) directly attached loads; " *
+            "$(item["review"]["disposition"]) ($(item["review"]["status"])). ID: `$(item["item_id"])`.")
+    end
+    length(review["items"]) > 20 && println(io, "\nShowing 20 items; the JSON queue retains $(length(review["items"])) captured items.")
     println(io)
 end

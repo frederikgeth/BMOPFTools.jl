@@ -370,3 +370,4 @@ include("spatial_proximity_tests.jl")
 
 include("spatial_topology_tests.jl")
 include("spatial_route_tests.jl")
+include("spatial_review_tests.jl")

@@ -7,8 +7,11 @@ _spatial_candidate_check(scope) = Dict{String,Any}(
 function _spatial_candidate!(check, code, evidence, limit)
     check["n_candidates_observed"] += 1
     check["counts_complete"] && (check["n_candidates"] = check["n_candidates_observed"])
-    length(check["witnesses"]) < limit && push!(check["witnesses"],
-        merge(Dict{String,Any}("code" => code), evidence))
+    if length(check["witnesses"]) < limit || _spatial_review_room(check)
+        row = merge(Dict{String,Any}("code" => code), evidence)
+        length(check["witnesses"]) < limit && push!(check["witnesses"], row)
+        _spatial_review_room(check) && push!(check["_review_candidates"], row)
+    end
 end
 function _spatial_incomplete!(check, reason; status="indeterminate")
     merge!(check, Dict("status" => status, "reason" => reason,
@@ -135,7 +138,7 @@ function _spatial_nearby_callback(check, topology, coordinates, levels, budget, 
                 counts = check[key]
                 counts[label] = get(counts, label, 0) + 1
             end
-            if length(check["witnesses"]) >= limit
+            if length(check["witnesses"]) >= limit && !_spatial_review_room(check)
                 check["n_candidates_observed"] += 1
                 check["counts_complete"] && (check["n_candidates"] = check["n_candidates_observed"])
                 continue
@@ -277,6 +280,11 @@ function _spatial_discrepancies(net, coordinates, frame, levels, config)
     report = Dict{String,Any}("checks" => checks,
         "caution" => "Candidates describe geometry and declared bus-level topology, not conductor continuity, duplicate circuits, intended connections or safe repairs. Open switches and transformer isolation may be intentional.",
         "unassessed" => ["electrical_equivalence", "automatic_repair", "tolerant_partial_route_overlap", "arbitrary_route_crossings"])
+    review_options = _spatial_review_options(config)
+    for check in values(checks)
+        check["_review_candidates"] = Dict{String,Any}[]
+        check["_review_limit"] = review_options.valid && review_options.enabled ? review_options.limit : 0
+    end
     if !valid || !enabled
         for check in values(checks)
             _spatial_incomplete!(check, valid ? "disabled" : "invalid_configuration";

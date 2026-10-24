@@ -560,6 +560,10 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                             for r in length_rows]
     sort!(relative_length_rows, by=r -> (-r.relative_to_p99, r.id))
     discrepancies = _spatial_discrepancies(net, coordinates, frame, level_by_bus, config)
+    cleanup_review = _spatial_cleanup_review(net, coordinates, frame, config, discrepancies.report["checks"], context_rows)
+    for check in values(discrepancies.report["checks"])
+        delete!(check, "_review_candidates"); delete!(check, "_review_limit")
+    end
     Dict{String,Any}(
         "coordinate_reference" => Dict{String,Any}(
             "status" => crs_status, "declared_crs" => declared_crs,
@@ -572,6 +576,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         "coordinate_semantics" => coordinates.report,
         "proximity" => discrepancies.proximity,
         "discrepancy_candidates" => discrepancies.report,
+        "cleanup_review" => cleanup_review,
         "coordinate_coverage" => Dict{String,Any}(
             "n_buses" => length(buses), "n_with_any_coordinate" => n_any,
             "n_complete_lonlat" => n_complete, "n_with_xy_fields" => n_xy,

@@ -508,3 +508,127 @@ conflicting bus frames suppress endpoint distances and alternative-bus searches,
 but an explicitly WGS84 route can still contribute shared-segment or route-defect
 evidence. All algorithms are read-only and make no snapping, rewiring, merging or
 circuit-deletion decisions.
+
+### Cleanup review workflow
+
+`results[:connectivity]["spatial"]["cleanup_review"]` is a review queue over the
+milestone-3 candidate categories and earlier line-length context. A line with
+only `regularized_electrical_length` context is not queued. Coordinate coverage,
+exact-coincidence inventories and transformer extents remain separate context;
+this queue is not a complete inventory of all model defects.
+
+```toml
+[spatial]
+review_enabled = true
+max_review_candidates = 5000
+```
+
+The cap is a positive integer up to 100000. Each check independently captures up
+to that many candidates, regardless of `witness_limit`; the combined ranked queue
+is capped again. `coverage` reports observed/captured counts, scan status and
+capture completeness by check. `queue_complete=false` means that scans, capture,
+or the final queue are incomplete. Disabled discrepancy scans also prevent a
+complete queue. Unsupported/inapplicable domains are disclosed, never upgraded
+into validated cases. The queue is ordered **within the captured subset**; a cap
+can hide later candidates of higher priority. Increase the budget and regenerate
+before treating the queue as exhaustive within its stated scope.
+
+Each item has a stable logical `item_id`, its evidence fingerprint, typed bus and
+component references, geometry basis, direct-subject impact counts, and a recorded
+or unreviewed disposition. IDs distinguish shared segments and transformer types;
+a moved segment may have a new identity. Records bind to canonical SHA-256
+fingerprints of the entire network snapshot, spatial configuration and workflow
+version, and item evidence. Only ingestion bookkeeping timestamps
+`_meta.parsed_at` and `meta.provenance.parsed_at` are excluded from the case hash;
+other provenance remains binding. Object key order and equivalent integral JSON number
+spellings do not affect fingerprints. Even an unrelated network edit invalidates
+old decisions conservatively; these hashes are not the raw input file hash.
+
+Location groups use the first sorted evidence point in a supported frame, with
+exact equality only. Unlocated items group by a typed primary asset. Grouping
+organizes inspection; it does not establish physical co-location of all members
+or authorize merging buses. There is no spatial snapping or transitive clustering.
+
+Inspection priority is ordinal and has a versioned, visible rule:
+
+- **P3:** malformed geometry/length declarations, a length below its applicable
+  endpoint bound, or route endpoints disagreeing with connected bus coordinates.
+- **P2:** direct/series declarations, nearby separate same-tier components,
+  incomplete topology evidence, non-regularized length discrepancies, and shared
+  representations needing further review.
+- **P1:** contextual evidence such as same-component proximity, repeated source
+  IDs in a declared series chain, shared geometry with different terminal maps,
+  regularized length interpretation, and absolute long-span thresholds.
+
+Within a priority, directly attached load count and identified component count
+order inspection, followed by item ID. Counts cover directly referenced subjects,
+can be lower bounds when member lists are truncated, and never estimate downstream
+load, electrical severity, independent evidence strength or error probability.
+Different terminal maps and series arrangements are reasons to retain context,
+not automatically dismiss candidates. Synthetic expectations are executable in
+`test/data/spatial_review_calibration.json`; supplied SAPN and Springfield cases
+provide structural calibration only. No field precision/recall is claimed.
+
+#### Sidecar dispositions
+
+Use the existing `analyze` report, and keep decisions outside the electrical model:
+
+```julia
+report = analyze(net)
+review = report.results[:connectivity]["spatial"]["cleanup_review"]
+item = first(review["items"])  # select the item you actually reviewed
+record = spatial_review_decision(review, item["item_id"];
+    disposition="needs_information", reviewer="reviewer-id",
+    recorded_at="2026-10-24T01:00:00Z",
+    rationale="Check the source survey and terminal mapping.",
+    evidence_refs=["survey:example-record"])
+# Append record to your saved ledger; replay the entire ledger on a fresh queue.
+reviewed = apply_spatial_review(review, [record])
+geojson = spatial_review_geojson(reviewed)
+```
+
+Dispositions are `unreviewed`, `needs_information`, `confirmed_issue`,
+`accepted_modeling`, `deferred` and `resolved`. Every record requires a nonempty
+reviewer and rationale, an explicit UTC timestamp at second precision, exact
+fingerprints and a list of evidence references (which may be empty). References
+are preserved as text, never fetched or executed. `resolved` is a reviewer
+assertion, not a verified repair; the candidate remains visible.
+
+`apply_spatial_review` returns a copy, applies the latest UTC timestamp per item,
+and preserves the entire ledger in `decision_audit`. Identical duplicate records
+are harmless. Contradictory simultaneous records, malformed records targeting an
+item, edited item evidence, or stale fingerprint bindings leave the item unreviewed
+with an explicit status. Older records are retained. Records for absent items are
+unmatched; absence can reflect capture limits or changed identity and never implies
+resolution. Replaying an empty ledger resets dispositions rather than inheriting
+an earlier application. No candidate, model component or Finding is deleted or
+suppressed, and no network changes are proposed or applied by these functions.
+
+#### Map and report bundle
+
+`spatial_review_geojson` returns a GeoJSON FeatureCollection containing WGS84
+**MultiPoint evidence**, with item IDs, priorities, impact counts, dispositions
+and fingerprint provenance. `geometry_coverage` reports how many identified buses
+have eligible locations and whether the subject list is complete; a mapped item
+can still have partial bus-coordinate coverage. It never invents routed lines from bus chords or draws
+a line through the antimeridian. Explicit WGS84 route vertices/endpoints can be
+mapped even if bus frames are unknown. Local Cartesian geometry is kept in each
+item's `local_geometry`, with its frame and metre units, and omitted from GeoJSON
+along with unknown coordinates; the omission count is explicit. GeoJSON alone is
+not the complete review queue.
+
+The runnable example writes `review.json`, `review.geojson`, `review.md` and an
+empty `decisions-template.json` (preserving an existing template):
+
+```sh
+julia --project=. examples/spatial_cleanup_review.jl CASE.json OUTDIR
+julia --project=. examples/spatial_cleanup_review.jl CASE.json OUTDIR DECISIONS.json
+```
+
+The sidecar envelope is `{"schema_version":"spatial-cleanup-review/v1",
+"decisions":[...]}`. Keep the full records returned by `spatial_review_decision`,
+then append later decisions rather than editing history. Report bundles can be
+regenerated; save the ledger separately. The JSON execution interface continues
+using the existing `analyze_case` adapter, which carries the unreviewed queue.
+Disposition replay and GeoJSON export are Julia APIs and do not introduce a new
+transport operation or scientific contract.

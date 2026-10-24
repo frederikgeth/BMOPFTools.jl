@@ -754,6 +754,8 @@ include("analysis/coordinate_semantics.jl")
 include("analysis/spatial_proximity.jl")
 include("analysis/spatial_topology.jl")
 include("analysis/spatial_routes.jl")
+include("analysis/spatial_review.jl")
+include("analysis/spatial_review_decisions.jl")
 include("analysis/switch_scenarios.jl")
 include("analysis/connectivity.jl")
 include("analysis/diversity.jl")
@@ -3097,6 +3099,7 @@ export redundancy_check
 export integrity_check
 export spec_conformance_check
 export benchmark_readiness_check
+export spatial_review_decision, apply_spatial_review, spatial_review_geojson
 export render_ascii_tree
 export augment_case, AugmentationRecipe, default_recipe
 export fix_case, FixRecipe

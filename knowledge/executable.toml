@@ -40,6 +40,9 @@
 # candidate codes are package-local review categories, not Findings or PSK claims.
 # Exact shared route segments and explicit source intervals retain circuit identity;
 # bounded path/query scans expose partial counts rather than inferred repairs.
+# Cleanup review adds bounded capture, exact-location groups, ordinal inspection
+# priorities, evidence-bound sidecar decisions and WGS84 point exports.
+# Reviewer dispositions never modify networks or certify repairs; no new adapter.
 schema_version = "0.6.0"
 
 [[contract]]
