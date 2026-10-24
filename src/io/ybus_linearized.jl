@@ -94,10 +94,11 @@ end
 
 # Enumerate a load's sub-load connections. Constant-power loads carry no v_nom;
 # use a sentinel Vnom=1.0 (their pt/qt only use cc, so Vnom is never divided by).
-function _load_subloads(load::Dict{String,Any}, net::Dict{String,Any})
+function _load_subloads(load::Dict{String,Any}, net::Dict{String,Any}; id="<anonymous>")
     bus = get(load, "bus", "")
     tm  = Vector{String}(string.(get(load, "terminal_map", String[])))
     cfg = uppercase(string(get(load, "configuration", "WYE")))
+    delta_coils = cfg == "DELTA" ? _delta_load_coils(load, net; id) : nothing
     p_nom = Float64.(get(load, "p_nom", Float64[]))
     q_nom = Float64.(get(load, "q_nom", Float64[]))
     nlabels = _neutral_labels(net)
@@ -124,9 +125,8 @@ function _load_subloads(load::Dict{String,Any}, net::Dict{String,Any})
             push_maybe!(mk((bus, tm[p]), t_n, idx))
         end
     elseif cfg == "DELTA"
-        n_c = length(tm)
-        for k in 1:n_c
-            push_maybe!(mk((bus, tm[k]), (bus, tm[(k % n_c) + 1]), k))
+        for (k, (p, q)) in enumerate(delta_coils)
+            push!(subs, mk((bus, p), (bus, q), k))
         end
     else
         @warn "ybus_linearized: load has unknown configuration '$cfg' — skipping."
@@ -244,8 +244,8 @@ function ybus_linearized(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
 
     # collect sub-loads once (reused by the stamp and the closure)
     allsubs = _SubLoad[]
-    for (_, load) in get(net, "load", Dict())
-        append!(allsubs, _load_subloads(load, net))
+    for (id, load) in get(net, "load", Dict())
+        append!(allsubs, _load_subloads(load, net; id))
     end
 
     _dvidx(sl) = (get(idx.of, sl.pos, 0), sl.neg === nothing ? 0 : get(idx.of, sl.neg, 0))

@@ -733,6 +733,7 @@ include("io/nwinding.jl")
 include("io/capacitor.jl")
 include("io/to_ybus.jl")
 include("io/ybus.jl")
+include("io/load_geometry.jl")
 include("io/ybus_linearized.jl")
 include("io/ybus_augmented.jl")
 

@@ -112,7 +112,7 @@ function _add_load_variables!(model, net)
         n_ph = if cfg == "SINGLE_PHASE" && length(tm) == 2
             1
         elseif cfg == "DELTA"
-            length(tm)
+            length(BMOPFTools._delta_load_coils(load, net; id=lid))
         else
             length(_phase_positions(tm, nlabels))
         end

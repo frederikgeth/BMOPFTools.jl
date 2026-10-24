@@ -1470,6 +1470,12 @@ canonical three-phase prior only chooses coordinates left free by source and
 topology equations, such as a floating delta common mode; it does not impose a
 balanced-bus claim.
 
+IBR currents are seeded from their target complex power and the transported
+phase-to-reference voltage using `I = conj(S / V)`. The rectangular components
+are `(P*vr + Q*vi)/abs2(V)` and `(P*vi - Q*vr)/abs2(V)` in either SI or per-unit
+coordinates. Thus the seed preserves the target's reactive-power sign; it is
+still only an initial guess, subject to the limitations below (PSK-000013).
+
 !!! important "A warm start selects a trajectory, not a solution certificate"
     The transport solve constructs a deterministic **zero-current phasor guess**.
     It is not a loaded power-flow solution, and Ipopt is not guaranteed to return

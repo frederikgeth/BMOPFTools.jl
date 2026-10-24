@@ -2626,6 +2626,8 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
     # Normalize before unit conversion and indexing, including combined leakage
     # and explicit winding-connected excitation. Mutates only our private copy.
     BMOPFTools._normalize_bmopf!(working)
+    # Validate before allocating variables or mutating a supplied JuMP model.
+    BMOPFTools._validate_delta_loads(working)
 
     policy = _resolve_scaling_policy(per_unit, s_base, scaling_policy)
     bases = nothing
