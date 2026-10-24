@@ -15,6 +15,14 @@ if spatial !== nothing && haskey(spatial, "cleanup_review")
 end
 ```
 
+The Markdown report starts with a coordinate-coverage banner: eligible and excluded
+bus counts, the resolved frame and reported-accuracy coverage. Queue completeness
+never implies complete geometry coverage. A linked candidate index lists the
+attention items shown below it; both respect `item_limit`, with explicit shown/total
+counts. Full IDs remain in each detail entry and JSON; row numbers are navigation
+aids and can change after regeneration. Context-only items stay in their separate
+inventory rather than entering the attention index.
+
 The standalone bundle contains Markdown, the complete captured JSON queue,
 WGS84 evidence points in GeoJSON, and a decision-ledger template. The display
 limit applies independently to attention, context and reviewed sections; it does
@@ -51,7 +59,7 @@ Each direct/series item now includes `interpretation_evidence`:
 - Direct and series line maps oriented along the candidate path, plus comparisons
   of declared terminal **sets at the same bus**. Equal sets do not compose conductor
   paths or prove electrical equivalence; malformed/missing maps are indeterminate.
-- Intermediate load, shunt, source, generator, solar and storage references, with
+- Intermediate load, shunt, capacitor, source, generator, solar and storage references, with
   terminal maps, and explicit bus `perfectly_grounded_terminals`. Shunts may model
   grounding, but the report does not assign a grounding role from their names.
 - Each line's declared, physical, chord and route lengths, with its comparison basis.

@@ -90,7 +90,7 @@ function _spatial_topology(net, levels, limit)
     certain_id = Dict(b => ids[root(certain, index[b])] for b in ids)
     possible_id = Dict(b => ids[root(possible, index[b])] for b in ids)
     attachments = Dict(id => Dict{String,Int}() for id in ids)
-    for kind in ("load", "shunt", "voltage_source", "generator", "solar", "storage")
+    for kind in ("load", "shunt", "capacitor", "voltage_source", "generator", "solar", "storage")
         for obj in values(get(net, kind, Dict()))
             obj isa AbstractDict || continue
             b = get(obj, "bus", nothing)

@@ -22,7 +22,7 @@ end
 
 function _spatial_review_attachment_index(net)
     index = Dict{String,Vector{Dict{String,Any}}}()
-    for kind in ("load", "shunt", "voltage_source", "generator", "solar", "storage")
+    for kind in ("load", "shunt", "capacitor", "voltage_source", "generator", "solar", "storage")
         for (id, object) in sort!(collect(get(net, kind, Dict())), by=first)
             object isa AbstractDict || continue
             bus = get(object, "bus", nothing)

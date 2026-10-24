@@ -1,3 +1,5 @@
+# Spatial cleanup includes capacitor attachments, explicit coverage banners and
+# linked attention indexes. These are evidence/presentation changes, not new Findings.
 # Standalone spatial review exports and path-oriented decision evidence are
 # package-local presentation APIs; source declarations do not certify provenance.
 # The curated analysis API, CLI and MCP expose a Boolean spatial opt-out; the

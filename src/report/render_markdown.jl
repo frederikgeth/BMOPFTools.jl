@@ -768,14 +768,11 @@ end
 
 function _md_spatial_cleanup_review(review, io::IO; item_limit=20)
     review isa AbstractDict || return
+    _md_spatial_coverage_banner(review, io)
     println(io, "**Cleanup review:** $(review["status"]) ($(review["reason"])); " *
         "$(length(review["items"])) captured items in $(length(review["locations"])) exact review locations. " *
         "Queue complete within scope: $(review["queue_complete"]).\n")
     println(io, "$(review["caution"])\n")
-    coordinates = review["coordinate_context"]
-    println(io, "Coordinate frame: $(coordinates["status"]); " *
-        "$(coordinates["n_metric_eligible_buses"])/$(coordinates["n_buses"]) buses eligible for metric checks. " *
-        "Completeness is scoped to applicable checks; unavailable geometry is not an all-clear.\n")
     for (name, coverage) in sort!(collect(review["coverage"]), by=first)
         if !coverage["capture_complete"] || !coverage["scan_complete"]
             println(io, "- Coverage `$name`: $(coverage["status"]) ($(coverage["reason"])); " *
@@ -807,6 +804,7 @@ function _md_spatial_cleanup_review(review, io::IO; item_limit=20)
     end
     println(io, "\nThese are observation counts, not error counts. Confirmed issues are recorded separately as reviewer dispositions. " *
         "Context alone does not imply a required correction.\n")
+    _md_spatial_candidate_index(review, io; limit=item_limit)
     println(io, "**Needs inspection or information**\n")
     _md_spatial_review_items(review, io, "attention"; limit=item_limit)
     println(io, "<details>\n<summary>Contextual observations — overlap alone is not an issue</summary>\n")
@@ -823,6 +821,53 @@ end
 _spatial_md_text(x) = replace(string(x), '&'=>"&amp;", '<'=>"&lt;", '>'=>"&gt;",
     '\n'=>" ", '\r'=>" ", '\\'=>"\\\\", '`'=>"\\`", '*'=>"\\*", '_'=>"\\_",
     '['=>"\\[", ']'=>"\\]", '|'=>"\\|")
+_spatial_review_anchor(item) = "spatial-item-" * _spatial_review_hash(item["item_id"])
+
+function _md_spatial_coverage_banner(review, io)
+    coordinates = review["coordinate_context"]
+    total = coordinates["n_buses"]
+    eligible = coordinates["n_metric_eligible_buses"]
+    excluded = total - eligible
+    percentage = total > 0 ? " ($(round(100 * eligible / total; digits=1))%)" : ""
+    println(io, "> **Coordinate coverage:** $eligible of $total buses$percentage eligible for metric checks; " *
+        "**$excluded not eligible** for bus-distance checks.")
+    accuracy = get(coordinates, "n_with_reported_accuracy", nothing)
+    accuracy_text = accuracy === nothing ? "coverage unavailable in this report" : "$accuracy of $total buses"
+    println(io, ">\n> Frame: $(_spatial_md_text(coordinates["status"])). Reported coordinate accuracy: $accuracy_text.")
+    println(io, ">\n> Queue completeness covers applicable checks within search and capture limits. " *
+        "It does not cover excluded bus geometry or establish model correctness.\n")
+    issues = get(coordinates, "bus_issue_counts", Dict())
+    if !isempty(issues)
+        summary = join(["$(replace(k, "_"=>" ")): $v" for (k,v) in sort!(collect(issues), by=first)], "; ")
+        println(io, "Coordinate issue counts (may overlap): $(_spatial_md_text(summary)).\n")
+    end
+end
+
+function _md_spatial_candidate_index(review, io; limit=20)
+    attention = filter(i -> _spatial_review_bucket(i) == "attention", review["items"])
+    shown = collect(Iterators.take(attention, limit))
+    println(io, "**Candidate index — $(length(shown)) of $(length(attention)) attention observations**\n")
+    println(io, "Links lead to the detailed entries below. The display limit applies to both the index and details; " *
+        "JSON retains all captured items. Row numbers are navigation aids, not stable identities.\n")
+    isempty(shown) && return
+    println(io, "| # | Priority | Category / code | Primary asset | Details |\n| ---: | --- | --- | --- | --- |")
+    for (rank, item) in enumerate(shown)
+        evidence = item["evidence"]
+        subject = if haskey(evidence, "direct_branch")
+            "line:" * evidence["direct_branch"]["component_id"]
+        elseif !isempty(item["components"])
+            ref = first(item["components"]); "$(ref["kind"]):$(ref["id"])"
+        else
+            "bus:" * first(item["bus_ids"])
+        end
+        label = length(subject) > 80 ? first(subject, 77) * "…" : subject
+        category = haskey(item, "assessment") ? replace(_spatial_review_category(item), "_"=>" ") : "classification unavailable"
+        println(io, "| $rank | P$(item["priority"]) | $(_spatial_md_text(category)) / $(_spatial_md_text(item["code"])) | " *
+            "$(_spatial_md_text(label)) | [View](#$(_spatial_review_anchor(item))) |")
+    end
+    println(io)
+end
+
 function _md_spatial_review_items(review, io, bucket; limit=20)
     selected = filter(i -> _spatial_review_bucket(i) == bucket, review["items"])
     shown = collect(Iterators.take(selected, limit))
@@ -841,6 +886,7 @@ function _md_spatial_review_items(review, io, bucket; limit=20)
             "Location unavailable; asset $(join(location["primary_asset"], ":"))"
         println(io, "\n**Review location: $(_spatial_md_text(label))**\n")
         for item in members
+            println(io, "<a id=\"$(_spatial_review_anchor(item))\"></a>\n")
             assessment = get(item, "assessment", nothing)
             title = assessment === nothing ? item["ranking_reason"] : assessment["observation"]
             category = assessment === nothing ? "classification unavailable" : replace(_spatial_review_category(item), "_"=>" ")
