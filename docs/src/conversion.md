@@ -13,7 +13,12 @@ you would otherwise have to discover by diffing data.
 
 ## [PowerIO readers and distribution-tool data](@id powerio-readers)
 
-BMOPFTools requires PowerIO.jl **0.11.6 or later within the 0.11 series**.
+[PowerIO](https://powerio.dev/) is a
+[Rust project](https://github.com/eigenergy/powerio) for grid-data parsing and
+conversion. BMOPFTools uses its
+[Julia wrapper, PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), which calls
+the native Rust library in-process, and requires **0.11.6 or later within the
+0.11 series**.
 PowerIO reads several distribution formats into a typed
 `PioModule{MulticonductorNetwork}`. BMOPFTools' tested import wrapper is
 [`from_dss`](@ref) for OpenDSS; [`parse_bmopf`](@ref) reads BMOPF JSON.

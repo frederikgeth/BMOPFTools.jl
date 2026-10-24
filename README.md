@@ -272,8 +272,10 @@ net″,  aug_mf  = augment_case(net′)
 write_bmopf(net″, "case.json")
 ```
 
-PowerIO also provides PMD JSON, distribution CIM, and SINCAL distribution
-readers. These are separate from BMOPFTools' tested `from_dss` intake path;
+[PowerIO](https://powerio.dev/) is a [Rust project](https://github.com/eigenergy/powerio),
+accessed here through its [Julia wrapper, PowerIO.jl](https://github.com/eigenergy/PowerIO.jl).
+It also provides PMD JSON, distribution CIM, and SINCAL distribution readers.
+These are separate from BMOPFTools' tested `from_dss` intake path;
 see the [reader coverage and conversion limits](https://frederikgeth.github.io/BMOPFTools.jl/dev/conversion/#powerio-readers).
 
 ## Development
