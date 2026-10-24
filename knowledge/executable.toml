@@ -23,6 +23,8 @@
 # Qualified nominal coil headroom is descriptive PSK-000013-related screening,
 # not an additional feasibility contract. Its source paths and analyze_case recipe
 # preserve the explicit nominal-demand versus supplied-result distinction.
+# Transformer Ybus nominal voltages are explicit positive finite declarations;
+# invalid or missing values never inherit the legacy unity-ratio fallback.
 schema_version = "0.6.0"
 
 [[contract]]

@@ -31,6 +31,22 @@ function _ybus_regulator_ratios(x, subtype)
     [_xfmr_checked_ratio(_autotransformer_neff(taps[min(k,end)],rt)) for k in 1:n]
 end
 
+# Ybus must not use the legacy ratio helper's missing/zero-voltage fallback.
+# PSK-000002: an undeclared winding voltage does not establish a unity ratio.
+function _ybus_xfmr_turns_ratio(x)
+    voltages = Float64[]
+    for key in ("v_nom_from", "v_nom_to")
+        v = get(x, key, nothing)
+        v isa Real && !(v isa Bool) && isfinite(v) && v > 0 ||
+            throw(ArgumentError("$key must be an explicit positive finite nominal voltage"))
+        value = Float64(v)
+        isfinite(value) && value > 0 ||
+            throw(ArgumentError("$key must be representable as a positive finite Float64"))
+        push!(voltages, value)
+    end
+    _xfmr_checked_ratio(voltages[1] / voltages[2])
+end
+
 # Effective impedances use the SAME reference as the associated primitive row.
 function _xfmr_leakage_values(x, subtype)
     if subtype == "n_winding"
@@ -45,7 +61,7 @@ function _xfmr_leakage_values(x, subtype)
     end
     zf = _xfmr_series_ohms(x, "from"); zt = _xfmr_series_ohms(x, "to")
     if subtype in ("single_phase", "center_tap", "wye_delta", "delta_wye")
-        n = _xfmr_checked_ratio(_xfmr_turns_ratio(x))
+        n = _ybus_xfmr_turns_ratio(x)
         t = _xfmr_checked_ratio(_xfmr_tap_mult(x))
         if subtype == "single_phase"
             return ComplexF64[t^2 * (zf + n^2 * zt)]
