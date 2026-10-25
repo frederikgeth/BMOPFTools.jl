@@ -15,12 +15,6 @@ and 117 transformers. This is a provisional model shown for visual inspection,
 not a validated operating network or a solved power-flow result. It is separate
 from the downloadable four-bus example below.*
 
-Network-model contributions: © 2026 Energex Network Model contributors
-([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)). Geometry:
-SA Power Networks, supplied by the Government of South Australia through
-Location SA; no endorsement is implied. Basemap: CARTO / OpenStreetMap
-contributors. See the [screenshot source and attribution](assets/tellegen-distribution-attribution.txt).
-
 ## What Tellegen offers
 
 - **Interactive inspection:** explore network topology, select equipment, and
@@ -96,6 +90,60 @@ For companion geographic or drawing files, see Tellegen's
     This does not mutate `net`, but the omitted positions cannot be recovered
     from that file. The package's `schema_check` excludes these known extensions
     when checking the core model; it does not validate their coordinate system.
+
+## Close the loop: diagnose, inspect, correct, recheck
+
+Use Tellegen alongside [Spatial diagnostics and cleanup review](spatial_diagnostics.md)
+and [Analysis & reports](analysis.md) to investigate both geographic and electrical
+model errors. Spatial analysis runs by default when bus coordinate fields are
+present; metric comparisons still require a supported coordinate frame and eligible
+coordinates. Start with the report's coverage and applicability information.
+
+1. **Analyze the case and export the review evidence.**
+
+   ```julia
+   using BMOPFTools
+
+   net = parse_bmopf("case.json")
+   report = analyze(net)
+   render(report, "report.md")
+   spatial = get(report.results[:connectivity], "spatial", nothing)
+   if spatial !== nothing && haskey(spatial, "cleanup_review")
+       export_spatial_review(spatial["cleanup_review"], "cleanup"; item_limit=100)
+   end
+   write_bmopf(net, "case_for_tellegen.json")
+   ```
+
+   The cleanup bundle includes a Markdown review, the captured queue as JSON,
+   WGS84 evidence points as GeoJSON, and a decision-ledger template. Use the
+   report beside Tellegen; the file to open in the viewer is the BMOPF case.
+
+2. **Inspect the named buses and branches in Tellegen.** Use the full asset IDs
+   from the report to match the evidence to the case. Inspect route-endpoint
+   disagreements, unusually long spans, shared locations, and direct lines
+   alongside series paths. Compare the view with terminal maps, voltage tiers,
+   switch states, intermediate loads or grounding, and source records. Nearby
+   buses or overlapping circuits can be intentional; appearance alone does not
+   establish an incorrect connection or a duplicate asset.
+
+3. **Correct the responsible source data or model declarations.** Establish
+   whether the discrepancy comes from coordinate placement, route geometry,
+   branch incidence, or electrical parameters before making a change. Keep
+   physical route length separate from electrical modelling length. Record the
+   evidence and rationale in a separate
+   [review ledger](spatial_diagnostics.md#Sidecar-dispositions), then regenerate
+   the case from the corrected source or write the revised network dictionary.
+
+4. **Re-analyze and reopen the revised case.** Compare coordinate coverage,
+   remaining spatial candidates, and electrical Findings with the earlier report,
+   then inspect the revised BMOPF file in Tellegen. Revisit decisions when their
+   evidence changes. For a compatible solved result, also run
+   [`profile_solution`](@ref) as described in
+   [Trust but verify](tutorial_trust_but_verify.md).
+
+The spatial review identifies inspection candidates; it does not merge buses,
+rewire branches, or verify a repair. A cleaner map or an empty bounded review
+queue is not proof that the electrical model is correct.
 
 ## Try a small four-wire case
 

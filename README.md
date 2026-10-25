@@ -1,42 +1,298 @@
-> [!WARNING]  
-> The first registered release is being prepared. Development on `main` can include unreleased breaking changes; registered releases follow the documented compatibility policy. OpenDSS ingestion now goes through [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) (the earlier PowerModelsDistribution-based `from_pmd` parser has been removed).
+# BMOPFTools.jl
+
+**Inspect, prepare, and solve unbalanced distribution-network models.**
+
+BMOPFTools is a Julia library connecting network-data diagnostics, geospatial
+review, and multiconductor power-flow and optimal power flow (OPF) workflows.
+Import OpenDSS or BMOPF cases, investigate modelling inconsistencies, prepare
+study scenarios, and check the resulting solutions—with explicit assumptions
+and traceable transformations.
 
 [![Documentation](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/documentation.yml/badge.svg)](https://frederikgeth.github.io/BMOPFTools.jl/) [![CI](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/frederikgeth/BMOPFTools.jl/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/frederikgeth/BMOPFTools.jl/graph/badge.svg)](https://codecov.io/gh/frederikgeth/BMOPFTools.jl)
 
-# BMOPFTools.jl
+[Documentation](https://frederikgeth.github.io/BMOPFTools.jl/) ·
+[Quickstart](#quickstart) ·
+[Visual inspection](docs/src/visualization.md) ·
+[BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/)
 
-A Julia library for **parsing, validating, analysing and reporting** on
-BMOPF-format distribution network datasets — the JSON data model developed by
-the IEEE Task Force on *Benchmarking Multiconductor OPF for Distribution
-Systems* for up-to-four-wire optimal power flow, currently hosted at
-https://github.com/frederikgeth/bmopf-report.
+> [!WARNING]
+> The first registered release is being prepared. Development on `main` can
+> include unreleased breaking changes; registered releases follow the
+> [documented compatibility policy](docs/src/dev/versioning.md).
 
-The network data model is a plain `Dict{String,Any}` that mirrors the BMOPF
-JSON schema exactly: no wrapper types, so data flows naturally between JSON,
-the `to_pmd` PowerModelsDistribution export, and your own code.
+The package supports the IEEE PES Task Force on **Benchmarking Multiconductor
+OPF for Distribution Systems** and its BMOPF JSON data model for up-to-four-wire
+networks. See [Project and community](#project-and-community) for the team and
+ways to contribute. Code is BSD-3-Clause; network data has separate,
+[source-specific licence terms](#licensing).
 
-For automation, the repository also provides a deliberately small JSON
-execution interface and CI-tested recipes. The first two reviewed mappings
-evaluate the `parallel_member_limit_preservation` and
-`neutral_ground_reference_preservation` scientific contracts and preserve
-their `passed`/`failed`/`inapplicable`/`indeterminate` status, Finding codes,
-input hashes, checked dimensions, and unassessed dimensions. See
-[`docs/src/execution_interface.md`](docs/src/execution_interface.md).
-The same interface also exposes parse-only intake inventories, deterministic
-case analysis, solution verification, and offline Finding-code explanation.
-Parse completion is deliberately not a schema-validity or solver-readiness
-claim. The complete generated
-Finding registry is `generated/finding-registry.json`; it explains code classes
+## Why BMOPFTools?
+
+Before using a distribution model for a study, engineers need to understand
+what it represents: which conductors and grounding conventions it uses, where
+its parameters came from, whether its geometry agrees with its connections,
+and which operating limits are known or assumed. Researchers need the same
+information to reproduce a result and compare algorithms meaningfully.
+
+BMOPFTools brings those questions into a repeatable workflow. It reports coded
+Findings, preserves evidence about conversions and transformations, and checks
+compatible solver results against the network model. A geographic discrepancy
+can be investigated alongside the electrical declarations; study assumptions
+can be recorded alongside the case they change.
+
+Reliable benchmarks are also essential for validating and comparing power-system
+algorithms. This repository contributes to the IEEE PES Task Force's effort to
+provide a common, open benchmark format for unbalanced distribution networks,
+motivated by community libraries such as [PGLib](https://power-grid-lib.github.io/).
+Its checks support case preparation and review; they do not by themselves
+certify physical fidelity, feasibility, or fitness for a particular study.
+
+## What you can do
+
+- **Inspect network models.** Convert OpenDSS with `from_dss`, or load BMOPF
+  JSON with `parse_bmopf`. Check required fields, configuration and terminal
+  rules, references, dimensions, domain plausibility, and redundancy. Analyse
+  inventory, voltage levels, connectivity, diversity, operational loading,
+  infeasibility preflight, and benchmark-readiness diagnostics.
+- **Review geographic and electrical discrepancies together.** Use spatial
+  diagnostics to investigate coordinate coverage, route endpoints, line lengths,
+  and nearby or overlapping assets. Match the report's bus and branch IDs to
+  the case in [Tellegen](https://tellegen.dev/), inspect the electrical context,
+  correct the responsible source or model declarations, and rerun the checks.
+  Geometry provides inspection evidence; it does not determine a repair.
+- **Prepare reproducible studies.** Apply structural transformations with
+  `fix_case`, add explicit study assumptions with `augment_case`, and record
+  their `TransformationManifest` audit trails. Build demand/PV sweeps, place
+  generators or inverters with explicit phase choices, and compare controls
+  using the [case-family workflow](docs/src/tutorial_case_development.md).
+- **Solve and check supported models.** Run multiconductor power flow or OPF
+  through the optional JuMP extension. Use `profile_solution` to inspect bound
+  violations, near-active constraints, equation residuals, and solution-quality
+  issues for compatible result dictionaries, without accessing solver internals.
+- **Develop and integrate methods.** Export to PowerModelsDistribution,
+  extend the embedded IVR-EN formulations, or use the curated JSON and MCP
+  interfaces for automation. See [Design and integration](#design-and-integration)
+  for the technical details.
+
+## See the workflow
+
+```mermaid
+flowchart TD
+    input[OpenDSS or BMOPF JSON] --> model[Network model]
+    model --> analysis[Analyse and report Findings]
+    model --> view[Write BMOPF JSON and open in Tellegen]
+    analysis --> review[Review evidence and source records]
+    view --> review
+    review --> correction[Correct source data or model declarations]
+    correction --> model
+    review --> study[Prepare scenarios and record assumptions]
+    study --> recheck[Re-analyse each study case]
+    recheck --> solve[Solve supported power flow or OPF]
+    solve --> verify[Profile the solution against its case]
+    verify --> review
+```
+
+Follow the [Tellegen diagnosis and review workflow](docs/src/visualization.md)
+to connect the map to [spatial diagnostics and cleanup evidence](docs/src/spatial_diagnostics.md).
+Bus `latitude`/`longitude` fields provide geographic placement and are preserved
+by `write_bmopf` by default. Without coordinates, the viewer offers a topology
+layout; that drawing does not establish geographic location. Use
+`include_coordinates=false` when writing for strict schema consumers.
+
+The analysis report and review ledger accompany the BMOPF case. Inspection,
+selected transformations, and result verification remain distinct steps; a
+successful import or a clean-looking map is not a validation certificate.
+
+## Installation
+
+BMOPFTools requires **Julia ≥ 1.10**. New to Julia? Start with
+[Installation & first steps](docs/src/installation.md), which covers installing
+Julia and using its prompt. Run `julia` blocks below at the `julia>` prompt or
+in a Julia script; run `sh` blocks in your system terminal.
+
+The package is not yet in the General registry, so install from Git:
+
+```julia
+using Pkg
+Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl")
+```
+
+Parsing, validation, analysis, reporting, OpenDSS ingestion through PowerIO.jl,
+and the `to_pmd` exporter work out of the box. For `solve_opf`, `solve_pf`, and
+`solve_feasibility_opf`, install **JuMP** and a solver such as **Ipopt**:
+
+```julia
+Pkg.add(["JuMP", "Ipopt"])
+using BMOPFTools, JuMP, Ipopt
+```
+
+The OPF extension activates when its dependencies are loaded. See the
+[solver guide](docs/src/solvers.md) for other supported solver configurations.
+
+> [!TIP]
+> Pin a revision for reproducibility:
+> `Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl", rev = "<commit-sha>")`.
+
+## Quickstart
+
+### Inspect a bundled case
+
+This synthetic four-wire feeder has four buses, three lines, and two loads.
+It ships with the package, so no external dataset is needed. Its parameters
+and operating bounds are illustrative study inputs, not utility-calibrated data.
+
+```julia
+using BMOPFTools
+
+fixture = joinpath(pkgdir(BMOPFTools), "test", "data",
+                   "case_development", "feeder.json")
+net = parse_bmopf(fixture)
+report = analyze(net)
+render(report, stdout)              # terminal report
+render(report, "case_report.md")    # Markdown report
+
+errors(report)                      # findings with ERROR severity
+report.results[:provenance]["convention"]
+write_bmopf(net, "case.json")
+```
+
+Read `case_report.md` to inspect the model and its Findings. Drag `case.json`
+onto [Tellegen](https://tellegen.dev/) to inspect the same network visually.
+This example has no geographic coordinates; follow the viewer's placement
+prompt. To analyse your own BMOPF case, replace `fixture` with its file path.
+
+### Solve and profile the same case
+
+After installing JuMP and Ipopt, continue with the `case.json` written above:
+
+```julia
+using BMOPFTools, JuMP, Ipopt
+
+net = parse_bmopf("case.json")
+result = solve_opf(net; optimizer=Ipopt.Optimizer)
+result["termination_status"]
+
+report = profile_solution(net, result)
+render_solution(report, "solution.md")
+
+errors(report)    # bound violations and infeasibility findings
+warnings(report)  # near-active bounds and residual warnings
+```
+
+Inspect both the solver status and the verification report. Successful solver
+termination alone does not establish that the result meets the model's checks.
+For demand/PV variations and control comparisons, continue with
+[Developing OPF case families](docs/src/tutorial_case_development.md).
+
+### Convert your OpenDSS model
+
+For your own `Master.dss`, convert and inspect the intake before choosing any
+structural transformations or additional study assumptions:
+
+```julia
+using BMOPFTools
+
+net = from_dss("Master.dss")        # parsed in-process by PowerIO.jl
+render(analyze(net), "intake_report.md")
+write_bmopf(net, "imported_case.json")
+```
+
+After reviewing the report, the separate [case-preparation workflow](docs/src/augmentation.md)
+provides `fix_case` and `augment_case`. Structural transformations can remove
+inert elements, convert near-zero-impedance lines to switches, or drop disconnected
+islands. Augmentation can add voltage bounds, optionally estimate synthetic
+thermal limits, and price slack imports. Select changes that fit your study,
+retain the returned manifests, and analyse the resulting case again.
+
+## Documentation and examples
+
+| I want to… | Start here |
+|---|---|
+| Follow the full preparation and solve workflow | [End-to-end tutorial](docs/src/tutorial_end_to_end.md) |
+| Understand a case and its diagnostics | [Analysis & reports](docs/src/analysis.md), [Finding-code reference](docs/src/findings.md) |
+| Investigate geographic and electrical inconsistencies | [Spatial diagnostics](docs/src/spatial_diagnostics.md), [Tellegen visualization](docs/src/visualization.md) |
+| Understand the input model and conversion choices | [Data model conventions](docs/src/conventions.md), [Conversion guide](docs/src/conversion.md), [BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/) |
+| Prepare scenarios and study assumptions | [Case augmentation](docs/src/augmentation.md), [Developing OPF case families](docs/src/tutorial_case_development.md) |
+| Run and verify OPF | [OPF guide](docs/src/opf.md), [Result dictionary](docs/src/results.md), [Trust but verify](docs/src/tutorial_trust_but_verify.md) |
+| Extend the model or automate checks | [Parameterized and differentiable extensions](docs/src/differentiable_extensions.md), [JSON execution & recipes](docs/src/execution_interface.md), [AI-assistant guide](docs/src/ai_assistants.md) |
+| Explore the technical rationale | [Methodology and references](docs/src/methodology.md), [Positioning & ecosystem](docs/src/positioning.md) |
+
+[Choose your tutorial](docs/src/choose_tutorial.md) provides the wider learning
+map, and the [API reference](docs/src/api.md) documents individual functions.
+The [14-bus LV walkthrough](examples/lv1_14bus_walkthrough.jl) demonstrates each
+analysis on a real feeder; it requires the [external dataset setup](#testing-with-external-datasets).
+
+## Design and integration
+
+### Network data and conversion
+
+The network model is a plain `Dict{String,Any}` following the BMOPF JSON
+structure, without wrapper types. Data flows between JSON, your own Julia
+code, and the `to_pmd` PowerModelsDistribution ENGINEERING export.
+
+`from_dss` translates OpenDSS networks through
+[PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), including earth-terminal
+conventions, grounding reactors, and transformer impedance bases. The
+[conversion guide](docs/src/conversion.md) records the deliberate projection
+choices and migration details.
+
+[PowerIO](https://powerio.dev/) is a [Rust project](https://github.com/eigenergy/powerio)
+accessed through its Julia wrapper. It also provides PMD JSON, distribution CIM,
+and SINCAL distribution readers. Those are separate from BMOPFTools' tested
+`from_dss` intake path; see the [reader coverage and limits](https://frederikgeth.github.io/BMOPFTools.jl/dev/conversion/#powerio-readers).
+
+### Structured evidence and extensible formulations
+
+`analyze` returns a `SummaryReport` with stable, documented Finding codes and
+terminal or Markdown rendering. Provenance checks include sequence-derived
+impedances, Kron-reduction likelihood, earthing-system tagging, OpenDSS default
+fingerprints, and regulator patterns. Match Findings by code rather than message
+text; consult the [Finding reference](docs/src/findings.md) for their scope.
+
+The embedded IVR-EN engine supports staged JuMP construction, typed
+device-formulation replacement, semantic parameter/coefficient registries, and
+explicit integration with DiffOpt-compatible models. BMOPFTools supplies network
+formulations and diagnostics; downstream packages retain ownership of bilevel
+semantics and sensitivity algorithms. See the
+[extension guide](docs/src/differentiable_extensions.md).
+
+### JSON execution and MCP
+
+The repository provides a deliberately small JSON execution interface and
+CI-tested recipes. Its two reviewed scientific-contract mappings evaluate
+`parallel_member_limit_preservation` and `neutral_ground_reference_preservation`,
+preserving `passed`/`failed`/`inapplicable`/`indeterminate` status, Finding codes,
+input hashes, checked dimensions, and unassessed dimensions.
+
+The same interface exposes parse-only intake inventories, deterministic case
+analysis, solution verification, and offline Finding-code explanation. Parse
+completion is not a schema-validity or solver-readiness claim. The generated
+[Finding registry](generated/finding-registry.json) explains code classes
 without diagnosing a particular observation or guessing a repair.
-The concise machine-discovery entry point is [llms.txt](llms.txt); the
-documentation build publishes the same canonical file alongside the site.
 
-Local MCP clients can launch the same curated surface through `bin/bmopf-mcp`.
+Local MCP clients can launch the curated surface through `bin/bmopf-mcp`.
 The read-only stdio adapter returns the existing versioned execution envelopes,
 restricts file access to declared roots, and leaves scientific retrieval to the
-companion book.
+companion book. See [JSON execution & recipes](docs/src/execution_interface.md)
+and [Use with AI coding assistants](docs/src/ai_assistants.md).
+The machine-discovery entry point is [llms.txt](llms.txt); the documentation
+build publishes the same canonical file alongside the site.
 
-## IEEE PES Task Force
+## Benchmarks and data
+
+[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData) holds the larger
+source networks, converted benchmark cases, and their generation pipeline so
+that datasets can be versioned and licensed independently of this tooling.
+Run `scripts/generate_output.jl`, `scripts/run_benchmark.jl`, and the related
+benchmark-generation scripts from that repository.
+
+BMOPFTools bundles only the small test fixtures under `test/data/`, including
+the synthetic quickstart feeder. See the [fixture inventory](test/data/README.md)
+for provenance and [Licensing](#licensing) for the dataset-specific terms.
+
+## Project and community
+
+### IEEE PES Task Force
 
 **Benchmarking Multiconductor OPF for Distribution Systems**
 
@@ -46,32 +302,35 @@ companion book.
 | Co-chair | Frederik Geth | University of Queensland, Australia |
 | Secretary | Amrit Pandey | University of Vermont, USA |
 
-## Motivation
+[Task Force feedback](docs/taskforce_feedback.md) collects implementation
+feedback on the draft specification.
 
-Reliable benchmarks are essential for validating and comparing power system
-algorithms, yet unbalanced distribution networks have historically
-lacked a common, open benchmark format.  This repository is part of the IEEE
-PES Task Force effort to fill that gap — motivated by the success of
-community benchmark libraries such as [PGLib](https://power-grid-lib.github.io/)
-in the broader power systems and optimisation communities.
+### How to contribute
 
-BMOPFTools provides the tooling needed to convert real utility-derived OpenDSS
-networks into clean, spec-conformant BMOPF benchmark cases, validate them
-against the data model, and confirm that they are well-posed OPF instances
-before publication.  The resulting benchmark cases — together with the larger
-source networks and the generation pipeline that produces them — live in the
-companion
-[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData) repository, so
-they can be versioned and licensed independently of this tooling. This
-repository keeps only the small fixtures the test suite needs (under
-`test/data/`).
+Contributions of bug reports, network cases, tooling, and documentation are
+welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for where to contribute and the
+workflow, and the documentation's **Reference → Developer guide** for the style
+guide, versioning policy, and scope notes. For a model issue, a small reproducible
+case and the relevant Finding codes make the problem easier to investigate.
 
-The embedded IVR-EN engine is also extensible from downstream Julia packages:
-it supports staged JuMP construction, typed device-formulation replacement,
-semantic parameter/coefficient registries, and explicit integration with
-DiffOpt-compatible models. BMOPFTools supplies the physics substrate and
-diagnostics; downstream research packages retain ownership of bilevel semantics
-and sensitivity algorithms.
+Code contributions use BSD-3-Clause. Contributed data must be redistributable
+and retain its upstream licence; see the [contribution licensing guidance](CONTRIBUTING.md#licensing).
+
+### Citation
+
+Include the package version when citing BMOPFTools in scholarly work. Case
+files carry original-source attribution in their headers; cite those sources
+when using specific networks.
+
+### Special thanks
+
+In alphabetic order:
+
+- Archie Chapman
+- Mohamed Numair
+- Samuel Talkington
+- Sleiman Mhanna
+- Tomislav Antić
 
 ## Licensing
 
@@ -94,14 +353,9 @@ The [fixture provenance inventory](test/data/README.md) records the authorizatio
 and the original synthetic replacements for the former IEEE/Kersting geometry
 and inline analysis inputs.
 
-The full benchmark library and the larger source networks that feed the
-output-generation pipeline are **not** bundled here — they live in the
-companion
-[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData) repository
-alongside the pipeline that consumes them, including `ENWLvariants` (CC BY 4.0,
-same CSIRO DOI as `ENWL`) and `dsuite_networks_scaled_v1.1` (CC BY 4.0, D-Suite
-LV networks, Newcastle University,
-[10.25405/data.ncl.27175317](https://doi.org/10.25405/data.ncl.27175317)).
+External datasets include `ENWLvariants` (CC BY 4.0, same CSIRO DOI as `ENWL`)
+and `dsuite_networks_scaled_v1.1` (CC BY 4.0, D-Suite LV networks, Newcastle
+University, [10.25405/data.ncl.27175317](https://doi.org/10.25405/data.ncl.27175317)).
 
 ENWL is also stored externally in BMOPFDraftData. Its top-level CC BY notice
 and older non-commercial headers are preserved there; this package does not
@@ -110,8 +364,33 @@ resolve that discrepancy.
 The CC BY-NC-SA 4.0 CSIRO Australian MV/LV data (`LV`, `MV`, combined
 `Master.dss`, and `MVLVmeshed`) and the derived LV1 JSON/time-series/report
 files are stored in **BMOPFDraftData/test/data**, not bundled here. Their
-upstream licence and attribution remain unchanged. Dataset-backed tutorials
-and optional integration tests require an explicit external path:
+upstream licence and attribution remain unchanged. For dataset-backed tutorials
+and optional integration tests, see
+[Testing with external datasets](#testing-with-external-datasets).
+
+Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0.
+
+## Development and release maintenance
+
+### Tests and dependencies
+
+Dependencies are declared in `Project.toml`: the core runtime uses `Graphs`,
+`JSON3`, `JSONSchema`, `PowerIO`, `TOML`, and the standard libraries.
+`JuMP`/`Ipopt` are weak dependencies behind the OPF extension. The test suite
+skips power-flow comparison tests when `OpenDSSDirect` is absent.
+
+Run the full suite from the package root:
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+One-off data-migration scripts live in `scripts/oneoff/`.
+
+### Testing with external datasets
+
+Dataset-backed tutorials and optional integration tests require an explicit
+external path:
 
 ```sh
 BMOPF_RESTRICTED_DATA=/path/to/BMOPFDraftData/test/data julia --project=test --startup-file=no test/runtests.jl
@@ -122,184 +401,7 @@ reports the restricted dataset integration group as skipped. If the variable
 is set but required files are missing, the integration tests fail.
 See [`test/RESTRICTED_DATA.md`](test/RESTRICTED_DATA.md).
 
-Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0.
-
-## What it does
-
-**Visual exploration:** drag and drop a BMOPF JSON file onto
-[Tellegen](https://tellegen.dev/) to explore the distribution network in your
-browser. Bus `latitude`/`longitude` fields provide geographic placement;
-`write_bmopf` preserves them by default (`include_coordinates=false` omits them
-for strict schema consumers). Coordinates are optional. See the
-[visualization guide](docs/src/visualization.md).
-
-```
-OpenDSS .dss ──(from_dss / PowerIO.jl)──► BMOPF Dict{String,Any} ◄── parse_bmopf ◄── BMOPF JSON
-                                                 │               └──── write_bmopf
-                                                 │ analyze
-                                                 ▼
-                                          SummaryReport ──► render
-                                                 │ fix_case
-                                                 ▼
-                                         net′ (repaired)
-                                                 │ add_generators / add_ibrs  (optional DER)
-                                                 ▼
-                                          net′ + DERs
-                                                 │ augment_case
-                                                 ▼
-                                    net″ (benchmark-ready) ──► write_bmopf
-                                                 │ solve_opf / solve_pf / to_pmd
-                                                 ▼
-                                        result Dict{String,Any}
-                                                 │ profile_solution
-                                                 ▼
-                                       SolutionReport ──► render_solution
-```
-
-- **Conversion**: `from_dss` (via [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl))
-  translates OpenDSS networks into BMOPF dicts, handling earth-terminal
-  conventions, grounding reactors, and transformer impedance bases. `to_pmd`
-  exports a BMOPF dict to a PowerModelsDistribution ENGINEERING model.
-- **Validation**: required fields, spec conformance (configuration/arity
-  rules, terminal types), referential and dimensional integrity, domain
-  plausibility, redundancy.
-- **Analysis**: inventory, voltage levels, connectivity/topology, diversity,
-  operational loading, infeasibility preflight, data **provenance**
-  (sequence-derived impedances, Kron-reduction likelihood, earthing-system
-  tagging, OpenDSS default fingerprints, regulator patterns) and
-  **benchmark readiness**.
-- **Reporting**: every `analyze` run produces a `SummaryReport` with a
-  complete catalogue of stable, documented finding codes, rendered to
-  terminal or Markdown.
-- **Case preparation**: `fix_case` (structural repairs — remove inert
-  elements, convert near-zero impedance lines to switches, drop disconnected
-  islands) and `augment_case` (audited study assumptions — inject
-  voltage bounds, optionally estimate synthetic thermal limits, price slack imports) prepare a raw
-  import for use as an OPF benchmark.  Both return a `TransformationManifest`
-  audit trail.
-- **Solution profiling**: given a BMOPF network and an OPF result dict,
-  `profile_solution` flags bound violations, near-active constraints,
-  constraint residuals, and solution-quality issues without access to solver
-  internals.
-
-For practical scenario construction, see [Developing OPF case families](docs/src/tutorial_case_development.md): independent demand/PV sweeps, explicit DER placement and phase choices, control comparisons, and optional author logs.
-
-## Installation
-
-### Prerequisites
-
-BMOPFTools requires **Julia ≥ 1.10**. If you don't have Julia yet, install it
-with [juliaup](https://github.com/JuliaLang/juliaup), the official version
-manager — on Windows via the
-[Microsoft Store](https://apps.microsoft.com/detail/9NJNWW8PVKMN) (or
-`winget install julia -s msstore`), on macOS/Linux via
-`curl -fsSL https://install.julialang.org | sh` — or grab an installer from
-[julialang.org/downloads](https://julialang.org/downloads/).
-
-A note on the code blocks below: `julia` blocks are **Julia code** — run
-`julia` in your terminal first, then type them at the `julia>` prompt — while
-`sh` blocks go in your system terminal (Command Prompt / PowerShell / bash).
-Completely new to Julia? The
-[Installation & first steps](https://frederikgeth.github.io/BMOPFTools.jl/docs/installation/)
-docs page walks through all of this, and the official
-[Getting Started](https://docs.julialang.org/en/v1/manual/getting-started/)
-guide and [julialang.org/learning](https://julialang.org/learning/) cover the
-language basics.
-
-### Installing the package
-
-BMOPFTools is not yet in the General registry (Julia's default package
-catalogue), so install it from this Git URL:
-
-```julia
-using Pkg
-Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl")
-```
-
-Parsing, validation, analysis, reporting, OpenDSS ingestion (`from_dss`, via
-the [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) dependency), and the
-`to_pmd` exporter work out of the box. One capability pulls in extra tooling,
-activated only when you load it:
-
-- **OPF / power flow** (`solve_opf`, `solve_pf`, `solve_feasibility_opf`) is a
-  package extension that activates once **JuMP** and a solver such as **Ipopt**
-  are present — `Pkg.add(["JuMP", "Ipopt"])`.
-
-> [!TIP]
-> Because breaking changes land directly on `main` (see the warning above),
-> pin a revision when you need reproducibility:
-> `Pkg.add(url = "https://github.com/frederikgeth/BMOPFTools.jl", rev = "<commit-sha>")`.
-
-## Quickstart
-
-Analysing an existing BMOPF JSON case:
-
-```julia
-using BMOPFTools
-
-net    = parse_bmopf("case.json")
-report = analyze(net)
-render(report, stdout)              # terminal report
-render(report, "case_report.md")    # Markdown report
-
-errors(report)                      # findings with ERROR severity
-report.results[:provenance]["convention"]
-```
-
-Profiling an OPF result dict (requires `solve_opf` or any compatible solver):
-
-```julia
-using BMOPFTools, JuMP, Ipopt
-
-net    = parse_bmopf("case.json")
-result = solve_opf(net; optimizer=Ipopt.Optimizer)
-
-report = profile_solution(net, result)
-render_solution(report, "solution.md")
-
-errors(report)    # bound violations and infeasibility findings
-warnings(report)  # near-active bounds and residual warnings
-```
-
-Converting from OpenDSS (via PowerIO.jl):
-
-```julia
-using BMOPFTools
-
-net    = from_dss("Master.dss")     # parsed in-process by PowerIO.jl
-net′,  fix_mf  = fix_case(net)
-net″,  aug_mf  = augment_case(net′)
-write_bmopf(net″, "case.json")
-```
-
-[PowerIO](https://powerio.dev/) is a [Rust project](https://github.com/eigenergy/powerio),
-accessed here through its [Julia wrapper, PowerIO.jl](https://github.com/eigenergy/PowerIO.jl).
-It also provides PMD JSON, distribution CIM, and SINCAL distribution readers.
-These are separate from BMOPFTools' tested `from_dss` intake path;
-see the [reader coverage and conversion limits](https://frederikgeth.github.io/BMOPFTools.jl/dev/conversion/#powerio-readers).
-
-## Development
-
-The dependencies are declared in `Project.toml`: the core runtime pulls in
-`Graphs`, `JSON3`, `JSONSchema`, `PowerIO`, `TOML`, and the standard libraries;
-`JuMP`/`Ipopt` are weak dependencies behind the OPF extension (see
-[Installation](#installation)). The test suite skips the power-flow comparison
-tests when `OpenDSSDirect` is absent.
-
-```sh
-# full test suite (from the package root)
-julia --project=. -e "using Pkg; Pkg.test()"
-```
-
-The benchmark-generation pipeline (`scripts/generate_output.jl`,
-`scripts/run_benchmark.jl` and friends) runs against the full source networks
-and writes the benchmark library, both of which live in
-[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData) — run it from
-there. One-off data-migration scripts live in `scripts/oneoff/`.
-
-## Documentation
-
-Build the documentation locally:
+### Building the documentation
 
 ```sh
 julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
@@ -307,53 +409,7 @@ julia --project=docs docs/make.jl
 # open docs/build/index.html
 ```
 
-Pages: data-model conventions, the conversion guide (every deliberate
-`from_dss`/`to_pmd` decision), the analysis/report guide, the **complete
-finding-code reference**, methodology notes with literature
-references, the case augmentation guide (`fix_case` + `augment_case`), the
-OPF guide, and the OPF result dictionary reference.
-
-`docs/taskforce_feedback.md` collects implementation feedback on the Task
-Force draft specification.
-
-## Examples
-
-- `examples/lv1_14bus_walkthrough.jl` — step-by-step tour of every analysis
-  on a real 14-bus LV feeder (requires the external dataset above).
-
-## Case file overview
-
-Converted benchmark cases and their original OpenDSS source networks live in the
-companion [BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData)
-repository. The small OpenDSS fixtures this package's test suite runs against
-are in `test/data/`.
-
-## How to contribute
-
-BMOPFTools is a community-driven initiative and contributions of all kinds are
-welcome — bug reports, new network cases, tooling, and documentation. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md) for the workflow, and the **Reference →
-Developer guide** section of the documentation for the full style guide,
-versioning policy, and scope notes.
-
-By contributing data you agree to release it under CC BY 4.0; by contributing
-code you agree to the BSD-3-Clause licence.
-
-## Citation
-
-This repository is not static; please include the version number when citing
-it in scholarly work.  Case files carry original-source attribution in their
-headers — cite those sources when using specific networks.
-
-## Special thanks to 
-(in alphabetic order)
-Archie Chapman
-Mohamed Numair
-Samuel Talkington
-Sleiman Mhanna
-Tomislav Antić 
-
-## Release maintenance
+### Release maintenance
 
 See [RELEASING.md](RELEASING.md) for release gates, schema provenance,
 registration steps, and outstanding first-release decisions. Julia package

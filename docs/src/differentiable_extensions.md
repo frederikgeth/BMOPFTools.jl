@@ -784,8 +784,8 @@ A publication using this capability should report, at minimum:
    *NeurIPS*, 2022. [paper](https://papers.neurips.cc/paper_files/paper/2022/hash/228b9279ecf9bbafe582406850c57115-Abstract-Conference.html)
 5. B. Amos and J. Z. Kolter, “OptNet: Differentiable Optimization as a Layer in
    Neural Networks,” *ICML*, 2017. [paper](https://proceedings.mlr.press/v70/amos17a.html)
-6. A. Agrawal et al., “Differentiable Convex Optimization Layers,” *NeurIPS*,
-   2019. [paper](https://papers.neurips.cc/paper_files/paper/2019/hash/9ce3c52fc54362e22053399d3181c638-Abstract.html)
+6. A. Agrawal et al., “Differentiable Convex Optimization Layers,” *NeurIPS*, 2019.
+   [paper](https://papers.neurips.cc/paper_files/paper/2019/hash/9ce3c52fc54362e22053399d3181c638-Abstract.html)
 7. S. Gould et al., “On Differentiating Parameterized Argmin and Argmax Problems
    with Application to Bi-level Optimization,” 2016.
    [preprint](https://arxiv.org/abs/1607.05447)

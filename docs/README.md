@@ -36,3 +36,9 @@ fails the build — that is intentional, so executable docs cannot silently rot.
   to sibling pages with a bare `file.md`.
 - `checkdocs = :exports` and the build's cross-reference checks will flag broken
   `@ref`/anchors — keep the build warning-clean.
+
+**Bibliographies.** Keep a publication year followed by a period on the same
+source line as the preceding citation text. A continuation line starting with
+`2026.` is parsed as a nested numbered list by Julia's Markdown parser, causing
+an unexpected break and list marker in Documenter. Ordinary wrapped prose does
+not need hard line breaks or HTML overrides.

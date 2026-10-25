@@ -200,8 +200,8 @@ generalizes from one that merely fits the test set.
    for Benchmarking AC Optimal Power Flow Algorithms,"
    [arXiv:1908.02788](https://arxiv.org/abs/1908.02788), 2019/2021.
 2. IEEE Distribution Planning Working Group (W. H. Kersting), "Radial
-   Distribution Test Feeders," *IEEE Trans. Power Systems* 6(3):975–985,
-   1991. [DOI:10.1109/59.119237](https://doi.org/10.1109/59.119237).
+   Distribution Test Feeders," *IEEE Trans. Power Systems* 6(3):975–985, 1991.
+   [DOI:10.1109/59.119237](https://doi.org/10.1109/59.119237).
 3. K. P. Schneider et al., "Analytic Considerations and Design Basis for the
    IEEE Distribution Test Feeders," *IEEE Trans. Power Systems*
    33(3):3181–3188, 2018.
@@ -212,8 +212,7 @@ generalizes from one that merely fits the test set.
    [DOI:10.3390/en10111896](https://doi.org/10.3390/en10111896).
 5. ARPA-E, "GRID DATA: Generating Realistic Information for the Development
    of Distribution and Transmission Algorithms,"
-   [program page](https://arpa-e.energy.gov/programs-and-initiatives/view-all-programs/grid-data),
-   2016.
+   [program page](https://arpa-e.energy.gov/programs-and-initiatives/view-all-programs/grid-data), 2016.
 6. ARPA-E Grid Optimization Competition,
    ["About the Competition"](https://gocompetition.energy.gov/about-competition);
    I. Aravena et al., "Recent Developments in Security-Constrained AC Optimal

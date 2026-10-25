@@ -95,8 +95,8 @@ formal list.
   [arXiv](https://arxiv.org/abs/1707.02514)
 - S. Gopinath, H. L. Hijazi, T. Weisser, H. Nagarajan, M. Yetkin, K. Sundar, and
   R. W. Bent, "Proving global optimality of ACOPF solutions" (SDP bound tightening with
-  valid cuts; closes gaps on PGLib), *Electric Power Systems Research*, vol. 189, 106688,
-  2020. [DOI](https://doi.org/10.1016/j.epsr.2020.106688) ·
+  valid cuts; closes gaps on PGLib), *Electric Power Systems Research*, vol. 189, 106688, 2020.
+  [DOI](https://doi.org/10.1016/j.epsr.2020.106688) ·
   [arXiv](https://arxiv.org/abs/1910.03716)
 
 ## Local optima and OPF landscape
@@ -126,8 +126,8 @@ formal list.
   restoration phase), *Mathematical Programming*, vol. 106, no. 1, pp. 25–57, 2006.
   [DOI](https://doi.org/10.1007/s10107-004-0559-y)
 - O. Hinder and Y. Ye, "A one-phase interior point method for nonconvex optimization"
-  (first-order certificates of local infeasibility, local optimality, or unboundedness),
-  2018. [arXiv](https://arxiv.org/abs/1801.03072)
+  (first-order certificates of local infeasibility, local optimality, or unboundedness), 2018.
+  [arXiv](https://arxiv.org/abs/1801.03072)
 - A. Hauswirth, S. Bolognani, G. Hug, and F. Dörfler, "Generic existence of unique
   Lagrange multipliers in AC optimal power flow" (LICQ holds generically, via differential
   topology), *IEEE Control Systems Letters*, vol. 2, no. 4, pp. 791–796, 2018.
