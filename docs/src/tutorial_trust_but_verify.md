@@ -1,5 +1,8 @@
 # Trust but verify: validating one solved OPF
 
+For an additional check by re-solving a pinned dispatch, continue to
+[Solution projection and power-flow comparison](solution_projection.md).
+
 *What a solver's status guarantees — and what it does not.*
 
 A nonlinear OPF solver ends with a verdict like `LOCALLY_SOLVED`. It is tempting

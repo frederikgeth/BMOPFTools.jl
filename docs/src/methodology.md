@@ -1,6 +1,10 @@
-# Methodology notes
+# [How network diagnostics work](@id Methodology-notes)
 
-The physics and linear algebra behind the provenance and integrity checks.
+Use this explanation alongside [Analysis & reports](analysis.md) and
+[Findings triage](tutorial_triage.md) when interpreting input-model evidence.
+It develops the physics and linear algebra behind the provenance and integrity
+checks. For solver coordinates and starting values, use
+[Scaling, initialization and diagnostics](numerical_workflows.md).
 Numbered citations refer to the [references](@ref refs) at the bottom.
 
 ## Impedance matrix invariants vs fingerprints

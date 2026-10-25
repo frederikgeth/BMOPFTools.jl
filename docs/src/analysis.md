@@ -1,5 +1,8 @@
 # Analysis & reports
 
+For the physical rationale behind these checks, read
+[How network diagnostics work](methodology.md).
+
 [`analyze`](@ref) runs fifteen passes over a network dict and returns a
 [`SummaryReport`](@ref) holding per-pass result dicts (`report.results`)
 and the combined finding log (`report.findings`). For time-series networks

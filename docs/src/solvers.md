@@ -1,5 +1,8 @@
 # Solver guide for OPF
 
+For a route through base policies, starting values and model evidence, see
+[Scaling, initialization and diagnostics](numerical_workflows.md).
+
 BMOPFTools builds one four-wire rectangular current–voltage (IVR-EN) OPF
 model through JuMP. The solver is selected at the boundary: pass a JuMP
 optimizer to [`solve_opf`](@ref), [`solve_pf`](@ref), or

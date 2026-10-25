@@ -1,4 +1,24 @@
-# Parameterized and differentiable extensions
+# [Model extensions and sensitivities](@id Parameterized-and-differentiable-extensions)
+
+Use the extension API to build a custom study, replace supported device
+formulations, or expose parameters and results to another package. These
+construction interfaces work without DiffOpt. Choose a route first:
+
+| Your task | Start with |
+|:--|:--|
+| Build into a caller-owned JuMP model or add terminal injections | [Current extension substrate](#Current-extension-substrate). |
+| Replace supported device physics and extract custom results | [Replaceable device formulations](#Replaceable-device-formulations) and [semantic solution access](#Semantic-solution-access). |
+| Couple periods or scenarios in one optimization | [Multi-period construction](@ref staged-api). |
+| Reuse a model after coefficient changes | [Repeated solves and parameter updates](repeated_solves.md). |
+| Record model ownership, scaling and parameter fingerprints | [Experiment provenance](#Experiment-provenance). |
+| Compute a local solution sensitivity with DiffOpt | [Worked example](@ref diffopt-worked-example), followed by mathematical scope and readiness checks. |
+
+Start with [First case](first_case.md) and basic JuMP model construction.
+[Custom formulations](tutorial_custom_formulations.md) introduces the extension
+ladder; [Advanced routes](advanced.md) connects it to encodings and numerics.
+The optional DiffOpt environment is required only for the differentiation example.
+
+## What does differentiating a solved model provide?
 
 How much does a bus voltage change if a line resistance increases slightly?
 How does a dispatch decision respond to a demand or cost parameter? These are

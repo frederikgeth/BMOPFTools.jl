@@ -4,6 +4,8 @@ The sidebar follows the workflow from understanding network data to preparing,
 solving, and verifying a case. Advanced explanations, automation, and reference
 material provide separate routes. This page helps you choose by goal; the
 [homepage learning map](index.md#Find-your-route) shows how the sections connect.
+[Choose an advanced route](advanced.md) for equation encodings, model extensions
+and numerical experiments.
 
 If you are new, follow [Installation & first steps](installation.md), then
 [First case: inspect, solve and verify](first_case.md). The first case uses a
@@ -29,11 +31,13 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Pick a defensible load model** (CVR, hosting, collapse) | [Choosing and identifying a load model](tutorial_load_models.md) | [Load spec](spec/load.md), [Impedance models & OPF decisions](tutorial_impedance_models.md) |
 | **Build a benchmark** an optimiser can respect | [Case augmentation](augmentation.md) | [From nameplate data to a defensible model](tutorial_nameplate.md), [DER placement](tutorial_ders.md) |
 | **Diagnose an infeasible case** | [Infeasibility diagnosis](tutorial_infeasibility.md) | [Bounds & feasibility](bounds/index.md), [Trusting the solver](bounds/solver_trust.md) |
-| **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Trusting the solver](bounds/solver_trust.md), [Engine validation evidence](validation.md) |
+| **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Solution projection](solution_projection.md), [Engine validation evidence](validation.md) |
 | **Model a specific device** (STATCOM, MVDC, regulator, PV droop) | [D-STATCOM study](tutorial_statcom.md) | [MVDC](tutorial_mvdc.md), [Tap optimisation](tutorial_tap.md), [VVWO](tutorial_vvwo.md) |
 | **Change the formulation** (custom objectives, constraints, multi-period) | [Custom formulations](tutorial_custom_formulations.md) | [OPF model](opf.md), [Units, bases & economics](tutorial_units.md) |
 | **Assemble a network matrix or understand ideal-device boundaries** | [Nodal admittance builders](spec/nodal-admittance.md) | [Exact substitutions](formulation_substitutions.md), [Engine validation evidence](validation.md) |
-| **Build a differentiable or bilevel research extension** | [Parameterized and differentiable extensions](differentiable_extensions.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
+| **Choose numerical coordinates or inspect initialization** | [Scaling, initialization and diagnostics](numerical_workflows.md) | [Solver guide](solvers.md), [Trusting the solver](bounds/solver_trust.md) |
+| **Update coefficients and re-solve safely** | [Repeated solves](repeated_solves.md) | [Case families](tutorial_case_development.md), [Model extensions](differentiable_extensions.md) |
+| **Build a differentiable or bilevel research extension** | [Model extensions and sensitivities](differentiable_extensions.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
 | **Extend or debug the solver** | [OPF engine: scope & status](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
 
 ## The judgment spine

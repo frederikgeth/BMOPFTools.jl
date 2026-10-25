@@ -50,6 +50,7 @@ makedocs(
             "Inspect the evidence" => [
                 "Analysis & reports" => "analysis.md",
                 "Findings triage tutorial" => "tutorial_triage.md",
+                "How network diagnostics work" => "methodology.md",
                 "Spatial diagnostics & cleanup review" => "spatial_diagnostics.md",
                 "Visualizing a case with Tellegen" => "visualization.md",
             ],
@@ -77,16 +78,20 @@ makedocs(
         ],
         "Verify & diagnose results" => [
             "Trust but verify: one solved case" => "tutorial_trust_but_verify.md",
+            "Solution projection & power-flow comparison" => "solution_projection.md",
             "OPF result dictionary" => "results.md",
             "Infeasibility diagnosis tutorial" => "tutorial_infeasibility.md",
         ],
         "Advanced formulations & numerics" => [
+            "Choose an advanced route" => "advanced.md",
             "Nodal admittance builders" => "spec/nodal-admittance.md",
+            "Transformer primitive admittance" => "spec/transformer-admittance.md",
             "Exact substitutions & formulation boundaries" => "formulation_substitutions.md",
             "Smooth droop encoding" => "relu_softplus_encoding.md",
             "Custom formulations: CVR, envelopes & hooks" => "tutorial_custom_formulations.md",
-            "Parameterized & differentiable extensions" => "differentiable_extensions.md",
-            "Diagnostic methodology" => "methodology.md",
+            "Model extensions & sensitivities" => "differentiable_extensions.md",
+            "Scaling, initialization & diagnostics" => "numerical_workflows.md",
+            "Repeated solves & parameter updates" => "repeated_solves.md",
             "Bounds & feasibility" => [
                 "bounds/index.md",
                 "bounds/decision_matrix.md",

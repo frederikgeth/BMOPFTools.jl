@@ -19,8 +19,9 @@ we derive the voltage, current, impedance, and power bases by hand and check
 them against the engine, demonstrate that an SI solve and a per-unit solve of
 the same case return the same physics, and then build the cost story from
 \$/kWh coefficients to a priced 24-hour day, reconstructing the solver's
-objective value from first principles along the way. Every code block runs
-when the docs are built, so the numbers are real.
+objective value from first principles along the way. The feeder examples require the external dataset described above and are
+not executed by the docs build. Run them in that environment to reproduce the
+comparisons; reported values remain subject to solver tolerances.
 
 !!! note "Prerequisites"
     A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`, and the
