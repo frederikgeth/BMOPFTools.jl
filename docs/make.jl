@@ -81,6 +81,8 @@ makedocs(
             "Infeasibility diagnosis tutorial" => "tutorial_infeasibility.md",
         ],
         "Advanced formulations & numerics" => [
+            "Nodal admittance builders" => "spec/nodal-admittance.md",
+            "Exact substitutions & formulation boundaries" => "formulation_substitutions.md",
             "Smooth droop encoding" => "relu_softplus_encoding.md",
             "Custom formulations: CVR, envelopes & hooks" => "tutorial_custom_formulations.md",
             "Parameterized & differentiable extensions" => "differentiable_extensions.md",

@@ -1,27 +1,106 @@
 # Parameterized and differentiable extensions
 
-BMOPFTools exposes the reference IVR-EN network formulation through a staged
-JuMP model-construction API. Downstream packages can build the formulation into
-a caller-supplied JuMP model, retain stable references to native variables and
-constraints, register their own model objects and state, and add custom terminal
-injections before KCL is finalized. This is the foundation for compatibility
-with implicit-differentiation tools such as
-[DiffOpt.jl](https://jump.dev/DiffOpt.jl/).
+How much does a bus voltage change if a line resistance increases slightly?
+How does a dispatch decision respond to a demand or cost parameter? These are
+questions about the **sensitivity of a solved model**, rather than just the
+derivatives of its equations. They are useful for parameter calibration,
+local screening, and research algorithms that place an optimization problem
+inside an outer learning or design loop.
 
-The intended architecture is deliberately split:
+[DiffOpt.jl](https://jump.dev/DiffOpt.jl/) adds forward and reverse
+differentiation to supported JuMP/MathOptInterface optimization models [2, 3].
+In the nonlinear workflow below, Ipopt solves the model and DiffOpt computes a
+local derivative through its optimality conditions. This does not require
+unrolling Ipopt's iterations; implicit differentiation separates the solution
+method from the derivative calculation [4].
 
-- **BMOPFTools** owns network physics, units, native device models, KCL, and the
-  stable extension protocol;
-- **downstream research packages** own parameter selection, bespoke devices and
-  objectives, automatic-differentiation rules, bilevel semantics, outer solvers,
-  caching, and discrete relaxations.
+| What you need | Mode | Seed and result |
+|---|---|---|
+| Responses to one parameter direction | Forward | Seed a parameter perturbation; obtain directional changes in solution variables. |
+| A gradient of one scalar output with respect to parameters | Reverse | Seed that output; obtain parameter sensitivities by an adjoint calculation. |
 
-BMOPFTools does not present itself as a differentiable OPF solver. It provides
-the parameterized construction substrate, selected native coefficient paths,
-replaceable device builders, and conservative readiness diagnostics; the
-downstream differentiation package remains responsible for computing and
-validating sensitivities. Current native coverage, known limitations, and the
-research provenance contract are documented below.
+**Prerequisites:** work through [First case](first_case.md), know basic JuMP
+model construction, and read [units and bases](tutorial_units.md). The worked
+example uses the optional `test/diffopt` environment; DiffOpt is not a runtime
+dependency of BMOPFTools. For assembling a network matrix alone, start with
+[nodal admittance builders](spec/nodal-admittance.md).
+
+## [Worked example: voltage sensitivity to line resistance](@id diffopt-worked-example)
+
+A 1,000 V source supplies a 100 kW constant-power load through a 0.5 ohm
+resistive line. Both neutrals are perfectly grounded. A 900–999 V load-voltage
+band selects the high-voltage solution and is inactive at the operating point.
+A constant objective makes this a power-flow feasibility example; it does not
+illustrate sensitivity of economic dispatch or an active operating limit.
+
+Writing ``V_s`` for the fixed source voltage, ``P`` for load power and ``R`` for
+line resistance gives an independent check:
+
+```math
+V^2-V_s V+RP=0,\qquad
+V=\frac{V_s+\sqrt{V_s^2-4RP}}{2},\qquad
+\frac{dV}{dR}=-\frac{P}{2V-V_s}.
+```
+
+Here ``V\approx947.2136`` V and ``dV/dR\approx-111.8034`` V/ohm. Locally,
+an extra 0.001 ohm therefore predicts about a 0.112 V voltage decrease.
+The script below checks the circuit residual after every solve and compares
+three derivative calculations. The coefficient provider replaces the native
+line-resistance coefficient with a live JuMP parameter; changing the original
+network dictionary alone would not update the constructed JuMP model.
+
+From a repository checkout, prepare the isolated optional environment once:
+
+```sh
+julia --project=test/diffopt --startup-file=no -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+julia --project=test/diffopt --startup-file=no examples/diffopt_resistance_sensitivity.jl
+```
+
+The following code is included directly from
+[`examples/diffopt_resistance_sensitivity.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/diffopt_resistance_sensitivity.jl).
+The optional DiffOpt test job executes this same function and checks its results;
+the ordinary documentation build displays it without installing DiffOpt.
+
+```@eval
+using Markdown
+source = read(joinpath(Main.REPOSITORY_ROOT, "examples", "diffopt_resistance_sensitivity.jl"), String)
+Markdown.parse("```julia\n" * source * "\n```")
+```
+
+Forward and reverse results should agree with the analytic derivative to about
+``10^{-7}`` V/ohm, and the central difference to about ``10^{-5}`` V/ohm in the
+tested environment. The finite-difference step is in ohms, and `per_unit=false`
+makes the output voltage an SI quantity. For a per-unit model, the provider
+must divide physical resistance by the impedance base, and the output
+sensitivity must be multiplied by the voltage base; the optional integration
+suite also checks that conversion.
+
+This derivative belongs to the selected local solution. As ``2V-V_s`` tends
+to zero the analytic sensitivity becomes singular; an active-set change or
+switch to a different solution branch also invalidates a naive smooth
+extrapolation. `opf_differentiability_report(ctx).ready` screens supported
+construction and solution conditions but does not prove KKT nonsingularity.
+For production experiments, continue to
+[differentiability readiness](#Differentiability-readiness-and-qualifications),
+[singular-KKT handling](#Refusing-singular-KKT-derivatives), and the
+[parameter-update workflow](@ref opf-parameter-resolves). The circuit residual
+above is an example-specific check; larger studies need the independent
+[solution-verification workflow](tutorial_trust_but_verify.md) too.
+
+## Who owns which part?
+
+BMOPFTools supplies the staged reference IVR-EN formulation, units, device
+physics, KCL, parameter hooks and stable semantic object references. DiffOpt
+computes sensitivities of supported models. Downstream research code chooses
+the parameters, outputs, outer objective, and how to validate and use those
+derivatives. The API does not supply a globally differentiable OPF solver or a
+complete bilevel algorithm.
+
+The remainder of this page is the extension reference: mathematical scope,
+construction stages, replaceable devices, coefficient providers, readiness,
+and research limitations. For the separate question of which variables and
+equations can be substituted, see
+[exact substitutions and formulation boundaries](formulation_substitutions.md).
 
 ```@example differentiable_extensions
 using BMOPFTools
@@ -64,7 +143,9 @@ Classical perturbation analysis relates smooth solution sensitivity to
 constraint qualifications, second-order sufficient conditions, and
 complementarity/nondegeneracy assumptions [1]. DiffOpt implements forward and
 reverse differentiation of optimization models through MathOptInterface model
-transformations [2].
+transformations [2]. The original paper develops quadratic/conic rules;
+current nonlinear API support is documented separately [3] and exercised by
+the package integration tests.
 
 ## Current extension substrate
 

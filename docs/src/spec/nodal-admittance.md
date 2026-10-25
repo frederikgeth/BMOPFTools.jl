@@ -1,28 +1,127 @@
 # System nodal admittance
 
-BMOPFTools assembles a whole-system **nodal admittance matrix** ``\mathbf{Y}``
-such that ``\mathbf{I} = \mathbf{Y}\,\mathbf{V}``, where ``\mathbf{V}`` is the
-vector of node-to-earth voltages and ``\mathbf{I}`` the current injected *into*
-the network at each node. Two matrices are exposed:
+Use this guide when you need a network matrix for inspection, a power-flow
+iteration, or a downstream algorithm. Start with the
+[buses and terminals primer](../terminals_primer.md) and
+[units and bases](../tutorial_units.md). These builders assemble equations;
+they do not choose source boundary conditions or certify a solvable network.
 
-- [`ybus_passive`](@ref) — the **passive** network: lines, shunts, capacitors,
-  and transformers only. Linear and voltage-invariant.
-- [`ybus_linearized`](@ref) — the passive matrix with the **nonlinear loads
-  folded in**, following the OpenDSS solution model (constant-impedance part
-  folded into ``\mathbf{Y}``; constant-current / constant-power part returned as
-  a compensation-current closure).
-- [`ybus_augmented`](@ref) — the passive matrix **bordered with ideal-coupling
-  constraint rows** (closed switches, zero-leakage transformers of any ratio),
-  `K = [Y Aᵀ; A 0]`. The exact model for elements with no finite admittance
-  form.
+## Choose a builder
 
-Both build on the per-element [transformer primitive admittance](transformer-admittance.md)
-and reuse the same convention.
+| Your task | Builder | What you receive and must supply |
+|---|---|---|
+| Inspect the passive network | [`ybus_passive`](@ref) | `Y`, `nodes`, `index`; loads, generators, IBRs and ideal voltage sources are excluded. Supply injections and source boundaries separately. |
+| Keep nonlinear loads in a power-flow iteration | [`ybus_linearized`](@ref), `fold=:constant_z` | A constant-Z load contribution in `Y`, plus a voltage-dependent `i_comp`. The assembled equations still contain nonlinear load behavior. |
+| Replace loads by admittances at one operating point | [`ybus_linearized`](@ref), `fold=:all` | An equivalent admittance at the supplied `v0`, with zero `i_comp`. It matches load current at that point; it is not a Jacobian linearization. |
+| Retain supported small/zero transformer leakage or explicit switch currents | [`ybus_augmented`](@ref) | A bordered `K`, node mappings and `couplings`. Additional unknowns represent scaled port currents; finite leakage is retained. Loads are excluded. |
+
+The passive relation is ``I=YV`` with node-to-earth voltages. The augmented
+relation uses ``K=[Y\ A^T;\ A\ {-D}]``; the lower block vanishes only for
+fully ideal ports. This follows the modified nodal analysis principle of
+retaining branch currents and constitutive equations when a voltage-only stamp
+is unsuitable [1]. Package-specific supported domains are listed below.
+All three builders reuse the [transformer primitive conventions](transformer-admittance.md).
+
+## A small network, with an explicit source boundary
+
+This executable example uses a 230 V source, a 1 ohm line, and a 100 W
+constant-power load. The grounded neutral has index zero and no matrix row.
+No JuMP model or optimizer is needed.
+
+```@example admittance_guide
+using BMOPFTools, LinearAlgebra
+
+net = parse_bmopf("""
+{"bus":{
+    "s":{"terminal_names":["a","n"],"perfectly_grounded_terminals":["n"]},
+    "b":{"terminal_names":["a","n"],"perfectly_grounded_terminals":["n"]}},
+ "voltage_source":{"grid":{"bus":"s","terminal_map":["a"],
+     "v_magnitude":[230.0],"v_angle":[0.0]}},
+ "linecode":{"lc":{"R_series_1_1":1.0}},
+ "line":{"l":{"bus_from":"s","bus_to":"b","terminal_map_from":["a"],
+     "terminal_map_to":["a"],"linecode":"lc","length":1.0}},
+ "load":{"d":{"bus":"b","terminal_map":["a","n"],
+     "configuration":"SINGLE_PHASE","p_nom":[100.0],"q_nom":[0.0]}}}
+"""; from_string=true)
+
+passive = ybus_passive(net)
+loads = ybus_linearized(net)  # default: fold=:constant_z
+augmented = ybus_augmented(net)
+@assert size(passive.Y) == size(loads.Y) == size(augmented.K) == (2, 2)
+@assert passive.index[("b", "n")] == 0
+@assert isempty(augmented.couplings)  # no bordered devices in this case
+
+# Partition known source voltage b from unknown voltages u; never invert full Y.
+b = [loads.index[("s", "a")]]
+u = [loads.index[("b", "a")]]
+v = fill(230.0 + 0im, length(loads.nodes))
+for iteration in 1:10
+    rhs = loads.i_comp(v)[u] - loads.Y[u, b] * v[b]
+    v[u] = loads.Y[u, u] \ rhs
+end
+expected = (230.0 + sqrt(230.0^2 - 4 * 100.0)) / 2
+@assert isapprox(real(v[only(u)]), expected; atol=1e-8)
+@assert norm((loads.Y * v - loads.i_comp(v))[u]) < 1e-8
+
+# An operating-point equivalent matches this load current at this v0.
+v0 = Dict(node => v[k] for (k, node) in enumerate(loads.nodes))
+folded = ybus_linearized(net; fold=:all, v0)
+@assert norm((folded.Y * v)[u]) < 1e-8
+(nodes=loads.nodes, voltage_V=real(v[only(u)]),
+ source_current_A=(loads.Y * v - loads.i_comp(v))[only(b)])
+```
+
+The source row gives the required source injection, rather than a zero
+residual. Ten fixed-point steps suffice for this case; this is not a convergence
+guarantee for other networks. Use each result's `index` when assembling vectors,
+since aliasing can change node counts and ordering.
+
+### When an admittance inverse is unavailable
+
+Replace the line by a supported ideal 230:115 V transformer. The passive
+builder rejects its zero leakage; the augmented builder retains a port current.
+The load is removed here to isolate the transformer relation.
+
+```@example admittance_guide
+ideal = deepcopy(net)
+delete!(ideal, "line")
+delete!(ideal, "load")
+ideal["transformer"] = Dict("single_phase" => Dict("t" => Dict{String,Any}(
+    "bus_from" => "s", "bus_to" => "b",
+    "terminal_map_from" => ["a", "n"], "terminal_map_to" => ["a", "n"],
+    "v_nom_from" => 230.0, "v_nom_to" => 115.0,
+    "r_series_from" => 0.0, "x_series_from" => 0.0,
+    "r_series_to" => 0.0, "x_series_to" => 0.0)))
+rejected = try
+    ybus_passive(ideal)
+    false
+catch err
+    err isa ArgumentError
+end
+@assert rejected
+border = ybus_augmented(ideal)
+@assert size(border.K) == (3, 3)
+@assert length(border.nodes) == 2 && length(border.couplings) == 1
+b = [border.index[("s", "a")]]
+u = setdiff(collect(1:size(border.K, 1)), b)  # LV voltage and port unknown
+x = zeros(ComplexF64, size(border.K, 1))
+x[b] .= 230.0
+x[u] = border.K[u, u] \ (-border.K[u, b] * x[b])
+@assert isapprox(x[border.index[("b", "a")]], 115.0; atol=1e-10)
+physical_port_current = border.couplings[1].scale * x[length(border.nodes) + 1]
+(voltage_V=x[border.index[("b", "a")]], physical_port_current_A=physical_port_current)
+```
+
+This unloaded, grounded example has zero port current. Floating references and
+redundant ideal constraints can make other bordered systems singular. See
+[exact substitutions and formulation boundaries](../formulation_substitutions.md)
+for why retaining a constitutive equation matters at such boundaries.
 
 ## Convention
 
-Identical to the per-element `transformer_yprim` export and OpenDSS
-`DumpYprim` / `getYsparse`:
+The passive admittance blocks follow the per-element `transformer_yprim`
+export and OpenDSS `DumpYprim` / `getYsparse` conventions. The augmented
+port scaling is described under transformer leakage policy below:
 
 - **SI siemens.**
 - ``\mathbf{I} = \mathbf{Y}\,\mathbf{V}`` with current positive *into* the
@@ -137,24 +236,29 @@ The constant-Z part is a plain admittance ``y_z = c_{W,p} - \mathrm{j}\,c_{W,q}`
 returned as `i_comp(V)`, a closure mapping a node-ordered voltage vector to the
 compensation-current vector (injection ``= -`` current drawn).
 
-The resulting linear system
+With fixed source-node voltages ``V_b`` and unknown-node voltages ``V_u``,
+the equations for the unknown nodes are
 
 ```math
-\mathbf{Y}\,\mathbf{V} = \mathbf{i}_{\text{comp}}(\mathbf{V})
+Y_{uu} V_u = i_{\mathrm{comp},u}(V) + I_{\mathrm{external},u} - Y_{ub}V_b.
 ```
 
-is the fixed-point / Z-bus power-flow map: solving it by iteration
-``\mathbf{V} \leftarrow \mathbf{Y}^{-1}\mathbf{i}_{\text{comp}}(\mathbf{V})`` is a
-power flow, and the first iterate is the standard linear approximation.
+Here ``I_{\mathrm{external},u}`` contains any additional specified injections.
+A fixed-point iteration evaluates the compensation current at the previous
+voltage and solves this partitioned system, assuming ``Y_{uu}`` is nonsingular.
+The OpenDSS documentation describes the related compensation-current approach
+[2]; the example above shows the explicit ideal-source boundary used here.
 
 **Fold modes.**
 
 - `fold = :constant_z` (default) — fold only the constant-Z part; the rest lives
-  in `i_comp`. This is the OpenDSS SolutionMode split.
+  in `i_comp`. This preserves the declared load law within its supported
+  voltage domain; evaluating `i_comp` is still necessary at every iterate.
 - `fold = :all` — fold the *whole* load as its equivalent admittance
   ``\overline{S(v_0)}/|\Delta v_0|^2`` at an operating point `v0` (required);
-  then ``\mathbf{i}_{\text{comp}} \equiv 0``. This is OpenDSS's converged-solution
-  system ``\mathbf{Y}`` and the load-as-admittance seed for state estimation.
+  then ``\mathbf{i}_{\text{comp}} \equiv 0``. This is an operating-point
+  load-as-admittance equivalent. Away from `v0`,
+  it generally changes the load current and its voltage derivative.
 
 !!! note "Generators and IBRs are not folded"
     Generator and IBR injections are OPF variables (or, for state estimation,
@@ -163,10 +267,11 @@ power flow, and the first iterate is the standard linear approximation.
 
 ## Uses
 
-- **State estimation.** `ybus_passive` is the substrate for the WLS measurement
-  Jacobian; `ybus_linearized(fold = :all)` gives the load-as-admittance seed.
-- **Screening and initialization.** The linearized matrix gives a cheap flat
-  start / warm start and a Ybus-based power flow independent of the OPF.
+- **Downstream state-estimation work.** `ybus_passive` supplies network
+  admittances for measurement equations; `fold=:all` supplies an operating-point
+  equivalent. These exports are building blocks, not a complete estimator.
+- **Screening and initialization.** Combine a matrix, source boundaries and
+  compensation currents in an external power-flow or initialization algorithm.
 - **Cross-validation.** Both matrices are checked against OpenDSS — see
   [Validating the OPF engine](@ref) → *System nodal admittance gates*.
 
@@ -176,8 +281,8 @@ power flow, and the first iterate is the standard linear approximation.
   load-free decks (exact to machine precision for lines and capacitors, ``\sim
   10^{-6}`` for the imported transformer).
 - `ybus_linearized` (both fold modes) satisfies the power-flow residual
-  ``\lVert \mathbf{Y}\,\mathbf{v}_0 - \mathbf{i}_{\text{comp}}(\mathbf{v}_0)\rVert
-  \approx 0`` at OpenDSS's converged voltage across WYE / DELTA / SINGLE\_PHASE +
+  ``\lVert (\mathbf{Y}\,\mathbf{v}_0 - \mathbf{i}_{\text{comp}}(\mathbf{v}_0))_u\rVert
+  \approx 0`` on non-source nodes at OpenDSS's converged voltage across WYE / DELTA / SINGLE\_PHASE +
   ZIP / constant-power cases.
 
 ### Regulator ports and shared bushings
@@ -239,3 +344,17 @@ declared perfectly grounded terminals continue to map to earth explicitly.
 Floating winding references and ideal delta cycles can leave free voltages or
 circulating currents; callers must supply valid references and handle rank
 limitations. A border does not assert solvability or physical realizability.
+
+## References and next steps
+
+1. C.-W. Ho, A. E. Ruehli, and P. A. Brennan, “The Modified Nodal Approach to
+   Network Analysis,” *IEEE Transactions on Circuits and Systems* 22(6),
+   504–509, 1975. [doi:10.1109/TCS.1975.1084079](https://doi.org/10.1109/TCS.1975.1084079).
+2. EPRI, OpenDSS documentation, [The Normal method](https://opendss.epri.com/TheNormalSolutionmethod.html).
+
+For changing the JuMP formulation, continue to
+[exact substitutions](../formulation_substitutions.md) and
+[custom formulations](../tutorial_custom_formulations.md). To differentiate a
+solved model with respect to physical parameters, use the
+[DiffOpt worked example](../differentiable_extensions.md#diffopt-worked-example).
+These are different tasks from constructing `Y` or `K`.

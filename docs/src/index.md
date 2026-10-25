@@ -31,7 +31,7 @@ needs them; they are not prerequisites for the first walkthrough.
 | **Inspect & prepare cases** | Read the evidence, select justified changes, record assumptions, and recheck. Inspection and transformation are separate steps. | [Analysis & reports](analysis.md), [Spatial review](spatial_diagnostics.md), [Case augmentation](augmentation.md) |
 | **Power flow & OPF studies** | Choose a study question, solver and objective; compare operating scenarios and controls. | [OPF guide](opf.md), [Case families](tutorial_case_development.md) |
 | **Verify & diagnose results** | Check a returned solution against its case and investigate failures. | [Trust but verify](tutorial_trust_but_verify.md), [Infeasibility diagnosis](tutorial_infeasibility.md) |
-| **Advanced formulations & numerics** | Understand encodings, numerical limitations, and formulation extension points. | [Smooth droop](relu_softplus_encoding.md), [Custom formulations](tutorial_custom_formulations.md), [Bounds & feasibility](bounds/index.md) |
+| **Advanced formulations & numerics** | Understand encodings, numerical limitations, and formulation extension points. | [Admittance builders](spec/nodal-admittance.md), [Exact substitutions](formulation_substitutions.md), [DiffOpt](differentiable_extensions.md), [Bounds & feasibility](bounds/index.md) |
 | **Automation & integration** | Run established checks through JSON recipes, MCP, or an AI-assisted workflow. | [JSON execution](execution_interface.md), [AI-assistant guide](ai_assistants.md) |
 | **Reference & development** | Look up APIs, Finding codes and contract domains, inspect implementation evidence, or contribute. | [API](api.md), [Findings](findings.md), [Engine validation evidence](validation.md), [Developer guide](dev/contributing.md) |
 

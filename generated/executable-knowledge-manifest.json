@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "3398b60b5ab4d102335e826fc5e81fa00782681f5df865b0aff206c13d937a5c",
+  "corpus_sha256": "b83802887baddcef510653eb82edd36207d52e677c0df1a0df2a79faa2520fe1",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -126,11 +126,15 @@
     },
     {
       "path": "docs/src/differentiable_extensions.md",
-      "sha256": "3f0991f9936b6add4dc8b19f042b3cd862f69aed95bb79fb3f12cb9a7997be9b"
+      "sha256": "6b0ae011a309f0f57ad46933d928cba9b30d3b5b277c2a66455b6c030573416b"
     },
     {
       "path": "docs/src/findings.md",
       "sha256": "c2753647b329530476cf074ffbccc7c43574d26b2d86ba0b654d7548efbe966e"
+    },
+    {
+      "path": "docs/src/formulation_substitutions.md",
+      "sha256": "35133fbf41ed2849424a5f591e45eb31230102784f730ddd0b5f6339a0e8d8fc"
     },
     {
       "path": "docs/src/objectives.md",
@@ -162,7 +166,7 @@
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",
-      "sha256": "af4e5fb94cb69f3a40228e3a33d1d9c81faab1d34788f66b99d3a80f62c65594"
+      "sha256": "ded5e8f94b11e5a552e3fa18c38a233e649685fab83f3ecdac6ec7f7a73d401b"
     },
     {
       "path": "docs/src/transformer_models.md",
@@ -207,6 +211,10 @@
     {
       "path": "examples/case_development.jl",
       "sha256": "02662b247da86ab1f54fabfe5b82df3d9573c73bd65732e1b35f5f074a92f514"
+    },
+    {
+      "path": "examples/diffopt_resistance_sensitivity.jl",
+      "sha256": "7b9e19a55cac966ed542a6602d3ce1c9a4eb927a319906a71b751262308f3fef"
     },
     {
       "path": "examples/spatial_cleanup_review.jl",
@@ -286,7 +294,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "574da46021db6cae2e8d7e83925fe25107cef13229c1a1cf3d49d0a2c9fbb881"
+      "sha256": "7a57ba7cf9767bc0705d6236b1aa03ddf95a343200b523017eb7b1be12e0f807"
     },
     {
       "path": "recipes/README.md",
@@ -975,6 +983,10 @@
     {
       "path": "test/device_indexing_tests.jl",
       "sha256": "e7385fc4711e77a29a2d1dc89785b64c599ede10d215ed119ff7be81721b845e"
+    },
+    {
+      "path": "test/diffopt/runtests.jl",
+      "sha256": "a9f540800d10d5d089c796402d4d7e3771bdd8c7661b94f8c483112ac567dd2a"
     },
     {
       "path": "test/dss_conversion_error_tests.jl",

@@ -622,3 +622,13 @@ end
     @test sum(JuMP.num_constraints(model, F, S)
               for (F, S) in JuMP.list_of_constraint_types(model)) == ncon
 end
+
+# Execute the exact script displayed in the user guide; do not maintain a second copy.
+include(joinpath(@__DIR__, "..", "..", "examples", "diffopt_resistance_sensitivity.jl"))
+@testset "DiffOpt documented resistance sensitivity" begin
+    result = diffopt_resistance_sensitivity()
+    @test result.voltage ≈ result.analytic_voltage atol=1e-7
+    @test result.forward ≈ result.analytic atol=1e-7
+    @test result.reverse ≈ result.analytic atol=1e-7
+    @test result.finite_difference ≈ result.analytic atol=1e-5
+end

@@ -32,6 +32,7 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Trusting the solver](bounds/solver_trust.md), [Engine validation evidence](validation.md) |
 | **Model a specific device** (STATCOM, MVDC, regulator, PV droop) | [D-STATCOM study](tutorial_statcom.md) | [MVDC](tutorial_mvdc.md), [Tap optimisation](tutorial_tap.md), [VVWO](tutorial_vvwo.md) |
 | **Change the formulation** (custom objectives, constraints, multi-period) | [Custom formulations](tutorial_custom_formulations.md) | [OPF model](opf.md), [Units, bases & economics](tutorial_units.md) |
+| **Assemble a network matrix or understand ideal-device boundaries** | [Nodal admittance builders](spec/nodal-admittance.md) | [Exact substitutions](formulation_substitutions.md), [Engine validation evidence](validation.md) |
 | **Build a differentiable or bilevel research extension** | [Parameterized and differentiable extensions](differentiable_extensions.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
 | **Extend or debug the solver** | [OPF engine: scope & status](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
 
@@ -87,6 +88,8 @@ each demonstrating live how that choice *writes the answer*:
 |---|---|
 | [First case](first_case.md), inspection steps | BMOPFTools and the bundled feeder; no solver or external dataset. |
 | [First case](first_case.md), solve and verify steps | BMOPFTools, JuMP and Ipopt; the same bundled feeder. |
+| [Nodal admittance builders](spec/nodal-admittance.md) | BMOPFTools and Julia standard libraries; synthetic examples run in the docs build. |
+| [DiffOpt worked example](differentiable_extensions.md#diffopt-worked-example) | Repository checkout and the optional `test/diffopt` environment (DiffOpt, JuMP, Ipopt); executed by the optional integration test job. |
 | [Case families](tutorial_case_development.md) | BMOPFTools, JuMP and Ipopt; the bundled feeder and example script. |
 | Utility-data tutorials, including [end-to-end](tutorial_end_to_end.md), [DER placement](tutorial_ders.md) and [PV controls](tutorial_vvwo.md) | Follow each page's external-dataset notice and software prerequisites. Reading a page does not require acquiring its data. |
 
