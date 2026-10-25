@@ -125,6 +125,15 @@ makedocs(
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)
 )
 
+# @example writes reports at the build root. Keep raw download links relative to
+# the first-case page in both flat local builds and CI's pretty-URL layout.
+if get(ENV, "CI", nothing) == "true"
+    for report in ("first-case-report.md", "first-case-solution.md")
+        cp(joinpath(@__DIR__, "build", report),
+            joinpath(@__DIR__, "build", "first_case", report); force=true)
+    end
+end
+
 # Keep one canonical machine-discovery file at the repository root and publish
 # that exact file with the Documenter site.
 cp(

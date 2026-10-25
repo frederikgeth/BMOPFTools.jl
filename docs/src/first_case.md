@@ -27,7 +27,11 @@ println("Analysis: ", length(errors(case_report)), " errors; ",
         length(warnings(case_report)), " warnings")
 ```
 
-[Read the generated analysis report](first-case-report.md). Look at the inventory,
+```@raw html
+<p><a href="first-case-report.md">Read the generated analysis report</a>.</p>
+```
+
+Look at the inventory,
 modelling convention, and individual Finding codes as well as their severity.
 Informational Findings can describe deliberate assumptions or useful context;
 they are not all instructions to change the model. To print the report locally,
@@ -90,7 +94,11 @@ println("Verification: ", length(errors(solution_report)), " errors; ",
         length(warnings(solution_report)), " warnings")
 ```
 
-[Read the generated solution report](first-case-solution.md). Inspect the
+```@raw html
+<p><a href="first-case-solution.md">Read the generated solution report</a>.</p>
+```
+
+Inspect the
 reported checks, residuals, limit violations, and any unassessed quantities;
 zero ERROR Findings alone is not a general validity certificate. Keep the case
 and result together when interpreting the evidence.

@@ -102,4 +102,3 @@ comparison method verbatim — the only new machinery is the pinning.
 [`test/projection_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/projection_tests.jl)
 runs this on DER-augmented feeders and free-tap fixtures (the raw `pf_comparison`
 cases have no decision variables, so projection is a no-op there).
-
