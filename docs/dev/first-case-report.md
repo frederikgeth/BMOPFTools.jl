@@ -1,6 +1,6 @@
 # BMOPF Network Summary: case_development_example
 
-**Generated:** 2026-10-25 11:19:03  
+**Generated:** 2026-10-25 11:35:04  
 **Findings:** 0 errors · 2 warnings · 12 info  
 **Convention:** LV_230V: 4-wire; 1 grounding point(s); series-only line model
 
