@@ -35,7 +35,9 @@ That comparison is useful evidence, not a guarantee of feasible-set preservation
     canonical model keeps the fuller representation.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`
-installed — see the [end-to-end tutorial](tutorial_end_to_end.md) first. If you
+installed — see [Installation](installation.md). This page uses the external
+dataset noted above; the [first-case walkthrough](first_case.md) provides a
+bundled introduction to solving and verification. If you
 use [`fix_case`](@ref), note that its second pass already calls
 [`simplify_network`](@ref) for you (see
 [Case fixing](augmentation.md#fix)); this page is about running — and

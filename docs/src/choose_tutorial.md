@@ -1,18 +1,26 @@
 # Choose your tutorial
 
-The documentation is organised by *topic* — data model, case preparation, OPF,
-bounds. That is the right shape for reference, but not always for a newcomer who
-knows their **goal** and wants a starting point. This page routes by goal.
+The sidebar follows the workflow from understanding network data to preparing,
+solving, and verifying a case. Advanced explanations, automation, and reference
+material provide separate routes. This page helps you choose by goal; the
+[homepage learning map](index.md#Find-your-route) shows how the sections connect.
 
-If you are brand new, read the [end-to-end tutorial](tutorial_end_to_end.md)
-first — it is the one-sitting overview every path below assumes.
+If you are new, follow [Installation & first steps](installation.md), then
+[First case: inspect, solve and verify](first_case.md). The first case uses a
+bundled synthetic feeder and needs no external data. You can stop after inspection
+if you do not need a solver yet.
+
+The [utility-data end-to-end tutorial](tutorial_end_to_end.md) is a later,
+optional route. Its external dataset and licence requirements are stated at the
+start of that page; its dataset examples are not executed by the docs build.
 
 ## Route by goal
 
 | I want to… | Start here | Then |
 |---|---|---|
 | **Explore a network visually** in the browser | [Visualizing a case with Tellegen](visualization.md) | [Analysis & reports](analysis.md), [Buses & terminals primer](terminals_primer.md) |
-| **Convert** OpenDSS / nameplate data into a BMOPF case | [From nameplate data to a defensible model](tutorial_nameplate.md) | [Conversion guide](conversion.md), [Case augmentation](augmentation.md) |
+| **Convert OpenDSS** into a BMOPF case | [Conversion guide](conversion.md) | [Analysis & reports](analysis.md), [Utility-data end-to-end tutorial](tutorial_end_to_end.md) |
+| **Derive model inputs from nameplate data** | [From nameplate data to a defensible model](tutorial_nameplate.md) | [Case augmentation](augmentation.md), [Data model conventions](conventions.md) |
 | **Triage a messy import** (warnings, provenance, repairs) | [Findings triage](tutorial_triage.md) | [Finding-code reference](findings.md), [Analysis & reports](analysis.md) |
 | **Turn transformer test data into model fields** | [From test report to transformer model](tutorial_transformer_tests.md) | [Transformer models](transformer_models.md), [Transformer spec](spec/transformer.md) |
 | **Understand four-wire physics** (why terminals, neutrals, matrices) | [Buses & terminals primer](terminals_primer.md) | [Impedance models & OPF decisions](tutorial_impedance_models.md), [Line geometry](tutorial_line_geometry.md) |
@@ -21,7 +29,7 @@ first — it is the one-sitting overview every path below assumes.
 | **Pick a defensible load model** (CVR, hosting, collapse) | [Choosing and identifying a load model](tutorial_load_models.md) | [Load spec](spec/load.md), [Impedance models & OPF decisions](tutorial_impedance_models.md) |
 | **Build a benchmark** an optimiser can respect | [Case augmentation](augmentation.md) | [From nameplate data to a defensible model](tutorial_nameplate.md), [DER placement](tutorial_ders.md) |
 | **Diagnose an infeasible case** | [Infeasibility diagnosis](tutorial_infeasibility.md) | [Bounds & feasibility](bounds/index.md), [Trusting the solver](bounds/solver_trust.md) |
-| **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Trusting the solver](bounds/solver_trust.md), [Validating the OPF](validation.md) |
+| **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Trusting the solver](bounds/solver_trust.md), [Engine validation evidence](validation.md) |
 | **Model a specific device** (STATCOM, MVDC, regulator, PV droop) | [D-STATCOM study](tutorial_statcom.md) | [MVDC](tutorial_mvdc.md), [Tap optimisation](tutorial_tap.md), [VVWO](tutorial_vvwo.md) |
 | **Change the formulation** (custom objectives, constraints, multi-period) | [Custom formulations](tutorial_custom_formulations.md) | [OPF model](opf.md), [Units, bases & economics](tutorial_units.md) |
 | **Build a differentiable or bilevel research extension** | [Parameterized and differentiable extensions](differentiable_extensions.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
@@ -40,8 +48,8 @@ needs — not just *how* to call the tools, but *when to trust the answer*:
    Incomplete datasheets in; a model out. What can be *derived*, what needs an
    *assumption*, and what must stay *unknown* — and the difference between
    standards-derived, standards-inspired, and synthetic values.
-3. **Solve** — [end-to-end tutorial](tutorial_end_to_end.md) and the
-   [OPF model](opf.md). Turn the model into a solved dispatch.
+3. **Solve** — [First case](first_case.md) and [Developing OPF case families](tutorial_case_development.md).
+   Solve a supplied operating case, then compare explicit study scenarios.
 4. **Verify** — [Trust but verify](tutorial_trust_but_verify.md). Take one solved
    OPF and independently recompute KCL, voltage bounds, thermal loading, losses,
    and the objective — learning what a solver's `LOCALLY_SOLVED` status does and
@@ -73,11 +81,21 @@ each demonstrating live how that choice *writes the answer*:
 - [Ground, neutral, and earth return](tutorial_grounding.md) — grounding
   assumptions, Kron reduction, and sequence coordinates.
 
-!!! tip "Prerequisites"
-    The solve/verify tutorials run a real OPF, so they need a Julia environment
-    with `BMOPFTools`, `JuMP` and `Ipopt`. The data-model and conversion pages
-    need only `BMOPFTools`. [Installation & first steps](installation.md)
-    covers setting all of this up, starting from installing Julia itself.
+## Prerequisites and example coverage
 
-To build and compare operating scenarios on a small self-contained feeder, start
-with [Developing OPF case families](tutorial_case_development.md).
+| Route | Software and data |
+|---|---|
+| [First case](first_case.md), inspection steps | BMOPFTools and the bundled feeder; no solver or external dataset. |
+| [First case](first_case.md), solve and verify steps | BMOPFTools, JuMP and Ipopt; the same bundled feeder. |
+| [Case families](tutorial_case_development.md) | BMOPFTools, JuMP and Ipopt; the bundled feeder and example script. |
+| Utility-data tutorials, including [end-to-end](tutorial_end_to_end.md), [DER placement](tutorial_ders.md) and [PV controls](tutorial_vvwo.md) | Follow each page's external-dataset notice and software prerequisites. Reading a page does not require acquiring its data. |
+
+The first-case Julia blocks execute during the docs build. Utility-data examples
+marked **External dataset** are displayed as code and are not executed by that
+build. Other pages state their own prerequisites; a data-modelling tutorial may
+also run a solve to demonstrate the consequences of a modelling choice.
+
+For the advanced [smooth-droop encoding note](relu_softplus_encoding.md), start
+with the [PV control study](tutorial_vvwo.md) for the practical context, or read
+[Power-flow inverter controls](opf.md#Power-flow-inverter-controls) for the
+solver interface. Running the external-data study is not required to read the note.

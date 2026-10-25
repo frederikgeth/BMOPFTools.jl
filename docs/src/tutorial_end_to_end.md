@@ -7,6 +7,10 @@
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
+New to the package? Start with [First case: inspect, solve and verify](first_case.md)
+for a bundled example. Return here when you want to follow the OpenDSS conversion
+and preparation steps with the external utility dataset.
+
 This is the **primary use case** of BMOPFTools, start to finish, on one real
 feeder. We take a utility-style OpenDSS model and walk the whole pipeline:
 

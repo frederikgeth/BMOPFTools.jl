@@ -3,8 +3,9 @@
 ## Which function do I need?
 
 A quick map from intent to entry point — each row links to the guide that
-explains it in context. The [end-to-end tutorial](tutorial_end_to_end.md) runs
-the whole sequence on one feeder.
+explains it in context. The [first-case walkthrough](first_case.md) covers inspection, solving, and
+verification on a bundled feeder. The [utility-data end-to-end tutorial](tutorial_end_to_end.md)
+adds conversion and preparation with an external dataset.
 
 | I want to… | Reach for | Guide |
 |---|---|---|

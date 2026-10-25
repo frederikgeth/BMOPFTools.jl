@@ -309,7 +309,7 @@ feedback on the draft specification.
 
 Contributions of bug reports, network cases, tooling, and documentation are
 welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for where to contribute and the
-workflow, and the documentation's **Reference → Developer guide** for the style
+workflow, and the documentation's **Reference & development → Developer guide** for the style
 guide, versioning policy, and scope notes. For a model issue, a small reproducible
 case and the relevant Finding codes make the problem easier to investigate.
 

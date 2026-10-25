@@ -17,7 +17,7 @@ dictionary alone. This tutorial does exactly that on a feeder small enough to
 have a closed-form answer, then compares those checks with the narrower coverage of the toolkit profiler.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` — see
-the [end-to-end tutorial](tutorial_end_to_end.md) first.*
+the [bundled first-case walkthrough](first_case.md) first.*
 
 ## 1. A feeder with a known answer
 

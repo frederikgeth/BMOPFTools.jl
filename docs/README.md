@@ -9,10 +9,12 @@ julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.in
 julia --project=docs docs/make.jl
 ```
 
-The output lands in `docs/build/`. The end-to-end tutorial executes a real OPF
+The output lands in `docs/build/`. The bundled first-case walkthrough executes a real OPF
 solve at build time via Documenter `@example` blocks, so the docs environment
 includes `JuMP` and `Ipopt` (see `docs/Project.toml`). A failed `@example` block
 fails the build — that is intentional, so executable docs cannot silently rot.
+Tutorials marked **External dataset**, including the utility-data end-to-end
+tutorial, display their dataset examples without executing them during the build.
 
 ## Authoring conventions
 

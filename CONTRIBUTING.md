@@ -27,7 +27,7 @@ julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
-Then open `docs/build/index.html` and navigate to **Reference → Developer
+Then open `docs/build/index.html` and navigate to **Reference & development → Developer
 guide**.
 
 ## Where to contribute

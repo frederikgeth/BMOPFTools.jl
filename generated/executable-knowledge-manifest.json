@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "5444a58b9e496e3330eee58a29677bf771b8e6de9b8b8c4041560f6b4236fc11",
+  "corpus_sha256": "3398b60b5ab4d102335e826fc5e81fa00782681f5df865b0aff206c13d937a5c",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -82,7 +82,7 @@
     },
     {
       "path": "docs/src/api.md",
-      "sha256": "80619711c9d88bdbf15777001ece5e56053712b3ee7922a5131ee68bdc0ec20e"
+      "sha256": "6ea04ba248a603030ca7f3d598984ba5e52172a07bd5a2ea87ca095220d552e0"
     },
     {
       "path": "docs/src/assets/spatial/direct-series.svg",
@@ -142,7 +142,7 @@
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
-      "sha256": "cebad4675e77975c4839a09d9f08b6941dcb5a475a92064f61a9261877de79a8"
+      "sha256": "b2684a2576810c17e47e660b0eee4b1af77475dd0dcb48e010d5c429b8de53a1"
     },
     {
       "path": "docs/src/results.md",
@@ -190,7 +190,7 @@
     },
     {
       "path": "docs/src/tutorial_simplify.md",
-      "sha256": "8f4e649e46d12026b32a90129211279489348366219c00ef834b2f84c58c3a50"
+      "sha256": "658e2651c61fcdfc58d29f86ce50f9862953bbe665b5eee85b34541002b59b83"
     },
     {
       "path": "docs/src/tutorial_triage.md",
@@ -198,7 +198,7 @@
     },
     {
       "path": "docs/src/tutorial_trust_but_verify.md",
-      "sha256": "13451410e2637d8da38a454074cc74909950eed45f154ee838b8c6970bbc8887"
+      "sha256": "4d9f008b2a9a3d9da58102e1d50d46c4145af757b0ea66559bdbc82bf3080e3b"
     },
     {
       "path": "docs/src/tutorial_units.md",

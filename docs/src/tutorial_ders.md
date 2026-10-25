@@ -32,13 +32,12 @@ Pandey & Geth [[2]](@ref refs-ders); see also [Positioning & ecosystem](position
 for where BMOPFTools sits relative to the wider distribution-OPF ecosystem.
 
 !!! note "Prerequisites"
-    Read the [end-to-end tutorial](tutorial_end_to_end.md) first — it introduces
-    the `load → analyze → fix → place → augment → solve` pipeline this page
-    builds on. You need **JuMP** and **Ipopt** alongside BMOPFTools
-    (`using Pkg; Pkg.add(["JuMP", "Ipopt"])`), or use the repository's docs
-    environment (`julia --project=docs`). Every code block on this page is
-    **executed when the documentation is built**, so the dispatches and binding
-    constraints below are computed, not transcribed.
+    The [utility-data end-to-end tutorial](tutorial_end_to_end.md) introduces the
+    conversion and preparation pipeline used here and requires the same external
+    dataset. You also need JuMP and Ipopt; see [Installation](installation.md).
+    These dataset examples are not executed during the docs build. For a
+    self-contained introduction, use [First case](first_case.md), followed by
+    [Developing OPF case families](tutorial_case_development.md).
 
 The complete, standalone script is
 [`examples/place_and_solve_ders.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/place_and_solve_ders.jl):

@@ -7,6 +7,12 @@
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
+For setup, see [Installation](installation.md); this study needs BMOPFTools,
+JuMP, Ipopt, and the external data noted above. For a bundled first solve, use
+[First case](first_case.md). The optional [smooth-droop technical note](relu_softplus_encoding.md)
+explains the solver's curve encoding and derivatives; it is not needed to follow
+the study below.
+
 A fleet of rooftop PV IBRs is, whether we model it that way or not, a
 **distributed control system**. Each IBR is a self-interested local agent:
 it wants to export as much of its own active power as possible, and it reacts to
