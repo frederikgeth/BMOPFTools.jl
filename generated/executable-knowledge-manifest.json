@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "5962b39355a51316cd0f6d7fcb1c8be2b496653fca0160a1f9ef57a3c43d4034",
+  "corpus_sha256": "645e6b365ab1c85583746dc7c0704ed2685daab23c184f46758cf08c61f76069",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,11 +78,11 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "676331dd7bafbb056c8d2f9b04da796cea842508269589d6e5f1384448a50965"
+      "sha256": "dd5469d34b7e4c2dbe8ae40e1be76788f377b409caae93faa53681b3747375a8"
     },
     {
       "path": "docs/src/api.md",
-      "sha256": "80619711c9d88bdbf15777001ece5e56053712b3ee7922a5131ee68bdc0ec20e"
+      "sha256": "6ea04ba248a603030ca7f3d598984ba5e52172a07bd5a2ea87ca095220d552e0"
     },
     {
       "path": "docs/src/assets/spatial/direct-series.svg",
@@ -126,11 +126,19 @@
     },
     {
       "path": "docs/src/differentiable_extensions.md",
-      "sha256": "9c7f8b3fa8b818ddefa4836810c074e3522bb682f434f4732b186e86bb6a17c1"
+      "sha256": "1426bbb3dfe95e2ca175524349eabfcdd6adb8a82c20fdd9dd6966fb1497f77d"
     },
     {
       "path": "docs/src/findings.md",
       "sha256": "c2753647b329530476cf074ffbccc7c43574d26b2d86ba0b654d7548efbe966e"
+    },
+    {
+      "path": "docs/src/formulation_substitutions.md",
+      "sha256": "35133fbf41ed2849424a5f591e45eb31230102784f730ddd0b5f6339a0e8d8fc"
+    },
+    {
+      "path": "docs/src/numerical_workflows.md",
+      "sha256": "39b31fcc5a54ef962e5bd70577035d36adb75111ee215792e40a5bcccc182abe"
     },
     {
       "path": "docs/src/objectives.md",
@@ -142,15 +150,23 @@
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
-      "sha256": "cebad4675e77975c4839a09d9f08b6941dcb5a475a92064f61a9261877de79a8"
+      "sha256": "b2684a2576810c17e47e660b0eee4b1af77475dd0dcb48e010d5c429b8de53a1"
+    },
+    {
+      "path": "docs/src/repeated_solves.md",
+      "sha256": "9d0baff880db375b36dc41215e5f187eb4978a5864f8f286595f89dab09af0a1"
     },
     {
       "path": "docs/src/results.md",
       "sha256": "a456136baf4d41c19db8d51e0ce89e89b1b5cd87e84e1c8fdb65021e10362464"
     },
     {
+      "path": "docs/src/solution_projection.md",
+      "sha256": "e8999f28adcad3bd3f7bb799ea626461a41f32fde984edd30359bf9c486c3165"
+    },
+    {
       "path": "docs/src/solvers.md",
-      "sha256": "130178796ace92ced9af3539870e078c4f9ec63944152d965eeb8a56e6854d55"
+      "sha256": "a051de17ca40c9d2b75c688dbbb902d38b5860373c86e2cb2c30ece1d58b7c08"
     },
     {
       "path": "docs/src/spatial_diagnostics.md",
@@ -162,7 +178,11 @@
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",
-      "sha256": "af4e5fb94cb69f3a40228e3a33d1d9c81faab1d34788f66b99d3a80f62c65594"
+      "sha256": "ded5e8f94b11e5a552e3fa18c38a233e649685fab83f3ecdac6ec7f7a73d401b"
+    },
+    {
+      "path": "docs/src/spec/transformer-admittance.md",
+      "sha256": "f0ad60b7f0164fe7efb37a9fdde7a1c2dad5e8fc0844bb7e3e5c02fef166a4fc"
     },
     {
       "path": "docs/src/transformer_models.md",
@@ -174,7 +194,7 @@
     },
     {
       "path": "docs/src/tutorial_case_development.md",
-      "sha256": "d22a2a67fa0dc95c70674627f053d0240badae136f3f62898068308d2ce79722"
+      "sha256": "2cb400f14f5e135dab32c38387a798276dd61c826074cfa959b97a933b316775"
     },
     {
       "path": "docs/src/tutorial_custom_formulations.md",
@@ -190,7 +210,7 @@
     },
     {
       "path": "docs/src/tutorial_simplify.md",
-      "sha256": "8f4e649e46d12026b32a90129211279489348366219c00ef834b2f84c58c3a50"
+      "sha256": "658e2651c61fcdfc58d29f86ce50f9862953bbe665b5eee85b34541002b59b83"
     },
     {
       "path": "docs/src/tutorial_triage.md",
@@ -198,15 +218,23 @@
     },
     {
       "path": "docs/src/tutorial_trust_but_verify.md",
-      "sha256": "13451410e2637d8da38a454074cc74909950eed45f154ee838b8c6970bbc8887"
+      "sha256": "8981df30c9e9e89363066c7eee4e0f874af8681ba2a61d9d7fb7077f6a789908"
     },
     {
       "path": "docs/src/tutorial_units.md",
-      "sha256": "e5aa29e9acaf9a6ab2ee251d1785d7ef3dd6dbb8964646afcc6d3c2703210fdc"
+      "sha256": "4cddf22de1aa5c1d83795a27b4db636227bd91cd528af478239a389fb7443a9d"
+    },
+    {
+      "path": "docs/src/validation.md",
+      "sha256": "b7a54f3e0f0b13fac4146d0ecfbe8aad1e7c36129f7e808f97779d99fcef6f84"
     },
     {
       "path": "examples/case_development.jl",
       "sha256": "02662b247da86ab1f54fabfe5b82df3d9573c73bd65732e1b35f5f074a92f514"
+    },
+    {
+      "path": "examples/diffopt_resistance_sensitivity.jl",
+      "sha256": "7b9e19a55cac966ed542a6602d3ce1c9a4eb927a319906a71b751262308f3fef"
     },
     {
       "path": "examples/spatial_cleanup_review.jl",
@@ -286,7 +314,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "574da46021db6cae2e8d7e83925fe25107cef13229c1a1cf3d49d0a2c9fbb881"
+      "sha256": "2a637e96c8675c5c711eff58ebba1808a301bb107af2b3ede6a425c5ed52bf0d"
     },
     {
       "path": "recipes/README.md",
@@ -975,6 +1003,10 @@
     {
       "path": "test/device_indexing_tests.jl",
       "sha256": "e7385fc4711e77a29a2d1dc89785b64c599ede10d215ed119ff7be81721b845e"
+    },
+    {
+      "path": "test/diffopt/runtests.jl",
+      "sha256": "a9f540800d10d5d089c796402d4d7e3771bdd8c7661b94f8c483112ac567dd2a"
     },
     {
       "path": "test/dss_conversion_error_tests.jl",

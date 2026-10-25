@@ -10,7 +10,7 @@ block runs when the docs are built, so the numbers below are real.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` installed,
 and familiarity with the JSON input format — see the
-[end-to-end tutorial](tutorial_end_to_end.md) first.*
+[bundled first-case walkthrough](first_case.md) first.*
 
 ## Why unbalance is hard to fix with reactive power
 

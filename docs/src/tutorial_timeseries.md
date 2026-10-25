@@ -41,6 +41,10 @@ so the numbers are real.
     LV1 14-bus network that tutorial walks through, with profiles and two
     rooftop PV units added.
 
+This tutorial solves snapshots independently. To reuse a parameterized model,
+follow [Repeated solves and parameter updates](repeated_solves.md). To impose
+inter-temporal constraints, use the [coupled-snapshot route](advanced.md#How-do-I-construct-a-different-study?).
+
 ## 1. A feeder with a day attached
 
 The test fixture `lv1_14bus_timeseries.json` is the LV1 14-bus feeder — an

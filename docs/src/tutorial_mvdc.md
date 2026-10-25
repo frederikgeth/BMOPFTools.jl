@@ -9,7 +9,7 @@ route power between AC feeders that the AC topology alone could not.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` installed,
 and familiarity with the JSON input format — see the
-[end-to-end tutorial](tutorial_end_to_end.md) first. Every code block on this page runs when
+[bundled first-case walkthrough](first_case.md) first. Every code block on this page runs when
 the docs are built, so the numbers below are real.*
 
 See the [conventions](@ref dc-network) for the DC terminal/pole/return and

@@ -9,10 +9,12 @@ julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.in
 julia --project=docs docs/make.jl
 ```
 
-The output lands in `docs/build/`. The end-to-end tutorial executes a real OPF
+The output lands in `docs/build/`. The bundled first-case walkthrough executes a real OPF
 solve at build time via Documenter `@example` blocks, so the docs environment
 includes `JuMP` and `Ipopt` (see `docs/Project.toml`). A failed `@example` block
 fails the build — that is intentional, so executable docs cannot silently rot.
+Tutorials marked **External dataset**, including the utility-data end-to-end
+tutorial, display their dataset examples without executing them during the build.
 
 ## Authoring conventions
 
@@ -36,3 +38,16 @@ fails the build — that is intentional, so executable docs cannot silently rot.
   to sibling pages with a bare `file.md`.
 - `checkdocs = :exports` and the build's cross-reference checks will flag broken
   `@ref`/anchors — keep the build warning-clean.
+
+**Generated Markdown downloads.** A report created by an `@example` block is
+a downloadable artifact, not a documentation source page. Link it with an
+`@raw html` anchor (as in `first_case.md`) so Documenter does not try to resolve
+it as a page before it is generated. `make.jl` copies the first-case reports
+beside the page in CI's pretty-URL layout. Check download targets in both flat
+and pretty-URL builds when adding or moving generated artifacts.
+
+**Bibliographies.** Keep a publication year followed by a period on the same
+source line as the preceding citation text. A continuation line starting with
+`2026.` is parsed as a nested numbered list by Julia's Markdown parser, causing
+an unexpected break and list marker in Documenter. Ordinary wrapped prose does
+not need hard line breaks or HTML overrides.

@@ -1,62 +1,54 @@
 # BMOPFTools.jl
 
-A Julia library for **parsing, validating, analysing and reporting** on
-BMOPF-format distribution network datasets — the JSON data model developed by
-the IEEE Task Force on *Benchmarking Multiconductor OPF for Distribution
-Systems* for up-to-four-wire optimal power flow (OPF) benchmarks
-([ref. 1](methodology.md#refs)).
+**Inspect, prepare, and solve unbalanced distribution-network models.**
 
-The term *optimal power flow* is used throughout, but the Task Force's scope
-extends well beyond generation cost minimisation.  The unifying requirement
-across all targeted problem classes — CVR, Dynamic Operating Envelopes,
-state estimation, maximum load delivery — is a faithful, conductor-level
-representation of an unbalanced distribution network subject to a selectable
-set of bounds.  Voltage limits, current ratings and power constraints are
-therefore optional in the data model; different formulations activate
-different subsets.  See [Optimal power flow](opf.md) for the full motivation.
+BMOPFTools connects network-data diagnostics, geospatial review, and
+multiconductor power-flow and optimal power flow (OPF) workflows in Julia.
+Import OpenDSS or BMOPF cases, inspect their assumptions, prepare study scenarios,
+and check compatible solver results. The package supports the IEEE PES Task
+Force on *Benchmarking Multiconductor OPF for Distribution Systems*;
+see the [BMOPF specification](spec/index.md) for the mathematical and data model.
 
-The library serves three use cases:
+**New here?** Follow [Installation & first steps](installation.md), then
+[First case: inspect, solve and verify](first_case.md). That walkthrough uses a
+bundled synthetic feeder and executes during the documentation build. You do
+not need an external dataset. If you already have a task in mind, use
+[Choose your tutorial](choose_tutorial.md).
 
-- **Dataset producers** converting utility-derived OpenDSS models into
-  clean, spec-conformant BMOPF JSON benchmark cases,
-- **dataset consumers** who want to understand exactly what a case contains
-  — its modeling conventions, hidden assumptions, data-quality issues and
-  OPF-readiness — before building optimization models on it, and
-- **optimization practitioners** who, given a solved BMOPF case and an OPF
-  result dict, want to flag bound violations, near-active constraints,
-  constraint residuals, and solution-quality issues without access to solver
-  internals.
+## Find your route
 
-For research packages, the embedded IVR-EN engine also exposes staged model
-construction, typed replaceable device ownership, semantic JuMP object and
-parameter registries, and an explicit DiffOpt-compatible nonlinear encoding.
-See [Parameterized and differentiable extensions](differentiable_extensions.md).
+The main learning route is **understand → inspect and prepare → study → verify**.
+Return to the case when the evidence calls for different data or assumptions.
+Advanced explanations and automation are branches you can take when your task
+needs them; they are not prerequisites for the first walkthrough.
 
-## Design
+![Learning map: Getting started leads to network models, case inspection and preparation, studies, and verification. Verification can return to case review. Advanced formulations and automation are optional branches; reference supports every stage.](assets/documentation-map.svg)
 
-The network data model is a plain `Dict{String,Any}` mirroring the BMOPF
-JSON structure exactly. There are deliberately no wrapper types: data flows
-to and from JSON (and out to PowerModelsDistribution via `to_pmd`) without
-conversion layers, and
-the only structs in the library are the *outputs* — [`Finding`](@ref),
-[`SummaryReport`](@ref), and [`SolutionReport`](@ref) — which need stable
-shape for rendering and programmatic use.
+| Section | What you will learn or do | Start with |
+|---|---|---|
+| **Getting started** | Install the package and complete one small workflow. | [First case](first_case.md), [Tutorial routes](choose_tutorial.md) |
+| **Network models & data** | Understand terminals, units, grounding, model choices, and conversion conventions. | [Buses & terminals](terminals_primer.md), [Conversion guide](conversion.md) |
+| **Inspect & prepare cases** | Read the evidence, select justified changes, record assumptions, and recheck. Inspection and transformation are separate steps. | [Analysis & reports](analysis.md), [Spatial review](spatial_diagnostics.md), [Case augmentation](augmentation.md) |
+| **Power flow & OPF studies** | Choose a study question, solver and objective; compare operating scenarios and controls. | [OPF guide](opf.md), [Case families](tutorial_case_development.md) |
+| **Verify & diagnose results** | Check a returned solution against its case and investigate failures. | [Trust but verify](tutorial_trust_but_verify.md), [Power-flow comparison](solution_projection.md), [Infeasibility diagnosis](tutorial_infeasibility.md) |
+| **Advanced formulations & numerics** | Understand encodings, numerical limitations, and formulation extension points. | [Choose an advanced route](advanced.md), [Model extensions](differentiable_extensions.md), [Scaling & diagnostics](numerical_workflows.md) |
+| **Automation & integration** | Run established checks through JSON recipes, MCP, or an AI-assisted workflow. | [JSON execution](execution_interface.md), [AI-assistant guide](ai_assistants.md) |
+| **Reference & development** | Look up APIs, Finding codes and contract domains, inspect implementation evidence, or contribute. | [API](api.md), [Findings](findings.md), [Engine validation evidence](validation.md), [Developer guide](dev/contributing.md) |
 
-Ingestion follows from this. `from_dss` is a **semantic projection** onto that
-canonical model, not a byte-faithful transcode: it infers phase and neutral
-identity, fingerprints voltage regulators, and records every transformation as
-provenance, so the result is *analysable and reproducible* rather than merely a
-copy of the source deck. The goal is reproducible compatibility with deliberate
-surgery, not losslessness — see the
-[design philosophy](@ref ingest-philosophy) for the rationale and its precedents
-in CIM, PowerModelsDistribution, FAIR, and tidy-data.
+### Three different kinds of checking
 
-Every diagnostic is a `Finding` with a **stable dot-separated code**
-(`E.`/`W.`/`I.` for error/warning/info) — see the
-[finding-code reference](findings.md) for the complete catalogue. Match on
-codes, never on message text.
+- **Model checks** inspect input declarations, their consistency, and supported
+  domains. Begin with [Analysis & reports](analysis.md).
+- **Solution verification** checks a returned result against the supplied case.
+  Begin with [Trust but verify](tutorial_trust_but_verify.md).
+- **Engine validation evidence** documents how the implementation is tested,
+  including external comparisons and their limits. See
+  [Validating the OPF engine](validation.md).
+
+These answer different questions. Passing one does not substitute for the others.
 
 ## Installation
+
 
 BMOPFTools requires **Julia ≥ 1.10**. New to Julia? The
 [Installation & first steps](installation.md) page covers installing Julia
@@ -90,107 +82,58 @@ activated only when you load it:
 
 ## Quickstart
 
-Analysing an existing BMOPF JSON case:
+[First case: inspect, solve and verify](first_case.md) walks through loading the
+bundled four-wire feeder, reading its report, opening its BMOPF file in Tellegen,
+solving it with JuMP/Ipopt, and profiling the result. It produces downloadable
+case and report files as part of the docs build.
 
-```julia
-using BMOPFTools
-
-net    = parse_bmopf("case.json")
-report = analyze(net)
-
-render(report, stdout)              # terminal report
-render(report, "case_report.md")    # Markdown report
-
-errors(report)                      # findings with ERROR severity
-report.results[:provenance]["convention"]
-report.results[:benchmark]["suggestions"]
-```
-
-Profiling an OPF result dict (requires `solve_opf` or any compatible solver):
-
-```julia
-using BMOPFTools, JuMP, Ipopt
-
-net    = parse_bmopf("case.json")
-result = solve_opf(net; optimizer=Ipopt.Optimizer)
-
-report = profile_solution(net, result)
-render_solution(report, stdout)              # Markdown to terminal
-render_solution(report, "solution.md")      # Markdown file
-
-errors(report)     # bound violations and infeasibility findings
-warnings(report)   # near-active bounds and residual warnings
-```
-
-Converting from OpenDSS (parsed in-process by PowerIO.jl):
-
-```julia
-using BMOPFTools
-
-net = from_dss("Master.dss")
-write_bmopf(net, "case.json")
-analyze(net) |> r -> render(r, "case_report.md")
-```
+For a solver-free start, complete the inspection steps and stop before the solve.
+For browser-only exploration, use the downloadable example in
+[Visualizing a case with Tellegen](visualization.md#Try-a-small-four-wire-case).
 
 ## The pipeline
 
-**Explore a case visually:** drag and drop its BMOPF JSON file onto
-[Tellegen](https://tellegen.dev/) to inspect the distribution network in your
-browser. Bus `latitude`/`longitude` fields supply geographic positions and are
-preserved by `write_bmopf` by default; cases without coordinates can use the
-viewer's topology layout. See [Visualizing a case with Tellegen](visualization.md).
+Once you can inspect and verify a small case, move to
+[Developing OPF case families](tutorial_case_development.md) for scenario comparisons,
+or to [Spatial diagnostics](spatial_diagnostics.md) and the
+[Tellegen review workflow](visualization.md#Close-the-loop:-diagnose,-inspect,-correct,-recheck)
+for geographic and electrical model cleanup.
 
-```
-OpenDSS .dss ──(from_dss / PowerIO.jl)──► BMOPF Dict{String,Any} ◄── parse_bmopf ◄── BMOPF JSON
-                                                 │               └──── write_bmopf
-                                                 │ analyze
-                                                 ▼
-                                          SummaryReport ──► render
-                                                 │ fix_case
-                                                 ▼
-                                          net′ (repaired)
-                                                 │ add_generators / add_ibrs  (optional DER)
-                                                 ▼
-                                          net′ + DERs
-                                                 │ augment_case
-                                                 ▼
-                                    net″ (benchmark-ready) ──► write_bmopf
-                                                 │ solve_opf / solve_pf / to_pmd
-                                                 ▼
-                                         result Dict{String,Any}
-                                                 │ profile_solution
-                                                 ▼
-                                        SolutionReport ──► render_solution
-```
+The [utility-data end-to-end tutorial](tutorial_end_to_end.md) adds OpenDSS
+conversion, structural transformations, DER placement, and augmentation on a
+larger source case. It requires an external dataset with its own licence terms;
+its dataset examples are displayed as code and are not executed by the docs build.
+It is an optional continuation, not a prerequisite for the bundled walkthrough.
 
-`analyze` runs fifteen passes (see [Analysis & reports](analysis.md)) and
-the report renders in nine sections, including a one-line **modeling
-convention statement** (wires per voltage level, grounding style,
-normalisations) so the case's assumptions are explicit rather than implied.
+## Design
+
+
+The network data model is a plain `Dict{String,Any}` mirroring the BMOPF
+JSON structure exactly. There are deliberately no wrapper types: data flows
+to and from JSON (and out to PowerModelsDistribution via `to_pmd`) without
+conversion layers, and
+the only structs in the library are the *outputs* — [`Finding`](@ref),
+[`SummaryReport`](@ref), and [`SolutionReport`](@ref) — which need stable
+shape for rendering and programmatic use.
+
+Ingestion follows from this. `from_dss` is a **semantic projection** onto that
+canonical model, not a byte-faithful transcode: it infers phase and neutral
+identity, fingerprints voltage regulators, and records every transformation as
+provenance, so the result is *analysable and reproducible* rather than merely a
+copy of the source deck. The goal is reproducible compatibility with deliberate
+surgery, not losslessness — see the
+[design philosophy](@ref ingest-philosophy) for the rationale and its precedents
+in CIM, PowerModelsDistribution, FAIR, and tidy-data.
+
+Every diagnostic is a `Finding` with a **stable dot-separated code**
+(`E.`/`W.`/`I.` for error/warning/info) — see the
+[finding-code reference](findings.md) for the complete catalogue. Match on
+codes, never on message text.
 
 ## Where to go next
 
-- [End-to-end tutorial](tutorial_end_to_end.md) — **start here**: the full
-  load → analyze → fix → place DERs → augment → solve pipeline on one real
-  feeder, with every code block executed at build time.
-- [Positioning & ecosystem](positioning.md) — where BMOPFTools fits among
-  distribution optimization and modelling tools, and the benchmarking gap it targets.
-- [Data model conventions](conventions.md) — units, terminal names,
-  transformer subtypes, grounding semantics.
-- [Conversion guide](conversion.md) — every deliberate decision in
-  `to_pmd`, with the impedance-base formulas.
-- [Analysis & reports](analysis.md) — what each pass computes and how to
-  read the report.
-- [Finding-code reference](findings.md) — complete catalogue of finding codes,
-  with triggers and rationale.
-- [Methodology notes](methodology.md) — the physics and linear algebra
-  behind the provenance checks, with literature references.
-- [Optimal power flow](opf.md) — running `solve_opf`, solver options, and
-  the OPF extension model.
-- [OPF result dictionary](results.md) — structure of the result dict returned
-  by `solve_opf`, including the `"initialisation"` diagnostics block.
-- [Case augmentation](augmentation.md) — the `fix_case → add_generators →
-  augment_case` pipeline that turns a faithful import into a meaningful OPF
-  benchmark, why the sequence and the diverse DER strategies matter, and the
-  manifest audit trail.
-- [API reference](api.md).
+Use [Choose your tutorial](choose_tutorial.md) for goal-based routes and
+prerequisites. The sidebar follows the learning stages above, with deeper
+explanations and reference material available alongside them. The
+[OPF guide](opf.md) currently contains both practical usage and detailed
+formulation material; follow its headings to the part your task needs.

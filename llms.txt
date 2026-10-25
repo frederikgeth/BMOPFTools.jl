@@ -7,9 +7,15 @@ claims, evidence status, misconceptions, and stable PSK identities.
 
 ## Primary documentation
 
-- Documentation index: docs/src/index.md
+- Documentation index and learning map: docs/src/index.md
+- Bundled first-case walkthrough: docs/src/first_case.md
 - Visualizing BMOPF cases with Tellegen: docs/src/visualization.md
 - Data-model conventions: docs/src/conventions.md
+- Advanced formulation and numerical routes: docs/src/advanced.md
+- Model extensions and sensitivities: docs/src/differentiable_extensions.md
+- Scaling and numerical diagnostics: docs/src/numerical_workflows.md
+- Repeated solves: docs/src/repeated_solves.md
+- Solution projection and power-flow comparison: docs/src/solution_projection.md
 - API reference: docs/src/api.md
 - Finding codes: docs/src/findings.md
 - Spatial diagnostics, cleanup review and exports: docs/src/spatial_diagnostics.md

@@ -1,5 +1,13 @@
 # Tech note: smooth droop encoding
 
+!!! note "Technical explanation: reading route"
+    This note explains the numerical encoding and its derivatives. For practical
+    use, start with the [PV volt-var / volt-watt study](tutorial_vvwo.md) or
+    [Power-flow inverter controls](opf.md#Power-flow-inverter-controls).
+    Familiarity with piecewise-linear curves and nonlinear optimisation helps;
+    running the external-data study is not a prerequisite for reading this note.
+
+
 The Volt-var (VVC) and Volt-watt (VWC) characteristics of AS/NZS 4777.2 / IEEE
 1547 are **piecewise-linear (PWL)** functions of voltage magnitude. PWL functions
 are not differentiable at their breakpoints, and primal–dual interior-point

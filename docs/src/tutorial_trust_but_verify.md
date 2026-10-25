@@ -1,5 +1,8 @@
 # Trust but verify: validating one solved OPF
 
+For an additional check by re-solving a pinned dispatch, continue to
+[Solution projection and power-flow comparison](solution_projection.md).
+
 *What a solver's status guarantees — and what it does not.*
 
 A nonlinear OPF solver ends with a verdict like `LOCALLY_SOLVED`. It is tempting
@@ -17,7 +20,7 @@ dictionary alone. This tutorial does exactly that on a feeder small enough to
 have a closed-form answer, then compares those checks with the narrower coverage of the toolkit profiler.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` — see
-the [end-to-end tutorial](tutorial_end_to_end.md) first.*
+the [bundled first-case walkthrough](first_case.md) first.*
 
 ## 1. A feeder with a known answer
 
