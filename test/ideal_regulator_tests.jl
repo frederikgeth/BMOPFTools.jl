@@ -20,7 +20,7 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
         end
         @test K[1:n,1:n] ≈ E
         if z>0
-            Y=K[1:n,1:n]-K[1:n,n+1:end]*(K[n+1:end,n+1:end]\K[n+1:end,1:n])
+            Y=K[1:n,1:n]-K[1:n,n+1:end]*(lu(K[n+1:end,n+1:end])\collect(K[n+1:end,1:n]))
             @test Y ≈ Matrix(ybus_passive(net;config=_leakage_config(0.)).Y)
         end
         # Prescribed, unbalanced input with a shifted shared reference. Solve
@@ -33,7 +33,7 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
         for t in setdiff(net["bus"]["t"]["terminal_names"],[shared])
             rhs[r.index[("t",t)]]=-1.0 + .2im
         end
-        v[free]=K[free,free]\(rhs[free]-K[free,fixed]*v[fixed])
+        v[free]=lu(K[free,free])\(rhs[free]-K[free,fixed]*v[fixed])
         @test norm((K*v-rhs)[free])<1e-10
         ne=rt=="A" ? tap : 1/tap
         for (k,(p,q)) in enumerate(pairs)

@@ -106,6 +106,8 @@ function voltage_level_analysis(net::Dict{String,Any},
     end
 
     result["levels"]              = levels_out
+    result["voltage_basis"]       = "phase_to_reference"
+    result["voltage_basis_note"]  = "Nominal phase-to-reference magnitudes; balanced three-phase line-to-line values are √3 times these values."
     result["n_levels"]            = length(levels_out)
     result["bus_voltage_map"]     = Dict(k => v for (k, v) in assigned_level)
     result["unassigned_buses"]    = unassigned

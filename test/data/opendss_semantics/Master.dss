@@ -1,0 +1,17 @@
+! Synthetic PSK-000002 / PSK-000006 intake witness; no external case data.
+! Node 0 is the transformer star reference; node 4 is a distinct feeder neutral.
+Clear
+Set DefaultBaseFrequency=50
+New Circuit.reference_trace basekv=11 pu=1 angle=0 frequency=50 bus1=mv model=ideal
+New Transformer.t phases=3 windings=2 leadlag=lag xhl=4
+~ wdg=1 bus=mv conn=delta kv=11 kva=100 %r=0.5
+~ wdg=2 bus=lv conn=wye kv=0.433 kva=100 %r=0.5
+New Linecode.lc nphases=4 units=km
+~ rmatrix=[0.4 |0 0.4 |0 0 0.4 |0 0 0 0.4]
+~ xmatrix=[0.1 |0 0.1 |0 0 0.1 |0 0 0 0.1]
+New Line.l bus1=lv bus2=customer phases=4 linecode=lc length=0.1 units=km
+New Load.l phases=1 bus1=customer.1.4 kv=0.249992666559 kw=1 pf=1 vminpu=0 vmaxpu=2
+New Reactor.gs phases=1 bus1=lv.4 bus2=lv.0 r=0.3 x=0
+New Reactor.gl phases=1 bus1=customer.4 bus2=customer.0 r=10 x=0
+Set Tolerance=1e-10
+Solve

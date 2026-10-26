@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "c2753647b329530476cf074ffbccc7c43574d26b2d86ba0b654d7548efbe966e"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "84752cfe353c4470a4d7827c449e0a5615165680665b99d36c25511f1251921f"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -1548,7 +1548,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="A 3-wire **LV** level (LV is physically 4-wire); the neutral was probably Kron-eliminated under an every-bus-grounded assumption. 3-wire MV is physical and never flags.",
+        meaning="An LV level has no neutral carried by represented branches. Kron reduction is a possible origin, requiring source provenance; the observation does not establish a missing physical wire or a reduction history.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1593,7 +1593,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Neutral terminals exist and are referenced by components, but **no branch carries a neutral conductor** — the dataset uses the implicit \"n = local ground\" convention. Made explicit so 4-wire consumers don't misread it.",
+        meaning="Neutral terminals are referenced by components but no branch carries a neutral conductor, and some referenced neutrals lack represented grounding. The intended return/grounding convention is indeterminate; no every-bus ground constraint or Kron history is inferred.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

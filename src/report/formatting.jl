@@ -75,3 +75,11 @@ function _count_table(io::IO, counts::Dict; indent::Int=2)
         println(io, " "^indent * rpad(string(k), w) * string(counts[k]))
     end
 end
+function _star_earthing_label(zone)
+    kind=get(zone,"star_earthing","indeterminate")
+    kind=="perfect" && return "perfect (0 Ω)"
+    kind=="impedance" && return "|Z|≈$(round(zone["star_R_ohm"],sigdigits=3)) Ω"
+    kind=="none" && return "no local earth represented"
+    kind=="solid" && return "solid (legacy threshold)"
+    "indeterminate"
+end

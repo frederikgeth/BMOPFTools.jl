@@ -18,11 +18,12 @@ function _wires_by_level(net::Dict{String,Any},
     levels = get(vl, "levels", Dict())
 
     neutral_of = _bus_neutral_map(buses)
+    carried = _neutral_branch_buses(net)
 
     for (label, info) in levels
         ids = get(info, "buses", String[])
         isempty(ids) && continue
-        n_with_n = count(b -> get(neutral_of, b, nothing) !== nothing, ids)
+        n_with_n = count(in(carried), ids)
         nominal_v = Float64(get(info, "nominal_v", 0.0))
         is_lv = nominal_v < 1000.0
 
@@ -38,8 +39,7 @@ function _wires_by_level(net::Dict{String,Any},
             length(tm) == 1 && push!(implicit_loads, lid)
         end
 
-        wires = n_with_n == 0           ? "3-wire" :
-                n_with_n == length(ids) ? "4-wire" : "mixed"
+        wires = _branch_wire_description(net,ids;carried)
 
         out[label] = Dict{String,Any}(
             "nominal_v"               => nominal_v,
@@ -56,9 +56,8 @@ function _wires_by_level(net::Dict{String,Any},
                 "corroborating an implicit neutral."
             push!(findings, Finding(INFO, "I.PROV.KRON_LIKELY", :provenance,
                 :network, nothing,
-                "Voltage level $label is modeled 3-wire, but LV networks are " *
-                "physically 4-wire — this level is likely Kron-reduced " *
-                "(neutral eliminated assuming a ground path at every bus).$extra",
+                "Voltage level $label has no represented neutral conductor. " *
+                "Kron reduction is one possible origin; source provenance is required.$extra",
                 Dict{String,Any}("level" => label,
                                  "implicit_ground_loads" => implicit_loads)))
         end
@@ -101,12 +100,9 @@ function _grounding_analysis(net::Dict{String,Any},
             n_perfect += 1
         end
     end
-    for comp_type in ("shunt", "voltage_source")
-        for (_, c) in get(net, comp_type, Dict())
-            b = get(c, "bus", nothing)
-            b isa AbstractString || continue
-            uses_neutral(b, get(c, "terminal_map", String[])) && push!(grounded, b)
-        end
+    earthing_paths = _terminal_earthing(net)
+    for (b,n) in neutral_of
+        n !== nothing && haskey(earthing_paths,(b,n)) && push!(grounded,b)
     end
     intersect!(grounded, nbus_set)
 
@@ -161,11 +157,11 @@ function _grounding_analysis(net::Dict{String,Any},
     end
 
     if n_neutral_branches == 0
-        # The dataset does not model neutral conductors at all — "n" is a
-        # local ground reference (Kron-style convention).
+        # Missing branch incidence does not establish a ground constraint or
+        # the provenance of a reduction.
         res["n_neutral_components"] = length(nbuses)
         res["n_floating"] = 0
-        res["convention"] = "implicit"
+        res["convention"] = "no_neutral_branches"
         ungrounded_users = sort(collect(setdiff(neutral_users, grounded)))
         if !isempty(ungrounded_users)
             push!(findings, Finding(WARNING, "W.PROV.IMPLICIT_GROUNDING",
@@ -173,9 +169,10 @@ function _grounding_analysis(net::Dict{String,Any},
                 "No branch carries a neutral conductor, but " *
                 "$(length(ungrounded_users)) bus(es) have components " *
                 "referencing terminal 'n' without an explicit grounding — " *
-                "the model implicitly assumes every bus is grounded " *
-                "(Kron-style convention). Make this assumption explicit.",
-                Dict{String,Any}("buses" => ungrounded_users)))
+                "the grounding/reduction convention is indeterminate. " *
+                "Declare the intended return and grounding connections.",
+                Dict{String,Any}("buses" => ungrounded_users,
+                    "status"=>"indeterminate","knowledge_ids"=>["PSK-000002"])))
         end
         return res
     end
@@ -251,7 +248,7 @@ function _check_ungrounded_wye_neutrals(net::Dict{String,Any},
     neutral_of = _bus_neutral_map(buses)
     # Buses with any neutral-earthing path — perfect ground (|Z|=0), source
     # neutral bond, or a grounding shunt (finite |Z|). Membership = "grounded".
-    earth = _bus_neutral_earthing(net, neutral_of)
+    earth = _terminal_earthing(net)
 
     for subtype in TRANSFORMER_SUBTYPES
         sub = get(xfmr, subtype, nothing)
@@ -267,7 +264,7 @@ function _check_ungrounded_wye_neutrals(net::Dict{String,Any},
                 # neutral is accessible and there are ≥3 phase conductors.
                 (_neutral_terminal(tm) !== nothing &&
                  length(_phase_positions(tm)) >= 3) || continue
-                haskey(earth, b) && continue   # perfectly or impedance grounded
+                haskey(earth, (b,_neutral_terminal(tm))) && continue
                 push!(findings, Finding(INFO, "I.PROV.WYE_NEUTRAL_UNGROUNDED",
                     :provenance, :transformer, id,
                     "Transformer '$id' ($subtype) brings out a three-phase wye " *
@@ -355,124 +352,180 @@ end
 # Earthing system classification per galvanic island
 # ---------------------------------------------------------------------------
 
-# Defaults from config/default.toml [provenance.grounding].
-const _EARTH_SOLID_OHM = Float64(_grounding_cfg()["earth_solid_ohm"])     # |Z| below this: "solid"
-const _EARTH_T_I_OHM   = Float64(_grounding_cfg()["earth_isolated_ohm"])  # |Z| above this (or absent): isolated (I)
-
-# bus => smallest |Z| of any neutral-earthing path at that bus
-function _bus_neutral_earthing(net::Dict{String,Any},
-                                neutral_of)::Dict{String,Float64}
-    earth = Dict{String,Float64}()
-    upd!(b, z) = (earth[b] = min(get(earth, b, Inf), z))
-    for (id, b) in get(net, "bus", Dict())
-        nn = get(neutral_of, id, nothing)
-        nn !== nothing &&
-            nn in string.(get(b, "perfectly_grounded_terminals", String[])) &&
-            upd!(id, 0.0)
+# PSK-000002: exact reference constraints, finite electrode impedances and
+# conductor incidence are separate observations. No protective-earth assets are
+# present in this model, so these observations do not classify TT/TN/IT systems.
+function _terminal_earthing(net)
+    earth = Dict{Tuple{String,String},Float64}()
+    admittance = Dict{Tuple{String,String},ComplexF64}()
+    upd!(b,t,z) = (earth[(b,t)] = min(get(earth,(b,t),Inf),z))
+    for (id,b) in get(net,"bus",Dict()), t in get(b,"perfectly_grounded_terminals",String[])
+        upd!(id,string(t),0.0)
     end
-    for (_, vs) in get(net, "voltage_source", Dict())
-        b = get(vs, "bus", nothing)
-        b isa AbstractString || continue
-        nn = get(neutral_of, b, nothing)
-        nn !== nothing && nn in string.(get(vs, "terminal_map", String[])) &&
-            upd!(b, 0.0)
+    for (_,vs) in get(net,"voltage_source",Dict())
+        b=get(vs,"bus",nothing); b isa AbstractString || continue
+        tm=get(vs,"terminal_map",String[]); vm=get(vs,"v_magnitude",[])
+        for (t,v) in zip(tm,vm)
+            v isa Real && iszero(v) && upd!(b,string(t),0.0)
+        end
     end
-    for (_, s) in get(net, "shunt", Dict())
-        b = get(s, "bus", nothing)
-        b isa AbstractString || continue
-        nn = get(neutral_of, b, nothing)
-        (nn !== nothing && nn in string.(get(s, "terminal_map", String[]))) || continue
-        y = complex(Float64(get(s, "G_1_1", 0.0)), Float64(get(s, "B_1_1", 0.0)))
-        abs(y) > 0 && upd!(b, abs(1 / y))
+    for (_,s) in get(net,"shunt",Dict())
+        b=get(s,"bus",nothing); tm=get(s,"terminal_map",String[])
+        b isa AbstractString && length(tm)==1 || continue
+        y=complex(Float64(get(s,"G_1_1",0.0)),Float64(get(s,"B_1_1",0.0)))
+        isfinite(abs(y)) && abs(y)>0 || continue
+        key=(b,string(only(tm)))
+        admittance[key]=get(admittance,key,0im)+y
+    end
+    for ((b,t),y) in admittance
+        abs(y)>0 && upd!(b,t,abs(1/y))
     end
     earth
 end
 
-"""
-Classify the likely earthing system per galvanic island, from the
-network-side evidence the data model carries. The protective-earth side of
-installations is **not representable** in a power-flow data model, so TT
-cannot be distinguished from TN-S when the neutral is earthed at the source
-only — the tag is explicit about that ambiguity. MV islands use MV
-vocabulary (solidly/impedance-earthed/isolated) instead of TT/TN/IT.
-"""
-function _earthing_zones(net::Dict{String,Any},
-                          vl::Dict{String,Any})::Vector{Dict{String,Any}}
-    buses = get(net, "bus", Dict())
-    isempty(buses) && return Dict{String,Any}[]
-    neutral_of = _bus_neutral_map(buses)
-    earth = _bus_neutral_earthing(net, neutral_of)
-    vmap  = get(vl, "bus_voltage_map", Dict())
-
-    zones = Dict{String,Any}[]
-    for isl in _galvanic_islands(net)
-        islset = Set(isl)
-        vs_ = [Float64(get(vmap, b, NaN)) for b in isl]
-        known = filter(!isnan, vs_)
-        vnom = isempty(known) ? NaN : maximum(known)
-        is_lv = !isnan(vnom) && vnom < 1000.0
-        wires4 = all(get(neutral_of, b, nothing) !== nothing for b in isl)
-
-        # infeed reference points: source buses and in-island wye-winding
-        # buses whose map carries the neutral (the star point bond)
-        star_buses = String[]
-        for (_, vs) in get(net, "voltage_source", Dict())
-            b = get(vs, "bus", nothing)
-            b isa AbstractString && b in islset && push!(star_buses, b)
+function _unassessed_earthing_terminals(net)
+    out=Set{Tuple{String,String}}()
+    for (_,s) in get(net,"shunt",Dict())
+        b=get(s,"bus",nothing);tm=get(s,"terminal_map",String[])
+        b isa AbstractString && _index_strings(tm) && length(tm)>1 || continue
+        for t in tm;push!(out,(b,t));end
+    end
+    # The scalar external-shunt observation does not assess internal winding
+    # impedance branches. Refuse a missing-path inference when they are authored.
+    for record in _connection_records(net)
+        record.kind=="transformer" || continue
+        for e in _connection_endpoints(record)
+            e.raw isa AbstractDict && e.bus isa AbstractString && _index_strings(e.map) || continue
+            keys=e.winding===nothing ? ("r_neutral_$(e.side)","x_neutral_$(e.side)") :
+                ("r_neutral","x_neutral")
+            any(k -> haskey(e.raw,k) && e.raw[k]!=0,keys) || continue
+            for t in e.map;push!(out,(e.bus,t));end
         end
-        xfmr = get(net, "transformer", Dict())
-        for subtype in TRANSFORMER_SUBTYPES
-            sub = get(xfmr, subtype, nothing)
-            sub isa Dict || continue
-            for (_, t) in sub
-                for (bk, mk) in (("bus_from", "terminal_map_from"),
-                                  ("bus_to",   "terminal_map_to"))
-                    b = get(t, bk, nothing)
-                    (b isa AbstractString && b in islset) || continue
-                    nn = get(neutral_of, b, nothing)
-                    nn !== nothing && nn in string.(get(t, mk, String[])) &&
-                        push!(star_buses, b)
+    end
+    out
+end
+
+function _bus_neutral_earthing(net::Dict{String,Any},neutral_of)::Dict{String,Float64}
+    paths=_terminal_earthing(net)
+    Dict(b=>paths[(b,n)] for (b,n) in neutral_of if n!==nothing && haskey(paths,(b,n)))
+end
+
+# A bus return/reference label alone does not establish a transported conductor.
+function _neutral_branch_buses(net)
+    out=Set{String}()
+    roles=_index_roles(net)
+    roles===nothing && return out
+    neutral_labels=roles.neutral
+    for kind in ("line","switch"), (_,c) in get(net,kind,Dict())
+        c isa AbstractDict || continue
+        kind=="switch" && get(c,"open_switch",false) && continue
+        f=get(c,"bus_from",nothing); t=get(c,"bus_to",nothing)
+        f isa AbstractString && t isa AbstractString || continue
+        tf=get(c,"terminal_map_from",String[]); tt=get(c,"terminal_map_to",String[])
+        _index_strings(tf) && _index_strings(tt) && length(tf)==length(tt) || continue
+        any(a in neutral_labels && b in neutral_labels for (a,b) in zip(tf,tt)) || continue
+        push!(out,f); push!(out,t)
+    end
+    out
+end
+
+function _branch_wire_description(net,ids;carried=nothing)
+    busset=Set(ids); sizes=Set{Int}(); malformed=false
+    for kind in ("line","switch"),(_,c) in get(net,kind,Dict())
+        if !(c isa AbstractDict)
+            malformed=true; continue
+        end
+        kind=="switch" && get(c,"open_switch",false) && continue
+        get(c,"bus_from",nothing) in busset && get(c,"bus_to",nothing) in busset || continue
+        f=get(c,"terminal_map_from",nothing); t=get(c,"terminal_map_to",nothing)
+        if !_index_strings(f) || !_index_strings(t) || isempty(f) || length(f)!=length(t)
+            malformed=true
+        else
+            push!(sizes,length(f))
+        end
+    end
+    malformed && return "indeterminate branch conductors"
+    isempty(sizes) && return "no branch conductors represented"
+    length(sizes)==1 || return "mixed ($(join(sort!(collect(sizes)),"/")) conductors)"
+    n=only(sizes)
+    carried===nothing && (carried=_neutral_branch_buses(net))
+    n==4 && !all(in(carried),ids) &&
+        return "4 conductors; neutral unassessed"
+    "$n-wire"
+end
+
+"""Describe represented earthing per galvanic zone; protective-system identity is indeterminate."""
+function _earthing_zones(net::Dict{String,Any},vl::Dict{String,Any})::Vector{Dict{String,Any}}
+    buses=get(net,"bus",Dict()); isempty(buses) && return Dict{String,Any}[]
+    neutral_of=_bus_neutral_map(buses); earth=_terminal_earthing(net)
+    neutral_earth=Dict(b=>z for (b,z) in _bus_neutral_earthing(net,neutral_of)
+        if !_is_grounded_reference(buses[b],neutral_of[b]))
+    carried=_neutral_branch_buses(net)
+    vmap=get(vl,"bus_voltage_map",Dict()); zones=Dict{String,Any}[]
+    roles=_index_roles(net)
+    neutral_labels=roles===nothing ? Set{String}() : roles.neutral
+    unassessed=_unassessed_earthing_terminals(net)
+    for isl in _galvanic_islands(net)
+        islset=Set(isl)
+        known=filter(isfinite,[Float64(get(vmap,b,NaN)) for b in isl])
+        vnom=isempty(known) ? NaN : maximum(known)
+        stars=Tuple{String,String}[]; infeed_buses=Set{String}()
+        # A voltage source whose map holds only phase terminals pins each
+        # phase-to-reference voltage: an ideal source referenced to ground by
+        # construction, whatever the bus neutral does.
+        ground_referenced_sources=String[]
+        for (_,vs) in get(net,"voltage_source",Dict())
+            b=get(vs,"bus",nothing); b in islset || continue
+            push!(infeed_buses,b)
+            tm=get(vs,"terminal_map",String[])
+            for t in tm
+                t in neutral_labels && push!(stars,(b,t))
+            end
+            _index_strings(tm) && !isempty(tm) && roles!==nothing &&
+                all(t -> t in roles.phase,tm) && push!(ground_referenced_sources,b)
+        end
+        for record in _connection_records(net)
+            record.kind=="transformer" || continue
+            for e in _connection_endpoints(record)
+                e.bus in islset || continue
+                _index_strings(e.map) || continue
+                for t in e.map
+                    t in neutral_labels || continue
+                    push!(stars,(e.bus,t)); push!(infeed_buses,e.bus)
                 end
             end
         end
-        star_set = Set(star_buses)
-        star_R = isempty(star_buses) ? Inf :
-                 minimum(get(earth, b, Inf) for b in star_buses)
-        downstream = [b for b in isl if haskey(earth, b) && !(b in star_set)]
-        n_down = length(downstream)
-
-        kind = star_R < _EARTH_SOLID_OHM ? "solid" :
-               star_R <= _EARTH_T_I_OHM  ? "impedance" : "none"
-        rstr = kind == "impedance" ? " (R≈$(round(star_R, sigdigits=2)) Ω)" : ""
-
-        tag = if !is_lv
-            kind == "solid"     ? "solidly earthed" :
-            kind == "impedance" ? "impedance-earthed$rstr" :
-            n_down > 0          ? "earthed downstream only (nonstandard)" :
-                                  "isolated"
-        elseif kind == "none" && n_down == 0
-            "IT (isolated / high-impedance earthed)"
-        elseif kind == "none" && n_down > 0
-            "nonstandard: neutral earthed downstream only"
-        elseif !wires4
-            "indeterminate (3-wire / Kron-style implicit grounding)"
-        elseif n_down >= 1
-            "TN-C-S / multi-earthed (PME/MEN-style)$rstr"
-        else
-            "TN-S or TT (source-earthed only$rstr — protective-earth side " *
-            "not representable in the data model)"
-        end
-
-        push!(zones, Dict{String,Any}(
-            "buses"              => isl,
-            "n_buses"            => length(isl),
-            "nominal_v"          => vnom,
-            "wires"              => wires4 ? "4-wire" : "≤3-wire",
-            "star_earthing"      => kind,
-            "star_R_ohm"         => star_R,
-            "n_downstream_earths" => n_down,
-            "tag"                => tag))
+        unique!(stars)
+        star_R=isempty(stars) ? Inf : minimum(get(earth,s,Inf) for s in stars)
+        isempty(ground_referenced_sources) || (star_R=0.0)
+        uncertain=any(s -> s in unassessed,stars) && !iszero(star_R)
+        kind=iszero(star_R) ? "perfect" : isempty(stars) ? "indeterminate" :
+             uncertain ? "indeterminate" :
+             isfinite(star_R) ? "impedance" : "none"
+        n_down=count(b -> haskey(neutral_earth,b) && !(b in infeed_buses),isl)
+        nc=count(in(carried),isl)
+        wires=_branch_wire_description(net,isl;carried)
+        tag=kind=="indeterminate" ? "earthing indeterminate (infeed grounding unassessed)" :
+            n_down>0 ? "multi-earthed neutral; protective-earthing system indeterminate" :
+            kind=="perfect" ? "grounded infeed reference; protective-earthing system indeterminate" :
+            kind=="impedance" ? "impedance-earthed infeed; protective-earthing system indeterminate" :
+            "no local infeed earth represented; protective-earthing system indeterminate"
+        push!(zones,Dict{String,Any}("buses"=>isl,"n_buses"=>length(isl),
+            "nominal_v"=>vnom,"wires"=>wires,"star_earthing"=>kind,
+            "star_R_ohm"=>star_R,"n_downstream_earths"=>n_down,"tag"=>tag,
+            "status"=>uncertain || roles===nothing ? "indeterminate" : "assessed","protective_system_status"=>"indeterminate",
+            "unassessed_earthing_terminals"=>[Dict("bus"=>b,"terminal"=>t)
+                for (b,t) in sort!(collect(unassessed)) if b in islset],
+            "knowledge_ids"=>["PSK-000002"],
+            "n_buses_with_neutral_conductor"=>nc,
+            "star_points"=>vcat([Dict{String,Any}("bus"=>b,"terminal"=>t,
+                "impedance_ohm"=>get(earth,(b,t),Inf)) for (b,t) in stars],
+                [Dict{String,Any}("bus"=>b,"terminal"=>nothing,"impedance_ohm"=>0.0,
+                    "basis"=>"voltage_source_pins_phase_to_reference")
+                 for b in sort!(unique(ground_referenced_sources))]),
+            "neutral_earths"=>[Dict{String,Any}("bus"=>b,"terminal"=>neutral_of[b],
+                "impedance_ohm"=>neutral_earth[b]) for b in isl if haskey(neutral_earth,b)]))
     end
-    sort!(zones, by = z -> -(isnan(z["nominal_v"]) ? -Inf : z["nominal_v"]))
+    sort!(zones,by=z->-(isnan(z["nominal_v"]) ? -Inf : z["nominal_v"]))
     zones
 end

@@ -75,13 +75,13 @@ whole network**, in a top-level `terminal_conventions` block:
 - `earth` names dedicated earth-/PE-**wire** terminals only. The ground
   *reference* stays implicit — grounding is still modelled via
   `perfectly_grounded_terminals` and grounding shunts — so `earth` is empty
-  for standard cases (the OpenDSS earth node is routed to the neutral, not
-  kept as a terminal).
+  for standard cases. OpenDSS node 0 imports as a distinct perfectly
+  grounded device return `n_ref`, separate from conductor neutral `n`.
 - `dc_bus` is out of scope; it carries its own pole roles.
 - The block is **always written** on export ([`write_bmopf`](@ref)): a case
   that never declared one gets the inferred classification promoted to an
   explicit block, so saved files are self-documenting. [`from_dss`](@ref)
-  writes `{phase:[a,b,c], neutral:[n], earth:[]}` directly.
+  writes the used phase labels and return labels (`n` and/or `n_ref`) directly.
 
 **When the block is absent**, roles are **inferred** from the naming
 convention (a terminal `n`/`N` is neutral; terminal `"4"` of a bus whose

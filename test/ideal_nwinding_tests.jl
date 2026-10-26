@@ -133,7 +133,7 @@ end
             @test norm(K*shift)<1e-12
         end
         if mode==:finite || (mode in (:partial,:near) && nw==2)
-            Y=K[1:n,1:n]-K[1:n,n+1:end]*(K[n+1:end,n+1:end]\K[n+1:end,1:n])
+            Y=K[1:n,1:n]-K[1:n,n+1:end]*(lu(K[n+1:end,n+1:end])\collect(K[n+1:end,1:n]))
             @test Y ≈ Matrix(ybus_passive(net).Y)
         elseif mode==:near
             @test !BMOPFTools._xfmr_leakage_policy(x,"n_winding",1e-6).exact_zero
@@ -157,7 +157,7 @@ end
             fixed=r.index[("w1","a")]; free=setdiff(axes(K,1),[fixed])
             v=zeros(ComplexF64,size(K,1)); v[fixed]=230.
             rhs=zeros(ComplexF64,size(K,1)); rhs[r.index[("w2","a")]]=-1.; rhs[r.index[("w3","a")]]=-2.
-            v[free]=K[free,free]\(rhs[free]-K[free,[fixed]]*v[[fixed]])
+            v[free]=lu(K[free,free])\(rhs[free]-K[free,[fixed]]*v[[fixed]])
             @test norm((K*v-rhs)[free])<1e-10
             [v[r.index[("w$k","a")]] for k in 2:3]
         end

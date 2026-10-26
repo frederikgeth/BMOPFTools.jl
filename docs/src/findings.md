@@ -354,7 +354,7 @@ Classify each polyphase voltage source's stored `v_angle` and check it against t
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.KRON_LIKELY` | I | A 3-wire **LV** level (LV is physically 4-wire); the neutral was probably Kron-eliminated under an every-bus-grounded assumption. 3-wire MV is physical and never flags. |
+| `I.PROV.KRON_LIKELY` | I | An LV level has no neutral carried by represented branches. Kron reduction is a possible origin, requiring source provenance; the observation does not establish a missing physical wire or a reduction history. |
 | `I.PROV.KRON_REDUCIBLE` | I | A 4-wire network whose every neutral is perfectly grounded — Kron reduction would be exact, so the explicit neutrals are numerically redundant. |
 
 ### Impedance transformation type (3-wire LV only)
@@ -368,7 +368,7 @@ Geth, Heidari & Koirala (ACM e-Energy 2022, doi:[10.1145/3538637.3538844](https:
 | `I.PROV.IMPEDANCE_TRANSFORM_KR` | I | **Kron-reduced**: R and/or X off-diagonals are non-uniform (distinct matrix structure) and/or R_mutual/R_self ≪ 0.5. The neutral row/column was eliminated from the original Carson 4-wire matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate otherwise. Zero-sequence behaviour is not captured. |
 | `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | **Phase-to-neutral approximation**: R block is circulant (all diagonals equal, all off-diagonals equal) with mutual ≈ ½ self; X block retains the original geometric structure (off-diagonals vary). Neutral resistance has been folded into phase self-terms. Valid approximation for equal phase/neutral conductor resistance; error grows with grounding impedance. |
 | `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | **Modified phase-to-neutral approximation**: both R and X blocks are circulant with mutual ≈ ½ self. X is further symmetrised relative to the standard phase-to-neutral form, introducing additional modelling error, particularly for asymmetric cable geometries. |
-| `W.PROV.IMPLICIT_GROUNDING` | W | Neutral terminals exist and are referenced by components, but **no branch carries a neutral conductor** — the dataset uses the implicit "n = local ground" convention. Made explicit so 4-wire consumers don't misread it. |
+| `W.PROV.IMPLICIT_GROUNDING` | W | Neutral terminals are referenced by components but no branch carries a neutral conductor, and some referenced neutrals lack represented grounding. The intended return/grounding convention is indeterminate; no every-bus ground constraint or Kron history is inferred. |
 | `E.PROV.FLOATING_NEUTRAL` | E | A neutral section (continuity graph over lines/closed switches) with no path to ground **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed. |
 | `W.PROV.FLOATING_NEUTRAL` | W | Same, but unused — latent rather than active. |
 | `I.PROV.WYE_NEUTRAL_UNGROUNDED` | I | A three-phase wye winding brings out its star-point neutral at a bus that has no local grounding (no perfect ground and no grounding impedance). The wye star point is the natural earthing point; its zero-sequence potential is then set only by what the neutral conductor reaches elsewhere. Single-phase transformers (phase-to-neutral / phase-to-phase) are exempt. |

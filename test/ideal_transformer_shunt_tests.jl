@@ -65,7 +65,7 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
         rhs[r.index[("lv","a")]]=1.
         fixed=r.index[("hv","a")]; free=setdiff(axes(r.K,1),[fixed])
         v=zeros(ComplexF64,size(r.K,1)); v[fixed]=230.
-        v[free]=r.K[free,free]\(rhs[free]-r.K[free,[fixed]]*v[[fixed]])
+        v[free]=lu(r.K[free,free])\(rhs[free]-r.K[free,[fixed]]*v[[fixed]])
         @test v[r.index[("lv","n")]] ≈ 2.
         @test v[r.index[("lv","a")]] ≈ 232.
         @test v[r.index[("lv","n")]]/2 ≈ sum(rhs)
@@ -82,7 +82,7 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
             fixed=r.index[("hv","a")]; free=setdiff(axes(K,1),[fixed])
             rhs=zeros(ComplexF64,size(K,1)); rhs[r.index[("lv","a")]]=1.
             v=zeros(ComplexF64,size(K,1)); v[fixed]=460.
-            v[free]=K[free,free]\(rhs[free]-K[free,[fixed]]*v[[fixed]])
+            v[free]=lu(K[free,free])\(rhs[free]-K[free,[fixed]]*v[[fixed]])
             @test norm((K*v-rhs)[free])<1e-7
             v[r.index[("lv","a")]],v[r.index[("lv","n")]]
         end

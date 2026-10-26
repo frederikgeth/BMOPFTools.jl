@@ -24,7 +24,7 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
         E[a,nt]-=.003-.002im; E[nt,a]-=.003-.002im
         @test K[1:n,1:n] ≈ E
         if zf>0 && zl>0
-            Y=E-K[1:n,n+1:end]*(K[n+1:end,n+1:end]\K[n+1:end,1:n])
+            Y=E-K[1:n,n+1:end]*(lu(K[n+1:end,n+1:end])\collect(K[n+1:end,1:n]))
             @test Y ≈ Matrix(ybus_passive(net;config=_leakage_config(0.)).Y) rtol=1e-7
         end
         # Unequal secondary injections and a shifted primary neutral. The
@@ -32,7 +32,7 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
         v=zeros(ComplexF64,size(K,1)); v[nf]=17.; v[hf]=17+230ratio*tap
         fixed=[hf,nf]; free=setdiff(axes(K,1),fixed)
         rhs=zeros(ComplexF64,size(K,1)); rhs[a]=-1.; rhs[b]=-2.
-        v[free]=K[free,free]\(rhs[free]-K[free,fixed]*v[fixed])
+        v[free]=lu(K[free,free])\(rhs[free]-K[free,fixed]*v[fixed])
         @test norm((K*v-rhs)[free])<1e-9
         @test v[nt] ≈ -6.
         uH=(v[hf]-v[nf])/(ratio*tap); u1=v[a]-v[nt]; u2=v[nt]-v[b]

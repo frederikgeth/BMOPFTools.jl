@@ -84,6 +84,7 @@ function _render_voltage_levels(r::SummaryReport, io::IO; color::Bool=false)
 
     levels = get(d, "levels", Dict())
     println(io, "  Voltage levels identified: $(get(d, "n_levels", 0))\n")
+    println(io, "  ",get(d,"voltage_basis_note","Nominals use a phase-to-reference basis."),"\n")
     w = 14
     println(io, "  $(rpad("Level", w)) $(rpad("Nominal", 12)) $(rpad("Buses", 7)) $(rpad("Lines", 7)) $(rpad("Loads", 7)) Generators")
     println(io, "  " * "─"^60)
@@ -99,6 +100,7 @@ function _render_voltage_levels(r::SummaryReport, io::IO; color::Bool=false)
         for tr in transitions
             vg = get(tr, "vector_group", "")
             tag = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), effective $vg"
+            tag *= _phase_source_note(get(tr,"phase_relation",Dict()))
             println(io, "    $(tr["id"])  $(tr["level_from"]) → $(tr["level_to"])  [$tag]")
         end
     end
@@ -351,9 +353,7 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
         println(io, "\n  Earthing system per galvanic zone:")
         for z in zones
             vlab = isnan(z["nominal_v"]) ? "?" : _fmt_kv(z["nominal_v"])
-            star = z["star_earthing"] == "solid" ? "solid" :
-                   z["star_earthing"] == "impedance" ?
-                       "R≈$(round(z["star_R_ohm"], sigdigits=2)) Ω" : "none"
+            star = _star_earthing_label(z)
             println(io, "    $(rpad(vlab, 10)) $(rpad("$(z["n_buses"]) bus(es)", 12)) " *
                         "$(rpad(z["wires"], 8)) star: $(rpad(star, 12)) " *
                         "+$(z["n_downstream_earths"]) downstream → $(z["tag"])")
@@ -362,8 +362,7 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
 
     pc = get(d, "powerio_conversion", Dict())
     if get(pc, "n_classes", 0) > 0
-        println(io, "\n  PowerIO conversion: $(pc["n_diagnostics"]) fidelity " *
-                    "loss(es) in $(pc["n_classes"]) class(es) — see findings")
+        println(io, "\n  PowerIO conversion: $(pc["n_diagnostics"]) diagnostic record(s) in $(pc["n_classes"]) class(es) — see findings")
     end
 
     _render_section_findings(r, io, :provenance; color)

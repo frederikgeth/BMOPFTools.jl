@@ -1827,8 +1827,8 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     end
 
     @testset "Earthing zones" begin
-        # LV feeder: star earthed via 0.3 Ω at source bus, one 10 Ω
-        # downstream neutral earth → TN-C-S / multi-earthed
+        # Local earths and a ground-referenced source never establish the
+        # protective-earthing system (TT/TN/IT), which the model cannot represent.
         lvnet = Dict{String,Any}(
             "bus" => Dict{String,Any}(
                 "a" => Dict{String,Any}("terminal_names" => ["1","2","3","n"]),
@@ -1854,27 +1854,44 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         f = Finding[]
         zones = provenance_analysis(lvnet, f)["earthing_zones"]
         @test length(zones) == 1
-        @test occursin("TN-C-S", zones[1]["tag"])
+        @test zones[1]["protective_system_status"] == "indeterminate"
         @test zones[1]["n_downstream_earths"] == 1
 
-        # source-earthed only → explicit TN-S/TT ambiguity
+        # Removing a downstream earth still does not identify the protective system.
         net2 = deepcopy(lvnet)
         delete!(net2["shunt"], "g_b")
         z2 = provenance_analysis(net2, Finding[])["earthing_zones"]
-        @test occursin("TN-S or TT", z2[1]["tag"])
+        @test z2[1]["protective_system_status"] == "indeterminate"
 
-        # no neutral earthing anywhere → IT
+        # Without neutral earths the phase-only source is still referenced to
+        # ground, but nothing earths the feeder neutral; no IT claim is made.
         net3 = deepcopy(net2)
         delete!(net3, "shunt")
         z3 = provenance_analysis(net3, Finding[])["earthing_zones"]
-        @test startswith(z3[1]["tag"], "IT")
+        @test z3[1]["star_earthing"] == "perfect"
+        @test isempty(z3[1]["neutral_earths"])
+        @test z3[1]["protective_system_status"] == "indeterminate"
 
-        # MV island uses MV vocabulary: fixture supply (3.3 kV LN,
-        # perfectly grounded) → "solidly earthed"
+        # A phase-only voltage source pins phase-to-reference voltages, so it
+        # is a ground-referenced ideal infeed by construction (zero impedance).
         base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         zb = provenance_analysis(base, Finding[])["earthing_zones"]
         src_zone = first(z for z in zb if "supply" in z["buses"])
-        @test src_zone["tag"] == "solidly earthed"
+        @test src_zone["star_earthing"] == "perfect"
+        @test src_zone["star_R_ohm"] == 0.0
+        @test only(src_zone["star_points"])["basis"] == "voltage_source_pins_phase_to_reference"
+        @test src_zone["protective_system_status"] == "indeterminate"
+        # Boundary: a source that maps its neutral is judged by that terminal
+        # (here pinned to 0 V), not by the phase-only rule.
+        ungrounded = deepcopy(base)
+        ungrounded["voltage_source"]["source"]["terminal_map"] = ["1","2","3","n"]
+        ungrounded["voltage_source"]["source"]["v_magnitude"] = [3300.0,3300.0,3300.0,0.0]
+        ungrounded["voltage_source"]["source"]["v_angle"] = [0.0,-2pi/3,2pi/3,0.0]
+        delete!(ungrounded["bus"]["supply"], "perfectly_grounded_terminals")
+        zu = first(z for z in provenance_analysis(ungrounded, Finding[])["earthing_zones"]
+                   if "supply" in z["buses"])
+        @test zu["star_earthing"] == "perfect" # v=0 on n is an exact reference
+        @test all(p -> p["terminal"] == "n", zu["star_points"]) # not the phase-only rule
     end
 
     @testset "Regulator / autotransformer patterns" begin
@@ -2003,15 +2020,30 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         wbus = [w["bus"] for w in net["transformer"]["n_winding"]["t1"]["windings"]]
         @test wbus == ["hv", "lv"]
 
-        # The OpenDSS earth terminal "5" is routed to the neutral in terminal_names
-        # and DROPPED from perfectly_grounded_terminals (no dangling reference to a
-        # terminal "5"→"n" removed).
+        # A materialized node-0 terminal named by the source IR remains a
+        # distinct perfect reference.
         net2 = Dict{String,Any}("bus"=>Dict{String,Any}("b"=>Dict{String,Any}(
             "terminal_names"=>["1","2","3","5"], "perfectly_grounded_terminals"=>["5"])))
-        BMOPFTools._remap_opendss_terminals!(net2)
+        BMOPFTools._remap_opendss_terminals!(net2; grounded_references=Dict("b"=>["5"]))
         b = net2["bus"]["b"]
-        @test !("5" in b["terminal_names"]) && ("n" in b["terminal_names"])
-        @test isempty(get(b, "perfectly_grounded_terminals", String[]))
+        @test b["terminal_names"] == ["a","b","c","n_ref"]
+        @test b["perfectly_grounded_terminals"] == ["n_ref"]
+        # Without source evidence nothing is guessed: "5" leaves the bus
+        # unmapped, and a grounded "4" stays the conductor neutral.
+        net3 = deepcopy(net2); net3["bus"]["b"]["terminal_names"] = ["1","2","3","5"]
+        net3["bus"]["b"]["perfectly_grounded_terminals"] = ["5"]
+        BMOPFTools._remap_opendss_terminals!(net3)
+        @test net3["bus"]["b"]["terminal_names"] == ["1","2","3","5"]
+        net4 = Dict{String,Any}(
+            "bus"=>Dict{String,Any}("b"=>Dict{String,Any}(
+                "terminal_names"=>["1","2","3","4"], "perfectly_grounded_terminals"=>["4"])),
+            "line"=>Dict{String,Any}("l"=>Dict{String,Any}("bus_from"=>"b","bus_to"=>"b",
+                "terminal_map_from"=>["1","2","3","4"],"terminal_map_to"=>["1","2","3","4"])))
+        BMOPFTools._remap_opendss_terminals!(net4)
+        @test net4["bus"]["b"]["terminal_names"] == ["a","b","c","n"]
+        @test net4["bus"]["b"]["perfectly_grounded_terminals"] == ["n"]
+        @test net4["bus"]["b"]["neutral_terminal"] == "n"
+        @test net4["line"]["l"]["terminal_map_from"] == ["a","b","c","n"]
     end
 
     @testset "Terminal-name conventions" begin
@@ -2116,7 +2148,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         findings = Finding[]
         res = provenance_analysis(kron_net, findings)
         @test any(f -> f.code == "I.PROV.KRON_LIKELY", findings)
-        @test occursin("Kron", res["convention"])
+        @test !occursin("Kron", res["convention"])
 
         # 4-wire with neutral conductor but no grounding → floating ERROR
         float_net = deepcopy(kron_net)
@@ -2143,11 +2175,11 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test res3["grounding"]["n_floating"] == 0
 
         # Synthetic diagnostic fixture: neutral terminals exist but no branch carries
-        # them — implicit (Kron-style) grounding convention, made explicit
+        # them — the intended grounding/reduction convention is indeterminate
         net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings4 = Finding[]
         res4 = provenance_analysis(net, findings4)
-        @test res4["grounding"]["convention"] == "implicit"
+        @test res4["grounding"]["convention"] == "no_neutral_branches"
         @test any(f -> f.code == "W.PROV.IMPLICIT_GROUNDING", findings4)
         @test !any(f -> f.severity == ERROR && f.section == :provenance, findings4)
 
@@ -3373,7 +3405,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         gen = net["generator"]["g1"]
         @test gen["bus"] == "sourcebus"
         @test gen["configuration"] == "SINGLE_PHASE"
-        @test gen["terminal_map"] == ["a", "n"]
+        @test gen["terminal_map"] == ["a", "n_ref"]
         @test gen["p_min"] ≈ [10000.0]
         @test gen["p_max"] ≈ [10000.0]
         @test gen["q_min"] ≈ [2000.0]
@@ -3705,6 +3737,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     include("schema_alias_tests.jl")
     include("powerio_v09_tests.jl")
     include("powerio_regression_tests.jl")
+    include("opendss_semantics_tests.jl")
     include("transformer_interoperability_tests.jl")
 
     # -----------------------------------------------------------------------
@@ -4080,12 +4113,15 @@ include("mcp_execution_tests.jl")
         @test cfg["domain_rules"]["pf_min"] == 0.70
         @test cfg["domain_rules"]["cost_max_per_kwh"] == 10.0
         @test cfg["thermal"]["tolerance"] == 0.15
-        @test cfg["provenance"]["grounding"]["earth_solid_ohm"] == 1.0
+        @test cfg["provenance"]["grounding"]["earth_solid_ohm"] == 1.0 # compatibility only
         @test cfg["provenance"]["dss_defaults"]["normamps"] == 400.0
 
         # The module consts are sourced from the config.
         @test BMOPFTools._THERMAL_TOLERANCE == cfg["thermal"]["tolerance"]
-        @test BMOPFTools._EARTH_SOLID_OHM == cfg["provenance"]["grounding"]["earth_solid_ohm"]
+        @test !isdefined(BMOPFTools,:_EARTH_SOLID_OHM)
+        legacy_cfg = tempname() * ".toml"
+        write(legacy_cfg, "[provenance.grounding]\nearth_solid_ohm = 2.0\n")
+        @test_logs (:warn, r"no longer affect earthing reports") load_config(legacy_cfg)
         @test BMOPFTools._DSS_NORMAMPS == cfg["provenance"]["dss_defaults"]["normamps"]
         @test BMOPFTools._DEFAULT_THRESHOLDS["pf_min"] == cfg["domain_rules"]["pf_min"]
 

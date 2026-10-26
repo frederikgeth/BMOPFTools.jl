@@ -91,3 +91,10 @@ indexing or converting invalid payloads. They are static validation passes, not
 a guarantee that every analysis or solver entrypoint accepts arbitrary
 schema-invalid input. No OPF model, parsing behavior, branch/winding endpoint
 rule (#409), or declaration-list hygiene rule (#410) changes here.
+
+OpenDSS intake reserves `n_ref` for a separate, perfectly grounded node-0
+return. A bus may carry both conductor neutral `n` and `n_ref`; this bounded
+case is assessed without merging the returns. Each winding/device map still
+selects its own return, and `n` remains the bus neutral used for voltage bounds.
+Other multiple-neutral declarations retain their unassessed diagnostics. See
+[the intake semantics](conversion.md#earth-terminal).

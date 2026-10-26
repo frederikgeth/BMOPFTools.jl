@@ -54,7 +54,21 @@ function load_config(path::Union{AbstractString,Nothing}=nothing)::Dict{String,A
     defaults = TOML.parsefile(_DEFAULT_CONFIG_PATH)
     path === nothing && return defaults
     isfile(path) || throw(ArgumentError("config file not found: $path"))
-    _deep_merge(defaults, TOML.parsefile(path))
+    user = TOML.parsefile(path)
+    _warn_ignored_grounding_keys(user, path)
+    _deep_merge(defaults, user)
+end
+
+# The earthing report no longer uses the 1 Ω / 200 Ω thresholds (PSK-000002):
+# finite impedances stay finite. Say so when a user file still sets them.
+function _warn_ignored_grounding_keys(user::AbstractDict, path)
+    g = get(get(user, "provenance", Dict()), "grounding", Dict())
+    g isa AbstractDict || return
+    keys_set = sort!([k for k in ("earth_solid_ohm", "earth_isolated_ohm") if haskey(g, k)])
+    isempty(keys_set) && return
+    @warn "load_config: [provenance.grounding] $(join(keys_set, ", ")) in $path " *
+          "no longer affect earthing reports; finite earthing impedances are " *
+          "reported as finite and protective-earthing systems are not classified."
 end
 
 # Loaded once at package load. Treated as read-only; callers that need

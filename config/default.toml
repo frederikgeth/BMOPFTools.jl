@@ -93,12 +93,12 @@ reach_long_m  = 300000.0
 tolerance = 0.15
 
 # ---------------------------------------------------------------------------
-# Provenance: neutral-earthing classification  (provenance/wires_grounding.jl)
-# ---------------------------------------------------------------------------
+# Earthing reports use exact zero constraints and finite impedance evidence.
+# Legacy earth_solid_ohm/earth_isolated_ohm thresholds no longer classify
+# protective-earthing systems or turn finite impedances into perfect grounds.
 [provenance.grounding]
-# |Z| (Ω) below this at a bus: "solid" earth
+# Retained for configuration-file compatibility; ignored by earthing reports.
 earth_solid_ohm = 1.0
-# |Z| (Ω) above this (or absent): isolated (I) system
 earth_isolated_ohm = 200.0
 
 # ---------------------------------------------------------------------------
