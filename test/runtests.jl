@@ -2020,13 +2020,30 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         wbus = [w["bus"] for w in net["transformer"]["n_winding"]["t1"]["windings"]]
         @test wbus == ["hv", "lv"]
 
-        # A materialized node-0 terminal remains a distinct perfect reference.
+        # A materialized node-0 terminal named by the source IR remains a
+        # distinct perfect reference.
         net2 = Dict{String,Any}("bus"=>Dict{String,Any}("b"=>Dict{String,Any}(
             "terminal_names"=>["1","2","3","5"], "perfectly_grounded_terminals"=>["5"])))
-        BMOPFTools._remap_opendss_terminals!(net2)
+        BMOPFTools._remap_opendss_terminals!(net2; grounded_references=Dict("b"=>["5"]))
         b = net2["bus"]["b"]
         @test b["terminal_names"] == ["a","b","c","n_ref"]
         @test b["perfectly_grounded_terminals"] == ["n_ref"]
+        # Without source evidence nothing is guessed: "5" leaves the bus
+        # unmapped, and a grounded "4" stays the conductor neutral.
+        net3 = deepcopy(net2); net3["bus"]["b"]["terminal_names"] = ["1","2","3","5"]
+        net3["bus"]["b"]["perfectly_grounded_terminals"] = ["5"]
+        BMOPFTools._remap_opendss_terminals!(net3)
+        @test net3["bus"]["b"]["terminal_names"] == ["1","2","3","5"]
+        net4 = Dict{String,Any}(
+            "bus"=>Dict{String,Any}("b"=>Dict{String,Any}(
+                "terminal_names"=>["1","2","3","4"], "perfectly_grounded_terminals"=>["4"])),
+            "line"=>Dict{String,Any}("l"=>Dict{String,Any}("bus_from"=>"b","bus_to"=>"b",
+                "terminal_map_from"=>["1","2","3","4"],"terminal_map_to"=>["1","2","3","4"])))
+        BMOPFTools._remap_opendss_terminals!(net4)
+        @test net4["bus"]["b"]["terminal_names"] == ["a","b","c","n"]
+        @test net4["bus"]["b"]["perfectly_grounded_terminals"] == ["n"]
+        @test net4["bus"]["b"]["neutral_terminal"] == "n"
+        @test net4["line"]["l"]["terminal_map_from"] == ["a","b","c","n"]
     end
 
     @testset "Terminal-name conventions" begin

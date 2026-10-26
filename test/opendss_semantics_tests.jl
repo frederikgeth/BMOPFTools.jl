@@ -84,7 +84,8 @@ using Test, BMOPFTools, PowerIO, JSON3, LinearAlgebra
         bad=Dict{String,Any}("bus"=>Dict("b"=>Dict{String,Any}(
             "terminal_names"=>["1","2","3","4","5"],
             "perfectly_grounded_terminals"=>["4","5"])))
-        @test_throws ArgumentError BMOPFTools._remap_opendss_terminals!(bad)
+        @test_throws ArgumentError BMOPFTools._remap_opendss_terminals!(bad;
+            grounded_references=Dict("b"=>["4","5"]))
 
         # leadlag is checked, never repaired: lag/ansi (the OpenDSS default)
         # match the converted Dy1 clock; lead/euro are a known 60° mismatch;

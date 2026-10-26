@@ -1084,6 +1084,11 @@ neutral or earth wire (PSK-000002). Maps, including n-winding maps, keep that
 identity. `_meta.opendss_ground_references` records the explicit source mapping.
 A grounded reference may be named 4, 5, or another number in the source IR; it
 must never be identified by a fixed global `5 → n` substitution.
+
+`grounded_references` maps each bus id to the source IR's grounded terminal
+names. When it is omitted, no `n_ref` is created: a perfectly grounded `"4"`
+stays the conductor neutral `n`, and a bus carrying an unexplained terminal
+(such as `"5"`) is left unmapped rather than guessed.
 """
 function _remap_opendss_terminals!(net::Dict{String,Any}; grounded_references=nothing)
     rename_maps = Dict{String,Dict{String,String}}()
@@ -1097,9 +1102,10 @@ function _remap_opendss_terminals!(net::Dict{String,Any}; grounded_references=no
 
         # This adapter's phase/neutral naming domain remains 1/2/3/4. The
         # synthetic reference label is supplied by PowerIO, never guessed as 5.
-        refs = grounded_references === nothing ?
-            string.(get(bus,"perfectly_grounded_terminals",String[])) :
-            get(grounded_references,bus_id,String[])
+        # Without the source IR there is no evidence of node 0, so no terminal
+        # becomes n_ref (a grounded "4" is a grounded conductor neutral).
+        refs = grounded_references === nothing ? String[] :
+            String.(get(grounded_references,bus_id,String[]))
         all(n -> haskey(_DSS_TERMINAL_MAP,n) || n in refs, str_names) || continue
         any(n -> n in ("1", "2", "3"), str_names) || continue
         length(refs) <= 1 || throw(ArgumentError("OpenDSS bus '$bus_id' has ambiguous materialized ground references"))
