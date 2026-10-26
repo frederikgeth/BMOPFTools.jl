@@ -121,7 +121,7 @@ end
     for kind in ("single_phase","wye_delta","delta_wye"), ratio in (1.,2.),tap in (.95,1.05)
         net,x=_leakage_net(kind;z=1e-9,ratio,tap)
         r=ybus_augmented(net); n=length(r.nodes); K=Matrix(r.K)
-        Y=K[1:n,1:n]-K[1:n,n+1:end]*(K[n+1:end,n+1:end]\K[n+1:end,1:n])
+        Y=K[1:n,1:n]-K[1:n,n+1:end]*(lu(K[n+1:end,n+1:end])\collect(K[n+1:end,1:n]))
         @test Y ≈ Matrix(ybus_passive(net;config=_leakage_config(0.)).Y)
         @test K ≈ transpose(K)
     end
