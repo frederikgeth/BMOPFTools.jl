@@ -413,6 +413,10 @@ Earthing zones describe represented connections, not TT/TN/IT installation
 identity. `star_earthing` is `perfect` for an exact zero-voltage reference,
 `impedance` for a positive finite local path, `none` for a represented infeed
 return without a local path, and `indeterminate` when that return is absent.
+A voltage source whose terminal map holds only phase terminals pins
+phase-to-reference voltages, so it is an ideal source referenced to ground by
+construction. Its zone is `perfect`, and the `star_points` entry carries
+`basis = "voltage_source_pins_phase_to_reference"` with no terminal.
 `star_points` records terminal identities; `neutral_earths` separately records
 conductor-neutral paths. `star_R_ohm` retains its legacy key but reports impedance
 magnitude in ohms. Finite values remain finite on both sides of the old 1 Ω and

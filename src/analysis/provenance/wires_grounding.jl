@@ -469,12 +469,19 @@ function _earthing_zones(net::Dict{String,Any},vl::Dict{String,Any})::Vector{Dic
         known=filter(isfinite,[Float64(get(vmap,b,NaN)) for b in isl])
         vnom=isempty(known) ? NaN : maximum(known)
         stars=Tuple{String,String}[]; infeed_buses=Set{String}()
+        # A voltage source whose map holds only phase terminals pins each
+        # phase-to-reference voltage: an ideal source referenced to ground by
+        # construction, whatever the bus neutral does.
+        ground_referenced_sources=String[]
         for (_,vs) in get(net,"voltage_source",Dict())
             b=get(vs,"bus",nothing); b in islset || continue
             push!(infeed_buses,b)
-            for t in get(vs,"terminal_map",String[])
+            tm=get(vs,"terminal_map",String[])
+            for t in tm
                 t in neutral_labels && push!(stars,(b,t))
             end
+            _index_strings(tm) && !isempty(tm) && roles!==nothing &&
+                all(t -> t in roles.phase,tm) && push!(ground_referenced_sources,b)
         end
         for record in _connection_records(net)
             record.kind=="transformer" || continue
@@ -489,8 +496,9 @@ function _earthing_zones(net::Dict{String,Any},vl::Dict{String,Any})::Vector{Dic
         end
         unique!(stars)
         star_R=isempty(stars) ? Inf : minimum(get(earth,s,Inf) for s in stars)
-        uncertain=any(s -> s in unassessed,stars)
-        kind=isempty(stars) ? "indeterminate" : iszero(star_R) ? "perfect" :
+        isempty(ground_referenced_sources) || (star_R=0.0)
+        uncertain=any(s -> s in unassessed,stars) && !iszero(star_R)
+        kind=iszero(star_R) ? "perfect" : isempty(stars) ? "indeterminate" :
              uncertain ? "indeterminate" :
              isfinite(star_R) ? "impedance" : "none"
         n_down=count(b -> haskey(neutral_earth,b) && !(b in infeed_buses),isl)
@@ -509,8 +517,11 @@ function _earthing_zones(net::Dict{String,Any},vl::Dict{String,Any})::Vector{Dic
                 for (b,t) in sort!(collect(unassessed)) if b in islset],
             "knowledge_ids"=>["PSK-000002"],
             "n_buses_with_neutral_conductor"=>nc,
-            "star_points"=>[Dict{String,Any}("bus"=>b,"terminal"=>t,
+            "star_points"=>vcat([Dict{String,Any}("bus"=>b,"terminal"=>t,
                 "impedance_ohm"=>get(earth,(b,t),Inf)) for (b,t) in stars],
+                [Dict{String,Any}("bus"=>b,"terminal"=>nothing,"impedance_ohm"=>0.0,
+                    "basis"=>"voltage_source_pins_phase_to_reference")
+                 for b in sort!(unique(ground_referenced_sources))]),
             "neutral_earths"=>[Dict{String,Any}("bus"=>b,"terminal"=>neutral_of[b],
                 "impedance_ohm"=>neutral_earth[b]) for b in isl if haskey(neutral_earth,b)]))
     end

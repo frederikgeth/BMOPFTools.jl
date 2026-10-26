@@ -1827,8 +1827,8 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     end
 
     @testset "Earthing zones" begin
-        # A source map omitting its return does not establish the star
-        # connection or protective system, even with multiple local earths.
+        # Local earths and a ground-referenced source never establish the
+        # protective-earthing system (TT/TN/IT), which the model cannot represent.
         lvnet = Dict{String,Any}(
             "bus" => Dict{String,Any}(
                 "a" => Dict{String,Any}("terminal_names" => ["1","2","3","n"]),
@@ -1863,19 +1863,35 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         z2 = provenance_analysis(net2, Finding[])["earthing_zones"]
         @test z2[1]["protective_system_status"] == "indeterminate"
 
-        # No authored return path does not establish an IT system.
+        # Without neutral earths the phase-only source is still referenced to
+        # ground, but nothing earths the feeder neutral; no IT claim is made.
         net3 = deepcopy(net2)
         delete!(net3, "shunt")
         z3 = provenance_analysis(net3, Finding[])["earthing_zones"]
-        @test z3[1]["star_earthing"] == "indeterminate"
+        @test z3[1]["star_earthing"] == "perfect"
+        @test isempty(z3[1]["neutral_earths"])
+        @test z3[1]["protective_system_status"] == "indeterminate"
 
-        # A perfect bus return is not a source star connection if its source
-        # map omits that return.
+        # A phase-only voltage source pins phase-to-reference voltages, so it
+        # is a ground-referenced ideal infeed by construction (zero impedance).
         base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         zb = provenance_analysis(base, Finding[])["earthing_zones"]
         src_zone = first(z for z in zb if "supply" in z["buses"])
-        @test src_zone["star_earthing"] == "indeterminate" # source map omits a return
+        @test src_zone["star_earthing"] == "perfect"
+        @test src_zone["star_R_ohm"] == 0.0
+        @test only(src_zone["star_points"])["basis"] == "voltage_source_pins_phase_to_reference"
         @test src_zone["protective_system_status"] == "indeterminate"
+        # Boundary: a source that maps its neutral is judged by that terminal
+        # (here pinned to 0 V), not by the phase-only rule.
+        ungrounded = deepcopy(base)
+        ungrounded["voltage_source"]["source"]["terminal_map"] = ["1","2","3","n"]
+        ungrounded["voltage_source"]["source"]["v_magnitude"] = [3300.0,3300.0,3300.0,0.0]
+        ungrounded["voltage_source"]["source"]["v_angle"] = [0.0,-2pi/3,2pi/3,0.0]
+        delete!(ungrounded["bus"]["supply"], "perfectly_grounded_terminals")
+        zu = first(z for z in provenance_analysis(ungrounded, Finding[])["earthing_zones"]
+                   if "supply" in z["buses"])
+        @test zu["star_earthing"] == "perfect" # v=0 on n is an exact reference
+        @test all(p -> p["terminal"] == "n", zu["star_points"]) # not the phase-only rule
     end
 
     @testset "Regulator / autotransformer patterns" begin
