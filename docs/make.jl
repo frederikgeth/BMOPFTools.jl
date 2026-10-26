@@ -10,6 +10,9 @@ makedocs(
     format   = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",  # pretty URLs on CI, plain files locally
         edit_link  = "main",                             # "Edit on GitHub" links point at main
+        # assets/logo.svg and assets/logo-dark.svg are picked up automatically as the
+        # sidebar logo; see scripts/logo/README.md for every logo variant.
+        assets     = ["assets/favicon.ico"],
         # Both are exhaustive reference pages whose size is the point: findings.md
         # is the full finding catalogue, api.md the full docstring index. api.md
         # was already over the WARN limit before the objective building blocks

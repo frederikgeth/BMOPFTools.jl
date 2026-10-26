@@ -1,6 +1,12 @@
 # BMOPFTools.jl
 
-**Inspect, prepare, and solve unbalanced distribution-network models.**
+<p align="center">
+  <img src="docs/src/assets/logo/bmopftools-hero.svg"
+       alt="BMOPFTools.jl: import, inspect, prepare, optimize and verify unbalanced distribution networks"
+       width="800">
+</p>
+
+**Inspect, prepare, and optimize unbalanced distribution networks.**
 
 BMOPFTools is a Julia library connecting network-data diagnostics, geospatial
 review, and multiconductor power-flow and optimal power flow (OPF) workflows.
