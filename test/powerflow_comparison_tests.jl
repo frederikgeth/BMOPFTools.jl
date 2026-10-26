@@ -3258,6 +3258,7 @@ const _YBUS_DIR = joinpath(@__DIR__, "data", "ybus")
 
 # from_dss yields terminals a/b/c/n; OpenDSS AllNodeNames uses .1/.2/.3/.4.
 const _FD_NODE = Dict("a" => "1", "b" => "2", "c" => "3", "n" => "4",
+                      "n_ref" => "0",
                       "1" => "1", "2" => "2", "3" => "3", "4" => "4")
 
 """

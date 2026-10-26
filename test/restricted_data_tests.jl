@@ -24,11 +24,10 @@ end
                   "switch_is_an_ideal_closure_with_no_series_impedance"
             @test all(startswith("switch:"), record["unmapped_scopes"])
         end
-        @test mapping["blocking_unmapped_fields"] == String[]
+        @test mapping["blocking_unmapped_fields"] == ["leadlag"]
 
         # PowerIO 0.9 returns owned diagnostic records rather than capping a
-        # per-call channel, so even this feeder's long list arrives complete and
-        # the ledger's empty blocking list IS a fidelity statement. (Under
+        # per-call channel. The source leadlag field remains explicitly blocking. (Under
         # PowerIO <= 0.7 the list was truncated and the status had to say so.)
         @test !any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
         @test mapping["warnings_truncated_upstream"] == false
@@ -72,9 +71,8 @@ end
             # spec arity: delta side 3 terminals, wye side 4 (incl. neutral)
             @test length(tx["terminal_map_from"]) == 3
             @test length(tx["terminal_map_to"])   == 4
-            # OpenDSS earth terminal "5" is routed to the bus neutral, so the
-            # earthed star point lands on "n" rather than a phantom terminal.
-            @test "n" in tx["terminal_map_to"]
+            # The materialized node-0 return is distinct from the feeder neutral.
+            @test "n_ref" in tx["terminal_map_to"]
             @test !("5" in string.(tx["terminal_map_to"]))
 
             # No phantom slack generator; from_dss does not price slack cost.
@@ -112,16 +110,15 @@ end
             @test haskey(lc, "R_series_1_1")
             @test haskey(lc, "X_series_1_1")
 
-            # Terminal naming is consistent: every bus uses a/b/c/n and no bus
-            # retains the OpenDSS earth terminal "5" (B179 carries the earthed
-            # transformer star point). The routing is recorded in _meta.
+            # Numeric labels are remapped; the node-0 star remains a distinct
+            # perfectly grounded n_ref beside the conductor neutral n.
             @test all(!("5" in string.(get(b, "terminal_names", [])))
                       for b in values(net["bus"]))
             # Identifiers are case-folded on ingest (OpenDSS B179 → b179).
             @test all(k -> k == lowercase(k), keys(net["bus"]))
-            @test net["bus"]["b179"]["terminal_names"] == ["a", "b", "c", "n"]
+            @test net["bus"]["b179"]["terminal_names"] == ["a", "b", "c", "n", "n_ref"]
             @test get(net["bus"]["b179"], "neutral_terminal", nothing) == "n"
-            @test "b179" in net["_meta"]["earth_terminal_routing"]["buses"]
+            @test "b179" in keys(net["_meta"]["opendss_ground_references"]["by_bus"])
         end
 
         @testset "Analysis" begin
@@ -181,13 +178,13 @@ end
     net = from_dss(joinpath(_RESTRICTED_DATA, "LV", "LV1_14bus", "Master.dss"))
     xf = only(values(net["transformer"]["delta_wye"]))
     @test xf["bus_to"] == "b179"
-    @test xf["terminal_map_to"] == ["a", "b", "c", "n"]
+    @test xf["terminal_map_to"] == ["a", "b", "c", "n_ref"]
     @test net["bus"]["b179"]["neutral_terminal"] == "n"
     io = IOBuffer(); write_bmopf(net, io)
     restored = parse_bmopf(String(take!(io)); from_string=true)
     @test restored["bus"]["b179"] == net["bus"]["b179"]
     @test only(values(restored["transformer"]["delta_wye"])) == xf
-    @test restored["_meta"]["earth_terminal_routing"] == net["_meta"]["earth_terminal_routing"]
+    @test restored["_meta"]["opendss_ground_references"] == net["_meta"]["opendss_ground_references"]
 end
 
     @testset "fixture — lv1_14bus_timeseries loads and analyzes" begin

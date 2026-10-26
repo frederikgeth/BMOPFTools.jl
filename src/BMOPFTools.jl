@@ -302,9 +302,9 @@ struct TerminalRoles
 end
 
 # Terminal-name label treated as neutral by the fallback naming convention
-# (case-insensitive `"n"`/`"N"`). This is the single definition of the guess we
+# (case-insensitive `"n"`/`"N"`, plus reserved import return `"n_ref"`). This is the definition of the guess we
 # make when a case declares no `terminal_conventions`.
-_is_convention_neutral(name) = lowercase(string(name)) == "n"
+_is_convention_neutral(name) = lowercase(string(name)) in ("n", "n_ref")
 
 """
     _terminal_roles(net) -> TerminalRoles
@@ -419,7 +419,7 @@ vector). For a bus, the explicit `neutral_terminal` field is checked first
 (materialised from `terminal_conventions` at ingest). Otherwise, when a
 `neutral_labels` set is supplied (typically `_neutral_labels(net)`), a terminal
 whose label is in that set is the neutral; when it is omitted, the fallback
-naming convention applies — a terminal named `"n"`/`"N"` (any case) is neutral.
+naming convention applies — a terminal named `"n"`/`"N"` or the reserved import return `"n_ref"` is a return.
 Returns `nothing` if no neutral can be identified.
 
 The OpenDSS numeric convention `["1","2","3","4"]` is resolved at import time by
@@ -470,13 +470,11 @@ end
 Return the 1-based positions of the non-neutral conductors in `terminal_map`.
 """
 function _phase_positions(terminal_map::AbstractVector)::Vector{Int}
-    np = _neutral_pos(terminal_map)
-    [k for k in eachindex(terminal_map) if k != np]
+    [k for k in eachindex(terminal_map) if !_is_convention_neutral(terminal_map[k])]
 end
 
 function _phase_positions(terminal_map::AbstractVector, neutral_labels)::Vector{Int}
-    np = _neutral_pos(terminal_map, neutral_labels)
-    [k for k in eachindex(terminal_map) if k != np]
+    [k for k in eachindex(terminal_map) if !(string(terminal_map[k]) in neutral_labels)]
 end
 
 """

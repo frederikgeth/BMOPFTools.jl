@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "c2753647b329530476cf074ffbccc7c43574d26b2d86ba0b654d7548efbe966e"
+    "sha256": "84752cfe353c4470a4d7827c449e0a5615165680665b99d36c25511f1251921f"
   },
   "finding_count": 381,
   "findings": [
@@ -1723,7 +1723,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A 3-wire **LV** level (LV is physically 4-wire); the neutral was probably Kron-eliminated under an every-bus-grounded assumption. 3-wire MV is physical and never flags.",
+      "meaning": "An LV level has no neutral carried by represented branches. Kron reduction is a possible origin, requiring source provenance; the observation does not establish a missing physical wire or a reduction history.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1773,7 +1773,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Neutral terminals exist and are referenced by components, but **no branch carries a neutral conductor** — the dataset uses the implicit \"n = local ground\" convention. Made explicit so 4-wire consumers don't misread it.",
+      "meaning": "Neutral terminals are referenced by components but no branch carries a neutral conductor, and some referenced neutrals lack represented grounding. The intended return/grounding convention is indeterminate; no every-bus ground constraint or Kron history is inferred.",
       "contract_id": null,
       "knowledge_ids": []
     },

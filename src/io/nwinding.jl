@@ -85,7 +85,7 @@ function _nw_phase_terminals(terminal_map::Vector{String})
         lt = lowercase(t)
         if lt in ("a", "b", "c")
             push!(phases, t)
-        elseif lt == "n"
+        elseif _is_convention_neutral(t)
             neutral = t
         end
     end

@@ -23,9 +23,9 @@ modeling assumptions explicit:
    uniform, a mix of topologies is flagged for review, and asymmetric-π,
    Γ-sections and modelled shunt conductance are called out individually.
 
-2. **Wires per voltage level** — 3-wire vs 4-wire classification. A 3-wire
-   LV level is flagged as likely Kron-reduced (LV is physically 4-wire);
-   3-wire MV is normal. A 4-wire network whose neutrals are all perfectly
+2. **Wires per voltage level** — represented branch-conductor counts and
+   neutral incidence. Missing LV neutral conductors do not establish a
+   reduction history. A network whose neutrals are all perfectly
    grounded is exactly Kron-reducible (redundant variables).
 
 3. **Neutral grounding** — builds the neutral-conductor continuity graph and
@@ -117,8 +117,7 @@ function _convention_statement(result::Dict{String,Any})::String
     wl = get(result, "wires_by_level", Dict())
     for (label, info) in sort(collect(wl), by = x -> -x[2]["nominal_v"])
         w = info["wires"]
-        note = w == "3-wire" && info["is_lv"] ? " (likely Kron-reduced)" : ""
-        push!(parts, "$label: $w$note")
+        push!(parts, "$label: $w")
     end
 
     g = get(result, "grounding", Dict())
@@ -126,7 +125,7 @@ function _convention_statement(result::Dict{String,Any})::String
         conv = get(g, "convention", "")
         ng   = get(g, "n_grounding_points", 0)
         nfl  = get(g, "n_floating", 0)
-        gdesc = conv == "implicit" ? "implicit (Kron-style) grounding" :
+        gdesc = conv == "no_neutral_branches" ? "no neutral branches represented" :
                 get(g, "all_perfectly_grounded", false) ?
                     "perfectly grounded at every bus (Kron-reducible)" :
                 "$(ng) grounding point(s)" * (nfl > 0 ? ", $nfl floating neutral section(s)" : "")

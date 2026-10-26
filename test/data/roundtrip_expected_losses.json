@@ -1,31 +1,12 @@
 {
-  "pf_1ph_freeneutral": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
-  "pf_1ph_impedanceneutral": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
+  "pf_1ph_freeneutral": [],
+  "pf_1ph_impedanceneutral": [],
   "pf_1ph_line": [],
-  "pf_1ph_perfectneutral": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
+  "pf_1ph_perfectneutral": [],
   "pf_1ph_xfmr": [
     {
       "path": "bus.hv.neutral_terminal",
-      "kind": "missing"
-    },
-    {
-      "path": "bus.hv.perfectly_grounded_terminals",
-      "kind": "missing"
+      "kind": "topology_mismatch"
     },
     {
       "path": "bus.hv.terminal_names",
@@ -94,22 +75,9 @@
     {
       "path": "transformer.single_phase.t1.terminal_map_to",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "extra"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "missing"
     }
   ],
-  "pf_3ph_line": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
+  "pf_3ph_line": [],
   "pf_3wdg_dyn": [
     {
       "path": "shunt.powerio_core_n_winding_t1",
@@ -130,19 +98,11 @@
   ],
   "pf_3wdg_nwinding": [
     {
-      "path": "bus.hv.perfectly_grounded_terminals",
-      "kind": "missing"
-    },
-    {
       "path": "shunt.powerio_core_n_winding_t1",
       "kind": "missing"
     }
   ],
   "pf_3wdg_nwinding_unbalanced": [
-    {
-      "path": "bus.hv.perfectly_grounded_terminals",
-      "kind": "missing"
-    },
     {
       "path": "shunt.powerio_core_n_winding_t1",
       "kind": "missing"
@@ -162,10 +122,6 @@
   ],
   "pf_4wdg_nwinding": [
     {
-      "path": "bus.hv.perfectly_grounded_terminals",
-      "kind": "missing"
-    },
-    {
       "path": "shunt.powerio_core_n_winding_t1",
       "kind": "missing"
     }
@@ -181,11 +137,7 @@
     },
     {
       "path": "bus.src.neutral_terminal",
-      "kind": "missing"
-    },
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
+      "kind": "topology_mismatch"
     },
     {
       "path": "bus.src.terminal_names",
@@ -210,28 +162,10 @@
     {
       "path": "transformer.single_phase.reg.terminal_map_to",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "extra"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "missing"
     }
   ],
-  "pf_cap_delta": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
-  "pf_cap_wye": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
+  "pf_cap_delta": [],
+  "pf_cap_wye": [],
   "pf_center_tap_240": [
     {
       "path": "bus.hv.neutral_terminal",
@@ -251,11 +185,7 @@
     },
     {
       "path": "bus.src.neutral_terminal",
-      "kind": "missing"
-    },
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
+      "kind": "topology_mismatch"
     },
     {
       "path": "bus.src.terminal_names",
@@ -304,14 +234,6 @@
     {
       "path": "transformer.center_tap.t1.terminal_map_to",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "extra"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "missing"
     }
   ],
   "pf_center_tap_balanced_heavy": [
@@ -333,11 +255,7 @@
     },
     {
       "path": "bus.src.neutral_terminal",
-      "kind": "missing"
-    },
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
+      "kind": "topology_mismatch"
     },
     {
       "path": "bus.src.terminal_names",
@@ -394,14 +312,6 @@
     {
       "path": "transformer.center_tap.t1.terminal_map_to",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "extra"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "missing"
     }
   ],
   "pf_center_tap_loaded": [
@@ -423,11 +333,7 @@
     },
     {
       "path": "bus.src.neutral_terminal",
-      "kind": "missing"
-    },
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
+      "kind": "topology_mismatch"
     },
     {
       "path": "bus.src.terminal_names",
@@ -484,14 +390,6 @@
     {
       "path": "transformer.center_tap.t1.terminal_map_to",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "extra"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "missing"
     }
   ],
   "pf_center_tap_oneleg_extreme": [
@@ -513,11 +411,7 @@
     },
     {
       "path": "bus.src.neutral_terminal",
-      "kind": "missing"
-    },
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
+      "kind": "topology_mismatch"
     },
     {
       "path": "bus.src.terminal_names",
@@ -570,14 +464,6 @@
     {
       "path": "transformer.center_tap.t1.terminal_map_to",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "extra"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "missing"
     }
   ],
   "pf_center_tap_singleleg_pn": [
@@ -599,11 +485,7 @@
     },
     {
       "path": "bus.src.neutral_terminal",
-      "kind": "missing"
-    },
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
+      "kind": "topology_mismatch"
     },
     {
       "path": "bus.src.terminal_names",
@@ -656,24 +538,12 @@
     {
       "path": "transformer.center_tap.t1.terminal_map_to",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "extra"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "missing"
     }
   ],
   "pf_center_tap_xfmr": [
     {
       "path": "bus.hv.neutral_terminal",
-      "kind": "missing"
-    },
-    {
-      "path": "bus.hv.perfectly_grounded_terminals",
-      "kind": "missing"
+      "kind": "topology_mismatch"
     },
     {
       "path": "bus.hv.terminal_names",
@@ -734,14 +604,6 @@
     {
       "path": "transformer.center_tap.t1.terminal_map_to",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "extra"
-    },
-    {
-      "path": "voltage_source.source",
-      "kind": "missing"
     }
   ],
   "pf_combined_3ph_split": [
@@ -752,10 +614,6 @@
     {
       "path": "bus.lvsp.terminal_names",
       "kind": "topology_mismatch"
-    },
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
     },
     {
       "path": "load.lsp1.terminal_map",
@@ -862,12 +720,7 @@
       "kind": "extra"
     }
   ],
-  "pf_delta_load": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
+  "pf_delta_load": [],
   "pf_dy_xfmr": [
     {
       "path": "shunt.powerio_core_delta_wye_t1.B_1_4",
@@ -1041,17 +894,8 @@
   "pf_exp_1ph": [],
   "pf_open_delta_reg": [],
   "pf_pv_1ph": [],
-  "pf_pv_4leg": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
+  "pf_pv_4leg": [],
   "pf_yd_xfmr": [
-    {
-      "path": "bus.hv.perfectly_grounded_terminals",
-      "kind": "missing"
-    },
     {
       "path": "shunt.powerio_core_wye_delta_t1.B_1_2",
       "kind": "numeric_mismatch"
@@ -1110,16 +954,6 @@
     }
   ],
   "pf_zip_1ph": [],
-  "pf_zip_3ph": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ],
-  "pf_zip_delta": [
-    {
-      "path": "bus.src.perfectly_grounded_terminals",
-      "kind": "missing"
-    }
-  ]
+  "pf_zip_3ph": [],
+  "pf_zip_delta": []
 }

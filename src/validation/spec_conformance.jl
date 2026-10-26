@@ -136,6 +136,10 @@ function spec_conformance_check(net::Dict{String,Any},
             ctx.evidence["reason"] === nothing || continue
             bid = get(c, "bus", nothing)
             nn  = bid isa AbstractString ? bus_neutral(bid) : nothing
+            # A device may select the distinct grounded node-0 return even
+            # when the bus also carries a conductor neutral. Use its map.
+            mapped_neutral=_neutral_terminal(tm,case_roles.neutral)
+            mapped_neutral===nothing || (nn=mapped_neutral)
 
             # --- semantic checks per configuration ---
             if cfg == "SINGLE_PHASE" && nn !== nothing

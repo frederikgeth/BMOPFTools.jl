@@ -352,17 +352,79 @@ than silently dropping one.
 
 ### [The earth terminal (OpenDSS `.0`)](@id earth-terminal)
 
-BMOPF has no earth terminal — ground is implicit. OpenDSS, by contrast, uses
-node `.0` for earth, which surfaces in the BMOPF JSON as terminal **5**.
+`from_dss` preserves PowerIO's materialized node-0 terminal as a separate,
+perfectly grounded return named `n_ref`. The conductor neutral (OpenDSS node 4)
+remains `n`. PowerIO chooses the synthetic reference number from the bus's node
+inventory; it is not always terminal 5. Intake uses the source IR's grounded
+terminal list, not a fixed numeric substitution. This behavior is linked to
+PSK-000002 and covered by `test/opendss_semantics_tests.jl`.
 
-PowerIO renders the OpenDSS earth node as terminal `"5"` (e.g. a transformer
-wye winding whose star point is earthed arrives with
-`terminal_map_to = ["1","2","3","5"]`). On ingest, `from_dss` routes `"5"` to
-the bus neutral `"n"` as part of the `1,2,3,4 → a,b,c,n` remap, so every bus
-ends up on the `a/b/c/n` convention and its neutral is detected. The earthed
-star point is then grounded **through the bus neutral** rather than solidly —
-a slightly lossy choice (matching the earlier `from_pmd` behaviour) that is
-recorded under `net["_meta"]["earth_terminal_routing"]` so it stays inspectable.
+For example, a transformer with `bus=lv conn=wye` and a feeder carrying node 4
+imports with winding map `[a,b,c,n_ref]`, feeder map `[a,b,c,n]`, and
+`perfectly_grounded_terminals=[n_ref]`. A 0.3 Ω shunt on `n` remains finite and
+does not become the transformer star's connection to ground. The explicitly
+wired `bus=lv.1.2.3.4` instead imports with winding map `[a,b,c,n]`.
+
+The `neutral` role includes these device return terminals for existing winding
+consumers; the reserved name `n_ref` and
+`_meta.opendss_ground_references.by_bus` identify the mathematical reference.
+It is not evidence of a physical fourth wire. A bus carrying both `n` and the
+perfectly grounded `n_ref` retains `n` as its conductor-neutral metadata. The
+case-wide role declaration and source mapping survive `write_bmopf`/`parse_bmopf`.
+Other multiple-neutral declarations remain subject to the existing diagnostics.
+
+Older imports that merged the two terminals cannot be repaired from the saved
+target alone. Re-import the original DSS input; historical
+`_meta.earth_terminal_routing` records describe the old lossy behavior.
+
+### Source phase relation and report qualification
+
+PowerIO 0.11.6 retains authored `leadlag` in transformer source extras but drops it
+from its BMOPF transformer export. BMOPFTools does not invent a phase mapping or
+change the target's winding equations to compensate. Its field ledger recognizes
+`EMIT.BMOPF.TRANSFORMER_EXTRA_DROPPED`, records `leadlag` as an unmapped field, and
+marks it blocking for physical readiness. The existing stable upstream Finding
+code is preserved.
+
+`_meta.powerio_source_semantics.transformer_phase_relations` retains the authored
+value and an `indeterminate` source-preservation status. The structured phase
+relation (PSK-000006) describes the represented target and carries this evidence
+in `source_preservation`. Markdown, terminal, and tree views qualify the target
+clock with the unmapped source value. A known target clock is not a certificate
+of preserved OpenDSS phase behavior. This applies to `lag` as well as `euro`:
+compatibility requires a reviewed mapping, not merely a matching label.
+
+### Earthing and nominal-voltage report semantics
+
+Earthing zones describe represented connections, not TT/TN/IT installation
+identity. `star_earthing` is `perfect` for an exact zero-voltage reference,
+`impedance` for a positive finite local path, `none` for a represented infeed
+return without a local path, and `indeterminate` when that return is absent.
+`star_points` records terminal identities; `neutral_earths` separately records
+conductor-neutral paths. `star_R_ohm` retains its legacy key but reports impedance
+magnitude in ohms. Finite values remain finite on both sides of the old 1 Ω and
+200 Ω cutoffs. Those configuration keys remain readable for compatibility but
+no longer control this classification.
+
+`n_downstream_earths` counts buses with a represented local neutral earth away
+from infeed buses. It does not count electrodes within a bus, parallel paths,
+or prove a protective-earth arrangement. `protective_system_status` remains
+`indeterminate`. A `4-wire` tag requires a neutral carried by represented closed
+branches at every bus in the zone; source reference terminals alone do not
+qualify. Missing conductors do not establish Kron-reduction provenance.
+
+Voltage-level results expose `voltage_basis=phase_to_reference` and explain the
+basis in human-readable output. For the balanced three-phase domain, 6.35 kV and
+250 V correspond to approximately 11 kV and 433 V line-to-line. These are nominal
+propagated values, not solved voltages. Conversion summaries count diagnostic
+records and classes, not asserted distinct fidelity losses; mapped source fields,
+retained source-only properties and parsing diagnostics can all contribute.
+
+OpenDSS execution still depends on source and solution frequency. A default
+frequency set after circuit creation can leave a previously created source at a
+different frequency. This static importer does not execute `solve` or reproduce
+session initialization; specify frequency before circuit creation or explicitly
+on the source when reproducible native solves are required.
 
 ### Transformer impedance on ingest
 

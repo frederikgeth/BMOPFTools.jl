@@ -1,5 +1,20 @@
 # Descriptive connection evidence linked to PSK-000006. This is an ideal
 # winding-incidence relation, not a loaded voltage, nameplate or loop certificate.
+function _source_phase_preservation(net,subtype,xf)
+    sources=get(get(get(net,"_meta",Dict()),"powerio_source_semantics",Dict()),
+        "transformer_phase_relations",Any[])
+    for (id,target) in get(get(net,"transformer",Dict()),subtype,Dict())
+        target === xf || continue # exact target identity, never infer a source map
+        for source in sources
+            get(source,"scope",nothing)=="transformer:$id" && return deepcopy(source)
+        end
+    end
+    nothing
+end
+
+_phase_source_note(ev) = get(ev,"source_preservation",nothing) === nothing ? "" :
+    "; converted-model relation only; source leadlag=$(ev["source_preservation"]["leadlag"]) unverified"
+
 function _phase_windings(net, subtype, xf)
     r=(;kind="transformer",id="",subtype,component=xf)
     roles=_index_roles(net)
@@ -97,6 +112,7 @@ function transformer_phase_relation(net::Dict{String,Any}, subtype::String, xfmr
         "derivation"=>"positive_ratio_ideal_coil_equations",
         "unassessed"=>["loaded_voltage_drop","nameplate_equivalence","network_loop_compatibility",
             "grounding","solver_label_support","tap_feasibility"])
+    result["source_preservation"]=_source_phase_preservation(net,subtype,xfmr)
     finish(status,reason)=begin result["status"]=status;result["reason"]=reason;result end
     (1<=from_winding<=length(ws) && 1<=to_winding<=length(ws) && from_winding!=to_winding) ||
         return finish("unknown","winding_reference_unavailable")

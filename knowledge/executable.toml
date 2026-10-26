@@ -62,6 +62,10 @@
 # invalid or missing values never inherit the legacy unity-ratio fallback.
 # N-winding assembly validates declared network buses and terminals before
 # aliasing; a missing reference never substitutes for explicit or implicit earth.
+# OpenDSS node-0 returns retain separate perfect grounding (PSK-000002).
+# Source phase preservation stays indeterminate for unmapped leadlag (PSK-000006).
+# Earthing reports expose finite paths and conductor incidence without inferring
+# protective-system identity; synthetic fixtures cover boundaries and serialization.
 schema_version = "0.6.0"
 
 [[contract]]
@@ -147,6 +151,17 @@ finding_codes = [
 ]
 fixture_ids = ["neutral-ground-reference-conflation-001"]
 source_paths = [
+  "test/roundtrip_fidelity_tests.jl",
+  "test/data/roundtrip_expected_losses.json",
+  "src/BMOPFTools.jl",
+  "src/io/from_dss.jl",
+  "src/io/nwinding.jl",
+  "src/report/formatting.jl",
+  "config/default.toml",
+  "docs/src/conversion.md",
+  "test/opendss_semantics_tests.jl",
+  "test/data/opendss_semantics/Master.dss",
+  "test/data/opendss_semantics/README.md",
   "src/knowledge/contracts.jl",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
@@ -428,6 +443,11 @@ finding_codes = [
 ]
 fixture_ids = ["transformer-winding-role-swap-001"]
 source_paths = [
+  "src/io/from_dss.jl",
+  "docs/src/conversion.md",
+  "test/opendss_semantics_tests.jl",
+  "test/data/opendss_semantics/Master.dss",
+  "test/data/opendss_semantics/README.md",
   "src/knowledge/contracts.jl",
   "src/io/to_ybus.jl",
   "src/analysis/transformer_phase.jl",

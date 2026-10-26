@@ -4,15 +4,11 @@
 # (eigenergy/PowerIO.jl, which binds the `powerio` Rust engine in-process).
 
 # OpenDSS numeric terminal names → task-force phase labels.
-# 1/2/3 → phases a/b/c, 4 → neutral n. PowerIO renders the OpenDSS earth node
-# (.0) as terminal "5"; it is routed to the bus neutral ("n") so that an earthed
-# transformer star point is grounded through the bus's grounding impedance
-# rather than left as a phantom phase terminal (BMOPF has no earth terminal).
+# PSK-000002: a materialized node-0 reference must remain distinct from a
+# conductor neutral. PowerIO names that reference max(4, highest node + 1),
+# not necessarily 5. Its grounded-terminal declaration supplies the mapping.
 const _DSS_TERMINAL_MAP = Dict(
-    "1" => "a", "2" => "b", "3" => "c", "4" => "n", "5" => "n")
-
-# Terminal names PowerIO can emit for an OpenDSS bus (phases, neutral, earth).
-const _DSS_NUMERIC_TERMINALS = Set(("1", "2", "3", "4", "5"))
+    "1" => "a", "2" => "b", "3" => "c", "4" => "n")
 
 # Source-only metadata is inspected through the public generation-2 IR contract.
 function _powerio_audit_input(module_::PowerIO.PioModule{PowerIO.MulticonductorNetwork})
@@ -112,6 +108,8 @@ const _POWERIO_KIND_FIELD_POLICY = Dict(
 )
 
 const _POWERIO_FIELD_POLICY = Dict(
+    "leadlag" => (impact = "physical_or_operating_point", blocking = true,
+        reason = "source_transformer_phase_relation_not_preserved_by_export"),
     "units" => (impact = "representational", blocking = false,
         reason = "source_units_have_no_direct_BMOPF_field"),
     "model" => (impact = "device_semantics", blocking = true,
@@ -169,6 +167,17 @@ end
 
 """Retain normalized source semantics that have no active BMOPF field."""
 function _powerio_source_semantics(dn)
+    transformer_phase = Dict{String,Any}[]
+    for item in dn.data.transformers
+        raw = _powerio_extra(item,"leadlag")
+        raw === nothing && continue
+        push!(transformer_phase,Dict{String,Any}(
+            "scope"=>_powerio_scope("transformer",item.name),
+            "leadlag"=>lowercase(strip(string(raw))),
+            "status"=>"indeterminate", "representation"=>"retained_source_only",
+            "reason"=>"leadlag_not_mapped_into_target_winding_incidence",
+            "knowledge_ids"=>["PSK-000006"]))
+    end
     load_thresholds = Dict{String,Any}[]
     for item in dn.data.loads
         vmin = _powerio_float(_powerio_extra(item, "vminpu"))
@@ -204,6 +213,7 @@ function _powerio_source_semantics(dn)
         ))
     end
     return Dict{String,Any}(
+        "transformer_phase_relations" => transformer_phase,
         "load_voltage_thresholds" => load_thresholds,
         "voltage_source_models" => source_models,
     )
@@ -589,6 +599,13 @@ function _powerio_bmopf_field_mapping(dn, net; diagnostics=nothing)
             end
             continue
         end
+        if diagnostic !== nothing && diagnostic.code == "EMIT.BMOPF.TRANSFORMER_EXTRA_DROPPED" &&
+           details isa AbstractDict && haskey(details,"field")
+            field = String(details["field"])
+            scope = _powerio_warning_scope(text)
+            push!(get!(warning_scopes,field,String[]),scope)
+            continue
+        end
         if diagnostic !== nothing && diagnostic.code != "EMIT.BMOPF.FIELD_DROPPED"
             push!(unclassified, text)
             continue
@@ -704,8 +721,9 @@ lower case** on ingest, so references resolve regardless of the casing each
 OpenDSS statement happened to use.
 
 OpenDSS numeric terminal names (`"1"`, `"2"`, `"3"`, `"4"`) are remapped to
-the task-force convention (`"a"`, `"b"`, `"c"`, `"n"`) and `neutral_terminal`
-is set to `"n"` on every affected bus.
+the task-force convention (`"a"`, `"b"`, `"c"`, `"n"`). Materialized node-0
+returns remain distinct as perfectly grounded `"n_ref"` terminals; per-bus
+`neutral_terminal` prefers the conductor neutral `"n"` when both are present.
 
 # Arguments
 - `path`: path to the OpenDSS Master.dss file (or any .dss entry point)
@@ -789,13 +807,14 @@ function from_dss(path::AbstractString;
 
     net = parse_bmopf(json_raw; from_string=true)
     _canonicalize_identifiers!(net)
-    _remap_opendss_terminals!(net)
+    _remap_opendss_terminals!(net; grounded_references=Dict(
+        lowercase(string(b.id)) => String.(b.grounded) for b in dn.data.buses))
     _normalize_transformer_no_load_shunts!(net, dn)
     _restore_dss_intake_fidelity!(net, dn)
 
-    # Record the terminal-role convention explicitly (phases a/b/c…, neutral n;
-    # no earth wire — the OpenDSS earth node is routed to neutral, ground stays
-    # implicit). from_dss knows the mapping it just applied, so this is declared
+    # n_ref is a perfectly grounded winding/source return, not a physical
+    # earth wire. It remains separate from the conductor neutral n.
+    # from_dss knows the mapping it just applied, so this is declared
     # rather than left to be inferred downstream (W.CONV.TERMINAL_ROLES_INFERRED).
     # PowerIO's own BMOPF export already carries a `terminal_conventions` block
     # keyed to ITS pre-remap numeric terminal names (e.g. phase=["1","2","4"],
@@ -975,25 +994,18 @@ end
 """
     _remap_opendss_terminals!(net)
 
-Remap OpenDSS numeric terminal names to the task-force phase labels
-(`1,2,3 → a,b,c`, `4 → n`) throughout a BMOPF network dict, and route the
-OpenDSS earth terminal `"5"` to the bus neutral `"n"`. A bus is remapped when
-all of its terminal names are OpenDSS numerics (`⊆ {1,2,3,4,5}`) and it carries
-at least one phase (`1`, `2` or `3`); `neutral_terminal => "n"` is set whenever
-a neutral results. All component `terminal_map` and
-`terminal_map_from`/`terminal_map_to` references are updated consistently, and
-duplicate terminals introduced by the `4`/`5` → `n` collapse are removed.
-
-Buses with other naming conventions (e.g. already `a/b/c/n`) are left unchanged.
-
-When an earth terminal `"5"` is routed to neutral, a note is recorded under
-`net["_meta"]["earth_terminal_routing"]` so the (slightly lossy) modeling choice
-— an earthed star point becomes grounded through the bus neutral rather than
-solidly — stays inspectable.
+Remap the supported OpenDSS phase/neutral labels (`1/2/3 → a/b/c`, `4 → n`).
+PowerIO's materialized node-0 terminal is obtained from the source IR grounded
+terminal list and becomes a distinct `n_ref`, with its perfect grounding intact.
+`n_ref` is a winding/source return to the mathematical reference, not a transported
+neutral or earth wire (PSK-000002). Maps, including n-winding maps, keep that
+identity. `_meta.opendss_ground_references` records the explicit source mapping.
+A grounded reference may be named 4, 5, or another number in the source IR; it
+must never be identified by a fixed global `5 → n` substitution.
 """
-function _remap_opendss_terminals!(net::Dict{String,Any})
+function _remap_opendss_terminals!(net::Dict{String,Any}; grounded_references=nothing)
     rename_maps = Dict{String,Dict{String,String}}()
-    earth_routed = String[]
+    reference_records = Dict{String,Any}()
 
     for (bus_id, bus) in get(net, "bus", Dict())
         bus isa Dict || continue
@@ -1001,43 +1013,39 @@ function _remap_opendss_terminals!(net::Dict{String,Any})
         names isa Vector || continue
         str_names = string.(names)
 
-        # Only OpenDSS-numeric buses carrying at least one phase conductor.
-        all(n -> n in _DSS_NUMERIC_TERMINALS, str_names) || continue
+        # This adapter's phase/neutral naming domain remains 1/2/3/4. The
+        # synthetic reference label is supplied by PowerIO, never guessed as 5.
+        refs = grounded_references === nothing ?
+            string.(get(bus,"perfectly_grounded_terminals",String[])) :
+            get(grounded_references,bus_id,String[])
+        all(n -> haskey(_DSS_TERMINAL_MAP,n) || n in refs, str_names) || continue
         any(n -> n in ("1", "2", "3"), str_names) || continue
+        length(refs) <= 1 || throw(ArgumentError("OpenDSS bus '$bus_id' has ambiguous materialized ground references"))
 
-        rmap = Dict(n => _DSS_TERMINAL_MAP[n] for n in str_names)
+        rmap = Dict(n => n in refs ? "n_ref" : _DSS_TERMINAL_MAP[n] for n in str_names)
         bus["terminal_names"] = unique(rmap[n] for n in str_names)
-        "n" in values(rmap) && (bus["neutral_terminal"] = "n")
-        # Remap a `perfectly_grounded_terminals` reference that PowerIO emits with
-        # the raw OpenDSS *neutral* node number ("4"). The earth terminal ("5")
-        # is handled by the earth-routing path below, so it is intentionally not
-        # turned into a solid neutral ground here.
-        let g = get(bus, "perfectly_grounded_terminals", nothing)
-            g isa Vector &&
-                (bus["perfectly_grounded_terminals"] =
-                     unique(t == "4" ? "n" : string(t)
-                            for t in g if string(t) != "5"))
-            # "5" is the earth terminal: it is routed to the neutral and recorded
-            # under _meta (grounded THROUGH the neutral, not solidly), so it must
-            # be dropped here rather than left as a dangling reference to a
-            # terminal that "5"→"n" removed from terminal_names.
-        end
+        delete!(bus,"neutral_terminal")
+        "n" in values(rmap) ? (bus["neutral_terminal"]="n") :
+            "n_ref" in values(rmap) && (bus["neutral_terminal"]="n_ref")
+        g = get(bus,"perfectly_grounded_terminals",nothing)
+        g isa AbstractVector && (bus["perfectly_grounded_terminals"] =
+            unique(get(rmap,string(t),string(t)) for t in g))
         rename_maps[bus_id] = rmap
-        "5" in str_names && push!(earth_routed, bus_id)
+        isempty(refs) || (reference_records[bus_id] = Dict{String,Any}(
+            "source_terminal"=>only(refs), "target_terminal"=>"n_ref",
+            "source_node"=>"0", "perfectly_grounded"=>true,
+            "physical_neutral_conductor"=>false))
     end
 
     isempty(rename_maps) && return
 
     _remap_terminal_maps!(net, rename_maps)
 
-    if !isempty(earth_routed)
+    if !isempty(reference_records)
         meta = get!(net, "_meta", Dict{String,Any}())
-        meta["earth_terminal_routing"] = Dict(
-            "buses"   => sort(earth_routed),
-            "message" => "OpenDSS earth terminal \"5\" routed to the bus neutral " *
-                         "\"n\"; an earthed star point is grounded through the bus " *
-                         "neutral rather than solidly.",
-        )
+        meta["opendss_ground_references"] = Dict{String,Any}(
+            "knowledge_ids"=>["PSK-000002"], "by_bus"=>reference_records,
+            "status"=>"preserved_as_distinct_perfectly_grounded_returns")
     end
 end
 

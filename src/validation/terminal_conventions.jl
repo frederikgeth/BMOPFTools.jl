@@ -188,7 +188,8 @@ function _check_terminal_conventions(net, findings, n_checks)
         names = get(b,"terminal_names",nothing)
         _index_strings(names) || continue
         neuts = sort!(unique([t for t in names if t in roles.neutral]))
-        if length(neuts)>1
+        if length(neuts)>1 && !(neuts==["n","n_ref"] &&
+                               "n_ref" in get(b,"perfectly_grounded_terminals",String[]))
             push!(findings,Finding(WARNING,"W.CONV.MULTIPLE_NEUTRALS",:domain_rules,:bus,id,
                 "Bus carries multiple terminals classified as neutral.",
                 Dict{String,Any}("terminals"=>neuts,"path"=>_terminal_pointer("bus",id,"terminal_names"))))

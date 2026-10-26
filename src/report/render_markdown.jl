@@ -77,6 +77,7 @@ function _md_voltage_levels(r::SummaryReport, io::IO)
     println(io, "## 2. Voltage Levels\n")
     levels = get(d, "levels", Dict())
     println(io, "**Voltage levels identified:** $(get(d,"n_levels",0))\n")
+    println(io, get(d,"voltage_basis_note","Nominals use a phase-to-reference basis."), "\n")
 
     println(io, "| Level | Nominal | Buses | Lines | Loads | Generators |")
     println(io, "|-------|---------|------:|------:|------:|-----------:|")
@@ -92,6 +93,7 @@ function _md_voltage_levels(r::SummaryReport, io::IO)
         for tr in transitions
             vg = get(tr, "vector_group", "")
             vg_str = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), effective $vg"
+            vg_str *= _phase_source_note(get(tr,"phase_relation",Dict()))
             println(io, "- `$(tr["id"])`: $(tr["level_from"]) → $(tr["level_to"]) ($vg_str)")
         end
         println(io)
@@ -660,9 +662,7 @@ function _md_provenance(r::SummaryReport, io::IO)
         println(io, "|------|------:|-------|------------|------------------:|---------------|")
         for z in zones
             vlab = isnan(z["nominal_v"]) ? "?" : _fmt_kv(z["nominal_v"])
-            star = z["star_earthing"] == "solid" ? "solid" :
-                   z["star_earthing"] == "impedance" ?
-                       "R≈$(round(z["star_R_ohm"], sigdigits=2)) Ω" : "none"
+            star = _star_earthing_label(z)
             println(io, "| $vlab | $(z["n_buses"]) | $(z["wires"]) | $star | " *
                         "$(z["n_downstream_earths"]) | $(z["tag"]) |")
         end
@@ -671,8 +671,7 @@ function _md_provenance(r::SummaryReport, io::IO)
 
     pc = get(d, "powerio_conversion", Dict())
     if get(pc, "n_classes", 0) > 0
-        println(io, "**PowerIO conversion:** $(pc["n_diagnostics"]) fidelity " *
-                    "loss(es) in $(pc["n_classes"]) class(es) — see findings\n")
+        println(io, "**PowerIO conversion:** $(pc["n_diagnostics"]) diagnostic record(s) in $(pc["n_classes"]) class(es) — see findings\n")
     end
 
     _md_section_findings(r, io, :provenance)
