@@ -1,6 +1,6 @@
 # BMOPF Network Summary: case_development_example
 
-**Generated:** 2026-10-25 11:35:04  
+**Generated:** 2026-10-26 09:08:15  
 **Findings:** 0 errors · 2 warnings · 12 info  
 **Convention:** LV_230V: 4-wire; 1 grounding point(s); series-only line model
 
@@ -25,6 +25,8 @@
 ## 2. Voltage Levels
 
 **Voltage levels identified:** 1
+
+Nominal phase-to-reference magnitudes; balanced three-phase line-to-line values are √3 times these values.
 
 | Level | Nominal | Buses | Lines | Loads | Generators |
 |-------|---------|------:|------:|------:|-----------:|
@@ -150,7 +152,7 @@ inapplicable: No switch records.
 
 | Zone | Buses | Wires | Star point | Downstream earths | Likely system |
 |------|------:|-------|------------|------------------:|---------------|
-| 230.0 V | 4 | 4-wire | solid | 0 | TN-S or TT (source-earthed only — protective-earth side not representable in the data model) |
+| 230.0 V | 4 | 4-wire | perfect (0 Ω) | 0 | grounded infeed reference; protective-earthing system indeterminate |
 
 > 🔵 **[I.PROV.SEQ_DERIVED]** 1 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: cable.
 > 🔵 **[I.PROV.LINE_MODEL_UNIFORM]** All 1 line-model definition(s) use a single, consistent model: pure series impedance. Shunt charging is neglected network-wide — expected for LV / short-cable networks, but worth confirming for feeders with long MV/HV overhead or underground-cable sections.
