@@ -24,10 +24,15 @@ end
                   "switch_is_an_ideal_closure_with_no_series_impedance"
             @test all(startswith("switch:"), record["unmapped_scopes"])
         end
-        @test mapping["blocking_unmapped_fields"] == ["leadlag"]
+        # The feeder authors no leadlag (OpenDSS default, ANSI lag), so there is
+        # no leadlag ledger entry and nothing blocks.
+        @test mapping["blocking_unmapped_fields"] == String[]
+        @test !haskey(mapping["by_field"], "leadlag")
+        @test isempty(net["_meta"]["powerio_source_semantics"]["transformer_phase_relations"])
 
         # PowerIO 0.9 returns owned diagnostic records rather than capping a
-        # per-call channel. The source leadlag field remains explicitly blocking. (Under
+        # per-call channel, so the ledger's empty blocking list is a fidelity
+        # statement. (Under
         # PowerIO <= 0.7 the list was truncated and the status had to say so.)
         @test !any(contains("warning list truncated"), net["_meta"]["powerio_warnings"])
         @test mapping["warnings_truncated_upstream"] == false
