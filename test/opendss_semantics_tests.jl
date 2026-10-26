@@ -86,16 +86,26 @@ using Test, BMOPFTools, PowerIO, JSON3, LinearAlgebra
             "perfectly_grounded_terminals"=>["4","5"])))
         @test_throws ArgumentError BMOPFTools._remap_opendss_terminals!(bad)
 
-        # The upstream export gap remains explicit, including unknown values.
-        for leadlag in ("euro","lag","unsupported_value")
+        # leadlag is checked, never repaired: lag/ansi (the OpenDSS default)
+        # match the converted Dy1 clock; lead/euro are a known 60° mismatch;
+        # unrecognized values stay indeterminate. All three classes stay serializable.
+        for (leadlag,status,blocking,note) in (
+                ("lag","verified",false,"source leadlag=lag verified"),
+                ("ansi","verified",false,"source leadlag=ansi verified"),
+                ("euro","known_mismatch",true,"SOURCE MISMATCH: leadlag=euro implies clock 11, converted clock 1"),
+                ("lead","known_mismatch",true,"SOURCE MISMATCH: leadlag=lead implies clock 11, converted clock 1"),
+                ("unsupported_value","indeterminate",true,"source leadlag=unsupported_value unverified"))
             net,_=load_variant(leadlag=leadlag)
             mapping=net["_meta"]["powerio_source_mapping"]
-            @test "leadlag" in mapping["blocking_unmapped_fields"]
-            @test mapping["by_field"]["leadlag"]["unmapped_scopes"]==["transformer:t"]
+            @test ("leadlag" in mapping["blocking_unmapped_fields"]) == blocking
+            @test (mapping["by_field"]["leadlag"]["unmapped_scopes"]==["transformer:t"]) == blocking
+            blocking || @test mapping["by_field"]["leadlag"]["status"]=="mapped_with_verification"
             ev=transformer_phase_relation(net,"delta_wye",net["transformer"]["delta_wye"]["t"])
-            @test ev["status"]=="known" # the represented target relation
-            @test ev["source_preservation"]["status"]=="indeterminate"
+            @test ev["status"]=="known" && ev["clock"]==1 # the represented target relation
+            @test ev["source_preservation"]["status"]==status
             @test ev["source_preservation"]["leadlag"]==leadlag
+            @test ev["source_preservation"]["source_clock"]==(status=="indeterminate" ? nothing :
+                status=="verified" ? 1 : 11)
             @test any(f->f.code=="EMIT.BMOPF.TRANSFORMER_EXTRA_DROPPED",powerio_findings(net))
             io=IOBuffer();write_bmopf(net,io)
             restored=parse_bmopf(String(take!(io));from_string=true)
@@ -106,13 +116,13 @@ using Test, BMOPFTools, PowerIO, JSON3, LinearAlgebra
             @test ybus_passive(restored).index[("lv","n")]>0
             report=analyze(restored)
             md=IOBuffer();BMOPFTools.render_markdown(report,md);text=String(take!(md))
-            @test occursin("source leadlag=$leadlag unverified",text)
+            @test occursin(note,text)
             @test occursin("phase-to-reference",text)
             @test occursin("diagnostic record(s)",text)
             @test !occursin("fidelity loss(es)",text)
             @test occursin("perfect (0 Ω)",text)
             terminal=IOBuffer();render(report,terminal;color=false)
-            @test occursin("source leadlag=$leadlag unverified",String(take!(terminal)))
+            @test occursin(note,String(take!(terminal)))
             json=IOBuffer();BMOPFTools.render_json(report,json)
             data=JSON3.read(String(take!(json)),Dict{String,Any})
             @test data["results"]["voltage_levels"]["voltage_basis"]=="phase_to_reference"
@@ -132,7 +142,9 @@ using Test, BMOPFTools, PowerIO, JSON3, LinearAlgebra
                 native=[(k<=4 ? "mv" : "lv",label[ns[k]]) for k in 1:8]
                 rows=[findfirst(==(node),native) for node in nodes]
                 @test all(!isnothing,rows)
-                @test norm(Y-y[rows,rows])/norm(y[rows,rows])<1e-2
+                # Observed agreement is ~2e-8; swapping the star slot with a
+                # phase gives ~0.94, so 1e-6 separates placement errors cleanly.
+                @test norm(Y-y[rows,rows])/norm(y[rows,rows])<1e-6
                 if isdefined(@__MODULE__,:Ipopt) && isdefined(@__MODULE__,:JuMP)
                     @test D.Solution.Converged()
                     D.Circuit.SetActiveBus("lv")
@@ -145,6 +157,29 @@ using Test, BMOPFTools, PowerIO, JSON3, LinearAlgebra
                     end
                 end
             end
+            # Source-clock table used by from_dss, measured against OpenDSS for
+            # both mixed connection orders and every recognized leadlag value.
+            for (c1,c2) in (("delta","wye"),("wye","delta")), ll in ("lag","ansi","lead","euro")
+                deck="""
+                Clear
+                Set DefaultBaseFrequency=50
+                New Circuit.c basekv=11 pu=1 angle=0 frequency=50 bus1=mv model=ideal
+                New Transformer.t phases=3 windings=2 leadlag=$ll xhl=4
+                ~ wdg=1 bus=mv conn=$c1 kv=11 kva=100 %r=0.5
+                ~ wdg=2 bus=lv conn=$c2 kv=0.433 kva=100 %r=0.5
+                New Load.x bus1=lv.1.2.3 phases=3 kv=0.433 kw=0.001 conn=delta
+                Solve
+                """
+                p=joinpath(dir,"clock.dss"); write(p,deck)
+                D.dss("Clear");D.dss("Redirect \"$p\"")
+                seq(b)=(D.Circuit.SetActiveBus(b); v=D.Bus.Voltages(); a=cis(2π/3); v[1]+a*v[2]+a^2*v[3])
+                native_clock=mod(round(Int,-rad2deg(angle(seq("lv")/seq("mv")))/30),12)
+                rec=only(from_dss(p)["_meta"]["powerio_source_semantics"]["transformer_phase_relations"])
+                @test rec["source_clock"]==native_clock
+                @test rec["status"]==(ll in ("lag","ansi") ? "verified" : "known_mismatch")
+            end
+        else
+            @test_skip "OpenDSS primitive, neutral-voltage and leadlag oracles require OpenDSSDirect"
         end
     end
 end

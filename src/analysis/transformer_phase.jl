@@ -12,8 +12,16 @@ function _source_phase_preservation(net,subtype,xf)
     nothing
 end
 
-_phase_source_note(ev) = get(ev,"source_preservation",nothing) === nothing ? "" :
-    "; converted-model relation only; source leadlag=$(ev["source_preservation"]["leadlag"]) unverified"
+function _phase_source_note(ev)
+    sp=get(ev,"source_preservation",nothing)
+    sp isa AbstractDict || return ""
+    ll=get(sp,"leadlag","?"); status=get(sp,"status","indeterminate")
+    status=="verified" && return "; source leadlag=$ll verified"
+    status=="not_applicable" && return ""
+    status=="known_mismatch" &&
+        return "; SOURCE MISMATCH: leadlag=$ll implies clock $(sp["source_clock"]), converted clock $(sp["target_clock"])"
+    "; converted-model relation only; source leadlag=$ll unverified"
+end
 
 function _phase_windings(net, subtype, xf)
     r=(;kind="transformer",id="",subtype,component=xf)

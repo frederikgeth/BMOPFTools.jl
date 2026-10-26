@@ -109,7 +109,7 @@ const _POWERIO_KIND_FIELD_POLICY = Dict(
 
 const _POWERIO_FIELD_POLICY = Dict(
     "leadlag" => (impact = "physical_or_operating_point", blocking = true,
-        reason = "source_transformer_phase_relation_not_preserved_by_export"),
+        reason = "source_leadlag_clock_not_verified_or_differs_from_converted_clock"),
     "units" => (impact = "representational", blocking = false,
         reason = "source_units_have_no_direct_BMOPF_field"),
     "model" => (impact = "device_semantics", blocking = true,
@@ -165,19 +165,87 @@ function _powerio_float(value)
     parsed === nothing || !isfinite(parsed) ? nothing : parsed
 end
 
-"""Retain normalized source semantics that have no active BMOPF field."""
-function _powerio_source_semantics(dn)
-    transformer_phase = Dict{String,Any}[]
+# OpenDSS `LeadLag` (PSK-000006). Measured with OpenDSS for two-winding,
+# three-phase units (winding 2 relative to winding 1): a mixed wye/delta pair
+# gives clock 1 for `lag`/`ansi` (the OpenDSS default) and clock 11 for
+# `lead`/`euro`; equal connections give clock 0 for every value. Any other
+# shape or value has no source clock here.
+function _dss_leadlag_source_clock(conns, leadlag)
+    length(conns) == 2 && all(in(("wye", "delta")), conns) || return nothing
+    conns[1] == conns[2] && return 0
+    leadlag in ("lag", "ansi") && return 1
+    leadlag in ("lead", "euro") && return 11
+    nothing
+end
+
+"""
+Compare each authored OpenDSS `leadlag` against the converted transformer's
+ideal phase relation. The source clock comes from the source winding
+connections and `leadlag`; the target clock comes from
+[`transformer_phase_relation`](@ref) on the converted model. Nothing is
+repaired or permuted: a disagreement is recorded as `known_mismatch`.
+"""
+function _dss_leadlag_records(dn, net)
+    records = Dict{String,Any}[]
     for item in dn.data.transformers
-        raw = _powerio_extra(item,"leadlag")
+        raw = _powerio_extra(item, "leadlag")
         raw === nothing && continue
-        push!(transformer_phase,Dict{String,Any}(
-            "scope"=>_powerio_scope("transformer",item.name),
-            "leadlag"=>lowercase(strip(string(raw))),
-            "status"=>"indeterminate", "representation"=>"retained_source_only",
-            "reason"=>"leadlag_not_mapped_into_target_winding_incidence",
-            "knowledge_ids"=>["PSK-000006"]))
+        name = lowercase(strip(string(item.name)))
+        leadlag = lowercase(strip(string(raw)))
+        windings = collect(item.windings)
+        conns = [lowercase(string(get(w, "conn", ""))) for w in windings]
+        phases = try Int(item.phases) catch; nothing end
+        source_clock = phases == 3 ? _dss_leadlag_source_clock(conns, leadlag) : nothing
+        record = Dict{String,Any}(
+            "scope" => _powerio_scope("transformer", name),
+            "leadlag" => leadlag, "source_connections" => conns,
+            "source_clock" => source_clock, "target_clock" => nothing,
+            "target_subtype" => nothing,
+            "representation" => "retained_source_only",
+            "knowledge_ids" => ["PSK-000006"])
+        push!(records, record)
+        if phases == 3 && length(conns) == 2 && conns[1] == conns[2] && source_clock == 0
+            record["status"] = "not_applicable"
+            record["reason"] = "leadlag_has_no_effect_on_equal_winding_connections"
+            continue
+        end
+        if source_clock === nothing
+            record["status"] = "indeterminate"
+            record["reason"] = leadlag in ("lag", "ansi", "lead", "euro") ?
+                "transformer_shape_outside_measured_leadlag_domain" : "unrecognized_leadlag_value"
+            continue
+        end
+        target = nothing
+        for (subtype, group) in get(net, "transformer", Dict())
+            group isa AbstractDict && haskey(group, name) && (target = (subtype, group[name]))
+        end
+        source_bus1 = lowercase(string(get(windings[1], "bus", "")))
+        if target === nothing || !(target[2] isa AbstractDict) ||
+           lowercase(string(get(target[2], "bus_from", ""))) != source_bus1
+            record["status"] = "indeterminate"
+            record["reason"] = "converted_transformer_or_winding_order_not_identified"
+            continue
+        end
+        record["target_subtype"] = target[1]
+        relation = transformer_phase_relation(net, target[1], target[2])
+        record["target_clock"] = relation["clock"]
+        if relation["status"] != "known"
+            record["status"] = "indeterminate"
+            record["reason"] = "converted_phase_relation_" * string(relation["status"])
+        elseif relation["clock"] == source_clock
+            record["status"] = "verified"
+            record["reason"] = "converted_clock_matches_source_leadlag"
+        else
+            record["status"] = "known_mismatch"
+            record["reason"] = "converted_clock_differs_from_source_leadlag"
+        end
     end
+    records
+end
+
+"""Retain normalized source semantics that have no active BMOPF field."""
+function _powerio_source_semantics(dn; leadlag_records=Dict{String,Any}[])
+    transformer_phase = deepcopy(leadlag_records)
     load_thresholds = Dict{String,Any}[]
     for item in dn.data.loads
         vmin = _powerio_float(_powerio_extra(item, "vminpu"))
@@ -417,8 +485,19 @@ function _restore_dss_intake_fidelity!(net, dn)
 end
 
 """Record source fields that are demonstrably represented by BMOPF fields."""
-function _powerio_bmopf_field_mapping(dn, net; diagnostics=nothing)
+function _powerio_bmopf_field_mapping(dn, net; diagnostics=nothing,
+                                      leadlag_records=Dict{String,Any}[])
     by_field = Dict{String,Any}()
+    # leadlag counts as represented only where the converted clock was checked
+    # against the source clock (or leadlag cannot act on the connection pair).
+    leadlag_scopes = String[r["scope"] for r in leadlag_records
+                            if r["status"] in ("verified", "not_applicable")]
+    isempty(leadlag_scopes) || (by_field["leadlag"] = Dict{String,Any}(
+        "status" => "mapped_with_verification",
+        "target" => "transformer winding incidence (ideal clock)",
+        "transform" => "opendss_leadlag_checked_against_converted_clock",
+        "mapped_scopes" => sort!(unique(leadlag_scopes)),
+        "knowledge_ids" => ["PSK-000006"]))
     load_net = get(net, "load", Dict{String,Any}())
     for (field, target, transform) in (
         ("kv", "load.v_nom", "kV_to_volts"),
@@ -686,7 +765,8 @@ function _powerio_bmopf_field_mapping(dn, net; diagnostics=nothing)
     fields = sort!(collect(keys(by_field)))
     mapped_fields = sort!([field for field in fields if
         get(get(by_field, field, Dict()), "status", "unmapped") in
-            ("mapped", "mapped_with_transform", "mapped_with_contract")])
+            ("mapped", "mapped_with_transform", "mapped_with_contract",
+             "mapped_with_verification")])
     return Dict{String,Any}(
         "fields" => mapped_fields,
         "unmapped_fields" => unmapped_fields,
@@ -837,10 +917,12 @@ function from_dss(path::AbstractString;
         _powerio_diagnostic_records(diagnostics; fold_ids=true)
     net["_meta"]["powerio_source"]   = abspath_dss
     net["_meta"]["powerio_source_metadata"] = _powerio_source_metadata(dn)
-    source_mapping = _powerio_bmopf_field_mapping(dn, net; diagnostics=diagnostics)
+    leadlag_records = _dss_leadlag_records(dn, net)
+    source_mapping = _powerio_bmopf_field_mapping(dn, net; diagnostics=diagnostics,
+                                                  leadlag_records=leadlag_records)
     net["_meta"]["powerio_source_mapped_fields"] = source_mapping["fields"]
     net["_meta"]["powerio_source_mapping"] = source_mapping
-    net["_meta"]["powerio_source_semantics"] = _powerio_source_semantics(dn)
+    net["_meta"]["powerio_source_semantics"] = _powerio_source_semantics(dn; leadlag_records=leadlag_records)
     findings === nothing || append!(findings, powerio_findings(net))
 
     # Capture the system frequency PowerIO parsed from the DSS circuit

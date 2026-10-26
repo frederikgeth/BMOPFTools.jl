@@ -380,19 +380,32 @@ target alone. Re-import the original DSS input; historical
 ### Source phase relation and report qualification
 
 PowerIO 0.11.6 retains authored `leadlag` in transformer source extras but drops it
-from its BMOPF transformer export. BMOPFTools does not invent a phase mapping or
-change the target's winding equations to compensate. Its field ledger recognizes
-`EMIT.BMOPF.TRANSFORMER_EXTRA_DROPPED`, records `leadlag` as an unmapped field, and
-marks it blocking for physical readiness. The existing stable upstream Finding
-code is preserved.
+from its BMOPF transformer export, which always encodes the ANSI relation. BMOPFTools
+does not invent a phase mapping or change the target's winding equations to
+compensate. Instead it **checks** each authored value: the source clock follows
+from the source winding connections and `leadlag`, and the target clock from
+[`transformer_phase_relation`](@ref) on the converted model.
 
-`_meta.powerio_source_semantics.transformer_phase_relations` retains the authored
-value and an `indeterminate` source-preservation status. The structured phase
-relation (PSK-000006) describes the represented target and carries this evidence
-in `source_preservation`. Markdown, terminal, and tree views qualify the target
-clock with the unmapped source value. A known target clock is not a certificate
-of preserved OpenDSS phase behavior. This applies to `lag` as well as `euro`:
-compatibility requires a reviewed mapping, not merely a matching label.
+| Source connections | `leadlag` | Source clock (winding 2 vs 1) | Ledger outcome |
+|---|---|---|---|
+| mixed wye/delta, 3-phase, 2 windings | `lag`, `ansi` (OpenDSS default) | 1 | `verified` if the target clock is 1 → mapped, not blocking |
+| mixed wye/delta, 3-phase, 2 windings | `lead`, `euro` | 11 | `known_mismatch` (target clock 1) → blocking |
+| equal connections (Yy, Dd) | any | 0 | `not_applicable` → mapped, not blocking |
+| any other shape, or an unrecognized value | — | — | `indeterminate` → blocking |
+
+The source clocks were measured against OpenDSS for both connection orders and
+are re-checked by the test suite whenever OpenDSSDirect is available. A
+`known_mismatch` is a definite 60° error in the converted model's
+phase relation. It does not change magnitudes on a radial feeder fed from one
+side, but it does matter for meshed or parallel transformers and for any
+result compared by angle across the transformer.
+
+`_meta.powerio_source_semantics.transformer_phase_relations` records the authored
+value, `source_clock`, `target_clock` and `status` per transformer. The
+structured phase relation (PSK-000006) describes the represented target and
+carries this record in `source_preservation`. Markdown, terminal and tree views
+append `source leadlag=… verified`, a `SOURCE MISMATCH` note, or `unverified`.
+The existing upstream Finding `EMIT.BMOPF.TRANSFORMER_EXTRA_DROPPED` is kept.
 
 ### Earthing and nominal-voltage report semantics
 
