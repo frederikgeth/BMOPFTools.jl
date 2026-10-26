@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "361934859542a5f812703e40667d71e0c541b4c7b65b8cc467f7a094c8afedec",
+  "corpus_sha256": "828d09d74f63d3442a5db203bdb2d035f69ac38a6d4acf17f4f460a2adc2c6a4",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -110,7 +110,7 @@
     },
     {
       "path": "docs/src/conversion.md",
-      "sha256": "444ba6ddc6de192e405ebaae26cc6b6ad0b0b410f962bd36c4edf291cb4909e7"
+      "sha256": "a3c09afe5db78d83c90ddf3d77e90f9674d5d858b7e0b8ac096bdc81eeeca3ab"
     },
     {
       "path": "docs/src/dev/opf_engine.md",
@@ -434,7 +434,7 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "157536c2df83b6ca28bf2acf859b687880a26cf1dc287172a76ca8f16b42440b"
+      "sha256": "f95be19a19589c7c240d543e4e7c568d075913c65d2e62a5aec4000d3fa10a31"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -462,7 +462,7 @@
     },
     {
       "path": "src/analysis/provenance/wires_grounding.jl",
-      "sha256": "a8c91f548152f45c96855e217e54693180223fa0285ebf62c57c66cac2cfb6a6"
+      "sha256": "c4981effd74c9c1aeaf5c7be6ca3624d4892bdc911d31b27b8592152e0bb0395"
     },
     {
       "path": "src/analysis/spatial.jl",
@@ -502,7 +502,7 @@
     },
     {
       "path": "src/analysis/transformer_phase.jl",
-      "sha256": "2a21135b54adc11caba3a22c4c548d884982df773db4896d413bce704c370831"
+      "sha256": "683bb30e5cc047a9c4c300be973be30f7a4660e3a95ec4e8161ee0216524a2af"
     },
     {
       "path": "src/analysis/voltage_levels.jl",
@@ -562,7 +562,7 @@
     },
     {
       "path": "src/io/from_dss.jl",
-      "sha256": "be4c9053e407eaf9efa1a363628266d1785dda6901b95585a2704a3bcd0cce3c"
+      "sha256": "afb74403be73a394acd6d9f36f45832d11f5d708f6c015863f8f48cf2983cd1f"
     },
     {
       "path": "src/io/load_geometry.jl",
@@ -666,7 +666,7 @@
     },
     {
       "path": "src/validation/device_indexing.jl",
-      "sha256": "93f88733d48a2080fdda18e7c427acca0909d92014a5de6c9a2b80ae8f853940"
+      "sha256": "7666c80bce6e1f44a16ae9895c5ab4299e20d490217ec1732f581ba8fa0424a4"
     },
     {
       "path": "src/validation/domain_rules.jl",
@@ -698,7 +698,7 @@
     },
     {
       "path": "src/validation/terminal_conventions.jl",
-      "sha256": "368b2da0ed994a1b72ca30adf9b58b47ec5ba70837187bab9b4b2f9a609ba0eb"
+      "sha256": "3ed7843f85011bc45d39ae6fa8786d320ee6ddb0813ab11ab20ad72e52246a8b"
     },
     {
       "path": "test/Project.toml",
@@ -1374,19 +1374,19 @@
     },
     {
       "path": "test/ideal_center_tap_tests.jl",
-      "sha256": "950f92a8d6d11143a120bbb16a469d004de9f6d77378aef008827eafde2fa8c7"
+      "sha256": "c854995e06082ee96579be004221c1a27b1b0e4e4034c4c1a50a5906bdbc312a"
     },
     {
       "path": "test/ideal_nwinding_tests.jl",
-      "sha256": "052660144acc73d7f03b8be1247ea5836794320a5affd34cdd5770b1f7bf8613"
+      "sha256": "b3880034f05fbf004a86f63e034f63135c282a76003c21cc8dc5f39870243c6e"
     },
     {
       "path": "test/ideal_regulator_tests.jl",
-      "sha256": "dd267045fbaed32bd65481935647f9015a0179916d65d38813c506ac0d806674"
+      "sha256": "4d11e38b8d67f99d6692eeff0abd0eb91ae15a2e191182df07a1cd5a69b4272b"
     },
     {
       "path": "test/ideal_transformer_shunt_tests.jl",
-      "sha256": "73dbe8b8faf62c1419f345fcba41f046b5f2e377693ad84345997ac9e9341a0e"
+      "sha256": "262a759ef929602645e9ec707ad36eea4147aec99a43dc45f5fc01a7806db83f"
     },
     {
       "path": "test/ipopt_barrier_benchmark_tests.jl",
@@ -1418,7 +1418,7 @@
     },
     {
       "path": "test/opendss_semantics_tests.jl",
-      "sha256": "430849c2a06a97ac68c27cca81aabc3a8835bf903659cbe7a99e1a2bdc6498fe"
+      "sha256": "dea3ac0befa4241b4670760814a6b5db98b83725bc93efbf7085d8c02edc2e77"
     },
     {
       "path": "test/operational_mesh_applicability_tests.jl",
@@ -1586,7 +1586,7 @@
     },
     {
       "path": "test/transformer_leakage_policy_tests.jl",
-      "sha256": "2cf3c2799f56c653a64d8abf41f8e5809d9fca7f65208c99bfc196a6d3203016"
+      "sha256": "357c19568e91431dda2fc8cdc712a3d15be0436c20bb4b4c1e575c76dc726d85"
     },
     {
       "path": "test/transformer_loading_opf_tests.jl",
