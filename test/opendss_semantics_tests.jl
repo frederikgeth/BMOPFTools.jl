@@ -65,6 +65,14 @@ using Test, BMOPFTools, PowerIO, JSON3, LinearAlgebra
         phase_only["terminal_conventions"]["neutral"]=String[]
         @test BMOPFTools._branch_wire_description(phase_only,["lv","customer"])==
             "4 conductors; neutral unassessed"
+        # A 4-wire trunk with a 2-wire service reports both conductor counts.
+        service=deepcopy(explicit)
+        service["bus"]["house"]=Dict{String,Any}("terminal_names"=>["a","n"])
+        service["line"]["svc"]=merge(deepcopy(service["line"]["l"]),Dict{String,Any}(
+            "bus_from"=>"customer","bus_to"=>"house",
+            "terminal_map_from"=>["a","n"],"terminal_map_to"=>["a","n"]))
+        @test BMOPFTools._branch_wire_description(service,["lv","customer","house"])==
+            "mixed (2/4 conductors)"
         @test mv["n_buses_with_neutral_conductor"]==0
         @test mv["wires"]=="no branch conductors represented"
         @test zi["protective_system_status"]=="indeterminate"

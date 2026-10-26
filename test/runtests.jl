@@ -4119,6 +4119,9 @@ include("mcp_execution_tests.jl")
         # The module consts are sourced from the config.
         @test BMOPFTools._THERMAL_TOLERANCE == cfg["thermal"]["tolerance"]
         @test !isdefined(BMOPFTools,:_EARTH_SOLID_OHM)
+        legacy_cfg = tempname() * ".toml"
+        write(legacy_cfg, "[provenance.grounding]\nearth_solid_ohm = 2.0\n")
+        @test_logs (:warn, r"no longer affect earthing reports") load_config(legacy_cfg)
         @test BMOPFTools._DSS_NORMAMPS == cfg["provenance"]["dss_defaults"]["normamps"]
         @test BMOPFTools._DEFAULT_THRESHOLDS["pf_min"] == cfg["domain_rules"]["pf_min"]
 

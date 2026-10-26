@@ -39,7 +39,7 @@ function _wires_by_level(net::Dict{String,Any},
             length(tm) == 1 && push!(implicit_loads, lid)
         end
 
-        wires = _branch_wire_description(net,ids)
+        wires = _branch_wire_description(net,ids;carried)
 
         out[label] = Dict{String,Any}(
             "nominal_v"               => nominal_v,
@@ -429,7 +429,7 @@ function _neutral_branch_buses(net)
     out
 end
 
-function _branch_wire_description(net,ids)
+function _branch_wire_description(net,ids;carried=nothing)
     busset=Set(ids); sizes=Set{Int}(); malformed=false
     for kind in ("line","switch"),(_,c) in get(net,kind,Dict())
         if !(c isa AbstractDict)
@@ -446,9 +446,10 @@ function _branch_wire_description(net,ids)
     end
     malformed && return "indeterminate branch conductors"
     isempty(sizes) && return "no branch conductors represented"
-    length(sizes)==1 || return "mixed"
+    length(sizes)==1 || return "mixed ($(join(sort!(collect(sizes)),"/")) conductors)"
     n=only(sizes)
-    n==4 && !all(in(_neutral_branch_buses(net)),ids) &&
+    carried===nothing && (carried=_neutral_branch_buses(net))
+    n==4 && !all(in(carried),ids) &&
         return "4 conductors; neutral unassessed"
     "$n-wire"
 end
@@ -503,7 +504,7 @@ function _earthing_zones(net::Dict{String,Any},vl::Dict{String,Any})::Vector{Dic
              isfinite(star_R) ? "impedance" : "none"
         n_down=count(b -> haskey(neutral_earth,b) && !(b in infeed_buses),isl)
         nc=count(in(carried),isl)
-        wires=_branch_wire_description(net,isl)
+        wires=_branch_wire_description(net,isl;carried)
         tag=kind=="indeterminate" ? "earthing indeterminate (infeed grounding unassessed)" :
             n_down>0 ? "multi-earthed neutral; protective-earthing system indeterminate" :
             kind=="perfect" ? "grounded infeed reference; protective-earthing system indeterminate" :
