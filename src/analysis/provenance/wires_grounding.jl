@@ -458,7 +458,7 @@ function _earthing_zones(net::Dict{String,Any},vl::Dict{String,Any})::Vector{Dic
     buses=get(net,"bus",Dict()); isempty(buses) && return Dict{String,Any}[]
     neutral_of=_bus_neutral_map(buses); earth=_terminal_earthing(net)
     neutral_earth=Dict(b=>z for (b,z) in _bus_neutral_earthing(net,neutral_of)
-        if neutral_of[b]!="n_ref")
+        if !_is_grounded_reference(buses[b],neutral_of[b]))
     carried=_neutral_branch_buses(net)
     vmap=get(vl,"bus_voltage_map",Dict()); zones=Dict{String,Any}[]
     roles=_index_roles(net)

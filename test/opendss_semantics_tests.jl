@@ -41,6 +41,17 @@ using Test, BMOPFTools, PowerIO, JSON3, LinearAlgebra
                 ("E.SPEC.WYE_MISSING_NEUTRAL","I.SPEC.LOAD_PHASE_TO_PHASE"),found)
         end
 
+        # The exemption needs the perfect grounding, not just the label: an
+        # ungrounded n_ref beside n is two conductor neutrals.
+        loose=deepcopy(implicit); delete!(loose["bus"]["lv"],"perfectly_grounded_terminals")
+        @test BMOPFTools._conductor_neutrals(loose["bus"]["lv"],Set(["n","n_ref"]))==["n","n_ref"]
+        found=Finding[]; BMOPFTools._check_terminal_conventions(loose,found,Ref(0))
+        @test any(f -> f.code=="W.CONV.MULTIPLE_NEUTRALS" && f.component_id=="lv",found)
+        found=Finding[]; BMOPFTools._check_terminal_conventions(implicit,found,Ref(0))
+        @test !any(f -> f.code=="W.CONV.MULTIPLE_NEUTRALS",found)
+        @test BMOPFTools._index_bus_neutral(implicit,"lv")=="n"
+        @test BMOPFTools._index_bus_neutral(loose,"lv")===nothing
+
         ri=analyze(implicit); re=analyze(explicit)
         zi=only(z for z in ri.results[:provenance]["earthing_zones"] if "lv" in z["buses"])
         ze=only(z for z in re.results[:provenance]["earthing_zones"] if "lv" in z["buses"])

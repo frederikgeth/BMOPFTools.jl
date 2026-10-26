@@ -304,7 +304,22 @@ end
 # Terminal-name label treated as neutral by the fallback naming convention
 # (case-insensitive `"n"`/`"N"`, plus reserved import return `"n_ref"`). This is the definition of the guess we
 # make when a case declares no `terminal_conventions`.
-_is_convention_neutral(name) = lowercase(string(name)) in ("n", "n_ref")
+_is_convention_neutral(name) = lowercase(string(name)) in ("n", _GROUNDED_REFERENCE_LABEL)
+
+# Label from_dss gives a materialized OpenDSS node-0 return (PSK-000002). It is
+# classified as a neutral-role label, but when it is also perfectly grounded at
+# its bus it is the mathematical reference, not a conductor neutral.
+const _GROUNDED_REFERENCE_LABEL = "n_ref"
+
+"""True when terminal `t` of `bus` is the perfectly grounded node-0 return."""
+_is_grounded_reference(bus, t) = bus isa AbstractDict &&
+    string(t) == _GROUNDED_REFERENCE_LABEL &&
+    string(t) in string.(get(bus, "perfectly_grounded_terminals", String[]))
+
+"""Neutral-role terminals of `bus` that are conductor neutrals (grounded node-0 returns excluded)."""
+_conductor_neutrals(bus, neutral_labels) =
+    [t for t in get(bus, "terminal_names", String[])
+     if t in neutral_labels && !_is_grounded_reference(bus, t)]
 
 """
     _terminal_roles(net) -> TerminalRoles

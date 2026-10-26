@@ -30,7 +30,8 @@ function _index_bus_neutral(net, bid, roles=_index_roles(net))
     _index_strings(names) || return nothing
     ns = [t for t in names if t in roles.neutral]
     # A distinct, perfectly grounded node-0 return is not the conductor neutral.
-    "n_ref" in get(b,"perfectly_grounded_terminals",String[]) && "n" in ns && return "n"
+    cn = _conductor_neutrals(b, roles.neutral)
+    length(cn)==1 && return only(cn)
     length(ns)==1 ? only(ns) : nothing
 end
 
@@ -64,9 +65,7 @@ function _device_index_context(net, kind, id, c; roles=_index_roles(net))
             "unknown_terminal"
         elseif any(r -> r in ("ambiguous","unclassified"),rs)
             "unresolved_roles"
-        elseif count(t -> t in roles.neutral,get(b,"terminal_names",String[])) > 1 &&
-               !("n_ref" in get(b,"perfectly_grounded_terminals",String[]) &&
-                 count(t -> t in roles.neutral && t != "n_ref",get(b,"terminal_names",String[])) <= 1)
+        elseif length(_conductor_neutrals(b, roles.neutral)) > 1
             "multiple_bus_neutrals"
         elseif "earth" in rs
             "unsupported_earth_conductor"

@@ -1110,17 +1110,17 @@ function _remap_opendss_terminals!(net::Dict{String,Any}; grounded_references=no
         any(n -> n in ("1", "2", "3"), str_names) || continue
         length(refs) <= 1 || throw(ArgumentError("OpenDSS bus '$bus_id' has ambiguous materialized ground references"))
 
-        rmap = Dict(n => n in refs ? "n_ref" : _DSS_TERMINAL_MAP[n] for n in str_names)
+        rmap = Dict(n => n in refs ? _GROUNDED_REFERENCE_LABEL : _DSS_TERMINAL_MAP[n] for n in str_names)
         bus["terminal_names"] = unique(rmap[n] for n in str_names)
         delete!(bus,"neutral_terminal")
         "n" in values(rmap) ? (bus["neutral_terminal"]="n") :
-            "n_ref" in values(rmap) && (bus["neutral_terminal"]="n_ref")
+            _GROUNDED_REFERENCE_LABEL in values(rmap) && (bus["neutral_terminal"]=_GROUNDED_REFERENCE_LABEL)
         g = get(bus,"perfectly_grounded_terminals",nothing)
         g isa AbstractVector && (bus["perfectly_grounded_terminals"] =
             unique(get(rmap,string(t),string(t)) for t in g))
         rename_maps[bus_id] = rmap
         isempty(refs) || (reference_records[bus_id] = Dict{String,Any}(
-            "source_terminal"=>only(refs), "target_terminal"=>"n_ref",
+            "source_terminal"=>only(refs), "target_terminal"=>_GROUNDED_REFERENCE_LABEL,
             "source_node"=>"0", "perfectly_grounded"=>true,
             "physical_neutral_conductor"=>false))
     end
