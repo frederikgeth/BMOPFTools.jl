@@ -248,8 +248,8 @@ above 90%; its threshold and meaning are unchanged.
 Positive headroom **does not prove feasibility** and negative headroom **does
 not prove infeasibility**. The result records both limitations, its assumptions
 and `solver_run = false`. It neither retries a solve nor edits the network.
-This screening evidence is linked to **PSK-000013** to distinguish it from a
-solved-network feasibility witness; it does not extend that scientific claim.
+This is a nominal-demand screen. Assessing a solved network also requires
+checking its equations, operating limits and recovered quantities.
 
 ### Geometry and topology review candidates
 
@@ -324,15 +324,21 @@ to one of many ports does not classify a whole network as a service drop.
 Invalid threshold policies are indeterminate; explicitly disabled comparisons
 are skipped. Both reasons appear in assessment coverage.
 
-`provenance.impedance_transform.classification_version = "2"` separates matrix
-observations and PN/MPN heuristic candidates from declared, unverified history.
-Its deprecated `by_linecode` projection retains candidate names and adds explicit
-`unknown`; it no longer assigns unmatched matrices to `kron_reduced`.
-`I.PROV.IMPEDANCE_TRANSFORM_KR` remains in the Finding lookup for historical
-reports but is not emitted by that heuristic. `I.PROV.SEQ_DERIVED` also retains
-its historical code name while describing a structural signature. PSK-000008
-and PSK-000009 checks retain their existing narrow domains; none is inferred to
-pass from a matrix signature.
+The impedance profiler describes the matrices supplied with the case. Equal
+self and mutual entries, negligible series coupling, or a PN/MPN-like pattern
+are observations about those matrices. Establishing how the parameters were
+produced requires source data or a documented transformation record.
+
+Read `I.PROV.SEQ_DERIVED` as an equal-self/equal-mutual series-matrix signature
+and `I.PROV.DECOUPLED_PHASES` as negligible coupling in that series block. Neither
+Finding establishes that a positive-sequence model is suitable for the study.
+For potentially reduced data, inspect which conductors were removed, what
+was assumed about their grounding, and whether discarded quantities can be
+recovered. The [scientific checks](scientific_contracts.md) describe the supported
+checks for reduction and positive-sequence applicability.
+
+Software consumers can find the classification-version and Finding-code details
+in [Provenance report compatibility](dev/versioning.md#Provenance-report-compatibility).
 
 Parallel declaration evidence is shared by connectivity and redundancy reports.
 Comparison keeps ordered terminal coordinates, swaps endpoint shunts and reverses

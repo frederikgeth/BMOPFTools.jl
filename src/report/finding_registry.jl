@@ -18,7 +18,7 @@ Base.showerror(io::IO, error::UnknownFindingCode) = print(
 
 Return the checked offline catalogue entry for one stable BMOPFTools Finding
 code. The explanation records severity, namespace, catalogue section, canonical
-meaning, documentation provenance, and any existing executable-contract/PSK
+meaning, documentation provenance, and any existing executable-contract and scientific-reference
 links. It does not infer a cause, recommend an automatic repair, or inspect a
 case-specific Finding instance.
 

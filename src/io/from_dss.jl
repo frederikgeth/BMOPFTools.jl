@@ -1086,7 +1086,7 @@ Remap the supported OpenDSS phase/neutral labels (`1/2/3 → a/b/c`, `4 → n`).
 PowerIO's materialized node-0 terminal is obtained from the source IR grounded
 terminal list and becomes a distinct `n_ref`, with its perfect grounding intact.
 `n_ref` is a winding/source return to the mathematical reference, not a transported
-neutral or earth wire (PSK-000002). Maps, including n-winding maps, keep that
+neutral or earth wire. Maps, including n-winding maps, keep that
 identity. `_meta.opendss_ground_references` records the explicit source mapping.
 A grounded reference may be named 4, 5, or another number in the source IR; it
 must never be identified by a fixed global `5 → n` substitution.

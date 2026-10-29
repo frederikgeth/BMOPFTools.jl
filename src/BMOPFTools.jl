@@ -3171,7 +3171,7 @@ already have KCL enforced. Existing optimize hooks are honored. Direct models
 are unsupported: rebuild those explicitly. JuMP handles, attributes and explicit
 start values survive; solver factorizations and automatic warm-start transfer
 do not. Topology, dimensions and voltage-domain changes require rebuilding.
-Check physical residuals independently after solving (PSK-000013).
+Check physical residuals independently after solving.
 """
 function resolve_opf! end
 export resolve_opf!

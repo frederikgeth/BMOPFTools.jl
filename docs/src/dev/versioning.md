@@ -153,3 +153,15 @@ The JSON execution envelope and OPF provenance records have their own schema
 identifiers. Package SemVer does not replace those identifiers. The first-release
 bundled validation schema is fingerprinted in `schemas/bundled-schema.toml`;
 regeneration and release gates are described in the repository's `RELEASING.md`.
+
+## Provenance report compatibility
+
+`provenance.impedance_transform.classification_version = "2"` separates matrix
+observations and PN/MPN heuristic candidates from declared, unverified history.
+The deprecated `by_linecode` projection retains PN/MPN candidate names and adds
+explicit `unknown`; it no longer assigns unmatched matrices to `kron_reduced`.
+`I.PROV.IMPEDANCE_TRANSFORM_KR` remains available in the Finding lookup for
+older reports, but the classifier does not emit it from that remainder class.
+`I.PROV.SEQ_DERIVED` retains its code while describing a structural signature.
+These compatibility choices do not change the applicability or result of a
+Kron boundary/recovery check or a positive-sequence applicability check.

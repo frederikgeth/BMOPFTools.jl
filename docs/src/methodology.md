@@ -58,9 +58,9 @@ sequence parameters (`I.PROV.SEQ_DERIVED`). The verdict tiers:
 | `unassessed` | missing/incompatible X block | full complex-matrix signature unassessed |
 
 These tiers describe matrix structure. None identifies a unique production
-history. `I.PROV.SEQ_DERIVED` is a retained historical identifier, and a balanced
-factor alone does not establish the positive-sequence study domain
-(PSK-000009). See [profiler evidence](analysis.md#Evidence-qualified-profiler-results).
+history. `I.PROV.SEQ_DERIVED` reports the equal-self/equal-mutual signature;
+a balanced factor alone does not establish that a positive-sequence model is
+suitable for the study. See [profiler evidence](analysis.md#Evidence-qualified-profiler-results).
 
 ## The Maxwell sign pattern
 

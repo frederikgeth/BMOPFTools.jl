@@ -108,7 +108,7 @@ bin/bmopf explain-finding E.SOL.VOLT_VIOLATION --pretty
 Julia callers use `explain_finding(code)` for the catalogue entry alone or
 `execute_finding_explanation(code)` for the versioned execution envelope. The
 result contains canonical severity, namespace, catalogue section, meaning,
-documentation hash, and any existing executable-contract/PSK links. It does
+documentation hash, and any existing links to executable contracts and scientific references. It does
 not inspect a case, infer a root cause, recommend a repair, or query the book.
 
 The registry is generated from the complete [Finding-code reference](findings.md)
@@ -212,10 +212,9 @@ julia --startup-file=no --project=. recipes/verify_solution/recipe.jl
 
 The analysis recipe uses the same small network as several tutorials and makes
 their triage lesson executable: a completed report can still contain warnings
-and readiness disclosures. It intentionally carries no PSK identity because it
-demonstrates ordinary package analysis rather than a scientific preservation
-claim. The two contract recipes run the existing minimized `PSK-000001` and
-`PSK-000002` fixtures, assert
+and readiness disclosures. This demonstrates ordinary package analysis, not
+model preservation. The parallel-member-limit and neutral/ground-reference
+recipes run their minimized fixtures, assert
 their expected statuses and Finding codes, and print execution-response JSON.
 The neutral recipe is the compact operational companion to the pedagogical
 [grounding tutorial](tutorial_grounding.md). Recipe records are generated into
@@ -223,21 +222,20 @@ The neutral recipe is the compact operational companion to the pedagogical
 status, fixture IDs, and “does not establish” statements.
 
 The solution-verification recipe reuses the minimized claimed-feasible result
-behind the `PSK-000003` contract, but it runs ordinary `profile_solution`
-behavior rather than the scientific contract. It therefore carries no PSK
-identity in its executable metadata and demonstrates the tutorial's central
-misconception directly: solver status does not replace independent checks.
+used by the claimed-solution-validity check. It runs ordinary
+`profile_solution` behavior and demonstrates the tutorial's central lesson:
+solver status does not replace independent checks.
 
 The Finding-explanation recipe looks up that same `E.SOL.VOLT_VIOLATION` code
 without inspecting the result. It demonstrates the boundary between a
-catalogue meaning and case-specific evidence, carries no invented PSK identity,
-and refuses to turn the code into a guessed cause or repair.
+catalogue meaning and case-specific evidence; it does not turn the code into
+a guessed cause or repair.
 
 The parse recipe uses a deliberately incomplete document with a legacy load
 model. Ingest succeeds and records the normalization, while a separate CI
 assertion requires `E.SCHEMA.REQUIRED`. That executable contrast preserves the
 intake tutorial's core boundary: successful parsing is not successful
-validation. Like the other ordinary package recipes, it carries no PSK link.
+validation.
 
 Recipes do not replace the tutorials. Tutorials explain modelling choices and
 misconceptions in context; recipes provide a short, repeatable operation that
@@ -300,7 +298,7 @@ a runtime dependency of, the `powermcp` package.
 
 The CLI does not retrieve scientific prose, infer mappings, expose arbitrary
 Julia evaluation, or contact the companion book. The book remains the authority
-for what a PSK statement establishes. This interface reports what BMOPFTools
+for the scope and evidence behind its scientific statements. This interface reports what BMOPFTools
 checked on the supplied models. The MCP adapter exposes exactly this curated
 surface and response schema; it does not introduce another execution model.
 

@@ -352,7 +352,7 @@ link, don't duplicate.
 - **Kron-reduce only what is genuinely pinned to zero volts** (§5). If you
   ingest three-wire data that was reduced upstream, the assumption arrived
   with it. The [`matrix-signature Findings`](findings.md) cannot identify
-  that history or verify its grounding/recovery preconditions (PSK-000008).
+  that history or verify the grounding and recovery assumptions.
 - **Sequence networks are a symmetry statement, not a coordinate change**
   (§7). Use the transform freely on results; trust decoupled networks only as
   far as the construction is balanced — and remember ``Z_0`` *is* the
@@ -369,6 +369,7 @@ link, don't duplicate.
 
 The profiler's `I.PROV.SEQ_DERIVED` and `I.PROV.DECOUPLED_PHASES` identifiers
 describe observed series-matrix signatures. They do not certify parameter
-origin or the PSK-000009 study domain; three-wire shape does not establish a
-Kron history or the PSK-000008 recovery preconditions. See
+origin or positive-sequence study applicability. Three-wire shape does not
+establish a Kron-reduction history or show that the required grounding and
+recovery assumptions hold. See
 [profiler evidence](analysis.md#Evidence-qualified-profiler-results).

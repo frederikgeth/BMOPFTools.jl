@@ -68,10 +68,11 @@ terms equal, all mutual terms equal). Circulance is the whole story:
   diagonal. However, if the line is completely transposed, [it is]").
 
 BMOPFTools reports the observed structure: `I.PROV.SEQ_DERIVED` is the
-historical code for an equal-self/equal-mutual series-matrix signature, and
+Finding for an equal-self/equal-mutual series-matrix signature, and
 `I.PROV.DECOUPLED_PHASES` reports a diagonal phase series block. These signatures
 do not identify authored provenance or certify whole-network sequence
-applicability. The existing PSK-000009 domain guards remain separate; see
+applicability. The [positive-sequence applicability check](scientific_contracts.md#Positive-sequence-collapse-applicability)
+assesses its documented assumptions separately; see
 [profiler evidence](analysis.md#Evidence-qualified-profiler-results).
 
 We work with one line throughout: a 50 Hz, four-wire LV overhead feeder (a small

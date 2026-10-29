@@ -356,8 +356,8 @@ than silently dropping one.
 perfectly grounded return named `n_ref`. The conductor neutral (OpenDSS node 4)
 remains `n`. PowerIO chooses the synthetic reference number from the bus's node
 inventory; it is not always terminal 5. Intake uses the source IR's grounded
-terminal list, not a fixed numeric substitution. This behavior is linked to
-PSK-000002 and covered by `test/opendss_semantics_tests.jl`.
+terminal list, not a fixed numeric substitution. Regression tests in
+`test/opendss_semantics_tests.jl` check that the two returns remain distinct.
 
 For example, a transformer with `bus=lv conn=wye` and a feeder carrying node 4
 imports with winding map `[a,b,c,n_ref]`, feeder map `[a,b,c,n]`, and
@@ -402,7 +402,7 @@ result compared by angle across the transformer.
 
 `_meta.powerio_source_semantics.transformer_phase_relations` records the authored
 value, `source_clock`, `target_clock` and `status` per transformer. The
-structured phase relation (PSK-000006) describes the represented target and
+structured phase relation describes the represented target and
 carries this record in `source_preservation`. Markdown, terminal and tree views
 append `source leadlag=… verified`, a `SOURCE MISMATCH` note, or `unverified`.
 The existing upstream Finding `EMIT.BMOPF.TRANSFORMER_EXTRA_DROPPED` is kept.
@@ -822,7 +822,7 @@ networks, or an unsuccessful re-import produce an `indeterminate` admission
 Finding (`W.EXPORT.DSS_RATING_UNVERIFIED`) and an `ArgumentError`. The file-writing
 overload refuses before creating directories or overwriting the destination.
 This is a conservative declaration check; passing it certifies neither electrical
-equivalence nor OPF feasibility or objectives (see PSK-000007).
+equivalence nor OPF feasibility or objectives.
 
 For an independent **power-flow verification** deck, explicitly opt in:
 

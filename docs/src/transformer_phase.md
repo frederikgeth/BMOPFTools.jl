@@ -55,9 +55,9 @@ negates the displacement/clock. Cyclic external rewiring can change the effectiv
 clock; a relative reversal can destroy a uniform positive-sequence relation.
 Equivalent renaming with explicit correspondence leaves the result unchanged.
 
-The evidence links to PSK-000006 without extending its scientific preservation
-contract. No equality of labels certifies equivalent equipment or a compatible
-network loop. #176 owns loop compatibility; this report is not a loop certificate.
+Matching labels do not establish equivalent equipment or compatible phase
+relations around a network loop. Loop compatibility requires a separate
+assessment; this report describes each transformer's represented phase relation.
 
 ## Domain and statuses
 

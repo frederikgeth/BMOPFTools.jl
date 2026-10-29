@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "d78d48fa0a0fdb9ad9d89d492ebbdc8398e178333484eb5b7d91f102a4e63052"
+    "sha256": "a447879a7e05f429969384e10178b8c181ccc1fbe3c5368255e4d09e5448fd1f"
   },
   "finding_count": 383,
   "findings": [
@@ -13,7 +13,7 @@
       "namespace": "EXPORT",
       "catalogue_section": "EXPORT",
       "section_title": "explicit conversion admission",
-      "meaning": "DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim (PSK-000007).",
+      "meaning": "DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -363,7 +363,7 @@
       "namespace": "DIV",
       "catalogue_section": "DIV",
       "section_title": "diversity & symmetry",
-      "meaning": "Aggregate active load is balanced within 2% across the observed phase labels in a galvanic zone. Spatial loading, impedances, connections and grounding remain unassessed; this does not establish single-phase-equivalent applicability (PSK-000009).",
+      "meaning": "Aggregate active load is balanced within 2% across the observed phase labels in a galvanic zone. Spatial loading, impedances, connections and grounding remain unassessed; this does not establish single-phase-equivalent applicability.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1553,7 +1553,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Historical code name for an observed exactly balanced series-matrix signature (equal self and equal mutual entries within tolerance). Implied sequence parameters are reported; authored origin and positive-sequence study applicability remain unverified/unassessed (PSK-000009).",
+      "meaning": "Observed exactly balanced series-matrix signature (equal self and equal mutual entries within tolerance). Implied sequence parameters are reported; authored origin and positive-sequence study applicability remain unverified/unassessed.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1563,7 +1563,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Observed near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This alone establishes neither parameter origin, whole-network decoupling nor positive-sequence applicability (PSK-000009).",
+      "meaning": "Observed near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This alone establishes neither parameter origin, whole-network decoupling nor positive-sequence applicability.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1763,7 +1763,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Retained legacy identifier; no longer emitted from a three-wire matrix remainder class. Matrix structure alone cannot establish authored Kron history or its grounding/recovery applicability. Unknown history remains explicit in classification version 2; the narrow existing recovery contract remains separate (PSK-000008).",
+      "meaning": "An earlier report classified a three-wire matrix as Kron-reduced because it did not match the PN/MPN signatures. That observation alone does not establish a reduction history. Inspect the original model and reduction records, including eliminated conductors, grounding assumptions and any recovery map.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1773,7 +1773,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Heuristic PN candidate: approximately uniform R self/mutual entries with mutual/self near one half, without the matching X uniformity signature. Detail labels this a candidate, not verified history or transformation applicability (PSK-000008).",
+      "meaning": "Heuristic PN candidate: approximately uniform R self/mutual entries with mutual/self near one half, without the matching X uniformity signature. Detail labels this a candidate, not verified history or transformation applicability.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1783,7 +1783,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Heuristic MPN candidate: approximately uniform R and X self/mutual entries, with R mutual/self near one half. The signature does not establish the construction method, grounding assumptions or sequence applicability (PSK-000008, PSK-000009).",
+      "meaning": "Heuristic MPN candidate: approximately uniform R and X self/mutual entries, with R mutual/self near one half. The signature does not establish the construction method, grounding assumptions or sequence applicability.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2103,7 +2103,7 @@
       "namespace": "INT",
       "catalogue_section": "INT",
       "section_title": "structural integrity",
-      "meaning": "Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status=\"indeterminate\"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners (PSK-000002).",
+      "meaning": "Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status=\"indeterminate\"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2263,7 +2263,7 @@
       "namespace": "TMAP",
       "catalogue_section": "TMAP",
       "section_title": "terminal-map conventions",
-      "meaning": "A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a line/switch position connects phase to neutral, or a branch repeats an all-neutral endpoint. Position comparisons require equal-length, distinct, resolved phase/neutral maps; different phase labels are valid. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002).",
+      "meaning": "A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a line/switch position connects phase to neutral, or a branch repeats an all-neutral endpoint. Position comparisons require equal-length, distinct, resolved phase/neutral maps; different phase labels are valid. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2273,7 +2273,7 @@
       "namespace": "TMAP",
       "catalogue_section": "TMAP",
       "section_title": "terminal-map conventions",
-      "meaning": "A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model (PSK-000002).",
+      "meaning": "A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -3245,7 +3245,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "The aggregate preserves the summed scalar terminal admittance but its current rating defines an inner restriction or outer relaxation of the source member-current-limit region. Detail includes `PSK-000001`, the classification, exact voltage-drop bounds, and a concrete current witness.",
+      "meaning": "The aggregate preserves the summed scalar terminal admittance but its current rating defines an inner restriction or outer relaxation of the source member-current-limit region. Detail includes the scientific reference, the classification, exact voltage-drop bounds, and a concrete current witness.",
       "contract_id": "parallel_member_limit_preservation",
       "knowledge_ids": [
         "PSK-000001"
@@ -3413,7 +3413,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "The mapped target transformer has a different continuous tap interval from the adjustable source: an inner restriction, outer extension, shifted overlap, or disjoint decision domain. Detail includes `PSK-000005`, both intervals, the classification, and a tap witness admitted by only one domain.",
+      "meaning": "The mapped target transformer has a different continuous tap interval from the adjustable source: an inner restriction, outer extension, shifted overlap, or disjoint decision domain. Detail includes both intervals, the classification, and a tap witness admitted by only one domain.",
       "contract_id": "transformer_tap_domain_preservation",
       "knowledge_ids": [
         "PSK-000005"

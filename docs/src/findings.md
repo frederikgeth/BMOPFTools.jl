@@ -31,7 +31,7 @@ These Findings are emitted by `to_dss`, including on refusal, rather than by
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `W.EXPORT.DSS_RATING_UNVERIFIED` | W | DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim (PSK-000007). |
+| `W.EXPORT.DSS_RATING_UNVERIFIED` | W | DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim. |
 
 ## COMP — completeness
 
@@ -118,7 +118,7 @@ symmetry follows; repeated values alone do not establish degeneracy.
 | `I.DIV.LOAD_CV_LOW` | I | Load `p_nom` coefficient of variation < 0.05 across ≥3 loads — essentially uniform loading. |
 | `I.DIV.LOAD_PF_DSS_DEFAULT` | I | Load power factor mean is within 1 % of 0.88 with CV < 0.05 — strongly suggests reactive power was never explicitly set and the OpenDSS default PF was inherited throughout. Compare with `I.PROV.DSS_DEFAULT_PF`, which detects the exact 0.88 value per load; this finding detects the statistical signature across all loads. |
 | `I.DIV.LOAD_IMBALANCE` | I | A multi-phase load with >20 % spread between its phase setpoints — noteworthy unbalance (often intended; this is context, not criticism). |
-| `I.DIV.LOAD_PHASE_BALANCED` | I | Aggregate active load is balanced within 2% across the observed phase labels in a galvanic zone. Spatial loading, impedances, connections and grounding remain unassessed; this does not establish single-phase-equivalent applicability (PSK-000009). |
+| `I.DIV.LOAD_PHASE_BALANCED` | I | Aggregate active load is balanced within 2% across the observed phase labels in a galvanic zone. Spatial loading, impedances, connections and grounding remain unassessed; this does not establish single-phase-equivalent applicability. |
 | `I.DIV.LOAD_UNIFORM_MODEL` | I | Across ≥3 loads, every load uses the *same* load model. When that model is `constant_power` (the default), no load exercises voltage dependence (ZIP/exponential) — the case does not test voltage-dependent load behaviour. Observational coverage signal, not a defect. |
 | `I.DIV.LOAD_UNIFORM_CONFIG` | I | Across ≥3 loads, every load shares the *same* `configuration` (e.g. all WYE) — no connection diversity. Observational; uniform connection is common and often legitimate. |
 | `I.DIV.LINE_SYMMETRIC` | I | ≥80 % of the lines sharing a linecode have lengths within ±10 % of the median — electrically near-identical sections. |
@@ -322,8 +322,8 @@ networks.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.SEQ_DERIVED` | I | Historical code name for an observed exactly balanced series-matrix signature (equal self and equal mutual entries within tolerance). Implied sequence parameters are reported; authored origin and positive-sequence study applicability remain unverified/unassessed (PSK-000009). |
-| `I.PROV.DECOUPLED_PHASES` | I | Observed near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This alone establishes neither parameter origin, whole-network decoupling nor positive-sequence applicability (PSK-000009). |
+| `I.PROV.SEQ_DERIVED` | I | Observed exactly balanced series-matrix signature (equal self and equal mutual entries within tolerance). Implied sequence parameters are reported; authored origin and positive-sequence study applicability remain unverified/unassessed. |
+| `I.PROV.DECOUPLED_PHASES` | I | Observed near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This alone establishes neither parameter origin, whole-network decoupling nor positive-sequence applicability. |
 | `I.PROV.LINE_SWITCH_LIKE` | I | A line has near-zero series impedance and may be better represented by the spec's lossless `switch` object. |
 
 ### Bound & limit completeness
@@ -376,9 +376,9 @@ Geth, Heidari & Koirala (ACM e-Energy 2022, doi:[10.1145/3538637.3538844](https:
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.IMPEDANCE_TRANSFORM_KR` | I | Retained legacy identifier; no longer emitted from a three-wire matrix remainder class. Matrix structure alone cannot establish authored Kron history or its grounding/recovery applicability. Unknown history remains explicit in classification version 2; the narrow existing recovery contract remains separate (PSK-000008). |
-| `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | Heuristic PN candidate: approximately uniform R self/mutual entries with mutual/self near one half, without the matching X uniformity signature. Detail labels this a candidate, not verified history or transformation applicability (PSK-000008). |
-| `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | Heuristic MPN candidate: approximately uniform R and X self/mutual entries, with R mutual/self near one half. The signature does not establish the construction method, grounding assumptions or sequence applicability (PSK-000008, PSK-000009). |
+| `I.PROV.IMPEDANCE_TRANSFORM_KR` | I | An earlier report classified a three-wire matrix as Kron-reduced because it did not match the PN/MPN signatures. That observation alone does not establish a reduction history. Inspect the original model and reduction records, including eliminated conductors, grounding assumptions and any recovery map. |
+| `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | Heuristic PN candidate: approximately uniform R self/mutual entries with mutual/self near one half, without the matching X uniformity signature. Detail labels this a candidate, not verified history or transformation applicability. |
+| `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | Heuristic MPN candidate: approximately uniform R and X self/mutual entries, with R mutual/self near one half. The signature does not establish the construction method, grounding assumptions or sequence applicability. |
 | `W.PROV.IMPLICIT_GROUNDING` | W | Neutral terminals are referenced by components but no branch carries a neutral conductor, and some referenced neutrals lack represented grounding. The intended return/grounding convention is indeterminate; no every-bus ground constraint or Kron history is inferred. |
 | `E.PROV.FLOATING_NEUTRAL` | E | A neutral section (continuity graph over lines/closed switches) with no path to ground **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed. |
 | `W.PROV.FLOATING_NEUTRAL` | W | Same, but unused — latent rather than active. |
@@ -431,7 +431,7 @@ Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
 | `E.INT.VOLT_WATT_BREAKPOINTS` | E | A `volt_watt` droop's voltage breakpoints are not strictly increasing — the curtailment curve is non-monotone and ill-defined. |
 | `E.INT.DROOP_UNSUPPORTED` | E | A Volt-var/Volt-watt droop uses an option the engine does not yet implement — a `voltage_reference` other than `PN_PER_PHASE`, or a `q_unit`/`p_unit`/`q_ref`/`p_ref` outside the supported set. |
 | `W.INT.DIM_MISMATCH` | W | An indexed field has an incompatible shape for its device topology: powers/capabilities/costs, current limits, load setpoints, source reference prefixes, or bus phase/pair bounds. Device evidence identifies roles, map positions, indexing domain, allowed lengths and observed shape; see [device parameter indexing](device_indexing.md). No universal conductor-count rule applies. The line-matrix case remains the stricter `E.INT.LINE_DIM_MISMATCH`. |
-| `W.INT.DEVICE_INDEXING_UNASSESSED` | W | Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status="indeterminate"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners (PSK-000002). |
+| `W.INT.DEVICE_INDEXING_UNASSESSED` | W | Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status="indeterminate"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners. |
 | `W.INT.IMAX_NO_NEUTRAL` | W | A star generator/IBR with ≥2 phases rates only its phase conductors (`i_max` length = phases); add a trailing entry for the neutral conductor, which can carry more current than the phases under unbalance compensation. |
 | `W.INT.PADDED_MATRIX` | W | All-zero row/column pairs in linecode impedances — padded conductors demonstrably wreck NLP performance (22 → 590 Ipopt iterations in ([ref. 2](methodology.md#refs)) Table 3); shrink the matrix and use terminal maps. |
 | `E.INT.NO_VOLTAGE_REFERENCE` | E | A galvanic island (transformer windings are separations) with no source, perfect grounding, or grounding shunt — voltages there are defined only up to a shift (the IEEE-123 "bus 610" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. |
@@ -463,8 +463,8 @@ Checks on how component `terminal_map`s reference bus terminals.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a line/switch position connects phase to neutral, or a branch repeats an all-neutral endpoint. Position comparisons require equal-length, distinct, resolved phase/neutral maps; different phase labels are valid. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches (PSK-000002). |
-| `E.TMAP.DEVICE_ROLES` | E | A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model (PSK-000002). |
+| `E.TMAP.PHASE_TO_NEUTRAL` | E | A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a line/switch position connects phase to neutral, or a branch repeats an all-neutral endpoint. Position comparisons require equal-length, distinct, resolved phase/neutral maps; different phase labels are valid. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches. |
+| `E.TMAP.DEVICE_ROLES` | E | A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model. |
 | `I.TMAP.CROSS_PHASE_LINE` | I | A line or switch has different from/to terminal maps — the conductors are cross-connected between phases across the branch. Valid (e.g. an intentional phase swap) but flagged as context. |
 | `I.TMAP.PERMUTED_ORDER` | I | A component's `terminal_map` is a permutation of the bus's nodal terminal order — non-canonical ordering; verify the swap is deliberate rather than a data-entry slip. |
 
@@ -609,7 +609,7 @@ analysis never emits them.
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `E.CONTRACT.PARALLEL_TERMINAL_RELATION_MISMATCH` | E | The declared scalar aggregate line's admittance differs from the sum of the explicitly mapped source-member admittances. The target therefore fails even the unconstrained terminal-current relation. |
-| `W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS` | W | The aggregate preserves the summed scalar terminal admittance but its current rating defines an inner restriction or outer relaxation of the source member-current-limit region. Detail includes `PSK-000001`, the classification, exact voltage-drop bounds, and a concrete current witness. |
+| `W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS` | W | The aggregate preserves the summed scalar terminal admittance but its current rating defines an inner restriction or outer relaxation of the source member-current-limit region. Detail includes the scientific reference, the classification, exact voltage-drop bounds, and a concrete current witness. |
 | `I.CONTRACT.NOT_APPLICABLE` | I | A declared executable contract is outside its implemented domain, for example because the initial parallel-member check received a multiconductor or shunted line. No preservation conclusion is drawn. |
 | `W.CONTRACT.INDETERMINATE` | W | Required source, target, mapping, impedance, or rating evidence is missing or unresolved. No preservation conclusion is drawn; detail names the missing evidence and recommended follow-up. |
 | `E.CONTRACT.NEUTRAL_IDENTITY_LOSS` | E | A mapped target bus has no identifiable explicit neutral terminal. Omitting it does not establish that its voltage, current, limits, or grounding relation are represented by the mathematical reference. |
@@ -623,7 +623,7 @@ analysis never emits them.
 | `E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH` | E | Scientific contract `load_voltage_base_consistency` found that a voltage-dependent load's `v_nom` lies outside the declared ratio band for its source-propagated connection-coordinate base. |
 | `I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE` | I | The initial contract has no unique voltage-dependent WYE or DELTA load to check. |
 | `W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE` | W | A selected load, numeric `v_nom`, or source-reachable bus voltage base is unavailable, so connection-coordinate consistency cannot be decided. |
-| `E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS` | E | The mapped target transformer has a different continuous tap interval from the adjustable source: an inner restriction, outer extension, shifted overlap, or disjoint decision domain. Detail includes `PSK-000005`, both intervals, the classification, and a tap witness admitted by only one domain. |
+| `E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS` | E | The mapped target transformer has a different continuous tap interval from the adjustable source: an inner restriction, outer extension, shifted overlap, or disjoint decision domain. Detail includes both intervals, the classification, and a tap witness admitted by only one domain. |
 | `I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE` | I | The source is not an adjustable continuous tap transformer in the implemented domain, the subtype is unsupported or changes, or mapped non-tap declarations differ. No domain-preservation conclusion is drawn. |
 | `W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE` | W | A mapped transformer, complete numeric tap interval, or admissible start is missing or invalid. No domain-preservation conclusion is drawn. |
 | `E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH` | E | The target changes a mapped transformer winding side, stored orientation, or ordered terminal-to-coil incidence. A bare `bus_from`/`bus_to` swap is not a complete typed transformer reversal. |

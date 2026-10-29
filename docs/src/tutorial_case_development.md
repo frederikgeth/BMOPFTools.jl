@@ -170,7 +170,7 @@ dynamics or a claim that any droop settings meet a grid code.
 reduction. The source and target keep the same two PV device identities and terminal
 maps. The script explicitly maps those IDs, pins the reduced solution's dispatch on
 the full feeder, and runs PF there. It then checks the replay against the **original**
-operating bounds. PF termination by itself does not check those bounds (PSK-000013).
+operating bounds. PF termination by itself does not check those bounds.
 
 For a different reduction, supply and review the appropriate mapping and recovery
 procedure. This small example does not establish arbitrary reduction fidelity or

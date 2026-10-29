@@ -182,8 +182,7 @@ end
         terminal_mapping=Dict(), recovery_map, atol=1e-9, rtol=1e-8)
         -> ScientificContractResult
 
-Check the initial executable portion of the Kron boundary/recovery contract
-(`PSK-000008`). The supported case is a single four-conductor source line and
+Check the initial executable portion of the Kron boundary/recovery contract. The supported case is a single four-conductor source line and
 three-conductor target line with aligned phase terminal coordinates, no line
 shunts, and the source neutral perfectly grounded at both source buses. The
 target series impedance must equal the Schur complement obtained by eliminating
@@ -520,7 +519,7 @@ end
         atol=1e-9, rtol=1e-8)
         -> ScientificContractResult
 
-Check the guarded positive-sequence specialization (`PSK-000009`). The
+Check the guarded positive-sequence specialization. The
 supported case is a three-conductor source factor with circulant series and
 shunt matrices and a scalar target whose impedance is the positive-sequence
 eigenvalue. `declarations` must explicitly close balanced boundary data,
@@ -699,8 +698,7 @@ end
         source_model_id, target_model_id)
         -> ScientificContractResult
 
-Check the declaration boundary for a fixed versus state-dependent equivalent
-(`PSK-000010`). Both records must provide a `state_dependent` object with a
+Check the declaration boundary for a fixed versus state-dependent equivalent. Both records must provide a `state_dependent` object with a
 non-singleton numeric domain, parameter identity, base state, and update-rule
 provenance. A target that freezes the source at one base point fails rather
 than being silently promoted to a reusable equivalent.
@@ -833,8 +831,7 @@ end
         source_model_id, target_model_id, island_mapping=Dict())
         -> ScientificContractResult
 
-Compare declared reference/rank evidence for mapped connected islands
-(`PSK-000011`). Each model must provide `reference_analysis.islands`, where
+Compare declared reference/rank evidence for mapped connected islands. Each model must provide `reference_analysis.islands`, where
 each island has an id, `has_voltage_reference`, `dimension`, and `rank`.
 """
 function check_reference_singularity(
@@ -961,7 +958,7 @@ end
         -> ScientificContractResult
 
 Check that a target series primitive is exactly the source primitive under an
-explicit bijective terminal permutation (`PSK-000012`). The permutation is a
+explicit bijective terminal permutation. The permutation is a
 one-based vector whose target coordinate `i` takes source coordinate
 `permutation[i]`; both endpoint terminal maps must transform accordingly.
 """
@@ -1065,7 +1062,7 @@ end
         source_model_id, target_model_id) -> ScientificContractResult
 
 Check explicit unit/base metadata and a canonical semantic hash across a
-serialization round trip (`PSK-000014`). The contract compares the declared
+serialization round trip. The contract compares the declared
 unit system, base map, and semantic payload hash; it does not infer units from
 numeric magnitudes or claim that metadata equality proves network equivalence.
 """
@@ -1124,7 +1121,7 @@ end
     check_solved_network_feasibility(result; tolerances=Dict()) -> ScientificContractResult
 
 Validate an independently computed residual witness for a claimed solved
-network (`PSK-000013`). The result must contain finite residual norms for
+network. The result must contain finite residual norms for
 equations, KCL, power balance, and recovery, plus a nonnegative device-limit
 violation count. Solver termination is recorded separately and is never used
 as a substitute for these measurements.
@@ -1292,7 +1289,7 @@ end
     check_decision_preservation_manifest(manifest) -> ScientificContractResult
 
 Check declaration-level evidence completeness for a transformation manifest
-that claims exact decision equivalence (`PSK-000007`). The manifest must name
+that claims exact decision equivalence. The manifest must name
 its source and target models and give each required dimension—admissible
 domain, terminal behavior, observations, constraints, decision variables,
 objective, and recovery—one of four dispositions:
@@ -1709,7 +1706,7 @@ end
         -> ScientificContractResult
 
 Check the scalar, fixed-linear, series-only portion of scientific contract
-`parallel_member_limit_preservation` (`PSK-000001`). `source` must retain the
+`parallel_member_limit_preservation`. `source` must retain the
 identified parallel members and their current ratings; `target` must contain
 the declared aggregate. The explicit `member_ids`/`aggregate_id` mapping is
 required because a reduced target cannot reveal discarded member identity.
@@ -2003,7 +2000,7 @@ end
         bus_mapping, atol=1e-9, rtol=1e-8) -> ScientificContractResult
 
 Check the representation-level portion of scientific contract
-`neutral_ground_reference_preservation` (`PSK-000002`). `bus_mapping` must be
+`neutral_ground_reference_preservation`. `bus_mapping` must be
 a one-to-one mapping for at least two source buses with explicit neutral
 terminals. The initial executable domain checks whether the target retains:
 
@@ -2258,7 +2255,7 @@ end
     check_claimed_solution_validity(net, result) -> ScientificContractResult
 
 Check the initial executable portion of scientific contract
-`claimed_solution_validity` (`PSK-000003`). The result must report a
+`claimed_solution_validity`. The result must report a
 claimed-feasible termination status and provide `vr`, `vi`, and `vm` for every
 declared bus terminal. The contract then reuses [`profile_solution`](@ref) to
 independently check:
@@ -2456,7 +2453,7 @@ end
         ratio_min=0.8, ratio_max=1.25) -> ScientificContractResult
 
 Check the initial executable portion of scientific contract
-`load_voltage_base_consistency` (`PSK-000004`). The contract applies to
+`load_voltage_base_consistency`. The contract applies to
 voltage-dependent WYE and DELTA loads whose buses have a nominal
 phase-to-neutral voltage reachable from a declared voltage source through the
 existing BMOPFTools voltage-level propagation.
@@ -2739,7 +2736,7 @@ end
         -> ScientificContractResult
 
 Check the initial executable portion of scientific contract
-`transformer_tap_domain_preservation` (`PSK-000005`). The source must contain
+`transformer_tap_domain_preservation`. The source must contain
 an adjustable two-winding isolating transformer with a finite positive
 `tap_min < tap_max` interval. The target transformer must have the same subtype
 and identical non-tap declarations under the explicit mapping.
@@ -3045,7 +3042,7 @@ end
         atol=1e-9, rtol=1e-8) -> ScientificContractResult
 
 Check the initial executable portion of scientific contract
-`transformer_winding_convention_preservation` (`PSK-000006`). The check covers
+`transformer_winding_convention_preservation`. The check covers
 fixed-tap `single_phase`, `wye_delta`, and `delta_wye` transformer records with
 the same subtype, an explicit one-to-one source-bus to target-bus mapping, and
 stable terminal labels or an explicit global terminal-label mapping.

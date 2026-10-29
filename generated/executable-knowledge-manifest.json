@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "d0459ff7ff8b1702270c73ae3470e475bd9d1c09ae819f35049256d09c0d1d08",
+  "corpus_sha256": "8ecb3faeb14622f2c82fc1dcf7a48faa337349da8529cfccfa4ddde511672ef8",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "f8cd5d27d2b2d7bc77cd5812692650f363d7610c21d20f4a6a2221f575e7e54d"
+      "sha256": "159a8413c22208b3e373f6d9406ffe439c089f608e28ad5dc6db7efde10ad087"
     },
     {
       "path": "docs/src/api.md",
@@ -102,7 +102,7 @@
     },
     {
       "path": "docs/src/connection_maps.md",
-      "sha256": "4b3a9dc9ed13a84c397814e941e62df7ebc4f459c5a963e6046cd1c0c8cf83de"
+      "sha256": "962c19a38dd7d9864c6298e97d03dbd050d82a6fad933610736f63f3184f7368"
     },
     {
       "path": "docs/src/conventions.md",
@@ -110,7 +110,7 @@
     },
     {
       "path": "docs/src/conversion.md",
-      "sha256": "c489199f58ff4fe19d25799ea6db191571d9c3986bf5e0ec33b383911bb34cf0"
+      "sha256": "6cb428ba509377024005bda72427b7e075591ac4be08203fc2a57a177fd2aefa"
     },
     {
       "path": "docs/src/dev/opf_engine.md",
@@ -118,11 +118,11 @@
     },
     {
       "path": "docs/src/dev/versioning.md",
-      "sha256": "d0c5337e472f2cc69e9991952d258ac26f102753b2add81a8125cfb3d9f226fc"
+      "sha256": "a0957293881c17f92f93c129178ac9fb5ac9cd84f2c05f6fefa5d1421de7351c"
     },
     {
       "path": "docs/src/device_indexing.md",
-      "sha256": "bb613eee273239cb5236e7f9ef32253434aec27bfc727826f8727589a2fda123"
+      "sha256": "ade13d68ac536360a0bf4841e3fa9604ac468376fedf7e3789ecb50d7647af22"
     },
     {
       "path": "docs/src/differentiable_extensions.md",
@@ -130,11 +130,11 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "d78d48fa0a0fdb9ad9d89d492ebbdc8398e178333484eb5b7d91f102a4e63052"
+      "sha256": "a447879a7e05f429969384e10178b8c181ccc1fbe3c5368255e4d09e5448fd1f"
     },
     {
       "path": "docs/src/formulation_substitutions.md",
-      "sha256": "35133fbf41ed2849424a5f591e45eb31230102784f730ddd0b5f6339a0e8d8fc"
+      "sha256": "12e61535e55ded86ccd737334956659fe4d9ca617ad38d943ebb7bdd657cbcb8"
     },
     {
       "path": "docs/src/numerical_workflows.md",
@@ -146,7 +146,7 @@
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "99a475474b9019009745ed2665cdd9864c75f483595570b030dd77e8a7e87e21"
+      "sha256": "f9e45f24d7d72dec5f23c84bcea55b366c9f3e61a767bb30d89be60d6151a95b"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -158,7 +158,7 @@
     },
     {
       "path": "docs/src/results.md",
-      "sha256": "a456136baf4d41c19db8d51e0ce89e89b1b5cd87e84e1c8fdb65021e10362464"
+      "sha256": "70064f1091064cea72ffb5a2f96435f5ed1607ed98ef9ce60a53be3b034dfd48"
     },
     {
       "path": "docs/src/solution_projection.md",
@@ -170,7 +170,7 @@
     },
     {
       "path": "docs/src/spatial_diagnostics.md",
-      "sha256": "b6410f32dc92811c036fa98072385cd1238fa32ce8357634a4a1a7711b03d3b4"
+      "sha256": "92efc994ffece463e95ce3970ea4670319772bc4c110fa2c4bf35d58978cc2c6"
     },
     {
       "path": "docs/src/spec/control-profile.md",
@@ -178,11 +178,11 @@
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",
-      "sha256": "ded5e8f94b11e5a552e3fa18c38a233e649685fab83f3ecdac6ec7f7a73d401b"
+      "sha256": "410cfca44b7f9ac7113db098265a8b0701559d60debeddb0452f951348837261"
     },
     {
       "path": "docs/src/spec/transformer-admittance.md",
-      "sha256": "f0ad60b7f0164fe7efb37a9fdde7a1c2dad5e8fc0844bb7e3e5c02fef166a4fc"
+      "sha256": "f3d157d8f4eef47ad098eefe0203579d8c601243fed043067c788dbffc79e04e"
     },
     {
       "path": "docs/src/transformer_models.md",
@@ -190,11 +190,11 @@
     },
     {
       "path": "docs/src/transformer_phase.md",
-      "sha256": "3597d1ea6204e83f10bff0dfe8adb2e090d925eca1866d5e3a816676a61b617c"
+      "sha256": "e32f0ba39944b486e7e949bf71dd19c2d0c3dbaedd5d9e62ab8e5b1513a9a09d"
     },
     {
       "path": "docs/src/tutorial_case_development.md",
-      "sha256": "2cb400f14f5e135dab32c38387a798276dd61c826074cfa959b97a933b316775"
+      "sha256": "51bf6a32423f991b14252b213aa645aa6f285bb5786dd8c8b56427d1b776cde7"
     },
     {
       "path": "docs/src/tutorial_custom_formulations.md",
@@ -226,7 +226,7 @@
     },
     {
       "path": "docs/src/validation.md",
-      "sha256": "b7a54f3e0f0b13fac4146d0ecfbe8aad1e7c36129f7e808f97779d99fcef6f84"
+      "sha256": "7d098acc6c02c58d0bb917cc813902255d2e82cef33a4ef80d5b7a95b9cf5cb5"
     },
     {
       "path": "examples/case_development.jl",
@@ -310,7 +310,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "ea02690d2c1f17463dca310efe1b96de51fe30c25683c30fe6f0bce8e7562c60"
+      "sha256": "8bd7ee1fb773d032ab4a6ff90bf4b246a8914bb63444be1469bd46ba4e475d0f"
     },
     {
       "path": "knowledge/executable.toml",
@@ -434,7 +434,7 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "734d0343dd070435bfc8e83d1964a13cced9fcf85e8b238b05a563829b569d8b"
+      "sha256": "ef2c5c82a27a2467c318239c960254d59237035e43f7be1f885ceb4f533f568e"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -574,7 +574,7 @@
     },
     {
       "path": "src/io/from_dss.jl",
-      "sha256": "14efe977adcab7994b1cab7cbacf960d16a4c5d66ac051818e7d6591d7a2dcee"
+      "sha256": "4afbce5ddf408a1dd897a8ba31f057f2046f02b5506280146efa0df7fc98176d"
     },
     {
       "path": "src/io/load_geometry.jl",
@@ -634,7 +634,7 @@
     },
     {
       "path": "src/knowledge/contracts.jl",
-      "sha256": "10e9d8b74b078afb9c298cc64ab0f9135f9e483cee503b1d28180a2e0ba46bb4"
+      "sha256": "4e34143a252f074a208e6703a3213a7a4c0bb64472a2c19077853de3e2a1ca6d"
     },
     {
       "path": "src/network/simplify.jl",
@@ -646,11 +646,11 @@
     },
     {
       "path": "src/report/finding_registry.jl",
-      "sha256": "376160dc872ddf1a337fec902afed7a2e88ae5e41613714518955e5cc191e5f2"
+      "sha256": "cd7fb2d6500344cef6dcd6f99ad32efb592aa94c20e8ca49544f7b1a8601bad6"
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "a35c43f0fe368bcc80f6f6adfff7f1626b8ac9d69b6bd62b4942c8e28d5b8ac0"
+      "sha256": "8a695e8d504d8fff2bf0cf7d4b973a0cc41ad9113f8d0e95f0a3504cc747422f"
     },
     {
       "path": "src/report/formatting.jl",

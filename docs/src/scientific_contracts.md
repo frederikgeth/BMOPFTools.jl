@@ -1,11 +1,15 @@
 # Scientific contracts
 
-BMOPFTools scientific contracts turn a scoped knowledge statement into an executable decision with structured evidence. The scientific statement and its evidence remain owned by the sibling `multi-graph-book`; this package owns the code-level applicability checks, result status, Findings, fixtures, and export metadata. See the repository-root `ARCHITECTURE.md` for the stable boundary.
+Scientific contracts check specific relations between explicitly mapped source
+and target models or inspect supplied solution evidence. Each check reports its
+supported domain, status, Findings and unassessed quantities. A pass covers only
+the documented checks. The [companion book](https://github.com/frederikgeth/multi-graph-book)
+explains the scientific background; this page documents the executable APIs.
 
 ## Floating references and singularity
 
 [`check_reference_singularity`](@ref) compares mapped connected-island
-reference incidence and declared rank evidence (`PSK-000011`). It rejects a
+reference incidence and declared rank evidence. It rejects a
 target that loses a source voltage reference or becomes rank-deficient, while
 leaving physical reference assets and solver-specific rank details
 unassessed.
@@ -24,7 +28,7 @@ result.findings[1].code # "E.CONTRACT.REFERENCE_LOSS"
 
 [`check_state_dependent_equivalent`](@ref) checks whether a target preserves a
 source equivalent's declared state parameter, non-singleton domain, calibration
-state, and update-rule provenance (`PSK-000010`). It rejects a base-state map
+state, and update-rule provenance. It rejects a base-state map
 that is silently presented as reusable over a wider domain.
 
 ```julia
@@ -44,8 +48,7 @@ feasible-set, objective, or solver equivalence. Those remain unassessed.
 
 ## Positive-sequence collapse applicability
 
-[`check_positive_sequence_collapse`](@ref) implements the guarded applicability
-portion of `PSK-000009`. It checks a three-phase series factor and scalar target
+[`check_positive_sequence_collapse`](@ref) checks a three-phase series factor and scalar positive-sequence target
 only when the source factors are circulant in the declared phase order and the
 study explicitly closes the balanced boundary, grounding, device, decision,
 and observation domains.
@@ -81,7 +84,7 @@ feasible sets, objectives, and solver results remain unassessed.
 
 ## Parallel member-current limits
 
-[`check_parallel_member_limit_preservation`](@ref) implements the scalar, fixed-linear, series-only portion of `PSK-000001`. It requires an explicit mapping because a reduced aggregate cannot reveal discarded member identity.
+[`check_parallel_member_limit_preservation`](@ref) checks member-current limits for scalar, fixed-linear, series-only parallel branches. It requires an explicit mapping because a reduced aggregate cannot reveal discarded member identity.
 
 ```julia
 using BMOPFTools
@@ -101,7 +104,7 @@ result = check_parallel_member_limit_preservation(
 )
 
 result.status                 # :failed
-result.knowledge_ids          # ["PSK-000001"]
+result.knowledge_ids          # machine-readable scientific references
 result.findings[1].code       # "W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS"
 result.evidence["witness"]   # 15 V; member currents 150 A and 15 A
 ```
@@ -110,8 +113,7 @@ The check separates two questions. First it tests whether the target aggregate a
 
 ## Neutral, ground, and reference relations
 
-[`check_neutral_ground_reference_preservation`](@ref) implements the initial
-representation-level portion of `PSK-000002`. It requires an explicit one-to-one
+[`check_neutral_ground_reference_preservation`](@ref) compares represented neutral continuity, grounding and reference relations. It requires an explicit one-to-one
 bus mapping because a transformed model cannot recover discarded neutral identity
 or grounding declarations by inspection.
 
@@ -158,8 +160,7 @@ modelling distinction pedagogically.
 
 ## Claimed-feasible solution validity
 
-[`check_claimed_solution_validity`](@ref) implements the initial executable
-portion of `PSK-000003`. It treats an accepted solver termination status as a
+[`check_claimed_solution_validity`](@ref) checks selected conditions in a claimed-feasible result. It treats an accepted solver termination status as a
 precondition for inspecting a candidate solution, never as proof that the
 returned values satisfy the study model.
 
@@ -204,8 +205,7 @@ parts of that larger validation problem.
 
 ## Load connection voltage bases
 
-[`check_load_voltage_base_consistency`](@ref) implements the initial executable
-portion of `PSK-000004`. It checks voltage-dependent WYE and DELTA load anchors
+[`check_load_voltage_base_consistency`](@ref) checks voltage-dependent WYE and DELTA load anchors
 against the nominal phase-to-neutral bus base propagated by BMOPFTools from
 declared voltage sources. WYE uses that base directly; DELTA uses the
 line-to-line base, `sqrt(3)` times larger.
@@ -238,8 +238,7 @@ unsupported connection cases are `:inapplicable`.
 
 ## Adjustable transformer tap domains
 
-[`check_transformer_tap_domain_preservation`](@ref) implements the initial
-continuous scalar portion of `PSK-000005`. It compares the complete tap decision
+[`check_transformer_tap_domain_preservation`](@ref) compares the complete continuous scalar tap decision
 interval on one explicitly mapped two-winding isolating transformer. In the
 BMOPFTools data model, omitting `tap_min` and `tap_max` leaves a fixed tap at
 `tap` (default `1.0`); it does not retain an implicit adjustable decision.
@@ -284,8 +283,7 @@ guarantees. Those dimensions remain explicit follow-on contracts.
 
 ## Transformer winding conventions
 
-[`check_transformer_winding_convention_preservation`](@ref) implements the
-initial compact-serialization portion of `PSK-000006`. It checks whether one
+[`check_transformer_winding_convention_preservation`](@ref) checks whether one
 fixed-tap `single_phase`, `wye_delta`, or `delta_wye` transformer retains its
 mapped winding sides, ordered terminal-to-coil incidence, positive winding
 reference voltages, and fixed effective coil ratio.
@@ -338,10 +336,8 @@ tests; it does not replace them.
 
 ## Terminal and conductor permutation invariance
 
-[`check_terminal_permutation_invariance`](@ref) implements the executable
-portion of `PSK-000012`: a fixed linear series primitive may be relabelled only
-when an explicit one-based bijection is declared, both endpoint terminal maps
-follow it, and the target matrix is the corresponding source row/column
+[`check_terminal_permutation_invariance`](@ref) checks a fixed linear series primitive under relabelling. It requires an explicit one-based bijection, endpoint terminal maps that
+follow it, and a target matrix formed by the corresponding source row/column
 permutation.
 
 ```julia
@@ -390,8 +386,7 @@ general permutation theorem or widen the contract's applicability domain.
 
 ## Complete solved-network feasibility witness
 
-[`check_solved_network_feasibility`](@ref) checks the independent residual
-bundle proposed by `PSK-000013`. A claimed solved status must be accompanied by
+[`check_solved_network_feasibility`](@ref) checks a supplied residual bundle for a claimed solved network. A claimed solved status must be accompanied by
 finite equation, KCL, power-balance, and recovery residual norms plus a device-
 limit violation count. Each residual is compared with its declared tolerance;
 solver termination is recorded but never substitutes for the witness.
@@ -416,7 +411,7 @@ remain outside the checked dimensions.
 
 [`check_unit_base_serialization_invariance`](@ref) checks that a serialization
 round trip preserves explicit unit-system metadata, the declared base map, and
-a canonical semantic payload hash (`PSK-000014`). It distinguishes unit-system
+a canonical semantic payload hash. It distinguishes unit-system
 drift, base-map drift, and payload mutation; missing metadata is indeterminate.
 
 The contract does not infer units from magnitudes, authenticate how a hash was
@@ -454,8 +449,7 @@ separate scaling semantics and numerical demonstrations, see the pedagogical
 
 ## Decision-preservation manifests
 
-[`check_decision_preservation_manifest`](@ref) implements the declaration-
-completeness portion of `PSK-000007`. It applies only to version `0.1.0`
+[`check_decision_preservation_manifest`](@ref) checks the completeness of a decision-preservation declaration. It applies only to version `0.1.0`
 manifests that explicitly claim exact `decision_equivalence`; narrower
 terminal, inner, outer, or approximate claims return `:inapplicable` instead
 of being mislabeled as failures.
@@ -520,8 +514,7 @@ Use [`contract_result_to_dict`](@ref) for deterministic JSON-ready serialization
 
 ## Kron boundary and recovery
 
-[`check_kron_boundary_recovery`](@ref) implements the initial fixed-series
-boundary portion of `PSK-000008`. It follows the grounding tutorial's
+[`check_kron_boundary_recovery`](@ref) checks a fixed-series boundary relation and its recovery declaration. It follows the grounding tutorial's
 pedagogical guardrail: eliminating a neutral is exact only when that neutral is
 perfectly grounded at every source line endpoint. The check accepts one mapped
 four-conductor source line and three-conductor target, computes the source
