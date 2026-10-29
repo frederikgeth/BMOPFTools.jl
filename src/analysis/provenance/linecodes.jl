@@ -129,25 +129,38 @@ function _classify_linecodes(net::Dict{String,Any},
     end
 
     if !isempty(seq_ids)
+        observations = Dict{String,Any}(
+            "signature" => "equal_self_equal_mutual", "linecodes" => sort(seq_ids),
+            "relative_tolerance" => 1e-9,
+            "by_linecode" => Dict(id => Dict(k => by_lc[id][k] for k in
+                ("diag_spread", "offdiag_spread", "z1", "z0")) for id in seq_ids))
         push!(findings, Finding(INFO, "I.PROV.SEQ_DERIVED", :provenance,
             :linecode, nothing,
             "$(length(seq_ids)) linecode(s) have exactly balanced impedance " *
-            "series matrices (equal self, equal mutual entries). This structure does not establish " *
-            "parameter origin or positive-sequence study applicability: $(join(sort(seq_ids), ", ")).",
+            "series matrices (equal self, equal mutual entries), suggesting sequence parameterisation " *
+            "or a transposition/symmetry assumption. Physical symmetry is an alternative; " *
+            "review the source parameters and intended network symmetry: $(join(sort(seq_ids), ", ")).",
             Dict{String,Any}("linecodes" => sort(seq_ids), "evidence_kind" => "observed_series_structure",
                 "history_status" => "unverified", "sequence_applicability" => "unassessed",
-                "knowledge_ids" => ["PSK-000009"])))
+                "knowledge_ids" => ["PSK-000009"],
+                "interpretation" => _provenance_interpretation("I.PROV.SEQ_DERIVED", observations))))
     end
     if !isempty(dec_ids)
+        observations = Dict{String,Any}(
+            "signature" => "negligible_series_coupling", "linecodes" => sort(dec_ids),
+            "relative_tolerance" => 1e-6,
+            "by_linecode" => Dict(id => Dict(k => by_lc[id][k] for k in
+                ("diag_spread", "mutual_to_self_ratio")) for id in dec_ids))
         push!(findings, Finding(INFO, "I.PROV.DECOUPLED_PHASES", :provenance,
             :linecode, nothing,
             "$(length(dec_ids)) linecode(s) have negligible mutual coupling within the classifier tolerance " *
-            "in the observed series impedance matrix. This does not establish parameter origin, " *
-            "whole-network decoupling or positive-sequence applicability: " *
+            "in the observed series impedance matrix, suggesting a simplified parameterisation. " *
+            "Check phase versus sequence coordinates and other sources of network coupling: " *
             "$(join(sort(dec_ids), ", ")).",
             Dict{String,Any}("linecodes" => sort(dec_ids), "evidence_kind" => "observed_series_structure",
                 "history_status" => "unverified", "sequence_applicability" => "unassessed",
-                "knowledge_ids" => ["PSK-000009"])))
+                "knowledge_ids" => ["PSK-000009"],
+                "interpretation" => _provenance_interpretation("I.PROV.DECOUPLED_PHASES", observations))))
     end
     Dict{String,Any}("by_linecode" => by_lc, "verdict_counts" => verdict_counts)
 end
@@ -452,11 +465,12 @@ function _classify_balance(Z::AbstractMatrix)
     (verdict, detail)
 end
 
-# Matrix signatures describe observations, not an identifiable production history.
-# PSK-000008 / PSK-000009: provenance and applicability need separate evidence.
+# Exploratory candidates remain separate from declared history and applicability.
+# PSK-000008 / PSK-000009 scope the independent scientific checks.
 function _classify_impedance_transformation(net::Dict{String,Any},
                                              findings::Vector{Finding},
-                                             lc_result::Dict{String,Any})::Dict{String,Any}
+                                             lc_result::Dict{String,Any};
+                                             voltage_levels=nothing)::Dict{String,Any}
     classified = Dict{String,String}(); evidence = Dict{String,Any}()
     for (id, lc) in sort!(collect(get(net, "linecode", Dict())), by=first)
         lc isa AbstractDict || continue
@@ -465,8 +479,9 @@ function _classify_impedance_transformation(net::Dict{String,Any},
         X = _pattern_keys_to_matrix(lc, "X_series_")
         valid = R isa AbstractMatrix && X isa AbstractMatrix && size(R) == size(X) == (3, 3) &&
             all(isfinite, R) && all(isfinite, X)
+        nonzero = valid && (any(!iszero, R) || any(!iszero, X))
         detail = Dict{String,Any}("status" => valid ? "assessed" : "indeterminate",
-            "reason" => valid ? nothing : "missing_or_invalid_R_X_matrices",
+            "reason" => !valid ? "missing_or_invalid_R_X_matrices" : nonzero ? nothing : "zero_series_matrix",
             "candidate" => nothing, "history_status" => haskey(lc, "derivation") ? "declared_unverified" : "unknown",
             "declared_derivation" => get(lc, "derivation", nothing),
             "verified_transformation" => false, "knowledge_ids" => ["PSK-000008", "PSK-000009"],
@@ -484,27 +499,54 @@ function _classify_impedance_transformation(net::Dict{String,Any},
             ratio = self > 0 ? sum(R[i,j] for i in 1:3 for j in 1:3 if i != j)/6/self : nothing
             if ratio !== nothing && abs(ratio-0.5) < 0.06 && rspread < 0.01
                 candidate = xspread < 0.01 ? "modified_phase_to_neutral" : "phase_to_neutral"
-                detail["candidate"] = candidate
+            elseif nonzero
+                candidate = "kron_reduced"
             end
+            detail["candidate"] = candidate == "unknown" ? nothing : candidate
             detail["R_uniformity_residual"] = rspread; detail["X_uniformity_residual"] = xspread
             detail["R_mutual_self_ratio"] = ratio
         end
         classified[id] = candidate; evidence[id] = detail
     end
     isempty(classified) && return Dict{String,Any}()
+    vl = voltage_levels === nothing ? voltage_level_analysis(net, Finding[]) : voltage_levels
+    use_context = _linecode_use_context(net, vl)
+    for (id, detail) in evidence
+        detail["supporting_context"] = get(use_context, id, Dict{String,Any}())
+    end
     by_type = Dict{String,Vector{String}}()
     for id in sort!(collect(keys(classified)))
         push!(get!(by_type, classified[id], String[]), id)
     end
-    for (candidate, code) in (("phase_to_neutral", "I.PROV.IMPEDANCE_TRANSFORM_PN"),
+    descriptions = Dict(
+        "kron_reduced" => "do not match the PN/MPN patterns; consider prior neutral elimination by Kron reduction. " *
+            "This is a weak matrix-only candidate; LV use without a represented neutral adds context. " *
+            "Genuine three-wire construction and other equivalents are alternatives",
+        "phase_to_neutral" => "match a phase-to-neutral approximation: uniform R with mutual/self near one half, " *
+            "while X retains variation. Neutral resistance may have been folded into the phase impedances",
+        "modified_phase_to_neutral" => "match a modified phase-to-neutral approximation: uniform R and X, " *
+            "with R mutual/self near one half. Reactance may also have been symmetrised")
+    for (candidate, code) in (("kron_reduced", "I.PROV.IMPEDANCE_TRANSFORM_KR"),
+                              ("phase_to_neutral", "I.PROV.IMPEDANCE_TRANSFORM_PN"),
                               ("modified_phase_to_neutral", "I.PROV.IMPEDANCE_TRANSFORM_MPN"))
         ids = get(by_type, candidate, String[]); isempty(ids) && continue
+        context = Dict(id => evidence[id]["supporting_context"] for id in ids)
+        n_lv = count(id -> get(context[id], "n_lv_without_neutral_lines", 0) > 0, ids)
+        lv_note = candidate == "kron_reduced" && n_lv > 0 ?
+            " $n_lv candidate linecode(s) are used on LV lines without a represented neutral." : ""
+        observations = Dict{String,Any}(
+            "candidate" => candidate, "linecodes" => ids,
+            "basis" => candidate == "kron_reduced" ? "PN_MPN_patterns_not_matched" : "matrix_pattern",
+            "by_linecode" => Dict(id => Dict(k => evidence[id][k] for k in
+                ("R_uniformity_residual", "X_uniformity_residual", "R_mutual_self_ratio",
+                 "structure_rtol", "mutual_ratio_atol")) for id in ids))
         push!(findings, Finding(INFO, code, :provenance, :linecode, nothing,
-            "$(length(ids)) three-wire linecode(s) match the $candidate matrix heuristic. " *
-            "Construction history and transformation applicability remain unverified; inspect authored evidence if needed.",
+            "$(length(ids)) three-wire linecode(s) $(descriptions[candidate]).$lv_note " *
+            "Review source impedances, conductor and grounding assumptions: $(join(ids, ", ")).",
             Dict{String,Any}("transform_type" => candidate, "linecodes" => ids,
                 "evidence_kind" => "heuristic_candidate", "history_verified" => false,
-                "knowledge_ids" => ["PSK-000008", "PSK-000009"])))
+                "knowledge_ids" => ["PSK-000008", "PSK-000009"],
+                "interpretation" => _provenance_interpretation(code, observations; supporting_context=context))))
     end
     Dict{String,Any}("classification_version" => "2", "by_linecode" => classified, "by_type" => by_type,
         "legacy_projection" => "deprecated_candidate_names_with_explicit_unknown",

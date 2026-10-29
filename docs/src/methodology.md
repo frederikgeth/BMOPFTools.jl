@@ -52,15 +52,17 @@ sequence parameters (`I.PROV.SEQ_DERIVED`). The verdict tiers:
 | tier | structure | reading |
 |---|---|---|
 | `decoupled` | near-diagonal phase series block | coupling/self spread below 10⁻⁶; other factors unassessed |
-| `exactly_balanced` | rtol ≤ 10⁻⁹ | observed equal self and equal mutual entries; origin unknown |
-| `near_balanced` | rtol ≤ 10⁻² | approximate balance signature; origin unknown |
-| `distinct` | otherwise | nonuniform structure; origin unknown |
+| `exactly_balanced` | rtol ≤ 10⁻⁹ | suggests sequence parameterisation or a symmetry assumption; physical symmetry is an alternative |
+| `near_balanced` | rtol ≤ 10⁻² | approximate balance signature; review conductor symmetry and modelling assumptions |
+| `distinct` | otherwise | nonuniform structure; consider geometry and any prior neutral elimination |
 | `unassessed` | missing/incompatible X block | full complex-matrix signature unassessed |
 
-These tiers describe matrix structure. None identifies a unique production
-history. `I.PROV.SEQ_DERIVED` reports the equal-self/equal-mutual signature;
-a balanced factor alone does not establish that a positive-sequence model is
-suitable for the study. See [profiler evidence](analysis.md#Evidence-qualified-profiler-results).
+These signatures support useful provenance hypotheses. Exact balance suggests
+sequence parameterisation or a transposition/symmetry assumption, while symmetric
+physical constructions are another explanation. `I.PROV.SEQ_DERIVED` reports
+that interpretation and the implied sequence values. Check the source data and
+whether the intended network shares those symmetry assumptions; see
+[profiler interpretation](analysis.md#Evidence-qualified-profiler-results).
 
 ## The Maxwell sign pattern
 

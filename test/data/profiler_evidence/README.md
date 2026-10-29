@@ -13,3 +13,11 @@ refusal cases, ordering/relabeling, serialization and reports. Companion
 constraint-family keys without a solve. Positive controls include deliberately
 repeated demand declarations and legitimate parallel circuits. Neither repeated
 fields nor source-connected ports establish physical asset provenance.
+
+`provenance_context.json` is a minimal two-bus, three-phase LV input with no
+represented neutral and a nonuniform matrix outside the PN/MPN patterns. This
+is enough to prompt review for Kron reduction, while remaining compatible with
+a native three-wire interpretation. It intentionally supplies no transformation
+history. `test/profiler_interpretation_tests.jl` checks that the hint remains
+informative without selecting an origin or a repair, and varies voltage tier,
+neutral transport, matrix structure and missing data around that witness.

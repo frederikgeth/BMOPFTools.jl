@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "8ecb3faeb14622f2c82fc1dcf7a48faa337349da8529cfccfa4ddde511672ef8",
+  "corpus_sha256": "2e78e692324c3d1399075eb78c8663a304f3d91b9141096c364791acce89d0a6",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "159a8413c22208b3e373f6d9406ffe439c089f608e28ad5dc6db7efde10ad087"
+      "sha256": "71dbf9c97c4e6ab1594ce79b45bb7f5702c7e907d93167c67f911d82b06fa218"
     },
     {
       "path": "docs/src/api.md",
@@ -118,7 +118,7 @@
     },
     {
       "path": "docs/src/dev/versioning.md",
-      "sha256": "a0957293881c17f92f93c129178ac9fb5ac9cd84f2c05f6fefa5d1421de7351c"
+      "sha256": "8fd0373d684cc4d411a40079276fd6799f18d20da8c222ab6ce5908eda3c097a"
     },
     {
       "path": "docs/src/device_indexing.md",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "a447879a7e05f429969384e10178b8c181ccc1fbe3c5368255e4d09e5448fd1f"
+      "sha256": "5121cd968ed2a4c6c706fd6f61a996a42a3332aac05f17f458d47dc1299b4732"
     },
     {
       "path": "docs/src/formulation_substitutions.md",
@@ -310,11 +310,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "8bd7ee1fb773d032ab4a6ff90bf4b246a8914bb63444be1469bd46ba4e475d0f"
+      "sha256": "c6baefc1541cabb3341b8430fdbcdda32676ae44c77d747adce20bb28b22633b"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "9e63f22180ef73e29c49130da3a5ead85ef819d709e3ac6ec810f9b12f5fd9a1"
+      "sha256": "47c44c65022586dc0e8a9aca056d398e52f8fa5fa52a84808815c196d0b621c1"
     },
     {
       "path": "recipes/README.md",
@@ -322,7 +322,7 @@
     },
     {
       "path": "recipes/analyze_case/README.md",
-      "sha256": "7676c5a0892983865d6564fe9f3624b1a92564a246573c8eb189613b32654038"
+      "sha256": "5a9ef9d8ae4505825230dcd22c6e866a617ae2627abb8709920d8b6a9881735e"
     },
     {
       "path": "recipes/analyze_case/input.json",
@@ -330,11 +330,11 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "a7bb2348c9d180c485a935ed0634bd487fc982c6f207993eae656a943d1e9afa"
+      "sha256": "c80c23e7b6badb7467da0aee51bfd41a6751da08f330b48c635262f41321235a"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
-      "sha256": "92b63b4bd783c2d760c9f2b2349dbbf24196915174956aae5238fe3ecd8beaa2"
+      "sha256": "2cabbd45a11294bf2f04e78fc17ba795d882c22352ab94ff6de3b65049a43620"
     },
     {
       "path": "recipes/explain_finding/README.md",
@@ -465,12 +465,20 @@
       "sha256": "0ccbb2e708bdb147754cd2b387d69bdd4b20301f88a83e80bd3b3ba9c1e65c4b"
     },
     {
+      "path": "src/analysis/provenance/interpretation.jl",
+      "sha256": "498c81dffe0d9620d4cefdaf9912d18e30aec0e711f843641fea117577b75f18"
+    },
+    {
       "path": "src/analysis/provenance/linecodes.jl",
-      "sha256": "7dc0cf8aea981e8d617134fcc1ef63a97c9ff4a9da579da1cc419d55b0e6f5d3"
+      "sha256": "73493a9b1f03dac480990061206c804ae242651a15c08e386331a8bc4037f05e"
     },
     {
       "path": "src/analysis/provenance/wires_grounding.jl",
-      "sha256": "c4981effd74c9c1aeaf5c7be6ca3624d4892bdc911d31b27b8592152e0bb0395"
+      "sha256": "bdc3df2c308ba0fd2bac6ff39ba138da2f4a791870783e9a6d61bd7b7e49cc00"
+    },
+    {
+      "path": "src/analysis/provenance.jl",
+      "sha256": "8f0fab02e3d199025a0b4ccfe48140d1da0b0242748143d5822d3e08a38c96d0"
     },
     {
       "path": "src/analysis/spatial.jl",
@@ -642,15 +650,15 @@
     },
     {
       "path": "src/report/assessment_coverage.jl",
-      "sha256": "9f50ae62c6ac7f76772536fe1eb529a11029c4f6e8cbdd4ec9affd5bd04c4340"
+      "sha256": "e1c71d8fbd5ff6ed497d30d638c6d1317f4feff108c782ee0010dd140ce0d961"
     },
     {
       "path": "src/report/finding_registry.jl",
-      "sha256": "cd7fb2d6500344cef6dcd6f99ad32efb592aa94c20e8ca49544f7b1a8601bad6"
+      "sha256": "adff7ec753814bb9bbfd50b24bb7fb0b7bd345a1d6743359a7801253e7bffcaf"
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "8a695e8d504d8fff2bf0cf7d4b973a0cc41ad9113f8d0e95f0a3504cc747422f"
+      "sha256": "0df09789307e2e77bc8928c41b21f8b31fd2b69f53f6f6fdc47abeee6e077622"
     },
     {
       "path": "src/report/formatting.jl",
@@ -882,7 +890,11 @@
     },
     {
       "path": "test/data/profiler_evidence/README.md",
-      "sha256": "1781e1691283f5273d794bf8d0c1f428c1dc2b82a8958d4d10545ebbfe65a4f9"
+      "sha256": "594da7cdf326d0266f1d7d576597e0198213a9965b47295080019025c4b2f278"
+    },
+    {
+      "path": "test/data/profiler_evidence/provenance_context.json",
+      "sha256": "f07edd61ca3df0f1419d995cc1a8b7f58db78926f87780d9686e9bb5a72c27c5"
     },
     {
       "path": "test/data/profiler_evidence/two_boundary_chain.json",
@@ -1534,7 +1546,11 @@
     },
     {
       "path": "test/profiler_evidence_tests.jl",
-      "sha256": "16e8446d19ec9ccdcddc751505b7f2341b9138aac56ff6e3a37149663db15f3b"
+      "sha256": "63141dc5a175e748fbf154199acbf610ae6ba1ba3ee05b0d9b6bcb5960edd131"
+    },
+    {
+      "path": "test/profiler_interpretation_tests.jl",
+      "sha256": "cb89b9fb9ae6a247408ee240d27627b5228ff5b80c3e141edb3ef4a6bc5e8a10"
     },
     {
       "path": "test/profiler_limit_builder_tests.jl",
@@ -1542,7 +1558,7 @@
     },
     {
       "path": "test/profiler_review_tests.jl",
-      "sha256": "aab09699e2fc637eb9bc9321dfe84b99407873b648259d4fcd8c8bfd33c84981"
+      "sha256": "b17a9390962957b02683fd76ed11d6633ded3ff4f6ac214ec4e9b40e098a04d8"
     },
     {
       "path": "test/projection_tests.jl",

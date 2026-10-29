@@ -129,7 +129,7 @@ end
         r = BMOPFTools._classify_impedance_transformation(net, fs, BMOPFTools._classify_linecodes(net, fs))
         r["by_linecode"]["matrix"]
     end
-    @test candidate([2.0,2.016,2.032]) == candidate([2.016,2.0,2.032]) == "unknown"
+    @test candidate([2.0,2.016,2.032]) == candidate([2.016,2.0,2.032]) == "kron_reduced"
     @test candidate(fill(2.016,3)) == "modified_phase_to_neutral"
 
     net = _review_profile_fixture()

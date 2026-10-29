@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "a447879a7e05f429969384e10178b8c181ccc1fbe3c5368255e4d09e5448fd1f"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "5121cd968ed2a4c6c706fd6f61a996a42a3332aac05f17f458d47dc1299b4732"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -1395,7 +1395,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Observed exactly balanced series-matrix signature (equal self and equal mutual entries within tolerance). Implied sequence parameters are reported; authored origin and positive-sequence study applicability remain unverified/unassessed.",
+        meaning="Equal self and equal mutual series impedances within tolerance suggest sequence parameterisation or a transposition/symmetry assumption. Symmetric physical constructions are an alternative. Implied sequence values are reported; compare with source parameters and the symmetry needed for the study.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1404,7 +1404,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Observed near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This alone establishes neither parameter origin, whole-network decoupling nor positive-sequence applicability.",
+        meaning="Near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This suggests a simplified parameterisation; check phase versus sequence coordinates and any omitted coupling. Shunts, devices and connections may still couple the network.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1566,7 +1566,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="An LV level has no neutral carried by represented branches. Kron reduction is a possible origin, requiring source provenance; the observation does not establish a missing physical wire or a reduction history.",
+        meaning="An LV level has no neutral carried by represented branches. Consider prior neutral elimination, including Kron reduction; a genuine three-wire network or another equivalent is also possible. Review the original conductors and grounding if neutral displacement matters.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1584,7 +1584,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="An earlier report classified a three-wire matrix as Kron-reduced because it did not match the PN/MPN signatures. That observation alone does not establish a reduction history. Inspect the original model and reduction records, including eliminated conductors, grounding assumptions and any recovery map.",
+        meaning="A finite, nonzero three-wire series matrix does not match the PN/MPN patterns: consider prior neutral elimination by Kron reduction. This is a weak matrix-only hypothesis, with additional context when that linecode is used at LV without a represented neutral. Genuine three-wire construction and other equivalents are alternatives. Review source impedances, conductors and grounding before changing the model.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1593,7 +1593,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Heuristic PN candidate: approximately uniform R self/mutual entries with mutual/self near one half, without the matching X uniformity signature. Detail labels this a candidate, not verified history or transformation applicability.",
+        meaning="Approximately uniform R self/mutual entries with mutual/self near one half, without matching X uniformity, suggest a phase-to-neutral approximation: neutral resistance may have been folded into phase impedances while reactance retains geometric variation. Compare source impedances, conductor sizes and return-path assumptions; other parameterisations can share the pattern.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1602,7 +1602,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Heuristic MPN candidate: approximately uniform R and X self/mutual entries, with R mutual/self near one half. The signature does not establish the construction method, grounding assumptions or sequence applicability.",
+        meaning="Approximately uniform R and X self/mutual entries with R mutual/self near one half suggest a modified phase-to-neutral approximation, including reactance symmetrisation. Compare source impedances and the asymmetry needed for the study; a symmetric physical or authored equivalent can share the pattern.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

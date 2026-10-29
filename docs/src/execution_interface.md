@@ -111,6 +111,13 @@ result contains canonical severity, namespace, catalogue section, meaning,
 documentation hash, and any existing links to executable contracts and scientific references. It does
 not inspect a case, infer a root cause, recommend a repair, or query the book.
 
+For a Finding already returned by Julia analysis, `explain_finding(finding)`
+also returns its serialized `instance` and recorded `interpretation`, or
+`nothing` for interpretation when none was supplied. Provenance interpretations
+include hypotheses and suggested checks that an automated consumer can use for
+review. This Julia overload does not change the code-only CLI/MCP request or
+response; analysis JSON already carries the same context in Finding detail.
+
 The registry is generated from the complete [Finding-code reference](findings.md)
 and checked against `schemas/finding-registry.schema.json`. External PowerIO
 conversion codes such as `EMIT.*` are refused explicitly because their meanings

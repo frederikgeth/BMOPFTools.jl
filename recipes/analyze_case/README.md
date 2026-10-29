@@ -46,3 +46,12 @@ The Boolean defaults to `true` and is recorded in response request parameters.
 Suppression leaves other analyses active and returns an explicit spatial
 `inapplicable` / `disabled` record, with `analysis_performed=false`.
 The analysis recipe exercises this opt-out on a synthetic case with coordinates.
+
+### Provenance hints and interpretation
+
+The recipe also exercises a minimal three-wire LV case through `execute_analysis`.
+Its Kron hint retains the possible native three-wire interpretation, records actual
+LV use without a represented neutral, and provides review guidance in JSON Finding
+detail. This demonstrates how an automated consumer can receive useful hypotheses
+without treating them as a verified cause or a model-changing action. The emitted
+example remains the original triage response.

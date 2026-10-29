@@ -186,6 +186,16 @@ do not infer a PSK link from topical similarity. If the code belongs to an
 external PowerIO namespace such as `EMIT.*`, use PowerIO's catalogue rather
 than inventing a BMOPFTools explanation.
 
+For a provenance Finding instance from `report.findings`, Julia callers can use
+`explain_finding(finding)` to retrieve both the catalogue explanation and its
+recorded interpretation. Sequence, decoupling, PN/MPN and Kron hints include
+observations, possible explanations, supporting context, alternatives and
+suggested checks. An INFO or WARNING can be useful without a verified cause;
+its severity is not permission to change the model. Follow the interpretation's
+`automation_guidance`: investigate the hypothesis and obtain the evidence needed
+for a proposed edit. The [profiler guide](analysis.md#Evidence-qualified-profiler-results)
+documents the fields. Code-only CLI/MCP lookup remains a catalogue operation.
+
 ### Evaluate a scientific contract
 
 > Evaluate `parallel_member_limit_preservation` for the declared source members `<IDs>` and target aggregate `<ID>`. Report the `ScientificContractResult` status, checked dimensions, unassessed dimensions, Findings, tolerances, and witness. If the result is `inapplicable` or `indeterminate`, do not convert it to a pass or failure. Treat `PSK-000001` as a link to the book's scoped scientific statement, not as a claim that the scalar implementation covers multiconductor or state-dependent branches.

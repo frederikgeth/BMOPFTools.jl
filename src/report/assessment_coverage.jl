@@ -144,10 +144,13 @@ end
 function _render_provenance_evidence(r, io)
     d = get(get(r.results, :provenance, Dict()), "impedance_transform", Dict())
     es = get(d, "evidence_by_linecode", Dict()); isempty(es) && return
-    println(io, "\nThree-wire matrix history (classification version 2): " *
-        "$(count(e -> e["history_status"] == "unknown", values(es))) unknown; " *
-        "$(count(e -> e["history_status"] == "declared_unverified", values(es))) declared but unverified. " *
-        "PN/MPN patterns are heuristic candidates.\n")
+    types = get(d, "by_type", Dict())
+    println(io, "\nThree-wire impedance hypotheses: " *
+        "$(length(get(types, "kron_reduced", []))) possible Kron; " *
+        "$(length(get(types, "phase_to_neutral", []))) phase-to-neutral; " *
+        "$(length(get(types, "modified_phase_to_neutral", []))) modified phase-to-neutral; " *
+        "$(length(get(types, "unknown", []))) without a candidate. " *
+        "Use the Findings to review source parameters and alternatives.\n")
 end
 
 # Keep ambiguous attribution separate from radial nominal-demand estimates.

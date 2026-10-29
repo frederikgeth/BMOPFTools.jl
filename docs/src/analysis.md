@@ -324,21 +324,51 @@ to one of many ports does not classify a whole network as a service drop.
 Invalid threshold policies are indeterminate; explicitly disabled comparisons
 are skipped. Both reasons appear in assessment coverage.
 
-The impedance profiler describes the matrices supplied with the case. Equal
-self and mutual entries, negligible series coupling, or a PN/MPN-like pattern
-are observations about those matrices. Establishing how the parameters were
-produced requires source data or a documented transformation record.
+The impedance profiler combines observations with possible explanations worth
+reviewing. `I.PROV.SEQ_DERIVED` points to sequence parameterisation or a
+transposition/symmetry assumption; symmetric physical configurations are an
+alternative. `I.PROV.DECOUPLED_PHASES` suggests simplified phase data and prompts
+a check of coordinate conventions and other sources of coupling. PN/MPN hints
+explain possible neutral-resistance folding and reactance symmetrisation.
 
-Read `I.PROV.SEQ_DERIVED` as an equal-self/equal-mutual series-matrix signature
-and `I.PROV.DECOUPLED_PHASES` as negligible coupling in that series block. Neither
-Finding establishes that a positive-sequence model is suitable for the study.
-For potentially reduced data, inspect which conductors were removed, what
-was assumed about their grounding, and whether discarded quantities can be
-recovered. The [scientific checks](scientific_contracts.md) describe the supported
-checks for reduction and positive-sequence applicability.
+`I.PROV.IMPEDANCE_TRANSFORM_KR` restores the matrix-only prompt to consider Kron
+reduction when a finite, nonzero three-wire matrix does not match PN/MPN.
+Its context records whether the linecode is actually used on LV lines without a
+represented neutral. That makes prior neutral elimination worth investigating;
+a genuine three-wire network or another equivalent remains a possible reading.
+The network-level `I.PROV.KRON_LIKELY` provides a complementary missing-neutral
+hint. Review original conductor and grounding assumptions if neutral quantities
+matter to the study.
 
-Software consumers can find the classification-version and Finding-code details
-in [Provenance report compatibility](dev/versioning.md#Provenance-report-compatibility).
+These INFO Findings help the reader investigate; they need no provenance
+certificate to be useful. They also do not choose a model-changing action. Each
+Finding carries an `interpretation` in `detail`, available in JSON or through
+`explain_finding(finding)`:
+
+- `observations`: the matrix signature or represented-network facts.
+- `possible_explanations`: hypotheses, keyed by stable local names.
+- `supporting_context`: relevant case evidence. Linecode-use context keeps full
+  counts and up to five sorted line IDs per category, with truncation disclosed.
+- `alternatives`: other plausible readings of the same observations.
+- `suggested_checks`: evidence to inspect next.
+- `automation_guidance`: a `review` disposition and an explicit requirement for
+  additional evidence before changing the model.
+
+For example, after `report = analyze(net)`:
+
+```julia
+hint = first(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", report.findings))
+explanation = explain_finding(hint)
+explanation["interpretation"]["possible_explanations"]
+explanation["interpretation"]["supporting_context"]
+```
+
+The instance API combines the catalogue explanation with recorded context; it
+adds no inferred cause or repair. Severity describes diagnostic attention and
+is separate from evidence strength or permission to edit. Scientific checks for
+[reduction and positive-sequence applicability](scientific_contracts.md) retain
+their documented domains. Compatibility details are in
+[Provenance report compatibility](dev/versioning.md#Provenance-report-compatibility).
 
 Parallel declaration evidence is shared by connectivity and redundancy reports.
 Comparison keeps ordered terminal coordinates, swaps endpoint shunts and reverses

@@ -67,13 +67,16 @@ terms equal, all mutual terms equal). Circulance is the whole story:
   (Glover, *Power System Analysis and Design*, §8.4: "In general `Z_S` is not
   diagonal. However, if the line is completely transposed, [it is]").
 
-BMOPFTools reports the observed structure: `I.PROV.SEQ_DERIVED` is the
-Finding for an equal-self/equal-mutual series-matrix signature, and
-`I.PROV.DECOUPLED_PHASES` reports a diagonal phase series block. These signatures
-do not identify authored provenance or certify whole-network sequence
-applicability. The [positive-sequence applicability check](scientific_contracts.md#Positive-sequence-collapse-applicability)
-assesses its documented assumptions separately; see
-[profiler evidence](analysis.md#Evidence-qualified-profiler-results).
+BMOPFTools uses these patterns to prompt useful questions.
+`I.PROV.SEQ_DERIVED` suggests construction from sequence parameters or a
+transposition/symmetry assumption; a symmetric physical configuration is another
+explanation. `I.PROV.DECOUPLED_PHASES` suggests simplified phase data and invites
+a check of phase versus sequence coordinates and any omitted coupling.
+Compare the source parameters with the intended construction and study. The
+[profiler interpretation](analysis.md#Evidence-qualified-profiler-results)
+records these hypotheses, alternatives and suggested checks; the
+[positive-sequence applicability check](scientific_contracts.md#Positive-sequence-collapse-applicability)
+assesses its documented assumptions separately.
 
 We work with one line throughout: a 50 Hz, four-wire LV overhead feeder (a small
 AAC phase conductor on a 0.3 m cross-arm at 8 m, an offset neutral — an
@@ -325,9 +328,8 @@ they differ by about as much as the data is uncertain. The case is:
   its realisability is checkable directly, it recompiles at other frequencies,
   and it keeps the provenance link the analysis layer cross-checks.
 - **Watch for `I.PROV.SEQ_DERIVED` / `I.PROV.DECOUPLED_PHASES`**: they describe a
-  balance or diagonal series-matrix signature. Compare it with authored
-  parameter evidence if the structure was unexpected; the signature does not
-  identify how it was produced.
+  balance or diagonal series-matrix signature, suggest plausible modelling
+  choices, and point to source parameters and coupling assumptions worth checking.
 - **Keep the neutral explicit and use the IVR solver** (both defaults here). For
   four-wire networks the power–voltage (ACR) formulation admits non-physical
   multiple solutions — equivalent to spuriously grounding the neutral — and

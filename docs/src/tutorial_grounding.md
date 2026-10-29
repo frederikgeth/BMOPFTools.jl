@@ -351,8 +351,9 @@ link, don't duplicate.
   the group to earth (§4).
 - **Kron-reduce only what is genuinely pinned to zero volts** (§5). If you
   ingest three-wire data that was reduced upstream, the assumption arrived
-  with it. The [`matrix-signature Findings`](findings.md) cannot identify
-  that history or verify the grounding and recovery assumptions.
+  with it. The [`provenance Findings`](findings.md) prompt review of likely
+  prior neutral elimination. Compare with the original conductors and grounding;
+  a genuine three-wire network or a different equivalent is also possible.
 - **Sequence networks are a symmetry statement, not a coordinate change**
   (§7). Use the transform freely on results; trust decoupled networks only as
   far as the construction is balanced — and remember ``Z_0`` *is* the
@@ -367,9 +368,11 @@ link, don't duplicate.
     [impedance-models tutorial](tutorial_impedance_models.md) continues §7
     into OPF consequences.
 
-The profiler's `I.PROV.SEQ_DERIVED` and `I.PROV.DECOUPLED_PHASES` identifiers
-describe observed series-matrix signatures. They do not certify parameter
-origin or positive-sequence study applicability. Three-wire shape does not
-establish a Kron-reduction history or show that the required grounding and
-recovery assumptions hold. See
-[profiler evidence](analysis.md#Evidence-qualified-profiler-results).
+The profiler helps identify assumptions worth checking: exact balance suggests
+sequence parameterisation or a symmetry assumption; an LV model without a
+represented neutral suggests reviewing prior neutral elimination, including
+Kron reduction. Physical symmetry and genuine three-wire construction are
+legitimate alternatives. Use the hints to guide investigation of the original
+conductors, grounding and quantities needed for the study. Structured context
+for readers and automated consumers is described in
+[profiler interpretation](analysis.md#Evidence-qualified-profiler-results).

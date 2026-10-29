@@ -156,12 +156,20 @@ regeneration and release gates are described in the repository's `RELEASING.md`.
 
 ## Provenance report compatibility
 
-`provenance.impedance_transform.classification_version = "2"` separates matrix
-observations and PN/MPN heuristic candidates from declared, unverified history.
-The deprecated `by_linecode` projection retains PN/MPN candidate names and adds
-explicit `unknown`; it no longer assigns unmatched matrices to `kron_reduced`.
-`I.PROV.IMPEDANCE_TRANSFORM_KR` remains available in the Finding lookup for
-older reports, but the classifier does not emit it from that remainder class.
-`I.PROV.SEQ_DERIVED` retains its code while describing a structural signature.
-These compatibility choices do not change the applicability or result of a
-Kron boundary/recovery check or a positive-sequence applicability check.
+`provenance.impedance_transform.classification_version = "2"` separates
+PN/MPN/Kron heuristic candidates from declared, unverified history. The
+`by_linecode` and `by_type` projections retain the candidate names, including
+`kron_reduced`; missing/invalid matrices and a zero series matrix remain
+`unknown`. Use `evidence_by_linecode` for observations, history status and
+actual linecode-use context. A candidate name is a hypothesis, even when its
+history status remains `unknown`.
+
+`I.PROV.IMPEDANCE_TRANSFORM_KR` is emitted as an exploratory candidate rather
+than retired. `I.PROV.SEQ_DERIVED` retains both its stable code and its useful
+sequence/transposition interpretation, with physical symmetry as an alternative.
+The six sequence, decoupling, PN/MPN and Kron hints add structured interpretation
+in Finding detail. `explain_finding(finding::Finding)` returns the catalogue
+fields plus `instance` and `interpretation`; the latter is `nothing` when no
+interpretation was recorded. The string-code lookup and its CLI/MCP envelope
+are unchanged. These report additions do not change the applicability or
+results of the independent scientific checks.

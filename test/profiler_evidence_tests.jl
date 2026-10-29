@@ -156,7 +156,7 @@ end
     @test decoded.boundary_reach_m == 200.0
 end
 
-@testset "profiler matrix history is not a remainder class" begin
+@testset "profiler hypotheses remain separate from matrix history" begin
     matrix = Dict{String,Any}("R_series_$(i)_$(j)" => (i == j ? i+2.0 : 0.1*(i+j)) for i in 1:3 for j in 1:3)
     merge!(matrix, Dict("X_series_$(i)_$(j)" => (i == j ? i+1.0 : 0.1) for i in 1:3 for j in 1:3))
     net = Dict{String,Any}("linecode" => Dict("ASSUMED_KRON" => matrix))
@@ -167,13 +167,16 @@ end
     end
     r, fs = classify(net)
     @test r["classification_version"] == "2"
-    @test r["by_linecode"]["ASSUMED_KRON"] == "unknown"
-    @test !any(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)
+    @test r["by_linecode"]["ASSUMED_KRON"] == "kron_reduced"
+    hint = only(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs))
+    @test hint.severity == INFO
+    @test !hint.detail["history_verified"]
+    @test haskey(hint.detail["interpretation"]["alternatives"], "native_three_wire")
     @test r["evidence_by_linecode"]["ASSUMED_KRON"]["history_status"] == "unknown"
     matrix["derivation"] = Dict("method" => "kron")
     r, _ = classify(net)
     @test r["evidence_by_linecode"]["ASSUMED_KRON"]["history_status"] == "declared_unverified"
-    @test r["by_linecode"]["ASSUMED_KRON"] == "unknown"
+    @test r["by_linecode"]["ASSUMED_KRON"] == "kron_reduced"
     for i in 1:3, j in 1:3
         matrix["R_series_$(i)_$(j)"] = i == j ? 2.0 : 1.0
         matrix["X_series_$(i)_$(j)"] = i == j ? 3.0 : 0.3

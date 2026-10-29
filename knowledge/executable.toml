@@ -76,6 +76,11 @@
 # Source phase preservation stays indeterminate for unmapped leadlag (PSK-000006).
 # Earthing reports expose finite paths and conductor incidence without inferring
 # protective-system identity; synthetic fixtures cover boundaries and serialization.
+# Provenance INFO Findings retain exploratory sequence, PN/MPN and Kron hypotheses
+# with observations, alternatives and review guidance (PSK-000008 / PSK-000009).
+# The analyze_case recipe discovers their source, tests and minimized fixture.
+# explain_finding(::Finding) returns recorded instance context without inferring
+# a model-changing action or widening either scientific check's domain.
 schema_version = "0.6.0"
 
 [[contract]]

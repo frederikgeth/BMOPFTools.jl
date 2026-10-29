@@ -322,8 +322,8 @@ networks.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.SEQ_DERIVED` | I | Observed exactly balanced series-matrix signature (equal self and equal mutual entries within tolerance). Implied sequence parameters are reported; authored origin and positive-sequence study applicability remain unverified/unassessed. |
-| `I.PROV.DECOUPLED_PHASES` | I | Observed near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This alone establishes neither parameter origin, whole-network decoupling nor positive-sequence applicability. |
+| `I.PROV.SEQ_DERIVED` | I | Equal self and equal mutual series impedances within tolerance suggest sequence parameterisation or a transposition/symmetry assumption. Symmetric physical constructions are an alternative. Implied sequence values are reported; compare with source parameters and the symmetry needed for the study. |
+| `I.PROV.DECOUPLED_PHASES` | I | Near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This suggests a simplified parameterisation; check phase versus sequence coordinates and any omitted coupling. Shunts, devices and connections may still couple the network. |
 | `I.PROV.LINE_SWITCH_LIKE` | I | A line has near-zero series impedance and may be better represented by the spec's lossless `switch` object. |
 
 ### Bound & limit completeness
@@ -365,7 +365,7 @@ Classify each polyphase voltage source's stored `v_angle` and check it against t
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.KRON_LIKELY` | I | An LV level has no neutral carried by represented branches. Kron reduction is a possible origin, requiring source provenance; the observation does not establish a missing physical wire or a reduction history. |
+| `I.PROV.KRON_LIKELY` | I | An LV level has no neutral carried by represented branches. Consider prior neutral elimination, including Kron reduction; a genuine three-wire network or another equivalent is also possible. Review the original conductors and grounding if neutral displacement matters. |
 | `I.PROV.KRON_REDUCIBLE` | I | A 4-wire network whose every neutral is perfectly grounded — Kron reduction would be exact, so the explicit neutrals are numerically redundant. |
 
 ### Impedance transformation type (3-wire LV only)
@@ -376,9 +376,9 @@ Geth, Heidari & Koirala (ACM e-Energy 2022, doi:[10.1145/3538637.3538844](https:
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.IMPEDANCE_TRANSFORM_KR` | I | An earlier report classified a three-wire matrix as Kron-reduced because it did not match the PN/MPN signatures. That observation alone does not establish a reduction history. Inspect the original model and reduction records, including eliminated conductors, grounding assumptions and any recovery map. |
-| `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | Heuristic PN candidate: approximately uniform R self/mutual entries with mutual/self near one half, without the matching X uniformity signature. Detail labels this a candidate, not verified history or transformation applicability. |
-| `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | Heuristic MPN candidate: approximately uniform R and X self/mutual entries, with R mutual/self near one half. The signature does not establish the construction method, grounding assumptions or sequence applicability. |
+| `I.PROV.IMPEDANCE_TRANSFORM_KR` | I | A finite, nonzero three-wire series matrix does not match the PN/MPN patterns: consider prior neutral elimination by Kron reduction. This is a weak matrix-only hypothesis, with additional context when that linecode is used at LV without a represented neutral. Genuine three-wire construction and other equivalents are alternatives. Review source impedances, conductors and grounding before changing the model. |
+| `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | Approximately uniform R self/mutual entries with mutual/self near one half, without matching X uniformity, suggest a phase-to-neutral approximation: neutral resistance may have been folded into phase impedances while reactance retains geometric variation. Compare source impedances, conductor sizes and return-path assumptions; other parameterisations can share the pattern. |
+| `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | Approximately uniform R and X self/mutual entries with R mutual/self near one half suggest a modified phase-to-neutral approximation, including reactance symmetrisation. Compare source impedances and the asymmetry needed for the study; a symmetric physical or authored equivalent can share the pattern. |
 | `W.PROV.IMPLICIT_GROUNDING` | W | Neutral terminals are referenced by components but no branch carries a neutral conductor, and some referenced neutrals lack represented grounding. The intended return/grounding convention is indeterminate; no every-bus ground constraint or Kron history is inferred. |
 | `E.PROV.FLOATING_NEUTRAL` | E | A neutral section (continuity graph over lines/closed switches) with no path to ground **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed. |
 | `W.PROV.FLOATING_NEUTRAL` | W | Same, but unused — latent rather than active. |
