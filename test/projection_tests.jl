@@ -216,11 +216,24 @@ const _PROJ_RTOL = 0.02
                 net["transformer"]["delta_wye"][tid]["tap_min"] = 0.9
                 net["transformer"]["delta_wye"][tid]["tap_max"] = 1.1
                 result = solve_opf(net; optimizer = opt)
+                # This fixture's one three-phase source is exported as native
+                # Vsource.source. Explicitly map its internal EMF observations;
+                # those nodes are not exposed in OpenDSS AllNodeNames.
+                emf_bus = net["voltage_source"]["source"]["bus"]
+                emf_nodes = Dict("Vsource.source" => ["$emf_bus.$k" for k in 1:3])
                 rep = run_projection_case("pf_dy_xfmr_tap", net, result;
                                           optimizer = opt, has_ods = true,
+                                          source_emf_nodes = emf_nodes,
                                           atol = _PROJ_ATOL, rtol = _PROJ_RTOL)
+                @test isempty(rep.errors)
                 @test pf_ok(rep.ab)
                 @test pf_ok(rep.ac)
+                @test pf_ok(rep.bc)
+                # Six energized physical terminals and three EMF terminals;
+                # the existing oracle excludes the three near-zero references.
+                @test count(v -> abs(v) >= 1e-4, values(result_volts(result))) == 9
+                @test rep.ac.n_nodes_compared == 9
+                @test isempty(rep.ac.missing_nodes)
             end
         else
             @test_skip "A≈C oracle requires OpenDSSDirect"

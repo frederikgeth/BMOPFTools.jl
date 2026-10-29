@@ -23,8 +23,7 @@ Network model and geometry attribution
 -------------------------------------
 
 Electrical-model derivation and authored assumptions:
-Copyright 2026 Energex Network Model contributors. Project-authored model
-contributions are under CC BY-SA 4.0, subject to upstream rights:
+Project-authored model contributions are under CC BY-SA 4.0, subject to upstream rights:
 https://creativecommons.org/licenses/by-sa/4.0/
 https://github.com/frederikgeth/BMOPFDraftData/blob/main/output/SAPN/PROJECT-LICENSE-DATA.md
 

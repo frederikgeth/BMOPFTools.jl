@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "828d09d74f63d3442a5db203bdb2d035f69ac38a6d4acf17f4f460a2adc2c6a4",
+  "corpus_sha256": "6bc5acef6f67e5090b6ef80963cb51e8a884ed2afad69e6e42a408f9852df49b",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -50,7 +50,7 @@
   "source_files": [
     {
       "path": "Project.toml",
-      "sha256": "d8a766fb5acdb10a14d0551fce624ef65cf21b92fae066a098feb97ac8298dd1"
+      "sha256": "fd4dc4f20acd74f7aedc94b3e51a40255dc3956429217c066d27e54a6fc28934"
     },
     {
       "path": "bench/ipopt_barrier.jl",
@@ -110,7 +110,7 @@
     },
     {
       "path": "docs/src/conversion.md",
-      "sha256": "a3c09afe5db78d83c90ddf3d77e90f9674d5d858b7e0b8ac096bdc81eeeca3ab"
+      "sha256": "c489199f58ff4fe19d25799ea6db191571d9c3986bf5e0ec33b383911bb34cf0"
     },
     {
       "path": "docs/src/dev/opf_engine.md",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "84752cfe353c4470a4d7827c449e0a5615165680665b99d36c25511f1251921f"
+      "sha256": "86a6116df52a889806df81a5602f6e165042296c08256cab46cc13f2d8d155cc"
     },
     {
       "path": "docs/src/formulation_substitutions.md",
@@ -162,7 +162,7 @@
     },
     {
       "path": "docs/src/solution_projection.md",
-      "sha256": "e8999f28adcad3bd3f7bb799ea626461a41f32fde984edd30359bf9c486c3165"
+      "sha256": "471ee915ad67b840ac62e37cf4e95510a1e0b967d6ff5cb60634398b8db52577"
     },
     {
       "path": "docs/src/solvers.md",
@@ -310,11 +310,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "f19e528374c0723b45bb18e4b74bb35c0160ef0b66f49c7af811e04b8104b7d0"
+      "sha256": "23707f6be867e616b559d99300d90cb6daaf6797923f53df44a97b910359aa34"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "ac918167456994675d3588fc81a49f009f205c138af504d95ff75c93defa8e9e"
+      "sha256": "fc67ca909d6e2b654825c227571e2216eafeb36d22fdd22cbb5ae60bcf90acb8"
     },
     {
       "path": "recipes/README.md",
@@ -434,7 +434,7 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "f95be19a19589c7c240d543e4e7c568d075913c65d2e62a5aec4000d3fa10a31"
+      "sha256": "c27ff782956b181e6d3fe0b40402e1b1dafb3e1da6a191cf2e935a9ef8a3c69f"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -562,7 +562,7 @@
     },
     {
       "path": "src/io/from_dss.jl",
-      "sha256": "afb74403be73a394acd6d9f36f45832d11f5d708f6c015863f8f48cf2983cd1f"
+      "sha256": "14efe977adcab7994b1cab7cbacf960d16a4c5d66ac051818e7d6591d7a2dcee"
     },
     {
       "path": "src/io/load_geometry.jl",
@@ -586,7 +586,7 @@
     },
     {
       "path": "src/io/project_solution.jl",
-      "sha256": "61eae04f085809e30493a298f6808419218f759d74fda1f9996de914e5bfb558"
+      "sha256": "766089b62bc3a1834e798b5cc5acc7b05a994f277700f8e0136fbdff180309f3"
     },
     {
       "path": "src/io/sideload_coordinates.jl",
@@ -594,7 +594,7 @@
     },
     {
       "path": "src/io/to_dss.jl",
-      "sha256": "a888057d31da1b6f6971ca21446a420dbdb426232d4e052c8f56176cc729f67a"
+      "sha256": "b6e7863ad5ee13c5480e4cb573e9226670e4f6023955ef4901319758e180d164"
     },
     {
       "path": "src/io/to_pmd.jl",
@@ -634,7 +634,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "e5cf8c95f4e5a665c74ff4c9645a588a3ace0a2828888963756edb0759463450"
+      "sha256": "642e3195505efebeae793b9e48b2e24945f0fd97150bb476ca92197b49ce050f"
     },
     {
       "path": "src/report/formatting.jl",
@@ -702,7 +702,7 @@
     },
     {
       "path": "test/Project.toml",
-      "sha256": "0504bfd41853ecf20a93174376a5714f11c0de94d9358dc318f93c8f9f68e0c0"
+      "sha256": "b077ec4f5999ab241a713aba8bb29b163886892655011bf79ccab806a446aed2"
     },
     {
       "path": "test/admittance_tests.jl",
@@ -809,6 +809,10 @@
       "sha256": "48d6aa0d068484c7be7874357c808ea1a276d89c355ddefc2fe0d9c5f3fb0adb"
     },
     {
+      "path": "test/data/line_geometry/unresolved_geometry.dss",
+      "sha256": "4ddf00921569d3ce754df9470c4f1ebce8e7d94f19b3f81cdee7d1ed5100077a"
+    },
+    {
       "path": "test/data/neutral_only_link.json",
       "sha256": "0581f8a125cdf5da6ec1e869294692556705e6614512b4d723a309931d6957b0"
     },
@@ -849,8 +853,20 @@
       "sha256": "bc21248292176ce833655de2924c4cf26187144cf0a5b1d15338882f521b8ded"
     },
     {
+      "path": "test/data/powerio_regressions/unrated_source.dss",
+      "sha256": "fc7b4c1ada26f2767e8a5618b4a42112523ce77554a9589975bd235944554db9"
+    },
+    {
+      "path": "test/data/roundtrip_expectations.md",
+      "sha256": "68194d5135daa1245fbdbe457e639d4366442cc1013c21a837d00c189eb70a38"
+    },
+    {
       "path": "test/data/roundtrip_expected_losses.json",
-      "sha256": "0d0cbdef742102d29295c1d7a32bc06f2334bd0fe69c18b5955a4e723278a4b5"
+      "sha256": "983992ab71bda44c60c1ca0012e1b19e23de4662d1915b3669068cb9f41de324"
+    },
+    {
+      "path": "test/data/roundtrip_review.json",
+      "sha256": "6645dc0b5bd4b6d7d4ce841f31085aec14b372c8941dd67724c39d1be9ec6cc6"
     },
     {
       "path": "test/data/schema_alias/powerio_archive.json",
@@ -1026,7 +1042,11 @@
     },
     {
       "path": "test/dss_conversion_error_tests.jl",
-      "sha256": "deef678c40efda959ac4731e2317c88e964773ba7d0b424f90db76d557794fa3"
+      "sha256": "49b696be6a9c5c049d017de7e236961e7d2afcd531b69967c1b9a90a264e3438"
+    },
+    {
+      "path": "test/dss_export_guard_tests.jl",
+      "sha256": "79c275e8550524c08f2ae4d326173c6d83165d95f35faaaaf5ce621932d8bb92"
     },
     {
       "path": "test/execution_interface_tests.jl",
@@ -1418,7 +1438,7 @@
     },
     {
       "path": "test/opendss_semantics_tests.jl",
-      "sha256": "dea3ac0befa4241b4670760814a6b5db98b83725bc93efbf7085d8c02edc2e77"
+      "sha256": "4bc4bbf7cbabb9738f915e7c03cf507f911cbaedac22efe666e4f8aeff49587e"
     },
     {
       "path": "test/operational_mesh_applicability_tests.jl",
@@ -1466,7 +1486,7 @@
     },
     {
       "path": "test/powerio_findings_tests.jl",
-      "sha256": "16195b868347331afd6180a6f4894f010d87865e5fd6dc9bd7efc6fee05da114"
+      "sha256": "5f83185e9f21aa9efe294066ba74cfea46dfe471c1ee4d1a9278bc1d00c5b468"
     },
     {
       "path": "test/powerio_numerical_tests.jl",
@@ -1474,15 +1494,15 @@
     },
     {
       "path": "test/powerio_regression_tests.jl",
-      "sha256": "f8ad3b4d0e364f2ad6343a47b7b07eb6551dbc41a58db78920d157c0102af833"
+      "sha256": "04c8a666edb6e9da74e9c50f38f6c9cefbfdea0fac2a9bf1ad9ef08dd253882d"
     },
     {
       "path": "test/powerio_v09_tests.jl",
-      "sha256": "30b09a3b759efa1ab6170d8d1849868ee5c5b50def0ffa35d83d3a5e3265f9f4"
+      "sha256": "f40300a313390efd0b7af14f842a85af951a23a92d2e0405a73385605eefd2a2"
     },
     {
       "path": "test/projection_tests.jl",
-      "sha256": "bd79f8e758db50c42c06472cc07f732618a161ff1de71acf293e90508c47d587"
+      "sha256": "ac8145e3ee726a73787758a76aedd99935498a5adc14505ceb58964d88998404"
     },
     {
       "path": "test/property/terminal-permutation-seed.json",
@@ -1498,7 +1518,11 @@
     },
     {
       "path": "test/roundtrip_fidelity_tests.jl",
-      "sha256": "f09e78f5e757f690444413aba9f574198aa1382c2050b188dcecf4d21e67fa11"
+      "sha256": "1519ecc749182d5e980e82a2e05528c1b6f1cd4b1b30b6df230270253a7262cf"
+    },
+    {
+      "path": "test/roundtrip_review_helpers.jl",
+      "sha256": "452b643e34fbf6080e5308f198520ba973c636d5946474332982ed0df9969251"
     },
     {
       "path": "test/schema_alias_tests.jl",
@@ -1598,7 +1622,7 @@
     },
     {
       "path": "test/transformer_opendss_tests.jl",
-      "sha256": "0ca7c2a7d2522aab270986bad372bb47a9b4b9b82f11637418d12d135b37e993"
+      "sha256": "e2c17a9982ca680f11191cc9bc9772802795eaf5e92c93ab4d3a9568f58a8f1c"
     },
     {
       "path": "test/transformer_phase_opf_tests.jl",
@@ -1610,7 +1634,7 @@
     },
     {
       "path": "test/ybus_linearized_tests.jl",
-      "sha256": "e216282dc15af77053c7aaea1673c5221cd4aae2250f289431caad3a51b1e6a7"
+      "sha256": "640a518425b640b19da9d78f36ed8a153ff32f68eb801a5724850343e8ef9fb6"
     }
   ]
 }

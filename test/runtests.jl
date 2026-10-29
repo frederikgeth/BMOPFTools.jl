@@ -3465,43 +3465,38 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         net = from_dss(source_path)
         source_meta = net["_meta"]["powerio_source_metadata"]
         @test source_meta["source_format"] == "dss"
-        @test source_meta["field_count"] == 9
+        # This ledger describes exposed extras, not every authored DSS field.
+        # 0.11.7 lowers sources and load laws into typed electrical objects.
+        @test source_meta["field_count"] == 10
         @test Set(source_meta["fields"]) == Set([
-            "angle", "basekv", "conn", "kv", "model", "phases", "units", "vmaxpu", "vminpu",
+            "basemva", "conn", "dss_flattened_properties", "dss_source_length",
+            "dss_source_units", "dss_switch", "kv", "nominal_phase_kv", "normamps", "phases",
         ])
-        @test haskey(source_meta["by_scope"], "load:d12")
-        @test "vminpu" in source_meta["by_scope"]["load:d12"]
-
+        @test source_meta["by_scope"]["load:d12"] == ["conn", "kv", "phases"]
+        @test source_meta["by_scope"]["source:source"] == ["basemva", "nominal_phase_kv"]
         mapping = net["_meta"]["powerio_source_mapping"]
-        @test net["_meta"]["powerio_source_mapped_fields"] ==
-              ["angle", "basekv", "kv", "model", "phases", "vmaxpu", "vminpu"]
-        @test mapping["fields"] ==
-              ["angle", "basekv", "kv", "model", "phases", "vmaxpu", "vminpu"]
+        @test net["_meta"]["powerio_source_mapped_fields"] == ["kv", "phases"]
+        @test mapping["fields"] == ["kv", "phases"]
         @test mapping["by_field"]["kv"]["target"] == "load.v_nom"
         @test mapping["by_field"]["kv"]["transform"] == "kV_to_volts"
         @test mapping["by_field"]["phases"]["target"] == "load.terminal_map/configuration"
-        @test mapping["by_field"]["basekv"]["status"] == "mapped_with_transform"
-        @test mapping["by_field"]["angle"]["target"] == "voltage_source.v_angle"
-        @test mapping["unmapped_fields"] == ["units"]
-        @test isempty(mapping["blocking_unmapped_fields"])
-        @test mapping["by_field"]["model"]["status"] == "mapped_with_contract"
-        @test mapping["by_field"]["model"]["target"] == "voltage_source.v_magnitude/v_angle"
-        @test mapping["by_field"]["model"]["scopes"] == ["source:source"]
-        @test mapping["by_field"]["vminpu"]["status"] == "mapped_with_contract"
-        @test mapping["by_field"]["vmaxpu"]["status"] == "mapped_with_contract"
-        @test mapping["by_field"]["vminpu"]["impact"] == "physical_or_operating_point"
-        @test mapping["by_field"]["vminpu"]["reason"] ==
-              "preserved_as_load_behavior_contract_not_bus_voltage_bound"
-        @test mapping["by_field"]["vminpu"]["active_in_original_model"] == false
-        @test mapping["by_field"]["vminpu"]["target"] ==
-              "_meta.powerio_source_semantics.load_voltage_thresholds"
-        @test mapping["by_field"]["units"]["physical_readiness_blocking"] == false
+        unclassified_fields = ["basemva", "dss_flattened_properties", "dss_source_length",
+            "dss_source_units", "dss_switch", "nominal_phase_kv", "normamps"]
+        @test mapping["unmapped_fields"] == unclassified_fields
+        @test mapping["blocking_unmapped_fields"] == unclassified_fields
+        @test all(mapping["by_field"][f]["physical_readiness_blocking"] for f in unclassified_fields)
         semantics = net["_meta"]["powerio_source_semantics"]
-        @test semantics["load_voltage_thresholds"][1]["status"] == "observed_ordered"
-        @test semantics["load_voltage_thresholds"][1]["vminpu"] == 0.0
-        @test semantics["load_voltage_thresholds"][1]["vmaxpu"] == 2.0
-        @test semantics["voltage_source_models"][1]["status"] ==
-              "represented_as_fixed_voltage_boundary"
+        @test length(semantics["load_voltage_thresholds"]) == 3
+        for threshold in semantics["load_voltage_thresholds"]
+            @test threshold["status"] == "observed_ordered"
+            @test threshold["vminpu"] == 0.0
+            @test threshold["vmaxpu"] == 2.0
+            @test threshold["origin"] == "powerio_typed_voltage_model"
+        end
+        # Do not invent an authored `model=ideal` claim from the lowered EMF.
+        @test isempty(semantics["voltage_source_models"])
+        @test count(d -> d["code"] == "EMIT.BMOPF.VALUE_SUBSTITUTED",
+            net["_meta"]["powerio_diagnostic_details"]) == 3
 
         behavior = powerio_source_behavior_contract(net)
         @test behavior["contract_version"] == "powerio_source_behavior/v1"
@@ -3529,7 +3524,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         write_bmopf(net, roundtrip_path)
         roundtrip = parse_bmopf(roundtrip_path)
         @test roundtrip["_meta"]["powerio_source_mapping"]["fields"] == mapping["fields"]
-        @test roundtrip["_meta"]["powerio_source_metadata"]["field_count"] == 9
+        @test roundtrip["_meta"]["powerio_source_metadata"]["field_count"] == 10
     end
 
     @testset "from_dss — source ledger is case-folded and honest" begin
@@ -3549,11 +3544,12 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             mixed["powerio_diagnostic_details"])
         @test mixed["powerio_source_mapping"]["by_field"] ==
               lower["powerio_source_mapping"]["by_field"]
-        @test mixed["powerio_source_mapping"]["blocking_unmapped_fields"] == String[]
+        @test mixed["powerio_source_mapping"]["blocking_unmapped_fields"] ==
+              lower["powerio_source_mapping"]["blocking_unmapped_fields"]
         @test mixed["powerio_source_metadata"]["by_scope"] ==
               lower["powerio_source_metadata"]["by_scope"]
         @test haskey(mixed["powerio_source_metadata"]["by_scope"], "load:d12")
-        for field in ("kv", "phases", "vminpu", "vmaxpu")
+        for field in ("kv", "phases")
             @test mixed["powerio_source_mapping"]["by_field"][field]["unmapped_scopes"] ==
                   String[]
         end
@@ -3580,10 +3576,10 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         end
 
         mapping = mixed["powerio_source_mapping"]
-        @test mapping["warning_status"] == "parsed"
+        @test mapping["warning_status"] == "partially_classified"
         @test mapping["warnings_truncated_upstream"] == false
-        @test mapping["unclassified_warnings"] == String[]
-        @test mapping["warnings_classified"] == mapping["warnings_seen"]
+        @test any(startswith("EMIT.BMOPF.VALUE_SUBSTITUTED"), mapping["unclassified_warnings"])
+        @test mapping["warnings_classified"] + length(mapping["unclassified_warnings"]) == mapping["warnings_seen"]
         @test mixed["powerio_source_metadata"]["extras_status"] == "available"
         @test mixed["powerio_source_metadata"]["objects_with_extras"] > 0
     end
@@ -3610,9 +3606,9 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test mapping["by_field"]["zipv"]["target"] ==
               "load.model/alpha_z/alpha_i/alpha_p/beta_z/beta_i/beta_p"
         @test mapping["by_field"]["zipv"]["status"] == "mapped"
-        @test mapping["by_field"]["model"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["model"]["status"] == "mapped"
         @test mapping["by_field"]["model"]["mapped_scopes"] ==
-              ["load:ld1", "load:ld2", "load:ld3", "source:source"]
+              ["load:ld1", "load:ld2", "load:ld3"]
         @test mapping["by_field"]["model"]["unmapped_scopes"] == String[]
         @test "zipv" ∉ mapping["blocking_unmapped_fields"]
         @test "model" ∉ mapping["blocking_unmapped_fields"]
@@ -3627,7 +3623,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     @testset "to_dss — BMOPF → OpenDSS" begin
         @testset "two-arg returns (text, warnings)" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
-            dss_text, warns = to_dss(net)
+            dss_text, warns = to_dss(net; allow_unverified_ratings=true)
             @test dss_text isa String
             @test !isempty(dss_text)
             @test occursin("New Circuit.", dss_text)
@@ -3638,7 +3634,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @testset "name override does not mutate input" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
             orig_name = net["name"]
-            dss_text, _ = to_dss(net; name="renamed_circuit")
+            dss_text, _ = to_dss(net; name="renamed_circuit", allow_unverified_ratings=true)
             @test occursin("New Circuit.renamed_circuit", dss_text)
             @test net["name"] == orig_name          # input dict untouched
         end
@@ -3646,7 +3642,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @testset "file-writing overload" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
             out = joinpath(mktempdir(), "sub", "Master.dss")   # nested dir must be created
-            warns = to_dss(net, out)
+            warns = to_dss(net, out; allow_unverified_ratings=true)
             @test isfile(out)
             @test warns isa Vector{String}
             @test occursin("New Circuit.", read(out, String))
@@ -3658,7 +3654,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             @test !isempty(cases)
             for case in sort(cases)
                 net = from_dss(joinpath(dir, case))
-                dss_text, _ = to_dss(net)
+                dss_text, _ = to_dss(net; allow_unverified_ratings=true)
                 @test !isempty(dss_text)
                 # Prove the generated DSS is valid by re-parsing it via PowerIO.
                 tmp = joinpath(mktempdir(), "regen.dss")
@@ -3693,9 +3689,13 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             @test dx2["terminal_map_to"][2] == "n"
             @test isapprox(dx2["v_nom_to"], 240.0; rtol=1e-6)
 
-            # Single-wire backbone: 1-conductor linecode, 2 line segments.
-            @test length(net["line"]) == 2
-            @test all(length(l["terminal_map_from"]) == 1 for (_, l) in net["line"])
+            # Two authored SWER spans plus the three-phase source impedance.
+            @test length(net["line"]) == 3
+            @test all(length(net["line"][id]["terminal_map_from"]) == 1 for id in ("l1", "l2"))
+            source_bus = net["voltage_source"]["source"]["bus"]
+            source_line = only(l for l in values(net["line"]) if l["bus_from"] == source_bus)
+            @test source_line["bus_to"] == "mv"
+            @test length(source_line["terminal_map_from"]) == 3
 
             # All loads single-phase; pole/MEN earths parsed as grounding shunts.
             @test all(l["configuration"] == "SINGLE_PHASE" for (_, l) in net["load"])
@@ -4015,6 +4015,7 @@ include("mcp_execution_tests.jl")
     # always runs; the OpenDSS PF cross-check self-gates on _HAS_ODS.
     # -----------------------------------------------------------------------
     include("roundtrip_fidelity_tests.jl")
+    include("dss_export_guard_tests.jl")
 
     # -----------------------------------------------------------------------
     # OPF-solution → OpenDSS snapshot projection + 3-way feasibility oracle.

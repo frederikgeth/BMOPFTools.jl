@@ -12,7 +12,7 @@ entry explains the stable code class; a Finding instance's component, message,
 and detail describe one observation. Neither should be treated as an inferred
 root cause or an automatically safe repair.
 
-Two families on this page are **not** produced by [`analyze`](@ref). The
+The `EXPORT.` family comes from explicit `to_dss` admission. The
 `CONTRACT.` codes at the end come from the explicit source-versus-target
 [scientific contracts](scientific_contracts.md), which must be invoked directly
 with a source, a target, and a mapping. And a case imported through
@@ -23,6 +23,15 @@ catalogued by [powerio](https://powerio.dev) rather than here. They report what
 the OpenDSS import could not carry into BMOPF, not the quality of what arrived,
 and the leading namespace is what tells them apart from the codes below. See
 [Ingest warnings](conversion.md#ingest-warnings).
+
+## EXPORT — explicit conversion admission
+
+These Findings are emitted by `to_dss`, including on refusal, rather than by
+`analyze`. See [OpenDSS export](conversion.md#to-dss-export).
+
+| Code | Sev | Trigger & rationale |
+|---|---|---|
+| `W.EXPORT.DSS_RATING_UNVERIFIED` | W | DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim (PSK-000007). |
 
 ## COMP — completeness
 

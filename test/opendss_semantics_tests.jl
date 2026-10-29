@@ -74,7 +74,7 @@ using Test, BMOPFTools, PowerIO, JSON3, LinearAlgebra
         @test BMOPFTools._branch_wire_description(service,["lv","customer","house"])==
             "mixed (2/4 conductors)"
         @test mv["n_buses_with_neutral_conductor"]==0
-        @test mv["wires"]=="no branch conductors represented"
+        @test mv["wires"]=="3-wire"
         @test zi["protective_system_status"]=="indeterminate"
         @test !occursin("TN-C-S",zi["tag"])
         @test only(filter(e->e["bus"]=="lv",zi["neutral_earths"]))["impedance_ohm"]≈0.3

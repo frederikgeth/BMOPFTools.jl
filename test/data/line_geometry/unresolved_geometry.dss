@@ -1,0 +1,4 @@
+! Original minimized incomplete-input witness; CC BY 4.0 (see ../license.md).
+clear
+new circuit.incomplete basekv=11 phases=3 bus1=sourcebus
+new line.l1 bus1=sourcebus bus2=b2 geometry=missing length=1 units=m

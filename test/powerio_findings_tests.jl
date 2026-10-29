@@ -210,12 +210,15 @@
     @testset "to_dss fills a caller's findings vector" begin
         net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
         fs  = Finding[]
-        dss_text, warns = to_dss(net; findings=fs)
+        dss_text, warns = to_dss(net; findings=fs, allow_unverified_ratings=true)
         @test !isempty(dss_text)
         @test warns isa Vector{String}          # the returned shape is unchanged
         @test !isempty(fs)
-        @test all(f -> startswith(f.code, "EMIT."), fs)
-        @test length(unique(vcat((f.detail["source_records"] for f in fs)...))) == length(warns)
+        guard = filter(f -> f.code == "W.EXPORT.DSS_RATING_UNVERIFIED", fs)
+        @test length(guard) == 1
+        upstream = filter(f -> startswith(f.code, "EMIT."), fs)
+        @test length(upstream) + length(guard) == length(fs)
+        @test length(unique(vcat((f.detail["source_records"] for f in upstream)...))) == length(warns)-1
     end
 end
 
@@ -236,7 +239,9 @@ end
     summary = analyze(net).results[:provenance]["powerio_conversion"]
     @test summary["n_diagnostics"] == length(net["_meta"]["powerio_diagnostic_details"])
     @test sum(values(summary["by_code"])) == summary["n_diagnostics"]
-    @test summary["by_code"]["EMIT.BMOPF.FIELD_DROPPED"] == 8
+    # Five effective-line source-only fields, two load fields, two source bases.
+    @test summary["by_code"]["EMIT.BMOPF.FIELD_DROPPED"] == 9
+    @test summary["by_code"]["EMIT.BMOPF.VALUE_SUBSTITUTED"] == 3
     buf = IOBuffer(); write_bmopf(net, buf)
     restored = parse_bmopf(String(take!(buf)); from_string=true)
     @test restored["_meta"]["powerio_diagnostics"] == net["_meta"]["powerio_diagnostics"]
