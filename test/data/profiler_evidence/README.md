@@ -21,3 +21,16 @@ a native three-wire interpretation. It intentionally supplies no transformation
 history. `test/profiler_interpretation_tests.jl` checks that the hint remains
 informative without selecting an origin or a repair, and varies voltage tier,
 neutral transport, matrix structure and missing data around that witness.
+
+`balanced_phase_four_wire.json` retains an explicit neutral with unequal
+phase-to-neutral mutual reactances, while the three-phase block is exactly
+balanced. Both resistance and reactance are positive definite. The arithmetic
+witnesses in `test/profiler_physics_guidance_tests.jl` show neutral displacement
+and phase-to-neutral unbalance under balanced phase currents, exact PN terminal
+relations for zero earth current with unequal conductor resistances, and Kron
+loss preservation with recoverable neutral current under zero neutral voltage
+drop. Negative controls break the eliminated-current/boundary assumptions.
+The same tests contrast absolute inline and per-length impedances, unit-error
+directions, diagonal signatures and explicit unbounded winding caps. These
+small reference-relation checks require no solve or reconstruction of unknown
+source data.

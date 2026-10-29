@@ -119,7 +119,7 @@ function _render_operational_evidence(r, io; markdown=false)
         println(io, "\n$(pre)n-winding transformer caps (declared, not a solved result): " *
             join(["$(_humanize(k)) $(counts[k])" for k in ("present", "partial", "absent", "malformed") if counts[k] > 0], ", ") * ".")
         c["n_windings_without_caps"] > 0 &&
-            println(io, "$pre$(c["n_windings_without_caps"]) winding(s) have neither `i_max` nor `s_max` (see W.OPS.XFMR_UNCONSTRAINED).")
+            println(io, "$pre$(c["n_windings_without_caps"]) winding(s) have no finite supported `i_max` or `s_max` cap (see W.OPS.XFMR_UNCONSTRAINED).")
     end
     reach = get(d, "feeder_length", [])
     distance(v) = v === nothing ? "unassessed" : "$(round(v; digits=1)) m"

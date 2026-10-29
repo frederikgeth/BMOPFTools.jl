@@ -300,16 +300,31 @@ guide["observations"]["by_linecode"]          # includes pattern_comparison
 
 ### Impedance provenance hints
 
-Linecode matrices often reveal how they were made, and each construction
-throws away something a study might need:
+Linecode matrices provide clues to construction choices. Their engineering
+implications depend on which conductors and couplings the model retains:
 
-| Pattern | Likely origin | What is lost |
+| Pattern | Possible origin | Engineering implications |
 |---|---|---|
-| equal self, equal mutual (`I.PROV.SEQ_DERIVED`) | sequence values `r1,x1,r0,x0`, or transposition | geometric voltage unbalance; neutral quantities are folded into Z₀ |
-| no mutual coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase (positive-sequence) data only | Z₀ = Z₁, so unbalance and earth-return effects are wrong |
-| three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | neutral eliminated by Kron reduction (weak hint) | neutral voltage rise and losses; exact only if the neutral is at 0 V everywhere |
-| uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral approximation | accuracy degrades with grounding impedance |
-| uniform R and X (`…_MPN`) | modified phase-to-neutral | as PN, plus geometric unbalance |
+| equal self, equal mutual (`I.PROV.SEQ_DERIVED`) | sequence values or a symmetry/transposition assumption | phase-pair asymmetry is absent from the inspected block; retained neutral coupling and other equipment can still create unbalance |
+| negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | approximately Z₀ = Z₁ for that block; inspect the intended return path and additional conductors |
+| three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | prior neutral elimination (weak hint) | a zero-neutral-voltage model cannot predict neutral rise when inappropriate; total dissipation can remain represented, while separate neutral attribution needs recovery data |
+| uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral equivalent | exact under the single-grounded/no-earth-current assumptions; conductor equality explains the pattern rather than establish accuracy |
+| uniform R and X (`…_MPN`) | modified phase-to-neutral equivalent | review PN earth-current assumptions and the additional reactance-symmetrisation approximation |
+
+`observations.by_linecode` records `n_conductors`, `phase_block_only` and the
+relative coupling to conductors outside the inspected block for balance and
+decoupling hints. A four-wire matrix can have a balanced phase block while its
+neutral remains explicit and introduces phase-to-neutral unbalance. The
+implications list reflects retained conductors; a phase-block signature alone
+does not make neutral quantities unavailable.
+
+For the PN transformation, the exact reference domain has no conductor-to-earth shunts,
+no device current injection into earth, and one grounding point per
+continuous neutral section. Neutral current and voltage can be recovered using
+source information in that domain. Multiple earth-return paths can invalidate
+its assumptions; grounding impedance alone does not determine the error. The
+R mutual/self ratio near one half is a fingerprint for similar phase/neutral
+resistances, while the transformation itself also applies to unequal conductors.
 
 The Kron hint is matrix-only, so its message says how the linecode is used: on
 LV lines without a represented neutral (a stronger hint), only elsewhere
@@ -332,8 +347,9 @@ For two-winding subtypes the OPF turns `s_rating` into a per-coil cap. An
 `n_winding` transformer is different: only per-winding `i_max` (coil current)
 and `s_max` (coil apparent power, shared equally among phase legs) limit it.
 `operational.winding_limit_coverage` lists each winding's caps with field paths,
-and `W.OPS.XFMR_UNCONSTRAINED` flags windings with neither, since the OPF would
-then load them without limit. Zero is a restriction; `Inf` means unbounded.
+and `W.OPS.XFMR_UNCONSTRAINED` flags windings with no finite supported cap.
+A cap can be absent or explicitly `Inf`; observations count both states, so an
+intentional unbounded declaration stays visible. Zero is a real restriction.
 Direct neutral-current caps are not assessed, and this is declared data, not a
 built or solved model. Other subtypes are reported as not applicable.
 
@@ -345,8 +361,17 @@ source, or a transformer port with a source beyond it. For a chain of four
 100 m lines fed from both ends this is 200 m (`boundary_reach_m`), while the
 legacy `reach_m` / `anchor_extent_m` measures 400 m from one end.
 `I.OPS.FEEDER_LONG` and `I.OPS.FEEDER_SHORT` compare it with per-band
-thresholds; the usual culprit is a unit slip (km vs m) or the OpenDSS default
-`length=1`, and both scale every line impedance.
+thresholds. Review genuine feeder size, unit conversions and the OpenDSS default
+`length=1`: copying 1 km as 1 m makes a line 1000 times too short; interpreting
+1000 m as 1000 km upstream makes it 1000 times too long.
+
+`observations.impedance_basis_counts` separates per-length `length_scaled`
+linecodes, inline `absolute_section` matrices and `unresolved` declarations.
+Length errors scale linecode impedances, while inline matrices are absolute
+section totals and stay unchanged when length changes. The guide uses that
+context; for an all-inline zone it explains the distance error separately from
+electrical parameters. Per-km versus per-m impedance units deserve their own
+check even when declared lengths are correct.
 
 Each transformer port records a `port_role`: `source_beyond_port` (a possible
 supply into the zone), `no_source_beyond_port` (load side) or `unresolved`. Two

@@ -180,3 +180,9 @@ drafts used unordered objects keyed by id. Linecodes marked as source (Thevenin)
 equivalents keep their classification but carry `finding_suppressed` instead of
 producing provenance Findings. Feeder-length transformer ports add `port_role`
 and zones add `n_ports_by_role`.
+
+Interpretation implications can depend on the instance: balance signatures record
+retained conductors and phase-block scope; feeder hints record the declared
+impedance-source counts. Match the returned guidance IDs rather than assuming
+every instance of a code has the same implication list. Cap observations retain
+explicit unbounded declarations separately from absent fields.

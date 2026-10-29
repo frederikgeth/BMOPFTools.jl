@@ -34,6 +34,8 @@ interface_paths = [
   "test/profiler_evidence_tests.jl",
   "test/profiler_review_tests.jl",
   "test/profiler_interpretation_tests.jl",
+  "test/profiler_physics_guidance_tests.jl",
+  "test/data/profiler_evidence/balanced_phase_four_wire.json",
   "test/data/profiler_evidence/provenance_context.json",
   "test/augmentation_tests.jl",
   "test/profiler_limit_builder_tests.jl",

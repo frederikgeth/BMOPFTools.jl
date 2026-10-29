@@ -82,6 +82,10 @@
 # Interpretations (shared module src/analysis/finding_interpretation.jl) are ordered
 # {id,text} lists incl. implications; also cover feeder-length and n-winding cap hints.
 # Converter source (Thevenin) equivalents are excluded from provenance hints.
+# Profiler implications retain phase-block scope and additional conductor coupling,
+# distinguish absolute from length-scaled line declarations, and preserve explicit
+# unbounded winding caps. Arithmetic PN/Kron witnesses test the reference relations
+# without widening PSK-000008/PSK-000009 or introducing new scientific contracts.
 # explain_finding(::Finding) returns recorded instance context without inferring
 # a model-changing action or widening either scientific check's domain.
 schema_version = "0.6.0"

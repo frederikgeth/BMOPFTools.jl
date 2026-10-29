@@ -8,6 +8,8 @@ function _reach_graph(net, zones)
     zi = Dict(b => i for (i, z) in enumerate(zones) for b in z)
     adj = Dict(b => Tuple{String,Float64,String}[] for b in keys(zi))
     issues = [String[] for _ in zones]; regularized = [String[] for _ in zones]
+    impedance_basis = [Dict(k => 0 for k in ("length_scaled", "absolute_section", "unresolved")) for _ in zones]
+    linecodes = get(net, "linecode", Dict())
     function edge(a, b, w, id)
         if !haskey(zi, a) || !haskey(zi, b)
             for x in (a, b)
@@ -26,6 +28,13 @@ function _reach_graph(net, zones)
             for i in touched; push!(issues[i], "line:$id"); end
             continue
         end
+        # Declaration source only; this does not validate the electrical matrix.
+        inline = haskey(l, "R_series_1_1") || haskey(l, "X_series_1_1")
+        lc = get(l, "linecode", nothing)
+        basis = inline && !haskey(l, "linecode") ? "absolute_section" :
+            !inline && lc isa AbstractString && linecodes isa AbstractDict &&
+                get(linecodes, lc, nothing) isa AbstractDict ? "length_scaled" : "unresolved"
+        for i in touched; impedance_basis[i][basis] += 1; end
         meta = get(l, "meta", Dict()); meta isa AbstractDict || (meta = Dict())
         flag = get(meta, "electrical_length_regularized", false)
         for i in touched
@@ -50,7 +59,7 @@ function _reach_graph(net, zones)
         end
     end
     for es in values(adj); sort!(es); end
-    (zi=zi, adj=adj, issues=sort!.(unique!.(issues)), regularized=sort!.(regularized))
+    (zi=zi, adj=adj, issues=sort!.(unique!.(issues)), regularized=sort!.(regularized), impedance_basis=impedance_basis)
 end
 
 # A binary heap retains the physical edge inventory without a SimpleGraph collapse.
@@ -386,16 +395,22 @@ function _feeder_length_check(net::Dict{String,Any}, zones::Vector{Set{String}},
                 "n_qualified_boundary_buses" => length(starts), "supply_allocation" => "unassessed")
             code = kind == "long" ? "I.OPS.FEEDER_LONG" : "I.OPS.FEEDER_SHORT"
             observations = Dict{String,Any}("boundary_reach_m" => reach, "threshold_m" => detail["threshold_m"],
-                "band" => band, "anchor_extent_m" => extent, "path_witness" => get(entry, "path_witness", nothing))
+                "band" => band, "anchor_extent_m" => extent, "path_witness" => get(entry, "path_witness", nothing),
+                "impedance_basis_counts" => copy(graph.impedance_basis[i]))
             detail["interpretation"] = _finding_interpretation(code, observations)
             hint = kind == "long" ?
-                "Either a genuinely long feeder or a unit slip (km entered as m); a 1000× length error scales every " *
-                "line impedance and can make the OPF infeasible." :
+                "Either a genuinely long feeder or metre values interpreted as kilometres upstream / a duplicated " *
+                "km-to-m conversion." :
                 "Either a stub, service drop or substation interconnect, or a unit slip / the OpenDSS default " *
-                "`length=1`; too-short lengths make voltages look flat and hide losses."
+                "`length=1` (e.g. kilometre values stored as metres)."
+            counts = graph.impedance_basis[i]
+            electrical = counts["absolute_section"] > 0 && counts["length_scaled"] == 0 && counts["unresolved"] == 0 ?
+                "These lines use inline absolute section impedances: changing length changes this distance, not those matrices." :
+                "Length errors scale per-length linecode impedances and can distort voltages and losses; " *
+                "inline absolute matrices stay unchanged."
             push!(findings, Finding(INFO, code, :operational, :network, nothing,
                 "Zone '$anchor': the farthest bus is $(round(reach; digits=1)) m (declared line length) from the " *
-                "nearest supply boundary, $kind for the $band screen ($(detail["threshold_m"]) m). $hint " *
+                "nearest supply boundary, $kind for the $band screen ($(detail["threshold_m"]) m). $hint $electrical " *
                 "Spot-check a few lengths and linecode units.", detail))
         end
     end

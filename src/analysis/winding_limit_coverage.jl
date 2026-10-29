@@ -94,15 +94,20 @@ function _winding_limit_coverage(net, findings)
         for s in ("absent", "partial", "present", "malformed", "unsupported"))
     absent = filter(r -> r["coverage"] == "absent", rows)
     if !isempty(absent)
+        n_unbounded = count(r -> any(r["limits"][f]["state"] == "unbounded" for f in ("i_max", "s_max")), absent)
+        unbounded_note = n_unbounded > 0 ? " $n_unbounded include explicit unbounded declarations (Inf)." : ""
         push!(findings, Finding(WARNING, "W.OPS.XFMR_UNCONSTRAINED", :operational, :transformer, nothing,
-            "$(length(absent)) n-winding transformer winding(s) have neither `i_max` nor `s_max`, so the OPF puts no " *
-            "thermal limit on them. Unlike two-winding subtypes, an n-winding `s_rating` is not turned into a coil cap. " *
+            "$(length(absent)) n-winding transformer winding(s) have no finite supported `i_max` or `s_max` " *
+            "thermal cap.$unbounded_note Unlike two-winding subtypes, an n-winding `s_rating` is not turned into a coil cap. " *
             "Add per-winding caps from the nameplate or datasheet unless the omission is intentional.",
             Dict{String,Any}("n_windings_without_caps" => length(absent), "transformer_counts" => counts,
                 "witnesses" => absent[1:min(end, 5)], "witness_limit" => 5,
                 "witnesses_truncated" => length(absent) > 5,
                 "interpretation" => _finding_interpretation("W.OPS.XFMR_UNCONSTRAINED",
                     Dict{String,Any}("n_windings_without_caps" => length(absent),
+                        "n_windings_with_unbounded_declarations" => n_unbounded,
+                        "limit_state_counts" => Dict(f => Dict(s => count(r -> r["limits"][f]["state"] == s, absent)
+                            for s in ("absent", "unbounded")) for f in ("i_max", "s_max")),
                         "transformers" => sort!(unique([r["transformer"] for r in absent])),
                         "s_rating_declared" => sort!(unique([d["transformer"] for d in devices
                             if d["coverage"] == "absent" && d["s_rating"] !== nothing])))))))
