@@ -248,8 +248,10 @@ function _powerio_source_semantics(dn; leadlag_records=Dict{String,Any}[])
     transformer_phase = deepcopy(leadlag_records)
     load_thresholds = Dict{String,Any}[]
     for item in dn.data.loads
-        vmin = _powerio_float(_powerio_extra(item, "vminpu"))
-        vmax = _powerio_float(_powerio_extra(item, "vmaxpu"))
+        law = hasproperty(item, :voltage_model) ? item.voltage_model : nothing
+        typed = law isa AbstractDict && get(law, "model", "") in ("bounded_zip", "bounded_exponential")
+        vmin = _powerio_float(typed ? get(law, "v_min_pu", nothing) : _powerio_extra(item, "vminpu"))
+        vmax = _powerio_float(typed ? get(law, "v_max_pu", nothing) : _powerio_extra(item, "vmaxpu"))
         (vmin === nothing && vmax === nothing) && continue
         status = if vmin !== nothing && vmax !== nothing && vmin <= vmax
             "observed_ordered"
@@ -262,6 +264,8 @@ function _powerio_source_semantics(dn; leadlag_records=Dict{String,Any}[])
             "scope" => _powerio_scope("load", getproperty(item, :name)),
             "vminpu" => vmin,
             "vmaxpu" => vmax,
+            "origin" => typed ? "powerio_typed_voltage_model" : "source_extras",
+            "typed_voltage_model" => typed ? JSON3.read(JSON3.write(law), Dict{String,Any}) : nothing,
             "status" => status,
             "interpretation" => "load_voltage_behavior_threshold_not_bus_bound",
         ))
@@ -412,8 +416,8 @@ function _powerio_pf_is_demonstrated(raw_pf, converted::AbstractDict)::Bool
     return true
 end
 
-# Reconstruct only source-declared DSS quantities from PowerIO's public IR.
-# These finite intake repairs (#333, #356) do not change BMOPF JSON semantics.
+# Validate static CVR emission (#333) and reconstruct source-declared winding
+# resistance (#356) from PowerIO's public IR. Neither changes BMOPF JSON intake.
 function _restore_dss_intake_fidelity!(net, dn)
     repairs = Dict{String,Any}[]
     for item in dn.data.loads
@@ -424,26 +428,28 @@ function _restore_dss_intake_fidelity!(net, dn)
         curve = _powerio_extra(item, "cvrcurve")
         (curve === nothing || lowercase(strip(string(curve))) in ("", "none")) ||
             throw(ArgumentError("DSS CVR load $name has a time-varying CVRcurve; a static exponential import is inapplicable"))
-        exponents = Float64[]
-        for (field, default) in (("cvrwatts", 1.0), ("cvrvars", 2.0))
-            raw = _powerio_extra(item, field)
-            value = raw === nothing ? default : _powerio_float(raw)
-            value !== nothing && isfinite(value) ||
-                throw(ArgumentError("DSS CVR load $name has an invalid $field"))
-            push!(exponents, value)
-        end
+        # PowerIO 0.11.7 carries CVR exponents in the typed voltage law and
+        # emits them correctly. Validate the explicit source-to-load mapping;
+        # never replace a typed exponent with a default from absent extras.
+        law = hasproperty(item, :voltage_model) ? item.voltage_model : nothing
+        law isa AbstractDict && get(law, "model", "") in ("exponential", "bounded_exponential") ||
+            throw(ArgumentError("DSS CVR load $name lacks a typed static exponential law"))
         count = length(get(load, "p_nom", []))
         vnom = get(load, "v_nom", [])
         count > 0 && length(get(load, "q_nom", [])) == count &&
             vnom isa AbstractVector && length(vnom) == count &&
             all(v -> v isa Real && isfinite(v) && v > 0, vnom) ||
             throw(ArgumentError("DSS CVR load $name lacks aligned powers and positive nominal coil voltages"))
-        load["model"] = "exponential"
-        load["gamma_p"] = fill(exponents[1], count)
-        load["gamma_q"] = fill(exponents[2], count)
-        push!(repairs, Dict("component"=>"load.$name", "rule"=>"dss_static_cvr_exponents",
-            "gamma_p"=>exponents[1], "gamma_q"=>exponents[2],
-            "domain"=>"source load voltage thresholds retained separately; static CVR only"))
+        get(load, "model", "") == "exponential" ||
+            throw(ArgumentError("DSS CVR load $name was not emitted as exponential"))
+        for field in ("gamma_p", "gamma_q")
+            values = get(law, field, nothing)
+            values isa AbstractVector && length(values) == count &&
+                all(v -> v isa Real && isfinite(v), values) ||
+                throw(ArgumentError("DSS CVR load $name has invalid typed $field"))
+            get(load, field, nothing) == values ||
+                throw(ArgumentError("DSS CVR load $name lost its typed $field on emission"))
+        end
     end
     targets = get(get(net, "transformer", Dict()), "n_winding", Dict())
     for item in dn.data.transformers

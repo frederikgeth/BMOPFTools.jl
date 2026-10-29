@@ -467,6 +467,30 @@ function oracle_cross_check(result::AbstractDict, dss_path::String;
     compare_volts(result_volts(result), V; atol, rtol)
 end
 
+# Recover a native OpenDSS source's internal EMF from its own primitive and
+# solved terminal currents. Callers supply every node identity explicitly.
+# Supported domain: two-terminal sources whose return terminal is grounded.
+function ods_source_emfs!(volts, source_emf_nodes)
+    for (element, nodes) in source_emf_nodes
+        OpenDSSDirect.Circuit.SetActiveElement(element)
+        ce = OpenDSSDirect.CktElement
+        lowercase(ce.Name()) == lowercase(element) ||
+            throw(ArgumentError("missing explicitly mapped source $element"))
+        n = ce.NumConductors()
+        ce.NumTerminals() == 2 && length(nodes) == n ||
+            throw(ArgumentError("source EMF mapping has incompatible terminal dimensions"))
+        v = ce.Voltages(); current = ce.Currents()
+        all(iszero, v[n+1:2n]) || throw(ArgumentError("source EMF oracle requires a grounded return"))
+        y = reshape(ce.YPrim(), 2n, 2n)[1:n, 1:n]
+        emf = v[1:n] - y \ current[1:n]
+        for (node, value) in zip(nodes, emf)
+            haskey(volts, node) && throw(ArgumentError("source EMF mapping collides with physical node $node"))
+            volts[node] = value
+        end
+    end
+    volts
+end
+
 "Three-way projection/feasibility report for one solved OPF case."
 struct ProjectionReport
     case::String
@@ -491,11 +515,14 @@ the negative-load form (`dispatch_as_loads` → `to_dss`) and solve it in OpenDS
 
 `optimizer` is the JuMP optimizer factory for the B re-solve (e.g.
 `optimizer_with_attributes(Ipopt.Optimizer, "print_level"=>0)`). The OpenDSS leg
-(C, and B-vs-C) runs only when `has_ods` is true.
+(C, and B-vs-C) runs only when `has_ods` is true. `source_emf_nodes` optionally
+maps named native DSS sources to explicit internal observation-node IDs; their
+EMFs are recovered from the independent primitive and solved currents.
 """
 function run_projection_case(case::String, net::AbstractDict, result::AbstractDict;
                              optimizer, has_ods::Bool=false,
-                             workdir::String=mktempdir(), atol=0.5, rtol=2e-3)::ProjectionReport
+                             workdir::String=mktempdir(), atol=0.5, rtol=2e-3,
+                             source_emf_nodes=Dict{String,Vector{String}}())::ProjectionReport
     errors = String[]
     local projected
     try
@@ -541,6 +568,7 @@ function run_projection_case(case::String, net::AbstractDict, result::AbstractDi
         ok = false
         try
             conv, V_C = ods_solve_volts(dsspath)
+            conv && ods_source_emfs!(V_C, source_emf_nodes)
             ok = conv
             ok || (ac = _pf_unsolved("OpenDSS did not converge"))
         catch e

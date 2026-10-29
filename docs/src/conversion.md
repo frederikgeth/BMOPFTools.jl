@@ -17,7 +17,7 @@ you would otherwise have to discover by diffing data.
 [Rust project](https://github.com/eigenergy/powerio) for grid-data parsing and
 conversion. BMOPFTools uses its
 [Julia wrapper, PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), which calls
-the native Rust library in-process, and requires **0.11.6 or later within the
+the native Rust library in-process, and requires **0.11.7 or later within the
 0.11 series**.
 PowerIO reads several distribution formats into a typed
 `PioModule{MulticonductorNetwork}`. BMOPFTools' tested import wrapper is
@@ -36,7 +36,7 @@ BMOPFTools' DSS-specific normalization and provenance audit automatically.
 For the exact reader profiles and current limits, see PowerIO's
 [distribution guide](https://eigenergy.github.io/powerio/guide/distribution.html),
 [SINCAL guide](https://eigenergy.github.io/powerio/guide/sincal.html), and
-[0.11.6 Julia release notes](https://github.com/eigenergy/PowerIO.jl/releases/tag/v0.11.6).
+[0.11.7 Julia release notes](https://github.com/eigenergy/PowerIO.jl/releases/tag/v0.11.7).
 GridLAB-D, PowerFactory, CYME, and Synergi Electric are potential sources through
 an appropriate supported exchange format; this is not a claim of direct native
 readers for those tools.
@@ -836,7 +836,7 @@ using BMOPFTools, JSON3
 
 findings = Finding[]
 path = joinpath(pkgdir(BMOPFTools), "test", "data", "line_geometry",
-                "synthetic_overhead.dss")
+                "unresolved_geometry.dss")
 try
     from_dss(path; findings)
 catch err
@@ -872,21 +872,23 @@ conversion.
 
 ## Known limitations
 
-**Geometry-defined OpenDSS lines:** PowerIO 0.11 rejects canonical BMOPF
-conversion when conductor impedances or terminal maps remain unresolved,
-with `PowerIO.PowerIOError` code `BUILD.DIST.ELECTRICAL_INCOMPLETE`.
-`from_dss` wraps this failure in `DSSConversionError`, preserving it as
-`err.cause`; it does not return a network filled with
-OpenDSS default sequence impedances. The synthetic overhead geometry fixture
-is tested through `from_dss`, including equivalent metre/kilometre line lengths
-and PowerIO IR serialization. Explicit four-conductor linecodes still import.
+**Geometry-defined OpenDSS lines:** PowerIO 0.11.7 resolves supported geometry
+into line-specific effective impedance snapshots. The synthetic overhead fixture
+is checked against all entries of independent OpenDSS R/X/C matrices, including
+equivalent metre/kilometre lengths and both IR and BMOPF serialization. Follow
+`net["line"][id]["linecode"]` to find the effective matrix; an authored `LineCode`
+name need not survive as an active electrical record.
 
-This resolves the silent-substitution defect described in
-[issue #381](https://github.com/frederikgeth/BMOPFTools.jl/issues/381), but it does
-not implement faithful `WireData`/`LineGeometry` import. Retain the source DSS
-or PowerIO module, or supply explicitly calculated conductor impedances.
+A missing geometry or conductor still rejects canonical BMOPF conversion with
+`BUILD.DIST.ELECTRICAL_INCOMPLETE`; `from_dss` preserves that code in
+`DSSConversionError.cause`. It never fills unresolved lines with default sequence
+impedances. This protects the failure boundary in
+[issue #381](https://github.com/frederikgeth/BMOPFTools.jl/issues/381).
+
+An effective electrical snapshot is not an editable `WireData`/`LineGeometry`
+model. Retain the source DSS or PowerIO module for those definitions.
 BMOPFTools can compile its own `wire_data`/`line_geometry` representation;
-that capability does not imply that the OpenDSS importer populates it.
+that separate capability does not imply that intake populates it.
 
 
 - **Transformer fidelity (from `from_dss`).** The BMOPF export carries fixed taps, center-tap
@@ -897,11 +899,10 @@ that capability does not imply that the OpenDSS importer populates it.
   `phases=1` (OpenDSS itself tolerates the omission). Without it the grounded
   neutral floats — a wye-load `delta_wye` then has no neutral reference and the
   power flow diverges. Always write grounding reactors with an explicit `phases=1`.
-- **Earth terminal `"5"` → bus neutral (from `from_dss`).** PowerIO keeps the
-  OpenDSS earth node as terminal `"5"`. BMOPFTools routes it to the bus neutral
-  on ingest (see [The earth terminal](@ref earth-terminal)), which
-  grounds an earthed star point through the bus neutral rather than solidly.
-  Native earth resolution upstream is tracked as a PowerIO.jl issue.
+- **Ground references remain distinct from neutral conductors.** `from_dss`
+  maps a materialized OpenDSS node-0 reference to `n_ref` using its grounded
+  declaration. It does not merge that reference with conductor neutral `n`.
+  See [The earth terminal](@ref earth-terminal).
 - **Wye-wye three-phase transformers** have no spec type. They are parked
   in `single_phase` with 3-phase terminal maps and flagged
   (`W.SPEC.XFMR_TMAP_ARITY`); the faithful decomposition into three
@@ -917,14 +918,28 @@ that capability does not imply that the OpenDSS importer populates it.
 
 ### DSS intake compatibility
 
-The minimum supported PowerIO version is 0.11.6. Two source-IR repairs remain
-necessary: static DSS model-4 CVR exponents (#333), and multi-winding `%R`
-conversion using winding 1's power base (#356). `from_dss` records these in
-`_meta.powerio_intake_repairs`; it does not alter ordinary BMOPF JSON intake.
-CVR uses explicit `CVRwatts`/`CVRvars`, defaulting to 1/2 as in OpenDSS.
-Time-varying `CVRcurve` is rejected rather than frozen silently. Source voltage
-thresholds remain separate behavior-domain metadata; importing an exponential
-law does not reproduce OpenDSS fallback behavior outside that domain.
+The minimum supported PowerIO version is 0.11.7. PowerIO now carries static
+DSS model-4 CVR exponents in its typed voltage model and emits them directly.
+`from_dss` verifies aligned finite exponents instead of restoring defaults from
+missing legacy extras. Explicit zero and negative exponents are preserved;
+unsupported time-varying `CVRcurve` remains rejected.
+
+Multi-winding `%R` conversion using winding 1's power base (#356) remains an
+intake repair, recorded in `_meta.powerio_intake_repairs`. Ordinary BMOPF JSON
+intake is unchanged. Typed load voltage thresholds are retained separately in
+`_meta.powerio_source_semantics`, with their typed-model origin distinguished
+from legacy source extras. Each typed observation also retains the complete
+`typed_voltage_model`, including the low-voltage transition and exponents.
+They are behavior-domain observations, not bus
+operating bounds. PowerIO's `EMIT.BMOPF.VALUE_SUBSTITUTED` diagnostics remain
+visible: the nominal BMOPF load law does not reproduce bounded-law transitions,
+current limits or dropout outside its supported domain.
+
+DSS sources now include explicit series impedances and internal EMF buses.
+Keep those branches when solving an imported case. Extra buses and branches,
+line-specific code identities and canonical DSS source-equivalent circuits can
+change dictionary structure across a round trip; compare physical bus voltages
+with explicit correspondence and inspect conversion diagnostics.
 
 `to_dss` also emits explicit model-4/CVR parameters and first-winding-base
 multi-winding `%R` edits, preventing the repaired laws from disappearing again

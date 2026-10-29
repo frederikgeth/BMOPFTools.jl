@@ -236,7 +236,9 @@ end
     summary = analyze(net).results[:provenance]["powerio_conversion"]
     @test summary["n_diagnostics"] == length(net["_meta"]["powerio_diagnostic_details"])
     @test sum(values(summary["by_code"])) == summary["n_diagnostics"]
-    @test summary["by_code"]["EMIT.BMOPF.FIELD_DROPPED"] == 8
+    # Five effective-line source-only fields, two load fields, two source bases.
+    @test summary["by_code"]["EMIT.BMOPF.FIELD_DROPPED"] == 9
+    @test summary["by_code"]["EMIT.BMOPF.VALUE_SUBSTITUTED"] == 3
     buf = IOBuffer(); write_bmopf(net, buf)
     restored = parse_bmopf(String(take!(buf)); from_string=true)
     @test restored["_meta"]["powerio_diagnostics"] == net["_meta"]["powerio_diagnostics"]

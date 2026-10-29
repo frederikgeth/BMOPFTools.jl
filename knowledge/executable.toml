@@ -1,5 +1,6 @@
-# PowerIO 0.11.6 is the dependency floor. Reader coverage documentation does not
-# add intake APIs or widen scientific contracts; regenerate tracked source hashes.
+# PowerIO 0.11.7: validate typed static CVR emission, retain typed bounded-load
+# evidence, and separate resolved geometry from the minimized rejection fixture.
+# Existing intake APIs and scientific domains remain; regenerate source hashes.
 # Spatial cleanup includes capacitor attachments, explicit coverage banners and
 # linked attention indexes. These are evidence/presentation changes, not new Findings.
 # Standalone spatial review exports and path-oriented decision evidence are
@@ -965,6 +966,7 @@ source_paths = [
   "test/data/pf_comparison/pf_3wdg_unequal_kva.dss",
   "test/data/analysis_network/synthetic_feeder.json",
   "test/data/line_geometry/synthetic_overhead.dss",
+  "test/data/line_geometry/unresolved_geometry.dss",
   "test/data/line_geometry/synthetic_cn.dss",
   "test/data/line_geometry/synthetic_ts.dss",
   "test/data/line_geometry/opendss_reference.json",

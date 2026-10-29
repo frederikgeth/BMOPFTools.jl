@@ -8,7 +8,7 @@ function _dce_diagnostic(code; severity=:error, message="line hidden: diagnostic
 end
 
 @testset "DSS failure evidence — real geometry rejection and collector" begin
-    path = joinpath(@__DIR__, "data", "line_geometry", "synthetic_overhead.dss")
+    path = joinpath(@__DIR__, "data", "line_geometry", "unresolved_geometry.dss")
     findings = Finding[]
     err = _dce_capture(() -> from_dss(path; findings))
     @test err isa DSSConversionError

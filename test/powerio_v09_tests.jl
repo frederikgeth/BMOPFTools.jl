@@ -242,8 +242,8 @@ end
     path = joinpath(@__DIR__, "data", "powerio_duplicate_new", "Master.dss")
     net = from_dss(path)
     @test "PARSE.DSS.SOURCE_MALFORMED" in getindex.(net["_meta"]["powerio_diagnostic_details"], "code")
-    @test net["linecode"]["c"]["R_series_1_1"] ≈ 0.2 / 1000
-    @test net["linecode"]["c"]["X_series_1_1"] ≈ 0.02 / 1000
+    @test net["linecode"][net["line"]["l"]["linecode"]]["R_series_1_1"] ≈ 0.2 / 1000
+    @test net["linecode"][net["line"]["l"]["linecode"]]["X_series_1_1"] ≈ 0.02 / 1000
     if !isnothing(Base.identify_package("OpenDSSDirect"))
         @eval using OpenDSSDirect
         include(joinpath(@__DIR__, "roundtrip_helpers.jl"))

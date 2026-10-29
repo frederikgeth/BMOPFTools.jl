@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "828d09d74f63d3442a5db203bdb2d035f69ac38a6d4acf17f4f460a2adc2c6a4",
+  "corpus_sha256": "ef9b3e39fd92bfebf7ae821ef8cd2126cfbebac7d96716dd4aaefaed8add1d44",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -50,7 +50,7 @@
   "source_files": [
     {
       "path": "Project.toml",
-      "sha256": "d8a766fb5acdb10a14d0551fce624ef65cf21b92fae066a098feb97ac8298dd1"
+      "sha256": "fd4dc4f20acd74f7aedc94b3e51a40255dc3956429217c066d27e54a6fc28934"
     },
     {
       "path": "bench/ipopt_barrier.jl",
@@ -110,7 +110,7 @@
     },
     {
       "path": "docs/src/conversion.md",
-      "sha256": "a3c09afe5db78d83c90ddf3d77e90f9674d5d858b7e0b8ac096bdc81eeeca3ab"
+      "sha256": "3fd170e48aae68912bc78f7c7358fb599ac074c913fe3dae42d3810a100c3bd3"
     },
     {
       "path": "docs/src/dev/opf_engine.md",
@@ -314,7 +314,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "ac918167456994675d3588fc81a49f009f205c138af504d95ff75c93defa8e9e"
+      "sha256": "e53dcd360f7c65f48a763450d2bf5676edc508fafa823c037d067cd36f23ce76"
     },
     {
       "path": "recipes/README.md",
@@ -562,7 +562,7 @@
     },
     {
       "path": "src/io/from_dss.jl",
-      "sha256": "afb74403be73a394acd6d9f36f45832d11f5d708f6c015863f8f48cf2983cd1f"
+      "sha256": "14efe977adcab7994b1cab7cbacf960d16a4c5d66ac051818e7d6591d7a2dcee"
     },
     {
       "path": "src/io/load_geometry.jl",
@@ -702,7 +702,7 @@
     },
     {
       "path": "test/Project.toml",
-      "sha256": "0504bfd41853ecf20a93174376a5714f11c0de94d9358dc318f93c8f9f68e0c0"
+      "sha256": "b077ec4f5999ab241a713aba8bb29b163886892655011bf79ccab806a446aed2"
     },
     {
       "path": "test/admittance_tests.jl",
@@ -807,6 +807,10 @@
     {
       "path": "test/data/line_geometry/synthetic_ts.dss",
       "sha256": "48d6aa0d068484c7be7874357c808ea1a276d89c355ddefc2fe0d9c5f3fb0adb"
+    },
+    {
+      "path": "test/data/line_geometry/unresolved_geometry.dss",
+      "sha256": "4ddf00921569d3ce754df9470c4f1ebce8e7d94f19b3f81cdee7d1ed5100077a"
     },
     {
       "path": "test/data/neutral_only_link.json",
@@ -1026,7 +1030,7 @@
     },
     {
       "path": "test/dss_conversion_error_tests.jl",
-      "sha256": "deef678c40efda959ac4731e2317c88e964773ba7d0b424f90db76d557794fa3"
+      "sha256": "49b696be6a9c5c049d017de7e236961e7d2afcd531b69967c1b9a90a264e3438"
     },
     {
       "path": "test/execution_interface_tests.jl",
@@ -1418,7 +1422,7 @@
     },
     {
       "path": "test/opendss_semantics_tests.jl",
-      "sha256": "dea3ac0befa4241b4670760814a6b5db98b83725bc93efbf7085d8c02edc2e77"
+      "sha256": "4bc4bbf7cbabb9738f915e7c03cf507f911cbaedac22efe666e4f8aeff49587e"
     },
     {
       "path": "test/operational_mesh_applicability_tests.jl",
@@ -1466,7 +1470,7 @@
     },
     {
       "path": "test/powerio_findings_tests.jl",
-      "sha256": "16195b868347331afd6180a6f4894f010d87865e5fd6dc9bd7efc6fee05da114"
+      "sha256": "5e8774942c02c63004d8b9f7916bc7e0133ce433e10241eb851743b490a25442"
     },
     {
       "path": "test/powerio_numerical_tests.jl",
@@ -1474,15 +1478,15 @@
     },
     {
       "path": "test/powerio_regression_tests.jl",
-      "sha256": "f8ad3b4d0e364f2ad6343a47b7b07eb6551dbc41a58db78920d157c0102af833"
+      "sha256": "0873eab44ae8efc9fca998fe858b9a3067c162a5ca3c91a9179b2401b0d7dc57"
     },
     {
       "path": "test/powerio_v09_tests.jl",
-      "sha256": "30b09a3b759efa1ab6170d8d1849868ee5c5b50def0ffa35d83d3a5e3265f9f4"
+      "sha256": "f40300a313390efd0b7af14f842a85af951a23a92d2e0405a73385605eefd2a2"
     },
     {
       "path": "test/projection_tests.jl",
-      "sha256": "bd79f8e758db50c42c06472cc07f732618a161ff1de71acf293e90508c47d587"
+      "sha256": "ac8145e3ee726a73787758a76aedd99935498a5adc14505ceb58964d88998404"
     },
     {
       "path": "test/property/terminal-permutation-seed.json",
@@ -1598,7 +1602,7 @@
     },
     {
       "path": "test/transformer_opendss_tests.jl",
-      "sha256": "0ca7c2a7d2522aab270986bad372bb47a9b4b9b82f11637418d12d135b37e993"
+      "sha256": "e2c17a9982ca680f11191cc9bc9772802795eaf5e92c93ab4d3a9568f58a8f1c"
     },
     {
       "path": "test/transformer_phase_opf_tests.jl",
@@ -1610,7 +1614,7 @@
     },
     {
       "path": "test/ybus_linearized_tests.jl",
-      "sha256": "e216282dc15af77053c7aaea1673c5221cd4aae2250f289431caad3a51b1e6a7"
+      "sha256": "640a518425b640b19da9d78f36ed8a153ff32f68eb801a5724850343e8ef9fb6"
     }
   ]
 }

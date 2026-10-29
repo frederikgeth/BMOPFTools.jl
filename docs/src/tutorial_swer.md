@@ -98,8 +98,13 @@ rating) — plain edits to the network dictionary, which doubles as a tour of th
 data model.
 
 ```@example swer
-for (_, l) in net["line"]; l["length"] *= 8.0; end       # 12 km → 96 km
-net["linecode"]["swer"]["R_series_1_1"] = 2.5 / 1000      # Ω/m
+# Select the two authored SWER spans; imported source equivalents are not
+# feeder spans. Follow each line's effective linecode reference.
+backbone = [net["line"][id] for id in ("l1", "l2")]
+for line in backbone
+    line["length"] *= 8.0                              # 12 km → 96 km
+    net["linecode"][line["linecode"]]["R_series_1_1"] = 2.5 / 1000  # Ω/m
+end
 
 # Right-size the transformers (the OPF enforces each nameplate `s_rating` as a
 # per-winding apparent-power cap, so an undersized unit is flagged as overloaded
@@ -113,7 +118,7 @@ for (_, sub) in net["transformer"], (id, x) in sub
     id == "iso" && (x["s_rating"] = 150_000.0)     # isolating xfmr (peak + reactive)
 end
 
-println("backbone length (km): ", sum(l["length"] for l in values(net["line"]))/1000)
+println("backbone length (km): ", sum(l["length"] for l in backbone)/1000)
 ```
 
 The LV taps must stay inside the Australian **AS IEC 60038:2022**
