@@ -95,11 +95,17 @@ function _winding_limit_coverage(net, findings)
     absent = filter(r -> r["coverage"] == "absent", rows)
     if !isempty(absent)
         push!(findings, Finding(WARNING, "W.OPS.XFMR_UNCONSTRAINED", :operational, :transformer, nothing,
-            "$(length(absent)) supported n-winding winding(s) have neither a finite supported coil-current cap nor " *
-            "a coil-apparent-power cap. Nameplates do not create these constraints; confirm whether omission is intentional.",
+            "$(length(absent)) n-winding transformer winding(s) have neither `i_max` nor `s_max`, so the OPF puts no " *
+            "thermal limit on them. Unlike two-winding subtypes, an n-winding `s_rating` is not turned into a coil cap. " *
+            "Add per-winding caps from the nameplate or datasheet unless the omission is intentional.",
             Dict{String,Any}("n_windings_without_caps" => length(absent), "transformer_counts" => counts,
                 "witnesses" => absent[1:min(end, 5)], "witness_limit" => 5,
-                "witnesses_truncated" => length(absent) > 5)))
+                "witnesses_truncated" => length(absent) > 5,
+                "interpretation" => _finding_interpretation("W.OPS.XFMR_UNCONSTRAINED",
+                    Dict{String,Any}("n_windings_without_caps" => length(absent),
+                        "transformers" => sort!(unique([r["transformer"] for r in absent])),
+                        "s_rating_declared" => sort!(unique([d["transformer"] for d in devices
+                            if d["coverage"] == "absent" && d["s_rating"] !== nothing])))))))
     end
     Dict{String,Any}("evidence" => "supported_declarations_not_built_constraints", "solver_run" => false,
         "transformers" => devices, "windings" => rows, "transformer_counts" => counts,

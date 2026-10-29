@@ -287,6 +287,13 @@ function _reach_boundaries(net, zones, zi)
         j isa Int && (p["other_zone"] = minimum(zones[j]))
         p["energization"] = "unassessed"
         p["supply_direction"] = "unassessed"
+        # Which side of this zone the port sits on, from the source search only:
+        # a source beyond the port makes it a possible supply entry; none makes it
+        # a downstream (load-side) port. Not an energization or flow claim.
+        if p["kind"] == "transformer"
+            p["port_role"] = p["qualification"] == "qualified_source_connected_boundary" ? "source_beyond_port" :
+                get(p, "reason", nothing) == "no_independent_voltage_source_path" ? "no_source_beyond_port" : "unresolved"
+        end
     end
     ports
 end
@@ -340,6 +347,8 @@ function _feeder_length_check(net::Dict{String,Any}, zones::Vector{Set{String}},
         entry["n_incident_transformers"] = length(unique((p["subtype"], p["id"]) for p in xfports))
         entry["n_incident_windings"] = length(xfports)
         # A bounded connecting path gives context without asserting safe paralleling.
+        entry["n_ports_by_role"] = Dict(r => count(p -> p["port_role"] == r, xfports)
+            for r in ("source_beyond_port", "no_source_beyond_port", "unresolved"))
         if entry["n_incident_transformers"] > 1
             firstbus = first(sort!([p["bus"] for p in xfports]))
             ptree = _reach_distances(graph.adj, zone, [firstbus])
@@ -376,10 +385,18 @@ function _feeder_length_check(net::Dict{String,Any}, zones::Vector{Set{String}},
                 "threshold_m" => kind == "long" ? long : short,
                 "n_qualified_boundary_buses" => length(starts), "supply_allocation" => "unassessed")
             code = kind == "long" ? "I.OPS.FEEDER_LONG" : "I.OPS.FEEDER_SHORT"
+            observations = Dict{String,Any}("boundary_reach_m" => reach, "threshold_m" => detail["threshold_m"],
+                "band" => band, "anchor_extent_m" => extent, "path_witness" => get(entry, "path_witness", nothing))
+            detail["interpretation"] = _finding_interpretation(code, observations)
+            hint = kind == "long" ?
+                "Either a genuinely long feeder or a unit slip (km entered as m); a 1000× length error scales every " *
+                "line impedance and can make the OPF infeasible." :
+                "Either a stub, service drop or substation interconnect, or a unit slip / the OpenDSS default " *
+                "`length=1`; too-short lengths make voltages look flat and hide losses."
             push!(findings, Finding(INFO, code, :operational, :network, nothing,
-                "Zone '$anchor' has maximum nearest-boundary declared-length distance $(round(reach; digits=1)) m, " *
-                "$kind relative to the configured $band screen. Inspect length units and study expectations; " *
-                "this is not a voltage-drop assessment.", detail))
+                "Zone '$anchor': the farthest bus is $(round(reach; digits=1)) m (declared line length) from the " *
+                "nearest supply boundary, $kind for the $band screen ($(detail["threshold_m"]) m). $hint " *
+                "Spot-check a few lengths and linecode units.", detail))
         end
     end
     summary

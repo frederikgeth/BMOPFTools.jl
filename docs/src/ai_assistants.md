@@ -186,15 +186,16 @@ do not infer a PSK link from topical similarity. If the code belongs to an
 external PowerIO namespace such as `EMIT.*`, use PowerIO's catalogue rather
 than inventing a BMOPFTools explanation.
 
-For a provenance Finding instance from `report.findings`, Julia callers can use
-`explain_finding(finding)` to retrieve both the catalogue explanation and its
-recorded interpretation. Sequence, decoupling, PN/MPN and Kron hints include
-observations, possible explanations, supporting context, alternatives and
-suggested checks. An INFO or WARNING can be useful without a verified cause;
-its severity is not permission to change the model. Follow the interpretation's
-`automation_guidance`: investigate the hypothesis and obtain the evidence needed
-for a proposed edit. The [profiler guide](analysis.md#Evidence-qualified-profiler-results)
-documents the fields. Code-only CLI/MCP lookup remains a catalogue operation.
+For a Finding instance from `report.findings` (or the `findings` array of an
+`analyze_case` JSON response), `explain_finding(finding)` returns the catalogue
+entry plus any recorded `interpretation`: observations, ordered possible
+explanations, implications, alternatives and suggested checks. Provenance,
+feeder-length and n-winding cap hints carry one. An INFO or WARNING can be useful
+without a verified cause; its severity is not permission to change the model.
+Follow `automation_guidance`: investigate the hypothesis, tell the user what it
+would mean for their study, and obtain evidence before proposing an edit. The
+[profiler guide](analysis.md#Evidence-qualified-profiler-results) documents the
+fields. Code-only CLI/MCP lookup remains a catalogue operation.
 
 ### Evaluate a scientific contract
 

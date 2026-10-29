@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "5121cd968ed2a4c6c706fd6f61a996a42a3332aac05f17f458d47dc1299b4732"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "31172f8e503824ad82b772a6510408ea7b8c72e1382c27bfee9768384749b52e"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -11,7 +11,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         section_title="explicit conversion admission",
         meaning="DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000007"],
     ),
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
@@ -326,7 +326,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         section_title="diversity & symmetry",
         meaning="Aggregate active load is balanced within 2% across the observed phase labels in a galvanic zone. Spatial loading, impedances, connections and grounding remain unassessed; this does not establish single-phase-equivalent applicability.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000009"],
     ),
     "I.DIV.LOAD_UNIFORM_MODEL" => (
         severity="INFO",
@@ -405,7 +405,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="OPS",
         catalogue_section="OPS",
         section_title="operational loading",
-        meaning="Supported n-winding windings have neither a finite coil-current cap (`i_max`) nor a coil-apparent-power cap (`s_max`). Aggregate evidence distinguishes absent, partial, present, malformed and unsupported coverage. Top-level `s_rating` does not create these caps. Omission may be intentional; this is modeled coverage, not an equipment defect or a built-model certificate. Explicit zero is a restriction. Direct neutral-current coverage remains unsupported.",
+        meaning="An `n_winding` transformer winding has neither `i_max` nor `s_max`, so the OPF puts no thermal limit on it. Unlike two-winding subtypes, where `s_rating` becomes a per-coil cap, an n-winding `s_rating` is only a nameplate. **Why it matters:** a solution may rely on transformer capacity that does not exist. **Check:** add per-winding caps from the nameplate or datasheet. **Alternative:** the omission may be intentional (e.g. an ideal-transformer bound study). Explicit zero is a restriction; `Inf` is unbounded. Evidence distinguishes absent, partial, present, malformed and unsupported coverage; direct neutral-current caps are not assessed.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -423,7 +423,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="OPS",
         catalogue_section="OPS",
         section_title="operational loading",
-        meaning="Maximum shortest declared-length distance to qualified source-connected boundaries exceeds a configured heuristic threshold. Legacy `reach_m` remains anchor extent; `boundary_reach_m` and `metric` identify the compared quantity. Missing/conflicting boundary or length evidence suppresses comparison. Multiple-boundary thresholds require explicit metric-specific configuration. This does not calculate voltage drop or determine supply allocation.",
+        meaning="The farthest bus in a galvanic zone is further (by declared line length) from the nearest supply boundary than the configured band threshold. **Likely meaning:** a unit slip (km entered as m, or per-km impedance used per m) or a genuinely long rural/SWER feeder. **Why it matters:** a 1000× length error scales every line impedance and can make the OPF infeasible or its losses absurd. **Check:** spot-check lengths and linecode units against maps. **Alternative:** an equivalent electrical length. `boundary_reach_m` is the compared metric; legacy `reach_m` is the extent from the zone anchor. Missing or conflicting boundary/length evidence leaves the comparison unassessed; zones with several supply boundaries need an explicit `multi_boundary` threshold policy. Not a voltage-drop calculation.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -432,7 +432,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="OPS",
         catalogue_section="OPS",
         section_title="operational loading",
-        meaning="Qualified nearest-boundary distance is below the configured heuristic threshold. Multiple-boundary comparisons require explicit metric-specific configuration: short distance to a port alone does not classify the entire feeder as a stub. Invalid, missing or regularized length evidence leaves physical plausibility unassessed.",
+        meaning="The farthest bus in a galvanic zone is closer to the nearest supply boundary than the configured band threshold. **Likely meaning:** a stub, service drop or substation interconnect, or the OpenDSS default `length=1` / metres entered as km. **Why it matters:** too-short lengths make impedances negligible, so voltages look flat and losses vanish. **Check:** spot-check lengths and linecode units. **Alternative:** a genuinely compact site. Zones with several supply boundaries need an explicit `multi_boundary` threshold policy; invalid, missing or regularized lengths leave the comparison unassessed.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1395,18 +1395,18 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Equal self and equal mutual series impedances within tolerance suggest sequence parameterisation or a transposition/symmetry assumption. Symmetric physical constructions are an alternative. Implied sequence values are reported; compare with source parameters and the symmetry needed for the study.",
+        meaning="Linecodes with equal self and equal mutual series impedances. **Likely meaning:** built from sequence values (`r1,x1,r0,x0`) or a transposition assumption; the implied Z₁/Z₀ are reported. **Why it matters:** these lines cannot create geometric voltage unbalance, and any neutral/earth return is folded into Z₀. **Check:** compare with source data; for unbalance or neutral studies prefer geometry-based linecodes. **Alternative:** a symmetric construction (trefoil, triplex). Converter-generated source (Thevenin) equivalents are not flagged.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000009"],
     ),
     "I.PROV.DECOUPLED_PHASES" => (
         severity="INFO",
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This suggests a simplified parameterisation; check phase versus sequence coordinates and any omitted coupling. Shunts, devices and connections may still couple the network.",
+        meaning="Linecodes with no series coupling between phases (relative mutual coupling and self spread below 10⁻⁶). **Likely meaning:** only a per-phase (positive-sequence) impedance was supplied. **Why it matters:** Z₀ then equals Z₁, so unbalanced loading and earth-return effects are misrepresented. **Check:** whether the entries are phase or sequence values. **Alternative:** genuinely negligible coupling (widely spaced single cores). Shunts, transformers and connections may still couple the network.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000009"],
     ),
     "I.PROV.LINE_SWITCH_LIKE" => (
         severity="INFO",
@@ -1566,9 +1566,9 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="An LV level has no neutral carried by represented branches. Consider prior neutral elimination, including Kron reduction; a genuine three-wire network or another equivalent is also possible. Review the original conductors and grounding if neutral displacement matters.",
+        meaning="An LV level has no neutral conductor on any represented branch. **Likely meaning:** LV distribution is usually four-wire, so the neutral was probably eliminated (e.g. Kron reduction). **Why it matters:** Kron reduction assumes the neutral is at 0 V at every bus, so neutral voltage rise, neutral current and neutral losses are invisible. **Check:** the source data or GIS for a neutral conductor. **Alternative:** a genuinely three-wire LV system. Three-wire MV is normal and never flags.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000008"],
     ),
     "I.PROV.KRON_REDUCIBLE" => (
         severity="INFO",
@@ -1584,27 +1584,27 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="A finite, nonzero three-wire series matrix does not match the PN/MPN patterns: consider prior neutral elimination by Kron reduction. This is a weak matrix-only hypothesis, with additional context when that linecode is used at LV without a represented neutral. Genuine three-wire construction and other equivalents are alternatives. Review source impedances, conductors and grounding before changing the model.",
+        meaning="A three-wire linecode with coupled series impedances that matches neither phase-to-neutral pattern: a weak, matrix-only hint of Kron reduction. The message says whether the linecode is actually used on LV lines without a represented neutral (stronger hint), only elsewhere (three-wire is normal at MV/HV), or not at all, and cross-references `I.PROV.SEQ_DERIVED`. **Why it matters if true:** the eliminated neutral is assumed at 0 V everywhere; neutral voltage rise and losses are invisible. **Check:** the original conductor data. Detail compares each matrix with the reference patterns. Source (Thevenin) equivalents are not flagged.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000008", "PSK-000009"],
     ),
     "I.PROV.IMPEDANCE_TRANSFORM_PN" => (
         severity="INFO",
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Approximately uniform R self/mutual entries with mutual/self near one half, without matching X uniformity, suggest a phase-to-neutral approximation: neutral resistance may have been folded into phase impedances while reactance retains geometric variation. Compare source impedances, conductor sizes and return-path assumptions; other parameterisations can share the pattern.",
+        meaning="A three-wire linecode that looks like a phase-to-neutral approximation: uniform R with mutual ≈ ½ self while X keeps geometric variation. **Likely meaning:** the neutral resistance was folded into each phase. **Why it matters:** accurate for similar phase/neutral conductors with good grounding; the error grows with grounding impedance and neutral/phase size mismatch. **Check:** compare with the source four-wire data. **Alternative:** another parameterisation with the same pattern.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000008", "PSK-000009"],
     ),
     "I.PROV.IMPEDANCE_TRANSFORM_MPN" => (
         severity="INFO",
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Approximately uniform R and X self/mutual entries with R mutual/self near one half suggest a modified phase-to-neutral approximation, including reactance symmetrisation. Compare source impedances and the asymmetry needed for the study; a symmetric physical or authored equivalent can share the pattern.",
+        meaning="A three-wire linecode that looks like a modified phase-to-neutral approximation: uniform R and X with R mutual ≈ ½ self. **Likely meaning:** neutral resistance folded in and reactance symmetrised. **Why it matters:** the phase-to-neutral error plus lost geometric unbalance, largest for flat or asymmetric layouts. **Check:** compare with the source impedances. **Alternative:** a symmetric physical or authored equivalent.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000008", "PSK-000009"],
     ),
     "W.PROV.IMPLICIT_GROUNDING" => (
         severity="WARNING",
@@ -1892,7 +1892,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         section_title="structural integrity",
         meaning="Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status=\"indeterminate\"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000002"],
     ),
     "W.INT.IMAX_NO_NEUTRAL" => (
         severity="WARNING",
@@ -2036,7 +2036,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         section_title="terminal-map conventions",
         meaning="A nodal device has all-neutral/repeated-neutral misuse or a DELTA/THREE_LEG device includes neutral; a line/switch position connects phase to neutral, or a branch repeats an all-neutral endpoint. Position comparisons require equal-length, distinct, resolved phase/neutral maps; different phase labels are valid. Reversed single-phase pairs and role-resolved WYE/FOUR_LEG neutral permutations are accepted, as are symmetric metallic N-only lines and switches.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000002"],
     ),
     "E.TMAP.DEVICE_ROLES" => (
         severity="ERROR",
@@ -2045,7 +2045,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         section_title="terminal-map conventions",
         meaning="A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model.",
         contract_id=nothing,
-        knowledge_ids=String[],
+        knowledge_ids=String["PSK-000002"],
     ),
     "I.TMAP.CROSS_PHASE_LINE" => (
         severity="INFO",

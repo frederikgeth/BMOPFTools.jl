@@ -11,6 +11,11 @@ _profiler_lv(rows) = only(filter(r -> r["n_buses"] == 5, rows))
     @test c["transformer_counts"]["absent"] == 2
     @test c["n_windings_without_caps"] == 4
     @test only(fs).code == "W.OPS.XFMR_UNCONSTRAINED"
+    guidance = only(fs).detail["interpretation"]
+    @test "nameplate_only" in BMOPFTools._interpretation_ids(guidance["possible_explanations"])
+    @test "intentional_omission" in BMOPFTools._interpretation_ids(guidance["alternatives"])
+    @test guidance["observations"]["n_windings_without_caps"] == 4
+    @test occursin("two-winding", only(fs).message)
     @test c["direct_neutral_current"] == "unsupported"
     ws = net["transformer"]["n_winding"]["left"]["windings"]
     ws[1]["i_max"] = 0.0
@@ -67,6 +72,9 @@ end
     @test lv["path_witness"]["farthest_bus"] == "c"
     @test lv["path_witness"]["n_path_edges"] == 2
     @test length(lv["port_path_witnesses"]) == 1
+    # Both transformers have the source beyond them: a parallel supply to review.
+    @test lv["n_ports_by_role"]["source_beyond_port"] == 2
+    @test all(p -> p["port_role"] == "source_beyond_port", filter(p -> p["kind"] == "transformer", lv["boundaries"]))
     cfg = load_config()
     cfg["operational"]["feeder_length"]["LV"]["multi_boundary"] = Dict("reach_short_m" => 250.0)
     fs = Finding[]
@@ -75,6 +83,9 @@ end
     @test f.detail["boundary_reach_m"] == 200.0
     @test f.detail["reach_m"] == 400.0 # legacy field has not been reinterpreted
     @test startswith(f.detail["metric"], "max_shortest")
+    @test "default_or_unit_slip" in BMOPFTools._interpretation_ids(f.detail["interpretation"]["possible_explanations"])
+    @test f.detail["interpretation"]["observations"]["boundary_reach_m"] == 200.0
+    @test occursin("length=1", f.message)
     reordered = deepcopy(net)
     for key in ("bus", "line")
         reordered[key] = Dict(reverse(collect(reordered[key])))
@@ -171,7 +182,7 @@ end
     hint = only(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs))
     @test hint.severity == INFO
     @test !hint.detail["history_verified"]
-    @test haskey(hint.detail["interpretation"]["alternatives"], "native_three_wire")
+    @test "native_three_wire" in BMOPFTools._interpretation_ids(hint.detail["interpretation"]["alternatives"])
     @test r["evidence_by_linecode"]["ASSUMED_KRON"]["history_status"] == "unknown"
     matrix["derivation"] = Dict("method" => "kron")
     r, _ = classify(net)
@@ -251,10 +262,13 @@ end
     @test only(filter(x -> x["check"] == "structural_schema", c["checks"]))["status"] == "skipped"
     for renderer in (BMOPFTools.render_terminal, BMOPFTools.render_markdown)
         io = IOBuffer(); renderer(report, io); text = String(take!(io))
-        @test occursin("Assessment coverage", text)
-        @test occursin("Winding limit coverage", text)
-        @test occursin("nearest-boundary maximum 200.0 m", text)
-        @test occursin("2 distinct transformers", text)
+        @test occursin("Assessment coverage:", text)
+        @test !occursin("coverage ledger", text) # internal ledger detail stays in JSON
+        @test occursin("n-winding transformer caps", text)
+        @test occursin("200.0 m (from the zone anchor: 400.0 m)", text)
+        @test occursin("2 transformers; voltage band LV; ports with a source beyond: 2", text)
+        @test !occursin("nothing", text)
+        @test !occursin("paralleling", text)
     end
     io=IOBuffer(); BMOPFTools.render_json(report, io); decoded=JSON3.read(String(take!(io)))
     @test decoded.results.assessment.comprehensive_validation === false

@@ -65,6 +65,7 @@ hint = only(filter(f -> f["code"] == "I.PROV.IMPEDANCE_TRANSFORM_KR",
 interpretation = hint["detail"]["interpretation"]
 interpretation["supporting_context"]["three_wire"]["n_lv_without_neutral_lines"] == 1 ||
     error("LV context was lost in analysis JSON")
-haskey(interpretation["alternatives"], "native_three_wire") || error("native three-wire alternative was lost")
+any(h -> h["id"] == "native_three_wire", interpretation["alternatives"]) || error("native three-wire alternative was lost")
+!isempty(interpretation["implications"]) || error("hint lost its implications")
 interpretation["automation_guidance"]["disposition"] == "review" || error("hint was promoted to an edit")
 hint["detail"]["history_verified"] === false || error("hypothesis was promoted to verified history")

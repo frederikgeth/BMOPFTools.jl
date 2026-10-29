@@ -61,6 +61,15 @@ def contract_links() -> tuple[dict[str, dict], list[str]]:
                 "contract_id": contract_id,
                 "knowledge_ids": knowledge_ids,
             }
+    for entry in registry.get("finding_knowledge", []):
+        code = entry.get("code")
+        ids = entry.get("knowledge_ids", [])
+        if code in links:
+            errors.append(f"{code}: knowledge link duplicates an executable-contract or earlier link")
+            continue
+        if not ids or not all(isinstance(i, str) and i.startswith("PSK-") for i in ids):
+            errors.append(f"{code}: finding_knowledge needs one or more PSK-* knowledge_ids")
+        links[code] = {"contract_id": None, "knowledge_ids": ids}
     return links, errors
 
 

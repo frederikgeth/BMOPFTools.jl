@@ -1,48 +1,11 @@
-# Package-local interpretation of profiler observations. PSK-000008 / PSK-000009
-# remain links to scientific scope, not prerequisites for exploratory feedback.
-# These records offer hypotheses and review steps, never an inferred repair.
-function _provenance_interpretation(code, observations; supporting_context=Dict{String,Any}())
-    explanations, alternatives, checks = if code == "I.PROV.SEQ_DERIVED"
-        (Dict("sequence_parameterisation" => "Phase impedances constructed from sequence parameters.",
-              "transposition_assumption" => "A transposition or phase-symmetry assumption."),
-         Dict("symmetric_construction" => "A physically symmetric conductor arrangement can also give this pattern."),
-         Dict("parameter_source" => "Compare with the source sequence values, conductor geometry or transposition specification.",
-              "study_symmetry" => "Review network connections, loading and controls before using a positive-sequence-only model."))
-    elseif code == "I.PROV.DECOUPLED_PHASES"
-        (Dict("simplified_parameterisation" => "Mutual series coupling may have been omitted in a simplified phase model."),
-         Dict("negligible_series_coupling" => "Coupling may simply be negligible at the classifier tolerance."),
-         Dict("coordinate_basis" => "Check whether the supplied entries are in phase or sequence coordinates.",
-              "other_coupling" => "Inspect shunts, devices and connections before treating whole-network phases as independent."))
-    elseif code in ("I.PROV.IMPEDANCE_TRANSFORM_KR", "I.PROV.KRON_LIKELY")
-        (Dict("kron_reduction" => "An explicit neutral may have been eliminated by Kron reduction."),
-         Dict("native_three_wire" => "The original network may genuinely have no neutral conductor.",
-              "other_equivalent" => "A phase-to-neutral transformation, another equivalent or incomplete data can also omit the neutral."),
-         Dict("original_conductors" => "Inspect the original conductor model and transformation records.",
-              "grounding_and_recovery" => "If neutral displacement or current matters, review grounding assumptions and recovery of eliminated quantities."))
-    elseif code == "I.PROV.IMPEDANCE_TRANSFORM_PN"
-        (Dict("phase_to_neutral" => "Neutral resistance may have been folded into phase-to-neutral impedances while reactance retains geometric variation."),
-         Dict("other_parameterisation" => "Another parameterisation can share the same approximate matrix pattern."),
-         Dict("transformation_record" => "Compare with the source four-wire impedances and the declared phase-to-neutral transformation.",
-              "return_path" => "Review conductor sizes, grounding and the intended return-current model."))
-    elseif code == "I.PROV.IMPEDANCE_TRANSFORM_MPN"
-        (Dict("modified_phase_to_neutral" => "A phase-to-neutral equivalent may also have had its reactance symmetrised."),
-         Dict("other_parameterisation" => "A symmetric physical or authored equivalent can share this pattern."),
-         Dict("transformation_record" => "Compare with the source impedances and any resistance folding or reactance symmetrisation.",
-              "asymmetry" => "Review whether the approximation retains the asymmetry needed for the study."))
-    else
-        error("No profiler interpretation registered for $code")
-    end
-    Dict{String,Any}(
-        "observations" => observations,
-        "possible_explanations" => explanations,
-        "supporting_context" => supporting_context,
-        "alternatives" => alternatives,
-        "suggested_checks" => checks,
-        "automation_guidance" => Dict{String,Any}(
-            "disposition" => "review",
-            "additional_evidence_required_for_model_changes" => true),
-    )
-end
+# Linecode-use context for provenance interpretations. Review guidance itself
+# lives in `analysis/finding_interpretation.jl`. PSK-000008 / PSK-000009 remain
+# links to scientific scope, not prerequisites for exploratory feedback.
+
+# A converter-generated source (Thevenin) equivalent is not authored line data;
+# provenance hints about it would only be noise. Identified by explicit metadata.
+_is_source_equivalent_linecode(lc) = lc isa AbstractDict &&
+    occursin(r"thevenin|source impedance"i, string(get(lc, "source", "")))
 
 # Context is tied to actual uses of a linecode, not to unused templates or a
 # nominal voltage guessed from impedance. Preserve unknown/mixed uses explicitly.

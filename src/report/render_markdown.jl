@@ -296,7 +296,7 @@ function _md_connectivity(r::SummaryReport, io::IO)
         end
     end
     _md_spatial(get(d, "spatial", nothing), io)
-    _render_parallel_evidence(r, io)
+    _render_parallel_evidence(r, io; markdown=true)
     _md_section_findings(r, io, :connectivity)
 end
 
@@ -508,7 +508,7 @@ function _md_diversity(r::SummaryReport, io::IO)
         end
         println(io)
     end
-    _render_repeat_evidence(r, io)
+    _render_repeat_evidence(r, io; markdown=true)
     _md_section_findings(r, io, :diversity)
 end
 
@@ -530,7 +530,7 @@ function _md_operational(r::SummaryReport, io::IO)
     println(io)
 
     _render_nameplate_estimates(r, io; markdown=true)
-    _render_operational_evidence(r, io)
+    _render_operational_evidence(r, io; markdown=true)
     _md_section_findings(r, io, :operational)
     _md_section_findings(r, io, :load_models)
 end
@@ -577,7 +577,7 @@ function _md_provenance(r::SummaryReport, io::IO)
     d = get(r.results, :provenance, nothing)
     d === nothing && return
     println(io, "## 7. Provenance & Model Conventions\n")
-    _render_provenance_evidence(r, io)
+    _render_provenance_evidence(r, io; markdown=true)
     println(io, "**Inferred convention:** $(get(d, "convention", "undetermined"))\n")
 
     wl = get(d, "wires_by_level", Dict())
@@ -729,7 +729,8 @@ function _md_quality(r::SummaryReport, io::IO; verbose::Bool=true)
         println(io, "### $icon $label\n")
         for f in subset
             println(io, "- **[$(f.code)]** `$(something(f.component_id, string(f.component_type)))`  ")
-            println(io, "  $(f.message)")
+            println(io, "  $(f.message)\n")
+            _md_interpretation(f, io)
         end
         println(io)
     end

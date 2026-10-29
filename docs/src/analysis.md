@@ -263,54 +263,104 @@ for evidence categories, review decisions, coverage and Markdown/JSON/GeoJSON ex
 
 ## Evidence qualified profiler results
 
-The report separates Finding severity from assessment coverage. `results.assessment`
-lists check statuses, reasons and entity units beside the ordinary severity
-summary. Structural schema validation can be skipped while field cataloguing
-still runs. Unsupported nominal coil headroom remains inapplicable; missing
-coordinates leave geographic work unassessed without a generic warning.
-Legacy passes without a complete coverage ledger remain coverage unknown.
-The listed counts are not a percentage of the network validated.
+Many INFO and WARNING Findings flag data that *might* mislead a study. They are
+hints, not verdicts: each one tells you what the data most likely means, why that
+would matter, what else could explain it and what to check. Read them as a
+colleague's margin notes on a case you are building or modifying, whether you
+work alone or with an AI assistant.
 
-`operational.winding_limit_coverage` initially assesses supported native
-`n_winding` declarations. It distinguishes transformer coverage states and
-reports each winding's exact field paths. `i_max` caps bare coil current;
-`s_max` is shared equally among phase legs. Neither implies direct neutral
-current protection, and DELTA coil current differs from terminal line current.
-Top-level n-winding `s_rating` is a nameplate, not a substitute for either cap.
-Zero is a restrictive declaration; positive infinity is an unbounded sentinel,
-not coverage. Static evidence does not establish that a model was built or solved.
-Other subtypes retain their existing semantics and are unassessed by this screen.
-This initial coverage domain uses native a/b/c/n terminal labels and representable
-SI squared-magnitude values. Numerical admission after model scaling remains a
-builder check. Malformed declarations carry reasons independently of unsupported
-subtypes; windings without an explicit neutral port have inapplicable direct
-neutral-current coverage.
+### Reading a hint
 
-`operational.feeder_length` keeps legacy `reach_m` as anchor extent and adds
-`anchor_extent_m` and `boundary_reach_m`. The latter is the maximum, over buses,
-of the shortest sum of declared electrical line lengths to a qualified boundary.
-For a chain of four 100 m edges with boundaries at both ends, these metrics are
-400 m from an endpoint anchor and 200 m to the nearest boundary. Boundaries use
-explicit winding incidence and consistent source-side voltage evidence that
-cannot depend on the assessed zone. Winding 1 is a reference index, not a
-supply-direction declaration. Fixed supported two-port relations form the
-initial domain; unknown/unsupported port relations remain explicit. Source
-magnitudes and absolute nominal references use a declared 5% relative screen;
-nominal cycle ratios must agree within 10⁻⁹. These thresholds qualify the
-voltage-base evidence, not operating feasibility. An incomplete source or
-unsupported relation in an unrooted component remains unresolved rather than
-being interpreted as proof that the component has no source.
+Hints that carry review guidance store it in `detail["interpretation"]`. The
+markdown report shows it under each Finding ("How to read this"); the terminal
+report adds the main alternative and the first check; JSON and
+`explain_finding(finding)` return all of it:
 
-These are bus-graph screens. They retain parallel branches and open-switch
-state, but establish neither conductor-path supply, energization, voltage drop
-nor load sharing. Missing, negative or nonfinite lengths leave distance
-indeterminate. Explicit zero is retained. Regularized electrical lengths are
-identified and suppress physical plausibility comparisons; physical or route
-lengths are never silently substituted. Multiple-transformer zone context lists
-ports and paths without asserting compatible paralleling.
+- `observations`: what was measured, e.g. matrix statistics compared with
+  the reference patterns (`pattern_comparison`).
+- `possible_explanations`: the usual reading first.
+- `implications`: what goes wrong in a study if that reading is true.
+- `alternatives`: other plausible readings of the same data.
+- `suggested_checks`: the cheapest useful check first.
+- `supporting_context`: case facts that strengthen or weaken the hint, e.g.
+  which lines actually use a linecode and at what voltage.
+- `automation_guidance`: always `review`, with additional evidence required
+  before changing the model. An AI assistant should investigate, not edit.
 
-The default single-boundary thresholds remain configurable heuristics. A new
-multiple-boundary metric needs its own explicit policy, for example:
+Each guidance list is ordered and holds `{"id", "text"}` records: match the
+stable `id` in code, show the `text` to people.
+
+```julia
+report = analyze(net)
+hint = first(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", report.findings))
+guide = explain_finding(hint)["interpretation"]
+[h["text"] for h in guide["implications"]]
+guide["observations"]["by_linecode"]          # includes pattern_comparison
+```
+
+### Impedance provenance hints
+
+Linecode matrices often reveal how they were made, and each construction
+throws away something a study might need:
+
+| Pattern | Likely origin | What is lost |
+|---|---|---|
+| equal self, equal mutual (`I.PROV.SEQ_DERIVED`) | sequence values `r1,x1,r0,x0`, or transposition | geometric voltage unbalance; neutral quantities are folded into Z₀ |
+| no mutual coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase (positive-sequence) data only | Z₀ = Z₁, so unbalance and earth-return effects are wrong |
+| three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | neutral eliminated by Kron reduction (weak hint) | neutral voltage rise and losses; exact only if the neutral is at 0 V everywhere |
+| uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral approximation | accuracy degrades with grounding impedance |
+| uniform R and X (`…_MPN`) | modified phase-to-neutral | as PN, plus geometric unbalance |
+
+The Kron hint is matrix-only, so its message says how the linecode is used: on
+LV lines without a represented neutral (a stronger hint), only elsewhere
+(three-wire is normal at MV/HV), or not at all. When a matrix also has the
+equal-self/equal-mutual signature, the message points to `I.PROV.SEQ_DERIVED`:
+sequence-built data cannot show whether a neutral was ever there.
+`I.PROV.KRON_LIKELY` is the network-level counterpart: an LV level with no
+neutral conductor on any branch.
+
+Converter-generated source equivalents (linecodes whose `source` names a
+Thevenin or source impedance, e.g. from `from_dss`) are classified but never
+flagged; the report counts them. Scientific checks for
+[reduction and positive-sequence applicability](scientific_contracts.md) keep
+their own documented domains; these hints do not widen them. Compatibility
+details are in [Provenance report compatibility](dev/versioning.md#Provenance-report-compatibility).
+
+### Transformer winding caps
+
+For two-winding subtypes the OPF turns `s_rating` into a per-coil cap. An
+`n_winding` transformer is different: only per-winding `i_max` (coil current)
+and `s_max` (coil apparent power, shared equally among phase legs) limit it.
+`operational.winding_limit_coverage` lists each winding's caps with field paths,
+and `W.OPS.XFMR_UNCONSTRAINED` flags windings with neither, since the OPF would
+then load them without limit. Zero is a restriction; `Inf` means unbounded.
+Direct neutral-current caps are not assessed, and this is declared data, not a
+built or solved model. Other subtypes are reported as not applicable.
+
+### Feeder length and supply boundaries
+
+`operational.feeder_length` reports, per galvanic zone, how far (by declared
+line length) the farthest bus is from the nearest *supply boundary*: a voltage
+source, or a transformer port with a source beyond it. For a chain of four
+100 m lines fed from both ends this is 200 m (`boundary_reach_m`), while the
+legacy `reach_m` / `anchor_extent_m` measures 400 m from one end.
+`I.OPS.FEEDER_LONG` and `I.OPS.FEEDER_SHORT` compare it with per-band
+thresholds; the usual culprit is a unit slip (km vs m) or the OpenDSS default
+`length=1`, and both scale every line impedance.
+
+Each transformer port records a `port_role`: `source_beyond_port` (a possible
+supply into the zone), `no_source_beyond_port` (load side) or `unresolved`. Two
+or more ports with a source beyond them mean parallel supply, which the report
+lists for review. Supported boundaries are voltage sources and untapped two-port
+`n_winding`, `single_phase`, `wye_delta` and `delta_wye` transformers whose
+voltage bases agree (source magnitudes within 5%, cycle ratios within 10⁻⁹).
+Anything else leaves the distance unassessed with a stated reason rather than a
+guess. The metric is graph distance; it does not compute voltage drop, flow or
+energization. Missing or invalid lengths leave it indeterminate; regularized
+electrical lengths suppress the threshold comparison.
+
+Zones with several supply boundaries need their own threshold policy, since a
+short distance to one of many ports does not make the zone a service drop:
 
 ```toml
 [operational.feeder_length.LV.multi_boundary]
@@ -318,66 +368,20 @@ reach_short_m = 0.0
 reach_long_m = 1500.0
 ```
 
-These example thresholds are study choices. Without this policy the distance
-is reported and its threshold comparison remains unassessed. Short distance
-to one of many ports does not classify a whole network as a service drop.
-Invalid threshold policies are indeterminate; explicitly disabled comparisons
-are skipped. Both reasons appear in assessment coverage.
+### Assessment coverage
 
-The impedance profiler combines observations with possible explanations worth
-reviewing. `I.PROV.SEQ_DERIVED` points to sequence parameterisation or a
-transposition/symmetry assumption; symmetric physical configurations are an
-alternative. `I.PROV.DECOUPLED_PHASES` suggests simplified phase data and prompts
-a check of coordinate conventions and other sources of coupling. PN/MPN hints
-explain possible neutral-resistance folding and reactance symmetrisation.
+`results.assessment` lists which tracked checks were assessed, skipped, not
+applicable or indeterminate, with reasons. It is separate from severity and is
+not a validation score. Reports show a one-line summary plus the checks you can
+act on; legacy passes without a coverage ledger appear only in JSON.
 
-`I.PROV.IMPEDANCE_TRANSFORM_KR` restores the matrix-only prompt to consider Kron
-reduction when a finite, nonzero three-wire matrix does not match PN/MPN.
-Its context records whether the linecode is actually used on LV lines without a
-represented neutral. That makes prior neutral elimination worth investigating;
-a genuine three-wire network or another equivalent remains a possible reading.
-The network-level `I.PROV.KRON_LIKELY` provides a complementary missing-neutral
-hint. Review original conductor and grounding assumptions if neutral quantities
-matter to the study.
+### Repetition and parallel declarations
 
-These INFO Findings help the reader investigate; they need no provenance
-certificate to be useful. They also do not choose a model-changing action. Each
-Finding carries an `interpretation` in `detail`, available in JSON or through
-`explain_finding(finding)`:
-
-- `observations`: the matrix signature or represented-network facts.
-- `possible_explanations`: hypotheses, keyed by stable local names.
-- `supporting_context`: relevant case evidence. Linecode-use context keeps full
-  counts and up to five sorted line IDs per category, with truncation disclosed.
-- `alternatives`: other plausible readings of the same observations.
-- `suggested_checks`: evidence to inspect next.
-- `automation_guidance`: a `review` disposition and an explicit requirement for
-  additional evidence before changing the model.
-
-For example, after `report = analyze(net)`:
-
-```julia
-hint = first(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", report.findings))
-explanation = explain_finding(hint)
-explanation["interpretation"]["possible_explanations"]
-explanation["interpretation"]["supporting_context"]
-```
-
-The instance API combines the catalogue explanation with recorded context; it
-adds no inferred cause or repair. Severity describes diagnostic attention and
-is separate from evidence strength or permission to edit. Scientific checks for
-[reduction and positive-sequence applicability](scientific_contracts.md) retain
-their documented domains. Compatibility details are in
-[Provenance report compatibility](dev/versioning.md#Provenance-report-compatibility).
-
-Parallel declaration evidence is shared by connectivity and redundancy reports.
-Comparison keeps ordered terminal coordinates, swaps endpoint shunts and reverses
-signed angle bounds with endpoint orientation. It compares declarations strictly,
-without inferring conductor permutations or electrical equivalence. Matching
-records do not establish common asset identity. Load repetition similarly counts
-ordered P/Q declarations: group sizes 4, 3 and 1 give 8 loads, 3 distinct tuples,
-5 excess repetitions, 2 repeated groups and 7 members in those repeated groups.
-This is separate from phase balance within a load or across a zone. Numeric
-declarations are grouped before conversion for statistics, so different integers
-are not made identical by Float64 rounding. Human reports group radial nominal
-nameplate estimates separately from ambiguous upper bounds.
+Parallel line records are grouped by bus pair and compared strictly, keeping
+terminal order and endpoint orientation; matching records are inspection
+candidates, not proven duplicate assets. Load repetition counts identical P/Q
+declarations: group sizes 4, 3 and 1 give 8 loads, 3 distinct tuples, 5 excess
+repetitions and 2 repeated groups with 7 members. Values are grouped before
+conversion to Float64, so rounding cannot create false matches. Reports keep
+radial nameplate estimates separate from ambiguous upper bounds, which never
+trigger overload warnings.

@@ -450,6 +450,6 @@ function _render_section_findings(r::SummaryReport, io::IO, section::Symbol;
     isempty(fs) && return
     println(io)
     for f in fs
-        _fmt_finding(f, io; color, prefix="  ")
+        _fmt_finding(f, io; color, prefix="  ", interpretation=true)
     end
 end

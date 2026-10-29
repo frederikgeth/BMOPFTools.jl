@@ -56,18 +56,19 @@ function _wires_by_level(net::Dict{String,Any},
                 "corroborating an implicit neutral."
             push!(findings, Finding(INFO, "I.PROV.KRON_LIKELY", :provenance,
                 :network, nothing,
-                "Voltage level $label has no represented neutral conductor. " *
-                "Consider prior neutral elimination, including Kron reduction; genuine three-wire " *
-                "construction and other equivalents are alternatives. Review the original conductor " *
-                "and grounding model if neutral displacement matters.$extra",
+                "Voltage level $label has no represented neutral conductor. LV distribution is usually " *
+                "four-wire, so the neutral was probably eliminated (e.g. Kron reduction), which assumes it " *
+                "is at 0 V at every bus: neutral voltage rise and neutral losses are then invisible. " *
+                "Some LV systems are genuinely three-wire; check the source data if neutral quantities matter.$extra",
                 Dict{String,Any}("level" => label,
                     "implicit_ground_loads" => sort(implicit_loads),
                     "evidence_kind" => "heuristic_candidate", "history_verified" => false,
                     "knowledge_ids" => ["PSK-000008"],
-                    "interpretation" => _provenance_interpretation("I.PROV.KRON_LIKELY",
-                        Dict("level" => label, "nominal_v" => nominal_v,
+                    "interpretation" => _finding_interpretation("I.PROV.KRON_LIKELY",
+                        Dict{String,Any}("level" => label, "nominal_v" => nominal_v,
                              "n_buses" => length(ids), "n_with_neutral" => n_with_n),
-                        supporting_context=Dict("implicit_ground_loads" => sort(implicit_loads))))))
+                        supporting_context=isempty(implicit_loads) ? Dict{String,Any}() :
+                            Dict{String,Any}("implicit_ground_loads" => sort(implicit_loads))))))
         end
     end
 

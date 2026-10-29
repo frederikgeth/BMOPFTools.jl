@@ -25,6 +25,8 @@ interface_paths = [
   "src/analysis/provenance/linecodes.jl",
   "src/analysis/provenance.jl",
   "src/analysis/provenance/interpretation.jl",
+  "src/analysis/finding_interpretation.jl",
+  "src/report/formatting.jl",
   "src/analysis/provenance/wires_grounding.jl",
   "src/report/finding_registry.jl",
   "src/validation/redundancy.jl",

@@ -173,3 +173,10 @@ fields plus `instance` and `interpretation`; the latter is `nothing` when no
 interpretation was recorded. The string-code lookup and its CLI/MCP envelope
 are unchanged. These report additions do not change the applicability or
 results of the independent scientific checks.
+
+Interpretation lists (`possible_explanations`, `implications`, `alternatives`,
+`suggested_checks`) are ordered arrays of `{"id", "text"}` records; earlier
+drafts used unordered objects keyed by id. Linecodes marked as source (Thevenin)
+equivalents keep their classification but carry `finding_suppressed` instead of
+producing provenance Findings. Feeder-length transformer ports add `port_role`
+and zones add `n_ports_by_role`.

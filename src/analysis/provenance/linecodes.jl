@@ -111,8 +111,10 @@ function _classify_linecodes(net::Dict{String,Any},
             verdict, detail = _classify_balance(Z)
             merge!(entry, detail)
             entry["verdict"] = verdict
-            verdict == "exactly_balanced" && push!(seq_ids, id)
-            verdict == "decoupled"        && push!(dec_ids, id)
+            source_equivalent = _is_source_equivalent_linecode(lc)
+            source_equivalent && (entry["source_equivalent"] = true)
+            verdict == "exactly_balanced" && !source_equivalent && push!(seq_ids, id)
+            verdict == "decoupled"        && !source_equivalent && push!(dec_ids, id)
         else
             entry["verdict"] = n >= 3 ? "unassessed" : "not_applicable"
             entry["balance_status"] = n >= 3 ? "indeterminate" : "inapplicable"
@@ -136,14 +138,15 @@ function _classify_linecodes(net::Dict{String,Any},
                 ("diag_spread", "offdiag_spread", "z1", "z0")) for id in seq_ids))
         push!(findings, Finding(INFO, "I.PROV.SEQ_DERIVED", :provenance,
             :linecode, nothing,
-            "$(length(seq_ids)) linecode(s) have exactly balanced impedance " *
-            "series matrices (equal self, equal mutual entries), suggesting sequence parameterisation " *
-            "or a transposition/symmetry assumption. Physical symmetry is an alternative; " *
-            "review the source parameters and intended network symmetry: $(join(sort(seq_ids), ", ")).",
+            "$(length(seq_ids)) linecode(s) have equal self and equal mutual series impedances, " *
+            "which usually means they were built from sequence values (r1, x1, r0, x0) or assume transposition. " *
+            "If so, these lines cannot create geometric voltage unbalance and neutral quantities are not recoverable. " *
+            "Check the source data; a symmetric cable construction is the main alternative: " *
+            "$(join(sort(seq_ids), ", ")).",
             Dict{String,Any}("linecodes" => sort(seq_ids), "evidence_kind" => "observed_series_structure",
                 "history_status" => "unverified", "sequence_applicability" => "unassessed",
                 "knowledge_ids" => ["PSK-000009"],
-                "interpretation" => _provenance_interpretation("I.PROV.SEQ_DERIVED", observations))))
+                "interpretation" => _finding_interpretation("I.PROV.SEQ_DERIVED", observations))))
     end
     if !isempty(dec_ids)
         observations = Dict{String,Any}(
@@ -153,14 +156,14 @@ function _classify_linecodes(net::Dict{String,Any},
                 ("diag_spread", "mutual_to_self_ratio")) for id in dec_ids))
         push!(findings, Finding(INFO, "I.PROV.DECOUPLED_PHASES", :provenance,
             :linecode, nothing,
-            "$(length(dec_ids)) linecode(s) have negligible mutual coupling within the classifier tolerance " *
-            "in the observed series impedance matrix, suggesting a simplified parameterisation. " *
-            "Check phase versus sequence coordinates and other sources of network coupling: " *
+            "$(length(dec_ids)) linecode(s) have no mutual coupling between phases, which usually means only a " *
+            "per-phase impedance was supplied. Then Z0 equals Z1, so unbalanced loading and earth-return effects " *
+            "are misrepresented. Check whether the entries are phase or sequence values: " *
             "$(join(sort(dec_ids), ", ")).",
             Dict{String,Any}("linecodes" => sort(dec_ids), "evidence_kind" => "observed_series_structure",
                 "history_status" => "unverified", "sequence_applicability" => "unassessed",
                 "knowledge_ids" => ["PSK-000009"],
-                "interpretation" => _provenance_interpretation("I.PROV.DECOUPLED_PHASES", observations))))
+                "interpretation" => _finding_interpretation("I.PROV.DECOUPLED_PHASES", observations))))
     end
     Dict{String,Any}("by_linecode" => by_lc, "verdict_counts" => verdict_counts)
 end
@@ -518,39 +521,89 @@ function _classify_impedance_transformation(net::Dict{String,Any},
     for id in sort!(collect(keys(classified)))
         push!(get!(by_type, classified[id], String[]), id)
     end
-    descriptions = Dict(
-        "kron_reduced" => "do not match the PN/MPN patterns; consider prior neutral elimination by Kron reduction. " *
-            "This is a weak matrix-only candidate; LV use without a represented neutral adds context. " *
-            "Genuine three-wire construction and other equivalents are alternatives",
-        "phase_to_neutral" => "match a phase-to-neutral approximation: uniform R with mutual/self near one half, " *
-            "while X retains variation. Neutral resistance may have been folded into the phase impedances",
-        "modified_phase_to_neutral" => "match a modified phase-to-neutral approximation: uniform R and X, " *
-            "with R mutual/self near one half. Reactance may also have been symmetrised")
+    balance = get(lc_result, "by_linecode", Dict())
     for (candidate, code) in (("kron_reduced", "I.PROV.IMPEDANCE_TRANSFORM_KR"),
                               ("phase_to_neutral", "I.PROV.IMPEDANCE_TRANSFORM_PN"),
                               ("modified_phase_to_neutral", "I.PROV.IMPEDANCE_TRANSFORM_MPN"))
-        ids = get(by_type, candidate, String[]); isempty(ids) && continue
+        all_ids = get(by_type, candidate, String[])
+        for id in all_ids
+            _is_source_equivalent_linecode(net["linecode"][id]) &&
+                (evidence[id]["finding_suppressed"] = "source_thevenin_equivalent")
+        end
+        ids = filter(id -> !haskey(evidence[id], "finding_suppressed"), all_ids)
+        isempty(ids) && continue
         context = Dict(id => evidence[id]["supporting_context"] for id in ids)
-        n_lv = count(id -> get(context[id], "n_lv_without_neutral_lines", 0) > 0, ids)
-        lv_note = candidate == "kron_reduced" && n_lv > 0 ?
-            " $n_lv candidate linecode(s) are used on LV lines without a represented neutral." : ""
+        balanced = filter(id -> get(get(balance, id, Dict()), "verdict", nothing) == "exactly_balanced", ids)
         observations = Dict{String,Any}(
             "candidate" => candidate, "linecodes" => ids,
             "basis" => candidate == "kron_reduced" ? "PN_MPN_patterns_not_matched" : "matrix_pattern",
-            "by_linecode" => Dict(id => Dict(k => evidence[id][k] for k in
+            "also_exactly_balanced" => balanced,
+            "by_linecode" => Dict(id => merge(Dict{String,Any}(k => evidence[id][k] for k in
                 ("R_uniformity_residual", "X_uniformity_residual", "R_mutual_self_ratio",
-                 "structure_rtol", "mutual_ratio_atol")) for id in ids))
+                 "structure_rtol", "mutual_ratio_atol")),
+                Dict{String,Any}("pattern_comparison" => _transform_pattern_comparison(evidence[id]))) for id in ids))
         push!(findings, Finding(INFO, code, :provenance, :linecode, nothing,
-            "$(length(ids)) three-wire linecode(s) $(descriptions[candidate]).$lv_note " *
-            "Review source impedances, conductor and grounding assumptions: $(join(ids, ", ")).",
+            _transform_message(candidate, ids, context, balanced),
             Dict{String,Any}("transform_type" => candidate, "linecodes" => ids,
                 "evidence_kind" => "heuristic_candidate", "history_verified" => false,
                 "knowledge_ids" => ["PSK-000008", "PSK-000009"],
-                "interpretation" => _provenance_interpretation(code, observations; supporting_context=context))))
+                "interpretation" => _finding_interpretation(code, observations; supporting_context=context))))
     end
     Dict{String,Any}("classification_version" => "2", "by_linecode" => classified, "by_type" => by_type,
         "legacy_projection" => "deprecated_candidate_names_with_explicit_unknown",
         "evidence_by_linecode" => evidence)
+end
+
+# Compare one linecode's matrix statistics with the phase-to-neutral reference
+# patterns, so a reader sees how close the matrix is to each named pattern.
+function _transform_pattern_comparison(detail)
+    ratio = get(detail, "R_mutual_self_ratio", nothing)
+    rres = get(detail, "R_uniformity_residual", nothing); xres = get(detail, "X_uniformity_residual", nothing)
+    rtol = detail["structure_rtol"]; atol = detail["mutual_ratio_atol"]
+    rres === nothing && return Dict{String,Any}("criteria" => Any[], "summary" => "matrix statistics unavailable")
+    criteria = Any[
+        Dict{String,Any}("quantity" => "R_mutual_self_ratio", "value" => ratio, "reference" => 0.5,
+            "tolerance" => atol, "required_by" => ["phase_to_neutral", "modified_phase_to_neutral"],
+            "met" => ratio !== nothing && abs(ratio - 0.5) < atol),
+        Dict{String,Any}("quantity" => "R_uniformity_residual", "value" => rres, "below" => rtol,
+            "required_by" => ["phase_to_neutral", "modified_phase_to_neutral"], "met" => rres < rtol),
+        Dict{String,Any}("quantity" => "X_uniformity_residual", "value" => xres, "below" => rtol,
+            "required_by" => ["modified_phase_to_neutral"], "met" => xres < rtol)]
+    fmt(x) = x === nothing ? "undefined" : string(round(x; sigdigits=2))
+    summary = "R mutual/self $(fmt(ratio)) (phase-to-neutral patterns need 0.5 ± $atol); " *
+        "R uniformity residual $(fmt(rres)) (need < $rtol); " *
+        "X uniformity residual $(fmt(xres)) (modified phase-to-neutral needs < $rtol)"
+    Dict{String,Any}("criteria" => criteria, "summary" => summary)
+end
+
+function _transform_message(candidate, ids, context, balanced)
+    n = length(ids); list = join(ids, ", ")
+    if candidate == "phase_to_neutral"
+        return "$n three-wire linecode(s) look like a phase-to-neutral approximation (uniform R with mutual ≈ ½ self, " *
+            "while X keeps its geometric variation): the neutral resistance was probably folded into the phases. " *
+            "This is accurate for similar phase and neutral conductors with good grounding; the error grows with " *
+            "grounding impedance. Compare with the source four-wire data: $list."
+    elseif candidate == "modified_phase_to_neutral"
+        return "$n three-wire linecode(s) look like a modified phase-to-neutral approximation (uniform R and X, " *
+            "R mutual ≈ ½ self): neutral resistance folded in and reactance symmetrised. The error grows with " *
+            "grounding impedance and is largest for asymmetric layouts. Compare with the source data: $list."
+    end
+    n_lv = count(id -> get(context[id], "n_lv_without_neutral_lines", 0) > 0, ids)
+    n_unused = count(id -> get(context[id], "n_lines", 0) == 0, ids)
+    n_other = n - n_lv - n_unused
+    parts = ["$n three-wire linecode(s) have coupled series impedances that match neither phase-to-neutral " *
+        "pattern, a weak hint that a neutral may have been eliminated by Kron reduction."]
+    if n_lv > 0
+        push!(parts, "$n_lv of the $n are used on LV lines with no represented neutral, which makes this more likely; " *
+            "if so, neutral voltage rise and neutral losses are invisible to this model.")
+        n_other > 0 && push!(parts, "The other $n_other are used elsewhere, where three-wire may be normal (MV/HV).")
+    elseif n_other > 0
+        push!(parts, "None is used on LV lines without a neutral, and three-wire is normal at MV/HV, so treat this as context only.")
+    end
+    n_unused > 0 && push!(parts, "$n_unused are not used by any line.")
+    isempty(balanced) || push!(parts, "$(length(balanced)) also have equal self and equal mutual entries " *
+        "(see I.PROV.SEQ_DERIVED); sequence-built data cannot show whether a neutral was eliminated.")
+    join(parts, " ") * " Check the original conductor data: $list."
 end
 
 # ---------------------------------------------------------------------------

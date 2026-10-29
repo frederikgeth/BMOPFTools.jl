@@ -79,6 +79,9 @@
 # Provenance INFO Findings retain exploratory sequence, PN/MPN and Kron hypotheses
 # with observations, alternatives and review guidance (PSK-000008 / PSK-000009).
 # The analyze_case recipe discovers their source, tests and minimized fixture.
+# Interpretations (shared module src/analysis/finding_interpretation.jl) are ordered
+# {id,text} lists incl. implications; also cover feeder-length and n-winding cap hints.
+# Converter source (Thevenin) equivalents are excluded from provenance hints.
 # explain_finding(::Finding) returns recorded instance context without inferring
 # a model-changing action or widening either scientific check's domain.
 schema_version = "0.6.0"
@@ -1155,3 +1158,50 @@ source_paths = [
   "test/property_based_contract_tests.jl",
   "test/property/unit-base-serialization-seed.json",
 ]
+
+# Stable PSK links for Findings that are not owned by an executable contract.
+# Each mirrors the knowledge_ids the emitting code records in Finding detail;
+# it links to the book's scoped statement and widens no domain.
+[[finding_knowledge]]
+code = "W.EXPORT.DSS_RATING_UNVERIFIED"
+knowledge_ids = ["PSK-000007"]
+
+[[finding_knowledge]]
+code = "I.DIV.LOAD_PHASE_BALANCED"
+knowledge_ids = ["PSK-000009"]
+
+[[finding_knowledge]]
+code = "W.INT.DEVICE_INDEXING_UNASSESSED"
+knowledge_ids = ["PSK-000002"]
+
+[[finding_knowledge]]
+code = "E.TMAP.PHASE_TO_NEUTRAL"
+knowledge_ids = ["PSK-000002"]
+
+[[finding_knowledge]]
+code = "E.TMAP.DEVICE_ROLES"
+knowledge_ids = ["PSK-000002"]
+
+[[finding_knowledge]]
+code = "I.PROV.SEQ_DERIVED"
+knowledge_ids = ["PSK-000009"]
+
+[[finding_knowledge]]
+code = "I.PROV.DECOUPLED_PHASES"
+knowledge_ids = ["PSK-000009"]
+
+[[finding_knowledge]]
+code = "I.PROV.KRON_LIKELY"
+knowledge_ids = ["PSK-000008"]
+
+[[finding_knowledge]]
+code = "I.PROV.IMPEDANCE_TRANSFORM_KR"
+knowledge_ids = ["PSK-000008", "PSK-000009"]
+
+[[finding_knowledge]]
+code = "I.PROV.IMPEDANCE_TRANSFORM_PN"
+knowledge_ids = ["PSK-000008", "PSK-000009"]
+
+[[finding_knowledge]]
+code = "I.PROV.IMPEDANCE_TRANSFORM_MPN"
+knowledge_ids = ["PSK-000008", "PSK-000009"]
