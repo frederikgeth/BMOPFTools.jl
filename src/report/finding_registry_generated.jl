@@ -2,8 +2,17 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "84752cfe353c4470a4d7827c449e0a5615165680665b99d36c25511f1251921f"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "86a6116df52a889806df81a5602f6e165042296c08256cab46cc13f2d8d155cc"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
+    "W.EXPORT.DSS_RATING_UNVERIFIED" => (
+        severity="WARNING",
+        namespace="EXPORT",
+        catalogue_section="EXPORT",
+        section_title="explicit conversion admission",
+        meaning="DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim (PSK-000007).",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
     "E.COMP.MISSING_REQUIRED" => (
         severity="ERROR",
         namespace="COMP",

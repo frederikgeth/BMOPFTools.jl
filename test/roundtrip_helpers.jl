@@ -554,7 +554,7 @@ function run_projection_case(case::String, net::AbstractDict, result::AbstractDi
     export_warnings = String[]
     exported = false
     try
-        export_warnings = BMOPFTools.to_dss(snapL, dsspath)
+        export_warnings = BMOPFTools.to_dss(snapL, dsspath; allow_unverified_ratings=true)
         exported = true
     catch e
         push!(errors, "to_dss: $(sprint(showerror, e))")
@@ -615,7 +615,7 @@ function diagnose_case(dss_path::String; tier::Symbol=:A, has_ods::Bool=false,
     end
 
     try
-        export_warnings = to_dss(net1, regen_path)   # path form returns just warnings
+        export_warnings = to_dss(net1, regen_path; allow_unverified_ratings=true)   # path form returns just warnings
     catch e
         push!(errors, "to_dss: $(sprint(showerror, e))")
         return CaseReport(stem, dss_path, tier, parse_warnings, export_warnings, diffs, pf, errors)

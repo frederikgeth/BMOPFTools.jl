@@ -3623,7 +3623,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     @testset "to_dss — BMOPF → OpenDSS" begin
         @testset "two-arg returns (text, warnings)" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
-            dss_text, warns = to_dss(net)
+            dss_text, warns = to_dss(net; allow_unverified_ratings=true)
             @test dss_text isa String
             @test !isempty(dss_text)
             @test occursin("New Circuit.", dss_text)
@@ -3634,7 +3634,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @testset "name override does not mutate input" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
             orig_name = net["name"]
-            dss_text, _ = to_dss(net; name="renamed_circuit")
+            dss_text, _ = to_dss(net; name="renamed_circuit", allow_unverified_ratings=true)
             @test occursin("New Circuit.renamed_circuit", dss_text)
             @test net["name"] == orig_name          # input dict untouched
         end
@@ -3642,7 +3642,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @testset "file-writing overload" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
             out = joinpath(mktempdir(), "sub", "Master.dss")   # nested dir must be created
-            warns = to_dss(net, out)
+            warns = to_dss(net, out; allow_unverified_ratings=true)
             @test isfile(out)
             @test warns isa Vector{String}
             @test occursin("New Circuit.", read(out, String))
@@ -3654,7 +3654,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             @test !isempty(cases)
             for case in sort(cases)
                 net = from_dss(joinpath(dir, case))
-                dss_text, _ = to_dss(net)
+                dss_text, _ = to_dss(net; allow_unverified_ratings=true)
                 @test !isempty(dss_text)
                 # Prove the generated DSS is valid by re-parsing it via PowerIO.
                 tmp = joinpath(mktempdir(), "regen.dss")
@@ -4015,6 +4015,7 @@ include("mcp_execution_tests.jl")
     # always runs; the OpenDSS PF cross-check self-gates on _HAS_ODS.
     # -----------------------------------------------------------------------
     include("roundtrip_fidelity_tests.jl")
+    include("dss_export_guard_tests.jl")
 
     # -----------------------------------------------------------------------
     # OPF-solution → OpenDSS snapshot projection + 3-way feasibility oracle.

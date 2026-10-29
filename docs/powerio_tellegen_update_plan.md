@@ -3,8 +3,8 @@
 Development plan and checkpoint, 29 October 2026.
 Branch: `codex/powerio-update-tellegen-diagrams`.
 Base: `5ba6e03ea` (`origin/main`, including the merged OpenDSS semantics work).
-Publication status: draft PR requested on 29 October 2026. The migration remains
-incomplete until the round-trip release gate below passes.
+Publication status: PR #472; the reviewed export guard and regression audit are
+implemented. Merge requires the final local gates and GitHub CI to pass.
 
 ## Outcome
 
@@ -26,32 +26,28 @@ visible throughout the workflow.
 - [x] Run the existing suite to discover actual migration requirements before
   changing expected outputs.
 
-The first full run is **not green**: the main `BMOPFTools` testset reports
-45,091 passes, 99 failures, 34 errors and 27 broken tests. This is a development
-checkpoint, not a completed compatibility upgrade. The failure groups below are
-work items; they must not be removed or reclassified simply to pass the suite.
+The initial migration run reported 45,091 passes, 99 failures and 34 errors.
+The adapter/source-oracle fixes reduced that to 44 structural-check failures.
+The final round-trip audit now distinguishes reviewed representations from the
+upstream rating defect; it does not weaken the PF tolerances or hide whole cases
+behind expected failures.
 
-Current validation checkpoint:
+Final local validation (Julia 1.12.6, PowerIO 0.11.7, macOS arm64):
 
 | Gate | Result |
 | --- | --- |
-| Finding registry | Pass: 381 documented codes |
-| Executable export schema/staleness | Pass after regeneration |
-| Scientific contracts, executable knowledge and execution interface | Pass |
-| Complete package suite | 45,505 pass, 44 fail, 0 errors, 27 broken in the main testset; all failures are round-trip structural checks |
-| Full Documenter build | Pass after the SWER example fix described below |
-| Screenshot asset and rendered-page review | Pass; full-resolution image links included |
+| Full package suite | 47,224 pass, zero failures/errors, 8 broken/skipped; 3m36.5s |
+| Scientific contracts | Pass |
+| Executable knowledge | 1,208 checks pass; schema/staleness pass |
+| Execution interface | 173 checks pass |
+| Finding registry | 382 documented codes pass |
+| Full Documenter build | Pass |
+| Release metadata, machine entry point, diff whitespace | Pass |
 
-The latest full run reduced the original 99 failures / 34 errors to 44 failures /
-0 errors. CVR, geometry, loaded-transformer, projection and nodal-current checks
-pass, as do scientific contracts, the 1,201 executable-export checks and the 173
-execution-interface checks. The final documentation build succeeds.
-
-Runtime migration is now implemented for CVR and typed load-law evidence. The
-geometry, source-boundary and provenance regression tests have been adapted to
-the new public IR. The dependency floor remains a work-in-progress change until
-the round-trip audit below is resolved. The standalone contract gates do not
-establish PowerIO compatibility.
+The eight broken/skipped entries include the two focused round-trip defects and
+existing optional/oracle skips. GitHub CI on the pushed head remains the final
+merge gate. OpenDSSDirect emits upstream precompile warnings locally, then loads
+and executes its numerical checks successfully.
 
 ## 2. Migrate the PowerIO adapter in order of scientific risk
 
@@ -145,64 +141,37 @@ with `BUILD.DIST.ELECTRICAL_INCOMPLETE` and reader evidence
   Keep mixed-case IDs, truncated attribution and serialization tests meaningful.
 - [x] Re-run the real source-field mapping and scope tests, not only mocked ones.
 
-### 2e. Round-trip audit: remaining release gate
+### 2e. Round-trip audit and guarded export — implemented
 
-The 0.11.7 canonical DSS writer uses exact resistance-cancellation source
-circuits, full-admittance shunt circuits, and (where qualified) collapses an
-isolated source equivalent back to a native Vsource. Its reader materializes
-source impedances and effective line snapshots. Byte/dictionary identity is
-therefore a different signal from electrical agreement.
+- [x] Classify all 710 structural observations across 36 feature fixtures. Each
+  path/kind has a review category in `roundtrip_expected_losses.json`; explicit
+  terminal/source/shunt mappings live in `roundtrip_review.json`.
+- [x] Check every original line's full primitive and physical feeder ratings.
+  Check named +1/−1 Ω source circuits, complex EMFs, and the four tiny-impedance
+  auxiliary circuits independently of their solved voltages.
+- [x] Compare complete shunt admittances, including finite grounding, under the
+  declared terminal maps. Accept dropped `n_ref` only when no original element
+  or winding uses it; retain all used perfect-ground relations.
+- [x] Keep the pure-PowerIO two-command missing-rating → 600 A witness for
+  [powerio#762](https://github.com/eigenergy/powerio/issues/762) in
+  `test/data/powerio_regressions/unrated_source.dss`. Only its rating equality is
+  expected to fail. Neutral-role loss has a separate focused witness. No whole
+  structural or PF case is expected to fail.
+- [x] Default `to_dss` to refusal when static AC re-import cannot establish
+  identity correspondence and unchanged declared ratings/bounds. Refusal emits
+  `W.EXPORT.DSS_RATING_UNVERIFIED` with indeterminate evidence and leaves files
+  untouched. `allow_unverified_ratings=true` permits PF verification with the
+  warning retained. JSON remains authoritative for OPF and Tellegen.
+- [x] Test opt-in, default refusal, JSON/evidence serialization, unchanged input,
+  no file creation/overwrite on refusal, explicit 123 A and legitimate 600 A
+  positive controls, zero-A refusal, and out-of-domain dynamic data.
 
-The audit of all 36 feature cases found 710 structural differences, including
-81 new unique path/kind pairs relative to the prior snapshot. Do **not** accept a
-blanket new golden file or mark former clean cases broken merely to pass tests.
-The existing `roundtrip_expected_losses.json` and structural checks remain
-unchanged while this is investigated.
-
-- [x] Verify the loaded-transformer oracle uses the imported finite source
-  impedance without overwriting its EMF with a physical-bus voltage.
-- [x] Fill internal EMF nodes explicitly in the nodal-current test and check KCL
-  at the original source port as well as all other non-source nodes.
-- [x] Diagnose the tap-projection discrepancy: the six physical nodes agreed
-  within 6 microvolts, but three internal EMF nodes were absent in OpenDSS's
-  public node list. The test now supplies an explicit source-to-observation map
-  and recovers the EMF from OpenDSS's own primitive and solved currents. Both
-  comparisons pass at all nine nodes; no tolerance increase or node exclusion.
-- [ ] Separate legitimate equivalent-circuit/linecode identity changes from
-  new operating-limit or grounding losses, then pin only reviewed changes.
-- [ ] Resolve the newly introduced current limit before accepting the snapshot.
-  In `pf_1ph_line.dss`, imported
-  `line._pio_vsource_source_impedance` has no `i_max`; after `to_dss` and
-  `from_dss` it has `[600]` A. This is not just a representation change.
-  Setting emitted `normamps=0 emergamps=0` was probed outside the repository:
-  it produces `i_max=[0]`, an active zero bound, so that workaround was rejected.
-- [ ] Review disappearing grounded-reference declarations together with their
-  terminal maps; do not infer correspondence from generated-name prefixes.
-
-The source-equivalent implementations were inspected at PowerIO tag `v0.11.7`:
-`powerio-dist/src/dss/read/sources.rs`, `write/sources.rs`, and
-`write/thevenin.rs`. No sibling repository was edited. The current-limit defect
-also reproduces with PowerIO.jl and JSON3 alone, using a two-line DSS source case.
-It is reported upstream as
-[PowerIO #762](https://github.com/eigenergy/powerio/issues/762), with the minimal
-reproducer, observed output and requested preservation behavior. The BMOPFTools
-draft PR retains the failing structural gate while the upstream issue is resolved.
-
-Reproduce the current-limit observation from the repository root:
-
-```julia
-using BMOPFTools
-net = from_dss("test/data/pf_comparison/pf_1ph_line.dss")
-source_bus = net["voltage_source"]["source"]["bus"]
-branch = only(id for (id, line) in net["line"] if line["bus_from"] == source_bus)
-mktempdir() do dir
-    path = joinpath(dir, "roundtrip.dss")
-    to_dss(net, path)
-    restored = from_dss(path)
-    @show get(net["line"][branch], "i_max", nothing)
-    @show restored["line"][branch]["i_max"]
-end
-```
+The complete review rationale is in `test/data/roundtrip_expectations.md`.
+Source implementations were inspected at PowerIO tag `v0.11.7`; no sibling
+repository or generated book manifest was changed. Independent OpenDSS PF
+comparison still requires every energized mapped node and keeps its original
+2 V / 2% thresholds. The original nonconvergent open-delta deck is an explicit
+skip, not agreement.
 
 ## 3. Produce the visual case-study walkthrough
 
@@ -247,17 +216,18 @@ julia --project=docs --startup-file=no docs/make.jl
 - [x] Register the minimized missing-geometry fixture in `knowledge/executable.toml`
   and regenerate/check this checkpoint's exports. Existing PSK links and supported
   domains are unchanged; the sibling book's generated manifest is untouched.
-- [ ] Regenerate/check exports again after the remaining round-trip work.
+- [x] Regenerate/check exports after the round-trip guard and audit (382 Finding codes).
 - [x] Confirm the public file workflow and download work in the built docs;
   inspect the page at documentation-column width for readable images and captions.
 - [x] Verify asset links, source notices, image dimensions/size and `git diff --check`.
-- [ ] Compare remaining failures with the 0.11.6 base if attribution is ambiguous.
-  Julia 1.12 emits upstream OpenDSSDirect precompilation warnings; distinguish
-  these from actual test assertions and verify the repository's supported CI Julia.
-- [ ] Update the changelog to describe final supported behavior and qualifications.
+- [x] Attribute the remaining rating defect directly to PowerIO and retain the
+  pre-existing neutral-role limitation separately. Julia 1.12 emits upstream
+  OpenDSSDirect precompilation warnings; verify the supported CI Julia versions.
+- [x] Update the changelog with the export admission change and remaining limitations.
 - [x] Organize reviewable commits: dependency/adapter migration, tests and
   generated metadata; visualization documentation, image assets and this plan.
 
 Completion requires passing numerical and serialization checks as well as a
-successful documentation build. Publish this checkpoint as a draft PR; the
-remaining round-trip failures prevent treating it as ready to merge.
+successful documentation build. Push the reviewed change to PR #472, rerun CI,
+and merge only after all supported behavior passes. Narrow expected failures
+track upstream defects; no new PowerIO release is required for guarded export.

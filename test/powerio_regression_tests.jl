@@ -174,7 +174,7 @@ end
 @testset "DSS export preserves repaired laws without mutating input" begin
     net=from_dss(joinpath(@__DIR__,"data","pf_comparison","pf_exp_1ph.dss"))
     before=deepcopy(net)
-    text,_=to_dss(net)
+    text,_=to_dss(net; allow_unverified_ratings=true)
     @test net==before
     @test occursin("CVRwatts=1.4 CVRvars=2.0",text)
     load=net["load"]["ld1"]

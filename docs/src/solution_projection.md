@@ -90,7 +90,7 @@ snap   = project_solution(net, result)     # pin every setpoint → determined s
 res_B  = solve_pf(snap)                     # B: BMOPF self-check  (expect A ≈ B)
 
 deck   = dispatch_as_loads(snap)            # generators/IBRs → negative loads
-export_warnings = to_dss(deck, "snap.dss")  # inspect before running OpenDSS
+export_warnings = to_dss(deck, "snap.dss"; allow_unverified_ratings=true)  # inspect before running OpenDSS
 # Run the exported deck in OpenDSS and align terminal names, units and references
 # before comparing its voltages with result and res_B.
 ```

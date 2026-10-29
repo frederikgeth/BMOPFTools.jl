@@ -812,16 +812,47 @@ BMOPF terminal labels (`"a"`, `"b"`, `"c"`, `"n"`) are accepted by the writer an
 re-normalised to OpenDSS numeric nodes (`.1`, `.2`, `.3`, `.0`); merged polyphase
 sources are re-expanded by the writer as needed.
 
-!!! note "Valid, not (yet) validated"
-    The current target is **valid** OpenDSS — text that PowerIO (and OpenDSS)
-    can parse and solve — not a byte-faithful or power-flow-validated round trip.
-    A `from_dss → to_dss` cycle is not guaranteed to reproduce the original file
-    or to solve identically in OpenDSS; the warnings PowerIO returns list what its
-    writer had to assume or could not represent. Byte-fidelity and an OpenDSS
-    power-flow cross-check are future work, tracked alongside the known lossy
-    points below (earth-terminal collapse, identifier case-folding, transformer
-    fidelity). Every `test/data/pf_comparison` fixture is round-tripped
-    (DSS → BMOPF → DSS) and the output re-parsed to guard validity.
+### Rating-preservation guard (PowerIO 0.11.7)
+
+By default, export re-imports the generated DSS and compares declared bounds and
+ratings under **identity component and terminal correspondence**, resolving
+linecode current ratings to each line. Changed identities, added equivalent
+branches, missing bounds, changed ratings, dynamic controls/time series, DC
+networks, or an unsuccessful re-import produce an `indeterminate` admission
+Finding (`W.EXPORT.DSS_RATING_UNVERIFIED`) and an `ArgumentError`. The file-writing
+overload refuses before creating directories or overwriting the destination.
+This is a conservative declaration check; passing it certifies neither electrical
+equivalence nor OPF feasibility or objectives (see PSK-000007).
+
+For an independent **power-flow verification** deck, explicitly opt in:
+
+```julia
+findings = Finding[]
+text, warnings = to_dss(net; allow_unverified_ratings=true, findings)
+to_dss(net, "verification/Master.dss"; allow_unverified_ratings=true)
+write_bmopf(net, "authoritative.bmopf.json")  # OPF and Tellegen input
+```
+
+Opt-in retains the warning and structured evidence in `findings`: status,
+checked domain, source/target declaration changes, unassessed dimensions,
+PowerIO version, and the upstream issue link. The input dict is unchanged.
+
+[powerio#762](https://github.com/eigenergy/powerio/issues/762) records the concrete
+missing-rating → **600 A** defect on a source-equivalent branch. Synthesized
+ideal-source and shunt-equivalent lines can acquire the same OpenDSS default.
+Power-flow agreement cannot certify these constraints. Keep **BMOPF JSON as the
+authoritative model for OPF and Tellegen**, and do not strip every 600 A limit or
+substitute zero: both may be real active constraints.
+
+The 36 feature fixtures retain exact structural change inventories, explicit
+terminal correspondences, effective-line and shunt primitive checks, source
++R/−R and tiny-impedance equivalent checks, grounding checks, physical feeder
+rating checks, and an independent OpenDSS voltage comparison. Renamed neutral
+terminals may also lose their neutral-role metadata after re-import; electrical
+grounding agreement does not repair that role. The minimized rating witness and
+one neutral-role witness are narrowly expected failures. The round-trip suite
+as a whole is not marked as expected failure. The original open-delta fixture's
+independent solve does not converge and remains an explicitly recorded skip.
 
 ### Conversion failures with source evidence
 

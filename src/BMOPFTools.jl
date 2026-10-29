@@ -15,7 +15,7 @@ data, so data flows naturally to and from JSON without conversion.
     report = analyze(net)               # run all analyses
     render(report, stdout)              # terminal output
     render(report, "report.md")         # markdown file
-    to_dss(net, "out/Master.dss")       # write OpenDSS (via PowerIO.jl)
+    to_dss(net, "out/Master.dss"; allow_unverified_ratings=true)       # write OpenDSS (via PowerIO.jl)
 
 See also: `write_bmopf`, `to_pmd`, `to_dss`.
 """

@@ -4,11 +4,21 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
-- Raise the PowerIO.jl dependency floor to 0.11.7 (migration in progress).
+- Raise the PowerIO.jl dependency floor to 0.11.7.
   Validate typed CVR exponents without replacing them with legacy defaults;
   retain the typed bounded load law and its threshold provenance. Geometry
   regression tests now check resolved overhead matrices and genuinely missing
   geometry separately.
+- **Breaking:** `to_dss` refuses exports whose static AC re-import cannot
+  establish unchanged component/terminal correspondence and declared ratings
+  and bounds. Use `allow_unverified_ratings=true` for independent power-flow
+  verification; the warning and structured evidence remain. Keep BMOPF JSON
+  authoritative for OPF and Tellegen. This contains powerio#762 (unrated
+  equivalent branches acquire 600 A) without removing legitimate constraints.
+- Review the 36 round-trip fixtures individually. Check effective line
+  primitives, source and shunt equivalent circuits, grounding, and physical
+  feeder ratings; isolate rating and neutral-role defects in focused expected
+  failures instead of whole-case structural expected failures.
 - Expand the Tellegen guide with five new Norwood screenshots following one
   transformer from geographic overview to schematic and conductor results,
   including capture provenance and case-study qualifications.

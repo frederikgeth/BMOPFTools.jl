@@ -1,3 +1,7 @@
+# DSS export admission (PSK-000007) checks only static AC identity correspondence
+# and declared bounds/effective ratings after re-import; otherwise indeterminate.
+# W.EXPORT.DSS_RATING_UNVERIFIED requires explicit PF-only opt-in. It is not a
+# new scientific contract or JSON adapter; definitions live in docs/src/findings.md.
 # PowerIO 0.11.7: validate typed static CVR emission, retain typed bounded-load
 # evidence, and separate resolved geometry from the minimized rejection fixture.
 # Existing intake APIs and scientific domains remain; regenerate source hashes.
@@ -521,6 +525,13 @@ finding_codes = [
 ]
 fixture_ids = ["decision-manifest-terminal-only-001"]
 source_paths = [
+  "src/io/to_dss.jl",
+  "test/dss_export_guard_tests.jl",
+  "test/data/powerio_regressions/unrated_source.dss",
+  "test/roundtrip_review_helpers.jl",
+  "test/data/roundtrip_review.json",
+  "test/data/roundtrip_expectations.md",
+  "docs/src/conversion.md",
   "src/knowledge/contracts.jl",
   "docs/src/findings.md",
   "test/scientific_contract_tests.jl",
