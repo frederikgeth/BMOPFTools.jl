@@ -19,6 +19,18 @@ interface_paths = [
   "src/analysis/connectivity.jl",
   "src/analysis/switch_scenarios.jl",
   "src/analysis/operational.jl",
+  "src/analysis/winding_limit_coverage.jl",
+  "src/analysis/feeder_reach.jl",
+  "src/analysis/diversity.jl",
+  "src/analysis/provenance/linecodes.jl",
+  "src/validation/redundancy.jl",
+  "src/report/assessment_coverage.jl",
+  "test/profiler_evidence_tests.jl",
+  "test/profiler_review_tests.jl",
+  "test/augmentation_tests.jl",
+  "test/profiler_limit_builder_tests.jl",
+  "test/data/profiler_evidence/two_boundary_chain.json",
+  "test/data/profiler_evidence/README.md",
   "src/infeasibility/transformer_headroom.jl",
   "src/infeasibility/preflight.jl",
   "test/transformer_headroom_tests.jl",
@@ -71,7 +83,7 @@ interface_paths = [
   "test/fixtures/delta_wye_secondary_leakage.json",
   "test/fixtures/parallel_transformer_load.json",
 ]
-input_paths = ["recipes/analyze_case/input.json", "test/data/transformer_loading/overloaded_coil.json", "test/data/spatial_shared_infrastructure.json"]
+input_paths = ["recipes/analyze_case/input.json", "test/data/profiler_evidence/two_boundary_chain.json", "test/data/transformer_loading/overloaded_coil.json", "test/data/spatial_shared_infrastructure.json"]
 tutorial_paths = [
   "docs/src/tutorial_triage.md",
   "docs/src/tutorial_nameplate.md",

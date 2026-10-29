@@ -108,12 +108,13 @@ values, threshold, and CRS evidence.
 
 ## DIV — diversity & symmetry
 
-Symmetries in data create symmetric optima and degrade NLP convergence
-[ref. 2](methodology.md#refs); these findings flag suspiciously templated parameterisation.
+These Findings describe repetition and balance in declared parameters. Network
+location, connection and other constraints determine whether any optimization
+symmetry follows; repeated values alone do not establish degeneracy.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `W.DIV.LOAD_SYMMETRIC` | W | More than half of the loads share identical `(p_nom, q_nom)` tuples — copy-paste parameterisation; dispatch among them is interchangeable. |
+| `W.DIV.LOAD_SYMMETRIC` | W | Retained threshold: at least three assessed loads and fewer distinct ordered P/Q tuples than `n_total ÷ 2`. `n_duplicates = n_total - n_distinct` counts excess repetitions, not one identical group. Detail includes group/member counts and bounded examples. Review unexpected allocation patterns; repetition does not prove duplicate customers, interchangeable injections or solver degeneracy. |
 | `I.DIV.LOAD_CV_LOW` | I | Load `p_nom` coefficient of variation < 0.05 across ≥3 loads — essentially uniform loading. |
 | `I.DIV.LOAD_PF_DSS_DEFAULT` | I | Load power factor mean is within 1 % of 0.88 with CV < 0.05 — strongly suggests reactive power was never explicitly set and the OpenDSS default PF was inherited throughout. Compare with `I.PROV.DSS_DEFAULT_PF`, which detects the exact 0.88 value per load; this finding detects the statistical signature across all loads. |
 | `I.DIV.LOAD_IMBALANCE` | I | A multi-phase load with >20 % spread between its phase setpoints — noteworthy unbalance (often intended; this is context, not criticism). |
@@ -129,11 +130,12 @@ Symmetries in data create symmetric optima and degrade NLP convergence
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `W.OPS.IMPORT_DEPENDENT` | W | Local generation capacity below 5 % of total load — the case is a pure import feeder; with only a slack source the dispatch problem is loss minimisation at best. |
-| `W.OPS.XFMR_OVERLOADED` | W | Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning. On an applicable radial component the result suggests little OPF headroom or a rating entered on the wrong base (see the regulator/autotransformer discussion in [methodology](methodology.md)). |
+| `W.OPS.XFMR_OVERLOADED` | W | Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning. On an applicable radial component this is a nominal-demand/nameplate review screen; it does not establish that a winding cap exists or that a solved limit is violated. Inspect load/rating bases and subtype-specific limits (see [methodology](methodology.md)). |
 | `W.OPS.LINE_UNCONSTRAINED` | W | Lines without any thermal limit (`i_max`/`s_max` on the line or its linecode) — the OPF will have no flow constraints there. |
+| `W.OPS.XFMR_UNCONSTRAINED` | W | Supported n-winding windings have neither a finite coil-current cap (`i_max`) nor a coil-apparent-power cap (`s_max`). Aggregate evidence distinguishes absent, partial, present, malformed and unsupported coverage. Top-level `s_rating` does not create these caps. Omission may be intentional; this is modeled coverage, not an equipment defect or a built-model certificate. Explicit zero is a restriction. Direct neutral-current coverage remains unsupported. |
 | `I.OPS.UNLOADED_PHASE` | I | A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results. |
-| `I.OPS.FEEDER_LONG` | I | A galvanic zone's electrical reach (longest Σ line `length` from its source/anchor bus to its farthest bus) exceeds the typical maximum feeder reach for its voltage band (LV/MV/HV/EHV, thresholds in `[operational.feeder_length]`). Either a genuinely long rural feeder worth noting for voltage-drop reasons, or a length-unit slip (km entered as m, or the OpenDSS default `length=1`). |
-| `I.OPS.FEEDER_SHORT` | I | A galvanic zone's electrical reach is below the typical minimum for its voltage band — electrically it is a stub, service drop, or substation interconnect rather than a feeder. Off by default for HV/EHV. Observational. |
+| `I.OPS.FEEDER_LONG` | I | Maximum shortest declared-length distance to qualified source-connected boundaries exceeds a configured heuristic threshold. Legacy `reach_m` remains anchor extent; `boundary_reach_m` and `metric` identify the compared quantity. Missing/conflicting boundary or length evidence suppresses comparison. Multiple-boundary thresholds require explicit metric-specific configuration. This does not calculate voltage drop or determine supply allocation. |
+| `I.OPS.FEEDER_SHORT` | I | Qualified nearest-boundary distance is below the configured heuristic threshold. Multiple-boundary comparisons require explicit metric-specific configuration: short distance to a port alone does not classify the entire feeder as a stub. Invalid, missing or regularized length evidence leaves physical plausibility unassessed. |
 
 ## PRE — infeasibility pre-flight
 
@@ -262,7 +264,7 @@ and [`load_model_analysis`](@ref) (`load_models` pass).
 | `I.RED.LOAD_MERGEABLE` | I | Groups of loads on the same bus sharing the same `configuration` and `terminal_map` (WYE/SINGLE_PHASE keys are phase-order-insensitive; DELTA keys are normalised to the smallest cyclic rotation). Each group can be collapsed into one load with summed `p_nom`/`q_nom`. Loads with `time_series` references are excluded (merging profiles is non-trivial). |
 | `I.RED.ZERO_SHUNTS` | I | Shunts whose every G/B matrix entry is zero — same. |
 | `I.RED.MERGEABLE_LINES` | I | Chains of series lines whose interior buses have line-degree 2 and **no** other attachment (loads, generators, shunts, switches, transformers all counted as blockers). Merging removes superfluous buses that slow solvers ([ref. 2](methodology.md#refs)). |
-| `I.RED.PARALLEL_LINES` | I | Two or more lines sharing the same bus pair (direction-agnostic). Parallel lines are unusual in distribution networks and more commonly indicate a data conversion artefact than a genuine double-circuit feeder. |
+| `I.RED.PARALLEL_LINES` | I | Parallel line records grouped by bus pair, with ordered terminal-map and normalized declaration classes, multiplicity, member/excess counts and bounded witnesses. Matching declarations are inspection candidates, not verified duplicate assets. No deletion or aggregation follows. `n_identical_group_excess` counts `sum(m-1)` only over wholly matching groups; whole-network cycle excess has a different scope. |
 | `I.RED.UNUSED_LINECODES` | I | Linecodes never referenced by a line — a cable library shipped with the case; harmless, but distinguishes library data from network data. |
 | `I.RED.DUPLICATE_LINECODES` | I | Groups of linecodes with identical `R/X_series_1_1` fingerprints (codes lacking impedance data are excluded — absence is not evidence of duplication). |
 ## PROV — provenance & conventions
@@ -320,8 +322,8 @@ networks.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.SEQ_DERIVED` | I | Exactly balanced impedance matrices (equal self, equal mutual): constructed from sequence parameters (`r1,x1,r0,x0`) or a transposition assumption — not from conductor geometry. The implied Z₁/Z₀ are recovered and reported. |
-| `I.PROV.DECOUPLED_PHASES` | I | Diagonal impedance matrices — positive-sequence-only data; the phases decouple into independent single-phase networks (maximal redundancy/symmetry). |
+| `I.PROV.SEQ_DERIVED` | I | Historical code name for an observed exactly balanced series-matrix signature (equal self and equal mutual entries within tolerance). Implied sequence parameters are reported; authored origin and positive-sequence study applicability remain unverified/unassessed (PSK-000009). |
+| `I.PROV.DECOUPLED_PHASES` | I | Observed near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This alone establishes neither parameter origin, whole-network decoupling nor positive-sequence applicability (PSK-000009). |
 | `I.PROV.LINE_SWITCH_LIKE` | I | A line has near-zero series impedance and may be better represented by the spec's lossless `switch` object. |
 
 ### Bound & limit completeness
@@ -374,9 +376,9 @@ Geth, Heidari & Koirala (ACM e-Energy 2022, doi:[10.1145/3538637.3538844](https:
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.IMPEDANCE_TRANSFORM_KR` | I | **Kron-reduced**: R and/or X off-diagonals are non-uniform (distinct matrix structure) and/or R_mutual/R_self ≪ 0.5. The neutral row/column was eliminated from the original Carson 4-wire matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate otherwise. Zero-sequence behaviour is not captured. |
-| `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | **Phase-to-neutral approximation**: R block is circulant (all diagonals equal, all off-diagonals equal) with mutual ≈ ½ self; X block retains the original geometric structure (off-diagonals vary). Neutral resistance has been folded into phase self-terms. Valid approximation for equal phase/neutral conductor resistance; error grows with grounding impedance. |
-| `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | **Modified phase-to-neutral approximation**: both R and X blocks are circulant with mutual ≈ ½ self. X is further symmetrised relative to the standard phase-to-neutral form, introducing additional modelling error, particularly for asymmetric cable geometries. |
+| `I.PROV.IMPEDANCE_TRANSFORM_KR` | I | Retained legacy identifier; no longer emitted from a three-wire matrix remainder class. Matrix structure alone cannot establish authored Kron history or its grounding/recovery applicability. Unknown history remains explicit in classification version 2; the narrow existing recovery contract remains separate (PSK-000008). |
+| `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | Heuristic PN candidate: approximately uniform R self/mutual entries with mutual/self near one half, without the matching X uniformity signature. Detail labels this a candidate, not verified history or transformation applicability (PSK-000008). |
+| `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | Heuristic MPN candidate: approximately uniform R and X self/mutual entries, with R mutual/self near one half. The signature does not establish the construction method, grounding assumptions or sequence applicability (PSK-000008, PSK-000009). |
 | `W.PROV.IMPLICIT_GROUNDING` | W | Neutral terminals are referenced by components but no branch carries a neutral conductor, and some referenced neutrals lack represented grounding. The intended return/grounding convention is indeterminate; no every-bus ground constraint or Kron history is inferred. |
 | `E.PROV.FLOATING_NEUTRAL` | E | A neutral section (continuity graph over lines/closed switches) with no path to ground **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed. |
 | `W.PROV.FLOATING_NEUTRAL` | W | Same, but unused — latent rather than active. |

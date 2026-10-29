@@ -39,17 +39,16 @@ function _load_diversity(net::Dict{String,Any},
     p_vals = Float64[]
     q_vals = Float64[]
     pf_vals = Float64[]
-    pq_tuples = Tuple{Vector{Float64},Vector{Float64}}[]
     configs = String[]
     models  = String[]
 
-    for (_, l) in loads
+    for (id, l) in sort!(collect(loads), by=first)
+        _profile_valid_pq(l) || continue
         p = Float64.(get(l, "p_nom", Float64[]))
         q = Float64.(get(l, "q_nom", Float64[]))
         isempty(p) && continue
         append!(p_vals, p)
         append!(q_vals, q)
-        push!(pq_tuples, (p, q))
 
         # per-element power factor
         for (pi, qi) in zip(p, q)
@@ -65,19 +64,21 @@ function _load_diversity(net::Dict{String,Any},
     r["q_nom"] = _scalar_stats(q_vals)
     isempty(pf_vals) || (r["power_factor"] = _scalar_stats(pf_vals))
 
+    repeat = _load_repeat_evidence(loads)
+    merge!(r, repeat)
+
     # Duplicate (p_nom, q_nom) tuple check
-    n_distinct = length(unique(pq_tuples))
-    n_total    = length(pq_tuples)
-    r["n_distinct_pq_tuples"] = n_distinct
-    r["n_total_loads"]        = n_total
+    n_distinct = repeat["n_distinct_pq_tuples"]
+    n_total = repeat["n_total_loads"]
 
     flag = false
     if n_total >= 3 && n_distinct < n_total ÷ 2
         flag = true
         push!(findings, Finding(WARNING, "W.DIV.LOAD_SYMMETRIC", :diversity, :load, nothing,
-            "$(n_total - n_distinct) of $n_total loads share identical (p_nom, q_nom) — possible copy-paste symmetry.",
-            Dict{String,Any}("n_duplicates" => n_total - n_distinct,
-                             "n_total"      => n_total)))
+            "$n_total assessed loads have $n_distinct distinct ordered P/Q tuples and " *
+            "$(n_total - n_distinct) excess repetitions. Review the allocation method if unexpected; " *
+            "repetition does not establish duplicate customers.",
+            merge(copy(repeat), Dict{String,Any}("n_duplicates" => n_total - n_distinct, "n_total" => n_total))))
     end
     if haskey(r, "p_nom") && get(r["p_nom"], "cv", 1.0) < 0.05 && n_total >= 3
         flag = true
@@ -102,6 +103,7 @@ function _load_diversity(net::Dict{String,Any},
     # Phase imbalance for multi-phase loads
     imbalances = Float64[]
     for (id, l) in loads
+        _profile_valid_pq(l) || continue
         p = Float64.(get(l, "p_nom", Float64[]))
         length(p) < 2 && continue
         # Normalise the spread by the mean MAGNITUDE; a negative mean (embedded
@@ -166,6 +168,7 @@ function _load_diversity(net::Dict{String,Any},
         any(bid -> bid in skip_buses, zone) && continue
         phase_power = Dict{String,Float64}()
         for (_, l) in loads
+            _profile_valid_pq(l) || continue
             get(l, "bus", "") in zone || continue
             tm = get(l, "terminal_map", String[])
             p  = Float64.(get(l, "p_nom", Float64[]))
@@ -394,4 +397,34 @@ function _has_offdiagonal(lc::Dict{String,Any})::Bool
         m[1] != m[2] && Float64(lc[k]) != 0.0 && return true
     end
     false
+end
+
+# Exact ordered declarations; no customer or network-location equivalence inferred.
+function _profile_valid_pq(l)
+    l isa AbstractDict || return false
+    p = get(l, "p_nom", nothing); q = get(l, "q_nom", nothing)
+    p isa AbstractVector && q isa AbstractVector && !isempty(p) && length(p) == length(q) &&
+        all(_profile_finite, p) && all(_profile_finite, q)
+end
+function _load_repeat_evidence(loads)
+    groups = Dict{Any,Vector{String}}(); excluded = String[]
+    for (id, l) in sort!(collect(loads), by=first)
+        if !_profile_valid_pq(l)
+            push!(excluded, id); continue
+        end
+        key = (Tuple(l["p_nom"]), Tuple(l["q_nom"]))
+        push!(get!(groups, key, String[]), id)
+    end
+    repeated = sort!([(key, ids) for (key, ids) in groups if length(ids) > 1], by=x -> (-length(x[2]), first(x[2])))
+    n = sum(length, values(groups); init=0)
+    Dict{String,Any}("n_total_loads" => n, "n_declared_loads" => length(loads),
+        "n_excluded_loads" => length(excluded), "excluded_load_witnesses" => excluded[1:min(end, 5)],
+        "excluded_reason" => "missing_invalid_or_misaligned_P_Q",
+        "n_distinct_pq_tuples" => length(groups), "n_excess_repetitions" => n-length(groups),
+        "largest_group_count" => maximum(length.(values(groups)); init=0),
+        "n_repeated_groups" => length(repeated), "n_members_of_repeated_groups" => sum(x -> length(x[2]), repeated; init=0),
+        "witnesses" => [Dict{String,Any}("p_nom" => collect(key[1]), "q_nom" => collect(key[2]),
+            "n_members" => length(ids), "load_ids" => ids[1:min(end, 5)], "members_truncated" => length(ids) > 5)
+            for (key, ids) in repeated[1:min(end, 5)]],
+        "witness_limit" => 5, "witnesses_truncated" => length(repeated) > 5)
 end

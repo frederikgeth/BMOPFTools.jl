@@ -62,15 +62,17 @@ terms equal, all mutual terms equal). Circulance is the whole story:
   positive- and negative-sequence eigenvalues **coincide**, `Z₁ = Z₂ = Z_s −
   Z_m`. That spectral degeneracy, and the resulting decoupled identical per-phase
   subproblems, is the mathematical content of the phase-rotation symmetry.
-- An untransposed matrix is **not** circulant, the DFT does not diagonalise it,
+- A generic asymmetric untransposed matrix is **not** circulant, the DFT does not diagonalise it,
   the sequences stay coupled (`Z₀₁, Z₁₂, … ≠ 0`), and the degeneracy is lifted
   (Glover, *Power System Analysis and Design*, §8.4: "In general `Z_S` is not
   diagonal. However, if the line is completely transposed, [it is]").
 
-BMOPFTools already *detects* the idealisation: the provenance analysis flags a
-circulant linecode as `I.PROV.SEQ_DERIVED` (exactly balanced ⇒ sequence-derived
-or transposed) and a diagonal one as `I.PROV.DECOUPLED_PHASES`. Those are
-precisely "this linecode carries the symmetry-inducing idealisation."
+BMOPFTools reports the observed structure: `I.PROV.SEQ_DERIVED` is the
+historical code for an equal-self/equal-mutual series-matrix signature, and
+`I.PROV.DECOUPLED_PHASES` reports a diagonal phase series block. These signatures
+do not identify authored provenance or certify whole-network sequence
+applicability. The existing PSK-000009 domain guards remain separate; see
+[profiler evidence](analysis.md#Evidence-qualified-profiler-results).
 
 We work with one line throughout: a 50 Hz, four-wire LV overhead feeder (a small
 AAC phase conductor on a 0.3 m cross-arm at 8 m, an offset neutral — an
@@ -321,9 +323,10 @@ they differ by about as much as the data is uncertain. The case is:
 - **Prefer geometry** ([fidelity ladder](semantic_modeling.md#impedance-ladder)):
   its realisability is checkable directly, it recompiles at other frequencies,
   and it keeps the provenance link the analysis layer cross-checks.
-- **Watch for `I.PROV.SEQ_DERIVED` / `I.PROV.DECOUPLED_PHASES`**: they mark a
-  linecode carrying the balanced/transposed idealisation — fine if intended, a
-  red flag if a real untransposed feeder was flattened into it.
+- **Watch for `I.PROV.SEQ_DERIVED` / `I.PROV.DECOUPLED_PHASES`**: they describe a
+  balance or diagonal series-matrix signature. Compare it with authored
+  parameter evidence if the structure was unexpected; the signature does not
+  identify how it was produced.
 - **Keep the neutral explicit and use the IVR solver** (both defaults here). For
   four-wire networks the power–voltage (ACR) formulation admits non-physical
   multiple solutions — equivalent to spuriously grounding the neutral — and

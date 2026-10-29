@@ -16,6 +16,8 @@ using Test, BMOPFTools, JSON3
     bridge_result = operational_analysis(bridge, bridge_findings)
     @test only(bridge_result["transformer_utilisation"])["estimate_status"] == "radial_component"
     @test only(filter(f -> f.code == "W.OPS.XFMR_OVERLOADED", bridge_findings)).component_id == "t1"
+    @test only(bridge_result["transformer_utilisation"])["comparison_basis"] == "nominal_demand_to_nameplate"
+    @test only(filter(f -> f.code == "W.OPS.XFMR_OVERLOADED", bridge_findings)).detail["modeled_limit_compliance"] == "unassessed"
 
     bridge["load"]["load"]["p_nom"] = [90.0]
     boundary_findings = Finding[]

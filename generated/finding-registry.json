@@ -3,9 +3,9 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "86a6116df52a889806df81a5602f6e165042296c08256cab46cc13f2d8d155cc"
+    "sha256": "d78d48fa0a0fdb9ad9d89d492ebbdc8398e178333484eb5b7d91f102a4e63052"
   },
-  "finding_count": 382,
+  "finding_count": 383,
   "findings": [
     {
       "code": "W.EXPORT.DSS_RATING_UNVERIFIED",
@@ -323,7 +323,7 @@
       "namespace": "DIV",
       "catalogue_section": "DIV",
       "section_title": "diversity & symmetry",
-      "meaning": "More than half of the loads share identical `(p_nom, q_nom)` tuples — copy-paste parameterisation; dispatch among them is interchangeable.",
+      "meaning": "Retained threshold: at least three assessed loads and fewer distinct ordered P/Q tuples than `n_total ÷ 2`. `n_duplicates = n_total - n_distinct` counts excess repetitions, not one identical group. Detail includes group/member counts and bounded examples. Review unexpected allocation patterns; repetition does not prove duplicate customers, interchangeable injections or solver degeneracy.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -433,7 +433,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning. On an applicable radial component the result suggests little OPF headroom or a rating entered on the wrong base (see the regulator/autotransformer discussion in [methodology](methodology.md)).",
+      "meaning": "Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning. On an applicable radial component this is a nominal-demand/nameplate review screen; it does not establish that a winding cap exists or that a solved limit is violated. Inspect load/rating bases and subtype-specific limits (see [methodology](methodology.md)).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -444,6 +444,16 @@
       "catalogue_section": "OPS",
       "section_title": "operational loading",
       "meaning": "Lines without any thermal limit (`i_max`/`s_max` on the line or its linecode) — the OPF will have no flow constraints there.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.OPS.XFMR_UNCONSTRAINED",
+      "severity": "WARNING",
+      "namespace": "OPS",
+      "catalogue_section": "OPS",
+      "section_title": "operational loading",
+      "meaning": "Supported n-winding windings have neither a finite coil-current cap (`i_max`) nor a coil-apparent-power cap (`s_max`). Aggregate evidence distinguishes absent, partial, present, malformed and unsupported coverage. Top-level `s_rating` does not create these caps. Omission may be intentional; this is modeled coverage, not an equipment defect or a built-model certificate. Explicit zero is a restriction. Direct neutral-current coverage remains unsupported.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -463,7 +473,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "A galvanic zone's electrical reach (longest Σ line `length` from its source/anchor bus to its farthest bus) exceeds the typical maximum feeder reach for its voltage band (LV/MV/HV/EHV, thresholds in `[operational.feeder_length]`). Either a genuinely long rural feeder worth noting for voltage-drop reasons, or a length-unit slip (km entered as m, or the OpenDSS default `length=1`).",
+      "meaning": "Maximum shortest declared-length distance to qualified source-connected boundaries exceeds a configured heuristic threshold. Legacy `reach_m` remains anchor extent; `boundary_reach_m` and `metric` identify the compared quantity. Missing/conflicting boundary or length evidence suppresses comparison. Multiple-boundary thresholds require explicit metric-specific configuration. This does not calculate voltage drop or determine supply allocation.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -473,7 +483,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "A galvanic zone's electrical reach is below the typical minimum for its voltage band — electrically it is a stub, service drop, or substation interconnect rather than a feeder. Off by default for HV/EHV. Observational.",
+      "meaning": "Qualified nearest-boundary distance is below the configured heuristic threshold. Multiple-boundary comparisons require explicit metric-specific configuration: short distance to a port alone does not classify the entire feeder as a stub. Invalid, missing or regularized length evidence leaves physical plausibility unassessed.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1323,7 +1333,7 @@
       "namespace": "RED",
       "catalogue_section": "RED",
       "section_title": "redundancy",
-      "meaning": "Two or more lines sharing the same bus pair (direction-agnostic). Parallel lines are unusual in distribution networks and more commonly indicate a data conversion artefact than a genuine double-circuit feeder.",
+      "meaning": "Parallel line records grouped by bus pair, with ordered terminal-map and normalized declaration classes, multiplicity, member/excess counts and bounded witnesses. Matching declarations are inspection candidates, not verified duplicate assets. No deletion or aggregation follows. `n_identical_group_excess` counts `sum(m-1)` only over wholly matching groups; whole-network cycle excess has a different scope.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1543,7 +1553,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Exactly balanced impedance matrices (equal self, equal mutual): constructed from sequence parameters (`r1,x1,r0,x0`) or a transposition assumption — not from conductor geometry. The implied Z₁/Z₀ are recovered and reported.",
+      "meaning": "Historical code name for an observed exactly balanced series-matrix signature (equal self and equal mutual entries within tolerance). Implied sequence parameters are reported; authored origin and positive-sequence study applicability remain unverified/unassessed (PSK-000009).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1553,7 +1563,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Diagonal impedance matrices — positive-sequence-only data; the phases decouple into independent single-phase networks (maximal redundancy/symmetry).",
+      "meaning": "Observed near-diagonal series-impedance phase block with near-uniform self entries (relative coupling and self spread below 10⁻⁶). This alone establishes neither parameter origin, whole-network decoupling nor positive-sequence applicability (PSK-000009).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1753,7 +1763,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "**Kron-reduced**: R and/or X off-diagonals are non-uniform (distinct matrix structure) and/or R_mutual/R_self ≪ 0.5. The neutral row/column was eliminated from the original Carson 4-wire matrix via Schur complement. Exact when every neutral is perfectly grounded; approximate otherwise. Zero-sequence behaviour is not captured.",
+      "meaning": "Retained legacy identifier; no longer emitted from a three-wire matrix remainder class. Matrix structure alone cannot establish authored Kron history or its grounding/recovery applicability. Unknown history remains explicit in classification version 2; the narrow existing recovery contract remains separate (PSK-000008).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1763,7 +1773,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "**Phase-to-neutral approximation**: R block is circulant (all diagonals equal, all off-diagonals equal) with mutual ≈ ½ self; X block retains the original geometric structure (off-diagonals vary). Neutral resistance has been folded into phase self-terms. Valid approximation for equal phase/neutral conductor resistance; error grows with grounding impedance.",
+      "meaning": "Heuristic PN candidate: approximately uniform R self/mutual entries with mutual/self near one half, without the matching X uniformity signature. Detail labels this a candidate, not verified history or transformation applicability (PSK-000008).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1773,7 +1783,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "**Modified phase-to-neutral approximation**: both R and X blocks are circulant with mutual ≈ ½ self. X is further symmetrised relative to the standard phase-to-neutral form, introducing additional modelling error, particularly for asymmetric cable geometries.",
+      "meaning": "Heuristic MPN candidate: approximately uniform R and X self/mutual entries, with R mutual/self near one half. The signature does not establish the construction method, grounding assumptions or sequence applicability (PSK-000008, PSK-000009).",
       "contract_id": null,
       "knowledge_ids": []
     },

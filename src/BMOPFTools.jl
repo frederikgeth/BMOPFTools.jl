@@ -773,6 +773,8 @@ include("analysis/spatial_review_decisions.jl")
 include("analysis/switch_scenarios.jl")
 include("analysis/connectivity.jl")
 include("analysis/diversity.jl")
+include("analysis/winding_limit_coverage.jl")
+include("analysis/feeder_reach.jl")
 include("analysis/operational.jl")
 include("analysis/load_models.jl")
 include("analysis/provenance.jl")
@@ -798,6 +800,7 @@ include("knowledge/contracts.jl")
 include("network/simplify.jl")
 
 include("report/formatting.jl")
+include("report/assessment_coverage.jl")
 include("report/render_terminal.jl")
 include("report/render_markdown.jl")
 include("report/spatial_review_export.jl")
@@ -852,6 +855,8 @@ function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CO
     results[:integrity]      = integrity_check(working, findings)
     results[:spec]           = spec_conformance_check(working, findings)
     results[:benchmark]      = benchmark_readiness_check(working, findings)
+
+    results[:assessment] = _assessment_coverage(results)
 
     SummaryReport(
         get(net, "name", nothing),

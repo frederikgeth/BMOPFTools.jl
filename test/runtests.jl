@@ -3815,6 +3815,8 @@ include("mcp_execution_tests.jl")
     include("spatial_analysis_tests.jl")
     include("transformer_impedance_basis_tests.jl")
     include("operational_mesh_applicability_tests.jl")
+    include("profiler_evidence_tests.jl")
+    include("profiler_review_tests.jl")
 
     # -----------------------------------------------------------------------
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve
@@ -3836,6 +3838,7 @@ include("mcp_execution_tests.jl")
         else
             include("scaling_policy_tests.jl")
             include("transformer_current_rating_tests.jl")
+            include("profiler_limit_builder_tests.jl")
             include("device_indexing_opf_tests.jl")
             include("transformer_phase_opf_tests.jl")
             include("semantic_block_tests.jl")

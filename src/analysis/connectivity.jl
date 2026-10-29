@@ -436,53 +436,14 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
         end
     end
 
-    # This compares declarations only. Identical fields do not establish that
-    # two parallel records refer to the same physical asset.
-    line_groups = Dict{Tuple{String,String},Vector{Tuple{String,Any,Bool}}}()
-    for (id, line) in get(net, "line", Dict())
-        a = get(line, "bus_from", nothing); b = get(line, "bus_to", nothing)
-        (a isa AbstractString && b isa AbstractString && a != b && a in busset && b in busset) || continue
-        pair = minmax(String(a), String(b))
-        push!(get!(line_groups, pair, Tuple{String,Any,Bool}[]), (string(id), line, a == pair[1]))
-    end
-    classes = Dict(k => 0 for k in ("incomplete_terminal_map", "terminal_map_disagreement",
-                                      "same_declared_fields", "different_declared_fields"))
-    witnesses = Dict{String,Any}[]
-    n_groups = 0
-    for pair in sort!(collect(keys(line_groups)))
-        members = line_groups[pair]
-        length(members) < 2 && continue
-        n_groups += 1
-        sort!(members, by=first)
-        maps = Any[]; fields = Any[]
-        for (_, line, forward) in members
-            from_map = get(line, forward ? "terminal_map_from" : "terminal_map_to", nothing)
-            to_map = get(line, forward ? "terminal_map_to" : "terminal_map_from", nothing)
-            push!(maps, (from_map, to_map))
-            push!(fields, Dict(k => v for (k, v) in line if
-                               !(k in ("bus_from", "bus_to", "terminal_map_from", "terminal_map_to", "meta"))))
-        end
-        class = any(m -> !(m[1] isa AbstractVector && m[2] isa AbstractVector) ||
-                         isempty(m[1]) || isempty(m[2]), maps) ? "incomplete_terminal_map" :
-                !all(m -> isequal(m, maps[1]), maps) ? "terminal_map_disagreement" :
-                all(f -> isequal(f, fields[1]), fields) ? "same_declared_fields" :
-                "different_declared_fields"
-        classes[class] += 1
-        if count(w -> w["classification"] == class, witnesses) < 5
-            push!(witnesses, Dict{String,Any}(
-                "bus_pair" => collect(pair), "line_ids" => [m[1] for m in members],
-                "classification" => class,
-                "voltage_level" => get(level_by_bus, pair[1], "unassigned")))
-        end
-    end
+    parallel = _parallel_line_evidence(net; level_by_bus=level_by_bus, busset=busset)
+    delete!(parallel, "groups") # full groups remain only in the legacy redundancy result
     Dict{String,Any}(
         "whole_network" => whole, "voltage_tiers" => tiers, "galvanic_zones" => zones,
         "cycle_closing_branches" => closing,
         "conductor_paths" => _conductor_paths(net, voltage_levels),
         "n_cross_tier_edges" => cross_level, "n_skipped_branches" => skipped,
-        "parallel_lines" => Dict{String,Any}(
-            "n_groups" => n_groups, "classification_counts" => classes,
-            "witnesses" => witnesses, "witnesses_per_class_limit" => 5))
+        "parallel_lines" => parallel)
 end
 
 """
@@ -769,4 +730,75 @@ function _classify_zones(net::Dict{String,Any})
                     topology = topology, feed = feed))
     end
     out
+end
+
+# Endpoint-normalized declaration comparison, shared by topology and redundancy.
+# Ordered conductor coordinates are compared strictly; no inferred permutation.
+function _parallel_line_evidence(net; level_by_bus=Dict(), busset=nothing)
+    groups = Dict{Tuple{String,String},Vector{Tuple{String,Any,Bool}}}()
+    for (id, line) in get(net, "line", Dict())
+        line isa AbstractDict || continue
+        a = get(line, "bus_from", nothing); b = get(line, "bus_to", nothing)
+        a isa AbstractString && b isa AbstractString && a != b || continue
+        busset !== nothing && !(a in busset && b in busset) && continue
+        pair = minmax(String(a), String(b))
+        push!(get!(groups, pair, Tuple{String,Any,Bool}[]), (string(id), line, a == pair[1]))
+    end
+    names = ("incomplete_terminal_map", "terminal_map_disagreement", "unsupported_orientation",
+             "same_declared_fields", "different_declared_fields")
+    counts = Dict(k => 0 for k in names); members_by_class = copy(counts); excess_by_class = copy(counts)
+    multiplicities = Dict{String,Int}(); full = Dict{String,Any}[]; witnesses = Dict{String,Any}[]
+    for pair in sort!(collect(keys(groups)))
+        members = sort!(groups[pair], by=first); n = length(members)
+        n > 1 || continue
+        maps = Any[]; fields = Any[]; supported = true
+        for (_, line, forward) in members
+            fm = get(line, forward ? "terminal_map_from" : "terminal_map_to", nothing)
+            tm = get(line, forward ? "terminal_map_to" : "terminal_map_from", nothing)
+            push!(maps, (fm, tm))
+            normalized = Dict{String,Any}()
+            for (k, v) in line
+                k in ("bus_from", "bus_to", "terminal_map_from", "terminal_map_to", "meta") && continue
+                key = k; value = v
+                if !forward
+                    m = match(r"^([GB])_(from|to)_(.+)$", k)
+                    if m !== nothing
+                        key = "$(m[1])_$(m[2] == "from" ? "to" : "from")_$(m[3])"
+                    elseif k in ("va_diff_min", "va_diff_max")
+                        key = k == "va_diff_min" ? "va_diff_max" : "va_diff_min"
+                        if v isa Real || (v isa AbstractVector && all(x -> x isa Real, v))
+                            value = -v
+                        else
+                            supported = false
+                        end
+                    end
+                end
+                normalized[key] = value
+            end
+            push!(fields, normalized)
+        end
+        validmap(m) = m isa AbstractVector && !isempty(m) && all(t -> t isa AbstractString, m) && length(unique(m)) == length(m)
+        class = any(m -> !validmap(m[1]) || !validmap(m[2]) || length(m[1]) != length(m[2]), maps) ? "incomplete_terminal_map" :
+            !all(m -> isequal(m, maps[1]), maps) ? "terminal_map_disagreement" :
+            !supported ? "unsupported_orientation" :
+            all(f -> isequal(f, fields[1]), fields) ? "same_declared_fields" : "different_declared_fields"
+        counts[class] += 1; members_by_class[class] += n; excess_by_class[class] += n-1
+        multiplicities[string(n)] = get(multiplicities, string(n), 0)+1
+        ids = [m[1] for m in members]
+        push!(full, Dict{String,Any}("bus_from" => pair[1], "bus_to" => pair[2], "line_ids" => ids,
+            "classification" => class, "n_members" => n, "n_excess" => n-1))
+        if count(w -> w["classification"] == class, witnesses) < 5
+            push!(witnesses, Dict{String,Any}("bus_pair" => collect(pair), "line_ids" => ids[1:min(end, 5)],
+                "classification" => class, "n_members" => n, "n_excess" => n-1,
+                "members_truncated" => n > 5, "voltage_level" => get(level_by_bus, pair[1], "unassigned")))
+        end
+    end
+    Dict{String,Any}("n_groups" => length(full), "groups" => full, "classification_counts" => counts,
+        "member_counts_by_class" => members_by_class, "excess_counts_by_class" => excess_by_class,
+        "multiplicity_counts" => multiplicities, "n_parallel_excess" => sum(values(excess_by_class)),
+        "n_identical_group_excess" => excess_by_class["same_declared_fields"],
+        "witnesses" => witnesses, "witnesses_per_class_limit" => 5, "member_witness_limit" => 5,
+        "witnesses_truncated" => length(witnesses) < length(full),
+        "comparison_basis" => "ordered_maps_and_all_declared_fields_except_meta_with_endpoint_shunts_and_signed_angle_bounds_normalized",
+        "asset_identity" => "unassessed")
 end

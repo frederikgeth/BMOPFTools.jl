@@ -1,0 +1,202 @@
+{
+  "name": "Synthetic two-boundary chain",
+  "bus": {
+    "up": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    },
+    "a": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    },
+    "b": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    },
+    "c": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    },
+    "d": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    },
+    "e": {
+      "terminal_names": [
+        "a",
+        "n"
+      ]
+    }
+  },
+  "voltage_source": {
+    "source": {
+      "bus": "up",
+      "terminal_map": [
+        "a"
+      ],
+      "v_magnitude": [
+        11000.0
+      ],
+      "v_angle": [
+        0.0
+      ]
+    }
+  },
+  "line": {
+    "0": {
+      "bus_from": "a",
+      "bus_to": "b",
+      "terminal_map_from": [
+        "a",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "n"
+      ],
+      "length": 100.0,
+      "R_series_1_1": 0.1,
+      "X_series_1_1": 0.1,
+      "R_series_2_2": 0.1,
+      "X_series_2_2": 0.1
+    },
+    "1": {
+      "bus_from": "b",
+      "bus_to": "c",
+      "terminal_map_from": [
+        "a",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "n"
+      ],
+      "length": 100.0,
+      "R_series_1_1": 0.1,
+      "X_series_1_1": 0.1,
+      "R_series_2_2": 0.1,
+      "X_series_2_2": 0.1
+    },
+    "2": {
+      "bus_from": "c",
+      "bus_to": "d",
+      "terminal_map_from": [
+        "a",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "n"
+      ],
+      "length": 100.0,
+      "R_series_1_1": 0.1,
+      "X_series_1_1": 0.1,
+      "R_series_2_2": 0.1,
+      "X_series_2_2": 0.1
+    },
+    "3": {
+      "bus_from": "d",
+      "bus_to": "e",
+      "terminal_map_from": [
+        "a",
+        "n"
+      ],
+      "terminal_map_to": [
+        "a",
+        "n"
+      ],
+      "length": 100.0,
+      "R_series_1_1": 0.1,
+      "X_series_1_1": 0.1,
+      "R_series_2_2": 0.1,
+      "X_series_2_2": 0.1
+    }
+  },
+  "transformer": {
+    "n_winding": {
+      "left": {
+        "s_rating": 1000.0,
+        "x_sc": {
+          "1_2": 0.1
+        },
+        "windings": [
+          {
+            "bus": "up",
+            "terminal_map": [
+              "a",
+              "n"
+            ],
+            "configuration": "WYE",
+            "v_nom": 11000.0,
+            "r_winding": 0.01
+          },
+          {
+            "bus": "a",
+            "terminal_map": [
+              "a",
+              "n"
+            ],
+            "configuration": "WYE",
+            "v_nom": 230.0,
+            "r_winding": 0.01
+          }
+        ]
+      },
+      "right": {
+        "s_rating": 1000.0,
+        "x_sc": {
+          "1_2": 0.1
+        },
+        "windings": [
+          {
+            "bus": "up",
+            "terminal_map": [
+              "a",
+              "n"
+            ],
+            "configuration": "WYE",
+            "v_nom": 11000.0,
+            "r_winding": 0.01
+          },
+          {
+            "bus": "e",
+            "terminal_map": [
+              "a",
+              "n"
+            ],
+            "configuration": "WYE",
+            "v_nom": 230.0,
+            "r_winding": 0.01
+          }
+        ]
+      }
+    }
+  },
+  "load": {
+    "demand": {
+      "bus": "c",
+      "terminal_map": [
+        "a",
+        "n"
+      ],
+      "configuration": "WYE",
+      "model": "constant_power",
+      "p_nom": [
+        100.0
+      ],
+      "q_nom": [
+        20.0
+      ]
+    }
+  }
+}

@@ -298,7 +298,8 @@ assumptions required. What is **not** free is the step every sequence-network
 diagram takes next: treating zero, positive, and negative sequence as three
 *decoupled* single-phase circuits. That requires
 ``\mathbf{F}^{-1} \mathbf{Z} \mathbf{F}`` to be diagonal, which holds exactly
-when ``\mathbf{Z}`` is **circulant** — balanced, transposed construction.
+when ``\mathbf{Z}`` is **circulant**. That structure alone does not identify
+its construction history.
 Our §5 matrix is circulant by construction (all mutuals equal); perturb the
 mutuals the way untransposed geometry does and watch the decoupling die:
 
@@ -350,8 +351,8 @@ link, don't duplicate.
   the group to earth (§4).
 - **Kron-reduce only what is genuinely pinned to zero volts** (§5). If you
   ingest three-wire data that was reduced upstream, the assumption arrived
-  with it — [`I.PROV.SEQ_DERIVED` / `I.PROV.DECOUPLED_PHASES`](findings.md)
-  flag the fingerprints.
+  with it. The [`matrix-signature Findings`](findings.md) cannot identify
+  that history or verify its grounding/recovery preconditions (PSK-000008).
 - **Sequence networks are a symmetry statement, not a coordinate change**
   (§7). Use the transform freely on results; trust decoupled networks only as
   far as the construction is balanced — and remember ``Z_0`` *is* the
@@ -365,3 +366,9 @@ link, don't duplicate.
     where Carson's earth-return correction enters the impedance data; and the
     [impedance-models tutorial](tutorial_impedance_models.md) continues §7
     into OPF consequences.
+
+The profiler's `I.PROV.SEQ_DERIVED` and `I.PROV.DECOUPLED_PHASES` identifiers
+describe observed series-matrix signatures. They do not certify parameter
+origin or the PSK-000009 study domain; three-wire shape does not establish a
+Kron history or the PSK-000008 recovery preconditions. See
+[profiler evidence](analysis.md#Evidence-qualified-profiler-results).

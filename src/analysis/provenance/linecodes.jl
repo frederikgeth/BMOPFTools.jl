@@ -3,7 +3,7 @@
 # Classifies each linecode's series impedance matrix by balance structure
 # (decoupled / exactly_balanced / near_balanced / distinct), checks
 # reciprocity and passivity of Z, and flags shunt admittance sign issues.
-# Also detects the impedance-transformation type for 3-wire linecodes.
+# Reports three-wire matrix-signature candidates separately from production history.
 
 function _classify_linecodes(net::Dict{String,Any},
                               findings::Vector{Finding})::Dict{String,Any}
@@ -105,15 +105,18 @@ function _classify_linecodes(net::Dict{String,Any},
         end
 
         # Balance classification on the phase block (conductors 1–3)
-        if n >= 3
-            Z = complex.(R, Xm)[1:3, 1:3]
+        if n >= 3 && X isa AbstractMatrix && size(X) == size(R)
+            entry["balance_status"] = "assessed"
+            Z = complex.(R, X)[1:3, 1:3]
             verdict, detail = _classify_balance(Z)
             merge!(entry, detail)
             entry["verdict"] = verdict
             verdict == "exactly_balanced" && push!(seq_ids, id)
             verdict == "decoupled"        && push!(dec_ids, id)
         else
-            entry["verdict"] = "not_applicable"
+            entry["verdict"] = n >= 3 ? "unassessed" : "not_applicable"
+            entry["balance_status"] = n >= 3 ? "indeterminate" : "inapplicable"
+            entry["balance_reason"] = n >= 3 ? "missing_or_incompatible_X_matrix" : "requires_three_conductor_block"
         end
 
         # π-model topology (series / Γ / symmetric-π / asymmetric-π). The
@@ -129,19 +132,22 @@ function _classify_linecodes(net::Dict{String,Any},
         push!(findings, Finding(INFO, "I.PROV.SEQ_DERIVED", :provenance,
             :linecode, nothing,
             "$(length(seq_ids)) linecode(s) have exactly balanced impedance " *
-            "matrices (equal self, equal mutual entries) — likely constructed " *
-            "from sequence parameters (r1,x1,r0,x0) or a transposition " *
-            "assumption, not from conductor geometry: $(join(sort(seq_ids), ", ")).",
-            Dict{String,Any}("linecodes" => sort(seq_ids))))
+            "series matrices (equal self, equal mutual entries). This structure does not establish " *
+            "parameter origin or positive-sequence study applicability: $(join(sort(seq_ids), ", ")).",
+            Dict{String,Any}("linecodes" => sort(seq_ids), "evidence_kind" => "observed_series_structure",
+                "history_status" => "unverified", "sequence_applicability" => "unassessed",
+                "knowledge_ids" => ["PSK-000009"])))
     end
     if !isempty(dec_ids)
         push!(findings, Finding(INFO, "I.PROV.DECOUPLED_PHASES", :provenance,
             :linecode, nothing,
-            "$(length(dec_ids)) linecode(s) have zero mutual coupling " *
-            "(diagonal impedance matrix) — positive-sequence-only data; the " *
-            "phases decouple into independent single-phase networks: " *
+            "$(length(dec_ids)) linecode(s) have negligible mutual coupling within the classifier tolerance " *
+            "in the observed series impedance matrix. This does not establish parameter origin, " *
+            "whole-network decoupling or positive-sequence applicability: " *
             "$(join(sort(dec_ids), ", ")).",
-            Dict{String,Any}("linecodes" => sort(dec_ids))))
+            Dict{String,Any}("linecodes" => sort(dec_ids), "evidence_kind" => "observed_series_structure",
+                "history_status" => "unverified", "sequence_applicability" => "unassessed",
+                "knowledge_ids" => ["PSK-000009"])))
     end
     Dict{String,Any}("by_linecode" => by_lc, "verdict_counts" => verdict_counts)
 end
@@ -410,11 +416,11 @@ balanced verdict.
 """
 function _classify_balance(Z::AbstractMatrix)
     d = [Z[1,1], Z[2,2], Z[3,3]]
-    o = [Z[1,2], Z[1,3], Z[2,3]]
+    o = [Z[i,j] for i in 1:3 for j in 1:3 if i != j]
     dscale = max(maximum(abs.(d)), 1e-300)
 
     diag_spread = maximum(abs(d[i] - d[j]) for i in 1:3 for j in i+1:3) / dscale
-    off_spread  = maximum(abs(o[i] - o[j]) for i in 1:3 for j in i+1:3) / dscale
+    off_spread  = maximum(abs(a - b) for a in o for b in o) / dscale
     mutual_ratio = maximum(abs.(o)) / dscale
 
     detail = Dict{String,Any}(
@@ -435,7 +441,7 @@ function _classify_balance(Z::AbstractMatrix)
 
     if verdict in ("exactly_balanced", "near_balanced")
         zs = sum(d) / 3
-        zm = sum(o) / 3
+        zm = sum(o) / length(o)
         z1 = zs - zm
         z0 = zs + 2zm
         detail["z1"] = Dict{String,Any}("r" => real(z1), "x" => imag(z1))
@@ -446,117 +452,63 @@ function _classify_balance(Z::AbstractMatrix)
     (verdict, detail)
 end
 
-# ---------------------------------------------------------------------------
-# Impedance transformation classification for 3-wire linecodes
-# ---------------------------------------------------------------------------
-# Three-wire LV linecodes are either Kron-reduced from a 4-wire Carson matrix
-# or constructed via one of two impedance approximations described in:
-#   Geth, Heidari, Koirala (2022) ACM e-Energy. doi:10.1145/3538637.3538844
-#
-# Detection uses the structure of the R and X blocks independently:
-#
-#   kron_reduced          — R and/or X off-diagonals are non-uniform ("distinct")
-#                           and/or R_mutual/R_self << 0.5. This is the signature
-#                           of a Schur-complement elimination of the neutral row/col
-#                           from the original Carson-geometry 4-wire matrix.
-#
-#   phase_to_neutral      — R block is exactly circulant (all diagonals equal,
-#                           all off-diagonals equal) with mutual/self ≈ 0.5;
-#                           X block is NOT circulant. R_neutral was folded into
-#                           phase self-terms; X retains the original geometry.
-#
-#   modified_phase_to_neutral — BOTH R and X are exactly circulant with
-#                           mutual/self ≈ 0.5. X was also symmetrised; this
-#                           introduces additional modelling error.
-
+# Matrix signatures describe observations, not an identifiable production history.
+# PSK-000008 / PSK-000009: provenance and applicability need separate evidence.
 function _classify_impedance_transformation(net::Dict{String,Any},
                                              findings::Vector{Finding},
                                              lc_result::Dict{String,Any})::Dict{String,Any}
-    linecodes = get(net, "linecode", Dict())
-    by_lc     = get(lc_result, "by_linecode", Dict())
-
-    # Only 3-conductor linecodes are relevant
-    three_wire = [(id, lc) for (id, lc) in linecodes
-                  if lc isa Dict && get(get(by_lc, id, Dict()), "n_conductors", 0) == 3]
-    isempty(three_wire) && return Dict{String,Any}()
-
-    # Check whether a 3×3 matrix is circulant (all diagonal entries equal and all
-    # off-diagonal entries equal) relative to the diagonal scale.
-    function _is_circulant(M::AbstractMatrix, tol=1e-2)
-        diags = [M[i, i] for i in 1:3]
-        offs  = [M[i, j] for i in 1:3 for j in 1:3 if i ≠ j]
-        scale = max(maximum(abs.(diags)), 1e-300)
-        maximum(abs(d - diags[1]) for d in diags) / scale < tol &&
-        maximum(abs(o - offs[1])  for o in offs)  / scale < tol
-    end
-
-    classified = Dict{String,String}()
-
-    for (id, lc) in three_wire
+    classified = Dict{String,String}(); evidence = Dict{String,Any}()
+    for (id, lc) in sort!(collect(get(net, "linecode", Dict())), by=first)
+        lc isa AbstractDict || continue
+        get(get(get(lc_result, "by_linecode", Dict()), id, Dict()), "n_conductors", 0) == 3 || continue
         R = _pattern_keys_to_matrix(lc, "R_series_")
         X = _pattern_keys_to_matrix(lc, "X_series_")
-        (R isa AbstractMatrix && size(R, 1) >= 3) || continue
-
-        diag_R = [R[i, i] for i in 1:3]
-        off_R  = [R[i, j] for i in 1:3 for j in 1:3 if i ≠ j]
-        mean_diag_R = sum(diag_R) / 3
-        mean_off_R  = sum(off_R)  / 6
-        r_mutual_ratio = mean_diag_R > 0 ? mean_off_R / mean_diag_R : NaN
-
-        r_circ = _is_circulant(R)
-        x_circ = X isa AbstractMatrix && size(X, 1) >= 3 && _is_circulant(X)
-        half_r = !isnan(r_mutual_ratio) && abs(r_mutual_ratio - 0.5) < 0.06
-
-        transform = if r_circ && x_circ && half_r
-            "modified_phase_to_neutral"
-        elseif r_circ && half_r
-            "phase_to_neutral"
-        else
-            "kron_reduced"
+        valid = R isa AbstractMatrix && X isa AbstractMatrix && size(R) == size(X) == (3, 3) &&
+            all(isfinite, R) && all(isfinite, X)
+        detail = Dict{String,Any}("status" => valid ? "assessed" : "indeterminate",
+            "reason" => valid ? nothing : "missing_or_invalid_R_X_matrices",
+            "candidate" => nothing, "history_status" => haskey(lc, "derivation") ? "declared_unverified" : "unknown",
+            "declared_derivation" => get(lc, "derivation", nothing),
+            "verified_transformation" => false, "knowledge_ids" => ["PSK-000008", "PSK-000009"],
+            "structure_rtol" => 0.01, "mutual_ratio_atol" => 0.06,
+            "uniformity_measure" => "max_pairwise_spread_over_max_abs_self")
+        candidate = "unknown"
+        if valid
+            function spread(M)
+                self = [M[i,i] for i in 1:3]
+                mutual = [M[i,j] for i in 1:3 for j in 1:3 if i != j]
+                max(maximum(self)-minimum(self), maximum(mutual)-minimum(mutual)) / max(maximum(abs, self), 1e-300)
+            end
+            rspread, xspread = spread(R), spread(X)
+            self = sum(R[i,i] for i in 1:3)/3
+            ratio = self > 0 ? sum(R[i,j] for i in 1:3 for j in 1:3 if i != j)/6/self : nothing
+            if ratio !== nothing && abs(ratio-0.5) < 0.06 && rspread < 0.01
+                candidate = xspread < 0.01 ? "modified_phase_to_neutral" : "phase_to_neutral"
+                detail["candidate"] = candidate
+            end
+            detail["R_uniformity_residual"] = rspread; detail["X_uniformity_residual"] = xspread
+            detail["R_mutual_self_ratio"] = ratio
         end
-        classified[id] = transform
+        classified[id] = candidate; evidence[id] = detail
     end
-
     isempty(classified) && return Dict{String,Any}()
-
     by_type = Dict{String,Vector{String}}()
-    for (id, t) in classified
-        push!(get!(by_type, t, String[]), id)
-        sort!(by_type[t])
+    for id in sort!(collect(keys(classified)))
+        push!(get!(by_type, classified[id], String[]), id)
     end
-
-    _desc = Dict{String,String}(
-        "kron_reduced" =>
-            "Kron reduction — neutral row/column eliminated from the original " *
-            "four-wire Carson impedance matrix via Schur complement. Exact when " *
-            "every neutral is perfectly grounded; approximate with finite grounding. " *
-            "Zero-sequence behaviour is not captured by the three-wire representation.",
-        "phase_to_neutral" =>
-            "phase-to-neutral approximation — R block is circulant with " *
-            "mutual ≈ ½ self (neutral resistance folded into phase self-terms); " *
-            "X block retains the original geometric structure. Valid approximation " *
-            "for equal phase/neutral conductors; error grows with grounding impedance.",
-        "modified_phase_to_neutral" =>
-            "modified phase-to-neutral approximation — both R and X blocks are " *
-            "circulant with mutual ≈ ½ self. X is further symmetrised relative to " *
-            "the standard phase-to-neutral form, introducing additional modelling " *
-            "error particularly for asymmetric cable geometries.",
-    )
-    _code = Dict{String,String}(
-        "kron_reduced"              => "I.PROV.IMPEDANCE_TRANSFORM_KR",
-        "phase_to_neutral"          => "I.PROV.IMPEDANCE_TRANSFORM_PN",
-        "modified_phase_to_neutral" => "I.PROV.IMPEDANCE_TRANSFORM_MPN",
-    )
-
-    for (type, ids) in sort(collect(by_type), by = first)
-        push!(findings, Finding(INFO, _code[type], :provenance, :linecode, nothing,
-            "$(length(ids)) three-wire linecode(s) match the impedance signature " *
-            "of $(_desc[type]): $(join(ids, ", ")).",
-            Dict{String,Any}("transform_type" => type,
-                             "linecodes"       => ids)))
+    for (candidate, code) in (("phase_to_neutral", "I.PROV.IMPEDANCE_TRANSFORM_PN"),
+                              ("modified_phase_to_neutral", "I.PROV.IMPEDANCE_TRANSFORM_MPN"))
+        ids = get(by_type, candidate, String[]); isempty(ids) && continue
+        push!(findings, Finding(INFO, code, :provenance, :linecode, nothing,
+            "$(length(ids)) three-wire linecode(s) match the $candidate matrix heuristic. " *
+            "Construction history and transformation applicability remain unverified; inspect authored evidence if needed.",
+            Dict{String,Any}("transform_type" => candidate, "linecodes" => ids,
+                "evidence_kind" => "heuristic_candidate", "history_verified" => false,
+                "knowledge_ids" => ["PSK-000008", "PSK-000009"])))
     end
-
-    Dict{String,Any}("by_linecode" => classified, "by_type" => by_type)
+    Dict{String,Any}("classification_version" => "2", "by_linecode" => classified, "by_type" => by_type,
+        "legacy_projection" => "deprecated_candidate_names_with_explicit_unknown",
+        "evidence_by_linecode" => evidence)
 end
 
 # ---------------------------------------------------------------------------

@@ -45,22 +45,22 @@ Z = Zₛ·I + Zₘ·(J − I),   Zₛ = (Z₀ + 2Z₁)/3,   Zₘ = (Z₀ − Z�
 
 Geometric (Carson) parameterisations of *generic asymmetric* untransposed
 geometries do not produce this, because their phase-pair spacings differ.
-(Symmetric untransposed arrangements — equilateral spacing, symmetric bundled
-construction — *can* be balanced; that is exactly the `near_balanced` case
-below.) The classifier inverts the
+(Symmetric untransposed arrangements can also be balanced.) The classifier inverts the
 construction — `Z₁ = Zₛ − Zₘ`, `Z₀ = Zₛ + 2Zₘ` — and reports the implied
 sequence parameters (`I.PROV.SEQ_DERIVED`). The verdict tiers:
 
 | tier | structure | reading |
 |---|---|---|
-| `decoupled` | diagonal | positive-sequence only; phases independent |
-| `exactly_balanced` | rtol ≤ 10⁻⁹ | sequence-derived or transposition assumed |
-| `near_balanced` | rtol ≤ 10⁻² | possibly physical (twisted/bundled symmetric construction) |
-| `distinct` | otherwise | consistent with first-principles geometry |
+| `decoupled` | near-diagonal phase series block | coupling/self spread below 10⁻⁶; other factors unassessed |
+| `exactly_balanced` | rtol ≤ 10⁻⁹ | observed equal self and equal mutual entries; origin unknown |
+| `near_balanced` | rtol ≤ 10⁻² | approximate balance signature; origin unknown |
+| `distinct` | otherwise | nonuniform structure; origin unknown |
+| `unassessed` | missing/incompatible X block | full complex-matrix signature unassessed |
 
-The `near_balanced` tier exists precisely because bundled LV cables (e.g.
-the adapted ENWL library [6, 7, 8]) are *physically* near-symmetric — they
-must not be mistaken for sequence-derived data.
+These tiers describe matrix structure. None identifies a unique production
+history. `I.PROV.SEQ_DERIVED` is a retained historical identifier, and a balanced
+factor alone does not establish the positive-sequence study domain
+(PSK-000009). See [profiler evidence](analysis.md#Evidence-qualified-profiler-results).
 
 ## The Maxwell sign pattern
 
@@ -91,8 +91,9 @@ A 4-wire network whose every neutral is solidly grounded admits *exact*
 Kron reduction of the neutral; conversely, sparse neutral grounding makes
 the explicit 4-wire model essential [6, 7]. The checks formalise this:
 
-- **wires per voltage level**: 3-wire LV is flagged as likely Kron-reduced
-  (LV is physically 4-wire); 3-wire MV is physical and silent.
+- **wires per voltage level**: absent represented LV neutrals are reported
+  descriptively. A possible reduction history needs authored source evidence;
+  wire count alone does not establish it.
 - **neutral continuity graph** (lines + closed switches carrying the
   neutral; transformer windings do not pass it): every section must reach a
   grounding — perfect grounding, a grounding shunt, or a source that pins

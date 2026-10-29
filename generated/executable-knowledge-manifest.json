@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "6bc5acef6f67e5090b6ef80963cb51e8a884ed2afad69e6e42a408f9852df49b",
+  "corpus_sha256": "d0459ff7ff8b1702270c73ae3470e475bd9d1c09ae819f35049256d09c0d1d08",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "dd5469d34b7e4c2dbe8ae40e1be76788f377b409caae93faa53681b3747375a8"
+      "sha256": "f8cd5d27d2b2d7bc77cd5812692650f363d7610c21d20f4a6a2221f575e7e54d"
     },
     {
       "path": "docs/src/api.md",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "86a6116df52a889806df81a5602f6e165042296c08256cab46cc13f2d8d155cc"
+      "sha256": "d78d48fa0a0fdb9ad9d89d492ebbdc8398e178333484eb5b7d91f102a4e63052"
     },
     {
       "path": "docs/src/formulation_substitutions.md",
@@ -310,11 +310,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "23707f6be867e616b559d99300d90cb6daaf6797923f53df44a97b910359aa34"
+      "sha256": "ea02690d2c1f17463dca310efe1b96de51fe30c25683c30fe6f0bce8e7562c60"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "fc67ca909d6e2b654825c227571e2216eafeb36d22fdd22cbb5ae60bcf90acb8"
+      "sha256": "9e63f22180ef73e29c49130da3a5ead85ef819d709e3ac6ec810f9b12f5fd9a1"
     },
     {
       "path": "recipes/README.md",
@@ -330,11 +330,11 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "1235f56eaa6bc425190adbea19b82516ba7e8152c07feb91db6330327f7704d2"
+      "sha256": "a7bb2348c9d180c485a935ed0634bd487fc982c6f207993eae656a943d1e9afa"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
-      "sha256": "75c0f7d26017720c764ab5e43628f00efd23863a1a8950d0d31a2bee17b43d85"
+      "sha256": "92b63b4bd783c2d760c9f2b2349dbbf24196915174956aae5238fe3ecd8beaa2"
     },
     {
       "path": "recipes/explain_finding/README.md",
@@ -434,11 +434,11 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "c27ff782956b181e6d3fe0b40402e1b1dafb3e1da6a191cf2e935a9ef8a3c69f"
+      "sha256": "734d0343dd070435bfc8e83d1964a13cced9fcf85e8b238b05a563829b569d8b"
     },
     {
       "path": "src/analysis/connectivity.jl",
-      "sha256": "ecba556d1c55d4d157a42343337e8e15b28f0e76b1193576cbe88559bebc6fee"
+      "sha256": "7e75f6e47864655e7501905160a5199b790dd239f49f4132eadc26847fc27c40"
     },
     {
       "path": "src/analysis/coordinate_semantics.jl",
@@ -446,7 +446,11 @@
     },
     {
       "path": "src/analysis/diversity.jl",
-      "sha256": "b5912f8395ab03bb87b4935654cf9e87a9f68ad6bddbf6c57bcb99af6a03a78e"
+      "sha256": "f3f729a1a63f857a3287a194560e321138f9ecd07de6c41bb84034bfb1d2d478"
+    },
+    {
+      "path": "src/analysis/feeder_reach.jl",
+      "sha256": "e11dee02c5a07fd6012c293382df44e93e6fe0cdfdda4f088e5bbca55daa2842"
     },
     {
       "path": "src/analysis/inventory.jl",
@@ -454,11 +458,15 @@
     },
     {
       "path": "src/analysis/operational.jl",
-      "sha256": "26b1f4a13b115fe275ec6273dced6e6c1f6541de128547c9d79fcc956b862d96"
+      "sha256": "b2b2659ae53363a03c860e2c2776b77e80b8e811e59f7d928ede88e94754a5b0"
     },
     {
       "path": "src/analysis/provenance/data_quality.jl",
       "sha256": "0ccbb2e708bdb147754cd2b387d69bdd4b20301f88a83e80bd3b3ba9c1e65c4b"
+    },
+    {
+      "path": "src/analysis/provenance/linecodes.jl",
+      "sha256": "7dc0cf8aea981e8d617134fcc1ef63a97c9ff4a9da579da1cc419d55b0e6f5d3"
     },
     {
       "path": "src/analysis/provenance/wires_grounding.jl",
@@ -507,6 +515,10 @@
     {
       "path": "src/analysis/voltage_levels.jl",
       "sha256": "19fd66a980e772eb97637255a6f70903ddd2e64fb6f52a37da63b1ba9a215881"
+    },
+    {
+      "path": "src/analysis/winding_limit_coverage.jl",
+      "sha256": "fc91abcc2ad59f1f9d355fd03190d22ae163ff5df319ce0278a4d3730bf46804"
     },
     {
       "path": "src/augmentation/augment.jl",
@@ -629,12 +641,16 @@
       "sha256": "6b1cd92e30db7619cb566daf1b6735fdd328965c571599a6cd3f717c3b3f8f66"
     },
     {
+      "path": "src/report/assessment_coverage.jl",
+      "sha256": "9f50ae62c6ac7f76772536fe1eb529a11029c4f6e8cbdd4ec9affd5bd04c4340"
+    },
+    {
       "path": "src/report/finding_registry.jl",
       "sha256": "376160dc872ddf1a337fec902afed7a2e88ae5e41613714518955e5cc191e5f2"
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "642e3195505efebeae793b9e48b2e24945f0fd97150bb476ca92197b49ce050f"
+      "sha256": "a35c43f0fe368bcc80f6f6adfff7f1626b8ac9d69b6bd62b4942c8e28d5b8ac0"
     },
     {
       "path": "src/report/formatting.jl",
@@ -646,7 +662,7 @@
     },
     {
       "path": "src/report/render_markdown.jl",
-      "sha256": "bed6f57963793e4b0eafad076c13842ea8704a5bfa034071b5f141bf1c0d2343"
+      "sha256": "d88efc8a0b5ce8430d531211e85d9f08ba41b4213e9ed9278537d622c5b18a1c"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -654,7 +670,7 @@
     },
     {
       "path": "src/report/render_terminal.jl",
-      "sha256": "5e59e6a6f8381fdb92e4856e1ae3aec2466bd0cc902251b88b969a2318a8f004"
+      "sha256": "c6ba3534a3da8513cd8d0c0e3bdd0de94a8be2d1917ce0d1a484de490d80bcf0"
     },
     {
       "path": "src/report/spatial_review_export.jl",
@@ -679,6 +695,10 @@
     {
       "path": "src/validation/power_factor.jl",
       "sha256": "84e7d668cd17d447d8710591c1463ce88a0d6573ab79d2ed65016515da5d25bf"
+    },
+    {
+      "path": "src/validation/redundancy.jl",
+      "sha256": "3f3cf5cf489064b57aa9a93e1745c8f73d0633b19eaac50cb9f67f3815ece0e1"
     },
     {
       "path": "src/validation/schema.jl",
@@ -707,6 +727,10 @@
     {
       "path": "test/admittance_tests.jl",
       "sha256": "832a9d6b565b3dd92c661e41dc63a4beeb5086644b56c9b09b0f777b57c16dfd"
+    },
+    {
+      "path": "test/augmentation_tests.jl",
+      "sha256": "c3a4549fa4213aaa0775c49efbf075c03c1517ca9d77216d9a4c03981ba03084"
     },
     {
       "path": "test/case_development_opf_tests.jl",
@@ -855,6 +879,14 @@
     {
       "path": "test/data/powerio_regressions/unrated_source.dss",
       "sha256": "fc7b4c1ada26f2767e8a5618b4a42112523ce77554a9589975bd235944554db9"
+    },
+    {
+      "path": "test/data/profiler_evidence/README.md",
+      "sha256": "1781e1691283f5273d794bf8d0c1f428c1dc2b82a8958d4d10545ebbfe65a4f9"
+    },
+    {
+      "path": "test/data/profiler_evidence/two_boundary_chain.json",
+      "sha256": "32c46c2959238f3d758938f8f127292128ebd8cbb881a5c9084f92f93db3cc52"
     },
     {
       "path": "test/data/roundtrip_expectations.md",
@@ -1442,7 +1474,7 @@
     },
     {
       "path": "test/operational_mesh_applicability_tests.jl",
-      "sha256": "ea61c63e1d20420603a3ebc9d3b1b87ee626145b1d84920c6d69ffb41f592db0"
+      "sha256": "d3525e55cd1723b48275b9c27e0d1e6f484f9d80beb4070e2863c7bffcc322c2"
     },
     {
       "path": "test/opf_device_substitution_tests.jl",
@@ -1499,6 +1531,18 @@
     {
       "path": "test/powerio_v09_tests.jl",
       "sha256": "f40300a313390efd0b7af14f842a85af951a23a92d2e0405a73385605eefd2a2"
+    },
+    {
+      "path": "test/profiler_evidence_tests.jl",
+      "sha256": "16e8446d19ec9ccdcddc751505b7f2341b9138aac56ff6e3a37149663db15f3b"
+    },
+    {
+      "path": "test/profiler_limit_builder_tests.jl",
+      "sha256": "daafbfb5a2e67d6343c6c066d22c9c446b873739976fc366d9709b064f5931ae"
+    },
+    {
+      "path": "test/profiler_review_tests.jl",
+      "sha256": "aab09699e2fc637eb9bc9321dfe84b99407873b648259d4fcd8c8bfd33c84981"
     },
     {
       "path": "test/projection_tests.jl",

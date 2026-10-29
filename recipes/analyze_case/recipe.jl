@@ -46,3 +46,13 @@ skipped["reason"] == "disabled" && skipped["analysis_performed"] === false || er
 
 JSON3.pretty(stdout, response, JSON3.AlignmentContext(; indent=UInt16(2)))
 println()
+
+# Minimized static diagnostic evidence; this does not build or solve a model.
+profile_path = joinpath(root, "test", "data", "profiler_evidence", "two_boundary_chain.json")
+profile = execute_analysis(parse_bmopf(profile_path))["result"]["results"]
+coverage = profile["operational"]["winding_limit_coverage"]
+coverage["n_windings_without_caps"] == 4 || error("rating-only winding gap was missed")
+zone = only(filter(z -> z["n_buses"] == 5, profile["operational"]["feeder_length"]))
+zone["anchor_extent_m"] == 400.0 && zone["boundary_reach_m"] == 200.0 || error("boundary distance mismatch")
+zone["threshold_status"] == "unassessed" || error("multi-boundary threshold policy was inferred")
+profile["assessment"]["comprehensive_validation"] === false || error("coverage was promoted to validation")

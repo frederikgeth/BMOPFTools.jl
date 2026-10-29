@@ -260,3 +260,88 @@ Candidate codes are advisory categories, distinct from registered Findings.
 
 See the [cleanup review workflow](spatial_diagnostics.md#Cleanup-review-workflow)
 for evidence categories, review decisions, coverage and Markdown/JSON/GeoJSON exports.
+
+## Evidence qualified profiler results
+
+The report separates Finding severity from assessment coverage. `results.assessment`
+lists check statuses, reasons and entity units beside the ordinary severity
+summary. Structural schema validation can be skipped while field cataloguing
+still runs. Unsupported nominal coil headroom remains inapplicable; missing
+coordinates leave geographic work unassessed without a generic warning.
+Legacy passes without a complete coverage ledger remain coverage unknown.
+The listed counts are not a percentage of the network validated.
+
+`operational.winding_limit_coverage` initially assesses supported native
+`n_winding` declarations. It distinguishes transformer coverage states and
+reports each winding's exact field paths. `i_max` caps bare coil current;
+`s_max` is shared equally among phase legs. Neither implies direct neutral
+current protection, and DELTA coil current differs from terminal line current.
+Top-level n-winding `s_rating` is a nameplate, not a substitute for either cap.
+Zero is a restrictive declaration; positive infinity is an unbounded sentinel,
+not coverage. Static evidence does not establish that a model was built or solved.
+Other subtypes retain their existing semantics and are unassessed by this screen.
+This initial coverage domain uses native a/b/c/n terminal labels and representable
+SI squared-magnitude values. Numerical admission after model scaling remains a
+builder check. Malformed declarations carry reasons independently of unsupported
+subtypes; windings without an explicit neutral port have inapplicable direct
+neutral-current coverage.
+
+`operational.feeder_length` keeps legacy `reach_m` as anchor extent and adds
+`anchor_extent_m` and `boundary_reach_m`. The latter is the maximum, over buses,
+of the shortest sum of declared electrical line lengths to a qualified boundary.
+For a chain of four 100 m edges with boundaries at both ends, these metrics are
+400 m from an endpoint anchor and 200 m to the nearest boundary. Boundaries use
+explicit winding incidence and consistent source-side voltage evidence that
+cannot depend on the assessed zone. Winding 1 is a reference index, not a
+supply-direction declaration. Fixed supported two-port relations form the
+initial domain; unknown/unsupported port relations remain explicit. Source
+magnitudes and absolute nominal references use a declared 5% relative screen;
+nominal cycle ratios must agree within 10⁻⁹. These thresholds qualify the
+voltage-base evidence, not operating feasibility. An incomplete source or
+unsupported relation in an unrooted component remains unresolved rather than
+being interpreted as proof that the component has no source.
+
+These are bus-graph screens. They retain parallel branches and open-switch
+state, but establish neither conductor-path supply, energization, voltage drop
+nor load sharing. Missing, negative or nonfinite lengths leave distance
+indeterminate. Explicit zero is retained. Regularized electrical lengths are
+identified and suppress physical plausibility comparisons; physical or route
+lengths are never silently substituted. Multiple-transformer zone context lists
+ports and paths without asserting compatible paralleling.
+
+The default single-boundary thresholds remain configurable heuristics. A new
+multiple-boundary metric needs its own explicit policy, for example:
+
+```toml
+[operational.feeder_length.LV.multi_boundary]
+reach_short_m = 0.0
+reach_long_m = 1500.0
+```
+
+These example thresholds are study choices. Without this policy the distance
+is reported and its threshold comparison remains unassessed. Short distance
+to one of many ports does not classify a whole network as a service drop.
+Invalid threshold policies are indeterminate; explicitly disabled comparisons
+are skipped. Both reasons appear in assessment coverage.
+
+`provenance.impedance_transform.classification_version = "2"` separates matrix
+observations and PN/MPN heuristic candidates from declared, unverified history.
+Its deprecated `by_linecode` projection retains candidate names and adds explicit
+`unknown`; it no longer assigns unmatched matrices to `kron_reduced`.
+`I.PROV.IMPEDANCE_TRANSFORM_KR` remains in the Finding lookup for historical
+reports but is not emitted by that heuristic. `I.PROV.SEQ_DERIVED` also retains
+its historical code name while describing a structural signature. PSK-000008
+and PSK-000009 checks retain their existing narrow domains; none is inferred to
+pass from a matrix signature.
+
+Parallel declaration evidence is shared by connectivity and redundancy reports.
+Comparison keeps ordered terminal coordinates, swaps endpoint shunts and reverses
+signed angle bounds with endpoint orientation. It compares declarations strictly,
+without inferring conductor permutations or electrical equivalence. Matching
+records do not establish common asset identity. Load repetition similarly counts
+ordered P/Q declarations: group sizes 4, 3 and 1 give 8 loads, 3 distinct tuples,
+5 excess repetitions, 2 repeated groups and 7 members in those repeated groups.
+This is separate from phase balance within a load or across a zone. Numeric
+declarations are grouped before conversion for statistics, so different integers
+are not made identical by Float64 rounding. Human reports group radial nominal
+nameplate estimates separately from ambiguous upper bounds.
