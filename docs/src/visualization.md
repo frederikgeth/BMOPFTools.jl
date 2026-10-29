@@ -185,8 +185,8 @@ and source-specific notices are recorded in the
 [screenshot provenance](assets/tellegen-norwood-attribution.txt).
 
 Geometry: SA Power Networks, supplied through the Government of South Australia /
-Location SA. Model contributions: © 2026 Energex Network Model contributors,
-CC BY-SA 4.0 subject to upstream rights. Norwood also uses SAPN aggregate telemetry
+Location SA. Model contributions are under CC BY-SA 4.0, subject to upstream rights.
+Norwood also uses SAPN aggregate telemetry
 and National Address Points/G-NAF-derived demand proxies; preserve the linked
 source notices. Basemap © CARTO © OpenStreetMap contributors. No endorsement or
 individual customer reconstruction is implied.

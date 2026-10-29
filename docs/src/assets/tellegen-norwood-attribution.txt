@@ -56,8 +56,7 @@ https://eigenergy.github.io/tellegen/local-case-files.html
 Network model and source attribution
 ------------------------------------
 Electrical-model derivation and authored assumptions:
-Copyright 2026 Energex Network Model contributors. Project-authored model
-contributions are under CC BY-SA 4.0, subject to upstream rights:
+Project-authored model contributions are under CC BY-SA 4.0, subject to upstream rights:
 https://creativecommons.org/licenses/by-sa/4.0/
 https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/PROJECT-LICENSE-DATA.md
 
