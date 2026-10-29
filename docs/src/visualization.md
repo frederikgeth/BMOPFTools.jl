@@ -5,20 +5,24 @@ explore the distribution network in your browser.** Tellegen provides the
 interactive viewer; BMOPFTools prepares, writes, and checks the case.
 You do not need to install Tellegen or run a Julia solver to inspect a file.
 
-![Tellegen displaying the SAPN Harrow BMOPF network over a geographic map, with 9,373 buses and 9,649 branches.](assets/tellegen-distribution.jpg)
+[![Norwood at network scale in Tellegen's geographic single-line diagram: blue 11 kV lines, grey 400 V networks, source and transformer landmarks.](assets/tellegen-norwood-overview.jpg)](assets/tellegen-norwood-overview.jpg)
 
-*The live [Tellegen](https://tellegen.dev/) viewer, captured on 20 October 2026.
-The SAPN Harrow BMOPF case from
-[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData/tree/main/output/SAPN)
-opens directly using its bus latitude/longitude fields: 9,373 buses, 9,532 lines
-and 117 transformers. This is a provisional model shown for visual inspection,
-not a validated operating network or a solved power-flow result. It is separate
-from the downloadable four-bus example below.*
+*Start with the whole network, then zoom into its electrical connections.
+This is the public SAPN Norwood case: 25,456 buses and 25,967 branches, captured
+in [Tellegen](https://tellegen.dev/) on 29 October 2026 before solving.
+It is a provisional study model with inferred equipment and demand placement,
+not an as-operated asset register. The walkthrough below follows the same case
+into a neighbourhood, a transformer, and its calculated results.*
+
+Select any screenshot to open it at full resolution.
 
 ## What Tellegen offers
 
-- **Interactive inspection:** explore network topology, select equipment, and
-  inspect bus, line, load and transformer attributes with terminal detail.
+- **Single-line diagrams at several scales:** switch between geographic and
+  schematic layouts. Zoom from source and transformer landmarks to equipment
+  symbols, conductor marks, terminal connections and, after a solve, power flows.
+- **Linked inspection:** find a bus or branch, select an issue in the operating-point
+  overview, and inspect the same equipment in the diagram and result tables.
 - **Distribution power flow:** for supported models, calculate individual
   terminal voltages, conductor currents and source powers, with voltages relative
   to a declared neutral. Active/reactive load edits trigger fresh nonlinear
@@ -47,14 +51,145 @@ evaluation, and Tellegen's
 2. Open [tellegen.dev](https://tellegen.dev/) and drag
    `case_for_tellegen.json` onto the page's **drop a case file** control.
    Drop the network case, rather than a solution-only JSON or a Markdown report.
-3. Inspect the network and select a bus to explore its equipment and terminal
-   detail. If the case has no coordinates, follow the viewer's placement prompt
-   to place its topology layout.
+3. Choose **Show diagram** in the **Network** panel. Start with **Geographic**
+   if the case has positions, or switch to **Schematic** for the engine's layout.
+   If the case has no coordinates, follow the viewer's placement prompt first.
+   The diagram can be opened before running power flow.
 
 Tellegen's [local-file workflow](https://eigenergy.github.io/tellegen/local-case-files.html)
 parses dropped cases locally in the browser using PowerIO and WebAssembly;
 local case files are not uploaded to its solver service. The hosted site and
 map resources still require network access.
+
+## Explore a case from network to equipment
+
+The screenshots use
+[`norwood--p95-lv-proxy-transfer.bmopf.json`](https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/norwood--p95-lv-proxy-transfer.bmopf.json)
+from the public [BMOPFDraftData SAPN set](https://github.com/frederikgeth/BMOPFDraftData/tree/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN).
+Download the raw case and open it using the steps above. The large case is an
+external example; the small downloadable feeder below is sufficient to try the
+file workflow without obtaining utility-derived data.
+
+The diagram and operating-point overview were introduced in
+[Tellegen PR #185](https://github.com/eigenergy/tellegen/pull/185).
+The views here were captured afresh from the deployed viewer. The case file is
+unchanged throughout; zooming and changing layout change the drawing.
+
+### 1. Establish the network context
+
+At the overview scale shown at the top of this page, the key identifies
+**11 kV MV** lines in blue and **400 V LV** lines in grey. Sources and transformers
+remain visible as landmarks while local detail fades. Locate the supply point,
+then zoom towards a transformer and the streets it supplies.
+
+This first view answers where the study sits and how much of it you are looking
+at. Colour in **Equipment and topology** identifies voltage level; it is not a
+voltage-compliance result. Hover a bus or line to highlight its feeder and network.
+Enable **Path to source** to trace the display path upstream. In a mesh, that
+navigation path is not a calculation of how power divides between routes.
+
+### 2. Follow an issue to its neighbourhood
+
+For a supported case, choose **Solve AC power flow** in **Network** (or
+**Run power flow** in **Studies**). Norwood exceeds 25,000 buses, so choose
+**Analyse operating point** when prompted to populate the overview.
+In this capture the solve converged and the overview reported **16 violations
+and 4 warnings**. These are results for the supplied provisional model.
+
+Select the transformer ending in **`e4c0af231a489a7bd7be`** in the issue list,
+shown at **184.3%** of its declared rating. The diagram brings it into view.
+Zoom out a few steps to see its local network in context:
+
+[![Norwood at neighbourhood scale, with the selected transformer's 184.3 percent loading issue and its LV network corridor highlighted in red among neighbouring streets.](assets/tellegen-norwood-neighbourhood.jpg)](assets/tellegen-norwood-neighbourhood.jpg)
+
+*The selected transformer's network runs alongside other circuits. The corridor
+shows the network's reported problem state; it does not mean every line in that
+corridor is overloaded. Use the issue list and the individual equipment result
+to identify what exceeded its rating.*
+
+The full transformer ID is
+`sapn:norwood:inferred-transformer:e4c0af231a489a7bd7be`.
+Use the full ID in **Find a bus or branch** when returning to this location;
+the shortened label in the drawing is only a reading aid.
+
+### 3. Zoom in to inspect connections
+
+Zoom back towards the transformer, or select its issue again to bring it back
+into view. Equipment symbols, phase and neutral conductor marks, attached loads,
+and neutral earths become visible. After a solve, the drawing also shows active
+power arrows and attachment P/Q values.
+
+[![Close geographic view of the same Norwood transformer, showing separated coincident buses, phase and neutral marks, load symbols, neutral earths, and calculated power labels.](assets/tellegen-norwood-equipment.jpg)](assets/tellegen-norwood-equipment.jpg)
+
+*Enable **Separate overlapping buses and lines** in the key to distinguish
+coincident MV/LV buses and shared routes. Their displayed separation is a drawing
+aid; it does not move the underlying geographic coordinates.*
+
+Use this scale to ask which terminals a load uses, whether a neutral is carried,
+and how equipment connects at the selected bus. The single-line overview retains
+conductor detail for inspection. A neutral earth drawn through an impedance is
+different from a perfectly grounded terminal; use the component data and terminal
+view to check the declaration.
+
+### 4. Read the same area as a schematic
+
+Switch to **Schematic**, then select the same issue again if the whole-case fit
+makes the network too small. Select **Loading, % of rating** under **Colour by**.
+The selected transformer is still the same object, now arranged by connectivity:
+
+[![Norwood schematic centred on the selected transformer, labelled 184.3 percent, with its downstream network outlined and loads and earths visible.](assets/tellegen-norwood-schematic.jpg)](assets/tellegen-norwood-schematic.jpg)
+
+*The schematic separates topology from map placement. The selected transformer's
+network tag reports 135 buses; its 184.3% loading label directs attention to the
+transformer. Grey equipment has no applicable displayed limit or rating; grey
+is not a pass result.*
+
+This view helps distinguish a connection from geographic proximity. Compare the
+transformer, connected buses and downstream branches with the geographic view.
+The layout is generated from a display tree; it does not assert that a meshed
+case is electrically radial. Norwood's full schematic is tall and narrow, so
+searching for an asset or selecting an issue is more useful than staying at fit.
+
+### 5. Inspect the evidence behind the colour
+
+Scroll the **Studies** panel to the selected transformer's conductor results.
+The diagram, current bars and multi-wire view share the selection:
+
+[![The selected Norwood transformer in schematic layout beside conductor-current bars and a multi-wire winding view; the two ends show about 30.6 and 841.2 amperes.](assets/tellegen-norwood-results.jpg)](assets/tellegen-norwood-results.jpg)
+
+*The same scale is used for the current bars at both ends. The multi-wire view
+shows windings between the terminal sets; it does not draw conductor continuity
+through the transformer. Inspect the declared rating and connected-bus apparent
+power when interpreting the aggregate loading percentage.*
+
+For a bus, inspect its terminal-pair voltages and declared reference; for a line,
+inspect currents at both ends. Use the result tables and CSV exports to retain
+full asset IDs and numerical evidence. Norwood does not declare engineering
+voltage limits, so its displayed voltage range is not a voltage-compliance check.
+The solver's **Voltage band** status describes its load-model calculation domain,
+which is separate from engineering voltage limits.
+
+The next investigation is into the case assumptions: the selected transformer
+is inferred equipment, and demand is allocated using proxies. Check its nameplate,
+downstream demand allocation and source records before proposing a change. Use
+BMOPFTools' analysis and review workflow below to record that evidence and recheck
+an intentionally revised case. Visual inspection and solver convergence alone
+do not validate the model.
+
+### Capture provenance and reuse
+
+The screenshots show one unchanged public input, opened through the browser's
+local file picker. Only the first image is unsolved; the other four use the same
+calculated operating point. Dataset hashes, capture steps, result observations
+and source-specific notices are recorded in the
+[screenshot provenance](assets/tellegen-norwood-attribution.txt).
+
+Geometry: SA Power Networks, supplied through the Government of South Australia /
+Location SA. Model contributions: © 2026 Energex Network Model contributors,
+CC BY-SA 4.0 subject to upstream rights. Norwood also uses SAPN aggregate telemetry
+and National Address Points/G-NAF-derived demand proxies; preserve the linked
+source notices. Basemap © CARTO © OpenStreetMap contributors. No endorsement or
+individual customer reconstruction is implied.
 
 ## Latitude and longitude
 

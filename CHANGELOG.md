@@ -4,6 +4,17 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Raise the PowerIO.jl dependency floor to 0.11.7 (migration in progress).
+  Validate typed CVR exponents without replacing them with legacy defaults;
+  retain the typed bounded load law and its threshold provenance. Geometry
+  regression tests now check resolved overhead matrices and genuinely missing
+  geometry separately.
+- Expand the Tellegen guide with five new Norwood screenshots following one
+  transformer from geographic overview to schematic and conductor results,
+  including capture provenance and case-study qualifications.
+- Make the SWER tutorial follow each backbone span's effective linecode and
+  exclude source-equivalent branches from feeder-length edits.
+
 - `from_dss` keeps OpenDSS node 0 (an implicit wye star or source return) as a
   distinct, perfectly grounded terminal `n_ref`, separate from the conductor
   neutral `n` (node 4). It was previously merged into `n` and earthed through
