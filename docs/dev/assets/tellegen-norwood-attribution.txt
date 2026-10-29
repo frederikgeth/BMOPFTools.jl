@@ -1,0 +1,102 @@
+Tellegen Norwood screenshot provenance
+=====================================
+
+Captured on 29 October 2026 (Australia/Brisbane) from https://tellegen.dev/
+in Google Chrome. No deployed build identifier was exposed in the inspected UI.
+These are new captures, not copies of the images in Tellegen PR #185.
+Reference: https://github.com/eigenergy/tellegen/pull/185
+
+Input (unchanged for all five screenshots):
+https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/norwood--p95-lv-proxy-transfer.bmopf.json
+SHA-256: 1acb0d2fff7053c0a3449e3a927624d86bff37a4c349adf6967c75673bef5f14
+Git blob: 5186ab1fc90017002b8b8235c447b52e36811676
+The local file's Git blob hash was checked against the public GitHub file.
+The viewer reports 25,456 buses and 25,967 branches.
+
+Capture sequence
+----------------
+1. tellegen-norwood-overview.jpg: open the case via the local file picker;
+   Network > Show diagram; Geographic with Basemap on; initial whole-network
+   view. No solve has been run in this image.
+2. Run Solve AC power flow, then Analyse operating point in Studies.
+   The viewer reports Converged, 13 iterations, Voltage band Valid, load voltage
+   range 0.923–1.004 pu, source P/Q 26805.652 / 1057.165 kW/kvar, and passive loss
+   699.585 kW. The overview reports 16 violations, 4 warnings, maximum loading
+   344.2%, phase-neutral range 212.2–230.8 V, and phase-phase 10.78–11 kV.
+   Overview branch-loss aggregation separately displays 699.55 kW; it is not
+   substituted for the solver summary's passive-loss value.
+3. Select the 184.3% transformer issue:
+   sapn:norwood:inferred-transformer:e4c0af231a489a7bd7be
+   tellegen-norwood-equipment.jpg: Geographic at the selection's reveal scale;
+   Equipment and topology colouring; Separate overlapping buses and lines on.
+4. tellegen-norwood-neighbourhood.jpg: the same selection and solve, three minus
+   key zoom steps out from the equipment view, with the diagram focused.
+5. tellegen-norwood-schematic.jpg: switch to Schematic (Tidy), reselect the same
+   issue to reveal it, choose Loading, % of rating. Its network tag says
+   135 buses, minimum 225.2 V and 184% loading; transformer label says 184.3%.
+6. tellegen-norwood-results.jpg: same schematic and solve; scroll Studies to
+   the conductor bars and multi-wire view. Currents are approximately 30.6 A
+   per phase at the from end and 841.2 A per phase at the to end.
+
+The screenshots are unretouched browser viewport captures. The input is not
+edited, and no additional battery, voltage limit, or rating was inserted.
+Norwood has no declared engineering voltage limits. Solver load-voltage-band
+status is distinct from compliance with an engineering voltage bound.
+Import notes include READ.BMOPF.SCHEMA_ABSENT and READ.BMOPF.RETAINED_SOURCE_ONLY
+for component metadata retained in extras. Opening and solving do not establish
+BMOPFTools schema conformance, electrical fidelity, or operating qualification.
+
+The source model is provisional: its transformer roots, winding/conductor/phase/
+MEN parameters and demand placement are authored study assumptions. It is not
+an as-operated asset register or an individually qualified customer/equipment
+reconstruction. Screenshots render the case; this repository does not copy its
+82 MB model JSON. The browser's local-file workflow is documented at:
+https://eigenergy.github.io/tellegen/local-case-files.html
+
+Network model and source attribution
+------------------------------------
+Electrical-model derivation and authored assumptions:
+Project-authored model contributions are under CC BY-SA 4.0, subject to upstream rights:
+https://creativecommons.org/licenses/by-sa/4.0/
+https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/PROJECT-LICENSE-DATA.md
+
+Upstream electricity geometry: SA Power Networks; supplied by the Government
+of South Australia through Location SA / Department of Primary Industries
+and Regions. Works: SAPN Substations; SAPN Low Voltage Overhead Line; SAPN
+Subtransmission & High Voltage Overhead Line; SAPN Low Voltage Underground
+Cable; SAPN Subtransmission & High Voltage Underground Cable.
+
+The Government of South Australia, SAPN distribution-network geometry and
+substations, sourced on 2026-09-25 at 06:18:53Z, 06:22:04Z, 06:22:31Z,
+06:22:59Z, 06:23:08Z, 06:23:12Z, 06:23:17Z, 06:23:21Z and 06:23:25Z from:
+https://agsplus.geodata.sa.gov.au/arcgis/rest/services/Infrastructure_Utilities/MapServer
+Data authority: SA Power Networks. No endorsement is implied.
+Dataset metadata declares CC BY attribution; no licence version is invented.
+
+Telemetry provenance: SA Power Networks, 2024–2025 Zone substation data:
+https://www.sapowernetworks.com.au/data/324688/2024-2025-zone-substation-data/
+The publisher's conditions remain applicable; telemetry is not relabelled CC BY.
+https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/SAPN-TELEMETRY-TERMS.txt
+
+Address-proxy provenance: National Address Points, Geoscience Australia /
+Digital Atlas of Australia, CC BY 4.0. Incorporates or developed using G-NAF
+Copyright Geoscape Australia licensed by the Commonwealth of Australia under
+the Open Geo-coded National Address File (G-NAF) End User Licence Agreement.
+Source: https://www.arcgis.com/home/item.html?id=41473f0c760842a38cb3bcf6a3f91935
+Original Norwood snapshot acquired 2026-09-25. Proxies are modelling inputs,
+not verified mailing addresses. Preserve the publisher's mail-use restriction:
+https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/NATIONAL-ADDRESS-POINTS-TERMS.txt
+https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/license-sources/GNAF-End-User-Licence.pdf
+
+Source-specific notices and licensing boundaries:
+https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/ATTRIBUTION.md
+https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/LICENSING.md
+https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/PROJECT-LICENSING.md
+
+Tellegen and basemap
+-------------------
+Tellegen: https://github.com/eigenergy/tellegen (MIT-licensed software).
+Geographic screenshots retain the map attribution:
+Copyright CARTO, copyright OpenStreetMap contributors.
+https://carto.com/about-carto/
+https://www.openstreetmap.org/copyright
