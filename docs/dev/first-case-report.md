@@ -1,10 +1,14 @@
 # BMOPF Network Summary: case_development_example
 
-**Generated:** 2026-10-29 10:33:27  
+**Generated:** 2026-10-30 01:09:28  
 **Findings:** 0 errors · 2 warnings · 12 info  
 **Convention:** LV_230V: 4-wire; 1 grounding point(s); series-only line model
 
 ---
+
+
+**Assessment coverage:** 2 assessed, 0 indeterminate, 1 skipped, 3 not applicable (of 6 tracked checks; not a validation score).
+- structural schema: skipped for 1 of 1 document(s) — unsupported schema structural validation skipped (1)
 
 ## 1. Component Inventory
 
@@ -55,8 +59,6 @@ Transformer-mediated cycle rank: 0; cross-tier branches: 0; skipped invalid bran
 
 Galvanic zones: 1; zones with simple cycles: 0; zones incident to multiple isolating transformers: 0.
 
-Parallel line groups: 0. Classification counts: different_declared_fields=0, incomplete_terminal_map=0, same_declared_fields=0, terminal_map_disagreement=0.
-
 ### Mapped conductor paths
 
 16 declared bus terminals; 12 mapped line/closed-switch conductor edges; 4 terminal-path components; 0 incomplete branch maps. Transformer winding ports bound these paths; winding conversion is unassessed.
@@ -102,6 +104,10 @@ inapplicable: No switch records.
 | Total load Q | 1.6 kvar |
 | Total gen capacity | 0.0 W |
 | Generation/load ratio | 0.0% |
+
+
+Farthest bus from the nearest supply boundary (declared line lengths; up to 10 zones):
+- source: 200.0 m (from the zone anchor: 200.0 m)
 
 > 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.01 MW).
 
@@ -154,7 +160,7 @@ inapplicable: No switch records.
 |------|------:|-------|------------|------------------:|---------------|
 | 230.0 V | 4 | 4-wire | perfect (0 Ω) | 0 | grounded infeed reference; protective-earthing system indeterminate |
 
-> 🔵 **[I.PROV.SEQ_DERIVED]** 1 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: cable.
+> 🔵 **[I.PROV.SEQ_DERIVED]** 1 linecode(s) have a balanced phase block and an explicit extra conductor. Sequence input materialized by a converter, separately supplied neutral parameters, transposition or physical symmetry can explain this. Inspect that conductor's coupling and grounding: cable.
 > 🔵 **[I.PROV.LINE_MODEL_UNIFORM]** All 1 line-model definition(s) use a single, consistent model: pure series impedance. Shunt charging is neglected network-wide — expected for LV / short-cable networks, but worth confirming for feeders with long MV/HV overhead or underground-cable sections.
 
 ## 8. Spec Conformance & Benchmark Readiness
@@ -201,33 +207,74 @@ inapplicable: No switch records.
 
 - **[W.OPS.IMPORT_DEPENDENT]** `network`  
   Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.01 MW).
+
 - **[W.CONV.TERMINAL_ROLES_INFERRED]** `network`  
   No terminal_conventions block: legacy bus-name inference is used where terminal names can be assessed.
+
 
 ### 🔵 Info
 
 - **[I.DIV.LOAD_IMBALANCE]** `near`  
   Load 'near' has phase imbalance of 69.2%.
+
 - **[I.DIV.LOAD_IMBALANCE]** `far`  
   Load 'far' has phase imbalance of 69.2%.
+
 - **[I.PROV.SEQ_DERIVED]** `linecode`  
-  1 linecode(s) have exactly balanced impedance matrices (equal self, equal mutual entries) — likely constructed from sequence parameters (r1,x1,r0,x0) or a transposition assumption, not from conductor geometry: cable.
+  1 linecode(s) have a balanced phase block and an explicit extra conductor. Sequence input materialized by a converter, separately supplied neutral parameters, transposition or physical symmetry can explain this. Inspect that conductor's coupling and grounding: cable.
+
+  <details><summary>How to read this</summary>
+
+  **Likely meaning:**
+
+  - Sequence values can define the phase block of a larger matrix. A converter can materialize extra conductors from sequence input, or neutral parameters can be supplied separately; conductor count alone does not select the construction method.
+  - A transposition or phase-symmetry assumption averaged out the geometric coupling.
+
+  **Why it matters:**
+
+  - The inspected three-conductor series block contains no phase-pair geometric asymmetry. Coupling to additional conductors, grounding, shunts and other equipment can still create unbalance.
+  - 1 of these matrices retain conductors outside the inspected phase block. A neutral can remain explicit; inspect its coupling and grounding before drawing conclusions about phase-to-neutral unbalance or recovery.
+
+  **Other explanations:**
+
+  - A physically symmetric arrangement (e.g. trefoil or triplex cable) gives nearly this pattern.
+
+  **What to check:**
+
+  - Compare with the source sequence values, conductor geometry or transposition specification.
+  - For unbalance or neutral studies, inspect retained conductors and their coupling. Use geometry-based data (`compile_linecode` from `line_geometry`) when the omitted geometric asymmetry matters.
+
+  **Learn more:** [Sequence-derived matrices and Z₁/Z₀ recovery](https://frederikgeth.github.io/BMOPFTools.jl/dev/methodology/) · [The line-impedance fidelity ladder](https://frederikgeth.github.io/BMOPFTools.jl/dev/semantic_modeling/#impedance-ladder)
+
+  *A hint to review, not a verified cause; gather evidence before changing the model. Full record: `explain_finding(f)` or the JSON report.*
+
+  </details>
+
 - **[I.PROV.LINE_MODEL_UNIFORM]** `linecode`  
   All 1 line-model definition(s) use a single, consistent model: pure series impedance. Shunt charging is neglected network-wide — expected for LV / short-cable networks, but worth confirming for feeders with long MV/HV overhead or underground-cable sections.
+
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
   4 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
+
 - **[I.PRE.SINGLE_SOURCE]** `network`  
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
+
 - **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
   Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
+
 - **[I.SCHEMA.UNKNOWN_FIELDS]** `bus`  
   bus has field(s) not in the BMOPF schema: v_declared.
+
 - **[I.SCHEMA.UNKNOWN_FIELDS]** `network`  
   meta has field(s) not in the BMOPF schema: source.
+
 - **[I.RED.MERGEABLE_LINES]** `line`  
   1 group(s) of series lines (2 lines total) can be merged — intermediate buses have no other connections.
+
 - **[I.SPEC.MATRIX_TRIANGULAR]** `linecode`  
   1 linecode(s) store impedance matrices upper-triangular; spec §4.1.1 defines full row-first storage: cable.
+
 - **[I.BENCH.AUGMENTATION]** `network`  
   Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
+
 
