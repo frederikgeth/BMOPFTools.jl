@@ -153,3 +153,51 @@ The JSON execution envelope and OPF provenance records have their own schema
 identifiers. Package SemVer does not replace those identifiers. The first-release
 bundled validation schema is fingerprinted in `schemas/bundled-schema.toml`;
 regeneration and release gates are described in the repository's `RELEASING.md`.
+
+## Provenance report compatibility
+
+`provenance.impedance_transform.classification_version = "2"` separates
+PN/MPN/Kron heuristic candidates from declared, unverified history. The
+`by_linecode` and `by_type` projections retain the candidate names, including
+`kron_reduced`; missing/invalid matrices and a zero series matrix remain
+`unknown`. Use `evidence_by_linecode` for observations, history status and
+actual linecode-use context. A candidate name is a hypothesis, even when its
+history status remains `unknown`.
+
+`I.PROV.IMPEDANCE_TRANSFORM_KR` is emitted as an exploratory candidate rather
+than retired. `I.PROV.SEQ_DERIVED` retains both its stable code and its useful
+sequence/transposition interpretation, with physical symmetry as an alternative.
+The six sequence, decoupling, PN/MPN and Kron hints add structured interpretation
+in Finding detail. `explain_finding(finding::Finding)` returns the catalogue
+fields plus `instance` and `interpretation`; the latter is `nothing` when no
+interpretation was recorded. The string-code lookup and its CLI/MCP envelope
+are unchanged. These report additions do not change the applicability or
+results of the independent scientific checks.
+
+Interpretation lists (`possible_explanations`, `implications`, `alternatives`,
+`suggested_checks`) are ordered arrays of `{"id", "text"}` records; earlier
+drafts used unordered objects keyed by id. Linecodes marked as source (Thevenin)
+equivalents keep their classification but carry `finding_suppressed` instead of
+producing provenance Findings. Feeder-length transformer ports add `port_role`
+and zones add `n_ports_by_role`.
+
+Interpretation implications can depend on the instance: balance signatures record
+retained conductors and phase-block scope; feeder hints record the declared
+impedance-source counts. Match the returned guidance IDs rather than assuming
+every instance of a code has the same implication list. Cap observations retain
+explicit unbounded declarations separately from absent fields.
+
+Three-wire matrices with negligible phase coupling use the per-phase
+simplification hint and retain an unknown transformation candidate. Evidence
+records `reason = "negligible_phase_coupling_origin_unresolved"`: a Schur
+correction can cancel original mutuals, so this is no proof against Kron history.
+`I.PROV.DECOUPLED_PHASES` also covers unequal self terms; the existing balance
+verdict is retained, while `phase_self_uniform` scopes the sequence implications.
+
+Linecode-use context adds positive MV/HV, LV-with-neutral and unassessed counts
+and bounded line IDs. Existing aggregate counts remain. `known_mv_hv_context`,
+`unused_linecode_context` and `unassessed_use_context` distinguish these cases;
+missing voltage/map evidence does not select MV/HV-only guidance.
+Interpretations retain `learn_more` documentation links, and the declaration
+basis counts retain `inline_overrides_linecode` for inline matrices that take
+precedence over a linecode reference.

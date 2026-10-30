@@ -298,7 +298,8 @@ assumptions required. What is **not** free is the step every sequence-network
 diagram takes next: treating zero, positive, and negative sequence as three
 *decoupled* single-phase circuits. That requires
 ``\mathbf{F}^{-1} \mathbf{Z} \mathbf{F}`` to be diagonal, which holds exactly
-when ``\mathbf{Z}`` is **circulant** — balanced, transposed construction.
+when ``\mathbf{Z}`` is **circulant**. That structure alone does not identify
+its construction history.
 Our §5 matrix is circulant by construction (all mutuals equal); perturb the
 mutuals the way untransposed geometry does and watch the decoupling die:
 
@@ -350,8 +351,9 @@ link, don't duplicate.
   the group to earth (§4).
 - **Kron-reduce only what is genuinely pinned to zero volts** (§5). If you
   ingest three-wire data that was reduced upstream, the assumption arrived
-  with it — [`I.PROV.SEQ_DERIVED` / `I.PROV.DECOUPLED_PHASES`](findings.md)
-  flag the fingerprints.
+  with it. The [`provenance Findings`](findings.md) prompt review of likely
+  prior neutral elimination. Compare with the original conductors and grounding;
+  a genuine three-wire network or a different equivalent is also possible.
 - **Sequence networks are a symmetry statement, not a coordinate change**
   (§7). Use the transform freely on results; trust decoupled networks only as
   far as the construction is balanced — and remember ``Z_0`` *is* the
@@ -365,3 +367,12 @@ link, don't duplicate.
     where Carson's earth-return correction enters the impedance data; and the
     [impedance-models tutorial](tutorial_impedance_models.md) continues §7
     into OPF consequences.
+
+The profiler helps identify assumptions worth checking: exact balance suggests
+sequence parameterisation or a symmetry assumption; an LV model without a
+represented neutral suggests reviewing prior neutral elimination, including
+Kron reduction. Physical symmetry and genuine three-wire construction are
+legitimate alternatives. Use the hints to guide investigation of the original
+conductors, grounding and quantities needed for the study. Structured context
+for readers and automated consumers is described in
+[profiler interpretation](analysis.md#Evidence-qualified-profiler-results).

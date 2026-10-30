@@ -1474,7 +1474,7 @@ IBR currents are seeded from their target complex power and the transported
 phase-to-reference voltage using `I = conj(S / V)`. The rectangular components
 are `(P*vr + Q*vi)/abs2(V)` and `(P*vi - Q*vr)/abs2(V)` in either SI or per-unit
 coordinates. Thus the seed preserves the target's reactive-power sign; it is
-still only an initial guess, subject to the limitations below (PSK-000013).
+still only an initial guess, subject to the limitations below.
 
 !!! important "A warm start selects a trajectory, not a solution certificate"
     The transport solve constructs a deterministic **zero-current phasor guess**.
@@ -1839,8 +1839,7 @@ is unassessed. At exactly P=0, the checker uses `abs(Q)` directly so tiny PF
 coefficients cannot hide reactive-only dispatch. Diagnostic infeasible candidates
 can still expose violations.
 This checks the case-authored policy, not live coefficient overrides or solver
-stamping/provenance; passing it is not a complete feasibility certificate
-(PSK-000013). The curated `verify_solution` recipe exercises the JSON path.
+stamping/provenance; passing it is not a complete feasibility certificate. The curated `verify_solution` recipe exercises the JSON path.
 
 Compatibility change: malformed, zero or out-of-range constant PF is now
 rejected with `E.INT.CONSTANT_PF_INVALID`, rather than silently dropping PF or

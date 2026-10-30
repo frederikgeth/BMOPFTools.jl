@@ -354,39 +354,17 @@ function _grow_chain!(chain, start_bus, passthrough, lines, lines_at_bus, visite
 end
 
 function _check_parallel_lines(net, findings)
-    lines = get(net, "line", Dict())
-    # Canonical bus-pair key: always (min, max) so (A,B) and (B,A) are the same
-    groups = Dict{Tuple{String,String}, Vector{String}}()
-    for (id, l) in lines
-        l isa Dict || continue
-        bf = get(l, "bus_from", nothing)
-        bt = get(l, "bus_to",   nothing)
-        (bf isa String && bt isa String) || continue
-        key = bf < bt ? (bf, bt) : (bt, bf)
-        push!(get!(groups, key, String[]), id)
-    end
-    parallel = [(pair, sort(ids)) for (pair, ids) in groups if length(ids) > 1]
-    if !isempty(parallel)
-        total = sum(length(e[2]) for e in parallel)
+    result = _parallel_line_evidence(net)
+    if result["n_groups"] > 0
+        # The legacy result retains full groups; Finding detail uses bounded witnesses.
+        detail = Dict{String,Any}(k => v for (k, v) in result if k != "groups")
         push!(findings, Finding(INFO, "I.RED.PARALLEL_LINES", :redundancy, :line, nothing,
-            "$(length(parallel)) bus pair(s) have more than one line — parallel lines are " *
-            "unusual in distribution networks and may indicate a data conversion artefact " *
-            "($total lines across $(length(parallel)) pair(s)).",
-            Dict{String,Any}(
-                "n_groups" => length(parallel),
-                "groups"   => [Dict{String,Any}(
-                    "bus_from" => e[1][1],
-                    "bus_to"   => e[1][2],
-                    "line_ids" => e[2])
-                    for e in parallel])))
+            "$(result["n_groups"]) bus pair(s) have parallel line records; " *
+            "$(result["classification_counts"]["same_declared_fields"]) groups match normalized declarations " *
+            "($(result["n_identical_group_excess"]) excess records). Review asset records if unexpected; " *
+            "matching fields do not establish duplicate assets.", detail))
     end
-    Dict{String,Any}(
-        "n_groups" => length(parallel),
-        "groups"   => [Dict{String,Any}(
-            "bus_from" => e[1][1],
-            "bus_to"   => e[1][2],
-            "line_ids" => e[2])
-            for e in parallel])
+    result
 end
 
 function _check_zero_shunts(net, findings)

@@ -73,7 +73,7 @@ so is the result:
     Use `ybus_augmented` for supported small/zero or singular leakage cases.
     Its border retains finite leakage rather than replacing it by zero.
     `shunt_only=true` inspects the finite no-load contribution and is not a
-    complete transformer model. This is the existing PSK-000002 boundary.
+    complete transformer model.
 
 
 ## 2. `single_phase` (wye–wye, Γ-model)

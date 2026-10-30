@@ -254,12 +254,30 @@ end
 @testset "T2: Thermal — R₁₁ outside lookup range → skipped" begin
     net = _lv_net()
     net["linecode"]["lc"]["R_series_1_1"] = 0.00001  # 0.01 mΩ/m — below table minimum
+    # Reach the lookup gate with a complete complex-matrix signature. Missing
+    # X is now unassessed and conservatively skips thermal inference earlier.
+    for k in 1:4
+        net["linecode"]["lc"]["X_series_$(k)_$(k)"] = 0.0001
+    end
 
     net′, mf = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
 
     @test !haskey(net′["linecode"]["lc"], "i_max")
     e = only(filter(x -> x.component_id == "lc" && x.field == "i_max", mf.entries))
     @test contains(e.note, "outside lookup range")
+end
+
+@testset "T2: Thermal — incomplete matrix evidence remains unassessed" begin
+    net = _lv_net()
+    net["linecode"]["lc"]["R_series_1_1"] = 0.0003
+    observed = provenance_analysis(net, Finding[])["linecodes"]["by_linecode"]["lc"]
+    @test observed["verdict"] == "unassessed"
+    @test observed["balance_reason"] == "missing_or_incompatible_X_matrix"
+    target, manifest = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
+    @test !haskey(target["linecode"]["lc"], "i_max")
+    entry = only(filter(e -> e.component_id == "lc" && e.field == "i_max", manifest.entries))
+    @test entry.new_value === nothing
+    @test entry.confidence == :low
 end
 
 @testset "i_max: single-phase length-1 standardised to per-conductor [phase, neutral]" begin

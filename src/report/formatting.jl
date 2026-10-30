@@ -17,7 +17,7 @@ function _sev_color(sev::Severity, color::Bool)
     return (_ANSI_CYAN, _ANSI_RESET)
 end
 
-function _fmt_finding(f::Finding, io::IO; color::Bool=false, prefix::String="  ")
+function _fmt_finding(f::Finding, io::IO; color::Bool=false, prefix::String="  ", interpretation::Bool=false)
     pre, post = _sev_color(f.severity, color)
     label = _SEV_LABEL[f.severity]
     sym   = _SEV_SYMBOL[f.severity]
@@ -30,6 +30,60 @@ function _fmt_finding(f::Finding, io::IO; color::Bool=false, prefix::String="  "
     end
     println(io)
     println(io, "$prefix  $(f.message)")
+    interpretation && _fmt_interpretation(f, io; prefix="$prefix    ")
+end
+
+_finding_interpretation_record(f::Finding) =
+    f.detail isa AbstractDict ? get(f.detail, "interpretation", nothing) : nothing
+
+# The message already says why it matters; add the main alternative and the
+# first check. Full lists stay in JSON and the markdown report.
+function _fmt_interpretation(f::Finding, io::IO; prefix::String="      ")
+    interp = _finding_interpretation_record(f)
+    interp isa AbstractDict || return
+    for (key, label) in (("alternatives", "Or"), ("suggested_checks", "Check"))
+        list = get(interp, key, Any[])
+        isempty(list) || println(io, "$prefix$label: $(first(list)["text"])")
+    end
+end
+
+# Per-instance observations worth showing a reader (pattern comparisons).
+function _interpretation_observation_lines(interp)
+    lines = String[]
+    by = get(get(interp, "observations", Dict()), "by_linecode", Dict())
+    for id in sort!(collect(keys(by)))
+        cmp = get(by[id], "pattern_comparison", nothing)
+        cmp isa AbstractDict && push!(lines, "`$id`: $(cmp["summary"])")
+    end
+    lines
+end
+
+function _md_interpretation(f::Finding, io::IO; indent::String="  ")
+    interp = _finding_interpretation_record(f)
+    interp isa AbstractDict || return
+    println(io, "$indent<details><summary>How to read this</summary>\n")
+    obs = _interpretation_observation_lines(interp)
+    if !isempty(obs)
+        println(io, "$indent**Observed:**\n")
+        for line in obs; println(io, "$indent- $line"); end
+        println(io)
+    end
+    for (key, label) in (("possible_explanations", "Likely meaning"), ("implications", "Why it matters"),
+                         ("alternatives", "Other explanations"), ("suggested_checks", "What to check"))
+        list = get(interp, key, Any[])
+        isempty(list) && continue
+        println(io, "$indent**$label:**\n")
+        for h in list; println(io, "$indent- $(h["text"])"); end
+        println(io)
+    end
+    links = get(interp, "learn_more", Any[])
+    if !isempty(links)
+        println(io, "$indent**Learn more:** " *
+            join(["[$(l["section"])]($(l["url"]))" for l in links], " · ") * "\n")
+    end
+    println(io, "$indent*A hint to review, not a verified cause; gather evidence before changing the model. " *
+        "Full record: `explain_finding(f)` or the JSON report.*\n")
+    println(io, "$indent</details>\n")
 end
 
 function _section_header(io::IO, title::String; color::Bool=false, width::Int=70)

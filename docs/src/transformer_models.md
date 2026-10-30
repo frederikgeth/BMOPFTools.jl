@@ -146,28 +146,34 @@ is hidden.
 
 ## Nameplate rating (`s_rating`) as a loading cap
 
-`s_rating` plays two roles, and they must not be conflated:
+For the two-bus (two-winding) subtypes, `s_rating` plays two roles:
 
 1. **Per-unit impedance base (always).** The short-circuit reactances are
    expressed on **winding 1's** kVA base — the OpenDSS convention (`%XHL`/`%XHT`/
    `%XLT` are all on the winding-1 base, *not* the highest-powered winding). The
    OPF matches this: the leakage is per-unitised by `z_base(winding-1 bus)` and
    `s_rating`. **This base never changes**, so OpenDSS round-trips stay exact.
-2. **Apparent-power loading cap (always enforced).** The nameplate is enforced as
+2. **Apparent-power loading cap (when declared).** The nameplate is enforced as
    a per-winding coil apparent-power limit `P² + Q² ≤ (s_rating / n_\text{ph})²`
    (the coil voltage is phase-to-neutral for a wye winding, line-to-line for a
    delta winding, so it is never ≈ 0 — no neutral degeneracy), alongside the
    per-winding `i_max_from`/`i_max_to` current cones when present. Because
-   `s_rating` is a required field, **every transformer is power-limited**; to solve
-   without the limit (e.g. a determined power flow compared against limit-free
+   `s_rating` is required by the normal records for these subtypes, they normally
+   have this loading cap; to solve without the limit (e.g. a determined power flow compared against limit-free
    OpenDSS), remove `s_rating` from the network dict before calling the OPF. Keep
    in mind the primary coil carries load *plus* copper losses, so at exactly-rated
    delivery the from-side cap binds slightly below the secondary nameplate
    throughput (by the loss margin). See
    [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits).
 
-For `n_winding` transformers, add an optional per-winding `s_max` (the winding's
-own kVA) inside each winding entry; it is enforced when present. The per-unit
+For `n_winding` transformers, the top-level nameplate does **not** automatically
+create a loading cap. Declare finite per-winding `s_max` (the winding's own VA)
+or `i_max` inside each winding entry to impose the corresponding supported
+coil limits. A winding with neither finite cap remains without its own thermal
+constraint, even if the transformer has `s_rating`; other winding or network
+constraints can still bound its operating point. Explicit `Inf` means unbounded
+and zero is a restriction. See `W.OPS.XFMR_UNCONSTRAINED` in the
+[Finding reference](findings.md). The per-unit
 impedance base still keys off winding 1's `s_rating`, so introducing per-winding
 ratings never re-bases the leakage.
 

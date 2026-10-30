@@ -102,7 +102,7 @@ The report neither changes ratings nor retries solves. It is separate from
 `W.OPS.XFMR_OVERLOADED`, the existing **90% downstream nominal-load estimate**.
 Qualified per-coil preflight demand/headroom estimates are documented in
 [Qualified nominal transformer coil headroom](@ref) and remain separate from supplied results. The independent voltage/current regression for the ideal bank is
-case-specific PSK-000013 evidence, not a universal transformer validation claim.
+case-specific evidence; it does not validate every transformer configuration.
 
 ## Top-level fields
 

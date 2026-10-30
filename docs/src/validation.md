@@ -651,4 +651,4 @@ width, and softplus/Swish encoding. Native solves export those coefficients.
 The report includes both caps and excesses, the signed approximation error,
 and `epsilon_V`. Missing or unsupported curve evidence is indeterminate. A
 modeled-cap pass concerns that declared curve only; it does not authenticate
-solver stamping or establish complete network feasibility (PSK-000013).
+solver stamping or establish complete network feasibility.

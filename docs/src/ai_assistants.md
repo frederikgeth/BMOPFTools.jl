@@ -186,6 +186,30 @@ do not infer a PSK link from topical similarity. If the code belongs to an
 external PowerIO namespace such as `EMIT.*`, use PowerIO's catalogue rather
 than inventing a BMOPFTools explanation.
 
+For a Julia `Finding` instance from `report.findings`, `explain_finding(finding)`
+returns the catalogue entry plus any recorded `interpretation`: observations, ordered possible
+explanations, implications, alternatives, suggested checks and `learn_more`
+documentation links to cite when explaining the hint to the user. Provenance,
+feeder-length and n-winding cap hints carry one. An INFO or WARNING can be useful
+without a verified cause; its severity is not permission to change the model.
+Follow `automation_guidance`: investigate the hypothesis, tell the user what it
+would mean for their study, and obtain evidence before proposing an edit. The
+[profiler guide](analysis.md#Evidence-qualified-profiler-results) documents the
+fields. Code-only CLI/MCP lookup remains a catalogue operation.
+
+For a serialized entry from the `findings` array of an `analyze_case` JSON
+response, read its recorded interpretation directly:
+
+```julia
+guide = json_finding["detail"]["interpretation"]  # for a Finding that carries guidance
+catalogue = explain_finding(json_finding["code"])
+```
+
+Check for missing/null `detail` and `interpretation` when iterating over the
+whole array. JSON dictionaries are not Julia `Finding` instances; the instance
+overload does not accept them. The recorded context is already present in the
+JSON report, while the code-only lookup supplies the catalogue explanation.
+
 ### Evaluate a scientific contract
 
 > Evaluate `parallel_member_limit_preservation` for the declared source members `<IDs>` and target aggregate `<ID>`. Report the `ScientificContractResult` status, checked dimensions, unassessed dimensions, Findings, tolerances, and witness. If the result is `inapplicable` or `indeterminate`, do not convert it to a pass or failure. Treat `PSK-000001` as a link to the book's scoped scientific statement, not as a claim that the scalar implementation covers multiconductor or state-dependent branches.

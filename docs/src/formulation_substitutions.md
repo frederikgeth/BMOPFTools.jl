@@ -75,9 +75,9 @@ voltage alone does not establish matching duals or local sensitivities.
 The detailed [line](opf.md#Lines), [shunt](opf.md#Standalone-shunts), and
 [load](opf.md#Loads) sections own the implementation details. The package's
 `test/opf_device_substitution_tests.jl` supplies analytic device witnesses,
-including zero voltage and parameter updates through zero, under the existing
-PSK-000013 feasibility-evidence link. Transformer reference/port boundaries
-remain linked to PSK-000002 in the admittance guide. These finite witnesses do
+including zero voltage and parameter updates through zero. The
+[admittance guide](spec/nodal-admittance.md) explains transformer references and
+port boundaries. These finite witnesses do
 not establish a universal formulation-equivalence claim; use
 [independent solution verification](tutorial_trust_but_verify.md) for the
 actual study case.

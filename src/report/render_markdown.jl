@@ -20,6 +20,7 @@ function render_markdown(report::SummaryReport, io::IO; verbose::Bool=true)
     println(io)
     println(io, "---\n")
 
+    _render_assessment_coverage(report, io; markdown=true)
     _md_inventory(report, io)
     _md_voltage_levels(report, io)
     _md_connectivity(report, io)
@@ -151,20 +152,6 @@ function _md_connectivity(r::SummaryReport, io::IO)
                 println(io, "| $(zone["anchor"]) | $(join(zone["voltage_levels"], ", ")) | " *
                     "$(zone["n_buses"]) | $(zone["cycle_rank"]) | " *
                     "$(zone["parallel_excess"]) | $(zone["n_incident_isolating_transformers"]) |")
-            end
-            println(io)
-        end
-        parallel = structure["parallel_lines"]
-        println(io, "Parallel line groups: $(parallel["n_groups"]). " *
-            "Classification counts: " *
-            join(["$k=$(parallel["classification_counts"][k])" for k in
-                  sort!(collect(keys(parallel["classification_counts"])))], ", ") * ".\n")
-        if !isempty(parallel["witnesses"])
-            println(io, "| Bus pair | Line IDs | Declared-field class |")
-            println(io, "|---|---|---|")
-            for witness in parallel["witnesses"]
-                println(io, "| $(join(witness["bus_pair"], " ↔ ")) | " *
-                    "$(join(witness["line_ids"], ", ")) | $(witness["classification"]) |")
             end
             println(io)
         end
@@ -309,6 +296,7 @@ function _md_connectivity(r::SummaryReport, io::IO)
         end
     end
     _md_spatial(get(d, "spatial", nothing), io)
+    _render_parallel_evidence(r, io; markdown=true)
     _md_section_findings(r, io, :connectivity)
 end
 
@@ -520,6 +508,7 @@ function _md_diversity(r::SummaryReport, io::IO)
         end
         println(io)
     end
+    _render_repeat_evidence(r, io; markdown=true)
     _md_section_findings(r, io, :diversity)
 end
 
@@ -540,18 +529,8 @@ function _md_operational(r::SummaryReport, io::IO)
     glr !== nothing && println(io, "| Generation/load ratio | $(glr)% |")
     println(io)
 
-    xutil = get(d, "transformer_utilisation", Any[])
-    if !isempty(xutil)
-        println(io, "**Transformer utilisation:**\n")
-        println(io, "| ID | Rating | Loading (est.) |")
-        println(io, "|----|--------|---------------:|")
-        for u in xutil
-            flag = get(u, "estimate_status", "radial_component") == "upper_bound" ?
-                " (upper bound)" : u["utilisation_pct"] > 90 ? " ⚠" : ""
-            println(io, "| $(u["id"]) | $(_fmt_mva(u["s_rating_va"])) | $(_fmt_pct(u["utilisation_pct"]))$flag |")
-        end
-        println(io)
-    end
+    _render_nameplate_estimates(r, io; markdown=true)
+    _render_operational_evidence(r, io; markdown=true)
     _md_section_findings(r, io, :operational)
     _md_section_findings(r, io, :load_models)
 end
@@ -598,6 +577,7 @@ function _md_provenance(r::SummaryReport, io::IO)
     d = get(r.results, :provenance, nothing)
     d === nothing && return
     println(io, "## 7. Provenance & Model Conventions\n")
+    _render_provenance_evidence(r, io; markdown=true)
     println(io, "**Inferred convention:** $(get(d, "convention", "undetermined"))\n")
 
     wl = get(d, "wires_by_level", Dict())
@@ -628,7 +608,7 @@ function _md_provenance(r::SummaryReport, io::IO)
         println(io, "| Verdict | Count |")
         println(io, "|---------|------:|")
         for verdict in ("distinct", "near_balanced", "exactly_balanced",
-                        "decoupled", "not_applicable")
+                        "decoupled", "unassessed", "not_applicable")
             haskey(vc, verdict) || continue
             println(io, "| $verdict | $(vc[verdict]) |")
         end
@@ -749,7 +729,8 @@ function _md_quality(r::SummaryReport, io::IO; verbose::Bool=true)
         println(io, "### $icon $label\n")
         for f in subset
             println(io, "- **[$(f.code)]** `$(something(f.component_id, string(f.component_type)))`  ")
-            println(io, "  $(f.message)")
+            println(io, "  $(f.message)\n")
+            _md_interpretation(f, io)
         end
         println(io)
     end

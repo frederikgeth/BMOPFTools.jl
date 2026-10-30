@@ -56,10 +56,18 @@ function _wires_by_level(net::Dict{String,Any},
                 "corroborating an implicit neutral."
             push!(findings, Finding(INFO, "I.PROV.KRON_LIKELY", :provenance,
                 :network, nothing,
-                "Voltage level $label has no represented neutral conductor. " *
-                "Kron reduction is one possible origin; source provenance is required.$extra",
+                "Voltage level $label has no neutral conductor on any branch. LV is usually four-wire, so the " *
+                "neutral was probably eliminated (e.g. Kron reduction), which assumes 0 V neutral at every bus and " *
+                "cannot show neutral voltage rise. Check the source data; some LV systems are genuinely three-wire.$extra",
                 Dict{String,Any}("level" => label,
-                                 "implicit_ground_loads" => implicit_loads)))
+                    "implicit_ground_loads" => sort(implicit_loads),
+                    "evidence_kind" => "heuristic_candidate", "history_verified" => false,
+                    "knowledge_ids" => ["PSK-000008"],
+                    "interpretation" => _finding_interpretation("I.PROV.KRON_LIKELY",
+                        Dict{String,Any}("level" => label, "nominal_v" => nominal_v,
+                             "n_buses" => length(ids), "n_with_neutral" => n_with_n),
+                        supporting_context=isempty(implicit_loads) ? Dict{String,Any}() :
+                            Dict{String,Any}("implicit_ground_loads" => sort(implicit_loads))))))
         end
     end
 

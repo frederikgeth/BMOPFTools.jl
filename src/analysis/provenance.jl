@@ -6,12 +6,12 @@ modeling assumptions explicit:
 
 1. **Linecode impedance classification** — per linecode, classify the phase
    block of the series impedance matrix:
-   - `decoupled`        — diagonal matrix: positive-sequence-only data; the
-                          three phases are mathematically independent.
-   - `exactly_balanced` — equal self and equal mutual entries: constructed
-                          from sequence parameters (r1,x1,r0,x0) or under a
-                          transposition assumption. The implied Z1/Z0 are
-                          recovered and reported.
+   - `decoupled`        — negligible series coupling: review whether a
+                          simplified model or sequence-coordinate data was supplied.
+   - `exactly_balanced` — equal self and equal mutual entries: suggests sequence
+                          parameterisation or a transposition/symmetry assumption;
+                          physical symmetry is an alternative. Implied Z1/Z0
+                          are recovered and reported.
    - `near_balanced`    — balanced within 1%: possibly physical (twisted /
                           bundled symmetric cable construction).
    - `distinct`         — consistent with first-principles geometry (Carson).
@@ -24,8 +24,9 @@ modeling assumptions explicit:
    Γ-sections and modelled shunt conductance are called out individually.
 
 2. **Wires per voltage level** — represented branch-conductor counts and
-   neutral incidence. Missing LV neutral conductors do not establish a
-   reduction history. A network whose neutrals are all perfectly
+   neutral incidence. Missing LV neutral conductors prompt review for prior
+   neutral elimination, including Kron reduction; genuine three-wire networks
+   and other equivalents are alternatives. A network whose neutrals are all perfectly
    grounded is exactly Kron-reducible (redundant variables).
 
 3. **Neutral grounding** — builds the neutral-conductor continuity graph and
@@ -50,7 +51,7 @@ function provenance_analysis(net::Dict{String,Any},
     result["opendss_defaults"]    = _check_opendss_defaults(net, findings,
                                                               result["linecodes"])
     result["impedance_transform"] = _classify_impedance_transformation(
-                                        net, findings, result["linecodes"])
+                                        net, findings, result["linecodes"]; voltage_levels=vl)
     result["earthing_zones"]      = _earthing_zones(net, vl)
     _check_regulator_patterns(net, findings, vl)
     _check_bus_shunts(net, findings)
@@ -156,6 +157,7 @@ end
 # Sub-module includes
 # ---------------------------------------------------------------------------
 
+include("provenance/interpretation.jl")
 include("provenance/linecodes.jl")
 include("provenance/wires_grounding.jl")
 include("provenance/data_quality.jl")

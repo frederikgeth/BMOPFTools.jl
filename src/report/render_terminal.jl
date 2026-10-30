@@ -8,6 +8,7 @@ Write a human-readable text report to `io`.
 function render_terminal(report::SummaryReport, io::IO;
                           color::Bool=false, verbose::Bool=true)
     _render_header(report, io; color)
+    _render_assessment_coverage(report, io)
     _render_inventory(report, io; color)
     _render_voltage_levels(report, io; color)
     _render_connectivity(report, io; color)
@@ -165,6 +166,7 @@ function _render_connectivity(r::SummaryReport, io::IO; color::Bool=false)
         end
     end
 
+    _render_parallel_evidence(r, io)
     _render_section_findings(r, io, :connectivity; color)
 end
 
@@ -201,6 +203,7 @@ function _render_diversity(r::SummaryReport, io::IO; color::Bool=false)
         end
     end
 
+    _render_repeat_evidence(r, io)
     _render_section_findings(r, io, :diversity; color)
 end
 
@@ -235,16 +238,7 @@ function _render_operational(r::SummaryReport, io::IO; color::Bool=false)
         end
     end
 
-    xutil = get(d, "transformer_utilisation", Any[])
-    if !isempty(xutil)
-        println(io, "\n  Transformer utilisation (nominal load estimate):")
-        for u in xutil
-            bar = get(u, "estimate_status", "radial_component") == "upper_bound" ?
-                " (upper bound)" : u["utilisation_pct"] > 90 ? " ⚠" : ""
-            println(io, "    $(rpad(u["id"], 16)) $(rpad(_fmt_mva(u["s_rating_va"]) * " rating", 18)) " *
-                        "$(_fmt_pct(u["utilisation_pct"]))$bar")
-        end
-    end
+    _render_nameplate_estimates(r, io)
 
     tc = get(d, "line_thermal_coverage", Dict())
     if !isempty(tc)
@@ -253,6 +247,7 @@ function _render_operational(r::SummaryReport, io::IO; color::Bool=false)
                     "($(tc["pct_constrained"])% constrained)")
     end
 
+    _render_operational_evidence(r, io)
     _render_section_findings(r, io, :operational; color)
     _render_section_findings(r, io, :load_models; color)
 end
@@ -299,6 +294,7 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
     _section_header(io, "7. PROVENANCE & MODEL CONVENTIONS"; color)
 
     _kv_row(io, "Inferred convention", get(d, "convention", "undetermined"))
+    _render_provenance_evidence(r, io)
 
     wl = get(d, "wires_by_level", Dict())
     if !isempty(wl)
@@ -325,7 +321,7 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
     if !isempty(vc)
         println(io, "\n  Linecode impedance classification:")
         for verdict in ("distinct", "near_balanced", "exactly_balanced",
-                        "decoupled", "not_applicable")
+                        "decoupled", "unassessed", "not_applicable")
             haskey(vc, verdict) || continue
             println(io, "    $(rpad(verdict, 18)) $(vc[verdict])")
         end
@@ -454,6 +450,6 @@ function _render_section_findings(r::SummaryReport, io::IO, section::Symbol;
     isempty(fs) && return
     println(io)
     for f in fs
-        _fmt_finding(f, io; color, prefix="  ")
+        _fmt_finding(f, io; color, prefix="  ", interpretation=true)
     end
 end

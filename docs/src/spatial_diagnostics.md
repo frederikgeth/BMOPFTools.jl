@@ -348,8 +348,8 @@ measurements but does not assert the CRS of every bus.
 
 `discrepancy_candidates.checks` adds descriptive review categories to the spatial
 report. These `S.*` candidate codes are stable package-local categories, **not
-Finding codes**, electrical-equivalence claims or repair instructions. They add
-no PSK preservation claim. JSON retains terminal maps, voltage tiers, coordinate
+Finding codes**, electrical-equivalence claims or repair instructions.
+JSON retains terminal maps, voltage tiers, coordinate
 provenance, switch states and branch references; Markdown summarizes bounded
 witnesses. The synthetic `test/data/spatial_discrepancies.json` demonstrates a
 direct line alongside a series path, shared geometry, a repeated explicit source

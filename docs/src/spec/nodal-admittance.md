@@ -152,7 +152,7 @@ BMOPF model — it contributes no admittance and sets only the boundary.
 **Zero-impedance aliasing.** Closed switches and negligible-impedance lines
 fuse their terminal pairs. Transformer windings use voltage/current equations:
 a unity nameplate ratio does not identify their terminal-to-earth voltages or
-bond isolated neutrals (PSK-000002).
+bond isolated neutrals.
 
 A switch is closed unless its [`open_switch`](switch.md) field is `true`; an
 absent field means closed, as in the OPF, and a value that is not a boolean
@@ -166,7 +166,7 @@ closed path to a source as `open_switch_isolated_buses`.
 Transformer borders replace only the **series** contribution. Finite
 magnetising and internal neutral-grounding branches remain in the passive block,
 stamped exactly once. This preserves the represented grounding branch; it does
-not establish grounding adequacy or equipment safety (PSK-000002).
+not establish grounding adequacy or equipment safety.
 
 ### Transformer leakage policy
 
@@ -174,7 +174,7 @@ Ordinary two-winding and center-tap Ybus inputs require explicit positive finite
 `v_nom_from` and `v_nom_to`, including shunt-only primitive inspection. Missing,
 zero, negative, Boolean or nonfinite declarations raise `ArgumentError`; they
 never imply a unity turns ratio. Ratios must also remain finite and nonzero in
-Float64 arithmetic (PSK-000002).
+Float64 arithmetic.
 
 `xfmr_z_min_ohm` must be finite and nonnegative. An effective impedance at or
 below it selects a bordered representation, **not an approximation to zero**.
@@ -292,7 +292,7 @@ it can be a neutral or the second phase of a line-to-line coil. An omitted
 reference is allowed only on both sides (implicit earth). Open-delta ties the
 common phase of its two cores (ABBC: b, BCAC: c, CABA: a). These galvanic bonds
 apply to finite and ideal leakage alike and are distinct from isolated winding
-voltage relations (PSK-000013, PSK-000002).
+voltage relations.
 
 Each regulator core uses its own positive finite fixed tap and Type A/B ratio.
 If one core needs a border, both core equations are retained, including all
@@ -310,7 +310,7 @@ polarity of leg2 and every finite arm, including when another arm is zero.
 No arm is inverted. Fully ideal units have two independent zero-voltage-drop
 relations; partly ideal units generally have a nonzero lower-right block.
 Magnetising current remains on LV leg1 and both internal neutral grounding
-branches remain in the passive block (PSK-000002).
+branches remain in the passive block.
 
 `couplings[j]` describes auxiliary unknown `w[j]` at row/column
 `length(nodes)+j`; its physical port current is `couplings[j].scale*w[j]`.
@@ -336,7 +336,7 @@ or implicit earth; DELTA requires three phases, no neutral and `delta_roll`
 of +1 or -1. Unknown configurations, malformed maps and missing pairs are
 rejected rather than inferred. The no-load branch remains across each coil
 of winding 2. Internal neutral-grounding fields are not supported by the
-n-winding model; represent grounding as explicit network shunts (PSK-000002).
+n-winding model; represent grounding as explicit network shunts.
 Network assembly also requires every referenced winding bus and terminal to
 exist. A named but undeclared neutral is an error, not implicit earth. Omit the
 neutral from a WYE winding map to request the documented implicit-earth domain;

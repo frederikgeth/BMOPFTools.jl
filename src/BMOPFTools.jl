@@ -722,7 +722,7 @@ metre and scale with `length`; inline line matrices are section totals and
 are **never** scaled by length (`length`, if present, is descriptive only).
 A line must have exactly one impedance source (`E.INT.LINE_IMPEDANCE_SOURCE`).
 """
-_line_has_inline_z(line::Dict{String,Any})::Bool =
+_line_has_inline_z(line::AbstractDict)::Bool =
     haskey(line, "R_series_1_1") || haskey(line, "X_series_1_1")
 
 # ---------------------------------------------------------------------------
@@ -773,6 +773,9 @@ include("analysis/spatial_review_decisions.jl")
 include("analysis/switch_scenarios.jl")
 include("analysis/connectivity.jl")
 include("analysis/diversity.jl")
+include("analysis/finding_interpretation.jl")
+include("analysis/winding_limit_coverage.jl")
+include("analysis/feeder_reach.jl")
 include("analysis/operational.jl")
 include("analysis/load_models.jl")
 include("analysis/provenance.jl")
@@ -798,6 +801,7 @@ include("knowledge/contracts.jl")
 include("network/simplify.jl")
 
 include("report/formatting.jl")
+include("report/assessment_coverage.jl")
 include("report/render_terminal.jl")
 include("report/render_markdown.jl")
 include("report/spatial_review_export.jl")
@@ -852,6 +856,8 @@ function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CO
     results[:integrity]      = integrity_check(working, findings)
     results[:spec]           = spec_conformance_check(working, findings)
     results[:benchmark]      = benchmark_readiness_check(working, findings)
+
+    results[:assessment] = _assessment_coverage(results)
 
     SummaryReport(
         get(net, "name", nothing),
@@ -3166,7 +3172,7 @@ already have KCL enforced. Existing optimize hooks are honored. Direct models
 are unsupported: rebuild those explicitly. JuMP handles, attributes and explicit
 start values survive; solver factorizations and automatic warm-start transfer
 do not. Topology, dimensions and voltage-domain changes require rebuilding.
-Check physical residuals independently after solving (PSK-000013).
+Check physical residuals independently after solving.
 """
 function resolve_opf! end
 export resolve_opf!

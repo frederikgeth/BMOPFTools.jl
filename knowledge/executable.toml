@@ -1,3 +1,8 @@
+# Review: source completeness and coordinate-invariant signatures remain descriptive;
+# exact repeat grouping and explicit malformed/disabled reasons do not widen PSK domains.
+# Profiler evidence separates finite winding caps, qualified boundary distance,
+# matrix signatures/history, declaration repetition and assessment coverage.
+# These descriptive checks retain existing PSK domains and the analyze_case adapter.
 # DSS export admission (PSK-000007) checks only static AC identity correspondence
 # and declared bounds/effective ratings after re-import; otherwise indeterminate.
 # W.EXPORT.DSS_RATING_UNVERIFIED requires explicit PF-only opt-in. It is not a
@@ -71,6 +76,22 @@
 # Source phase preservation stays indeterminate for unmapped leadlag (PSK-000006).
 # Earthing reports expose finite paths and conductor incidence without inferring
 # protective-system identity; synthetic fixtures cover boundaries and serialization.
+# Provenance INFO Findings retain exploratory sequence, PN/MPN and Kron hypotheses
+# with observations, alternatives and review guidance (PSK-000008 / PSK-000009).
+# The analyze_case recipe discovers their source, tests and minimized fixture.
+# Interpretations (shared module src/analysis/finding_interpretation.jl) are ordered
+# {id,text} lists incl. implications; also cover feeder-length and n-winding cap hints.
+# Converter source (Thevenin) equivalents are excluded from provenance hints.
+# Diagonal blocks prioritize the per-phase hint with origin unresolved: Schur
+# corrections can cancel mutuals. Sequence inputs may also materialize extra
+# conductors. Context keeps known voltage tiers separate from unassessed uses.
+# Interpretations retain learn_more doc links; JSON consumers read stored detail.
+# Profiler implications retain phase-block scope and additional conductor coupling,
+# distinguish absolute from length-scaled line declarations, and preserve explicit
+# unbounded winding caps. Arithmetic PN/Kron witnesses test the reference relations
+# without widening PSK-000008/PSK-000009 or introducing new scientific contracts.
+# explain_finding(::Finding) returns recorded instance context without inferring
+# a model-changing action or widening either scientific check's domain.
 schema_version = "0.6.0"
 
 [[contract]]
@@ -1145,3 +1166,50 @@ source_paths = [
   "test/property_based_contract_tests.jl",
   "test/property/unit-base-serialization-seed.json",
 ]
+
+# Stable PSK links for Findings that are not owned by an executable contract.
+# Each mirrors the knowledge_ids the emitting code records in Finding detail;
+# it links to the book's scoped statement and widens no domain.
+[[finding_knowledge]]
+code = "W.EXPORT.DSS_RATING_UNVERIFIED"
+knowledge_ids = ["PSK-000007"]
+
+[[finding_knowledge]]
+code = "I.DIV.LOAD_PHASE_BALANCED"
+knowledge_ids = ["PSK-000009"]
+
+[[finding_knowledge]]
+code = "W.INT.DEVICE_INDEXING_UNASSESSED"
+knowledge_ids = ["PSK-000002"]
+
+[[finding_knowledge]]
+code = "E.TMAP.PHASE_TO_NEUTRAL"
+knowledge_ids = ["PSK-000002"]
+
+[[finding_knowledge]]
+code = "E.TMAP.DEVICE_ROLES"
+knowledge_ids = ["PSK-000002"]
+
+[[finding_knowledge]]
+code = "I.PROV.SEQ_DERIVED"
+knowledge_ids = ["PSK-000009"]
+
+[[finding_knowledge]]
+code = "I.PROV.DECOUPLED_PHASES"
+knowledge_ids = ["PSK-000009"]
+
+[[finding_knowledge]]
+code = "I.PROV.KRON_LIKELY"
+knowledge_ids = ["PSK-000008"]
+
+[[finding_knowledge]]
+code = "I.PROV.IMPEDANCE_TRANSFORM_KR"
+knowledge_ids = ["PSK-000008", "PSK-000009"]
+
+[[finding_knowledge]]
+code = "I.PROV.IMPEDANCE_TRANSFORM_PN"
+knowledge_ids = ["PSK-000008", "PSK-000009"]
+
+[[finding_knowledge]]
+code = "I.PROV.IMPEDANCE_TRANSFORM_MPN"
+knowledge_ids = ["PSK-000008", "PSK-000009"]

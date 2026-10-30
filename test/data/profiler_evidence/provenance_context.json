@@ -1,0 +1,25 @@
+{
+  "bus": {
+    "s": {"terminal_names": ["a", "b", "c"]},
+    "t": {"terminal_names": ["a", "b", "c"]}
+  },
+  "voltage_source": {
+    "grid": {"bus": "s", "terminal_map": ["a", "b", "c"], "v_magnitude": [230.0, 230.0, 230.0]}
+  },
+  "linecode": {
+    "three_wire": {
+      "R_series_1_1": 3.0, "R_series_2_2": 4.0, "R_series_3_3": 5.0,
+      "R_series_1_2": 0.3, "R_series_2_1": 0.3,
+      "R_series_1_3": 0.4, "R_series_3_1": 0.4,
+      "R_series_2_3": 0.5, "R_series_3_2": 0.5,
+      "X_series_1_1": 2.0, "X_series_2_2": 3.0, "X_series_3_3": 4.0,
+      "X_series_1_2": 0.1, "X_series_2_1": 0.1,
+      "X_series_1_3": 0.1, "X_series_3_1": 0.1,
+      "X_series_2_3": 0.1, "X_series_3_2": 0.1
+    }
+  },
+  "line": {
+    "feeder": {"bus_from": "s", "bus_to": "t", "terminal_map_from": ["a", "b", "c"],
+      "terminal_map_to": ["a", "b", "c"], "linecode": "three_wire", "length": 1.0}
+  }
+}

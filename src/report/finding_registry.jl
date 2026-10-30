@@ -15,12 +15,20 @@ Base.showerror(io::IO, error::UnknownFindingCode) = print(
 
 """
     explain_finding(code) -> Dict{String,Any}
+    explain_finding(finding::Finding) -> Dict{String,Any}
 
 Return the checked offline catalogue entry for one stable BMOPFTools Finding
 code. The explanation records severity, namespace, catalogue section, canonical
-meaning, documentation provenance, and any existing executable-contract/PSK
+meaning, documentation provenance, and any existing executable-contract and scientific-reference
 links. It does not infer a cause, recommend an automatic repair, or inspect a
 case-specific Finding instance.
+
+With a `Finding`, also return its serialized `instance` and any recorded
+`interpretation`: observations, possible explanations, supporting context,
+alternatives, suggested checks and automation guidance. Missing interpretation
+is `nothing`; this method does not invent context or infer a repair. Returned
+instance data are detached from the original Finding. The code-only lookup
+and its CLI/MCP response keep their existing shape.
 
 Codes authored by external conversion pipelines (for example `EMIT.*` or
 `READ.*`) are intentionally outside this registry and raise
@@ -49,4 +57,12 @@ function explain_finding(code::AbstractString)::Dict{String,Any}
             "schema_version" => _FINDING_REGISTRY_SCHEMA_VERSION,
         ),
     )
+end
+
+function explain_finding(finding::Finding)::Dict{String,Any}
+    result = explain_finding(finding.code)
+    result["instance"] = deepcopy(_finding_to_json(finding))
+    detail = something(finding.detail, Dict{String,Any}())
+    result["interpretation"] = _jsonable(get(detail, "interpretation", nothing))
+    result
 end

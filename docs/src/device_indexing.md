@@ -3,9 +3,8 @@
 `integrity_check` and `spec_conformance_check` resolve declared terminal roles
 through the shared convention helpers. The checks describe the package's
 supported indexing domains; the same array length can mean different things for
-different devices. They do not reorder or mutate the case. The implementation
-and regression evidence are linked to PSK-000002 in `knowledge/executable.toml`;
-the scientific claim remains book-owned.
+different devices. They do not reorder or mutate the case. These indexing checks do not establish
+grounding adequacy or electrical equivalence.
 
 ## Field coverage
 
