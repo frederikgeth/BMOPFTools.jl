@@ -2,7 +2,7 @@
 #
 # A power flow is the same physics as solve_opf / solve_feasibility_opf with two
 # deliberate omissions that make it a *determined* problem rather than an
-# optimisation:
+# optimization:
 #
 #   1. NO operational bounds (voltage limits, bus limits, device current/thermal
 #      limits). The power flow solves the network as-is and reports whatever

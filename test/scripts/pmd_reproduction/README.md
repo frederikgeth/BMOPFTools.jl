@@ -8,7 +8,7 @@ the original IVREN reproduction and predate these scripts. They are **not**
 part of the test suite and are **never run in CI** — the suite needs no PMD
 dependency, which is the point of hardcoding the targets. Run them when adding
 a new bound-binding case or when re-deriving the locked numbers after a
-modelling change.
+modeling change.
 
 ## Environment
 

@@ -1,9 +1,9 @@
 # Lines
 
-A **line** is a multi-conductor power cable or overhead line, modelled as a nominal
+A **line** is a multi-conductor power cable or overhead line, modeled as a nominal
 $\Pi$ equivalent: a series impedance with a shunt admittance half-section at each
 end. Parts 1–5 state the foundational (physics) model; [part
-6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realises it. Symbols are
+6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realizes it. Symbols are
 defined in [Notation](notation.md).
 
 ![Four-wire nominal Π-model of a line: a series impedance with a shunt admittance half-section at each end, both referenced to ground.](assets/pi_model_4wire.svg)
@@ -11,7 +11,7 @@ defined in [Notation](notation.md).
 ## 1. Data model
 
 A line is an entry of the top-level `line` object, keyed by its string ID $\ell$. It
-carries **exactly one impedance source**: either a referenced `linecode` (per-metre
+carries **exactly one impedance source**: either a referenced `linecode` (per-meter
 matrices scaled by `length`) *or* inline absolute matrices.
 
 | Field | Type | Unit | Req. | Description |
@@ -19,7 +19,7 @@ matrices scaled by `length`) *or* inline absolute matrices.
 | `bus_from`, `bus_to` | string | – | ✔ | Endpoint bus IDs $i$, $j$ |
 | `terminal_map_from` | string[] | – | ✔ | Conductor→terminal map at `bus_from`, $\textcolor{purple}{\mathbf{N}_{\ell i}}$ |
 | `terminal_map_to` | string[] | – | ✔ | Conductor→terminal map at `bus_to`, $\textcolor{purple}{\mathbf{N}_{\ell j}}$ |
-| `linecode` | string | – | (one-of) | Linecode ID (per-metre matrices) |
+| `linecode` | string | – | (one-of) | Linecode ID (per-meter matrices) |
 | `length` | number | m | (with `linecode`) | Line length $\textcolor{red}{L_\ell}$ |
 | `R_series_k_j`, `X_series_k_j` | number | Ω | (one-of) | Inline **absolute** series impedance entries |
 | `G_from_k_j`, `B_from_k_j` | number | S | | Inline from-side shunt admittance entries |
@@ -32,13 +32,13 @@ The `oneOf` schema rule requires **either** `linecode` + `length` **or** at leas
 
 ### Linecode
 
-A `linecode` $c$ stores **per-metre** matrices shared across lines of the same type.
+A `linecode` $c$ stores **per-meter** matrices shared across lines of the same type.
 
 | Field | Type | Unit | Req. | Description |
 |-------|------|:----:|:----:|-------------|
-| `R_series_k_j`, `X_series_k_j` | number | Ω/m | ✔ | Per-metre series impedance $\mathfrak{R},\mathfrak{I}(\textcolor{brown}{\mathbf{Z}^{\text{s}}_c})$ |
-| `G_from_k_j`, `G_to_k_j` | number | S/m | | Per-metre shunt conductance |
-| `B_from_k_j`, `B_to_k_j` | number | S/m | | Per-metre shunt susceptance |
+| `R_series_k_j`, `X_series_k_j` | number | Ω/m | ✔ | Per-meter series impedance $\mathfrak{R},\mathfrak{I}(\textcolor{brown}{\mathbf{Z}^{\text{s}}_c})$ |
+| `G_from_k_j`, `G_to_k_j` | number | S/m | | Per-meter shunt conductance |
+| `B_from_k_j`, `B_to_k_j` | number | S/m | | Per-meter shunt susceptance |
 | `i_max` | number[] | A | | Per-conductor current limit $\textcolor{red}{\mathbf{I}^{\max}_c}$ |
 | `s_max` | number[] | VA | | Per-conductor apparent-power limit |
 
@@ -48,7 +48,7 @@ A `linecode` $c$ stores **per-metre** matrices shared across lines of the same t
 |-------|:------:|-------|
 | linecode `R_series`, `X_series` | $\textcolor{brown}{\mathbf{Z}^{\text{s}}_c}=\mathbf{R}+\textcolor{brown}{j}\mathbf{X}$ | Ω/m matrix |
 | linecode `G/B_from`, `G/B_to` | $\textcolor{brown}{\mathbf{Y}^{\text{sh}}_c}=\mathbf{G}+\textcolor{brown}{j}\mathbf{B}$ | S/m matrix |
-| `length` | $\textcolor{red}{L_\ell}$ | metres |
+| `length` | $\textcolor{red}{L_\ell}$ | meters |
 | line `R_series`/`X_series`, `G/B_*` | $\textcolor{brown}{\mathbf{Z}^{\text{s}}_\ell},\ \textcolor{brown}{\mathbf{Y}^{\text{sh}}_{\ell ij}},\ \textcolor{brown}{\mathbf{Y}^{\text{sh}}_{\ell ji}}$ | Ω, S (absolute) |
 | `i_max` | $\textcolor{red}{\mathbf{I}^{\max}_{\ell ij}}$ | per conductor |
 | `s_max` | $\textcolor{red}{\mathbf{S}^{\max}_{\ell ij}}$ | per conductor |
@@ -171,7 +171,7 @@ conductor, with $\textcolor{blue}{z}=\textcolor{blue}{U_{i,\cdot}}\,(\textcolor{
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **Rectangular Ohm's law.** The complex KVL is stamped as its two real parts per
   conductor $k$ ([`branch.jl:_add_line_constraints!`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/branch.jl)):

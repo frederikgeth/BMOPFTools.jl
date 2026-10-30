@@ -3,7 +3,7 @@
 A **capacitor** is a fixed, nameplate-rated shunt capacitor bank. Electrically it is a
 constant susceptance derived from its rating, delivering voltage-dependent reactive
 power. Parts 1–5 state the foundational model;
-[part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realises it. Symbols
+[part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realizes it. Symbols
 are defined in [Notation](notation.md).
 
 ## 1. Data model
@@ -45,7 +45,7 @@ contribution to KCL at bus $i$:
 
 The delivered reactive power is therefore voltage-dependent,
 $\textcolor{red}{\mathbf{B}}\,|\textcolor{blue}{\mathbf{U}}|^2$ — it rises and falls
-with the square of the terminal voltage, the defining behaviour of a fixed capacitor
+with the square of the terminal voltage, the defining behavior of a fixed capacitor
 (as opposed to a fixed-power source).
 
 ## 5. Inequality constraints
@@ -55,7 +55,7 @@ imposed.
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 A capacitor is treated as a **connection-aware shunt**. The nameplate and connection
 are assembled into a terminal-space susceptance matrix ($\textcolor{red}{\mathbf{B}}$,

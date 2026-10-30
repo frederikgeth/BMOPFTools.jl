@@ -4,9 +4,9 @@
 # alignment). Three things changed upstream, and each was a break here:
 #   - meta.$schema moved to the schema's own current $id
 #     (.../draft_schema_and_networks/draft_bmopf_schema.json) — previously an
-#     unrecognised URI, so every file threw at parse.
+#     unrecognized URI, so every file threw at parse.
 #   - load `model` values are uppercase (CONSTANT_POWER, ZIP, ...) — previously
-#     matched no lowercase branch, silently modelling every load as constant
+#     matched no lowercase branch, silently modeling every load as constant
 #     power.
 #   - transformer tap / neutral impedance / no-load admittance relocated under
 #     extras.transformer.<subtype>.<name> (the schema's escape hatch for fields
@@ -23,7 +23,7 @@ using JSON3
     fixture = joinpath(@__DIR__, "data", "powerio_v08_bmopf.json")
 
     @testset "the v0.8.0 \$schema URI is accepted" begin
-        # Before: ArgumentError("unrecognised BMOPF spec URI") on every file.
+        # Before: ArgumentError("unrecognized BMOPF spec URI") on every file.
         net = parse_bmopf(fixture)
         @test net isa Dict{String,Any}
         @test BMOPFTools._detect_spec_version(net) == BMOPFTools._CURRENT_SPEC
@@ -33,7 +33,7 @@ using JSON3
     notes = get(get(net, "_meta", Dict()), "migration_notes", Any[])
     codes = [n["code"] for n in notes]
 
-    @testset "uppercase load models are normalised at ingest" begin
+    @testset "uppercase load models are normalized at ingest" begin
         @test net["load"]["zipload"]["model"] == "zip"
         @test net["load"]["pqload"]["model"] == "constant_power"
         @test "W.MIGRATE.LOAD_MODEL_CASE" in codes

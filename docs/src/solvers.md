@@ -17,7 +17,7 @@ currently tested with the engine:
 |:--|:--|:--|:--|
 | Ipopt | [`Ipopt.jl`](https://github.com/jump-dev/Ipopt.jl) | The reference solve and the broadest nonlinear model coverage | Local nonlinear optimization; a successful solve is a local result. |
 | MadNLP | [`MadNLP.jl`](https://github.com/MadNLP/MadNLP.jl) | An alternative local NLP implementation, especially when experimenting with sparse linear algebra or accelerator-backed extensions | Local nonlinear optimization; solver options and defaults differ from Ipopt. |
-| ExaModels with NLPModelsIpopt | [`ExaModels.jl`](https://github.com/madsuite-org/ExaModels.jl), [`NLPModelsIpopt.jl`](https://github.com/JuliaSmoothOptimizers/NLPModelsIpopt.jl) | Check the engine through ExaModels' JuMP-to-ExaModel interface | ExaModels is a modelling/derivative path; NLPModelsIpopt still runs Ipopt. Only the focused IVR-EN engine case described below is verified here. |
+| ExaModels with NLPModelsIpopt | [`ExaModels.jl`](https://github.com/madsuite-org/ExaModels.jl), [`NLPModelsIpopt.jl`](https://github.com/JuliaSmoothOptimizers/NLPModelsIpopt.jl) | Check the engine through ExaModels' JuMP-to-ExaModel interface | ExaModels is a modeling/derivative path; NLPModelsIpopt still runs Ipopt. Only the focused IVR-EN engine case described below is verified here. |
 | Gurobi | [`Gurobi.jl`](https://github.com/jump-dev/Gurobi.jl) | Cross-checks and workflows that need Gurobi, for the quadratic-compatible IVR-EN subset | Commercial software and license required; not every BMOPFTools nonlinear feature is Gurobi-compatible. |
 
 Ipopt and MadNLP are local nonlinear-programming solvers in the same broad
@@ -488,7 +488,7 @@ and MadNLP, while Gurobi uses `OutputFlag`.
 2. Run MadNLP on the same case when you want an independent local-NLP result
    or want to investigate linear-solver performance.
 3. Try ExaModels with NLPModelsIpopt when you want to check the alternate
-   JuMP-to-ExaModel modelling and derivative path on a compatible case.
+   JuMP-to-ExaModel modeling and derivative path on a compatible case.
 4. Try Gurobi when the model is in the quadratic-compatible subset and a
    Gurobi solve is useful as a cross-check or part of your deployment stack.
 5. Compare objective, termination status, physical residuals, bound activity,

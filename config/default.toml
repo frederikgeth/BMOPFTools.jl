@@ -42,7 +42,7 @@ z_spread_info = 1e3
 z_spread_warn = 1e5
 # Source voltage headroom: warn if a voltage source's fixed v_magnitude is
 # within this fraction of the (v_max - v_min) band from either bound, on the
-# source bus or a same-base neighbour (risk of OPF infeasibility)
+# source bus or a same-base neighbor (risk of OPF infeasibility)
 source_v_margin_frac = 0.05
 
 # ---------------------------------------------------------------------------
@@ -125,7 +125,7 @@ z_total = 1e-4          # Ω effective (Z·length) on all diagonals
 # Augmentation: voltage-level snapping  (augmentation/voltage_bounds.jl)
 #
 # When enabled, augment_case snaps each bus's derived nominal voltage to the
-# nearest standardised level (IEC 60038 / ANSI C84.1) before computing voltage
+# nearest standardized level (IEC 60038 / ANSI C84.1) before computing voltage
 # bounds, and writes the snapped value back as bus["v_declared"]. This fixes
 # imported cases whose LV transformers are rated 240/250 V but whose bounds
 # should be referenced to the standard 230 V. A bus that already carries an
@@ -133,7 +133,7 @@ z_total = 1e-4          # Ω effective (Z·length) on all diagonals
 #
 # Snap rule: nearest standard level within the relative `tolerance` band; a
 # value outside every band is left unchanged (so genuinely non-standard buses
-# are preserved). Off by default — no behaviour change unless enabled.
+# are preserved). Off by default — no behavior change unless enabled.
 #
 # Levels are PHASE-TO-NEUTRAL (per-conductor) volts, matching how v_nom is
 # reported. The familiar line-to-line name is given in a comment in the preset
@@ -151,7 +151,7 @@ levels = []             # extra phase-to-neutral volts, merged with the preset
 # When enabled, augment_case fills any volt_var/volt_watt sub-object that an
 # IBR's control_profile declares but leaves blank, using the region preset
 # selected by `region`. Explicit values already present are never overwritten.
-# Off by default — no behaviour change unless enabled.
+# Off by default — no behavior change unless enabled.
 #
 # Voltages are PHASE-TO-NEUTRAL SI volts (nominal 230 V). q_limits/p_limits are
 # fractions of s_max (VA_FRACTION). Presets are the AS/NZS 4777.2:2020 default

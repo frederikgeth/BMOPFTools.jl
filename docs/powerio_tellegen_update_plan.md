@@ -10,7 +10,7 @@ implemented. Merge requires the final local gates and GitHub CI to pass.
 
 Support the current registered PowerIO.jl release and teach a concrete case-study
 exploration workflow using Tellegen's geographic and schematic single-line
-diagrams at network, neighbourhood and equipment scales. Keep numerical model
+diagrams at network, neighborhood and equipment scales. Keep numerical model
 qualifications, source identity, conductor detail and screenshot attribution
 visible throughout the workflow.
 
@@ -121,7 +121,7 @@ with `BUILD.DIST.ELECTRICAL_INCOMPLETE` and reader evidence
 
 - [x] Replace the obsolete rejection expectation for valid overhead geometry
   with full R/X/shunt comparisons against the frozen independent OpenDSS oracle.
-- [x] Retain metre/kilometre equivalence, conductor maps, and IR/BMOPF
+- [x] Retain meter/kilometer equivalence, conductor maps, and IR/BMOPF
   serialization checks; compare effective electrical values, not obsolete IDs.
 - [x] Add a minimized genuinely unresolved-geometry fixture and use it in the
   failure-evidence collector/serialization tests and conversion-guide example.
@@ -183,8 +183,8 @@ skip, not agreement.
 - [x] Capture the geographic whole-network overview before solving.
 - [x] Calculate power flow and request the overview; reproduce 16 violations and
   4 warnings. Select transformer `e4c0af231a489a7bd7be` at 184.3% loading.
-- [x] Capture the neighbourhood and equipment scales around the same selection.
-- [x] Capture the same transformer in schematic layout, coloured by loading.
+- [x] Capture the neighborhood and equipment scales around the same selection.
+- [x] Capture the same transformer in schematic layout, colored by loading.
 - [x] Capture its linked conductor bars and multi-wire winding view.
 - [x] Write `docs/src/visualization.md` as an exploration sequence, with actions,
   concrete questions, alt text, captions and links to source evidence.
@@ -193,7 +193,7 @@ skip, not agreement.
 - [x] Review the rendered documentation at its normal column width; provide
   full-resolution screenshot links for reading the equipment labels.
 
-The screenshot names are `tellegen-norwood-{overview,neighbourhood,equipment,
+The screenshot names are `tellegen-norwood-{overview,neighborhood,equipment,
 schematic,results}.jpg`. No model JSON is copied into this repository. Geographic
 views retain basemap attribution. The deployed UI did not expose a build ID;
 the provenance states that limitation instead of inventing a commit.

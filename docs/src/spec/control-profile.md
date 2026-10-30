@@ -61,7 +61,7 @@ Active-power limit as a piecewise-linear function of a monitored voltage magnitu
 | `breakpoints` | number[] | Two non-decreasing breakpoints $[U_5,U_6]$ (V) |
 | `p_limits` | number[] | $[p_{\text{low}},\ p_{\text{high}}]$, in `p_unit` |
 | `p_unit` | enum | `VA_FRACTION` (fraction of `s_max`) or `W` (absolute) |
-| `p_ref` | enum | Normalisation base: `P_AVAILABLE`, `P_MAX`, or `S_MAX` |
+| `p_ref` | enum | Normalization base: `P_AVAILABLE`, `P_MAX`, or `S_MAX` |
 
 The curve caps active power as voltage rises (curtailment), stacking on top of the IBR's
 `p_max` availability bound (the tighter binds).

@@ -370,7 +370,7 @@ end
 Run by default when buses contain coordinate fields; otherwise return nothing.
 `config["spatial"]["enabled"] = false` skips all spatial work and returns an
 explicit inapplicable/disabled record. Invalid enable settings are indeterminate.
-Distances in metres use
+Distances in meters use
 unambiguous WGS84 or explicit local Cartesian declarations, or endpoint-scoped
 WGS84 route evidence. Unsupported/conflicting declarations suppress distances.
 Ranked examples are descriptive. Findings require an explicit WGS84 declaration.
@@ -465,16 +465,16 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         end
     end
     caution = crs_status == "declared_wgs84" ?
-        "Network metadata declares WGS84; metre distances use valid longitude/latitude pairs only." :
+        "Network metadata declares WGS84; meter distances use valid longitude/latitude pairs only." :
         crs_status == "declared_cartesian" ?
-        "Explicit local Cartesian x/y coordinates are converted to metres using declared units; no map projection is inferred." :
+        "Explicit local Cartesian x/y coordinates are converted to meters using declared units; no map projection is inferred." :
         crs_status == "ambiguous" ?
         "Conflicting or incomplete coordinate declarations prevent metric comparisons; inspect coordinate_semantics issues." :
         crs_status == "wgs84_route_evidence" ?
-        "No network CRS is declared. Only bus endpoints matched to valid WGS84 route polylines support metre distances; the coordinate frame of other buses remains indeterminate." :
+        "No network CRS is declared. Only bus endpoints matched to valid WGS84 route polylines support meter distances; the coordinate frame of other buses remains indeterminate." :
         crs_status == "declared_other" ?
         "The declared coordinate system is outside the supported WGS84 metric domain; bus geodesic comparisons are inapplicable. Exact coordinate equality remains descriptive." :
-        "Coordinate system is not confirmed as WGS84. Longitude/latitude fields may contain arbitrary x/y; bus metre distances remain indeterminate."
+        "Coordinate system is not confirmed as WGS84. Longitude/latitude fields may contain arbitrary x/y; bus meter distances remain indeterminate."
 
     level_by_bus = Dict{String,String}()
     for (label, level) in get(voltage_levels, "levels", Dict())

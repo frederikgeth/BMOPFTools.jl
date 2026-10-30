@@ -22,11 +22,11 @@
 !   lv bus: terminal_names=["1","n","2"] → ODS lv.1, lv.4, lv.2
 !
 ! Also includes a phase-to-phase (240V) load across lv.1.2 to verify
-! that the 240 V path is correctly modelled.
+! that the 240 V path is correctly modeled.
 
 Clear
 
-! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).  The OpenDSS
 ! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
 ! rescale every reactance.  See docs/src/validation.md.
 Set DefaultBaseFreq=50

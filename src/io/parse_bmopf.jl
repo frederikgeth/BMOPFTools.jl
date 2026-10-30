@@ -98,7 +98,7 @@ end
 function _normalize_bmopf!(d::Dict{String,Any},
                            terminal_aliases::Dict=_DEFAULT_TERMINAL_ALIASES)::Dict{String,Any}
     d = migrate(d)
-    # When the case declares its terminal roles explicitly, honour the labels it
+    # When the case declares its terminal roles explicitly, honor the labels it
     # uses verbatim: suppress the default numeric `4→"n"` rename so a declared
     # neutral label like "4" survives (the whole point of the explicit block).
     # A caller-supplied alias map is always respected.
@@ -126,7 +126,7 @@ function _normalize_bmopf!(d::Dict{String,Any},
         end
     end
     # Stamp per-bus neutral terminals from an explicit terminal_conventions block
-    # so downstream per-bus resolution honours non-"n" neutral labels (no-op when
+    # so downstream per-bus resolution honors non-"n" neutral labels (no-op when
     # the roles are only inferred — see _materialize_terminal_roles!).
     _materialize_terminal_roles!(d)
     _materialize_transformer_core_shunts!(d)
@@ -183,7 +183,7 @@ deeper, under `net["transformer"][subtype][id]`). Components that carry none of
 those keys are visited and skipped, so registering a new component type costs
 nothing here.
 
-This is the canonical iteration helper for terminal normalisation at ingest —
+This is the canonical iteration helper for terminal normalization at ingest —
 the spec requires terminal identifiers to be strings, and callers use this to
 coerce integer terminals that arrive from looser sources.
 
@@ -315,7 +315,7 @@ end
 """
     get_snapshot(net::Dict{String,Any}, t_index::Int) -> Dict{String,Any}
 
-Materialise a snapshot of a time-series network at time step `t_index`
+Materialize a snapshot of a time-series network at time step `t_index`
 (1-based).
 
 Returns a deep copy of `net` with all `"time_series"` parameter references
@@ -330,7 +330,7 @@ on transformers via their subtype keys. `control_profile` is the one component
 type deliberately *not* resolved — its scalable values are nested inside
 control-law sub-objects, which the resolver cannot reach; see
 `TS_COMPONENT_COLLECTIONS`. A time-series reference on a control profile is
-therefore left untouched rather than materialised.
+therefore left untouched rather than materialized.
 
 PMD convention: time series values are **scaling factors** applied
 multiplicatively to the static parameter value:
@@ -408,7 +408,7 @@ function _resolve_component_ts!(comp::Dict{String,Any},
             throw(ArgumentError(
                 "Time series reference for parameter '$param' (series '$ts_id') " *
                 "has no static value on the component to scale. PMD convention " *
-                "requires a concrete base value; refusing to materialise snapshot."))
+                "requires a concrete base value; refusing to materialize snapshot."))
         end
     end
 

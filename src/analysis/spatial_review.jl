@@ -306,7 +306,7 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
         "ranking_policy" => _SPATIAL_REVIEW_POLICY,
         "ranking_scope" => "Captured candidates only. Ordinal priority, directly attached load count, identified component count, then stable item ID; not an error probability or electrical impact estimate.",
         "grouping_policy" => "Exact first sorted evidence location within a declared frame; missing geometry groups by primary asset identity. No snapping, bus merging or transitive proximity clustering.",
-        "calibration" => "Supplied networks and labelled synthetic expectations; no human-adjudicated real-world precision or recall.",
+        "calibration" => "Supplied networks and labeled synthetic expectations; no human-adjudicated real-world precision or recall.",
         "caution" => "Reviewer dispositions are assertions with provenance, not validation or repairs. Resolved items remain visible. Unknown frames never become map coordinates.")
     options.valid || return result
     if !options.enabled
@@ -350,7 +350,7 @@ function _spatial_cleanup_review(net, coordinates, frame, config, checks, length
     for (check_name, w) in captures
         subjects = _spatial_review_subjects(w)
         # Recover line endpoints for route-only and length records, without a
-        # nearest-neighbour assignment or source-to-target mapping.
+        # nearest-neighbor assignment or source-to-target mapping.
         for (kind, id) in subjects.components
             kind == "line" || continue
             l = get(get(net, "line", Dict()), id, Dict())

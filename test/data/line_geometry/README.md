@@ -2,7 +2,7 @@
 
 These three independently specified test cases replace the IEEE-13/Kersting
 601/606/607 fixtures. Their parameters are chosen for regression coverage,
-not copied from a feeder or conductor catalogue and not asserted to describe
+not copied from a feeder or conductor catalog and not asserted to describe
 commercial equipment. They are licensed under the parent `license.md` (CC BY 4.0).
 
 - `synthetic_overhead.dss`: asymmetric four-wire layout with distinct phase and

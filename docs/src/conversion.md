@@ -77,7 +77,7 @@ network is not necessarily convertible to BMOPFTools.
     Reconstructing the named real-world asset rather than a solver-convenient
     encoding is a stance that governs the whole data model — validation findings
     and [fix recipes](augmentation.md#fix) as much as ingest. The general
-    statement, and the catalogue of representational collisions it resolves
+    statement, and the catalog of representational collisions it resolves
     (capacitor-vs-shunt, load-vs-generator, line-vs-transformer, …), live on the
     [Object identity & semantic projection](@ref object-identity) page. This
     section covers the OpenDSS-specific *lowering*.
@@ -89,7 +89,7 @@ voltage regulators, classifying grounding and galvanic zones — to lower a loos
 specified OpenDSS model onto a canonical, conductor-level data model. Just as a
 compiler is not expected to round-trip back to the original source whitespace but
 *is* expected to preserve program semantics and diagnose errors the source
-obscured, BMOPFTools optimises for a different goal than a faithful copy.
+obscured, BMOPFTools optimizes for a different goal than a faithful copy.
 
 The goal hierarchy is explicit:
 
@@ -106,7 +106,7 @@ reason about the network at all.
 
 Three pillars make a non-identity transformation safe to rely on:
 
-1. **Canonicalise representation.** Normalise terminals, neutral/earth, regulator
+1. **Canonicalize representation.** Normalize terminals, neutral/earth, regulator
    structure and grounding onto one explicit convention (the
    [ingest steps](@ref from-dss-ingest) below), so every downstream pass sees the
    same shape.
@@ -115,13 +115,13 @@ Three pillars make a non-identity transformation safe to rely on:
    a heuristic that guesses wrong is *diagnosable*, not hidden. This is the
    correctness burden a pure transcoder never takes on, paid down openly.
 3. **Record provenance.** The transformation manifest and `net["_meta"]` keep an
-   auditable trail of what was normalised, so the projection is reproducible
+   auditable trail of what was normalized, so the projection is reproducible
    (same inputs + pinned versions ⇒ same canonical output) and any drift is
    visible.
 
 The aim, then, is **reproducible compatibility with deliberate surgery** — not
 losslessness. What is preserved is the physics and the semantics; what is
-normalised away is redundant or ambiguous *encoding*, and even that is recorded.
+normalized away is redundant or ambiguous *encoding*, and even that is recorded.
 
 ### Background and precedents
 
@@ -147,21 +147,21 @@ This is a principled stance with a clear lineage, in power systems and beyond.
   conductor-level data a four-wire model — and a non-expert collecting it —
   actually needs ([ref. 10](methodology.md#refs), [ref. 17](methodology.md#refs));
   see the [buses & terminals primer](terminals_primer.md).
-- **Good data modelling is a discipline in its own right.** Outside power systems
-  the same lesson recurs: *tidy data* observes that data is usually organised for
-  ease of entry rather than analysis, and that standardising the mapping from
+- **Good data modeling is a discipline in its own right.** Outside power systems
+  the same lesson recurs: *tidy data* observes that data is usually organized for
+  ease of entry rather than analysis, and that standardizing the mapping from
   semantics to representation is what makes reliable, composable tooling possible
   ([ref. 22](methodology.md#refs)); the **FAIR** principles make *provenance and
   shared vocabularies* — not raw dumps — the basis of reusable data
   ([ref. 21](methodology.md#refs)); **Open Power System Data** brings the same
-  validated, reproducible raw-to-results discipline to energy-system modelling
-  ([ref. 24](methodology.md#refs)); and **W3C PROV** formalises provenance as the
+  validated, reproducible raw-to-results discipline to energy-system modeling
+  ([ref. 24](methodology.md#refs)); and **W3C PROV** formalizes provenance as the
   mechanism that makes a non-identity transformation trustworthy — notably
-  defining validity itself through a normalisation process
+  defining validity itself through a normalization process
   ([ref. 25](methodology.md#refs)).
 
 What is distinctive about BMOPFTools is not any one of these ideas but their
-**synthesis**: semantic canonicalisation, a stable and code-addressable
+**synthesis**: semantic canonicalization, a stable and code-addressable
 data-quality vocabulary ([findings](findings.md)), standards-grounded augmentation
 ([case augmentation](augmentation.md)), and a provenance manifest — assembled
 specifically to make distribution-OPF benchmarks reproducible.
@@ -172,8 +172,8 @@ specifically to make distribution-OPF benchmarks reproducible.
 [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) and emits BMOPF JSON
 directly — there is no PowerModelsDistribution step in the loop, and the earlier
 PMD-based `from_pmd` parser has been removed. Values arrive in **SI units**
-already (line lengths in metres, impedances in Ω, powers in W/var/VA); PowerIO
-normalises the DSS unit declarations internally, so `from_dss` applies no further
+already (line lengths in meters, impedances in Ω, powers in W/var/VA); PowerIO
+normalizes the DSS unit declarations internally, so `from_dss` applies no further
 scaling.
 
 The pipeline is:
@@ -183,13 +183,13 @@ OpenDSS .dss ──PowerIO.jl──► raw BMOPF dict ──from_dss post-proces
 ```
 
 On top of what PowerIO emits, `from_dss` (and the `parse_bmopf`/`migrate` path it
-shares) applies a handful of deliberate normalisations so the result lands on the
+shares) applies a handful of deliberate normalizations so the result lands on the
 BMOPF conventions:
 
 - **Identifier case-folding** — all ids and references lower-cased (below).
 - **Terminal remap** — `1,2,3,4 → a,b,c,n`, with the OpenDSS earth node `.0`
   (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
-- **Transformer impedance normalisation** — PowerIO's lumped single-impedance
+- **Transformer impedance normalization** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
 - **Transformer fidelity** — PowerIO 0.11 retains BMOPF transformer neutral
   grounding, fixed taps, center-tap leakage, delta-wye leakage, and the validated
@@ -227,7 +227,7 @@ What is **faithful**: connectivity, phasing, linecode matrices, load models,
 transformer neutral grounding, native 3-winding transformer data, and SI
 impedances pass through unchanged. What is **lossy or not yet supported** —
 earth terminal grounding through the bus neutral, dynamic regulator control,
-and unsupported auto-transformer representations — is catalogued under
+and unsupported auto-transformer representations — is cataloged under
 [Known limitations](#Known-limitations); most are tracked as upstream PowerIO.jl
 issues.
 
@@ -507,7 +507,7 @@ total `kvar`, `q_rated` is the per-phase (WYE) or per-pair (DELTA) share
 line-to-line for DELTA. Validated against OpenDSS's own Capacitor solve for WYE
 and DELTA.
 
-**Modelling a *fixed* bank in OpenDSS (replicable, no accidental switching).**
+**Modeling a *fixed* bank in OpenDSS (replicable, no accidental switching).**
 The toolbox models a **fixed** capacitor only. To produce a matching, constant
 bank in OpenDSS (as the parity tests do):
 
@@ -530,7 +530,7 @@ reactive support. The `capacitor` is specifically the *fixed* physical device.
 
 Ingest status: like `n_winding`, this is a hand-authored / future-PowerIO
 target — **`from_dss` is unchanged** and PowerIO still emits OpenDSS Capacitors
-as plain `shunt`s (B = kvar/kv²), so existing behaviour is untouched.
+as plain `shunt`s (B = kvar/kv²), so existing behavior is untouched.
 
 ### [General n-winding transformers](@id n-winding)
 
@@ -623,7 +623,7 @@ generators at all) is a *price* on that imported power.
 `from_dss` imports the source **without** a price (`from_dss` does not add a
 `cost`). The [augmentation pass](augmentation.md) supplies one: it attaches a
 per-phase **`cost`** to the source itself (default 1.0 \$/kWh, kwarg
-`slack_cost`), so minimum-cost dispatch equals loss minimisation. No flow
+`slack_cost`), so minimum-cost dispatch equals loss minimization. No flow
 bounds are added, so the source stays an unbounded slack, and no auxiliary
 generator is created — the cost lives on the `voltage_source`.
 
@@ -641,10 +641,10 @@ PMD-based tooling.
 - Powers: PMD values × `power_scale_factor` → W/var/VA.
 - Terminals: PMD integers `1,2,3 → "1","2","3"`, `4 → "n"`.
 - PMD enum values (`WYE`, `DELTA`, …) → strings.
-- Unrecognised PMD fields are preserved per component under a `_pmd`
+- Unrecognized PMD fields are preserved per component under a `_pmd`
   sub-dict — nothing is silently dropped; `to_pmd` merges them back.
 - Line lengths and per-length linecode values arrive from PMD already in
-  metres / Ω-per-metre (PMD normalises DSS units internally).
+  meters / Ω-per-meter (PMD normalizes DSS units internally).
 
 ### Load configuration
 
@@ -706,7 +706,7 @@ secondary span (240 V).
 OpenDSS places the exciting (no-load) branch across **winding 2** — verified
 against its `Yprim` — so `%noloadloss`/`%imag` (`cmag`) convert to SI
 admittances on winding 2's coil voltage `V_stamp` (the per-leg LV voltage for
-`center_tap`; the to-winding voltage for `single_phase`). The magnetising
+`center_tap`; the to-winding voltage for `single_phase`). The magnetizing
 branch is inductive, so `b_no_load` is **negative**:
 
 ```
@@ -774,10 +774,10 @@ b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       /
 ### `to_pmd` transformer specifics
 
 - **No-load branch**: `noloadloss = g_no_load / Y_base` and
-  `cmag = |b_no_load| / Y_base` — `cmag` carries the magnetising susceptance
+  `cmag = |b_no_load| / Y_base` — `cmag` carries the magnetizing susceptance
   only, mirroring the ingest convention above (where `b_no_load` is
   deliberately left at 0, `cmag` is 0 too; core loss is never double-counted
-  as magnetising current).
+  as magnetizing current).
 - **Fixed tap**: a `tap ≠ 1` exports as PMD `tm_set = [fill(tap, n_ph), fill(1, n_ph)]`
   with `tm_fix = true` — the same `N_eff = (v_nom_from/v_nom_to)·tap`
   convention, so a fixed off-nominal tap round-trips exactly. Free-tap bounds
@@ -795,7 +795,7 @@ b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       /
 
 ## [OpenDSS export (`to_dss`)](@id to-dss-export)
 
-[`to_dss`](@ref) is the inverse of [`from_dss`](@ref): it serialises a BMOPF data
+[`to_dss`](@ref) is the inverse of [`from_dss`](@ref): it serializes a BMOPF data
 model to BMOPF JSON (via [`write_bmopf`](@ref)) and hands it to PowerIO's DSS
 writer, which emits OpenDSS text.
 
@@ -809,7 +809,7 @@ returns the warnings. A `name` keyword overrides the circuit name without
 mutating the input dict.
 
 BMOPF terminal labels (`"a"`, `"b"`, `"c"`, `"n"`) are accepted by the writer and
-re-normalised to OpenDSS numeric nodes (`.1`, `.2`, `.3`, `.0`); merged polyphase
+re-normalized to OpenDSS numeric nodes (`.1`, `.2`, `.3`, `.0`); merged polyphase
 sources are re-expanded by the writer as needed.
 
 ### Rating-preservation guard (PowerIO 0.11.7)
@@ -906,7 +906,7 @@ conversion.
 **Geometry-defined OpenDSS lines:** PowerIO 0.11.7 resolves supported geometry
 into line-specific effective impedance snapshots. The synthetic overhead fixture
 is checked against all entries of independent OpenDSS R/X/C matrices, including
-equivalent metre/kilometre lengths and both IR and BMOPF serialization. Follow
+equivalent meter/kilometer lengths and both IR and BMOPF serialization. Follow
 `net["line"][id]["linecode"]` to find the effective matrix; an authored `LineCode`
 name need not survive as an active electrical record.
 

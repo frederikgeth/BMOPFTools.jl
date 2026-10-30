@@ -5,14 +5,14 @@ explore the distribution network in your browser.** Tellegen provides the
 interactive viewer; BMOPFTools prepares, writes, and checks the case.
 You do not need to install Tellegen or run a Julia solver to inspect a file.
 
-[![Norwood at network scale in Tellegen's geographic single-line diagram: blue 11 kV lines, grey 400 V networks, source and transformer landmarks.](assets/tellegen-norwood-overview.jpg)](assets/tellegen-norwood-overview.jpg)
+[![Norwood at network scale in Tellegen's geographic single-line diagram: blue 11 kV lines, gray 400 V networks, source and transformer landmarks.](assets/tellegen-norwood-overview.jpg)](assets/tellegen-norwood-overview.jpg)
 
 *Start with the whole network, then zoom into its electrical connections.
 This is the public SAPN Norwood case: 25,456 buses and 25,967 branches, captured
 in [Tellegen](https://tellegen.dev/) on 29 October 2026 before solving.
 It is a provisional study model with inferred equipment and demand placement,
 not an as-operated asset register. The walkthrough below follows the same case
-into a neighbourhood, a transformer, and its calculated results.*
+into a neighborhood, a transformer, and its calculated results.*
 
 Select any screenshot to open it at full resolution.
 
@@ -78,17 +78,17 @@ unchanged throughout; zooming and changing layout change the drawing.
 ### 1. Establish the network context
 
 At the overview scale shown at the top of this page, the key identifies
-**11 kV MV** lines in blue and **400 V LV** lines in grey. Sources and transformers
+**11 kV MV** lines in blue and **400 V LV** lines in gray. Sources and transformers
 remain visible as landmarks while local detail fades. Locate the supply point,
 then zoom towards a transformer and the streets it supplies.
 
 This first view answers where the study sits and how much of it you are looking
-at. Colour in **Equipment and topology** identifies voltage level; it is not a
+at. Color in **Equipment and topology** identifies voltage level; it is not a
 voltage-compliance result. Hover a bus or line to highlight its feeder and network.
 Enable **Path to source** to trace the display path upstream. In a mesh, that
 navigation path is not a calculation of how power divides between routes.
 
-### 2. Follow an issue to its neighbourhood
+### [2. Follow an issue to its neighborhood](@id 2.-Follow-an-issue-to-its-neighbourhood)
 
 For a supported case, choose **Solve AC power flow** in **Network** (or
 **Run power flow** in **Studies**). Norwood exceeds 25,000 buses, so choose
@@ -100,7 +100,7 @@ Select the transformer ending in **`e4c0af231a489a7bd7be`** in the issue list,
 shown at **184.3%** of its declared rating. The diagram brings it into view.
 Zoom out a few steps to see its local network in context:
 
-[![Norwood at neighbourhood scale, with the selected transformer's 184.3 percent loading issue and its LV network corridor highlighted in red among neighbouring streets.](assets/tellegen-norwood-neighbourhood.jpg)](assets/tellegen-norwood-neighbourhood.jpg)
+[![Norwood at neighborhood scale, with the selected transformer's 184.3 percent loading issue and its LV network corridor highlighted in red among neighboring streets.](assets/tellegen-norwood-neighbourhood.jpg)](assets/tellegen-norwood-neighbourhood.jpg)
 
 *The selected transformer's network runs alongside other circuits. The corridor
 shows the network's reported problem state; it does not mean every line in that
@@ -137,11 +137,11 @@ Switch to **Schematic**, then select the same issue again if the whole-case fit
 makes the network too small. Select **Loading, % of rating** under **Colour by**.
 The selected transformer is still the same object, now arranged by connectivity:
 
-[![Norwood schematic centred on the selected transformer, labelled 184.3 percent, with its downstream network outlined and loads and earths visible.](assets/tellegen-norwood-schematic.jpg)](assets/tellegen-norwood-schematic.jpg)
+[![Norwood schematic centered on the selected transformer, labeled 184.3 percent, with its downstream network outlined and loads and earths visible.](assets/tellegen-norwood-schematic.jpg)](assets/tellegen-norwood-schematic.jpg)
 
 *The schematic separates topology from map placement. The selected transformer's
 network tag reports 135 buses; its 184.3% loading label directs attention to the
-transformer. Grey equipment has no applicable displayed limit or rating; grey
+transformer. Gray equipment has no applicable displayed limit or rating; gray
 is not a pass result.*
 
 This view helps distinguish a connection from geographic proximity. Compare the
@@ -150,7 +150,7 @@ The layout is generated from a display tree; it does not assert that a meshed
 case is electrically radial. Norwood's full schematic is tall and narrow, so
 searching for an asset or selecting an issue is more useful than staying at fit.
 
-### 5. Inspect the evidence behind the colour
+### [5. Inspect the evidence behind the color](@id 5.-Inspect-the-evidence-behind-the-colour)
 
 Scroll the **Studies** panel to the selected transformer's conductor results.
 The diagram, current bars and multi-wire view share the selection:
@@ -214,7 +214,7 @@ That layout is a drawing aid, not evidence of the network's geographic location.
 `bus_id,x,y` CSV. It copies `x` to `longitude` and `y` to `latitude` without
 checking or transforming the coordinate system. Use it for geographic placement
 only when you know the source values are longitude/latitude; projected or
-arbitrary drawing coordinates must not be relabelled as geography.
+arbitrary drawing coordinates must not be relabeled as geography.
 For companion geographic or drawing files, see Tellegen's
 [display-data guide](https://eigenergy.github.io/tellegen/display-data.html).
 
@@ -264,7 +264,7 @@ coordinates. Start with the report's coverage and applicability information.
 3. **Correct the responsible source data or model declarations.** Establish
    whether the discrepancy comes from coordinate placement, route geometry,
    branch incidence, or electrical parameters before making a change. Keep
-   physical route length separate from electrical modelling length. Record the
+   physical route length separate from electrical modeling length. Record the
    evidence and rationale in a separate
    [review ledger](spatial_diagnostics.md#Sidecar-dispositions), then regenerate
    the case from the corrected source or write the revised network dictionary.

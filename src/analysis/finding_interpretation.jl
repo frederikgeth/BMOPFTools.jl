@@ -91,26 +91,26 @@ const _FINDING_INTERPRETATIONS = Dict{String,NamedTuple}(
             "neutral_recovery" => "Neutral current and voltage can be recovered with the source data under the documented " *
                 "single-grounded assumptions; a three-wire matrix alone does not supply all recovery information."),
         alternatives = _hints(
-            "other_parameterisation" => "Another parameterisation can share the same approximate matrix pattern."),
+            "other_parameterisation" => "Another parameterization can share the same approximate matrix pattern."),
         checks = _hints(
             "transformation_record" => "Compare with the source four-wire impedances and any declared phase-to-neutral transformation.",
             "return_path" => "Review conductor sizes, grounding and the intended return-current model.")),
     "I.PROV.IMPEDANCE_TRANSFORM_MPN" => (
         explanations = _hints(
-            "modified_phase_to_neutral" => "A phase-to-neutral equivalent (R mutual ≈ ½ R self) whose reactance was also symmetrised."),
+            "modified_phase_to_neutral" => "A phase-to-neutral equivalent (R mutual ≈ ½ R self) whose reactance was also symmetrized."),
         implications = _hints(
             "grounding_sensitive" => "Review the phase-to-neutral assumptions about earth shunts, device earth injection " *
                 "and single-point neutral grounding. Error is not determined by grounding impedance alone.",
-            "geometric_unbalance_lost" => "Reactance symmetrisation adds an approximation that removes phase-pair " *
+            "geometric_unbalance_lost" => "Reactance symmetrization adds an approximation that removes phase-pair " *
                 "reactance asymmetry; compare its effect for the actual geometry and study."),
         alternatives = _hints(
             "other_parameterisation" => "A symmetric physical or authored equivalent can share this pattern."),
         checks = _hints(
-            "transformation_record" => "Compare with the source impedances and any resistance folding or reactance symmetrisation.",
+            "transformation_record" => "Compare with the source impedances and any resistance folding or reactance symmetrization.",
             "asymmetry" => "Review whether the approximation keeps the asymmetry the study needs.")),
     "I.OPS.FEEDER_LONG" => (
         explanations = _hints(
-            "unit_slip" => "Metre values interpreted as kilometres upstream, or a km-to-m conversion applied twice.",
+            "unit_slip" => "Meter values interpreted as kilometers upstream, or a km-to-m conversion applied twice.",
             "long_rural_feeder" => "A genuinely long rural or SWER-style feeder."),
         implications = _hints(
             "impedance_scaled" => "For per-length linecodes, lengths 1000 times too large also scale section impedances " *
@@ -122,11 +122,11 @@ const _FINDING_INTERPRETATIONS = Dict{String,NamedTuple}(
                 "coordinates, `W.GEO.LINE_SHORTER_THAN_CHORD` compares lengths with endpoint distances.",
             "impedance_units" => "Check per-km versus per-m impedance units separately: they affect the electrical model " *
                 "even when the declared-distance metric is correct.",
-            "voltage_regulation" => "If the feeder is genuinely long, check that regulators or tap ranges are modelled.")),
+            "voltage_regulation" => "If the feeder is genuinely long, check that regulators or tap ranges are modeled.")),
     "I.OPS.FEEDER_SHORT" => (
         explanations = _hints(
             "stub_or_interconnect" => "A service drop, substation bus or short interconnect rather than a feeder.",
-            "default_or_unit_slip" => "The OpenDSS default `length=1` left in place, or kilometre values stored as metres " *
+            "default_or_unit_slip" => "The OpenDSS default `length=1` left in place, or kilometer values stored as meters " *
                 "without multiplying by 1000."),
         implications = _hints(
             "impedance_negligible" => "Too-short lengths make per-length linecode section impedances too small, " *
@@ -167,7 +167,7 @@ const _LEARN_MORE = Dict{String,Vector{Dict{String,Any}}}(
     "I.PROV.IMPEDANCE_TRANSFORM_PN" => [_doc("semantic_modeling.md", "The line-impedance fidelity ladder", "impedance-ladder"),
         _doc("tutorial_grounding.md", "5. Kron reduction is an assumption, not a simplification")],
     "I.PROV.IMPEDANCE_TRANSFORM_MPN" => [_doc("semantic_modeling.md", "The line-impedance fidelity ladder", "impedance-ladder"),
-        _doc("tutorial_impedance_models.md", "The idealisation and its symmetry")],
+        _doc("tutorial_impedance_models.md", "The idealization and its symmetry")],
     "I.OPS.FEEDER_LONG" => [_doc("tutorial_line_geometry.md", "Absolute impedances: matrices on the line itself"),
         _doc("methodology.md", "OpenDSS default fingerprints")],
     "I.OPS.FEEDER_SHORT" => [_doc("tutorial_line_geometry.md", "Absolute impedances: matrices on the line itself"),

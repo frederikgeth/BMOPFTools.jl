@@ -53,7 +53,7 @@ function _compute_classic_bases(net::Dict{String,Any}, s_base::Float64)
     src_bus != "" && (v_base[src_bus] = src_vbase)
 
     # BFS through transformers to propagate V_base.
-    # Build adjacency: bus -> [(neighbour_bus, v_nom_from, v_nom_to, from_is_from)]
+    # Build adjacency: bus -> [(neighbor_bus, v_nom_from, v_nom_to, from_is_from)]
     xfmr_adj = Dict{String,Vector{Tuple{String,Float64,Float64}}}()
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
@@ -544,7 +544,7 @@ function _pu_scale_linecodes!(net, bases)
     # Inline ABSOLUTE matrices on lines (Ω, S — never length-scaled) use the
     # same z_base as the line's buses; line-level i_max (rating override /
     # inline-line rating) scales by the current base. Same scaling laws as
-    # linecodes — absolute vs per-metre makes no difference to per-unit.
+    # linecodes — absolute vs per-meter makes no difference to per-unit.
     for (_, line) in get(net, "line", Dict())
         bus = get(line, "bus_from", "")
         zb  = get(bases.z_base, bus, 1.0)
@@ -698,7 +698,7 @@ function _pu_scale_transformers!(net, bases)
             haskey(xfmr, "r_neutral_to")   && (xfmr["r_neutral_to"]   = Float64(xfmr["r_neutral_to"])   / zb_to)
             haskey(xfmr, "x_neutral_to")   && (xfmr["x_neutral_to"]   = Float64(xfmr["x_neutral_to"])   / zb_to)
 
-            # No-load (magnetising) shunt admittance is stamped across the
+            # No-load (magnetizing) shunt admittance is stamped across the
             # winding-2 (to-side) coil, so it scales by the TO-bus base. An
             # admittance goes to p.u. by ×z_base (= ÷y_base), the reciprocal of
             # an impedance — without this the core loss silently vanishes in
@@ -893,7 +893,7 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         end
     end
 
-    # Initialisation start values: same V_base scaling as solved bus voltages
+    # Initialization start values: same V_base scaling as solved bus voltages
     for (bid, t_dict) in get(result, "initialisation", Dict())
         vb = get(bases.v_base, bid, 1.0)
         for (_, tvals) in t_dict

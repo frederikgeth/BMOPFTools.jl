@@ -7,7 +7,7 @@
 #
 #   1. snapshot / per-unit the network
 #   2. build the JuMP model + index structures + variables
-#   3. initialise the KCL accumulators
+#   3. initialize the KCL accumulators
 #   4. run the problem's `build!(ctx)` recipe        ← the only part that varies
 #   5. enforce KCL and optimize
 #   6. extract the standard result dict
@@ -15,7 +15,7 @@
 #   8. unwrap per-unit
 #
 # This mirrors the PowerModels/InfrastructureModels pattern where a generic
-# `solve_model(data, type, optimizer, build_method)` core is parameterised by a
+# `solve_model(data, type, optimizer, build_method)` core is parameterized by a
 # per-problem `build_*` function.
 
 """
@@ -722,7 +722,7 @@ function BMOPFTools.opf_semantic_blocks(ctx::OpfContext; kind=nothing)
     ))
     # Native blocks are intentionally lazy: ordinary solves do not pay for
     # semantic metadata they never inspect.  A schema/provenance request after
-    # KCL finalisation is the first point at which all native rows exist.
+    # KCL finalization is the first point at which all native rows exist.
     ctx.lifecycle[] == :kcl_finalized &&
         _register_native_semantic_blocks!(ctx)
     registry = _opf_semantic_block_registry(ctx)
@@ -2639,7 +2639,7 @@ end
 """
     _new_context(model, working, bases, relu_eps; problem, s_base) -> OpfContext
 
-Index the working net, declare all JuMP variables into `model`, initialise the
+Index the working net, declare all JuMP variables into `model`, initialize the
 KCL accumulators and branch-injection ledger, and bundle them into an
 `OpfContext`. Adds no constraints and sets no objective.
 """
@@ -2752,8 +2752,8 @@ function _enforce_kcl!(ctx::OpfContext)
     _run_opf_stage!(ctx, :kcl, () -> begin
         # Device builders may tighten native auxiliary variables after their
         # initial declaration (for example, redundant current boxes implied by
-        # transformer and switch thermal limits). Synchronise those late bound
-        # constraints before finalising the registry so every native MOI row has
+        # transformer and switch thermal limits). Synchronize those late bound
+        # constraints before finalizing the registry so every native MOI row has
         # inspectable semantic ownership.
         _register_dynamic_auxiliary_variables!(ctx)
         _register_native_variable_bounds!(ctx)
@@ -2780,7 +2780,7 @@ end
 # nodal accumulators, which means a staged caller can reach `JuMP.optimize!` on a
 # model whose network is electrically disconnected. That failure is SILENT:
 # nodal balance is simply absent, so bus voltages are free variables and any
-# objective over them is minimised without physics. It bit us for real while
+# objective over them is minimized without physics. It bit us for real while
 # building `bench/sequence_objective_norms.jl`, where a negative-sequence
 # objective reached |V2| ~ 8e-16 with the compensator sitting idle.
 #
@@ -2867,7 +2867,7 @@ end
 const _KCL_SKIPPED_MESSAGE =
     "Without it the network is electrically disconnected: nodal balance is " *
     "absent, so bus voltages are free variables and any objective over them is " *
-    "minimised without physics. The solve can still report a successful-looking " *
+    "minimized without physics. The solve can still report a successful-looking " *
     "status and plausible values — LOCALLY_SOLVED in the case that motivated " *
     "this check, though the status depends on what equations, objective and " *
     "solver remain."
@@ -2894,7 +2894,7 @@ function _assert_kcl_enforced(model::JuMP.Model,
         "enforce_kcl! has not been called on $n staged OPF context(s) built " *
         "into this model. $_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` on " *
         "every snapshot after its last constraint is added and before " *
-        "optimising. Pass `kcl_guard=false` to `build_opf_model` / " *
+        "optimizing. Pass `kcl_guard=false` to `build_opf_model` / " *
         "`initialize_opf_model` to opt out of this check."))
 end
 
@@ -2915,14 +2915,14 @@ end
         verbose=false) -> ctx
 
 Build the IVR-EN OPF device model, bounds, and (optionally) the generation-cost
-objective for one snapshot, **without enforcing KCL or optimising**. The first
+objective for one snapshot, **without enforcing KCL or optimizing**. The first
 step of the staged API; see the module notes above.
 
 !!! warning "KCL is deferred — you must call `enforce_kcl!` before solving"
     KCL is not stamped here, so that a `model_hook!` can still contribute to the
     accumulators. Until [`enforce_kcl!`](@ref) is called the network is
     **electrically disconnected**: nodal balance is absent, so bus voltages are
-    free variables and any objective over them is minimised without physics —
+    free variables and any objective over them is minimized without physics —
     an unbalance objective, for instance, reaches exactly zero with every
     compensator idle. Call `enforce_kcl!(ctx)` on every snapshot after the last
     constraint is added and before `JuMP.optimize!`.
@@ -2937,7 +2937,7 @@ step of the staged API; see the module notes above.
 
 - `model` — build into this existing JuMP model instead of a fresh one. Pass the
   same model for every snapshot of a multi-period problem so they share one
-  optimisation. When `nothing`, a new `JuMP.Model(optimizer)` is created (and
+  optimization. When `nothing`, a new `JuMP.Model(optimizer)` is created (and
   silenced unless `verbose`).
 - `add_objective` — when `false`, the per-snapshot generation cost is NOT set on
   the model; recover it with [`generation_cost`](@ref) and set one combined
@@ -2949,7 +2949,7 @@ step of the staged API; see the module notes above.
 - `kcl_guard` — when `true` (the default), a JuMP optimize hook refuses to solve
   this model while any context built into it has not had `enforce_kcl!` called.
   A pre-existing hook is chained, not replaced. Pass `false` for an expert path
-  that deliberately optimises a partially built model; the [`extract_result`](@ref)
+  that deliberately optimizes a partially built model; the [`extract_result`](@ref)
   check still applies. Two limits: a hook installed *after* this call supersedes
   ours, and a `JuMP.copy_model` of a guarded model is refused outright — the copy
   carries the hook but not the guard's state, so the guard cannot tell whether
@@ -3027,7 +3027,7 @@ end
 
 Enforce Kirchhoff's current law for one snapshot's accumulators (AC nodal balance
 + DC network). Call after every device constraint and `model_hook!` injection for
-that snapshot has been added, and before optimising. In a multi-period build call
+that snapshot has been added, and before optimizing. In a multi-period build call
 it once per snapshot `ctx`.
 """
 BMOPFTools.enforce_kcl!(ctx::OpfContext) = _enforce_kcl!(ctx)
@@ -3080,7 +3080,7 @@ end
     BMOPFTools.generation_cost(ctx) -> JuMP.QuadExpr
 
 The snapshot's total active-power generation-cost expression (the quantity
-`solve_opf` minimises), returned WITHOUT setting it on the model. Sum these
+`solve_opf` minimizes), returned WITHOUT setting it on the model. Sum these
 across snapshots — adding any custom terms (e.g. storage throughput cost) — and
 call `JuMP.@objective(ctx.model, Min, total)` once for a multi-period solve.
 """
@@ -3108,7 +3108,7 @@ function BMOPFTools.extract_result(ctx::OpfContext;
                                    solution_hook!::Union{Function,Nothing}=nothing)
     BMOPFTools.opf_stage_completed(ctx, :kcl) || throw(ArgumentError(
         "enforce_kcl! was never called on this staged OPF context. " *
-        "$_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` before optimising, " *
+        "$_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` before optimizing, " *
         "then extract."))
     result = _extract_results(ctx.model, ctx.net, ctx.bus_terminals,
                               ctx.grounded, ctx.vars, ctx.branch_inj;

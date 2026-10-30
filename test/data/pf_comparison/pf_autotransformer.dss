@@ -5,7 +5,7 @@
 !   src.1/4 = source phase + neutral
 !   reg.1/4 = regulated phase + neutral
 !
-! A fixed-tap step voltage regulator is modelled in OpenDSS as a low-impedance
+! A fixed-tap step voltage regulator is modeled in OpenDSS as a low-impedance
 ! two-winding transformer with the secondary turns scaled by Tap. A Type B
 ! regulator at tap ratio a=1.05 boosts the secondary by a (V_reg = a·V_src at
 ! no load), which matches the BMOPF single_phase_autotransformer with
@@ -16,7 +16,7 @@
 
 Clear
 
-! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).  The OpenDSS
 ! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
 ! rescale every reactance.  See docs/src/validation.md.
 Set DefaultBaseFreq=50

@@ -28,7 +28,7 @@ benchmark-grade data model more than a re-encoding of the source
 
 ## Why tools abuse representation
 
-Most representational collisions are not modelling errors so much as **encoding
+Most representational collisions are not modeling errors so much as **encoding
 conveniences of a particular solver**, frozen into the data:
 
 - **Admittance solvers forbid exact zero.** A `Ybus`/Newton tool inverts
@@ -62,13 +62,13 @@ objects, terminals and connectivity nodes as the unit of exchange
 ([ref. 23](methodology.md#refs), [ref. 27](methodology.md#refs)) — and is the
 closest external precedent for what this data model reconstructs.
 
-## From representation to data artefacts to weak numerics
+## [From representation to data artifacts to weak numerics](@id From-representation-to-data-artefacts-to-weak-numerics)
 
-Representational limits do not stop at mislabelling an asset; they corrupt its
-*parameter values*, and the corrupted values then degrade the optimisation
+Representational limits do not stop at mislabeling an asset; they corrupt its
+*parameter values*, and the corrupted values then degrade the optimization
 solver. The chain is:
 
-> **encoding limit  →  data artefact  →  ill-conditioned nonlinear program.**
+> **encoding limit  →  data artifact  →  ill-conditioned nonlinear program.**
 
 The clearest case is **missingness**. An admittance-based power-flow tool inverts
 impedance, so it cannot accept an exactly-zero series impedance. When a
@@ -77,10 +77,10 @@ therefore not recorded as *absent*; it is written as a small magic number that
 keeps the solver's `Y = Z⁻¹` finite. The fact "this parameter is missing" has been
 **projected onto "this parameter is small but present"**, and nothing in the file
 then distinguishes a genuine tiny leakage from an "I don't know." That is a data
-artefact created purely by the source representation, not by the network.
+artifact created purely by the source representation, not by the network.
 
-Carried into a nonlinear program the artefact is actively harmful — and, crucially,
-the value the source tool was *forced* to write is the one the optimiser handles
+Carried into a nonlinear program the artifact is actively harmful — and, crucially,
+the value the source tool was *forced* to write is the one the optimizer handles
 *worst*. In the current-voltage (IVR) formulation the series impedance is a
 **coefficient** in the winding voltage-drop equation `V_fr − N·V_to = R·I − X·jI`,
 not an inverted admittance. A tiny `Z` leaves the series current almost
@@ -97,16 +97,16 @@ best numerics.
 The remedy follows directly from the object-identity stance: make the canonical
 model able to **say what the source tool could not** — represent
 missingness/negligibility as **exactly zero** (well-posed here), and have the
-data-quality layer detect the magic-number artefact and offer to snap it
+data-quality layer detect the magic-number artifact and offer to snap it
 (`W.DOM.XFMR_LOW_IMPEDANCE` + the `apply_snap_transformer_impedance` fix; the
 near-zero-impedance line → `switch` fix). Choosing the right *value*, like
 choosing the right *object*, is therefore not cosmetic: it is what gives the
-downstream optimisation good numerics.
+downstream optimization good numerics.
 
 ## [The line-impedance fidelity ladder](@id impedance-ladder)
 
 The object-identity principle has a *within-asset* corollary. A line's electrical
-behaviour can be recorded at three fidelity levels, and they are not
+behavior can be recorded at three fidelity levels, and they are not
 interchangeable — each higher level expresses and lets you *verify* strictly more
 than the ones below:
 
@@ -124,14 +124,14 @@ preference is not stylistic — it is the same "data-quality leverage > encoding
 fidelity" stance, applied one level down:
 
 - **Realizability is checkable at the top, not the bottom.** Given geometry,
-  *"is this physically realisable?"* is a set of **forward** checks on the
+  *"is this physically realizable?"* is a set of **forward** checks on the
   construction data — GMR ≤ radius, conductors do not overlap, cable layers nest
   (`E.DOM.WIRE_GMR_EXCEEDS_RADIUS`, `E.DOM.GEOM_CONDUCTOR_OVERLAP`,
   `E.DOM.WIRE_CABLE_LAYERS`). Given only a matrix, the same question is the
   **inverse Carson problem**: you must try to recover a geometry that *could*
   have produced it — and there may be none, or many. A bare matrix that is
   subtly non-physical is then catchable only by weaker, after-the-fact symptoms
-  (`E.PROV.NONRECIPROCAL`, `E.PROV.NONPASSIVE`, or the per-metre plausibility
+  (`E.PROV.NONRECIPROCAL`, `E.PROV.NONPASSIVE`, or the per-meter plausibility
   guard `W.DOM.LINE_IMPLIED_PER_LENGTH`), never by construction.
 - **A matrix is frozen at one frequency; geometry is not.** Compiled matrices
   hold only at the frequency they were computed for — which is why
@@ -146,7 +146,7 @@ fidelity" stance, applied one level down:
   frozen 50 Hz matrix cannot be re-derived at harmonics at all.
 - **Geometry is the better feature for learning problems.** Physical parameters
   (spacings, GMRs, heights, soil resistivity) are low-dimensional, bounded, and
-  interpretable; the impedance matrix is their nonlinear, over-parameterised
+  interpretable; the impedance matrix is their nonlinear, over-parameterized
   image, whose entries must *jointly* satisfy Carson to be meaningful.
   Estimation, sensitivity, and identifiability are naturally posed on the
   geometry, not on the 16 correlated entries of a 4×4.
@@ -159,7 +159,7 @@ The lower levels remain first-class for the cases that genuinely need them — a
 finite-element or measured impedance for one specific section (inline totals),
 or an imported linecode whose geometry was never recorded (`source="import"`).
 But when the construction data exists, capturing it as geometry — and letting
-the matrices be a *derived, provenance-linked* artefact — is what keeps the case
+the matrices be a *derived, provenance-linked* artifact — is what keeps the case
 verifiable, re-frequency-able, and learnable rather than a frozen numerical
 blob. See the [line-geometry workflow](tutorial_line_geometry.md) and the
 [impedance conventions](conventions.md#Lines,-linecodes-and-matrices).
@@ -198,7 +198,7 @@ into a solver-convenient encoding — governs what happens *downstream* when you
 simplify a case for speed. Collapsing closed switches, pruning dangling stubs,
 and [merging series lines](@ref tutorial-simplify) all trade information for
 fewer variables. That trade is worth making at solve time, but the reduced
-network is a **derived artefact**, not the canonical case:
+network is a **derived artifact**, not the canonical case:
 
 - **It is one-way and lossy.** A merged corridor no longer carries its
   intermediate bus or its per-segment impedance; a pruned stub no longer exists
@@ -215,7 +215,7 @@ network is a **derived artefact**, not the canonical case:
 
 The practical rule mirrors the ingest rule: **the exchanged, canonical case
 keeps the fuller representation; simplification is applied as a compile step
-before optimisation** (as [`fix_case`](@ref) does), never baked into the artefact
+before optimization** (as [`fix_case`](@ref) does), never baked into the artifact
 you hand to someone else. Where a reduction *would* change physics rather than
 just variable count — a grounded pass-through bus, a stub that is really a
 shunt-to-earth — the [simplification passes](@ref tutorial-simplify) refuse or
@@ -228,7 +228,7 @@ rather than in place of it; until then, retain the source.
 
 See the [methodology references](methodology.md#refs). The central citations for
 this page are [ref. 14](methodology.md#refs) (data-quality challenges in existing
-distribution datasets — the catalogue of real abuses), [ref. 2](methodology.md#refs)
+distribution datasets — the catalog of real abuses), [ref. 2](methodology.md#refs)
 (maintaining semantics in the benchmark data model), [ref. 16](methodology.md#refs)
 and [ref. 17](methodology.md#refs) (why the transformer and the conductor-level
 model cannot be dissolved), and [ref. 23](methodology.md#refs)/[ref. 27](methodology.md#refs)

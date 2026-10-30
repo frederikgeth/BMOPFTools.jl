@@ -115,7 +115,7 @@ function _powerio_message_element(message::AbstractString,
     return (:network, nothing)
 end
 
-# One diagnostic, normalised to the fields this package reads. Handles both
+# One diagnostic, normalized to the fields this package reads. Handles both
 # shapes PowerIO.jl returns: a `Diagnostic`, which forwards its record's fields
 # as properties of the line it renders as, and a bare line, which carries a
 # code and a message and nothing else.
@@ -132,7 +132,7 @@ end
     _powerio_diagnostic_records(diagnostics; fold_ids=false,
         infer_message_elements=true) -> Vector{Dict{String,Any}}
 
-Fold a conversion's diagnostics into one JSON-serialisable record per
+Fold a conversion's diagnostics into one JSON-serializable record per
 `(code, severity, component type)` class, ordered by that key. The powerio code
 is kept verbatim.
 

@@ -91,7 +91,7 @@ intermediate buses, per-segment impedances, or shunt-bearing stubs were removed.
 
 The guidance follows directly: **exchange the source case and simplify at solve
 time** (as [`fix_case`](@ref) does), rather than distributing the reduced form as
-the artefact of record. The design rationale — keep the fuller representation
+the artifact of record. The design rationale — keep the fuller representation
 canonical, treat the dense form as derived — is in
 [Object identity: derived reductions](../semantic_modeling.md#derived-reductions).
 Making the dense compiled form a first-class, spec-tracked companion to the full
@@ -121,7 +121,7 @@ codebase:
   map it onto `r_series_from`/`x_series_from`.
 
 See items 20–21 of the [Task Force feedback](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/docs/taskforce_feedback.md)
-for the modelling background.
+for the modeling background.
 
 ### Data-model changes go through the Task Force
 
@@ -168,7 +168,7 @@ history status remains `unknown`.
 than retired. `I.PROV.SEQ_DERIVED` retains both its stable code and its useful
 sequence/transposition interpretation, with physical symmetry as an alternative.
 The six sequence, decoupling, PN/MPN and Kron hints add structured interpretation
-in Finding detail. `explain_finding(finding::Finding)` returns the catalogue
+in Finding detail. `explain_finding(finding::Finding)` returns the catalog
 fields plus `instance` and `interpretation`; the latter is `nothing` when no
 interpretation was recorded. The string-code lookup and its CLI/MCP envelope
 are unchanged. These report additions do not change the applicability or

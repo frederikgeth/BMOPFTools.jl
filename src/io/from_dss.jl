@@ -391,7 +391,7 @@ end
 """
 Demonstrate that an OpenDSS load `pf` actually reached the converted load, by
 reproducing it: BMOPF carries no power factor, so the only evidence that `pf`
-was honoured is `q_nom` standing in the ratio `pf` prescribes to `p_nom`. A
+was honored is `q_nom` standing in the ratio `pf` prescribes to `p_nom`. A
 weaker "both vectors are finite" test would be satisfied by every converted
 load whether or not `pf` was read, which is exactly the silent fidelity gap the
 ledger exists to rule out. Magnitudes only: the lead/lag sign convention is the
@@ -1237,7 +1237,7 @@ function _normalize_transformer_no_load_shunts!(net::Dict{String,Any}, dn)
         pmd_raw = PowerIO.emit(dn.module_, "pmd").text
         pmd = JSON3.read(pmd_raw)
     catch err
-        @warn "from_dss: could not fetch PowerIO `pmd` export to normalise " *
+        @warn "from_dss: could not fetch PowerIO `pmd` export to normalize " *
               "transformer no-load shunts; core losses may differ from OpenDSS." err
         return net
     end

@@ -5,7 +5,7 @@
 This case study follows one **unbalanced low-voltage (LV) feeder** to show what an
 inverter-interfaced shunt compensator — a **STATCOM**, or *D-STATCOM* in
 distribution-system parlance — can and cannot do about voltage unbalance, and *why
-the answer is an optimisation problem rather than a simulation one*. Every code
+the answer is an optimization problem rather than a simulation one*. Every code
 block runs when the docs are built, so the numbers below are real.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` installed,
@@ -34,11 +34,11 @@ its three phase legs share **one DC link**. With no energy source behind that li
 the converter can still *circulate active power between phases* — sourcing real
 power on the heavily-loaded phase and sinking it on the lightly-loaded ones — while
 the **net** active power stays at zero. This is exactly the DC-link power-balance
-constraint ``\sum_k P_k = 0`` formalised for four-wire OPF in
+constraint ``\sum_k P_k = 0`` formalized for four-wire OPF in
 [3](@ref refs-statcom) and [4](@ref refs-statcom). It is what lets a STATCOM
 *balance* a feeder rather than merely support its average voltage.
 
-In BMOPFTools a STATCOM is modelled as an IBR (see the [OPF model](opf.md#IBRs));
+In BMOPFTools a STATCOM is modeled as an IBR (see the [OPF model](opf.md#IBRs));
 the two control philosophies are a single keyword on [`add_statcom!`](@ref):
 
 - **reactive-only** (default) — each phase's active power is clamped to zero;
@@ -47,7 +47,7 @@ the two control philosophies are a single keyword on [`add_statcom!`](@ref):
 
 The rest of this page shows, on one feeder, that the first barely moves the needle
 and the second balances the feeder outright — and that finding the per-phase
-``(P,Q)`` split is intrinsically an optimisation, not a setpoint a power-flow
+``(P,Q)`` split is intrinsically an optimization, not a setpoint a power-flow
 *simulation* could have guessed.
 
 ## 1. An unbalanced four-wire LV feeder
@@ -135,7 +135,7 @@ is actively counterproductive: the extra reactive current *raises* the feeder lo
 from 3723 W to 4009 W. A different constant setpoint would land somewhere else
 equally arbitrary; a single fixed-setpoint power flow can only *evaluate* a guess —
 finding the right per-phase split needs a search over setpoints, i.e. the
-optimisation.
+optimization.
 
 ## 3. Reactive-only, optimally dispatched — still not enough
 
@@ -194,9 +194,9 @@ end
 println("Σ P over phases : ", round(sum(ph[t]["pg"] for t in ("1","2","3")), digits=2), " W")
 ```
 
-Run on the *unconstrained* feeder (no voltage limits), the optimiser drives the
+Run on the *unconstrained* feeder (no voltage limits), the optimizer drives the
 unbalance essentially to zero and, by flattening the phase currents, **cuts the
-feeder losses**, since balanced currents minimise the resistive ``\sum R|I|^2``:
+feeder losses**, since balanced currents minimize the resistive ``\sum R|I|^2``:
 
 ```@example statcom
 n = feeder(); add_statcom!(n, "b1"; s_max = 30_000.0, dc_link_coupled = true)
@@ -208,7 +208,7 @@ report("active circulation", solve_opf(n; optimizer = OPT))
 ## 5. A physically faithful current limit
 
 The apparent-power circle ``P_k^2 + Q_k^2 \le s_{\max}^2`` is the constant-MVA
-idealisation. A real converter is limited by its **current**, and ``|S_k| =
+idealization. A real converter is limited by its **current**, and ``|S_k| =
 |\Delta V_k|\,|I_k|``, so its capability shrinks as the terminal voltage sags. Supply
 an optional per-conductor `i_max` and the model captures that rolloff
 ([3](@ref refs-statcom)); the balancing authority is then bounded by amps, not VA.
@@ -235,7 +235,7 @@ end
 println("neutral   : |I| = ", round(abs(-sum(I)), digits=1), " A")
 ```
 
-## Why optimisation matters
+## [Why optimization matters](@id Why-optimisation-matters)
 
 | Control of the same converter | Voltage unbalance | Heavy phase held? |
 |---|---|---|
@@ -246,7 +246,7 @@ println("neutral   : |I| = ", round(abs(-sum(I)), digits=1), " A")
 
 The lesson is not that a STATCOM is powerful — it is that *which* degree of freedom
 you give it, and *how you dispatch it*, decides everything, and both questions are
-optimisation questions. A power-flow simulation can score a fixed per-phase
+optimization questions. A power-flow simulation can score a fixed per-phase
 ``(P, Q)`` setpoint, but the setpoint that balances the feeder lives on a constraint
 surface — the coupled DC-link balance ``\sum_k P_k = 0`` intersected with three
 per-phase apparent-power circles — that no heuristic rule traces. Finding it is what

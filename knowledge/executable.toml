@@ -1,3 +1,6 @@
+# Issue #464 adopts American English for authored prose and diagnostics.
+# Existing API/serialized identifiers and scientific domains remain unchanged;
+# regenerated records refresh their wording and source hashes only.
 # Review: source completeness and coordinate-invariant signatures remain descriptive;
 # exact repeat grouping and explicit malformed/disabled reasons do not widen PSK domains.
 # Profiler evidence separates finite winding caps, qualified boundary distance,

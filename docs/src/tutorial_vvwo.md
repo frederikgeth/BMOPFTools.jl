@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -19,15 +19,15 @@ it wants to export as much of its own active power as possible, and it reacts to
 **only one signal it can measure locally** — the voltage at its own terminals —
 through an AS/NZS 4777.2 [[6]](@ref refs-vvwo) Volt-var / Volt-watt droop curve.
 No IBR sees the others; they are coupled *only* through the grid, because one unit's export lifts
-the voltage that its neighbours then sense and respond to. "Everyone maximises
+the voltage that its neighbors then sense and respond to. "Everyone maximizes
 their own output, reacting to their own voltage" is therefore not a heuristic —
-it is a genuine distributed optimisation problem.
+it is a genuine distributed optimization problem.
 
 The remarkable result this tutorial is built around (Farivar–Chen–Low
 [[1]](@ref refs-vvwo); Zhou–Farivar–Low [[2]](@ref refs-vvwo)) is that for a
 **balanced** network this distributed problem is *equivalent to a centralized
 one*: the equilibrium the local controllers settle into is the optimum of a
-single, well-defined network-wide optimisation. That equivalence is what makes
+single, well-defined network-wide optimization. That equivalence is what makes
 local droop trustworthy — and it is also what an OPF lets us exploit and, where
 the equivalence breaks, replace.
 
@@ -74,8 +74,8 @@ julia --project=test examples/vvwo_tutorial.jl
 
 Why does a fleet of *locally* controlled IBRs have anything to do with a
 *centralized* OPF? In this study PV is priced at zero while grid import is priced
-positively, so the optimiser pushes **every** IBR's active power toward its
-nameplate — each unit maximises its *own* export — and the only things that hold
+positively, so the optimizer pushes **every** IBR's active power toward its
+nameplate — each unit maximizes its *own* export — and the only things that hold
 it back are its **local** droop response and any **hard limit**. The droop reads a
 single local quantity, the IBR's own terminal voltage magnitude
 $U_{n,k} = |\Delta v_k|$: Volt-var sets reactive power $q = -f^{VV}(U)$ and
@@ -92,27 +92,27 @@ control law* — and a power-flow simulator closes it by **iteration**, which is
 precisely a distributed (Jacobi / gradient-type) algorithm running over the IBRs.
 The deep result [[1]](@ref refs-vvwo), [[2]](@ref refs-vvwo) is that on a
 **balanced, radial** feeder this loop has a unique equilibrium, and that
-equilibrium is the **minimiser of a single convex network-wide objective** — the
+equilibrium is the **minimizer of a single convex network-wide objective** — the
 selfish local rules collectively descend one global potential function, so an OPF
 that encodes the droop can compute their fixed point **in one shot** instead of
 iterating to it.
 
 !!! details "The potential-game result in more detail"
     Farivar, Chen & Low [[1]](@ref refs-vvwo) showed that on a balanced, radial
-    feeder under the linearised **LinDistFlow** model [[3]](@ref refs-vvwo), with
+    feeder under the linearized **LinDistFlow** model [[3]](@ref refs-vvwo), with
     a monotone droop, the local-control dynamics has a **unique equilibrium**,
-    and that equilibrium is the minimiser of a single convex network-wide
+    and that equilibrium is the minimizer of a single convex network-wide
     objective. In other words the selfish local rules behave as one *potential
     game*: there is a global potential function that every local controller is
     implicitly, collectively descending, and its minimum is the fixed point they
-    converge to. Zhou, Farivar, Liu, Chen & Low [[2]](@ref refs-vvwo) generalised
+    converge to. Zhou, Farivar, Liu, Chen & Low [[2]](@ref refs-vvwo) generalized
     this into **reverse engineering** (read off the global problem any given
     local law is solving) and **forward engineering** (design the local law so
     its equilibrium solves a *chosen* global problem). The practical upshot:
-    under those assumptions, "everyone maximises their own output, reacting only
+    under those assumptions, "everyone maximizes their own output, reacting only
     to their own voltage" provably lands at the optimum of a centralized
-    optimisation — no coordinator required.
-    ([[4]](@ref refs-vvwo) surveys the broader distributed-optimisation
+    optimization — no coordinator required.
+    ([[4]](@ref refs-vvwo) surveys the broader distributed-optimization
     landscape.)
 
 **Where the equivalence breaks — and the OPF takes over.** The guarantee rests on
@@ -139,15 +139,15 @@ hosting capacity:
 - the **feeder head is tapped to 1.05 pu** (utilities run the LV head high to
   cover downstream voltage drop — which is precisely when midday PV export
   over-voltages the far end);
-- the **service drops are modelled at 30 m** (the raw dataset ships ~6 m drops,
+- the **service drops are modeled at 30 m** (the raw dataset ships ~6 m drops,
   too short to develop a realistic rise); and
 - each PV cluster is **45 kVA**, free to run to nameplate (≈ eight of the study's
   5.25 kVA rooftop IBRs behind one pole-top).
 
 Because the loads — and therefore the PV — sit on different phases, the export is
-itself unbalanced, which is where four-wire modelling (explicit neutral, no Kron
-reduction) earns its keep. The objective minimises **priced grid import**, so with
-PV priced at zero the OPF maximises export until a constraint stops it.
+itself unbalanced, which is where four-wire modeling (explicit neutral, no Kron
+reduction) earns its keep. The objective minimizes **priced grid import**, so with
+PV priced at zero the OPF maximizes export until a constraint stops it.
 
 `base_net()` builds this network fresh for each scenario — parse the JSON, retap
 the head, lengthen the two service drops, and place the two PV clusters:
@@ -162,7 +162,7 @@ const LV_LN_V = 230.0        # LV phase-to-neutral nominal (V)
 
 # A single-phase PV nameplate on `phase` of `bus`: p_avail = s_max so the unit is
 # free to run to nameplate (curtailed only by Volt-watt or a hard limit); cost 0
-# so the OPF maximises export (every exported W displaces priced grid import).
+# so the OPF maximizes export (every exported W displaces priced grid import).
 pv(bus, phase) = Dict{String,Any}(
     "bus" => bus, "terminal_map" => [phase, "n"], "topology" => "SINGLE_PHASE",
     "prime_mover" => "PV", "s_max" => [45_000.0], "p_avail" => 45_000.0,
@@ -227,7 +227,7 @@ end
 ## Three scenarios
 
 The three scenarios are the arc from the previous section made concrete: **A** is
-the fleet with *no droop modelled at all*, **B** is the distributed equilibrium
+the fleet with *no droop modeled at all*, **B** is the distributed equilibrium
 *solved in one shot*, and **C** is the *constrained centralized optimum* that
 lives beyond the local-droop equivalence.
 
@@ -311,7 +311,7 @@ already outside the regime where the local-droop equilibrium would coincide with
 constraint-respecting centralized optimum. That is exactly why the next step
 matters.
 
-### C — hard limits only an optimiser can enforce (beyond the equivalence)
+### [C — hard limits only an optimizer can enforce (beyond the equivalence)](@id C-—-hard-limits-only-an-optimiser-can-enforce-(beyond-the-equivalence))
 
 Keep the droop, and add the constraints that the distributed law provably cannot
 guarantee here: a 1.10 pu phase-to-neutral ceiling, a neutral-to-ground cap, and
@@ -328,7 +328,7 @@ augC, _ = augment_case(netC; config=cfg, recipe=manual_recipe(thermal=true))
 C = solve_and_report(augC)
 ```
 
-The OPF **co-optimises the droop and the network limits**: the voltage is held at
+The OPF **co-optimizes the droop and the network limits**: the voltage is held at
 *exactly* 1.10 pu by curtailing a little more PV. This binding constraint —
 enforced directly as a hard limit here, rather than approached by trial-and-error
 setpoints or outer iteration in a fixed-setpoint simulation — is the whole point
@@ -346,7 +346,7 @@ end
 
 The droop (B) trades export for voltage support relative to the naive maximum
 (A); the hard limit (C) trades a little more to *guarantee* the ceiling. Each
-added binding constraint weakly increases the minimised objective (priced grid
+added binding constraint weakly increases the minimized objective (priced grid
 import); since this feeder is a net exporter, that shows up as **less export
 revenue** — the price of respecting the network physics and the operating
 envelope at once. Read through the lens of the previous section: A is the fleet

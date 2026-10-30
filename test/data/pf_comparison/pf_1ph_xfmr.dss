@@ -12,11 +12,11 @@
 ! %r=1.0  per winding  → total series R referred to HV ≈ 2%·Z_base_HV
 ! xhl=4.0              → leakage reactance between windings, %
 ! %noloadloss=0.3      → core/iron loss as % of rated kVA
-! %imag=1.5            → magnetising current as % of rated current
+! %imag=1.5            → magnetizing current as % of rated current
 
 Clear
 
-! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).  The OpenDSS
 ! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
 ! rescale every reactance.  See docs/src/validation.md.
 Set DefaultBaseFreq=50

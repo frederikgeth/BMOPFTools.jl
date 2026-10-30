@@ -176,7 +176,7 @@ end
 end
 
 @testset "merge_series_lines — grounded intermediate bus blocked, GROUNDED_BUS logged" begin
-    # A modelled ground at the pass-through bus fixes terminal voltages; merging
+    # A modeled ground at the pass-through bus fixes terminal voltages; merging
     # would delete the bus and silently drop the ground.
     net = Dict{String,Any}(
         "bus"      => Dict("A" => _bus(), "B" => _bus(grounded=["n"]), "C" => _bus()),

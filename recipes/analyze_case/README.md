@@ -28,7 +28,7 @@ the book owns scientific claims, while this package-owned example demonstrates
 ordinary analysis behavior and structured Findings.
 
 The bundled `input.json` is a hand-authored synthetic three-bus network,
-licensed under this repository's BSD-3-Clause licence. It contains no CSIRO
+licensed under this repository's BSD-3-Clause license. It contains no CSIRO
 MV/LV dataset data.
 
 The recipe also checks the minimized 100 kVA / 40 kW single-coil witness through

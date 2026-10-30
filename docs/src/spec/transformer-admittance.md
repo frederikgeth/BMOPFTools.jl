@@ -109,7 +109,7 @@ $\textcolor{brown}{y_n}$ to that neutral node's diagonal.
 
 ## 3. `center_tap` (split-phase, 3-winding)
 
-Five nodes $[\,p,\,m,\,a,\,g,\,c\,]$: HV-phase, HV-neutral, LV-leg-1, LV-centre-tap,
+Five nodes $[\,p,\,m,\,a,\,g,\,c\,]$: HV-phase, HV-neutral, LV-leg-1, LV-center-tap,
 LV-leg-2. This is a genuine **3-winding** unit (1 HV + 2 series-aiding LV legs sharing
 $g$). Refer all arms to the LV base:
 
@@ -139,7 +139,7 @@ The connection matrix maps node voltages $[p,m,a,g,c]$ to the three winding volt
 the HV winding sees $(\textcolor{blue}{U_p}-\textcolor{blue}{U_m})/\textcolor{red}{N}$,
 leg 1 sees $\textcolor{blue}{U_a}-\textcolor{blue}{U_g}$, and leg 2 sees
 $\textcolor{blue}{U_g}-\textcolor{blue}{U_c}$ (both legs the *same* polarity about the
-centre tap — series-aiding):
+center tap — series-aiding):
 
 ```math
 \textcolor{brown}{\mathbf{C}}=
@@ -153,7 +153,7 @@ centre tap — series-aiding):
 With the no-load shunt across winding 2 = LV leg 1 (the $a$–$g$ coil,
 $\textcolor{brown}{\mathbf{c}}_{ag}=\mathbf{e}_a-\mathbf{e}_g$) and the two optional
 neutral-grounding branches — $\textcolor{brown}{y_n^{\text{fr}}}$ at the HV neutral $m$
-(node 2) and $\textcolor{brown}{y_n^{\text{to}}}$ at the centre tap $g$ (node 4):
+(node 2) and $\textcolor{brown}{y_n^{\text{to}}}$ at the center tap $g$ (node 4):
 
 ```math
 \textcolor{brown}{\mathbf{Y}_x}=
@@ -262,7 +262,7 @@ orientation). Summing over phases and adding the winding-2 shunt,
 ```
 
 This is the exact multi-winding leakage star; the 2-winding subtypes above are its
-closed-form specialisations.
+closed-form specializations.
 
 ## 6. Regulators
 

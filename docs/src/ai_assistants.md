@@ -19,9 +19,9 @@ MCP adapter, and recipes; this page remains the fuller operating guide.
 | Need | Recommended arrangement | Main limitation |
 |---|---|---|
 | Change or test the package | A coding assistant with a local repository checkout | It still needs explicit scope and verification requirements |
-| Analyse a shareable case | A local coding assistant with the case and pinned environment | Results apply to that case and package revision |
+| Analyze a shareable case | A local coding assistant with the case and pinned environment | Results apply to that case and package revision |
 | Discuss a small public example | A chat or Project with the relevant files and documentation | Uploaded files are a snapshot, not a live package installation |
-| Analyse confidential network data | A locally controlled environment approved for that data | Do not upload protected models to an unapproved external service |
+| Analyze confidential network data | A locally controlled environment approved for that data | Do not upload protected models to an unapproved external service |
 | Establish a general scientific conclusion | The book's grounded access route, followed by the relevant executable check | A package result alone is not a literature or evidence review |
 
 BMOPFTools does not expose a package-specific retrieval service: scientific
@@ -124,7 +124,7 @@ distinction concrete by parsing a deliberately incomplete document whose
 separate schema check emits `E.SCHEMA.REQUIRED`. Escalate to `analyze-case` when
 the user asks whether the case is valid or usable.
 
-### Analyse and triage a case
+### [Analyze and triage a case](@id Analyse-and-triage-a-case)
 
 > Parse `<case.json>` with `parse_bmopf`, run `analyze`, and summarize errors, warnings, and informational Findings by stable code. For each material Finding, name the affected component, explain what the package established, and link to the relevant BMOPFTools documentation. Do not claim the case is OPF-ready merely because parsing succeeds. Do not edit the input. Return the commands used and any limitations of the analysis.
 
@@ -179,15 +179,15 @@ bin/bmopf explain-finding E.SOL.VOLT_VIOLATION --pretty
 ```
 
 Report the canonical meaning and provenance separately from the observed
-Finding instance. The catalogue entry does not diagnose why the violation
+Finding instance. The catalog entry does not diagnose why the violation
 occurred, identify an automatic repair, or prove that other checks passed.
 Preserve empty `knowledge_ids` when no scientific-contract link is declared;
 do not infer a PSK link from topical similarity. If the code belongs to an
-external PowerIO namespace such as `EMIT.*`, use PowerIO's catalogue rather
+external PowerIO namespace such as `EMIT.*`, use PowerIO's catalog rather
 than inventing a BMOPFTools explanation.
 
 For a Julia `Finding` instance from `report.findings`, `explain_finding(finding)`
-returns the catalogue entry plus any recorded `interpretation`: observations, ordered possible
+returns the catalog entry plus any recorded `interpretation`: observations, ordered possible
 explanations, implications, alternatives, suggested checks and `learn_more`
 documentation links to cite when explaining the hint to the user. Provenance,
 feeder-length and n-winding cap hints carry one. An INFO or WARNING can be useful
@@ -195,20 +195,20 @@ without a verified cause; its severity is not permission to change the model.
 Follow `automation_guidance`: investigate the hypothesis, tell the user what it
 would mean for their study, and obtain evidence before proposing an edit. The
 [profiler guide](analysis.md#Evidence-qualified-profiler-results) documents the
-fields. Code-only CLI/MCP lookup remains a catalogue operation.
+fields. Code-only CLI/MCP lookup remains a catalog operation.
 
 For a serialized entry from the `findings` array of an `analyze_case` JSON
 response, read its recorded interpretation directly:
 
 ```julia
 guide = json_finding["detail"]["interpretation"]  # for a Finding that carries guidance
-catalogue = explain_finding(json_finding["code"])
+catalog = explain_finding(json_finding["code"])
 ```
 
 Check for missing/null `detail` and `interpretation` when iterating over the
 whole array. JSON dictionaries are not Julia `Finding` instances; the instance
 overload does not accept them. The recorded context is already present in the
-JSON report, while the code-only lookup supplies the catalogue explanation.
+JSON report, while the code-only lookup supplies the catalog explanation.
 
 ### Evaluate a scientific contract
 
@@ -259,7 +259,7 @@ For a proposed Kron reduction, start with the tutorial's grounding premise:
 Use [`check_kron_boundary_recovery`](@ref). The [grounding tutorial](tutorial_grounding.md)
 shows the same distinction experimentally: perfect endpoint grounding gives an
 exact three-wire boundary, while floating or finite grounding changes the
-network behaviour that the reduced model cannot represent.
+network behavior that the reduced model cannot represent.
 
 ### Contribute a package change
 

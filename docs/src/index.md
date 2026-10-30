@@ -103,7 +103,7 @@ for geographic and electrical model cleanup.
 
 The [utility-data end-to-end tutorial](tutorial_end_to_end.md) adds OpenDSS
 conversion, structural transformations, DER placement, and augmentation on a
-larger source case. It requires an external dataset with its own licence terms;
+larger source case. It requires an external dataset with its own license terms;
 its dataset examples are displayed as code and are not executed by the docs build.
 It is an optional continuation, not a prerequisite for the bundled walkthrough.
 
@@ -129,7 +129,7 @@ in CIM, PowerModelsDistribution, FAIR, and tidy-data.
 
 Every diagnostic is a `Finding` with a **stable dot-separated code**
 (`E.`/`W.`/`I.` for error/warning/info) — see the
-[finding-code reference](findings.md) for the complete catalogue. Match on
+[finding-code reference](findings.md) for the complete catalog. Match on
 codes, never on message text.
 
 ## Where to go next

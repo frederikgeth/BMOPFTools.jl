@@ -10,6 +10,10 @@ benchmark datasets live in the companion
 Contributions of code, documentation, bug reports, and data-model feedback are
 welcome.
 
+Use **American English** in repository-authored text and new identifiers.
+For examples and compatibility exceptions, see the
+[spelling policy](docs/src/dev/style_guide.md#spelling).
+
 ## Contributor guide
 
 The detailed guidance is published in the latest development documentation:
@@ -90,7 +94,7 @@ traceable to their source. Before opening a pull request in BMOPFDraftData:
 3. Cross-check the converted case against OpenDSS where possible.
 4. If the case is intended for OPF, prepare it with the case-augmentation
    workflow (`fix_case` → `add_generators` → `augment_case`).
-5. Preserve the source citation and exact upstream licence in the data
+5. Preserve the source citation and exact upstream license in the data
    directory and the generated case metadata.
 
 Hosting a draft does not make it an official Task Force benchmark. Adoption is
@@ -106,8 +110,8 @@ instead.
 
 ## Licensing
 
-- **Code** is licensed under the [BSD-3-Clause licence](LICENSE.md).
-- **Network data** retains the licence of its upstream dataset. Check the
+- **Code** is licensed under the [BSD-3-Clause license](LICENSE.md).
+- **Network data** retains the license of its upstream dataset. Check the
   `License.md` or `license.md` in the relevant data directory and preserve its
   terms and citation in derivatives. The `LV` and `MV` datasets are stored externally in
   `BMOPFDraftData/test/data`; they are
@@ -118,6 +122,6 @@ instead.
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 By contributing code, you agree that it may be distributed under the
-BSD-3-Clause licence. For data, only contribute material you have the right to
-redistribute, and do not replace an upstream dataset's licence with the
-repository's code licence.
+BSD-3-Clause license. For data, only contribute material you have the right to
+redistribute, and do not replace an upstream dataset's license with the
+repository's code license.

@@ -472,7 +472,7 @@ function integrity_check(net::Dict{String,Any},
     # An MVDC/LVDC subsystem is expected to be embedded within a referenced AC
     # network: every converter's AC bus should sit in an AC galvanic island that
     # carries its own AC voltage reference (source / grounding). A converter whose
-    # AC bus is energised ONLY through the DC link — the dangling case
+    # AC bus is energized ONLY through the DC link — the dangling case
     # "AC system — converter — dc line — converter — bare bus" — is flagged,
     # unless that island hosts a grid-forming converter (which can set the AC
     # reference itself).
@@ -499,7 +499,7 @@ function integrity_check(net::Dict{String,Any},
                 :ibr, id,
                 "Converter '$id' feeds AC bus '$ab', whose AC island has no AC " *
                 "voltage reference (no source/grounding) and no grid-forming " *
-                "converter — it is energised only through the MVDC link " *
+                "converter — it is energized only through the MVDC link " *
                 "(dangling / not embedded in a referenced AC system). If this is " *
                 "an intentional DC-fed feeder, mark a converter grid_forming.",
                 Dict{String,Any}("bus" => ab)))

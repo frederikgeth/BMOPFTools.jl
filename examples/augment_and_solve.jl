@@ -13,7 +13,7 @@ Steps:
      and reactive capability bounds (EN 50549-1); save the augmented JSON
      and augmentation report
   4. Solve the OPF with Ipopt — the solver trades off cheap DER output
-     against expensive slack import to minimise total cost
+     against expensive slack import to minimize total cost
   5. Profile the solution and render the solution report
 
 Run from the repository root using the test environment (which includes JuMP
@@ -65,8 +65,8 @@ println("  generators : ", length(get(net, "generator", Dict())))
 #   der_bat   — three-phase dispatchable battery at b514 (mid-feeder), 15 kW
 #               Cost: -0.50 $/W·s — lower priority than solar
 #
-# The OPF minimises total cost = Σ(cost_k * pg_k). Negative costs make the
-# solver maximise DER output subject to voltage and thermal constraints. Any
+# The OPF minimizes total cost = Σ(cost_k * pg_k). Negative costs make the
+# solver maximize DER output subject to voltage and thermal constraints. Any
 # shortfall is covered by the grid slack (zero cost); surplus can be exported.
 #
 # augment_case will:
@@ -141,7 +141,7 @@ println("Augmented report → ", relpath(aug_report_path))
 
 # ── 4. Solve OPF ──────────────────────────────────────────────────────────────
 #
-# Expected behaviour:
+# Expected behavior:
 #   Both PV units are driven to full output (6 kW each; highest reward -1.0).
 #   The battery dispatches up to its per-phase limit (5 kW/phase), but may be
 #   curtailed by the EN 50160 voltage-rise constraint on the LV feeder — this

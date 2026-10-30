@@ -1,7 +1,7 @@
 # Voltage bound injection pass.
 #
 # For each bus that is missing bounds, injects v_min/v_max (solver
-# regularisation), vpn/vpp (power-quality standards), and vuf_max.
+# regularization), vpn/vpp (power-quality standards), and vuf_max.
 #
 # Never overwrites existing bounds.  Source buses are skipped for vpn/vpp/vneg
 # (their voltages are fixed by the voltage source, not constrained by bounds).
@@ -14,7 +14,7 @@
 
 # ── Voltage-level snapping ───────────────────────────────────────────────────
 #
-# Standardised nominal voltages (IEC 60038 / ANSI C84.1), stored PHASE-TO-NEUTRAL
+# Standardized nominal voltages (IEC 60038 / ANSI C84.1), stored PHASE-TO-NEUTRAL
 # (per-conductor) to match how v_nom is reported by voltage_level_analysis. The
 # familiar line-to-line name is given alongside. Used by the optional snap pass
 # to pull imported 240/250 V transformers onto the standard 230 V (etc.).
@@ -89,7 +89,7 @@ end
 Optional augment pass: when `snap_cfg["enabled"]`, snap each bus's derived
 nominal (`v_nom`) to the nearest standard level (within tolerance) and write the
 result as `bus["v_declared"]`, so the downstream bounds passes reference the
-standardised voltage. Buses that already carry an explicit `v_declared`, or
+standardized voltage. Buses that already carry an explicit `v_declared`, or
 whose `v_nom` does not move under snapping, are left untouched. Each write is
 recorded as a `TransformEntry`.
 """
@@ -178,7 +178,7 @@ function _apply_voltage_bounds!(net′::Dict{String,Any},
         has_neutral = nt !== nothing && any(t -> string(t) == nt, terms)
         is_four_wire = has_neutral && n_phase >= 1
 
-        # ── v_min / v_max (solver regularisation) ────────────────────────────
+        # ── v_min / v_max (solver regularization) ────────────────────────────
         # Per-phase arrays, one entry per phase conductor (phase-to-ground).
         if r.apply_v_bounds && r.v_min_pu !== nothing && r.v_max_pu !== nothing && n_phase >= 1
             for (field, pu) in (("v_min", r.v_min_pu), ("v_max", r.v_max_pu))

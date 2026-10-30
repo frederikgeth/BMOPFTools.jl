@@ -1,12 +1,12 @@
 # [From test report to transformer model](@id transformer-tests)
 
-*Short-circuit and open-circuit test data in; winding leakage, magnetising
+*Short-circuit and open-circuit test data in; winding leakage, magnetizing
 branch, vector group, and n-winding `x_sc` out — then close the loop by
 re-running the tests on the constructed model.*
 
 A transformer arrives as three documents: a **nameplate** (kVA, voltage
 ratings, vector group), a **short-circuit test** (impedance voltage %Z and
-load loss), and an **open-circuit test** (no-load loss and magnetising
+load loss), and an **open-circuit test** (no-load loss and magnetizing
 current). Every number is a percentage *on the machine's own base*, and the
 BMOPF data model wants **SI ohms and siemens on specific windings**. This
 tutorial is that conversion, done twice — a single-phase unit first, then a
@@ -33,7 +33,7 @@ no longer exists. Every block runs at build time.
 |---|---|---|
 | Nameplate | — | `s_rating` (VA), `v_nom_from`/`v_nom_to` (V), vector group → subtype |
 | Short-circuit (LV shorted, reduced HV voltage, rated current) | impedance voltage %Z, load loss ``P_{cu}`` | series leakage `r/x_series_*` (Ω) |
-| Open-circuit (rated voltage, LV open) | no-load loss ``P_0``, magnetising current ``I_0`` (%) | core branch `g_no_load`/`b_no_load` (S) |
+| Open-circuit (rated voltage, LV open) | no-load loss ``P_0``, magnetizing current ``I_0`` (%) | core branch `g_no_load`/`b_no_load` (S) |
 
 Two facts drive every formula below. First, the percentages are **per-unit on
 the machine's own base**: ``Z_B^{\text{wdg}} = V_{\text{wdg}}^2/S`` with the
@@ -52,7 +52,7 @@ Take a 50 kVA, 11 000/240 V single-phase distribution transformer with a
 typical test report:
 
 - short-circuit: ``\%Z = 4.0``, load loss ``P_{cu} = 1100`` W,
-- open-circuit: ``P_0 = 150`` W, magnetising current ``I_0 = 0.5\,\%``.
+- open-circuit: ``P_0 = 150`` W, magnetizing current ``I_0 = 0.5\,\%``.
 
 **Series branch.** The load loss fixes the resistive part
 (``\%R = 100 P_{cu}/S = 2.2``) and the impedance triangle gives
@@ -63,11 +63,11 @@ percent, each half landing in ohms on its own winding's base (the
 [spec](spec/transformer.md) documents the under-determination; §5 shows a
 different convention in the wild and why it doesn't matter).
 
-**Core branch.** No-load loss → conductance; magnetising current →
+**Core branch.** No-load loss → conductance; magnetizing current →
 (negative, inductive) susceptance. Placement matters: the engine follows
 OpenDSS and puts the branch **across winding 2**, the *to*-side coil, so both
 convert on winding 2's voltage
-([magnetising-shunt placement](transformer_models.md#Magnetising-shunt-placement)).
+([magnetizing-shunt placement](transformer_models.md#Magnetising-shunt-placement)).
 The loss current ``100 P_0/S = 0.3\,\%`` is one leg of ``I_0``; the
 susceptance current is the quadrature remainder.
 
@@ -81,7 +81,7 @@ pctR  = 100Pcu / S
 pctX  = sqrt(pctZ^2 - pctR^2)
 Zb_fr = Vhv^2 / S                        # winding 1's own impedance base (Ω)
 Zb_to = Vlv^2 / S                        # winding 2's
-pct_b = sqrt(I0^2 - (100P0/S)^2)         # magnetising (susceptance) current, %
+pct_b = sqrt(I0^2 - (100P0/S)^2)         # magnetizing (susceptance) current, %
 
 xfmr = Dict{String,Any}(
     "bus_from" => "hv", "bus_to" => "lv",
@@ -193,9 +193,9 @@ println("               P = ", round(p_sc; digits = 1), " W  (datasheet Pcu = ",
 ```
 
 The loop closes: report → fields → model → report. The small residual in the
-OC power (the magnetising current does traverse half the series resistance)
+OC power (the magnetizing current does traverse half the series resistance)
 is exactly the approximation the factory test itself makes — the model
-reproduces the *test*, not an idealisation of it.
+reproduces the *test*, not an idealization of it.
 
 ## 5. Three-phase: the Dyn11 and its vector group
 
@@ -210,7 +210,7 @@ transformer — ``\%Z = 4.5``, ``P_{cu} = 4600`` W, ``P_0 = 610`` W,
   which the engine applies for Dy — and `delta_roll = -1` in `n_winding`
   language ([conventions](transformer_models.md#Conventions)).
 
-Two conventions to internalise for the 2-bus three-phase subtypes:
+Two conventions to internalize for the 2-bus three-phase subtypes:
 `v_nom_from`/`v_nom_to` are the **line-to-line** ratings straight off the
 nameplate (the √3 lives inside the effective per-coil ratio the engine
 derives), and the winding-2 shunt converts on winding 2's **coil** voltage —
@@ -292,7 +292,7 @@ The resistances and core branch match term-for-term. The *reactance split*
 does not have to: the import happens to distribute X differently between the
 windings — and the **HV-referred series sum agrees exactly**, which is the
 only thing the short-circuit test ever measured (§2). Two honest conventions,
-one physical quantity. (At an off-nominal *optimised* tap the split briefly
+one physical quantity. (At an off-nominal *optimized* tap the split briefly
 matters — the tapped winding's share scales as tap² — which is why the engine
 pins the referral convention explicitly;
 [transformer models](transformer_models.md).)
@@ -346,7 +346,7 @@ their live demonstrations have dedicated tutorials.
 **Taps.** `tap` (default 1.0) multiplies the ratio:
 ``N = (v_{\text{nom,from}}/v_{\text{nom,to}}) \cdot tap``. Setting
 `tap_min < tap_max` turns the tap into an **OPF decision variable** — the
-[tap-optimisation tutorial](tutorial_tap.md) is the walkthrough. The
+[tap-optimization tutorial](tutorial_tap.md) is the walkthrough. The
 interaction with §5's split convention: the engine referral is *exact* — the
 short-circuit impedance referred to the tapped winding scales as tap², the
 untapped side stays at nominal, matching OpenDSS at every tap position
@@ -428,11 +428,11 @@ println("ZB (engine) = ", round.(ZB_engine; sigdigits = 5))
 @assert isapprox(ZB_hand, ZB_engine; rtol = 1e-12)
 
 ev = eigvals(imag.(ZB_hand))
-println("eigvals(imag ZB) = ", round.(ev; sigdigits = 4), "  — realisable: ",
+println("eigvals(imag ZB) = ", round.(ev; sigdigits = 4), "  — realizable: ",
         all(ev .≥ 0))
 ```
 
-The eigenvalue check is the **realisability test**: the pairwise reactances
+The eigenvalue check is the **realizability test**: the pairwise reactances
 of a physical shared-core device must make ``\Im(\mathbf{Z}_B)`` positive
 semidefinite. Datasheets fail this more often than you would hope (typos, or
 tests taken at different taps), and a negative eigenvalue here is your first
@@ -440,7 +440,7 @@ warning *before* a solver produces a confusing answer. A *negative
 off-diagonal star arm*, by contrast, is perfectly physical for three-winding
 units — do not "fix" it. Two `n_winding` specifics worth pinning:
 `delta_roll = -1` is OpenDSS's standard delta orientation (the same 30° the
-"11" encoded in §5), and tap *optimisation* is not available on `n_winding`
+"11" encoded in §5), and tap *optimization* is not available on `n_winding`
 — regulated windings need a 2-bus subtype
 ([approximations table](transformer_models.md#Approximations)).
 
@@ -482,7 +482,7 @@ not derivable, and the provenance discipline of the
     symbolic `Yprim` and the four validation gates;
     [Validating the OPF](validation.md) shows the OpenDSS reference
     comparisons the test suite runs; the
-    [tap-optimisation tutorial](tutorial_tap.md) makes §6's tap fields
+    [tap-optimization tutorial](tutorial_tap.md) makes §6's tap fields
     decision variables; and the [SWER tutorial](tutorial_swer.md) features a
     split-phase `center_tap` unit — the three-winding star of §7 in its most
     common street-level form.

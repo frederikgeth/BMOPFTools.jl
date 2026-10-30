@@ -94,7 +94,7 @@ end
     important here: in a constant-power model an infeasibility may be *physical* — you
     are past the loadability / collapse boundary
     ([§4](index.md)), not
-    mis-modeled. If the IIS centres on the power-balance and voltage-bound constraints
+    mis-modeled. If the IIS centers on the power-balance and voltage-bound constraints
     of a heavily loaded sub-network, suspect collapse, and confirm with a continuation
     sweep rather than editing constraints.
 
@@ -118,9 +118,9 @@ isempty(report) ? @info("AC-feasible: relaxation exact") :
 
 In BMOPFTools the same check is available natively for a four-wire network: pin the
 candidate dispatch into the case and call [`solve_feasibility_opf`](../validation.md),
-which minimises an injected slack current. A converged near-zero slack, together
+which minimizes an injected slack current. A converged near-zero slack, together
 with independently recomputed residuals, demonstrates a valid numerical power
-flow. A non-zero slack localises the residual used by that relaxed solve:
+flow. A non-zero slack localizes the residual used by that relaxed solve:
 
 ```julia
 snap    = project_solution(net, result)
@@ -193,7 +193,7 @@ causes you are looking at — physical, degeneracy, or non-smoothness — before
 formulation ([Trusting the solver §4–§6](solver_trust.md)):
 
 - **Physical (collapse).** A heavily loaded sub-network past the nose
-  ([§4](index.md)). The IIS / penalty relaxation from Symptom 2 centres on the
+  ([§4](index.md)). The IIS / penalty relaxation from Symptom 2 centers on the
   power-balance and voltage-bound constraints there. Confirm with a continuation sweep, not
   by editing constraints.
 - **Degeneracy (CQ failure).** Slow convergence with a *stable primal but unstable duals*

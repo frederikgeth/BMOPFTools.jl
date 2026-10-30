@@ -3,7 +3,7 @@
 A **shunt** is a fixed admittance connected between a set of bus terminals (and,
 implicitly, ground). It models capacitor banks, grounding impedances, and similar
 passive elements. Parts 1–5 state the foundational model;
-[part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realises it. Symbols
+[part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realizes it. Symbols
 are defined in [Notation](notation.md).
 
 ## 1. Data model
@@ -53,7 +53,7 @@ would risk trivial infeasibility and is not imposed.
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **No variables — in-place substitution.** Exactly as for the line
   $\Pi$-shunt, the code builds the affine expression

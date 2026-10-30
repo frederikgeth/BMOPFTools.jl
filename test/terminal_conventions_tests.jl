@@ -4,7 +4,7 @@
 # resolver, ingestion (explicit vs inferred + the numeric-4 alias interaction),
 # the validation findings raised on the inference fallback and on inconsistent
 # declarations, always-on export, and — gated on JuMP/Ipopt — an end-to-end
-# solve proving a non-"n" neutral label is honoured by the OPF.
+# solve proving a non-"n" neutral label is honored by the OPF.
 
 @testset "Terminal-role conventions" begin
 
@@ -58,7 +58,7 @@
         @test r2.phase == Set(["1"])
     end
 
-    @testset "materialisation stamps per-bus neutral (custom label)" begin
+    @testset "materialization stamps per-bus neutral (custom label)" begin
         net = mininet("ne")
         BMOPFTools._materialize_terminal_roles!(net)
         @test net["bus"]["bus1"]["neutral_terminal"] == "ne"
@@ -159,7 +159,7 @@
     end
 
     if _HAS_JUMP_IPOPT
-        @testset "OPF honours a non-\"n\" neutral label" begin
+        @testset "OPF honors a non-\"n\" neutral label" begin
             V_exp = (1000.0 + sqrt(1000.0^2 - 4 * 0.5 * 100000.0)) / 2
             base = solve_opf(mininet("n"))
             @test base["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")

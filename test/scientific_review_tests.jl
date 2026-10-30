@@ -69,7 +69,7 @@ using Test, BMOPFTools, JSON3, JSONSchema, LinearAlgebra
         @test c.status == (ratio > 0.02 ? :failed : :passed)
         roundtrip = JSON3.read(JSON3.write(r), Dict{String,Any})
         @test check_claimed_solution_validity(vnet, roundtrip).status == c.status
-        # Consistent role relabelling must leave the verdict unchanged.
+        # Consistent role relabeling must leave the verdict unchanged.
         renamed_net = deepcopy(vnet); renamed = deepcopy(r)
         renamed_net["bus"]["b"]["terminal_names"] = ["x","y","z"]
         renamed["bus"]["b"] = Dict(t=>r["bus"]["b"][s] for (t,s) in zip(["x","y","z"],["a","b","c"]))

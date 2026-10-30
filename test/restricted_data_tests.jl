@@ -67,7 +67,7 @@ end
             @test tx["v_nom_from"] > tx["v_nom_to"]               # step-down
             @test tx["v_nom_from"] / tx["v_nom_to"] ≈ 11.0/0.433  rtol=0.02
             # PowerIO emits a lumped Γ-model, wye-base-referred; the parse-time
-            # migration normalises it onto the wye winding's own field (delta_wye
+            # migration normalizes it onto the wye winding's own field (delta_wye
             # has wye = to) so a nonzero leakage impedance reaches the OPF/Ybus
             # builders (not silently zero, and not double-referred).
             @test haskey(tx, "r_series_to") && tx["r_series_to"] > 0

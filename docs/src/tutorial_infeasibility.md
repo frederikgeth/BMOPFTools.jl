@@ -76,7 +76,7 @@ r_bad = solve_opf(tight; optimizer = OPT)
 println("status : ", r_bad["termination_status"])
 ```
 
-`LOCALLY_INFEASIBLE` means Ipopt's restoration phase minimised the constraint
+`LOCALLY_INFEASIBLE` means Ipopt's restoration phase minimized the constraint
 violation and could not drive it to zero ([1](@ref refs-infeas)). On a nonconvex
 problem that is strong evidence, not proof — a different starting point *could* in
 principle have succeeded ([2](@ref refs-infeas)), which is exactly why
@@ -130,7 +130,7 @@ constraints.
 [`solve_feasibility_opf`](@ref) builds the *same* model as `solve_opf` — identical
 hard voltage bounds, angle limits, and device current limits — with one surgical
 relaxation: an elastic slack current ``(c^s_r, c^s_i)`` is injected into KCL at
-every non-source bus terminal, and the objective minimises ``\sum_k |c^s_k|^2``
+every non-source bus terminal, and the objective minimizes ``\sum_k |c^s_k|^2``
 instead of generation cost. At every terminal carrying a slack variable, KCL can
 balance by paying a residual-current penalty. If the remaining hard constraints
 are consistent and the relaxed solve converges, a terminal using slack identifies
@@ -238,12 +238,12 @@ println("is_feasible : ", d_fix["is_feasible"],
 Together with an independent residual check, this supplies an explicit
 numerically feasible point satisfying the represented KCL, KVL, and device equations
 ([Diagnostics & validation](bounds/diagnostics.md)). The loop is closed: claim,
-localisation, quantified fix, confirmation.
+localization, quantified fix, confirmation.
 
 ## When to trust `INFEASIBLE`
 
 - **The verdict is calibrated trust, not proof.** With sane bounds, a
-  loss/cost-minimising objective, and the numerical traps excluded,
+  loss/cost-minimizing objective, and the numerical traps excluded,
   repeated `LOCALLY_INFEASIBLE` outcomes are evidence of physical infeasibility —
   work through the [trust checklist](bounds/solver_trust.md) before concluding,
   and remember that restoration is start-dependent ([2](@ref refs-infeas)).
@@ -262,7 +262,7 @@ localisation, quantified fix, confirmation.
   conflict, poor conditioning, or a failed local trajectory; inspect status,
   residuals, and source/bound consistency before classifying it.
 - The failure modes behind stubborn cases — collapse proximity, branch
-  multiplicity, degenerate duals — are catalogued in the
+  multiplicity, degenerate duals — are cataloged in the
   [Known traps](bounds/known_traps.md) gallery.
 
 ## [References](@id refs-infeas)

@@ -1,4 +1,4 @@
-# SWER case study — why optimisation matters on a single-wire earth-return feeder.
+# SWER case study — why optimization matters on a single-wire earth-return feeder.
 #
 #   julia --project=test examples/swer_tutorial.jl
 #

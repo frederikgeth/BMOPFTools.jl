@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -279,7 +279,7 @@ coordinates. Winding `k` therefore enters ampere-turn balance and every ZB
 column as `N_k (S_k/S_1) I_k`. The ZB matrix itself is divided once by the
 winding-1 impedance base; winding-local shunts, current limits, apparent-power
 limits, and recovered results retain their owning winding's bases. A loaded
-three-port fixture with nonzero full ZB coupling, nonzero magnetising shunt,
+three-port fixture with nonzero full ZB coupling, nonzero magnetizing shunt,
 asymmetric phase loading, and a 50:1 power-base spread passes exact SI/local PF
 and OPF endpoint, current, voltage, loss, objective, initialization, set, and
 physical-Jacobian covariance.
@@ -312,7 +312,7 @@ covariance claim.
 Selected declarations also carry a local physical reference scale and its
 provenance. For example, a load active/reactive residual pair uses the
 per-phase nominal apparent-power magnitude when it is available. This is a
-candidate nondimensionalisation reference, not an instruction to mutate the
+candidate nondimensionalization reference, not an instruction to mutate the
 model and not the SI conversion factor. Downstream experiments can therefore
 compare system-wide per-unit bases with device-local references without
 parsing JuMP names or silently conflating units with numerical equilibration.
@@ -365,7 +365,7 @@ println("max |ΔV|    : ", round(dv; sigdigits = 3), " V  across all buses and t
 Both solves return SI results (they always do — `per_unit` never leaks into
 the output, see the [result dictionary](results.md)), and they agree to
 sub-microvolt voltages and a relative objective gap around ``10^{-6}`` — the
-convergence tolerance of the interior-point method, not a modelling
+convergence tolerance of the interior-point method, not a modeling
 difference. The two runs solve *different nonlinear programs* (every variable
 and coefficient rescaled) and land on the same physical solution: that is the
 SI ≡ per-unit equality, demonstrated rather than asserted.
@@ -387,7 +387,7 @@ is essential when comparing solver behavior across scaling policies.
 For multi-voltage networks this invariance is enforced by a network-wide sparse
 phasor transport solve in per-bus nominal-voltage coordinates. Its rows use
 actual conductor maps and ideal winding equations, so a phase-B single-phase
-lateral remains phase B after a label change, centre-tap legs remain anti-phase,
+lateral remains phase B after a label change, center-tap legs remain anti-phase,
 and Yd/Dy or WYE/DELTA n-winding phase shifts compose through transformer
 chains. Inspect the evidence rather than assuming this worked:
 
@@ -398,7 +398,7 @@ initialization["maximum_normalized_physics_residual"]
 println(initialization["maximum_normalized_residual_by_kind"])
 ```
 
-The current transformer schema supports WYE, DELTA, centre-tap, single-phase,
+The current transformer schema supports WYE, DELTA, center-tap, single-phase,
 autotransformer, and open-delta relations. Zigzag needs an explicit connection
 matrix in both the model and initialization layers and is intentionally not
 claimed as supported.
@@ -509,8 +509,8 @@ vectors that differ when you probably meant them equal.
 !!! note "Cheap DER + free export = an arbitrage machine"
     With export credited at the import price, a DER priced below the grid and
     sized above the load makes *exporting* optimal — the objective happily
-    goes negative. That is correct market behaviour, not a bug; if it is not
-    the study you meant to run, the modelling lever is the DER's capacity
+    goes negative. That is correct market behavior, not a bug; if it is not
+    the study you meant to run, the modeling lever is the DER's capacity
     (`p_max`), its price, or an export limit at the source.
 
 ## 7. From rate to energy: the timestep
@@ -574,7 +574,7 @@ Unit errors are silent, so check them off explicitly:
   powers both the loading cap and the per-unit referral
   ([transformer models](transformer_models.md)).
 - **The objective is a rate** (\$/h): per-phase \$/kWh coefficients times
-  injected watts over 1000. Positive cost minimises injection; export is
+  injected watts over 1000. Positive cost minimizes injection; export is
   credited at the same price. Multiply by the step duration in hours before
   calling anything "cost".
 - **Duals carry units too** — a shadow price from an SI solve and one from a

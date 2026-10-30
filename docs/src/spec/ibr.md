@@ -5,7 +5,7 @@ power-electronic converter: PV, battery storage, a STATCOM, or a generic convert
 injects controllable active and reactive power subject to a converter apparent-power
 rating, and can follow a smart-inverter control law (constant power factor, Volt-VAr,
 Volt-Watt). Parts 1–5 state the foundational model;
-[part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realises it. A
+[part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realizes it. A
 converter that also connects to a DC network is covered in [DC networks](dc.md).
 Symbols are defined in [Notation](notation.md).
 
@@ -127,7 +127,7 @@ P_{r,k}^2 + Q_{r,k}^2 \le (\textcolor{red}{S^{\max}_{r,k}})^2.
 **Converter current circle** (optional, per conductor). Because
 $|\textcolor{blue}{S_{r,k}}| = |\Delta\textcolor{blue}{U_{r,k}}|\,|\textcolor{blue}{I_{r,k}}|$,
 this makes reactive capability roll off roughly linearly with voltage — the faithful
-voltage-source-converter behaviour — rather than staying flat at $\textcolor{red}{S^{\max}}$:
+voltage-source-converter behavior — rather than staying flat at $\textcolor{red}{S^{\max}}$:
 
 ```math
 \textcolor{blue}{I_{r,k}}(\textcolor{blue}{I_{r,k}})^{*} \le (\textcolor{red}{I^{\max}_{r,k}})^2.
@@ -150,7 +150,7 @@ references an external `dc_bus`, this net power is balanced through DC KCL — s
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **Rectangular bilinear power** with `cri`/`cii` the converter currents:
   $P = \Delta v^r\,\text{cri} + \Delta v^i\,\text{cii}$,

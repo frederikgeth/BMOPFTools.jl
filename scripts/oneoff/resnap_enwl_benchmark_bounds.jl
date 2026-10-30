@@ -2,7 +2,7 @@
     resnap_enwl_benchmark_bounds.jl
 
 One-time regeneration of the voltage bounds on the reduced ENWLbenchmark cases
-so they are referenced to the standardised 230 V nominal instead of the 240 V
+so they are referenced to the standardized 230 V nominal instead of the 240 V
 the cases were originally built around.
 
 The enriched ENWLbenchmark JSONs carry `vpn_*` bounds computed as ±10 % of a

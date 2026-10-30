@@ -99,15 +99,15 @@ correctly reports `completed`.
 
 ## Explain one Finding code
 
-The package catalogue is also available as a deterministic offline lookup:
+The package catalog is also available as a deterministic offline lookup:
 
 ```sh
 bin/bmopf explain-finding E.SOL.VOLT_VIOLATION --pretty
 ```
 
-Julia callers use `explain_finding(code)` for the catalogue entry alone or
+Julia callers use `explain_finding(code)` for the catalog entry alone or
 `execute_finding_explanation(code)` for the versioned execution envelope. The
-result contains canonical severity, namespace, catalogue section, meaning,
+result contains canonical severity, namespace, catalog section, meaning,
 documentation hash, and any existing links to executable contracts and scientific references. It does
 not inspect a case, infer a root cause, recommend a repair, or query the book.
 
@@ -121,7 +121,7 @@ response; analysis JSON already carries the same context in Finding detail.
 The registry is generated from the complete [Finding-code reference](findings.md)
 and checked against `schemas/finding-registry.schema.json`. External PowerIO
 conversion codes such as `EMIT.*` are refused explicitly because their meanings
-belong to PowerIO's catalogue.
+belong to PowerIO's catalog.
 
 ## Response contract
 
@@ -235,7 +235,7 @@ solver status does not replace independent checks.
 
 The Finding-explanation recipe looks up that same `E.SOL.VOLT_VIOLATION` code
 without inspecting the result. It demonstrates the boundary between a
-catalogue meaning and case-specific evidence; it does not turn the code into
+catalog meaning and case-specific evidence; it does not turn the code into
 a guessed cause or repair.
 
 The parse recipe uses a deliberately incomplete document with a legacy load
@@ -244,7 +244,7 @@ assertion requires `E.SCHEMA.REQUIRED`. That executable contrast preserves the
 intake tutorial's core boundary: successful parsing is not successful
 validation.
 
-Recipes do not replace the tutorials. Tutorials explain modelling choices and
+Recipes do not replace the tutorials. Tutorials explain modeling choices and
 misconceptions in context; recipes provide a short, repeatable operation that
 agents and CI can execute.
 

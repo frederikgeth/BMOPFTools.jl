@@ -1,7 +1,7 @@
-# SWER case study: why optimisation matters
+# [SWER case study: why optimization matters](@id SWER-case-study:-why-optimisation-matters)
 
 This case study follows one rural feeder — a **Single-Wire Earth-Return (SWER)**
-line — to show *where optimisation earns its keep* in distribution planning. Every
+line — to show *where optimization earns its keep* in distribution planning. Every
 code block runs when the docs are built, so the voltages below are real.
 
 !!! note "Prerequisites"
@@ -44,12 +44,12 @@ carry more load or host more PV is not a bigger conductor — it is *better volt
 control*. The North Jericho study found that replacing **fixed** shunt reactors with
 **controllable** ones raised feeder capacity by ~85 %. That is the thread this case
 study pulls on: a single fixed setting cannot serve both failure modes, but an
-optimiser dispatching a controllable device per operating point can.
+optimizer dispatching a controllable device per operating point can.
 
-!!! note "Modelling SWER faithfully"
+!!! note "Modeling SWER faithfully"
     BMOPF models the earth return as a solidly-grounded bus neutral, so a SWER line
     is a single phase conductor whose linecode impedance carries the loop. The
-    split-phase (centre-tapped) distribution transformer is modelled as a full
+    split-phase (center-tapped) distribution transformer is modeled as a full
     coupled-coil 3-winding unit — the primitive admittance is reconstructed from the
     OpenDSS short-circuit set carried by PowerIO's BMOPF export, so
     its two legs track OpenDSS even under heavy, unbalanced loading. See the
@@ -61,7 +61,7 @@ optimiser dispatching a controllable device per operating point can.
 The case ships with the package: a Queensland-style isolated-SWER feeder — a 22 kV
 three-phase source, a phase-to-phase isolating transformer to a 12.7 kV single-wire
 backbone, a single-ended distribution transformer (`dx1` → `lv_1`) and a split-phase
-centre-tapped one (`dx2` → `lv_2`).
+center-tapped one (`dx2` → `lv_2`).
 
 ```@example swer
 using BMOPFTools
@@ -76,9 +76,9 @@ println("lv_1 nominal (V)   : ",
         round(report.results[:voltage_levels]["bus_voltage_map"]["lv_1"], digits=1))
 ```
 
-[`analyze`](@ref) recognises the topology directly: the single-wire,
+[`analyze`](@ref) recognizes the topology directly: the single-wire,
 transformer-isolated sections are flagged `I.PROV.SWER_ZONE`, and the
-centre-tap-fed section as split-phase.
+center-tap-fed section as split-phase.
 
 ```@example swer
 for f in report.findings
@@ -90,7 +90,7 @@ end
 ## 2. Stress it into a realistic feeder
 
 The committed fixture is a deliberately small canonical case (it is also a unit-test
-network). Real SWER lines run *tens of kilometres* on a high-resistance conductor and
+network). Real SWER lines run *tens of kilometers* on a high-resistance conductor and
 carry an aggregated peak up to the isolating-transformer rating. We stretch the
 backbone to ~96 km and use a realistic 2.5 Ω/km conductor, and size the two
 distribution transformers to their customers (the canonical stubs ship at a token
@@ -273,7 +273,7 @@ println("PV    + compensator  lv_1 = ", round(vl, digits=1),
 Both operating points are now inside the AS IEC 60038:2022 window, served by one device, only
 because the OPF dispatches it per operating point.
 
-## Why optimisation matters
+## [Why optimization matters](@id Why-optimisation-matters)
 
 The table is computed from the results above — the same live numbers, side by side:
 
@@ -288,7 +288,7 @@ println("-"^85)
 ```
 
 Voltage regulation is the SWER capacity limit, and no single static setting spans
-the operating range — the optimiser's per-operating-point reactive dispatch is what
+the operating range — the optimizer's per-operating-point reactive dispatch is what
 unlocks capacity (the controllable-reactor capacity gains of the North Jericho
 study). On a high R/X SWER feeder reactive support is a *limited* lever, which is
 itself worth seeing in the numbers; where it runs out, the same OPF machinery sizes

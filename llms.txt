@@ -1,6 +1,6 @@
 # BMOPFTools.jl
 
-BMOPFTools parses, validates, analyses, solves, and reports on BMOPF-format
+BMOPFTools parses, validates, analyzes, solves, and reports on BMOPF-format
 multiconductor distribution-network models. Use the package for executable
 behavior on a concrete case. The companion multi-graph-book owns scientific
 claims, evidence status, misconceptions, and stable PSK identities.

@@ -9,7 +9,7 @@ modeling assumptions explicit:
    - `decoupled`        — negligible series coupling: review whether a
                           simplified model or sequence-coordinate data was supplied.
    - `exactly_balanced` — equal self and equal mutual entries: suggests sequence
-                          parameterisation or a transposition/symmetry assumption;
+                          parameterization or a transposition/symmetry assumption;
                           physical symmetry is an alternative. Implied Z1/Z0
                           are recovered and reported.
    - `near_balanced`    — balanced within 1%: possibly physical (twisted /
@@ -21,7 +21,7 @@ modeling assumptions explicit:
    (`series` / `symmetric_pi` / `asymmetric_pi` / `gamma`) and the case study
    is audited for model consistency: a network-wide model is reported as
    uniform, a mix of topologies is flagged for review, and asymmetric-π,
-   Γ-sections and modelled shunt conductance are called out individually.
+   Γ-sections and modeled shunt conductance are called out individually.
 
 2. **Wires per voltage level** — represented branch-conductor counts and
    neutral incidence. Missing LV neutral conductors prompt review for prior

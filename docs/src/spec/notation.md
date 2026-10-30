@@ -2,7 +2,7 @@
 
 This page defines the notation used throughout the [Model specification](index.md):
 the typography that distinguishes variables from parameters and real from complex,
-the voltage and current symbols and their rectangular realisation, the standard
+the voltage and current symbols and their rectangular realization, the standard
 transform matrices, the element-wise idiom used to write magnitude bounds, and the
 set/topology machinery that links elements to buses.
 
@@ -10,7 +10,7 @@ All quantities are in **SI** units (V, A, Ω, S, W, var, VA, rad).
 
 ## Typography
 
-A symbol's *typeface* and *colour* encode its type. This lets an equation be read at
+A symbol's *typeface* and *color* encode its type. This lets an equation be read at
 a glance: whether a quantity is known input data or a solved unknown, and whether it
 is real or complex.
 
@@ -41,13 +41,13 @@ Operators and accessors:
 | $\mathfrak{R}(\cdot),\ \mathfrak{I}(\cdot)$ | real / imaginary part |
 | $\mathbf{1},\ \mathbf{0}$ | all-ones / all-zeros vector |
 
-!!! note "Colour in this web rendering"
-    Colour is applied to **symbol and parameter definitions** and to the headline
-    equations, exactly as in the Task Force PDF. In long derivations colour is
+!!! note "Color in this web rendering"
+    Color is applied to **symbol and parameter definitions** and to the headline
+    equations, exactly as in the Task Force PDF. In long derivations color is
     sometimes dropped for legibility; the type of any symbol is always its type at
-    definition. Nothing about the model depends on colour — it is a reading aid.
+    definition. Nothing about the model depends on color — it is a reading aid.
 
-## Voltage: complex phasor and its rectangular realisation
+## [Voltage: complex phasor and its rectangular realization](@id Voltage:-complex-phasor-and-its-rectangular-realisation)
 
 The primary voltage quantity at bus $\textcolor{red}{i}$ is a **complex, stacked
 per-terminal vector**. For a four-terminal bus with phases $a,b,c$ and neutral $n$,
@@ -80,7 +80,7 @@ magnitude and $\boldsymbol{\theta}_i$ the angle.
 The foundational model on each page is written with the **complex** vectors. The
 implementation solves in the **rectangular real** parts — one variable per part per
 terminal — so every complex equality becomes a pair of real equalities; this
-realisation is described in each page's *Implementation* section, not repeated in the
+realization is described in each page's *Implementation* section, not repeated in the
 physics.
 
 **Phase selection.** $\textcolor{blue}{\mathbf{U}_i}[\mathcal{P}]$ selects the phase
@@ -200,7 +200,7 @@ linecodes, wire data, line geometries, control profiles, time series — are ref
 by string id, not collected as topological sets.)
 
 From these, **derived sets** capture how elements attach to buses. There are four
-families — topology, connectivity, terminal mappings, and configurations — summarised
+families — topology, connectivity, terminal mappings, and configurations — summarized
 in one table at the [end of this section](#Overview-of-derived-sets); the prose below
 defines each family, and $\mathcal{T},\mathcal{C},\mathcal{M},\mathcal{R}$ are reserved
 for them (distinct from the element sets above).

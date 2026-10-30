@@ -552,7 +552,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
     # --- objective well-posedness ---
     # The voltage source is the network's priced current slack; a generator with
     # a cost is dispatchable generation. The objective is well-posed if either
-    # carries a cost. (Legacy `_slack` generators are still recognised.)
+    # carries a cost. (Legacy `_slack` generators are still recognized.)
     gens = get(net, "generator", Dict())
     with_cost = [id for (id, g) in gens if g isa Dict && haskey(g, "cost")]
     non_slack = [id for id in with_cost if !get(gens[id], "_slack", false)]
@@ -575,7 +575,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
     result["objective_wellposed"] = !isempty(with_cost) || !isempty(src_with_cost)
     # "Only slack generation" = the objective is well-posed but the only priced
     # element is the slack source and there is no dispatchable DER fleet —
-    # dispatch is trivial (loss minimisation).
+    # dispatch is trivial (loss minimization).
     result["only_slack_generation"] =
         result["objective_wellposed"] && isempty(non_slack) &&
         isempty(ibr_dispatch) && has_slack_cost
@@ -587,7 +587,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
             "(augment_case does this by default) or dispatchable DERs")
     elseif isempty(non_slack) && isempty(ibr_dispatch)
         push!(suggestions,
-            "only slack generation — dispatch is trivial (loss minimisation); " *
+            "only slack generation — dispatch is trivial (loss minimization); " *
             "add dispatchable DERs with diverse costs and p/q bounds")
     end
 

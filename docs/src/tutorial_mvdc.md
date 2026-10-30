@@ -1,4 +1,4 @@
-# MVDC/LVDC converter stations — feeder balancing as an optimisation
+# [MVDC/LVDC converter stations — feeder balancing as an optimization](@id MVDC/LVDC-converter-stations-—-feeder-balancing-as-an-optimisation)
 
 This tutorial shows how BMOPFTools models **MVDC/LVDC converter stations** —
 back-to-back soft open points (SOPs), MVDC ties, and DC feeders — by reusing the
@@ -15,21 +15,21 @@ the docs are built, so the numbers below are real.*
 See the [conventions](@ref dc-network) for the DC terminal/pole/return and
 grounding rules used below.
 
-## Why this is an optimisation, not a simulation
+## [Why this is an optimization, not a simulation](@id Why-this-is-an-optimisation,-not-a-simulation)
 
 A normally-open tie leaves two feeders radial: a power-flow **simulator** gives a
 single, determined answer. Replace the tie with a **soft open point** and the
 power split across it becomes a free decision — there is no longer one "simulate"
-answer. To find the *best* split you must solve an optimisation, and the quantity
+answer. To find the *best* split you must solve an optimization, and the quantity
 you want (the optimal transfer, and the loss/hosting-capacity it unlocks) is the
 *solution* of that problem, not an output you can read off a simulator.
 
 The literature frames the SOP/MVDC benefit exactly this way — feeder load
 balancing, loss reduction, voltage support, and DG hosting-capacity enhancement,
-all posed as optimisation problems ([1](@ref refs-mvdc), [2](@ref refs-mvdc),
+all posed as optimization problems ([1](@ref refs-mvdc), [2](@ref refs-mvdc),
 [3](@ref refs-mvdc)), with reported loss reductions and hosting-capacity gains
 well into the tens of percent. Below we reproduce the simplest of these —
-**loss-minimising feeder balancing** — as a single OPF.
+**loss-minimizing feeder balancing** — as a single OPF.
 
 ## The case: one substation, two unevenly loaded feeders
 
@@ -72,7 +72,7 @@ println("v_dc    : ", round(res["dc_bus"]["dc"]["p"]["v_dc"], digits=1), " V")
 println("p_loss  : ", round(res["losses"]["p_loss"], digits=0), " W")
 ```
 
-The source carries a `cost`, so minimising generation cost minimises the power it
+The source carries a `cost`, so minimizing generation cost minimizes the power it
 must supply — and with the loads fixed, that is exactly the network loss. The two
 converters share `dc_bus = "dc"`, which is what makes them one station; each spans
 the pole `p` and the grounded metallic return `m`. Per-converter results live under
@@ -88,12 +88,12 @@ also use **V–P droop** (`dc_control = "droop"`), which shares DC-voltage regul
 across converters and saturates at their power limits — see the
 [conventions](@ref dc-network) and the next section.
 
-## The answer the optimiser computes
+## [The answer the optimizer computes](@id The-answer-the-optimiser-computes)
 
 The two feeders start at 50 kW and 10 kW. The OPF chooses to move **20 kW** across
 the SOP — `vA.pg = +20 kW`, `vB.pg = −20 kW` — so both feeders end up carrying
-30 kW. That is precisely the analytic loss-optimal split `(P_a − P_b)/2`: equalising
-the currents minimises `Σ I²R`. Removing the SOP shows what it was worth:
+30 kW. That is precisely the analytic loss-optimal split `(P_a − P_b)/2`: equalizing
+the currents minimizes `Σ I²R`. Removing the SOP shows what it was worth:
 
 ```@example mvdc
 radial = sop_case()
@@ -106,7 +106,7 @@ println("radial p_loss : ", round(res_radial["losses"]["p_loss"], digits=0), " W
 
 The losses fall from **2888 W** (radial, no SOP) to **1917 W** — a **34 %
 reduction** — with no change to the loads served. Crucially, `20 kW` is not
-something you could read off a load-flow run; it is the *decision* the optimisation
+something you could read off a load-flow run; it is the *decision* the optimization
 makes. Drop the converters and you get the radial 2888 W; the SOP's value only
 appears once you let the OPF choose the transfer.
 
@@ -159,7 +159,7 @@ droop_case(kA, kB, P_load; smaxA = 60000.0, smaxB = 60000.0) = parse_bmopf("""
 nothing # hide
 ```
 
-Solving gives the textbook droop behaviour — and it is the OPF that finds the
+Solving gives the textbook droop behavior — and it is the OPF that finds the
 self-consistent `(v_dc, P_A, P_B)`, not a hand-iterated controller model. We
 tabulate the power each converter delivers **into the DC link** (`−pg`):
 
@@ -283,7 +283,7 @@ println("DC feeder loss    : ", round(-pA - pB, digits=1), " W   vs  i²·R = ",
 conductor. The pole voltage sags from the master's `1500 V` at `dcA` to `1352 V`
 at `dcB`, a `148 V ≈ i·R` drop — the DC analogue of an AC feeder's voltage droop.
 Unlike the shared-bus SOP, whose only loss was in the converters, this MVDC feeder
-carries a **real, quantified line loss** that the optimiser now trades against the
+carries a **real, quantified line loss** that the optimizer now trades against the
 AC-side losses when it chooses the transfer.
 
 **Remember to widen the far bus.** The pole drop pushes `dcB` down to `1352 V`,
@@ -317,7 +317,7 @@ to float down by `i·R`.)
 
 The static validators catch DC data problems before the solve — dangling `dc_bus`
 references, ungrounded DC islands, bad bus arity, and a converter whose AC bus is
-**energised only through the DC link** (`W.INT.DC_FED_AC_ISLAND`, the "MVDC not
+**energized only through the DC link** (`W.INT.DC_FED_AC_ISLAND`, the "MVDC not
 embedded in a referenced AC system" check). Here is the voltage-control check
 firing: demote the V-master to plain power control and no converter regulates the
 DC voltage.

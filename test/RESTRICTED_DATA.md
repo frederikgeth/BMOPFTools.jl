@@ -4,7 +4,7 @@ The CSIRO Australian MV/LV dataset (DOI: 10.25919/ghnz-bk28) is CC BY-NC-SA
 4.0. Its `LV/`, `MV/`, `MVLVmeshed/`, and combined `Master.dss` now live in
 `BMOPFDraftData/test/data`. The derived `lv1_14bus.json`,
 `lv1_14bus_timeseries.json`, and `lv1_14bus_report.md` live under its `LV/`.
-Original licence files and relative OpenDSS redirects are preserved.
+Original license files and relative OpenDSS redirects are preserved.
 
 Run the complete package suite including these optional integration tests:
 

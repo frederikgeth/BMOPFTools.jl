@@ -1,6 +1,6 @@
 # bench/sequence_objective_norms.jl
 #
-# Which formulation should back a MINIMISED magnitude objective (an L1 /
+# Which formulation should back a MINIMIZED magnitude objective (an L1 /
 # group-lasso penalty on a sequence component)?  Three candidates, all
 # implementing "make |V2| small" on a deliberately unbalanced 4-wire LV feeder
 # with a per-phase STATCOM:
@@ -99,7 +99,7 @@ function environment()
     println()
     println("SCOPE: these are convergence counts for ONE case family on ONE")
     println("solver at its default tolerance. They justify the DEFAULTS chosen")
-    println("in ext/BMOPFOpfExt/objectives.jl -- notably that a minimised norm")
+    println("in ext/BMOPFOpfExt/objectives.jl -- notably that a minimized norm")
     println("wants a large eps -- and they are strong enough to rule out the")
     println("alternatives tried here. They are NOT a general claim about the")
     println("reliability of these formulations on arbitrary networks, solvers")

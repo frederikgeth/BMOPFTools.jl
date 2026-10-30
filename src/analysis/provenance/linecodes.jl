@@ -72,13 +72,13 @@ function _classify_linecodes(net::Dict{String,Any},
                     :provenance, :linecode, id,
                     "Linecode '$id' reactance matrix has a negative eigenvalue " *
                     "($(round(minimum(evx), sigdigits=3))) — the implied " *
-                    "inductance matrix is not physically realisable.",
+                    "inductance matrix is not physically realizable.",
                     Dict{String,Any}("x_eigenvalues" => collect(evx))))
             end
         end
 
         # Mutual resistance sign (soft): Carson's earth-return term makes
-        # off-diagonal R positive for lines parameterised from geometry
+        # off-diagonal R positive for lines parameterized from geometry
         if n >= 2
             negm = [(i, j) for i in 1:n for j in i+1:n if R[i, j] < -1e-12]
             if !isempty(negm)
@@ -186,7 +186,7 @@ end
 #                    charging matters (longer MV/HV overhead, underground cable).
 #   asymmetric_pi  — shunt on both ends but Y_from ≠ Y_to. Suspicious: a uniform
 #                    line has a symmetric split, so unequal halves usually mean
-#                    a network-reduction artefact or a data error.
+#                    a network-reduction artifact or a data error.
 #   gamma          — shunt on exactly one end (a Γ-section). A legitimate
 #                    deliberate lumping of the charging at one terminal, but it
 #                    breaks the physical from/to symmetry — worth confirming.
@@ -312,7 +312,7 @@ by π-model topology, and audit the case study for model consistency.
 
 Per element it emits a `W.PROV.ASYMMETRIC_PI` warning for unequal shunt halves,
 an `I.PROV.GAMMA_SECTION` note for one-sided shunts, and an
-`I.PROV.SHUNT_CONDUCTANCE` note for a modelled dielectric loss (unusual in
+`I.PROV.SHUNT_CONDUCTANCE` note for a modeled dielectric loss (unusual in
 distribution). At the case-study level it emits `I.PROV.LINE_MODEL_UNIFORM`
 when a single model is used throughout, or `I.PROV.LINE_MODEL_MIXED` when the
 network mixes topologies (legitimate for series-short / π-long feeders, but
@@ -363,7 +363,7 @@ function _classify_line_models(net::Dict{String,Any},
                 "$(round(get(detail, "fromto_asymmetry", 0.0), sigdigits=3))). A " *
                 "uniform reciprocal line splits its shunt charging equally " *
                 "between both ends; unequal halves usually indicate a " *
-                "network-reduction artefact or a data error.", detail))
+                "network-reduction artifact or a data error.", detail))
         elseif model == "gamma"
             push!(gamma_ids, key)
             push!(findings, Finding(INFO, "I.PROV.GAMMA_SECTION", :provenance,
@@ -380,7 +380,7 @@ function _classify_line_models(net::Dict{String,Any},
             push!(findings, Finding(INFO, "I.PROV.SHUNT_CONDUCTANCE", :provenance,
                 ctype, id,
                 "$label '$id' carries a non-zero shunt conductance " *
-                "(G_from/G_to) — dielectric-loss / leakage current is modelled. " *
+                "(G_from/G_to) — dielectric-loss / leakage current is modeled. " *
                 "This is unusual in distribution networks, where the line shunt " *
                 "is normally purely capacitive; confirm it is not an X/B or " *
                 "units confusion.", detail))
@@ -413,7 +413,7 @@ function _classify_line_models(net::Dict{String,Any},
             :linecode, nothing,
             "The case study mixes $(length(present)) line models across " *
             "$total definition(s): $breakdown. A series/π mix is legitimate " *
-            "when short spurs are modelled as series impedance and long trunks " *
+            "when short spurs are modeled as series impedance and long trunks " *
             "as π-sections, but a mix should be reviewed for consistency — " *
             "especially any asymmetric-π or Γ members.",
             Dict{String,Any}("counts" => counts)))
@@ -594,7 +594,7 @@ function _transform_message(candidate, ids, context, balanced)
             "to earth. Compare with the source four-wire and grounding data: $list."
     elseif candidate == "modified_phase_to_neutral"
         return "$n three-wire linecode(s) look like a modified phase-to-neutral equivalent (uniform R and X, R mutual ≈ ½ self): " *
-            "neutral resistance folded in and reactance symmetrised. Check the earth-current assumptions and actual geometry: $list."
+            "neutral resistance folded in and reactance symmetrized. Check the earth-current assumptions and actual geometry: $list."
     end
     kinds = [_kron_context_kind(context[id]) for id in ids]
     n_lv = count(==("lv_without_neutral"), kinds)
@@ -769,7 +769,7 @@ function _check_inline_line_matrices(net::Dict{String,Any},
                     :provenance, :line, id,
                     "Line '$id' inline reactance matrix has a negative " *
                     "eigenvalue ($(round(minimum(evx), sigdigits=3))) — the " *
-                    "implied inductance matrix is not physically realisable.",
+                    "implied inductance matrix is not physically realizable.",
                     Dict{String,Any}("x_eigenvalues" => collect(evx))))
             end
         end

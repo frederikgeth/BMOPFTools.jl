@@ -3,7 +3,7 @@
 
 Assess parameter diversity across component categories. Flags datasets
 with high symmetry (low coefficient of variation, duplicate tuples) which
-may indicate copy-paste or templated parameterisation.
+may indicate copy-paste or templated parameterization.
 """
 function diversity_analysis(net::Dict{String,Any},
                              findings::Vector{Finding})::Dict{String,Any}
@@ -106,7 +106,7 @@ function _load_diversity(net::Dict{String,Any},
         _profile_valid_pq(l) || continue
         p = Float64.(get(l, "p_nom", Float64[]))
         length(p) < 2 && continue
-        # Normalise the spread by the mean MAGNITUDE; a negative mean (embedded
+        # Normalize the spread by the mean MAGNITUDE; a negative mean (embedded
         # generation) otherwise hit the 1e-9 floor and exploded the imbalance %.
         imb = (maximum(p) - minimum(p)) / max(abs(mean(p)), 1e-9)
         push!(imbalances, imb)
@@ -139,7 +139,7 @@ function _load_diversity(net::Dict{String,Any},
         msg = only_model == "constant_power" ?
             "All $n_total loads use the constant_power model — no load exercises " *
             "voltage dependence (ZIP/exponential); the case does not test " *
-            "voltage-dependent load behaviour." :
+            "voltage-dependent load behavior." :
             "All $n_total loads use the '$only_model' load model — no model diversity."
         push!(findings, Finding(INFO, "I.DIV.LOAD_UNIFORM_MODEL", :diversity, :load, nothing,
             msg, Dict{String,Any}("model" => only_model, "n_total" => n_total)))
@@ -381,7 +381,7 @@ function _scalar_stats(vals::Vector{Float64})::Dict{String,Any}
         "mean"   => μ,
         "std"    => σ,
         "median" => median(vals),
-        # Coefficient of variation normalises the spread by the mean MAGNITUDE:
+        # Coefficient of variation normalizes the spread by the mean MAGNITUDE:
         # with μ > 0 only, negative-mean data (e.g. negative-load / embedded
         # generation exports) returned cv = 0, falsely reading as "no variation".
         "cv"     => abs(μ) > 1e-30 ? σ / abs(μ) : 0.0,

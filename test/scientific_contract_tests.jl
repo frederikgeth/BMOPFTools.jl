@@ -768,7 +768,7 @@ end
               "winding_incidence_mismatch"
     end
 
-    @testset "explicit terminal relabelling is supported" begin
+    @testset "explicit terminal relabeling is supported" begin
         renamed = deepcopy(exact)
         tx = renamed["transformer"]["wye_delta"]["tx_equiv"]
         tx["terminal_map_from"] = ["1", "2", "3", "N"]

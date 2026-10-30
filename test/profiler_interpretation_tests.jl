@@ -243,7 +243,7 @@ end
     @test any(f -> f.code == "I.PROV.SEQ_DERIVED", fs)
 end
 
-@testset "every interpretation is complete and catalogued" begin
+@testset "every interpretation is complete and cataloged" begin
     for (code, spec) in BMOPFTools._FINDING_INTERPRETATIONS
         @test explain_finding(code)["code"] == code
         record = BMOPFTools._finding_interpretation(code, Dict{String,Any}())

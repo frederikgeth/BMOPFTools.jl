@@ -37,7 +37,7 @@ _HAS_JUMP && @assert !isnothing(Base.get_extension(BMOPFTools, :BMOPFOpfExt))
 # physics / power-flow comparison against limit-free OpenDSS is not distorted by
 # the always-enforced nameplate cap. `s_rating` is not used by the solve for the
 # leakage impedance (that is in ohms, scaled by the system base) nor by
-# `transformer_yprim`, so dropping it leaves the modelled physics unchanged — it
+# `transformer_yprim`, so dropping it leaves the modeled physics unchanged — it
 # only removes the operational loading cap, matching what OpenDSS's PF does. This
 # is the intended way to solve without a power limit: strip it from the dict.
 function _strip_xfmr_ratings!(net)
@@ -116,7 +116,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test m["case_study_generator"]["tool"] == "BMOPFTools.jl"
         @test !isempty(m["case_study_generator"]["version"])
 
-        # _meta (tool-private) is not serialised
+        # _meta (tool-private) is not serialized
         @test !occursin("\"_meta\"", json_auto)
 
         # caller meta is merged; auto-fields fill in the rest
@@ -635,7 +635,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test any(f -> f.code == "E.COMP.MISSING_REQUIRED" &&
                        f.component_id == "primary_trunk", report2.findings)
 
-        # Unknown field must be catalogued by schema_check as INFO
+        # Unknown field must be cataloged by schema_check as INFO
         net3 = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         net3["load"]["trunk_load"]["my_custom_field"] = 42
         report3 = analyze(net3)
@@ -962,7 +962,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
                             fi.component_id == "workshop_generator", f_neg)
         end
 
-        # i_max / s_max are catalogued as known optional fields (no unknown-field
+        # i_max / s_max are cataloged as known optional fields (no unknown-field
         # INFO) — guards the schema.jl _KNOWN_FIELDS and completeness wiring.
         @testset "known optional fields" begin
             net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
@@ -2323,10 +2323,10 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             "r_series_to":0.0,"x_series_to":0.0$(extra)}}}}
         """; from_string=true)
 
-        # Regression: cmag is the magnetising susceptance ONLY. With B = 0
+        # Regression: cmag is the magnetizing susceptance ONLY. With B = 0
         # (every DSS round trip, since from_dss sets b_no_load = 0) the old
         # sqrt(G²+B²) made cmag == noloadloss, double-counting core loss as
-        # magnetising current.
+        # magnetizing current.
         net = mk_xfmr(""","g_no_load":2e-4,"b_no_load":0.0""")
         t = to_pmd(net)["transformer"]["t1"]
         @test t["noloadloss"] > 0
@@ -2376,7 +2376,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
 
     @testset "Migration — lumped transformer series fields → per-winding" begin
         # A nested delta_wye transformer carrying the lumped r_series/x_series
-        # form (as emitted by from_dss/PowerIO) must be normalised on parse to
+        # form (as emitted by from_dss/PowerIO) must be normalized on parse to
         # the per-winding fields the OPF/Ybus builders read — otherwise they
         # default to zero and the leakage impedance silently vanishes.
         #
@@ -2536,14 +2536,14 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
                               "v_magnitude":[230.0],"v_angle":[0.0]}}}"""
         @test parse_bmopf(json_nometa; from_string=true) isa Dict
 
-        # An unrecognised URI — most likely a file written against a NEWER
+        # An unrecognized URI — most likely a file written against a NEWER
         # spec than this build understands — must refuse loudly, not parse
         # silently under the wrong data model.
         @test_throws ArgumentError parse_bmopf(
             mk("https://example.org/bmopf/v99/schema.json"); from_string=true)
     end
 
-    @testset "from_dss — identifier case-folding (canonicalisation)" begin
+    @testset "from_dss — identifier case-folding (canonicalization)" begin
         # OpenDSS identifiers are unique up to case; from_dss folds every id and
         # reference to lower case so case-inconsistent references resolve under
         # BMOPF's exact-match keys.
@@ -2986,7 +2986,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
               dcodes(mk("[201.0,201.0,201.0]",
                         "[200.0,200.0,200.0]", "[260.0,260.0,260.0]"))
 
-        # source bus comfortable, but neighbour bus (b1, [200,260]) tight against
+        # source bus comfortable, but neighbor bus (b1, [200,260]) tight against
         # 258 → still flagged via same-base line adjacency
         net = mk("[258.0,258.0,258.0]", "[100.0,100.0,100.0]", "[400.0,400.0,400.0]")
         f = Finding[]; domain_rules_check(net, f)
@@ -3415,14 +3415,14 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # --------------------------------------------------------------------------
     # from_dss captures the OpenDSS base frequency into meta.frequency so the
     # converted case is self-contained; a keyword overrides it. The first two
-    # asserts LOCK IN PowerIO's base_frequency behaviour (per the maintainer's
+    # asserts LOCK IN PowerIO's base_frequency behavior (per the maintainer's
     # request) — if PowerIO changes how it reports DefaultBaseFreq, these fail
-    # here rather than silently mislabelling every ingested network.
+    # here rather than silently mislabeling every ingested network.
     # --------------------------------------------------------------------------
     @testset "from_dss — frequency capture and override" begin
         f50 = joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss")  # Set DefaultBaseFreq=50
 
-        # PowerIO behaviour lock + capture into meta.frequency
+        # PowerIO behavior lock + capture into meta.frequency
         net = from_dss(f50)
         @test net["meta"]["frequency"] == 50.0
         @test net["_meta"]["frequency_source"] == "powerio"
@@ -3670,7 +3670,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # Queensland isolated-SWER feeder — OpenDSS integration via from_dss.
     # Canonical small isolated-SWER network (22 kV 3-ph → phase-to-phase isolating
     # xfmr → 12.7 kV single-wire earth-return backbone → single-ended N-0 and
-    # split-phase centre-tapped N-0-N distribution transformers). Validates the
+    # split-phase center-tapped N-0-N distribution transformers). Validates the
     # SWER/split-phase zone classification and the center_tap parse end-to-end.
     # --------------------------------------------------------------------------
     @testset "SWER feeder — OpenDSS integration" begin
@@ -3683,7 +3683,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             @test Set(keys(xfmr["single_phase"])) == Set(["iso", "dx1"])
             @test Set(keys(xfmr["center_tap"]))   == Set(["dx2"])
 
-            # center_tap normalised to BMOPF convention: centre tap in the middle,
+            # center_tap normalized to BMOPF convention: center tap in the middle,
             # per-leg v_nom_to (240 V for the 240-0-240 secondary).
             dx2 = xfmr["center_tap"]["dx2"]
             @test dx2["terminal_map_to"][2] == "n"
@@ -3708,7 +3708,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
 
             conn = report.results[:connectivity]
             # Two single-wire earth-return zones (the isolated MV backbone and the
-            # single-ended LV section) plus one split-phase (centre-tap) zone.
+            # single-ended LV section) plus one split-phase (center-tap) zone.
             @test conn["n_swer_zones"] == 2
             @test conn["n_split_phase_zones"] == 1
 
@@ -3999,7 +3999,7 @@ include("mcp_execution_tests.jl")
         # the vpn_min bus above must NOT trigger it
         @test !("W.LOAD.NL_NO_VMIN" in [x.code for x in afindings(net_ze)])
 
-        # schema_check layer-2: new load model fields are not catalogued as unknown
+        # schema_check layer-2: new load model fields are not cataloged as unknown
         fz = Finding[]
         rz = schema_check(net_ze, fz)
         @test !haskey(get(rz, "unknown_fields_by_type", Dict()), "load")
@@ -4142,7 +4142,7 @@ include("mcp_execution_tests.jl")
         # A nonexistent path errors rather than silently using defaults.
         @test_throws ArgumentError load_config(joinpath(tempdir(), "no_such_bmopf_cfg.toml"))
 
-        # domain_rules_check honours an overridden threshold: a load whose PF is
+        # domain_rules_check honors an overridden threshold: a load whose PF is
         # below the raised pf_min is flagged, but not under the default.
         net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         net["load"]["trunk_load"]["p_nom"] = [800.0, 800.0, 800.0]

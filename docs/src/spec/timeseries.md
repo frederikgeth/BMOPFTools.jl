@@ -68,8 +68,8 @@ solved exactly as documented on the component pages. A time series is therefore 
     power factor, Volt-VAr, Volt-Watt) that reacts to the solved voltage within a single
     snapshot. The two are independent mechanisms and can be combined.
 
-!!! tip "Worked example and modelling FAQ"
+!!! tip "Worked example and modeling FAQ"
     The [time-series tutorial](../tutorial_timeseries.md) walks a 24-hour sweep on
-    a real LV feeder and answers the common modelling questions — changing the
+    a real LV feeder and answers the common modeling questions — changing the
     irradiance/PV shape, EV-charging and other load patterns, constant vs varying
     power factor, and why storage/multi-period studies need a different mechanism.

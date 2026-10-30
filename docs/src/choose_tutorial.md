@@ -13,7 +13,7 @@ bundled synthetic feeder and needs no external data. You can stop after inspecti
 if you do not need a solver yet.
 
 The [utility-data end-to-end tutorial](tutorial_end_to_end.md) is a later,
-optional route. Its external dataset and licence requirements are stated at the
+optional route. Its external dataset and license requirements are stated at the
 start of that page; its dataset examples are not executed by the docs build.
 
 ## Route by goal
@@ -29,10 +29,10 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Get grounding, neutrals, and sequence coordinates right** | [Ground, neutral, and earth return](tutorial_grounding.md) | [Grounding spec](spec/grounding.md), [SWER case study](tutorial_swer.md) |
 | **Get units, per-unit bases, and cost right** | [Units, bases, scaling, and economics](tutorial_units.md) | [Units and scaling](opf.md#Units-and-scaling), [Objective spec](spec/objective.md) |
 | **Pick a defensible load model** (CVR, hosting, collapse) | [Choosing and identifying a load model](tutorial_load_models.md) | [Load spec](spec/load.md), [Impedance models & OPF decisions](tutorial_impedance_models.md) |
-| **Build a benchmark** an optimiser can respect | [Case augmentation](augmentation.md) | [From nameplate data to a defensible model](tutorial_nameplate.md), [DER placement](tutorial_ders.md) |
+| **Build a benchmark** an optimizer can respect | [Case augmentation](augmentation.md) | [From nameplate data to a defensible model](tutorial_nameplate.md), [DER placement](tutorial_ders.md) |
 | **Diagnose an infeasible case** | [Infeasibility diagnosis](tutorial_infeasibility.md) | [Bounds & feasibility](bounds/index.md), [Trusting the solver](bounds/solver_trust.md) |
 | **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Solution projection](solution_projection.md), [Engine validation evidence](validation.md) |
-| **Model a specific device** (STATCOM, MVDC, regulator, PV droop) | [D-STATCOM study](tutorial_statcom.md) | [MVDC](tutorial_mvdc.md), [Tap optimisation](tutorial_tap.md), [VVWO](tutorial_vvwo.md) |
+| **Model a specific device** (STATCOM, MVDC, regulator, PV droop) | [D-STATCOM study](tutorial_statcom.md) | [MVDC](tutorial_mvdc.md), [Tap optimization](tutorial_tap.md), [VVWO](tutorial_vvwo.md) |
 | **Change the formulation** (custom objectives, constraints, multi-period) | [Custom formulations](tutorial_custom_formulations.md) | [OPF model](opf.md), [Units, bases & economics](tutorial_units.md) |
 | **Assemble a network matrix or understand ideal-device boundaries** | [Nodal admittance builders](spec/nodal-admittance.md) | [Exact substitutions](formulation_substitutions.md), [Engine validation evidence](validation.md) |
 | **Choose numerical coordinates or inspect initialization** | [Scaling, initialization and diagnostics](numerical_workflows.md) | [Solver guide](solvers.md), [Trusting the solver](bounds/solver_trust.md) |
@@ -60,7 +60,7 @@ needs — not just *how* to call the tools, but *when to trust the answer*:
    and the objective — learning what a solver's `LOCALLY_SOLVED` status does and
    does *not* guarantee.
 5. **Consequences** — [Impedance models & OPF decisions](tutorial_impedance_models.md)
-   and [Trusting the solver](bounds/solver_trust.md). How the modelling choices
+   and [Trusting the solver](bounds/solver_trust.md). How the modeling choices
    made in step 2 change the answer, and where the remaining traps live.
 6. **Formulation** — [Custom formulations](tutorial_custom_formulations.md).
    When least-cost dispatch is not your question: hooks, replaced objectives,
@@ -70,9 +70,9 @@ Read top to bottom you get the missing arc: **triage → model assumptions →
 solve → independent verification → fidelity consequences → your own
 formulation.**
 
-### The modelling-choices track
+### [The modeling-choices track](@id The-modelling-choices-track)
 
-Step 2's "assumptions" fan out into deep dives, one per modelling choice —
+Step 2's "assumptions" fan out into deep dives, one per modeling choice —
 each demonstrating live how that choice *writes the answer*:
 
 - [Units, bases, scaling, and economics](tutorial_units.md) — the three unit
@@ -80,7 +80,7 @@ each demonstrating live how that choice *writes the answer*:
 - [Impedance models & OPF decisions](tutorial_impedance_models.md) — network
   fidelity, symmetry, and what balanced models hide.
 - [Choosing and identifying a load model](tutorial_load_models.md) — when
-  constant-P/I/Z, ZIP, or exponential behaviour is defensible.
+  constant-P/I/Z, ZIP, or exponential behavior is defensible.
 - [From test report to transformer model](tutorial_transformer_tests.md) —
   test data into validated fields, with the conventions made explicit.
 - [Ground, neutral, and earth return](tutorial_grounding.md) — grounding
@@ -99,8 +99,8 @@ each demonstrating live how that choice *writes the answer*:
 
 The first-case Julia blocks execute during the docs build. Utility-data examples
 marked **External dataset** are displayed as code and are not executed by that
-build. Other pages state their own prerequisites; a data-modelling tutorial may
-also run a solve to demonstrate the consequences of a modelling choice.
+build. Other pages state their own prerequisites; a data-modeling tutorial may
+also run a solve to demonstrate the consequences of a modeling choice.
 
 For the advanced [smooth-droop encoding note](relu_softplus_encoding.md), start
 with the [PV control study](tutorial_vvwo.md) for the practical context, or read

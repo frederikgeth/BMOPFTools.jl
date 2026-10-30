@@ -16,9 +16,9 @@ Convert a BMOPF network dict to OpenDSS text using
 [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), returning the generated
 DSS string and a vector of fidelity-loss warnings.
 
-The dict is serialised to BMOPF JSON (via [`write_bmopf`](@ref)) and handed to
+The dict is serialized to BMOPF JSON (via [`write_bmopf`](@ref)) and handed to
 PowerIO's DSS writer. BMOPF terminal labels (`"a"`, `"b"`, `"c"`, `"n"`) are
-accepted by the writer and re-normalised to OpenDSS numeric nodes (`.1`, `.2`,
+accepted by the writer and re-normalized to OpenDSS numeric nodes (`.1`, `.2`,
 `.3`, `.0`); merged polyphase sources are re-expanded as needed by the writer.
 
 This is the inverse of [`from_dss`](@ref). It produces valid OpenDSS but does
@@ -67,7 +67,7 @@ function to_dss(net::Dict{String,Any};
                 allow_unverified_ratings::Bool=false
                 )::Tuple{String,Vector{String}}
 
-    # Serialise to BMOPF JSON without mutating the caller's dict. write_bmopf
+    # Serialize to BMOPF JSON without mutating the caller's dict. write_bmopf
     # persists tool provenance and retains optional bus coordinate extensions.
     src = net
     if !isnothing(name)
@@ -143,7 +143,7 @@ end
 """
 Rewrite lines carrying inline ABSOLUTE impedance matrices (Ω, S) into an
 equivalent linecode-referencing form for exporters that only know the
-per-length convention (PowerIO's DSS writer): a synthetic per-metre linecode
+per-length convention (PowerIO's DSS writer): a synthetic per-meter linecode
 holding the section totals with `length = 1.0`. Numerically lossless — the
 1 m length carries the totals exactly; the descriptive BMOPF `length` (if
 any) is dropped from the export because it would rescale the impedance.
@@ -219,7 +219,7 @@ function _restore_dss_export_fidelity(text, net)
 end
 
 # This deliberately narrow declaration check makes no electrical-equivalence or
-# OPF-feasibility claim. Added/deleted/relabelled components or terminals are
+# OPF-feasibility claim. Added/deleted/relabeled components or terminals are
 # indeterminate, even when their power-flow equivalent circuit is understood.
 # Compare all declared bounds/ratings recursively, including winding ratings;
 # resolve linecode i_max on the source before comparing with emitted line limits.

@@ -1,9 +1,9 @@
-# [Simplifying a network before optimisation](@id tutorial-simplify)
+# [Simplifying a network before optimization](@id tutorial-simplify)
 
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -11,7 +11,7 @@
 
 GIS-derived models often contain degree-2 junction buses, explicit switches,
 and unloaded stubs. Some can be eliminated exactly; others carry grounding,
-shunts, limits, or future modelling meaning. The package records reductions and
+shunts, limits, or future modeling meaning. The package records reductions and
 refusals in `_simplification_log`. Series merging permits same-linecode π
 approximations by default with warnings; intermediate bus constraints require
 separate permission to remove. Other topology passes can
@@ -43,11 +43,11 @@ use [`fix_case`](@ref), note that its second pass already calls
 [Case fixing](augmentation.md#fix)); this page is about running — and
 verifying — the passes yourself.*
 
-## 1. A feeder with artefacts
+## [1. A feeder with artifacts](@id 1.-A-feeder-with-artefacts)
 
 `LV10_223bus` is one of the Australian LV feeders stored in the external BMOPFDraftData repository:
 a 223-bus four-wire residential network whose data came from GIS, so it has
-exactly the artefacts described above — including ten closed switches modelled
+exactly the artifacts described above — including ten closed switches modeled
 as explicit switch elements.
 
 ```julia
@@ -190,7 +190,7 @@ foreach(c -> println(rpad(c, 18), count(==(c), codes), "×"), unique(codes))
 ```
 
 Every outcome is accounted for — the log is the provenance record of the whole
-transformation, suitable for serialising alongside the case.
+transformation, suitable for serializing alongside the case.
 
 !!! note "Current-rating projection for a series-only chain"
     One current flows through both segments of a series corridor, so the binding
@@ -214,7 +214,7 @@ transformation, suitable for serialising alongside the case.
 
 [`simplify_network`](@ref) composes the four passes in the order above; each
 can be switched off by keyword (e.g. `closed_switches = false` if you intend to
-optimise switch states later):
+optimize switch states later):
 
 ```julia
 simp = simplify_network(net)
@@ -266,7 +266,7 @@ study and retain the applicable preservation checks.
 
 ## 5. When *not* to simplify
 
-Even an exact circuit reduction has modelling consequences. Reduction is
+Even an exact circuit reduction has modeling consequences. Reduction is
 **one-way and lossy**: deleted buses and per-segment data cannot be recovered
 from the output, and the reduction lives only in the `_simplification_log`, not
 in the exchanged data-model schema (see
@@ -284,7 +284,7 @@ in the exchanged data-model schema (see
 - **Intermediate buses are gone — including for grounding and new attachments.**
   You cannot add a grounding electrode, load, PV system, or tap at a bus a merge
   deleted. Do placement *before* simplifying (run [`add_ibrs`](@ref) or similar
-  first), or keep `series_lines = false` / `dangling_lines = false`. A modelled
+  first), or keep `series_lines = false` / `dangling_lines = false`. A modeled
   ground *already present* on an intermediate bus blocks its merge
   (`GROUNDED_BUS`) rather than being dropped.
 - **Per-section detail is gone.** A merged corridor reports one current and one

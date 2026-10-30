@@ -3,7 +3,7 @@
 const _SEV_SYMBOL = Dict(ERROR => "✗", WARNING => "⚠", INFO => "ℹ")
 const _SEV_LABEL  = Dict(ERROR => "ERROR", WARNING => "WARN", INFO => "INFO")
 
-# ANSI colour codes
+# ANSI color codes
 const _ANSI_RED    = "\e[31m"
 const _ANSI_YELLOW = "\e[33m"
 const _ANSI_CYAN   = "\e[36m"

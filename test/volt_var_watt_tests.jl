@@ -335,7 +335,7 @@ const _OPFEXT = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
         net["ibr"]["pv1"]["voltage_aggregation"] = "AVERAGE"
         res = @test_logs (:warn,) match_mode=:any solve_opf(net; per_unit=true)
         @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        # Behaviour identical to PER_PHASE: Q still binds to the curve.
+        # Behavior identical to PER_PHASE: Q still binds to the curve.
         vm = res["bus"]["b1"]["1"]["vm"]
         @test res["ibr"]["pv1"]["1"]["qg"] ≈ _vv_curve_si(vm)   atol = 10.0
     end

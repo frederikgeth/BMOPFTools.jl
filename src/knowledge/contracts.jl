@@ -943,7 +943,7 @@ function _permutation_refusal(status::Symbol, code::String,
         "recommended_checks" => [
             "Declare a bijective permutation and compare both endpoint terminal maps.",
             "Conjugate the source primitive by the declared permutation and compare the target matrix.",
-            "Retain source provenance when a relabelled view is exported.",
+            "Retain source provenance when a relabeled view is exported.",
         ],
     )
     finding = _permutation_finding(code, severity,

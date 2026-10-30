@@ -6,10 +6,10 @@ own validation, so this page documents **how that engine is tested** — both so
 can judge the results and so you can **reuse the setup for your own tool**. 
 
 The goal of our implementation is to be consistent with generally accepted
-circuit-modelling practice in the presence of nonlinear elements, including
+circuit-modeling practice in the presence of nonlinear elements, including
 constant-power loads. OpenDSS is used as an external reference implementation,
 not assumed to be ground truth; agreement can reveal implementation consistency
-but cannot decide which modelling assumptions are appropriate. For the latter,
+but cannot decide which modeling assumptions are appropriate. For the latter,
 see "A perspective on transformer modeling for distribution system analysis",
 with full bibliographic details below.
 
@@ -83,7 +83,7 @@ fixture.
 
 There is no separate power-flow solver to validate — instead each case is solved
 with [`solve_feasibility_opf`](opf.md#Feasibility-relaxation), which adds an
-**elastic slack current** at every non-source terminal and minimises its squared
+**elastic slack current** at every non-source terminal and minimizes its squared
 norm. When a converged solution has slack ≈ 0 and the independently recomputed
 residuals are within tolerance, it is an explicit feasible point of the
 implemented power-flow equations:
@@ -175,17 +175,17 @@ measurements pin this down:
 - **In the 4-wire cases the error concentrates on the neutral terminal.** The
   phase voltages agree to ≈ 0.003–0.01 V, while the neutral sits **7–15× higher**
   (≈ 0.03–0.09 V) — the neutral voltage is a small residual set by load unbalance,
-  so modelling differences in the grounding / earth-return path show up there
+  so modeling differences in the grounding / earth-return path show up there
   rather than on the stiff, near-nominal phases.
 
 Two further checks back up the voltage match: the feasibility slack
 (`< 1e-3 A`), and total transformer losses against OpenDSS (`rtol = 0.05`). The
-tolerances are deliberately tight enough to catch a single modelling error, not
+tolerances are deliberately tight enough to catch a single modeling error, not
 merely "close".
 
 ### What the cases isolate
 
-Each `.dss` file is a minimal 2-bus-style fixture that isolates one modelling
+Each `.dss` file is a minimal 2-bus-style fixture that isolates one modeling
 concern, so a failure points straight at the responsible component:
 
 | Case file | Isolates |
@@ -240,7 +240,7 @@ split-phase `center_tap` (the leg-polarity model). It is solved twice:
 Because a single-source, generator-free network has the source as its only angle
 anchor, the offset must **rigidly rotate the whole solution** — every transformer
 phase shift is relative and survives the rotation. The feasibility solve
-converging from the offset also exercises the angle-aware voltage initialisation.
+converging from the offset also exercises the angle-aware voltage initialization.
 A companion analysis test asserts the corollary: **vector-group tagging**
 (terminal-map topology) and **voltage-level tagging** (`v_magnitude` / `v_nom`
 ratios) read no angle, so both are byte-identical with and without the offset.
@@ -260,36 +260,36 @@ and a family of fixtures pins it down rather than a single light-load case:
   decoupled model failed.
 - **Phase-to-phase, single-leg, and extreme one-leg loads**
   (`pf_center_tap_240` / `_singleleg_pn` / `_oneleg_extreme`): the 240 V load
-  exercises the series-aiding winding polarity with zero centre-tap current;
+  exercises the series-aiding winding polarity with zero center-tap current;
   the unbalanced loads drive the legs apart and check the split against OpenDSS.
   Node voltages hold the default tight band (**atol 0.3 V / rtol 3e-3**) and
   total losses match within **3 %** — the looser legacy tolerance is retired.
 - **OPF ↔ Ybus agreement** (`center_tap OPF and Ybus models agree`): the OPF
   builder and the Ybus exporter implement the device independently, so a test
-  asserts the centre-tap KCL closes on the `_yprim_center_tap` admittance — a
+  asserts the center-tap KCL closes on the `_yprim_center_tap` admittance — a
   guard against the two paths drifting apart again.
-- **Continuous tap optimisation under drop + unbalance** (*optimised tap vs
+- **Continuous tap optimization under drop + unbalance** (*optimized tap vs
   OpenDSS (center_tap)*): a free HV tap on `pf_center_tap_loaded` (5 km feeder,
-  heavy unequal legs) is optimised, then OpenDSS is solved with that tap set on
+  heavy unequal legs) is optimized, then OpenDSS is solved with that tap set on
   winding 1. Node voltages match to **≈ 0.25 V** and **total losses to ≈ 5 %**
   (`rtol = 0.08` — the core loss now matches OpenDSS exactly on the boosted LV;
   the residual is a documented center_tap leakage deviation at this extreme
   boost point, see [transformer models](transformer_models.md)), and a wide-band
   internal-exactness check confirms the free degree-2 T-model reproduces the
   fixed-`Yprim` re-solve at ``t^\star`` to **0.0 V** — so promoting the ratio to
-  a variable adds no modelling error.
-- **Exact tap² referral for Yd/Dy** (*optimised tap vs OpenDSS (delta_wye Dy)*,
+  a variable adds no modeling error.
+- **Exact tap² referral for Yd/Dy** (*optimized tap vs OpenDSS (delta_wye Dy)*,
   and *Yd/Dy fixed tap across the schema band*): the coupled delta-arm leakage
   carries the exact ``tap²`` referral (matching OpenDSS's winding-1
   self-impedance scaling — verified directly against OpenDSS's short-circuit
   `Yprim`), applied identically in the OPF and the `Yprim` export. Validated at
   the ±10 % schema band edges at 4 fixed taps for both Yd and Dy against
-  OpenDSS's turns-scaled `Yprim`, plus the Dy optimised free tap — agreement is
+  OpenDSS's turns-scaled `Yprim`, plus the Dy optimized free tap — agreement is
   at the ~0.3 V node-voltage floor at *every* tap, not just nominal.
 
 ### Parse-path and primitive-admittance gates
 
-Two further testsets validate the transformer modelling beyond the hand-built
+Two further testsets validate the transformer modeling beyond the hand-built
 fixtures above:
 
 - **`from_dss` transformer fidelity** (`single_phase`/`wye_delta`/`delta_wye`):
@@ -297,7 +297,7 @@ fixtures above:
   runs the *parse* path (`from_dss` of the same `.dss`) through `solve_pf` and
   compares to OpenDSS, matching voltages and total losses. It guards the
   no-load shunt normalization — placed on **winding 2** (the OpenDSS
-  convention), including the magnetising susceptance (`%imag` → negative
+  convention), including the magnetizing susceptance (`%imag` → negative
   `b_no_load`) — and the `delta_wye` leakage carried by PowerIO v0.9's BMOPF
   export, plus the `phases=1` requirement on grounding reactors without which
   the Dy neutral floats and the solve diverges.
@@ -597,8 +597,8 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | You want to … | Use | Evidence obtained |
 |---|---|---|
 | test power-flow / component implementations | the `.dss` cases + a live OpenDSS solve, compared as above | agreement with OpenDSS for the aligned fixture models |
-| test optimization behaviour | Tier-1 analytic targets, plus Tier-2 PMD values as cross-tool regressions | analytic correctness on Tier 1; regression agreement on Tier 2, not general globality |
-| validate smart-IBR control | the Tier-3 droop setpoints | control laws are enforced as modelled |
+| test optimization behavior | Tier-1 analytic targets, plus Tier-2 PMD values as cross-tool regressions | analytic correctness on Tier 1; regression agreement on Tier 2, not general globality |
+| validate smart-IBR control | the Tier-3 droop setpoints | control laws are enforced as modeled |
 | validate your network-limit encodings | the bind-and-recompute method + the limit inventory | agreement with the intended quantity on the tested binding fixtures |
 
 The two reuse paths are complementary: the analytic and PMD numbers are

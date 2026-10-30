@@ -3,7 +3,7 @@
 A **bus** is a set of electrical terminals sharing a location. It owns the network's
 voltage variables and is where Kirchhoff's current law is enforced. Parts 1–5 state
 the foundational (physics) model; [part 6](#6.-Implementation-in-BMOPFTools) records
-how BMOPFTools realises it. Symbols are defined in [Notation](notation.md).
+how BMOPFTools realizes it. Symbols are defined in [Notation](notation.md).
 
 ## 1. Data model
 
@@ -169,11 +169,11 @@ and $\textcolor{blue}{z}=\textcolor{blue}{U_{i,p}}^{*}\textcolor{blue}{U_{i,q}}\
 ```
 
 which bounds the angle between the two terminals (faithful while $c>0$, i.e. the
-centred deviation stays within $\pm\pi/2$).
+centered deviation stays within $\pm\pi/2$).
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **Rectangular variables.** Each $\textcolor{blue}{U_{i,p}}$ is two real variables
   `vr[(i,p)]`, `vi[(i,p)]` (its real and imaginary parts), declared free in

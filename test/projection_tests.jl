@@ -209,7 +209,7 @@ const _PROJ_RTOL = 0.02
             end
 
             # Transformer snapshot: projection, BMOPF re-solve, and the OpenDSS
-            # export oracle agree after the tap ratio is materialised.
+            # export oracle agree after the tap ratio is materialized.
             @testset "freed-tap snapshot (A≈B≈C)" begin
                 net = from_dss(joinpath(_PROJ_DIR, "pf_dy_xfmr_tap.dss"))
                 tid = first(keys(net["transformer"]["delta_wye"]))

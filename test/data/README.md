@@ -16,7 +16,7 @@ and authorized CC BY 4.0 on 2026-09-26. The common grant and attribution are in
 | `roundtrip_*.json`, `roundtrip_expectations.md` | Package test expectations and source-to-target mappings. References do not bundle external source cases. |
 
 Scientific citations to Kersting and other authors are retained as references
-to methods, not relabelled as original fixture data.
+to methods, not relabeled as original fixture data.
 
 Restricted MV/LV and ENWL corpora remain external in BMOPFDraftData under their
 existing notices; see `../RESTRICTED_DATA.md`. No Git history was rewritten.

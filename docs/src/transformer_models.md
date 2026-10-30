@@ -23,7 +23,7 @@ short-circuit/open-circuit test data into a validated model — see the
 | `delta_wye` (Dy) | two-bus | 2, 3-phase | delta is winding 1 (from); backward-delta convention |
 | `single_phase_autotransformer` | two-bus | 2, galvanically tied | step voltage regulator; ANSI type A/B |
 | `open_delta_regulator` | two-bus | two L-L cores | 3-phase only; ABBC/BCAC/CABA |
-| `n_winding` | winding-list | any n, WYE and/or DELTA | exact ZB leakage for any n; no tap optimisation |
+| `n_winding` | winding-list | any n, WYE and/or DELTA | exact ZB leakage for any n; no tap optimization |
 
 A subtype string outside this set is **not silently dropped** — the OPF builder
 and the `Yprim` export both emit a warning that the device contributes no
@@ -39,15 +39,15 @@ These hold across every subtype unless a row below says otherwise.
 | Turns ratio | `N = (v_nom_from / v_nom_to) · tap`, `tap` default 1.0 |
 | Current sign (`Yprim`) | into the element (out of the bus); `Y = Yᵀ`, matches OpenDSS `Yprim` |
 | Series leakage | nominal winding bases for ordinary isolating transformers; see the subtype table below |
-| **Magnetising shunt** | across **winding 2** (the to-side coil), on winding 2's coil voltage base — the OpenDSS placement, verified against its `Yprim`. Inductive, so `b_no_load < 0`. See below. |
+| **Magnetizing shunt** | across **winding 2** (the to-side coil), on winding 2's coil voltage base — the OpenDSS placement, verified against its `Yprim`. Inductive, so `b_no_load < 0`. See below. |
 | **Neutral grounding** | `r/x_neutral_from`/`to` (OpenDSS `rneut`/`xneut`) is an internal branch `yₙ = 1/(Rₙ+jXₙ)` from the winding neutral terminal to earth. A stand-alone transformer property — external groundings stay on buses/shunts and are **never** merged in. |
 | Polarity / vector group | Dy uses the backward-delta (`k_prev`) coil convention; `n_winding` DELTA windings use `delta_roll = -1` for OpenDSS's standard delta |
 | Lossless limit | `r = x = g = b = 0` is the well-posed ideal-transformer constraint, not a singularity (the `Yprim` export is the only path where `Z=0` is singular — an ideal transformer has no admittance form) |
 
-### Magnetising-shunt placement
+### [Magnetizing-shunt placement](@id Magnetising-shunt-placement)
 
 For the ordinary isolating subtypes below, OpenDSS places the no-load
-(core-loss + magnetising) branch across **winding 2**,
+(core-loss + magnetizing) branch across **winding 2**,
 referred to winding 2's coil voltage — not winding 1, and not phase-to-ground.
 This was verified empirically by differencing OpenDSS's `Yprim` with and without
 `%noloadloss`/`%imag` (the shunt follows winding 2 when the winding order is
@@ -111,7 +111,7 @@ do not certify control-law behavior or resolve unequal-kVA n-winding import
 
 `transformer_yprim(xfmr, subtype)` / `export_yprim(net)` return the SI `Yprim`
 block over the device's `(bus, terminal)` nodes. It includes the series leakage,
-the winding-2 magnetising shunt, and the `rneut`/`xneut` grounding branch. Two
+the winding-2 magnetizing shunt, and the `rneut`/`xneut` grounding branch. Two
 caveats for consumers:
 
 - **Regulators** (`single_phase_autotransformer`, `open_delta_regulator`): the
@@ -139,9 +139,9 @@ is hidden.
 
 | Area | Status |
 |---|---|
-| **`n_winding` tap** | No tap optimisation — the ratio is held at nominal. Tap fields on an `n_winding` transformer or its windings raise `ArgumentError` at native OPF build. Model a regulated winding with a two-bus subtype instead. |
+| **`n_winding` tap** | No tap optimization — the ratio is held at nominal. Tap fields on an `n_winding` transformer or its windings raise `ArgumentError` at native OPF build. Model a regulated winding with a two-bus subtype instead. |
 | **4+ winding import** | `from_dss` imports the validated `n_winding` cases emitted by PowerIO v0.9. Unsupported winding sets refuse loudly, not built wrong. |
-| **Discrete taps** | Optimised taps are continuous; there is no discrete-step (`numtaps`) model. |
+| **Discrete taps** | Optimized taps are continuous; there is no discrete-step (`numtaps`) model. |
 | **Per-winding ratings** | A two-bus transformer carries one `s_rating` (winding-1 base). Distinct per-winding kVA is retained only on `n_winding` (per-winding `s_max`). |
 
 ## Nameplate rating (`s_rating`) as a loading cap
@@ -151,7 +151,7 @@ For the two-bus (two-winding) subtypes, `s_rating` plays two roles:
 1. **Per-unit impedance base (always).** The short-circuit reactances are
    expressed on **winding 1's** kVA base — the OpenDSS convention (`%XHL`/`%XHT`/
    `%XLT` are all on the winding-1 base, *not* the highest-powered winding). The
-   OPF matches this: the leakage is per-unitised by `z_base(winding-1 bus)` and
+   OPF matches this: the leakage is per-unitized by `z_base(winding-1 bus)` and
    `s_rating`. **This base never changes**, so OpenDSS round-trips stay exact.
 2. **Apparent-power loading cap (when declared).** The nameplate is enforced as
    a per-winding coil apparent-power limit `P² + Q² ≤ (s_rating / n_\text{ph})²`
@@ -181,7 +181,7 @@ Not approximations (common misconceptions): the **Dy/Yd leakage under tap** is
 exact (it matches OpenDSS's `tap²` winding-1 self-impedance scaling — the
 short-circuit impedance referred to the tapped side goes as `tap²`, the
 non-tapped side is held at nominal; verified against OpenDSS's short-circuit
-`Yprim`, applied identically in the OPF and the `Yprim` export); the magnetising
+`Yprim`, applied identically in the OPF and the `Yprim` export); the magnetizing
 **susceptance** (`%imag`) is retained; zero-loss transformers are exact; the
 `n_winding` ZB leakage is exact for any winding count.
 

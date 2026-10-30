@@ -222,7 +222,7 @@ function _check_line_geometry(net, findings, n_checks)
                 push!(findings, Finding(ERROR, "E.DOM.GEOM_CONDUCTOR_OVERLAP",
                     :domain_rules, :line_geometry, id,
                     "line_geometry '$id': conductors $i and $j overlap — " *
-                    "centre distance $(round(d, sigdigits=4)) m < sum of " *
+                    "center distance $(round(d, sigdigits=4)) m < sum of " *
                     "radii $(round(radii[i] + radii[j], sigdigits=4)) m.",
                     Dict{String,Any}("conductors" => [i, j], "distance" => d)))
             end
@@ -237,7 +237,7 @@ function _check_line_geometry(net, findings, n_checks)
                     "line_geometry '$id': overhead conductor $i at height " *
                     "$(ys[i]) m — below typical statutory clearance " *
                     "($( _CLEARANCE_MIN) m) or implausibly high " *
-                    "(> $(_CLEARANCE_MAX) m); check for a feet-as-metres slip.",
+                    "(> $(_CLEARANCE_MAX) m); check for a feet-as-meters slip.",
                     Dict{String,Any}("conductor" => i, "y" => ys[i])))
                 break   # one finding per geometry suffices
             end
@@ -371,11 +371,11 @@ end
 
 # ---------------------------------------------------------------------------
 # Inline absolute line impedances — plausibility of the implied per-length
-# values when a descriptive length is present. Catches per-metre data
+# values when a descriptive length is present. Catches per-meter data
 # mislabeled as section totals (and vice versa).
 # ---------------------------------------------------------------------------
 
-# Plausible per-metre self-impedance magnitude for distribution conductors
+# Plausible per-meter self-impedance magnitude for distribution conductors
 # [Ω/m]: heavy MV feeders ~1e-4 up to thin SWER/service wire ~5e-3, widened.
 const _Z_PER_M_RANGE = (1e-6, 1e-2)
 
@@ -400,7 +400,7 @@ function _check_inline_line_impedance(net, findings, n_checks)
                 "impedance — outside the plausible distribution range " *
                 "$(_Z_PER_M_RANGE) Ω/m. Inline line matrices are section " *
                 "totals [Ω], never scaled by length; check the values are " *
-                "not per-metre data mislabeled as totals.",
+                "not per-meter data mislabeled as totals.",
                 Dict{String,Any}("implied_z_per_m" => z_pm,
                                  "z_self_ohm" => z_self,
                                  "length" => Float64(len))))

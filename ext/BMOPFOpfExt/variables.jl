@@ -259,7 +259,7 @@ end
 # Canonical 3-phase start angle (rad) for a terminal NAME under any of the
 # supported naming conventions ("1"/"2"/"3"/"4", "a"/"b"/"c"/"n", "L1"…"N"),
 # resolved through the same table `to_pmd` uses. Unknown names fall back to 0
-# (co-phasal) — the previous behaviour, but now only for genuinely unknown
+# (co-phasal) — the previous behavior, but now only for genuinely unknown
 # conventions rather than for everything that wasn't literally "1"/"2"/"3".
 const _CANONICAL_PHASE_ANGLE = Dict{Int,Float64}(
     1 => 0.0, 2 => -2.0944, 3 => 2.0944, 4 => 0.0)
@@ -282,9 +282,9 @@ _start_angle(t_angle::Dict{String,Float64}, t::AbstractString)::Float64 =
 For every split-phase galvanic zone (fed by a `center_tap` transformer, per
 `BMOPFTools._classify_zones`), return per-bus, per-terminal warm-start angles in
 which the two legs are **anti-phase**: leg-1 at θ and leg-2 at θ+π, where θ is the
-feeding MV phase angle (looked up in `base_angle` from the centre-tap's from-side
+feeding MV phase angle (looked up in `base_angle` from the center-tap's from-side
 phase terminal). The neutral is 0. Applied across every bus in the zone, since the
-LV section keeps the centre-tap leg terminal names. Buses not in a split-phase zone
+LV section keeps the center-tap leg terminal names. Buses not in a split-phase zone
 are absent (callers fall back to the canonical 3-phase angles).
 """
 function _split_phase_init_angles(net, base_angle::Dict{String,Float64})
@@ -333,7 +333,7 @@ For every non-grounded, non-fixed terminal the start value is set to
 `v_nom × exp(j × angle)` where `v_nom` and `angle` are read from the
 network's first voltage source.  Terminals that are not in the source's
 terminal_map use the canonical 3-phase angles (0°, −120°, +120°).
-The neutral terminal is initialised at 0.
+The neutral terminal is initialized at 0.
 
 Without this, Ipopt starts from vr=vi=0 and fails to navigate into the
 correct region of the feasible set for multi-phase (complex-voltage)
@@ -388,7 +388,7 @@ end
 
 Like `_set_voltage_start_values!` but uses per-bus nominal voltages derived
 from the BFS voltage propagation (`_assign_nominal_voltages`). This correctly
-initialises LV buses at ~250 V rather than at the source voltage (~6350 V),
+initializes LV buses at ~250 V rather than at the source voltage (~6350 V),
 reducing attraction to a degenerate high-voltage local minimum when the case
 supplies no useful voltage bounds.
 """
@@ -570,7 +570,7 @@ function _set_topology_aware_voltage_start_values!(
     end
 
     # Split-phase: both LV half-windings are referred to the same HV coil, but
-    # winding 3 is dotted at the centre tap and therefore has reversed polarity.
+    # winding 3 is dotted at the center tap and therefore has reversed polarity.
     for (tid, transformer) in sort!(collect(get(transformers, "center_tap", Dict())); by=first)
         bus_from = String(get(transformer, "bus_from", ""))
         bus_to = String(get(transformer, "bus_to", ""))

@@ -7,7 +7,7 @@
 # Convention matches OpenDSS Yprim / DumpYprim: SI units (siemens), positive
 # current = into the element, symmetric (Y = Yᵀ — reciprocal, NOT Hermitian).
 #
-# Construction: transpose(C) * y_prim * C + Y₀ (magnetising shunt across the
+# Construction: transpose(C) * y_prim * C + Y₀ (magnetizing shunt across the
 # winding-2 / to-side coil, the OpenDSS convention), where C maps node voltages
 # to per-core winding voltages and y_prim is the block-diagonal primitive
 # admittance. This guarantees Y = Yᵀ (a plain transpose — NOT the adjoint). In
@@ -185,7 +185,7 @@ end
 # drift apart (Dy roll direction, L-N vs L-L coils, tap in the ratio).
 #
 # Covered subtypes: single_phase, wye_delta, delta_wye — the ideal-capable set
-# `_xfmr_alias_pairs` recognises. center_tap (3-winding star, not rank-1) and
+# `_xfmr_alias_pairs` recognizes. center_tap (3-winding star, not rank-1) and
 # the regulator subtypes keep their own builders.
 
 const _WindingIncidence = NamedTuple{
@@ -411,7 +411,7 @@ function _yprim_single_phase(xfmr::Dict{String,Any}; series::Bool=true)
         if series && !iszero(Z)
             Y .+= transpose(C) * ((1.0/Z) * [1.0 -N; -N N^2]) * C
         end
-        # No-load (magnetising) shunt across the TO coil (p_to − q_to). OpenDSS
+        # No-load (magnetizing) shunt across the TO coil (p_to − q_to). OpenDSS
         # places the exciting branch on winding 2, referred to winding 2's coil
         # voltage — verified against its Yprim. `g/b_no_load` are therefore on
         # the to-side base (`from_dss` derives them there).
@@ -456,7 +456,7 @@ function _yprim_center_tap(xfmr::Dict{String,Any}; series::Bool=true)
     # Internal neutral-grounding branch (OpenDSS rneut/xneut): y_n from a shared
     # neutral terminal to earth — a diagonal stamp, matching OpenDSS's Yprim and
     # the OPF builder `_add_center_tap_transformer!`. `r/x_neutral_from` grounds
-    # the HV neutral (node 2); `r/x_neutral_to` grounds the LV centre-tap neutral
+    # the HV neutral (node 2); `r/x_neutral_to` grounds the LV center-tap neutral
     # (node 4). Both terminals always exist for a center_tap, so no arity guard.
     yn_fr = _xfmr_yn(xfmr, "from")
     yn_to = _xfmr_yn(xfmr, "to")
@@ -466,7 +466,7 @@ function _yprim_center_tap(xfmr::Dict{String,Any}; series::Bool=true)
         (b_fr, tm_fr[1]), (b_fr, tm_fr[2]),
         (b_to, tm_to[1]), (b_to, tm_to[2]), (b_to, tm_to[3]),
     ]
-    # Diagonal stamp: HV neutral = node 2, LV centre tap = node 4.
+    # Diagonal stamp: HV neutral = node 2, LV center tap = node 4.
     _stamp_ct_yn!(Y) = (Y[2,2] += yn_fr; Y[4,4] += yn_to)
 
     # 3-port star admittance (all referred to LV).
@@ -499,8 +499,8 @@ function _yprim_center_tap(xfmr::Dict{String,Any}; series::Bool=true)
     # Connection matrix C (3×5): maps node voltages [p,m,a,g,c] to winding voltages.
     # Row 1: V_HV_ref = (V_p - V_m)/N
     # Row 2: V_leg1   = V_a - V_g   (winding 2 dotted at leg 1)
-    # Row 3: V_leg2   = V_g - V_c   (winding 3 dotted at the centre tap g)
-    # Winding 3 is dotted at the centre tap, so its voltage is V_g − V_c (NOT
+    # Row 3: V_leg2   = V_g - V_c   (winding 3 dotted at the center tap g)
+    # Winding 3 is dotted at the center tap, so its voltage is V_g − V_c (NOT
     # V_c − V_g). The opposite sign makes the two LV legs identical instead of
     # series-aiding; with the correct sign this Yprim matches OpenDSS exactly.
     C = zeros(ComplexF64, 3, 5)
@@ -510,7 +510,7 @@ function _yprim_center_tap(xfmr::Dict{String,Any}; series::Bool=true)
 
     Y_core = transpose(C) * Y3 * C
 
-    # No-load (magnetising) shunt across winding 2 = LV leg 1 (nodes 3-4, the
+    # No-load (magnetizing) shunt across winding 2 = LV leg 1 (nodes 3-4, the
     # t1-tn coil at the per-leg voltage). OpenDSS places the ENTIRE exciting
     # branch on winding 2 — not split across the legs, and not on the HV side
     # (verified against its Yprim). `g/b_no_load` are on the per-leg LV base.
@@ -653,7 +653,7 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool, series::Bool=true)
     # Neutral-grounding branch: diagonal stamp at the wye neutral terminal.
     use_yn && (Y[n_pos, n_pos] += yn_wye)
 
-    # No-load (magnetising) shunt across the WINDING-2 (to-side) coils, referred
+    # No-load (magnetizing) shunt across the WINDING-2 (to-side) coils, referred
     # to winding 2's coil voltage — OpenDSS places the exciting branch on
     # winding 2 (verified against its Yprim). `g/b_no_load` is the total on the
     # to-side coil base, split equally over the n_ph coils and stamped across
@@ -890,7 +890,7 @@ function _nwinding_yprim(xfmr::Dict{String,Any}; series::Bool=true)
         end
         Y .+= transpose(P) * Yw * P
 
-        # No-load (magnetising) shunt across WINDING 2's coil — OpenDSS places
+        # No-load (magnetizing) shunt across WINDING 2's coil — OpenDSS places
         # the exciting branch on winding 2 (verified against its Yprim), not
         # winding 1. `g/b_no_load` are on winding 2's coil base.
         if !iszero(Y0) && nW >= 2
@@ -913,7 +913,7 @@ end
 
 # Two LV-referred ports eliminate the inaccessible star potential without
 # inverting any arm: uH-uL1=zH*(i1+i2)+zL*i1 and
-# uH-uL2=zH*(i1+i2)+zL*i2. The second LV coil is dotted at the centre tap.
+# uH-uL2=zH*(i1+i2)+zL*i2. The second LV coil is dotted at the center tap.
 function _center_tap_port_blocks(x)
     tf=string.(get(x,"terminal_map_from",String[])); tt=string.(get(x,"terminal_map_to",String[]))
     length(tf)==2 && length(tt)==3 && allunique(tf) && allunique(tt) ||

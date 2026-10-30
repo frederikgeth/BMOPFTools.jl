@@ -2,7 +2,7 @@
 
 The [Notation](notation.md) page defines the sets, topology, connectivity, and
 terminal-map machinery abstractly. This page makes them concrete by constructing every
-set from one small network — the fastest way to internalise how a case is assembled.
+set from one small network — the fastest way to internalize how a case is assembled.
 
 ![Example four-bus network with single- and three-phase elements.](assets/network_example.svg)
 

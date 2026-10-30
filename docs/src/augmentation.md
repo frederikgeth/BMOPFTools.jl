@@ -137,10 +137,10 @@ is resolved per bus in priority order:
 Imported cases frequently carry LV transformers rated 240 or 250 V, so the
 derived `v_nom` is non-standard and the bounds would be referenced to it. When
 enabled, `augment_case` first snaps each bus's `v_nom` to the nearest
-standardised level (IEC 60038 / ANSI C84.1) and writes the result as
+standardized level (IEC 60038 / ANSI C84.1) and writes the result as
 `v_declared`, so the bounds below reference the standard voltage (e.g. 230 V).
 
-Configured in the TOML `config` (off by default — no behaviour change unless
+Configured in the TOML `config` (off by default — no behavior change unless
 opted in):
 
 ```toml
@@ -160,7 +160,7 @@ the manifest as a `v_declared` entry with rule
 `IEC60038_snap`. Pass the config via
 `augment_case(net; config=load_config("my.toml"))`.
 
-#### Solver regularisation bounds (`v_min` / `v_max`)
+#### [Solver regularization bounds (`v_min` / `v_max`)](@id Solver-regularisation-bounds-(v_min-/-v_max))
 
 `v_min` and `v_max` are **hyperparameters**, not power-quality guarantees.
 They widen the feasible set so the solver can find a feasible point even when
@@ -169,8 +169,8 @@ are applied to all buses regardless of voltage level.
 
 | Field | Default (pu of `v_declared`) | Purpose |
 |---|---|---|
-| `v_min` | 0.85 | Lower regularisation bound — disable with `v_min_pu = nothing` |
-| `v_max` | 1.15 | Upper regularisation bound — disable with `v_max_pu = nothing` |
+| `v_min` | 0.85 | Lower regularization bound — disable with `v_min_pu = nothing` |
+| `v_max` | 1.15 | Upper regularization bound — disable with `v_max_pu = nothing` |
 
 **Source buses** receive `v_min`/`v_max` only — `vpn`/`vpp`/`vuf` bounds
 are meaningless there because the voltage source pins the terminal voltages.
@@ -197,7 +197,7 @@ zone uses twice the per-leg nominal (120 V → 240 V); a full three-phase bus us
 nominal angles are supplied. Sequence limits require all three phase terminals.
 
 **Three-wire buses** (no neutral terminal) receive `vpp` and, with three phases,
-`vuf_max`; phase-to-ground regularisation remains a separate study policy.
+`vuf_max`; phase-to-ground regularization remains a separate study policy.
 
 **Single-phase buses** (one phase terminal + neutral) receive `vpn` but not
 `vpp` or sequence limits.
@@ -264,7 +264,7 @@ fingerprint, not an AC or earth-return-inclusive value. The underground column
 is loosely calibrated to IEC 60364-5-52:2009 Table B.52 installation ampacity
 (70 °C conductor, single circuit, in-ground or in-air); the overhead column is
 an illustrative overhead rating, **not** an IEC 60364-5-52 value (that standard
-covers LV installation ampacity, not an overhead-AAC catalogue). The table as a
+covers LV installation ampacity, not an overhead-AAC catalog). The table as a
 whole is a heuristic default, not a standards-derived rating, and is
 deliberately *not* tagged as an IEC-conformant result.
 
@@ -404,7 +404,7 @@ manifest_to_dict
 render_manifest
 ```
 
-## Serialising the manifest
+## [Serializing the manifest](@id Serialising-the-manifest)
 
 Authors may optionally release the manifest alongside a case. It includes the
 resolved recipe and structured Findings; no Task Force submission requires it.
@@ -428,7 +428,7 @@ end
 (the slack imports everything).  [`add_generators`](@ref) is a separate, opt-in
 pass that *places* dispatchable `generator` elements using the semantic and
 topological knowledge the library already computes — never randomly — so the OPF
-becomes a meaningful optimisation.  Like `fix_case`/`augment_case` it never
+becomes a meaningful optimization.  Like `fix_case`/`augment_case` it never
 mutates its input and returns a `(net′, manifest)` pair recording every field
 written.
 
@@ -445,7 +445,7 @@ different constraint on the binding edge of the feasible set. This mirrors how
 synthetic-network and hosting-capacity practice treats DER scenarios as a
 *designed input*: EPRI's DRIVE hosting-capacity method deliberately contrasts
 *distributed* placement (many small injections spread across the feeder,
-representative of residential rooftop PV) against *centralised* placement (a
+representative of residential rooftop PV) against *centralized* placement (a
 single large interconnection), because the two stress the network in opposite
 ways ([ref. 2](#augrefs)); and the NREL SMART-DS effort treats DER siting and
 sizing as configurable scenario knobs rather than a fixed fact of the network
@@ -507,7 +507,7 @@ apparent-power circle `P² + Q² ≤ s_max²` in the OPF. Use it when the benchm
 should model PV/storage converters with explicit VA headroom rather than plain
 dispatchable generation.
 
-The division of labour mirrors generators exactly: **placement places, augment
+The division of labor mirrors generators exactly: **placement places, augment
 bounds.** `add_ibrs` writes only the nameplate — `bus`, `terminal_map`,
 `topology`, `prime_mover`, `s_max`, `p_avail`, `cost` — and
 [Pass 4 of `augment_case`](#pass-4-IBR-dispatch-bounds) then derives the
@@ -563,7 +563,7 @@ with these IBR-specific additions:
       `:near_source`, which place at buses selected from the graph, not from where
       demand happens to sit.
 
-!!! note "Modelling PV, batteries, EVs, and other DER technologies"
+!!! note "Modeling PV, batteries, EVs, and other DER technologies"
     Two knobs are orthogonal and easy to conflate:
 
     - **`strategy`** decides *where and how many* DERs are placed
@@ -675,7 +675,7 @@ The approach here is not ad hoc; it follows established practice in two adjacent
 communities.
 
 **Curated benchmarks, not raw data.** The AC transmission community learned that
-raw network snapshots make poor optimisation benchmarks: they lack generation
+raw network snapshots make poor optimization benchmarks: they lack generation
 limits, costs and thermal ratings, so an OPF over them is under-constrained and
 non-comparable across studies. PGLib-OPF answered this by *curating* a library
 in which "all networks have reasonable values for key parameters — generation
@@ -699,16 +699,16 @@ a **heuristic estimate** loosely calibrated to IEC 60364-5-52:2009 / IEC 60228:2
 tables, not a conformant derivation (a bare R₁₁ does not identify the conductor
 material, class, or installation), and is tagged as such.
 
-**DER scenarios as designed inputs.** Where a value *cannot* be standardised —
+**DER scenarios as designed inputs.** Where a value *cannot* be standardized —
 chiefly where to place generation and how large to make it — the literature
 treats it as a deliberately varied scenario rather than a fixed fact. EPRI's
-DRIVE hosting-capacity methodology contrasts distributed against centralised DER
+DRIVE hosting-capacity methodology contrasts distributed against centralized DER
 placement precisely because they stress a feeder differently ([ref. 2](#augrefs)),
-and NREL's SMART-DS programme exposes DER siting/sizing as configurable scenario
+and NREL's SMART-DS program exposes DER siting/sizing as configurable scenario
 knobs over a fixed base network ([ref. 3](#augrefs)). `add_generators` follows
 this practice directly: its strategies (`:load_following`, `:topology_targeted`
 leaves/near-source, `:hosting_capacity`) are the BMOPF analogues of those
-scenario choices, and tagging them `:synthetic` is the acknowledgement
+scenario choices, and tagging them `:synthetic` is the acknowledgment
 that they are design decisions, not measurements.
 
 ## Limitations
@@ -721,7 +721,7 @@ The following augmentation tasks are **not** handled by `augment_case`:
 
 - **Zero-sequence voltage bound (`vzero_max`)** — the appropriate limit
   depends on the earthing system (TN, TT, IT have fundamentally different
-  zero-sequence behaviour) and cannot be standardised without knowing the
+  zero-sequence behavior) and cannot be standardized without knowing the
   system's neutral earthing arrangement.  Use [`provenance_analysis`](@ref)
   earthing zone results to choose a value if needed.
 
@@ -745,7 +745,7 @@ are cited inline at their point of use in the tables above.
    Emerging Power System Algorithms.)
 2. Electric Power Research Institute, *Distribution Resource Integration and
    Value Estimation (DRIVE)*, EPRI, Palo Alto, CA, 2016 — hosting-capacity
-   methodology contrasting distributed vs centralised DER placement.
+   methodology contrasting distributed vs centralized DER placement.
 3. B. Palmintier et al., "SMART-DS: Synthetic models for advanced, realistic
    testing — distribution systems and scenarios," National Renewable Energy
    Laboratory (NREL), Golden, CO, 2017.

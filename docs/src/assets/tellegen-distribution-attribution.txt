@@ -43,7 +43,7 @@ Source records were selected, noded/split and transformed into a provisional
 electrical model. Transformer roots, winding/conductor/phase/MEN parameters
 and demand placement are authored study assumptions. The screenshot renders
 that model without changing its data and does not redistribute the model JSON.
-Dataset metadata declares CC BY attribution; the dataset licence version is
+Dataset metadata declares CC BY attribution; the dataset license version is
 not specified there. Preserve the source-specific notices when using the model:
 https://github.com/frederikgeth/BMOPFDraftData/blob/main/output/SAPN/ATTRIBUTION.md
 https://github.com/frederikgeth/BMOPFDraftData/blob/main/output/SAPN/LICENSING.md

@@ -4,7 +4,7 @@
     This note explains the numerical encoding and its derivatives. For practical
     use, start with the [PV volt-var / volt-watt study](tutorial_vvwo.md) or
     [Power-flow inverter controls](opf.md#Power-flow-inverter-controls).
-    Familiarity with piecewise-linear curves and nonlinear optimisation helps;
+    Familiarity with piecewise-linear curves and nonlinear optimization helps;
     running the external-data study is not a prerequisite for reading this note.
 
 
@@ -16,7 +16,7 @@ be **twice continuously differentiable**: a kink makes the Jacobian jump and the
 Hessian a Dirac spike, which degrades the line search near a breakpoint. This
 note documents how BMOPFTools encodes the droop so that the OPF stays smooth,
 exact to a controllable tolerance, and numerically robust — and writes out the
-derivatives and the stable evaluation that the source only summarises.
+derivatives and the stable evaluation that the source only summarizes.
 
 The approach follows Mhanna, Geth, Quiertant & Mancarella [1], §II-C.1; the
 smoothing is the Chen–Harker–Kanzow–Smale (CHKS) softplus [2]. Numbered citations
@@ -207,7 +207,7 @@ without the floating-point failures the naive formulas would suffer [1, §III-C]
 The same encoding is available to staged-OPF extensions, so a downstream
 package can implement local control laws without copying BMOPFTools' nonlinear
 operator machinery. The numeric oracle evaluates either the exact controller or
-the same smooth approximation used in the optimisation model:
+the same smooth approximation used in the optimization model:
 
 ```julia
 xs = [0.90, 0.98, 1.02, 1.10]
@@ -242,7 +242,7 @@ rebuilding the JuMP graph.
 Calls on the same context and `epsilon` share one cached smooth-ReLU operator. This
 keeps large populations of independently controlled devices compact and avoids
 re-registering identical nonlinear functions. The context's `softplus` mode is
-honoured automatically, including `softplus=:builtin` for DiffOpt workflows and
+honored automatically, including `softplus=:builtin` for DiffOpt workflows and
 `softplus=:swish` for native-logistic backends.
 The function only returns an expression: callers retain control over equality,
 inequality, current-limit, and topology-realizability constraints.
@@ -273,7 +273,7 @@ The tradeoff is the usual one:
 
 Mhanna et al. [1, §IV-C] benchmark this sweep and recommend a softplus smoothing
 small enough to stay well inside the $\pm 7.5\,\%$ voltage-accuracy band of real
-IBRs while preserving reliability; in their normalisation $\varepsilon\le
+IBRs while preserving reliability; in their normalization $\varepsilon\le
 10^{-5}$ was the sweet spot. The default here is deliberately conservative and can
 be tightened per study. The same paper presents a **quadratic Bézier spline** as
 an alternative smoothing with an equivalent $\Delta U$ tolerance; BMOPFTools ships
@@ -340,11 +340,11 @@ broader smoothing family are the Chen–Harker–Kanzow–Smale (CHKS) line [2].
 unifying view: $\operatorname{softplus}(x)=\varepsilon\,\operatorname{logsumexp}(0,x/\varepsilon)$,
 and log-sum-exp is the canonical entropic (Nesterov) smoothing of $\max$ [10], so
 the surrogate is the simplest smooth-max. More recently, the pattern "relax to a
-program, then smooth it" has been systematised under differentiable
+program, then smooth it" has been systematized under differentiable
 programming [11], where softplus is a running example.
 
 **What is specific here.** Neither ingredient is novel in isolation; the
-contribution is their *exact-slope* composition for standardised droop — the
+contribution is their *exact-slope* composition for standardized droop — the
 baseline and triples are placed analytically so the surrogate reproduces the
 AS/NZS 4777.2 / IEEE 1547 slopes in the $\varepsilon\to 0$ limit — together with
 the numerically stable `log1pexp`/`logistic` evaluation (§4) and deployment inside

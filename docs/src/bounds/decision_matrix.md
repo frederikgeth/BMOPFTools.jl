@@ -17,7 +17,7 @@ prose reasoning behind every entry in
 Legend: ✓ = well behaved / exact / physical; ⚠ = conditional, verify;
 ✗ = ill posed / inexact / non-physical.
 
-| Objective family | Bounded? (no op. limits) | Bounded? (full op. limits) | Branch favoured | Relaxation exactness (SOC/SDP) | Recommended model |
+| Objective family | Bounded? (no op. limits) | Bounded? (full op. limits) | Branch favored | Relaxation exactness (SOC/SDP) | Recommended model |
 |---|:---:|:---:|---|:---:|---|
 | **Min generation cost** (non-neg. coeffs) | ⚠ coercive only if strongly convex (e.g. strictly convex quadratic) | ✓ | High-voltage | ✓ under standard conditions | Relaxation, verify ex post |
 | **Min losses / min slack power** | ✓ (coercive) | ✓ | High-voltage | ✓ | Relaxation |
@@ -39,7 +39,7 @@ Legend: ✓ = well behaved / exact / physical; ⚠ = conditional, verify;
     family at the top — objectives non-decreasing in generation/losses — is green in
     every column for the same reason.
 
-    The "branch favoured" column records which branch an objective *pulls toward*,
+    The "branch favored" column records which branch an objective *pulls toward*,
     not which branch a local solver will return. Confirm the sheet a solve actually
     landed on with the [diagnostics](diagnostics.md); a green row is a reason to
     expect an operational answer, not evidence that you got one.

@@ -14,7 +14,7 @@ makedocs(
         # sidebar logo; see scripts/logo/README.md for every logo variant.
         assets     = ["assets/favicon.ico"],
         # Both are exhaustive reference pages whose size is the point: findings.md
-        # is the full finding catalogue, api.md the full docstring index. api.md
+        # is the full finding catalog, api.md the full docstring index. api.md
         # was already over the WARN limit before the objective building blocks
         # were added; splitting it would scatter the reference people search.
         size_threshold_ignore = ["findings.md", "api.md"],
@@ -35,7 +35,7 @@ makedocs(
                 "Units, bases & economics" => "tutorial_units.md",
                 "Object identity" => "semantic_modeling.md",
             ],
-            "Modelling choices" => [
+            "Modeling choices" => [
                 "Line geometry & impedances" => "tutorial_line_geometry.md",
                 "Impedance models & OPF decisions" => "tutorial_impedance_models.md",
                 "Choosing & identifying a load model" => "tutorial_load_models.md",
@@ -74,7 +74,7 @@ makedocs(
             "Developing OPF case families" => "tutorial_case_development.md",
             "Time series: a day on an LV feeder" => "tutorial_timeseries.md",
             "PV volt-var / volt-watt study" => "tutorial_vvwo.md",
-            "Transformer tap optimisation" => "tutorial_tap.md",
+            "Transformer tap optimization" => "tutorial_tap.md",
             "D-STATCOM unbalance study" => "tutorial_statcom.md",
             "SWER case study" => "tutorial_swer.md",
             "MVDC/LVDC converter stations" => "tutorial_mvdc.md",
