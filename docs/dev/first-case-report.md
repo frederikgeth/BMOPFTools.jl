@@ -1,6 +1,6 @@
 # BMOPF Network Summary: case_development_example
 
-**Generated:** 2026-10-30 01:09:28  
+**Generated:** 2026-10-30 02:34:02  
 **Findings:** 0 errors · 2 warnings · 12 info  
 **Convention:** LV_230V: 4-wire; 1 grounding point(s); series-only line model
 
@@ -192,12 +192,12 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
 
 **Augmentation needed:**
 
-- only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds
+- only slack generation — dispatch is trivial (loss minimization); add dispatchable DERs with diverse costs and p/q bounds
 - no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 
 > 🔵 **[I.SPEC.MATRIX_TRIANGULAR]** 1 linecode(s) store impedance matrices upper-triangular; spec §4.1.1 defines full row-first storage: cable.
 
-> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimization); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
 
 ## 9. Data Quality Summary
 
@@ -260,7 +260,7 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
 
 - **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
-  Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalogue still runs.
+  Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalog still runs.
 
 - **[I.SCHEMA.UNKNOWN_FIELDS]** `bus`  
   bus has field(s) not in the BMOPF schema: v_declared.
@@ -275,6 +275,6 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
   1 linecode(s) store impedance matrices upper-triangular; spec §4.1.1 defines full row-first storage: cable.
 
 - **[I.BENCH.AUGMENTATION]** `network`  
-  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimisation); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
+  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimization); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
 
 

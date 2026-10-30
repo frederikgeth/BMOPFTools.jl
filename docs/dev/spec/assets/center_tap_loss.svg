@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" font-family="Helvetica, Arial, sans-serif" font-size="13">
   <text x="55"  y="26" fill="#333" font-weight="bold">HV winding (from)</text>
-  <text x="430" y="26" fill="#333" font-weight="bold">two anti-series LV legs (centre-tapped)</text>
+  <text x="430" y="26" fill="#333" font-weight="bold">two anti-series LV legs (center-tapped)</text>
   <text x="250" y="26" fill="#555">ideal core</text>
 
   <!-- ===== HV winding + leakage ===== -->
@@ -35,13 +35,13 @@
   <text x="568" y="94" fill="blue" font-style="italic">t</text><text x="577" y="99" fill="blue" font-size="9" font-style="italic">1</text>
   <text x="300" y="60" fill="#555" font-size="11">leg 1</text>
 
-  <!-- centre tap node -->
+  <!-- center tap node -->
   <line x1="284" y1="184" x2="284" y2="196" stroke="#111" stroke-width="1.6"/>
   <circle cx="284" cy="196" r="3" fill="#111"/>
   <line x1="284" y1="196" x2="560" y2="196" stroke="#111" stroke-width="1.6"/>
   <circle cx="560" cy="196" r="4" fill="#111"/>
   <text x="568" y="190" fill="blue" font-style="italic">t</text><text x="577" y="195" fill="blue" font-size="9" font-style="italic">n</text>
-  <text x="470" y="214" fill="#555" font-size="11">centre tap (grounded)</text>
+  <text x="470" y="214" fill="#555" font-size="11">center tap (grounded)</text>
 
   <!-- ===== LV leg 2 (lower) ===== -->
   <line x1="284" y1="196" x2="284" y2="208" stroke="#111" stroke-width="1.6"/>

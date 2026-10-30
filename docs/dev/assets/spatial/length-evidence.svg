@@ -21,7 +21,7 @@
 <text x="58" y="331" class="">Declared physical length; stored route length.</text>
 <text x="58" y="353" class="small">Compare with chord / recomputed route.</text>
 <rect x="510" y="275" width="450" height="95" rx="8" fill="#fff" stroke="#d6e0ec"/>
-<text x="528" y="303" class="label">Electrical modelling length</text>
+<text x="528" y="303" class="label">Electrical modeling length</text>
 <text x="528" y="331" class="">May scale impedance or be regularized.</text>
 <text x="528" y="353" class="small">Do not automatically interpret it as distance.</text>
 <text x="40" y="408" class="small">Default endpoint candidate: gap &gt; 5 m. Registered Finding: gap &gt; max(20 m, 10% of chord).</text>
