@@ -25,7 +25,7 @@ end
     @test _has_hint(context["alternatives"], "native_three_wire")
     @test _has_hint(context["alternatives"], "other_equivalent")
     @test _has_hint(context["implications"], "neutral_assumed_grounded")
-    @test occursin("1 of the 1 are used on LV lines", hint.message)
+    @test occursin("1 of 1 are used on LV lines", hint.message)
     @test occursin("phase-to-neutral patterns need 0.5", context["observations"]["by_linecode"]["three_wire"]["pattern_comparison"]["summary"])
     @test !context["observations"]["by_linecode"]["three_wire"]["pattern_comparison"]["criteria"][1]["met"]
     @test context["supporting_context"]["three_wire"]["lv_without_neutral_line_ids"] == ["feeder"]
@@ -86,7 +86,9 @@ end
         @test context["other_or_unassessed_line_ids"] == (v < 1000 ? [] : ["feeder"])
         @test !f.detail["history_verified"]
         @test r["by_linecode"]["three_wire"] == "kron_reduced"
-        @test occursin(v < 1000 ? "used on LV lines with no represented neutral" : "treat this as context only", f.message)
+        @test occursin(v < 1000 ? "used on LV lines without a represented neutral" : "this is context only", f.message)
+        implication_ids = BMOPFTools._interpretation_ids(f.detail["interpretation"]["implications"])
+        @test v < 1000 ? "neutral_assumed_grounded" in implication_ids : implication_ids == ["mv_hv_or_unused_context"]
     end
     delete!(net, "voltage_source")
     r, fs = _interpretation_classify(net)
@@ -97,7 +99,7 @@ end
     @test isempty(r["evidence_by_linecode"]["three_wire"]["supporting_context"])
     template_hint = only(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)) # weak template-only hint retained
     @test occursin("1 are not used by any line", template_hint.message)
-    @test !occursin("LV lines with no represented neutral", template_hint.message)
+    @test !occursin("LV lines without a represented neutral", template_hint.message)
 
     net = _interpretation_fixture()
     net["line"]["copy"] = deepcopy(net["line"]["feeder"])

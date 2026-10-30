@@ -8,7 +8,8 @@ function _reach_graph(net, zones)
     zi = Dict(b => i for (i, z) in enumerate(zones) for b in z)
     adj = Dict(b => Tuple{String,Float64,String}[] for b in keys(zi))
     issues = [String[] for _ in zones]; regularized = [String[] for _ in zones]
-    impedance_basis = [Dict(k => 0 for k in ("length_scaled", "absolute_section", "unresolved")) for _ in zones]
+    impedance_basis = [Dict(k => 0 for k in ("length_scaled", "absolute_section", "unresolved", "inline_overrides_linecode"))
+        for _ in zones]
     linecodes = get(net, "linecode", Dict())
     function edge(a, b, w, id)
         if !haskey(zi, a) || !haskey(zi, b)
@@ -29,12 +30,16 @@ function _reach_graph(net, zones)
             continue
         end
         # Declaration source only; this does not validate the electrical matrix.
-        inline = haskey(l, "R_series_1_1") || haskey(l, "X_series_1_1")
+        # Same precedence as the model: inline absolute matrices win over a linecode.
+        inline = _line_has_inline_z(l)
         lc = get(l, "linecode", nothing)
-        basis = inline && !haskey(l, "linecode") ? "absolute_section" :
-            !inline && lc isa AbstractString && linecodes isa AbstractDict &&
+        basis = inline ? "absolute_section" :
+            lc isa AbstractString && linecodes isa AbstractDict &&
                 get(linecodes, lc, nothing) isa AbstractDict ? "length_scaled" : "unresolved"
-        for i in touched; impedance_basis[i][basis] += 1; end
+        for i in touched
+            impedance_basis[i][basis] += 1
+            inline && haskey(l, "linecode") && (impedance_basis[i]["inline_overrides_linecode"] += 1)
+        end
         meta = get(l, "meta", Dict()); meta isa AbstractDict || (meta = Dict())
         flag = get(meta, "electrical_length_regularized", false)
         for i in touched
@@ -398,20 +403,17 @@ function _feeder_length_check(net::Dict{String,Any}, zones::Vector{Set{String}},
                 "band" => band, "anchor_extent_m" => extent, "path_witness" => get(entry, "path_witness", nothing),
                 "impedance_basis_counts" => copy(graph.impedance_basis[i]))
             detail["interpretation"] = _finding_interpretation(code, observations)
-            hint = kind == "long" ?
-                "Either a genuinely long feeder or metre values interpreted as kilometres upstream / a duplicated " *
-                "km-to-m conversion." :
-                "Either a stub, service drop or substation interconnect, or a unit slip / the OpenDSS default " *
-                "`length=1` (e.g. kilometre values stored as metres)."
+            hint = kind == "long" ? " Likely a long feeder or a unit slip (m read as km, or km→m applied twice)." :
+                " Likely a stub or interconnect, the OpenDSS default `length=1`, or km values stored as m."
             counts = graph.impedance_basis[i]
-            electrical = counts["absolute_section"] > 0 && counts["length_scaled"] == 0 && counts["unresolved"] == 0 ?
-                "These lines use inline absolute section impedances: changing length changes this distance, not those matrices." :
-                "Length errors scale per-length linecode impedances and can distort voltages and losses; " *
-                "inline absolute matrices stay unchanged."
+            n_abs = counts["absolute_section"]
+            electrical = n_abs > 0 && counts["length_scaled"] == 0 && counts["unresolved"] == 0 ?
+                " Its lines use absolute inline impedances, so length changes this distance but not their impedance." :
+                n_abs > 0 ? " Length errors scale its linecode lines' impedance, not its $n_abs inline line(s)." :
+                " Length errors scale line impedance, distorting voltages and losses."
             push!(findings, Finding(INFO, code, :operational, :network, nothing,
-                "Zone '$anchor': the farthest bus is $(round(reach; digits=1)) m (declared line length) from the " *
-                "nearest supply boundary, $kind for the $band screen ($(detail["threshold_m"]) m). $hint $electrical " *
-                "Spot-check a few lengths and linecode units.", detail))
+                "Zone '$anchor': farthest bus $(round(reach; digits=1)) m from the nearest supply boundary (declared " *
+                "length), $kind for the $band screen ($(detail["threshold_m"]) m).$hint$electrical", detail))
         end
     end
     summary

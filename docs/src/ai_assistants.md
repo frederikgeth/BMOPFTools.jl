@@ -189,7 +189,8 @@ than inventing a BMOPFTools explanation.
 For a Finding instance from `report.findings` (or the `findings` array of an
 `analyze_case` JSON response), `explain_finding(finding)` returns the catalogue
 entry plus any recorded `interpretation`: observations, ordered possible
-explanations, implications, alternatives and suggested checks. Provenance,
+explanations, implications, alternatives, suggested checks and `learn_more`
+documentation links to cite when explaining the hint to the user. Provenance,
 feeder-length and n-winding cap hints carry one. An INFO or WARNING can be useful
 without a verified cause; its severity is not permission to change the model.
 Follow `automation_guidance`: investigate the hypothesis, tell the user what it

@@ -284,6 +284,8 @@ report adds the main alternative and the first check; JSON and
 - `suggested_checks`: the cheapest useful check first.
 - `supporting_context`: case facts that strengthen or weaken the hint, e.g.
   which lines actually use a linecode and at what voltage.
+- `learn_more`: documentation pages (`page`, `section`, `url`) that explain the
+  underlying physics or modelling choice.
 - `automation_guidance`: always `review`, with additional evidence required
   before changing the model. An AI assistant should investigate, not edit.
 
@@ -306,10 +308,15 @@ implications depend on which conductors and couplings the model retains:
 | Pattern | Possible origin | Engineering implications |
 |---|---|---|
 | equal self, equal mutual (`I.PROV.SEQ_DERIVED`) | sequence values or a symmetry/transposition assumption | phase-pair asymmetry is absent from the inspected block; retained neutral coupling and other equipment can still create unbalance |
-| negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | approximately Z₀ = Z₁ for that block; inspect the intended return path and additional conductors |
+| negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | approximately Z₀ = Z₁ for that block; inspect the intended return path and additional conductors. Never a Kron candidate: elimination always adds mutual coupling |
 | three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | prior neutral elimination (weak hint) | a zero-neutral-voltage model cannot predict neutral rise when inappropriate; total dissipation can remain represented, while separate neutral attribution needs recovery data |
 | uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral equivalent | exact under the single-grounded/no-earth-current assumptions; conductor equality explains the pattern rather than establish accuracy |
 | uniform R and X (`…_MPN`) | modified phase-to-neutral equivalent | review PN earth-current assumptions and the additional reactance-symmetrisation approximation |
+
+When a balanced phase block sits inside a larger matrix, the guidance leads with
+transposition or a symmetric arrangement, because sequence values cannot
+produce an explicit, separately coupled neutral. An extra conductor with no
+coupling to the phases is flagged as a possible placeholder neutral.
 
 `observations.by_linecode` records `n_conductors`, `phase_block_only` and the
 relative coupling to conductors outside the inspected block for balance and
@@ -367,6 +374,8 @@ thresholds. Review genuine feeder size, unit conversions and the OpenDSS default
 
 `observations.impedance_basis_counts` separates per-length `length_scaled`
 linecodes, inline `absolute_section` matrices and `unresolved` declarations.
+As in the model, inline matrices win when a line also names a linecode;
+`inline_overrides_linecode` counts those lines.
 Length errors scale linecode impedances, while inline matrices are absolute
 section totals and stay unchanged when length changes. The guide uses that
 context; for an all-inline zone it explains the distance error separately from

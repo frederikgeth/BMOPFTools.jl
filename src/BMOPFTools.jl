@@ -722,7 +722,7 @@ metre and scale with `length`; inline line matrices are section totals and
 are **never** scaled by length (`length`, if present, is descriptive only).
 A line must have exactly one impedance source (`E.INT.LINE_IMPEDANCE_SOURCE`).
 """
-_line_has_inline_z(line::Dict{String,Any})::Bool =
+_line_has_inline_z(line::AbstractDict)::Bool =
     haskey(line, "R_series_1_1") || haskey(line, "X_series_1_1")
 
 # ---------------------------------------------------------------------------

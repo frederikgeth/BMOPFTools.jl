@@ -23,6 +23,9 @@ _guidance_ids(record, field) = Set(h["id"] for h in record[field])
     @test obs["additional_conductor_coupling_ratio"] > 0
     @test "retained_conductors" in _guidance_ids(seq.detail["interpretation"], "implications")
     @test !("neutral_inside_z0" in _guidance_ids(seq.detail["interpretation"], "implications"))
+    # Sequence values cannot produce an explicit, separately coupled neutral.
+    @test first(seq.detail["interpretation"]["possible_explanations"])["id"] == "transposition_assumption"
+    @test occursin("sequence values cannot produce an explicit neutral", seq.message)
     # Independent Ohm's-law witness: a symmetric phase block can still produce
     # neutral displacement and phase-to-neutral unbalance through the fourth wire.
     Iph = [1, cis(-2pi/3), cis(2pi/3)]
@@ -42,13 +45,20 @@ _guidance_ids(record, field) = Set(h["id"] for h in record[field])
     end
     fs = Finding[]; r = BMOPFTools._classify_linecodes(decoupled_extra, fs)
     @test r["by_linecode"]["four_wire"]["additional_conductor_coupling_ratio"] == 0.0
-    @test "retained_conductors" in _guidance_ids(only(filter(f -> f.code == seq.code, fs)).detail["interpretation"], "implications")
+    uncoupled = only(filter(f -> f.code == seq.code, fs))
+    @test "retained_conductors" in _guidance_ids(uncoupled.detail["interpretation"], "implications")
+    @test "uncoupled_extra_conductor" in _guidance_ids(uncoupled.detail["interpretation"], "implications")
+    @test !("uncoupled_extra_conductor" in _guidance_ids(seq.detail["interpretation"], "implications"))
     # A three-wire counterpart keeps the relevant conditional return-path hint.
     lc3 = Dict{String,Any}("$(p)_series_$(i)_$(j)" => (p == "R" ? R[i,j] : X[i,j])
         for p in ("R", "X") for i in 1:3 for j in 1:3)
     net["linecode"]["three_wire"] = lc3
     fs = Finding[]; BMOPFTools._classify_linecodes(net, fs)
-    mixed = only(filter(f -> f.code == seq.code, fs)).detail["interpretation"]
+    mixed_finding = only(filter(f -> f.code == seq.code, fs))
+    mixed = mixed_finding.detail["interpretation"]
+    # The message names both groups, matching the interpretation.
+    @test occursin("1 three-wire", mixed_finding.message) && occursin("1 with an explicit extra conductor", mixed_finding.message)
+    @test first(mixed["possible_explanations"])["id"] == "sequence_parameterisation"
     @test "retained_conductors" in _guidance_ids(mixed, "implications")
     @test "neutral_inside_z0" in _guidance_ids(mixed, "implications")
     @test !mixed["observations"]["by_linecode"]["three_wire"]["phase_block_only"]
@@ -115,7 +125,7 @@ end
     f = _guidance_reach(long, "I.OPS.FEEDER_LONG")
     @test f.detail["boundary_reach_m"] == 200000.0
     g = f.detail["interpretation"]
-    @test g["observations"]["impedance_basis_counts"] == Dict("absolute_section"=>4, "length_scaled"=>0, "unresolved"=>0)
+    @test g["observations"]["impedance_basis_counts"] == Dict("absolute_section"=>4, "length_scaled"=>0, "unresolved"=>0, "inline_overrides_linecode"=>0)
     @test _guidance_ids(g, "implications") == Set(["absolute_section_impedance"])
     for id in keys(base["line"])
         @test BMOPFTools._line_z_norm(long["line"][id], Dict()) == BMOPFTools._line_z_norm(base["line"][id], Dict())
@@ -142,12 +152,19 @@ end
     end
     f = _guidance_reach(per_length, "I.OPS.FEEDER_LONG")
     @test f.detail["interpretation"]["observations"]["impedance_basis_counts"]["length_scaled"] == 4
+    @test !occursin("inline", f.message) # no inline lines, so no inline caveat
     @test "impedance_scaled" in _guidance_ids(f.detail["interpretation"], "implications")
     id = first(sort!(collect(keys(per_length["line"]))))
     per_length["line"][id] = deepcopy(long["line"][id])
     mixed = _guidance_reach(per_length, "I.OPS.FEEDER_LONG").detail["interpretation"]
-    @test mixed["observations"]["impedance_basis_counts"] == Dict("absolute_section"=>1, "length_scaled"=>3, "unresolved"=>0)
+    @test mixed["observations"]["impedance_basis_counts"] == Dict("absolute_section"=>1, "length_scaled"=>3, "unresolved"=>0, "inline_overrides_linecode"=>0)
     @test "impedance_scaled" in _guidance_ids(mixed, "implications")
+    @test "absolute_section_impedance_mixed" in _guidance_ids(mixed, "implications")
+    # Inline matrices win over a linecode, exactly as in the model.
+    both = deepcopy(per_length); both["line"][id]["linecode"] = first(keys(per_length["linecode"]))
+    both_g = _guidance_reach(both, "I.OPS.FEEDER_LONG").detail["interpretation"]
+    @test both_g["observations"]["impedance_basis_counts"]["absolute_section"] == 1
+    @test both_g["observations"]["impedance_basis_counts"]["inline_overrides_linecode"] == 1
     empty_line = Dict{String,Any}(k=>v for (k,v) in per_length["line"][id] if !startswith(k, "R_series_") && !startswith(k, "X_series_"))
     per_length["line"][id] = empty_line
     unresolved = _guidance_reach(per_length, "I.OPS.FEEDER_LONG").detail["interpretation"]
@@ -164,10 +181,23 @@ end
         lc["$(p)_series_$(i)_$(j)"] = i == j ? 2.0 : 0.0
     end
     fs = Finding[]; result = BMOPFTools._classify_linecodes(net, fs)
-    BMOPFTools._classify_impedance_transformation(net, fs, result)
+    transform = BMOPFTools._classify_impedance_transformation(net, fs, result)
     @test any(f -> f.code == "I.PROV.DECOUPLED_PHASES", fs)
-    kr = only(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs))
-    @test kr.detail["interpretation"]["observations"]["also_decoupled"] == ["three_wire"]
+    # Kron reduction always adds mutual coupling, so a diagonal block is not a Kron candidate.
+    @test !any(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)
+    @test transform["by_linecode"]["three_wire"] == "unknown"
+    @test transform["evidence_by_linecode"]["three_wire"]["reason"] == "negligible_phase_coupling_contradicts_kron"
+    Zc = [complex(0.3, 0.8) complex(0.05, 0.45) complex(0.05, 0.40) complex(0.05, 0.42);
+          complex(0.05, 0.45) complex(0.3, 0.8) complex(0.05, 0.45) complex(0.05, 0.43);
+          complex(0.05, 0.40) complex(0.05, 0.45) complex(0.3, 0.8) complex(0.05, 0.44);
+          complex(0.05, 0.42) complex(0.05, 0.43) complex(0.05, 0.44) complex(0.4, 0.82)]
+    Zk = Zc[1:3, 1:3] - Zc[1:3, 4:4] * inv(Zc[4:4, 4:4]) * Zc[4:4, 1:3]
+    @test abs(Zk[1, 2]) / abs(Zk[1, 1]) > 0.1 # independent witness: elimination couples the phases
+    # A non-uniform diagonal (not DECOUPLED_PHASES) is still no Kron candidate.
+    lc["R_series_2_2"] = 3.0
+    fs = Finding[]; result = BMOPFTools._classify_linecodes(net, fs)
+    BMOPFTools._classify_impedance_transformation(net, fs, result)
+    @test !any(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)
     @test result["by_linecode"]["three_wire"]["mutual_to_self_ratio"] == 0
     nw = _guidance_case("two_boundary_chain.json")
     for xf in values(nw["transformer"]["n_winding"]), w in xf["windings"]
@@ -193,4 +223,35 @@ end
     absent = only(filter(f -> f.code == "W.OPS.XFMR_UNCONSTRAINED", fs)).detail["interpretation"]["observations"]
     @test absent["n_windings_with_unbounded_declarations"] == 0
     @test absent["limit_state_counts"]["i_max"] == Dict("absent"=>4, "unbounded"=>0)
+end
+
+@testset "learn-more links point at real documentation sections" begin
+    docs = joinpath(@__DIR__, "..", "docs", "src")
+    for (code, links) in BMOPFTools._LEARN_MORE
+        @test haskey(BMOPFTools._FINDING_INTERPRETATIONS, code)
+        @test !isempty(links)
+        for link in links
+            path = joinpath(docs, link["page"])
+            @test isfile(path)
+            @test occursin(link["section"], read(path, String))
+            @test startswith(link["url"], "https://frederikgeth.github.io/BMOPFTools.jl/dev/")
+        end
+    end
+    @test Set(keys(BMOPFTools._LEARN_MORE)) == Set(keys(BMOPFTools._FINDING_INTERPRETATIONS))
+    report = analyze(_guidance_case("provenance_context.json"))
+    markdown = sprint(io -> BMOPFTools.render_markdown(report, io))
+    @test occursin("**Learn more:** [5. Kron reduction is an assumption, not a simplification]", markdown)
+    @test occursin("Full record: `explain_finding(f)`", markdown)
+end
+
+@testset "hint messages stay short; caveats live in the interpretation" begin
+    budget = 340 # characters before the trailing ": <ids>." list
+    for name in ("provenance_context.json", "balanced_phase_four_wire.json", "two_boundary_chain.json")
+        for f in analyze(_guidance_case(name)).findings
+            f.detail isa AbstractDict && haskey(f.detail, "interpretation") || continue
+            head = f.code == "W.OPS.XFMR_UNCONSTRAINED" || startswith(f.code, "I.OPS.FEEDER") ||
+                f.code == "I.PROV.KRON_LIKELY" ? f.message : first(rsplit(f.message, ": "; limit=2))
+            @test length(head) <= budget
+        end
+    end
 end

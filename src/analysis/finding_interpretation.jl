@@ -45,7 +45,8 @@ const _FINDING_INTERPRETATIONS = Dict{String,NamedTuple}(
             "sequence_coordinates" => "The entries may be sequence values (Z0, Z1, Z2) stored as if they were phase values.",
             "negligible_series_coupling" => "Coupling may be genuinely negligible, e.g. widely spaced single-core cables."),
         checks = _hints(
-            "coordinate_basis" => "Check whether the supplied entries are in phase or sequence coordinates.",
+            "coordinate_basis" => "Check whether the supplied entries are in phase or sequence coordinates; " *
+                "`compile_linecode` from `line_geometry` gives coupled phase-frame matrices when geometry is known.",
             "other_coupling" => "Shunts, transformers and connections can still couple phases; inspect them before " *
                 "treating the phases as independent networks.")),
     "I.PROV.IMPEDANCE_TRANSFORM_KR" => (
@@ -57,7 +58,8 @@ const _FINDING_INTERPRETATIONS = Dict{String,NamedTuple}(
                 "Carson's earth return is already folded into the matrix.",
             "other_equivalent" => "A phase-to-neutral transformation, another equivalent or incomplete data can also omit the neutral."),
         checks = _hints(
-            "original_conductors" => "Inspect the original conductor model: was a neutral conductor specified?",
+            "original_conductors" => "Inspect the original conductor model: was a neutral conductor specified? If so, " *
+                "rebuild a four-wire linecode with `compile_linecode` from `line_geometry`.",
             "grounding_and_recovery" => "If neutral rise matters, review the zero-neutral-voltage assumption and use " *
                 "the original four-wire parameters and grounding to re-solve when needed. Current/loss recovery from source " *
                 "blocks describes the reduction's assumed boundary conditions.")),
@@ -109,11 +111,12 @@ const _FINDING_INTERPRETATIONS = Dict{String,NamedTuple}(
             "long_rural_feeder" => "A genuinely long rural or SWER-style feeder."),
         implications = _hints(
             "impedance_scaled" => "For per-length linecodes, lengths 1000 times too large also scale section impedances " *
-                "by 1000, potentially distorting voltages and losses. Inline absolute section matrices do not scale with length."),
+                "by 1000, potentially distorting voltages and losses."),
         alternatives = _hints(
             "equivalent_length" => "An electrical or equivalent length rather than the route length."),
         checks = _hints(
-            "spot_check_lengths" => "Compare a few line lengths and linecode units with maps or source data.",
+            "spot_check_lengths" => "Compare a few line lengths and linecode units with maps or source data. With bus " *
+                "coordinates, `W.GEO.LINE_SHORTER_THAN_CHORD` compares lengths with endpoint distances.",
             "impedance_units" => "Check per-km versus per-m impedance units separately: they affect the electrical model " *
                 "even when the declared-distance metric is correct.",
             "voltage_regulation" => "If the feeder is genuinely long, check that regulators or tap ranges are modelled.")),
@@ -124,11 +127,12 @@ const _FINDING_INTERPRETATIONS = Dict{String,NamedTuple}(
                 "without multiplying by 1000."),
         implications = _hints(
             "impedance_negligible" => "Too-short lengths make per-length linecode section impedances too small, " *
-                "potentially hiding voltage drops and losses. Inline absolute section matrices do not scale with length."),
+                "potentially hiding voltage drops and losses."),
         alternatives = _hints(
             "compact_site" => "A compact industrial or campus site can be genuinely short."),
         checks = _hints(
-            "spot_check_lengths" => "Compare a few line lengths and linecode units with maps or source data.")),
+            "spot_check_lengths" => "Compare a few line lengths and linecode units with maps or source data. With bus " *
+                "coordinates, `W.GEO.LINE_SHORTER_THAN_CHORD` compares lengths with endpoint distances.")),
     "W.OPS.XFMR_UNCONSTRAINED" => (
         explanations = _hints(
             "nameplate_only" => "A top-level `s_rating`, if present, is only a nameplate here. Two-winding subtypes turn " *
@@ -143,37 +147,94 @@ const _FINDING_INTERPRETATIONS = Dict{String,NamedTuple}(
             "add_winding_caps" => "Add per-winding `s_max` (e.g. each winding's nameplate rating) or `i_max` from the datasheet.")),
 )
 
+# Where to read more. Pages are docs/src files; `section` is the heading text
+# (checked by tests) so a reader can find it on the page.
+const _DOCS_URL = "https://frederikgeth.github.io/BMOPFTools.jl/dev/"
+_doc(page, section, anchor="") = Dict{String,Any}("page" => page, "section" => section,
+    "url" => _DOCS_URL * replace(page, ".md" => "/") * (isempty(anchor) ? "" : "#" * anchor))
+const _LEARN_MORE = Dict{String,Vector{Dict{String,Any}}}(
+    "I.PROV.SEQ_DERIVED" => [_doc("methodology.md", "Sequence-derived matrices and Z₁/Z₀ recovery"),
+        _doc("semantic_modeling.md", "The line-impedance fidelity ladder", "impedance-ladder")],
+    "I.PROV.DECOUPLED_PHASES" => [_doc("tutorial_grounding.md", "7. The Fortescue transform vs sequence decoupling"),
+        _doc("methodology.md", "Impedance matrix invariants vs fingerprints")],
+    "I.PROV.IMPEDANCE_TRANSFORM_KR" => [_doc("tutorial_grounding.md", "5. Kron reduction is an assumption, not a simplification"),
+        _doc("methodology.md", "Kron reduction, grounding and earthing zones")],
+    "I.PROV.KRON_LIKELY" => [_doc("tutorial_grounding.md", "5. Kron reduction is an assumption, not a simplification"),
+        _doc("methodology.md", "Kron reduction, grounding and earthing zones")],
+    "I.PROV.IMPEDANCE_TRANSFORM_PN" => [_doc("semantic_modeling.md", "The line-impedance fidelity ladder", "impedance-ladder"),
+        _doc("tutorial_grounding.md", "5. Kron reduction is an assumption, not a simplification")],
+    "I.PROV.IMPEDANCE_TRANSFORM_MPN" => [_doc("semantic_modeling.md", "The line-impedance fidelity ladder", "impedance-ladder"),
+        _doc("tutorial_impedance_models.md", "The idealisation and its symmetry")],
+    "I.OPS.FEEDER_LONG" => [_doc("tutorial_line_geometry.md", "Absolute impedances: matrices on the line itself"),
+        _doc("methodology.md", "OpenDSS default fingerprints")],
+    "I.OPS.FEEDER_SHORT" => [_doc("tutorial_line_geometry.md", "Absolute impedances: matrices on the line itself"),
+        _doc("methodology.md", "OpenDSS default fingerprints")],
+    "W.OPS.XFMR_UNCONSTRAINED" => [_doc("transformer_models.md", "Nameplate rating (`s_rating`) as a loading cap"),
+        _doc("opf.md", "Current vs. apparent-power limits", "Current-vs-apparent-power-limits")],
+)
+
+_by_linecode(observations) = collect(values(get(observations, "by_linecode", Dict())))
+_has_extra_conductor(m) = get(m, "phase_block_only", false) === true
+_uncoupled_extra(m) = _has_extra_conductor(m) && (r = get(m, "additional_conductor_coupling_ratio", nothing);
+    r isa Real && r < 1e-6)
+
 function _finding_interpretation(code, observations; supporting_context=Dict{String,Any}())
     spec = get(_FINDING_INTERPRETATIONS, code, nothing)
     spec === nothing && error("No Finding interpretation registered for $code")
+    explanations = deepcopy(spec.explanations)
     implications = deepcopy(spec.implications)
     if code in ("I.PROV.SEQ_DERIVED", "I.PROV.DECOUPLED_PHASES")
-        matrices = collect(values(get(observations, "by_linecode", Dict())))
-        n_extra = count(m -> get(m, "phase_block_only", false), matrices)
+        matrices = _by_linecode(observations)
+        n_extra = count(_has_extra_conductor, matrices)
         if n_extra > 0
             if code == "I.PROV.SEQ_DERIVED" && n_extra == length(matrices)
                 filter!(h -> h["id"] != "neutral_inside_z0", implications)
+                # Sequence values cannot produce an explicit, separately coupled
+                # conductor: transposition or a symmetric arrangement comes first.
+                explanations = _hints(
+                    "transposition_assumption" => "A transposition or symmetric phase arrangement balanced the phase " *
+                        "block while the neutral (or other conductor) kept its own coupling.",
+                    "sequence_parameterisation" => "Sequence values (r1, x1, r0, x0) are less likely here: they " *
+                        "cannot produce an explicit conductor with its own coupling.")
             end
             append!(implications, _hints("retained_conductors" => "$n_extra of these matrices retain conductors " *
                 "outside the inspected phase block. A neutral can remain explicit; inspect its coupling and grounding " *
                 "before drawing conclusions about phase-to-neutral unbalance or recovery."))
         end
+        n_uncoupled = count(_uncoupled_extra, matrices)
+        n_uncoupled > 0 && append!(implications, _hints("uncoupled_extra_conductor" => "$n_uncoupled of these " *
+            "matrices keep an extra conductor with no series coupling to the phases. A real neutral shares flux with " *
+            "the phases, so this may be a placeholder or simplified neutral."))
+    end
+    if code == "I.PROV.IMPEDANCE_TRANSFORM_KR"
+        contexts = collect(values(supporting_context))
+        if !isempty(contexts) && all(c -> get(c, "n_lv_without_neutral_lines", 0) == 0, contexts)
+            # Neutral-rise consequences only apply where a neutral could have existed.
+            implications = _hints("mv_hv_or_unused_context" => "None of these linecodes is used on LV lines " *
+                "without a neutral. At MV/HV a three-wire matrix normally already includes the earth return; " *
+                "neutral voltage rise only matters if a neutral conductor actually exists.")
+        end
     end
     if code in ("I.OPS.FEEDER_LONG", "I.OPS.FEEDER_SHORT")
         counts = get(observations, "impedance_basis_counts", Dict())
-        if get(counts, "absolute_section", 0) > 0 && get(counts, "length_scaled", 0) == 0 && get(counts, "unresolved", 0) == 0
+        n_abs = get(counts, "absolute_section", 0)
+        if n_abs > 0 && get(counts, "length_scaled", 0) == 0 && get(counts, "unresolved", 0) == 0
             implications = _hints("absolute_section_impedance" => "These lines use inline absolute section impedances. " *
                 "Changing their declared lengths changes this distance metric, while their impedance matrices stay unchanged. " *
                 "Review electrical parameters separately if voltage drops or losses look implausible.")
+        elseif n_abs > 0
+            append!(implications, _hints("absolute_section_impedance_mixed" => "$n_abs line(s) in this zone use " *
+                "inline absolute impedances, which do not change with length; only the linecode lines scale."))
         end
     end
     Dict{String,Any}(
         "observations" => observations,
-        "possible_explanations" => deepcopy(spec.explanations),
+        "possible_explanations" => explanations,
         "implications" => implications,
         "alternatives" => deepcopy(spec.alternatives),
         "suggested_checks" => deepcopy(spec.checks),
         "supporting_context" => supporting_context,
+        "learn_more" => deepcopy(get(_LEARN_MORE, code, Dict{String,Any}[])),
         "automation_guidance" => Dict{String,Any}(
             "disposition" => "review",
             "additional_evidence_required_for_model_changes" => true),

@@ -76,7 +76,13 @@ function _md_interpretation(f::Finding, io::IO; indent::String="  ")
         for h in list; println(io, "$indent- $(h["text"])"); end
         println(io)
     end
-    println(io, "$indent*A hint to review, not a verified cause; gather evidence before changing the model.*\n")
+    links = get(interp, "learn_more", Any[])
+    if !isempty(links)
+        println(io, "$indent**Learn more:** " *
+            join(["[$(l["section"])]($(l["url"]))" for l in links], " · ") * "\n")
+    end
+    println(io, "$indent*A hint to review, not a verified cause; gather evidence before changing the model. " *
+        "Full record: `explain_finding(f)` or the JSON report.*\n")
     println(io, "$indent</details>\n")
 end
 

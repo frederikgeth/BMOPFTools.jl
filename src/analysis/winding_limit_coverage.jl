@@ -95,11 +95,11 @@ function _winding_limit_coverage(net, findings)
     absent = filter(r -> r["coverage"] == "absent", rows)
     if !isempty(absent)
         n_unbounded = count(r -> any(r["limits"][f]["state"] == "unbounded" for f in ("i_max", "s_max")), absent)
-        unbounded_note = n_unbounded > 0 ? " $n_unbounded include explicit unbounded declarations (Inf)." : ""
+        unbounded_note = n_unbounded > 0 ? " $n_unbounded are explicitly unbounded (Inf)." : ""
         push!(findings, Finding(WARNING, "W.OPS.XFMR_UNCONSTRAINED", :operational, :transformer, nothing,
-            "$(length(absent)) n-winding transformer winding(s) have no finite supported `i_max` or `s_max` " *
-            "thermal cap.$unbounded_note Unlike two-winding subtypes, an n-winding `s_rating` is not turned into a coil cap. " *
-            "Add per-winding caps from the nameplate or datasheet unless the omission is intentional.",
+            "$(length(absent)) n-winding winding(s) have no finite `i_max` or `s_max`, so the OPF puts no thermal " *
+            "limit on them; unlike two-winding subtypes, an n-winding `s_rating` is not a cap.$unbounded_note " *
+            "Add per-winding caps unless this is intentional.",
             Dict{String,Any}("n_windings_without_caps" => length(absent), "transformer_counts" => counts,
                 "witnesses" => absent[1:min(end, 5)], "witness_limit" => 5,
                 "witnesses_truncated" => length(absent) > 5,

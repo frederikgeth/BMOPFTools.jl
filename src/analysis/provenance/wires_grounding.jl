@@ -56,11 +56,9 @@ function _wires_by_level(net::Dict{String,Any},
                 "corroborating an implicit neutral."
             push!(findings, Finding(INFO, "I.PROV.KRON_LIKELY", :provenance,
                 :network, nothing,
-                "Voltage level $label has no represented neutral conductor. LV distribution is usually " *
-                "four-wire, so the neutral was probably eliminated (e.g. Kron reduction), which assumes it " *
-                "is at 0 V at every bus: it cannot predict actual neutral voltage rise. Neutral dissipation can remain " *
-                "in the reduced impedance; separate neutral currents and losses need source information for recovery. " *
-                "Some LV systems are genuinely three-wire; check the source data if neutral quantities matter.$extra",
+                "Voltage level $label has no neutral conductor on any branch. LV is usually four-wire, so the " *
+                "neutral was probably eliminated (e.g. Kron reduction), which assumes 0 V neutral at every bus and " *
+                "cannot show neutral voltage rise. Check the source data; some LV systems are genuinely three-wire.$extra",
                 Dict{String,Any}("level" => label,
                     "implicit_ground_loads" => sort(implicit_loads),
                     "evidence_kind" => "heuristic_candidate", "history_verified" => false,

@@ -186,3 +186,10 @@ retained conductors and phase-block scope; feeder hints record the declared
 impedance-source counts. Match the returned guidance IDs rather than assuming
 every instance of a code has the same implication list. Cap observations retain
 explicit unbounded declarations separately from absent fields.
+
+A three-wire matrix with negligible phase coupling is no longer a
+`kron_reduced` candidate (Kron reduction always adds mutual coupling); its
+evidence carries `reason = "negligible_phase_coupling_contradicts_kron"` and the
+`also_decoupled` observation is removed. Interpretations add `learn_more`
+documentation links. `impedance_basis_counts` adds `inline_overrides_linecode`,
+and lines with both inline matrices and a linecode count as `absolute_section`.

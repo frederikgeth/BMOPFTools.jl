@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "e9a2ef1ff7447094b8ba9d0424bbf8109177aa993944174f2c74820af97f244a"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "7eff7a0148a578ed44e3efd54fa3fe32a65eef3002f2d7de6298fe5e33fabf1c"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -1395,7 +1395,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Equal self and equal mutual entries in the inspected three-conductor series block suggest sequence values (`r1,x1,r0,x0`) or a transposition/symmetry assumption; implied Z₁/Z₀ are reported for that block. **Why it matters:** phase-pair geometric asymmetry is absent from this block. Extra conductors, their coupling, grounding and other equipment can still produce unbalance; a neutral may remain explicit in a larger matrix. When only three phase coordinates remain, separate neutral recovery needs source information. **Check:** inspect conductor count, retained coupling and source parameters; use geometry-based data when omitted asymmetry matters. **Alternative:** symmetric physical construction. Converter-generated source equivalents are not flagged.",
+        meaning="Equal self and equal mutual entries in the inspected three-conductor phase block; implied Z₁/Z₀ are reported for that block. **Likely meaning:** for three-wire matrices, sequence values (`r1,x1,r0,x0`) or a transposition assumption; when the matrix keeps an explicit extra conductor, transposition or a symmetric phase arrangement (sequence values cannot produce an explicit neutral). **Why it matters:** the phase block has no phase-pair geometric asymmetry; for three-wire data any return path is folded into Z₀, while a retained neutral can still create unbalance. **Check:** source parameters, conductor count and the extra conductor's coupling and grounding. **Alternative:** symmetric physical construction. Mixed groups are named separately in the message. Converter-generated source equivalents are not flagged.",
         contract_id=nothing,
         knowledge_ids=String["PSK-000009"],
     ),
@@ -1404,7 +1404,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Negligible mutual series coupling and near-uniform self entries in the inspected phase block (relative coupling and self spread below 10⁻⁶). **Likely meaning:** a per-phase simplification. **Why it matters:** Z₀ and Z₁ are approximately equal for that block; review the intended return path. Retained conductors, shunts and equipment may still couple the network. **Check:** phase versus sequence coordinates and retained conductor coupling. **Alternative:** genuinely negligible coupling. Converter-generated source equivalents are not flagged.",
+        meaning="Negligible mutual series coupling and near-uniform self entries in the inspected phase block (relative coupling and self spread below 10⁻⁶). **Likely meaning:** a per-phase simplification. **Why it matters:** Z₀ ≈ Z₁ for that block, so the intended return path may be missing. An extra conductor with no coupling to the phases is called out as a possible placeholder neutral. **Check:** phase versus sequence coordinates. **Alternative:** genuinely negligible coupling. Such matrices are never Kron candidates. Converter-generated source equivalents are not flagged.",
         contract_id=nothing,
         knowledge_ids=String["PSK-000009"],
     ),
@@ -1584,7 +1584,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="A finite, nonzero three-wire matrix matches neither PN/MPN pattern, prompting review for Kron reduction. Actual LV use without a represented neutral strengthens this weak matrix-only hint; MV/HV and unused templates retain their context. **Why it matters:** a zero-neutral-voltage approximation can misrepresent actual neutral rise. Under its exact boundary assumptions, neutral dissipation remains represented in the reduced port impedance; separate attribution needs source blocks or a recovery map. **Check:** original conductors, grounding and recovery data. **Alternatives:** native three-wire construction, other equivalents, or a per-phase simplification for diagonal data. Balanced and diagonal cases cross-reference their companion Findings. Converter-generated source equivalents are not flagged.",
+        meaning="A finite three-wire matrix with phase coupling matches neither PN/MPN pattern: a weak, matrix-only hint of Kron reduction. Use on LV lines without a represented neutral strengthens it; MV/HV-only or unused linecodes are context only, and their implications say so. A decoupled phase block is never a candidate, because Kron reduction always adds mutual coupling (`reason = negligible_phase_coupling_contradicts_kron`). **Why it matters:** a zero-neutral-voltage approximation cannot show actual neutral rise. Under its exact boundary assumptions, neutral dissipation stays in the reduced impedance; separate attribution needs source blocks or a recovery map. **Check:** the original conductor data. **Alternatives:** native three-wire construction or other equivalents. Exactly balanced cases cross-reference `I.PROV.SEQ_DERIVED`. Converter-generated source equivalents are not flagged.",
         contract_id=nothing,
         knowledge_ids=String["PSK-000008", "PSK-000009"],
     ),

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "84af3b977a41b9ba953ddbb4950b26febbb06991e20b9086a7c26c263ef33738",
+  "corpus_sha256": "b5197919d06b749a55491fa10c76b15b9c315b745014b11cb64e4b96cc9d1862",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "e71d96738c498095a219246d54e4c9c64b618d33f6033ee47c283202039bf85d"
+      "sha256": "53380abbbf26b1245e2b48dcf13f677bbf244faa544413e8a2d1c4486acc383b"
     },
     {
       "path": "docs/src/api.md",
@@ -118,7 +118,7 @@
     },
     {
       "path": "docs/src/dev/versioning.md",
-      "sha256": "67ad103a89fa7954c8029a77d0569cda0c36ee15566f9e9546cdfa6056f2f4e7"
+      "sha256": "e7b5c9e8b010e350c9e681ba662cfd56e5dec1eb5fa8d8d1815cf1e7387e5e38"
     },
     {
       "path": "docs/src/device_indexing.md",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "e9a2ef1ff7447094b8ba9d0424bbf8109177aa993944174f2c74820af97f244a"
+      "sha256": "7eff7a0148a578ed44e3efd54fa3fe32a65eef3002f2d7de6298fe5e33fabf1c"
     },
     {
       "path": "docs/src/formulation_substitutions.md",
@@ -310,11 +310,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "0b524af5322e371fc5b3e08a3bef7f4cb2d51eae8cfd6bd38d6c46b17e4ef276"
+      "sha256": "5f10ae033d5b1d2487ccd91214e7a453c17b979e55f14f55e888072852e3e36b"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "7e4832cb0fb9244adb4ffac4e53205e3bf1e30322eddc5f7f8957480a1b841a4"
+      "sha256": "dca051d1190ae7cd46e3d1c202858d31dd5d4921f857703f684425cfa14c42aa"
     },
     {
       "path": "recipes/README.md",
@@ -434,7 +434,7 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "0b33e7436f15cd25fd29ab96644cdb295672ac3a240eac7a7d93dcb50f5058b4"
+      "sha256": "1a81572c921ed5aefad9ad30825f0cff7ba37c7919776445a1119e8520fdb882"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -450,11 +450,11 @@
     },
     {
       "path": "src/analysis/feeder_reach.jl",
-      "sha256": "40ed1252f5f58732b46be33e2d27a73aa71ec285e46c69e424a9897ac9141b3b"
+      "sha256": "3bc393ec83ee825573772fc9a030fe93c373db5f414ba2e6058db9b125b9ad20"
     },
     {
       "path": "src/analysis/finding_interpretation.jl",
-      "sha256": "4fd998bf7135471d689a9f8657671a1cbdc7fbcb676358b9e396ae3125ade32e"
+      "sha256": "25c2405de19bdc52542c124b9e4f5495e1aa265a6430c322d1cb52228ca22f0f"
     },
     {
       "path": "src/analysis/inventory.jl",
@@ -474,11 +474,11 @@
     },
     {
       "path": "src/analysis/provenance/linecodes.jl",
-      "sha256": "716b1af841a9863b7b8f4b4d82e97262f0514835801b564303b32d79f6248c74"
+      "sha256": "437a49ec38998558a43337e5a972a094c06f22089226d7063cd54f29866db1a9"
     },
     {
       "path": "src/analysis/provenance/wires_grounding.jl",
-      "sha256": "f5887fe0d1751bfa7959bd651250aabc565d24f02bd3fe447ba6e1ea53d18532"
+      "sha256": "3fb5f58a67e8fe606cc9c47970068220a8bf2f8f4d5c850ccf211b372c12c614"
     },
     {
       "path": "src/analysis/provenance.jl",
@@ -530,7 +530,7 @@
     },
     {
       "path": "src/analysis/winding_limit_coverage.jl",
-      "sha256": "e75276d82191d6eea95709f72339fb3fb5b3ccaa68ed9dbf635ba9faf53125fd"
+      "sha256": "0ec03904f30132c2e1f7d610169caed743f917552f2306a87cc00422df388125"
     },
     {
       "path": "src/augmentation/augment.jl",
@@ -662,11 +662,11 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "451a3e45b4a4cf3ef34c8c4bca43ac0661407f3f79fb3fad5569f037ae59eb5b"
+      "sha256": "f9fc1307c81b1e735707aef0d81ba17d7805298ddffa8cb3679dab2373fcbff3"
     },
     {
       "path": "src/report/formatting.jl",
-      "sha256": "ae046860749954154fca08ebc8301aa6e611c4aa4c06c9b32e4684c4536eaab5"
+      "sha256": "247b5c49cc256aa337709631c2bd781d0b6193ea310d9345a4495f2b69df607d"
     },
     {
       "path": "src/report/render_ascii_tree.jl",
@@ -1558,7 +1558,7 @@
     },
     {
       "path": "test/profiler_interpretation_tests.jl",
-      "sha256": "46b96efa0c67d32c26a78ec3f463cc5c1d096e32e17d227755122b88bd1e77ff"
+      "sha256": "e45950d3374e9a50e2d00e8e876afb1e41c1e8fc0b050e7b6e009755e4d04bfc"
     },
     {
       "path": "test/profiler_limit_builder_tests.jl",
@@ -1566,7 +1566,7 @@
     },
     {
       "path": "test/profiler_physics_guidance_tests.jl",
-      "sha256": "d49b7ef723b03c73b5e24a767fc6db8329a9f6eda08cc8558fe42bebc4b7baf9"
+      "sha256": "a96fc4da0fe6fdc5e65103366f6186c378f9dae0cf51811bb20eda236c3af0fd"
     },
     {
       "path": "test/profiler_review_tests.jl",
