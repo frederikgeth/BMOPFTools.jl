@@ -187,9 +187,17 @@ impedance-source counts. Match the returned guidance IDs rather than assuming
 every instance of a code has the same implication list. Cap observations retain
 explicit unbounded declarations separately from absent fields.
 
-A three-wire matrix with negligible phase coupling is no longer a
-`kron_reduced` candidate (Kron reduction always adds mutual coupling); its
-evidence carries `reason = "negligible_phase_coupling_contradicts_kron"` and the
-`also_decoupled` observation is removed. Interpretations add `learn_more`
-documentation links. `impedance_basis_counts` adds `inline_overrides_linecode`,
-and lines with both inline matrices and a linecode count as `absolute_section`.
+Three-wire matrices with negligible phase coupling use the per-phase
+simplification hint and retain an unknown transformation candidate. Evidence
+records `reason = "negligible_phase_coupling_origin_unresolved"`: a Schur
+correction can cancel original mutuals, so this is no proof against Kron history.
+`I.PROV.DECOUPLED_PHASES` also covers unequal self terms; the existing balance
+verdict is retained, while `phase_self_uniform` scopes the sequence implications.
+
+Linecode-use context adds positive MV/HV, LV-with-neutral and unassessed counts
+and bounded line IDs. Existing aggregate counts remain. `known_mv_hv_context`,
+`unused_linecode_context` and `unassessed_use_context` distinguish these cases;
+missing voltage/map evidence does not select MV/HV-only guidance.
+Interpretations retain `learn_more` documentation links, and the declaration
+basis counts retain `inline_overrides_linecode` for inline matrices that take
+precedence over a linecode reference.

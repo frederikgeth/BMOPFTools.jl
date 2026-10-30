@@ -308,22 +308,27 @@ implications depend on which conductors and couplings the model retains:
 | Pattern | Possible origin | Engineering implications |
 |---|---|---|
 | equal self, equal mutual (`I.PROV.SEQ_DERIVED`) | sequence values or a symmetry/transposition assumption | phase-pair asymmetry is absent from the inspected block; retained neutral coupling and other equipment can still create unbalance |
-| negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | approximately Z₀ = Z₁ for that block; inspect the intended return path and additional conductors. Never a Kron candidate: elimination always adds mutual coupling |
+| negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | uniform self terms give approximately Z₀ = Z₁; unequal self terms can still couple sequence networks. Diagonal structure does not exclude prior reduction |
 | three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | prior neutral elimination (weak hint) | a zero-neutral-voltage model cannot predict neutral rise when inappropriate; total dissipation can remain represented, while separate neutral attribution needs recovery data |
-| uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral equivalent | exact under the single-grounded/no-earth-current assumptions; conductor equality explains the pattern rather than establish accuracy |
+| uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral equivalent | exact under the single-grounded/no-earth-current assumptions; similar conductor resistances explain the pattern, while accuracy depends on earth-current assumptions |
 | uniform R and X (`…_MPN`) | modified phase-to-neutral equivalent | review PN earth-current assumptions and the additional reactance-symmetrisation approximation |
 
-When a balanced phase block sits inside a larger matrix, the guidance leads with
-transposition or a symmetric arrangement, because sequence values cannot
-produce an explicit, separately coupled neutral. An extra conductor with no
-coupling to the phases is flagged as a possible placeholder neutral.
-
 `observations.by_linecode` records `n_conductors`, `phase_block_only` and the
-relative coupling to conductors outside the inspected block for balance and
-decoupling hints. A four-wire matrix can have a balanced phase block while its
-neutral remains explicit and introduces phase-to-neutral unbalance. The
-implications list reflects retained conductors; a phase-block signature alone
-does not make neutral quantities unavailable.
+relative coupling to conductors outside the inspected block. An extra conductor
+can coexist with a sequence-built phase block: OpenDSS can materialize a coupled
+four-conductor matrix from sequence values, or a modeller can supply neutral
+parameters separately. Shape alone does not select transposition over sequence
+parameterisation. A balanced phase block can still have an explicit neutral
+that introduces phase-to-neutral unbalance.
+An extra conductor with negligible coupling to the phases is flagged as a
+possible placeholder or simplified neutral, with its coupling evidence retained.
+
+The per-phase simplification hint also covers unequal diagonal terms, with
+`phase_self_uniform` distinguishing the two cases. Unequal diagonal phase
+impedances may couple the sequence networks. A Schur reduction subtracts its
+correction from the original mutuals and can cancel them. Diagonal data therefore
+retain an unresolved origin, with possible prior reduction listed as an
+alternative; the hint does not declare Kron history impossible.
 
 For the PN transformation, the exact reference domain has no conductor-to-earth shunts,
 no device current injection into earth, and one grounding point per
@@ -333,13 +338,17 @@ its assumptions; grounding impedance alone does not determine the error. The
 R mutual/self ratio near one half is a fingerprint for similar phase/neutral
 resistances, while the transformation itself also applies to unequal conductors.
 
-The Kron hint is matrix-only, so its message says how the linecode is used: on
-LV lines without a represented neutral (a stronger hint), only elsewhere
-(three-wire is normal at MV/HV), or not at all. When a matrix also has the
-equal-self/equal-mutual signature, the message points to `I.PROV.SEQ_DERIVED`:
-sequence-built data cannot show whether a neutral was ever there.
-`I.PROV.KRON_LIKELY` is the network-level counterpart: an LV level with no
-neutral conductor on any branch.
+The Kron hint is matrix-only, so its context distinguishes known LV use without
+a represented neutral, known MV/HV-only use, unused templates, and unassessed or
+mixed use. Missing nominal-voltage or terminal-map evidence does not establish
+MV/HV use. Context counts retain `n_mv_hv_lines`, `n_lv_with_neutral_lines` and
+`n_unassessed_lines`, with bounded line-ID examples; their sum is the legacy
+`n_other_or_unassessed_lines`. Only positively identified MV/HV-only uses receive
+`known_mv_hv_context`; unused templates receive `unused_linecode_context`.
+Unassessed uses keep conditional neutral implications and an
+`unassessed_use_context` disclosure. Exactly balanced candidates cross-reference
+`I.PROV.SEQ_DERIVED`. `I.PROV.KRON_LIKELY` remains the network-level counterpart
+for an LV level without a neutral carried by any branch.
 
 Converter-generated source equivalents (linecodes whose `source` names a
 Thevenin or source impedance, e.g. from `from_dss`) are classified but never

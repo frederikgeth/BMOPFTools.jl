@@ -34,3 +34,14 @@ The same tests contrast absolute inline and per-length impedances, unit-error
 directions, diagonal signatures and explicit unbounded winding caps. These
 small reference-relation checks require no solve or reconstruction of unknown
 source data.
+
+`kron_cancellation_four_wire.json` is a passive reciprocal primitive with
+positive-definite R and X. Its phase and phase-to-neutral mutual entries are
+nonzero, but its Schur correction cancels the phase mutuals, leaving `(2+2im)I`.
+It demonstrates why a diagonal signature cannot exclude prior Kron reduction.
+`sequence_four_conductor.dss` is a synthetic OpenDSS sequence-input example:
+`nphases=4` with `r1,x1,r0,x0` materializes a coupled four-conductor matrix. The
+backend test reads the native matrices, converts their per-km values to per-m,
+and checks that the sequence-construction explanation remains available. The
+same tests keep known MV/HV, unknown voltage/map evidence and unused templates
+separate and exercise direct interpretation access from serialized analysis JSON.

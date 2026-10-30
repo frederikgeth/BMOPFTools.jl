@@ -82,7 +82,10 @@
 # Interpretations (shared module src/analysis/finding_interpretation.jl) are ordered
 # {id,text} lists incl. implications; also cover feeder-length and n-winding cap hints.
 # Converter source (Thevenin) equivalents are excluded from provenance hints.
-# Decoupled phase blocks are not Kron candidates; interpretations add learn_more doc links.
+# Diagonal blocks prioritize the per-phase hint with origin unresolved: Schur
+# corrections can cancel mutuals. Sequence inputs may also materialize extra
+# conductors. Context keeps known voltage tiers separate from unassessed uses.
+# Interpretations retain learn_more doc links; JSON consumers read stored detail.
 # Profiler implications retain phase-block scope and additional conductor coupling,
 # distinguish absolute from length-scaled line declarations, and preserve explicit
 # unbounded winding caps. Arithmetic PN/Kron witnesses test the reference relations

@@ -36,14 +36,17 @@ const _FINDING_INTERPRETATIONS = Dict{String,NamedTuple}(
                 "Use geometry-based data (`compile_linecode` from `line_geometry`) when the omitted geometric asymmetry matters.")),
     "I.PROV.DECOUPLED_PHASES" => (
         explanations = _hints(
-            "per_phase_impedance_only" => "Only a per-phase (positive-sequence) impedance was supplied and placed on the diagonal."),
+            "per_phase_impedance_only" => "Phase impedances may have been supplied independently without mutual series " *
+                "coupling; a positive-sequence-only diagonal is one common uniform case."),
         implications = _hints(
             "z0_equals_z1" => "For this nearly uniform diagonal three-conductor block, Z0 and Z1 are approximately equal " *
                 "within the classifier tolerance. Review whether this simplification represents the intended return path; " *
                 "additional conductors and other network factors remain separate."),
         alternatives = _hints(
             "sequence_coordinates" => "The entries may be sequence values (Z0, Z1, Z2) stored as if they were phase values.",
-            "negligible_series_coupling" => "Coupling may be genuinely negligible, e.g. widely spaced single-core cables."),
+            "negligible_series_coupling" => "Coupling may be genuinely negligible, e.g. widely spaced single-core cables.",
+            "prior_reduction" => "A prior Schur reduction can also yield a diagonal block when its correction cancels " *
+                "the original mutual entries; this signature alone does not exclude Kron history."),
         checks = _hints(
             "coordinate_basis" => "Check whether the supplied entries are in phase or sequence coordinates; " *
                 "`compile_linecode` from `line_geometry` gives coupled phase-frame matrices when geometry is known.",
@@ -178,6 +181,16 @@ _has_extra_conductor(m) = get(m, "phase_block_only", false) === true
 _uncoupled_extra(m) = _has_extra_conductor(m) && (r = get(m, "additional_conductor_coupling_ratio", nothing);
     r isa Real && r < 1e-6)
 
+# A missing/invalid nominal voltage or map is distinct from known MV/HV use.
+function _kron_context_kind(context)
+    n = get(context, "n_lines", 0)
+    n == 0 && return "unused"
+    get(context, "n_lv_without_neutral_lines", 0) > 0 && return "lv_without_neutral"
+    get(context, "n_mv_hv_lines", 0) == n && return "mv_hv_only"
+    get(context, "n_lv_with_neutral_lines", 0) == n && return "lv_with_neutral"
+    "unassessed"
+end
+
 function _finding_interpretation(code, observations; supporting_context=Dict{String,Any}())
     spec = get(_FINDING_INTERPRETATIONS, code, nothing)
     spec === nothing && error("No Finding interpretation registered for $code")
@@ -189,13 +202,11 @@ function _finding_interpretation(code, observations; supporting_context=Dict{Str
         if n_extra > 0
             if code == "I.PROV.SEQ_DERIVED" && n_extra == length(matrices)
                 filter!(h -> h["id"] != "neutral_inside_z0", implications)
-                # Sequence values cannot produce an explicit, separately coupled
-                # conductor: transposition or a symmetric arrangement comes first.
-                explanations = _hints(
-                    "transposition_assumption" => "A transposition or symmetric phase arrangement balanced the phase " *
-                        "block while the neutral (or other conductor) kept its own coupling.",
-                    "sequence_parameterisation" => "Sequence values (r1, x1, r0, x0) are less likely here: they " *
-                        "cannot produce an explicit conductor with its own coupling.")
+            end
+            if code == "I.PROV.SEQ_DERIVED"
+                explanations[1]["text"] = "Sequence values can define the phase block of a larger matrix. " *
+                    "A converter can materialize extra conductors from sequence input, or neutral parameters can " *
+                    "be supplied separately; conductor count alone does not select the construction method."
             end
             append!(implications, _hints("retained_conductors" => "$n_extra of these matrices retain conductors " *
                 "outside the inspected phase block. A neutral can remain explicit; inspect its coupling and grounding " *
@@ -205,14 +216,30 @@ function _finding_interpretation(code, observations; supporting_context=Dict{Str
         n_uncoupled > 0 && append!(implications, _hints("uncoupled_extra_conductor" => "$n_uncoupled of these " *
             "matrices keep an extra conductor with no series coupling to the phases. A real neutral shares flux with " *
             "the phases, so this may be a placeholder or simplified neutral."))
+        if code == "I.PROV.DECOUPLED_PHASES"
+            n_nonuniform = count(m -> get(m, "diag_spread", 0.0) >= 1e-6, matrices)
+            if n_nonuniform > 0
+                n_nonuniform == length(matrices) && filter!(h -> h["id"] != "z0_equals_z1", implications)
+                append!(implications, _hints("nonuniform_diagonal" => "$n_nonuniform of these phase blocks have " *
+                    "unequal self impedances despite negligible mutual coupling. Their Fortescue sequence matrices " *
+                    "can still have off-diagonal coupling; independent phase equations do not imply independent sequence networks."))
+            end
+        end
     end
     if code == "I.PROV.IMPEDANCE_TRANSFORM_KR"
         contexts = collect(values(supporting_context))
-        if !isempty(contexts) && all(c -> get(c, "n_lv_without_neutral_lines", 0) == 0, contexts)
-            # Neutral-rise consequences only apply where a neutral could have existed.
-            implications = _hints("mv_hv_or_unused_context" => "None of these linecodes is used on LV lines " *
-                "without a neutral. At MV/HV a three-wire matrix normally already includes the earth return; " *
-                "neutral voltage rise only matters if a neutral conductor actually exists.")
+        kinds = _kron_context_kind.(contexts)
+        if !isempty(kinds) && all(==("unused"), kinds)
+            implications = _hints("unused_linecode_context" => "These templates are not used by a line in this case. " *
+                "Review their original conductor model before reusing them; no voltage tier is inferred from the matrices.")
+        elseif !isempty(kinds) && all(k -> k in ("mv_hv_only", "unused"), kinds)
+            implications = _hints("known_mv_hv_context" => "All referenced uses are on known MV/HV lines. " *
+                "Three-wire construction is common there; review neutral-related consequences if the original " *
+                "conductor data show an eliminated neutral.")
+        elseif any(==("unassessed"), kinds) || any(c -> get(c, "n_unassessed_lines", 0) > 0, contexts)
+            append!(implications, _hints("unassessed_use_context" => "Some uses have incomplete or mixed voltage/map " *
+                "evidence. This does not establish MV/HV use or absence of a physical neutral. Check the nominal " *
+                "voltages and original conductor data before dismissing neutral-related consequences."))
         end
     end
     if code in ("I.OPS.FEEDER_LONG", "I.OPS.FEEDER_SHORT")

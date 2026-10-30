@@ -1,14 +1,130 @@
 using Test, BMOPFTools, JSON3, LinearAlgebra
 
 _guidance_case(name) = JSON3.read(read(joinpath(@__DIR__, "data", "profiler_evidence", name), String), Dict{String,Any})
+_guidance_ids(record, field) = Set(h["id"] for h in record[field])
 function _guidance_matrices(net)
     lc = net["linecode"]["four_wire"]
     R = [lc["R_series_$(i)_$(j)"] for i in 1:4, j in 1:4]
     X = [lc["X_series_$(i)_$(j)"] for i in 1:4, j in 1:4]
     R, X, complex.(R, X)
 end
-_guidance_ids(record, field) = Set(h["id"] for h in record[field])
 
+@testset "Kron Schur cancellation leaves origin unresolved" begin
+    source = _guidance_case("kron_cancellation_four_wire.json")
+    R, X, Z = _guidance_matrices(source)
+    @test isposdef(R) && isposdef(X)
+    @test all(!iszero, Z[1:3,4])
+    @test all(!iszero, [Z[i,j] for i in 1:3 for j in 1:3 if i != j])
+    Zk = Z[1:3,1:3] - Z[1:3,4:4]*(Z[4:4,4:4] \ Z[4:4,1:3])
+    @test Zk ≈ (2+2im)*Matrix{ComplexF64}(I,3,3)
+    net = _guidance_case("provenance_context.json")
+    lc = Dict{String,Any}("$(p)_series_$(i)_$(j)" => (p=="R" ? real(Zk[i,j]) : imag(Zk[i,j]))
+        for p in ("R","X") for i in 1:3 for j in 1:3)
+    lc["derivation"] = Dict("method"=>"kron")
+    net["linecode"]["three_wire"] = lc
+    original = deepcopy(net); fs = Finding[]
+    observed = BMOPFTools._classify_linecodes(net, fs)
+    transform = BMOPFTools._classify_impedance_transformation(net, fs, observed)
+    detail = transform["evidence_by_linecode"]["three_wire"]
+    @test detail["reason"] == "negligible_phase_coupling_origin_unresolved"
+    @test detail["declared_derivation"]["method"] == "kron"
+    @test detail["history_status"] == "declared_unverified"
+    @test transform["by_linecode"]["three_wire"] == "unknown"
+    dec = only(filter(f -> f.code == "I.PROV.DECOUPLED_PHASES", fs))
+    @test "prior_reduction" in _guidance_ids(dec.detail["interpretation"], "alternatives")
+    encoded = JSON3.read(JSON3.write(BMOPFTools._jsonable(transform)))
+    @test encoded.evidence_by_linecode.three_wire.reason == "negligible_phase_coupling_origin_unresolved"
+    @test net == original
+end
+
+@testset "OpenDSS sequence input can materialize four conductors" begin
+    if Base.find_package("OpenDSSDirect") === nothing
+        @test_skip false # lightweight environments may omit this optional backend
+    else
+        @eval import OpenDSSDirect
+        DSS = OpenDSSDirect
+        path = joinpath(@__DIR__, "data", "profiler_evidence", "sequence_four_conductor.dss")
+        try
+            DSS.Text.Command("redirect \"$path\"")
+            DSS.LineCodes.Name("seq4")
+            @test DSS.LineCodes.Phases() == 4
+            # The authored parameters and getter values are per km; BMOPF uses per m.
+            R, X = DSS.LineCodes.Rmatrix()/1000, DSS.LineCodes.Xmatrix()/1000
+            @test size(R) == size(X) == (4,4)
+            @test isposdef(R) && isposdef(X)
+            @test all(!iszero, complex.(R, X)[1:3,4])
+            net = _guidance_case("balanced_phase_four_wire.json")
+            net["linecode"]["four_wire"] = Dict{String,Any}("$(p)_series_$(i)_$(j)" => (p=="R" ? R[i,j] : X[i,j])
+                for p in ("R","X") for i in 1:4 for j in 1:4)
+            fs = Finding[]; BMOPFTools._classify_linecodes(net, fs)
+            f = only(filter(f -> f.code == "I.PROV.SEQ_DERIVED", fs))
+            guide = f.detail["interpretation"]
+            @test guide["observations"]["by_linecode"]["four_wire"]["phase_block_only"]
+            @test guide["observations"]["by_linecode"]["four_wire"]["additional_conductor_coupling_ratio"] > 0
+            @test guide["observations"]["by_linecode"]["four_wire"]["z1"]["r"] ≈ 0.0002
+            @test guide["observations"]["by_linecode"]["four_wire"]["z0"]["x"] ≈ 0.0008
+            @test first(guide["possible_explanations"])["id"] == "sequence_parameterisation"
+            @test "retained_conductors" in _guidance_ids(guide, "implications")
+        finally
+            DSS.Text.Command("clear")
+        end
+    end
+end
+
+@testset "known voltage contexts stay separate from unassessed use" begin
+    net = _guidance_case("provenance_context.json")
+    net["voltage_source"]["grid"]["v_magnitude"] .= 11000.0
+    for bus in ("isolated_s", "isolated_t")
+        net["bus"][bus] = Dict("terminal_names"=>["a","b","c"])
+    end
+    net["line"]["isolated"] = merge(deepcopy(net["line"]["feeder"]),
+        Dict("bus_from"=>"isolated_s", "bus_to"=>"isolated_t"))
+    fs = Finding[]; observed = BMOPFTools._classify_linecodes(net, fs)
+    BMOPFTools._classify_impedance_transformation(net, fs, observed)
+    f = only(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs))
+    guide = f.detail["interpretation"]; c = guide["supporting_context"]["three_wire"]
+    @test c["n_lines"] == 2
+    @test c["n_mv_hv_lines"] == c["n_unassessed_lines"] == 1
+    @test c["mv_hv_line_ids"] == ["feeder"]
+    @test c["unassessed_line_ids"] == ["isolated"]
+    @test c["n_other_or_unassessed_lines"] == c["n_mv_hv_lines"]+c["n_lv_with_neutral_lines"]+c["n_unassessed_lines"]
+    @test "unassessed_use_context" in _guidance_ids(guide, "implications")
+    @test "neutral_assumed_grounded" in _guidance_ids(guide, "implications")
+    @test !("known_mv_hv_context" in _guidance_ids(guide, "implications"))
+    net["line"]["feeder"]["terminal_map_to"] = ["a","a","c"]
+    fs = Finding[]; observed = BMOPFTools._classify_linecodes(net, fs)
+    r = BMOPFTools._classify_impedance_transformation(net, fs, observed)
+    @test r["evidence_by_linecode"]["three_wire"]["supporting_context"]["n_unassessed_lines"] == 2
+    encoded = JSON3.read(JSON3.write(explain_finding(f)))
+    @test encoded.interpretation.supporting_context.three_wire.n_unassessed_lines == 1
+
+    # Known LV evidence strengthens the hint without hiding an unknown use of
+    # that same template. Context categories are counts, not a single origin.
+    net["line"]["feeder"]["terminal_map_to"] = ["a","b","c"]
+    net["voltage_source"]["grid"]["v_magnitude"] .= 230.0
+    fs = Finding[]; observed = BMOPFTools._classify_linecodes(net, fs)
+    BMOPFTools._classify_impedance_transformation(net, fs, observed)
+    f = only(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs))
+    guide = f.detail["interpretation"]; c = guide["supporting_context"]["three_wire"]
+    @test c["n_lv_without_neutral_lines"] == c["n_unassessed_lines"] == 1
+    @test "unassessed_use_context" in _guidance_ids(guide, "implications")
+    @test "neutral_assumed_grounded" in _guidance_ids(guide, "implications")
+    @test occursin("1 have mixed/unassessed use", f.message)
+end
+
+@testset "serialized analysis findings expose context without the instance overload" begin
+    response = execute_analysis(_guidance_case("provenance_context.json"))
+    wire = JSON3.read(JSON3.write(response), Dict{String,Any})
+    record = only(filter(f -> f["code"] == "I.PROV.IMPEDANCE_TRANSFORM_KR", wire["result"]["findings"]))
+    guide = record["detail"]["interpretation"] # documented JSON processing path
+    catalogue = explain_finding(record["code"])
+    @test catalogue["code"] == record["code"]
+    @test guide["supporting_context"]["three_wire"]["n_lv_without_neutral_lines"] == 1
+    @test guide["automation_guidance"]["disposition"] == "review"
+    native = JSON3.read(JSON3.write(response))
+    native_record = only(filter(f -> f.code == record["code"], native.result.findings))
+    @test native_record["detail"]["interpretation"]["automation_guidance"]["disposition"] == "review"
+end
 @testset "phase-block symmetry retains explicit neutral information" begin
     net = _guidance_case("balanced_phase_four_wire.json"); original = deepcopy(net)
     R, X, Z = _guidance_matrices(net)
@@ -23,9 +139,9 @@ _guidance_ids(record, field) = Set(h["id"] for h in record[field])
     @test obs["additional_conductor_coupling_ratio"] > 0
     @test "retained_conductors" in _guidance_ids(seq.detail["interpretation"], "implications")
     @test !("neutral_inside_z0" in _guidance_ids(seq.detail["interpretation"], "implications"))
-    # Sequence values cannot produce an explicit, separately coupled neutral.
-    @test first(seq.detail["interpretation"]["possible_explanations"])["id"] == "transposition_assumption"
-    @test occursin("sequence values cannot produce an explicit neutral", seq.message)
+    # A retained conductor does not rule out a sequence-built or hybrid phase block.
+    @test first(seq.detail["interpretation"]["possible_explanations"])["id"] == "sequence_parameterisation"
+    @test "transposition_assumption" in _guidance_ids(seq.detail["interpretation"], "possible_explanations")
     # Independent Ohm's-law witness: a symmetric phase block can still produce
     # neutral displacement and phase-to-neutral unbalance through the fourth wire.
     Iph = [1, cis(-2pi/3), cis(2pi/3)]
@@ -183,22 +299,30 @@ end
     fs = Finding[]; result = BMOPFTools._classify_linecodes(net, fs)
     transform = BMOPFTools._classify_impedance_transformation(net, fs, result)
     @test any(f -> f.code == "I.PROV.DECOUPLED_PHASES", fs)
-    # Kron reduction always adds mutual coupling, so a diagonal block is not a Kron candidate.
+    # Prefer the per-phase simplification hint without making a negative history claim.
     @test !any(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)
     @test transform["by_linecode"]["three_wire"] == "unknown"
-    @test transform["evidence_by_linecode"]["three_wire"]["reason"] == "negligible_phase_coupling_contradicts_kron"
+    @test transform["evidence_by_linecode"]["three_wire"]["reason"] == "negligible_phase_coupling_origin_unresolved"
     Zc = [complex(0.3, 0.8) complex(0.05, 0.45) complex(0.05, 0.40) complex(0.05, 0.42);
           complex(0.05, 0.45) complex(0.3, 0.8) complex(0.05, 0.45) complex(0.05, 0.43);
           complex(0.05, 0.40) complex(0.05, 0.45) complex(0.3, 0.8) complex(0.05, 0.44);
           complex(0.05, 0.42) complex(0.05, 0.43) complex(0.05, 0.44) complex(0.4, 0.82)]
     Zk = Zc[1:3, 1:3] - Zc[1:3, 4:4] * inv(Zc[4:4, 4:4]) * Zc[4:4, 1:3]
-    @test abs(Zk[1, 2]) / abs(Zk[1, 1]) > 0.1 # independent witness: elimination couples the phases
-    # A non-uniform diagonal (not DECOUPLED_PHASES) is still no Kron candidate.
+    @test abs(Zk[1, 2]) / abs(Zk[1, 1]) > 0.1 # one source gives a coupled result; cancellation is tested separately
+    # Non-uniform diagonal data still deserve feedback about missing phase coupling.
     lc["R_series_2_2"] = 3.0
     fs = Finding[]; result = BMOPFTools._classify_linecodes(net, fs)
     BMOPFTools._classify_impedance_transformation(net, fs, result)
     @test !any(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)
     @test result["by_linecode"]["three_wire"]["mutual_to_self_ratio"] == 0
+    dec = only(filter(f -> f.code == "I.PROV.DECOUPLED_PHASES", fs)).detail["interpretation"]
+    @test !dec["observations"]["by_linecode"]["three_wire"]["phase_self_uniform"]
+    @test "nonuniform_diagonal" in _guidance_ids(dec, "implications")
+    @test !("z0_equals_z1" in _guidance_ids(dec, "implications"))
+    a = cis(2pi/3); F = [1 1 1; 1 a a^2; 1 a^2 a]
+    Zd = Diagonal(ComplexF64[2+2im, 3+2im, 2+2im])
+    Zseq = F \ (Zd*F)
+    @test maximum(abs(Zseq[i,j]) for i in 1:3 for j in 1:3 if i != j) > 0.3
     nw = _guidance_case("two_boundary_chain.json")
     for xf in values(nw["transformer"]["n_winding"]), w in xf["windings"]
         w["i_max"] = Inf; w["s_max"] = Inf

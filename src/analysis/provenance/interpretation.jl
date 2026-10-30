@@ -23,6 +23,9 @@ function _linecode_use_context(net, voltage_levels)
             Dict{String,Any}("line_ids" => String[], "lv_without_neutral_line_ids" => String[],
                 "other_or_unassessed_line_ids" => String[], "n_lines" => 0,
                 "n_lv_without_neutral_lines" => 0, "n_other_or_unassessed_lines" => 0,
+                "n_mv_hv_lines" => 0, "mv_hv_line_ids" => String[],
+                "n_lv_with_neutral_lines" => 0, "lv_with_neutral_line_ids" => String[],
+                "n_unassessed_lines" => 0, "unassessed_line_ids" => String[],
                 "witness_limit" => 5)
         end
         context["n_lines"] += 1
@@ -37,11 +40,22 @@ function _linecode_use_context(net, voltage_levels)
             v = get(voltages, bus, nothing)
             v isa Real && !(v isa Bool) && isfinite(v) && 0 < v < 1000
         end
+        mv_hv = all(endpoints) do bus
+            v = get(voltages, bus, nothing)
+            v isa Real && !(v isa Bool) && isfinite(v) && v >= 1000
+        end
         unambiguous = !any(k -> startswith(k, "R_series_") || startswith(k, "X_series_"), keys(line))
         supported = phase_only && lv && unambiguous && all(b -> !(b in carried), endpoints)
         context[supported ? "n_lv_without_neutral_lines" : "n_other_or_unassessed_lines"] += 1
         ids = context[supported ? "lv_without_neutral_line_ids" : "other_or_unassessed_line_ids"]
         length(ids) < context["witness_limit"] && push!(ids, id)
+        if !supported
+            kind = phase_only && unambiguous && mv_hv ? "mv_hv" :
+                phase_only && unambiguous && lv ? "lv_with_neutral" : "unassessed"
+            context["n_$(kind)_lines"] += 1
+            ids = context["$(kind)_line_ids"]
+            length(ids) < context["witness_limit"] && push!(ids, id)
+        end
     end
     for context in values(contexts)
         context["witnesses_truncated"] = context["n_lines"] > length(context["line_ids"])

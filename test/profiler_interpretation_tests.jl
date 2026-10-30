@@ -88,18 +88,26 @@ end
         @test r["by_linecode"]["three_wire"] == "kron_reduced"
         @test occursin(v < 1000 ? "used on LV lines without a represented neutral" : "this is context only", f.message)
         implication_ids = BMOPFTools._interpretation_ids(f.detail["interpretation"]["implications"])
-        @test v < 1000 ? "neutral_assumed_grounded" in implication_ids : implication_ids == ["mv_hv_or_unused_context"]
+        @test v < 1000 ? "neutral_assumed_grounded" in implication_ids : implication_ids == ["known_mv_hv_context"]
+        @test context["n_mv_hv_lines"] == (v >= 1000 ? 1 : 0)
+        @test context["n_unassessed_lines"] == 0
     end
     delete!(net, "voltage_source")
     r, fs = _interpretation_classify(net)
     @test isempty(r["evidence_by_linecode"]["three_wire"]["supporting_context"]["lv_without_neutral_line_ids"])
     @test any(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)
+    unassessed = only(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)).detail["interpretation"]
+    @test _has_hint(unassessed["implications"], "unassessed_use_context")
+    @test _has_hint(unassessed["implications"], "neutral_assumed_grounded")
+    @test !_has_hint(unassessed["implications"], "known_mv_hv_context")
+    @test unassessed["supporting_context"]["three_wire"]["n_unassessed_lines"] == 1
     empty!(net["line"])
     r, fs = _interpretation_classify(net)
     @test isempty(r["evidence_by_linecode"]["three_wire"]["supporting_context"])
     template_hint = only(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", fs)) # weak template-only hint retained
     @test occursin("1 are not used by any line", template_hint.message)
     @test !occursin("LV lines without a represented neutral", template_hint.message)
+    @test BMOPFTools._interpretation_ids(template_hint.detail["interpretation"]["implications"]) == ["unused_linecode_context"]
 
     net = _interpretation_fixture()
     net["line"]["copy"] = deepcopy(net["line"]["feeder"])
@@ -123,6 +131,9 @@ end
         "terminal_map_from"=>["n"], "terminal_map_to"=>["n"]))
     r, _ = _interpretation_classify(net)
     @test isempty(r["evidence_by_linecode"]["three_wire"]["supporting_context"]["lv_without_neutral_line_ids"])
+    @test r["evidence_by_linecode"]["three_wire"]["supporting_context"]["n_lv_with_neutral_lines"] == 1
+    @test r["evidence_by_linecode"]["three_wire"]["supporting_context"]["lv_with_neutral_line_ids"] == ["feeder"]
+    @test r["evidence_by_linecode"]["three_wire"]["supporting_context"]["n_unassessed_lines"] == 0
     net["switch"]["neutral"]["open_switch"] = true
     r, _ = _interpretation_classify(net)
     @test r["evidence_by_linecode"]["three_wire"]["supporting_context"]["lv_without_neutral_line_ids"] == ["feeder"]
