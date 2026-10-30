@@ -1,6 +1,6 @@
 # config.jl
 #
-# Centralised, user-tunable thresholds for the analysis, validation, and
+# Centralized, user-tunable thresholds for the analysis, validation, and
 # augmentation passes. Defaults live in `config/default.toml` (shipped with
 # the package) and are loaded once at load time into `_DEFAULT_CONFIG`.
 #

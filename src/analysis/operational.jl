@@ -4,7 +4,7 @@
 Compute operational loading statistics:
 - Total load and generation
 - Load by voltage level and configuration
-- Transformer utilisation at nominal setpoints
+- Transformer utilization at nominal setpoints
 - Line thermal headroom
 - Generation/load ratio
 """
@@ -71,7 +71,7 @@ function operational_analysis(net::Dict{String,Any},
 
     result["winding_limit_coverage"] = _winding_limit_coverage(net, findings)
 
-    # --- Transformer utilisation ---
+    # --- Transformer utilization ---
     xfmr = get(net, "transformer", Dict())
     xfmr_util = Dict{String,Any}[]
 

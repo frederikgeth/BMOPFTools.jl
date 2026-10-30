@@ -247,7 +247,7 @@ end
     scoped["meta"] = Dict("crs" => "EPSG:28356")
     r, _ = report(scoped)
     @test r["length_context"]["comparison_status_counts"]["chord_check"]["inapplicable"] == 2
-    # A separately labelled WGS84 route can still be internally measured.
+    # A separately labeled WGS84 route can still be internally measured.
     @test r["length_context"]["comparison_status_counts"]["route_length_check"]["passed"] == 1
 
     # An invalid interior vertex must not establish route-derived bus evidence.

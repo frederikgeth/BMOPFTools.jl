@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -25,7 +25,7 @@ can bind a parameter to a profile via its own `"time_series"` map
 (`parameter name → profile id`). Two functions do all the work:
 
 - [`is_timeseries`](@ref) — does this network actually vary over time?
-- [`get_snapshot`](@ref) — materialise the concrete network at one step:
+- [`get_snapshot`](@ref) — materialize the concrete network at one step:
   `resolved = static × scale[t]`.
 
 Everything downstream — [`analyze`](@ref), [`solve_opf`](@ref),
@@ -125,7 +125,7 @@ println("noon PV     : ",
 ```
 
 Passing `t_index` is exactly equivalent to `solve_opf(get_snapshot(net_ready, 13))`
-— the solver materialises the snapshot internally before building the model.
+— the solver materializes the snapshot internally before building the model.
 
 ## 4. The 24-hour sweep — a duck curve in a table
 
@@ -195,7 +195,7 @@ The per-hour results feed the same tooling as any single-period solve —
 `profile_solution(net_ready, result; t_index = t)` checks each hour's result
 against that hour's bounds.
 
-!!! warning "Scope: independent snapshots, not multi-period optimisation"
+!!! warning "Scope: independent snapshots, not multi-period optimization"
     Each hour above is a **separate, self-contained OPF**. The snapshots share
     nothing: there is no storage arbitraging energy between them, no ramp
     limits linking one hour's dispatch to the next, no inter-temporal
@@ -206,16 +206,16 @@ against that hour's bounds.
     does not currently build.
 
 This sweep-the-parameter pattern is the same one the
-[tap-optimisation tutorial](tutorial_tap.md) uses to trace an OLTC tap
+[tap-optimization tutorial](tutorial_tap.md) uses to trace an OLTC tap
 schedule against load level — there the sweep variable is a synthetic load
 multiplier; here it is the clock, with the shapes shipped inside the case
 itself so every consumer of the benchmark sweeps the *same* day.
 
-## Modelling notes & FAQ
+## [Modeling notes & FAQ](@id Modelling-notes-and-FAQ)
 
 A time series is deliberately a *thin* mechanism — a named vector of
 multiplicative scale factors and a per-parameter binding (see the
-[spec page](spec/timeseries.md)). Most modelling questions reduce to *which
+[spec page](spec/timeseries.md)). Most modeling questions reduce to *which
 parameter you bind to which profile*.
 
 **How do I change the irradiance / PV shape?** The PV ceiling is `p_max`/`p_avail`
@@ -229,7 +229,7 @@ step."
 **How do I model different load or EV-charging patterns?** Author a new profile
 and bind the relevant `load`'s `p_nom` to it. An EV charger is demand, so it is a
 `load` whose `p_nom` follows a charging shape (e.g. an evening ramp); several
-charging behaviours are just several profiles over the same feeder. A load that
+charging behaviors are just several profiles over the same feeder. A load that
 should change power factor over the day binds `p_nom` and `q_nom` to *different*
 profiles; binding both to the **same** profile (as the feeder here does) holds
 the power factor constant while the magnitude varies.
@@ -246,7 +246,7 @@ not carried across hours.
 **Why scale `p_max` rather than inject a fixed `p`?** Scaling the *bound* keeps
 the OPF free to curtail below the ceiling when the network requires it (the whole
 point of §4's midday regime). Binding a fixed injection instead would force the
-dispatch and defeat the optimisation.
+dispatch and defeat the optimization.
 
 **Does augmentation need to run per step?** No. Bounds and costs are
 time-invariant, so `augment_case` runs **once** on the time-series network and

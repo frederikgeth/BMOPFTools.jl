@@ -6,7 +6,7 @@
 
 # One row of the primitive system. `pair` is the index of the conductor this
 # one is coaxial with (core ↔ its own shield), so the mutual distance is the
-# radial shield distance rather than the (zero) centre-to-centre distance.
+# radial shield distance rather than the (zero) center-to-center distance.
 struct _PrimitiveConductor{T<:Real}
     r_ac::T
     gmr::T

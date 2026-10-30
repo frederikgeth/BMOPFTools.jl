@@ -46,7 +46,7 @@ Returned top-level keys
 - `"voltage_source"` — `src_id => terminal => {cr, ci [A], ps [W], qs [var]}`
 - `"initialisation"` — `bus_id => terminal => {vr_init, vi_init, vm_init [V], va_init [rad]}`
   Ipopt start values set before `optimize!`. Always present; used by `profile_solution`
-  to flag wrong-voltage-level and large-error initialisation.
+  to flag wrong-voltage-level and large-error initialization.
 
 Line and switch conductors are keyed by terminal name (using `terminal_map_from`
 for lines, `terminal_map_from` for switches), not by position index.  When
@@ -116,7 +116,7 @@ end
 #
 # Two galvanic earth paths exist in the transformer models:
 #
-# 1. The no-load (magnetising) shunt G+jB — now placed ACROSS the winding-2
+# 1. The no-load (magnetizing) shunt G+jB — now placed ACROSS the winding-2
 #    (to-side) coil (OpenDSS convention, verified against its Yprim). It reaches
 #    earth only when that coil's reference is ground:
 #      wye_delta (to = delta) : line-to-line delta coils → never earth.
@@ -161,7 +161,7 @@ function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr;
     b_to = string(get(xfmr, "bus_to", ""))
     tmto = Vector{String}(get(xfmr, "terminal_map_to", String[]))
 
-    # Delta winding 2 and center_tap keep the magnetising branch off earth.
+    # Delta winding 2 and center_tap keep the magnetizing branch off earth.
     (subtype in ("wye_delta", "center_tap")) && return cg_r, cg_i
 
     if subtype == "delta_wye"
@@ -198,7 +198,7 @@ end
 #
 # Returns (p_loss, q_loss, s_through) in W / var / VA. Positive p_loss = real
 # power dissipated; q_loss is net reactive absorption (positive) or generation
-# (negative, e.g. line charging or transformer magnetising). Grounded terminals
+# (negative, e.g. line charging or transformer magnetizing). Grounded terminals
 # (V = 0) contribute nothing, exactly as the physics requires. s_through is the
 # sum of per-terminal apparent powers Σ|V_t||I_t| — a throughput scale used to
 # size numerical tolerances downstream (p_loss is a difference of large near-
@@ -717,7 +717,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         src_res[sid] = ph_results
     end
 
-    # ── Initialisation start values ──────────────────────────────────────────
+    # ── Initialization start values ──────────────────────────────────────────
     # Capture the start values set by _set_voltage_start_values! /
     # _set_level_aware_start_values! before the solver overwrites them.
     # JuMP.start_value returns nothing for fixed (grounded) terminals — these

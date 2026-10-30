@@ -10,6 +10,38 @@ split into **three tiers**:
 
 When in doubt, read the surrounding code and match its idiom.
 
+## Spelling
+
+Use **American English** in repository-authored documentation, comments,
+docstrings, diagnostic messages, report labels, and new identifiers. Prefer
+`analyze`, `behavior`, `center`, `color`, `modeling`, `labeled`, `optimization`,
+`initialization`, `serialization`, `parameterization`, `catalog`, `artifact`,
+`meter`, and `license`. This convention also applies to examples, tests,
+fixture descriptions, and metadata prose.
+
+Preserve exact spelling where it identifies an existing interface or source:
+
+- Existing API names, serialized keys and values, Finding codes, paths, URLs,
+  and published documentation anchors. For example, `analysed`, `initialisation`,
+  `flavour`, `transformer_utilisation`, `utilisation_pct`, `catalogue_section`,
+  `sequence_parameterisation`, `other_parameterisation`, and
+  `solver_regularisation` remain unchanged for compatibility. A spelling cleanup
+  must not silently rename these; follow the [versioning policy](versioning.md)
+  for any separately proposed migration.
+- External protocol strings and third-party identifiers, such as MCP's
+  `notifications/cancelled` and SVG's `aria-labelledby`.
+- Accepted input aliases, including coordinate units `metre`, `metres`, and
+  `kilometre`; choosing a prose spelling does not restrict valid input.
+- Verbatim quotations, publication titles, proper names, exact external UI
+  labels, and upstream license text. Keep the source's spelling, including
+  Australian or British English where applicable.
+
+Edit generated content at its source and regenerate the derived files. Review
+spelling changes to headings together with their links; use an explicit `@id`
+to retain a published anchor when changing its heading. Keep generated
+registries and source hashes current. This is a review convention, not a CI
+spellchecker; do not rewrite valid words such as the plural noun `analyses`.
+
 ## Julia style
 
 Follow [ColPrac](https://github.com/SciML/ColPrac) and the Blue/Julia base

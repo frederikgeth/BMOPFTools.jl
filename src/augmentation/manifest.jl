@@ -49,7 +49,7 @@ struct TransformationManifest
     findings_after  :: Vector{Finding}
 end
 
-# ── Serialisation helpers ────────────────────────────────────────────────────
+# ── Serialization helpers ────────────────────────────────────────────────────
 
 function _entry_to_dict(e::TransformEntry)::Dict{String,Any}
     Dict{String,Any}(
@@ -74,7 +74,7 @@ _recipe_to_dict(r) = Dict{String,Any}(
 """
     manifest_to_dict(m::TransformationManifest) -> Dict{String,Any}
 
-Convert a manifest to a plain dict suitable for JSON serialisation via
+Convert a manifest to a plain dict suitable for JSON serialization via
 `write_bmopf` or `JSON3.write`.
 """
 function manifest_to_dict(m::TransformationManifest)::Dict{String,Any}

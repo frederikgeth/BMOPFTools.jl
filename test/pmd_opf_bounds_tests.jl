@@ -22,15 +22,15 @@
 # tolerances. As in pmd_opf_port_tests.jl the numbers are hardcoded, so the
 # suite needs no PMD/PowerIO dependency at test time.
 #
-# Modelling notes
+# Modeling notes
 # ---------------
-#   · Source: a stiff 230 V phase-to-ground wye source at 0/-120/+120°, modelled
+#   · Source: a stiff 230 V phase-to-ground wye source at 0/-120/+120°, modeled
 #     as an ideal BMOPF voltage source; perfectly-grounded "n" terminal at every
 #     bus (ideal return), so phase-to-ground = phase-to-neutral.
 #   · A DER is a `generator` at the feeder end. A per-phase linear `cost` ($/kWh;
 #     the objective is cost·P/1000 in $/h, see `_add_objective!`)
-#     sets the objective direction: cost < 0 maximises export (A, B, D), cost > 0
-#     minimises local injection (C); pricing the source while the DER is reactive
+#     sets the objective direction: cost < 0 maximizes export (A, B, D), cost > 0
+#     minimizes local injection (C); pricing the source while the DER is reactive
 #     -only drives reactive support to its ceiling (E). The binding-bound optimum
 #     is a boundary point, independent of the cost magnitude.
 #   · Lines use diagonal R/X linecodes (Ω, length = 1). The bus `v_min`/`v_max`
@@ -61,7 +61,7 @@
 
     # ─────────────────────────────────────────────────────────────────────────
     # Case A — voltage UPPER bound binds (PV/DER export hosting limit).
-    # A unity-PF DER (q fixed to 0) is paid to export (cost = -1 ⇒ maximise pg).
+    # A unity-PF DER (q fixed to 0) is paid to export (cost = -1 ⇒ maximize pg).
     # Injecting real power up an R/X = 0.3/0.1 Ω line raises the local voltage;
     # with p_max slack at 100 kW the export is capped by v_max = 235 V, binding
     # on every phase.
@@ -127,7 +127,7 @@
     # Case C — voltage LOWER bound binds (undervoltage support).
     # A heavy 40 kW/phase load down a high-impedance R/X = 0.6/0.2 Ω feeder would
     # collapse the load-bus voltage below v_min = 218 V if served from the grid
-    # alone. A DER with a positive cost (+1 ⇒ minimise own output) injects only as
+    # alone. A DER with a positive cost (+1 ⇒ minimize own output) injects only as
     # much real power as the floor requires, so |U| rests exactly on v_min.
     # PMD IVREN target: Σpg = 106.958 kW, load-bus |U| = v_min.
     # ─────────────────────────────────────────────────────────────────────────
@@ -370,7 +370,7 @@
     # only. The three-phase der_m (−3) saturates its 9 kW/phase box; the
     # SINGLE-PHASE der_e (1–n, −1) raises phase 1 until the (1,2) pair spread
     # hits the cap. Because only one unit phase is free, the pairs cannot
-    # equalise: (1,2) binds at exactly 405 V while (1,3)/(2,3) stay strictly
+    # equalize: (1,2) binds at exactly 405 V while (1,3)/(2,3) stay strictly
     # inside (403.2 / 373.1 V) and the phase magnitudes are wildly unequal
     # (248.6 / 210.7 / 222.5 V — far from 405/√3 ≈ 233.8), so a √3-scaled
     # per-phase mis-encoding cannot pass. The unbounded MID bus even carries
@@ -588,7 +588,7 @@
     end
 
     # Independent Fortescue expansion shared by the sequence cases S1–S3 —
-    # the same /3-normalised convention PMD's ACP constraints use.
+    # the same /3-normalized convention PMD's ACP constraints use.
     _seq(vs) = ((vs[1] + vs[2] + vs[3]) / 3,
                 (vs[1] + cis(2π/3) * vs[2] + cis(-2π/3) * vs[3]) / 3,
                 (vs[1] + cis(-2π/3) * vs[2] + cis(2π/3) * vs[3]) / 3)

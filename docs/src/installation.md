@@ -66,7 +66,7 @@ scripts, but `pkg> add ...` and `Pkg.add("...")` are interchangeable.
 
 ## [Installing BMOPFTools](@id installing-bmopftools)
 
-BMOPFTools is not yet in Julia's **General registry** (the default catalogue
+BMOPFTools is not yet in Julia's **General registry** (the default catalog
 `Pkg.add("SomePackage")` searches), so install it from its Git URL. At the
 `julia>` prompt:
 
@@ -90,7 +90,7 @@ Parsing, validation, analysis, reporting, and OpenDSS ingestion
 `solve_opf`, `solve_pf` and `solve_feasibility_opf` live in a **package
 extension**: optional functionality that activates automatically once its
 extra dependencies are installed. The tutorials that solve an OPF need
-**JuMP** (the optimisation modelling layer) and one of the supported solvers
+**JuMP** (the optimization modeling layer) and one of the supported solvers
 such as **Ipopt**, **MadNLP**, or **Gurobi**. The optional **ExaModels** path
 uses its JuMP optimizer with an NLPModels-compatible solver such as
 **NLPModelsIpopt**:
@@ -124,7 +124,7 @@ julia --project=docs
 
 `--project=docs` starts Julia with the `docs/` folder's **environment** — the
 `Project.toml` file there pins the package set (BMOPFTools, JuMP, Ipopt, …).
-The first time, materialise that environment from inside the REPL:
+The first time, materialize that environment from inside the REPL:
 
 ```julia
 using Pkg

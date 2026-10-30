@@ -156,7 +156,7 @@ return `:inapplicable`; missing mapped evidence returns `:indeterminate`.
 The compact `recipes/neutral_ground_reference/recipe.jl` example runs this
 fixture through the versioned JSON execution interface. It complements the
 [grounding tutorial](tutorial_grounding.md), which develops the physical and
-modelling distinction pedagogically.
+modeling distinction pedagogically.
 
 ## Claimed-feasible solution validity
 
@@ -186,7 +186,7 @@ result.evidence["blocking_solution_findings"][1]["code"]
 # "E.SOL.VOLT_VIOLATION"
 ```
 
-The fixture result is labelled `LOCALLY_SOLVED`, but its reported 180.5 V
+The fixture result is labeled `LOCALLY_SOLVED`, but its reported 180.5 V
 terminal magnitude violates the network's declared 200--260 V range. The
 contract reuses [`profile_solution`](@ref), retains the underlying `E.SOL`
 evidence, and rejects the tempting inference from status alone.
@@ -322,7 +322,7 @@ mapped buses. Its exact companion target changes only the transformer ID.
 
 The bus mapping is mandatory because a target cannot recover source identity
 after a transformation. Terminal labels are stable by default; pass
-`terminal_mapping=Dict("a"=>"1", ...)` for a bijective relabelling. Adjustable
+`terminal_mapping=Dict("a"=>"1", ...)` for a bijective relabeling. Adjustable
 taps return `:inapplicable` and belong to the tap-domain contract. Subtype-
 changing or fully reversed transformer encodings are also outside this initial
 compact contract: they require a complete typed transformation, not a guessed
@@ -336,13 +336,13 @@ tests; it does not replace them.
 
 ## Terminal and conductor permutation invariance
 
-[`check_terminal_permutation_invariance`](@ref) checks a fixed linear series primitive under relabelling. It requires an explicit one-based bijection, endpoint terminal maps that
+[`check_terminal_permutation_invariance`](@ref) checks a fixed linear series primitive under relabeling. It requires an explicit one-based bijection, endpoint terminal maps that
 follow it, and a target matrix formed by the corresponding source row/column
 permutation.
 
 ```julia
 source = parse_bmopf("source.json")
-target = parse_bmopf("relabelled-target.json")
+target = parse_bmopf("relabeled-target.json")
 result = check_terminal_permutation_invariance(
     source, target;
     source_line_id = "l3", target_line_id = "l3",

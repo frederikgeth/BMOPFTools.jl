@@ -26,7 +26,7 @@
 #           underground ampacity A, overhead illustrative ampacity A)
 # The underground column is loosely calibrated to IEC 60364-5-52:2009 Table B.52
 # (LV installation ampacity); the overhead column is illustrative, NOT an
-# IEC 60364/AAC catalogue value. `nothing` marks sizes not commonly overhead.
+# IEC 60364/AAC catalog value. `nothing` marks sizes not commonly overhead.
 const _IEC_CONDUCTOR_TABLE = [
     (4.950, 4,    34,  nothing),
     (3.300, 6,    41,  nothing),
@@ -48,7 +48,7 @@ const _IEC_CONDUCTOR_TABLE = [
 # Sourced from config/default.toml [thermal].tolerance.
 const _THERMAL_TOLERANCE = Float64(_thermal_cfg()["tolerance"])
 
-# Provenance rule tag for thermal fills. Deliberately labelled a heuristic
+# Provenance rule tag for thermal fills. Deliberately labeled a heuristic
 # estimate rather than "IEC60228+IEC60364": R₁₁ alone does not identify the
 # conductor material/class or installation, so the result is not a
 # standards-conformant ampacity (see the header comment).

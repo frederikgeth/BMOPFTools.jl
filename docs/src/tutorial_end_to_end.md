@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -81,7 +81,7 @@ provenance, schema, completeness, domain rules, redundancy, integrity, spec
 conformance, benchmark readiness, and more — and returns a
 [`SummaryReport`](@ref). Each diagnostic is a [`Finding`](@ref) with a stable
 dot-separated code; see [Analysis & reports](analysis.md) for what each pass
-computes and the [finding-code reference](findings.md) for the full catalogue.
+computes and the [finding-code reference](findings.md) for the full catalog.
 
 ```julia
 report = analyze(net)
@@ -96,7 +96,7 @@ feeder imports with zero errors and two warnings: a handful of degree-1 buses
 with nothing attached (`W.CONN.DANGLING` — switch and stub endpoints), and
 `W.OPS.IMPORT_DEPENDENT` — the feeder has **no local generation at all**. That
 second warning is the analyzer telling you the import is a *passive load
-feeder*: there is nothing for an OPF to optimise yet, which is exactly what the
+feeder*: there is nothing for an OPF to optimize yet, which is exactly what the
 DER-placement step below is for. The missing operating bounds show up as INFO
 findings such as `I.PRE.NO_VOLT_BOUNDS`, which the augmentation step fills.
 
@@ -108,7 +108,7 @@ end
 
 The full report renders to a terminal or a Markdown file. The one-line
 **modeling-convention statement** (wires per voltage level, grounding style,
-normalisations) makes the case's hidden assumptions explicit:
+normalizations) makes the case's hidden assumptions explicit:
 
 ```julia
 render(report, stdout)
@@ -135,7 +135,7 @@ render_manifest(fix_mf)
 ## 4. Place DERs
 
 A faithful import is usually a passive load feeder — there is nothing for an OPF
-to optimise. [`add_ibrs`](@ref) (and its sibling [`add_generators`](@ref))
+to optimize. [`add_ibrs`](@ref) (and its sibling [`add_generators`](@ref))
 **declare** a DER fleet with a recipe and let the library choose buses from the
 network's own semantics, recording every field it writes. Here a
 `:load_following` recipe drops one PV IBR on each load bus.
@@ -305,8 +305,8 @@ preserved by default; coordinates are optional. See
 [Visualizing a case with Tellegen](visualization.md) for the steps and the
 `include_coordinates=false` option for strict BMOPF schema consumers.
 
-[`write_bmopf`](@ref) serialises the benchmark-ready case.
-[`manifest_to_dict`](@ref) turns each manifest into a JSON-serialisable `Dict`,
+[`write_bmopf`](@ref) serializes the benchmark-ready case.
+[`manifest_to_dict`](@ref) turns each manifest into a JSON-serializable `Dict`,
 giving every downstream consumer a complete, auditable record of what was
 repaired, placed, and filled.
 

@@ -1,13 +1,13 @@
 # Finding-code reference
 
-The complete catalogue of finding codes, grouped by family. Codes are
+The complete catalog of finding codes, grouped by family. Codes are
 **stable identifiers** — filter on `f.code`, never on message text. Severity
 prefix: `E.` error, `W.` warning, `I.` info (see
 [Analysis & reports](analysis.md) for the severity semantics).
 
 For deterministic offline lookup, use `explain_finding(code)` or
 `bin/bmopf explain-finding CODE --pretty`. The checked machine-readable export
-is `generated/finding-registry.json`, generated from this page. A catalogue
+is `generated/finding-registry.json`, generated from this page. A catalog
 entry explains the stable code class; a Finding instance's component, message,
 and detail describe one observation. Neither should be treated as an inferred
 root cause or an automatically safe repair.
@@ -19,7 +19,7 @@ with a source, a target, and a mapping. And a case imported through
 [`from_dss`](@ref) carries findings this package
 did not author: PowerIO's conversion diagnostics, kept under their own codes
 (`EMIT.`, `READ.`, `PARSE.`, `LOWER.`, …, one namespace per pipeline stage) and
-catalogued by [powerio](https://powerio.dev) rather than here. They report what
+cataloged by [powerio](https://powerio.dev) rather than here. They report what
 the OpenDSS import could not carry into BMOPF, not the quality of what arrived,
 and the leading namespace is what tells them apart from the codes below. See
 [Ingest warnings](conversion.md#ingest-warnings).
@@ -43,7 +43,7 @@ These Findings are emitted by `to_dss`, including on refusal, rather than by
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.SCHEMA.UNKNOWN_FIELDS` | I | Fields present that the data model does not define (underscore-prefixed extension keys are exempt). Catalogued rather than rejected: they are either converter passthrough or schema-evolution candidates — but a spec-conformant consumer will ignore them, so nothing essential should live there. |
+| `I.SCHEMA.UNKNOWN_FIELDS` | I | Fields present that the data model does not define (underscore-prefixed extension keys are exempt). Cataloged rather than rejected: they are either converter passthrough or schema-evolution candidates — but a spec-conformant consumer will ignore them, so nothing essential should live there. |
 | `E.SCHEMA.REQUIRED` | E | JSON Schema validation: a required field is missing at the reported path. |
 | `E.SCHEMA.TYPE` | E | JSON Schema validation: a field has the wrong JSON type (e.g. string where a number is expected) at the reported path. |
 | `E.SCHEMA.ENUM` | E | JSON Schema validation: a value is not among the allowed enumerated values. |
@@ -51,8 +51,8 @@ These Findings are emitted by `to_dss`, including on refusal, rather than by
 | `I.SCHEMA.OTHER` | I | JSON Schema validation: a schema violation not covered by the specific codes above (catch-all, carrying the raw reason and path). |
 | `I.SCHEMA.VERSION_UNKNOWN` | I | The declared spec version has no bundled JSON Schema document, so structural schema validation was skipped for this case. |
 | `W.SCHEMA.META_SCHEMA_URI` | W | `meta.$schema` is present but does not look like an `https://` URI. The field is intended to point to the versioned BMOPF JSON Schema document. |
-| `W.SCHEMA.META_DATE_FORMAT` | W | `meta.created` or `meta.modified` is not a recognisable ISO 8601 datetime string (expected `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`). |
-| `I.SCHEMA.META_LICENSE_URI` | I | `meta.license` is a long string that does not look like a URI. Short SPDX identifiers (e.g. `CC-BY-4.0`) are fine; longer values should be a `https://` URI pointing to the licence text. |
+| `W.SCHEMA.META_DATE_FORMAT` | W | `meta.created` or `meta.modified` is not a recognizable ISO 8601 datetime string (expected `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`). |
+| `I.SCHEMA.META_LICENSE_URI` | I | `meta.license` is a long string that does not look like a URI. Short SPDX identifiers (e.g. `CC-BY-4.0`) are fine; longer values should be a `https://` URI pointing to the license text. |
 | `W.SCHEMA.META_ORCID_FORMAT` | W | An entry in `meta.authors` has an `orcid` field that does not match the standard ORCID format `XXXX-XXXX-XXXX-XXXX`. |
 | `W.SCHEMA.META_SOURCE_URL` | W | A `url` field in `meta.sources` is present but does not look like an `https://` URI. |
 
@@ -83,7 +83,7 @@ that the migrated model preserves every intended scientific meaning.
 ## GEO — declared geographic coordinates
 
 See the [spatial diagnostics guide](spatial_diagnostics.md) for illustrated
-interpretation and the separate `S.*` candidate / `R.*` review catalogue.
+interpretation and the separate `S.*` candidate / `R.*` review catalog.
 Coincident buses, shared routes and zero transformer extent alone emit no Finding.
 
 These checks require a network-level WGS84 declaration. An absent or different
@@ -119,7 +119,7 @@ symmetry follows; repeated values alone do not establish degeneracy.
 | `I.DIV.LOAD_PF_DSS_DEFAULT` | I | Load power factor mean is within 1 % of 0.88 with CV < 0.05 — strongly suggests reactive power was never explicitly set and the OpenDSS default PF was inherited throughout. Compare with `I.PROV.DSS_DEFAULT_PF`, which detects the exact 0.88 value per load; this finding detects the statistical signature across all loads. |
 | `I.DIV.LOAD_IMBALANCE` | I | A multi-phase load with >20 % spread between its phase setpoints — noteworthy unbalance (often intended; this is context, not criticism). |
 | `I.DIV.LOAD_PHASE_BALANCED` | I | Aggregate active load is balanced within 2% across the observed phase labels in a galvanic zone. Spatial loading, impedances, connections and grounding remain unassessed; this does not establish single-phase-equivalent applicability. |
-| `I.DIV.LOAD_UNIFORM_MODEL` | I | Across ≥3 loads, every load uses the *same* load model. When that model is `constant_power` (the default), no load exercises voltage dependence (ZIP/exponential) — the case does not test voltage-dependent load behaviour. Observational coverage signal, not a defect. |
+| `I.DIV.LOAD_UNIFORM_MODEL` | I | Across ≥3 loads, every load uses the *same* load model. When that model is `constant_power` (the default), no load exercises voltage dependence (ZIP/exponential) — the case does not test voltage-dependent load behavior. Observational coverage signal, not a defect. |
 | `I.DIV.LOAD_UNIFORM_CONFIG` | I | Across ≥3 loads, every load shares the *same* `configuration` (e.g. all WYE) — no connection diversity. Observational; uniform connection is common and often legitimate. |
 | `I.DIV.LINE_SYMMETRIC` | I | ≥80 % of the lines sharing a linecode have lengths within ±10 % of the median — electrically near-identical sections. |
 | `I.DIV.BUS_UNIFORM_VMIN` | I | Every bus that has `v_min` has the *same* value — no spatial differentiation of the lower voltage envelope. |
@@ -129,13 +129,13 @@ symmetry follows; repeated values alone do not establish degeneracy.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `W.OPS.IMPORT_DEPENDENT` | W | Local generation capacity below 5 % of total load — the case is a pure import feeder; with only a slack source the dispatch problem is loss minimisation at best. |
+| `W.OPS.IMPORT_DEPENDENT` | W | Local generation capacity below 5 % of total load — the case is a pure import feeder; with only a slack source the dispatch problem is loss minimization at best. |
 | `W.OPS.XFMR_OVERLOADED` | W | Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning. On an applicable radial component this is a nominal-demand/nameplate review screen; it does not establish that a winding cap exists or that a solved limit is violated. Inspect load/rating bases and subtype-specific limits (see [methodology](methodology.md)). |
 | `W.OPS.LINE_UNCONSTRAINED` | W | Lines without any thermal limit (`i_max`/`s_max` on the line or its linecode) — the OPF will have no flow constraints there. |
 | `W.OPS.XFMR_UNCONSTRAINED` | W | An `n_winding` winding has no finite supported `i_max` or `s_max` cap. Fields may be absent or explicitly unbounded (`Inf`); zero is a real restriction. Unlike two-winding subtypes, an n-winding `s_rating` is only a nameplate. **Why it matters:** no thermal cap is imposed on that winding, so a solution may rely on unavailable capacity. **Check:** review the declared states and add finite per-winding caps from the datasheet when appropriate. **Alternative:** unlimited loading may be intentional. Evidence retains field paths, absent/unbounded counts, and malformed/unsupported coverage; direct neutral-current caps remain unassessed. |
 | `I.OPS.UNLOADED_PHASE` | I | A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results. |
-| `I.OPS.FEEDER_LONG` | I | The farthest bus is further by declared line length from the nearest supply boundary than the configured threshold. **Likely meaning:** a genuinely long rural/SWER feeder, metre values interpreted as kilometres upstream, or a duplicated km-to-m conversion. **Why it matters:** length errors scale per-length linecode impedances and can distort voltages and losses; inline absolute section matrices do not scale with length. **Check:** spot-check lengths against maps and inspect per-km/per-m impedance units separately. **Alternative:** an equivalent electrical length. `impedance_basis_counts` records the declared sources. `boundary_reach_m` is compared; legacy `reach_m` remains anchor extent. Missing/conflicting boundary or length evidence leaves the comparison unassessed; several boundaries need an explicit `multi_boundary` policy. This is not a voltage-drop calculation. |
-| `I.OPS.FEEDER_SHORT` | I | The farthest bus is closer by declared line length to the nearest supply boundary than the configured threshold. **Likely meaning:** a stub/service drop, the OpenDSS default `length=1`, or kilometre values copied into metre fields. **Why it matters:** too-short lengths shrink per-length linecode impedances and may hide voltage drops and losses; inline absolute matrices stay unchanged. **Check:** inspect lengths and their impedance source. **Alternative:** a genuinely compact site. `impedance_basis_counts` records the sources. Several boundaries need an explicit `multi_boundary` policy; invalid, missing or regularized lengths leave the comparison unassessed. |
+| `I.OPS.FEEDER_LONG` | I | The farthest bus is further by declared line length from the nearest supply boundary than the configured threshold. **Likely meaning:** a genuinely long rural/SWER feeder, meter values interpreted as kilometers upstream, or a duplicated km-to-m conversion. **Why it matters:** length errors scale per-length linecode impedances and can distort voltages and losses; inline absolute section matrices do not scale with length. **Check:** spot-check lengths against maps and inspect per-km/per-m impedance units separately. **Alternative:** an equivalent electrical length. `impedance_basis_counts` records the declared sources. `boundary_reach_m` is compared; legacy `reach_m` remains anchor extent. Missing/conflicting boundary or length evidence leaves the comparison unassessed; several boundaries need an explicit `multi_boundary` policy. This is not a voltage-drop calculation. |
+| `I.OPS.FEEDER_SHORT` | I | The farthest bus is closer by declared line length to the nearest supply boundary than the configured threshold. **Likely meaning:** a stub/service drop, the OpenDSS default `length=1`, or kilometer values copied into meter fields. **Why it matters:** too-short lengths shrink per-length linecode impedances and may hide voltage drops and losses; inline absolute matrices stay unchanged. **Check:** inspect lengths and their impedance source. **Alternative:** a genuinely compact site. `impedance_basis_counts` records the sources. Several boundaries need an explicit `multi_boundary` policy; invalid, missing or regularized lengths leave the comparison unassessed. |
 
 ## PRE — infeasibility pre-flight
 
@@ -143,7 +143,7 @@ symmetry follows; repeated values alone do not establish degeneracy.
 |---|---|---|
 | `W.PRE.XFMR_COIL_HEADROOM` | W | A supported radial, single-source, single-phase-bank nominal-demand estimate exceeds one coil’s nameplate VA share. Signed nominal P/Q are summed by explicit terminal mapping, without losses or voltage/coupling effects. Negative headroom is a screening warning, not an infeasibility certificate. |
 | `I.PRE.XFMR_COIL_UNASSESSED` | I | Nominal per-coil transformer headroom is outside the declared domain or lacks required finite data/mapping. Structured status, reason and component context explain why no allocation was estimated. |
-| `E.PRE.VBOUND_CONFLICT` | E | A bus voltage bound pair with lower > upper (checked elementwise for all four flavours: `v`, `vpn`, `vpp`, `vpos`). The feasible set is empty before the solver starts. |
+| `E.PRE.VBOUND_CONFLICT` | E | A bus voltage bound pair with lower > upper (checked elementwise for all four flavors: `v`, `vpn`, `vpp`, `vpos`). The feasible set is empty before the solver starts. |
 | `E.PRE.PBOUND_CONFLICT` | E | Generator `p_min > p_max` — infeasible by construction. |
 | `E.PRE.QBOUND_CONFLICT` | E | Generator `q_min > q_max` — same. |
 | `I.PRE.NO_VOLT_BOUNDS` | I | Buses with no voltage bounds at all — voltages are unconstrained there (spec semantics for absent optional bounds). |
@@ -174,15 +174,15 @@ symmetry follows; repeated values alone do not establish degeneracy.
 | `I.DOM.XFMR_IDEAL` | I | An isolating power transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`/`n_winding`) has **zero leakage reactance** (total series X ≤ `xfmr_z_min_ohm`, default 1e-6 Ω) — modeled as an ideal transformer with no series voltage drop. The IVR OPF represents the series impedance as a *coefficient* in the winding voltage-drop equation, not an inverted admittance, so zero impedance collapses cleanly to the exact voltage-ratio constraint `V_fr = N·V_to` and is **well-posed, not degenerate**. Informational because `%Z` was most likely omitted: supply realistic leakage (x ≈ 4–10 % on the rating base) if regulation across the winding matters. A lossless unit (R≈0 with finite X) is normal here and is **not** flagged. Regulators/autotransformers are excluded. |
 | `W.DOM.XFMR_LOW_IMPEDANCE` | W | A two-winding transformer has a **tiny non-zero** series impedance — `|Z| < xfmr_z_min_pu` (default 0.1 %) on its winding-local rating bases, where real units are 1–15 %. Delta–wye `r_series`/`x_series` is wye-side (to-side) ohms, so its secondary base must be used. Almost always a small placeholder for zero carried over from an admittance-based tool (which forbids exact zero). In this IVR engine a tiny leakage ill-conditions the winding voltage-drop equation, whereas **exact zero is better conditioned** (collapses to `V_fr = N·V_to`). The transformer analogue of `W.DOM.LINE_LOW_IMPEDANCE`. Fix: set it to exactly zero (`FixRecipe(apply_snap_transformer_impedance = true)`) or to a realistic %Z. |
 | `W.DOM.XFMR_X_NONINDUCTIVE` | W | A **measurable** transformer short-circuit reactance is negative. For `n_winding` this is a pairwise `x_sc["i_j"]` entry; for two-bus subtypes it is the *total* series reactance `x_series_from + x_series_to` (the individual legs are a fictitious star/T split and *may* be negative — only their sum is measurable). A real short-circuit test is inductive by construction, so a negative value is almost always a sign flip or an X↔B (reactance/susceptance) confusion in the source data. The transformer analogue of `W.PROV.X_NONINDUCTIVE`. |
-| `W.DOM.XFMR_X_NOT_PSD` | W | An `n_winding` transformer's short-circuit reactance matrix `imag(ZB)` has a negative eigenvalue — the pairwise `x_sc` values are mutually inconsistent and cannot arise from any passive coupled-coil model (energy argument). Distinct from a negative *diagonal* ZB / star-branch entry, which is physical for `n ≥ 3` and **not** flagged; only the matrix-level PSD property is invariant. For `n = 3` this is the realisability triangle inequality `X₁₂·X₁₃ ≥ ¼(X₁₂+X₁₃−X₂₃)²`. The transformer analogue of `W.PROV.X_NOT_PSD`. |
+| `W.DOM.XFMR_X_NOT_PSD` | W | An `n_winding` transformer's short-circuit reactance matrix `imag(ZB)` has a negative eigenvalue — the pairwise `x_sc` values are mutually inconsistent and cannot arise from any passive coupled-coil model (energy argument). Distinct from a negative *diagonal* ZB / star-branch entry, which is physical for `n ≥ 3` and **not** flagged; only the matrix-level PSD property is invariant. For `n = 3` this is the realizability triangle inequality `X₁₂·X₁₃ ≥ ¼(X₁₂+X₁₃−X₂₃)²`. The transformer analogue of `W.PROV.X_NOT_PSD`. |
 | `W.DOM.ZERO_LIMIT` | W | An `i_max`/`s_max` entry exactly 0. Read literally this forces zero flow; in source tools 0 usually means "no limit" — classic semantic abuse. Drop the field instead. |
 | `W.DOM.POWER_LIMIT_NEUTRAL` | W | A line/switch sets a **positive `s_max` on its neutral conductor**. A ground-referenced apparent-power limit is degenerate there: the neutral-to-ground voltage is ≈ 0, so `S = V∘I* ≈ 0` and the cap never binds even as the neutral current overheats the conductor. Rate the neutral with `i_max` (a current limit) instead. See [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits). |
 | `W.DOM.ZERO_LENGTH` | W | A zero-length line — degenerate impedance; the spec's lossless switch object is the right model for such sections ([ref. 2](methodology.md#refs)). |
 | `W.DOM.ANGLE_UNITS` | W | A source `v_angle` entry with magnitude > 2π — angles are radians in the data model; this is almost certainly degrees. |
-| `W.DOM.SOURCE_V_NEAR_BOUND` | W | A voltage source's fixed `v_magnitude` sits within `source_v_margin_frac` (default 5 %) of the `v_max − v_min` band from either bound, on its own bus or a same-voltage-base neighbour (reachable via lines/switches; transformers are not crossed). The source pins that voltage as a hard equality, so little headroom remains and the OPF risks infeasibility. The stricter sibling `W.PRE.SOURCE_VOLTAGE_OOB` fires when the setpoint is already *outside* the bounds; this one warns before it crosses. |
+| `W.DOM.SOURCE_V_NEAR_BOUND` | W | A voltage source's fixed `v_magnitude` sits within `source_v_margin_frac` (default 5 %) of the `v_max − v_min` band from either bound, on its own bus or a same-voltage-base neighbor (reachable via lines/switches; transformers are not crossed). The source pins that voltage as a hard equality, so little headroom remains and the OPF risks infeasibility. The stricter sibling `W.PRE.SOURCE_VOLTAGE_OOB` fires when the setpoint is already *outside* the bounds; this one warns before it crosses. |
 | `W.DOM.SHUNT_ON_GROUNDED` | W | A `shunt` connects to a terminal whose voltage is pinned to 0 V — either declared in the bus's `perfectly_grounded_terminals` or the neutral of a voltage-source bus (pinned to system ground). The shunt then draws `I = G·V = 0` current and is completely inert. Usually a redundant element, or a sign that impedance grounding was intended where a hard V=0 ground was actually declared. |
 | `I.DOM.NEGATIVE_LOAD` | I | Loads with negative `p_nom` — embedded generation hiding as negative load; skews adequacy statistics and dodges the generator model. See [object identity](semantic_modeling.md#object-identity). |
-| `I.DOM.NEGATIVE_GENERATION` | I | A generator whose entire active range is `p_max ≤ 0` (only ever absorbs) — a consumer modelled as a generator (the mirror of `I.DOM.NEGATIVE_LOAD`); model it as a `load`. |
+| `I.DOM.NEGATIVE_GENERATION` | I | A generator whose entire active range is `p_max ≤ 0` (only ever absorbs) — a consumer modeled as a generator (the mirror of `I.DOM.NEGATIVE_LOAD`); model it as a `load`. |
 | `I.DOM.GEN_LIKELY_IBR` | I | A `generator` sits on an LV bus (≤ 1 kV). Distribution-connected DERs are overwhelmingly inverter-interfaced; the `ibr` object models them faithfully (capability curve, no inertia, current limit, volt-var/volt-watt) where a synchronous-`generator` object does not. |
 | `W.DOM.LINE_LOW_IMPEDANCE` | W | A line whose absolute series impedance ‖Z‖_F (linecode ‖(R+jX)‖_F × length, or the inline total matrices directly) is below 10⁻⁴ Ω. Near-zero impedance makes the KVL constraint nearly rank-deficient; model the section as a switch instead. |
 | `W.DOM.LINE_IMPEDANCE_SPREAD` | W | The worst adjacent-line ‖Z‖_F ratio (two lines sharing an interior bus, excluding voltage-source, transformer, and switch buses) exceeds 10⁵. At this contrast the NLP Jacobian loses roughly 5 decimal digits of precision; consider per-unit scaling or network reformulation. |
@@ -215,15 +215,15 @@ IEC 60287.
 | `W.DOM.WIRE_IMPLIED_RESISTIVITY` | W | Implied resistivity ρ = r_dc·π·radius² outside [8·10⁻⁹, 3·10⁻⁷] Ω·m — the metallic range (annealed Cu 1.724·10⁻⁸ per IEC 60228 … steel ~1.4·10⁻⁷, widened for stranding/fill and temperature). **The unit-error catcher**: an Ω/km value entered in the Ω/m field lands three decades outside. |
 | `W.DOM.WIRE_EPS_R_RANGE` | W | Insulation `eps_r` outside [1.5, 10] — XLPE 2.3, EPR ~3, PVC 3–8; IEC 60287-1-1. |
 | `I.DOM.WIRE_CURRENT_DENSITY` | I | `i_max` implies a current density outside [0.5, 10] A/mm² — typical continuous ratings are 1–6 A/mm². |
-| `E.DOM.GEOM_CONDUCTOR_OVERLAP` | E | Two conductors' circles overlap (centre distance < sum of radii) — physically impossible cross-section. |
-| `W.DOM.GEOM_CLEARANCE` | W | An overhead conductor sits below 4 m (under distribution statutory clearances) or above 100 m — usually a feet-as-metres slip. |
+| `E.DOM.GEOM_CONDUCTOR_OVERLAP` | E | Two conductors' circles overlap (center distance < sum of radii) — physically impossible cross-section. |
+| `W.DOM.GEOM_CLEARANCE` | W | An overhead conductor sits below 4 m (under distribution statutory clearances) or above 100 m — usually a feet-as-meters slip. |
 | `W.DOM.GEOM_EARTH_RESISTIVITY` | W | `earth_resistivity` outside [1, 10⁴] Ω·m — practical soils span ~10–1000 Ω·m. |
 | `W.DOM.GEOM_CARSON_VALIDITY` | W | The Carson series parameter k = √(ωμ₀/ρ)·S exceeds 0.25 for some conductor pair. The truncated series used by `modified_carson`/`full_carson` is accurate only for k ≪ 1 — which holds at distribution spacings and 50/60 Hz (Kersting & Green 2011 report < 1 % error) but degrades for very wide spacings, low earth resistivity, or high frequency. Consider `earth_model = "deri"`. |
 | `W.DOM.GEOM_BURIED_EARTH_MODEL` | W | Buried conductors combined with `full_carson` (evaluated at the surface — the rigorous buried theory is Pollaczek 1926 / Saad et al. 1996; negligible at power frequency since burial depth ≪ earth skin depth, but the approximation is made explicit), or with `deri` when burial depth exceeds 10 % of the complex-depth magnitude p = √(ρ/jωμ₀) (Deri et al. 1981 assume \|y\| ≪ \|p\|). |
 | `W.DOM.WIRE_SKIN_FREQUENCY` | W | The geometry's frequency exceeds a wire's critical skin frequency f_crit = ρ_c/(π r² μ₀) — above it, constant `r_ac` and GMR-based internal inductance degrade (Jensen et al. 2001; Urquhart & Thomson 2015 quantify error growth with frequency). The guard that keeps this fundamental-frequency library honest. |
 | `W.DOM.FREQUENCY_MISMATCH` | W | `meta.frequency` is set and some `line_geometry.frequency` or linecode `derivation.frequency` differs. Frequencies are **never rescaled** (no OpenDSS-style base-frequency scaling exists in BMOPF) — recompile or fix the data. |
 | `W.DOM.MIXED_FREQUENCY` | W | No `meta.frequency`, but geometry/derivation frequencies within one network disagree — impedances computed at different frequencies must not share a network. |
-| `W.DOM.LINE_IMPLIED_PER_LENGTH` | W | A line with inline ABSOLUTE matrices also carries a descriptive `length`, and Z_self/length falls outside the plausible distribution per-metre range [10⁻⁶, 10⁻²] Ω/m — likely per-metre data mislabeled as section totals (or vice versa). Inline line matrices are totals and are never scaled by length. |
+| `W.DOM.LINE_IMPLIED_PER_LENGTH` | W | A line with inline ABSOLUTE matrices also carries a descriptive `length`, and Z_self/length falls outside the plausible distribution per-meter range [10⁻⁶, 10⁻²] Ω/m — likely per-meter data mislabeled as section totals (or vice versa). Inline line matrices are totals and are never scaled by length. |
 
 ## LOAD — load model validation & analysis
 
@@ -261,7 +261,7 @@ and [`load_model_analysis`](@ref) (`load_models` pass).
 | `W.RED.DUAL_THERMAL_LIMIT` | W | An element (line/switch/generator/IBR) declares **both** a current limit (`i_max`) and an apparent-power limit (`s_max`). Both are enforced natively. The pair is not *mathematically* redundant — because `|S|=|V||I|`, the binding row can switch across the feasible voltage range, so the two together impose a composite envelope no datasheet specifies. It is usually redundant in *engineering* terms, which is the useful reading: a device has one thermal limit, and two declared rows normally mean one was derived from the other. Resolve it by identifying the source of truth, not by proving dominance — **current** for lines/cables/switches and regulators (conductor heating is specified in amperes); **apparent power** for power-transformer nameplates. Drop the derived row, or deliberately convert `s_max`→`i_max` at a documented reference voltage in augmentation (`apply_power_to_current`). See [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits). |
 | `W.REDUND.ZERO_LOAD` | W | The structural-repair pass (`fix_case`) analogue of `W.RED.ZERO_LOADS`: a load with `p_nom = q_nom = 0` on all phases is flagged as electrically inert during the fix workflow. |
 | `I.RED.LOAD_SPARSE_PHASES` | I | WYE loads where at least one phase has `p≈0` and `q≈0` while another is active. Each dead phase still generates a current variable and two bilinear constraints in the OPF; splitting into per-phase `SINGLE_PHASE` loads eliminates them. SINGLE_PHASE and DELTA loads are excluded (no clean per-phase equivalent). |
-| `I.RED.LOAD_MERGEABLE` | I | Groups of loads on the same bus sharing the same `configuration` and `terminal_map` (WYE/SINGLE_PHASE keys are phase-order-insensitive; DELTA keys are normalised to the smallest cyclic rotation). Each group can be collapsed into one load with summed `p_nom`/`q_nom`. Loads with `time_series` references are excluded (merging profiles is non-trivial). |
+| `I.RED.LOAD_MERGEABLE` | I | Groups of loads on the same bus sharing the same `configuration` and `terminal_map` (WYE/SINGLE_PHASE keys are phase-order-insensitive; DELTA keys are normalized to the smallest cyclic rotation). Each group can be collapsed into one load with summed `p_nom`/`q_nom`. Loads with `time_series` references are excluded (merging profiles is non-trivial). |
 | `I.RED.ZERO_SHUNTS` | I | Shunts whose every G/B matrix entry is zero — same. |
 | `I.RED.MERGEABLE_LINES` | I | Chains of series lines whose interior buses have line-degree 2 and **no** other attachment (loads, generators, shunts, switches, transformers all counted as blockers). Merging removes superfluous buses that slow solvers ([ref. 2](methodology.md#refs)). |
 | `I.RED.PARALLEL_LINES` | I | Parallel line records grouped by bus pair, with ordered terminal-map and normalized declaration classes, multiplicity, member/excess counts and bounded witnesses. Matching declarations are inspection candidates, not verified duplicate assets. No deletion or aggregation follows. `n_identical_group_excess` counts `sum(m-1)` only over wholly matching groups; whole-network cycle excess has a different scope. |
@@ -283,7 +283,7 @@ The largest family; full derivations in the
 | `E.PROV.NONRECIPROCAL` | E | An impedance/admittance block (linecode R/X/G/B, inline line R/X/G/B, or bus-shunt G/B) is not symmetric — reciprocity is violated; passive RLC networks cannot do that. Catches, e.g., delta-bank admittances built from the incidence matrix instead of `Y·(M∆)ᵀM∆`. Reported with `component_type = :line` for inline absolute line matrices. |
 | `E.PROV.NONPASSIVE` | E | The R block has a negative eigenvalue — the line would generate power. PSD of R is invariant under Kron reduction (Schur complements of accretive matrices stay accretive), so this is always an error. Applies to linecodes and inline line matrices alike. |
 | `W.PROV.X_NONINDUCTIVE` | W | Non-positive series self-reactance — series compensation does not exist inside linecodes; almost always a sign flip or X/B confusion. |
-| `W.PROV.X_NOT_PSD` | W | The X block has a negative eigenvalue — the implied inductance matrix is not realisable (energy argument; also Kron-invariant via sectorial Schur closure). |
+| `W.PROV.X_NOT_PSD` | W | The X block has a negative eigenvalue — the implied inductance matrix is not realizable (energy argument; also Kron-invariant via sectorial Schur closure). |
 | `I.PROV.NEGATIVE_MUTUAL_R` | I | Negative off-diagonal resistance. Carson's earth-return term makes mutual R positive for geometry-derived matrices; a negative entry signals processed/fitted provenance. |
 | `E.PROV.NEGATIVE_G` | E | A conductance block (line shunt or bus shunt) that is not PSD / has negative diagonals — an active element. |
 | `W.PROV.B_SIGN` | W | A susceptance block that is not PSD or has negative diagonals — not a physical capacitance matrix. |
@@ -299,26 +299,26 @@ The largest family; full derivations in the
 Every line and linecode stores a two-sided nominal-π: a series impedance with a
 shunt admittance half-block at the from-end (`G_from`/`B_from`) and the to-end
 (`G_to`/`B_to`). Which blocks are populated, and whether the two ends are equal,
-determines the **model topology**. The taxonomy makes the modelling assumption
-auditable and flags the parameterisations that are suspicious in distribution
+determines the **model topology**. The taxonomy makes the modeling assumption
+auditable and flags the parameterizations that are suspicious in distribution
 networks.
 
 | Topology | Meaning | Expected in distribution? |
 |---|---|---|
 | **series** | No shunt on either end — pure series `Z`. | Yes — the default for LV / short-cable feeders, where line charging is negligible. |
 | **symmetric π** | Shunt on both ends with `Y_from ≈ Y_to`. | Yes — the canonical nominal-π; a uniform reciprocal line splits its charging equally. Expected once charging matters (longer MV/HV overhead, underground cable). |
-| **asymmetric π** | Shunt on both ends but `Y_from ≠ Y_to`. | **Suspicious** — a uniform line is symmetric; unequal halves usually mean a reduction artefact or data error. |
+| **asymmetric π** | Shunt on both ends but `Y_from ≠ Y_to`. | **Suspicious** — a uniform line is symmetric; unequal halves usually mean a reduction artifact or data error. |
 | **Γ (gamma)** | Shunt on exactly one end. | **Review** — a valid deliberate lumping of charging at one terminal, but it breaks the physical from/to symmetry. |
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `I.PROV.LINE_MODEL_UNIFORM` | I | Every line-model definition (linecode or inline line) uses a single topology — series-only, symmetric-π, etc. The network is internally consistent; the message states which model and whether it is the expected one. |
-| `I.PROV.LINE_MODEL_MIXED` | I | The case study mixes topologies (e.g. some branches series-only, others π). Legitimate when short spurs are modelled as series and long trunks as π, but flagged so the mix can be reviewed for consistency — especially any asymmetric-π or Γ members. Replaces the former `I.PROV.NO_PI_SHUNT` / `I.PROV.PARTIAL_PI_SHUNT`. |
-| `W.PROV.ASYMMETRIC_PI` | W | A line/linecode has shunts on both ends but the from-side and to-side admittances differ. A uniform reciprocal line splits its charging equally; unequal halves indicate a network-reduction artefact or a data error. |
+| `I.PROV.LINE_MODEL_MIXED` | I | The case study mixes topologies (e.g. some branches series-only, others π). Legitimate when short spurs are modeled as series and long trunks as π, but flagged so the mix can be reviewed for consistency — especially any asymmetric-π or Γ members. Replaces the former `I.PROV.NO_PI_SHUNT` / `I.PROV.PARTIAL_PI_SHUNT`. |
+| `W.PROV.ASYMMETRIC_PI` | W | A line/linecode has shunts on both ends but the from-side and to-side admittances differ. A uniform reciprocal line splits its charging equally; unequal halves indicate a network-reduction artifact or a data error. |
 | `I.PROV.GAMMA_SECTION` | I | A line/linecode carries shunt admittance on exactly one end (a Γ-section). Valid as a deliberate lumping of charging at one terminal, but it breaks the from/to symmetry of a physical line — confirm it is intended. |
-| `I.PROV.SHUNT_CONDUCTANCE` | I | A line/linecode π-shunt carries non-zero conductance (`G_from`/`G_to`) — dielectric loss / leakage is modelled. Unusual in distribution, where the line shunt is normally purely capacitive; confirm it is not an X/B or units confusion. |
+| `I.PROV.SHUNT_CONDUCTANCE` | I | A line/linecode π-shunt carries non-zero conductance (`G_from`/`G_to`) — dielectric loss / leakage is modeled. Unusual in distribution, where the line shunt is normally purely capacitive; confirm it is not an X/B or units confusion. |
 
-### Parameterisation provenance
+### [Parameterization provenance](@id Parameterisation-provenance)
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
@@ -346,7 +346,7 @@ Emitted by the `:connectivity` pass after classifying each galvanic zone. Inform
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.PROV.SPLIT_PHASE_ZONE` | I | A galvanic zone is fed by a `center_tap` transformer — a split-phase section (NA 120-0-120, AU 230-0-230 downstream of SWER). The two legs are anti-phase about the centre-tap neutral; the OPF warm-start initialises them 180° apart accordingly. |
+| `I.PROV.SPLIT_PHASE_ZONE` | I | A galvanic zone is fed by a `center_tap` transformer — a split-phase section (NA 120-0-120, AU 230-0-230 downstream of SWER). The two legs are anti-phase about the center-tap neutral; the OPF warm-start initializes them 180° apart accordingly. |
 | `I.PROV.SWER_ZONE` | I | A galvanic zone is single-wire (one phase conductor across all its buses) and transformer-isolated — a Single-Wire-Earth-Return section. Distinguished from a single-phase lateral, which shares its three-phase feeder's zone. |
 
 ### Voltage-source sequence & supply consistency
@@ -355,8 +355,8 @@ Classify each polyphase voltage source's stored `v_angle` and check it against t
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `W.PROV.SOURCE_ZERO_SEQUENCE` | W | A voltage source's per-phase angles are all equal (zero-sequence / co-phasal) — not a valid positive-sequence supply. A degenerate input that also predicts convergence failure (cf. PSCC-2026 Table VI); fix the angles and use positive-sequence initialisation. |
-| `W.PROV.SOURCE_NEGATIVE_SEQUENCE` | W | A source's rotation is reversed relative to its a→b→c phase labels — a likely phase-labelling error. Match voltage initialisation to the intended rotation. |
+| `W.PROV.SOURCE_ZERO_SEQUENCE` | W | A voltage source's per-phase angles are all equal (zero-sequence / co-phasal) — not a valid positive-sequence supply. A degenerate input that also predicts convergence failure (cf. PSCC-2026 Table VI); fix the angles and use positive-sequence initialization. |
+| `W.PROV.SOURCE_NEGATIVE_SEQUENCE` | W | A source's rotation is reversed relative to its a→b→c phase labels — a likely phase-labeling error. Match voltage initialization to the intended rotation. |
 | `W.PROV.SOURCE_INCOHERENT_ROTATION` | W | A source's per-phase separations are not a consistent ±120°, 90°, or 180° set — malformed angle data. (Valid positive-sequence 120°, split-phase 180°, and two-phase 90° supplies are *not* flagged.) |
 | `W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY` | W | A bus declares more phase conductors than its galvanic feed (voltage source or feeding-transformer secondary) supplies — e.g. a 3-phase bus downstream of a single-phase or split-phase (180°) source within one zone. Phase count cannot increase without a transformer. |
 | `W.PROV.PHASE_ARRANGEMENT_MISMATCH` | W | A zone contains a 3-phase bus and enough conductors, but its source's angle arrangement is zero/quadrature/anti-phase/incoherent rather than a 120° rotation — it cannot establish a rotating 3-phase field; a true 3-phase supply or a phase-converting transformer (e.g. Scott-T) is required. |
@@ -377,8 +377,8 @@ Geth, Heidari & Koirala (ACM e-Energy 2022, doi:[10.1145/3538637.3538844](https:
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `I.PROV.IMPEDANCE_TRANSFORM_KR` | I | A finite three-wire matrix with phase coupling matches neither PN/MPN pattern: a weak matrix-only hint of Kron reduction. LV use without a represented neutral strengthens it; positively known MV/HV-only or unused cases receive context-specific guidance. Missing or mixed voltage/map evidence remains unassessed and retains conditional neutral-related implications. Diagonal cases use the per-phase simplification hint with origin unresolved; Schur corrections can cancel original mutuals. **Why it matters:** a zero-neutral-voltage approximation cannot show actual neutral rise, while dissipation remains represented under the exact boundary relation. Separate attribution needs source blocks or a recovery map. **Check:** original conductors and grounding. **Alternatives:** native three-wire construction or other equivalents. Converter source equivalents are not flagged. |
-| `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | Uniform R with mutual/self near one half and varying X suggest a phase-to-neutral equivalent: neutral resistance may have been folded into phase impedances. **Why it matters:** the phase-to-neutral transformation is exact with no conductor-to-earth shunts, no device injection into earth and one grounding point per continuous neutral section. It also applies to unequal conductors; similar resistances explain the fingerprint, not accuracy. Multiple earth-return paths can break these assumptions, and grounding impedance alone does not determine error. Source data can support neutral recovery. **Check:** source four-wire impedances and earth-current assumptions. **Alternative:** another parameterisation sharing the pattern. |
-| `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | Uniform R and X with R mutual/self near one half suggest a modified phase-to-neutral equivalent with reactance symmetrisation. **Why it matters:** review the PN assumptions about earth shunts, device earth injection and single-point grounding; grounding impedance alone does not determine error. Reactance symmetrisation adds an approximation that removes phase-pair reactance asymmetry. **Check:** source impedances, geometry and the asymmetry needed for the study. **Alternative:** a symmetric physical or authored equivalent sharing the pattern. |
+| `I.PROV.IMPEDANCE_TRANSFORM_PN` | I | Uniform R with mutual/self near one half and varying X suggest a phase-to-neutral equivalent: neutral resistance may have been folded into phase impedances. **Why it matters:** the phase-to-neutral transformation is exact with no conductor-to-earth shunts, no device injection into earth and one grounding point per continuous neutral section. It also applies to unequal conductors; similar resistances explain the fingerprint, not accuracy. Multiple earth-return paths can break these assumptions, and grounding impedance alone does not determine error. Source data can support neutral recovery. **Check:** source four-wire impedances and earth-current assumptions. **Alternative:** another parameterization sharing the pattern. |
+| `I.PROV.IMPEDANCE_TRANSFORM_MPN` | I | Uniform R and X with R mutual/self near one half suggest a modified phase-to-neutral equivalent with reactance symmetrization. **Why it matters:** review the PN assumptions about earth shunts, device earth injection and single-point grounding; grounding impedance alone does not determine error. Reactance symmetrization adds an approximation that removes phase-pair reactance asymmetry. **Check:** source impedances, geometry and the asymmetry needed for the study. **Alternative:** a symmetric physical or authored equivalent sharing the pattern. |
 | `W.PROV.IMPLICIT_GROUNDING` | W | Neutral terminals are referenced by components but no branch carries a neutral conductor, and some referenced neutrals lack represented grounding. The intended return/grounding convention is indeterminate; no every-bus ground constraint or Kron history is inferred. |
 | `E.PROV.FLOATING_NEUTRAL` | E | A neutral section (continuity graph over lines/closed switches) with no path to ground **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed. |
 | `W.PROV.FLOATING_NEUTRAL` | W | Same, but unused — latent rather than active. |
@@ -398,7 +398,7 @@ the table).
 | `I.PROV.DSS_DEFAULT_XFMR` | I | Transformer per-unit impedance equal to `xhl = 7 %` / `%r = 0.2` per winding. |
 | `I.PROV.DSS_DEFAULT_PF` | I | Loads at power factor exactly 0.88 — reactive demand defaulted. |
 | `I.PROV.DSS_DEFAULT_KV` | I | Components sitting exactly at 115 kV or 12.47 kV — US defaults, glaring outside US test feeders. |
-| `I.PROV.DSS_DEFAULT_LENGTH` | I | A *minority* of lines with length exactly 1.0 among varied lengths. (Universal 1.0 is detected as a deliberate length-normalised convention and reported in the convention statement instead.) |
+| `I.PROV.DSS_DEFAULT_LENGTH` | I | A *minority* of lines with length exactly 1.0 among varied lengths. (Universal 1.0 is detected as a deliberate length-normalized convention and reported in the convention statement instead.) |
 
 ### Control devices
 
@@ -408,7 +408,7 @@ the table).
 
 ## INT — structural integrity
 
-Motivated by the benchmark-pitfall catalogue of ([ref. 2](methodology.md#refs)).
+Motivated by the benchmark-pitfall catalog of ([ref. 2](methodology.md#refs)).
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
@@ -478,21 +478,21 @@ Rules the JSON Schema cannot express.
 | `W.SPEC.BAD_CONFIG` | W | A configuration outside `SINGLE_PHASE`/`WYE`/`DELTA` for a load/generator/capacitor, or outside `SINGLE_PHASE`/`WYE` for native voltage-source references. |
 | `W.SPEC.CONFIG_ARITY` | W | Terminal-map arity inconsistent with the configuration (SINGLE_PHASE = 2, WYE = 4, DELTA = 3). |
 | `E.SPEC.DUPLICATE_TERMINAL` | E | A component's `terminal_map` (or `terminal_map_from`/`terminal_map_to` for lines/switches) contains the same terminal label more than once — a degenerate connection that collapses two distinct conductors onto one. |
-| `I.SPEC.LOAD_PHASE_TO_PHASE` | I | A `SINGLE_PHASE` load/generator whose two terminals are both phase conductors (neither is the bus neutral) — a phase-to-phase (delta-connected) single-phase element. Valid per spec; flagged as context because the modelling is distinct from the more common phase-to-neutral case. |
+| `I.SPEC.LOAD_PHASE_TO_PHASE` | I | A `SINGLE_PHASE` load/generator whose two terminals are both phase conductors (neither is the bus neutral) — a phase-to-phase (delta-connected) single-phase element. Valid per spec; flagged as context because the modeling is distinct from the more common phase-to-neutral case. |
 | `E.SPEC.WYE_MISSING_NEUTRAL` | E | A `WYE` load/generator omits the identified neutral of its bus. The neutral may appear anywhere in the map; phase-indexed fields follow map order with neutral removed. |
 | `E.SPEC.WYE_DUPLICATE_PHASE` | E | A `WYE` load/generator has duplicate phase terminals in the non-neutral slots. |
 | `E.SPEC.DELTA_HAS_NEUTRAL` | E | A `DELTA` load/generator includes the bus neutral in its terminal map — delta elements must be phase-to-phase only. |
 | `E.SPEC.DELTA_DUPLICATE_PHASE` | E | A `DELTA` load/generator has duplicate phase terminals. |
 | `W.SPEC.CAP_QRATED_LENGTH` | W | A capacitor's `q_rated` length is inconsistent with its configuration (SINGLE_PHASE → 1, WYE → #phases, DELTA → #pairs). |
 | `E.SPEC.CAP_VRATED` | E | A capacitor has non-positive `v_nom` — the susceptance `B = q_rated/v_nom²` is undefined. |
-| `E.SPEC.CAP_NEGATIVE_Q` | E | A capacitor has negative `q_rated` entries. A capacitor bank has non-negative susceptance (`Q = B·V²`, `B ≥ 0`); a negative value is an inductor/reactor and must be modelled as a `shunt` with negative `B`, not a capacitor. |
+| `E.SPEC.CAP_NEGATIVE_Q` | E | A capacitor has negative `q_rated` entries. A capacitor bank has non-negative susceptance (`Q = B·V²`, `B ≥ 0`); a negative value is an inductor/reactor and must be modeled as a `shunt` with negative `B`, not a capacitor. |
 | `W.SPEC.CAP_WYE_NO_NEUTRAL` | W | A `WYE` capacitor has no resolvable neutral terminal in its `terminal_map`. Each phase is stamped against the neutral, so without one the bank assembles an all-zero susceptance and is **silently ignored** by the OPF. Name the return terminal `n`, or use `SINGLE_PHASE`/`DELTA`. |
 | `W.SPEC.XFMR_TMAP_ARITY` | W | Transformer map lengths differ from the subtype data-model arity, a winding list has fewer than two entries, or an n-winding WYE lacks explicit neutral / DELTA lacks two terminals. Native boundary arities may retain this warning. See [connection-map rules](connection_maps.md). |
 | `W.SPEC.INV_TOPOLOGY` | W | An IBR `topology` outside the spec-allowed set (`FOUR_LEG`/`THREE_LEG`/`SINGLE_PHASE`). |
 | `W.SPEC.INV_TMAP_ARITY` | W | An IBR's `terminal_map` length does not match the arity its `topology` requires. |
 | `W.SPEC.INV_PRIME_MOVER` | W | An IBR `prime_mover` is outside the spec-allowed set (`PV`, `BATTERY`, `GENERIC`, `STATCOM`, `DSTATCOM`). |
 | `W.SPEC.TERMINAL_TYPES` | W | The source file used non-string terminal identifiers; they were coerced at parse (aliases or verbatim — the finding says which). |
-| `I.SPEC.MATRIX_TRIANGULAR` | I | Impedance matrices stored upper-triangular; the spec defines full row-first storage. Read fine; normalise before publishing. |
+| `I.SPEC.MATRIX_TRIANGULAR` | I | Impedance matrices stored upper-triangular; the spec defines full row-first storage. Read fine; normalize before publishing. |
 
 ## SOL — solution profiling
 
@@ -526,16 +526,16 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 | `I.SOL.IBR_MINIMUM_PF_UNASSESSED` | I | Minimum-PF compliance cannot be assessed because no candidate is available, dispatch is absent/nonfinite, or the policy is invalid. Missing data are never treated as zero or a passing check. |
 | `W.SOL.IBR_PF_DEVIATION` | W | A constant-power-factor IBR's solved operating point deviates from its commanded PF beyond tolerance — the PF-coupling constraint residual is non-trivial. |
 | `W.SOL.LOAD_RESIDUAL` | W | For a `constant_power` load, solved `pd`/`qd` differs from `p_nom`/`q_nom` by more than 1 W / 1 var — the bilinear constant-power constraint has a non-trivial residual; the solver may not have converged tightly. Not emitted for voltage-dependent models (where `pd ≠ p_nom` is expected). |
-| `W.SOL.LOAD_MODEL_RESIDUAL` | W | For a voltage-dependent load, the realised `pd`/`qd` is inconsistent with what the load model predicts at the solved terminal voltage by more than 1 W / 1 var. Indicates the load model constraint was not satisfied — a solver convergence or result extraction issue. |
-| `I.SOL.LOAD_VD_SUMMARY` | I | Aggregate realised vs nominal P/Q across all voltage-dependent sub-loads. Quantifies the total demand shift due to voltage sensitivity at the solved operating point. |
+| `W.SOL.LOAD_MODEL_RESIDUAL` | W | For a voltage-dependent load, the realized `pd`/`qd` is inconsistent with what the load model predicts at the solved terminal voltage by more than 1 W / 1 var. Indicates the load model constraint was not satisfied — a solver convergence or result extraction issue. |
+| `I.SOL.LOAD_VD_SUMMARY` | I | Aggregate realized vs nominal P/Q across all voltage-dependent sub-loads. Quantifies the total demand shift due to voltage sensitivity at the solved operating point. |
 | `W.SOL.POWER_BALANCE` | W | Network-wide active power balance error (Σpg − Σpd − Σp_loss) exceeds 1 % of total load — a significant mismatch that may indicate a lossy model, a missing component, or a result extraction issue. |
 | `I.SOL.BINDING_SUMMARY` | I | Summary count of violated and near-active bounds across all categories (voltage, thermal, generator). Always emitted for feasible solutions. |
 | `I.SOL.LOSS_FRACTION` | I | Line losses exceed 20 % of total generation — unusually high; may indicate a high-impedance feeder, a model issue, or an extreme operating point. |
 | `W.SOL.NEG_LOSS` | W | A line or transformer dissipates **negative active power** (`p_loss < 0`) beyond numerical noise — non-physical for a passive branch, which cannot generate active power. Tolerance is throughput-relative (`p_loss < −max(1 W, 1e-4·\|S_through\|)`). Signals a non-converged / ill-conditioned solution, a sign error, or a negative-resistance input. Reactive loss is excluded, as line charging / capacitive shunts make `q_loss` legitimately negative. |
 | `I.SOL.NEUTRAL_SHIFT` | I | Maximum neutral terminal voltage magnitude across all buses, with the bus identifier. Non-zero neutral shift indicates load unbalance or grounding impedance. |
-| `W.SOL.INIT_LEVEL_MISMATCH` | W | One or more terminals have `vm_init / vm_solved` outside [0.1, 10] — the initialisation used the wrong voltage level (e.g. source voltage applied to an LV bus via flat warm-start). Solver may still converge but local-minimum risk is elevated. Only emitted when `result["initialisation"]` is present. |
-| `W.SOL.INIT_LARGE_ERROR` | W | One or more phase terminals have an initialisation error exceeding 20 % of the solved voltage magnitude — the start point was a poor approximation of the solution. |
-| `I.SOL.INIT_NEUTRAL_NONZERO` | I | One or more neutral terminals were initialised with non-zero voltage. Neutral start values should be zero; non-zero values indicate an initialisation inconsistency. |
+| `W.SOL.INIT_LEVEL_MISMATCH` | W | One or more terminals have `vm_init / vm_solved` outside [0.1, 10] — the initialization used the wrong voltage level (e.g. source voltage applied to an LV bus via flat warm-start). Solver may still converge but local-minimum risk is elevated. Only emitted when `result["initialisation"]` is present. |
+| `W.SOL.INIT_LARGE_ERROR` | W | One or more phase terminals have an initialization error exceeding 20 % of the solved voltage magnitude — the start point was a poor approximation of the solution. |
+| `I.SOL.INIT_NEUTRAL_NONZERO` | I | One or more neutral terminals were initialized with non-zero voltage. Neutral start values should be zero; non-zero values indicate an initialization inconsistency. |
 
 ## DER — distributed-energy-resource augmentation
 
@@ -572,7 +572,7 @@ Checks for the DC side: `dc_bus` nodes (signed line-to-ground voltage, no angle)
 | `E.INT.UNKNOWN_DC_BUS` | E | An `ibr.dc_bus`, `dc_branch` endpoint, `dc_load`/`dc_source.dc_bus`, or `dc_grounding.dc_bus` references a `dc_bus` id that does not exist. |
 | `E.INT.UNKNOWN_DC_TERMINAL` | E | A DC terminal-map entry (converter DC port, branch from/to, grounding, load/source) names a terminal not in the target `dc_bus.terminal_names`. |
 | `E.INT.NO_DC_VOLTAGE_REFERENCE` | E | A connected DC island (dc_buses joined by dc_branches) has no `dc_grounding` (perfect or resistive) — the signed DC voltages float (rank-deficient). The DC analog of `E.INT.NO_VOLTAGE_REFERENCE`. |
-| `W.INT.DC_FED_AC_ISLAND` | W | A converter feeds an AC bus whose AC island has no AC voltage reference (source/grounding) and no grid-forming converter — the bus is energised only through the MVDC link (a dangling converter, not embedded in a referenced AC system). Intentional DC-fed feeders should mark a converter `grid_forming`. |
+| `W.INT.DC_FED_AC_ISLAND` | W | A converter feeds an AC bus whose AC island has no AC voltage reference (source/grounding) and no grid-forming converter — the bus is energized only through the MVDC link (a dangling converter, not embedded in a referenced AC system). Intentional DC-fed feeders should mark a converter `grid_forming`. |
 | `E.INT.DC_NO_VOLTAGE_CONTROL` | E | A connected DC island has no converter on DC-voltage control (`dc_control = "V"` or `"droop"`) — the DC operating voltage is underdetermined. The DC analog of needing an AC slack; designate a master/droop converter (master–slave or droop, per MTDC practice). |
 | `E.DOM.DC_POLE_ROLE_REQUIRED` | E | A `dc_bus` carries a line-to-neutral or line-to-line voltage bound but lacks the `pole` role(s) needed to orient it (POSITIVE/NEGATIVE, and a return for L-N). The roles are the sign tag that keeps the bound linear; without them it cannot be applied. |
 | `W.DOM.DC_DROOP_BOUNDS` | W | A `dc_control="droop"` converter's droop conflicts with its own capability: either `dc_p_ref` lies outside the net active-power box `[Σp_min, Σp_max]` (else ±Σs_max), or the converter also runs a `power_factor` profile whose forced reactive power shrinks the s_max-circle active headroom below the droop's saturation. The droop equality then fights the P/Q/S limits and the OPF can turn infeasible. |
@@ -617,7 +617,7 @@ analysis never emits them.
 | `E.CONTRACT.GROUND_REFERENCE_RELATION_MISMATCH` | E | The target changes a mapped neutral's declared perfect-ground, scalar finite-grounding-shunt, or voltage-source-reference relation. Those declarations are not interchangeable. |
 | `I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE` | I | The neutral/ground/reference check is outside its implemented domain, for example because the source lacks explicit neutrals or a grounding shunt couples multiple terminals. No preservation conclusion is drawn. |
 | `W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE` | W | A mapped bus or scalar grounding relation is missing or unresolved. No preservation conclusion is drawn; detail names the missing evidence and recommended follow-up. |
-| `E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID` | E | A result labelled `LOCALLY_SOLVED`, `OPTIMAL`, or `ALMOST_LOCALLY_SOLVED` contains non-finite values or violates a declared bus voltage or angle limit when independently recomputed by `profile_solution`. The contract finding retains the underlying `E.SOL.*` evidence. |
+| `E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID` | E | A result labeled `LOCALLY_SOLVED`, `OPTIMAL`, or `ALMOST_LOCALLY_SOLVED` contains non-finite values or violates a declared bus voltage or angle limit when independently recomputed by `profile_solution`. The contract finding retains the underlying `E.SOL.*` evidence. |
 | `I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE` | I | The solver did not claim a feasible result, or the network has no declared bus terminals. The initial claimed-solution contract therefore makes no validity conclusion. |
 | `W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE` | W | Termination status or required `vr`/`vi`/`vm` data for a declared bus terminal is missing. No validation conclusion is drawn; detail identifies the missing evidence. |
 | `E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH` | E | Scientific contract `load_voltage_base_consistency` found that a voltage-dependent load's `v_nom` lies outside the declared ratio band for its source-propagated connection-coordinate base. |

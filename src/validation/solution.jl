@@ -18,8 +18,8 @@
 #   W.SOL.THERMAL_ACTIVE     — thermal limit within the active threshold
 #   W.SOL.GEN_ACTIVE         — generator bound within the active threshold
 #   W.SOL.LOAD_RESIDUAL      — |pd - p_nom| or |qd - q_nom| above tolerance (constant-power only)
-#   W.SOL.LOAD_MODEL_RESIDUAL — realised pd/qd inconsistent with load model at solved voltage
-#   I.SOL.LOAD_VD_SUMMARY    — aggregate realised vs nominal P/Q for voltage-dependent loads
+#   W.SOL.LOAD_MODEL_RESIDUAL — realized pd/qd inconsistent with load model at solved voltage
+#   I.SOL.LOAD_VD_SUMMARY    — aggregate realized vs nominal P/Q for voltage-dependent loads
 #   W.SOL.POWER_BALANCE      — network-wide active OR reactive power doesn't balance
 #                              (uses exact element losses, result["losses"])
 #   I.SOL.BINDING_SUMMARY    — aggregate count of active / violated bounds
@@ -29,7 +29,7 @@
 #   I.SOL.NEUTRAL_SHIFT      — maximum neutral terminal voltage across non-source buses
 #   W.SOL.INIT_LEVEL_MISMATCH — init voltage differs from solved by > 10× (wrong voltage level)
 #   W.SOL.INIT_LARGE_ERROR   — init voltage error > 20 % of solved value on a phase terminal
-#   I.SOL.INIT_NEUTRAL_NONZERO — neutral terminal initialised non-zero
+#   I.SOL.INIT_NEUTRAL_NONZERO — neutral terminal initialized non-zero
 
 # Resolve a per-conductor rating at conductor `k` from a field that may be a
 # per-conductor vector OR a scalar (applied to every conductor). Returns nothing
@@ -1442,7 +1442,7 @@ function solution_check(net::Dict{String,Any},
                     n_load_model_resid += 1
                     push!(findings, Finding(WARNING, "W.SOL.LOAD_MODEL_RESIDUAL",
                         :solution, :load, lid,
-                        "Load '$lid' phase '$t_ph' (model=$model): realised power " *
+                        "Load '$lid' phase '$t_ph' (model=$model): realized power " *
                         "pd=$(round(pd; digits=2)) W deviates from model prediction " *
                         "$(round(pd_model; digits=2)) W at the solved voltage " *
                         "(|ΔV|=$(round(sqrt(W); digits=2)) V, Vnom=$(round(Vnom; digits=1)) V). " *
@@ -1474,7 +1474,7 @@ function solution_check(net::Dict{String,Any},
         out["vd_q_real_total"] = vd_q_real_total
         push!(findings, Finding(INFO, "I.SOL.LOAD_VD_SUMMARY", :solution, :network, nothing,
             "Voltage-dependent loads ($n_vd_subloads sub-load(s)): " *
-            "realised P=$(round(vd_p_real_total/1e3; digits=3)) kW vs nominal " *
+            "realized P=$(round(vd_p_real_total/1e3; digits=3)) kW vs nominal " *
             "$(round(vd_p_nom_total/1e3; digits=3)) kW " *
             "($(round(p_shift/1e3; digits=3)) kW shift); " *
             "Q=$(round(vd_q_real_total/1e3; digits=3)) kvar vs nominal " *
@@ -1592,7 +1592,7 @@ function solution_check(net::Dict{String,Any},
                              "q_loss"=>q_loss,"balance_err"=>q_balance_err,"flavour"=>"reactive")))
     end
 
-    # ── Initialisation quality ────────────────────────────────────────────────
+    # ── Initialization quality ────────────────────────────────────────────────
     # Only meaningful when the solver found a feasible point and the result
     # contains an "initialisation" block (written by solve_opf).
     init_res = get(result, "initialisation", nothing)
@@ -1650,17 +1650,17 @@ function solution_check(net::Dict{String,Any},
         if n_level_mismatch > 0
             push!(findings, Finding(WARNING, "W.SOL.INIT_LEVEL_MISMATCH", :solution,
                 :network, nothing,
-                "$n_level_mismatch terminal(s) were initialised at a voltage more than " *
-                "10× away from the solved value — the initialisation used the wrong " *
+                "$n_level_mismatch terminal(s) were initialized at a voltage more than " *
+                "10× away from the solved value — the initialization used the wrong " *
                 "voltage level (source voltage applied to LV buses). Convergence to the " *
                 "physical solution is not guaranteed; consider using per-unit mode or " *
-                "level-aware initialisation.",
+                "level-aware initialization.",
                 Dict{String,Any}("terminals" => level_mismatch_locs)))
         end
         if n_large_error > 0
             push!(findings, Finding(WARNING, "W.SOL.INIT_LARGE_ERROR", :solution,
                 :network, nothing,
-                "$n_large_error phase terminal(s) have an initialisation error > 20 % " *
+                "$n_large_error phase terminal(s) have an initialization error > 20 % " *
                 "of the solved voltage magnitude — the starting point was a poor " *
                 "approximation, which may slow convergence or indicate a local minimum.",
                 Dict{String,Any}("terminals" => large_error_locs)))
@@ -1668,7 +1668,7 @@ function solution_check(net::Dict{String,Any},
         if n_neutral_nonzero > 0
             push!(findings, Finding(INFO, "I.SOL.INIT_NEUTRAL_NONZERO", :solution,
                 :network, nothing,
-                "$n_neutral_nonzero neutral terminal(s) were initialised with non-zero " *
+                "$n_neutral_nonzero neutral terminal(s) were initialized with non-zero " *
                 "voltage — neutral start values should be zero.",
                 Dict{String,Any}("terminals" => neutral_nonzero_locs)))
         end
@@ -1897,7 +1897,7 @@ function voltage_zone_summary(net::Dict{String,Any}, result::Dict{String,Any})
 
         # ── Zone voltage base ────────────────────────────────────────────────
         # Priority:
-        #   1. bus["v_declared"] — the standardised supply nominal (e.g. 230 V),
+        #   1. bus["v_declared"] — the standardized supply nominal (e.g. 230 V),
         #      so per-unit is reported against the declared voltage rather than
         #      the actual source magnitude (which may be 240 V). When buses in a
         #      zone disagree, use the median.

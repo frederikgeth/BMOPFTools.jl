@@ -1,5 +1,14 @@
 # Repository guidance for coding agents
 
+Use American English for repository-authored prose, comments, docstrings,
+diagnostic messages, and new identifiers (for example, analyze, behavior,
+center, modeling, optimization, and license). Follow the spelling and
+compatibility exceptions in `docs/src/dev/style_guide.md`: preserve existing
+API names, serialized keys, accepted input aliases, Finding codes, paths,
+published documentation anchors, external protocol strings,
+quoted text, publication titles, proper names, and upstream license text.
+Regenerate derived files from their sources rather than editing them by hand.
+
 Read `ARCHITECTURE.md` before changing scientific contracts or cross-repository metadata. This repository owns executable package behavior: APIs, applicability checks, structured results, Finding codes, fixtures, and executable export records. The sibling `multi-graph-book` owns scientific prose, evidence status, misconceptions, and stable `PSK-*` identities.
 
 For scientific guardrails:

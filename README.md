@@ -10,7 +10,7 @@
 
 BMOPFTools is a Julia library connecting network-data diagnostics, geospatial
 review, and multiconductor power-flow and optimal power flow (OPF) workflows.
-Import OpenDSS or BMOPF cases, investigate modelling inconsistencies, prepare
+Import OpenDSS or BMOPF cases, investigate modeling inconsistencies, prepare
 study scenarios, and check the resulting solutions—with explicit assumptions
 and traceable transformations.
 
@@ -30,7 +30,7 @@ The package supports the IEEE PES Task Force on **Benchmarking Multiconductor
 OPF for Distribution Systems** and its BMOPF JSON data model for up-to-four-wire
 networks. See [Project and community](#project-and-community) for the team and
 ways to contribute. Code is BSD-3-Clause; network data has separate,
-[source-specific licence terms](#licensing).
+[source-specific license terms](#licensing).
 
 ## Why BMOPFTools?
 
@@ -57,7 +57,7 @@ certify physical fidelity, feasibility, or fitness for a particular study.
 
 - **Inspect network models.** Convert OpenDSS with `from_dss`, or load BMOPF
   JSON with `parse_bmopf`. Check required fields, configuration and terminal
-  rules, references, dimensions, domain plausibility, and redundancy. Analyse
+  rules, references, dimensions, domain plausibility, and redundancy. Analyze
   inventory, voltage levels, connectivity, diversity, operational loading,
   infeasibility preflight, and benchmark-readiness diagnostics.
 - **Review geographic and electrical discrepancies together.** Use spatial
@@ -85,14 +85,14 @@ certify physical fidelity, feasibility, or fitness for a particular study.
 ```mermaid
 flowchart TD
     input[OpenDSS or BMOPF JSON] --> model[Network model]
-    model --> analysis[Analyse and report Findings]
+    model --> analysis[Analyze and report Findings]
     model --> view[Write BMOPF JSON and open in Tellegen]
     analysis --> review[Review evidence and source records]
     view --> review
     review --> correction[Correct source data or model declarations]
     correction --> model
     review --> study[Prepare scenarios and record assumptions]
-    study --> recheck[Re-analyse each study case]
+    study --> recheck[Re-analyze each study case]
     recheck --> solve[Solve supported power flow or OPF]
     solve --> verify[Profile the solution against its case]
     verify --> review
@@ -165,7 +165,7 @@ write_bmopf(net, "case.json")
 Read `case_report.md` to inspect the model and its Findings. Drag `case.json`
 onto [Tellegen](https://tellegen.dev/) to inspect the same network visually.
 This example has no geographic coordinates; follow the viewer's placement
-prompt. To analyse your own BMOPF case, replace `fixture` with its file path.
+prompt. To analyze your own BMOPF case, replace `fixture` with its file path.
 
 ### Solve and profile the same case
 
@@ -208,7 +208,7 @@ provides `fix_case` and `augment_case`. Structural transformations can remove
 inert elements, convert near-zero-impedance lines to switches, or drop disconnected
 islands. Augmentation can add voltage bounds, optionally estimate synthetic
 thermal limits, and price slack imports. Select changes that fit your study,
-retain the returned manifests, and analyse the resulting case again.
+retain the returned manifests, and analyze the resulting case again.
 
 ## Documentation and examples
 
@@ -320,7 +320,7 @@ guide, versioning policy, and scope notes. For a model issue, a small reproducib
 case and the relevant Finding codes make the problem easier to investigate.
 
 Code contributions use BSD-3-Clause. Contributed data must be redistributable
-and retain its upstream licence; see the [contribution licensing guidance](CONTRIBUTING.md#licensing).
+and retain its upstream license; see the [contribution licensing guidance](CONTRIBUTING.md#licensing).
 
 ### Citation
 
@@ -342,16 +342,16 @@ In alphabetic order:
 
 **Code** — BSD-3-Clause License.
 
-**Benchmark cases and task force outputs** — the licence is inherited from
+**Benchmark cases and task force outputs** — the license is inherited from
 each dataset's upstream source and therefore differs **per dataset**. The
 generated benchmark cases (in [BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData))
-are derivatives and carry their source's applicable licence terms. Preserve
-dataset licence notices, citations, and generated `meta.license` metadata.
+are derivatives and carry their source's applicable license terms. Preserve
+dataset license notices, citations, and generated `meta.license` metadata.
 
 The only network data bundled in *this* repository is the small set of fixtures
 the test suite runs against, under `test/data/`:
 
-| Fixture (`test/data/…`) | Licence | Commercial use | Source |
+| Fixture (`test/data/…`) | License | Commercial use | Source |
 |---|---|---|---|
 | `test/data/`, scientific fixture JSON, recipe inputs | CC BY 4.0 | yes | copyright-holder authorization; [scope and attribution](test/data/license.md) |
 
@@ -370,7 +370,7 @@ resolve that discrepancy.
 The CC BY-NC-SA 4.0 CSIRO Australian MV/LV data (`LV`, `MV`, combined
 `Master.dss`, and `MVLVmeshed`) and the derived LV1 JSON/time-series/report
 files are stored in **BMOPFDraftData/test/data**, not bundled here. Their
-upstream licence and attribution remain unchanged. For dataset-backed tutorials
+upstream license and attribution remain unchanged. For dataset-backed tutorials
 and optional integration tests, see
 [Testing with external datasets](#testing-with-external-datasets).
 
@@ -423,5 +423,5 @@ installation does not install `bin/bmopf` or `bin/bmopf-mcp` into your shell's
 PATH; those launchers are tools for an instantiated checkout.
 
 Codex has assisted with release preparation, fixture relocation, tests, and
-documentation. Maintainers review contributions and own the package's behaviour;
+documentation. Maintainers review contributions and own the package's behavior;
 this statement does not certify that the pre-registration human review is complete.

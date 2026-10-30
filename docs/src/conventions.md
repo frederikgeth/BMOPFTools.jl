@@ -29,12 +29,12 @@ All physical quantities are SI (spec Table 8):
 | generation cost | \$/kWh |
 
 Note that `from_dss` (via PowerIO) emits SI values directly — line lengths in
-metres, linecodes per-metre, voltages in volts and powers in watts/vars — so no
+meters, linecodes per-meter, voltages in volts and powers in watts/vars — so no
 further scaling is applied on ingest.
 
 !!! note "Data-model units vs. solver units"
     SI here describes the **data model** — how networks are represented and
-    serialised. It says nothing about the units a solver computes in: the
+    serialized. It says nothing about the units a solver computes in: the
     reference OPF can solve directly in SI or in an internally-scaled per-unit
     copy and return SI results either way (see
     [Units & scaling](opf.md#Units-and-scaling)). The representation choice and
@@ -44,7 +44,7 @@ further scaling is applied on ingest.
 
 ## Terminal names
 
-Terminal identifiers are **strings**. The library writes the OpenDSS-flavoured
+Terminal identifiers are **strings**. The library writes the OpenDSS-flavored
 convention `"1", "2", "3", "n"` and understands these conventions on read:
 
 | Convention | Phases | Neutral |
@@ -73,7 +73,7 @@ whole network**, in a top-level `terminal_conventions` block:
   are matched exactly (including case), and ingestion, validation and the OPF
   resolve roles from it rather than guessing.
 - `earth` names dedicated earth-/PE-**wire** terminals only. The ground
-  *reference* stays implicit — grounding is still modelled via
+  *reference* stays implicit — grounding is still modeled via
   `perfectly_grounded_terminals` and grounding shunts — so `earth` is empty
   for standard cases. OpenDSS node 0 imports as a distinct perfectly
   grounded device return `n_ref`, separate from conductor neutral `n`.
@@ -96,7 +96,7 @@ deterministic inventory of declarations and authored AC terminal usage. It
 covers bus `terminal_names`, `perfectly_grounded_terminals` and in-memory
 `neutral_terminal` metadata; nodal load/generator/IBR/shunt/source/capacitor maps;
 line/switch endpoints; and supported transformer endpoints and winding lists.
-DC terminals and equipment catalogues are outside this inventory. `path` fields
+DC terminals and equipment catalogs are outside this inventory. `path` fields
 are escaped JSON Pointers with zero-based array indices; semantic
 `map_position` and `winding` fields use the package's one-based indices.
 
@@ -135,7 +135,7 @@ while inventory coverage stays indeterminate. Unknown-terminal errors require
 a valid target bus terminal list; malformed target lists retain their schema
 and unassessed-indexing diagnostics instead of speculative reference errors.
 
-**Ingest normalisation**: JSON files with non-string terminal entries (e.g.
+**Ingest normalization**: JSON files with non-string terminal entries (e.g.
 `[1,2,3,4]`) are coerced by [`parse_bmopf`](@ref). If every numeric token is
 covered by the alias table (default `1→"1", 2→"2", 3→"3", 4→"n"`,
 overridable via `terminal_aliases`), the aliases apply; otherwise — the
@@ -186,7 +186,7 @@ heuristic.
 ## Buses, bounds and grounding
 
 A bus carries `terminal_names`, optionally `perfectly_grounded_terminals`,
-and optional voltage-magnitude bounds in four flavours: phase-to-ground
+and optional voltage-magnitude bounds in four flavors: phase-to-ground
 (`v_min`/`v_max`), phase-to-neutral (`vpn_*`), phase-to-phase (`vpp_*`)
 and sequence (`vpos_*`). `v_min`/`v_max` and `vpn_min`/`vpn_max` are
 **per-phase arrays** (one element per phase terminal, in `terminal_names` order,
@@ -231,15 +231,15 @@ Linecodes may optionally record their origin: `source` (free-form:
 back-reference, and a `derivation` block (method, earth resistivity,
 frequency, defaults applied, tool + version). Two companion libraries hold
 construction data in SI units — `wire_data` (conductor/cable types: Ω/m,
-metres; `kind` ∈ `overhead`/`cn_cable`/`ts_cable`) and `line_geometry`
-(wire placements at (x, y) metres, y < 0 = burial depth, each conductor
+meters; `kind` ∈ `overhead`/`cn_cable`/`ts_cable`) and `line_geometry`
+(wire placements at (x, y) meters, y < 0 = burial depth, each conductor
 mapped to a terminal) — from which [`compile_linecode`](@ref) derives
 linecodes. See the [line-geometry tutorial](tutorial_line_geometry.md).
 
 **Absolute (total) impedances.** A line may instead carry its own matrices —
 the same pattern keys directly on the line object — as **section totals**:
 `R_series_i_j`/`X_series_i_j` in Ω, `G_*`/`B_*` in S. Units are unambiguous
-*by location*: linecode matrices are per metre and scale with `length`;
+*by location*: linecode matrices are per meter and scale with `length`;
 inline line matrices are totals and are **never** scaled (a `length` on such
 a line is purely descriptive). Every line has exactly one impedance source —
 `linecode` + `length`, or inline matrices — enforced by the schema `oneOf`
@@ -319,13 +319,13 @@ line's): for a `FOUR_LEG` IBR, one entry per phase plus a recommended trailing
 entry capping the **neutral** return $-\sum_k I_k$ (which can exceed the phase
 currents under unbalance compensation; a phases-only vector warns). A
 `SINGLE_PHASE` IBR has one current, so `i_max` is length 1 or 2 (the two collapse
-to a single limit; a length-1 vector is standardised to 2). Generators take the
+to a single limit; a length-1 vector is standardized to 2). Generators take the
 same per-conductor `i_max` convention.
 
 !!! note "Why both a `generator` and an `ibr` object?"
     Most distributed generation in an unbalanced LV study *is* inverter-based, so
     the reasonable question is why keep a separate `generator` at all. The two
-    objects sit at different modelling altitudes:
+    objects sit at different modeling altitudes:
 
     - **`generator`** is the *minimal* active-power dispatch object — `p_min/p_max`,
       reactive box `q_min/q_max`, and a per-phase linear `cost`. It is the right
@@ -488,8 +488,8 @@ are the LV winding values (Ω on the LV voltage base).  The no-load shunt
 `terminal_map_to = ["1","n","2"]` (leg-1, center-tap neutral, leg-2).
 `v_nom_to` is the **per-leg** voltage (e.g. 120 V, not 240 V).
 The OPF models it as a genuine coupled-coil 3-winding transformer: the two LV
-half-windings are series-aiding about the centre tap (winding 3 dotted at the
-centre tap, span $V_g-V_c$) and the OPF imposes the same 5×5 primitive admittance
+half-windings are series-aiding about the center tap (winding 3 dotted at the
+center tap, span $V_g-V_c$) and the OPF imposes the same 5×5 primitive admittance
 the Ybus exporter builds. This captures the mutual coupling between the
 half-windings — a per-leg *decoupled* drop spreads the legs apart under load —
 and matches OpenDSS's transformer `Yprim` to machine precision. Unbalanced
@@ -517,7 +517,7 @@ onto `r_series_from`/`x_series_from` with the secondary branch zero — see the
 [conversion guide](conversion.md) and feedback item 21.
 
 **`single_phase_autotransformer`**: a single-phase step voltage regulator
-modelled as an autotransformer (series + common winding sharing a node), so the
+modeled as an autotransformer (series + common winding sharing a node), so the
 from and to sides are galvanically tied — not isolated.  The ratio is the
 **fixed** `tap_ratio` $a$ (regulated/source); `regulator_type` selects the ANSI
 connection, giving the effective from→to ratio $n_\text{eff}=1/a$ (Type B,
@@ -572,7 +572,7 @@ with 3-phase terminal maps and the conformance check flags the arity
 
 The `switch` is the data model's element for **any section of negligible series
 impedance** — a per-conductor short between two buses that either carries current
-with no voltage drop (closed) or carries none (open). It is an *idealised,
+with no voltage drop (closed) or carries none (open). It is an *idealized,
 lossless* two-bus element: there is no `linecode`, no `length`, and no `R`/`X`
 (contrast [Lines](#Lines,-linecodes-and-matrices)). The closed switch imposes
 $v_{b^\text{fr}} = v_{b^\text{to}}$ on every conductor in its terminal map and
@@ -580,7 +580,7 @@ the open switch fixes its currents to zero (see
 [the OPF switch model](opf.md#Switches)).
 
 A single object therefore covers a family of physical devices that, for
-steady-state OPF, all reduce to the same idealisation. The intended scope:
+steady-state OPF, all reduce to the same idealization. The intended scope:
 
 | Physical device | Why it maps to `switch` |
 |---|---|
@@ -636,7 +636,7 @@ range of names:
   directly onto PMD `state` (`0`=OPEN, `1`=CLOSED) — see
   [`to_pmd`](api.md) — and the BMOPF switch is always the ideal, lossless case.
 - **CIM (IEC 61970-301)** models this as a `Switch` class with `open` /
-  `normalOpen` / `ratedCurrent` attributes, specialised into `ProtectedSwitch`
+  `normalOpen` / `ratedCurrent` attributes, specialized into `ProtectedSwitch`
   (→ `Breaker`, `Recloser`, `LoadBreakSwitch`), `Disconnector`,
   `GroundDisconnector` and `Sectionaliser`, with `Jumper` and `BusbarSection` as
   related connectivity elements. BMOPF deliberately collapses this whole taxonomy
@@ -656,7 +656,7 @@ enumerates, since they are immaterial to a steady-state OPF.
 ## Metadata blocks
 
 The network dict carries two distinct metadata containers, with different
-scopes and serialisation behaviour.
+scopes and serialization behavior.
 
 ### `meta` — spec-level, written to JSON
 
@@ -706,7 +706,7 @@ write_bmopf(net, "lv_feeder1.json";
     ))
 ```
 
-### `_meta` — tool-private, never serialised
+### [`_meta` — tool-private, never serialized](@id _meta-—-tool-private,-never-serialised)
 
 `net["_meta"]` is a `Dict{String,Any}` used internally by BMOPFTools for
 traceability.  It is **not written to JSON** by [`write_bmopf`](@ref) and
@@ -716,7 +716,7 @@ downstream code should treat them as advisory.
 | Key | Set by | Contents |
 |---|---|---|
 | `parsed_at` | [`parse_bmopf`](@ref) | Timestamp when the JSON was parsed. |
-| `terminal_coercions` | [`parse_bmopf`](@ref) | `{"n": <count>, "mode": "<alias|verbatim>"}` — populated when non-string terminal IDs were normalised. See `W.SPEC.TERMINAL_TYPES`. |
+| `terminal_coercions` | [`parse_bmopf`](@ref) | `{"n": <count>, "mode": "<alias|verbatim>"}` — populated when non-string terminal IDs were normalized. See `W.SPEC.TERMINAL_TYPES`. |
 | `powerio_source` | `from_dss` | Absolute path of the `.dss` file that was converted. |
 | `powerio_warnings` | `from_dss` | Array of `CODE: message` lines, one per diagnostic the DSS→JSON converter emitted, verbatim and ungrouped. |
 | `powerio_diagnostics` | `from_dss` | The same diagnostics folded to one record per `(code, severity, component type)` class, each with its count, element paths and example messages. [`powerio_findings`](@ref) reads these back as `Finding`s and [`analyze`](@ref) reports them. |
@@ -729,7 +729,7 @@ downstream code should treat them as advisory.
 `time_series` at the root plus component-level `time_series` reference
 dicts follow the PMD convention (values are multiplicative scale factors on
 the static value). This is a BMOPFTools extension beyond the static-only TF
-spec; [`get_snapshot`](@ref) materialises a snapshot at a given index and
+spec; [`get_snapshot`](@ref) materializes a snapshot at a given index and
 [`analyze`](@ref) does this automatically.
 
 ## Branch and winding map validation

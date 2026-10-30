@@ -119,7 +119,7 @@
         @test isempty(d["top_buses"])
     end
 
-    @testset "top_n and slack_threshold parameters are honoured" begin
+    @testset "top_n and slack_threshold parameters are honored" begin
         res = Dict{String,Any}(
             "is_feasibility_opf"       => true,
             "feasible"                 => true,

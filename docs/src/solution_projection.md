@@ -43,7 +43,7 @@ oracle mismatch can be attributed.
 
 With a determined snapshot in hand there are three computational routes to the
 same voltages. Only route C uses an external engine; comparing all three still
-helps localise disagreements:
+helps localize disagreements:
 
 | | Source | What it is |
 |---|---|---|

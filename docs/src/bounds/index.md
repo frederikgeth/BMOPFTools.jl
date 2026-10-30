@@ -118,7 +118,7 @@ faithfully.
     Constant-power loads generically admit a **high-voltage** (operational) and a
     **low-voltage** solution; meshed networks can admit many. Uniqueness of the
     high-voltage solution is a theorem only under loading/`R/X` conditions. The
-    objective can **favour** one branch over another, but does not certify that a
+    objective can **favor** one branch over another, but does not certify that a
     local algorithm found a unique physical branch.
 
 Fixing $V_1 = V^{\text{ref}}$ removes the reference degree of freedom; fixing $S_i$ at
@@ -325,12 +325,12 @@ A useful identity ties this back to feasibility: slack power $=$ losses $+$ net 
 which is why min-import can push dispatchable DER against upper voltage bounds — see the
 [decision matrix](decision_matrix.md)). This is why a bare feasibility problem is so often
 quietly turned into a min-slack (loss-min) problem — it makes the problem well-posed *and*
-branch-favourable in one move. Favourable is not the same as correct: it changes
+branch-favorable in one move. Favorable is not the same as correct: it changes
 what the optimization prefers, and does not certify which branch a local solver
 returned.
 
 The objectives that violate the monotonicity test, and the reformulations that fix them,
-are catalogued in [Objectives that imply loss maximization](loss_maximization.md).
+are cataloged in [Objectives that imply loss maximization](loss_maximization.md).
 
 ## 6. Practical recommendations by task
 

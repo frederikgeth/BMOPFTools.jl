@@ -86,7 +86,7 @@ does not silently change either threshold. A nearby alternative bus is an inspec
 lead, never an automatically selected replacement.
 
 Physical length, stored route length, recomputed route length and electrical
-modelling length may have different meanings. In particular, regularized electrical
+modeling length may have different meanings. In particular, regularized electrical
 length is not automatically evidence of physical distance. The length section below
 specifies which value participates in each comparison.
 
@@ -229,7 +229,7 @@ compares declared versus physical length. Each comparison reports `passed`,
 `failed`, `indeterminate`, or `inapplicable`; these are data-consistency statuses,
 not scientific preservation or feasibility claims. Unknown bus frames and
 missing measurements are indeterminate; explicitly unsupported bus frames or
-route bases are inapplicable. A separately labelled WGS84 route can be measured
+route bases are inapplicable. A separately labeled WGS84 route can be measured
 internally without establishing the coordinate frame of its buses.
 
 Each comparison uses `max(5 m, 10% of reference distance)`; the endpoint test is
@@ -264,7 +264,7 @@ Local Cartesian frames must be declared explicitly, for example:
 ```
 
 These frames use named bus `x`/`y` fields, with `m`, `km`, or international `ft`
-units (scales 1, 1000, and 0.3048 metres). Axis/unit declarations may also use
+units (scales 1, 1000, and 0.3048 meters). Axis/unit declarations may also use
 `coordinate_axis_order`/`coordinate_units` on the root or in `meta`; multiple
 declarations must agree. A Cartesian frame without units is indeterminate.
 Projected EPSG codes are unsupported; no projection or map-scale assumption is
@@ -303,11 +303,11 @@ witness_limit = 20
 The radius must be finite and positive; the candidate and witness limits must
 be positive integers. Invalid settings return `indeterminate` with
 `invalid_configuration`; disabling the pass returns `inapplicable`. The default
-one-metre radius is a review setting, not a survey-accuracy or electrical-rule
+one-meter radius is a review setting, not a survey-accuracy or electrical-rule
 threshold. Coordinate accuracy never expands it implicitly.
 
 A spatial hash indexes unique locations, avoiding all-pairs searches for sparse
-networks. Cartesian points are indexed in metres; WGS84 points are indexed on
+networks. Cartesian points are indexed in meters; WGS84 points are indexed on
 the sphere in three dimensions and then filtered by the same spherical
 geodesic used elsewhere in this report. This handles the antimeridian and
 poles without assuming a local projection. Equivalent positions at ±180° and
@@ -580,7 +580,7 @@ have eligible locations and whether the subject list is complete; a mapped item
 can still have partial bus-coordinate coverage. It never invents routed lines from bus chords or draws
 a line through the antimeridian. Explicit WGS84 route vertices/endpoints can be
 mapped even if bus frames are unknown. Local Cartesian geometry is kept in each
-item's `local_geometry`, with its frame and metre units, and omitted from GeoJSON
+item's `local_geometry`, with its frame and meter units, and omitted from GeoJSON
 along with unknown coordinates; the omission count is explicit. GeoJSON alone is
 not the complete review queue.
 

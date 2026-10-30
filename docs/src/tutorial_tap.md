@@ -1,7 +1,7 @@
-# [Transformer tap optimisation](@id tap-optimisation)
+# [Transformer tap optimization](@id tap-optimisation)
 
 *Choosing on-load tap-changer (OLTC) and regulator settings as a continuous decision
-variable — and why it is an optimisation, not a guess.*
+variable — and why it is an optimization, not a guess.*
 
 Most distribution transformers and every step-voltage regulator carry a **tap**: a
 small, switchable change to the turns ratio that trades primary against secondary
@@ -25,7 +25,7 @@ IBR droop — on a real LV feeder.
 ## The model
 
 A transformer tap is exposed with the same *implicit* free-variable pattern as
-generators and IBRs: **bounds make it optimisable**.
+generators and IBRs: **bounds make it optimizable**.
 
 - Ordinary transformers (`single_phase`, `center_tap`, `delta_wye`, `wye_delta`)
   take a dimensionless multiplier `tap` on the nominal from-side ratio
@@ -59,7 +59,7 @@ nothing # hide
 ## 1. A single-phase feeder that needs its tap
 
 An 11 kV / 240 V, 50 kVA single-phase transformer feeds a heavy 40 kW + 13 kVAr load.
-The source has a unit cost, so minimising it minimises imported power — i.e. losses.
+The source has a unit cost, so minimizing it minimizes imported power — i.e. losses.
 
 ```@example tap
 zbf = 11_000.0^2 / 50_000.0
@@ -102,7 +102,7 @@ println("fixed tap, [236,246] V band  → ", r_lim["termination_status"])
 nothing # hide
 ```
 
-Now free the tap over ``[0.9, 1.1]`` and re-solve. The optimiser lowers the tap (a
+Now free the tap over ``[0.9, 1.1]`` and re-solve. The optimizer lowers the tap (a
 lower from-side ratio raises the secondary), pulling the feeder back into band and
 **cutting losses** at the same time:
 
@@ -125,7 +125,7 @@ DER, reconductoring) is needed.
 ## 2. The tap is load-dependent: a tap schedule
 
 Because the right tap depends on loading, sweeping the load traces the tap an OLTC
-should follow — an *optimised tap schedule*:
+should follow — an *optimized tap schedule*:
 
 ```@example tap
 for mult in (0.4, 0.7, 1.0, 1.3)
@@ -138,9 +138,9 @@ for mult in (0.4, 0.7, 1.0, 1.3)
 end
 ```
 
-Loss minimisation holds the LV bus at the top of its band; the tap is lowered
+Loss minimization holds the LV bus at the top of its band; the tap is lowered
 further as load grows (a *deeper boost* — recall a lower multiplier raises the
-secondary) to keep it there. This tap-vs-load curve is the optimised schedule a
+secondary) to keep it there. This tap-vs-load curve is the optimized schedule a
 line-drop compensator approximates, here derived directly from the network optimum.
 
 ## 3. Continuous vs. a real discrete regulator
@@ -158,7 +158,7 @@ println("nearest step   = ", round(t_disc, digits=4), " (|V_lv| = ", vlv(rd), " 
 ```
 
 Rounding to the nearest physical step lands a few tenths of a volt off the continuous
-optimum — the small, quantifiable cost of discretisation. The continuous relaxation
+optimum — the small, quantifiable cost of discretization. The continuous relaxation
 is both the achievable bound and an excellent guide to the step to dial in.
 
 ## 4. Three-phase Dy
@@ -198,7 +198,7 @@ for t in ("1","2","3")
 end
 ```
 
-The load is balanced, so the optimiser boosts all three LV phases together into the
+The load is balanced, so the optimizer boosts all three LV phases together into the
 tight 236–240 V band with a single tap — the three-phase analogue of Section 2's
 rescue, with no per-phase code changes.
 
@@ -222,7 +222,7 @@ to *every* transformer:
 - **The single-phase (YY) tap admits an exact, degree-2 OLTC model.** Scaling the
   from-winding leakage by ``t^2`` and referring it to the to side gives a *constant*
   leakage and a voltage drop that is linear-in-current and quadratic-in-tap — and it
-  matches the OpenDSS turns-scaled `Yprim` at the optimised tap to the usual ~0.3 V
+  matches the OpenDSS turns-scaled `Yprim` at the optimized tap to the usual ~0.3 V
   validation floor.
 - **The split-phase (`center_tap`) tap also admits an exact, degree-2 model.** Its
   free tap reuses the same coupled-coil `Yprim` as the fixed model, but with the HV
@@ -240,17 +240,17 @@ to *every* transformer:
   for a free tap, and the same referral is used in the exported `Yprim` — so the
   two paths agree at every tap.
 
-The optimiser, the JSON schema and the result reporting are uniform across all the
+The optimizer, the JSON schema and the result reporting are uniform across all the
 covered subtypes, and the leakage referral is now exact for every two-bus subtype.
-What remains to generalise is free taps for the `n_winding` subtype, to-side taps,
+What remains to generalize is free taps for the `n_winding` subtype, to-side taps,
 and discrete steps.
 
 ## Validation
 
-Each case is checked against OpenDSS: the optimised continuous tap ``t^\star`` is set
+Each case is checked against OpenDSS: the optimized continuous tap ``t^\star`` is set
 on the corresponding OpenDSS transformer winding, the power flow is solved, and the
 bus voltages are compared to the OPF solution (see
-`test/powerflow_comparison_tests.jl`, *optimised tap vs OpenDSS*). Because the
+`test/powerflow_comparison_tests.jl`, *optimized tap vs OpenDSS*). Because the
 variable-tap model is the fixed-tap model with the ratio promoted to a variable,
 agreement at ``t^\star`` is the validation of the feature.
 

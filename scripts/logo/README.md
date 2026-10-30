@@ -2,7 +2,7 @@
 
 The mark shows a radial feeder, starting at a transformer, that descends
 through the contour lines of an objective along a solver path to the optimum.
-The node colours are Julia's four colours, standing for phases a, b and c
+The node colors are Julia's four colors, standing for phases a, b and c
 (red, green, purple) and the neutral (blue). The style (warm cream ground,
 dark-brown outlines, flat fills, Poppins) follows the
 [PowerIO](https://github.com/eigenergy/powerio) artwork.
@@ -17,8 +17,8 @@ the same without the font installed.
 | `bmopftools-social` | GitHub social preview (1280×640) |
 | `bmopftools-lockup`, `-dark` | Mark + wordmark + tagline, transparent background (also `@2x` PNG) |
 | `bmopftools-lockup-stacked`, `-dark` | Mark above wordmark, for square spaces (also `@2x` PNG) |
-| `bmopftools-mark`, `-dark` | Mark only, full colour, transparent background |
-| `bmopftools-mark-mono`, `-mono-reversed` | One-colour mark for print and single-colour use |
+| `bmopftools-mark`, `-dark` | Mark only, full color, transparent background |
+| `bmopftools-mark-mono`, `-mono-reversed` | One-color mark for print and single-color use |
 | `bmopftools-icon`, `-dark` | App-icon tile: avatars, slides, package registries |
 | `bmopftools-mark-small`, `-small-dark`, `bmopftools-icon-small` | Simplified geometry for 16–48 px; the favicon source |
 

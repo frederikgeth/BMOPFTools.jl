@@ -25,9 +25,9 @@ New Transformer.dx1 phases=1 windings=2
 ~ %imag=1.5
 
 ! ----------------------------------------------------------------------------
-! dx2 - split-phase centre-tapped N-0-N distribution transformer, 10 kVA,
-! 12.7 kV -> 240-0-240.  3-winding 1-phase; lv_2 nodes .1 / .4(centre) / .2,
-! centre-tap earthed (see Groundings.dss).  BMOPF subtype: center_tap.
+! dx2 - split-phase center-tapped N-0-N distribution transformer, 10 kVA,
+! 12.7 kV -> 240-0-240.  3-winding 1-phase; lv_2 nodes .1 / .4(center) / .2,
+! center-tap earthed (see Groundings.dss).  BMOPF subtype: center_tap.
 ! ----------------------------------------------------------------------------
 New Transformer.dx2 phases=1 windings=3
 ~ wdg=1 bus=swer_2.1.4 conn=wye kv=12.7  %r=0.6 kva=10

@@ -71,11 +71,11 @@ substations, sourced on 2026-09-25 at 06:18:53Z, 06:22:04Z, 06:22:31Z,
 06:22:59Z, 06:23:08Z, 06:23:12Z, 06:23:17Z, 06:23:21Z and 06:23:25Z from:
 https://agsplus.geodata.sa.gov.au/arcgis/rest/services/Infrastructure_Utilities/MapServer
 Data authority: SA Power Networks. No endorsement is implied.
-Dataset metadata declares CC BY attribution; no licence version is invented.
+Dataset metadata declares CC BY attribution; no license version is invented.
 
 Telemetry provenance: SA Power Networks, 2024–2025 Zone substation data:
 https://www.sapowernetworks.com.au/data/324688/2024-2025-zone-substation-data/
-The publisher's conditions remain applicable; telemetry is not relabelled CC BY.
+The publisher's conditions remain applicable; telemetry is not relabeled CC BY.
 https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/SAPN-TELEMETRY-TERMS.txt
 
 Address-proxy provenance: National Address Points, Geoscience Australia /
@@ -83,7 +83,7 @@ Digital Atlas of Australia, CC BY 4.0. Incorporates or developed using G-NAF
 Copyright Geoscape Australia licensed by the Commonwealth of Australia under
 the Open Geo-coded National Address File (G-NAF) End User Licence Agreement.
 Source: https://www.arcgis.com/home/item.html?id=41473f0c760842a38cb3bcf6a3f91935
-Original Norwood snapshot acquired 2026-09-25. Proxies are modelling inputs,
+Original Norwood snapshot acquired 2026-09-25. Proxies are modeling inputs,
 not verified mailing addresses. Preserve the publisher's mail-use restriction:
 https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/NATIONAL-ADDRESS-POINTS-TERMS.txt
 https://github.com/frederikgeth/BMOPFDraftData/blob/d5ec79b46512a59b56157836a1ceb8459a586d04/output/SAPN/license-sources/GNAF-End-User-Licence.pdf

@@ -105,7 +105,7 @@ end
 
 # Resolved Volt-var / Volt-watt droop curve, ready to stamp into the model.
 # `triples`/`eps` are in model voltage units (SI volts, or per-unit when the
-# model is solved per-unit); `ref` selects the per-phase normalisation base.
+# model is solved per-unit); `ref` selects the per-phase normalization base.
 struct DroopCurve{B,T,K}
     baseline::B
     triples::T
@@ -343,7 +343,7 @@ function _resolve_volt_watt(vw, Uscale::Float64, relu_eps::Float64;
                               Symbol(ref), quantity, averaged)
 end
 
-# Per-phase normalisation base for a resolved curve, in model units.
+# Per-phase normalization base for a resolved curve, in model units.
 function _droop_base(c::DroopCurve, idx::Int, smax, p_max, p_avail_per)
     c.ref === :VAR_MAX     && return idx <= length(smax)  ? smax[idx]  : 0.0
     c.ref === :S_MAX       && return idx <= length(smax)  ? smax[idx]  : 0.0

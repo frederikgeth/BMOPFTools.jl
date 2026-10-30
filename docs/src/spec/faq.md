@@ -1,4 +1,4 @@
-# Modelling notes and FAQ
+# [Modeling notes and FAQ](@id Modelling-notes-and-FAQ)
 
 Practical questions that recur when building cases, with answers sourced from the
 current implementation (some differ from older guidance where BMOPFTools has since added
@@ -17,7 +17,7 @@ are supported.)
 As one or more **single-phase** loads across the triplex terminals. For a 1 kW load
 across legs `1`–`2` of a triplex bus with `terminal_names` `["1","n","2"]`, define a
 `SINGLE_PHASE` load with `terminal_map` `["1","2"]` and `p_nom` `[1000.0]`. A
-two-terminal `SINGLE_PHASE` map is modelled across exactly those two terminals (here
+two-terminal `SINGLE_PHASE` map is modeled across exactly those two terminals (here
 line-to-line, 240 V), not phase-to-ground — see [Loads](load.md).
 
 ## I converted a wye load to delta with the standard transform and got a different answer. Why?

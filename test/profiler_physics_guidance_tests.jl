@@ -117,8 +117,8 @@ end
     wire = JSON3.read(JSON3.write(response), Dict{String,Any})
     record = only(filter(f -> f["code"] == "I.PROV.IMPEDANCE_TRANSFORM_KR", wire["result"]["findings"]))
     guide = record["detail"]["interpretation"] # documented JSON processing path
-    catalogue = explain_finding(record["code"])
-    @test catalogue["code"] == record["code"]
+    catalog = explain_finding(record["code"])
+    @test catalog["code"] == record["code"]
     @test guide["supporting_context"]["three_wire"]["n_lv_without_neutral_lines"] == 1
     @test guide["automation_guidance"]["disposition"] == "review"
     native = JSON3.read(JSON3.write(response))
@@ -235,7 +235,7 @@ end
 @testset "feeder unit directions and impedance declaration basis" begin
     base = _guidance_case("two_boundary_chain.json")
     original = deepcopy(base)
-    # Metres interpreted as kilometres, then converted to metres: too long.
+    # Meters interpreted as kilometers, then converted to meters: too long.
     long = deepcopy(base)
     for line in values(long["line"]); line["length"] *= 1000; end
     f = _guidance_reach(long, "I.OPS.FEEDER_LONG")
@@ -246,7 +246,7 @@ end
     for id in keys(base["line"])
         @test BMOPFTools._line_z_norm(long["line"][id], Dict()) == BMOPFTools._line_z_norm(base["line"][id], Dict())
     end
-    # Kilometre values copied into a metre field: too short.
+    # Kilometer values copied into a meter field: too short.
     short = deepcopy(base)
     for line in values(short["line"]); line["length"] /= 1000; end
     f = _guidance_reach(short, "I.OPS.FEEDER_SHORT")

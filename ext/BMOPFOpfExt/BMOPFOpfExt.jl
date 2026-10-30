@@ -178,7 +178,7 @@ function build_opf!(ctx::OpfContext; add_objective::Bool=true)
     # Source + all device constraints and their KCL contributions.
     BMOPFTools.add_opf_device_constraints!(ctx)
 
-    # Objective: minimise total generation cost.
+    # Objective: minimize total generation cost.
     add_objective && BMOPFTools.set_opf_objective!(ctx)
 end
 

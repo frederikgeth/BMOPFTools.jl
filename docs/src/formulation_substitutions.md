@@ -1,7 +1,7 @@
 # Exact substitutions and formulation boundaries
 
 An alternative encoding can remove an auxiliary variable or equation without
-introducing a modelling approximation **within its supported domain**. That
+introducing a modeling approximation **within its supported domain**. That
 is the useful meaning of “at no cost” here. It does not promise the same
 sparsity, conditioning, solve time, constraint multipliers, or derivative
 behavior at a singular boundary.

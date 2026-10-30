@@ -6,7 +6,7 @@ For the physical rationale behind these checks, read
 [`analyze`](@ref) runs fifteen passes over a network dict and returns a
 [`SummaryReport`](@ref) holding per-pass result dicts (`report.results`)
 and the combined finding log (`report.findings`). For time-series networks
-the snapshot at `t_index` is materialised first.
+the snapshot at `t_index` is materialized first.
 
 ## The passes
 
@@ -16,11 +16,11 @@ the snapshot at `t_index` is materialised first.
 | `:voltage_levels` | [`voltage_level_analysis`](@ref) | BFS voltage propagation from sources through transformer ratios; level clustering; transformer transitions; level-crossing violations |
 | `:connectivity` | [`connectivity_analysis`](@ref) | connected components, radial/meshed (physical branch count, parallel-aware), degree statistics, tree depth, dangling buses, galvanic-zone phase topology (split-phase / SWER tagging), voltage-tier and zone cycle-rank decomposition, parallel-line declarations, switch-state bus and mapped-conductor scenarios |
 | `:diversity` | [`diversity_analysis`](@ref) | parameter spread per category (CV, duplicate tuples), phase imbalance, symmetry score |
-| `:operational` | [`operational_analysis`](@ref) | total load/generation, transformer utilisation at nominal load (downstream BFS), line thermal-limit coverage |
+| `:operational` | [`operational_analysis`](@ref) | total load/generation, transformer utilization at nominal load (downstream BFS), line thermal-limit coverage |
 | `:load_models` | [`load_model_analysis`](@ref) | load model breakdown by type, voltage-dependent load count, exponential loads that are ZIP-equivalent (integer exponents), nonlinear loads on buses without a lower voltage bound |
 | `:provenance` | [`provenance_analysis`](@ref) | impedance classification (balance tiers, passivity, sign structure), wires per level / Kron likelihood, neutral grounding structure, earthing-system tags, OpenDSS default fingerprints, regulator patterns, the **convention statement** |
 | `:preflight` | [`infeasibility_preflight`](@ref) | generation adequacy, voltage-bound coverage, bound-pair conflicts (v/vpn/vpp/vpos, p, q), topological risk |
-| `:schema` | [`schema_check`](@ref) | fields present but not in the data model (catalogued, not rejected) |
+| `:schema` | [`schema_check`](@ref) | fields present but not in the data model (cataloged, not rejected) |
 | `:completeness` | [`completeness_check`](@ref) | required fields per component type, incl. transformer subtypes; optional-field coverage |
 | `:domain_rules` | [`domain_rules_check`](@ref) | numerical plausibility: bounds signs, power factors, costs, impedance diagonals, transformer step ratios, zero limits/lengths, angle units, load model coefficient validity |
 | `:redundancy` | [`redundancy_check`](@ref) | zero loads/shunts, mergeable series lines (junction-aware), unused/duplicate linecodes |
@@ -28,7 +28,7 @@ the snapshot at `t_index` is materialised first.
 | `:spec` | [`spec_conformance_check`](@ref) | TF-spec rules the JSON Schema cannot express: single source, configuration/arity, transformer map arities, terminal types, matrix storage |
 | `:benchmark` | [`benchmark_readiness_check`](@ref) | objective well-posedness, slack-only detection, bound/limit coverage, **augmentation suggestions** |
 
-Note on transformer utilisation: the downstream-load estimate excludes the
+Note on transformer utilization: the downstream-load estimate excludes the
 transformer under analysis. If its from side remains reachable from its to
 side, the figure is labeled `upper_bound` and does not raise
 `W.OPS.XFMR_OVERLOADED`; parallel siblings and other alternate paths defeat
@@ -147,7 +147,7 @@ semantics, suppression, candidate codes, illustrated examples and exports.
 
 ## The report
 
-[`render`](@ref) writes nine sections (terminal with ANSI colour, or
+[`render`](@ref) writes nine sections (terminal with ANSI color, or
 Markdown via a `.md` path / [`BMOPFTools.render_markdown`](@ref)):
 
 1. **Component inventory**
@@ -182,7 +182,7 @@ section, component type/id, a human message and an optional machine-readable
 - `INFO` — provenance/context worth knowing; not necessarily actionable.
 
 Filter with [`errors`](@ref) / [`warnings`](@ref) / [`infos`](@ref), and
-match on `f.code` — message text is not stable. The complete catalogue with
+match on `f.code` — message text is not stable. The complete catalog with
 triggers and rationale is in the [finding-code reference](findings.md).
 
 ## Transformer phase evidence
@@ -253,7 +253,7 @@ checking its equations, operating limits and recovered quantities.
 
 ### Geometry and topology review candidates
 
-See the [spatial candidate catalogue](spatial_diagnostics.md#Geometry-and-topology-review-candidates).
+See the [spatial candidate catalog](spatial_diagnostics.md#Geometry-and-topology-review-candidates).
 Candidate codes are advisory categories, distinct from registered Findings.
 
 ### Cleanup review workflow
@@ -285,7 +285,7 @@ report adds the main alternative and the first check; JSON and
 - `supporting_context`: case facts that strengthen or weaken the hint, e.g.
   which lines actually use a linecode and at what voltage.
 - `learn_more`: documentation pages (`page`, `section`, `url`) that explain the
-  underlying physics or modelling choice.
+  underlying physics or modeling choice.
 - `automation_guidance`: always `review`, with additional evidence required
   before changing the model. An AI assistant should investigate, not edit.
 
@@ -311,14 +311,14 @@ implications depend on which conductors and couplings the model retains:
 | negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | uniform self terms give approximately Z₀ = Z₁; unequal self terms can still couple sequence networks. Diagonal structure does not exclude prior reduction |
 | three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | prior neutral elimination (weak hint) | a zero-neutral-voltage model cannot predict neutral rise when inappropriate; total dissipation can remain represented, while separate neutral attribution needs recovery data |
 | uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral equivalent | exact under the single-grounded/no-earth-current assumptions; similar conductor resistances explain the pattern, while accuracy depends on earth-current assumptions |
-| uniform R and X (`…_MPN`) | modified phase-to-neutral equivalent | review PN earth-current assumptions and the additional reactance-symmetrisation approximation |
+| uniform R and X (`…_MPN`) | modified phase-to-neutral equivalent | review PN earth-current assumptions and the additional reactance-symmetrization approximation |
 
 `observations.by_linecode` records `n_conductors`, `phase_block_only` and the
 relative coupling to conductors outside the inspected block. An extra conductor
 can coexist with a sequence-built phase block: OpenDSS can materialize a coupled
 four-conductor matrix from sequence values, or a modeller can supply neutral
 parameters separately. Shape alone does not select transposition over sequence
-parameterisation. A balanced phase block can still have an explicit neutral
+parameterization. A balanced phase block can still have an explicit neutral
 that introduces phase-to-neutral unbalance.
 An extra conductor with negligible coupling to the phases is flagged as a
 possible placeholder or simplified neutral, with its coupling evidence retained.

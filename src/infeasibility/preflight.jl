@@ -201,7 +201,7 @@ function _check_source_bus_generators(net::Dict{String,Any},
     #     bus → degenerate split (primal non-uniqueness). Its role should instead be
     #     expressed as bounds/cost on the voltage source.
     #   • bounded → well-posed, but the generator's limits/cost may be intended as
-    #     the source's import limits/price; advise modelling them on the source.
+    #     the source's import limits/price; advise modeling them on the source.
     source_buses = Set{String}()
     for (_, vs) in get(net, "voltage_source", Dict())
         vs isa Dict || continue

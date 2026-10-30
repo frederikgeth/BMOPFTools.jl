@@ -7,9 +7,9 @@
 #             type errors, missing required fields, enum violations, and
 #             additional properties not defined in the spec.
 #
-#   Layer 2 — hand-rolled unknown-field catalogue (fallback when the spec
-#             version is unrecognised, and a cross-check for layer 1). Also
-#             catalogues fields that are present but not in the schema for
+#   Layer 2 — hand-rolled unknown-field catalog (fallback when the spec
+#             version is unrecognized, and a cross-check for layer 1). Also
+#             catalogs fields that are present but not in the schema for
 #             dataset-assessment reporting.
 
 using JSONSchema
@@ -109,7 +109,7 @@ end
 
 # ---------------------------------------------------------------------------
 # Known fields — fallback hand-rolled allowlist (layer 2).
-# Used when spec version is unrecognised, and to catalogue additional fields
+# Used when spec version is unrecognized, and to catalog additional fields
 # present in the data regardless of JSONSchema result.
 # ---------------------------------------------------------------------------
 
@@ -224,7 +224,7 @@ const _KNOWN_TRANSFORMER_FIELDS = Dict{String,Set{String}}(
                            "g_no_load", "b_no_load", "no_load_shunt"]),
     # General n-winding transformer: winding-indexed list + pairwise short-circuit
     # reactances. The per-id top-level keys only (nested winding/x_sc dicts are not
-    # walked by the unknown-field catalogue).
+    # walked by the unknown-field catalog).
     "n_winding"    => Set(["windings", "x_sc", "s_rating",
                            "g_no_load", "b_no_load", "no_load_shunt"])
 )
@@ -234,7 +234,7 @@ const _KNOWN_PATTERNS = Dict{String,Vector{Regex}}(
                    r"^G_from_\d+_\d+$",   r"^G_to_\d+_\d+$",
                    r"^B_from_\d+_\d+$",   r"^B_to_\d+_\d+$"],
     # inline ABSOLUTE matrices (Ω, S) — units by location: linecode = per
-    # metre, line = total for the section
+    # meter, line = total for the section
     "line"     => [r"^R_series_\d+_\d+$", r"^X_series_\d+_\d+$",
                    r"^G_from_\d+_\d+$",   r"^G_to_\d+_\d+$",
                    r"^B_from_\d+_\d+$",   r"^B_to_\d+_\d+$"],
@@ -243,7 +243,7 @@ const _KNOWN_PATTERNS = Dict{String,Vector{Regex}}(
 
 const _TOLERATED_KEYS = Set(["_meta", "_pmd", "time_series"])
 
-function _catalogue_unknown_fields(net::Dict{String,Any},
+function _catalog_unknown_fields(net::Dict{String,Any},
                                     findings::Vector{Finding})::Dict{String,Any}
     unknown_by_type = Dict{String,Dict{String,Int}}()
 
@@ -318,12 +318,12 @@ required fields, enum violations (`configuration` must be `"WYE"`, `"DELTA"`,
 or `"SINGLE_PHASE"`), and `nonnegative_number` range constraints. Errors are
 reported as `ERROR` findings; additional (unknown) properties as `INFO`.
 
-**Layer 2** — hand-rolled unknown-field catalogue. Always runs; produces the
+**Layer 2** — hand-rolled unknown-field catalog. Always runs; produces the
 `unknown_fields_by_type` result dict used by the dataset-assessment report
 section regardless of whether layer 1 ran.
 
 Layer 1 is skipped (with an `INFO` finding) when the spec version in
-`meta.\$schema` is not recognised — the hand-rolled catalogue still runs as
+`meta.\$schema` is not recognized — the hand-rolled catalog still runs as
 a fallback.
 
 Both layers exclude the derived bus `neutral_terminal` and the known
@@ -335,7 +335,7 @@ function schema_check(net::Dict{String,Any},
                       findings::Vector{Finding})::Dict{String,Any}
     result = Dict{String,Any}()
 
-    # Drop tool-derived, non-spec bus fields (e.g. the materialised
+    # Drop tool-derived, non-spec bus fields (e.g. the materialized
     # `neutral_terminal`, re-derivable from `terminal_conventions`) before both
     # validation layers. Coordinates are preserved by default on write, but
     # remain known extensions rather than core schema fields.
@@ -354,7 +354,7 @@ function schema_check(net::Dict{String,Any},
         push!(findings, Finding(INFO, "I.SCHEMA.VERSION_UNKNOWN", :schema,
             :network, nothing,
             "Spec version '$version' has no bundled JSON Schema; " *
-            "structural validation skipped. Unknown-field catalogue still runs.",
+            "structural validation skipped. Unknown-field catalog still runs.",
             nothing))
         result["jsonschema_ran"] = false
     else
@@ -370,8 +370,8 @@ function schema_check(net::Dict{String,Any},
         result["spec_version"]     = string(version)
     end
 
-    # ── Layer 2: unknown-field catalogue ─────────────────────────────────────
-    unknown_by_type = _catalogue_unknown_fields(net, findings)
+    # ── Layer 2: unknown-field catalog ─────────────────────────────────────
+    unknown_by_type = _catalog_unknown_fields(net, findings)
     result["unknown_fields_by_type"]          = unknown_by_type
     result["n_component_types_with_unknown"]  = length(unknown_by_type)
 
@@ -419,7 +419,7 @@ function _check_meta(meta::Dict, findings::Vector{Finding})
         if v isa String && !occursin(_ISO8601_RE, v)
             push!(findings, Finding(WARNING, "W.SCHEMA.META_DATE_FORMAT", :schema,
                 :network, nothing,
-                "meta.$field is not a recognised ISO 8601 datetime: \"$v\"."))
+                "meta.$field is not a recognized ISO 8601 datetime: \"$v\"."))
         end
     end
 

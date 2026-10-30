@@ -455,14 +455,14 @@ function _check_voltage_source_sequence(net::Dict{String,Any},
              "Voltage source '$sid' has a zero-sequence angle profile " *
              "(v_angle ≈ $(deg)°): all phases share one angle — not a valid " *
              "positive-sequence supply. Fix the source angles and use positive-" *
-             "sequence initialisation + va_diff/sequence bounds, or expect " *
+             "sequence initialization + va_diff/sequence bounds, or expect " *
              "convergence failure (cf. PSCC-2026 Table VI).")
         elseif arr === :negative
             ("W.PROV.SOURCE_NEGATIVE_SEQUENCE",
              "Voltage source '$sid' has a negative-sequence angle profile " *
              "(v_angle ≈ $(deg)°): rotation is reversed vs the a→b→c phase " *
-             "labels — likely a phase-labelling error. Verify the source, and " *
-             "match voltage initialisation to the intended rotation.")
+             "labels — likely a phase-labeling error. Verify the source, and " *
+             "match voltage initialization to the intended rotation.")
         elseif arr === :incoherent
             ("W.PROV.SOURCE_INCOHERENT_ROTATION",
              "Voltage source '$sid' has an incoherent angle profile " *
@@ -751,7 +751,7 @@ const _SWITCH_LIKE_Z_TOTAL  = Float64(_switch_like_cfg()["z_total"])   # Ω
 Flag lines whose series impedance is so small they are functionally switches.
 Two independent conditions are checked for each line that references a linecode:
 
-1. **Per-unit-length** — every diagonal entry of R and X (per metre) is below
+1. **Per-unit-length** — every diagonal entry of R and X (per meter) is below
    `$_SWITCH_LIKE_Z_PER_M` Ω/m. Catches very low-impedance linecodes regardless
    of line length.
 2. **Effective total** — every diagonal entry of R·length and X·length is below
@@ -770,7 +770,7 @@ function _check_switch_like_lines(net::Dict{String,Any},
 
         if _line_has_inline_z(line)
             # inline ABSOLUTE matrices [Ω]: only the total-impedance condition
-            # applies (there is no per-metre representation to test)
+            # applies (there is no per-meter representation to test)
             R = _pattern_keys_to_matrix(line, "R_series_")
             X = _pattern_keys_to_matrix(line, "X_series_")
             (R isa AbstractMatrix) || continue
@@ -825,7 +825,7 @@ function _check_switch_like_lines(net::Dict{String,Any},
         lcid = get(get(lines, lid, Dict()), "linecode", nothing)
         push!(findings, Finding(INFO, "I.PROV.LINE_SWITCH_LIKE", :provenance,
             :line, lid,
-            "Line '$lid' has near-zero series impedance and may be modelled " *
+            "Line '$lid' has near-zero series impedance and may be modeled " *
             "more accurately as a switch: $(join(reasons, "; ")).",
             Dict{String,Any}("linecode" => lcid, "reasons" => reasons)))
     end

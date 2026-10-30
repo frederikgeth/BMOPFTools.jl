@@ -1,13 +1,13 @@
 # References and further reading
 
-This specification stands on a large body of work in distribution-system modelling and
+This specification stands on a large body of work in distribution-system modeling and
 optimal power flow. The lists below point to the textbooks that develop the underlying
 physics and the papers this model builds on directly. This is a *reference* page — it
 introduces no model content.
 
 ## Textbooks
 
-Distribution-system modelling (component models, Carson/Kron impedance, unbalanced
+Distribution-system modeling (component models, Carson/Kron impedance, unbalanced
 analysis):
 
 - **W. H. Kersting**, *Distribution System Modeling and Analysis*, CRC Press (4th ed.,
@@ -19,7 +19,7 @@ analysis):
   practical, equipment-oriented companion covering feeders, grounding, and protection.
 - **R. C. Dugan, M. F. McGranaghan, S. Santoso, H. W. Beaty**, *Electrical Power Systems
   Quality*, McGraw-Hill (3rd ed., 2012). Background on unbalance, harmonics, and the
-  power-quality phenomena that motivate conductor-level modelling. See also OpenDSS
+  power-quality phenomena that motivate conductor-level modeling. See also OpenDSS
   (Dugan/EPRI), the reference implementation this spec is validated against.
 
 Optimal power flow and its mathematics:
@@ -51,7 +51,7 @@ where Steven Low's book covers the mathematics underneath:
   unbalanced optimal power flow," *IET Generation, Transmission & Distribution*
   **14**(24):5961–5969, 2020,
   [doi:10.1049/iet-gtd.2020.0776](https://doi.org/10.1049/iet-gtd.2020.0776) — a useful
-  reference for conceptualising the
+  reference for conceptualizing the
   [transformer loss model](transformer.md#The-loss-equivalent-circuit).
 
 ## Foundational papers for this model
@@ -72,7 +72,7 @@ models:
   benchmarks," *Electric Power Systems Research*, 2024. The benchmarking philosophy
   behind this Task Force effort.
 - **R. Heidari, F. Geth**, "Improved algebraic inverter modeling for four-wire power
-  flow optimization," *Electric Power Systems Research*, 2024. The inverter modelling
+  flow optimization," *Electric Power Systems Research*, 2024. The inverter modeling
   behind the [IBR](ibr.md) page (including the shared-DC-link STATCOM coupling).
 - **R. C. Dugan**, "A perspective on transformer modeling for distribution system
   analysis," *IEEE PES General Meeting*, 2003. Background for the

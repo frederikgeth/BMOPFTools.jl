@@ -164,7 +164,7 @@ isolated terminal a nonzero row, so isolation alone does not imply a singular
 closed path to a source as `open_switch_isolated_buses`.
 
 Transformer borders replace only the **series** contribution. Finite
-magnetising and internal neutral-grounding branches remain in the passive block,
+magnetizing and internal neutral-grounding branches remain in the passive block,
 stamped exactly once. This preserves the represented grounding branch; it does
 not establish grounding adequacy or equipment safety.
 
@@ -309,7 +309,7 @@ the impedance block is `[zH+zL zH; zH zH+zL]`. This preserves the opposite
 polarity of leg2 and every finite arm, including when another arm is zero.
 No arm is inverted. Fully ideal units have two independent zero-voltage-drop
 relations; partly ideal units generally have a nonzero lower-right block.
-Magnetising current remains on LV leg1 and both internal neutral grounding
+Magnetizing current remains on LV leg1 and both internal neutral grounding
 branches remain in the passive block.
 
 `couplings[j]` describes auxiliary unknown `w[j]` at row/column

@@ -134,7 +134,7 @@ function _add_dc_variables!(model, net)
                      :idc_src => idc_src, :pdc_src => pdc_src)
 end
 
-# Initialise per-(dc_bus, terminal) DC KCL accumulators (every terminal, including
+# Initialize per-(dc_bus, terminal) DC KCL accumulators (every terminal, including
 # grounded), mirroring `_init_kcl`.
 function _init_dc_kcl(net)
     kcl = Dict{Tuple{String,String}, JuMP.AffExpr}()

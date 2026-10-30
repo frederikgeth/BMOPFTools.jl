@@ -2,7 +2,7 @@
 #
 # ── Lines (nominal Π model) ───────────────────────────────────────────────────
 #
-# Each line is modelled as a nominal Π equivalent:
+# Each line is modeled as a nominal Π equivalent:
 #
 #   from-bus ─┬─[Y_sh_fr/2]─ ─ ─[Z_series]─ ─ ─[Y_sh_to/2]─┬─ to-bus
 #             └──(to ground)                   (to ground)──┘
@@ -74,7 +74,7 @@ For each line this adds:
 `cr_to`/`ci_to` are `AffExpr` aliases (`−cr_fr`) — no equality constraints needed.
 
 Impedance comes from the line's single source: the referenced linecode
-(per-metre matrices × `length`) or inline absolute matrices on the line
+(per-meter matrices × `length`) or inline absolute matrices on the line
 (Ω/S, used as-is). Shunt conductance (`G_from`, `G_to`) and susceptance
 (`B_from`, `B_to`) follow the same rule. Missing or all-zero shunt fields
 are a no-op. `coefficient`, when supplied, resolves each existing `R_series`

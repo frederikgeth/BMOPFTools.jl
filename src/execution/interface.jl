@@ -297,7 +297,7 @@ end
     execute_finding_explanation(code) -> Dict{String,Any}
 
 Look up one stable BMOPFTools Finding code through the versioned JSON execution
-interface. This is a deterministic catalogue lookup over [`explain_finding`](@ref),
+interface. This is a deterministic catalog lookup over [`explain_finding`](@ref),
 not case analysis, scientific retrieval, diagnosis, or automatic remediation.
 """
 function execute_finding_explanation(code::AbstractString)::Dict{String,Any}

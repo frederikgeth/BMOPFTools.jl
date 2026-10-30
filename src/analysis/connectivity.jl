@@ -234,7 +234,7 @@ function connectivity_analysis(net::Dict{String,Any},
                 :network, nothing,
                 "Galvanic zone anchored at bus '$(z.label)' is split-phase " *
                 "(fed by center_tap transformer '$(ct_id)'): legs $(sort(collect(z.phases))) " *
-                "are anti-phase about the centre-tap neutral.",
+                "are anti-phase about the center-tap neutral.",
                 Dict{String,Any}("zone_anchor" => z.label, "center_tap" => ct_id,
                                  "phases" => sort(collect(z.phases)))))
         elseif z.topology == :swer
@@ -656,7 +656,7 @@ Returns one entry per zone: `(buses, label, phases, topology, feed)` where
 `topology` is one of:
 
 - `:split_phase` — a `center_tap` transformer's `bus_to` lies in the zone
-  (the modelled cause of split-phase service; NA 120-0-120, AU 230-0-230);
+  (the modeled cause of split-phase service; NA 120-0-120, AU 230-0-230);
 - `:swer` — the zone is single-wire (one distinct phase conductor across all its
   buses) **and** transformer-isolated (contains no voltage-source bus), the
   Single-Wire-Earth-Return signature;

@@ -77,7 +77,7 @@ Base.@kwdef struct AugmentationRecipe
     # (va_nom = [0,π]) buses only. Off by default (stricter, init-sensitive).
     va_diff_window_rad :: Float64 = 0.5236   # ≈ 30°
 
-    # ── Solver regularisation: phase-to-ground envelope ──────────────────────
+    # ── Solver regularization: phase-to-ground envelope ──────────────────────
     # This is a hyperparameter, not a power-quality guarantee.  It widens the
     # feasible set so the solver has room to find a feasible point even at the
     # edge of the power-quality window.  Applied to ALL buses that lack v_min/

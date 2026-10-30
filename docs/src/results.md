@@ -17,7 +17,7 @@ result["line"]["l1"]["1"]["cr_fr"]  # real part of current at from-terminal "1" 
 result["generator"]["g1"]["1"]["pg"]  # active power on phase "1" (W)
 ```
 
-Because the result is a plain dict, it serialises straight to JSON.
+Because the result is a plain dict, it serializes straight to JSON.
 [`write_result`](@ref) writes it to a file or `IO`, and [`read_result`](@ref)
 reads it back to an identical dict:
 
@@ -326,13 +326,13 @@ Alongside the `"fr"`/`"to"` winding keys, the transformer dict carries a
 `"loss"` entry (see [`losses`](@ref results-losses)).
 
 When the transformer's tap is a **free decision variable** (see
-[continuous tap optimisation](opf.md)), the solved tap is also reported:
+[continuous tap optimization](opf.md)), the solved tap is also reported:
 
 | Field | Unit | Description |
 |---|---|---|
-| `tap` | — | Optimised dimensionless tap multiplier (`single_phase`, `delta_wye`, `wye_delta`) |
-| `tap_ratio` | — | Optimised regulation ratio — scalar (`single_phase_autotransformer`) or `[a₁, a₂]` (`open_delta_regulator`) |
-| `tap_binding` | — | `true` when the optimised tap sits at a `tap_min`/`tap_max` bound (regulation range exhausted); per-regulator vector for `open_delta_regulator` |
+| `tap` | — | Optimized dimensionless tap multiplier (`single_phase`, `delta_wye`, `wye_delta`) |
+| `tap_ratio` | — | Optimized regulation ratio — scalar (`single_phase_autotransformer`) or `[a₁, a₂]` (`open_delta_regulator`) |
+| `tap_binding` | — | `true` when the optimized tap sits at a `tap_min`/`tap_max` bound (regulation range exhausted); per-regulator vector for `open_delta_regulator` |
 
 These keys are present **only** when the tap was free (`tap_min < tap_max`); a
 fixed-tap transformer reports neither.
@@ -365,7 +365,7 @@ result["transformer"][xfmr_id]["loss"]  => Dict
 | Field | Unit | Description |
 |---|---|---|
 | `p_loss` | W | Active power dissipated by this element (≥ 0; a negative value is non-physical and is flagged by `W.SOL.NEG_LOSS`) |
-| `q_loss` | var | Net reactive absorption (negative = element is net-capacitive, e.g. line charging or transformer magnetising) |
+| `q_loss` | var | Net reactive absorption (negative = element is net-capacitive, e.g. line charging or transformer magnetizing) |
 | `s_through` | VA | Throughput scale `Σ|V_t||I_t|` over the element's terminals, used to size numerical tolerances (`p_loss` is a difference of large near-equal terminal powers, so its cancellation noise scales with this) |
 
 Switches are ideal (lossless) and carry no `"loss"` entry. The per-element
@@ -427,13 +427,13 @@ warnings when the start values differ substantially from the solved values:
 - `W.SOL.INIT_LEVEL_MISMATCH` — a terminal where `vm_init / vm_solved` is
   outside [0.1, 10]. The most common cause is applying the source voltage
   magnitude to buses on a different voltage level (e.g. a 6.35 kV source
-  voltage applied to a 230 V LV bus via flat initialisation). The solver may
+  voltage applied to a 230 V LV bus via flat initialization). The solver may
   still converge but the path is longer and local-minimum risk is higher.
 - `W.SOL.INIT_LARGE_ERROR` — a phase terminal where the init error exceeds
   20 % of the solved voltage magnitude. The start was a poor approximation.
 - `I.SOL.INIT_NEUTRAL_NONZERO` — a neutral terminal with `vm_init > 0`.
   Neutral start values should be zero; a non-zero value indicates an
-  initialisation inconsistency.
+  initialization inconsistency.
 
 To compare start and solved voltages manually:
 

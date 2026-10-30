@@ -111,7 +111,7 @@ loading_percent = I_solved / imax * 100
 **Check 5 — losses and the objective.** The line dissipates `I²R`; that must
 equal the reported network loss. And the objective is **zero** — not a bug:
 there is no *costed* generator, so this is a pure feasibility problem (a power
-flow written as an OPF), and its objective has nothing to minimise.
+flow written as an OPF), and its objective has nothing to minimize.
 
 ```@example trustverify
 (loss_hand = I_solved^2 * R,
@@ -195,7 +195,7 @@ acceptance tolerance. The verdict does **not** guarantee that:
 - the point is **operationally sensible** — a 38 %-loss or a collapsed-voltage
   solution can be a perfectly valid KKT point;
 - the **model is the one you meant** — the solver validates the equations you
-  wrote, not your modelling assumptions. That gap is the subject of
+  wrote, not your modeling assumptions. That gap is the subject of
   [From nameplate data to a defensible model](tutorial_nameplate.md).
 
 !!! tip "The habit"

@@ -1,10 +1,10 @@
 # Generators
 
 A **generator** injects a *dispatchable* power at a bus — active and reactive power
-lie within bounds rather than being fixed (a fixed injection is modelled as a negative
+lie within bounds rather than being fixed (a fixed injection is modeled as a negative
 load). It shares the load's bilinear power form and connection configurations. Parts
 1–5 state the foundational model; [part 6](#6.-Implementation-in-BMOPFTools) records
-how BMOPFTools realises it. Symbols are defined in [Notation](notation.md).
+how BMOPFTools realizes it. Symbols are defined in [Notation](notation.md).
 
 ## 1. Data model
 
@@ -86,7 +86,7 @@ is additionally bounded by that entry.
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **Rectangular bilinear power.** The code stamps
   $P = \Delta v^r\,\text{crg} + \Delta v^i\,\text{cig}$,

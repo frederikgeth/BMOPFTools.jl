@@ -1,14 +1,14 @@
 # Objective and feasibility
 
 The component pages define the network's variables and constraints — the *feasible
-set*. This page defines what is optimised over it: the **objective**, and the
+set*. This page defines what is optimized over it: the **objective**, and the
 **feasibility relaxation** used to diagnose networks that have no feasible point.
 Unlike the component pages this is a *formulation* page, not a data object. Symbols are
 defined in [Notation](notation.md).
 
 ## Objective
 
-The default snapshot objective minimises total **active-power dispatch cost
+The default snapshot objective minimizes total **active-power dispatch cost
 rate**, summed over every dispatchable element (generators, the voltage source,
 IBRs) and every phase:
 
@@ -29,12 +29,12 @@ hours before summing.
 $P_{e,k}$ is the power **injected into the network** by the element, uniformly across
 generators, IBRs, and the voltage source (each stamps $+I$ into KCL). Therefore:
 
-- a **positive** cost minimises that element's injection;
-- a **negative** cost maximises it.
+- a **positive** cost minimizes that element's injection;
+- a **negative** cost maximizes it.
 
 The voltage source is *not* special: for the slack, positive injection means importing
 from the grid, so a positive source cost is the grid import price (and export, a
-negative injection, is credited at the same price). Maximising system exports is a
+negative injection, is credited at the same price). Maximizing system exports is a
 positive slack cost with free DERs.
 
 The cost is **linear** in the dispatch and is added exactly — there is no
@@ -44,7 +44,7 @@ polynomial/quadratic term. A `cost` must be a per-phase vector; a scalar is reje
 
 A constant-power OPF can be **infeasible**: the load/generation specification may be
 irreconcilable with the network physics. To diagnose such cases, a
-feasibility-relaxed variant adds an **elastic slack current** and minimises it, instead
+feasibility-relaxed variant adds an **elastic slack current** and minimizes it, instead
 of cost.
 
 ### Elastic slack

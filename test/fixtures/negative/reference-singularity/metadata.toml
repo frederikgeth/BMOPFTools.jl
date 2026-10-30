@@ -13,6 +13,6 @@ expected_file = "expected.json"
 reproducer = "reproduce.jl"
 expected_finding_codes = ["E.CONTRACT.REFERENCE_LOSS", "E.CONTRACT.SINGULARITY_CHANGE"]
 does_not_establish = [
-  "Every rank deficiency is a modelling error; intentional gauge freedoms need their own declaration.",
+  "Every rank deficiency is a modeling error; intentional gauge freedoms need their own declaration.",
   "The declaration check replaces equation-level Ybus or solver-rank validation."
 ]

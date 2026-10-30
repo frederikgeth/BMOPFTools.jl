@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -12,8 +12,8 @@ impedance-grounded, and solidly-grounded neutrals — then the mathematics:
 null spaces, the Kron-reduction assumption, and what the Fortescue transform
 does and does not buy you.*
 
-Distribution modelling uses one word — *ground* — for three different
-objects, and most four-wire modelling errors trace back to conflating them.
+Distribution modeling uses one word — *ground* — for three different
+objects, and most four-wire modeling errors trace back to conflating them.
 The [terminals primer](terminals_primer.md) makes the conceptual case for
 explicit neutrals; the [grounding spec](spec/grounding.md) defines the data
 model. This tutorial supplies the missing chain between them: the same feeder
@@ -32,7 +32,7 @@ assumption). Every block runs at build time.
 
 ## 1. Three things called "ground"
 
-- **The ground reference** is a modelling convention: the single 0 V "copper
+- **The ground reference** is a modeling convention: the single 0 V "copper
   plate" all node voltages are measured against. It is *not* a matrix row,
   not a conductor, and nothing flows "through" it
   ([grounding spec](spec/grounding.md)).
@@ -151,7 +151,7 @@ Three lessons, one table:
   earth — the neutral conductor's fraction of an ohm is a far lower-impedance
   return than any single rod. One electrode is *bonding*, not a return path;
   this is why multi-grounded systems need *many* electrodes before the
-  "grounded" idealisation is honest.
+  "grounded" idealization is honest.
 - **Perfect grounding is not a small step from a good electrode — it is a
   different circuit.** NEV is zero *by construction*, the customer gains
   3.4 V, and — look at the last column — the neutral conductor now carries
@@ -264,7 +264,7 @@ potential inside [`compile_linecode`](@ref), recorded in the linecode's
 ## 6. Earth as the return conductor: SWER
 
 Push §3 to its limit: remove the neutral conductor entirely and let the earth
-*be* the return path — Single-Wire Earth-Return, thousands of kilometres of
+*be* the return path — Single-Wire Earth-Return, thousands of kilometers of
 which electrify rural Australia. In the data model this needs nothing new:
 one phase conductor per span, and the grounding machinery of §2 carrying the
 full load current at every electrode. The earth-return impedance itself lives
@@ -280,10 +280,10 @@ for f in report.findings
 end
 ```
 
-[`analyze`](@ref) recognises the pattern (single-wire, transformer-isolated
+[`analyze`](@ref) recognizes the pattern (single-wire, transformer-isolated
 galvanic zones) and labels it as provenance, not as an error — earthing as a
 *design choice*. The [SWER case study](tutorial_swer.md) takes this feeder on
-to the optimisation question; here the point is conceptual: SWER is not an
+to the optimization question; here the point is conceptual: SWER is not an
 exotic special case bolted onto the model, it is §1's three objects — a
 reference, (no) neutral conductor, and electrodes — in their most honest
 configuration, where getting the earth path wrong is not a 3 V subtlety but
@@ -345,7 +345,7 @@ link, don't duplicate.
   zero-impedance return path (§3). Defensible for substation earthing mats
   and dense multi-grounded systems; not for a rod at the end of a feeder —
   model that as a `shunt` and let the solver tell you what it carries.
-- **A floating neutral is not an error** — it is a modelling statement that
+- **A floating neutral is not an error** — it is a modeling statement that
   the only return is metallic. Expect NEV, bound it with `vn_max`, and expect
   [`ybus_passive`](@ref) to show the corresponding null mode if nothing ties
   the group to earth (§4).
@@ -361,15 +361,15 @@ link, don't duplicate.
 
 !!! tip "Where to go next"
     The [grounding spec](spec/grounding.md) and
-    [terminals primer](terminals_primer.md) formalise §§1–2; the
-    [SWER case study](tutorial_swer.md) turns §6 into an optimisation
+    [terminals primer](terminals_primer.md) formalize §§1–2; the
+    [SWER case study](tutorial_swer.md) turns §6 into an optimization
     problem; the [line-geometry tutorial](tutorial_line_geometry.md) shows
     where Carson's earth-return correction enters the impedance data; and the
     [impedance-models tutorial](tutorial_impedance_models.md) continues §7
     into OPF consequences.
 
 The profiler helps identify assumptions worth checking: exact balance suggests
-sequence parameterisation or a symmetry assumption; an LV model without a
+sequence parameterization or a symmetry assumption; an LV model without a
 represented neutral suggests reviewing prior neutral elimination, including
 Kron reduction. Physical symmetry and genuine three-wire construction are
 legitimate alternatives. Use the hints to guide investigation of the original

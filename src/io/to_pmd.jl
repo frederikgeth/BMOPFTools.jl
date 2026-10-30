@@ -441,10 +441,10 @@ function _transformer_to_pmd(xfmr::Dict{String,Any}, subtype::String,
         G = has_g ? Float64(xfmr["g_no_load"]) : 0.0
         B = has_b ? Float64(xfmr["b_no_load"]) : 0.0
         pmd["noloadloss"] = G / y_base
-        # cmag is the magnetising susceptance only — matching from_dss's
+        # cmag is the magnetizing susceptance only — matching from_dss's
         # recovery convention (g_no_load ← noloadloss, b_no_load ← cmag).
         # Including G here (the old sqrt(G²+B²)) double-counted the core loss
-        # as magnetising current after a DSS round trip, where B is 0.
+        # as magnetizing current after a DSS round trip, where B is 0.
         pmd["cmag"]       = abs(B) / y_base
     elseif has_g || has_b
         @warn "Transformer: cannot convert g_no_load/b_no_load to PMD — " *

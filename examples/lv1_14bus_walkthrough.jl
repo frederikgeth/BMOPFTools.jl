@@ -135,7 +135,7 @@ glr = ops["generation_load_ratio"]
 println("Gen / load ratio : ", isnothing(glr) ? "0 %" : "$glr %")
 
 println()
-println("Transformer utilisation:")
+println("Transformer utilization:")
 for util in ops["transformer_utilisation"]
     println("  $(util["id"])  :  ",
             round(util["utilisation_pct"], digits=1), " %  of  ",

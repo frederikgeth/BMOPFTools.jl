@@ -31,7 +31,7 @@ operation, 2 for an invalid request, and 1 for an input or execution failure. A
 completed contract may itself report passed, failed, inapplicable, or
 indeterminate status. A completed analysis or verification may contain ERROR
 Findings without turning the operation status into an error. Finding
-explanation is a deterministic offline catalogue lookup, not diagnosis. A
+explanation is a deterministic offline catalog lookup, not diagnosis. A
 completed parse means only that supported ingest and normalization ran; it is
 not schema validation or analysis.
 """

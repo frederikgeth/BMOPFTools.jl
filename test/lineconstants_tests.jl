@@ -106,7 +106,7 @@ _lc_z_permile(lc) = (BMOPFTools._pattern_keys_to_matrix(lc, "R_series_") .+
         Bto   = BMOPFTools._pattern_keys_to_matrix(lc, "B_to_")
         @test Bfrom ≈ Bto
         omega = 2pi * 60.0
-        C4 = (Bfrom .+ Bto) ./ omega                # total per-metre C
+        C4 = (Bfrom .+ Bto) ./ omega                # total per-meter C
         P4 = inv(C4)
         C3 = inv(BMOPFTools._kron_reduce_potential(P4, [1, 2, 3]))
         B3 = omega .* C3 .* _MILE .* 1e6            # μS/mile
@@ -631,7 +631,7 @@ if @isdefined(_HAS_ODS) && _HAS_ODS
              C = Matrix{Float64}(OpenDSSDirect.Lines.CMatrix()))
         end
 
-        # Compile a hand-built geometry and return its per-metre matrices; C in
+        # Compile a hand-built geometry and return its per-meter matrices; C in
         # nF/m to match OpenDSS (C_total = 2·B_from/ω, ×1e9).
         function _bmopf_matrices(net, gid, f)
             compile_linecode(net, gid)

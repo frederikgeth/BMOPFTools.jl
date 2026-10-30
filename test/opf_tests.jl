@@ -231,7 +231,7 @@ end
     # ─────────────────────────────────────────────────────────────────────────
     # T4: Cost-optimal dispatch — negative unit cost drives output to p_max
     #
-    # cost = −1 $/kWh → minimising the objective maximises Pg → each phase
+    # cost = −1 $/kWh → minimizing the objective maximizes Pg → each phase
     # should hit its p_max bound.  A near-zero-impedance line ensures the
     # voltage constraint does not interfere.
     # ─────────────────────────────────────────────────────────────────────────
@@ -276,12 +276,12 @@ end
     #
     # The `cost` field is `$/kWh of active energy INJECTED into the network`, with the
     # SAME sign convention for generators and the voltage source (both stamp +I
-    # into KCL; both report power as +injection). So a POSITIVE cost minimises that
+    # into KCL; both report power as +injection). So a POSITIVE cost minimizes that
     # element's injection in both cases:
     #   • costly generator  → generates as little as possible (pg → p_min);
     #   • costly source     → imports as little as possible, i.e. exports (ps → −).
     # This locks the convention so source costs are never silently flipped vs
-    # generator/IBR costs. (To maximise exports: positive slack cost = import price.)
+    # generator/IBR costs. (To maximize exports: positive slack cost = import price.)
     # ─────────────────────────────────────────────────────────────────────────
     @testset "T4b: uniform cost convention (source ≡ generator)" begin
         P_load = 100_000.0;  P_max = 150_000.0
@@ -305,14 +305,14 @@ end
              "q_min":[0.0],"q_max":[0.0],"cost":[$c_gen]}}}
         """; from_string=true)
 
-        # Case A: source free, generator costly → costly generator minimises its
+        # Case A: source free, generator costly → costly generator minimizes its
         # injection (pg → 0); the source supplies the load (ps > 0).
         resA = solve_opf(mknet(1.0, 0.0))
         @test resA["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
         @test resA["generator"]["gen1"]["1"]["pg"] ≈ 0.0   atol=1.0
         @test resA["voltage_source"]["vs"]["1"]["ps"] > P_load - 1.0   # source imports
 
-        # Case B: generator free, source costly → costly source minimises its
+        # Case B: generator free, source costly → costly source minimizes its
         # injection, driving it NEGATIVE (export), while the generator maxes out.
         # Same positive-cost-→-less-injection rule as the generator in Case A.
         resB = solve_opf(mknet(0.0, 1.0))
@@ -549,7 +549,7 @@ end
     #
     # Balanced 3-phase source at V_s=1000 V feeds a generator-only bus lb
     # through a diagonal resistive line (R=0.5 Ω/phase).
-    # Generator cost = -1 (incentivises maximum output → drives V_lb above V_s).
+    # Generator cost = -1 (incentivizes maximum output → drives V_lb above V_s).
     # Three simultaneous sequence bounds are tested:
     #   vpos_max  = 1050 V   → positive-sequence upper bound (binding)
     #   vneg_max  =    1 V   → negative-sequence near-zero (forces balance)
@@ -894,7 +894,7 @@ end
         @test staged["generator"]["g1"]["1"]["pg"] ≈ fused["generator"]["g1"]["1"]["pg"]  rtol=1e-8
 
         # add_objective=false leaves the model with no objective; generation_cost
-        # returns the same expression solve_opf would have minimised.
+        # returns the same expression solve_opf would have minimized.
         ctx2 = build_opf_model(net; add_objective=false)
         @test JuMP.objective_function(ctx2.model) == JuMP.AffExpr(0.0)  # unset ⇒ 0
         JuMP.@objective(ctx2.model, Min, generation_cost(ctx2))
@@ -2001,7 +2001,7 @@ end
     end
 
     @testset "T-MULTIPERIOD: SOC-coupled battery across two snapshots, one model" begin
-        # Two snapshots co-optimised in ONE JuMP model with an inter-temporal
+        # Two snapshots co-optimized in ONE JuMP model with an inter-temporal
         # state-of-charge link — the formulation solve_opf cannot express. The
         # slack import price is high in period 1, low in period 2; a cyclic
         # battery must discharge into the expensive period and recharge in the
@@ -2190,7 +2190,7 @@ end
         end
     end
 
-    @testset "T-WSTART: warm start honours a/b/c terminal naming" begin
+    @testset "T-WSTART: warm start honors a/b/c terminal naming" begin
         # Regression: canonical 120° start angles were keyed by the literal
         # names "1"/"2"/"3"; a bus using another convention (not covered by
         # the source's own terminal_map) started degenerately co-phasal.
@@ -2396,7 +2396,7 @@ end
         yn = 1.0 / (Rn + Xn*im)
         Gn, Bn = real(yn), imag(yn)          # y_n = G_n + jB_n  (0.4 − 0.2j)
 
-        # The centre-tap HV neutral is made to FLOAT: the source feeds `mv` through a
+        # The center-tap HV neutral is made to FLOAT: the source feeds `mv` through a
         # phase-only line (no neutral return), so the HV series current can only return
         # through the grounding branch. `r_neutral_from` then genuinely shifts the HV
         # neutral potential (a solidly-grounded neutral would sit at 0 V), exercising
@@ -2684,9 +2684,9 @@ end
     end
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Initialisation block
+    # Initialization block
     # ─────────────────────────────────────────────────────────────────────────
-    @testset "Initialisation block — structure and values" begin
+    @testset "Initialization block — structure and values" begin
         net = parse_bmopf("""
         {"bus":{
             "src":{"terminal_names":["1","2","3","n"],
@@ -2738,7 +2738,7 @@ end
         @test init["src"]["n"]["vm_init"] == 0.0
         @test init["b1"]["n"]["vm_init"]  == 0.0
 
-        # Phase terminals initialised at the source v_magnitude (1000 V)
+        # Phase terminals initialized at the source v_magnitude (1000 V)
         @test init["src"]["1"]["vm_init"] ≈ 1000.0   atol=1e-6
         @test init["b1"]["1"]["vm_init"]  ≈ 1000.0   atol=1e-6
 
@@ -2750,10 +2750,10 @@ end
               res["initialisation"]["src"]["1"]["vm_init"]   rtol=1e-4
     end
 
-    @testset "Initialisation profiling — voltage levels respected" begin
+    @testset "Initialization profiling — voltage levels respected" begin
         # Build a two-voltage-level network (MV source → LV load via transformer).
         # The physical flat start follows the transformer voltage ratio. This
-        # must hold in SI as well as under nondimensionalisation; otherwise an
+        # must hold in SI as well as under nondimensionalization; otherwise an
         # apparently innocent scaling-policy comparison changes the physical
         # initial point presented to the solver.
         net = parse_bmopf("""
@@ -2898,7 +2898,7 @@ end
     #
     # A PV IBR sits at bus1 alongside a load. The IBR has p_max on
     # each phase so the augmentation pass fills in q_min/q_max at cos φ = 0.90.
-    # The OPF minimises slack cost so it maximises the (cheaper) IBR
+    # The OPF minimizes slack cost so it maximizes the (cheaper) IBR
     # dispatch. All three phases are symmetric → each phase decouples.
     #
     # With p_max = 3000 W/phase, p_nom_load = 2000 W/phase and the IBR
@@ -2927,7 +2927,7 @@ end
         """; from_string=true)
 
         res = solve_opf(net)
-        # Initialisation block is captured from the warm-start regardless of the
+        # Initialization block is captured from the warm-start regardless of the
         # solve outcome.
         i1 = res["initialisation"]["lv"]["1"]["va_init"]
         i2 = res["initialisation"]["lv"]["2"]["va_init"]
@@ -3635,7 +3635,7 @@ end
     # ═════════════════════════════════════════════════════════════════════════
 
     # ─────────────────────────────────────────────────────────────────────────
-    # A: Feasibility OPF honours the OPF's hard voltage bounds.
+    # A: Feasibility OPF honors the OPF's hard voltage bounds.
     #
     # T3 geometry with a tight v_max on bus1 (960–999 V) and NO generator, so the
     # load forces V toward ~947 V; we instead clamp v_max to a value BELOW the
@@ -3645,7 +3645,7 @@ end
     # the exact invariant — "identical hard constraints, KCL is the only
     # relaxation" — that moving the bound calls into a shared builder can break.
     # ─────────────────────────────────────────────────────────────────────────
-    @testset "A: feasibility honours hard voltage bounds (residual, no violation)" begin
+    @testset "A: feasibility honors hard voltage bounds (residual, no violation)" begin
         # Force the load-bus voltage into a tight band the load cannot physically
         # satisfy: at full load the physical voltage is ~947 V, but v_min=985 V
         # forbids that. solve_opf would be infeasible; solve_feasibility_opf must
@@ -4609,17 +4609,17 @@ end
     end
 
     # ─────────────────────────────────────────────────────────────────────────
-    # TAP: Continuous free transformer tap (OLTC / regulator) optimisation.
+    # TAP: Continuous free transformer tap (OLTC / regulator) optimization.
     #
     # A free tap is a single decision variable equal to the effective from→to
     # ratio coefficient the winding constraints multiply (N for single_phase,
     # n_eff otherwise). These tests exercise the SAME constraint code as the
     # fixed-tap model — only the coefficient is promoted to a variable — so they
     # validate the math model directly. The crucial guarantee is "internal
-    # exactness": re-solving with the tap FIXED to the optimiser's value t* must
+    # exactness": re-solving with the tap FIXED to the optimizer's value t* must
     # reproduce the free-tap solution to solver tolerance.
     # ─────────────────────────────────────────────────────────────────────────
-    @testset "TAP: continuous transformer tap optimisation" begin
+    @testset "TAP: continuous transformer tap optimization" begin
         # 11 kV / 240 V, 50 kVA single-phase YY (matches the OpenDSS fixture).
         zbf = 11_000.0^2 / 50_000.0
         zbt =    240.0^2 / 50_000.0
@@ -4669,7 +4669,7 @@ end
 
         # (d) Closed-form lossless regulator: with zero impedance the tap is the
         #     pure ratio, so V_to = V_from / (N0·t). A v_min/v_max window pins |V_to|
-        #     and the optimiser must pick t = V_from / (N0 · V_to_target).
+        #     and the optimizer must pick t = V_from / (N0 · V_to_target).
         function net_ideal(target)
             parse_bmopf("""
             {"bus":{
@@ -4694,7 +4694,7 @@ end
         @test r_id["transformer"]["t1"]["tap"] ≈ (240.0 / 245.0) rtol=2e-3
         @test r_id["bus"]["lv"]["1"]["vm"] ≈ 245.0 atol=0.06
 
-        # (e) Per-unit and SI solves agree on the optimised tap and voltages. The
+        # (e) Per-unit and SI solves agree on the optimized tap and voltages. The
         #     reported tap is dimensionless (recovered from the effective coefficient
         #     via N0 of the SAME working net), so it is scale-invariant.
         nfree = net_1ph(tapf=free, vbounds=vb)
@@ -4823,7 +4823,7 @@ end
 
     # ─────────────────────────────────────────────────────────────────────────
     # solution_check coverage gaps (#290): power balance must account shunts and
-    # capacitors; scalar (non-vector) thermal limits must be honoured; the NaN
+    # capacitors; scalar (non-vector) thermal limits must be honored; the NaN
     # scan must reach nested (transformer-winding) results; IBR violations must
     # count in the binding summary.
     # ─────────────────────────────────────────────────────────────────────────
@@ -4854,7 +4854,7 @@ end
         @test out["q_capacitor"] > 0.0        # ≈ 3 × B·|V|²
         @test out["p_shunt"] > 100.0          # G·|V|² on the phase shunt (SI W)
 
-        # (b) A SCALAR linecode i_max (not a vector) is honoured — a very tight
+        # (b) A SCALAR linecode i_max (not a vector) is honored — a very tight
         # value fires a thermal finding that the vector-only check would miss.
         net_s = deepcopy(net); net_s["linecode"]["lc"]["i_max"] = 0.5
         fs = Finding[]

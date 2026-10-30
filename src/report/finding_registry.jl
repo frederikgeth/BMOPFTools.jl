@@ -9,16 +9,16 @@ end
 Base.showerror(io::IO, error::UnknownFindingCode) = print(
     io,
     "unknown or undocumented Finding code '", error.code,
-    "'; BMOPFTools-authored codes must be catalogued in docs/src/findings.md, " *
-    "while external PowerIO conversion codes use PowerIO's catalogues",
+    "'; BMOPFTools-authored codes must be cataloged in docs/src/findings.md, " *
+    "while external PowerIO conversion codes use PowerIO's catalogs",
 )
 
 """
     explain_finding(code) -> Dict{String,Any}
     explain_finding(finding::Finding) -> Dict{String,Any}
 
-Return the checked offline catalogue entry for one stable BMOPFTools Finding
-code. The explanation records severity, namespace, catalogue section, canonical
+Return the checked offline catalog entry for one stable BMOPFTools Finding
+code. The explanation records severity, namespace, catalog section, canonical
 meaning, documentation provenance, and any existing executable-contract and scientific-reference
 links. It does not infer a cause, recommend an automatic repair, or inspect a
 case-specific Finding instance.

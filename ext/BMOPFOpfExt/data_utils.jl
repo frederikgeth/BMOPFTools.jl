@@ -139,7 +139,7 @@ end
 
 Return the total from- and to-side shunt admittance matrices (S) for a line.
 Inline lines carry absolute G/B fields [S] used as-is; linecode lines take
-the per-metre fields (S/m) scaled by `length`.
+the per-meter fields (S/m) scaled by `length`.
 Returns (nothing, nothing, nothing, nothing) when no shunt fields are present.
 """
 function _line_pi_shunt(line::Dict{String,Any}, linecodes::AbstractDict)

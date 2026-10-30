@@ -1,17 +1,17 @@
 # Optimal power flow
 
 Despite the name, the ambition of this Task Force extends well beyond the
-classical OPF problem of minimising generation cost subject to network
+classical OPF problem of minimizing generation cost subject to network
 constraints.  The unifying theme of the benchmark problems targeted here is
 the need to **accurately represent distribution network physics** rather than
-any particular objective function. Generation cost minimisation with explicit
+any particular objective function. Generation cost minimization with explicit
 operational bounds is a convenient starting point: its objective and feasibility
 conditions are straightforward to compare across solvers. With fixed demand and
 one uniform non-negative price on every real-power injection, minimizing total
 injection is equivalent to minimizing real losses. That special case does
 **not** imply uniqueness or global optimality in this
 nonconvex formulation. The same network physics underpins a
-much broader class of distribution-network-constrained optimisation problems
+much broader class of distribution-network-constrained optimization problems
 of practical relevance: maximum load delivery, conservation voltage reduction
 (CVR), Dynamic Operating Envelopes (DOEs) for distributed energy resources,
 and distribution system state estimation (DSSE).
@@ -58,7 +58,7 @@ A full mathematical derivation is available in `docs/math-model.tex`.
 ## Formulation principles
 
 The engine is a **four-wire, rectangular current–voltage** formulation,
-organised around a handful of deliberate, non-obvious choices worth stating
+organized around a handful of deliberate, non-obvious choices worth stating
 explicitly:
 
 1. **Explicit current *and* voltage variables, as needed.** Both terminal
@@ -97,7 +97,7 @@ explicitly:
    single case study, because state is keyed per `(bus, terminal)` with no
    global phase count. The engine's modeled scope is **up to three-phase +
    neutral** (four wire).
-7. **Bounds are optional — use them if present, never synthesise one from
+7. **Bounds are optional — use them if present, never synthesize one from
    another.** Voltage, current, and apparent-power limits are all optional in the
    data model, and different problem formulations activate different subsets of
    the feasible region. A constraint is stamped only from data that is actually
@@ -147,14 +147,14 @@ explicitly:
     AC power-flow equations can have multiple roots, and AC OPF can have multiple
     stationary points and locally optimal solutions. A local interior-point method
     follows a start-dependent trajectory; it is not a nearest-solution algorithm.
-    Every variable is therefore initialised from a physically motivated,
+    Every variable is therefore initialized from a physically motivated,
     deterministic guess — canonical 120° phase angles, anti-phase split-phase
     legs, delta-loop voltage propagation, and `I = conj(S)/conj(V)` current
     seeding. This improves reproducibility and avoids obvious phase-mapping and
     voltage-level mistakes. It does **not** certify which basin was selected, that
     the point is locally or globally optimal, or that it lies on the operational
     voltage sheet. Those are separate validation questions (see
-    [Warm-start initialisation](#Warm-start-initialisation) and
+    [Warm-start initialization](#Warm-start-initialisation) and
     [Trusting the solver](bounds/solver_trust.md)).
 13. **One sign convention, and results are recomputed with it.** A single
     convention is fixed and applied to *every* element type — current into a bus is
@@ -294,7 +294,7 @@ by `opf_research_provenance`.
 
 ### Objective
 
-Minimise total active-power generation cost **rate** (linear in active power;
+Minimize total active-power generation cost **rate** (linear in active power;
 bilinear in generator/IBR voltage-current variables):
 
 $$\min \sum_{g \in \mathcal{G}} \sum_{k=1}^{|\mathcal{T}_g^\phi|}
@@ -393,13 +393,13 @@ transformers are never converted (their nameplate stays canonical).
     This distinction matters in computational comparisons. A current-limited
     OPF and an apparent-power-limited OPF are different optimization problems
     unless the equivalence conditions are demonstrated; different
-    local-optimum behaviour is then a modelling result, not automatically a
+    local-optimum behavior is then a modeling result, not automatically a
     formulation bug.
 
     None of this makes keeping both rows the safe default. Two rows impose a
     voltage-dependent envelope that matches no real rating, so the resolution is
     an engineering one — decide which row is the device's source of truth and
-    drop the derived one — rather than a licence to declare both and let the
+    drop the derived one — rather than a license to declare both and let the
     solver sort it out.
 
 ---
@@ -578,7 +578,7 @@ truth here and why the **neutral entry of `s_max` is degenerate**
 
 #### Switches
 
-A switch is modelled as an **ideal, zero-impedance branch**: like a line, it
+A switch is modeled as an **ideal, zero-impedance branch**: like a line, it
 carries per-conductor series current variables $c^r_{sw,k}$, $c^i_{sw,k}$ that
 enter KCL at both ends with opposite signs — $-(c^r_{sw,k},\,c^i_{sw,k})$ at the
 from-terminal and $+(c^r_{sw,k},\,c^i_{sw,k})$ at the to-terminal — exactly as a
@@ -824,7 +824,7 @@ matters because the neutral can carry **more** current than the phases under
 unbalance. A **single-phase** generator has a single current (phase and return
 are the same), so its `i_max` is length 1 or 2 — the two entries describe one
 conductor pair and collapse to a **single** circle at the tighter limit (never
-constraining the variable twice); a length-1 vector is standardised to 2 by the
+constraining the variable twice); a length-1 vector is standardized to 2 by the
 augmentation pass. `DELTA` has no neutral and takes exactly one entry per conductor.
 
 #### IBRs
@@ -977,7 +977,7 @@ overrides the aggregation the enum implies, for backward compatibility.
 
 A **STATCOM** — a *D-STATCOM* in distribution-system terminology — is a
 shunt-connected voltage-source converter with no active-power source. It is
-modelled as an IBR with `prime_mover = "STATCOM"`: there is no separate object
+modeled as an IBR with `prime_mover = "STATCOM"`: there is no separate object
 category, because a STATCOM is physically the same VSC-shunt as any other
 grid-tied inverter, exchanging reactive power bounded by the converter rating.
 The augmentation pass clamps active power to zero
@@ -1054,7 +1054,7 @@ By default each phase responds to its own magnitude $U_{n,k}$. Setting the
 IBR field **`voltage_aggregation`** to `"AVERAGE"` (default `"PER_PHASE"`) instead
 feeds every phase the mean of the phase magnitudes,
 $\bar U_n = \tfrac{1}{m}\sum_k U_{n,k}$, as the common reference for both the
-Volt-var and Volt-watt curves — modelling IBRs that regulate on the average
+Volt-var and Volt-watt curves — modeling IBRs that regulate on the average
 terminal voltage rather than per phase. The setting only affects multi-phase
 `FOUR_LEG` IBRs; on a `SINGLE_PHASE` IBR it is a no-op and emits a
 warning. The [VVWO tutorial](tutorial_vvwo.md) works a Volt-var-Watt scenario
@@ -1073,11 +1073,11 @@ two-winding subtypes is $N = V^\text{ref}_\text{fr} / V^\text{ref}_\text{to}$
 (`single_phase_autotransformer`, `open_delta_regulator`) use an effective ratio
 $n_\text{eff}$ derived from `tap_ratio` and `regulator_type` (see below).
 
-##### Continuous tap optimisation
+##### [Continuous tap optimization](@id Continuous-tap-optimisation)
 
 The tap can be a **free continuous decision variable** instead of a constant, so the
 OPF chooses OLTC/regulator settings to reduce losses and hold voltages in band. It
-follows the implicit free-variable pattern (bounds make it optimisable):
+follows the implicit free-variable pattern (bounds make it optimizable):
 
 | subtype | tap field | free when |
 |---|---|---|
@@ -1099,7 +1099,7 @@ exact ``\texttt{tap}^2`` referral — the short-circuit impedance referred to th
 tapped side scales as ``\texttt{tap}^2``, the non-tapped side is held at nominal.) The
 solved tap is reported in the [result dictionary](results.md) as `tap`/`tap_ratio`
 with a `tap_binding` flag. See the
-[tap-optimisation tutorial](@ref tap-optimisation).
+[tap-optimization tutorial](@ref tap-optimisation).
 
 Because every subtype is expressed as voltage/current **equalities** (the IVR
 impedance form $v_\text{fr} - N v_\text{to} = Z\,I$) rather than a nodal
@@ -1155,17 +1155,17 @@ $V^\text{ref}_\text{to}$ is the **per-leg** voltage (e.g. 120 V for a
 for a 7.2 kV / 120 V unit.
 
 The split-phase unit is a genuine 3-winding transformer whose two LV
-half-windings are tightly coupled on the shared core. Modelling each leg with an
+half-windings are tightly coupled on the shared core. Modeling each leg with an
 *independent* secondary impedance drop omits that mutual coupling and spreads the
 two legs apart under load. The OPF therefore imposes the OpenDSS-consistent 5×5
 primitive admittance $Y_\text{CT}$ (the same one the Ybus exporter builds; see
 [Transformer primitive admittance](spec/transformer-admittance.md)) as nodal current injections —
 element current into each of the five terminals
 $\mathbf I = Y_\text{CT}\,\mathbf V$ — and pins the per-winding current variables
-(HV series, leg-1, centre, leg-2) to those injections for the `i_max` limits and
+(HV series, leg-1, center, leg-2) to those injections for the `i_max` limits and
 loss accounting. $Y_\text{CT}$ is reconstructed from the symmetric star leakage
 arms $Z_1 = R_1+jX_1$ (HV) and $Z_2 = R_2+jX_2$ (each LV leg), with winding 3
-dotted at the centre tap (leg-2 voltage span $V_{t_n} - V_{t_2}$). It matches
+dotted at the center tap (leg-2 voltage span $V_{t_n} - V_{t_2}$). It matches
 OpenDSS's transformer `Yprim` to machine precision.
 
 The implied current relations are the ampere-turn
@@ -1175,7 +1175,7 @@ N\,c^{r,x}_{x,s} + c^{r,x}_{x,\ell_1} - c^{r,x}_{x,\ell_2} = 0
 \quad\text{(and imaginary)}
 ```
 
-and the centre-tap KCL (variable index 2 on `to` side):
+and the center-tap KCL (variable index 2 on `to` side):
 
 ```math
 c^{r,x}_{x,n} + c^{r,x}_{x,\ell_1} + c^{r,x}_{x,\ell_2} = 0
@@ -1261,7 +1261,7 @@ c^{r,x}_{x,\text{wye},n} + \sum_{k} c^{r,x}_{x,\text{wye},k} = 0
 
 **`single_phase_autotransformer` — step voltage regulator**
 
-A fixed-tap regulator modelled as an autotransformer: the series and common
+A fixed-tap regulator modeled as an autotransformer: the series and common
 windings share a node, so from and to are galvanically tied (not isolated).
 With fixed tap ratio $a$ (`tap_ratio`, regulated/source) the effective from→to
 ratio is
@@ -1341,7 +1341,7 @@ variables** $c^{r,w}_{x,j,k}, c^{i,w}_{x,j,k}$ (one per winding $j$ and phase
 $k$) — it is the same rectangular IVR style as the other devices, **not** an
 admittance model that eliminates currents. Keeping both current and voltage
 variables (rather than substituting an admittance) is what lets the leakage be
-parameterised down to **zero impedance** (a lossless / ideal transformer): the
+parameterized down to **zero impedance** (a lossless / ideal transformer): the
 leakage equation below stays well-posed at $ZB = 0$ (it collapses to the ideal
 ratio $V^r_1 = V^r_{i+1}$) with no division by an impedance.
 
@@ -1449,7 +1449,7 @@ source by default (see [Augmentation](augmentation.md)).
 
 ---
 
-## Warm-start initialisation
+## [Warm-start initialization](@id Warm-start-initialisation)
 
 Both solvers seed the NLP with a voltage-level- and topology-aware phasor start
 without requiring a load-flow pre-solve. The engine assembles one sparse complex
@@ -1461,7 +1461,7 @@ numeric `vr`/`vi` coordinates but preserves the complete physical phasor start.
 
 This is deliberately network-wide rather than a bus-by-bus angle rule. A
 single-phase lateral inherits the phasor of the *actual mapped parent phase*,
-even if the secondary labels it `1`. A centre-tap transformer produces equal
+even if the secondary labels it `1`. A center-tap transformer produces equal
 magnitude, anti-series legs (θ and θ+180°). Yd/Dy and general WYE/DELTA
 `n_winding` units propagate their connection phase shift, including
 `delta_roll`, through arbitrary transformer chains. Single-phase and open-delta
@@ -1500,7 +1500,7 @@ still only an initial guess, subject to the limitations below.
 
     Neither label proves OPF local optimality, OPF globality, transient
     stability, or small-signal stability. Radial and multiphase uniqueness
-    results justify useful high-voltage initialisation heuristics only under
+    results justify useful high-voltage initialization heuristics only under
     their stated assumptions
     ([Dvijotham, Mallada & Simpson-Porco,
     2017](https://arxiv.org/abs/1706.05290);
@@ -1676,7 +1676,7 @@ add your own inter-temporal constraints, solve once, and extract each snapshot:
 | `extract_result(ctx; solution_hook!)` | extract one snapshot's SI result after the shared solve |
 
 Pass the same `model` to every `build_opf_model` call and `add_objective=false`
-so the snapshots share one optimisation and one objective. Each `ctx` keeps its
+so the snapshots share one optimization and one objective. Each `ctx` keeps its
 own variable/KCL dicts, so snapshots coexist without collision; couple them
 through the variables a `model_hook!` publishes.
 
@@ -1727,7 +1727,7 @@ the dispatch problem. Because `build_opf_model` adds operational limits only
 where the net *declares* them (`v_min`/`v_max`/`i_max`), a net that omits them
 yields a pure physics model with the bus voltages left free. Combined with
 `add_objective=false` and a `model_hook!` that supplies its own objective, this
-hosts estimation and fitting problems that are not dispatch optimisation at all.
+hosts estimation and fitting problems that are not dispatch optimization at all.
 
 For example, **weighted-least-squares state estimation** is: build the physics
 of a bounds-free, load-free net (`source` + `line`s), add a free injection

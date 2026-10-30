@@ -10,7 +10,7 @@
 """
     compile_linecode(net, geometry_id; id=geometry_id, force=false) -> String
 
-Compute the per-metre series-impedance and shunt-susceptance matrices of
+Compute the per-meter series-impedance and shunt-susceptance matrices of
 `net["line_geometry"][geometry_id]` and stamp them as
 `net["linecode"][id]`, returning `id`.
 
@@ -121,7 +121,7 @@ function compile_linecode(net::Dict{String,Any}, geometry_id::String;
         rsum = wires[i].radius + wires[j].radius
         d < rsum - 1e-12 &&
             error("line_geometry '$geometry_id': conductors $i and $j " *
-                  "overlap — centre distance $(round(d, sigdigits=4)) m < " *
+                  "overlap — center distance $(round(d, sigdigits=4)) m < " *
                   "sum of radii $(round(rsum, sigdigits=4)) m.")
     end
 

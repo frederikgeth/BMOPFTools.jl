@@ -38,7 +38,7 @@ utility-derived dataset we converted: 162 of 162 cases had zero
 generators).
 
 The natural fix is to make the slack explicit: a generator at the source
-bus, unbounded, with a cost — then minimum-cost ≈ loss minimisation and the
+bus, unbounded, with a cost — then minimum-cost ≈ loss minimization and the
 problem is well-posed. **However**, combining a costed unbounded generator
 with the spec's free source current at the same bus makes the problem
 unbounded (the generator can absorb arbitrarily, offset by the source).
@@ -60,7 +60,7 @@ The feasible set (Table 7) includes bus-pair angle bounds (67) and
 phase-separation bounds (68), but §4.2 defines no fields to carry the θ
 limits. Companion numerical work (PSCC 2026) shows angle/sequence
 constraints are precisely what rescues NLP convergence under bad
-initialisation, so the data model should arguably carry them — or the spec
+initialization, so the data model should arguably carry them — or the spec
 should state that (68) is exercised only via the `vpos_*` route (Eq. 64,
 which forcing `U_max,2 = U_max,1 = 0` makes equivalent).
 
@@ -147,7 +147,7 @@ A key PG Lib practice is embedding a feasible solution / best-known
 objective in the case file, enabling regression detection and best-known
 tracking. The TF data model has no slot for it; a reserved optional
 top-level entry (e.g. `reference_solution` with objective value, solver,
-tolerance, date) would standardise this before ad-hoc conventions emerge.
+tolerance, date) would standardize this before ad-hoc conventions emerge.
 
 ## 11. An optional declared `earthing_system` tag
 
@@ -198,7 +198,7 @@ EPSR roadmap). Converter authors need guidance here either way.
   makes the binding phase identifiable in solution reporting. We validate
   array length against `n_phase` / `n_pairs` and report a warning on
   mismatch. **Suggestion:** state the expected shape explicitly in §4.2; if
-  the intent is a uniform scalar, clarify that. If per-phase generalisation
+  the intent is a uniform scalar, clarify that. If per-phase generalization
   is desired (we believe it is), the array form described here is a natural
   choice.
 - **Load `p_nom`/`q_nom` shape vs configuration:** the required vector
@@ -264,7 +264,7 @@ the corresponding negative- and zero-sequence inequality.
 The current `voltage_source` model (§3.8.1) requires both `v_magnitude` and `v_angle`
 per terminal, which the solver implementation maps to hard equalities:
 `Vre = |V|·cos θ`, `Vim = |V|·sin θ`.  This is correct for a stiff grid
-connection with a known Thevenin voltage, but it precludes two common modelling
+connection with a known Thevenin voltage, but it precludes two common modeling
 needs:
 
 **1. Angle-reference-only source (unknown magnitude)**
@@ -285,7 +285,7 @@ on `(Vre, Vim)`:
 Our current implementation satisfies these as a special case (strict equality is
 stronger than the inequalities), so no correctness issue arises — but a converter
 that wants to represent a source with automatic voltage regulation (AVR), or a
-network where the upstream voltage magnitude is itself an optimisation variable,
+network where the upstream voltage magnitude is itself an optimization variable,
 has no data model hook.
 
 **2. Bounded-voltage source (controllable magnitude)**
@@ -345,7 +345,7 @@ extension field (read with `get(bus, "v_declared", nothing)`) and populating it
 at import time from DSS `baseKV` / PMD nominal voltage.  It would be cleaner
 to make this official so all compliant tools share a common field name.
 
-## 17. Solver regularisation bounds vs power-quality bounds are conceptually distinct
+## 17. Solver regularization bounds vs power-quality bounds are conceptually distinct
 
 The spec defines `v_min`/`v_max` (phase-to-ground), `vpn_min`/`vpn_max`
 (phase-to-neutral), and `vpp_min`/`vpp_max` (phase-to-phase) without
@@ -358,44 +358,44 @@ are set relative to a declared supply voltage (see item 16) and are
 *meaningful* in the context of the OPF: a binding constraint signals a
 potential supply quality violation.
 
-**Solver regularisation bounds** — wide phase-to-ground bounds that exist
+**Solver regularization bounds** — wide phase-to-ground bounds that exist
 solely to prevent the NLP solver from wandering into numerically pathological
 regions far from the operating point.  They are *hyperparameters* of the
 solution algorithm, not engineering constraints: a typical value might be
 0.85–1.15 pu, which is wider than any supply standard would permit, precisely
 so the solver can always find a feasible starting point.  A binding
-regularisation bound is a solver artifact, not an engineering violation.
+regularization bound is a solver artifact, not an engineering violation.
 
 Conflating these two in the same field (`v_min`/`v_max`) creates an ambiguity:
 tools that inspect bound activity cannot distinguish a genuine supply quality
-issue from a solver warm-start artefact without out-of-band metadata.
+issue from a solver warm-start artifact without out-of-band metadata.
 
 **Suggestions:**
 
 1. *Separate field names* — introduce `v_reg_min`/`v_reg_max` for the
-   regularisation hyperparameters, keeping `v_min`/`v_max` for
+   regularization hyperparameters, keeping `v_min`/`v_max` for
    engineering bounds.  This makes bound activity unambiguous in solution
    profiling.
 
 2. *Provenance tag* — add an optional `bound_source` metadata field per
-   bound entry (e.g. `"standard"` vs `"regularisation"`) so that the
+   bound entry (e.g. `"standard"` vs `"regularization"`) so that the
    distinction is recorded without renaming fields.
 
 3. *Documented convention* — leave the fields as-is but state explicitly in
    the spec that `v_min`/`v_max` on non-source buses *should* reflect
-   engineering bounds (from a standard), and that solver regularisation is
+   engineering bounds (from a standard), and that solver regularization is
    the implementer's responsibility, not a data model concern.
 
 In our implementation we chose option 3 as a practical interim: `augment_case`
 injects engineering `vpn`/`vpp` bounds from standards, and separately injects
-`v_min`/`v_max` as a configurable regularisation hyperparameter (default
+`v_min`/`v_max` as a configurable regularization hyperparameter (default
 0.85/1.15 pu, same for all voltage levels) — recorded in the manifest with
 source `"solver_regularisation"` rather than `"standard"` so callers can
 distinguish them.
 
 ### Corollary: vpn vs vpp applicability depends on wire configuration
 
-A related modelling ambiguity: `vpn_min`/`vpn_max` are physically meaningful
+A related modeling ambiguity: `vpn_min`/`vpn_max` are physically meaningful
 only on **four-wire buses** that have a neutral terminal.  On a three-wire MV
 bus there is no neutral voltage to constrain, and adding `vpn` bounds would
 reference a non-existent terminal.  Conversely, on a four-wire bus the
@@ -406,7 +406,7 @@ The spec does not state which bound types are applicable to which terminal
 configurations.  Our implementation applies:
 - `vpn` + `vpp` + `vneg_max` to four-wire buses (neutral terminal present)
 - `vpp` only to three-wire buses (no neutral)
-- `v_min`/`v_max` (regularisation) to all buses regardless of configuration
+- `v_min`/`v_max` (regularization) to all buses regardless of configuration
 
 **Suggestion:** add a note in §4.2 (or in the bound field descriptions) stating
 the intended terminal-configuration preconditions for each voltage bound type.
@@ -417,7 +417,7 @@ Several real-world datasets include geographic coordinates per bus (e.g. the
 D-Suite Alpha v1.1 networks carry an OpenDSS `Buscoords` file with `bus_id,
 longitude, latitude`).  The V0.2 data model has no field for this information,
 so it cannot be round-tripped through the JSON format or used by downstream
-tools (network visualisation, georeferenced constraint tightening, spatial
+tools (network visualization, georeferenced constraint tightening, spatial
 clustering for aggregation, etc.).
 
 In our implementation we sideload coordinates as informal extension fields
@@ -441,7 +441,7 @@ deleting them from the data structure — important for contingency analysis, N-
 security assessment, planned maintenance scenarios, and iterative network
 build-out studies.
 
-Without a `status` field the only way to model a de-energised component is to
+Without a `status` field the only way to model a de-energized component is to
 delete it from the dict, which is destructive and loses the component's
 parameter data.  For switches the `open_switch` boolean partially fills this
 role, but there is no equivalent for lines, loads, generators, or buses.
@@ -533,7 +533,7 @@ that the full secondary span is `2 × v_ref_to`.
 The `g_no_load`/`b_no_load` fields are placed at the **HV (from-side)
 terminals** in the OPF formulation — consistent with OpenDSS and IEC practice
 (the shunt admittance is on winding 1). The HV series current `Iₛ` returns
-through the HV neutral terminal; the magnetising shunt current is
+through the HV neutral terminal; the magnetizing shunt current is
 phase-to-ground and does not pass through the neutral. Neither the spec text
 nor the field descriptions state where the shunt admittance is placed.
 
@@ -556,7 +556,7 @@ are wanted. Two concrete gaps:
 1. **No core-loss (no-load) branch.** `wye_delta`/`delta_wye` have no
    `g_no_load`/`b_no_load` fields, even though `single_phase`/`center_tap` do
    and OpenDSS specifies `%noloadloss`/`%imag` for all transformer types. The
-   magnetising shunt is simply unrepresentable for three-phase units today.
+   magnetizing shunt is simply unrepresentable for three-phase units today.
 
 2. **Lumped wye-side series impedance, delta ideal.** The reference model
    (OpenDSS, reproduced by PMD's `eng2math` `_build_loss_model!`) is a
@@ -585,7 +585,7 @@ required for any core-loss-sensitive benchmark.
 The single `r_series`/`x_series` form (item 5) can remain accepted as a
 **legacy shorthand**: it maps onto `r_series_from`/`x_series_from` (wye-side
 winding) with the secondary branch zero, reproducing the present ideal-delta
-behaviour. BMOPFTools migrates legacy data this way so existing cases keep
+behavior. BMOPFTools migrates legacy data this way so existing cases keep
 solving.
 
 *Mapping to source tools (for the FAQ):*
@@ -602,7 +602,7 @@ Note the leakage placement: for a **2-winding** unit PMD's star conversion
 (`_sc2br_impedance`) puts the *entire* `xhl` on the winding-1 (HV) branch and
 **zero** on the LV branch — not an even split. The even `xhl/2` split used by
 some converters (including BMOPFTools' historical `single_phase` path) is a
-modelling choice, not what the OpenDSS math model does; the FAQ should state
+modeling choice, not what the OpenDSS math model does; the FAQ should state
 which convention the spec intends.
 
 For what it's worth to the TF: the data model proved very checkable. On top

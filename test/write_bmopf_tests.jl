@@ -4,7 +4,7 @@
 #   - output is parseable JSON (bytes → JSON3.read succeeds)
 #   - default output is pretty-printed (multi-line, indented)
 #   - indent=nothing produces compact output
-#   - the literal "_meta" key is never serialised (its content is persisted
+#   - the literal "_meta" key is never serialized (its content is persisted
 #     under meta.provenance instead — see the provenance round-trip test)
 #   - no NaN or Inf values in output (JSON does not support these)
 #   - round-trip preserves all top-level keys
@@ -79,7 +79,7 @@ end
         @test !isnothing(JSON3.read(raw))      # still valid JSON
     end
 
-    @testset "the literal _meta key is never serialised" begin
+    @testset "the literal _meta key is never serialized" begin
         # _meta's *content* is intentionally persisted (under meta.provenance,
         # see the provenance round-trip test below) so fidelity-loss
         # inventories and migration notes survive a save/load cycle; only the
@@ -116,7 +116,7 @@ end
     end
 
     @testset "no NaN or Inf in output" begin
-        # JSON3 throws if a NaN/Inf reaches the serialiser; a successful
+        # JSON3 throws if a NaN/Inf reaches the serializer; a successful
         # write_bmopf call therefore proves the dict was finite. We also
         # verify the parsed-back tree contains only finite floats.
         buf = IOBuffer()

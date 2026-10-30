@@ -2,7 +2,7 @@
 ! across the two legs (no leg-to-neutral load), fed through a line.
 !
 ! The 240 V load drives equal through-current in both half-windings with zero
-! centre-tap (neutral) current, so the legs must stay symmetric. Exercises the
+! center-tap (neutral) current, so the legs must stay symmetric. Exercises the
 ! series-aiding winding polarity and the phase-to-phase loss path.
 !
 ! Topology: src ──[line, 5 km]── hv ──[center-tap 7.2kV/120-0-120]── lv

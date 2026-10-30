@@ -468,7 +468,7 @@ function _stamp_passive!(I, J, V, net::Dict{String,Any}, idx::_YbusIndex, config
 end
 
 # Stamp every transformer's finite contribution. Promoted units
-# omit only the series part; their magnetising and grounding branches remain.
+# omit only the series part; their magnetizing and grounding branches remain.
 function _scatter_transformers!(I, J, V, net, idx::_YbusIndex, config;
                                 skip::Set{Tuple{String,String}}=Set{Tuple{String,String}}())
     thresh = _domain_thresholds(config)

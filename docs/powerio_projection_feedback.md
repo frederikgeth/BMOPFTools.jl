@@ -135,7 +135,7 @@ For clarity, these `from_dss` normalizations are **BMOPF-spec conventions**, not
 PowerIO deficiencies — please **don't** "fix" them upstream:
 
 - **Numeric→phase terminal relabel** `1/2/3/4 → a/b/c/n`
-  ([:234](../src/io/from_dss.jl#L234)) — a task-force labelling choice; PowerIO's
+  ([:234](../src/io/from_dss.jl#L234)) — a task-force labeling choice; PowerIO's
   numeric terminals are correct.
 - **Identifier case-folding** ([:154](../src/io/from_dss.jl#L154)) — BMOPF
   case-insensitivity.

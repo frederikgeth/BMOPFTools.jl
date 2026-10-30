@@ -24,15 +24,15 @@
 # 3_unbalanced,4_phase_drop,5_phase_drop,3_unbalanced_delta_loads}.dss`) in
 # BMOPF's native JSON schema.
 #
-# Modelling notes (DSS → BMOPF)
+# Modeling notes (DSS → BMOPF)
 # -----------------------------
 #   · Source `Circuit.3Bus_example  basekv=0.4 pu=0.9959 MVAsc1=MVAsc3=1e6`:
 #     a "really stiff" (≈ ideal) wye source. Phase-to-ground magnitude
 #     v_ph = 0.9959·400/√3 = 229.993 V at 0°/−120°/+120°. The 1e6-MVA short-
-#     circuit level gives a Thévenin impedance ≈ 1.6e-7 Ω → modelled as an ideal
+#     circuit level gives a Thévenin impedance ≈ 1.6e-7 Ω → modeled as an ideal
 #     BMOPF voltage source (negligible internal drop).
 #   · The DSS lines are 3-wire (Kron-reduced, `.1.2.3`); single-phase loads
-#     return through the solidly-grounded system reference (`.x.0`). Modelled in
+#     return through the solidly-grounded system reference (`.x.0`). Modeled in
 #     BMOPF with a perfectly-grounded "n" terminal at every bus (ideal return).
 #   · linecode `rmatrix`/`xmatrix` are Ω per unit length, `length=1` → entered
 #     directly as R_series/X_series. `cmatrix` is nF per unit length; at the DSS
@@ -356,7 +356,7 @@
     #   |V|/Vbase = [0.94105, 0.95942, 0.95876], ∠V = [−0.9, −120.3, 120.2]°
     #   (Vbase = 0.4/√3 kV).
     #
-    # Tolerance note: PMD pins this voltage-dependent case ONLY via its linearised
+    # Tolerance note: PMD pins this voltage-dependent case ONLY via its linearized
     # formulations (FOTP/FOTR/FBS), all at atol=1 kW/kvar — there is no exact AC
     # reference. BMOPF solves the case exactly; its objective lands inside PMD's
     # ±1 band, and the *voltages* match PMD's references to PMD's own fotp

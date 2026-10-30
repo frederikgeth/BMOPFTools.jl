@@ -45,24 +45,24 @@ Every code block runs at build time; the numbers are real. **Prerequisites:**
 companion to that "how to" page, and extends the
 [impedance fidelity ladder](semantic_modeling.md#impedance-ladder).
 
-## The idealisation and its symmetry
+## [The idealization and its symmetry](@id The-idealisation-and-its-symmetry)
 
 Distribution lines are **not transposed** (Kersting, *Distribution System
 Modeling and Analysis*, §4.1.2), so their 3×3 phase matrices have genuinely
-distinct self and mutual entries. The balanced/transposed idealisation replaces
+distinct self and mutual entries. The balanced/transposed idealization replaces
 those entries with their averages, producing a **circulant** matrix (all self
 terms equal, all mutual terms equal). Circulance is the whole story:
 
-- A circulant matrix is diagonalised by the discrete Fourier transform (Gray
+- A circulant matrix is diagonalized by the discrete Fourier transform (Gray
   2006). For a reciprocal three-phase line the **Fortescue / symmetrical-
   component transform is that DFT** — `A = (1/√3)[1 1 1; 1 a a²; 1 a² a]`,
   `a = e^{j2π/3}`, is the (conjugate/inverse) 3-point unitary DFT matrix.
-- Diagonalising decouples the network into independent zero/positive/negative-
+- Diagonalizing decouples the network into independent zero/positive/negative-
   sequence circuits, and — *for a symmetric (reciprocal) circulant* — the
   positive- and negative-sequence eigenvalues **coincide**, `Z₁ = Z₂ = Z_s −
   Z_m`. That spectral degeneracy, and the resulting decoupled identical per-phase
   subproblems, is the mathematical content of the phase-rotation symmetry.
-- A generic asymmetric untransposed matrix is **not** circulant, the DFT does not diagonalise it,
+- A generic asymmetric untransposed matrix is **not** circulant, the DFT does not diagonalize it,
   the sequences stay coupled (`Z₀₁, Z₁₂, … ≠ 0`), and the degeneracy is lifted
   (Glover, *Power System Analysis and Design*, §8.4: "In general `Z_S` is not
   diagonal. However, if the line is completely transposed, [it is]").
@@ -80,7 +80,7 @@ assesses its documented assumptions separately.
 
 We work with one line throughout: a 50 Hz, four-wire LV overhead feeder (a small
 AAC phase conductor on a 0.3 m cross-arm at 8 m, an offset neutral — an
-untransposed arrangement), and its transposed idealisation built by averaging.
+untransposed arrangement), and its transposed idealization built by averaging.
 Same conductors, same line; the only difference is the symmetry.
 
 ```@example imp
@@ -103,7 +103,7 @@ lc_geo = net0["linecode"]["g"]
 R = BMOPFTools._pattern_keys_to_matrix(lc_geo, "R_series_")
 X = BMOPFTools._pattern_keys_to_matrix(lc_geo, "X_series_")
 
-# transposed idealisation: average self, average phase-mutual, average phase-neutral
+# transposed idealization: average self, average phase-mutual, average phase-neutral
 function transposed_of(R, X)
     avg(M, S) = sum(M[i, j] for (i, j) in S) / length(S)
     d3, m3, pn = [(1,1),(2,2),(3,3)], [(1,2),(1,3),(2,3)], [(1,4),(2,4),(3,4)]
@@ -174,14 +174,14 @@ neutral-point shift. No load asymmetry was needed; the untransposed geometry
 *generates* the unbalance on its own — Survilo (2014) computes exactly this
 effect, of the order of a couple of percent negative sequence, for an
 untransposed line under balanced load. This is step 2 as an **exact structural
-fact**, independent of any parameter value: the idealisation manufactures a
+fact**, independent of any parameter value: the idealization manufactures a
 symmetry the real line does not have.
 
 ## Step 4, demonstrated — and its honest magnitude
 
 Put a single-phase rooftop PV cluster on phase a of a long rural LV feeder and
 ask each model for the **hosting capacity**: the maximum export before a 1.10 pu
-voltage limit binds. The PV carries a negative cost, so the OPF maximises its
+voltage limit binds. The PV carries a negative cost, so the OPF maximizes its
 active injection `pg` (positive = injection into phase a), and the exported
 magnitude is that `pg`.
 
@@ -205,10 +205,10 @@ E_geo = hosting(lc_geo)
 ```
 
 The two models disagree — but by only about a percent, and note the **sign**:
-here the transposed model authorises *less* than the true untransposed feeder
+here the transposed model authorizes *less* than the true untransposed feeder
 can host (its averaged mutual reactance over-predicts the phase-a voltage rise).
 So the balanced decision is *conservative*, not dangerously optimistic. That
-direction is not universal — Antić et al. (2024) find phase-modelling
+direction is not universal — Antić et al. (2024) find phase-modeling
 assumptions swing hosting capacity in either direction by up to tens of percent
 once optimal single-phase placement is in play; and Claeys, Geth & Deconinck
 (PSCC 2022), across 128 real LV feeders, found Kron-reduced/balanced dispatch
@@ -289,7 +289,7 @@ end
   of *non-uniqueness*, not (measurably here) a source of *iterations*.
 
 The honest summary of step 3: high-fidelity asymmetry is best understood as a
-**free, physically meaningful regulariser** — it plays the role that a solver's
+**free, physically meaningful regularizer** — it plays the role that a solver's
 `δ_w·I` and a modeller's symmetry-breaking constraints (Liberti 2012; Margot
 2010) play artificially. But those results are from adjacent domains (continuous
 KKT regularization; discrete branch-and-bound), so the transfer to AC-OPF is by
@@ -325,10 +325,10 @@ they differ by about as much as the data is uncertain. The case is:
 ## Practical guidance
 
 - **Prefer geometry** ([fidelity ladder](semantic_modeling.md#impedance-ladder)):
-  its realisability is checkable directly, it recompiles at other frequencies,
+  its realizability is checkable directly, it recompiles at other frequencies,
   and it keeps the provenance link the analysis layer cross-checks.
 - **Watch for `I.PROV.SEQ_DERIVED` / `I.PROV.DECOUPLED_PHASES`**: they describe a
-  balance or diagonal series-matrix signature, suggest plausible modelling
+  balance or diagonal series-matrix signature, suggest plausible modeling
   choices, and point to source parameters and coupling assumptions worth checking.
 - **Keep the neutral explicit and use the IVR solver** (both defaults here). For
   four-wire networks the power–voltage (ACR) formulation admits non-physical
@@ -346,7 +346,7 @@ they differ by about as much as the data is uncertain. The case is:
 - W. H. Kersting, *Distribution System Modeling and Analysis*, CRC Press — §4.1 (untransposed lines, Carson, Kron reduction, sequence impedances).
 - W. H. Kersting & R. K. Green, "The application of Carson's equation to the steady-state analysis of distribution feeders," *IEEE PES PSCE*, 2011, DOI 10.1109/PSCE.2011.5772579.
 - J. D. Glover, M. S. Sarma, T. Overbye, *Power System Analysis and Design*, §8 (transposed ⇒ circulant ⇒ Fortescue-diagonal; "in general `Z_S` is not diagonal").
-- R. M. Gray, *Toeplitz and Circulant Matrices: A Review*, Found. Trends Commun. Inf. Theory 2(3):155–239, 2006, DOI 10.1561/0100000006 (circulant ⇔ DFT-diagonalisable).
+- R. M. Gray, *Toeplitz and Circulant Matrices: A Review*, Found. Trends Commun. Inf. Theory 2(3):155–239, 2006, DOI 10.1561/0100000006 (circulant ⇔ DFT-diagonalizable).
 - A. Ferrero et al., "100 Years of Symmetrical Components," *Energies* 12(3):450, 2019, DOI 10.3390/en12030450.
 - J. Survilo, "Impact of Untransposed Power Lines," *Power and Electrical Engineering* 32, 2014, DOI 10.7250/pee.2014.005 (computes ~2.5 % negative sequence from an untransposed line under balanced load; case-specific).
 - S. Claeys, F. Geth, G. Deconinck, "Optimal Power Flow in Four-Wire Distribution Networks: Formulation and Benchmarking," *PSCC 2022 / EPSR* 213:108522, arXiv:2204.08126 (Kron/balanced dispatch violates the true four-wire bound by 1–4 %; IVR vs ACR robustness across 128 LV networks).

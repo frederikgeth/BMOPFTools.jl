@@ -13,7 +13,7 @@ in two library objects, and derives linecodes from them:
 |---|---|---|
 | `wire_data` | one reusable conductor/cable type (resistance, GMR, radii, ratings; cable layers) | OpenDSS `WireData`/`CNData`/`TSData`, CIM `WireInfo` |
 | `line_geometry` | wire types placed at (x, y) coordinates, each mapped to a circuit terminal, plus the earth model | OpenDSS `LineGeometry`+`LineSpacing`, CIM `WirePosition` |
-| `linecode` | the compiled per-metre impedance matrices + provenance | OpenDSS `LineCode` |
+| `linecode` | the compiled per-meter impedance matrices + provenance | OpenDSS `LineCode` |
 
 [`compile_linecode`](@ref) is the bridge. Most lines reference a linecode
 (compiled from geometry, or from finite elements, a datasheet, or an import); a
@@ -24,7 +24,7 @@ to the linecode, never a second solve-time pathway.
 
 Geometry is the **top of the impedance fidelity ladder** (geometry > per-length
 linecode > inline total matrices): prefer it when the construction data exists,
-because it is the only rung whose physical realisability is checkable directly
+because it is the only rung whose physical realizability is checkable directly
 (no inverse-Carson problem), the only one that carries the data a
 *frequency-dependent* (harmonic) impedance method would need, and the one that
 keeps a live provenance link back to the matrices it produced. (This engine's
@@ -35,7 +35,7 @@ For *why the impedance model changes OPF feasibility and decisions* — the
 symmetry-breaking argument, with worked examples — see
 [Impedance models & OPF decisions](tutorial_impedance_models.md).
 
-Everything is SI: Ω/m, metres, amps. Convert imperial datasheet values at
+Everything is SI: Ω/m, meters, amps. Convert imperial datasheet values at
 construction (as below) rather than carrying unit fields around.
 
 ## Design decisions worth knowing
@@ -66,7 +66,7 @@ construction (as below) rather than carrying unit fields around.
   term**; adding one on top of GMR would double-count it. (In the 40–1000 Hz
   power band this is exactly OpenDSS's convention too, which is why the
   cross-check below matches to five significant figures; the double-counting
-  critique in the impedance-modelling literature concerns a different,
+  critique in the impedance-modeling literature concerns a different,
   higher-frequency code path.) `cap_radius` (default `radius`) enters the
   electrostatic terms; mixing GMR into capacitance is the classic implementation
   bug.
@@ -74,7 +74,7 @@ construction (as below) rather than carrying unit fields around.
 ## Overhead example: original synthetic four-wire line
 
 This asymmetric layout uses deliberately chosen synthetic SI parameters. It is
-not a utility feeder, a conductor catalogue entry, or an IEEE benchmark.
+not a utility feeder, a conductor catalog entry, or an IEEE benchmark.
 The matching OpenDSS deck is `test/data/line_geometry/synthetic_overhead.dss`.
 
 ```@example geom
@@ -97,7 +97,7 @@ lc = net["linecode"]["synthetic_overhead"]
 lc["derivation"]
 ```
 
-The compiled linecode is the full **4×4** (a, b, c, n) per-metre matrix.
+The compiled linecode is the full **4×4** (a, b, c, n) per-meter matrix.
 Circuit neutral elimination is not performed. Phase-a self impedance in Ω/km:
 
 ```@example geom
@@ -190,7 +190,7 @@ enum and no conversion pathway. Consistency rules:
 - inline matrices pass the same physics gates as linecodes (reciprocity,
   passivity, inductive X), reported on the line;
 - a descriptive `length` triggers a plausibility check on the implied Ω/m
-  (`W.DOM.LINE_IMPLIED_PER_LENGTH`) — catching per-metre data mislabeled as
+  (`W.DOM.LINE_IMPLIED_PER_LENGTH`) — catching per-meter data mislabeled as
   totals;
 - exports re-express inline lines as a 1 m section carrying the totals
   (numerically exact for PMD/OpenDSS, whose lines are per-length × length).
@@ -259,7 +259,7 @@ BMOPFTools.provenance_analysis(net, findings)
 any(f.code == "W.PROV.GEOMETRY_MISMATCH" for f in findings)
 ```
 
-Both libraries serialise with the network (`write_bmopf`/`parse_bmopf`), so a
+Both libraries serialize with the network (`write_bmopf`/`parse_bmopf`), so a
 BMOPF JSON file can carry its construction data alongside the compiled
 matrices — reviewable, re-derivable, and perturbable for sensitivity studies
 (edit the geometry, recompile with `force=true`, re-solve).
@@ -279,7 +279,7 @@ establish a new scientific applicability domain.
 - A public Kron-reduction transform (the internal one backs cable shields
   and unit tests only).
 - Sector-shaped LV cable corrections (BS 7870 / VDE 0295 actual areas,
-  geometric-centre distances).
+  geometric-center distances).
 - A LineCableModels.jl import bridge for `source="fem"` linecodes.
 - Preserving OpenDSS geometry objects through `from_dss` (PowerIO currently
   flattens them to matrices upstream).

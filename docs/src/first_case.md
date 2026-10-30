@@ -32,7 +32,7 @@ println("Analysis: ", length(errors(case_report)), " errors; ",
 ```
 
 Look at the inventory,
-modelling convention, and individual Finding codes as well as their severity.
+modeling convention, and individual Finding codes as well as their severity.
 Informational Findings can describe deliberate assumptions or useful context;
 they are not all instructions to change the model. To print the report locally,
 run `render(case_report, stdout)`.

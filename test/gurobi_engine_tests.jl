@@ -1,14 +1,14 @@
 # Gurobi coverage for the quadratic-compatible subset of the IVR-EN engine.
 #
-# Gurobi is commercial and licence-gated, so it is not a declared test
+# Gurobi is commercial and license-gated, so it is not a declared test
 # dependency: this file runs only when Gurobi.jl has been added to the test
-# environment *and* a usable licence is present. The fixture intentionally uses
+# environment *and* a usable license is present. The fixture intentionally uses
 # constant-power physics: voltage-dependent exponential laws and smooth control
 # curves remain NLP-only features.
 
-# Probe for a usable licence. `Gurobi.Optimizer` acquires an environment
+# Probe for a usable license. `Gurobi.Optimizer` acquires an environment
 # eagerly, so *every* construction of a Gurobi model — including the trivial
-# solver-name check below — must sit behind this guard. Without a licence,
+# solver-name check below — must sit behind this guard. Without a license,
 # `JuMP.Model(Gurobi.Optimizer)` throws (e.g. `Gurobi Error 10009`) rather than
 # returning an unusable model.
 function _gurobi_license_available()

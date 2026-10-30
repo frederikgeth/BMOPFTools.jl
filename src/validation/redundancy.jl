@@ -190,7 +190,7 @@ end
 
 # Return a canonical key for grouping loads that can be merged.
 # WYE/SINGLE_PHASE: sort phase terminals, append neutral last.
-# DELTA: normalise to the lexicographically smallest cyclic rotation.
+# DELTA: normalize to the lexicographically smallest cyclic rotation.
 function _load_merge_key(load::Dict)
     bus  = get(load, "bus", "")
     cfg  = get(load, "configuration", "WYE")

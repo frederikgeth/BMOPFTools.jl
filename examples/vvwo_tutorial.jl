@@ -1,6 +1,6 @@
 # Requires external CC BY-NC-SA data: set BMOPF_RESTRICTED_DATA to BMOPFDraftData/test/data.
 """
-    vvwo_tutorial.jl  —  Volt-VAr-Watt **optimisation** on a four-wire LV feeder
+    vvwo_tutorial.jl  —  Volt-VAr-Watt **optimization** on a four-wire LV feeder
 
 Most people meet Volt-var / Volt-watt (VV/VW) droop inside a *power-flow* tool
 (e.g. OpenDSS), where the IBR control is iterated to a fixed point *after*
@@ -42,7 +42,7 @@ using Printf
 
 sep(t) = println("\n", "─"^74, "\n  ", t, "\n", "─"^74)
 
-# ── Modelling constants ───────────────────────────────────────────────────────
+# ── Modeling constants ───────────────────────────────────────────────────────
 # AS/NZS 4777.2:2020 "Australia A" curves are injected by augment_case from the
 # [augment.smart_ibr] config preset; we only need the nominal voltage here.
 const LV_LN_V   = 230.0          # LV phase-to-neutral nominal (V)
@@ -69,7 +69,7 @@ const INPUT = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json")
 #
 # The two single-phase loads sit on phase 1 (bus b3230) and phase 2 (bus b2656);
 # we co-locate one single-phase PV cluster at each — so the PV export is itself
-# unbalanced, which is exactly where four-wire modelling earns its keep.
+# unbalanced, which is exactly where four-wire modeling earns its keep.
 function base_net()
     net = parse_bmopf(INPUT)
 
@@ -90,7 +90,7 @@ end
 
 # A single-phase PV nameplate on `phase` of `bus`. p_avail = s_max so the unit is
 # free to run to nameplate (curtailed only by Volt-watt or a hard limit); cost 0
-# so the OPF maximises export (every exported W displaces priced grid import).
+# so the OPF maximizes export (every exported W displaces priced grid import).
 _pv(bus, phase) = Dict{String,Any}(
     "bus" => bus, "terminal_map" => [phase, "n"], "topology" => "SINGLE_PHASE",
     "prime_mover" => "PV", "s_max" => [PV_KVA], "p_avail" => PV_KVA,
@@ -196,7 +196,7 @@ println("    down. Solved in ONE shot with the network — no outer control iter
 @printf("    Voltage still sits at %.4f pu: 4777.2 droop is a deadband response, not a\n", B.max_vpn)
 println("    hard guarantee — exactly why a binding constraint is needed next.")
 
-# ── Scenario C: hard limits only an optimiser can enforce ──────────────────────
+# ── Scenario C: hard limits only an optimizer can enforce ──────────────────────
 sep("C.  Add a hard 1.10 pu ceiling, a neutral-rise cap, and thermal limits")
 netC = attach_droop!(base_net())
 for b in lv_buses(netC)
@@ -206,7 +206,7 @@ for b in lv_buses(netC)
 end
 C = run_scenario("C — droop + limits", netC; config=ausA_config(), thermal=true)
 show_outcome(C)
-println("\n  → The OPF co-optimises the droop AND the network limits: voltage is held at")
+println("\n  → The OPF co-optimizes the droop AND the network limits: voltage is held at")
 println("    exactly 1.10 pu by curtailing a little more PV. This binding constraint —")
 println("    impossible in a simulation-only tool — is the whole point of an OPF.")
 
@@ -226,7 +226,7 @@ println("""
   Reading the table: the droop (B) trades export for voltage support relative to
   the naive maximum (A); the hard limit (C) trades a little more to *guarantee*
   the ceiling. Adding a binding constraint can only raise the objective (less
-  export) — the signature of an optimisation that respects the physics and the
+  export) — the signature of an optimization that respects the physics and the
   operating envelope at once.""")
 
 # ── Appendix: three-phase voltage reference (per-phase vs averaged) ────────────

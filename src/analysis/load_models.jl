@@ -1,6 +1,6 @@
 # analysis/load_models.jl
 #
-# Characterisation of voltage-dependent load models (ZIP / exponential) and
+# Characterization of voltage-dependent load models (ZIP / exponential) and
 # flags relevant to OPF formulation quality:
 #   - exponential loads whose exponents are all integer {0,1,2} can be
 #     represented losslessly as ZIP, keeping the OPF quadratic;
@@ -66,7 +66,7 @@ _bus_has_lower_voltage_bound(bus) =
 """
     load_model_analysis(net, findings) -> Dict{String,Any}
 
-Summarise load voltage-dependence and emit OPF-formulation flags:
+Summarize load voltage-dependence and emit OPF-formulation flags:
 
 - `I.LOAD.EXP_ZIP_EQUIVALENT` — exponential loads with only integer exponents
   {0,1,2}; these can be represented as ZIP, keeping the OPF quadratic.

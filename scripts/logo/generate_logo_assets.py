@@ -37,7 +37,7 @@ DOC_ASSETS = REPO / "docs" / "src" / "assets"
 
 TAGLINE = "Inspect, prepare, and optimize unbalanced distribution networks"
 
-# Palette: PowerIO-style warm neutrals plus Julia's four colours, which stand
+# Palette: PowerIO-style warm neutrals plus Julia's four colors, which stand
 # for phases a, b, c (red, green, purple) and the neutral (blue).
 LIGHT = dict(
     ink="#26221F", cream="#FBF7EF", tan="#D3BC8C", wash="#EFE9DD",
@@ -331,7 +331,7 @@ def social() -> str:
     c = LIGHT
     m = 260
     tx = 88 + m + 36
-    dy = 34  # vertically centre the block in the space above the wire band
+    dy = 34  # vertically center the block in the space above the wire band
     wm, _ = wordmark(88, tx, 214 + dy, c)
     body = [f'<rect width="1280" height="640" fill="{c["ground"]}"/>',
             place(mark(c), 88, 148 + dy - 8, m), wm,

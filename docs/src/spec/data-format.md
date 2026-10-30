@@ -14,7 +14,7 @@ data model carries no unit fields — units are fixed by the field, per this tab
 |----------|------|:------:|
 | Voltage | volt | V |
 | Current | ampere | A |
-| Length | metre | m |
+| Length | meter | m |
 | Active power | watt | W |
 | Reactive power | volt-ampere reactive | var |
 | Apparent power | volt-ampere | VA |
@@ -27,7 +27,7 @@ data model carries no unit fields — units are fixed by the field, per this tab
 **cost rate** in \$/kWh (there is no SI unit of currency; 1 kWh $= 3.6\times10^6$ J),
 and **temperature** in °C (used by `wire_data`/`line_geometry`).
 
-Per-unit normalisation is a solver-internal convenience and is **out of scope** here —
+Per-unit normalization is a solver-internal convenience and is **out of scope** here —
 no per-unit quantity appears in the data model.
 
 ## Complex numbers, vectors, and matrices

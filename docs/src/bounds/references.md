@@ -119,7 +119,7 @@ formal list.
   [DOI](https://doi.org/10.1109/TCNS.2021.3112758) ·
   [arXiv](https://arxiv.org/abs/2102.11946)
 
-## Solver behaviour, constraint qualifications, and insolvability
+## [Solver behavior, constraint qualifications, and insolvability](@id Solver-behaviour,-constraint-qualifications,-and-insolvability)
 
 - A. Wächter and L. T. Biegler, "On the implementation of an interior-point filter
   line-search algorithm for large-scale nonlinear programming" (Ipopt; feasibility

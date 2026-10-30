@@ -202,7 +202,7 @@ function ybus_augmented(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
                 nds = vcat(ent.w1_nodes, ent.w2_nodes)
                 cfs = vcat(ent.w1_coeffs, -r .* ent.w2_coeffs)
                 rn, rc = _aug_row(idx, nds, cfs)
-                # A cancelled ideal equation is redundant. A finite/coupled
+                # A canceled ideal equation is redundant. A finite/coupled
                 # port still has an impedance equation and must be retained.
                 ideal = all(iszero, Z[k,:]) && all(iszero, Z[:,k])
                 isempty(rn) && ideal && continue

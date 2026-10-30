@@ -139,7 +139,7 @@ end
     mv = net′["bus"]["mv_src"]
     lv = net′["bus"]["lv_bus"]
 
-    # v_min/v_max are solver regularisation — same pu band at all levels (per-phase arrays)
+    # v_min/v_max are solver regularization — same pu band at all levels (per-phase arrays)
     @test all(≈(6350.0 * 0.85; atol=1.0), mv["v_min"])
     @test all(≈(6350.0 * 1.15; atol=1.0), mv["v_max"])
 
@@ -280,7 +280,7 @@ end
     @test entry.confidence == :low
 end
 
-@testset "i_max: single-phase length-1 standardised to per-conductor [phase, neutral]" begin
+@testset "i_max: single-phase length-1 standardized to per-conductor [phase, neutral]" begin
     net = parse_bmopf("""
     {"bus":{"b":{"terminal_names":["1","n"]}},
      "voltage_source":{"vs":{"bus":"b","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
@@ -340,7 +340,7 @@ end
     @test haskey(net2′["linecode"]["lc_seq"], "i_max")
 
     # Regression: a per-call config override of [thermal].tolerance must be
-    # honoured (the tolerance used to be baked into a module-load constant).
+    # honored (the tolerance used to be baked into a module-load constant).
     # R₁₁ = 0.45 mΩ/m sits ~14 % from the nearest table row (0.396): it
     # matches under the default 15 % tolerance but not under a 1 % override.
     net_off = deepcopy(net)

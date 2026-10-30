@@ -70,7 +70,7 @@ end
 
 @testset "Registry is actually consumed by the iteration helpers" begin
     # A regression guard with teeth: build a net whose DC components carry
-    # integer terminals. each_terminal_array must normalise them, which only
+    # integer terminals. each_terminal_array must normalize them, which only
     # happens if it iterates the registry rather than a stale inline tuple.
     raw = """
     {"bus":{"b1":{"terminal_names":["1","2","3","n"],

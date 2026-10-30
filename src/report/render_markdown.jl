@@ -473,12 +473,12 @@ function _md_spatial(spatial, io::IO)
                 "$(counts["indeterminate"]) | $(counts["inapplicable"]) |")
         end
         println(io)
-        metres(v) = v === nothing ? "unavailable" : "$(round(v, digits=2)) m"
+        meters(v) = v === nothing ? "unavailable" : "$(round(v, digits=2)) m"
         for row in context["witnesses"]
             println(io, "- `$(row["line_id"])`: $(join(row["contexts"], ", ")); " *
-                "declared $(metres(row["declared_length_m"])), physical $(metres(row["physical_length_m"])), " *
-                "endpoint distance $(metres(row["chord_m"])), stored route $(metres(row["stored_route_length_m"])), " *
-                "recomputed route $(metres(row["recomputed_route_length_m"])); " *
+                "declared $(meters(row["declared_length_m"])), physical $(meters(row["physical_length_m"])), " *
+                "endpoint distance $(meters(row["chord_m"])), stored route $(meters(row["stored_route_length_m"])), " *
+                "recomputed route $(meters(row["recomputed_route_length_m"])); " *
                 "comparison basis `$(row["comparison_basis"])`.")
         end
         isempty(context["witnesses"]) || println(io)

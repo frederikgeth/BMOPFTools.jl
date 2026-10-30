@@ -1,14 +1,14 @@
 # Objective building blocks.
 #
 # Composable, individually registered objective terms so a caller can express
-# "minimise losses", "minimise unbalance at these buses", "minimise the worst
+# "minimize losses", "minimize unbalance at these buses", "minimize the worst
 # bus" — alone or in a weighted combination — without hand-writing the
 # expressions or having to know the engine's variable layout.
 #
 # ── Which norm? ────────────────────────────────────────────────────────────────
-# Every term that penalises a COMPLEX quantity (a sequence voltage, a neutral
+# Every term that penalizes a COMPLEX quantity (a sequence voltage, a neutral
 # current, a setpoint deviation) has to reduce a phasor to a scalar. Three
-# reductions are offered, and the choice is a modelling decision with real
+# reductions are offered, and the choice is a modeling decision with real
 # consequences, not an implementation detail:
 #
 #   :squared    Σ (xᵢ² + yᵢ²)          L2. Smooth, exact, cheapest, most
@@ -25,15 +25,15 @@
 #                                      under squaring, so no root is needed. The
 #                                      epigraph variable enters linearly but each
 #                                      constraint is a convex quadratic, and it is
-#                                      exact only while MINIMISED (see valid_sense).
+#                                      exact only while MINIMIZED (see valid_sense).
 #
 # Never reduce a complex quantity componentwise (|x| + |y|): that is not
 # rotation-invariant, so the answer would depend on the phase reference. It is a
-# bug, not a modelling choice. `:magnitude` sums per-element 2-norms precisely to
+# bug, not a modeling choice. `:magnitude` sums per-element 2-norms precisely to
 # avoid this.
 #
 # ── Why :magnitude is smoothed rather than an exact cone ───────────────────────
-# The textbook exact form of a minimised norm is the epigraph
+# The textbook exact form of a minimized norm is the epigraph
 # `min t s.t. x² + y² ≤ t²`, tight because nothing rewards inflating `t`. It is
 # NOT used here. Measured over 40 configurations (5 load unbalances × 4
 # compensator ratings × both unit modes) on an unbalanced 4-wire LV feeder — see
@@ -84,8 +84,8 @@
 # reformulation can introduce any slack.
 #
 # ── Warning: ε in a weighted combination ───────────────────────────────────────
-# For a pure norm objective ε does not move the minimiser — √(x²+ε²) − ε is
-# still minimised at x = 0 — it only flattens the gradient near zero, which
+# For a pure norm objective ε does not move the minimizer — √(x²+ε²) − ε is
+# still minimized at x = 0 — it only flattens the gradient near zero, which
 # stops the solver a little earlier and looser. In a WEIGHTED combination such
 # as `generation_cost + λ · unbalance`, that flattened gradient competes against
 # the other term, so ε does shift the trade-off point. Treat ε as part of the
@@ -135,7 +135,7 @@
 #   Chen & Mangasarian, "A class of smoothing functions for nonlinear and mixed
 #     complementarity problems", Comput. Optim. Appl. 5, 97–138 (1996).
 
-# Default relative smoothing for a MINIMISED norm. Chosen from the measurements
+# Default relative smoothing for a MINIMIZED norm. Chosen from the measurements
 # above, not from solver tolerance: see the two-regime note.
 const _SMOOTH_NORM_EPS_REL = 1e-3
 
@@ -166,12 +166,12 @@ expression form adds no variable and no constraint.
 **in the model's working units** — a conductor rating for a current, a nominal
 voltage for a voltage. Declaring ε relative to the quantity's own scale makes
 the relative smoothing identical across a heterogeneous fleet (an absolute ε
-penalises small devices) and identical in SI and per-unit, provided `scale` is
+penalizes small devices) and identical in SI and per-unit, provided `scale` is
 expressed in the same units as `x`/`y`. In per-unit that usually means
 `scale = 1.0`; in SI, the physical rating. `ctx.bases` carries the conversion.
 
 `eps_rel` defaults to `$(_SMOOTH_NORM_EPS_REL)`, which is right when this norm is
-being **minimised**. When the norm is instead a coefficient in a term whose
+being **minimized**. When the norm is instead a coefficient in a term whose
 optimum is away from zero, a far smaller `eps_rel` is free. The file-level
 comment in `ext/BMOPFOpfExt/objectives.jl` gives the measurements behind both.
 
@@ -231,7 +231,7 @@ Smooth 2-norm of a VECTOR of components, `sqrt(Σ cᵢ² + ε²) − ε`.
 
 The two-argument method is the complex-scalar case; this one groups an arbitrary
 set of components under a single norm. That distinction is what makes
-group-level sparsity possible: penalising `‖(Δp₁, Δq₁, Δp₂, Δq₂, Δp₃, Δq₃)‖₂`
+group-level sparsity possible: penalizing `‖(Δp₁, Δq₁, Δp₂, Δq₂, Δp₃, Δq₃)‖₂`
 for one device drives the WHOLE DEVICE to zero or not at all, whereas summing
 per-phase norms would let a device move on one phase and idle on the others.
 
@@ -274,7 +274,7 @@ end
 # (`vpos_min`/`vpos_max`/`vneg_max`/`vzero_max`, see `bus.jl`) and by the
 # sequence objective terms below. Two independent copies of the Fortescue
 # transform would be free to drift apart, and a bound that disagreed with the
-# objective penalising the same quantity is the kind of inconsistency nothing
+# objective penalizing the same quantity is the kind of inconsistency nothing
 # would catch.
 #
 # α = exp(j2π/3): Re(α) = −0.5, Im(α) = √3/2
@@ -366,7 +366,7 @@ end
 
 # ── Network losses ────────────────────────────────────────────────────────────
 # Active loss in a two-port element, from the same per-device terminal-injection
-# ledger `results.jl` uses post-solve, so the objective the solver minimises and
+# ledger `results.jl` uses post-solve, so the objective the solver minimizes and
 # the loss the result reports are the same quantity by construction:
 #
 #     S_loss = Σ_terminals V · conj(I_into_element),   I_into_element = −I_into_bus
@@ -464,7 +464,7 @@ quadratic and matches the reported total by construction.
     measurement.
 
 !!! note "Losses are not generation cost"
-    Minimising losses is NOT the same as minimising `generation_cost`, and on a
+    Minimizing losses is NOT the same as minimizing `generation_cost`, and on a
     network with heterogeneous generation prices the two can disagree sharply:
     least-loss dispatch happily sources from an expensive nearby unit to avoid
     transporting cheap distant power. Combine them deliberately with explicit
@@ -487,7 +487,7 @@ end
 
 # ── Physical scales ───────────────────────────────────────────────────────────
 # Objective terms must mean the SAME THING in `per_unit=true` and `per_unit=false`,
-# and must keep meaning it under a future nondimensionalisation strategy. The
+# and must keep meaning it under a future nondimensionalization strategy. The
 # engine already sets this precedent for generation cost: `_pu_scale_generators!`
 # multiplies every cost coefficient by `s_base` in the per-unit working net, so
 # the `s_base` factors cancel and the objective comes out in the same
@@ -626,9 +626,9 @@ expression pairs — to one scalar JuMP expression, using `norm`:
 |--------------|-----------------------|--------|-------|
 | `:squared`   | `Σ (reᵢ² + imᵢ²)`     | yes    | L2. Cheapest, most reliable. Spreads the penalty over all targets. Default. |
 | `:magnitude` | `Σ ‖(reᵢ, imᵢ)‖₂`     | to ε   | Group-lasso. Drives individual targets to zero rather than shrinking all. Uses [`smooth_norm`](@ref). |
-| `:max`       | `maxᵢ (reᵢ² + imᵢ²)`  | yes    | L∞ via an epigraph over squared magnitudes; no root needed. Convex quadratic constraints, exact only when MINIMISED. |
+| `:max`       | `maxᵢ (reᵢ² + imᵢ²)`  | yes    | L∞ via an epigraph over squared magnitudes; no root needed. Convex quadratic constraints, exact only when MINIMIZED. |
 
-Choosing between them is a modelling decision, not an implementation detail:
+Choosing between them is a modeling decision, not an implementation detail:
 `:squared` improves everything a little, `:magnitude` fixes a few targets
 completely, `:max` protects the worst one. They give different answers.
 
@@ -673,8 +673,8 @@ function BMOPFTools.opf_reduce_norm(ctx::OpfContext, pairs;
     else # :max — epigraph over squared magnitudes
         # `t` enters linearly but each constraint is a CONVEX QUADRATIC
         # (rotated second-order cone). Exact only while `t` is pushed DOWN, i.e.
-        # minimised with a non-negative weight: the constraints bound it from
-        # below only, so maximising it is unbounded. `set_opf_objective!`
+        # minimized with a non-negative weight: the constraints bound it from
+        # below only, so maximizing it is unbounded. `set_opf_objective!`
         # enforces that via the term's `valid_sense`.
         t = JuMP.@variable(m, lower_bound = 0.0,
                            base_name = isempty(name) ? "objmax" : "objmax_$(name)")
@@ -692,7 +692,7 @@ end
     BMOPFTools.opf_sequence_term(ctx, buses; component=:negative, norm=:squared,
                                  weight=1.0, eps_rel=1e-3, name=nothing)
 
-An [`OpfObjectiveTerm`](@ref) penalising a symmetrical-component voltage over
+An [`OpfObjectiveTerm`](@ref) penalizing a symmetrical-component voltage over
 `buses`. `buses` may be one bus id or a collection; every bus must be
 three-phase.
 
@@ -712,7 +712,7 @@ therefore in objective-units per V² (`norm=:squared` or `:max`) or per V
 
     * Neutral **displacement** is `Vₙ` itself, relative to ground. Bound it with
       the bus field `vn_max`.
-    * Neutral **heating** is `|Iₙ|²R`, a current quantity. Penalise it with
+    * Neutral **heating** is `|Iₙ|²R`, a current quantity. Penalize it with
       [`opf_current_term`](@ref) using `quantity=:neutral`.
 
     `:zero` voltage is still a meaningful unbalance measure; it is simply not
@@ -726,7 +726,7 @@ function BMOPFTools.opf_sequence_term(ctx::OpfContext, buses;
                                       name::Union{Symbol,Nothing} = nothing)
     ids = buses isa AbstractString ? [String(buses)] : [String(b) for b in buses]
     isempty(ids) && throw(ArgumentError(
-        "opf_sequence_term: `buses` is empty; nothing would be penalised."))
+        "opf_sequence_term: `buses` is empty; nothing would be penalized."))
     pairs = Any[]; scales = Float64[]
     for b in ids
         (re, ie) = BMOPFTools.opf_sequence_voltage(ctx, b; component=component)
@@ -831,14 +831,14 @@ function BMOPFTools.set_opf_objective!(ctx::OpfContext,
     for t in terms
         getfield(t, :valid_sense) === :min || continue
         sense === :min || throw(ArgumentError(
-            "objective term '$(t.name)' is only exact when MINIMISED: it uses " *
+            "objective term '$(t.name)' is only exact when MINIMIZED: it uses " *
             "an epigraph whose variable is bounded from below by its targets " *
-            "and from above by nothing. Maximising it is unbounded, not merely " *
+            "and from above by nothing. Maximizing it is unbounded, not merely " *
             "inaccurate. Use sense=:min, or a norm other than :max."))
         t.weight >= 0 || throw(ArgumentError(
             "objective term '$(t.name)' has weight $(t.weight): an epigraph " *
             "term needs a NON-NEGATIVE weight to be pushed down. A negative " *
-            "weight turns the minimisation into an unbounded maximisation of " *
+            "weight turns the minimization into an unbounded maximization of " *
             "the epigraph variable."))
     end
     return _run_opf_stage!(ctx, :objective, () -> begin
@@ -962,8 +962,8 @@ Conductor current in the NEUTRAL terminal at one end of a two-port element.
 
 This is the quantity that physically heats a neutral conductor, and the one a
 4-wire unbalance study usually wants to reduce. For a 4-wire element with no
-parallel earth path it is `−(Ia + Ib + Ic) = −3·I₀`, so penalising it and
-penalising zero-sequence current are the same objective up to a factor of three
+parallel earth path it is `−(Ia + Ib + Ic) = −3·I₀`, so penalizing it and
+penalizing zero-sequence current are the same objective up to a factor of three
 — but this one is in amps of actual conductor current.
 
 Throws when the element has no neutral terminal at that end: a three-wire
@@ -978,7 +978,7 @@ function BMOPFTools.opf_neutral_current(ctx::OpfContext, block::AbstractString,
     end
     throw(ArgumentError(
         "$block '$id' has no neutral terminal at its $side end, so it has no " *
-        "neutral current. A three-wire element cannot carry one; penalising " *
+        "neutral current. A three-wire element cannot carry one; penalizing " *
         "zero here would silently contribute nothing."))
 end
 
@@ -1029,7 +1029,7 @@ end
     BMOPFTools.opf_current_term(ctx, elements; quantity=:neutral, component=:zero,
                                 norm=:squared, weight=1.0, eps_rel=1e-3, name=nothing)
 
-An [`OpfObjectiveTerm`](@ref) penalising a branch current over `elements`, each
+An [`OpfObjectiveTerm`](@ref) penalizing a branch current over `elements`, each
 given as `(block, id)` or `(block, id, side)` with `side` defaulting to `:from`.
 
 `quantity` is `:neutral` (the neutral conductor current — what actually heats a
@@ -1053,7 +1053,7 @@ function BMOPFTools.opf_current_term(ctx::OpfContext, elements;
              (String(e[1]), String(e[2]), Symbol(e[3])) :
              (String(e[1]), String(e[2]), :from) for e in elements]
     isempty(specs) && throw(ArgumentError(
-        "opf_current_term: `elements` is empty; nothing would be penalised."))
+        "opf_current_term: `elements` is empty; nothing would be penalized."))
     pairs = Any[]; scales = Float64[]
     for (blk, id, side) in specs
         (re, ie) = quantity === :neutral ?
@@ -1089,18 +1089,18 @@ const _CONTROL_FAMILIES = Dict{String,Tuple{Symbol,Symbol}}(
                                        norm=:magnitude, weight=1.0,
                                        eps_rel=1e-3, name=:control_effort)
 
-An [`OpfObjectiveTerm`](@ref) penalising how far dispatchable devices move from a
+An [`OpfObjectiveTerm`](@ref) penalizing how far dispatchable devices move from a
 reference operating point, measured as injected-current deviation in **amps**.
 
 `devices` is a collection of `(block, id)` with `block` one of `"ibr"` or
 `"generator"`. `reference` maps `(block, id) => Vector{Complex}` of per-phase
 reference currents in amps; omitted or missing entries default to zero, i.e.
-"penalise moving at all".
+"penalize moving at all".
 
 Current rather than P/Q deliberately: the injected current is LINEAR in the
 decision variables, so the penalty is a norm of affine expressions — the
 well-conditioned case. A P/Q deviation would be bilinear in (V, I) for the same
-modelling intent, and at a roughly fixed terminal voltage the two are
+modeling intent, and at a roughly fixed terminal voltage the two are
 proportional anyway.
 
 `norm=:magnitude` is the interesting choice here, and the default. Each device
@@ -1120,7 +1120,7 @@ function BMOPFTools.opf_control_effort_term(ctx::OpfContext, devices;
         "unknown norm '$norm'; expected :squared, :magnitude or :max"))
     specs = [(String(d[1]), String(d[2])) for d in devices]
     isempty(specs) && throw(ArgumentError(
-        "opf_control_effort_term: `devices` is empty; nothing would be penalised."))
+        "opf_control_effort_term: `devices` is empty; nothing would be penalized."))
     refs = reference === nothing ? Dict{Any,Any}() : reference
     per_device = Any[]; scales = Float64[]
     for (blk, id) in specs
@@ -1190,13 +1190,13 @@ end
 #
 # Exact, smooth, no eps, and trivially identical in per-unit and SI because the
 # voltage base cancels in the ratio. VUF^2 is strictly monotone in VUF, so
-# minimising one minimises the other and the ordering of solutions is unchanged;
+# minimizing one minimizes the other and the ordering of solutions is unchanged;
 # recover the percentage post-solve with `sqrt`.
 
 """
     BMOPFTools.opf_vuf_term(ctx, buses; weight=1.0, percent=true, name=:vuf_squared)
 
-An [`OpfObjectiveTerm`](@ref) penalising the **squared** voltage unbalance
+An [`OpfObjectiveTerm`](@ref) penalizing the **squared** voltage unbalance
 factor, `Σ (|V₂|/|V₁|)²`, over `buses` — in percent-squared when `percent=true`
 (EN 50160 §3.5 and IEC 61000-2-2 state their 2% limit as a percentage, so `2.0`
 there corresponds to `4.0` here).
@@ -1210,16 +1210,16 @@ heading toward zero is comparable to the numerator itself — a true `|V₂|` of
 ratio needs no `ε` at all and is exact and smooth.
 
 !!! warning "This is a squared-VUF PENALTY, not a drop-in for VUF"
-    `x ↦ x²` is monotone, so for **one bus as the sole objective** minimising
-    this and minimising VUF pick the same solution. That equivalence does NOT
-    survive either generalisation, and both are implemented here:
+    `x ↦ x²` is monotone, so for **one bus as the sole objective** minimizing
+    this and minimizing VUF pick the same solution. That equivalence does NOT
+    survive either generalization, and both are implemented here:
 
     * **Summed over several buses**, `Σ VUFᵢ²` and `Σ VUFᵢ` rank differently.
       VUFs of `(0, 2)` give sum `2` and sum-of-squares `4`; `(1.1, 1.1)` give
       `2.2` and `2.42`. Unsquared prefers the first, squared prefers the second.
       Squaring is an implicit preference for evenness. Use `norm=:max` if what
       you mean is the worst bus, which IS order-equivalent to worst-bus VUF.
-    * **Combined with another term**, squaring changes the scalarisation, so the
+    * **Combined with another term**, squaring changes the scalarization, so the
       trade-off point against cost or losses moves.
 
     Take `sqrt` post-solve to report a percentage — see
@@ -1256,7 +1256,7 @@ function BMOPFTools.opf_vuf_term(ctx::OpfContext, buses;
                                  name::Symbol = :vuf_squared)
     ids = buses isa AbstractString ? [String(buses)] : [String(b) for b in buses]
     isempty(ids) && throw(ArgumentError(
-        "opf_vuf_term: `buses` is empty; nothing would be penalised."))
+        "opf_vuf_term: `buses` is empty; nothing would be penalized."))
     parts = Any[]
     for b in ids
         bus = get(get(ctx.net, "bus", Dict{String,Any}()), b, nothing)
@@ -1309,7 +1309,7 @@ end
 
 Solved voltage unbalance factor `|V₂|/|V₁|` at `bus`, as a percentage by default.
 
-The counterpart to [`opf_vuf_term`](@ref), which minimises the SQUARED ratio:
+The counterpart to [`opf_vuf_term`](@ref), which minimizes the SQUARED ratio:
 this returns the unsquared, directly comparable number. Reporting the objective
 value as if it were a VUF is a mistake this exists to prevent. Dimensionless, so
 it is identical in both unit modes.

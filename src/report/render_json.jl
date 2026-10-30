@@ -76,7 +76,7 @@ _finding_to_json(f::Finding) = Dict{String,Any}(
 
 # Recursively coerce analysis values into JSON-native types. Result dicts hold
 # arbitrary Julia values (Symbols, Chars, Sets, Tuples) that JSON3 would either
-# reject or render inconsistently; normalise them here.
+# reject or render inconsistently; normalize them here.
 _jsonable(x::AbstractDict) = Dict{String,Any}(string(k) => _jsonable(v) for (k, v) in x)
 _jsonable(x::Union{AbstractVector,AbstractSet,Tuple}) = [_jsonable(v) for v in x]
 _jsonable(x::Symbol) = string(x)
