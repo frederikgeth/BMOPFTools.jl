@@ -3094,7 +3094,7 @@ export from_dss, to_dss, powerio_source_behavior_contract
 export powerio_findings
 export DSSConversionError, dss_conversion_error_to_dict
 export project_solution, dispatch_as_loads
-export sideload_coordinates!
+export sideload_coordinates!, sideload_geolayer!
 export analyze, render
 export load_config                      # tunable thresholds (config/default.toml)
 export is_timeseries, get_snapshot      # useful for interactive use

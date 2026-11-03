@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "bbc32a5ac3522d58402fb9fbbf238fd725e273506030755fc8843454c0819abb",
+  "corpus_sha256": "e0faafa56b8536fb5f5aa3b52ea26f47d307a42bbe707ad398a2b9c5a09046cf",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -82,7 +82,7 @@
     },
     {
       "path": "docs/src/api.md",
-      "sha256": "987e590ebe9fadb92661b656bf998a9af12d973c75ef6eff48e28edb180b69e7"
+      "sha256": "68fb3762e1eacaf863ca2b6d2246875d66a24126940e20013e0e3870fa86cb0f"
     },
     {
       "path": "docs/src/assets/spatial/direct-series.svg",
@@ -174,7 +174,7 @@
     },
     {
       "path": "docs/src/spatial_diagnostics.md",
-      "sha256": "013a96f3511cd1decc5042b83547750b3bed140b2ad235ccabcf9246ad1fa1b5"
+      "sha256": "92e42b3e59499d0a0bba8a0c7f06f2e72415ad76a35624fcd2922f4025a1855d"
     },
     {
       "path": "docs/src/spec/control-profile.md",
@@ -318,7 +318,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "fe93f0b27d5346d61a752b4cebedfc2d75c9853cce5385be74a2d228ec3076df"
+      "sha256": "abddc1a86604a94205304ad173f194ee1ec20a65c3f74d48822de1235c406b0b"
     },
     {
       "path": "recipes/README.md",
@@ -334,7 +334,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "5f97887262d976d41ecccbd17ee7f6e83b8345d8f6b63a28e8a81636393184a5"
+      "sha256": "5c915b5071c4dfc7be8302ecdecf7bac538ee20cc3b0525e278843fd3ec2a00a"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -438,7 +438,7 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "70f121edc53afb7cf542dc3e9740f479e439863df21d9864b3f2c1c9b2e53ed9"
+      "sha256": "3900578c1931ef69b66fe63944ba0c3e89803d5482cfdd8491c8cd4617efa7b4"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -490,7 +490,7 @@
     },
     {
       "path": "src/analysis/spatial.jl",
-      "sha256": "f95587745160b8da9445ea22ee10ec2eed28126b078f00f5df42870b59e01a33"
+      "sha256": "94b6e4ecb04f9cf2c2308c8666f31bb955aba32315ed678ca1a347dff893ae6d"
     },
     {
       "path": "src/analysis/spatial_proximity.jl",
@@ -618,7 +618,7 @@
     },
     {
       "path": "src/io/sideload_coordinates.jl",
-      "sha256": "3af1dd6f661ce18ac4b0e499b7471f58bd2acd2f00e92fd2c6b48ade2bcd362e"
+      "sha256": "e0b0c7ef134cf4cac8793500a2426e9142ec0ba78545a1116c8145bfee1af9b1"
     },
     {
       "path": "src/io/to_dss.jl",
@@ -1619,6 +1619,10 @@
     {
       "path": "test/scientific_review_tests.jl",
       "sha256": "98d7f2e053d07ec1bf7eb07772862b6596cf9fc88145793fc93e1bb973cdae34"
+    },
+    {
+      "path": "test/sideload_geolayer_tests.jl",
+      "sha256": "364308d7ca0a65b663215d62ff614e57b442e19e4e5dd1289e7ab8b43c33f08f"
     },
     {
       "path": "test/solution_candidate_tests.jl",

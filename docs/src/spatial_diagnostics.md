@@ -147,6 +147,29 @@ results are unaffected. A non-boolean `enabled` or non-object spatial section
 returns `indeterminate` / `invalid_configuration`, rather than silently enabling
 the pass. Omitted settings retain the enabled default.
 
+### PowerIO GeoLayer geometry
+
+PowerIO-written BMOPF keeps geometry in `extras.geojson`, a GeoJSON
+FeatureCollection whose `powerio_geo` member declares the coordinate space.
+Spatial analysis reads only bus `longitude`/`latitude` (or a declared Cartesian
+`x`/`y`), `line.meta.route_geometry` and the network CRS declaration, so it does
+not read that layer implicitly. A coordinate-free case that carries one reports
+spatial status `indeterminate` / `unapplied_geolayer`. Apply the layer explicitly:
+
+```julia
+net = parse_bmopf("powerio_case.bmopf.json")
+layer = sideload_geolayer!(net)   # counts of applied, unmatched and invalid features
+report = analyze(net)
+```
+
+[`sideload_geolayer!`](@ref) applies only a geographic WGS84 layer: bus
+`Point` features become `longitude`/`latitude`, line `LineString` features become
+`WGS84_geodesic_polyline` route geometry with a recomputed geodesic `length_m`,
+and `meta.crs` is declared when the network has none. Projected, diagram and
+unknown spaces, other CRSs, and conflicting network declarations are reported
+and left unapplied; coordinates are never transformed or relabeled. Existing
+positions and routes are kept unless `overwrite=true`.
+
 The existing `proximity_enabled`, `discrepancy_enabled` and `review_enabled`
 settings control individual parts when the whole pass is enabled. The standalone
 cleanup bundle requires an available cleanup report and reports an error when the

@@ -32,6 +32,8 @@
 # write_bmopf retains longitude/latitude by default, with include_coordinates=false
 # for strict coordinate omission. This viewer-oriented serialization policy and
 # docs/src/visualization.md add no scientific contract, PSK claim, or JSON adapter.
+# sideload_geolayer! explicitly applies PowerIO's geographic WGS84 extras.geojson
+# layer to bus coordinates, routes and meta.crs; other spaces stay unapplied.
 # The analyze_case recipe uses a package-owned synthetic input. Restricted
 # CSIRO MV/LV integration data live externally; no executable contract depends on them.
 # Voltage-tier, galvanic-zone, mapped-conductor, and conditional geographic
