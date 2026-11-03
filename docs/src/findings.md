@@ -122,7 +122,7 @@ symmetry follows; repeated values alone do not establish degeneracy.
 | `I.DIV.LOAD_UNIFORM_MODEL` | I | Across ≥3 loads, every load uses the *same* load model. When that model is `constant_power` (the default), no load exercises voltage dependence (ZIP/exponential) — the case does not test voltage-dependent load behavior. Observational coverage signal, not a defect. |
 | `I.DIV.LOAD_UNIFORM_CONFIG` | I | Across ≥3 loads, every load shares the *same* `configuration` (e.g. all WYE) — no connection diversity. Observational; uniform connection is common and often legitimate. |
 | `I.DIV.LINE_SYMMETRIC` | I | ≥80 % of the lines sharing a linecode have lengths within ±10 % of the median — electrically near-identical sections. |
-| `I.DIV.BUS_UNIFORM_VMIN` | I | Every bus that has `v_min` has the *same* value — no spatial differentiation of the lower voltage envelope. |
+| `I.DIV.BUS_UNIFORM_VMIN` | I | Every bus that has `v_min` has the *same* value — no spatial differentiation of the lower voltage envelope. Phase-to-ground bounds only; `vpn_*`/`vpp_*` bounds are not compared. |
 | `I.DIV.BUS_UNIFORM_VMAX` | I | Same for `v_max`. |
 
 ## OPS — operational loading
@@ -146,7 +146,7 @@ symmetry follows; repeated values alone do not establish degeneracy.
 | `E.PRE.VBOUND_CONFLICT` | E | A bus voltage bound pair with lower > upper (checked elementwise for all four flavors: `v`, `vpn`, `vpp`, `vpos`). The feasible set is empty before the solver starts. |
 | `E.PRE.PBOUND_CONFLICT` | E | Generator `p_min > p_max` — infeasible by construction. |
 | `E.PRE.QBOUND_CONFLICT` | E | Generator `q_min > q_max` — same. |
-| `I.PRE.NO_VOLT_BOUNDS` | I | Buses with no voltage bounds at all — voltages are unconstrained there (spec semantics for absent optional bounds). |
+| `I.PRE.NO_VOLT_BOUNDS` | I | Buses with no voltage-magnitude bound of any kind (`v_min`/`v_max`, `vpn_min`/`vpn_max`, `vpp_min`/`vpp_max` or `vpos_min`/`vpos_max`) — voltages are unconstrained there (spec semantics for absent optional bounds). Unbalance and neutral-shift limits (`vneg_max`, `vzero_max`, `vuf_max`, `vn_max`) do not bound the phase voltage magnitude and do not count. |
 | `I.PRE.SINGLE_SOURCE` | I | Exactly one voltage source. The spec *requires* this in the current version; operationally it is still a single point of failure worth knowing about. |
 | `W.PRE.SOURCE_VOLTAGE_OOB` | W | A voltage source setpoint (`v_magnitude`) falls outside the bus's declared `v_min`/`v_max`. The source pins that voltage as a hard equality in the OPF, so the bound is trivially violated before the solver starts — a guaranteed infeasibility. Common cause: `v_magnitude` set in kV while bounds are in V, or an augmented bound tighter than the actual supply voltage. |
 | `W.PRE.SOURCE_BUS_GENERATOR` | W | A generator without `p_max`/`q_max` sits at a voltage-source bus. The voltage source is itself the network's current slack, so two unbounded current injections share one fixed-voltage bus — the dispatch split is degenerate (non-unique). Remove the generator and express its role as flow bounds/cost on the voltage source instead. |
@@ -557,7 +557,7 @@ its network. See [`SolutionReport`](@ref) and [`render_solution`](@ref).
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `I.BENCH.AUGMENTATION` | I | The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](methodology.md#refs))), missing thermal limits. |
+| `I.BENCH.AUGMENTATION` | I | The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](methodology.md#refs))), missing thermal limits. The absent-voltage-bounds step is suggested only when no bus has a voltage-magnitude bound of any kind (`v_*`, `vpn_*`, `vpp_*` or `vpos_*`). |
 | `W.BENCH.GEN_NO_DOF` | W | One or more generators have `p_min ≈ p_max` on every phase — fixed output, not dispatchable. These generators consume variables and constraints but cannot move in the optimal solution, and may mask the true binding constraints. |
 | `W.BENCH.GEN_ZERO_COST` | W | Dispatchable generators have zero direct cost. This is a screening signal: network losses, upstream cost and constraints can still determine dispatch. Do not add arbitrary costs solely to silence it. |
 | `W.BENCH.GEN_DEGENERATE_COST` | W | Dispatchable generators on the same bus or one hop apart share a representative cost coefficient. Check control interchangeability; equal costs alone do not establish primal non-uniqueness. |

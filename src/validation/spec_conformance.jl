@@ -599,12 +599,17 @@ function benchmark_readiness_check(net::Dict{String,Any},
     n_vpn  = count(b -> haskey(b, "vpn_min")  || haskey(b, "vpn_max"),  values(buses))
     n_vpp  = count(b -> haskey(b, "vpp_min")  || haskey(b, "vpp_max"),  values(buses))
     n_vpos = count(b -> haskey(b, "vpos_min") || haskey(b, "vpos_max"), values(buses))
+    n_any  = count(_has_voltage_magnitude_bound, values(buses))
     result["pct_v_bounds"]   = n_buses > 0 ? round(100.0 * n_vb / n_buses, digits=1) : 0.0
+    result["pct_voltage_magnitude_bounds"] =
+        n_buses > 0 ? round(100.0 * n_any / n_buses, digits=1) : 0.0
     result["n_vpn_bounds"]   = n_vpn
     result["n_vpp_bounds"]   = n_vpp
     result["n_vpos_bounds"]  = n_vpos
 
-    if n_buses > 0 && n_vb == 0
+    # Phase-to-neutral, phase-to-phase and positive-sequence bounds also
+    # constrain voltage magnitude; only a case with none of them is unconstrained.
+    if n_buses > 0 && n_any == 0
         push!(suggestions,
             "no voltage magnitude bounds on any bus — voltage is " *
             "unconstrained; add v_min/v_max (phase-to-ground)")
