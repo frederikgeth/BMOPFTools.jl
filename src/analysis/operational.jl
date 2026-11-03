@@ -239,7 +239,9 @@ only if the removed transformer separates its from and to sides. If a
 parallel path reaches a `from` bus, the resulting figure is an upper bound;
 it cannot support `W.OPS.XFMR_OVERLOADED`. `from_buses`/`to_buses` are vectors so the
 winding-list (`n_winding`) shape — winding 1 upstream, all other windings
-downstream — is handled alongside the two-bus shape.
+downstream — is handled alongside the two-bus shape. Neutral-only lines and
+switches (see `_neutral_only_branch`), such as a neutral bond beside the
+transformer, deliver no load and are not parallel supply paths.
 """
 function _downstream_load(net::Dict{String,Any}, xfmr_id::String,
                            from_buses::Vector{String}, to_buses::Vector{String})::Tuple{Float64,Bool}
@@ -248,12 +250,15 @@ function _downstream_load(net::Dict{String,Any}, xfmr_id::String,
     add!(a, b) = (push!(get!(adj, a, String[]), b);
                   push!(get!(adj, b, String[]), a))
 
+    roles = _index_roles(net)
     for (_, l) in get(net, "line", Dict())
+        _neutral_only_branch(l, roles) && continue
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString) && add!(f, t)
     end
     for (_, sw) in get(net, "switch", Dict())
         get(sw, "open_switch", false) && continue
+        _neutral_only_branch(sw, roles) && continue
         f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString) && add!(f, t)
     end

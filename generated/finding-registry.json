@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "6c07e2fc1311a86e09edfb5ad7f0a530c190d19245f759a21a3b92608b745e80"
+    "sha256": "6819d66c9a366369de8529fcfe205c7fd5464aae1a4d0169de30203008fe3d9b"
   },
   "finding_count": 383,
   "findings": [
@@ -235,7 +235,7 @@
       "namespace": "CONN",
       "catalogue_section": "CONN",
       "section_title": "connectivity & topology",
-      "meaning": "Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail.",
+      "meaning": "Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -437,7 +437,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning. On an applicable radial component this is a nominal-demand/nameplate review screen; it does not establish that a winding cap exists or that a solved limit is violated. Inspect load/rating bases and subtype-specific limits (see [methodology](methodology.md)).",
+      "meaning": "Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning; a neutral-only branch, such as a neutral bond beside the transformer, is not a parallel path. On an applicable radial component this is a nominal-demand/nameplate review screen; it does not establish that a winding cap exists or that a solved limit is violated. Inspect load/rating bases and subtype-specific limits (see [methodology](methodology.md)).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -467,7 +467,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results.",
+      "meaning": "A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers and neutral-only branches are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -727,7 +727,7 @@
       "namespace": "DOM",
       "catalogue_section": "DOM",
       "section_title": "domain plausibility",
-      "meaning": "An isolating two-bus transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`) has `bus_to` strictly closer (in hops) to a voltage source than `bus_from` **and** no alternate path joins its endpoints when the transformer is removed. On that graph bridge, `bus_from` should be the source-side terminal; inspect swapped `bus_*` and `v_nom_*` fields. Equal-distance, unreachable, and non-bridge cases are unassessed. Requires at least one `voltage_source`.",
+      "meaning": "An isolating two-bus transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`) has `bus_to` strictly closer (in hops) to a voltage source than `bus_from` **and** no alternate path joins its endpoints when the transformer is removed (neutral-only branches are not alternate paths). On that graph bridge, `bus_from` should be the source-side terminal; inspect swapped `bus_*` and `v_nom_*` fields. Equal-distance, unreachable, and non-bridge cases are unassessed. Requires at least one `voltage_source`.",
       "contract_id": null,
       "knowledge_ids": []
     },

@@ -4,6 +4,14 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Galvanic zones, radiality and downstream-load traversal exclude lines and
+  closed switches that map only neutral- or earth-role terminals at both ends.
+  A neutral bond beside a service transformer no longer merges the secondary
+  zone into the primary zone (split-phase classification and solution
+  voltage-zone bases), raises `W.CONN.MESHED`, or turns the transformer loading
+  estimate into an upper bound. Connectivity results add
+  `n_neutral_only_branches` and `neutral_only_cycle_rank`; the physical
+  `structure` counts and the earthing islands are unchanged.
 - Adopt American English for repository-authored text and new identifiers,
   with contributor and agent guidance. Preserve existing interfaces, accepted
   input aliases, published anchors, citations, and upstream license text (#464).
