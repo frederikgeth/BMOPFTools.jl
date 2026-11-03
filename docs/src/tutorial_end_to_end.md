@@ -85,7 +85,7 @@ computes and the [finding-code reference](findings.md) for the full catalog.
 
 ```julia
 report = analyze(net)
-
+render(report, "LV1_14bus_case_report.md")      # save for review
 println("ERRORs   : ", length(errors(report)))
 println("WARNINGs : ", length(warnings(report)))
 println("INFOs    : ", length(infos(report)))
