@@ -4,6 +4,10 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Supply phase counts (`W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY`) and voltage-source
+  rotation classes use the case's resolved terminal roles, so a declared
+  neutral such as `"4"` is no longer counted as a phase and a single-phase
+  source no longer reads as a zero-sequence profile.
 - Adopt American English for repository-authored text and new identifiers,
   with contributor and agent guidance. Preserve existing interfaces, accepted
   input aliases, published anchors, citations, and upstream license text (#464).

@@ -80,6 +80,8 @@
 # aliasing; a missing reference never substitutes for explicit or implicit earth.
 # OpenDSS node-0 returns retain separate perfect grounding (PSK-000002).
 # Source phase preservation stays indeterminate for unmapped leadlag (PSK-000006).
+# Supply phase counts and source rotation classes exclude neutral/earth-role labels
+# from resolved terminal conventions; malformed declarations keep the naming fallback.
 # Earthing reports expose finite paths and conductor incidence without inferring
 # protective-system identity; synthetic fixtures cover boundaries and serialization.
 # Provenance INFO Findings retain exploratory sequence, PN/MPN and Kron hypotheses

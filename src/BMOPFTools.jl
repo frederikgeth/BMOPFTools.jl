@@ -374,6 +374,24 @@ neutral by the case's declared label(s) rather than the hard-wired `"n"` guess.
 _neutral_labels(net::Dict{String,Any})::Set{String} = _terminal_roles(net).neutral
 
 """
+    _return_label_predicate(net) -> (label, fallback_neutral) -> Bool
+
+Classify a terminal-map label as a return (neutral or earth) conductor with the
+case's resolved terminal roles; a label that also carries a phase role is not a
+return. Without a declaration the naming convention also applies to map
+labels. When the declaration is malformed (`_index_roles(net) === nothing`),
+fall back to the naming convention: the map's first convention neutral
+(`fallback_neutral`, from `_neutral_terminal(map)`) or any `"n"`/`"N"` label.
+"""
+function _return_label_predicate(net::Dict{String,Any})
+    roles = _index_roles(net)
+    roles === nothing && return (t, nt) -> t == nt || lowercase(t) == "n"
+    returns = setdiff(union(roles.neutral, roles.earth), roles.phase)
+    # Inferred roles only see bus labels; keep the naming convention for maps.
+    roles.inferred ? (t, _) -> t in returns || _is_convention_neutral(t) : (t, _) -> t in returns
+end
+
+"""
     _terminal_conventions_dict(net) -> Dict{String,Any}
 
 Build an exportable `terminal_conventions` block for `net`. If the case already
