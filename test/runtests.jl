@@ -3830,6 +3830,7 @@ include("mcp_execution_tests.jl")
     # -----------------------------------------------------------------------
     include("phase_relabel_tests.jl")
     include("neutral_only_terminal_map_tests.jl")
+    include("neutral_only_voltage_level_tests.jl")
 
     # -----------------------------------------------------------------------
     # OPF extension — requires JuMP and Ipopt

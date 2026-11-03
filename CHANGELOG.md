@@ -4,6 +4,12 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Voltage-level analysis no longer propagates a nominal voltage through lines
+  and closed switches that map only neutral- or earth-role terminals at both
+  ends, such as primary-to-secondary neutral bonds beside service transformers.
+  These bonds no longer raise `E.VOLT.LEVEL_MISMATCH`, `E.VOLT.LINE_CROSSING` or
+  `W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS`; return-only buses reached only through
+  them are listed in `neutral_only_buses` instead of `unassigned_buses`.
 - Adopt American English for repository-authored text and new identifiers,
   with contributor and agent guidance. Preserve existing interfaces, accepted
   input aliases, published anchors, citations, and upstream license text (#464).
