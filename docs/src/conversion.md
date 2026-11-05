@@ -17,7 +17,7 @@ you would otherwise have to discover by diffing data.
 [Rust project](https://github.com/eigenergy/powerio) for grid-data parsing and
 conversion. BMOPFTools uses its
 [Julia wrapper, PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), which calls
-the native Rust library in-process, and requires **0.11.7 or later within the
+the native Rust library in-process, and requires **0.11.8 or later within the
 0.11 series**.
 PowerIO reads several distribution formats into a typed
 `PioModule{MulticonductorNetwork}`. BMOPFTools' tested import wrapper is
@@ -36,7 +36,7 @@ BMOPFTools' DSS-specific normalization and provenance audit automatically.
 For the exact reader profiles and current limits, see PowerIO's
 [distribution guide](https://eigenergy.github.io/powerio/guide/distribution.html),
 [SINCAL guide](https://eigenergy.github.io/powerio/guide/sincal.html), and
-[0.11.7 Julia release notes](https://github.com/eigenergy/PowerIO.jl/releases/tag/v0.11.7).
+[0.11.8 Julia release notes](https://github.com/eigenergy/PowerIO.jl/releases/tag/v0.11.8).
 GridLAB-D, PowerFactory, CYME, and Synergi Electric are potential sources through
 an appropriate supported exchange format; this is not a claim of direct native
 readers for those tools.
@@ -949,7 +949,7 @@ that separate capability does not imply that intake populates it.
 
 ### DSS intake compatibility
 
-The minimum supported PowerIO version is 0.11.7. PowerIO now carries static
+The minimum supported PowerIO version is 0.11.8. PowerIO carries static
 DSS model-4 CVR exponents in its typed voltage model and emits them directly.
 `from_dss` verifies aligned finite exponents instead of restoring defaults from
 missing legacy extras. Explicit zero and negative exponents are preserved;
@@ -968,7 +968,7 @@ current limits or dropout outside its supported domain.
 
 DSS sources now include explicit series impedances and internal EMF buses.
 Keep those branches when solving an imported case. Extra buses and branches,
-line-specific code identities and canonical DSS source-equivalent circuits can
+linecode identities/provenance and canonical DSS source-equivalent circuits can
 change dictionary structure across a round trip; compare physical bus voltages
 with explicit correspondence and inspect conversion diagnostics.
 

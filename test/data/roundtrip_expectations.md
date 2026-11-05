@@ -1,8 +1,8 @@
-# Reviewed PowerIO 0.11.7 round-trip evidence
+# Reviewed PowerIO 0.11.8 round-trip evidence
 
-`roundtrip_expected_losses.json` pins all 710 path/kind differences for the 36
+`roundtrip_expected_losses.json` pins all 623 path/kind differences for the 36
 feature fixtures, with an explicit review classification on each entry. These
-are structural observations, **not 710 accepted fidelity losses**. Tests never
+are structural observations, **not 623 accepted fidelity losses**. Tests never
 regenerate this inventory. Any new or repaired path/kind changes an ordinary
 assertion. `roundtrip_review.json` declares the per-fixture terminal maps and
 named equivalent-circuit replacements used by `roundtrip_review_helpers.jl`.
@@ -13,7 +13,7 @@ No correspondence is inferred from voltage agreement.
 | Classification | Entries | Review and executable evidence |
 |---|---:|---|
 | Ideal-source equivalent | 236 | Named one-phase source, +1 Ω source impedance and −1 Ω series branch per original phase. Check endpoints, conductor order, zero charging, exact impedance cancellation and complex EMF. The generated branch rating is a separate defect. |
-| Effective linecode or equivalent | 234 | Effective snapshot ids change (`_pio_line_l1` → `_pio_line_l1_1`, and analogous `l`/source ids); unused source definitions disappear. Follow every original line's referenced code and compare its full terminal primitive, including mutuals and charging. The new codes for equivalent branches are covered by their circuit checks. |
+| Effective linecode or equivalent | 147 | PowerIO 0.11.8 shares unchanged assigned linecodes, so original code ids can survive re-import while their `source` provenance changes from a line or Thevenin source to a fetched LineCode snapshot. Unused source definitions disappear. Follow every original line's referenced code and compare its full terminal primitive, including mutuals and charging. The new codes for equivalent branches are covered by their circuit checks. |
 | Terminal correspondence | 83 | Explicit maps preserve the physical returns: single-phase `n` → `b`; center-tap secondary `n` → `c`. Compare all original line terminals and primitives, all shunts, and OpenDSS voltages with the declared maps. Neutral-role metadata is assessed separately. |
 | Shunt equivalent | 39 | Full core-shunt matrices become named pairwise lines plus residual diagonal shunts. Sum their primitives at the mapped terminals and compare every entry, including off-diagonals and finite grounding. The 1e-17 S diagonal residuals are roundoff; tolerance is 1e-12 S. Their generated line ratings are not certified. |
 | Zero defaults | 26 | Absent transformer `g_no_load`/`b_no_load` become explicit zero; original nonzero excitation survives in the separately checked shunt circuit. |
@@ -60,7 +60,7 @@ cannot establish unchanged component/terminal correspondence and declared
 bounds/ratings. Explicit `allow_unverified_ratings=true` permits PF verification
 and retains `W.EXPORT.DSS_RATING_UNVERIFIED` plus structured evidence. It does not
 remove constraints or infer a recovery map. An explicit zero-A line limit also
-returns as 600 A in 0.11.7 and is therefore refused. Positive controls retain
+returns as 600 A in 0.11.8 and is therefore refused. Positive controls retain
 123 A and legitimate 600 A limits. BMOPF JSON remains authoritative for OPF and
 Tellegen. The guard does not use a version cutoff; it stays useful until actual
 source/target declarations pass, and upstream fixes must promote the narrowly

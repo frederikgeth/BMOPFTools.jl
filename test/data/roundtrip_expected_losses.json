@@ -71,19 +71,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -101,21 +91,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -126,8 +101,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -228,19 +203,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -258,21 +223,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -283,8 +233,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -360,11 +310,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_line__pio_current__pio_vsource_source_impedance_to",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -380,13 +325,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
+      "path": "linecode._pio_line_l1.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -497,19 +437,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -527,21 +457,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -552,8 +467,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -634,11 +549,6 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -654,13 +564,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -791,19 +696,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -821,21 +716,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -846,8 +726,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -988,11 +868,6 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -1013,11 +888,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -1028,8 +898,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -1124,11 +994,6 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -1139,13 +1004,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -1191,35 +1051,15 @@
   ],
   "pf_cap_delta": [
     {
-      "path": "line.l.linecode",
+      "path": "linecode._pio_line_l.source",
       "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l_1",
-      "kind": "extra",
       "review": "effective_linecode_or_equivalent"
     }
   ],
   "pf_cap_wye": [
     {
-      "path": "line.l.linecode",
+      "path": "linecode._pio_line_l.source",
       "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l_1",
-      "kind": "extra",
       "review": "effective_linecode_or_equivalent"
     }
   ],
@@ -1285,19 +1125,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -1310,23 +1140,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -1447,19 +1262,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -1472,23 +1277,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -1619,19 +1409,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -1644,23 +1424,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -1791,19 +1556,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -1816,23 +1571,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -1958,19 +1698,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -1983,23 +1713,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -2115,11 +1830,6 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -2135,13 +1845,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -2384,19 +2089,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -2414,21 +2109,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -2439,8 +2119,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -2667,11 +2347,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_line__pio_current__pio_vsource_source_impedance_to",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -2687,13 +2362,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
+      "path": "linecode._pio_line_l1.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -2809,11 +2479,6 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -2834,11 +2499,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -2849,8 +2509,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -2926,11 +2586,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_line__pio_current__pio_vsource_source_impedance_to",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -2946,13 +2601,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
+      "path": "linecode._pio_line_l1.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -3063,19 +2713,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -3093,21 +2733,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -3118,8 +2743,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -3242,11 +2867,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_line__pio_current__pio_vsource_source_impedance_to",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -3262,13 +2882,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
+      "path": "linecode._pio_line_l1.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -3379,19 +2994,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -3409,21 +3014,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -3434,8 +3024,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
@@ -3536,19 +3126,9 @@
       "review": "upstream_762_rating"
     },
     {
-      "path": "line._pio_vsource_source_impedance.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line.l1.linecode",
-      "kind": "topology_mismatch",
-      "review": "effective_linecode_or_equivalent"
     },
     {
       "path": "linecode._pio_line__pio_ideal_0",
@@ -3566,21 +3146,6 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_line__pio_vsource_source_impedance",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1",
-      "kind": "missing",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
-      "path": "linecode._pio_line_l1_1",
-      "kind": "extra",
-      "review": "effective_linecode_or_equivalent"
-    },
-    {
       "path": "linecode._pio_vsource__pio_ideal_1_impedance",
       "kind": "extra",
       "review": "effective_linecode_or_equivalent"
@@ -3591,8 +3156,8 @@
       "review": "effective_linecode_or_equivalent"
     },
     {
-      "path": "linecode._pio_vsource_source_impedance",
-      "kind": "missing",
+      "path": "linecode._pio_vsource_source_impedance.source",
+      "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
     },
     {
