@@ -13,6 +13,9 @@
 # PowerIO 0.11.7: validate typed static CVR emission, retain typed bounded-load
 # evidence, and separate resolved geometry from the minimized rejection fixture.
 # Existing intake APIs and scientific domains remain; regenerate source hashes.
+# PowerIO 0.11.8: review shared linecode identities and source provenance in the
+# round-trip inventory; retain independent primitive, rating, and PF checks.
+# Existing PSK domains and the export admission guard remain unchanged.
 # Spatial cleanup includes capacitor attachments, explicit coverage banners and
 # linked attention indexes. These are evidence/presentation changes, not new Findings.
 # Standalone spatial review exports and path-oriented decision evidence are
