@@ -1,9 +1,9 @@
 # BMOPF Solution Profile: case_development_example
 
-**Generated:** 2026-11-05 04:21:55  
+**Generated:** 2026-11-06 07:29:26  
 **Status:** `LOCALLY_SOLVED`  
 **Objective:** 1.9568  
-**Solve time:** 0.016 s  
+**Solve time:** 0.019 s  
 **Findings:** 0 errors · 0 warnings · 2 info  
 
 ---
@@ -64,7 +64,7 @@ Per-unit magnitudes are relative to each zone's own voltage base; volts are not 
 | Strict complementarity screen (solver scaling) | true |
 | Weakly active inequalities | 0 |
 | Barrier iterations | 2 |
-| Solve time (s) | 0.015598058700561523 |
+| Solve time (s) | 0.019264936447143555 |
 
 ## 6. All Findings
 
