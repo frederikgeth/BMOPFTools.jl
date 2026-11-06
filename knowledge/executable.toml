@@ -937,6 +937,7 @@ source_paths = [
   "test/case_development_opf_tests.jl",
   "test/data/case_development/feeder.json",
   "test/data/case_development/README.md",
+  "docs/src/first_case.md",
   "docs/src/tutorial_case_development.md",
   "src/validation/schema.jl",
   "ext/BMOPFOpfExt/BMOPFOpfExt.jl",
