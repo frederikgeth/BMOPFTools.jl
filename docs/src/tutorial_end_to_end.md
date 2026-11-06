@@ -18,9 +18,9 @@ feeder. We take a utility-style OpenDSS model and walk the whole pipeline:
 load → analyze → fix → place DERs → augment → re-validate → solve → export
 ```
 
-Every code block on this page is **executed when the documentation is built**,
-so the inventory counts, findings, manifests and solver output below are real —
-not hand-transcribed. The complete copy-paste scripts live in
+Run the code blocks in order in one Julia session with the external dataset
+available. These blocks are not executed by the documentation build; inventory
+counts and findings can change with the importer version. Companion scripts live in
 [`examples/lv1_14bus_walkthrough.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/lv1_14bus_walkthrough.jl)
 (analysis) and
 [`examples/augment_and_solve.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/augment_and_solve.jl)
@@ -132,6 +132,11 @@ net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
 render_manifest(fix_mf)
 ```
 
+Structural repairs can leave unused records in the `linecode` catalog when
+lines are merged or converted to switches. Inspect the surviving lines and their
+references when checking limits; an unused linecode does not describe an active
+branch. The readback in Step 5 follows those references without deleting records.
+
 ## 4. Place DERs
 
 A faithful import is usually a passive load feeder — there is nothing for an OPF
@@ -158,13 +163,13 @@ render_manifest(der_mf)
 
 ## 5. Augment — standards-grounded gap-filling
 
-[`augment_case`](@ref) fills the bounds and costs an OPF needs, **without
-overwriting any value already present**. Each fill is tagged in the manifest as
-`:standard` (derived from a cited standard) or `:synthetic` (a design choice).
-The passes draw on EN 50160 (voltage bounds), a heuristic conductor-size →
-ampacity estimate (thermal limits, loosely IEC-60228/60364-calibrated), and
-EN 50549-1 / IEEE 1547 (reactive capability). See
-[Case augmentation](augmentation.md) for the full pass-by-pass rationale.
+[`augment_case`](@ref) fills missing bounds and costs, **without overwriting
+any value already present**. The manifest records each change's rule and
+confidence, including `:standard` for standard-derived fills and `:synthetic`
+for study choices. The voltage and reactive-capability passes draw on
+EN 50160 and EN 50549-1 / IEEE 1547, respectively. Synthetic thermal estimation
+is a separate opt-in pass: `AugmentationRecipe()` has `apply_thermal=false`.
+See [Case augmentation](augmentation.md) for the full pass-by-pass rationale.
 
 ```julia
 net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
@@ -172,26 +177,60 @@ net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
 render_manifest(aug_mf)
 ```
 
-**Where the thermal limits landed.** The thermal pass writes a heuristic
-per-conductor ampacity `i_max` (in A) onto each linecode that lacked one — this
-is the line/cable thermal limit the OPF enforces, and it is tagged `:synthetic`
-in the manifest above. Read it straight off the prepared linecodes:
+**Read the current limits actually present.** A line's own `i_max` takes
+precedence over its referenced linecode's `i_max`. Reading only the linecodes
+therefore misses line-level overrides. The following loop reports the selected
+current-limit array in amperes and its storage location for each surviving line;
+the location does not establish how the rating was obtained:
 
 ```julia
-for (lc_id, lc) in sort(collect(net_ready["linecode"]); by = first)
-    imax = get(lc, "i_max", nothing)
-    println(rpad(lc_id, 16),
-            imax === nothing ? "no i_max (skipped — see manifest)" :
-                               string("i_max = ", imax, " A"))
+linecodes = get(net_ready, "linecode", Dict())
+for (line_id, line) in sort(collect(net_ready["line"]); by = first)
+    imax = get(line, "i_max", nothing)
+    location = "line"
+    if imax === nothing
+        lc_id = get(line, "linecode", nothing)
+        lc = get(linecodes, lc_id, Dict())
+        imax = get(lc, "i_max", nothing)
+        location = "linecode $(lc_id)"
+    end
+    println(rpad(line_id, 36),
+            imax === nothing ? "no i_max on line or referenced linecode" :
+                               string("i_max = ", imax, " A (", location, ")"))
 end
+println("New i_max writes in this augmentation: ",
+        count(e -> e.field == "i_max" && e.new_value !== nothing, aug_mf.entries))
 ```
 
+This readback shows the stored limits, not which augmentation passes ran.
+An absent `i_max` does not rule out a separate `s_max` limit. Use the manifest
+to distinguish newly written values from limits that were already present
+before augmentation.
+
+!!! warning "Imported defaults are not verified equipment ratings"
+    With PowerIO.jl 0.11.8, the tutorial's ordinary lines already carry 600 A
+    arrays immediately after `from_dss`, although the source DSS files declare
+    neither `normamps` nor `emergamps`. These are materialized OpenDSS defaults;
+    the default augmentation above adds no `i_max` values. Their presence in a
+    report does not establish an explicitly supplied or verified equipment
+    rating. Review the source data and study assumptions before interpreting
+    thermal constraints in the OPF result. The first-import evidence and the
+    separate generated-branch round-trip problem are tracked in
+    [PowerIO #762](https://github.com/eigenergy/powerio/issues/762).
+    Do not remove ratings merely because they equal 600 A: explicit ratings can
+    have that value too. Zero is a binding limit, not a marker for an absent one.
+
+If your study explicitly calls for synthetic ampacity estimates, select
+`AugmentationRecipe(apply_thermal=true)`. That pass fills only eligible linecodes
+that lack `i_max`, subject to impedance-classification and lookup checks, and
+labels successful estimates `:heuristic`. It does not replace existing line
+overrides; inspect the manifest for skipped linecodes and the assumptions behind
+each estimate. See [Case augmentation](augmentation.md) for the R₁₁ lookup,
+its applicability limits, and the equal phase/neutral rating assumption.
+
 A **transformer's** thermal limit is a different mechanism: its nameplate
-`s_rating` (kVA) already plays that role and the OPF enforces it directly, so
-`augment_case` never adds a separate transformer thermal limit. The full
-pass-by-pass rationale — the R₁₁ → ampacity lookup table, its confidence gating,
-and the neutral-conductor rating — is in
-[Case augmentation](augmentation.md).
+`s_rating` is stored in **VA**, and the OPF enforces its winding power limits.
+`augment_case` does not infer a transformer thermal rating.
 
 ## 6. Re-validate
 
