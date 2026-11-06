@@ -332,7 +332,9 @@ when using specific networks.
 
 In alphabetic order:
 
+- Ameer Kamoona
 - Archie Chapman
+- Marta Vanin
 - Mohamed Numair
 - Samuel Talkington
 - Sleiman Mhanna
