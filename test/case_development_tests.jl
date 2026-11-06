@@ -1,6 +1,34 @@
 using Test, BMOPFTools, JSON3
+import JSONSchema
 
 _case_dev_base() = parse_bmopf(joinpath(@__DIR__, "data", "case_development", "feeder.json"))
+
+@testset "First-case export: load nominal voltage arrays (#475)" begin
+    base = _case_dev_base()
+    saved = deepcopy(base)
+    schema = JSON3.read(read(joinpath(@__DIR__, "..", "src", "validation",
+        "schemas", "draft_bmopf_schema.json"), String))
+    voltage_schema = JSONSchema.Schema(
+        schema["properties"]["load"]["additionalProperties"]["properties"]["v_nom"])
+    # Validate the exported field directly: the fixture has no schema URI, and
+    # full-document validation can stop at unrelated study-extension fields.
+    mktempdir() do dir
+        path = joinpath(dir, "first-case.json")
+        write_bmopf(base, path)
+        exported = JSON3.read(read(path, String), Dict{String,Any})
+        restored = parse_bmopf(path)
+        @test Set(keys(exported["load"])) == Set(["near", "far"])
+        for (id, load) in exported["load"]
+            @test JSONSchema.validate(voltage_schema, load["v_nom"]) === nothing
+            @test length(load["v_nom"]) == length(load["p_nom"]) == length(load["q_nom"]) == 3
+            @test load["v_nom"] == [230.0, 230.0, 230.0]
+            @test restored["load"][id]["v_nom"] == base["load"][id]["v_nom"]
+        end
+    end
+    @test base == saved
+    # The historical scalar is rejected even though runtime APIs accept it.
+    @test JSONSchema.validate(voltage_schema, 230.0) !== nothing
+end
 
 @testset "Case development: selections and budgets" begin
     base = _case_dev_base(); saved = deepcopy(base)
