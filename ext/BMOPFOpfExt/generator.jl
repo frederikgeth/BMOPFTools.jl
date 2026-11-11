@@ -31,7 +31,8 @@ related to the phase-to-neutral voltage and the current variables by:
   P_k = (vr_ph − vr_n)·crg[k] + (vi_ph − vi_n)·cig[k]
   Q_k = (vi_ph − vi_n)·crg[k] − (vr_ph − vr_n)·cig[k]
 ```
-with `p_min[k] ≤ P_k ≤ p_max[k]` and `q_min[k] ≤ Q_k ≤ q_max[k]`.
+with `p_min[k] ≤ P_k ≤ p_max[k]` and `q_min[k] ≤ Q_k ≤ q_max[k]`. Equal static
+bounds become one equality row (see `_box_constraints!`).
 DELTA generators use the same bilinear form with line-to-line voltage.
 """
 function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
@@ -53,6 +54,24 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
         q_max     = Float64.(get(gen, "q_max", Float64[]))
         i_max_g   = Float64.(get(gen, "i_max", Float64[]))
         s_max_g   = Float64.(get(gen, "s_max", Float64[]))
+
+        # P/Q box rows per phase: :generator_{p,q}_{lower,upper}, or one
+        # :generator_{p,q}_equality row when a static minimum equals its maximum.
+        bound(values, category, field, k) = length(values) >= k ?
+            (coefficient === nothing ? values[k] :
+             coefficient(category, :generator, gid, field, k, values[k])) : nothing
+        function stamp_power_bounds!(p_expr, q_expr, k)
+            for (quantity, expr, lo, hi) in (
+                    (:p, p_expr, bound(p_min, :limit, :p_min, k),
+                                 bound(p_max, :availability, :p_max, k)),
+                    (:q, q_expr, bound(q_min, :limit, :q_min, k),
+                                 bound(q_max, :limit, :q_max, k)))
+                for (side, cref) in pairs(_box_constraints!(model, expr, lo, hi))
+                    register(Symbol(:generator_, quantity, :_, side),
+                             (string(gid), k), cref)
+                end
+            end
+        end
 
         if cfg in ("WYE", "SINGLE_PHASE")
             ph_pos, n_pos_idx = _generator_positions(tm, cfg, nlabels)
@@ -91,30 +110,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
                 p_seed, q_seed = _generator_power_target(p_min, p_max, q_min, q_max, idx)
                 _seed_power_current!(crg[(gid,idx)], cig[(gid,idx)], dvr, dvi, p_seed, q_seed)
 
-                if length(p_min) >= idx
-                    register(:generator_p_lower, (string(gid), idx),
-                        @constraint(model, p_expr >=
-                            (coefficient === nothing ? p_min[idx] : coefficient(
-                                :limit, :generator, gid, :p_min, idx, p_min[idx]))))
-                end
-                if length(p_max) >= idx
-                    register(:generator_p_upper, (string(gid), idx),
-                        @constraint(model, p_expr <=
-                            (coefficient === nothing ? p_max[idx] : coefficient(
-                                :availability, :generator, gid, :p_max, idx, p_max[idx]))))
-                end
-                if length(q_min) >= idx
-                    register(:generator_q_lower, (string(gid), idx),
-                        @constraint(model, q_expr >=
-                            (coefficient === nothing ? q_min[idx] : coefficient(
-                                :limit, :generator, gid, :q_min, idx, q_min[idx]))))
-                end
-                if length(q_max) >= idx
-                    register(:generator_q_upper, (string(gid), idx),
-                        @constraint(model, q_expr <=
-                            (coefficient === nothing ? q_max[idx] : coefficient(
-                                :limit, :generator, gid, :q_max, idx, q_max[idx]))))
-                end
+                stamp_power_bounds!(p_expr, q_expr, idx)
 
                 # Current magnitude limit (per conductor; single-phase collapsed)
                 if phase_ilim[idx] !== nothing
@@ -159,30 +155,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
                 p_seed, q_seed = _generator_power_target(p_min, p_max, q_min, q_max, k)
                 _seed_power_current!(crg[(gid,k)], cig[(gid,k)], dvr, dvi, p_seed, q_seed)
 
-                if length(p_min) >= k
-                    register(:generator_p_lower, (string(gid), k),
-                        @constraint(model, p_expr >=
-                            (coefficient === nothing ? p_min[k] : coefficient(
-                                :limit, :generator, gid, :p_min, k, p_min[k]))))
-                end
-                if length(p_max) >= k
-                    register(:generator_p_upper, (string(gid), k),
-                        @constraint(model, p_expr <=
-                            (coefficient === nothing ? p_max[k] : coefficient(
-                                :availability, :generator, gid, :p_max, k, p_max[k]))))
-                end
-                if length(q_min) >= k
-                    register(:generator_q_lower, (string(gid), k),
-                        @constraint(model, q_expr >=
-                            (coefficient === nothing ? q_min[k] : coefficient(
-                                :limit, :generator, gid, :q_min, k, q_min[k]))))
-                end
-                if length(q_max) >= k
-                    register(:generator_q_upper, (string(gid), k),
-                        @constraint(model, q_expr <=
-                            (coefficient === nothing ? q_max[k] : coefficient(
-                                :limit, :generator, gid, :q_max, k, q_max[k]))))
-                end
+                stamp_power_bounds!(p_expr, q_expr, k)
 
                 # Current magnitude limit
                 if length(i_max_g) >= k

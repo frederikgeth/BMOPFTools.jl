@@ -12,6 +12,9 @@ Initial General release candidate. Registration has not yet been requested.
   solves landed on a low-voltage root (an intermittent Julia 1.10 CI failure
   in the FOUR_LEG PVSystem comparison). Pinned per-unit solves now take 2
   iterations instead of about 16. Bounds supplied as parameters keep both rows.
+  Generators follow the same rule (`:generator_p_equality`,
+  `:generator_q_equality`); pinned generators take 2–3 iterations instead of
+  5–17.
 - Add `sideload_geolayer!`, which explicitly applies the geographic WGS84
   GeoLayer that PowerIO stores in `extras.geojson` to bus `longitude`/`latitude`,
   line `meta.route_geometry` and `meta.crs`, and returns match counts.
