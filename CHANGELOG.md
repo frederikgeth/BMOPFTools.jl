@@ -4,6 +4,10 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Supply phase counts (`W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY`) and voltage-source
+  rotation classes use the case's resolved terminal roles, so a declared
+  neutral such as `"4"` is no longer counted as a phase and a single-phase
+  source no longer reads as a zero-sequence profile.
 - Galvanic zones, radiality and downstream-load traversal exclude lines and
   closed switches that map only neutral- or earth-role terminals at both ends.
   A neutral bond beside a service transformer no longer merges the secondary

@@ -486,6 +486,10 @@ that is not a 120° rotation.
   conductors, but its voltage source's angle arrangement is zero/quadrature/
   anti-phase/incoherent rather than a 120° rotation, so it cannot establish a
   rotating 3-phase field.
+
+Phase conductors are counted with the case's resolved terminal roles
+(`terminal_conventions`, or the naming convention when none is declared):
+neutral- and earth-role labels are not phases.
 """
 function _check_supply_phase_consistency(net::Dict{String,Any},
                                          findings::Vector{Finding},
@@ -494,8 +498,9 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
     vsrcs = get(net, "voltage_source", Dict())
     xfmr  = get(net, "transformer", Dict())
 
+    is_return = _return_label_predicate(net)
     _nphase(tm) = let v = Vector{String}(string.(tm)), nt = _neutral_terminal(v)
-        count(t -> t != nt && lowercase(t) != "n", v)
+        count(t -> !is_return(t, nt), v)
     end
     function _bus_nphase(bid)
         b = get(buses, bid, nothing)
@@ -530,7 +535,7 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
             va = Float64.(get(vs, "v_angle", Float64[]))
             angs = Float64[]
             for (k, t) in enumerate(tm)
-                (t == nt || lowercase(t) == "n") && continue
+                is_return(t, nt) && continue
                 k <= length(va) && push!(angs, va[k])
             end
             np = _nphase(tm)

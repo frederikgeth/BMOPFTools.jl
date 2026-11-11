@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "819c85f65ed39bc1e8fd8053a349100d729c712d5a245fc5e3a1bf16b5ccee3a"
+    "sha256": "a7e260ade2c8622b2298ad0c531b2f10cbcbc1d0f7821068cc219416fc691711"
   },
   "finding_count": 383,
   "findings": [

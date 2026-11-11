@@ -3757,6 +3757,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # -----------------------------------------------------------------------
     include("terminal_conventions_tests.jl")
     include("terminal_usage_tests.jl")
+    include("supply_phase_terminal_roles_tests.jl")
     include("device_indexing_tests.jl")
     include("connection_map_tests.jl")
     include("transformer_phase_tests.jl")

@@ -351,7 +351,7 @@ Emitted by the `:connectivity` pass after classifying each galvanic zone. Inform
 
 ### Voltage-source sequence & supply consistency
 
-Classify each polyphase voltage source's stored `v_angle` and check it against the phase counts of the buses it galvanically supplies. Phase count and separation are fixed inside a galvanic zone — only a transformer (Scott-T, center-tap, delta-wye) changes them.
+Classify each polyphase voltage source's stored `v_angle` and check it against the phase counts of the buses it galvanically supplies. Phase count and separation are fixed inside a galvanic zone — only a transformer (Scott-T, center-tap, delta-wye) changes them. Phase conductors and source phase angles are identified with the case's resolved terminal roles (`terminal_conventions`, or the naming convention when none is declared): neutral- and earth-role labels, such as a declared neutral `"4"`, are not phases.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|

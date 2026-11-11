@@ -17,6 +17,7 @@ interface_paths = [
   "test/execution_interface_tests.jl",
   "test/mcp_execution_tests.jl",
   "src/analysis/connectivity.jl",
+  "test/supply_phase_terminal_roles_tests.jl",
   "src/analysis/switch_scenarios.jl",
   "src/analysis/operational.jl",
   "src/analysis/winding_limit_coverage.jl",
