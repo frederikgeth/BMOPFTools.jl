@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "a7e260ade2c8622b2298ad0c531b2f10cbcbc1d0f7821068cc219416fc691711"
+    "sha256": "92cfe6136ea2547380cf089f2cf46906c2cac8efb1750922083cb36c9de5b8a4"
   },
   "finding_count": 383,
   "findings": [
@@ -407,7 +407,7 @@
       "namespace": "DIV",
       "catalogue_section": "DIV",
       "section_title": "diversity & symmetry",
-      "meaning": "Every bus that has `v_min` has the *same* value — no spatial differentiation of the lower voltage envelope.",
+      "meaning": "Every bus that has `v_min` has the *same* value — no spatial differentiation of the lower voltage envelope. Phase-to-ground bounds only; `vpn_*`/`vpp_*` bounds are not compared.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -547,7 +547,7 @@
       "namespace": "PRE",
       "catalogue_section": "PRE",
       "section_title": "infeasibility pre-flight",
-      "meaning": "Buses with no voltage bounds at all — voltages are unconstrained there (spec semantics for absent optional bounds).",
+      "meaning": "Buses with no voltage-magnitude bound of any kind (`v_min`/`v_max`, `vpn_min`/`vpn_max`, `vpp_min`/`vpp_max` or `vpos_min`/`vpos_max`) — voltages are unconstrained there (spec semantics for absent optional bounds). This is a coverage screen: a `vpp_*` bound leaves the common-mode (neutral-shift) component free, and a `vpos_*` bound alone does not bound each phase magnitude under unbalance, but both still count as declared coverage. Unbalance and neutral-shift limits (`vneg_max`, `vzero_max`, `vuf_max`, `vn_max`) do not bound the phase voltage magnitude and do not count.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2928,7 +2928,7 @@
       "namespace": "BENCH",
       "catalogue_section": "BENCH",
       "section_title": "benchmark readiness",
-      "meaning": "The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](methodology.md#refs))), missing thermal limits.",
+      "meaning": "The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](methodology.md#refs))), missing thermal limits. The absent-voltage-bounds step is suggested only when no bus has a voltage-magnitude bound of any kind (`v_*`, `vpn_*`, `vpp_*` or `vpos_*`).",
       "contract_id": null,
       "knowledge_ids": []
     },

@@ -53,21 +53,41 @@ function _check_generation_adequacy(net::Dict{String,Any},
     )
 end
 
+# Bus voltage-magnitude bound pairs of the data model: phase-to-ground,
+# phase-to-neutral, phase-to-phase and positive-sequence. Unbalance and
+# neutral-shift limits (`vneg_max`, `vzero_max`, `vuf_max`, `vn_max`) do not
+# bound the phase voltage magnitude and are not counted as coverage.
+const _BUS_VOLTAGE_MAGNITUDE_BOUNDS = (
+    ("v", "v_min", "v_max"), ("vpn", "vpn_min", "vpn_max"),
+    ("vpp", "vpp_min", "vpp_max"), ("vpos", "vpos_min", "vpos_max"))
+
+"""True when `bus` declares a lower (`:lower`), upper (`:upper`) or either (`:any`)
+voltage-magnitude bound of any kind in `_BUS_VOLTAGE_MAGNITUDE_BOUNDS`."""
+function _has_voltage_magnitude_bound(bus, side::Symbol=:any)
+    bus isa AbstractDict || return false
+    any(_BUS_VOLTAGE_MAGNITUDE_BOUNDS) do (_, lo, hi)
+        (side != :upper && haskey(bus, lo)) || (side != :lower && haskey(bus, hi))
+    end
+end
+
 function _check_voltage_bounds(net::Dict{String,Any},
                                 findings::Vector{Finding})::Dict{String,Any}
     buses = get(net, "bus", Dict())
     no_bounds = String[]
 
     for (id, b) in buses
-        haskey(b, "v_min") || haskey(b, "v_max") || push!(no_bounds, id)
+        _has_voltage_magnitude_bound(b) || push!(no_bounds, id)
     end
 
-    n_with_lower = count(b -> haskey(b, "v_min"), values(buses))
-    n_with_upper = count(b -> haskey(b, "v_max"), values(buses))
+    n_with_lower = count(b -> _has_voltage_magnitude_bound(b, :lower), values(buses))
+    n_with_upper = count(b -> _has_voltage_magnitude_bound(b, :upper), values(buses))
+    by_kind = Dict{String,Any}(kind => count(b -> b isa AbstractDict &&
+                                   (haskey(b, lo) || haskey(b, hi)), values(buses))
+                               for (kind, lo, hi) in _BUS_VOLTAGE_MAGNITUDE_BOUNDS)
 
     if !isempty(no_bounds)
         push!(findings, Finding(INFO, "I.PRE.NO_VOLT_BOUNDS", :preflight, :bus, nothing,
-            "$(length(no_bounds)) bus(es) have no voltage bounds — voltage will be unconstrained at these buses.",
+            "$(length(no_bounds)) bus(es) have no voltage magnitude bounds — voltage will be unconstrained at these buses.",
             Dict{String,Any}("buses" => no_bounds)))
     end
 
@@ -75,6 +95,7 @@ function _check_voltage_bounds(net::Dict{String,Any},
         "n_buses"              => length(buses),
         "n_with_lower_bound"   => n_with_lower,
         "n_with_upper_bound"   => n_with_upper,
+        "n_with_bounds_by_kind" => by_kind,
         "n_without_bounds"     => length(no_bounds),
         "buses_without_bounds" => no_bounds
     )

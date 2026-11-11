@@ -3826,6 +3826,7 @@ include("mcp_execution_tests.jl")
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve
     # -----------------------------------------------------------------------
     include("infeasibility_tests.jl")
+    include("voltage_bound_coverage_tests.jl")
 
     # -----------------------------------------------------------------------
     # Phase relabeling — static TMAP detection (no solver) + gated OPF invariance

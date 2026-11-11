@@ -4,6 +4,13 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Voltage-bound coverage counts phase-to-neutral, phase-to-phase and
+  positive-sequence magnitude bounds as well as `v_min`/`v_max`.
+  `I.PRE.NO_VOLT_BOUNDS`, the preflight lower/upper counts (now with
+  `n_with_bounds_by_kind`), diversity `pct_with_voltage_bounds` and the
+  benchmark-readiness suggestion no longer report `vpn_*`-bounded buses as
+  unconstrained. Benchmark readiness adds `pct_voltage_magnitude_bounds`;
+  `pct_v_bounds` remains the phase-to-ground share.
 - Supply phase counts (`W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY`) and voltage-source
   rotation classes use the case's resolved terminal roles, so a declared
   neutral such as `"4"` is no longer counted as a phase and a single-phase

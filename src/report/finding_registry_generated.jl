@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "a7e260ade2c8622b2298ad0c531b2f10cbcbc1d0f7821068cc219416fc691711"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "92cfe6136ea2547380cf089f2cf46906c2cac8efb1750922083cb36c9de5b8a4"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -360,7 +360,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="DIV",
         catalogue_section="DIV",
         section_title="diversity & symmetry",
-        meaning="Every bus that has `v_min` has the *same* value — no spatial differentiation of the lower voltage envelope.",
+        meaning="Every bus that has `v_min` has the *same* value — no spatial differentiation of the lower voltage envelope. Phase-to-ground bounds only; `vpn_*`/`vpp_*` bounds are not compared.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -486,7 +486,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PRE",
         catalogue_section="PRE",
         section_title="infeasibility pre-flight",
-        meaning="Buses with no voltage bounds at all — voltages are unconstrained there (spec semantics for absent optional bounds).",
+        meaning="Buses with no voltage-magnitude bound of any kind (`v_min`/`v_max`, `vpn_min`/`vpn_max`, `vpp_min`/`vpp_max` or `vpos_min`/`vpos_max`) — voltages are unconstrained there (spec semantics for absent optional bounds). This is a coverage screen: a `vpp_*` bound leaves the common-mode (neutral-shift) component free, and a `vpos_*` bound alone does not bound each phase magnitude under unbalance, but both still count as declared coverage. Unbalance and neutral-shift limits (`vneg_max`, `vzero_max`, `vuf_max`, `vn_max`) do not bound the phase voltage magnitude and do not count.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2610,7 +2610,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="BENCH",
         catalogue_section="BENCH",
         section_title="benchmark readiness",
-        meaning="The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](methodology.md#refs))), missing thermal limits.",
+        meaning="The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](methodology.md#refs))), missing thermal limits. The absent-voltage-bounds step is suggested only when no bus has a voltage-magnitude bound of any kind (`v_*`, `vpn_*`, `vpp_*` or `vpos_*`).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

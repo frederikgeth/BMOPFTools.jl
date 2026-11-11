@@ -404,7 +404,9 @@ function _render_spec_benchmark(r::SummaryReport, io::IO; color::Bool=false)
                 get(bench, "objective_wellposed", "?"); indent=4)
         _kv_row(io, "Only slack generation",
                 get(bench, "only_slack_generation", "?"); indent=4)
-        _kv_row(io, "Buses with |V| bounds",
+        _kv_row(io, "Buses with any |V| bound",
+                "$(get(bench, "pct_voltage_magnitude_bounds", "?"))%"; indent=4)
+        _kv_row(io, "Buses with v_min/v_max",
                 "$(get(bench, "pct_v_bounds", "?"))%"; indent=4)
         _kv_row(io, "vpn/vpp/vpos bounds",
                 "$(get(bench,"n_vpn_bounds",0)) / $(get(bench,"n_vpp_bounds",0)) / $(get(bench,"n_vpos_bounds",0)) buses"; indent=4)

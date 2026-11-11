@@ -46,6 +46,7 @@ interface_paths = [
   "test/data/profiler_evidence/README.md",
   "src/infeasibility/transformer_headroom.jl",
   "src/infeasibility/preflight.jl",
+  "test/voltage_bound_coverage_tests.jl",
   "test/transformer_headroom_tests.jl",
   "src/analysis/provenance/data_quality.jl",
   "src/analysis/voltage_levels.jl",
