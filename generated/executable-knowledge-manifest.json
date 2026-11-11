@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "cfb9de9234a0b8e4a26ec6e82fed1f468f73d3f96d51571946969961777e764c",
+  "corpus_sha256": "12dd5f0f1c5e66a8187f6f2b475f3a4beafcb0d0efd11ce574f74eb261d98a99",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "5024e569e3f85aa7ec4118e5121ba034234430116326f68830d1cc393df728bf"
+      "sha256": "64b957f0f48a9ac22501b8b8cec1ddc082875cc805f7f10005d7c9c3bdfe55d8"
     },
     {
       "path": "docs/src/first_case.md",
@@ -314,11 +314,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "6e439f7161e7faf73f72d9208826e3e1af04a2b95bbb65613ac76bfc174cdc3b"
+      "sha256": "5d0f34af378550898a049bac5fa8c69309d6464c8dd11648a942cfdf19922367"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "00fa0a6df0bb912b870bab041f00b57f09567c89cef0c85a77cc950f4ad81ed8"
+      "sha256": "b86a973e722203585f29dca27838e70a9b8ae80b7041eba7151236049378bd81"
     },
     {
       "path": "recipes/README.md",
@@ -666,7 +666,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "c90cbe295731b4373ffe3942bead8dd8f654c5ebfe382596d1534fe3a7ae527d"
+      "sha256": "389738aaa552e55848ed279f2e2b665cc8d5f52833a6954bbc41e6c090f0da97"
     },
     {
       "path": "src/report/formatting.jl",

@@ -58,7 +58,8 @@
 # remain package validation tests, not preservation contracts.
 # Case-preparation diagnostics are descriptive screens, not admission gates.
 # Voltage-bound coverage (preflight, diversity, benchmark readiness) counts v, vpn,
-# vpp and vpos magnitude bounds; unbalance/neutral limits are not coverage.
+# vpp and vpos magnitude bounds as declared coverage, not as proof that every phase
+# magnitude is bounded; unbalance/neutral limits are not coverage.
 # Aggregate phase balance links to PSK-000009 without certifying collapse.
 # Case-development Julia examples illustrate independent verification (PSK-000013);
 # they do not extend its contract or expose solver callbacks through JSON execution.

@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "5024e569e3f85aa7ec4118e5121ba034234430116326f68830d1cc393df728bf"
+    "sha256": "64b957f0f48a9ac22501b8b8cec1ddc082875cc805f7f10005d7c9c3bdfe55d8"
   },
   "finding_count": 383,
   "findings": [
@@ -547,7 +547,7 @@
       "namespace": "PRE",
       "catalogue_section": "PRE",
       "section_title": "infeasibility pre-flight",
-      "meaning": "Buses with no voltage-magnitude bound of any kind (`v_min`/`v_max`, `vpn_min`/`vpn_max`, `vpp_min`/`vpp_max` or `vpos_min`/`vpos_max`) — voltages are unconstrained there (spec semantics for absent optional bounds). Unbalance and neutral-shift limits (`vneg_max`, `vzero_max`, `vuf_max`, `vn_max`) do not bound the phase voltage magnitude and do not count.",
+      "meaning": "Buses with no voltage-magnitude bound of any kind (`v_min`/`v_max`, `vpn_min`/`vpn_max`, `vpp_min`/`vpp_max` or `vpos_min`/`vpos_max`) — voltages are unconstrained there (spec semantics for absent optional bounds). This is a coverage screen: a `vpp_*` bound leaves the common-mode (neutral-shift) component free, and a `vpos_*` bound alone does not bound each phase magnitude under unbalance, but both still count as declared coverage. Unbalance and neutral-shift limits (`vneg_max`, `vzero_max`, `vuf_max`, `vn_max`) do not bound the phase voltage magnitude and do not count.",
       "contract_id": null,
       "knowledge_ids": []
     },
