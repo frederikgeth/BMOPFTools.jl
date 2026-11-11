@@ -6,6 +6,14 @@ voltage source, assigning a voltage level to every bus. Transformers
 are level-change edges; all other edges (lines, switches) must connect
 buses at the same level.
 
+Lines and closed switches that map only neutral- or earth-role terminals at
+both ends (see `_neutral_only_branch`), such as a primary-to-secondary neutral
+bond beside a service transformer, carry no phase conductor. They neither
+propagate a nominal voltage nor count as level crossings. A bus whose terminals
+are all neutral/earth-role and which is reached only through such branches has
+no phase voltage level; it is listed in `neutral_only_buses` instead of
+`unassigned_buses`.
+
 Returns identified voltage levels, bus assignments, and any consistency
 violations.
 """
@@ -62,8 +70,13 @@ function voltage_level_analysis(net::Dict{String,Any},
         end
     end
 
+    # Return-only buses reached through neutral-only branches carry no phase
+    # level; they are not islanded from a source.
+    neutral_only = _neutral_only_buses(net, assigned_level)
+
     # Buses with no assigned level (islanded from all sources)
-    unassigned = [id for id in keys(buses) if !haskey(assigned_level, id)]
+    unassigned = [id for id in keys(buses)
+                  if !haskey(assigned_level, id) && !(id in neutral_only)]
     if !isempty(unassigned)
         push!(findings, Finding(WARNING, "W.VOLT.UNASSIGNED", :voltage_levels, :bus, nothing,
             "$(length(unassigned)) bus(es) have no reachable voltage source — may be islanded.",
@@ -111,6 +124,7 @@ function voltage_level_analysis(net::Dict{String,Any},
     result["n_levels"]            = length(levels_out)
     result["bus_voltage_map"]     = Dict(k => v for (k, v) in assigned_level)
     result["unassigned_buses"]    = unassigned
+    result["neutral_only_buses"]  = sort!(collect(neutral_only))
 
     # Transformer transition summary
     transitions = _transformer_transitions(net, assigned_level; phase_order)
@@ -141,6 +155,7 @@ end
 function _build_voltage_adjacency(net::Dict{String,Any})
     # adjacency: bus => [(neighbor, edge_type, edge_id, ratio)]
     adj = Dict{String,Vector{Tuple{String,Symbol,String,Float64}}}()
+    roles = _index_roles(net)
 
     function add_adj!(a, b, etype, eid, ratio)
         push!(get!(adj, a, []), (b, etype, eid, ratio))
@@ -191,7 +206,10 @@ function _build_voltage_adjacency(net::Dict{String,Any})
         end
     end
 
+    # A neutral-only branch carries no phase conductor and therefore no
+    # nominal phase voltage between its buses.
     for (id, l) in get(net, "line", Dict())
+        _neutral_only_branch(l, roles) && continue
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString) || continue
         add_adj!(f, t, :line, id, 1.0)
@@ -199,12 +217,48 @@ function _build_voltage_adjacency(net::Dict{String,Any})
 
     for (id, sw) in get(net, "switch", Dict())
         get(sw, "open_switch", false) && continue
+        _neutral_only_branch(sw, roles) && continue
         f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString) || continue
         add_adj!(f, t, :switch, id, 1.0)
     end
 
     adj
+end
+
+# Buses without a phase level whose terminals are all neutral/earth-role and
+# that are reached from a leveled bus through neutral-only lines or closed
+# switches (for example, a grounding-electrode bus).
+function _neutral_only_buses(net::Dict{String,Any}, assigned::AbstractDict)::Set{String}
+    roles = _index_roles(net)
+    reached = Set{String}()
+    roles isa TerminalRoles || return reached
+    buses = get(net, "bus", Dict())
+    adj = Dict{String,Vector{String}}()
+    for kind in ("line", "switch"), (_, br) in get(net, kind, Dict())
+        kind == "switch" && get(br, "open_switch", false) && continue
+        _neutral_only_branch(br, roles) || continue
+        f = get(br, "bus_from", nothing); t = get(br, "bus_to", nothing)
+        (f isa AbstractString && t isa AbstractString) || continue
+        push!(get!(adj, f, String[]), t)
+        push!(get!(adj, t, String[]), f)
+    end
+    function return_only(id)
+        b = get(buses, id, nothing)
+        names = b isa AbstractDict ? get(b, "terminal_names", nothing) : nothing
+        names isa AbstractVector && !isempty(names) &&
+            all(t -> _return_only_label(t, roles), names)
+    end
+    queue = [id for id in keys(assigned) if haskey(adj, id)]
+    seen = Set{String}(queue)
+    while !isempty(queue)
+        bus = popfirst!(queue)
+        for nb in get(adj, bus, String[])
+            (nb in seen || haskey(assigned, nb) || !return_only(nb)) && continue
+            push!(seen, nb); push!(reached, nb); push!(queue, nb)
+        end
+    end
+    reached
 end
 
 function _cluster_voltage_levels(assigned::Dict{String,Float64};
@@ -301,7 +355,10 @@ end
 function _check_level_crossing_lines(net::Dict{String,Any},
                                       assigned::Dict{String,Float64},
                                       findings::Vector{Finding})
+    roles = _index_roles(net)
     for (id, l) in get(net, "line", Dict())
+        # A neutral bond between buses of different levels is not a crossing.
+        _neutral_only_branch(l, roles) && continue
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
         vf = get(assigned, f, nothing); vt = get(assigned, t, nothing)
         (vf === nothing || vt === nothing) && continue

@@ -48,6 +48,7 @@ interface_paths = [
   "test/transformer_headroom_tests.jl",
   "src/analysis/provenance/data_quality.jl",
   "src/analysis/voltage_levels.jl",
+  "test/neutral_only_voltage_level_tests.jl",
   "src/analysis/spatial.jl",
   "src/analysis/coordinate_semantics.jl",
   "src/analysis/spatial_proximity.jl",
