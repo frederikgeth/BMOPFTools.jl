@@ -12,6 +12,9 @@ Initial General release candidate. Registration has not yet been requested.
   estimate into an upper bound. Connectivity results add
   `n_neutral_only_branches` and `neutral_only_cycle_rank`; the physical
   `structure` counts and the earthing islands are unchanged.
+  `ZonePerUnitScaling` still requires one power base across a neutral-only
+  bond, which carries return current, and the solution voltage-zone summary
+  leaves out zones that have only neutral/earth terminals.
 - Adopt American English for repository-authored text and new identifiers,
   with contributor and agent guidance. Preserve existing interfaces, accepted
   input aliases, published anchors, citations, and upstream license text (#464).

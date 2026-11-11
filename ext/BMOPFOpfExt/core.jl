@@ -245,7 +245,7 @@ function BMOPFTools.opf_transformer_scaling_contract_data(
     complete = isempty(missing_voltage) && isempty(invalid_voltage) &&
         isempty(missing_power) && isempty(invalid_power)
 
-    zones = BMOPFTools._galvanic_zones(ctx.net)
+    zones = BMOPFTools._galvanic_zones(ctx.net; include_neutral_only=true)
     sort!(zones; by=zone -> join(sort!(collect(zone)), "\0"))
     zone_records = Dict{String,Any}[]
     bus_zone = Dict{String,String}()

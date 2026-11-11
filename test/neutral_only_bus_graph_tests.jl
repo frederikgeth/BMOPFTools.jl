@@ -4,6 +4,7 @@
 # witness is a synthetic 4-wire wye feeder with a center-tap service
 # transformer whose primary and secondary neutrals are bonded by a
 # neutral-only line. It is built inline so the test owns every value.
+# Neutral continuity itself is retained under PSK-000002.
 using Test, BMOPFTools, JSON3
 
 function _bus_graph_bond_witness(; neutral="4", conventions=true)
@@ -152,6 +153,16 @@ _zone_sets(net) = Set(Set(z) for z in BMOPFTools._galvanic_zones(net))
         @test conn["n_neutral_only_branches"] == 2
         @test conn["neutral_only_cycle_rank"] == 1
         @test Set(["electrode"]) in _zone_sets(net)
+        # A return-only zone has no phase voltage to summarize.
+        vm(v) = Dict{String,Any}("vm" => v)
+        result = Dict{String,Any}("bus" => Dict{String,Any}(
+            "src" => Dict{String,Any}("1" => vm(7621.0), "2" => vm(7621.0), "3" => vm(7621.0), "4" => vm(0.0)),
+            "pad" => Dict{String,Any}("1" => vm(7620.0), "2" => vm(7620.0), "3" => vm(7620.0), "4" => vm(0.1)),
+            "sec" => Dict{String,Any}("1" => vm(119.0), "2" => vm(119.0), "4" => vm(0.1)),
+            "electrode" => Dict{String,Any}("4" => vm(0.0))))
+        summary = BMOPFTools.voltage_zone_summary(net, result)
+        @test summary["n_zones"] == 2
+        @test Set(z["label"] for z in summary["zones"]) == Set(["pad", "sec"])
     end
 
     @testset "Serialization and rendering" begin

@@ -41,6 +41,7 @@
 # Galvanic zones, radiality and downstream-load paths exclude neutral-only
 # branches (neutral/earth-role maps at both ends); bond cycles are counted
 # separately. The physical bus-graph structure and earthing islands are unchanged.
+# Zone-local per-unit power bases still span neutral-only bonds (PSK-000002).
 # The package-local W.GEO data-quality heuristics require declared WGS84;
 # neither the recipe nor these heuristics assert a PSK preservation claim.
 # Exact-coordinate coincidence and all-winding transformer extents are descriptive

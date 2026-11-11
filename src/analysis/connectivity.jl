@@ -414,7 +414,9 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
         if a == b
             push!(zone_edges[a], edge)
         else
-            # Continuous branches cross zones only when they are neutral-only.
+            # A continuous branch between zones can only be a neutral-only
+            # line or switch. It is skipped on purpose: a neutral bond is not
+            # a zone interface.
             edge.continuous && continue
             transformer_id = edge.kind == "transformer:n_winding" ? first(rsplit(edge.id, ":"; limit=2)) : edge.id
             push!(incident[a], "$(edge.kind):$transformer_id")
@@ -610,12 +612,18 @@ closed switches, and the galvanically-continuous transformer subtypes
 `GALVANIC_CONTINUOUS_SUBTYPES`). Isolating transformer subtypes are NOT
 included as edges. Returns a list of bus-name sets, one per zone.
 
-Zones describe phase-conductor continuity. Lines and closed switches that map
-only neutral- or earth-role terminals at both ends (see `_neutral_only_branch`),
-such as a primary-to-secondary neutral bond across a service transformer, carry
-no phase conductor and do not join zones.
+By default, zones describe phase-conductor continuity. Lines and closed switches
+that map only neutral- or earth-role terminals at both ends (see
+`_neutral_only_branch`), such as a primary-to-secondary neutral bond across a
+service transformer, carry no phase conductor and do not join zones.
+
+Pass `include_neutral_only=true` for conductor continuity instead: every line and
+closed switch joins its buses. Per-unit scaling needs this form, because a
+branch current is scaled by one endpoint's current base while KCL at the other
+endpoint uses that bus's base, so both ends must share one power base.
 """
-function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
+function _galvanic_zones(net::Dict{String,Any};
+                         include_neutral_only::Bool=false)::Vector{Set{String}}
     buses = collect(keys(get(net, "bus", Dict())))
     isempty(buses) && return Set{String}[]
 
@@ -633,7 +641,7 @@ function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
         push!(adj[b], a)
     end
 
-    roles = _index_roles(net)
+    roles = include_neutral_only ? nothing : _index_roles(net)
     for (_, l) in get(net, "line", Dict())
         _neutral_only_branch(l, roles) && continue
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
