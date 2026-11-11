@@ -344,7 +344,10 @@ if _HAS_JUMP_IPOPT
                 @test vh-N*v1 ≈ z1*ip-N*z2*i1 atol=1e-6
                 @test vh-N*v2 ≈ z1*ip+N*z2*i2 atol=1e-6
                 imported=sum(v["ps"] for s in values(r["voltage_source"]) for v in values(s))
-                @test imported-750 ≈ real(z1)*abs2(ip)+real(z2)*(abs2(i1)+abs2(i2)) atol=1e-6
+                # The solve tolerance (1e-10) applies in working units. With the
+                # default 1 MVA per-unit base that admits power residuals up to
+                # about 1e-4 W, so 1e-6 W is only guaranteed in SI.
+                @test imported-750 ≈ real(z1)*abs2(ip)+real(z2)*(abs2(i1)+abs2(i2)) atol=(per_unit ? 1e-4 : 1e-6)
             end
             for t in ("x1","n","x2")
                 @test fixed["bus"]["t"][t]["vr"] ≈ variable["bus"]["t"][t]["vr"] atol=1e-6
