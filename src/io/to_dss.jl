@@ -43,10 +43,11 @@ in OpenDSS — inspect `warnings` for anything the writer could not represent.
 # Conversion warnings
 PowerIO diagnostics and the package's `W.EXPORT.DSS_RATING_UNVERIFIED` warning
 are returned as the second element. Opting in does not establish preservation.
-PowerIO 0.11.7 can introduce 600 A limits on unrated equivalent-circuit branches
-([powerio#762](https://github.com/eigenergy/powerio/issues/762)). Keep BMOPF JSON
-authoritative for OPF and Tellegen; opted-in DSS exports are for independent
-power-flow verification, with the returned fidelity warnings inspected.
+PowerIO 0.11.9 and earlier introduced 600 A limits on unrated equivalent-circuit
+branches ([powerio#762](https://github.com/eigenergy/powerio/issues/762), repaired
+in 0.11.10). Equivalent circuits still change component correspondence, so keep
+BMOPF JSON authoritative for OPF and Tellegen; opted-in DSS exports are for
+independent power-flow verification, with the returned fidelity warnings inspected.
 
 # Errors
 - `ArgumentError` with `W.EXPORT.DSS_RATING_UNVERIFIED` unless the static AC
