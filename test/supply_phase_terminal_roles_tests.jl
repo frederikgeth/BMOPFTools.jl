@@ -1,6 +1,7 @@
 # Supply phase counts and source rotation classes use the case's resolved
 # terminal roles. A declared neutral such as "4" is a return conductor, not a
-# phase. The synthetic 4-wire wye witness is built inline.
+# phase. The synthetic 4-wire wye witness is built inline. Terminal roles
+# follow PSK-000002.
 using Test, BMOPFTools, JSON3
 
 function _declared_neutral_witness(; phases=["1", "2", "3"], neutral="4", conventions=true)

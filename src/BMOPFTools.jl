@@ -382,6 +382,8 @@ return. Without a declaration the naming convention also applies to map
 labels. When the declaration is malformed (`_index_roles(net) === nothing`),
 fall back to the naming convention: the map's first convention neutral
 (`fallback_neutral`, from `_neutral_terminal(map)`) or any `"n"`/`"N"` label.
+`fallback_neutral` is read only in that malformed-declaration case; with
+resolved roles it is ignored.
 """
 function _return_label_predicate(net::Dict{String,Any})
     roles = _index_roles(net)
