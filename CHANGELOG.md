@@ -16,8 +16,15 @@ Initial General release candidate. Registration has not yet been requested.
   establish unchanged component/terminal correspondence and declared ratings
   and bounds. Use `allow_unverified_ratings=true` for independent power-flow
   verification; the warning and structured evidence remain. Keep BMOPF JSON
-  authoritative for OPF and Tellegen. This contains powerio#762 (unrated
+  authoritative for OPF and Tellegen. This contained powerio#762 (unrated
   equivalent branches acquire 600 A) without removing legitimate constraints.
+- Raise the PowerIO.jl dependency floor to 0.11.11. PowerIO 0.11.10 repaired
+  powerio#762: absent OpenDSS line ampacity stays absent on import and
+  round trip instead of becoming 600 A. The round-trip evidence drops its 22
+  source-branch rating entries (601 differences remain), and the regression
+  test now asserts that the missing rating survives. `to_dss` still refuses
+  equivalent-circuit exports by default because component correspondence
+  changes.
 - Review the 36 round-trip fixtures individually. Check effective line
   primitives, source and shunt equivalent circuits, grounding, and physical
   feeder ratings; isolate rating and neutral-role defects in focused expected
