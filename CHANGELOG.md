@@ -4,6 +4,15 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Speed up OPF solves. Constant-power load currents start at I = conj(S/V) from the voltage
+  start, and generator currents from their power-box midpoints, instead of
+  zero. On the 498-bus French feeder 84_MVFeeder2628 this cut Ipopt
+  iterations from 38 to 22. `resolve_opf!` now warm-starts from the previous
+  feasible solution by default (`warm_start=false` restores a cold re-solve).
+  Result extraction and the optimization profile read solver values in batches.
+  Per-unit scaling no longer deep-copies the private working network, and
+  time-series snapshots no longer copy every series step.
+
 - Adopt American English for repository-authored text and new identifiers,
   with contributor and agent guidance. Preserve existing interfaces, accepted
   input aliases, published anchors, citations, and upstream license text (#464).

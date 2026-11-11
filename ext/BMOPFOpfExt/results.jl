@@ -130,10 +130,15 @@ end
 #
 # Returns (cg_r, cg_i) in A; zero when neither path reaches earth.
 function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr;
-                              current_weights=Dict{String,Float64}())
+                              current_weights=nothing)
     cg_r = 0.0; cg_i = 0.0
     nlabels = BMOPFTools._neutral_labels(net)
-    weight(bus) = Float64(get(current_weights, String(bus), 1.0))
+    # `current_weights` maps a bus id to its weight (1.0 when absent): either
+    # a dictionary or a function returning `nothing` for an absent bus.
+    weight(bus) = current_weights === nothing ? 1.0 :
+        current_weights isa AbstractDict ?
+            Float64(get(current_weights, String(bus), 1.0)) :
+            Float64(something(current_weights(String(bus)), 1.0))
 
     # Internal neutral-grounding branches (rneut/xneut).
     for (side, bkey, tmkey) in (("from", "bus_from", "terminal_map_from"),
@@ -254,6 +259,31 @@ function _report_xfmr_tap!(rec, tapd, subtype, tid, xfmr, val)
     return
 end
 
+# Read every variable's primal value from the solver in one batched call and
+# return a function that evaluates variables and affine/quadratic expressions
+# from that cache. Calling `JuMP.value` per variable instead goes through the
+# caching layer's index mapping once per term, which dominated extraction time.
+struct _PrimalReader
+    values::Vector{Float64}
+end
+
+function _primal_reader(model)
+    variables = JuMP.all_variables(model)
+    indices = JuMP.index.(variables)
+    raw = MOI.get(JuMP.backend(model), MOI.VariablePrimal(), indices)
+    values = fill(NaN, isempty(indices) ? 0 : maximum(i -> i.value, indices))
+    for (i, x) in zip(indices, raw)
+        values[i.value] = x
+    end
+    return _PrimalReader(values)
+end
+
+(r::_PrimalReader)(v::JuMP.VariableRef) = r.values[JuMP.index(v).value]
+(r::_PrimalReader)(x::Real) = x
+(r::_PrimalReader)(e::Union{JuMP.GenericAffExpr,JuMP.GenericQuadExpr}) =
+    JuMP.value(v -> r(v), e)
+(r::_PrimalReader)(x) = JuMP.value(x)
+
 function _extract_results(model, net, bus_terminals, grounded, vars,
                           branch_inj=nothing; bases=nothing)
     status = string(JuMP.termination_status(model))
@@ -285,7 +315,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
               "residuals and binding constraints with care."
     end
 
-    val(v) = has_values ? JuMP.value(v) : NaN
+    val = has_values ? _primal_reader(model) : (_ -> NaN)
 
     # ── Bus voltages ─────────────────────────────────────────────────────────
     bus_res = Dict{String,Any}()
@@ -371,13 +401,14 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
 
     # ── Load currents and absorbed power ─────────────────────────────────────
     load_res = Dict{String,Any}()
+    delta_roles = _delta_load_roles(net)
     for (lid, load) in get(net, "load", Dict())
         bus = get(load, "bus", "")
         tm  = Vector{String}(get(load, "terminal_map", String[]))
         cfg = get(load, "configuration", "WYE")
         is_delta  = cfg == "DELTA"
         n_c       = length(tm)
-        delta_coils = is_delta ? BMOPFTools._delta_load_coils(load, net; id=lid) : nothing
+        delta_coils = is_delta ? BMOPFTools._delta_load_coils(load, net; id=lid, roles=delta_roles) : nothing
         ph_pos    = is_delta ? collect(eachindex(delta_coils)) : _phase_positions(tm, nlabels)
         n_pos_idx = is_delta ? nothing : _neutral_pos(tm, nlabels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
@@ -619,13 +650,15 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             # opposite winding buses. Convert each path into the from-side
             # reporting coordinate before summation; `_from_per_unit` then
             # applies the from-side current base exactly once.
+            # Looked up lazily: only the few buses this transformer touches
+            # are needed, so no per-transformer dictionary over every bus.
             current_weights = if bases === nothing
-                Dict{String,Float64}()
+                nothing
             else
                 bf = String(get(xfmr, "bus_from", ""))
                 ib_ref = Float64(get(bases.i_base, bf, 1.0))
-                Dict(String(bus) => Float64(base) / ib_ref
-                     for (bus, base) in bases.i_base)
+                i_base = bases.i_base
+                bus -> haskey(i_base, bus) ? Float64(i_base[bus]) / ib_ref : nothing
             end
             cg_r, cg_i = _xfmr_ground_current(
                 vr_v, vi_v, val, net, subtype, xfmr; current_weights)

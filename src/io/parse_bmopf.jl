@@ -377,7 +377,7 @@ function _get_snapshot!(snap::Dict{String,Any}, t_index::Int)::Dict{String,Any}
 end
 
 function _resolve_component_ts!(comp::Dict{String,Any},
-                                ts_root::Dict{String,Any},
+                                ts_root::AbstractDict,
                                 t_index::Int,
                                 comp_id::AbstractString="")
     ts_refs = get(comp, "time_series", nothing)
