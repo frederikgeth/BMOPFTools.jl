@@ -1400,9 +1400,12 @@ end
               registered_constraints
         @test OpfModelKey(:constraint, :generator_p_upper, ("g1", 1)) in
               registered_constraints
-        @test OpfModelKey(:constraint, :generator_q_lower, ("g1", 1)) in
+        # q_min == q_max == 0 pins Q as one equality row.
+        @test OpfModelKey(:constraint, :generator_q_equality, ("g1", 1)) in
               registered_constraints
-        @test OpfModelKey(:constraint, :generator_q_upper, ("g1", 1)) in
+        @test OpfModelKey(:constraint, :generator_q_lower, ("g1", 1)) ∉
+              registered_constraints
+        @test OpfModelKey(:constraint, :generator_q_upper, ("g1", 1)) ∉
               registered_constraints
         thermal_net = deepcopy(net)
         thermal_net["line"]["l1"]["i_max"] = [1.0]

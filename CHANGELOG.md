@@ -4,6 +4,17 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- An IBR whose static `p_min` equals `p_max` (or `q_min` equals `q_max`) now
+  stamps one equality row, registered as `:ibr_p_equality` (`:ibr_q_equality`),
+  instead of a zero-width `:ibr_p_lower`/`:ibr_p_upper` pair. The pair has no
+  strictly feasible interior, so Ipopt's per-unit path became ill-conditioned
+  and, depending on platform rounding, about 1–3% of pinned or constant-PF
+  solves landed on a low-voltage root (an intermittent Julia 1.10 CI failure
+  in the FOUR_LEG PVSystem comparison). Pinned per-unit solves now take 2
+  iterations instead of about 16. Bounds supplied as parameters keep both rows.
+  Generators follow the same rule (`:generator_p_equality`,
+  `:generator_q_equality`); pinned generators take 2–3 iterations instead of
+  5–17.
 - Add `sideload_geolayer!`, which explicitly applies the geographic WGS84
   GeoLayer that PowerIO stores in `extras.geojson` to bus `longitude`/`latitude`,
   line `meta.route_geometry` and `meta.crs`, and returns match counts.

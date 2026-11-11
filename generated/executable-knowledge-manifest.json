@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "506c19a5c60e24ffe3bca60a6d9d57119c7a9bf22849eb140eb09c0157f6ac53",
+  "corpus_sha256": "cefedd2993b349d4ae7ff90f233b77b29a43b6652bba775e213a0d5f67c53554",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -262,15 +262,15 @@
     },
     {
       "path": "ext/BMOPFOpfExt/data_utils.jl",
-      "sha256": "9e53deac1c20a8045afcc80d222b4a90b9b8b1d167f9c81acc924edca0fc797a"
+      "sha256": "3156f9ebc755e50f98d0edb497b62dbea263a2cf6e2d683a5e9562b7bb74ca20"
     },
     {
       "path": "ext/BMOPFOpfExt/generator.jl",
-      "sha256": "cfb235e2f51ede53ecf965ebbf270555412b8ddebb92336761e9a150143f4a95"
+      "sha256": "9117a3c266b292c5add3388ac57241c146730510f02e9ef6d67c8e7c6d4fb016"
     },
     {
       "path": "ext/BMOPFOpfExt/ibr.jl",
-      "sha256": "871fcdcdace746e80eeac97f57b7ae46542d8c2b05ffa5469e44af00b488a576"
+      "sha256": "780d56e44c750a7ef82bfb7e52a42d2561049220d88c6b823c1ee12214cdae8b"
     },
     {
       "path": "ext/BMOPFOpfExt/load.jl",
@@ -1454,7 +1454,7 @@
     },
     {
       "path": "test/ibr_reactive_limits_tests.jl",
-      "sha256": "daa70aac4f70853557fff2131b19bc535c21063d58faaa13f0cf2d1e207cd448"
+      "sha256": "32a55633fd5532ea7004b0dfd9ad62f956f55fa9d2ed476bb46504896cbd64d1"
     },
     {
       "path": "test/ideal_center_tap_tests.jl",
@@ -1518,7 +1518,7 @@
     },
     {
       "path": "test/opf_device_substitution_tests.jl",
-      "sha256": "2848623eb4a2240a993b3a07c08e8b4f9df64d93c876b323e22c0392e6bd1da9"
+      "sha256": "f177cbd7c0d18327aed2d208d8df6c4d7e2851f7f717679b5c054a5e8e0112e9"
     },
     {
       "path": "test/opf_domain_tests.jl",
@@ -1538,7 +1538,7 @@
     },
     {
       "path": "test/opf_tests.jl",
-      "sha256": "ac4312503b84c9f32b37c050f0a0c2f4939f17ba2d6372c91de5f4709a7cc37a"
+      "sha256": "7a2bae943d52a740a6e9eda9e1b71896f1d4f932006aab2f09897409aaaedb2d"
     },
     {
       "path": "test/parameter_resolve_tests.jl",
@@ -1554,7 +1554,7 @@
     },
     {
       "path": "test/powerflow_comparison_tests.jl",
-      "sha256": "a3ce1cb574168a8d0ad9048feb7c8716fb3f9ec6cb35ced942660cdf163125f9"
+      "sha256": "53366b58a66c593066b57f78c6255ce24ce4c5d99e0b971e425542501b0d1cea"
     },
     {
       "path": "test/powerio_findings_tests.jl",
