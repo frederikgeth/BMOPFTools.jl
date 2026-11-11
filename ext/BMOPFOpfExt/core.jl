@@ -2615,9 +2615,19 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
                                   BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing)
     # Preserve private ownership of non-JSON payloads (e.g. matrices) as well
     # as converting nested typed dictionaries used by programmatic callers.
-    working = BMOPFTools._copy_for_normalization(net)
-    BMOPFTools.is_timeseries(working) &&
-        (working = BMOPFTools._get_snapshot!(working, t_index))
+    #
+    # A time-series net's root "time_series" collection is only read while the
+    # snapshot is resolved and is then dropped, so it is shared, not copied:
+    # copying all T steps for every snapshot made multi-period builds O(T²).
+    if BMOPFTools.is_timeseries(net)
+        series = net["time_series"]
+        working = BMOPFTools._copy_for_normalization(
+            Dict{String,Any}(k => v for (k, v) in net if k != "time_series"))
+        working["time_series"] = series
+        working = BMOPFTools._get_snapshot!(working, t_index)
+    else
+        working = BMOPFTools._copy_for_normalization(net)
+    end
     # Validate the selected snapshot's package policy before normalization can
     # consume malformed role declarations. Do not validate unsliced time arrays.
     _, pf_errors = BMOPFTools._minimum_pf_configuration(working)
@@ -2632,7 +2642,7 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
     policy = _resolve_scaling_policy(per_unit, s_base, scaling_policy)
     bases = nothing
     !(policy isa BMOPFTools.SIUnitsScaling) &&
-        ((working, bases) = _to_per_unit(working, policy))
+        ((working, bases) = _to_per_unit(working, policy; copy=false))
     return working, bases
 end
 
@@ -3073,6 +3083,7 @@ function BMOPFTools.optimize_opf!(ctx::OpfContext, others::OpfContext...;
     end
     _assert_kcl_enforced(model)
     JuMP.optimize!(model; kwargs...)
+    _capture_solution!(model)
     return model
 end
 
@@ -3131,14 +3142,160 @@ function _refresh_parameter_optimizer!(model::JuMP.Model)
     nothing
 end
 
-function BMOPFTools.resolve_opf!(ctx::OpfContext, others::OpfContext...; kwargs...)
+function BMOPFTools.resolve_opf!(ctx::OpfContext, others::OpfContext...;
+                                 warm_start::Bool=true, kwargs...)
     model = ctx.model
     all(c -> c.model === model, others) || throw(ArgumentError(
         "resolve_opf! contexts must share one JuMP model"))
     all(c -> :kcl in c.manifest.stages, (ctx, others...)) || throw(ArgumentError(
         "enforce_kcl! must run on every context before resolve_opf!"))
     _assert_kcl_enforced(model)
+    if warm_start
+        _transfer_warm_start!(ctx, model)
+    else
+        _restore_cold_start!(ctx, model)
+    end
     _refresh_parameter_optimizer!(model)
     JuMP.optimize!(model; kwargs...)
+    _capture_solution!(model)
     model
 end
+
+# ── Re-solve warm start ────────────────────────────────────────────────────
+# `resolve_opf!` must reload the cached optimizer (see
+# `_refresh_parameter_optimizer!`), which discards the solver's own iterate.
+# Copy the previous solution into JuMP's start attributes first so the reload
+# carries it over. Primal starts are portable MOI attributes; dual starts are
+# set only where the optimizer supports them. For Ipopt, the options that make
+# it use those starts are set unless the caller already chose a value.
+const _WARM_START_STATE_KEY = :BMOPFToolsWarmStart
+const _IPOPT_WARM_START_OPTIONS = (
+    "warm_start_init_point" => "yes",
+    "mu_init" => 1e-6,
+    "warm_start_bound_push" => 1e-6,
+    "warm_start_mult_bound_push" => 1e-6,
+)
+
+_has_usable_primal(model) = JuMP.has_values(model) &&
+    JuMP.primal_status(model) in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
+
+function _all_constraint_refs(model)
+    refs = JuMP.ConstraintRef[]
+    for (F, S) in JuMP.list_of_constraint_types(model)
+        append!(refs, JuMP.all_constraints(model, F, S))
+    end
+    return refs
+end
+
+# Raw optimizer attribute value, or `nothing` when it was never set.
+function _raw_attribute_or_nothing(model, name)
+    try
+        return JuMP.get_attribute(model, name)
+    catch err
+        err isa MOI.GetAttributeNotAllowed || err isa MOI.UnsupportedAttribute ||
+            err isa KeyError || rethrow()
+        return nothing
+    end
+end
+
+# Snapshot the solution of the solve that just finished into `model.ext`.
+# Changing a parameter value (the normal step before `resolve_opf!`) makes JuMP
+# discard the solver's result, so the warm start must be captured right after
+# each solve rather than read back at re-solve time: `optimize_opf!` and
+# `resolve_opf!` do so. A solve without a usable primal point keeps the older
+# snapshot, so one failed sweep point does not force cold starts afterwards.
+# Values are stored by MOI index.
+function _capture_solution!(model::JuMP.Model)
+    _has_usable_primal(model) || return nothing
+    backend = JuMP.backend(model)
+    variables = JuMP.all_variables(model)
+    primal = Dict{MOI.VariableIndex,Float64}(zip(JuMP.index.(variables),
+        MOI.get(backend, MOI.VariablePrimal(), JuMP.index.(variables))))
+    duals = Pair{JuMP.ConstraintRef,Any}[]
+    if JuMP.has_duals(model)
+        for (F, S) in JuMP.list_of_constraint_types(model)
+            cons = JuMP.all_constraints(model, F, S)
+            isempty(cons) && continue
+            values = try
+                MOI.get(backend, MOI.ConstraintDual(), JuMP.index.(cons))
+            catch
+                continue
+            end
+            append!(duals, Pair{JuMP.ConstraintRef,Any}.(cons, values))
+        end
+    end
+    model.ext[_WARM_START_STATE_KEY] = (primal=primal, duals=duals)
+    return nothing
+end
+
+function _transfer_warm_start!(ctx::OpfContext, model)
+    # A caller that solved with plain `JuMP.optimize!` and has not modified the
+    # model since still has a live solution to capture here.
+    _has_usable_primal(model) && _capture_solution!(model)
+    snapshot = get(model.ext, _WARM_START_STATE_KEY, nothing)
+    snapshot === nothing && return false
+    state = BMOPFTools.extension_state!(ctx, _WARM_START_STATE_KEY)
+    # Parameters are data, not iterates, and accept no start value.
+    variables = filter(!JuMP.is_parameter, JuMP.all_variables(model))
+    haskey(state, :original_primal) ||
+        (state[:original_primal] = Dict(v => JuMP.start_value(v) for v in variables))
+    for v in variables
+        x = get(snapshot.primal, JuMP.index(v), nothing)
+        x === nothing || JuMP.set_start_value(v, x)
+    end
+    backend = JuMP.backend(model)
+    for (c, d) in snapshot.duals
+        JuMP.is_valid(model, c) || continue
+        MOI.supports(backend, MOI.ConstraintDualStart(), typeof(JuMP.index(c))) ||
+            continue
+        JuMP.set_dual_start_value(c, d)
+    end
+    if JuMP.solver_name(model) == "Ipopt"
+        owned = get!(state, :owned_options, Set{String}())
+        for (name, value) in _IPOPT_WARM_START_OPTIONS
+            current = _raw_attribute_or_nothing(model, name)
+            (current === nothing || name in owned) || continue
+            JuMP.set_attribute(model, name, value)
+            push!(owned, name)
+        end
+    end
+    return true
+end
+
+# `warm_start=false`: undo what `_transfer_warm_start!` changed, so the solve
+# starts from the build's own initialization again. Caller-set options and
+# starts that were never replaced are left alone.
+function _restore_cold_start!(ctx::OpfContext, model)
+    state = get(ctx.extension_state, _WARM_START_STATE_KEY, nothing)
+    state === nothing && return false
+    variables = filter(!JuMP.is_parameter, JuMP.all_variables(model))
+    original = get(state, :original_primal, nothing)
+    if original !== nothing
+        for v in variables
+            JuMP.set_start_value(v, get(original, v, nothing))
+        end
+        delete!(state, :original_primal)
+    end
+    backend = JuMP.backend(model)
+    for c in _all_constraint_refs(model)
+        MOI.supports(backend, MOI.ConstraintDualStart(), typeof(JuMP.index(c))) ||
+            continue
+        JuMP.set_dual_start_value(c, nothing)
+    end
+    owned = get(state, :owned_options, Set{String}())
+    if "warm_start_init_point" in owned
+        JuMP.set_attribute(model, "warm_start_init_point", "no")
+    end
+    for name in owned
+        name == "warm_start_init_point" && continue
+        JuMP.set_attribute(model, name, _IPOPT_COLD_DEFAULTS[name])
+    end
+    empty!(owned)
+    return true
+end
+
+const _IPOPT_COLD_DEFAULTS = Dict{String,Any}(
+    "mu_init" => 0.1,
+    "warm_start_bound_push" => 1e-3,
+    "warm_start_mult_bound_push" => 1e-3,
+)

@@ -207,17 +207,15 @@ An absent `i_max` does not rule out a separate `s_max` limit. Use the manifest
 to distinguish newly written values from limits that were already present
 before augmentation.
 
-!!! warning "Imported defaults are not verified equipment ratings"
-    With PowerIO.jl 0.11.8, the tutorial's ordinary lines already carry 600 A
-    arrays immediately after `from_dss`, although the source DSS files declare
-    neither `normamps` nor `emergamps`. These are materialized OpenDSS defaults;
-    the default augmentation above adds no `i_max` values. Their presence in a
-    report does not establish an explicitly supplied or verified equipment
-    rating. Review the source data and study assumptions before interpreting
-    thermal constraints in the OPF result. The first-import evidence and the
-    separate generated-branch round-trip problem are tracked in
-    [PowerIO #762](https://github.com/eigenergy/powerio/issues/762).
-    Do not remove ratings merely because they equal 600 A: explicit ratings can
+!!! warning "Absent ratings stay absent"
+    The tutorial's source DSS files declare neither `normamps` nor `emergamps`,
+    so its lines carry no `i_max` after `from_dss`, and the default augmentation
+    above adds none, so the OPF has no line `i_max` to enforce. PowerIO.jl
+    0.11.9 and earlier materialized the OpenDSS 600 A default as `i_max`
+    instead ([PowerIO #762](https://github.com/eigenergy/powerio/issues/762),
+    repaired in 0.11.10). Networks imported and saved with those versions can
+    still hold such arrays; re-import from the source DSS to remove them. Do
+    not remove ratings merely because they equal 600 A: explicit ratings can
     have that value too. Zero is a binding limit, not a marker for an absent one.
 
 If your study explicitly calls for synthetic ampacity estimates, select

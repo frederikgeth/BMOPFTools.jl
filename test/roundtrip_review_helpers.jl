@@ -107,14 +107,8 @@ function check_reviewed_roundtrip(a,b,stem)
         end
         for field in ("i_max","s_max")
             limit(net,l)=get(l,field,get(net["linecode"][l["linecode"]],field,nothing))
-            before=limit(a,line); after=limit(b,b["line"][id])
-            if id=="_pio_vsource_source_impedance" && before===nothing && field=="i_max" && !isempty(review["ideal_source_pairs"])
-                # Evidence inventory only; the normative missing-rating check is
-                # isolated in the minimized upstream #762 expected failure.
-                @test after == fill(600,length(line["terminal_map_from"]))
-            else
-                @test before == after
-            end
+            # Includes unrated source-equivalent branches (powerio#762).
+            @test limit(a,line) == limit(b,b["line"][id])
         end
     end
     _rt_source_pairs(a,b,review["ideal_source_pairs"])

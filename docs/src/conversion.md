@@ -17,7 +17,7 @@ you would otherwise have to discover by diffing data.
 [Rust project](https://github.com/eigenergy/powerio) for grid-data parsing and
 conversion. BMOPFTools uses its
 [Julia wrapper, PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), which calls
-the native Rust library in-process, and requires **0.11.8 or later within the
+the native Rust library in-process, and requires **0.11.11 or later within the
 0.11 series**.
 PowerIO reads several distribution formats into a typed
 `PioModule{MulticonductorNetwork}`. BMOPFTools' tested import wrapper is
@@ -36,7 +36,7 @@ BMOPFTools' DSS-specific normalization and provenance audit automatically.
 For the exact reader profiles and current limits, see PowerIO's
 [distribution guide](https://eigenergy.github.io/powerio/guide/distribution.html),
 [SINCAL guide](https://eigenergy.github.io/powerio/guide/sincal.html), and
-[0.11.8 Julia release notes](https://github.com/eigenergy/PowerIO.jl/releases/tag/v0.11.8).
+[0.11.11 Julia release notes](https://github.com/eigenergy/PowerIO.jl/releases/tag/v0.11.11).
 GridLAB-D, PowerFactory, CYME, and Synergi Electric are potential sources through
 an appropriate supported exchange format; this is not a claim of direct native
 readers for those tools.
@@ -838,8 +838,12 @@ checked domain, source/target declaration changes, unassessed dimensions,
 PowerIO version, and the upstream issue link. The input dict is unchanged.
 
 [powerio#762](https://github.com/eigenergy/powerio/issues/762) records the concrete
-missing-rating → **600 A** defect on a source-equivalent branch. Synthesized
-ideal-source and shunt-equivalent lines can acquire the same OpenDSS default.
+missing-rating → **600 A** defect on a source-equivalent branch in PowerIO 0.11.9
+and earlier. PowerIO 0.11.10 keeps an absent OpenDSS ampacity absent, so
+unrated source-equivalent branches now return unrated. The guard still refuses
+these exports by default: the synthesized ideal-source and shunt-equivalent lines
+change component correspondence, and an explicit zero-A limit returns unrated
+because OpenDSS reads `normamps=0` as no limit.
 Power-flow agreement cannot certify these constraints. Keep **BMOPF JSON as the
 authoritative model for OPF and Tellegen**, and do not strip every 600 A limit or
 substitute zero: both may be real active constraints.
@@ -949,7 +953,7 @@ that separate capability does not imply that intake populates it.
 
 ### DSS intake compatibility
 
-The minimum supported PowerIO version is 0.11.8. PowerIO carries static
+The minimum supported PowerIO version is 0.11.11. PowerIO carries static
 DSS model-4 CVR exponents in its typed voltage model and emits them directly.
 `from_dss` verifies aligned finite exponents instead of restoring defaults from
 missing legacy extras. Explicit zero and negative exponents are preserved;

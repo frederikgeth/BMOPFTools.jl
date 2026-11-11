@@ -1,12 +1,14 @@
 # Runtime DELTA geometry shares the terminal-role domain of the validator
 # (PSK-000002). Reject invalid maps; never silently discard a neutral terminal.
-function _delta_load_coils(load, net; id="<anonymous>")
+# `roles` may be precomputed with `_index_roles(net)` by callers that loop over
+# many loads; computing it scans every bus terminal.
+function _delta_load_coils(load, net; id="<anonymous>", roles=_index_roles(net))
     tm = get(load, "terminal_map", nothing)
     fail(message) = throw(ArgumentError("Load '$id': $message"))
     _index_strings(tm) && length(tm) in (2, 3) ||
         fail("DELTA requires two or three phase terminals.")
     length(unique(tm)) == length(tm) || fail("DELTA terminals must be distinct.")
-    ctx = _device_index_context(net, "load", id, load)
+    ctx = _device_index_context(net, "load", id, load; roles)
     ctx.evidence["reason"] === nothing ||
         fail("DELTA terminal roles are unresolved: $(ctx.evidence["reason"]).")
     all(==("phase"), ctx.evidence["resolved_roles"]) ||
@@ -24,9 +26,11 @@ function _delta_load_coils(load, net; id="<anonymous>")
 end
 
 function _validate_delta_loads(net)
+    roles = nothing
     for (id, load) in get(net, "load", Dict())
         uppercase(string(get(load, "configuration", "WYE"))) == "DELTA" || continue
-        _delta_load_coils(load, net; id)
+        roles === nothing && (roles = _index_roles(net))
+        _delta_load_coils(load, net; id, roles)
     end
     nothing
 end

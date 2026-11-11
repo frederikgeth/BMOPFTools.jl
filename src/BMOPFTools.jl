@@ -3188,15 +3188,26 @@ end
 
 
 """
-    resolve_opf!(ctx, other_contexts...; kwargs...) -> JuMP.Model
+    resolve_opf!(ctx, other_contexts...; warm_start=true, kwargs...) -> JuMP.Model
 
 Reload a cached optimizer after supported parameter-value updates, then solve
 its shared model once. All supplied contexts must belong to that model and
 already have KCL enforced. Existing optimize hooks are honored. Direct models
-are unsupported: rebuild those explicitly. JuMP handles, attributes and explicit
-start values survive; solver factorizations and automatic warm-start transfer
-do not. Topology, dimensions and voltage-domain changes require rebuilding.
-Check physical residuals independently after solving.
+are unsupported: rebuild those explicitly. JuMP handles and attributes survive;
+solver factorizations do not. Topology, dimensions and voltage-domain changes
+require rebuilding. Check physical residuals independently after solving.
+
+With `warm_start=true` (the default), the most recent feasible primal point
+from `optimize_opf!` or `resolve_opf!` (or a still-valid solution from a plain
+`JuMP.optimize!`) replaces the variable start values, and its duals become dual
+starts wherever the optimizer supports them. It is captured right after each
+solve, so changing parameter values before calling `resolve_opf!` keeps it. For Ipopt,
+`warm_start_init_point="yes"`, `mu_init=1e-6`, `warm_start_bound_push=1e-6` and
+`warm_start_mult_bound_push=1e-6` are set unless the caller already set those
+options. A warm start steers the solver toward the previous operating point; it
+does not certify which local solution is found. `warm_start=false` restores the
+build's original start values and the options this function set, giving a
+cold re-solve. Remaining keywords are passed to `JuMP.optimize!`.
 """
 function resolve_opf! end
 export resolve_opf!

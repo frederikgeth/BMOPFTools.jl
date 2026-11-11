@@ -59,7 +59,7 @@ function _optimization_profile(model::JuMP.Model;
                 # Vector zero-component limits contain one scalar equality per
                 # component, despite having one semantic constraint handle.
                 neq += S <: MOI.Zeros ? sum(
-                    MOI.dimension(JuMP.constraint_object(c).set)
+                    MOI.dimension(MOI.get(model, MOI.ConstraintSet(), c))
                     for c in JuMP.all_constraints(model, F, S)) : n
             end
             k === :ineq && (nineq += n)
@@ -100,13 +100,24 @@ function _optimization_profile(model::JuMP.Model;
     n_unassessed = 0
     n_missing_duals = 0
     try
+        backend = JuMP.backend(model)
         for (F, S) in JuMP.list_of_constraint_types(model)
             _set_kind(_proto(S)) === :ineq || continue
-            for con in JuMP.all_constraints(model, F, S)
+            cons = JuMP.all_constraints(model, F, S)
+            # One batched solver query per constraint type. Building each
+            # constraint's JuMP function object just to read its set, and
+            # querying values one row at a time, dominated this pass.
+            batch = _batched_rows(backend, cons, hd)
+            for (r, con) in enumerate(cons)
                 sl = nothing; v = 0.0
                 try
-                    v = JuMP.value(con)
-                    sl = _slack(v, JuMP.constraint_object(con).set)
+                    if batch === nothing
+                        v = JuMP.value(con)
+                        sl = _slack(v, JuMP.constraint_object(con).set)
+                    else
+                        v = batch.values[r]
+                        sl = _slack(v, batch.sets[r])
+                    end
                 catch
                     n_unassessed += 1
                     continue
@@ -122,7 +133,11 @@ function _optimization_profile(model::JuMP.Model;
                 n_active += 1
                 if hd
                     d = NaN
-                    try; d = abs(JuMP.dual(con)); catch; end
+                    try
+                        d = abs(batch === nothing || batch.duals === nothing ?
+                                JuMP.dual(con) : batch.duals[r])
+                    catch
+                    end
                     !isfinite(d) ? (n_missing_duals += 1) :
                         (d > tol_active ? push!(active_mults, d) : (n_weak += 1))
                 end
@@ -148,6 +163,29 @@ function _optimization_profile(model::JuMP.Model;
     end
 
     prof
+end
+
+# Sets, primal values and (optionally) duals of one constraint type in batched
+# solver queries, or `nothing` when the backend cannot answer them in bulk (the
+# caller then falls back to per-row JuMP queries).
+function _batched_rows(backend, cons, want_duals::Bool)
+    isempty(cons) && return nothing
+    try
+        idx = JuMP.index.(cons)
+        sets = MOI.get(backend, MOI.ConstraintSet(), idx)
+        values = MOI.get(backend, MOI.ConstraintPrimal(), idx)
+        duals = nothing
+        if want_duals
+            duals = try
+                MOI.get(backend, MOI.ConstraintDual(), idx)
+            catch
+                nothing
+            end
+        end
+        return (sets=sets, values=values, duals=duals)
+    catch
+        return nothing
+    end
 end
 
 # A zero-argument prototype instance of a MOI set type, for kind classification.
