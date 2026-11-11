@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "1033fddcbdc933aa3473fff26bb9f2d890ecfdced4560ce51117fface0684868"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "5ea13b347e4c8f71e34399451c53efb3063c8a358810d0d3b9b286d1c8ae5481"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -270,7 +270,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="VOLT",
         catalogue_section="VOLT",
         section_title="voltage levels",
-        meaning="Buses unreachable from any voltage source during propagation — likely islanded; their nominal voltage is unknown. A bus whose terminals are all neutral/earth-role and which is reached only through neutral-only branches (for example, a grounding-electrode bus) has no phase level; it is listed in `neutral_only_buses` instead.",
+        meaning="Buses unreachable from any voltage source during propagation — likely islanded; their nominal voltage is unknown. A bus whose terminals are all neutral/earth-role and which is reached only through neutral-only branches (for example, a grounding-electrode bus) has no phase level; it is listed in `neutral_only_buses` instead. A bus with phase terminals that is reached only through neutral-only branches still raises this warning, although connectivity counts it as connected: it has no phase supply.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

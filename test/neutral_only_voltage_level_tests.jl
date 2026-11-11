@@ -3,6 +3,7 @@
 # a center-tap service transformer whose primary and secondary neutrals are
 # bonded by a neutral-only line, as multi-grounded service drops are commonly
 # exported. It is built inline so the test owns every value.
+# Neutral continuity itself is retained under PSK-000002.
 using Test, BMOPFTools, JSON3
 
 function _bond_witness(; neutral="4", conventions=true)
