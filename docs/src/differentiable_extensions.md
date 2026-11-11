@@ -536,7 +536,9 @@ isempty(residuals) || error("Updated model has constraint violations")
 
 The reset preserves JuMP handles, algebra, and optimizer attributes, but reloads
 the optimizer and costs setup time. It does not preserve solver-internal
-factorizations or automatically transport a primal/dual warm start. Choose
+factorizations. The previous feasible solution, captured right after each
+`optimize_opf!`/`resolve_opf!` solve, becomes the primal/dual warm start unless
+`warm_start=false` is passed; see [`resolve_opf!`](@ref). Choose
 residual tolerances in the model's working units and check physical currents,
 limits, and reference conditions independently as well. The scalar `atol` above
 is an example, not a universal engineering tolerance.

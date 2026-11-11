@@ -66,11 +66,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -198,11 +193,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -293,11 +283,6 @@
       "path": "line._pio_vsource_source_impedance.bus_to",
       "kind": "topology_mismatch",
       "review": "tiny_impedance_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance.linecode",
@@ -432,11 +417,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -542,11 +522,6 @@
       "path": "line._pio_shunt_2_pair_0",
       "kind": "extra",
       "review": "shunt_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance_1",
@@ -689,11 +664,6 @@
       "path": "line._pio_vsource__pio_ideal_2_impedance",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance_1",
@@ -863,11 +833,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -987,11 +952,6 @@
       "path": "line._pio_ideal_0",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance_1",
@@ -1118,11 +1078,6 @@
       "path": "line._pio_shunt_3_pair_0",
       "kind": "extra",
       "review": "shunt_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance_1",
@@ -1255,11 +1210,6 @@
       "path": "line._pio_shunt_3_pair_0",
       "kind": "extra",
       "review": "shunt_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance_1",
@@ -1404,11 +1354,6 @@
       "review": "shunt_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -1551,11 +1496,6 @@
       "review": "shunt_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -1693,11 +1633,6 @@
       "review": "shunt_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -1823,11 +1758,6 @@
       "path": "line._pio_shunt_2_pair_0",
       "kind": "extra",
       "review": "shunt_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance_1",
@@ -2084,11 +2014,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -2332,11 +2257,6 @@
       "review": "tiny_impedance_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance.linecode",
       "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
@@ -2474,11 +2394,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -2569,11 +2484,6 @@
       "path": "line._pio_vsource_source_impedance.bus_to",
       "kind": "topology_mismatch",
       "review": "tiny_impedance_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance.linecode",
@@ -2706,11 +2616,6 @@
       "path": "line._pio_vsource__pio_ideal_2_impedance",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance_1",
@@ -2852,11 +2757,6 @@
       "review": "tiny_impedance_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance.linecode",
       "kind": "topology_mismatch",
       "review": "effective_linecode_or_equivalent"
@@ -2989,11 +2889,6 @@
       "review": "ideal_source_equivalent"
     },
     {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
-    },
-    {
       "path": "line._pio_vsource_source_impedance_1",
       "kind": "extra",
       "review": "ideal_source_equivalent"
@@ -3119,11 +3014,6 @@
       "path": "line._pio_vsource__pio_ideal_2_impedance",
       "kind": "extra",
       "review": "ideal_source_equivalent"
-    },
-    {
-      "path": "line._pio_vsource_source_impedance.i_max",
-      "kind": "extra",
-      "review": "upstream_762_rating"
     },
     {
       "path": "line._pio_vsource_source_impedance_1",

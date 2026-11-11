@@ -27,10 +27,14 @@ code recipe, version-specific evidence, cached/direct-model distinction, and
 reset behavior; follow it rather than assuming another call to `optimize!`
 invalidates all numerical caches.
 
-The reset preserves JuMP handles and algebra but reloads the optimizer. It is
-not a promise to retain numerical factorizations or transport primal/dual warm
-starts. Check the solution against the **updated** parameters and physical
-laws. A successful termination status alone is insufficient.
+The reset preserves JuMP handles and algebra but reloads the optimizer. It does
+not retain numerical factorizations. By default `resolve_opf!` warm-starts from
+the previous feasible solution (primal and dual values, plus Ipopt's warm-start
+options); pass `warm_start=false` for a cold re-solve from the build's own
+initialization. A warm start steers the solver toward the previous operating
+point but does not decide which local solution it reaches. Check the solution
+against the **updated** parameters and physical laws. A successful termination
+status alone is insufficient.
 
 For sensitivity studies, the [DiffOpt example](@ref diffopt-worked-example)
 compares analytic, forward, reverse and finite-difference derivatives on one

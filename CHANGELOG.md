@@ -8,6 +8,15 @@ Initial General release candidate. Registration has not yet been requested.
   rotation classes use the case's resolved terminal roles, so a declared
   neutral such as `"4"` is no longer counted as a phase and a single-phase
   source no longer reads as a zero-sequence profile.
+- Speed up OPF solves. Constant-power load currents start at I = conj(S/V) from the voltage
+  start, and generator currents from their power-box midpoints, instead of
+  zero. On the 498-bus French feeder 84_MVFeeder2628 this cut Ipopt
+  iterations from 38 to 22. `resolve_opf!` now warm-starts from the previous
+  feasible solution by default (`warm_start=false` restores a cold re-solve).
+  Result extraction and the optimization profile read solver values in batches.
+  Per-unit scaling no longer deep-copies the private working network, and
+  time-series snapshots no longer copy every series step.
+
 - Adopt American English for repository-authored text and new identifiers,
   with contributor and agent guidance. Preserve existing interfaces, accepted
   input aliases, published anchors, citations, and upstream license text (#464).
@@ -20,8 +29,15 @@ Initial General release candidate. Registration has not yet been requested.
   establish unchanged component/terminal correspondence and declared ratings
   and bounds. Use `allow_unverified_ratings=true` for independent power-flow
   verification; the warning and structured evidence remain. Keep BMOPF JSON
-  authoritative for OPF and Tellegen. This contains powerio#762 (unrated
+  authoritative for OPF and Tellegen. This contained powerio#762 (unrated
   equivalent branches acquire 600 A) without removing legitimate constraints.
+- Raise the PowerIO.jl dependency floor to 0.11.11. PowerIO 0.11.10 repaired
+  powerio#762: absent OpenDSS line ampacity stays absent on import and
+  round trip instead of becoming 600 A. The round-trip evidence drops its 22
+  source-branch rating entries (601 differences remain), and the regression
+  test now asserts that the missing rating survives. `to_dss` still refuses
+  equivalent-circuit exports by default because component correspondence
+  changes.
 - Review the 36 round-trip fixtures individually. Check effective line
   primitives, source and shunt equivalent circuits, grounding, and physical
   feeder ratings; isolate rating and neutral-role defects in focused expected

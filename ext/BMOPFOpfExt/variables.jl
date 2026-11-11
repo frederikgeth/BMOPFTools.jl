@@ -101,6 +101,7 @@ function _add_load_variables!(model, net)
     cid = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     nlabels = BMOPFTools._neutral_labels(net)
 
+    delta_roles = _delta_load_roles(net)
     for (lid, load) in get(net, "load", Dict())
         tm  = Vector{String}(get(load, "terminal_map", String[]))
         cfg = get(load, "configuration", "WYE")
@@ -112,7 +113,7 @@ function _add_load_variables!(model, net)
         n_ph = if cfg == "SINGLE_PHASE" && length(tm) == 2
             1
         elseif cfg == "DELTA"
-            length(BMOPFTools._delta_load_coils(load, net; id=lid))
+            length(BMOPFTools._delta_load_coils(load, net; id=lid, roles=delta_roles))
         else
             length(_phase_positions(tm, nlabels))
         end
@@ -454,7 +455,7 @@ representative where topology and source data leave a gauge free.
 function _set_topology_aware_voltage_start_values!(
         vars, net, bus_terminals, grounded)
     vr = vars[:vr]; vi = vars[:vi]
-    keys_all = sort!(collect(keys(vr)); by=repr)
+    keys_all = sort!(collect(keys(vr)))
     isempty(keys_all) && return (
         applied=false, equation_count=0, coordinate_count=0,
         maximum_normalized_physics_residual=0.0,
@@ -779,12 +780,13 @@ function _set_topology_aware_voltage_start_values!(
     end
     maximum_residual = 0.0
     maximum_residual_by_kind = Dict{String,Float64}()
+    solution_scale = max(norm(solution, Inf), 1.0)
     for (terms, rhs, kind, _) in rows
         kind == :prior && continue
         lhs = sum(coefficient * solution[column]
                   for (column, coefficient) in terms; init=0.0 + 0.0im)
         denominator = max(abs(rhs),
-            sqrt(sum(abs2, values(terms))) * max(norm(solution, Inf), 1.0),
+            sqrt(sum(abs2, values(terms))) * solution_scale,
             eps(Float64))
         residual = abs(lhs - rhs) / denominator
         maximum_residual = max(maximum_residual, residual)
