@@ -13,6 +13,7 @@ and authorized CC BY 4.0 on 2026-09-26. The common grant and attribution are in
 | `scientific_review/`, `transformer_interoperability/`, `powerio_duplicate_new/`, `parameter_updates/` | Minimized package-behavior witnesses; consuming tests and local READMEs describe their purpose. |
 | `analysis_network/` | Original synthetic workshop feeder for analysis, serialization and diagnostic tests. See its README for intentional defects. |
 | `schema_alias/` | Original one-bus URI regression. |
+| `powerio_geolayer_bmopf.json` | Original synthetic three-bus case written by PowerIO 0.11.11 with its `extras.geojson` GeoLayer; regenerate with `scripts/regenerate_powerio_geolayer.jl`. |
 | `roundtrip_*.json`, `roundtrip_expectations.md` | Package test expectations and source-to-target mappings. References do not bundle external source cases. |
 
 Scientific citations to Kersting and other authors are retained as references

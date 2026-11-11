@@ -11,6 +11,8 @@ Initial General release candidate. Registration has not yet been requested.
   declarations are reported and left unapplied. A coordinate-free case that
   carries such a layer reports spatial status `indeterminate` /
   `unapplied_geolayer` instead of omitting the spatial result.
+  A layer from which nothing could be applied reports `indeterminate` /
+  `no_features_applied`.
 - Adopt American English for repository-authored text and new identifiers,
   with contributor and agent guidance. Preserve existing interfaces, accepted
   input aliases, published anchors, citations, and upstream license text (#464).

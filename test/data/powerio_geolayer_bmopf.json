@@ -1,0 +1,196 @@
+{
+    "voltage_source": {
+    },
+    "line": {
+        "ab": {
+            "length": 1,
+            "bus_from": "a",
+            "bus_to": "b",
+            "terminal_map_from": [
+                "1"
+            ],
+            "terminal_map_to": [
+                "1"
+            ],
+            "linecode": "ab"
+        },
+        "bc": {
+            "length": 1,
+            "bus_from": "b",
+            "bus_to": "c",
+            "terminal_map_from": [
+                "1"
+            ],
+            "terminal_map_to": [
+                "1"
+            ],
+            "linecode": "bc"
+        }
+    },
+    "terminal_conventions": {
+        "phase": [
+            "1"
+        ],
+        "neutral": [
+        ]
+    },
+    "meta": {
+        "$schema": "https://raw.githubusercontent.com/eigenergy/powerio/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/0.2.0/bmopf.schema.json",
+        "provenance": {
+            "powerio_bmopf": {
+                "schema_commit": "664b494f2ee31ee76f8f78e7852cdb1f1c9a8e7d",
+                "schema_retrieval_url": "https://raw.githubusercontent.com/eigenergy/powerio/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/0.2.0/bmopf.schema.json",
+                "schema_upstream_url": "https://raw.githubusercontent.com/distribution-system-opt/dsopt-schema/664b494f2ee31ee76f8f78e7852cdb1f1c9a8e7d/schema/bmopf/0.2.0/bmopf.schema.json",
+                "schema_id": "https://raw.githubusercontent.com/distribution-system-opt/dsopt-schema/main/schema/bmopf/0.2.0/bmopf.schema.json",
+                "schema_status": "proposal",
+                "producer": "powerio",
+                "schema_version": "0.2.0",
+                "schema_sha256": "74d6c6de3637d52e42a26c4cb0584f51df70d69f360b236cf5e23afaf7669462",
+                "producer_version": "0.11.11"
+            }
+        },
+        "case_study_generator": {
+            "version": "0.11.11",
+            "tool": "powerio"
+        },
+        "frequency": 60,
+        "schema_version": "0.2.0"
+    },
+    "extras": {
+        "geojson": {
+            "features": [
+                {
+                    "geometry": {
+                        "coordinates": [
+                            10,
+                            50
+                        ],
+                        "type": "Point"
+                    },
+                    "properties": {
+                        "kind": "bus",
+                        "id": "a"
+                    },
+                    "type": "Feature"
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            10.001,
+                            50.0
+                        ],
+                        "type": "Point"
+                    },
+                    "properties": {
+                        "kind": "bus",
+                        "id": "b"
+                    },
+                    "type": "Feature"
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            10.001,
+                            50.001
+                        ],
+                        "type": "Point"
+                    },
+                    "properties": {
+                        "kind": "bus",
+                        "id": "c"
+                    },
+                    "type": "Feature"
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [
+                                10,
+                                50
+                            ],
+                            [
+                                10.0005,
+                                50.0
+                            ],
+                            [
+                                10.001,
+                                50.0
+                            ]
+                        ],
+                        "type": "LineString"
+                    },
+                    "properties": {
+                        "kind": "line",
+                        "bus_from": "a",
+                        "bus_to": "b",
+                        "id": "ab"
+                    },
+                    "type": "Feature"
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [
+                                10.001,
+                                50.0
+                            ],
+                            [
+                                10.001,
+                                50.001
+                            ]
+                        ],
+                        "type": "LineString"
+                    },
+                    "properties": {
+                        "kind": "line",
+                        "bus_from": "b",
+                        "bus_to": "c",
+                        "id": "bc"
+                    },
+                    "type": "Feature"
+                }
+            ],
+            "powerio_geo": {
+                "kind": "source",
+                "space": "geographic",
+                "crs": "EPSG:4326"
+            },
+            "type": "FeatureCollection"
+        }
+    },
+    "bus": {
+        "c": {
+            "terminal_names": [
+                "1"
+            ]
+        },
+        "b": {
+            "terminal_names": [
+                "1"
+            ]
+        },
+        "a": {
+            "terminal_names": [
+                "1"
+            ]
+        }
+    },
+    "linecode": {
+        "ab": {
+            "G_from_1_1": 0,
+            "R_series_1_1": 0.1,
+            "B_from_1_1": 0,
+            "X_series_1_1": 0.2,
+            "B_to_1_1": 0,
+            "G_to_1_1": 0
+        },
+        "bc": {
+            "G_from_1_1": 0,
+            "R_series_1_1": 0.1,
+            "B_from_1_1": 0,
+            "X_series_1_1": 0.2,
+            "B_to_1_1": 0,
+            "G_to_1_1": 0
+        }
+    }
+}

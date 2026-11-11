@@ -55,7 +55,8 @@ features `{"kind": "bus", "id": ...}` and `LineString` features
 `{"kind": "line", "id": ..., "bus_from": ..., "bus_to": ...}`.
 
 Only a geographic WGS84 layer is applied (`crs` absent, `EPSG:4326`, `WGS84`,
-`OGC:CRS84` or an equivalent alias). Then:
+`OGC:CRS84` or an equivalent alias; a legacy GeoJSON named-CRS member on the
+layer may use the OGC CRS84 or EPSG 4326 URN). Then:
 
 - a bus `Point` sets `bus["longitude"]` and `bus["latitude"]`;
 - a line `LineString` sets `line["meta"]["route_geometry"]` with
@@ -78,13 +79,20 @@ appear more than once are counted and skipped. Existing bus coordinates and
 route geometry are kept unless `overwrite=true`. `extras.geojson` itself is
 left in place.
 
+This reads the BMOPF `extras.geojson` form that PowerIO writes for a BMOPF
+case (`properties.kind`, `bus_from`/`bus_to`). The standalone layer document
+from `PowerIO.parse_geo(...).geojson` uses `target`/`from`/`to` and is not
+read; its features count as ignored.
+
 The returned report has `status` (`"applied"`, `"inapplicable"` or
 `"indeterminate"`), `reason`, the declared `space`, `crs` and
 `coordinate_provenance`, `crs_declaration` (`"added"`, `"existing"` or
 `nothing`), per-kind counts under `buses` and `lines` (`n_features`,
 `n_applied`, `n_unmatched`, `n_invalid`, `n_duplicate_ids`, `n_kept_existing`,
 plus `n_endpoint_mismatch` for lines), `n_ignored_features`, and bounded
-`witnesses` (at most 20 ids per issue).
+`witnesses` (at most 20 ids per issue). A layer from which no feature was
+applied or found already in place returns `status = "indeterminate"` with
+`reason = "no_features_applied"`; the counts say why.
 
 [`analyze`](@ref) reports a coordinate-free case that carries an unapplied
 GeoLayer with spatial status `indeterminate` and reason `unapplied_geolayer`.
@@ -120,8 +128,8 @@ function sideload_geolayer!(net::Dict{String,Any}; overwrite::Bool=false)::Dict{
     crs isa AbstractString && !isempty(strip(crs)) || return stop("indeterminate", "invalid_powerio_geo")
     report["crs"] = crs
     _spatial_is_wgs84(crs) || return stop("inapplicable", "unsupported_crs")
-    member = get(layer, "crs", nothing)
-    member === nothing || _coordinate_crs(member) == "WGS84" ||
+    member = _geojson_crs_name(get(layer, "crs", nothing))
+    member === nothing || _coordinate_crs(member) == "WGS84" || _is_wgs84_crs_urn(member) ||
         return stop("indeterminate", "conflicting_crs_declaration")
     declared = [_coordinate_crs(last(row)) for row in _coordinate_declarations(net, _SPATIAL_CRS_KEYS)]
     all(==("WGS84"), declared) || return stop("indeterminate", "conflicting_crs_declaration")
@@ -209,6 +217,24 @@ function sideload_geolayer!(net::Dict{String,Any}; overwrite::Bool=false)::Dict{
         kind === nothing || isempty(_coordinate_declarations(net, ("coordinate_provenance",))) &&
             (meta["coordinate_provenance"] = kind)
     end
+    # Nothing matched and nothing was already in place: say so instead of
+    # reporting an "applied" layer that changed nothing.
+    n_applied = report["buses"]["n_applied"] + report["lines"]["n_applied"]
+    n_kept = report["buses"]["n_kept_existing"] + report["lines"]["n_kept_existing"]
+    n_applied + n_kept == 0 && return stop("indeterminate", "no_features_applied")
     report["status"] = "applied"
     report
 end
+
+# A legacy (GeoJSON 2008) named-CRS member, {"type": "name", "properties":
+# {"name": ...}}, reduces to its name; other values pass through unchanged.
+function _geojson_crs_name(member)
+    member isa AbstractDict && get(member, "type", nothing) == "name" || return member
+    props = get(member, "properties", nothing)
+    props isa AbstractDict ? get(props, "name", member) : member
+end
+
+# OGC URN spellings of WGS84 longitude/latitude used by legacy GeoJSON writers.
+_is_wgs84_crs_urn(name) = name isa AbstractString &&
+    lowercase(strip(name)) in ("urn:ogc:def:crs:ogc:1.3:crs84", "urn:ogc:def:crs:ogc::crs84",
+                               "urn:ogc:def:crs:epsg::4326")

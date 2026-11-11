@@ -154,8 +154,35 @@ _untouched(net) = all(b -> !haskey(b, "longitude") && !haskey(b, "latitude"), va
             feature["properties"]["id"] = "z" * feature["properties"]["id"]
         end
         report = sideload_geolayer!(net)
-        @test report["status"] == "applied" && report["crs_declaration"] === nothing
+        @test (report["status"], report["reason"]) == ("indeterminate", "no_features_applied")
+        @test report["crs_declaration"] === nothing
+        @test report["buses"]["n_unmatched"] == 3 && report["lines"]["n_unmatched"] == 2
         @test _untouched(net)
+        # A legacy GeoJSON named-CRS member naming WGS84 is not a conflict.
+        for name in ("urn:ogc:def:crs:OGC:1.3:CRS84", "urn:ogc:def:crs:EPSG::4326", "EPSG:4326")
+            net = parse(_geolayer_witness())
+            net["extras"]["geojson"]["crs"] = Dict{String,Any}("type" => "name",
+                "properties" => Dict{String,Any}("name" => name))
+            @test sideload_geolayer!(net)["status"] == "applied"
+        end
+        net = parse(_geolayer_witness())
+        net["extras"]["geojson"]["crs"] = Dict{String,Any}("type" => "name",
+            "properties" => Dict{String,Any}("name" => "urn:ogc:def:crs:EPSG::3857"))
+        @test sideload_geolayer!(net)["reason"] == "conflicting_crs_declaration"
+    end
+
+    @testset "GeoLayer written by PowerIO" begin
+        # Regenerate with scripts/regenerate_powerio_geolayer.jl.
+        net = BMOPFTools.parse_bmopf(joinpath(@__DIR__, "data", "powerio_geolayer_bmopf.json"))
+        @test !any(b -> haskey(b, "longitude"), values(net["bus"]))
+        report = sideload_geolayer!(net)
+        @test report["status"] == "applied"
+        @test report["coordinate_provenance"] == "source"
+        @test report["buses"]["n_applied"] == 3 && report["lines"]["n_applied"] == 2
+        @test report["n_ignored_features"] == 0
+        @test (net["bus"]["a"]["longitude"], net["bus"]["a"]["latitude"]) == (10.0, 50.0)
+        @test net["line"]["bc"]["meta"]["route_geometry"]["coordinates"] ==
+              [[10.001, 50.0], [10.001, 50.001]]
     end
 
     @testset "Serialization" begin

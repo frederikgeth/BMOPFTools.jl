@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "e0faafa56b8536fb5f5aa3b52ea26f47d307a42bbe707ad398a2b9c5a09046cf",
+  "corpus_sha256": "984a5add27acaf1826517f75cb71e0e281b3b059e532f1fb3ac5160140c03576",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -318,7 +318,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "abddc1a86604a94205304ad173f194ee1ec20a65c3f74d48822de1235c406b0b"
+      "sha256": "ae54bf4670dda403ce5524ff27593621f79a1230a764d659cff80810225448b8"
     },
     {
       "path": "recipes/README.md",
@@ -618,7 +618,7 @@
     },
     {
       "path": "src/io/sideload_coordinates.jl",
-      "sha256": "e0b0c7ef134cf4cac8793500a2426e9142ec0ba78545a1116c8145bfee1af9b1"
+      "sha256": "428c39c97ba02362797336f8cf67fdd0d441a4f46e3b394bd49bb511396869ea"
     },
     {
       "path": "src/io/to_dss.jl",
@@ -1622,7 +1622,7 @@
     },
     {
       "path": "test/sideload_geolayer_tests.jl",
-      "sha256": "364308d7ca0a65b663215d62ff614e57b442e19e4e5dd1289e7ab8b43c33f08f"
+      "sha256": "9abc9acb3b053f37996cf9bc648920a0bda27fdfff3471283526fef6b1f1bed2"
     },
     {
       "path": "test/solution_candidate_tests.jl",

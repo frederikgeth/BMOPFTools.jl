@@ -34,6 +34,7 @@
 # docs/src/visualization.md add no scientific contract, PSK claim, or JSON adapter.
 # sideload_geolayer! explicitly applies PowerIO's geographic WGS84 extras.geojson
 # layer to bus coordinates, routes and meta.crs; other spaces stay unapplied.
+# test/data/powerio_geolayer_bmopf.json pins the PowerIO-written layer format.
 # The analyze_case recipe uses a package-owned synthetic input. Restricted
 # CSIRO MV/LV integration data live externally; no executable contract depends on them.
 # Voltage-tier, galvanic-zone, mapped-conductor, and conditional geographic
