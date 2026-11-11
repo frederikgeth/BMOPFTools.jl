@@ -3,9 +3,9 @@ using PowerIO
 const _DSS_RATING_CODE = "W.EXPORT.DSS_RATING_UNVERIFIED"
 const _UNRATED_SOURCE = joinpath(@__DIR__,"data","powerio_regressions","unrated_source.dss")
 
-@testset "powerio#762: unrated source branch acquires 600 A" begin
+@testset "powerio#762: unrated source branch stays unrated" begin
     # Exercise only released PowerIO, so the package guard cannot hide an
-    # upstream repair. One expected failure, exactly on rating preservation.
+    # upstream regression. PowerIO 0.11.10 repaired the 600 A default.
     model(m)=BMOPFTools.JSON3.read(PowerIO.emit(m,"bmopf-json@0.1.0").text,Dict{String,Any})
     first_module=PowerIO.parse(_UNRATED_SOURCE)
     before=model(first_module)
@@ -15,22 +15,23 @@ const _UNRATED_SOURCE = joinpath(@__DIR__,"data","powerio_regressions","unrated_
     id="_pio_vsource_source_impedance"
     @test !haskey(before["line"][id],"i_max")
     @test haskey(after["line"],id)
-    @test after["line"][id]["i_max"] == [600.0]
-    @test_broken get(before["line"][id],"i_max",nothing) == get(after["line"][id],"i_max",nothing)
+    @test !haskey(after["line"][id],"i_max")
 end
 
 @testset "DSS export rating admission" begin
     net=from_dss(_UNRATED_SOURCE); original=deepcopy(net)
     fs=Finding[]
+    # The rating now survives, but the re-imported source equivalent adds
+    # components and moves the source, so correspondence is still unverified.
     @test_throws ArgumentError to_dss(net;findings=fs)
     f=only(filter(f->f.code==_DSS_RATING_CODE,fs))
     @test f.severity==WARNING
     @test f.detail["status"]=="indeterminate"
+    @test f.detail["reason"]=="declarations_or_correspondence_changed"
     @test f.detail["knowledge_ids"]==["PSK-000007"]
     @test f.detail["upstream_issue"]=="https://github.com/eigenergy/powerio/issues/762"
-    rating=only(filter(x->x["path"]=="line._pio_vsource_source_impedance.i_max",f.detail["changes"]))
-    @test rating["before"]===nothing
-    @test rating["after"]==[600.0]
+    @test !any(x->endswith(x["path"],".i_max"),f.detail["changes"])
+    @test any(x->startswith(x["path"],"line.") && x["before"]===nothing,f.detail["changes"])
     serialized=BMOPFTools.JSON3.read(BMOPFTools.JSON3.write(BMOPFTools._finding_to_json(f)),Dict{String,Any})
     @test serialized["code"]==_DSS_RATING_CODE
     @test serialized["detail"]["changes"]==f.detail["changes"]
@@ -75,7 +76,8 @@ end
     zero["line"]["l"]["i_max"]=zeros(4); fs=Finding[]
     @test_throws ArgumentError to_dss(zero;findings=fs)
     changes=only(filter(f->f.code==_DSS_RATING_CODE,fs)).detail["changes"]
-    @test any(x->x["path"]=="line.l.i_max" && x["before"]==zeros(4) && x["after"]==fill(600,4),changes)
+    # OpenDSS reads normamps=0 as unrated, so a binding zero limit is lost.
+    @test any(x->x["path"]=="line.l.i_max" && x["before"]==zeros(4) && x["after"]===nothing,changes)
     @test zero["line"]["l"]["i_max"]==zeros(4)
 
     outside=deepcopy(net);outside["time_series"]=Dict("limits"=>Dict("values"=>[100,200]))

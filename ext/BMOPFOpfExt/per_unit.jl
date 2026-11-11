@@ -384,14 +384,16 @@ _compute_bases(net::Dict{String,Any}, s_base::Float64) =
 
 Return a deep copy of `net` with all numerical fields scaled to per unit,
 plus the `bases` NamedTuple produced by `_compute_bases`. The original `net`
-is never mutated.
+is never mutated, unless `copy=false`: then `net` is scaled in place and
+returned, for callers that already own a private copy.
 """
 function _to_per_unit(
-        net::Dict{String,Any}, policy::BMOPFTools.AbstractOpfScalingPolicy)
+        net::Dict{String,Any}, policy::BMOPFTools.AbstractOpfScalingPolicy;
+        copy::Bool=true)
     policy isa BMOPFTools.SIUnitsScaling && throw(ArgumentError(
         "SIUnitsScaling does not define a per-unit transformation"))
     bases  = _compute_bases(net, policy)
-    net_pu = deepcopy(net)
+    net_pu = copy ? deepcopy(net) : net
     _pu_scale_buses!(net_pu, bases)
     _pu_scale_sources!(net_pu, bases)
     _pu_scale_linecodes!(net_pu, bases)

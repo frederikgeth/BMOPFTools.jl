@@ -490,3 +490,13 @@ function _angle_window_constraints!(model, s, c, lo, hi)
     return (lower=@constraint(model, sin(lo)*c - cos(lo)*s <= 0),
             upper=@constraint(model, cos(hi)*s - sin(hi)*c <= 0))
 end
+
+# Terminal roles for DELTA load geometry, computed once per pass over the loads
+# (`_index_roles` scans every bus terminal). `nothing` when there is no DELTA
+# load, in which case the value is never used.
+function _delta_load_roles(net)
+    any(l -> l isa AbstractDict &&
+            uppercase(string(get(l, "configuration", "WYE"))) == "DELTA",
+        values(get(net, "load", Dict()))) || return nothing
+    return BMOPFTools._index_roles(net)
+end

@@ -11,6 +11,14 @@
 #   q_min[k] <= Q_k <= q_max[k]
 # KCL: phase terminal += crg[k], neutral terminal -= crg[k].
 
+# Rough per-phase (P, Q) operating point used only to seed generator currents:
+# the midpoint of each finite box, else 0. The constraints decide the optimum.
+function _generator_power_target(p_min, p_max, q_min, q_max, idx)
+    mid(lo, hi) = (length(lo) >= idx && length(hi) >= idx &&
+                   isfinite(lo[idx]) && isfinite(hi[idx])) ? (lo[idx] + hi[idx]) / 2 : 0.0
+    return mid(p_min, p_max), mid(q_min, q_max)
+end
+
 """
     _add_generator_constraints!(model, net, vars, kcl_r, kcl_i)
 
@@ -80,6 +88,8 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 p_expr = @expression(model, dvr*crg[(gid,idx)] + dvi*cig[(gid,idx)])
                 q_expr = @expression(model, dvi*crg[(gid,idx)] - dvr*cig[(gid,idx)])
+                p_seed, q_seed = _generator_power_target(p_min, p_max, q_min, q_max, idx)
+                _seed_power_current!(crg[(gid,idx)], cig[(gid,idx)], dvr, dvi, p_seed, q_seed)
 
                 if length(p_min) >= idx
                     register(:generator_p_lower, (string(gid), idx),
@@ -116,6 +126,8 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
                 if length(s_max_g) >= idx
                     pg_v = @variable(model, base_name = "pg_$(gid)_$(idx)")
                     qg_v = @variable(model, base_name = "qg_$(gid)_$(idx)")
+                    JuMP.set_start_value(pg_v, p_seed)
+                    JuMP.set_start_value(qg_v, q_seed)
                     @constraint(model, pg_v == p_expr)
                     @constraint(model, qg_v == q_expr)
                     _soc_norm!(model, pg_v, qg_v, s_max_g[idx])
@@ -144,6 +156,8 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 p_expr = @expression(model, dvr*crg[(gid,k)] + dvi*cig[(gid,k)])
                 q_expr = @expression(model, dvi*crg[(gid,k)] - dvr*cig[(gid,k)])
+                p_seed, q_seed = _generator_power_target(p_min, p_max, q_min, q_max, k)
+                _seed_power_current!(crg[(gid,k)], cig[(gid,k)], dvr, dvi, p_seed, q_seed)
 
                 if length(p_min) >= k
                     register(:generator_p_lower, (string(gid), k),
@@ -180,6 +194,8 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
                 if length(s_max_g) >= k
                     pg_v = @variable(model, base_name = "pg_$(gid)_$(k)")
                     qg_v = @variable(model, base_name = "qg_$(gid)_$(k)")
+                    JuMP.set_start_value(pg_v, p_seed)
+                    JuMP.set_start_value(qg_v, q_seed)
                     @constraint(model, pg_v == p_expr)
                     @constraint(model, qg_v == q_expr)
                     _soc_norm!(model, pg_v, qg_v, s_max_g[k])
