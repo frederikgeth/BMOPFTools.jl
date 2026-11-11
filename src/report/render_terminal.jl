@@ -119,6 +119,9 @@ function _render_connectivity(r::SummaryReport, io::IO; color::Bool=false)
     radial    = get(d, "is_radial", "?")
     println(io, "  Connected components:    $n_comp  $(connected ? "(fully connected)" : "⚠ DISCONNECTED")")
     println(io, "  Network topology:        $(radial == true ? "Radial" : "Meshed ($(get(d,"n_extra_edges",0)) extra edges)")")
+    n_neutral = get(d, "n_neutral_only_branches", 0)
+    n_neutral isa Integer && n_neutral > 0 && println(io,
+        "  Neutral-only branches:   $n_neutral (closing $(get(d,"neutral_only_cycle_rank",0)) cycle(s); excluded from radiality)")
 
     println(io, "\n  Degree statistics:")
     _kv_row(io, "Mean degree",   round(Float64(get(d,"degree_mean",0)), digits=2); indent=4)

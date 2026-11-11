@@ -308,7 +308,7 @@ function _validate_zone_power_bases!(net, power_bases)
     isempty(extra_buses) || throw(ArgumentError(
         "ZonePerUnitScaling contains unknown AC buses: " * join(repr.(extra_buses), ", ")))
 
-    for zone in BMOPFTools._galvanic_zones(net)
+    for zone in BMOPFTools._galvanic_zones(net; include_neutral_only=true)
         buses = sort!(String.(collect(zone)))
         zone_values = unique(power_bases[bus] for bus in buses)
         length(zone_values) == 1 || throw(ArgumentError(

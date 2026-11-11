@@ -11,6 +11,27 @@ Initial General release candidate. Registration has not yet been requested.
   benchmark-readiness suggestion no longer report `vpn_*`-bounded buses as
   unconstrained. Benchmark readiness adds `pct_voltage_magnitude_bounds`;
   `pct_v_bounds` remains the phase-to-ground share.
+- Supply phase counts (`W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY`) and voltage-source
+  rotation classes use the case's resolved terminal roles, so a declared
+  neutral such as `"4"` is no longer counted as a phase and a single-phase
+  source no longer reads as a zero-sequence profile.
+- Galvanic zones, radiality and downstream-load traversal exclude lines and
+  closed switches that map only neutral- or earth-role terminals at both ends.
+  A neutral bond beside a service transformer no longer merges the secondary
+  zone into the primary zone (split-phase classification and solution
+  voltage-zone bases), raises `W.CONN.MESHED`, or turns the transformer loading
+  estimate into an upper bound. Connectivity results add
+  `n_neutral_only_branches` and `neutral_only_cycle_rank`; the physical
+  `structure` counts and the earthing islands are unchanged.
+  `ZonePerUnitScaling` still requires one power base across a neutral-only
+  bond, which carries return current, and the solution voltage-zone summary
+  leaves out zones that have only neutral/earth terminals.
+- Voltage-level analysis no longer propagates a nominal voltage through lines
+  and closed switches that map only neutral- or earth-role terminals at both
+  ends, such as primary-to-secondary neutral bonds beside service transformers.
+  These bonds no longer raise `E.VOLT.LEVEL_MISMATCH`, `E.VOLT.LINE_CROSSING` or
+  `W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS`; return-only buses reached only through
+  them are listed in `neutral_only_buses` instead of `unassigned_buses`.
 - Speed up OPF solves. Constant-power load currents start at I = conj(S/V) from the voltage
   start, and generator currents from their power-box midpoints, instead of
   zero. On the 498-bus French feeder 84_MVFeeder2628 this cut Ipopt
