@@ -1,8 +1,8 @@
-# Reviewed PowerIO 0.11.8 round-trip evidence
+# Reviewed PowerIO 0.11.11 round-trip evidence
 
-`roundtrip_expected_losses.json` pins all 623 path/kind differences for the 36
+`roundtrip_expected_losses.json` pins all 601 path/kind differences for the 36
 feature fixtures, with an explicit review classification on each entry. These
-are structural observations, **not 623 accepted fidelity losses**. Tests never
+are structural observations, **not 601 accepted fidelity losses**. Tests never
 regenerate this inventory. Any new or repaired path/kind changes an ordinary
 assertion. `roundtrip_review.json` declares the per-fixture terminal maps and
 named equivalent-circuit replacements used by `roundtrip_review_helpers.jl`.
@@ -12,12 +12,11 @@ No correspondence is inferred from voltage agreement.
 
 | Classification | Entries | Review and executable evidence |
 |---|---:|---|
-| Ideal-source equivalent | 236 | Named one-phase source, +1 Ω source impedance and −1 Ω series branch per original phase. Check endpoints, conductor order, zero charging, exact impedance cancellation and complex EMF. The generated branch rating is a separate defect. |
+| Ideal-source equivalent | 236 | Named one-phase source, +1 Ω source impedance and −1 Ω series branch per original phase. Check endpoints, conductor order, zero charging, exact impedance cancellation and complex EMF. Unrated source impedance branches stay unrated (powerio#762, repaired in PowerIO 0.11.10). |
 | Effective linecode or equivalent | 147 | PowerIO 0.11.8 shares unchanged assigned linecodes, so original code ids can survive re-import while their `source` provenance changes from a line or Thevenin source to a fetched LineCode snapshot. Unused source definitions disappear. Follow every original line's referenced code and compare its full terminal primitive, including mutuals and charging. The new codes for equivalent branches are covered by their circuit checks. |
 | Terminal correspondence | 83 | Explicit maps preserve the physical returns: single-phase `n` → `b`; center-tap secondary `n` → `c`. Compare all original line terminals and primitives, all shunts, and OpenDSS voltages with the declared maps. Neutral-role metadata is assessed separately. |
 | Shunt equivalent | 39 | Full core-shunt matrices become named pairwise lines plus residual diagonal shunts. Sum their primitives at the mapped terminals and compare every entry, including off-diagonals and finite grounding. The 1e-17 S diagonal residuals are roundoff; tolerance is 1e-12 S. Their generated line ratings are not certified. |
 | Zero defaults | 26 | Absent transformer `g_no_load`/`b_no_load` become explicit zero; original nonzero excitation survives in the separately checked shunt circuit. |
-| Source-branch rating defect | 22 | Missing `i_max` becomes 600 A per conductor. This is recorded evidence of powerio#762, never called equivalent. Physical feeder ratings still compare normally. The normative missing-rating preservation assertion is isolated in a minimized expected-failure regression. |
 | Neutral-role loss | 22 | A mapped return still conducts and keeps its grounding, but its `neutral_terminal` label is absent. This remains a semantic limitation. A focused `pf_1ph_xfmr` witness expects that role to survive; default export refuses changed correspondence. |
 | Unused ground reference | 20 | Dropped `n_ref` declarations belong to unused source-port reference terminals. Before accepting removal, the oracle checks no original element or transformer winding uses that node. All used perfect-ground relations must survive. |
 | Tiny-impedance equivalent | 20 | Four single-phase fixtures use a declared auxiliary current node, ±1 Ω branches and three constant-impedance loads. Eliminate only that auxiliary node and compare the complete two-port primitive at 1e-12 relative tolerance. |
@@ -49,18 +48,22 @@ explicit skip, never numerical agreement.
 ## Narrow remaining defects and release policy
 
 `test/data/powerio_regressions/unrated_source.dss` is the two-command reproducer
-for [powerio#762](https://github.com/eigenergy/powerio/issues/762). The test uses
-PowerIO directly, independent of BMOPFTools' admission guard. Only the equality
-of the original missing rating and re-imported 600 A rating is expected to fail.
-A separate neutral-role witness records the unresolved return-role metadata
+for [powerio#762](https://github.com/eigenergy/powerio/issues/762). Up to PowerIO
+0.11.9 an unrated source-equivalent branch returned with 600 A per conductor.
+PowerIO 0.11.10 keeps an absent OpenDSS ampacity absent, so the test, which uses
+PowerIO directly and independently of BMOPFTools' admission guard, now asserts
+that the missing rating stays missing. The fixture round-trip checks compare
+every line's rating, including source-equivalent branches. A separate neutral-role witness records the unresolved return-role metadata
 loss. No whole-case semantic comparison is an expected failure.
 
 `to_dss` defaults to refusal when its conservative static AC re-import check
 cannot establish unchanged component/terminal correspondence and declared
 bounds/ratings. Explicit `allow_unverified_ratings=true` permits PF verification
 and retains `W.EXPORT.DSS_RATING_UNVERIFIED` plus structured evidence. It does not
-remove constraints or infer a recovery map. An explicit zero-A line limit also
-returns as 600 A in 0.11.8 and is therefore refused. Positive controls retain
+remove constraints or infer a recovery map. An explicit zero-A line limit returns
+unrated, because OpenDSS reads `normamps=0` as no limit, and is therefore refused.
+The unrated-source reproducer is still refused because its re-imported source
+equivalent adds components, even though its rating now survives. Positive controls retain
 123 A and legitimate 600 A limits. BMOPF JSON remains authoritative for OPF and
 Tellegen. The guard does not use a version cutoff; it stays useful until actual
 source/target declarations pass, and upstream fixes must promote the narrowly

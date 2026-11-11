@@ -16,6 +16,9 @@
 # PowerIO 0.11.8: review shared linecode identities and source provenance in the
 # round-trip inventory; retain independent primitive, rating, and PF checks.
 # Existing PSK domains and the export admission guard remain unchanged.
+# PowerIO 0.11.11 (0.11.10 repaired powerio#762): unrated source branches keep
+# no i_max on round trip; the inventory drops 22 rating entries and the guard
+# still refuses changed correspondence. No API, Finding, or PSK domain change.
 # Spatial cleanup includes capacitor attachments, explicit coverage banners and
 # linked attention indexes. These are evidence/presentation changes, not new Findings.
 # Standalone spatial review exports and path-oriented decision evidence are
