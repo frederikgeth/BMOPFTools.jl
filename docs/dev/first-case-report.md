@@ -1,6 +1,6 @@
 # BMOPF Network Summary: case_development_example
 
-**Generated:** 2026-11-11 14:48:58  
+**Generated:** 2026-11-11 15:02:05  
 **Findings:** 0 errors · 2 warnings · 12 info  
 **Convention:** LV_230V: 4-wire; 1 grounding point(s); series-only line model
 
@@ -117,11 +117,11 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
 |-------|--------|
 | Import dependent | true |
 | Constraint conflicts | 0 |
-| Buses without voltage bounds | 4 |
+| Buses without voltage bounds | 1 |
 | Single point of failure | true |
 | TPIA status | not_run |
 
-> 🔵 **[I.PRE.NO_VOLT_BOUNDS]** 4 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
+> 🔵 **[I.PRE.NO_VOLT_BOUNDS]** 1 bus(es) have no voltage magnitude bounds — voltage will be unconstrained at these buses.
 > 🔵 **[I.PRE.SINGLE_SOURCE]** Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
 
 ## 7. Provenance & Model Conventions
@@ -182,7 +182,8 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
 |---------------------|------:|
 | Objective well-posed | true |
 | Only slack generation | true |
-| Buses with \|V\| bounds | 0.0% |
+| Buses with any \|V\| bound | 75.0% |
+| Buses with v\_min/v\_max (phase-to-ground) | 0.0% |
 | Buses with vpn / vpp / vpos bounds | 3 / 0 / 0 |
 | Lines with thermal limits | 100.0% |
 | Generators with no DOF (p\_min≈p\_max) | 0 |
@@ -193,11 +194,10 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
 **Augmentation needed:**
 
 - only slack generation — dispatch is trivial (loss minimization); add dispatchable DERs with diverse costs and p/q bounds
-- no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
 
 > 🔵 **[I.SPEC.MATRIX_TRIANGULAR]** 1 linecode(s) store impedance matrices upper-triangular; spec §4.1.1 defines full row-first storage: cable.
 
-> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimization); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimization); add dispatchable DERs with diverse costs and p/q bounds.
 
 ## 9. Data Quality Summary
 
@@ -254,7 +254,7 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
   All 1 line-model definition(s) use a single, consistent model: pure series impedance. Shunt charging is neglected network-wide — expected for LV / short-cable networks, but worth confirming for feeders with long MV/HV overhead or underground-cable sections.
 
 - **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
-  4 bus(es) have no voltage bounds — voltage will be unconstrained at these buses.
+  1 bus(es) have no voltage magnitude bounds — voltage will be unconstrained at these buses.
 
 - **[I.PRE.SINGLE_SOURCE]** `network`  
   Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
@@ -275,6 +275,6 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
   1 linecode(s) store impedance matrices upper-triangular; spec §4.1.1 defines full row-first storage: cable.
 
 - **[I.BENCH.AUGMENTATION]** `network`  
-  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimization); add dispatchable DERs with diverse costs and p/q bounds; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground).
+  Case needs augmentation to be a non-trivial OPF benchmark: only slack generation — dispatch is trivial (loss minimization); add dispatchable DERs with diverse costs and p/q bounds.
 
 
