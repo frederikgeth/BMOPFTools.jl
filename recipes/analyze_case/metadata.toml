@@ -65,6 +65,7 @@ interface_paths = [
   "src/validation/domain_rules.jl",
   "src/augmentation/fix.jl",
   "src/io/sideload_coordinates.jl",
+  "test/sideload_geolayer_tests.jl",
   "src/report/render_markdown.jl",
   "src/report/render_terminal.jl",
   "docs/src/analysis.md",

@@ -3809,6 +3809,7 @@ include("mcp_execution_tests.jl")
     # Coordinate side-loading & ASCII tree rendering — no solver required
     # -----------------------------------------------------------------------
     include("sideload_coordinates_tests.jl")
+    include("sideload_geolayer_tests.jl")
     include("render_ascii_tree_tests.jl")
     include("render_json_tests.jl")
     include("topology_structure_tests.jl")

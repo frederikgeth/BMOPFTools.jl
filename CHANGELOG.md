@@ -4,6 +4,15 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Add `sideload_geolayer!`, which explicitly applies the geographic WGS84
+  GeoLayer that PowerIO stores in `extras.geojson` to bus `longitude`/`latitude`,
+  line `meta.route_geometry` and `meta.crs`, and returns match counts.
+  Projected, diagram and unknown spaces, other CRSs and conflicting
+  declarations are reported and left unapplied. A coordinate-free case that
+  carries such a layer reports spatial status `indeterminate` /
+  `unapplied_geolayer` instead of omitting the spatial result.
+  A layer from which nothing could be applied reports `indeterminate` /
+  `no_features_applied`.
 - Voltage-bound coverage counts phase-to-neutral, phase-to-phase and
   positive-sequence magnitude bounds as well as `v_min`/`v_max`.
   `I.PRE.NO_VOLT_BOUNDS`, the preflight lower/upper counts (now with

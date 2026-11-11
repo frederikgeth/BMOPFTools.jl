@@ -128,6 +128,26 @@ end
 
 _wgs84_point(p) = p !== nothing && -180 <= p[1] <= 180 && -90 <= p[2] <= 90
 
+# A coordinate-free case may still carry PowerIO's GeoLayer in extras.geojson.
+# Say so instead of silently treating the case as coordinate-free; applying the
+# layer stays an explicit sideload_geolayer! call.
+function _spatial_unapplied_geolayer(net)
+    extras = get(net, "extras", nothing)
+    layer = extras isa AbstractDict ? get(extras, "geojson", nothing) : nothing
+    (layer isa AbstractDict && get(layer, "type", nothing) == "FeatureCollection") || return nothing
+    features = get(layer, "features", nothing)
+    geo = get(layer, "powerio_geo", nothing)
+    Dict{String,Any}("status" => "indeterminate", "reason" => "unapplied_geolayer",
+        "analysis_performed" => false,
+        "geolayer" => Dict{String,Any}("path" => "extras.geojson",
+            "n_features" => features isa AbstractVector ? length(features) : nothing,
+            "space" => geo isa AbstractDict ? get(geo, "space", nothing) : nothing,
+            "crs" => geo isa AbstractDict ? get(geo, "crs", nothing) : nothing),
+        "caution" => "Buses carry no coordinate fields, but extras.geojson holds a GeoJSON " *
+            "GeoLayer. Apply it explicitly with sideload_geolayer!(net) before analysis to " *
+            "enable spatial checks; no geographic checks were run.")
+end
+
 function _spatial_haversine(a, b)
     lon1, lat1 = deg2rad(a[1]), deg2rad(a[2])
     lon2, lat2 = deg2rad(b[1]), deg2rad(b[2])
@@ -388,7 +408,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
     end
     buses = get(net, "bus", Dict())
     any(bus -> bus isa AbstractDict && any(k -> haskey(bus, k),
-        ("longitude", "latitude", "x", "y")), values(buses)) || return nothing
+        ("longitude", "latitude", "x", "y")), values(buses)) || return _spatial_unapplied_geolayer(net)
 
     coords = Dict{String,Tuple{Float64,Float64}}()
     n_any = 0; n_complete = 0; n_xy = 0; n_partial = 0; n_invalid = 0; n_outside = 0

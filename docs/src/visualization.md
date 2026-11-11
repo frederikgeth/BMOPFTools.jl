@@ -215,6 +215,9 @@ That layout is a drawing aid, not evidence of the network's geographic location.
 checking or transforming the coordinate system. Use it for geographic placement
 only when you know the source values are longitude/latitude; projected or
 arbitrary drawing coordinates must not be relabeled as geography.
+PowerIO-written cases keep their geometry in `extras.geojson`;
+[`sideload_geolayer!`](@ref) applies a geographic WGS84 layer to these bus fields
+and to line route geometry (see [PowerIO GeoLayer geometry](spatial_diagnostics.md#PowerIO-GeoLayer-geometry)).
 For companion geographic or drawing files, see Tellegen's
 [display-data guide](https://eigenergy.github.io/tellegen/display-data.html).
 

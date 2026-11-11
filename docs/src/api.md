@@ -105,6 +105,7 @@ BMOPFTools.migrate
 is_timeseries
 get_snapshot
 sideload_coordinates!
+sideload_geolayer!
 ```
 
 ## Admittance export
