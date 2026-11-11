@@ -500,3 +500,22 @@ function _delta_load_roles(net)
         values(get(net, "load", Dict()))) || return nothing
     return BMOPFTools._index_roles(net)
 end
+
+"""
+    _box_constraints!(model, expr, lo, hi)
+
+Stamp `lo <= expr <= hi`; `nothing` omits a side. Equal finite static endpoints
+use one equality instead of a zero-width pair of inequalities. That pair has no
+strictly feasible interior and fixes only the difference of its two multipliers,
+so an interior-point solve takes ill-conditioned steps there and can leave the
+intended power-flow root. Static data only: a parameter or expression bound keeps
+both rows, because a re-solve may move the endpoints apart.
+"""
+function _box_constraints!(model, expr, lo, hi)
+    if lo isa Real && hi isa Real && isfinite(lo) && lo == hi
+        return (equality=@constraint(model, expr == lo),)
+    end
+    lower = lo === nothing ? (;) : (lower=@constraint(model, expr >= lo),)
+    upper = hi === nothing ? (;) : (upper=@constraint(model, expr <= hi),)
+    return merge(lower, upper)
+end

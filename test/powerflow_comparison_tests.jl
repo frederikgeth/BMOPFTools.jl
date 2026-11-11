@@ -34,6 +34,7 @@ using OpenDSSDirect
 using BMOPFTools
 using Ipopt
 using JSON3
+import JuMP
 
 const _PF_CMP_DIR = joinpath(@__DIR__, "data", "pf_comparison")
 
@@ -1769,6 +1770,33 @@ end
             @test result["ibr"]["pv"][phase]["pg"] ≈ P atol=1.0
             @test result["ibr"]["pv"][phase]["qg"] ≈ Q atol=1.0
         end
+    end
+end
+
+# The pinned/PF-profile cases above once landed intermittently (Julia 1.10 CI)
+# on a root with phase 2 near 0.48 pu: pinned P/Q was a zero-width inequality
+# pair, which made the per-unit interior-point path ill-conditioned. Small start
+# perturbations stand in for platform rounding; every solve must still reach the
+# OpenDSS operating point.
+@testset "PF comparison — PVSystem IBR, FOUR_LEG robust to start perturbations" begin
+    V_ods, pw = _ods_pv(joinpath(_PF_CMP_DIR, "pf_pv_4leg.dss"))
+    P = -real(pw[1]) * 1e3
+    Q = -imag(pw[1]) * 1e3
+    for pu in (false, true), pf in (nothing, -0.95), trial in 1:25
+        net = _net_pv_4leg(P, pf === nothing ? Q : nothing, pf)
+        ctx = build_opf_model(net; per_unit=pu,
+            optimizer=JuMP.optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0))
+        for (j, v) in enumerate(JuMP.all_variables(ctx.model))
+            s = JuMP.start_value(v)
+            s === nothing || JuMP.set_start_value(v, s * (1 + 1e-9 * sin(trial * j)))
+        end
+        optimize_opf!(ctx)
+        result = extract_result(ctx)
+        @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        volts = Dict{String,ComplexF64}(
+            bid * "." * (t == "n" ? "4" : t) => tv["vr"] + im * tv["vi"]
+            for (bid, td) in result["bus"] for (t, tv) in td)
+        _cmp_volts(V_ods, volts; label="pv-4leg perturbed pf=$pf pu=$pu trial=$trial: ")
     end
 end
 

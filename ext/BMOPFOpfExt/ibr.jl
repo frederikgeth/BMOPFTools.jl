@@ -709,19 +709,18 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     model = ctx.model
     register_constraint(family, cref) = BMOPFTools.register_opf_object!(ctx,
         BMOPFTools.OpfModelKey(:constraint, family, (string(inv_id), idx)), cref)
-    # P lower bound (always a box bound).
-    if length(p_min) >= idx
-        register_constraint(:ibr_p_lower, @constraint(model, p_expr >= p_min[idx]))
-    end
-
-    # P upper bound(s). The available-power box `p_max` always applies — you cannot
-    # generate more active power than is available, regardless of any curtailment
-    # curve. A Volt-watt profile adds a voltage-dependent curtailment cap on top, so
-    # the effective bound is the tighter of the two (P ≤ min(p_max, p_base·f^VW)).
-    # (When p_ref=P_MAX the cap is already ≤ p_max and binds first; when p_ref=S_MAX
-    # the cap is a fraction of rated and p_max is what enforces availability.)
-    if length(p_max) >= idx
-        register_constraint(:ibr_p_upper, @constraint(model, p_expr <= p_max[idx]))
+    # P box bounds (:ibr_p_lower/:ibr_p_upper, or :ibr_p_equality when a static
+    # p_min equals p_max). The available-power bound `p_max` always applies — you
+    # cannot generate more active power than is available, regardless of any
+    # curtailment curve. A Volt-watt profile adds a voltage-dependent curtailment
+    # cap on top, so the effective bound is the tighter of the two
+    # (P ≤ min(p_max, p_base·f^VW)). (When p_ref=P_MAX the cap is already ≤ p_max
+    # and binds first; when p_ref=S_MAX the cap is a fraction of rated and p_max
+    # is what enforces availability.)
+    for (side, cref) in pairs(_box_constraints!(model, p_expr,
+            length(p_min) >= idx ? p_min[idx] : nothing,
+            length(p_max) >= idx ? p_max[idx] : nothing))
+        register_constraint(Symbol(:ibr_p_, side), cref)
     end
     if vw !== nothing
         op   = relu_operator_for!(relu_ops, model, vw.eps; mode=softplus)
@@ -745,11 +744,11 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
 
     # Reactive capability remains hard under every control mode. Keep the live
     # coefficient expressions, and do not clip a controller to fit these bounds.
-    if length(q_min) >= idx
-        register_constraint(:ibr_q_lower, @constraint(model, q_expr >= q_min[idx]))
-    end
-    if length(q_max) >= idx
-        register_constraint(:ibr_q_upper, @constraint(model, q_expr <= q_max[idx]))
+    # Equal static bounds become one :ibr_q_equality row, as for P.
+    for (side, cref) in pairs(_box_constraints!(model, q_expr,
+            length(q_min) >= idx ? q_min[idx] : nothing,
+            length(q_max) >= idx ? q_max[idx] : nothing))
+        register_constraint(Symbol(:ibr_q_, side), cref)
     end
     # Reactive control: constant-PF or Volt-var equality, in addition to capability.
     if pf_coeffs !== nothing
