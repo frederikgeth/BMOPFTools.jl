@@ -2,12 +2,13 @@
 # case with bus Points and line LineStrings, round-tripped through PowerIO so
 # the geometry lands in PowerIO's own `extras.geojson` GeoLayer. The fixture
 # pins the format that sideload_geolayer! reads against upstream drift.
+# It uses BMOPF 0.1.0, the PowerIO output version that parse_bmopf accepts.
 #
 #     julia --project=. scripts/regenerate_powerio_geolayer.jl
 using PowerIO, JSON3
 
 source = raw"""{
-  "meta":{"schema_version":"0.2.0"},
+  "meta":{"schema_version":"0.1.0"},
   "bus":{
     "a":{"terminal_names":["1"],"geo":{"type":"Point","coordinates":[10.0,50.0]}},
     "b":{"terminal_names":["1"],"geo":{"type":"Point","coordinates":[10.001,50.0]}},
@@ -24,7 +25,7 @@ m = PowerIO.parse(IOBuffer(source); format="bmopf-json", name="geolayer.bmopf.js
 # Same-type emission would return the source bytes unchanged; a serialize /
 # deserialize round trip drops them so PowerIO writes its typed geometry.
 typed = PowerIO.deserialize(Vector{UInt8}(PowerIO.serialize(m).text))
-text = PowerIO.emit(typed, "bmopf-json@0.2.0").text
+text = PowerIO.emit(typed, "bmopf-json@0.1.0").text
 doc = JSON3.read(text, Dict{String,Any})
 haskey(get(doc, "extras", Dict()), "geojson") || error("PowerIO wrote no extras.geojson")
 out = joinpath(@__DIR__, "..", "test", "data", "powerio_geolayer_bmopf.json")
