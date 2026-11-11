@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "20639472f18725ce811dcf2778a59efba40d8217f90087c7863ecdf37fdc670f",
+  "corpus_sha256": "baf9f71ccefd6ebb9a1c53c848d6f7ed5f226f43556e563adad3303469afedc4",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "50bcbd665540047877eb88197887a02e1034ae47be9ca6b77eeff43f444fcb16"
+      "sha256": "7b6fa2eebeb4d541fdf9f49999f3dddfeda8f6cafa6f7236514a5157f7fe2429"
     },
     {
       "path": "docs/src/api.md",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "ff356ed437e30e2aff4782dcdf52c87e2d78a239c424a1c1eb3e8342b326e928"
+      "sha256": "a7e260ade2c8622b2298ad0c531b2f10cbcbc1d0f7821068cc219416fc691711"
     },
     {
       "path": "docs/src/first_case.md",
@@ -258,7 +258,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/core.jl",
-      "sha256": "d15e2e533705907c78b13e59e2d076260c4de28b143a640ae1a90375cfa512da"
+      "sha256": "b431cea3ec62b11fefbc0d0f753ffd17ebaba7949bf997b9b73da6ad73acbef7"
     },
     {
       "path": "ext/BMOPFOpfExt/data_utils.jl",
@@ -286,7 +286,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/per_unit.jl",
-      "sha256": "433933d5ea301967297f5bf9de79562d3dcae091a8cd856ff1c08e9590ba1451"
+      "sha256": "8f46f53d99a8a32ab106e2dcbd9eb1e7f5cfdfcbca5b372fee6580aefc504a74"
     },
     {
       "path": "ext/BMOPFOpfExt/pf.jl",
@@ -314,11 +314,11 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "9a005ca13ae3d5681666208cddffd2b7a625080abb340df42c39f6f476d14764"
+      "sha256": "952b0f17043de36caec5dd2885ecd9af925eb023d0af4f2060659d4bd6fb1647"
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "e97f62269c5c4e57208e8355278db9ad6bf6d82faaed16c29bdfad559dd037bc"
+      "sha256": "7083a3163d926a0033e8c934330f507efdff65d48fabf9a2e96d89f069e66411"
     },
     {
       "path": "recipes/README.md",
@@ -334,7 +334,7 @@
     },
     {
       "path": "recipes/analyze_case/metadata.toml",
-      "sha256": "8773387b6e1f5d6b13685d96b80ae77e4c4d95cc06546cb0446e9bad4658c8de"
+      "sha256": "1999acbb81ecaf921a546041a12c75431bdbba033463a145e5cb9574f9b6c89c"
     },
     {
       "path": "recipes/analyze_case/recipe.jl",
@@ -438,11 +438,11 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "2868cca2bee31d3e7d12181ad7f40afe3b824af58c165954dcc6213b560a86a4"
+      "sha256": "aed3e402538e78b41319f47e92201a85c5b34c39fa6236b1f790a8cac49aa0b0"
     },
     {
       "path": "src/analysis/connectivity.jl",
-      "sha256": "011082f5894c06b0e41347de466c229750a311f8ad59035a81961eca3cf76181"
+      "sha256": "ff85fb17b1357dedde56e7f60a727ff5f7c5a386ea1175e8383ccc5457b7bf2e"
     },
     {
       "path": "src/analysis/coordinate_semantics.jl",
@@ -466,11 +466,11 @@
     },
     {
       "path": "src/analysis/operational.jl",
-      "sha256": "fd464fc9a318e80a0ae240c3d9e94a52be6fd1ccc44cf4c6082136367814ef75"
+      "sha256": "04bbd65f5adfb8847cd4ad4c50182a4747d9ed24085cfd48e9492697aa6681d4"
     },
     {
       "path": "src/analysis/provenance/data_quality.jl",
-      "sha256": "2721418412544e627c145a1b274fc867ca7c3d912c7ac793064a2e0b33c4c9f1"
+      "sha256": "42efd12795f4cfdd922d28b3b4d8a777997d29418934b360a52000751c781bc5"
     },
     {
       "path": "src/analysis/provenance/interpretation.jl",
@@ -530,7 +530,7 @@
     },
     {
       "path": "src/analysis/voltage_levels.jl",
-      "sha256": "19fd66a980e772eb97637255a6f70903ddd2e64fb6f52a37da63b1ba9a215881"
+      "sha256": "2785554881c731e251d8a9f568ca78e753bdfe15f76add566bbd26496f6c1424"
     },
     {
       "path": "src/analysis/winding_limit_coverage.jl",
@@ -542,7 +542,7 @@
     },
     {
       "path": "src/augmentation/der_placement.jl",
-      "sha256": "ddb196463e734473c02b756f09f9e89ddfece1a11cd093abc9796b37faa44041"
+      "sha256": "159d02471b656b55b0d84aa1796dc451ca0329c7db2d229311a74a106f2bcd37"
     },
     {
       "path": "src/augmentation/fix.jl",
@@ -666,7 +666,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "c10b8641b42c23adc037860b90f1a5fd991f8e03298116cb4266caafc2d31a6c"
+      "sha256": "1d3b0b3c855ae972883aacf16b1c6b7fb9a243464363dd10fef883030d723ebc"
     },
     {
       "path": "src/report/formatting.jl",
@@ -678,7 +678,7 @@
     },
     {
       "path": "src/report/render_markdown.jl",
-      "sha256": "6ce7770f21cb1479562b018512bf32df8400a4e336338232e659e6f74f9bdff0"
+      "sha256": "cb09be6ea8207b1e9d6c9167949c5752eaea6d9b402b7a9da1eeee5249491702"
     },
     {
       "path": "src/report/render_solution_markdown.jl",
@@ -686,7 +686,7 @@
     },
     {
       "path": "src/report/render_terminal.jl",
-      "sha256": "0c9c7c14789bd466e4d307568af4ee5c84e05a55f1556fc0150e3cb8edf38dbd"
+      "sha256": "161de4e31a0328116968c742cbbc5df546244b7e9bb818302684ffab7fe439ce"
     },
     {
       "path": "src/report/spatial_review_export.jl",
@@ -726,7 +726,7 @@
     },
     {
       "path": "src/validation/solution.jl",
-      "sha256": "33feb955d0711741a11d60c9d8f8efb8f59ddfe96cf7d1a87aeeada8b53b5054"
+      "sha256": "e722e6b63fdc132d8314c22cb8d5d228c3aeb4ea53d017938d76cba6b40b24ba"
     },
     {
       "path": "src/validation/spec_conformance.jl",
@@ -1493,8 +1493,16 @@
       "sha256": "bcf5c9a2e3dbba84361a5c0cadd33356b07b0b68bad1246584fe9287df98b69a"
     },
     {
+      "path": "test/neutral_only_bus_graph_tests.jl",
+      "sha256": "56aeefa9a540064becbf7be528dba29a34c969409353360856c0217c578f17fd"
+    },
+    {
       "path": "test/neutral_only_terminal_map_tests.jl",
       "sha256": "7d297db583ddf8eb4843a15d376bba2bc006e9663c7d513230311d7d0b76e2c0"
+    },
+    {
+      "path": "test/neutral_only_voltage_level_tests.jl",
+      "sha256": "a234c499f605250d8b26c72c460a7732a0ed76b5af9d3d21ed6c2ac490d00f40"
     },
     {
       "path": "test/open_delta_bond_tests.jl",

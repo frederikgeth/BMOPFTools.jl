@@ -1869,6 +1869,10 @@ magnitude band but tracked separately as a neutral shift):
   `status`), sorted worst-deviation-from-1.0-pu first. Rendered only in verbose
   output.
 
+Zones whose buses carry only neutral- or earth-role terminals (for example, a
+grounding-electrode bus reached through a neutral-only bond) have no phase
+voltage to summarize and are left out.
+
 Returns `Dict("zones" => Vector{Dict}, "n_zones" => Int)`, zones sorted by
 label. Returns empty zones when there is no bus result.
 """
@@ -1891,9 +1895,18 @@ function voltage_zone_summary(net::Dict{String,Any}, result::Dict{String,Any})
         src_vbase[b] = maximum(abs, vmag)
     end
 
+    roles = _index_roles(net)
+    function return_only_bus(b)
+        names = get(get(buses, b, Dict()), "terminal_names", nothing)
+        names isa AbstractVector && !isempty(names) &&
+            all(t -> _return_only_label(t, roles), names)
+    end
+
     zone_dicts = Dict{String,Any}[]
     for zone in _galvanic_zones(net)
         zbuses = sort(collect(zone))
+        # No phase terminal anywhere in the zone: nothing to summarize.
+        roles isa TerminalRoles && all(return_only_bus, zbuses) && continue
 
         # ── Zone voltage base ────────────────────────────────────────────────
         # Priority:

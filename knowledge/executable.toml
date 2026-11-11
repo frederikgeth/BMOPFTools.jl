@@ -39,8 +39,15 @@
 # CSIRO MV/LV integration data live externally; no executable contract depends on them.
 # Voltage-tier, galvanic-zone, mapped-conductor, and conditional geographic
 # analytics are discoverable through the analyze_case recipe and runtime docs.
+# Neutral-only lines and switches (neutral/earth-role maps at both ends) carry no
+# phase conductor, so voltage-level propagation and crossing checks skip them;
+# return-only buses they reach are listed, not reported as islanded (PSK-000002).
 # Switch-state bus-graph and mapped-conductor scenarios are descriptive, with explicit
 # inapplicable/indeterminate status and no new Finding or PSK claim.
+# Galvanic zones, radiality and downstream-load paths exclude neutral-only
+# branches (neutral/earth-role maps at both ends); bond cycles are counted
+# separately. The physical bus-graph structure and earthing islands are unchanged.
+# Zone-local per-unit power bases still span neutral-only bonds (PSK-000002).
 # The package-local W.GEO data-quality heuristics require declared WGS84;
 # neither the recipe nor these heuristics assert a PSK preservation claim.
 # Exact-coordinate coincidence and all-winding transformer extents are descriptive

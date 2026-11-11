@@ -321,6 +321,29 @@ _conductor_neutrals(bus, neutral_labels) =
     [t for t in get(bus, "terminal_names", String[])
      if t in neutral_labels && !_is_grounded_reference(bus, t)]
 
+"""True when terminal label `t` is classified only as a neutral or earth return."""
+_return_only_label(t, roles) = t isa AbstractString && !(t in roles.phase) &&
+    (t in roles.neutral || t in roles.earth)
+
+"""
+    _neutral_only_branch(branch, roles) -> Bool
+
+True when a line or switch maps only neutral- or earth-role terminals at both
+ends, for example a primary-to-secondary neutral bond `["4"] => ["4"]` under
+`terminal_conventions.neutral = ["4"]`. Such a branch carries no phase
+conductor between its buses. Pass roles from `_index_roles(net)`; `nothing`, malformed maps, and labels with
+no role or with a phase role keep the branch phase-carrying.
+"""
+function _neutral_only_branch(branch, roles)::Bool
+    (roles isa TerminalRoles && branch isa AbstractDict) || return false
+    for key in ("terminal_map_from", "terminal_map_to")
+        tm = get(branch, key, nothing)
+        tm isa AbstractVector && !isempty(tm) || return false
+        all(t -> _return_only_label(t, roles), tm) || return false
+    end
+    true
+end
+
 """
     _terminal_roles(net) -> TerminalRoles
 
@@ -1798,8 +1821,9 @@ end
                          name=:zone_local)
 
 Experimental coordinate policy with a voltage and power base for every AC bus.
-Power bases must be constant inside each galvanically continuous zone; they may
-change only across an isolating transformer. The corresponding current,
+Power bases must be constant inside each galvanically continuous zone (buses
+joined by lines, closed switches or regulators, including neutral-only bonds);
+they may change only across an isolating transformer. The corresponding current,
 impedance, and admittance bases are derived locally as `S/V`, `V^2/S`, and
 `S/V^2`.
 
