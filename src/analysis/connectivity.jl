@@ -3,7 +3,9 @@
 
 Build an undirected graph of the network and compute:
 - Number of connected components
-- Radial vs meshed topology (cycle detection)
+- Radial vs meshed topology (cycle detection over phase-carrying branches;
+  cycles closed only by neutral-only branches, such as a neutral bond beside a
+  service transformer, are counted separately as `neutral_only_cycle_rank`)
 - Degree statistics
 - Tree depth and longest path from voltage source
 - Open-switch isolated sections
@@ -34,6 +36,12 @@ function connectivity_analysis(net::Dict{String,Any},
     # SimpleGraph deduplicates parallel edges and drops self-loops, so count
     # branch elements separately — radiality must see every physical branch.
     n_branches = Ref(0)
+    # Neutral-only lines/switches keep buses connected but carry no phase
+    # conductor. Radiality is assessed on the phase-carrying graph.
+    roles = _index_roles(net)
+    g_phase = SimpleGraph(n)
+    n_phase_branches = Ref(0)
+    n_neutral_only = Ref(0)
 
     # Check for branch self-loops (bus_from == bus_to) before adding edges.
     function check_self_loop!(comp_type, id, bus_a, bus_b)
@@ -50,20 +58,26 @@ function connectivity_analysis(net::Dict{String,Any},
     # excluded from the branch count: SimpleGraph silently drops them, so
     # counting them would flag a radial network as meshed. They are already
     # reported separately as E.CONN.SELF_LOOP.
-    function add_edge_safe!(bus_a, bus_b)
+    function add_edge_safe!(bus_a, bus_b; neutral_only::Bool=false)
         (bus_a isa AbstractString && bus_b isa AbstractString) || return
         i = get(bus_index, bus_a, nothing)
         j = get(bus_index, bus_b, nothing)
         (i === nothing || j === nothing || i == j) && return
         n_branches[] += 1
         add_edge!(g, i, j)
+        if neutral_only
+            n_neutral_only[] += 1
+        else
+            n_phase_branches[] += 1
+            add_edge!(g_phase, i, j)
+        end
     end
 
     # Lines
     for (id, l) in get(net, "line", Dict())
         bf = get(l, "bus_from", nothing); bt = get(l, "bus_to", nothing)
         check_self_loop!("line", id, bf, bt)
-        add_edge_safe!(bf, bt)
+        add_edge_safe!(bf, bt; neutral_only=_neutral_only_branch(l, roles))
     end
 
     # Closed switches only
@@ -71,7 +85,7 @@ function connectivity_analysis(net::Dict{String,Any},
         bf = get(sw, "bus_from", nothing); bt = get(sw, "bus_to", nothing)
         check_self_loop!("switch", id, bf, bt)
         get(sw, "open_switch", false) && continue
-        add_edge_safe!(bf, bt)
+        add_edge_safe!(bf, bt; neutral_only=_neutral_only_branch(sw, roles))
     end
 
     # Transformers (each winding pair is an edge)
@@ -140,13 +154,18 @@ function connectivity_analysis(net::Dict{String,Any},
 
     # Radial vs meshed: a forest on n vertices has exactly n - n_components
     # edges. Use the physical branch count, not ne(g), so parallel branches
-    # between the same bus pair are detected as cycles.
-    n_edges         = n_branches[]
+    # between the same bus pair are detected as cycles. Radiality concerns the
+    # phase-carrying branches; neutral-only branches close cycles only through
+    # transformers or parallel phase paths, which is counted separately.
     n_vertices      = nv(g)
-    tree_edge_count = n_vertices - n_comps
+    n_edges         = n_phase_branches[]
+    tree_edge_count = n_vertices - length(connected_components(g_phase))
     is_radial       = (n_edges == tree_edge_count)
+    neutral_cycles  = (n_branches[] - (n_vertices - n_comps)) - (n_edges - tree_edge_count)
     result["is_radial"]       = is_radial
     result["n_extra_edges"]   = n_edges - tree_edge_count  # 0 for radial
+    result["n_neutral_only_branches"] = n_neutral_only[]
+    result["neutral_only_cycle_rank"] = neutral_cycles
 
     # Tree depth from each voltage source bus
     if !isempty(vsrc_buses)
@@ -259,6 +278,7 @@ function connectivity_analysis(net::Dict{String,Any},
             "Network contains $(n_edges - tree_edge_count) extra edge(s) forming cycles — not purely radial.",
             Dict{String,Any}(
                 "extra_edges" => n_edges - tree_edge_count,
+                "neutral_only_cycle_rank" => neutral_cycles,
                 "simple_cycle_rank" => whole["simple_cycle_rank"],
                 "parallel_excess" => whole["parallel_excess"],
                 "transformer_mediated_cycle_rank" => whole["transformer_mediated_cycle_rank"],
@@ -394,7 +414,10 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
         if a == b
             push!(zone_edges[a], edge)
         else
-            edge.continuous && continue  # zone construction must keep these together
+            # A continuous branch between zones can only be a neutral-only
+            # line or switch. It is skipped on purpose: a neutral bond is not
+            # a zone interface.
+            edge.continuous && continue
             transformer_id = edge.kind == "transformer:n_winding" ? first(rsplit(edge.id, ":"; limit=2)) : edge.id
             push!(incident[a], "$(edge.kind):$transformer_id")
             push!(incident[b], "$(edge.kind):$transformer_id")
@@ -588,8 +611,19 @@ closed switches, and the galvanically-continuous transformer subtypes
 (`single_phase_autotransformer`, `open_delta_regulator`, listed in
 `GALVANIC_CONTINUOUS_SUBTYPES`). Isolating transformer subtypes are NOT
 included as edges. Returns a list of bus-name sets, one per zone.
+
+By default, zones describe phase-conductor continuity. Lines and closed switches
+that map only neutral- or earth-role terminals at both ends (see
+`_neutral_only_branch`), such as a primary-to-secondary neutral bond across a
+service transformer, carry no phase conductor and do not join zones.
+
+Pass `include_neutral_only=true` for conductor continuity instead: every line and
+closed switch joins its buses. Per-unit scaling needs this form, because a
+branch current is scaled by one endpoint's current base while KCL at the other
+endpoint uses that bus's base, so both ends must share one power base.
 """
-function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
+function _galvanic_zones(net::Dict{String,Any};
+                         include_neutral_only::Bool=false)::Vector{Set{String}}
     buses = collect(keys(get(net, "bus", Dict())))
     isempty(buses) && return Set{String}[]
 
@@ -607,12 +641,15 @@ function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
         push!(adj[b], a)
     end
 
+    roles = include_neutral_only ? nothing : _index_roles(net)
     for (_, l) in get(net, "line", Dict())
+        _neutral_only_branch(l, roles) && continue
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString && f != t) && add_edge!(f, t)
     end
     for (_, sw) in get(net, "switch", Dict())
         get(sw, "open_switch", false) && continue
+        _neutral_only_branch(sw, roles) && continue
         f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString && f != t) && add_edge!(f, t)
     end

@@ -74,6 +74,7 @@ interface_paths = [
   "docs/src/api.md",
   "docs/src/findings.md",
   "test/topology_structure_tests.jl",
+  "test/neutral_only_bus_graph_tests.jl",
   "test/switch_scenario_tests.jl",
   "test/spatial_analysis_tests.jl",
   "test/coordinate_semantics_tests.jl",

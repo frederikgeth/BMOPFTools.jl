@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "5ea13b347e4c8f71e34399451c53efb3063c8a358810d0d3b9b286d1c8ae5481"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "819c85f65ed39bc1e8fd8053a349100d729c712d5a245fc5e3a1bf16b5ccee3a"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -207,7 +207,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="CONN",
         catalogue_section="CONN",
         section_title="connectivity & topology",
-        meaning="Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail.",
+        meaning="Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -387,7 +387,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="OPS",
         catalogue_section="OPS",
         section_title="operational loading",
-        meaning="Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning. On an applicable radial component this is a nominal-demand/nameplate review screen; it does not establish that a winding cap exists or that a solved limit is violated. Inspect load/rating bases and subtype-specific limits (see [methodology](methodology.md)).",
+        meaning="Estimated downstream apparent load exceeds 90 % of a transformer's rating at nominal setpoints **and** removing that transformer separates its from and to bus sets. A parallel path makes the load sum an upper bound and suppresses this warning; a neutral-only branch, such as a neutral bond beside the transformer, is not a parallel path. On an applicable radial component this is a nominal-demand/nameplate review screen; it does not establish that a winding cap exists or that a solved limit is violated. Inspect load/rating bases and subtype-specific limits (see [methodology](methodology.md)).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -414,7 +414,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="OPS",
         catalogue_section="OPS",
         section_title="operational loading",
-        meaning="A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results.",
+        meaning="A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers and neutral-only branches are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -648,7 +648,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="DOM",
         catalogue_section="DOM",
         section_title="domain plausibility",
-        meaning="An isolating two-bus transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`) has `bus_to` strictly closer (in hops) to a voltage source than `bus_from` **and** no alternate path joins its endpoints when the transformer is removed. On that graph bridge, `bus_from` should be the source-side terminal; inspect swapped `bus_*` and `v_nom_*` fields. Equal-distance, unreachable, and non-bridge cases are unassessed. Requires at least one `voltage_source`.",
+        meaning="An isolating two-bus transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`) has `bus_to` strictly closer (in hops) to a voltage source than `bus_from` **and** no alternate path joins its endpoints when the transformer is removed (neutral-only branches are not alternate paths). On that graph bridge, `bus_from` should be the source-side terminal; inspect swapped `bus_*` and `v_nom_*` fields. Equal-distance, unreachable, and non-bridge cases are unassessed. Requires at least one `voltage_source`.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

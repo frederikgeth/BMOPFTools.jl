@@ -1801,8 +1801,9 @@ end
                          name=:zone_local)
 
 Experimental coordinate policy with a voltage and power base for every AC bus.
-Power bases must be constant inside each galvanically continuous zone; they may
-change only across an isolating transformer. The corresponding current,
+Power bases must be constant inside each galvanically continuous zone (buses
+joined by lines, closed switches or regulators, including neutral-only bonds);
+they may change only across an isolating transformer. The corresponding current,
 impedance, and admittance bases are derived locally as `S/V`, `V^2/S`, and
 `S/V^2`.
 
