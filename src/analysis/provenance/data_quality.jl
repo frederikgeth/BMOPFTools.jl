@@ -107,13 +107,17 @@ end
 # transformer that was elided into the per-unit line model (textbook "the
 # transformer disappears in per-unit"), or a data error. `bus_voltage_map` comes
 # from `voltage_level_analysis`; a level ratio beyond `tol` (default 5 %) flags.
+# A neutral-only line (for example, a primary-to-secondary neutral bond) carries
+# no phase conductor, so its endpoint levels do not make it an elided transformer.
 function _check_line_voltage_level_bridges(net::Dict{String,Any},
                                            findings::Vector{Finding},
                                            bus_voltage_map::AbstractDict;
                                            tol::Float64 = 0.05)::Dict{String,Any}
     affected = String[]
+    roles = _index_roles(net)
     for (id, l) in get(net, "line", Dict())
         l isa Dict || continue
+        _neutral_only_branch(l, roles) && continue
         bf = get(l, "bus_from", nothing); bt = get(l, "bus_to", nothing)
         (bf isa AbstractString && bt isa AbstractString) || continue
         vf = get(bus_voltage_map, string(bf), nothing)

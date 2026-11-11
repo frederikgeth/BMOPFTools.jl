@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "6c07e2fc1311a86e09edfb5ad7f0a530c190d19245f759a21a3b92608b745e80"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "5ea13b347e4c8f71e34399451c53efb3063c8a358810d0d3b9b286d1c8ae5481"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -252,7 +252,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="VOLT",
         catalogue_section="VOLT",
         section_title="voltage levels",
-        meaning="BFS voltage propagation reaches a bus with two inconsistent nominal voltages (beyond 5 %). The network's transformer ratios and topology contradict each other.",
+        meaning="BFS voltage propagation reaches a bus with two inconsistent nominal voltages (beyond 5 %). The network's transformer ratios and topology contradict each other. Lines and closed switches that map only neutral- or earth-role terminals at both ends (for example, a primary-to-secondary neutral bond beside a service transformer) carry no phase conductor and do not propagate a level.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -261,7 +261,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="VOLT",
         catalogue_section="VOLT",
         section_title="voltage levels",
-        meaning="A line (not a transformer) connects buses assigned to different voltage levels. Only transformers may cross levels; this is almost always a wiring error in the data.",
+        meaning="A line (not a transformer) connects buses assigned to different voltage levels. Only transformers may cross levels; this is almost always a wiring error in the data. A neutral-only line (neutral- or earth-role terminals at both ends) carries no phase voltage and is not a crossing.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -270,7 +270,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="VOLT",
         catalogue_section="VOLT",
         section_title="voltage levels",
-        meaning="Buses unreachable from any voltage source during propagation — likely islanded; their nominal voltage is unknown.",
+        meaning="Buses unreachable from any voltage source during propagation — likely islanded; their nominal voltage is unknown. A bus whose terminals are all neutral/earth-role and which is reached only through neutral-only branches (for example, a grounding-electrode bus) has no phase level; it is listed in `neutral_only_buses` instead. A bus with phase terminals that is reached only through neutral-only branches still raises this warning, although connectivity counts it as connected: it has no phase supply.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1323,7 +1323,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="A `line`'s two endpoint buses are assigned different nominal voltage levels (ratio beyond 5 %). A line cannot change voltage level — this is a transformer elided into the per-unit line model (the textbook \"the transformer vanishes in per-unit\"), or a data error. Model it as a `transformer`.",
+        meaning="A `line`'s two endpoint buses are assigned different nominal voltage levels (ratio beyond 5 %). A line cannot change voltage level — this is a transformer elided into the per-unit line model (the textbook \"the transformer vanishes in per-unit\"), or a data error. Model it as a `transformer`. Neutral-only lines, such as neutral bonds across a transformer, are excluded.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

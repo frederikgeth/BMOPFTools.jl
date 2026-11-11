@@ -4,6 +4,12 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Voltage-level analysis no longer propagates a nominal voltage through lines
+  and closed switches that map only neutral- or earth-role terminals at both
+  ends, such as primary-to-secondary neutral bonds beside service transformers.
+  These bonds no longer raise `E.VOLT.LEVEL_MISMATCH`, `E.VOLT.LINE_CROSSING` or
+  `W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS`; return-only buses reached only through
+  them are listed in `neutral_only_buses` instead of `unassigned_buses`.
 - Speed up OPF solves. Constant-power load currents start at I = conj(S/V) from the voltage
   start, and generator currents from their power-box midpoints, instead of
   zero. On the 498-bus French feeder 84_MVFeeder2628 this cut Ipopt
