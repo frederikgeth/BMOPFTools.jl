@@ -59,7 +59,9 @@ function _exp_is_zip_equivalent(load)
     return true
 end
 
-# Any lower voltage magnitude bound on the bus the load can lean on?
+# Any lower voltage magnitude bound on the bus the load can lean on? Unlike the
+# coverage count (`_has_voltage_magnitude_bound`), this excludes `vpos_min`: a
+# positive-sequence bound does not hold up an individual load terminal voltage.
 _bus_has_lower_voltage_bound(bus) =
     haskey(bus, "v_min") || haskey(bus, "vpn_min") || haskey(bus, "vpp_min")
 

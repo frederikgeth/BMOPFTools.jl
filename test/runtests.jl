@@ -3757,6 +3757,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # -----------------------------------------------------------------------
     include("terminal_conventions_tests.jl")
     include("terminal_usage_tests.jl")
+    include("supply_phase_terminal_roles_tests.jl")
     include("device_indexing_tests.jl")
     include("connection_map_tests.jl")
     include("transformer_phase_tests.jl")
@@ -3812,6 +3813,7 @@ include("mcp_execution_tests.jl")
     include("render_ascii_tree_tests.jl")
     include("render_json_tests.jl")
     include("topology_structure_tests.jl")
+    include("neutral_only_bus_graph_tests.jl")
     include("switch_scenario_tests.jl")
     include("spatial_analysis_tests.jl")
     include("transformer_impedance_basis_tests.jl")
@@ -3825,12 +3827,14 @@ include("mcp_execution_tests.jl")
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve
     # -----------------------------------------------------------------------
     include("infeasibility_tests.jl")
+    include("voltage_bound_coverage_tests.jl")
 
     # -----------------------------------------------------------------------
     # Phase relabeling — static TMAP detection (no solver) + gated OPF invariance
     # -----------------------------------------------------------------------
     include("phase_relabel_tests.jl")
     include("neutral_only_terminal_map_tests.jl")
+    include("neutral_only_voltage_level_tests.jl")
 
     # -----------------------------------------------------------------------
     # OPF extension — requires JuMP and Ipopt

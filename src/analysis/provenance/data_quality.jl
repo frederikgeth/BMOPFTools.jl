@@ -107,13 +107,17 @@ end
 # transformer that was elided into the per-unit line model (textbook "the
 # transformer disappears in per-unit"), or a data error. `bus_voltage_map` comes
 # from `voltage_level_analysis`; a level ratio beyond `tol` (default 5 %) flags.
+# A neutral-only line (for example, a primary-to-secondary neutral bond) carries
+# no phase conductor, so its endpoint levels do not make it an elided transformer.
 function _check_line_voltage_level_bridges(net::Dict{String,Any},
                                            findings::Vector{Finding},
                                            bus_voltage_map::AbstractDict;
                                            tol::Float64 = 0.05)::Dict{String,Any}
     affected = String[]
+    roles = _index_roles(net)
     for (id, l) in get(net, "line", Dict())
         l isa Dict || continue
+        _neutral_only_branch(l, roles) && continue
         bf = get(l, "bus_from", nothing); bt = get(l, "bus_to", nothing)
         (bf isa AbstractString && bt isa AbstractString) || continue
         vf = get(bus_voltage_map, string(bf), nothing)
@@ -433,15 +437,16 @@ function _check_voltage_source_sequence(net::Dict{String,Any},
                                         findings::Vector{Finding})::Dict{String,Any}
     affected = String[]
     arrangements = Dict{String,String}()
+    is_return = _return_label_predicate(net)
     for (sid, vs) in get(net, "voltage_source", Dict())
         vs isa Dict || continue
         tm  = Vector{String}(string.(get(vs, "terminal_map", String[])))
         va  = Float64.(get(vs, "v_angle", Float64[]))
         nt  = _neutral_terminal(tm)
-        # Phase angles in terminal_map order, neutral dropped, aligned to v_angle.
+        # Phase angles in terminal_map order, returns dropped, aligned to v_angle.
         angs = Float64[]
         for (k, t) in enumerate(tm)
-            (t == nt || lowercase(t) == "n") && continue
+            is_return(t, nt) && continue
             k <= length(va) && push!(angs, va[k])
         end
         length(angs) >= 2 || continue   # single-phase: no rotation to classify

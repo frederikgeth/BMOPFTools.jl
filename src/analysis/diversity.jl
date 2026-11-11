@@ -345,7 +345,9 @@ function _bus_diversity(net::Dict{String,Any},
         append!(v_max_vals, _flat(get(b, "v_max", nothing)))
     end
 
-    n_with_bounds = count(b -> haskey(b, "v_min") || haskey(b, "v_max"), values(buses))
+    # Coverage counts every voltage-magnitude bound kind (v, vpn, vpp, vpos);
+    # the uniformity flags below remain phase-to-ground (v_min/v_max) only.
+    n_with_bounds = count(_has_voltage_magnitude_bound, values(buses))
     r["n_with_voltage_bounds"] = n_with_bounds
     r["pct_with_voltage_bounds"] = round(100.0 * n_with_bounds / length(buses), digits=1)
 

@@ -481,16 +481,20 @@ function _xfmr_downstream(net, loads)
     (bus_info = bus_info,)
 end
 
-# Buses electrically downstream of a transformer (mirrors _downstream_load's BFS).
+# Buses electrically downstream of a transformer (mirrors _downstream_load's BFS,
+# including its exclusion of neutral-only branches).
 function _downstream_buses(net, xfmr_id::String, to_buses::Vector{String})::Set{String}
     adj = Dict{String,Vector{String}}()
     add!(a, b) = (push!(get!(adj, a, String[]), b); push!(get!(adj, b, String[]), a))
+    roles = _index_roles(net)
     for (_, l) in get(net, "line", Dict())
+        _neutral_only_branch(l, roles) && continue
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString) && add!(string(f), string(t))
     end
     for (_, sw) in get(net, "switch", Dict())
         get(sw, "open_switch", false) && continue
+        _neutral_only_branch(sw, roles) && continue
         f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString) && add!(string(f), string(t))
     end
