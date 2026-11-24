@@ -99,6 +99,7 @@ include("core.jl")
 include("objectives.jl")   # needs OpfContext from core.jl
 include("feasibility_opf.jl")
 include("pf.jl")
+include("opti_kron.jl")
 
 function _default_optimizer()
     ipopt = _ipopt_module()

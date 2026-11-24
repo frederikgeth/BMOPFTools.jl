@@ -3761,6 +3761,8 @@ include("mcp_execution_tests.jl")
     # Network simplification
     # -----------------------------------------------------------------------
     include("simplify_tests.jl")
+    include("neutral_kron_tests.jl")   # explicit-neutral Kron reduction (from PowerOptLab)
+    include("opti_kron_tests.jl")   # robust Opti-KRON prototype (MILP part needs HiGHS)
 
     # -----------------------------------------------------------------------
     # Solution profiling — no solver required

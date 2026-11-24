@@ -25,6 +25,7 @@ the whole sequence on one feeder.
 | Solve the OPF | [`solve_opf`](@ref), [`solve_pf`](@ref), [`solve_feasibility_opf`](@ref) | [Optimal power flow](opf.md) |
 | Extend a staged OPF model | [`build_opf_model`](@ref), [`OpfModelKey`](@ref), [`add_terminal_injection!`](@ref) | [Parameterized and differentiable extensions](differentiable_extensions.md) |
 | Inspect / profile a result | [`profile_solution`](@ref), [`render_solution`](@ref), [`diagnose_infeasibility`](@ref) | [OPF result dictionary](results.md) |
+| Reduce a network | [`simplify_network`](@ref), [`kron_reduce_neutrals`](@ref), [`opti_kron_reduction`](@ref) + [`kron_reduce_buses`](@ref) | [Network reduction](network_reduction.md) |
 | Export | [`write_bmopf`](@ref), [`write_result`](@ref), [`to_pmd`](@ref), [`to_dss`](@ref) | [Conversion guide](conversion.md) |
 
 ## Module
@@ -295,7 +296,11 @@ Before KCL finalisation the schema reports `semantic_blocks_available=false`; a
 complete native registry is only claimed once the KCL rows and late auxiliary
 bounds exist.
 
-## Network simplification
+## Network reduction
+
+See [Network reduction: which tool, and what it preserves](@ref network-reduction).
+
+### Topology simplification
 
 ```@docs
 simplify_network
@@ -303,6 +308,39 @@ merge_series_lines
 remove_dangling_lines
 remove_open_switches
 collapse_closed_switches
+```
+
+### Neutral (conductor) Kron reduction
+
+```@docs
+kron_reduce_neutrals
+```
+
+### Error-bounded bus reduction (Opti-KRON, prototype)
+
+See [Error-bounded bus reduction (Opti-KRON)](@ref opti-kron).
+
+```@docs
+opti_kron_model
+OptiKronModel
+opti_kron_load_injections
+OptiKronSet
+OptiKronBox
+OptiKronHull
+OptiKronEllipsoid
+OptiKronWasserstein
+opti_kron_screen
+OptiKronScreen
+opti_kron_reduction
+OptiKronResult
+opti_kron_errors
+opti_kron_worst_errors
+opti_kron_required_buses
+kron_reduce_buses
+lift_solution
+extract_downstream_network
+downstream_bus_counts
+opti_kron_noload
 ```
 
 ## Analysis passes

@@ -23,6 +23,12 @@
 # Qualified nominal coil headroom is descriptive PSK-000013-related screening,
 # not an additional feasibility contract. Its source paths and analyze_case recipe
 # preserve the explicit nominal-demand versus supplied-result distinction.
+# Network reduction (prototype): kron_reduce_neutrals is a provenance-recording
+# data transformation whose exactness precondition is the one checked by the
+# PSK-000008-linked kron_boundary_recovery contract; it adds no contract of its
+# own. Robust Opti-KRON (opti_kron_*, kron_reduce_buses, lift_solution) is a
+# descriptive prototype validated against arXiv:2611.21313; it asserts no PSK
+# claim, adds no Finding codes or JSON adapter, and awaits a book-side claim.
 schema_version = "0.6.0"
 
 [[contract]]

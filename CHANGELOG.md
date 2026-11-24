@@ -4,6 +4,15 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Add network-reduction tools: explicit-neutral Kron reduction
+  (`kron_reduce_neutrals`, ported from PowerOptLab with its tests and
+  cross-checked against the PSK-000008 boundary contract), and a prototype of
+  robust Opti-KRON error-bounded bus reduction (`opti_kron_model`, uncertainty
+  sets, screening, `opti_kron_reduction` with adversarial constraint
+  generation, `kron_reduce_buses` to build a solvable reduced case, and
+  `lift_solution`). Validated against the IEEE European LV results of
+  arXiv:2611.21313; new pages compare all reductions on real feeders.
+
 - Preserve bus `longitude`/`latitude` in `write_bmopf` by default for Tellegen
   visualization; use `include_coordinates=false` to retain the previous
   omission behavior for strict BMOPF schema consumers. Add a drag-and-drop guide.
