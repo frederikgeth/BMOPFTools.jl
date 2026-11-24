@@ -356,7 +356,11 @@ function _nk_write_dss(deck::AbstractString)
     path
 end
 
-function _nk_ods_snapshot(path::AbstractString)
+# OpenDSS `Set DataPath` changes the process working directory; restore it so
+# later tests that use relative paths are unaffected.
+_nk_ods_snapshot(path::AbstractString) = cd(() -> _nk_ods_snapshot_inner(path), pwd())
+
+function _nk_ods_snapshot_inner(path::AbstractString)
     OpenDSSDirect.dss("Clear")
     OpenDSSDirect.dss("Set DataPath=\"$(tempdir())\"")
     OpenDSSDirect.dss("Redirect \"$(normpath(path))\"")
