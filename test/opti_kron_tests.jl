@@ -163,8 +163,7 @@ end
         @test all(tight.keep[p] == (m.pair_i[p] == m.pair_j[p]) for p in eachindex(tight.keep))
         H = OptiKronHull(U)
         mid = opti_kron_screen(m, H, 2e-3)
-        @test count(mid.keep) ≤ length(mid.keep)
-        # screening never removes a pair that a certified assignment uses
+        @test !any(mid.keep[p] == false && m.pair_i[p] == m.pair_j[p] for p in eachindex(mid.keep))
     end
 
     if _OK_HAS_HIGHS
@@ -174,7 +173,7 @@ end
                 for Ebar in (5e-4, 2e-3, 1e-2)
                     res = opti_kron_reduction(m, S, Ebar; optimizer=HiGHS.Optimizer)
                     @test res.status == :optimal
-                    @test res.max_violation ≤ 1e-6 * Ebar
+                    @test res.max_violation ≤ 1e-3 * Ebar
                     w = opti_kron_worst_errors(m, res.assignment, S)
                     @test maximum(w) ≤ Ebar * (1 + 1e-6)
                     @test res.assignment[1] == 1
@@ -345,5 +344,159 @@ end
             ls = lift_solution(net, same, pf_o; model=mh)
             @test ls["bus"]["b3"]["1"]["vpn_lifted"] ≈ abs(v(pf_o, "b3", "1")) rtol = 1e-9
         end
+    end
+
+    # ── coverage added in the review pass ──────────────────────────────────
+    @testset "tree helpers, sub-network extraction and no-load solve" begin
+        cnt = downstream_bus_counts(net)
+        @test cnt["s"] == 6 && cnt["b2"] == 4 && cnt["b4"] == 2 && cnt["b5"] == 1
+        y, V = opti_kron_noload(net)
+        @test all(abs(V[y.index[("b5", t)]]) ≈ 230 for t in ("1", "2", "3"))   # no load ⇒ no drop
+        sub = extract_downstream_network(net, "b2")
+        @test sort(collect(keys(sub["bus"]))) == ["b2", "b3", "b4", "b5"]
+        @test only(values(sub["voltage_source"]))["bus"] == "b2"
+        @test sub["meta"]["extracted_from"]["dropped_boundary_elements"] == 1  # the feeding line
+        @test sort(collect(keys(sub["load"]))) == ["db3", "db4", "db5"]
+        @test haskey(net["bus"], "s")                                         # input untouched
+        @test_throws ArgumentError extract_downstream_network(net, "nope")
+    end
+
+    @testset "islands and meshes" begin
+        isl = deepcopy(net)
+        isl["bus"]["x1"] = Dict{String,Any}("terminal_names" => ["1", "2", "3"])
+        isl["bus"]["x2"] = Dict{String,Any}("terminal_names" => ["1", "2", "3"])
+        isl["line"]["lx"] = merge(deepcopy(isl["line"]["l1"]), Dict{String,Any}("bus_from" => "x1", "bus_to" => "x2"))
+        mi = opti_kron_model(isl; H=2)
+        @test mi.n_unreached == 2
+        @test all(isfinite, mi.K)
+        @test mi.K ≈ m.K                                   # the island changes nothing
+        mesh = deepcopy(net)
+        mesh["line"]["l6"] = merge(deepcopy(mesh["line"]["l1"]), Dict{String,Any}("bus_from" => "b3", "bus_to" => "b5"))
+        mm = opti_kron_model(mesh; H=2)
+        @test mm.n_mesh_edges == 1
+        nr = length(mm.rows)
+        @test mm.K[:, 1:nr] ≈ transpose(mm.K[:, 1:nr]) rtol = 1e-9   # reciprocal network
+        r3 = mm.rowof[(mm.busof["b3"], "1")]; r5 = mm.rowof[(mm.busof["b5"], "1")]
+        @test mm.K[r3, r5] > m.K[m.rowof[(m.busof["b3"], "1")], m.rowof[(m.busof["b5"], "1")]]  # parallel path couples b3, b5 more
+    end
+
+    @testset "transformers, slack across zones, required buses" begin
+        tx = parse_bmopf(joinpath(@__DIR__, "data", "transformer_interoperability", "delta_wye.json"))
+        lc = Dict{String,Any}()
+        for a in 1:4, b in 1:4
+            lc["R_series_$(a)_$(b)"] = a == b ? 4e-4 : 1e-5
+            lc["X_series_$(a)_$(b)"] = a == b ? 2.5e-4 : 1e-5
+        end
+        tx["linecode"] = Dict{String,Any}("lv" => lc)
+        tx["line"] = Dict{String,Any}()
+        prev = "t"
+        for k in 1:4
+            b = "u$k"
+            tx["bus"][b] = Dict{String,Any}("terminal_names" => ["a", "b", "c", "n"],
+                                            "perfectly_grounded_terminals" => ["n"])
+            tx["line"]["lu$k"] = Dict{String,Any}("bus_from" => prev, "bus_to" => b, "linecode" => "lv",
+                "length" => 50.0, "terminal_map_from" => ["a", "b", "c", "n"],
+                "terminal_map_to" => ["a", "b", "c", "n"])
+            tx["load"]["lu$k"] = Dict{String,Any}("bus" => b, "terminal_map" => ["a", "n"],
+                "configuration" => "SINGLE_PHASE", "model" => "constant_power",
+                "p_nom" => [400.0 * k], "q_nom" => [100.0])
+            prev = b
+        end
+        tx = parse_bmopf(BMOPFTools.JSON3.write(tx); from_string=true)
+        @test opti_kron_required_buses(tx) == ["f", "t"]
+        mt = opti_kron_model(tx; H=3)
+        @test maximum(mt.zone) == 2
+        cross = [p for p in eachindex(mt.pair_i) if mt.zone[mt.pair_i[p]] != mt.zone[mt.pair_j[p]]]
+        @test !isempty(cross) && all(mt.pair_i[p] == 1 for p in cross)      # only the slack crosses
+        nocross = opti_kron_model(tx; H=3, slack_cross_zone=false)
+        @test all(nocross.zone[nocross.pair_i[p]] == nocross.zone[nocross.pair_j[p]] for p in eachindex(nocross.pair_i))
+        # eliminating a transformer terminal is refused by the builder
+        sup = collect(1:length(mt.buses)); sup[mt.busof["t"]] = 1
+        sup[mt.busof["u1"]] = 1
+        @test_throws ArgumentError kron_reduce_buses(tx, mt, sup)
+        if _OK_HAS_HIGHS
+            Ut = opti_kron_load_injections(mt, tx, Dict(id => [0.5, 1.0, 1.5] for id in keys(tx["load"])))
+            res = opti_kron_reduction(mt, OptiKronHull(Ut), 0.02; optimizer=HiGHS.Optimizer,
+                                      keep=opti_kron_required_buses(tx))
+            @test res.status == :optimal
+            @test res.assignment[mt.busof["t"]] == mt.busof["t"]
+            red = kron_reduce_buses(tx, mt, res)
+            @test haskey(red["transformer"]["delta_wye"], "tx")                # kept unchanged
+        end
+    end
+
+    @testset "load injections: delta split and sign" begin
+        nd = deepcopy(net)
+        nd["load"]["dd"] = Dict{String,Any}("bus" => "b3", "configuration" => "DELTA",
+            "model" => "CONSTANT_POWER", "p_nom" => [600.0, 0.0, 0.0], "q_nom" => [0.0, 0.0, 0.0],
+            "terminal_map" => ["1", "2", "3"], "v_nom" => [400.0, 400.0, 400.0])
+        md = opti_kron_model(nd; H=2)
+        Ud = opti_kron_load_injections(md, nd, Dict("dd" => [1.0]); n=1)
+        r1 = md.rowof[(md.busof["b3"], "1")]; r2 = md.rowof[(md.busof["b3"], "2")]
+        @test Ud[r1, 1] ≈ -0.3 && Ud[r2, 1] ≈ -0.3                 # 0.6 kW split across 1–2
+        @test count(!iszero, Ud) == 2
+    end
+
+    @testset "uncertainty-set options and membership" begin
+        Es = OptiKronEllipsoid(U; covariance=:shrinkage)
+        Ep = OptiKronEllipsoid(U)
+        @test Es.Omega > 0 && Ep.Omega > 0
+        @test istril(Ep.L)
+        @test_throws ArgumentError OptiKronEllipsoid(U; covariance=:bogus)
+        B = OptiKronBox(U)
+        @test all(BMOPFTools._ok_contains(B, B.samples[:, s]) for s in 1:size(U, 2))
+        @test !BMOPFTools._ok_contains(B, B.ubar .+ 2 .* B.delta .+ 1.0)
+        # Wasserstein: raw samples are in the worst-case region only when 1/(Nε) ≥ 1
+        @test BMOPFTools._ok_contains(OptiKronWasserstein(U; epsilon=0.01), U[:, 1])    # N = 12
+        rng = Random.MersenneTwister(5)
+        big = opti_kron_load_injections(m, net, Dict(id => [0.3 + rand(rng) for _ in 1:400]
+                                                     for id in keys(net["load"])))
+        Wb = OptiKronWasserstein(big; p=2, epsilon=0.01)
+        @test !BMOPFTools._ok_contains(Wb, Wb.samples[:, 1])
+        @test_throws ArgumentError OptiKronWasserstein(U; p=3)
+        if _OK_HAS_HIGHS
+            r = opti_kron_reduction(m, Wb, 5e-3; optimizer=HiGHS.Optimizer)
+            @test r.status == :optimal
+            @test maximum(opti_kron_worst_errors(m, r.assignment, Wb)) ≤ 5e-3 * (1 + 1e-3)
+            @test r.lower_bound ≤ length(r.super_nodes)
+        end
+    end
+
+    if _OK_HAS_HIGHS
+        @testset "initial-sample validation and screening soundness" begin
+            S = OptiKronBox(U)
+            bad = copy(U[:, 1:1]); bad[findfirst(c -> !(c in S.idx), 1:size(U, 1)), 1] = 1.0
+            @test_throws ArgumentError opti_kron_reduction(m, S, 2e-3; optimizer=HiGHS.Optimizer, initial=bad)
+            outside = zeros(size(U, 1), 1); outside[S.idx, 1] .= S.ubar .+ 3 .* S.delta .+ 1
+            @test_throws ArgumentError opti_kron_reduction(m, S, 2e-3; optimizer=HiGHS.Optimizer, initial=outside)
+            for Eb in (1e-3, 3e-3)
+                scr = opti_kron_screen(m, S, Eb)
+                res0 = opti_kron_reduction(m, S, Eb; optimizer=HiGHS.Optimizer, screen=false)
+                used = [p for p in eachindex(m.pair_i) if res0.assignment[m.pair_j[p]] == m.pair_i[p]]
+                @test all(scr.keep[p] for p in used)       # screening keeps what an optimum uses
+            end
+        end
+    end
+
+    @testset "voltage tightening: scalar limits, row types, slack excluded" begin
+        mh = opti_kron_model(net; H=4)
+        sup = collect(1:length(mh.buses))
+        sup[mh.busof["b3"]] = mh.busof["b2"]; sup[mh.busof["b1"]] = 1
+        ns = deepcopy(net)
+        for b in keys(ns["bus"]); ns["bus"][b]["v_min"] = 200.0; end    # scalar limit
+        ms_ = opti_kron_model(ns; H=4)
+        red = kron_reduce_buses(ns, ms_, sup; Ebar=1e-3)
+        @test red["bus"]["b2"]["v_min"] isa AbstractVector && length(red["bus"]["b2"]["v_min"]) == 3
+        @test all(red["bus"]["b2"]["v_min"] .> 200.0)
+        @test red["bus"]["s"]["v_min"] == 200.0                        # slack untouched
+        @test all(red["bus"]["b5"]["v_min"] .> 200.0)                  # kept buses' own e_ii
+        # limit arrays are indexed by every non-neutral terminal, grounded or not
+        bus = Dict{String,Any}("terminal_names" => ["1", "2", "3", "n"],
+                               "perfectly_grounded_terminals" => ["2", "n"])
+        conv = Dict{String,Any}("terminal_conventions" => Dict("phase" => ["1", "2", "3"], "neutral" => ["n"]))
+        @test BMOPFTools._kr_limit_phases(conv, bus) == ["1", "2", "3"]
+        @test BMOPFTools._kr_row_limit_fields(conv, bus) == (("vpn_min", "vpn_max"), ("v_min", "v_max"))
+        floating = Dict{String,Any}("terminal_names" => ["1", "n"])
+        @test BMOPFTools._kr_row_limit_fields(conv, floating) == (("vpn_min", "vpn_max"),)
     end
 end

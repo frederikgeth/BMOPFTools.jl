@@ -99,8 +99,10 @@ What the table shows:
 4. Solve the reduced case, then use [`lift_solution`](@ref) and an AC power flow
    on the original network to check the answer.
 
+Walk through this pipeline on a generated feeder in
+[Reducing a four-wire feeder, step by step](@ref tutorial-network-reduction).
 Details: [Error-bounded bus reduction (Opti-KRON)](@ref opti-kron), and the
-step-by-step [Opti-KRON tutorial](@ref tutorial-opti-kron).
+[Opti-KRON tutorial](@ref tutorial-opti-kron).
 
 ## Reproduction
 

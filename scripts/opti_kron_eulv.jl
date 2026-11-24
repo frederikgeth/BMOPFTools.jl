@@ -28,7 +28,7 @@ end
 time_limit = parse(Float64, get(ENV, "OPTI_KRON_TIME_LIMIT", "7200"))
 master_time_limit = parse(Float64, get(ENV, "OPTI_KRON_MASTER_LIMIT", "1800"))
 
-dir = length(ARGS) ≥ 1 ? ARGS[1] :
+dir = length(ARGS) ≥ 1 && !isempty(ARGS[1]) ? ARGS[1] :
       joinpath(homedir(), "Documents/GitHub/DistributionTestCases.jl/src/data/lvtestcase")
 Ebars = length(ARGS) ≥ 2 ? parse.(Float64, split(ARGS[2], ",")) : [1e-3, 2e-3, 3e-3, 4e-3, 5e-3]
 wanted = length(ARGS) ≥ 3 ? split(ARGS[3], ",") :

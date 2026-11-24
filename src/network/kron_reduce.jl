@@ -240,36 +240,43 @@ function kron_reduce_buses(net::Dict{String,Any}, m::OptiKronModel,
     merge!(get!(red, "shunt", Dict{String,Any}()), eq_shunts)
 
     # ── certified voltage-limit tightening ─────────────────────────────────
+    # The certificate bounds the model's row magnitudes (phase-to-neutral where
+    # the bus has an ungrounded neutral, else phase-to-earth), and it bounds
+    # e_ij for every pair the reduction uses, including e_ii of each kept bus.
     tightened = 0; empty_bands = String[]
     if Ebar !== nothing
-        for (jb, ib) in superof
+        pairs_ = [(m.buses[j], m.buses[sup[j]]) for j in eachindex(sup) if sup[j] != 1]  # slack voltage is fixed
+        for (jb, ib) in pairs_
             j = m.busof[jb]; i = m.busof[ib]
-            for (fmin, fmax) in (("vpn_min", "vpn_max"), ("v_min", "v_max"))
-                bj = net["bus"][jb]; bi = red["bus"][ib]
+            bj = net["bus"][jb]; bi = red["bus"][ib]
+            fields = _kr_row_limit_fields(net, bj)
+            fields == _kr_row_limit_fields(net, net["bus"][ib]) || continue
+            phj = _kr_limit_phases(net, bj); phi = _kr_limit_phases(net, net["bus"][ib])
+            for (fmin, fmax) in fields
                 (haskey(bj, fmin) || haskey(bj, fmax)) || continue
-                phj = _kr_limit_phases(net, net["bus"][jb]); phi = _kr_limit_phases(net, net["bus"][ib])
                 for (kj, t) in enumerate(phj)
                     ki = findfirst(==(t), phi); ki === nothing && continue
                     rj = get(m.rowof, (j, t), 0); ri = get(m.rowof, (i, t), 0)
                     (rj == 0 || ri == 0) && continue
                     ratio = m.u0[ri] / m.u0[rj]
-                    if haskey(bj, fmin)
-                        lo = (Float64(bj[fmin][kj]) + Ebar * m.u0[rj]) * ratio
-                        arr = get!(bi, fmin, zeros(length(phi)))
+                    lo0 = _kr_limit(bj, fmin, kj)
+                    if lo0 !== nothing
+                        lo = (lo0 + Ebar * m.u0[rj]) * ratio
+                        arr = _kr_limit_vector!(bi, fmin, length(phi), 0.0)
                         if lo > arr[ki]
                             arr[ki] = lo; tightened += 1
                         end
                     end
-                    if haskey(bj, fmax)
-                        hi = (Float64(bj[fmax][kj]) - Ebar * m.u0[rj]) * ratio
-                        arr = get!(bi, fmax, fill(10 * m.u0[ri], length(phi)))
+                    hi0 = _kr_limit(bj, fmax, kj)
+                    if hi0 !== nothing
+                        hi = (hi0 - Ebar * m.u0[rj]) * ratio
+                        arr = _kr_limit_vector!(bi, fmax, length(phi), 10 * m.u0[ri])
                         if hi < arr[ki]
                             arr[ki] = hi; tightened += 1
                         end
                     end
-                    if haskey(bi, fmin) && haskey(bi, fmax) && bi[fmin][ki] > bi[fmax][ki]
-                        push!(empty_bands, ib)
-                    end
+                    lo_i = _kr_limit(bi, fmin, ki); hi_i = _kr_limit(bi, fmax, ki)
+                    lo_i !== nothing && hi_i !== nothing && lo_i > hi_i && push!(empty_bands, ib)
                 end
             end
         end
@@ -295,10 +302,41 @@ end
 kron_reduce_buses(net::Dict{String,Any}, m::OptiKronModel, r::OptiKronResult; kw...) =
     kron_reduce_buses(net, m, r.assignment; kw...)
 
-# Phase terminals indexing v_min/v_max/vpn_* arrays ("one per phase terminal").
+# Terminals indexing v_min/v_max/vpn_* arrays: every non-neutral terminal, as
+# the OPF indexes them (perfectly grounded phases are not skipped).
 function _kr_limit_phases(net, bus)
-    ph, _ = _ok_phase_terminals(net, bus)
-    ph
+    _, neutral = _ok_phase_terminals(net, bus)
+    [string(t) for t in get(bus, "terminal_names", String[]) if string(t) != neutral]
+end
+
+# Which limit fields the model's row magnitudes bound at this bus.
+function _kr_row_limit_fields(net, bus)
+    _, neutral = _ok_phase_terminals(net, bus)
+    grounded = Set(string.(get(bus, "perfectly_grounded_terminals", String[])))
+    if neutral !== nothing && !(neutral in grounded)
+        (("vpn_min", "vpn_max"),)                       # rows are phase-to-neutral
+    else
+        (("vpn_min", "vpn_max"), ("v_min", "v_max"))   # neutral at earth: both coincide
+    end
+end
+
+# Limit entry k of a scalar, vector or absent limit field (nothing if absent).
+function _kr_limit(bus, field, k)
+    v = get(bus, field, nothing)
+    v === nothing && return nothing
+    v isa AbstractVector || return Float64(v)
+    k ≤ length(v) && v[k] !== nothing ? Float64(v[k]) : nothing
+end
+
+# Ensure `bus[field]` is a mutable Float64 vector of length n (scalars expand).
+function _kr_limit_vector!(bus, field, n, default)
+    v = get(bus, field, nothing)
+    vec = v === nothing ? fill(Float64(default), n) :
+          v isa AbstractVector ? [x === nothing ? Float64(default) : Float64(x) for x in v] :
+          fill(Float64(v), n)
+    length(vec) < n && append!(vec, fill(Float64(default), n - length(vec)))
+    bus[field] = vec
+    vec
 end
 
 function _kr_linecode_has_limit(net, line)
@@ -409,7 +447,7 @@ function lift_solution(net::Dict{String,Any}, reduced::Dict{String,Any},
                 S = sgn * complex(Float64(res[t][pk]), Float64(res[t][qk]))
                 k = findfirst(==(t), tm)
                 neg = if conf in ("DELTA", "THREE_LEG")
-                    tm[mod1(k + 1, length(keyed))]
+                    tm[mod1(k + 1, length(tm))]
                 elseif length(tm) > length(keyed)
                     tm[end]
                 else
@@ -470,7 +508,7 @@ function _lift_injections(net, m::OptiKronModel, result)
                 P = sgn * Float64(res[t][pk]) / m.sbase; Q = sgn * Float64(res[t][qk]) / m.sbase
                 k = findfirst(==(t), tm)
                 targets = conf in ("DELTA", "THREE_LEG") ?
-                          [(t, 0.5), (tm[mod1(k + 1, length(keyed))], 0.5)] : [(t, 1.0)]
+                          [(t, 0.5), (tm[mod1(k + 1, length(tm))], 0.5)] : [(t, 1.0)]
                 for (tt, w) in targets
                     r = get(m.rowof, (bi, tt), 0)
                     r == 0 && continue

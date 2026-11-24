@@ -24,6 +24,7 @@ mutable struct _OKMaster
     samples::Vector{Vector{Float64}}
     Yscaled::SparseArrays.SparseMatrixCSC{Float64,Int}
     yrow_scale::Vector{Float64}
+    Mt::SparseArrays.SparseMatrixCSC{ComplexF64,Int}
 end
 
 function _ok_build_master(m::OptiKronModel, scr::OptiKronScreen, idx, optimizer, silent;
@@ -104,7 +105,7 @@ function _ok_build_master(m::OptiKronModel, scr::OptiKronScreen, idx, optimizer,
     rmax = vec(maximum(abs, m.Yr, dims=2))
     dsc = [r > 0 ? 1 / r : 1.0 for r in rmax]
     _OKMaster(jm, A, selfpair, kept, Kmin, Kmax, collect(idx), 0, Vector{Float64}[],
-              SparseArrays.spdiagm(dsc) * m.Yr, dsc)
+              SparseArrays.spdiagm(dsc) * m.Yr, dsc, SparseArrays.sparse(transpose(m.M)))
 end
 
 # Radial-preserving reduction: Kron elimination of a bus set R makes the
@@ -116,7 +117,7 @@ end
 # y_c ≥ s_c and y_c ≥ y_g for the children g of c.
 function _ok_add_radial!(jm, m::OptiKronModel, A, selfpair)
     nb = length(m.buses)
-    sv(v) = selfpair[v] == 0 ? 0.0 : A[selfpair[v]]
+    sv(v) = selfpair[v] == 0 ? 1.0 : A[selfpair[v]]   # rowless buses are always kept
     children = [Int[] for _ in 1:nb]
     for v in 2:nb
         push!(children[m.parent[v]], v)
@@ -173,7 +174,7 @@ function _ok_add_sample!(ms::_OKMaster, m::OptiKronModel, scr::OptiKronScreen,
     Yr = ms.Yscaled; dsc = ms.yrow_scale
     JuMP.@constraint(jm, Yr * x .== dsc .* rhs)
     # reduced voltages (only rows that appear in error constraints)
-    Mt = SparseArrays.sparse(transpose(m.M))
+    Mt = ms.Mt
     vtil = Dict{Int,JuMP.AffExpr}()
     function vt(r)
         get!(vtil, r) do
@@ -205,8 +206,13 @@ function _ok_add_sample!(ms::_OKMaster, m::OptiKronModel, scr::OptiKronScreen,
             lo = !((rj, -1) in red) && Mlo > 0
             (hi || lo) || continue
             e = vt(ri)
-            hi && JuMP.@constraint(jm, e - v[rj] ≤ Ebar + (Mhi + 1e-9) * (1 - A[p]))
-            lo && JuMP.@constraint(jm, e - v[rj] ≥ -Ebar - (Mlo + 1e-9) * (1 - A[p]))
+            # The reduced voltage e comes from network equations the MILP solver
+            # satisfies only to its feasibility tolerance (~1e-6), so a big-M
+            # with no slack can cut off valid assignments (or make the master
+            # infeasible). Keep a margin of Ē: far above solver noise, still far
+            # tighter than a global bound.
+            hi && JuMP.@constraint(jm, e - v[rj] ≤ Ebar + (Mhi + Ebar) * (1 - A[p]))
+            lo && JuMP.@constraint(jm, e - v[rj] ≥ -Ebar - (Mlo + Ebar) * (1 - A[p]))
         end
     end
     ms
@@ -236,11 +242,13 @@ function _ok_repair(m::OptiKronModel, sup::Vector{Int}, Ut::Matrix{Float64}, Eba
             end
         end
         isempty(bad) && return sup
+        before = copy(sup)
         for k in eachindex(sup)
             sup[k] in bad && (sup[k] = k)
         end
+        sup == before && break                 # no progress: use all-singletons
     end
-    sup
+    collect(eachindex(sup))                    # always feasible (zero error)
 end
 
 function _ok_assignment(ms::_OKMaster, m::OptiKronModel)
@@ -257,7 +265,7 @@ function BMOPFTools.opti_kron_reduction(m::OptiKronModel, S::OptiKronSet, Ebar::
                                         time_limit::Real=Inf, master_time_limit::Real=Inf,
                                         silent::Bool=true, preserve_radial::Bool=true,
                                         keep=String[],
-                                        tol::Real=1e-6 * Ebar, verbose::Bool=false)
+                                        tol::Real=1e-3 * Ebar, verbose::Bool=false)
     t0 = time()
     scr = screen isa OptiKronScreen ? screen :
           screen === true ? opti_kron_screen(m, S, Ebar) :
@@ -283,7 +291,16 @@ function BMOPFTools.opti_kron_reduction(m::OptiKronModel, S::OptiKronSet, Ebar::
             u = zeros(2nr); u[S.idx] .= X[:, s]; push!(U0, u)
         end
     else
-        append!(U0, [Vector{Float64}(c) for c in eachcol(initial)])
+        size(initial, 1) == 2nr || throw(ArgumentError("initial must have 2·nrows = $(2nr) rows"))
+        inactive = setdiff(1:2nr, S.idx)
+        for (s, c) in enumerate(eachcol(initial))
+            all(iszero, view(c, inactive)) || throw(ArgumentError(
+                "initial column $s injects at coordinates outside the set's active ones"))
+            _ok_contains(S, c[S.idx]) || throw(ArgumentError(
+                "initial column $s is not in the uncertainty set; the master would no " *
+                "longer be a relaxation"))
+            push!(U0, Vector{Float64}(c))
+        end
     end
     for u in U0
         _ok_add_sample!(ms, m, scr, u, Ebar)
@@ -328,6 +345,13 @@ function BMOPFTools.opti_kron_reduction(m::OptiKronModel, S::OptiKronSet, Ebar::
         end
         if prev == sup && isempty(worst)
             status = :stalled; break
+        end
+        # every proposed worst case is already enforced: the remaining
+        # violation is solver feasibility tolerance, not a missing sample
+        if !isempty(worst) && all(u -> any(v -> maximum(abs.(u .- v)) ≤ 1e-12 * max(1.0, maximum(abs, u)),
+                                           ms.samples), worst)
+            status = Δ ≤ 10tol ? (last_optimal ? :optimal : :feasible) : :stalled
+            break
         end
         prev = copy(sup)
         # 𝒰ᵗ only grows, so the master optimum never decreases: a valid cut

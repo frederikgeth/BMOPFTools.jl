@@ -209,8 +209,19 @@ function _ok_noload(net, y::YbusResult)
         push!(fixed, idx)
         push!(Vs, vs["v_magnitude"][k] * cis(vs["v_angle"][k]))
     end
-    isolated = [i for i in 1:n if y.Y[i, i] == 0 && !(i in fixed)]
-    free = setdiff(1:n, fixed, isolated)
+    # nodes not electrically connected to the source (zero rows, floating
+    # islands) have no defined voltage: leave them out of the solve
+    reach = falses(n); stack = copy(fixed); reach[fixed] .= true
+    rows_ = SparseArrays.rowvals(y.Y)
+    while !isempty(stack)
+        c = pop!(stack)
+        for k in SparseArrays.nzrange(y.Y, c)
+            r = rows_[k]
+            reach[r] && continue
+            reach[r] = true; push!(stack, r)
+        end
+    end
+    free = [i for i in 1:n if reach[i] && !(i in fixed)]
     Yff = y.Y[free, free]
     F = lu(Yff)
     V = zeros(ComplexF64, n)
@@ -414,7 +425,8 @@ with each load's `p_nom`/`q_nom` scaled by `mult_p[load_id][s]` /
 `mult_q[load_id][s]` (negative multipliers model net export). `mult_*` may be
 a `Dict{String,<:AbstractVector}` or a function `(load_id, s) -> Float64`
 together with the sample count via the `n` keyword. Delta loads are split
-equally between their two phase terminals (approximation).
+equally between their two phase terminals (approximation). Loads absent from
+a `mult_p` dictionary contribute no injection.
 """
 function opti_kron_load_injections(m::OptiKronModel, net::Dict{String,Any}, mult_p,
                                    mult_q=mult_p; n::Union{Nothing,Int}=nothing)
@@ -425,6 +437,7 @@ function opti_kron_load_injections(m::OptiKronModel, net::Dict{String,Any}, mult
     for (id, ld) in get(net, "load", Dict())
         bi = get(m.busof, string(ld["bus"]), 0)
         bi == 0 && continue
+        mult_p isa AbstractDict && !haskey(mult_p, id) && continue   # no profile: no injection
         tm = string.(ld["terminal_map"])
         pn = ld["p_nom"] isa AbstractVector ? Float64.(ld["p_nom"]) : [Float64(ld["p_nom"])]
         qn = ld["q_nom"] isa AbstractVector ? Float64.(ld["q_nom"]) : [Float64(ld["q_nom"])]
@@ -711,6 +724,13 @@ end
 
 # Is a training sample (active coords) inside S?
 _ok_contains(S::OptiKronSet, u; tol=1e-9) = true
+# A raw training sample lies in the Wasserstein set's worst-case region only
+# when the CVaR level puts all weight on one sample (1/(Nε) ≥ 1).
+_ok_contains(S::OptiKronWasserstein, u; tol=1e-9) =
+    min(1.0, 1 / (size(S.samples, 2) * S.epsilon)) ≥ 1.0
+function _ok_contains(S::OptiKronBox, u; tol=1e-9)
+    all(abs.(u .- S.ubar) .≤ S.delta .+ tol .* max.(1.0, abs.(S.ubar)))
+end
 function _ok_contains(S::OptiKronEllipsoid, u; tol=1e-9)
     norm(S.L \ (u .- S.mu)) ≤ S.Omega * (1 + tol)
 end
@@ -1073,6 +1093,9 @@ reduction is certified for every injection in `S` (Δ ≤ 0).
 - `keep` — bus ids forced to be super-nodes (e.g.
   [`opti_kron_required_buses`](@ref) for reductions that
   [`kron_reduce_buses`](@ref) must turn into a BMOPF case).
+- `tol` (default `1e-3·Ē`) — accepted adversary violation; keep it above the
+  MILP solver's feasibility tolerance. The loop also stops when every
+  proposed worst case is already enforced (a residual within solver tolerance).
 - `master_time_limit` — per-master limit; on expiry the incumbent is passed
   to the adversary, so a certified (but possibly non-minimal) reduction is
   still returned, with the proven `lower_bound`.
@@ -1139,7 +1162,8 @@ fed by a new ideal voltage source at `root_bus` whose phase-to-earth voltages
 equal the full network's no-load voltages there. Elements are kept only if
 every bus they reference lies in the sub-network; linecodes and case-level
 metadata are copied. `meta["extracted_from"]` records the root and the number
-of dropped boundary elements (nonzero for meshed boundaries).
+of dropped boundary elements (at least the branch feeding the root, more for
+meshed boundaries).
 
 Intended for trialing reductions on feeders of large models; the upstream
 source impedance is not represented.

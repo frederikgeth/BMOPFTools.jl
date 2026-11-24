@@ -56,6 +56,7 @@ makedocs(
             "Simplification tutorial"  => "tutorial_simplify.md",
             "Network reduction: which tool?" => "network_reduction.md",
             "Opti-KRON tutorial"       => "tutorial_opti_kron.md",
+            "Reducing a four-wire feeder" => "tutorial_network_reduction.md",
             "Error-bounded bus reduction (Opti-KRON)" => "opti_kron.md",
             "DER placement tutorial"   => "tutorial_ders.md",
             "VVWO tutorial"            => "tutorial_vvwo.md",

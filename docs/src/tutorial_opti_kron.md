@@ -154,6 +154,9 @@ relying on a reduced case:
 
 ## Where next
 
+- [Reducing a four-wire feeder, step by step](@ref tutorial-network-reduction):
+  the full workflow (neutral Kron, simplification, Opti-KRON, verification) on
+  a realistic feeder.
 - [Network reduction](@ref network-reduction): how Opti-KRON compares with
   [`simplify_network`](@ref) and [`kron_reduce_neutrals`](@ref) on real
   feeders, and how to combine them.
