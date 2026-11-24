@@ -151,24 +151,49 @@ error remains; on the feeders tested this cut the error by 10–150×.
 
 The IEEE European LV test feeder (907 nodes, 1,440 one-minute samples, H = 5,
 ε = 0.01, 95% quantile radii, K = 3), reproduced with
-`scripts/opti_kron_eulv.jl`:
+`scripts/opti_kron_eulv.jl` (Gurobi, at most 1 h per cell).
 
-| Quantity | Paper [1] | BMOPFTools |
-|---|---|---|
-| candidate pairs | 11,227 | 11,227 |
-| structural maximum (no error bound) | 88.6% | 88.6% (103 super-nodes) |
-| scenario baseline, Ē = 0.001 | 86.7% | 86.7% |
-| convex hull, Ē = 0.001 | 83.0% | 83.7% |
-| box, Ē = 0.001 | ≈ 79.5% (Fig. 2a) | 79.4% |
-| ellipsoid, Ē = 0.001 | ≈ 76% (Fig. 2a) | ≤ 80.4% (time limit; not yet certified) |
-| screening keeps, Ē = 0.001 | 54–70% of pairs | 64–86% |
+**Structure.** The candidate set has 11,227 pairs and the structural maximum
+(no error bound) is 88.6% (103 super-nodes), both exactly as in the paper.
+The maximum is reproduced only when the reduced network must stay radial;
+the paper does not state this constraint, and without it the maximum is 91.1%.
 
-The structural maximum is reproduced only when the reduced network must stay
-radial; the paper does not state this constraint, but without it the maximum
-is 91.1%. An AC validation on the same feeder (convex hull, Ē = 0.001, 48
-loadings) gives a largest actual AC error of 0.96 Ē, against 0.92 Ē for the
-linear model, and 0.07 Ē after the linear lift
-(`scripts/opti_kron_ac_validation.jl`).
+**Reduction (% of buses removed) by set and threshold.** Every cell is
+certified for its set; cells marked † hit the time limit, and the value shown
+is the proven upper bound on the certified reduction.
+
+| Set | Ē = 0.001 | 0.002 | 0.003 | 0.004 | 0.005 | Paper, Ē = 0.001 |
+|---|---|---|---|---|---|---|
+| scenario baseline | 86.7 | 88.2 | 88.3 | 88.5 | 88.6 | 86.7 |
+| convex hull | 83.7 | 87.4 | 87.9 | 88.2 | 88.5 | 83.0 |
+| box | 79.4 | 85.2 | 86.7 | 87.5 | 88.0 | ≈ 79.5 |
+| ellipsoid | ≤ 68.8 † | 68.8 | 76.2 | 79.3 | 81.6 | ≈ 76 |
+| Wasserstein ℓ1 | ≤ 83.1 † | 87.1 | 87.7 | 88.4 | 88.6 | 75.0 |
+| Wasserstein ℓ2 | ≤ 84.9 † | 87.4 | 88.2 | 88.3 | 88.5 | ≈ 81 |
+| Wasserstein ℓ∞ | 69.1 | 78.1 | 84.6 | 86.4 | 87.4 | ≈ 80 |
+
+Paper values marked ≈ are read from its Fig. 2(a); the others are stated in
+its text. Screening keeps 64–89% of the candidate pairs at Ē = 0.001 and
+90–100% at Ē = 0.005 (paper: 54–70% and 89–98%).
+
+How to read the comparison:
+
+- **The scenario baseline, convex hull and box agree with the paper** to
+  within 0.7 percentage points. These sets have no tuning: they are fixed by
+  the samples.
+- **The ellipsoid and Wasserstein sets depend on calibration choices the paper
+  does not fully specify** (the POET covariance tuning and the Wasserstein
+  radius). Ours come out more conservative for the ellipsoid and ℓ∞ and less
+  conservative for ℓ1 and ℓ2. All of them approach the structural maximum as
+  Ē grows, as in the paper.
+- **A Wasserstein certificate is a CVaR bound.** With N = 1,440 and ε = 0.01
+  it bounds the average error over the worst 1% of the distribution, not
+  every individual sample, so single training samples can exceed Ē
+  (by up to 1.9 Ē in this sweep).
+
+**AC validation.** On the same feeder (convex hull, Ē = 0.001, 48 loadings)
+the largest actual AC error is 0.96 Ē, against 0.92 Ē for the linear model,
+and 0.07 Ē after the linear lift (`scripts/opti_kron_ac_validation.jl`).
 
 ## Differences from the paper
 

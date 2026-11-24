@@ -58,12 +58,12 @@ relative to Ē. Opti-KRON uses the convex hull of the training samples.
 | SAPN LV feeder A (80 buses, finite MEN earthing, 12 loadings) | original | 80 | 319 | 100% | 0 | – |
 | | simplify | 80 | 319 | 100% | 0 | – |
 | | neutral | 80 | 240 | 100% | **1.02** | – |
-| | Opti-KRON | **12** | **47** | 100% | 0.74 | 0.02 |
+| | Opti-KRON | **12** | **47** | 100% | 0.73 | 0.02 |
 | | neutral → Opti-KRON | 12 | 36 | 100% | 1.44 | 1.02 |
 | SAPN LV feeder B (253 buses, 231 loads, 12 loadings) | original | 253 | 994 | 100% | 0 | – |
 | | simplify | 245 | 970 | 97% | 0 | – |
 | | neutral | 253 | 759 | 100% | 0 | – |
-| | Opti-KRON | **32** | **119** | 100% | 0.85 | 0.006 |
+| | Opti-KRON | **32** | **119** | 100% | 0.78 | 0.004 |
 
 What the table shows:
 
@@ -80,7 +80,7 @@ What the table shows:
   of buses, while keeping a voltage estimate at every bus within about Ē. Its
   certificate is for the linear model, so in AC it holds up to a few percent
   (1.04 Ē on the European LV feeder); a margin on Ē covers this. The linear lift
-  reduces the remaining error to 0.6–11% of Ē.
+  reduces the remaining error to 0.4–11% of Ē.
 - **The tools compose.** Simplify first when the voltages of unloaded
   pass-through buses do not matter, then let Opti-KRON cluster the loaded
   buses: 907 → 70 buses on the European LV feeder.
