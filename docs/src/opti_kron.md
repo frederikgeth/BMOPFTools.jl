@@ -1,8 +1,8 @@
 # [Error-bounded bus reduction (Opti-KRON)](@id opti-kron)
 
 !!! warning "Prototype"
-    This feature is a prototype on a development branch. Its behavior is
-    tested and validated against the paper's published results, but it is not
+    This feature is a prototype. Its behavior is tested and validated against
+    the paper's published results, but it is not
     yet linked to a scientific-knowledge (`PSK-*`) claim or exposed through
     the JSON execution interface.
 
@@ -158,9 +158,11 @@ The IEEE European LV test feeder (907 nodes, 1,440 one-minute samples, H = 5,
 The maximum is reproduced only when the reduced network must stay radial;
 the paper does not state this constraint, and without it the maximum is 91.1%.
 
-**Reduction (% of buses removed) by set and threshold.** Every cell is
-certified for its set; cells marked † hit the time limit, and the value shown
-is the proven upper bound on the certified reduction.
+**Reduction (% of buses removed) by set and threshold.** Unmarked cells are
+certified for their set and minimal. Cells marked † hit the time limit before
+the adversary certified an assignment; the value shown is a proven upper bound
+on the reduction, the tighter of the master's lower bound and the certified
+result at the next threshold (a larger Ē never needs more super-nodes).
 
 | Set | Ē = 0.001 | 0.002 | 0.003 | 0.004 | 0.005 | Paper, Ē = 0.001 |
 |---|---|---|---|---|---|---|
